@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      # Generated token files must match tokens.json. A hand-edit to dist/
+      # fails here rather than drifting silently across three clients.
+      - name: Design tokens are up to date
+        run: |
+          node packages/design-tokens/src/generate.js
+          git diff --exit-code packages/design-tokens/dist
+
+      # Guards the white-on-accent regression (1.37:1) and the AA floors.
+      - name: Contrast contract
+        run: node packages/design-tokens/src/validate.js
+
+      - name: Core logic tests
+        run: node --test --experimental-strip-types packages/core/test/*.test.ts

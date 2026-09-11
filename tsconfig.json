@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@tt/core": ["./packages/core/src/index.ts"],
+      "@tt/schema": ["./packages/schema/src/index.ts"],
+      "@tt/design-tokens": ["./packages/design-tokens/dist/tokens.ts"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".next"]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "time-tracking",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "tokens": "pnpm --filter @tt/design-tokens build",
+    "tokens:validate": "pnpm --filter @tt/design-tokens validate",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": { "typescript": "^5.7.2" }
+}

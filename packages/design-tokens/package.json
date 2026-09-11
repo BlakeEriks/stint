@@ -1,0 +1,17 @@
+{
+  "name": "@tt/design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/tokens.ts",
+  "exports": {
+    ".": "./dist/tokens.ts",
+    "./css": "./dist/tokens.css",
+    "./swift": "./dist/Tokens.swift"
+  },
+  "scripts": {
+    "build": "node src/generate.js",
+    "validate": "node src/validate.js",
+    "test": "node src/validate.js"
+  }
+}
