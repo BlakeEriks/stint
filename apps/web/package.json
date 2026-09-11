@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/*.test.ts"
+    "test": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/*.test.ts",
+    "sample:invoice": "node --experimental-strip-types scripts/render-sample-invoice.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
