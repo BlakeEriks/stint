@@ -64,12 +64,25 @@ from shadow and radius because `bg-base`→`bg-primary` is only 1.03:1; see
 - `0` is a valid rate. Use null-coalescing, never truthiness.
 - Archive, don't delete — invoices reference clients and projects.
 
-## Verifying the schema
+## Migrations
 
-No Supabase CLI installed. To test migrations, start a throwaway Postgres
-(`/opt/homebrew/opt/postgresql@14/bin`) on a spare port over TCP — the socket
-path in the scratchpad exceeds the 103-byte limit — stub `auth.users` and
-`auth.uid()`, apply both migrations, then tear it down.
+`pnpm migrate` applies `supabase/migrations/` over a plain Postgres
+connection — no CLI, no pasting SQL into a dashboard. Each file runs in its
+own transaction and applied versions are recorded in `schema_migrations`, so
+re-running is a no-op and a new migration applies alone. `--dry-run` shows
+the plan; `--url` overrides the connection.
+
+`pnpm verify:schema` asserts the live database matches what the app assumes:
+seven tables with **RLS on**, at least one policy each (RLS with no policies
+denies everything), the partial unique index for the timer invariant, and the
+signup trigger. Exits non-zero on failure, so it belongs in CI once a staging
+database exists. Both read `SUPABASE_DB_URL` from `apps/web/.env.local` — a
+secret that bypasses RLS and is never used by the app itself.
+
+To test a migration locally without touching a real project, start a
+throwaway Postgres (`/opt/homebrew/opt/postgresql@14/bin`) on a spare port
+over TCP — the socket path in the scratchpad exceeds the 103-byte limit —
+stub `auth.users` and `auth.uid()`, then point `pnpm migrate --url` at it.
 
 ## API layer
 

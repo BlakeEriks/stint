@@ -18,29 +18,46 @@ At [supabase.com/dashboard](https://supabase.com/dashboard) → **New project**.
 ## 2. Apply the migrations
 
 Supabase already provides the `auth` schema, `auth.users`, and `auth.uid()` —
-the migrations assume all three, so nothing needs stubbing here.
+the migrations assume all three, so nothing needs stubbing.
 
-Dashboard → **SQL Editor** → **New query**. Paste and run each file in order,
-one at a time:
+Get the connection string: **Project Settings → Database → Connection string
+→ Session pooler** (IPv4-friendly). Swap in your database password and put it
+in `apps/web/.env.local`:
 
-1. `supabase/migrations/00000000000001_init.sql`
-2. `supabase/migrations/00000000000002_integrity.sql`
-3. `supabase/migrations/00000000000003_payment_profiles.sql`
-
-Order matters: 2 adds triggers to tables 1 creates, and 3 references both.
-
-**Check it worked.** Run this and expect 7 rows, every one `true`:
-
-```sql
-select tablename, rowsecurity
-from pg_tables
-where schemaname = 'public'
-order by tablename;
+```
+SUPABASE_DB_URL=postgresql://postgres.<ref>:<password>@<host>:6543/postgres
 ```
 
-`clients`, `invoice_line_items`, `invoices`, `payment_profiles`, `projects`,
-`time_entries`, `user_settings` — all with RLS **on**. If any says `false`,
-stop: without RLS every user can read every other user's rows.
+This one is a **secret** — it is full database access and bypasses RLS. Only
+the two scripts below ever read it; the app never does. `.env.local` is
+gitignored.
+
+Then:
+
+```bash
+pnpm migrate --dry-run   # show what would run
+pnpm migrate             # apply it
+```
+
+Each file runs in its own transaction, so a failure rolls back whole rather
+than leaving the database half-migrated. Applied versions are recorded in
+`schema_migrations`, so re-running is a no-op and adding a migration later
+applies only the new one.
+
+## 2a. Verify it
+
+```bash
+pnpm verify:schema
+```
+
+This asserts the things nothing else would catch: all seven tables exist with
+**RLS on**, each has at least one policy (RLS with no policies denies
+everything), the partial unique index enforcing one running timer is present
+and actually partial, and new users get a settings row.
+
+It exits non-zero on any failure. Do not use a database it rejects — the anon
+key is public, so RLS is the only thing between one user's rows and everyone
+else's.
 
 ## 3. Point the app at it
 

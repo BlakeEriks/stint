@@ -16,3 +16,6 @@ xcuserdata/
 DerivedData/
 
 coverage/
+
+# Supabase CLI scratch
+supabase/.temp/

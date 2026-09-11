@@ -6,10 +6,13 @@
   "scripts": {
     "tokens": "pnpm --filter @stint/design-tokens build",
     "tokens:validate": "pnpm --filter @stint/design-tokens validate",
+    "migrate": "node scripts/migrate.mjs",
+    "verify:schema": "node scripts/verify-schema.mjs",
     "test": "pnpm -r test"
   },
   "devDependencies": {
-    "typescript": "^5.7.2",
-    "@types/node": "^22.10.2"
+    "@types/node": "^22.10.2",
+    "pg": "^8.13.1",
+    "typescript": "^5.7.2"
   }
 }
