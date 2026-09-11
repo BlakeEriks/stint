@@ -77,6 +77,38 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tt
         run: cd apps/web && pnpm test
 
+      # A SEPARATE database, because the route tests above disable RLS on
+      # theirs. Here RLS stays on and the caller is a non-superuser role, so
+      # auth.uid() resolves and the policies actually run.
+      - name: Set up the RLS database
+        env: { PGPASSWORD: postgres }
+        run: |
+          psql -h localhost -U postgres -c 'create database tt_rls'
+          psql -h localhost -U postgres -d tt_rls -v ON_ERROR_STOP=1 <<'SQL'
+          create schema if not exists auth;
+          create table auth.users (id uuid primary key default gen_random_uuid(), email text);
+          create or replace function auth.uid() returns uuid language sql stable as
+            $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+          SQL
+          for f in supabase/migrations/*.sql; do
+            psql -h localhost -U postgres -d tt_rls -v ON_ERROR_STOP=1 -f "$f"
+          done
+          psql -h localhost -U postgres -d tt_rls -v ON_ERROR_STOP=1 <<'SQL'
+          -- Mirrors the role PostgREST uses for a signed-in caller.
+          -- NOT a superuser and NOT BYPASSRLS, or the tests pass vacuously.
+          create role authenticated login password 'test';
+          grant usage on schema public, auth to authenticated;
+          grant select, insert, update, delete on all tables in schema public to authenticated;
+          grant select on auth.users to authenticated;
+          grant execute on all functions in schema public, auth to authenticated;
+          SQL
+
+      - name: RLS tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tt_rls
+          RLS_DATABASE_URL: postgresql://authenticated:test@localhost:5432/tt_rls
+        run: cd apps/web && pnpm test:rls
+
       - name: Build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co

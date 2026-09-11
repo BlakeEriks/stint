@@ -124,8 +124,20 @@ JSX lives only in `invoice-pdf.tsx`; routes import `renderInvoicePdf`
 **dynamically** so the handlers stay loadable by the type-stripping test
 runner. `test/loader.mjs` transforms `.tsx` through the SWC binary Next ships.
 
-Route tests run with `--test-concurrency=1`: both test files share one database
+Route tests run with `--test-concurrency=1`: the test files share one database
 and truncate tables in `beforeEach`, so parallel files clobber each other.
+
+### RLS
+
+`pnpm test:rls` is a **separate script against a separate database**, because
+the route tests disable RLS on theirs. It connects as a non-superuser
+`authenticated` role and sets `request.jwt.claim.sub` per transaction the way
+PostgREST does, so `auth.uid()` resolves and the policies actually run.
+
+Its `before` hook asserts the role is neither a superuser nor `BYPASSRLS` —
+without that, every assertion would pass vacuously and the suite would be
+decorative. Do not add `rls.test.ts` to the `test` glob: pointed at the
+RLS-disabled database it would pass while proving nothing.
 
 ## Jurisdiction
 

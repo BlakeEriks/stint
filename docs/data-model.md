@@ -102,7 +102,8 @@ exactly 100–119 with no gaps or duplicates.
 - Partial indexes back the hot paths: active clients/projects/profiles,
   unbilled entries, entries by user and start time.
 - RLS on every table: `user_id = auth.uid()`; line items inherit from invoice.
-  **The integration tests disable RLS**, so it is not covered by them.
+  The route tests disable RLS (their subject is route logic);
+  `apps/web/test/rls.test.ts` covers it against live policies.
 
 ## Verified behavior
 
@@ -126,3 +127,29 @@ Applied to a real Postgres 14 instance and exercised:
 | 14 | Duplicate invoice number rejected | rejected as designed |
 | — | 20 concurrent allocations, no gaps | 100–119, counter at 120 |
 | 15 | **Editing `task_name` on a billed entry rejected** | rejected (added after a test caught the gap) |
+
+### RLS, verified against live policies
+
+`apps/web/test/rls.test.ts` connects as a non-superuser `authenticated` role
+with `request.jwt.claim.sub` set per transaction, exactly as PostgREST does,
+so `auth.uid()` resolves and the policies actually run. The premise
+throughout is that a route's own `user_id` filter has been dropped — RLS
+alone must still contain the query.
+
+| Check | Result |
+|---|---|
+| An unfiltered `select` returns only the caller's rows | isolated |
+| All six user-scoped tables isolate | isolated |
+| A known-good id belonging to another user returns nothing | no leak |
+| Line items inherit isolation through their invoice | isolated |
+| Insert with a forged `user_id` | rejected by `WITH CHECK` |
+| Update or delete targeting another user's row | matches nothing |
+| Reassigning a row to another user | rejected by `WITH CHECK` |
+| An unqualified `delete from time_entries` | removes only the caller's |
+| Two users may each run a timer; neither may run two | per-user, as designed |
+| No JWT claim, or a malformed one | fails closed |
+
+The suite guards itself: `before` asserts the role is neither a superuser nor
+`BYPASSRLS`, since either would make every assertion pass vacuously. Verified
+by disabling RLS on one table (9 of 12 fail) and by granting `BYPASSRLS`
+(all 12 fail).

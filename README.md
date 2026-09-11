@@ -58,8 +58,11 @@ for f in supabase/migrations/*.sql; do psql tt -f "$f"; done
 DATABASE_URL=postgresql://localhost/tt pnpm --filter @tt/web test
 ```
 
-The tests disable RLS to run through a direct connection, so RLS itself is
-not covered by them. `.github/workflows/ci.yml` is the authoritative sequence.
+Those tests disable RLS to run through a direct connection. RLS is covered
+separately by `pnpm --filter @tt/web test:rls`, which needs its own database
+with RLS left on and a non-superuser `authenticated` role — see the
+"Set up the RLS database" step in `.github/workflows/ci.yml`, the
+authoritative sequence for both.
 
 Note that the root `pnpm test` recurses into `@tt/web`, which needs
 `DATABASE_URL` — use the per-package commands above on a clean checkout.
