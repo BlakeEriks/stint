@@ -32,22 +32,35 @@ export function Field({
   );
 }
 
-/** A titled group of fields inside a floating pane. */
+/**
+ * A titled group of fields inside a floating pane.
+ *
+ * `status` renders top-right. Each card saves independently, so the
+ * indicator belongs to the card whose fields are actually in flight rather
+ * than to the page.
+ */
 export function Section({
   title,
   description,
+  status,
   children,
 }: {
   title: string;
   description?: string;
+  status?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="rounded-xl border border-edge-subtle bg-surface-primary p-5 shadow-card">
-      <h2 className="text-[15px] font-medium text-strong">{title}</h2>
-      {description ? (
-        <p className="mt-1 text-[13px] text-muted">{description}</p>
-      ) : null}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-[15px] font-medium text-strong">{title}</h2>
+          {description ? (
+            <p className="mt-1 text-[13px] text-muted">{description}</p>
+          ) : null}
+        </div>
+        {status ? <div className="flex-none pt-1">{status}</div> : null}
+      </div>
       <div className="mt-4 flex flex-col gap-4">{children}</div>
     </section>
   );

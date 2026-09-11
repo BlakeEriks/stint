@@ -1,18 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Field, Section, textareaClass } from './field';
-import { api, ApiError, type SettingsInput } from '@/lib/client/api';
+import { SaveIndicator } from './save-indicator';
+import { useAutosave } from '@/lib/client/use-autosave';
+import { api, type Settings, type SettingsInput } from '@/lib/client/api';
 
 /**
  * Settings.
  *
- * Grouped by what the user is actually doing: billing defaults that every
- * client and project falls back to, the business identity printed on the
- * invoice, and how invoices are numbered.
+ * No save button: edits persist on their own after a pause, and each card
+ * reports its own state. Settings are a pile of independent preferences, not
+ * a transaction — there is nothing to review before committing, so a button
+ * would only be a step between deciding and having it apply.
+ *
+ * Each card owns its own autosave so the indicator refers to the fields the
+ * user is actually looking at.
  */
 export function SettingsForm() {
   const queryClient = useQueryClient();
@@ -21,51 +26,52 @@ export function SettingsForm() {
     queryFn: api.settings,
   });
 
-  const [form, setForm] = useState<SettingsInput>({});
-  const [saved, setSaved] = useState(false);
-
+  const [form, setForm] = useState<Settings | null>(null);
   useEffect(() => {
-    if (data) setForm(data);
-  }, [data]);
+    if (data && form === null) setForm(data);
+  }, [data, form]);
 
-  const set = <K extends keyof SettingsInput>(key: K, value: SettingsInput[K]) => {
-    setForm((f) => ({ ...f, [key]: value }));
-    setSaved(false);
-  };
-
-  const save = useMutation({
-    mutationFn: (body: SettingsInput) => api.updateSettings(body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-      setSaved(true);
-    },
-  });
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // nextInvoiceNumber is server-owned; never send it back.
-    const { nextInvoiceNumber: _omit, ...rest } = form as SettingsInput & {
+  /**
+   * `nextInvoiceNumber` is server-owned — gapless numbering depends on
+   * allocate_invoice_number() holding the row lock — so it never goes back.
+   */
+  const persist = async (patch: SettingsInput) => {
+    const { nextInvoiceNumber: _omit, ...rest } = patch as SettingsInput & {
       nextInvoiceNumber?: number;
     };
-    save.mutate(rest);
+    await api.updateSettings(rest);
+    queryClient.invalidateQueries({ queryKey: ['settings'] });
   };
 
-  if (isLoading) {
+  const billing = useAutosave(persist);
+  const identity = useAutosave(persist);
+  const numbering = useAutosave(persist);
+
+  if (isLoading || !form) {
     return <p className="text-[13.5px] text-subtle">Loading…</p>;
   }
 
+  /** Update local state, then schedule that card's save with the new value. */
+  const edit =
+    (card: ReturnType<typeof useAutosave<SettingsInput>>) =>
+    <K extends keyof Settings>(key: K, value: Settings[K]) => {
+      setForm((f) => (f ? { ...f, [key]: value } : f));
+      card.schedule({ [key]: value } as SettingsInput);
+    };
+
+  const setBilling = edit(billing);
+  const setIdentity = edit(identity);
+  const setNumbering = edit(numbering);
+
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4">
+    <>
       <Section
         title="Billing defaults"
         description="What a client or project falls back to when it sets no rate of its own."
+        status={<SaveIndicator state={billing.state} />}
       >
         <div className="flex flex-wrap gap-4">
-          <Field
-            label="Default hourly rate"
-            htmlFor="rate"
-            className="flex-1 basis-44"
-          >
+          <Field label="Default hourly rate" htmlFor="rate" className="flex-1 basis-44">
             <Input
               id="rate"
               type="number"
@@ -74,7 +80,7 @@ export function SettingsForm() {
               inputMode="decimal"
               value={form.defaultHourlyRate ?? ''}
               onChange={(e) =>
-                set(
+                setBilling(
                   'defaultHourlyRate',
                   e.target.value === '' ? null : Number(e.target.value),
                 )
@@ -95,8 +101,8 @@ export function SettingsForm() {
               min="1"
               max="24"
               step="1"
-              value={form.maxTimerHours ?? 8}
-              onChange={(e) => set('maxTimerHours', Number(e.target.value))}
+              value={form.maxTimerHours}
+              onChange={(e) => setBilling('maxTimerHours', Number(e.target.value))}
             />
           </Field>
         </div>
@@ -104,8 +110,8 @@ export function SettingsForm() {
         <Field label="Payment terms" htmlFor="terms" hint="Printed on every invoice.">
           <Input
             id="terms"
-            value={form.defaultPaymentTerms ?? ''}
-            onChange={(e) => set('defaultPaymentTerms', e.target.value)}
+            value={form.defaultPaymentTerms}
+            onChange={(e) => setBilling('defaultPaymentTerms', e.target.value)}
             placeholder="Net 30"
           />
         </Field>
@@ -114,12 +120,13 @@ export function SettingsForm() {
       <Section
         title="Business identity"
         description="Appears in the invoice header."
+        status={<SaveIndicator state={identity.state} />}
       >
         <Field label="Business name" htmlFor="biz-name">
           <Input
             id="biz-name"
             value={form.businessName ?? ''}
-            onChange={(e) => set('businessName', e.target.value || null)}
+            onChange={(e) => setIdentity('businessName', e.target.value || null)}
             placeholder="Your name or LLC"
           />
         </Field>
@@ -129,7 +136,7 @@ export function SettingsForm() {
             id="biz-email"
             type="email"
             value={form.businessEmail ?? ''}
-            onChange={(e) => set('businessEmail', e.target.value || null)}
+            onChange={(e) => setIdentity('businessEmail', e.target.value || null)}
             placeholder="you@example.com"
           />
         </Field>
@@ -139,7 +146,7 @@ export function SettingsForm() {
             id="biz-address"
             rows={3}
             value={form.businessAddress ?? ''}
-            onChange={(e) => set('businessAddress', e.target.value || null)}
+            onChange={(e) => setIdentity('businessAddress', e.target.value || null)}
             placeholder={'123 Main St\nAustin, TX 78701'}
             className={textareaClass}
           />
@@ -153,19 +160,22 @@ export function SettingsForm() {
           <Input
             id="tax-id"
             value={form.taxId ?? ''}
-            onChange={(e) => set('taxId', e.target.value || null)}
+            onChange={(e) => setIdentity('taxId', e.target.value || null)}
             placeholder="12-3456789"
           />
         </Field>
       </Section>
 
-      <Section title="Invoice numbering">
+      <Section
+        title="Invoice numbering"
+        status={<SaveIndicator state={numbering.state} />}
+      >
         <div className="flex flex-wrap gap-4">
           <Field label="Prefix" htmlFor="prefix" className="flex-1 basis-40">
             <Input
               id="prefix"
-              value={form.invoiceNumberPrefix ?? ''}
-              onChange={(e) => set('invoiceNumberPrefix', e.target.value)}
+              value={form.invoiceNumberPrefix}
+              onChange={(e) => setNumbering('invoiceNumberPrefix', e.target.value)}
               placeholder="INV-"
             />
           </Field>
@@ -190,31 +200,12 @@ export function SettingsForm() {
             id="notice"
             rows={2}
             value={form.paymentNotice ?? ''}
-            onChange={(e) => set('paymentNotice', e.target.value || null)}
+            onChange={(e) => setNumbering('paymentNotice', e.target.value || null)}
             placeholder="We will never email you to change these bank details."
             className={textareaClass}
           />
         </Field>
       </Section>
-
-      {save.error ? (
-        <p role="alert" className="text-[13px] text-danger">
-          {save.error instanceof ApiError
-            ? save.error.message
-            : 'Could not save settings.'}
-        </p>
-      ) : null}
-
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={save.isPending}>
-          {save.isPending ? 'Saving…' : 'Save settings'}
-        </Button>
-        {saved ? (
-          <span role="status" className="text-[13px] text-success">
-            Saved.
-          </span>
-        ) : null}
-      </div>
-    </form>
+    </>
   );
 }

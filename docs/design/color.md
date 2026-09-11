@@ -151,11 +151,33 @@ but it means adjacent surface steps are nearly identical:
 
 | pair | contrast |
 |---|---|
-| `bg-base` → `bg-primary` (dark) | 1.03 : 1 |
-| `bg-base` → `bg-elevated` (dark) | 1.26 : 1 |
+| `bg-base` → `bg-primary` (dark) | 1.02 : 1 |
+| `bg-base` → `bg-elevated` (dark) | 1.19 : 1 |
 | `bg-base` → `bg-primary` (light) | 1.06 : 1 |
 
 Layering therefore comes from **shadow and radius**, with surface colour only
 reinforcing it. This is a feature: the depth cue is independent of the colour
 channel, so it survives dichromacy and high-contrast modes, and it never
 competes with the accent.
+
+
+## The dark floor
+
+The ramp originally started at **L 0.145** (`#090A0D`). That is close enough
+to black that the app read as a terminal rather than a product — technically
+correct, wrong feeling.
+
+The floor is now **L 0.215** (`#18191C`) with the exponent eased 1.55 → 1.40,
+because a higher floor on the old curve bunches the midtones.
+
+Raising the floor compresses everything above it, which pushed muted text to
+4.46 — just under AA. Two steps are therefore lifted off the curve
+deliberately: `600` by +0.03 (muted back to **5.04**) and `700` by +0.035, so
+the ramp stays monotonic and evenly spaced instead of bunching muted and
+focus together.
+
+`src/derive-neutrals.mjs` is the script that produces these values, and
+`src/oklch.mjs` holds the colour maths. **The palette is derived, not
+picked** — changing the ground is a parameter edit, not a round of
+eyedropping. Both were verified to reproduce the previous twelve steps
+exactly before being used to generate new ones.

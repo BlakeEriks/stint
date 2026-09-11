@@ -53,6 +53,9 @@ from shadow and radius because `bg-base`→`bg-primary` is only 1.03:1; see
   package. Never hardcode a hex in a component.
 - Design tokens are **generated** — edit `packages/design-tokens/tokens.json`,
   then `pnpm tokens`. Never edit files in `dist/`.
+- The neutral ramp itself is **derived**, not hand-picked: change the floor or
+  curve in `src/derive-neutrals.mjs` and paste its output. Never eyedrop a
+  grey. `src/oklch.mjs` holds the OKLCH↔sRGB maths with gamut mapping.
 - Durations are always mono + `tabular-nums`.
 - Time entry ids are **client-generated UUIDv7** (`uuidv7()` in `@tt/core`) so
   offline retries are idempotent.
@@ -259,6 +262,22 @@ Radix supplies dialog/dropdown/popover behaviour. Hand-rolled popups are how
 arrow keys, typeahead, roving tabindex and focus-return get quietly skipped;
 the restraint thesis is about *product surface*, not re-implementing
 accessible primitives.
+
+### Forms save themselves
+
+Settings has **no save button**: `useAutosave` debounces to the server and
+each card carries a `SaveIndicator` (dot at rest → spinner → check). A check
+that is always present says nothing, so it appears only after a save the user
+caused.
+
+Two invariants the tests pin down: `pending` is set on the *edit*, not on the
+request, so a field is never shown as saved while it holds unsent text; and
+an edit during an in-flight request is **queued, not raced**, or a slow first
+response can land after a newer one and the server keeps the older value.
+
+`alive.current` is set on mount, not only cleared on unmount — StrictMode
+double-mounts in dev, and a ref that is only ever cleared leaves every save
+completing silently with the spinner stuck forever.
 
 ### UI tests
 
