@@ -23,8 +23,12 @@ export function NavTimer({ onTimerScreen }: { onTimerScreen: boolean }) {
 
   if (!timer.running) {
     return (
-      <span className="tabular font-mono text-[12px] text-subtle" aria-label="No timer running">
-        {formatClock(timer.todaySeconds)} today
+      <span
+        className="tabular font-mono text-[12px] text-subtle"
+        aria-label="No timer running"
+      >
+        {formatClock(timer.todaySeconds)}
+        <span className="hidden sm:inline"> today</span>
       </span>
     );
   }
@@ -44,7 +48,7 @@ export function NavTimer({ onTimerScreen }: { onTimerScreen: boolean }) {
       <span className={`tabular font-mono text-[12px] ${tone}`}>
         {formatClock(timer.seconds)}
       </span>
-      <span className="hidden max-w-[12ch] truncate text-[12px] text-subtle sm:inline">
+      <span className="hidden max-w-[12ch] truncate text-[12px] text-subtle md:inline">
         {timer.running.taskName || 'Untitled'}
       </span>
     </>

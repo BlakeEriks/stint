@@ -263,6 +263,22 @@ arrow keys, typeahead, roving tabindex and focus-return get quietly skipped;
 the restraint thesis is about *product surface*, not re-implementing
 accessible primitives.
 
+### The calendar
+
+A week grid of what was tracked. It visualises, it does not schedule — no
+planned layer, no external calendar.
+
+**Never step days or weeks with `+ 86_400_000`.** Use
+`startOfLocalDayOffset` (negative `daysBack` steps forward): a week
+containing a DST transition is 167 or 169 hours, and a fall-back day is 25
+hours long, so fixed-millisecond arithmetic lands an hour off and mis-buckets
+the entries at the edges. Block positions divide by the column's own span for
+the same reason.
+
+Overlapping entries get side-by-side lanes rather than stacking — in a
+billing tool a block you cannot see is a block you cannot check. Tested, and
+the test was verified to fail when the laning is removed.
+
 ### Forms save themselves
 
 Settings has **no save button**: `useAutosave` debounces to the server and

@@ -108,6 +108,12 @@ export interface Client {
 export type ClientInput = Partial<Omit<Client, 'id' | 'archivedAt'>> &
   Pick<Client, 'name'>;
 
+export interface CalendarDay {
+  date: string;
+  totalSeconds: number;
+  entries: TimeEntry[];
+}
+
 export interface Settings {
   defaultHourlyRate: number | null;
   currency: string;
@@ -217,6 +223,11 @@ export const api = {
 
   /** Archival, not deletion — invoices reference clients. */
   archiveClient: (id: string) => request<void>('DELETE', `/clients/${id}`),
+
+  calendar: (params: { from: string; to: string; tz: string }) => {
+    const q = new URLSearchParams(params);
+    return request<{ days: CalendarDay[] }>('GET', `/calendar?${q}`);
+  },
 
   settings: () => request<Settings>('GET', '/settings'),
 

@@ -6,6 +6,7 @@ import { NavTimer } from './nav-timer';
 
 const LINKS = [
   { href: '/', label: 'Timer' },
+  { href: '/calendar', label: 'Calendar' },
   { href: '/clients', label: 'Clients' },
   { href: '/settings', label: 'Settings' },
 ];
@@ -24,7 +25,7 @@ export function Nav() {
     // Chrome on the ground, not a card: no border, no fill. The floating
     // panes below supply the structure that a divider used to.
     <nav aria-label="Sections">
-      <div className="mx-auto flex max-w-3xl items-center gap-1 px-4 pt-2 sm:px-6">
+      <div className="mx-auto flex max-w-5xl items-center gap-1 overflow-x-auto px-4 pt-2 sm:px-6">
         {LINKS.map(({ href, label }) => {
           const active =
             href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -33,7 +34,7 @@ export function Nav() {
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
-              className={`rounded-md px-3 py-2 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors ${
+              className={`flex-none rounded-md px-2.5 py-2 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors sm:px-3 ${
                 active
                   ? 'bg-surface-primary text-strong shadow-card'
                   : 'text-subtle hover:text-muted'
@@ -45,7 +46,7 @@ export function Nav() {
         })}
 
         {/* Right of the tabs, in space the row already had. */}
-        <div className="ml-auto">
+        <div className="ml-auto flex-none pl-2">
           <NavTimer onTimerScreen={pathname === "/"} />
         </div>
       </div>

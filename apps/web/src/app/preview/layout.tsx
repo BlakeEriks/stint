@@ -67,7 +67,12 @@ export default function PreviewLayout({
 
   useEffect(() => {
     const store: Record<string, any>[] = seed();
-    const projects: Record<string, any>[] = [];
+    const projects: Record<string, any>[] = [
+      { id: 'pv-1', clientId: null, name: 'Acme Redesign', hourlyRate: null,
+        color: '#DA8188', isBillableDefault: true, archivedAt: null },
+      { id: 'pv-2', clientId: null, name: 'Bluebird API', hourlyRate: null,
+        color: '#42B59A', isBillableDefault: true, archivedAt: null },
+    ];
     const profiles: Record<string, any>[] = [
       {
         id: 'pp-1',
@@ -183,6 +188,47 @@ export default function PreviewLayout({
         });
       }
       if (path === '/entries') return json({ entries: [] });
+
+      if (path === '/calendar') {
+        const u = new URL(url, location.origin);
+        const from = new Date(u.searchParams.get('from') ?? Date.now());
+        const mk = (
+          dayOffset: number, startH: number, hours: number,
+          taskName: string, projectId: string | null,
+        ) => {
+          const s = new Date(from);
+          s.setDate(s.getDate() + dayOffset);
+          s.setHours(startH, 0, 0, 0);
+          const e = new Date(s.getTime() + hours * 3600_000);
+          return {
+            id: `c-${dayOffset}-${startH}`,
+            taskName, projectId,
+            startedAt: s.toISOString(),
+            endedAt: e.toISOString(),
+            isBillable: true,
+            durationSeconds: Math.round(hours * 3600),
+          };
+        };
+        const all = [
+          mk(0, 9, 2.5, 'Design review', 'pv-1'),
+          mk(0, 13, 3, 'Component library', 'pv-1'),
+          mk(1, 10, 1.5, 'Client call', null),
+          // Deliberately overlapping, to exercise the lane assignment.
+          mk(1, 11, 2, 'Invoice templates', 'pv-2'),
+          mk(2, 8.5 | 0, 4, 'API routes', 'pv-2'),
+          mk(3, 14, 2.25, 'Bug triage', 'pv-1'),
+          mk(4, 9, 6, 'Sprint work', 'pv-2'),
+        ];
+        const days = new Map();
+        for (const e of all) {
+          const k = new Date(e.startedAt).toLocaleDateString('en-CA');
+          const d = days.get(k) ?? { date: k, totalSeconds: 0, entries: [] };
+          d.entries.push(e);
+          d.totalSeconds += e.durationSeconds;
+          days.set(k, d);
+        }
+        return json({ days: [...days.values()] });
+      }
 
       if (path === '/settings') {
         if (method === 'PATCH') settings = { ...settings, ...body };
