@@ -108,6 +108,59 @@ export interface Client {
 export type ClientInput = Partial<Omit<Client, 'id' | 'archivedAt'>> &
   Pick<Client, 'name'>;
 
+export type GroupingMode = 'entry' | 'task' | 'project' | 'day';
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'void';
+
+export interface InvoiceLineItem {
+  description: string;
+  quantitySeconds: number;
+  quantityHours: number;
+  resolvedRate: number;
+  rateSource: 'entry' | 'project' | 'client' | 'default' | 'none';
+  amount: number;
+}
+
+export interface InvoicePreview {
+  clientId: string;
+  clientName: string;
+  periodStart: string;
+  periodEnd: string;
+  groupingMode: GroupingMode;
+  currency: string;
+  lineItems: InvoiceLineItem[];
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  entryCount: number;
+  /** Entries with no resolvable rate. Generation is blocked until fixed. */
+  unratedEntryIds: string[];
+}
+
+export interface Invoice {
+  id: string;
+  clientId: string;
+  invoiceNumber: string;
+  sequenceNo: number;
+  status: InvoiceStatus;
+  issueDate: string;
+  dueDate: string | null;
+  periodStart: string;
+  periodEnd: string;
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  currency: string;
+  notes: string | null;
+  paymentTerms: string | null;
+  groupingMode: GroupingMode;
+  paymentDetails: unknown;
+  sentAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
 export interface CalendarDay {
   date: string;
   totalSeconds: number;
@@ -228,6 +281,51 @@ export const api = {
     const q = new URLSearchParams(params);
     return request<{ days: CalendarDay[] }>('GET', `/calendar?${q}`);
   },
+
+  invoices: (params: { clientId?: string; status?: InvoiceStatus } = {}) => {
+    const q = new URLSearchParams(params as Record<string, string>);
+    const s = q.toString();
+    return request<{ invoices: Invoice[] }>('GET', `/invoices${s ? `?${s}` : ''}`);
+  },
+
+  invoice: (id: string) =>
+    request<{ invoice: Invoice; lineItems: InvoiceLineItem[]; client: Client }>(
+      'GET',
+      `/invoices/${id}`,
+    ),
+
+  /** No side effects — this is what the user approves before generating. */
+  previewInvoice: (body: {
+    clientId: string;
+    periodStart: string;
+    periodEnd: string;
+    groupingMode?: GroupingMode;
+    tz?: string;
+  }) => request<InvoicePreview>('POST', '/invoices/preview', body),
+
+  /** Allocates the number, freezes line items and rates, locks the entries. */
+  createInvoice: (body: {
+    clientId: string;
+    periodStart: string;
+    periodEnd: string;
+    groupingMode?: GroupingMode;
+    tz?: string;
+    issueDate?: string;
+    dueDate?: string;
+    notes?: string;
+    paymentTerms?: string;
+  }) => request<Invoice>('POST', '/invoices', body),
+
+  updateInvoiceStatus: (
+    id: string,
+    body: { status: InvoiceStatus; sentAt?: string; paidAt?: string },
+  ) => request<Invoice>('PATCH', `/invoices/${id}/status`, body),
+
+  /** Drafts only. An issued invoice must be voided so numbering stays gapless. */
+  deleteInvoice: (id: string) => request<void>('DELETE', `/invoices/${id}`),
+
+  invoicePdfUrl: (id: string, download = false) =>
+    `/api/v1/invoices/${id}/pdf${download ? '?download=1' : ''}`,
 
   settings: () => request<Settings>('GET', '/settings'),
 

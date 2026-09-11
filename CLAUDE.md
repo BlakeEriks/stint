@@ -263,6 +263,27 @@ arrow keys, typeahead, roving tabindex and focus-return get quietly skipped;
 the restraint thesis is about *product surface*, not re-implementing
 accessible primitives.
 
+### Invoicing UI
+
+**Preview then generate, and the two must agree.** Any change to what would
+be billed — client, period, grouping — clears the approved preview and hides
+the Generate button. Approving one set of numbers and generating a different
+set is the failure this prevents; it is tested, and the test was verified to
+fail when the invalidation is removed.
+
+Generation is disabled when the preview reports `unratedEntryIds` (an entry
+with no rate would bill at zero) or has no line items.
+
+**A draft is deleted; an issued invoice is voided.** A draft holds no number
+yet, so deleting it costs nothing. Once issued the number is on record and
+only voiding is offered — that is what keeps numbering gapless. The UI shows
+one and never the other.
+
+Downloading the PDF is the **primary action** and is offered in every status:
+with no email, the download is how an invoice reaches a client.
+
+Paid renders in the success channel (cyan), never green.
+
 ### The calendar
 
 A week grid of what was tracked. It visualises, it does not schedule — no

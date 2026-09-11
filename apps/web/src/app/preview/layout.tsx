@@ -92,6 +92,26 @@ export default function PreviewLayout({
         currency: 'USD', feeAllocation: null, notes: null, archivedAt: null,
       },
     ];
+    // Seeded so the detail route has something to show: a full page
+    // navigation resets this store, so a just-created invoice would vanish.
+    const invoices: Record<string, any>[] = [
+      {
+        id: 'inv-seed-1',
+        clientId: '0192f0a0-0000-7000-8000-000000000001',
+        invoiceNumber: 'INV-13',
+        sequenceNo: 13,
+        status: 'draft',
+        issueDate: '2026-09-01',
+        dueDate: '2026-10-01',
+        periodStart: '2026-08-01',
+        periodEnd: '2026-08-31',
+        subtotal: 1425, taxRate: 0, taxAmount: 0, total: 1425,
+        currency: 'USD', notes: null, paymentTerms: 'Net 30',
+        groupingMode: 'entry', paymentDetails: null,
+        sentAt: null, paidAt: null, createdAt: '2026-09-01T00:00:00.000Z',
+        _client: { id: '0192f0a0-0000-7000-8000-000000000001', name: 'Acme Corp', hourlyRate: 150 },
+      },
+    ];
     let settings: Record<string, any> = {
       defaultHourlyRate: 150,
       currency: 'USD',
@@ -188,6 +208,84 @@ export default function PreviewLayout({
         });
       }
       if (path === '/entries') return json({ entries: [] });
+
+      if (path === '/invoices/preview' && method === 'POST') {
+        const client = store.find((c) => c.id === body.clientId);
+        const rate = client?.hourlyRate ?? 150;
+        const lines = [
+          { description: 'Design review', quantitySeconds: 9000, quantityHours: 2.5 },
+          { description: 'Component library', quantitySeconds: 10800, quantityHours: 3 },
+          { description: 'API routes', quantitySeconds: 14400, quantityHours: 4 },
+        ].map((l) => ({
+          ...l, resolvedRate: rate, rateSource: 'client',
+          amount: Math.round(l.quantityHours * rate * 100) / 100,
+        }));
+        const subtotal = Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100;
+        return json({
+          clientId: body.clientId, clientName: client?.name ?? 'Unknown',
+          periodStart: body.periodStart, periodEnd: body.periodEnd,
+          groupingMode: body.groupingMode ?? 'entry',
+          currency: 'USD', lineItems: lines,
+          subtotal, taxRate: 0, taxAmount: 0, total: subtotal,
+          entryCount: 7, unratedEntryIds: [],
+        });
+      }
+      if (path === '/invoices' && method === 'POST') {
+        const client = store.find((c) => c.id === body.clientId);
+        const created = {
+          id: crypto.randomUUID(),
+          clientId: body.clientId,
+          invoiceNumber: `INV-${settings.nextInvoiceNumber}`,
+          sequenceNo: settings.nextInvoiceNumber,
+          status: 'draft',
+          issueDate: new Date().toLocaleDateString('en-CA'),
+          dueDate: body.dueDate ?? null,
+          periodStart: body.periodStart, periodEnd: body.periodEnd,
+          subtotal: 1425, taxRate: 0, taxAmount: 0, total: 1425,
+          currency: 'USD', notes: body.notes ?? null,
+          paymentTerms: 'Net 30', groupingMode: body.groupingMode ?? 'entry',
+          paymentDetails: null, sentAt: null, paidAt: null,
+          createdAt: new Date().toISOString(),
+          _client: client,
+        };
+        settings.nextInvoiceNumber += 1;
+        invoices.unshift(created);
+        return json(created);
+      }
+      if (path === '/invoices' && method === 'GET') {
+        return json({ invoices });
+      }
+      const inv = path.match(/^\/invoices\/([^/]+)$/);
+      if (inv) {
+        const wanted = inv[1];
+        const i = invoices.findIndex((x) => x.id === wanted);
+        if (i === -1) return json({ code: 'NOT_FOUND', message: 'no' }, 404);
+        if (method === 'GET') {
+          const found = invoices[i]!;
+          const rate = found._client?.hourlyRate ?? 150;
+          return json({
+            invoice: found,
+            client: found._client ?? { id: '', name: 'Unknown' },
+            lineItems: [
+              { description: 'Design review', quantitySeconds: 9000, quantityHours: 2.5, resolvedRate: rate, rateSource: 'client', amount: 375 },
+              { description: 'Component library', quantitySeconds: 10800, quantityHours: 3, resolvedRate: rate, rateSource: 'client', amount: 450 },
+              { description: 'API routes', quantitySeconds: 14400, quantityHours: 4, resolvedRate: rate, rateSource: 'client', amount: 600 },
+            ],
+          });
+        }
+        if (method === 'DELETE') {
+          invoices.splice(i, 1);
+          return new Response(null, { status: 204 });
+        }
+      }
+      const st = path.match(/^\/invoices\/([^/]+)\/status$/);
+      if (st && method === 'PATCH') {
+        const wanted = st[1];
+        const i = invoices.findIndex((x) => x.id === wanted);
+        if (i === -1) return json({ code: 'NOT_FOUND', message: 'no' }, 404);
+        invoices[i] = { ...invoices[i], status: body.status };
+        return json(invoices[i]);
+      }
 
       if (path === '/calendar') {
         const u = new URL(url, location.origin);

@@ -8,6 +8,7 @@ const LINKS = [
   { href: '/', label: 'Timer' },
   { href: '/calendar', label: 'Calendar' },
   { href: '/clients', label: 'Clients' },
+  { href: '/invoices', label: 'Invoices' },
   { href: '/settings', label: 'Settings' },
 ];
 
