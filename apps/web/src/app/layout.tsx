@@ -19,7 +19,7 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Time',
+  title: 'Stint',
   description: 'Time tracking for solo contractors.',
 };
 

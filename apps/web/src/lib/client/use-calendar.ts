@@ -6,7 +6,7 @@ import {
   startOfLocalWeek,
   startOfLocalDayOffset,
   localDateKey,
-} from '@tt/core';
+} from '@stint/core';
 import { api, type CalendarDay, type TimeEntry } from './api';
 import { useTimeZone } from './use-timer';
 

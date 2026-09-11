@@ -3,7 +3,7 @@ import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import { PROJECT_COLUMNS, toProject } from '@/lib/rows';
-import { uuidv7 } from '@tt/core';
+import { uuidv7 } from '@stint/core';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';

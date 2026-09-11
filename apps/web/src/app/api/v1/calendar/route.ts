@@ -3,7 +3,7 @@ import { handle, ApiError } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseQuery } from '@/lib/validate';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
-import { localDateKey, isValidTimeZone } from '@tt/core';
+import { localDateKey, isValidTimeZone } from '@stint/core';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';

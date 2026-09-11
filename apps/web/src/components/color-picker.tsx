@@ -1,6 +1,6 @@
 'use client';
 
-import { projectColors } from '@tt/design-tokens';
+import { projectColors } from '@stint/design-tokens';
 
 /**
  * The eight generated project colours, not a free colour input.

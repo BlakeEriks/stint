@@ -34,7 +34,7 @@ export default function SignIn() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-strong">Time</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-strong">Stint</h1>
       <p className="mt-1.5 text-[14px] text-muted">
         Time tracking for solo contractors.
       </p>

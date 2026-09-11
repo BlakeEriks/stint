@@ -1,11 +1,11 @@
 {
-  "name": "time-tracking",
+  "name": "stint",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "tokens": "pnpm --filter @tt/design-tokens build",
-    "tokens:validate": "pnpm --filter @tt/design-tokens validate",
+    "tokens": "pnpm --filter @stint/design-tokens build",
+    "tokens:validate": "pnpm --filter @stint/design-tokens validate",
     "test": "pnpm -r test"
   },
   "devDependencies": {

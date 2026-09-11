@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { formatClock } from '@tt/core';
+import { formatClock } from '@stint/core';
 import { useTimer } from '@/lib/client/use-timer';
 
 /**

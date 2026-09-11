@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api, ApiError, type Summary } from './api';
-import { elapsedSeconds, deriveTimerView } from '@tt/core';
+import { elapsedSeconds, deriveTimerView } from '@stint/core';
 
 const SUMMARY_KEY = ['summary'] as const;
 

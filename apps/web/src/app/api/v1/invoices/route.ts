@@ -10,7 +10,7 @@ import {
   INVOICE_COLUMNS,
   toInvoice,
 } from '@/lib/invoicing';
-import { buildLineItems, buildPaymentDetails } from '@tt/core';
+import { buildLineItems, buildPaymentDetails } from '@stint/core';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';

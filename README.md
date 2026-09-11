@@ -1,4 +1,4 @@
-# Time Tracking
+# Stint
 
 A time tracker for solo contractors. One timer, a calendar, and invoicing —
 and deliberately nothing else.
@@ -36,13 +36,13 @@ supabase/migrations/
 ```bash
 pnpm tokens                      # generate CSS / TS / Swift from tokens.json
 pnpm tokens:validate             # assert the contrast contract (runs in CI)
-pnpm --filter @tt/core test      # pure logic, no database needed
-pnpm --filter @tt/web dev
-pnpm --filter @tt/web typecheck
-pnpm --filter @tt/web sample:invoice   # regenerate docs/design/samples/
+pnpm --filter @stint/core test      # pure logic, no database needed
+pnpm --filter @stint/web dev
+pnpm --filter @stint/web typecheck
+pnpm --filter @stint/web sample:invoice   # regenerate docs/design/samples/
 ```
 
-Run `pnpm tokens` first on a clean checkout: `@tt/design-tokens` resolves
+Run `pnpm tokens` first on a clean checkout: `@stint/design-tokens` resolves
 through the generated `dist/`.
 
 ### Running the API tests
@@ -56,16 +56,16 @@ psql tt -c "create schema auth" \
        -c "create table auth.users (id uuid primary key default gen_random_uuid(), email text)" \
        -c "create function auth.uid() returns uuid language sql stable as \$\$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid \$\$"
 for f in supabase/migrations/*.sql; do psql tt -f "$f"; done
-DATABASE_URL=postgresql://localhost/tt pnpm --filter @tt/web test
+DATABASE_URL=postgresql://localhost/tt pnpm --filter @stint/web test
 ```
 
 Those tests disable RLS to run through a direct connection. RLS is covered
-separately by `pnpm --filter @tt/web test:rls`, which needs its own database
+separately by `pnpm --filter @stint/web test:rls`, which needs its own database
 with RLS left on and a non-superuser `authenticated` role — see the
 "Set up the RLS database" step in `.github/workflows/ci.yml`, the
 authoritative sequence for both.
 
-Note that the root `pnpm test` recurses into `@tt/web`, which needs
+Note that the root `pnpm test` recurses into `@stint/web`, which needs
 `DATABASE_URL` — use the per-package commands above on a clean checkout.
 
 ## Read first

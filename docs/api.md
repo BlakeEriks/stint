@@ -161,7 +161,7 @@ identically, so surface them rather than retrying.
 cannot infer the caller's zone, so the client states it; an invalid zone falls
 back to UTC rather than failing the request.
 
-Day and week boundaries are computed by `@tt/core/calendar`, which resolves the
+Day and week boundaries are computed by `@stint/core/calendar`, which resolves the
 offset **at the candidate instant** rather than the current one. Using the
 current offset is an hour wrong on DST transition days, which silently files
 entries under the wrong date twice a year. Covered by tests across both US

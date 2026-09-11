@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ApiError } from './errors';
 import { PAYMENT_PROFILE_COLUMNS, toPaymentProfile } from './rows';
-import { resolvePaymentProfile } from '@tt/core';
-import type { BillableEntry } from '@tt/core';
+import { resolvePaymentProfile } from '@stint/core';
+import type { BillableEntry } from '@stint/core';
 
 /** numeric columns arrive from PostgREST as strings. */
 const num = (v: string | number | null | undefined): number | null =>

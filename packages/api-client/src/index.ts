@@ -6,7 +6,7 @@
  * data layer's job.
  */
 
-import type { ApiError } from '@tt/schema';
+import type { ApiError } from '@stint/schema';
 
 export class ApiException extends Error {
   readonly status: number;

@@ -9,7 +9,7 @@ import {
   startOfLocalDay,
   startOfLocalWeek,
   isValidTimeZone,
-} from '@tt/core';
+} from '@stint/core';
 
 export const dynamic = 'force-dynamic';
 

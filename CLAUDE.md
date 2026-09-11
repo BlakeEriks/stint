@@ -57,7 +57,7 @@ from shadow and radius because `bg-base`→`bg-primary` is only 1.03:1; see
   curve in `src/derive-neutrals.mjs` and paste its output. Never eyedrop a
   grey. `src/oklch.mjs` holds the OKLCH↔sRGB maths with gamut mapping.
 - Durations are always mono + `tabular-nums`.
-- Time entry ids are **client-generated UUIDv7** (`uuidv7()` in `@tt/core`) so
+- Time entry ids are **client-generated UUIDv7** (`uuidv7()` in `@stint/core`) so
   a retried insert is idempotent — the same id lands on the same row.
 - Rate resolution exists in SQL (authoritative) and TS (previews). Keep them in
   sync; the database wins.
@@ -80,7 +80,7 @@ All routes live in `apps/web/src/app/api/v1/`. Shared plumbing in
   a cookie session (web); both yield an RLS-scoped client.
 - `errors.ts` — `handle()` wraps every route; `ApiError` maps to documented
   status codes. Contains a compile-time guard asserting the local `Code` union
-  matches `ErrorCode` in `@tt/schema`.
+  matches `ErrorCode` in `@stint/schema`.
 - `rows.ts` — **the only place that knows both snake_case and camelCase.**
   Rename a column here, nowhere else.
 - `validate.ts` — Zod parsing with 422 + `treeifyError` details.
@@ -195,7 +195,7 @@ visible — which is what fraud-prevention guidance tells payers to challenge.
   default. A dangling reference falls back rather than rendering nothing.
 - **Invoices freeze the rendered snapshot** into `payment_details` (JSONB) at
   generation, like rates. Editing a profile never alters an issued invoice.
-- `buildPaymentDetails` in `@tt/core` drops unset fields entirely — never
+- `buildPaymentDetails` in `@stint/core` drops unset fields entirely — never
   render an empty label, and never an empty section header.
 - The PDF payment block is `wrap={false}`: a stranded "Payment" header with
   the account numbers overleaf is the one page break that actually harms the

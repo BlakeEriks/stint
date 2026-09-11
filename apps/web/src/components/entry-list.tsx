@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { formatClock, formatCompact, startOfLocalDay } from '@tt/core';
+import { formatClock, formatCompact, startOfLocalDay } from '@stint/core';
 import { api, type Project, type TimeEntry } from '@/lib/client/api';
 import { useTimeZone } from '@/lib/client/use-timer';
 

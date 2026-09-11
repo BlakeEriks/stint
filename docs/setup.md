@@ -75,7 +75,7 @@ invoices**, by design.
 ## 5. Sign in
 
 ```bash
-pnpm --filter @tt/web dev
+pnpm --filter @stint/web dev
 ```
 
 Open `http://localhost:3100`, enter your email, click the link. First sign-in

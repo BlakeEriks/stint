@@ -3,7 +3,7 @@ import { handle, ApiError } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { loadClient, loadSettings, loadBillableEntries } from '@/lib/invoicing';
-import { buildLineItems } from '@tt/core';
+import { buildLineItems } from '@stint/core';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';

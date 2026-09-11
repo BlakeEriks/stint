@@ -20,6 +20,15 @@ importers:
       '@react-pdf/renderer':
         specifier: ^4.9.0
         version: 4.9.0(react@19.3.0)
+      '@stint/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@stint/design-tokens':
+        specifier: workspace:^
+        version: link:../../packages/design-tokens
+      '@stint/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
       '@supabase/ssr':
         specifier: ^0.12.7
         version: 0.12.7(@supabase/supabase-js@2.116.0)
@@ -32,15 +41,6 @@ importers:
       '@tanstack/react-query':
         specifier: ^5
         version: 5.102.8(react@19.3.0)
-      '@tt/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@tt/design-tokens':
-        specifier: workspace:^
-        version: link:../../packages/design-tokens
-      '@tt/schema':
-        specifier: workspace:*
-        version: link:../../packages/schema
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -114,7 +114,7 @@ importers:
 
   packages/api-client:
     dependencies:
-      '@tt/schema':
+      '@stint/schema':
         specifier: workspace:*
         version: link:../schema
 

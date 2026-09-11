@@ -13,9 +13,9 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "paths": {
-      "@tt/core": ["./packages/core/src/index.ts"],
-      "@tt/schema": ["./packages/schema/src/index.ts"],
-      "@tt/design-tokens": ["./packages/design-tokens/dist/tokens.ts"]
+      "@stint/core": ["./packages/core/src/index.ts"],
+      "@stint/schema": ["./packages/schema/src/index.ts"],
+      "@stint/design-tokens": ["./packages/design-tokens/dist/tokens.ts"]
     }
   },
   "include": ["packages/**/*.ts"],

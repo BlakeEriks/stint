@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { formatCompact, formatClock } from '@tt/core';
+import { formatCompact, formatClock } from '@stint/core';
 import { Button } from '@/components/ui/button';
 import { useCalendar, type PositionedEntry } from '@/lib/client/use-calendar';
 import { api, type Project } from '@/lib/client/api';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { formatClock } from '@tt/core';
+import { formatClock } from '@stint/core';
 import { useTimer } from '@/lib/client/use-timer';
 import { ProjectPicker } from './project-picker';
 import type { Project } from '@/lib/client/api';

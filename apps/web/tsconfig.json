@@ -13,13 +13,13 @@
       "@/*": [
         "./src/*"
       ],
-      "@tt/core": [
+      "@stint/core": [
         "../../packages/core/src/index.ts"
       ],
-      "@tt/schema": [
+      "@stint/schema": [
         "../../packages/schema/src/index.ts"
       ],
-      "@tt/design-tokens": [
+      "@stint/design-tokens": [
         "../../packages/design-tokens/dist/tokens.ts"
       ]
     }
