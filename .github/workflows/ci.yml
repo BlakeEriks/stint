@@ -124,5 +124,5 @@ jobs:
       - name: Build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
         run: cd apps/web && pnpm build

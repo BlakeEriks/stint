@@ -27,17 +27,34 @@ export async function requireSession(req: Request): Promise<Session> {
   if (header?.startsWith('Bearer ')) {
     const token = header.slice(7);
     const db = bearerClient(token);
-    const { data, error } = await db.auth.getUser();
-    if (error || !data.user) {
-      throw new ApiError('UNAUTHORIZED', 'Invalid or expired token');
-    }
-    return { userId: data.user.id, db };
+    return { userId: await verify(db, 'Invalid or expired token'), db };
   }
 
   const db = await cookieClient();
-  const { data, error } = await db.auth.getUser();
-  if (error || !data.user) {
-    throw new ApiError('UNAUTHORIZED', 'Not signed in');
+  return { userId: await verify(db, 'Not signed in'), db };
+}
+
+/**
+ * Establish who the caller is, from the JWT's own signature.
+ *
+ * `getClaims()` rather than `getUser()`: with asymmetric signing keys (the
+ * default for new projects) it verifies the ES256 signature locally against
+ * a cached JWKS, so identity costs no network round-trip. `getUser()` calls
+ * the Auth server on *every* request — and this runs before every route, on
+ * a timer that reconciles each minute across three clients.
+ *
+ * It is never worse: on a project still using a symmetric secret it falls
+ * back to a server call, exactly what `getUser()` would have done.
+ *
+ * `getSession()` would be wrong here. It reads the cookie without
+ * revalidating, and a cookie is forgeable — it must never gate authorization
+ * on the server.
+ */
+async function verify(db: SupabaseClient, message: string): Promise<string> {
+  const { data, error } = await db.auth.getClaims();
+  const sub = data?.claims?.sub;
+  if (error || !sub) {
+    throw new ApiError('UNAUTHORIZED', message);
   }
-  return { userId: data.user.id, db };
+  return sub;
 }

@@ -55,23 +55,32 @@ This asserts the things nothing else would catch: all seven tables exist with
 everything), the partial unique index enforcing one running timer is present
 and actually partial, and new users get a settings row.
 
-It exits non-zero on any failure. Do not use a database it rejects — the anon
+It exits non-zero on any failure. Do not use a database it rejects — the publishable
 key is public, so RLS is the only thing between one user's rows and everyone
 else's.
 
 ## 3. Point the app at it
 
 Dashboard → **Project Settings** → **API**. Copy the **Project URL** and the
-**anon public** key into `apps/web/.env.local`:
+**publishable** key (`sb_publishable_…`) into `apps/web/.env.local`:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-The anon key is **meant to be public** — it is in the browser bundle, and RLS
-is what protects the data. The **service_role** key is not: it bypasses RLS
-entirely. Never put it in `.env.local` or anything `NEXT_PUBLIC_`.
+The publishable key is **meant to be public** — it ships in the browser
+bundle, and RLS is what protects the data. A **secret** key
+(`sb_secret_…`) is not: it bypasses RLS entirely. Never put one in
+`.env.local` or anything `NEXT_PUBLIC_`.
+
+If the dashboard still shows legacy `anon` / `service_role` JWTs, those are
+the old key pair and are **deprecated at the end of 2026**. Publishable and
+secret keys work alongside them, so there is no reason to start on the old
+names. Two things the new keys fix: a secret key sent from a browser is
+rejected with a 401 (the `service_role` JWT leaked silently), and secret keys
+can be minted and revoked individually rather than requiring a JWT-secret
+rotation that invalidates every session.
 
 `.env.local` is gitignored. `.env.example` documents the shape.
 

@@ -72,12 +72,20 @@ own transaction and applied versions are recorded in `schema_migrations`, so
 re-running is a no-op and a new migration applies alone. `--dry-run` shows
 the plan; `--url` overrides the connection.
 
+**The publishable key is public by design** (it ships in the browser bundle);
+RLS is the only thing protecting the data. That makes `verify:schema` the
+real security control here, not the key choice — a table reaching production
+without RLS exposes every user's rows, and nothing else in the stack notices.
+
 `pnpm verify:schema` asserts the live database matches what the app assumes:
 seven tables with **RLS on**, at least one policy each (RLS with no policies
 denies everything), the partial unique index for the timer invariant, and the
 signup trigger. Exits non-zero on failure, so it belongs in CI once a staging
 database exists. Both read `SUPABASE_DB_URL` from `apps/web/.env.local` — a
-secret that bypasses RLS and is never used by the app itself.
+secret that bypasses RLS and is never used by the app itself. It is **not**
+the connection `pnpm test:rls` uses — that one connects as a non-superuser
+`authenticated` role on purpose, because a superuser bypasses RLS and would
+make the suite pass while proving nothing.
 
 To test a migration locally without touching a real project, start a
 throwaway Postgres (`/opt/homebrew/opt/postgresql@14/bin`) on a spare port

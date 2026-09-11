@@ -16,7 +16,7 @@ export async function cookieClient(): Promise<SupabaseClient> {
   const store = await cookies();
   return createServerClient(
     env('NEXT_PUBLIC_SUPABASE_URL'),
-    env('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+    env('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
     {
       cookies: {
         getAll: () => store.getAll(),
@@ -40,7 +40,7 @@ export async function cookieClient(): Promise<SupabaseClient> {
 export function bearerClient(token: string): SupabaseClient {
   return createClient(
     env('NEXT_PUBLIC_SUPABASE_URL'),
-    env('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+    env('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
     {
       global: { headers: { Authorization: `Bearer ${token}` } },
       auth: { persistSession: false, autoRefreshToken: false },
