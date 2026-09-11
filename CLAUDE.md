@@ -92,6 +92,20 @@ throwaway Postgres (`/opt/homebrew/opt/postgresql@14/bin`) on a spare port
 over TCP — the socket path in the scratchpad exceeds the 103-byte limit —
 stub `auth.users` and `auth.uid()`, then point `pnpm migrate --url` at it.
 
+## Triggers on `auth.users`
+
+`create_default_settings` fires inside Supabase's **signup transaction**, so
+anything it raises rolls the whole signup back and the client sees only
+`unexpected_failure` / "Database error saving new user" with a 500 — the
+useful error is swallowed by the Auth service.
+
+It is `security definer` **with `set search_path = public, pg_temp`**. Both
+halves matter: definer gives it the owner's privileges, and the pinned path
+resolves `user_settings` regardless of the caller's own search path — the
+caller is `supabase_auth_admin`, which does not have `public` on its path.
+Any future definer function needs the same treatment, which is also the
+standard hardening against a caller shadowing a table name.
+
 ## API layer
 
 All routes live in `apps/web/src/app/api/v1/`. Shared plumbing in

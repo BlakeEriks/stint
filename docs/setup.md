@@ -111,16 +111,6 @@ with USD, an 8-hour runaway threshold, and `INV-1` — verified.
 Then: **Settings** (rate and business identity, since everything falls back
 to them) → **Clients** → a project from the timer's picker.
 
-## 6. Delete the preview harness
-
-`apps/web/src/app/preview/` exists only because there was no live project. It
-stubs `fetch` so the real components could be seen without auth. Once sign-in
-works it is dead weight that can drift from the real screens:
-
-```bash
-rm -rf apps/web/src/app/preview
-```
-
 ## Adding Apple and Google later
 
 Both are Supabase providers, enabled per-provider under **Authentication →
