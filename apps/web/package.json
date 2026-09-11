@@ -7,9 +7,10 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types --import ./test/loader-register.mjs test/*.test.ts"
+    "test": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/*.test.ts"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.9.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
     "@tt/core": "workspace:*",
@@ -21,9 +22,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
     "@types/react": "^19.0.2",
-    "typescript": "^5.7.2",
     "pg": "^8.13.1",
-    "@types/pg": "^8.11.10"
+    "typescript": "^5.7.2"
   }
 }

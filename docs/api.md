@@ -53,11 +53,27 @@ invoices reference these rows.
 
 | Method | Path | Notes |
 |---|---|---|
+| `GET` | `/invoices` | `?clientId&status&limit`, newest first. |
 | `POST` | `/invoices/preview` | **No side effects.** Returns resolved rates, line items, totals, and `unratedEntryIds`. |
-| `POST` | `/invoices` | Allocates the number, freezes line items, locks entries. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate. |
-| `GET` | `/invoices/:id/pdf` | `@react-pdf/renderer`. |
-| `POST` | `/invoices/:id/send` | Email to the client. |
+| `POST` | `/invoices` | Allocates the number, freezes line items, locks entries. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if the period holds no billable time. |
+| `GET` | `/invoices/:id` | Invoice + frozen line items + client. |
+| `DELETE` | `/invoices/:id` | **Drafts only.** An issued invoice must be voided, so numbering stays gapless. Releases its entries. |
+| `GET` | `/invoices/:id/pdf` | `@react-pdf/renderer`, rendered from the frozen line items. |
+| `POST` | `/invoices/:id/send` | Renders, emails, then marks sent. `markOnly: true` records it as sent without emailing. |
 | `PATCH` | `/invoices/:id/status` | `draft \| sent \| paid \| void`. |
+
+**Status transitions are constrained:** draft→sent/void, sent→paid/void, paid→void.
+Nothing returns to draft — leaving `draft` is what locked the entries, and
+reopening would let billed time change after the client saw it. Voiding
+releases the entries for re-billing while the number stays on record.
+
+**Sending is an action, not an idempotent status write.** Only a draft can be
+sent; re-sending would email a second copy and overwrite `sentAt`. The status
+change happens *after* delivery succeeds, so a failed send leaves the invoice
+in draft rather than claiming it reached a client who never got it.
+
+**Excluded from billing:** running timers (you cannot bill time still
+accruing), non-billable entries, and entries already attached to an invoice.
 
 **Preview before generate is mandatory in the UI.** Generation is the step that
 allocates a gapless number and locks entries — it must never be a surprise.

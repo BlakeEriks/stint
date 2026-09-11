@@ -3,6 +3,10 @@
 // triggers and the partial unique index. Only the transport differs.
 import pg from 'pg';
 
+// Tables with no user_id column: access is inherited from the parent row
+// via RLS, so the shim must not add a user scope to them.
+const NO_USER_SCOPE = new Set(['invoice_line_items']);
+
 export function makeDb(pool, userId) {
   const run = async (sql, params) => {
     try {
@@ -30,6 +34,8 @@ export function makeDb(pool, userId) {
       not(c, _op, v) { st.wheres.push(() => `${c} IS NOT ${v === null ? 'NULL' : v}`); return api; },
       gte(c, v) { st.wheres.push((P) => `${c} >= ${P(v)}`); return api; },
       lte(c, v) { st.wheres.push((P) => `${c} <= ${P(v)}`); return api; },
+      lt(c, v) { st.wheres.push((P) => `${c} < ${P(v)}`); return api; },
+      gt(c, v) { st.wheres.push((P) => `${c} > ${P(v)}`); return api; },
       in(c, vs) {
         if (!vs.length) { st.wheres.push(() => 'false'); return api; }
         st.wheres.push((P) => `${c} = ANY(${P(vs)})`); return api;
@@ -39,14 +45,21 @@ export function makeDb(pool, userId) {
 
       async _exec() {
         const P = (v) => { st.params.push(v); return `$${st.params.length}`; };
-        const whereSql = () => [`user_id = ${P(userId)}`, ...st.wheres.map((w) => w(P))].join(' AND ');
+        const whereSql = () => {
+          const parts = st.wheres.map((w) => w(P));
+          if (!NO_USER_SCOPE.has(st.table)) parts.unshift(`user_id = ${P(userId)}`);
+          return parts.length ? parts.join(' AND ') : 'true';
+        };
         let sql;
         if (st.op === 'insert') {
           // No WHERE clause on an insert — adding the user scope here would
           // leave an unused placeholder and break parameter inference.
-          const keys = Object.keys(st.payload);
-          const vals = keys.map((k) => P(st.payload[k]));
-          sql = `insert into ${st.table} (${keys.join(',')}) values (${vals.join(',')}) returning ${st.cols}`;
+          const rows = Array.isArray(st.payload) ? st.payload : [st.payload];
+          const keys = Object.keys(rows[0] ?? {});
+          const tuples = rows
+            .map((r) => `(${keys.map((k) => P(r[k])).join(',')})`)
+            .join(',');
+          sql = `insert into ${st.table} (${keys.join(',')}) values ${tuples} returning ${st.cols}`;
         } else if (st.op === 'update') {
           // SET placeholders must be numbered before the WHERE ones.
           const sets = Object.keys(st.payload).map((k) => `${k} = ${P(st.payload[k])}`);
@@ -74,5 +87,20 @@ export function makeDb(pool, userId) {
     return api;
   }
 
-  return { from, auth: { getUser: async () => ({ data: { user: { id: userId } }, error: null }) } };
+  async function rpc(fn, args = {}) {
+    const keys = Object.keys(args);
+    const params = keys.map((k) => args[k]);
+    const placeholders = keys.map((_, i) => `$${i + 1}`);
+    const { rows, error } = await run(
+      `select * from ${fn}(${placeholders.join(',')})`,
+      params,
+    );
+    return { data: error ? null : rows, error };
+  }
+
+  return {
+    from,
+    rpc,
+    auth: { getUser: async () => ({ data: { user: { id: userId } }, error: null }) },
+  };
 }

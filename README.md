@@ -5,8 +5,9 @@ and deliberately nothing else.
 
 ## Status
 
-Foundation plus the API layer. Design system, schema, shared logic and all
-`/api/v1/*` route handlers are built and verified. No UI yet.
+Foundation plus the complete API layer. Design system, schema, shared logic
+and all 18 `/api/v1/*` route handlers — including invoicing and PDF
+generation — are built and verified. No UI yet.
 
 ## Layout
 

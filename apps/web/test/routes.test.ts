@@ -174,12 +174,12 @@ test('editing an entry billed on a sent invoice returns 409 ENTRY_LOCKED', async
   }));
 
   await pool.query(`insert into clients (id,user_id,name) values ($1,$2,'C')`,
-    ['c0000000-0000-0000-0000-000000000001', USER]);
+    ['cc000000-0000-4000-8000-000000000001', USER]);
   await pool.query(`insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
                     values ($1,$2,$3,'INV-0001',1,'sent')`,
-    ['f0000000-0000-0000-0000-000000000001', USER, 'c0000000-0000-0000-0000-000000000001']);
+    ['ff000000-0000-4000-8000-000000000001', USER, 'cc000000-0000-4000-8000-000000000001']);
   await pool.query('update time_entries set invoice_id=$1 where id=$2',
-    ['f0000000-0000-0000-0000-000000000001', id]);
+    ['ff000000-0000-4000-8000-000000000001', id]);
 
   const ctx = { params: Promise.resolve({ id }) };
   const edit = await json(await patch(req(`/entries/${id}`, { taskName: 'Changed' }, 'PATCH'), ctx));

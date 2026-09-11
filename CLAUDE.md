@@ -87,3 +87,42 @@ properties** — write constructor fields explicitly in any code the tests load.
 Zod 4 is used throughout: `z.uuid()`, `z.iso.datetime()`, `z.email()`,
 `z.record(z.string(), z.unknown())`. Keep every workspace package on the same
 Zod major, or `z.infer` degrades to `unknown` across package boundaries.
+
+## Invoicing
+
+Line-item construction lives in `packages/core/src/invoice.ts` — pure, so the
+preview a user approves and the invoice that issues are built by identical
+code. Routes in `apps/web/src/app/api/v1/invoices/`; shared loaders in
+`apps/web/src/lib/invoicing.ts`.
+
+### Rules that must not regress
+
+- **The rate is always part of the grouping key.** Two entries with the same
+  task name but different rates must never merge — the line would misstate
+  what the client is charged.
+- **Amounts round once, per line, from summed seconds.** Rounding per entry
+  then summing drifts (3 × 20min would give 99.99 instead of 100.00).
+- **Line items are frozen at generation.** Never recompute a PDF from time
+  entries; re-downloading a year later must produce the same document.
+- **Only drafts can be sent or deleted.** Sending is an action, not a status
+  write — the status change happens after delivery succeeds.
+- **Voiding releases entries; it does not remove the number.** Numbering stays
+  gapless.
+- Running timers, non-billable entries, and already-invoiced entries never
+  reach an invoice.
+
+### Email
+
+`apps/web/src/lib/email.ts` is a seam, not a guess — no provider is chosen. A
+Resend implementation is included; set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`
+and `RESEND_API_KEY` to enable it. Until then `markOnly: true` records an
+invoice as sent.
+
+### PDF and the test runner
+
+JSX lives only in `invoice-pdf.tsx`; routes import `renderInvoicePdf`
+**dynamically** so the handlers stay loadable by the type-stripping test
+runner. `test/loader.mjs` transforms `.tsx` through the SWC binary Next ships.
+
+Route tests run with `--test-concurrency=1`: both test files share one database
+and truncate tables in `beforeEach`, so parallel files clobber each other.
