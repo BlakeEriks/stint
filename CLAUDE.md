@@ -184,3 +184,40 @@ visible — which is what fraud-prevention guidance tells payers to challenge.
 `docs/api.md` marks unimplemented endpoints **(not implemented)** — currently
 `POST /sync`. Keep that honest: the audit that produced this section found
 docs describing planned work as built, which is worse than no docs.
+
+## Web UI
+
+Tailwind 4. Semantic tokens are registered in `@theme` by the token
+generator, so `bg-surface-base`, `text-muted`, `border-edge-subtle`,
+`text-on-accent` are real utilities and a hardcoded hex has nothing to hide
+behind.
+
+**Two things that bite here:**
+
+1. **Tailwind parses `text-`/`bg-`/`border-` as the utility prefix**, so a
+   token named `text-muted` must register as `--color-muted` or no utility is
+   generated. The generator strips those prefixes: `bg-*` → `surface-*`,
+   `border-*` → `edge-*`, `text-*` → bare. Check `dist/tokens.css` for the
+   real names rather than guessing from the token file.
+2. **`@theme inline` resolves `var()` at its own position**, so it is emitted
+   last, after the light/dark blocks. Moving it earlier silently freezes every
+   utility to the light palette.
+
+The app is dark-first: `prefers-color-scheme: light` only applies under an
+explicit `[data-theme="light"]`, so an un-stamped viewer gets the dark theme
+the palette was derived for.
+
+Import the token CSS by **relative path**, not the package export — Tailwind
+does not follow package specifiers when collecting `@theme` values.
+
+### The timer
+
+`useTimer` counts locally from `startedAt` and reconciles with `/summary`
+every 60s and on focus. `serverTime` corrects for a skewed device clock.
+
+Before hydration it counts from the server's timestamp, not `Date.now()` —
+otherwise SSR and the client render different seconds and React reports a
+hydration mismatch.
+
+Today's total subtracts the running timer's elapsed-at-fetch before adding
+the live count, or the running time is counted twice.

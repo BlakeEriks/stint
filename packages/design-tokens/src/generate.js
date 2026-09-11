@@ -39,6 +39,23 @@ const semanticVars = (theme) =>
 // ── CSS ────────────────────────────────────────────────────────────
 // Dark is the primary theme: the bare :root carries it, so the
 // un-stamped "system" state and an explicit dark choice both resolve.
+//
+// Semantic tokens are also registered in Tailwind's @theme, which turns each
+// one into a utility (`bg-primary`, `text-muted`, `border-control`). That is
+// what makes hardcoding a hex in a component impossible: there is a utility
+// for every legitimate color and no utility for anything else.
+// Tailwind reads `text-muted` as the utility prefix `text-` plus the theme
+// key `muted`, so a token named `text-muted` must be registered as
+// `--color-muted` or no utility is generated. Strip the redundant
+// bg-/text-/border- prefix; everything else keeps its name.
+const utilityKey = (name) =>
+  name.replace(/^(bg|text|border)-/, (_, p) => (p === 'bg' ? 'surface-' : p === 'text' ? '' : 'edge-'));
+
+const themeBlock = () =>
+  Object.keys(tokens.semantic.dark)
+    .map((name) => `  --color-${utilityKey(name)}: var(--${name});`)
+    .join('\n');
+
 const css = `/* GENERATED from tokens.json — do not edit by hand. */
 /* ${tokens.$meta.derivation} */
 
@@ -56,8 +73,11 @@ ${Object.entries(tokens.space).map(([k, v]) => `  --space-${k}: ${v}px;`).join('
 ${Object.entries(tokens.radius).map(([k, v]) => `  --radius-${k}: ${v}px;`).join('\n')}
 }
 
+/* The app is DARK-first, so a light OS preference does not flip it — only an
+   explicit [data-theme="light"] does. A viewer who has not chosen gets dark,
+   which is the theme the palette was derived for. */
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
+  :root[data-theme="light"] {
 ${semanticVars('light')}
   }
 }
@@ -68,6 +88,14 @@ ${semanticVars('light')}
 
 :root[data-theme="dark"] {
 ${semanticVars('dark')}
+}
+
+/* Tailwind utilities for every semantic token, so bg-primary and
+   text-muted exist and a hardcoded hex has no utility to hide behind.
+   Declared LAST: @theme inline resolves var() at its own position, so the
+   theme blocks above must already be in scope. */
+@theme inline {
+${themeBlock()}
 }
 `;
 writeFileSync(join(out, 'tokens.css'), css);

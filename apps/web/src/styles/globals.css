@@ -1,0 +1,37 @@
+@import 'tailwindcss';
+
+/* Generated from packages/design-tokens/tokens.json — run `pnpm tokens`.
+   Defines the semantic CSS vars and registers each in Tailwind's @theme, so
+   bg-primary / text-muted resolve to the OKLCH-derived values.
+
+   A relative path, not the package export: Tailwind must parse this file
+   itself to see its @theme block, and it does not follow package
+   specifiers when collecting theme values. */
+@import '../../../../packages/design-tokens/dist/tokens.css';
+
+@layer base {
+  html {
+    color-scheme: dark;
+    /* next/font supplies the loaded families; the token file declares the
+       fallback stacks, so bind them here rather than duplicating either. */
+    --font-sans: var(--font-plex-sans), system-ui, -apple-system, sans-serif;
+    --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+  }
+
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Durations sit in columns and must not reflow as digits change. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+  }
+}
