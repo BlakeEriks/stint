@@ -11,6 +11,10 @@
  * Fixture notes: deliberately exercises the awkward cases — mixed rates on one
  * invoice, a tax line, multi-line addresses, and a long description — because
  * a sample that only shows the easy path hides the layout problems.
+ *
+ * A US contractor invoicing services usually has NO tax line; the non-round
+ * rate here exists to exercise tax rendering and rounding, not to suggest a
+ * default. Leave `taxRate` at 0 on a client unless they actually owe tax.
  */
 import { register } from 'node:module';
 import { pathToFileURL } from 'node:url';
@@ -45,14 +49,14 @@ export const SAMPLE = {
   taxAmount: 516.66,
   total: 6779.16,
   notes:
-    'Wire transfer preferred — bank details on request.\nThanks for a great quarter.',
+    'ACH preferred. Payment details are on file — please quote the invoice\nnumber as the reference.\nThanks for a great quarter.',
   paymentTerms: 'Net 30',
   business: {
     name: 'Blake Eriks',
-    address: '104 Rua das Laranjeiras\nRio de Janeiro, RJ 22240-003\nBrazil',
+    address: '1847 Clement Street\nSan Francisco, CA 94121\nUnited States',
     email: 'blake@example.dev',
     logoUrl: null,
-    taxId: 'BR-4471-9920',
+    taxId: 'EIN 88-4471992',
   },
   client: {
     name: 'Northwind Trading Co.',

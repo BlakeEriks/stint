@@ -18,7 +18,9 @@ than the easy path:
 - **Mixed rates on one invoice** (175, 220, 160) — the line-item builder keeps
   these on separate lines, and the sample proves the column alignment holds
   when the rate column varies.
-- **A tax line** at a non-round 8.25%, so the rounding is visible.
+- **A tax line** at a non-round 8.25%, so the rounding is visible. A US
+  contractor invoicing services usually has none — it is here to exercise the
+  rendering path, not to imply a default.
 - **Multi-line addresses** on both parties.
 - **A long description** that approaches the column boundary.
 

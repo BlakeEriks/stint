@@ -126,3 +126,16 @@ runner. `test/loader.mjs` transforms `.tsx` through the SWC binary Next ships.
 
 Route tests run with `--test-concurrency=1`: both test files share one database
 and truncate tables in `beforeEach`, so parallel files clobber each other.
+
+## Jurisdiction
+
+**This product is built from a US point of view.** Default to USD, US date and
+number formats, US banking rails (ACH routing + account number, checks), and
+US tax framing (1099 contracting, W-9, no VAT). A US contractor invoicing
+services usually has no tax line at all — `tax_rate` defaults to 0 and should
+stay there unless a client genuinely owes tax.
+
+International support is **additive, not the baseline**: multi-currency is
+modeled but unimplemented, and IBAN/SWIFT/PIX belong to a later payment-profile
+feature rather than the default path. Never infer a non-US jurisdiction from
+sample data or a developer's current location.
