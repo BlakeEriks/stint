@@ -31,6 +31,30 @@ architecture:
 - Plain **REST + Zod, not tRPC** — tRPC's types cannot cross into Swift. An
   OpenAPI spec generated from the Zod schemas keeps the Swift models honest.
 
+### Why Next.js, and what was rejected
+
+The framework question matters less than it appears: three clients force a
+clean HTTP API regardless of the choice, so the framework becomes mostly a
+client shell. Switching costs weeks and buys nearly nothing.
+
+- **Next.js** *(chosen)* — already the stack in use. Route Handlers are
+  Web-standard `Request → Response`, which *is* the shared API. Best-supported
+  Vercel target.
+- **TanStack Start** — genuinely the best technical fit (client-first data
+  story, SPA-friendly), but still v1-RC in 2026. Wrong risk for a solo
+  product. Worth revisiting in a year.
+- **Vite + Hono** — architecturally cleanest, and the honest version of what
+  API-first Next.js becomes. Costs a migration; pick it only if RSC turns into
+  a persistent fight.
+- **React Router 7/8** — stable, but a moving target with no advantage here.
+- **SvelteKit** — disqualified by Expo: Svelte components cannot be shared with
+  React Native.
+
+Consequences accepted: Server Actions are dead weight and RSC is confined to
+static pages; the app shell renders as client components over a TanStack Query
+cache; two routers coexist (Next for navigation, Query for data), which is a
+known boundary to watch.
+
 ## The timer invariant
 
 > At most one running time entry per user, enforced by the database.
@@ -47,6 +71,14 @@ along with the running entry, so the client can display it.
 
 This makes overlapping entries *structurally impossible* rather than something
 to reconcile later — which is what keeps invoices trustworthy.
+
+Enforcing it in the **database** rather than in API code means no code path —
+including one written later — can produce an overlap.
+
+The cost is that the timer is the one feature which is not fully
+offline-capable: *starting* needs the network. A running timer keeps ticking
+locally from its known `startedAt`, and completed entries still queue offline.
+Clients must treat 409 as a normal flow rather than an error state.
 
 ## Offline
 
@@ -73,6 +105,8 @@ Deliberately not adopting ElectricSQL, PowerSync, Zero, Yjs, or Replicache.
 - **Zero needs an always-on `zero-cache`** holding a persistent replication
   connection to Postgres, which destroys the cheap Vercel + Supabase posture.
 - **Yjs / Replicache are the wrong shape** — CRDTs for collaborative editing.
+- **TinyBase** is the closest lightweight option, but still means modeling the
+  data in its stores to replace ~115 lines.
 
 The replacement is ~115 lines in `packages/core/src/outbox.ts`:
 client-generated UUIDv7 (so retries are idempotent), an append-only queue,
@@ -83,6 +117,11 @@ only needed once a client that works offline exists.
 Optional later polish: TanStack DB as the client store — it works over plain
 REST with no sync engine. Its SQLite persistence was alpha as of 0.6, so treat
 it as polish, not foundation.
+
+The trade accepted: owning the sync logic, including replay and coalescing
+edge cases, in exchange for no vendor risk, no extra infrastructure, and code
+that is fully debuggable. The upgrade path is preserved — TanStack DB can
+later swap in a PowerSync or Electric adapter if this judgment proves wrong.
 
 ## Auth
 

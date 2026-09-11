@@ -3,8 +3,9 @@
 A time tracker for solo contractors. The product thesis is **restraint**; Toggl
 is the comparison point and it does too much.
 
-Read `docs/decisions/` before changing anything structural. The four ADRs cover
-choices that were made deliberately and should not be re-litigated casually.
+Read `docs/` before changing anything structural. The rationale for each
+deliberate choice — and what was rejected — lives inline in the spec it
+belongs to, so it is read alongside the thing it constrains.
 
 ## Non-negotiables
 

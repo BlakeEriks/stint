@@ -19,6 +19,23 @@ trustworthy.
 auto-corrected. Rates are frozen onto invoices at generation. In a billing
 system, silent modification is a trust failure, and trust is the whole product.
 
+> The most common way a time tracker produces a wrong invoice: you forget to
+> stop at 5pm and come back at 9am to a 16-hour entry. Past
+> `max_timer_hours` (default 8, configurable) clients render the timer in
+> `--timer-warning` — computed locally, no server involvement — and
+> `GET /timer/current` and `GET /summary` both return `exceedsThreshold`. The
+> user chooses: keep, adjust, or discard.
+>
+> Auto-trimming would mean the billing system silently changed a record of
+> billable work. Even when the guess is right, the user cannot tell what
+> happened. Surfacing costs one prompt; silent correction costs confidence in
+> every number the app reports.
+>
+> macOS idle detection was considered and deferred — it is Mac-only and needs
+> a background watcher, while the threshold rule works identically on all
+> three platforms with one implementation. A push notification at the
+> threshold is deferred too (needs APNs/FCM).
+
 **Server owns truth; clients own responsiveness.** The timer keeps ticking
 locally with no network, but the server decides whether it is running. Clients
 never guess at global state.
