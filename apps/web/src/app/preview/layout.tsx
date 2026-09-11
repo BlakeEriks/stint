@@ -58,6 +58,7 @@ export default function PreviewLayout({
 
   useEffect(() => {
     const store: Record<string, any>[] = seed();
+    const projects: Record<string, any>[] = [];
     const real = window.fetch.bind(window);
 
     const json = (body: unknown, status = 200) =>
@@ -108,7 +109,14 @@ export default function PreviewLayout({
         }
       }
 
-      if (path === '/projects') return json({ projects: [] });
+      if (path === '/projects' && method === 'GET') {
+        return json({ projects });
+      }
+      if (path === '/projects' && method === 'POST') {
+        const created = { ...body, id: crypto.randomUUID(), archivedAt: null };
+        projects.push(created);
+        return json(created);
+      }
       if (path === '/summary') {
         return json({
           running: null,

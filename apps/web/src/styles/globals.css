@@ -1,4 +1,7 @@
 @import 'tailwindcss';
+/* Radix state-driven enter/exit utilities (data-[state=open]:animate-in …)
+   that the vendored dialog and dropdown rely on. */
+@import 'tw-animate-css';
 
 /* Generated from packages/design-tokens/tokens.json — run `pnpm tokens`.
    Defines the semantic CSS vars and registers each in Tailwind's @theme, so

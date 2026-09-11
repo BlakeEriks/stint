@@ -106,6 +106,15 @@ const MAP = [
   // contract.
   ['text-white', 'text-on-danger'],
 
+  // Dialogs and menus float ABOVE the page, so they take the raised surface
+  // and our elevation token — not the ground and not Tailwind's default.
+  ['bg-black/50', 'bg-overlay'],
+  // `bg-background` on a dialog means "the app's own surface", but ours is
+  // the recessed ground — a floating panel must take the raised one.
+  ['rounded-lg border bg-background', 'rounded-lg border bg-surface-elevated'],
+  ['shadow-lg', 'shadow-float'],
+  ['shadow-md', 'shadow-card'],
+
   ['fill-primary', 'fill-accent-default'],
   ['stroke-primary', 'stroke-accent-default'],
 ];

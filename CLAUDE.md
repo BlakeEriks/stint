@@ -240,6 +240,12 @@ diff. Add any unmapped name to `MAP` rather than hand-editing the file.
 utility with no warning and exit 0, so a surviving `bg-primary` renders our
 grey on a primary button and the build still passes. `pnpm detox` runs in CI.
 
+Beyond colours, the converter also rewrites what the check cannot see:
+`bg-black/50` → `bg-overlay`, Tailwind's `shadow-lg`/`shadow-md` → our
+elevation tokens, and a floating panel's `bg-background` → `bg-surface-elevated`
+(shadcn means "the app surface"; ours is the recessed ground, so a dialog left
+on it would sit *below* the page it floats over).
+
 The converter is one pass over an alternation, not sequential `replaceAll` —
 cascading turned `bg-primary` into `bg-surface-hover-default` (a green button
 silently grey) when a later rule matched its own output.

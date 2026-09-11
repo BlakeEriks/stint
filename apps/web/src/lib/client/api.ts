@@ -81,9 +81,15 @@ export interface Project {
   id: string;
   clientId: string | null;
   name: string;
+  hourlyRate: number | null;
   color: string | null;
   isBillableDefault: boolean;
+  archivedAt: string | null;
 }
+
+/** Everything a project is created or edited with. */
+export type ProjectInput = Partial<Omit<Project, 'id' | 'archivedAt'>> &
+  Pick<Project, 'name'>;
 
 export interface Client {
   id: string;
@@ -128,7 +134,20 @@ export const api = {
 
   deleteEntry: (id: string) => request<void>('DELETE', `/entries/${id}`),
 
-  projects: () => request<{ projects: Project[] }>('GET', '/projects'),
+  projects: (opts: { includeArchived?: boolean } = {}) =>
+    request<{ projects: Project[] }>(
+      'GET',
+      `/projects${opts.includeArchived ? '?includeArchived=true' : ''}`,
+    ),
+
+  createProject: (body: ProjectInput) =>
+    request<Project>('POST', '/projects', body),
+
+  updateProject: (id: string, body: Partial<ProjectInput>) =>
+    request<Project>('PATCH', `/projects/${id}`, body),
+
+  /** Archival, not deletion — entries and invoices reference projects. */
+  archiveProject: (id: string) => request<void>('DELETE', `/projects/${id}`),
 
   /** Archived clients are excluded unless asked for. */
   clients: (opts: { includeArchived?: boolean } = {}) =>

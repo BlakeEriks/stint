@@ -1,12 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ProjectDialog } from './project-dialog';
 import type { Project } from '@/lib/client/api';
 
 /** "No project" is a real choice, not an absent one, so it needs a value. */
@@ -33,7 +37,10 @@ export function ProjectPicker({
   onChange: (id: string | null) => void;
   selected?: Project;
 }) {
+  const [creating, setCreating] = useState(false);
+
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Project"
@@ -71,8 +78,22 @@ export function ProjectPicker({
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => setCreating(true)}>
+          + New project
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+
+    {/* Selecting the new project immediately is the point of creating one
+        from here — otherwise the user has to reopen the menu and find it. */}
+    <ProjectDialog
+      open={creating}
+      onOpenChange={setCreating}
+      onSaved={(project) => onChange(project.id)}
+    />
+    </>
   );
 }
 
