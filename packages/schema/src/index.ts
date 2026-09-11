@@ -1,9 +1,9 @@
 /**
  * The API contract. Single source of truth.
  *
- * Web and Expo import these directly. The macOS Swift client can't, so an
- * OpenAPI spec is generated from these schemas to keep hand-written Swift
- * models honest — see `pnpm --filter @tt/schema openapi`.
+ * Web and Expo import these directly. The macOS Swift client can't; the plan
+ * is to generate an OpenAPI spec from these schemas to keep hand-written
+ * Swift models honest, but that generator is not written yet.
  */
 
 import { z } from 'zod';
@@ -108,6 +108,8 @@ export const Summary = z.object({
   running: TimeEntry.nullable(),
   todaySeconds: z.number().int().nonnegative(),
   weekSeconds: z.number().int().nonnegative(),
+  exceedsThreshold: z.boolean(),
+  maxTimerHours: z.number().positive(),
   serverTime: iso,
 });
 
@@ -126,8 +128,12 @@ export const Settings = z.object({
   defaultPaymentTerms: z.string().max(200),
   invoiceNumberPrefix: z.string().max(20),
   nextInvoiceNumber: z.number().int().positive(),
+  /** Standing anti-fraud line printed under the invoice payment block. */
+  paymentNotice: z.string().max(500).nullable(),
 });
-export const UpdateSettings = Settings.partial();
+/** `nextInvoiceNumber` is not client-settable: gapless numbering depends on
+ *  allocate_invoice_number() holding the row lock. */
+export const UpdateSettings = Settings.partial().omit({ nextInvoiceNumber: true });
 
 // ── invoicing ──────────────────────────────────────────────────────
 export const GroupingMode = z.enum(['entry', 'task', 'project', 'day']);
@@ -137,6 +143,8 @@ export const InvoicePreviewRequest = z.object({
   periodStart: z.iso.date(),
   periodEnd: z.iso.date(),
   groupingMode: GroupingMode.default('entry'),
+  /** IANA zone; only affects `day` grouping. */
+  tz: z.string().default('UTC'),
 });
 
 export const InvoiceLineItem = z.object({
@@ -162,13 +170,75 @@ export const InvoicePreview = z.object({
 });
 
 export const CreateInvoice = InvoicePreviewRequest.extend({
+  issueDate: z.iso.date().optional(),
   dueDate: z.iso.date().optional(),
   notes: z.string().max(2000).optional(),
   paymentTerms: z.string().max(200).optional(),
 });
 
 export const InvoiceStatus = z.enum(['draft', 'sent', 'paid', 'void']);
-export const UpdateInvoiceStatus = z.object({ status: InvoiceStatus });
+export const UpdateInvoiceStatus = z.object({
+  status: InvoiceStatus,
+  /** Record a payment that arrived earlier than now. */
+  paidAt: iso.optional(),
+});
+
+// ── payment profiles ───────────────────────────────────────────────
+// Bank details render on the invoice PDF, never in an email body.
+// US-first: account + ACH routing is the default path, everything else
+// is additive and renders only when populated.
+export const PaymentProfile = z.object({
+  id: uuid,
+  name: z.string().trim().min(1).max(100),
+  isDefault: z.boolean(),
+
+  accountHolderName: z.string().max(200).nullable().optional(),
+  accountHolderAddress: z.string().max(1000).nullable().optional(),
+  bankName: z.string().max(200).nullable().optional(),
+  bankAddress: z.string().max(1000).nullable().optional(),
+  accountNumber: z.string().max(64).nullable().optional(),
+  routingNumber: z.string().max(64).nullable().optional(),
+  accountType: z.enum(['checking', 'savings']).nullable().optional(),
+
+  iban: z.string().max(64).nullable().optional(),
+  swiftBic: z.string().max(16).nullable().optional(),
+  localCodeLabel: z.string().max(64).nullable().optional(),
+  localCode: z.string().max(64).nullable().optional(),
+
+  intermediaryBankName: z.string().max(200).nullable().optional(),
+  intermediarySwiftBic: z.string().max(16).nullable().optional(),
+  intermediaryAccountNumber: z.string().max(64).nullable().optional(),
+
+  paymentLinkLabel: z.string().max(64).nullable().optional(),
+  paymentLinkUrl: z.url().nullable().optional(),
+
+  currency: currency.nullable().optional(),
+  feeAllocation: z.enum(['OUR', 'SHA', 'BEN']).nullable().optional(),
+  notes: z.string().max(1000).nullable().optional(),
+  archivedAt: iso.nullable().optional(),
+});
+
+export const CreatePaymentProfile = PaymentProfile.omit({
+  id: true,
+  isDefault: true,
+  archivedAt: true,
+}).extend({
+  id: uuid.optional(),
+  isDefault: z.boolean().default(false),
+});
+
+export const UpdatePaymentProfile = CreatePaymentProfile.partial()
+  .omit({ id: true })
+  .extend({ archived: z.boolean().optional() });
+
+/** The frozen snapshot stored on an invoice. */
+export const PaymentDetailsSnapshot = z.object({
+  title: z.string().nullable(),
+  fields: z.array(z.object({ label: z.string(), value: z.string() })),
+  intermediary: z.array(z.object({ label: z.string(), value: z.string() })),
+  link: z.object({ label: z.string(), url: z.string() }).nullable(),
+  notes: z.string().nullable(),
+});
 
 // ── sync ───────────────────────────────────────────────────────────
 export const SyncMutation = z.object({
@@ -213,6 +283,10 @@ export const ErrorCode = z.enum([
   'VALIDATION_FAILED',
 ]);
 
+/** What `handle()` emits for an unhandled error. Separate from ErrorCode
+ *  because it is never something a client can act on. */
+export const INTERNAL_ERROR_CODE = 'INTERNAL' as const;
+
 export const ApiError = z.object({
   code: ErrorCode,
   message: z.string(),
@@ -226,6 +300,8 @@ export type CurrentTimer = z.infer<typeof CurrentTimer>;
 export type Summary = z.infer<typeof Summary>;
 export type Settings = z.infer<typeof Settings>;
 export type InvoicePreview = z.infer<typeof InvoicePreview>;
+export type PaymentProfile = z.infer<typeof PaymentProfile>;
+export type PaymentDetailsSnapshot = z.infer<typeof PaymentDetailsSnapshot>;
 export type SyncRequest = z.infer<typeof SyncRequest>;
 export type SyncResponse = z.infer<typeof SyncResponse>;
 export type ApiError = z.infer<typeof ApiError>;

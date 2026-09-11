@@ -5,46 +5,64 @@ and deliberately nothing else.
 
 ## Status
 
-Foundation plus the complete API layer. Design system, schema, shared logic
-and all 18 `/api/v1/*` route handlers — including invoicing and PDF
-generation — are built and verified. No UI yet.
+Design system, schema, shared logic and the `/api/v1/*` route handlers —
+including invoicing, payment details and PDF generation — are built and
+covered by integration tests.
+
+**Not built yet:** any UI, the mobile and macOS apps, and the `POST /sync`
+handler (the client-side outbox exists; the server half does not).
 
 ## Layout
 
 ```
 docs/            architecture, data model, API contract, ADRs, design system
+docs/design/samples/  committed renderer output
 packages/
   schema/        Zod schemas — the API contract
-  core/          timer math, rate resolution, outbox, duration formatting
-  design-tokens/ tokens.json -> CSS + TS + Swift (generated)
+  core/          duration, rates, timer, uuid, outbox, calendar,
+                 invoice, payment
+  design-tokens/ tokens.json -> CSS + TS + Swift (generated into dist/)
   api-client/    typed fetch wrapper
 apps/
-  web/           Next.js — all features
-  mobile/        Expo
-  macos/         Swift menu bar
+  web/           Next.js — the API layer
 supabase/migrations/
 ```
+
+`apps/mobile` (Expo) and `apps/macos` (Swift) are planned, not created.
 
 ## Commands
 
 ```bash
-pnpm tokens             # regenerate CSS / TS / Swift from tokens.json
-pnpm tokens:validate    # assert the contrast contract (runs in CI)
-pnpm test               # package tests
+pnpm tokens                      # generate CSS / TS / Swift from tokens.json
+pnpm tokens:validate             # assert the contrast contract (runs in CI)
+pnpm --filter @tt/core test      # pure logic, no database needed
 pnpm --filter @tt/web dev
+pnpm --filter @tt/web typecheck
+pnpm --filter @tt/web sample:invoice   # regenerate docs/design/samples/
 ```
+
+Run `pnpm tokens` first on a clean checkout: `@tt/design-tokens` resolves
+through the generated `dist/`.
 
 ### Running the API tests
 
-They exercise the real handlers against a real database:
+They exercise the real handlers against a real database, so **every**
+migration must be applied and the Supabase `auth` schema stubbed:
 
 ```bash
-createdb tt && psql tt -f supabase/migrations/00000000000001_init.sql
+createdb tt
+psql tt -c "create schema auth" \
+       -c "create table auth.users (id uuid primary key default gen_random_uuid(), email text)" \
+       -c "create function auth.uid() returns uuid language sql stable as \$\$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid \$\$"
+for f in supabase/migrations/*.sql; do psql tt -f "$f"; done
 DATABASE_URL=postgresql://localhost/tt pnpm --filter @tt/web test
 ```
 
-See `.github/workflows/ci.yml` for the full sequence, including the `auth`
-schema stub that stands in for Supabase locally.
+The tests disable RLS to run through a direct connection, so RLS itself is
+not covered by them. `.github/workflows/ci.yml` is the authoritative sequence.
+
+Note that the root `pnpm test` recurses into `@tt/web`, which needs
+`DATABASE_URL` — use the per-package commands above on a clean checkout.
 
 ## Read first
 

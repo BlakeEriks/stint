@@ -14,9 +14,10 @@ A configurable threshold (`user_settings.max_timer_hours`, default 8). Past it:
 
 - Clients render the timer in `--timer-warning` instead of the accent —
   computed locally, no server involvement.
-- `GET /timer/current` returns `exceedsThreshold: true`.
+- `GET /timer/current` and `GET /summary` both return `exceedsThreshold`.
 - The client prompts on open: **keep**, **adjust**, or **discard**.
-- A push notification fires at the threshold so it is caught the same day.
+- A push notification at the threshold, so it is caught the same day
+  (**deferred — needs APNs/FCM; not implemented**).
 
 **The app never edits the entry automatically.**
 

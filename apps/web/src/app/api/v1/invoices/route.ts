@@ -6,10 +6,11 @@ import {
   loadClient,
   loadSettings,
   loadBillableEntries,
+  loadPaymentProfile,
   INVOICE_COLUMNS,
   toInvoice,
 } from '@/lib/invoicing';
-import { buildLineItems } from '@tt/core';
+import { buildLineItems, buildPaymentDetails } from '@tt/core';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -123,6 +124,14 @@ export const POST = handle(async (req: Request) => {
   const allocation = Array.isArray(allocated) ? allocated[0] : allocated;
   if (!allocation) throw new ApiError('VALIDATION_FAILED', 'Could not allocate an invoice number');
 
+  // Freeze the payment details alongside the rates. If the profile changes
+  // or is deleted later, an issued invoice must still show what the client
+  // was actually given.
+  const profile = await loadPaymentProfile(db, client.payment_profile_id);
+  const paymentDetails = buildPaymentDetails(profile, {
+    invoiceNumber: allocation.invoice_number,
+  });
+
   const { data: invoice, error: invoiceError } = await db
     .from('invoices')
     .insert({
@@ -143,6 +152,7 @@ export const POST = handle(async (req: Request) => {
       notes: body.notes ?? null,
       payment_terms: body.paymentTerms ?? settings.defaultPaymentTerms,
       grouping_mode: body.groupingMode,
+      payment_details: paymentDetails,
     })
     .select(INVOICE_COLUMNS)
     .single();

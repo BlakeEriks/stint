@@ -18,16 +18,16 @@ const c = {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 48,
-    paddingHorizontal: 48,
-    paddingBottom: 64,
+    paddingTop: 40,
+    paddingHorizontal: 44,
+    paddingBottom: 48,
     fontSize: 9.5,
     fontFamily: 'Helvetica',
     color: c.ink,
     lineHeight: 1.5,
   },
 
-  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 36 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
   logo: { width: 108, height: 36, objectFit: 'contain', marginBottom: 8 },
   bizName: { fontSize: 13, fontFamily: 'Helvetica-Bold', marginBottom: 3 },
   bizLine: { color: c.muted, fontSize: 9 },
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
-  meta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 28 },
+  meta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   metaCol: { maxWidth: '46%' },
   label: {
     fontSize: 7.5,
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    paddingVertical: 7,
+    paddingVertical: 5.5,
     borderBottomWidth: 0.5,
     borderBottomColor: c.rule,
   },
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   cAmt: { width: 86, textAlign: 'right', fontFamily: 'Courier' },
   headCell: { fontSize: 7.5, letterSpacing: 1.1, color: c.faint, fontFamily: 'Helvetica-Bold' },
 
-  totals: { marginTop: 18, alignItems: 'flex-end' },
+  totals: { marginTop: 12, alignItems: 'flex-end' },
   totalRow: { flexDirection: 'row', width: 250, justifyContent: 'space-between', paddingVertical: 3 },
   grand: {
     flexDirection: 'row',
@@ -93,14 +93,42 @@ const styles = StyleSheet.create({
   grandLabel: { fontSize: 11, fontFamily: 'Helvetica-Bold' },
   grandValue: { fontSize: 13, fontFamily: 'Courier-Bold', color: c.accent },
 
-  notes: { marginTop: 32, paddingTop: 14, borderTopWidth: 0.5, borderTopColor: c.rule },
+  notes: { marginTop: 16, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: c.rule },
+  // After the payment block, the block itself provides the separation.
+  notesAfterPay: { marginTop: 12, paddingTop: 0, borderTopWidth: 0 },
   notesBody: { color: c.muted },
+
+  // Payment block. A filled ground rather than a rule, because this is the
+  // one section a payer hunts for on the page.
+  pay: {
+    marginTop: 16,
+    padding: 11,
+    backgroundColor: c.band,
+    borderLeftWidth: 2,
+    borderLeftColor: c.ink,
+  },
+  payTitle: { fontFamily: 'Helvetica-Bold', fontSize: 9.5, marginBottom: 7 },
+  payGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  payCell: { width: '33.33%', paddingRight: 10, marginBottom: 5 },
+  payLabel: { fontSize: 7, letterSpacing: 0.9, color: c.faint, fontFamily: 'Helvetica-Bold' },
+  payValue: { fontFamily: 'Courier', fontSize: 9, lineHeight: 1.3 },
+  paySub: {
+    marginTop: 4,
+    paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: c.rule,
+  },
+  payNotes: { marginTop: 8, fontSize: 8.5, color: c.muted },
+  payLink: { marginTop: 8, fontSize: 9, color: c.accent, fontFamily: 'Helvetica-Bold' },
+  // Deliberately quiet: a warning that shouts gets tuned out, and this one
+  // needs to still read as normal on the hundredth invoice.
+  notice: { marginTop: 10, fontSize: 7.5, color: c.faint, lineHeight: 1.4 },
 
   footer: {
     position: 'absolute',
-    bottom: 32,
-    left: 48,
-    right: 48,
+    bottom: 24,
+    left: 44,
+    right: 44,
     flexDirection: 'row',
     justifyContent: 'space-between',
     fontSize: 8,
@@ -149,6 +177,16 @@ export interface InvoicePdfData {
     resolvedRate: number | null;
     amount: number | null;
   }>;
+  /** Frozen payment snapshot from the invoice; null when none was set. */
+  payment?: {
+    title: string | null;
+    fields: Array<{ label: string; value: string }>;
+    intermediary: Array<{ label: string; value: string }>;
+    link: { label: string; url: string } | null;
+    notes: string | null;
+  } | null;
+  /** Standing anti-fraud line, printed under the payment block. */
+  paymentNotice?: string | null;
 }
 
 const money = (n: number | null, currency: string) =>
@@ -282,8 +320,48 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
           ) : null}
         </View>
 
+        {data.payment ? (
+          <View style={styles.pay} wrap={false}>
+            <Text style={styles.payTitle}>
+              {data.payment.title ? `Payment — ${data.payment.title}` : 'Payment details'}
+            </Text>
+
+            <View style={styles.payGrid}>
+              {data.payment.fields.map((f, i) => (
+                <View key={i} style={styles.payCell}>
+                  <Text style={styles.payLabel}>{f.label.toUpperCase()}</Text>
+                  <Text style={styles.payValue}>{f.value}</Text>
+                </View>
+              ))}
+            </View>
+
+            {data.payment.intermediary.length > 0 ? (
+              <View style={[styles.payGrid, styles.paySub]}>
+                {data.payment.intermediary.map((f, i) => (
+                  <View key={i} style={styles.payCell}>
+                    <Text style={styles.payLabel}>{f.label.toUpperCase()}</Text>
+                    <Text style={styles.payValue}>{f.value}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {data.payment.link ? (
+              <Text style={styles.payLink}>
+                {data.payment.link.label}: {data.payment.link.url}
+              </Text>
+            ) : null}
+
+            <Lines text={data.payment.notes} style={styles.payNotes} />
+
+            {data.paymentNotice ? (
+              <Text style={styles.notice}>{data.paymentNotice}</Text>
+            ) : null}
+          </View>
+        ) : null}
+
         {data.notes ? (
-          <View style={styles.notes}>
+          <View style={data.payment ? [styles.notes, styles.notesAfterPay] : styles.notes}>
             <Text style={styles.label}>NOTES</Text>
             <Lines text={data.notes} style={styles.notesBody} />
           </View>

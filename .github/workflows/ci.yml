@@ -69,7 +69,8 @@ jobs:
             alter table projects disable row level security;
             alter table invoices disable row level security;
             alter table time_entries disable row level security;
-            alter table invoice_line_items disable row level security;"
+            alter table invoice_line_items disable row level security;
+            alter table payment_profiles disable row level security;"
 
       - name: API route tests
         env:

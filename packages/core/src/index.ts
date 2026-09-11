@@ -5,3 +5,4 @@ export * from './uuid.ts';
 export * from './outbox.ts';
 export * from './calendar.ts';
 export * from './invoice.ts';
+export * from './payment.ts';

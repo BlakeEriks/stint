@@ -33,6 +33,8 @@ beforeEach(async () => {
   await pool.query('delete from time_entries');
   await pool.query('delete from invoices');
   await pool.query('delete from projects');
+  await pool.query('update clients set payment_profile_id = null');
+  await pool.query('delete from payment_profiles');
   await pool.query('delete from clients');
   await pool.query(
     `update user_settings set default_hourly_rate=100, currency='USD',
@@ -448,4 +450,111 @@ test('an already-sent invoice cannot be sent again', async () => {
   const again = await json(await send(req('/send', { markOnly: true }),
     { params: Promise.resolve({ id: inv.body.id }) }));
   assert.equal(again.status, 422);
+});
+
+// ── payment details ────────────────────────────────────────────────
+test('an invoice freezes the payment profile at generation', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: detail } = await import('../src/app/api/v1/invoices/[id]/route.ts');
+
+  await pool.query(
+    `insert into payment_profiles (id,user_id,name,is_default,account_holder_name,
+       bank_name,account_number,routing_number,account_type)
+     values ($1,$2,'USD ACH',true,'Blake Eriks','First Republic','1234567890','021000021','checking')`,
+    ['dd000000-0000-4000-8000-000000000001', USER],
+  );
+  await seedEntry({ id: E(1), hours: 1 });
+
+  const inv = await json(await create(req('/invoices', { clientId: CLIENT, ...PERIOD })));
+  assert.equal(inv.status, 201);
+
+  const { rows } = await pool.query('select payment_details from invoices where id=$1', [inv.body.id]);
+  const frozen = rows[0].payment_details;
+  assert.ok(frozen, 'the snapshot is written at generation');
+  assert.equal(frozen.title, 'USD ACH');
+  // JSONB comes back untyped from pg.
+  type Field = { label: string; value: string };
+  const labels = (frozen.fields as Field[]).map((f) => f.label);
+  assert.deepEqual(labels, [
+    'Account holder', 'Bank', 'Account number',
+    'Routing number (ACH)', 'Account type', 'Payment reference',
+  ]);
+  assert.equal(
+    (frozen.fields as Field[]).find((f) => f.label === 'Payment reference')!.value,
+    'INV-0001',
+    'the invoice number is the reference',
+  );
+
+  // Changing the profile must not alter an issued invoice.
+  await pool.query(
+    `update payment_profiles set account_number='9999999999' where id=$1`,
+    ['dd000000-0000-4000-8000-000000000001'],
+  );
+  const after = await json(await detail(req('/i'),
+    { params: Promise.resolve({ id: inv.body.id }) }));
+  const acct = (after.body.paymentDetails.fields as Field[])
+    .find((f) => f.label === 'Account number')!;
+  assert.equal(acct.value, '1234567890', 'the frozen snapshot did not move');
+});
+
+test('a client profile preference overrides the user default', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+
+  await pool.query(
+    `insert into payment_profiles (id,user_id,name,is_default,account_number)
+     values ($1,$2,'Default',true,'111'), ($3,$2,'EUR wire',false,'222')`,
+    ['dd000000-0000-4000-8000-000000000001', USER, 'dd000000-0000-4000-8000-000000000002'],
+  );
+  await pool.query('update clients set payment_profile_id=$1 where id=$2',
+    ['dd000000-0000-4000-8000-000000000002', CLIENT]);
+  await seedEntry({ id: E(1), hours: 1 });
+
+  const inv = await json(await create(req('/invoices', { clientId: CLIENT, ...PERIOD })));
+  const { rows } = await pool.query('select payment_details from invoices where id=$1', [inv.body.id]);
+  assert.equal(rows[0].payment_details.title, 'EUR wire');
+});
+
+test('an invoice generates fine with no payment profile configured', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), hours: 1 });
+
+  const inv = await json(await create(req('/invoices', { clientId: CLIENT, ...PERIOD })));
+  assert.equal(inv.status, 201, 'payment details are useful, not required');
+
+  const { rows } = await pool.query('select payment_details from invoices where id=$1', [inv.body.id]);
+  assert.equal(rows[0].payment_details, null);
+});
+
+test('only one payment profile can be the default', async () => {
+  const { POST: createProfile } = await import('../src/app/api/v1/payment-profiles/route.ts');
+
+  const first = await json(await createProfile(req('/pp', { name: 'ACH', accountNumber: '111' })));
+  assert.equal(first.status, 201);
+  assert.equal(first.body.isDefault, true, 'the first profile becomes the default');
+
+  const second = await json(await createProfile(
+    req('/pp', { name: 'Wire', accountNumber: '222', isDefault: true })));
+  assert.equal(second.status, 201);
+
+  const { rows } = await pool.query(
+    'select count(*)::int n from payment_profiles where is_default and archived_at is null');
+  assert.equal(rows[0].n, 1, 'the partial unique index holds');
+});
+
+test('the PDF renders the payment block', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: pdf } = await import('../src/app/api/v1/invoices/[id]/pdf/route.ts');
+
+  await pool.query(
+    `insert into payment_profiles (id,user_id,name,is_default,account_number,routing_number)
+     values ($1,$2,'USD ACH',true,'1234567890','021000021')`,
+    ['dd000000-0000-4000-8000-000000000001', USER],
+  );
+  await seedEntry({ id: E(1), hours: 1 });
+  const inv = await json(await create(req('/invoices', { clientId: CLIENT, ...PERIOD })));
+
+  const res = await pdf(req('/pdf'), { params: Promise.resolve({ id: inv.body.id }) });
+  assert.equal(res.status, 200);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  assert.ok(bytes.length > 1000);
 });

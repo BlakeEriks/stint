@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ApiError } from './errors';
+import { PAYMENT_PROFILE_COLUMNS, toPaymentProfile } from './rows';
+import { resolvePaymentProfile } from '@tt/core';
 import type { BillableEntry } from '@tt/core';
 
 /** numeric columns arrive from PostgREST as strings. */
@@ -14,12 +16,13 @@ export interface ClientRow {
   hourly_rate: string | number | null;
   tax_rate: string | number | null;
   currency: string | null;
+  payment_profile_id: string | null;
 }
 
 export async function loadClient(db: SupabaseClient, clientId: string): Promise<ClientRow> {
   const { data, error } = await db
     .from('clients')
-    .select('id, name, email, address, hourly_rate, tax_rate, currency')
+    .select('id, name, email, address, hourly_rate, tax_rate, currency, payment_profile_id')
     .eq('id', clientId)
     .maybeSingle();
 
@@ -100,12 +103,13 @@ export interface InvoiceSettings {
   businessEmail: string | null;
   logoUrl: string | null;
   taxId: string | null;
+  paymentNotice: string | null;
 }
 
 export async function loadSettings(db: SupabaseClient): Promise<InvoiceSettings> {
   const { data, error } = await db
     .from('user_settings')
-    .select('default_hourly_rate, currency, default_payment_terms, invoice_number_prefix, business_name, business_address, business_email, logo_url, tax_id')
+    .select('default_hourly_rate, currency, default_payment_terms, invoice_number_prefix, business_name, business_address, business_email, logo_url, tax_id, payment_notice')
     .maybeSingle();
 
   if (error) throw error;
@@ -121,13 +125,39 @@ export async function loadSettings(db: SupabaseClient): Promise<InvoiceSettings>
     businessEmail: data.business_email ?? null,
     logoUrl: data.logo_url ?? null,
     taxId: data.tax_id ?? null,
+    paymentNotice: data.payment_notice ?? null,
   };
+}
+
+/**
+ * The payment profile that applies to a client: their explicit choice, else
+ * the user's default. Returns null when no profile is configured at all —
+ * an invoice without payment details is valid, just less useful.
+ */
+export async function loadPaymentProfile(
+  db: SupabaseClient,
+  clientProfileId: string | null,
+) {
+  const { data, error } = await db
+    .from('payment_profiles')
+    .select(PAYMENT_PROFILE_COLUMNS)
+    .is('archived_at', null);
+
+  if (error) throw error;
+  const profiles = (data ?? []).map((r) => toPaymentProfile(r as Record<string, any>));
+  if (profiles.length === 0) return null;
+
+  const defaultProfile = profiles.find((p) => p.isDefault);
+  return resolvePaymentProfile(profiles, {
+    clientProfileId,
+    defaultProfileId: defaultProfile?.id ?? null,
+  });
 }
 
 // One string literal, not a concatenation: supabase-js infers the row type
 // from the literal, and splitting it degrades every consumer to an error type.
 export const INVOICE_COLUMNS =
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, total, currency, notes, payment_terms, grouping_mode, sent_at, paid_at, pdf_url, created_at';
+  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, total, currency, notes, payment_terms, grouping_mode, payment_details, sent_at, paid_at, pdf_url, created_at';
 
 export function toInvoice(r: Record<string, any>) {
   return {
@@ -148,6 +178,7 @@ export function toInvoice(r: Record<string, any>) {
     notes: r.notes,
     paymentTerms: r.payment_terms,
     groupingMode: r.grouping_mode,
+    paymentDetails: r.payment_details ?? null,
     sentAt: r.sent_at,
     paidAt: r.paid_at,
     pdfUrl: r.pdf_url,
@@ -224,6 +255,10 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
       },
       client: { name: client.name, email: client.email, address: client.address },
       lineItems: (items.data ?? []).map((r) => toLineItem(r as Record<string, any>)),
+      // The FROZEN snapshot, never a live profile lookup: a re-downloaded
+      // invoice must show the details the client was actually given.
+      payment: invoice.paymentDetails ?? null,
+      paymentNotice: settings.paymentNotice,
     },
   };
 }

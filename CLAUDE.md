@@ -139,3 +139,32 @@ International support is **additive, not the baseline**: multi-currency is
 modeled but unimplemented, and IBAN/SWIFT/PIX belong to a later payment-profile
 feature rather than the default path. Never infer a non-US jurisdiction from
 sample data or a developer's current location.
+
+## Payment details
+
+Bank details render on the **invoice PDF, never in an email body**. Every
+major invoicing tool works this way, and it is the safer posture: details that
+render identically on every invoice create a baseline, so a *change* becomes
+visible — which is what fraud-prevention guidance tells payers to challenge.
+**Do not add an option to email them.** Placement is not a user preference.
+
+- `payment_profiles` is a named bundle of fields. **US-first**: account number
+  + ACH routing is the default path; IBAN/SWIFT, a labelled national bank
+  code, and intermediary-bank fields are additive and render only when set.
+- One default per user, enforced by a partial unique index. The first profile
+  created becomes the default automatically.
+- Resolution mirrors rates: the client's `payment_profile_id`, else the user's
+  default. A dangling reference falls back rather than rendering nothing.
+- **Invoices freeze the rendered snapshot** into `payment_details` (JSONB) at
+  generation, like rates. Editing a profile never alters an issued invoice.
+- `buildPaymentDetails` in `@tt/core` drops unset fields entirely — never
+  render an empty label, and never an empty section header.
+- The PDF payment block is `wrap={false}`: a stranded "Payment" header with
+  the account numbers overleaf is the one page break that actually harms the
+  reader.
+
+## Docs
+
+`docs/api.md` marks unimplemented endpoints **(not implemented)** — currently
+`POST /sync`. Keep that honest: the audit that produced this section found
+docs describing planned work as built, which is worse than no docs.

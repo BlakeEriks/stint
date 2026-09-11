@@ -9,11 +9,11 @@ deliberately does not want.
 
 ## Surfaces
 
-| Surface | Stack | Scope |
-|---|---|---|
-| Web | Next.js App Router, API-first | **All features.** The primary product. |
-| macOS | Native Swift menu bar app | Start / stop / view. Menu bar toggles between current timer and today's total. |
-| iOS + Android | React Native (Expo) | Start / stop / view, light editing. |
+| Surface | Stack | Scope | Status |
+|---|---|---|---|
+| Web | Next.js App Router, API-first | **All features.** The primary product. | API built, no UI |
+| macOS | Native Swift menu bar app | Start / stop / view. Menu bar toggles between current timer and today's total. | **Not started** |
+| iOS + Android | React Native (Expo) | Start / stop / view, light editing. | **Not started** |
 
 ## The shape: a client shell over an HTTP API
 
@@ -55,7 +55,8 @@ Local-first for **completed** entries; server-arbitrated for **starting** a time
 - A running timer keeps ticking locally from its known `startedAt`, so the
   display never depends on the network.
 - Completed entries, edits, clients and projects queue in an outbox and sync
-  on reconnect.
+  on reconnect. **The client-side outbox exists
+  (`packages/core/src/outbox.ts`); the `POST /sync` handler does not yet.**
 - Starting a timer requires the server, because that is the one operation with
   a global constraint.
 
@@ -73,9 +74,11 @@ Deliberately not adopting ElectricSQL, PowerSync, Zero, Yjs, or Replicache.
   connection to Postgres, which destroys the cheap Vercel + Supabase posture.
 - **Yjs / Replicache are the wrong shape** — CRDTs for collaborative editing.
 
-The replacement is ~200 lines in `packages/core/src/outbox.ts`:
+The replacement is ~115 lines in `packages/core/src/outbox.ts`:
 client-generated UUIDv7 (so retries are idempotent), an append-only queue,
-coalescing of redundant edits, and `POST /api/v1/sync` with a cursor.
+and coalescing of redundant edits. The server half — `POST /api/v1/sync`
+with a cursor — is **specified in `docs/api.md` but not implemented**; it is
+only needed once a client that works offline exists.
 
 Optional later polish: TanStack DB as the client store — it works over plain
 REST with no sync engine. Its SQLite persistence was alpha as of 0.6, so treat
@@ -115,15 +118,19 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
 ## Repo layout
 
 ```
-packages/schema         Zod schemas — the API contract, single source of truth
-packages/core           Timer math, rate resolution, outbox, duration formatting
-packages/design-tokens  tokens.json -> CSS + TS + Swift (generated, never copied)
+packages/schema         Zod schemas — the API contract
+packages/core           duration, rates, timer, uuid, outbox, calendar,
+                        invoice (line items), payment (details)
+packages/design-tokens  tokens.json -> CSS + TS + Swift (generated into dist/)
 packages/api-client     Typed fetch wrapper for web + Expo
-apps/web                Next.js — all features
-apps/mobile             Expo
-apps/macos              Swift menu bar
+apps/web                Next.js — the API layer; no UI yet
 supabase/migrations     Schema, triggers, RLS
+docs/design/samples     Committed renderer output (pnpm sample:invoice)
 ```
+
+`apps/mobile` and `apps/macos` do not exist yet. `packages/design-tokens`
+resolves through `dist/`, which is generated — run `pnpm tokens` before
+anything imports it.
 
 `packages/design-tokens` is a **build step, not a copy-paste**. One
 `tokens.json` generates CSS custom properties, a TS object, and a Swift `Color`

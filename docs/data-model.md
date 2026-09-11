@@ -3,7 +3,8 @@
 Hierarchy: **Client → Project → Time Entry**
 
 Schema lives in `supabase/migrations/`. Every rule below is enforced by the
-database, not by convention — verified against Postgres 14.
+database, not by convention — verified against Postgres 14 locally; CI runs
+Postgres 16.
 
 ## Rate resolution
 
@@ -52,6 +53,7 @@ null means "fall back".
 - `duration_seconds` is a **generated column** — never stored independently, so
   it cannot drift from `started_at`/`ended_at`.
 - `invoice_id` set means the entry is billed.
+- `client_updated_at` is the outbox's last-write-wins discriminator.
 
 ### `invoices` / `invoice_line_items`
 Line items are **denormalized on purpose**. An issued invoice is an immutable
@@ -90,9 +92,17 @@ Verified: 20 concurrent allocations across 10 parallel connections produced
 exactly 100–119 with no gaps or duplicates.
 
 ### Other constraints
-- `ended_at > started_at` (check constraint).
+- `ended_at is null or ended_at > started_at`.
 - `invoice_number` and `sequence_no` unique per user.
+- Enumerations are check constraints, not conventions: `status`,
+  `grouping_mode`, `time_format`, `account_type`, `fee_allocation`.
+- Ranges: `week_starts_on` 0–6, `tax_rate` 0–100, `max_timer_hours > 0`,
+  `next_invoice_number > 0`; client and project names must be non-blank.
+- `updated_at` is maintained by a `touch_updated_at` trigger on every table.
+- Partial indexes back the hot paths: active clients/projects/profiles,
+  unbilled entries, entries by user and start time.
 - RLS on every table: `user_id = auth.uid()`; line items inherit from invoice.
+  **The integration tests disable RLS**, so it is not covered by them.
 
 ## Verified behavior
 

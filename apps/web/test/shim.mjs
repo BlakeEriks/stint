@@ -30,6 +30,7 @@ export function makeDb(pool, userId) {
       update(obj) { st.op = 'update'; st.payload = obj; return api; },
       delete() { st.op = 'delete'; return api; },
       eq(c, v) { st.wheres.push((P) => `${c} = ${P(v)}`); return api; },
+      neq(c, v) { st.wheres.push((P) => `${c} <> ${P(v)}`); return api; },
       is(c, v) { st.wheres.push(() => `${c} IS ${v === null ? 'NULL' : v}`); return api; },
       not(c, _op, v) { st.wheres.push(() => `${c} IS NOT ${v === null ? 'NULL' : v}`); return api; },
       gte(c, v) { st.wheres.push((P) => `${c} >= ${P(v)}`); return api; },

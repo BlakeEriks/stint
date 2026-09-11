@@ -1,13 +1,19 @@
 /**
  * Email delivery.
  *
- * No provider has been chosen yet, so this is deliberately a seam rather than
- * a guess. `sendInvoiceEmail` performs every provider-independent step —
- * validation, rendering the PDF, composing the message — and only the final
- * transport call is pending.
+ * A seam rather than a guess: the send route does every provider-independent
+ * step (validating the recipient, rendering the PDF, composing the message)
+ * and `deliver` is the only part that touches a provider.
  *
- * To wire one up (Resend, Postmark, SES): implement `deliver` below. Nothing
- * else in the route needs to change.
+ * A Resend implementation ships here. Enable it with EMAIL_PROVIDER=resend,
+ * EMAIL_FROM and RESEND_API_KEY. With no EMAIL_PROVIDER set, `deliver`
+ * reports `delivered: false` rather than throwing, and the route decides
+ * whether that is acceptable (it is, for `markOnly`).
+ *
+ * To add another (Postmark, SES): add a case to the switch below. Nothing
+ * else changes.
+ *
+ * Bank details are never placed in an email body — see docs/api.md.
  */
 
 import { ApiError } from './errors';

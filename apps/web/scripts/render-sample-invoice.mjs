@@ -48,8 +48,24 @@ export const SAMPLE = {
   taxRate: 8.25,
   taxAmount: 516.66,
   total: 6779.16,
-  notes:
-    'ACH preferred. Payment details are on file — please quote the invoice\nnumber as the reference.\nThanks for a great quarter.',
+  notes: 'Thanks for a great quarter.',
+  // Bank details belong on the invoice document, never in the email body.
+  payment: {
+    title: 'USD ACH',
+    fields: [
+      { label: 'Account holder', value: 'Blake Eriks' },
+      { label: 'Bank', value: 'First Republic Bank' },
+      { label: 'Account number', value: '1234567890' },
+      { label: 'Routing number (ACH)', value: '021000021' },
+      { label: 'Account type', value: 'Checking' },
+      { label: 'Payment reference', value: 'INV-0042' },
+    ],
+    intermediary: [],
+    link: null,
+    notes: 'Please email remittance advice to blake@example.dev.',
+  },
+  paymentNotice:
+    'Our payment details never change. If you receive any message stating otherwise, call to verify before paying.',
   paymentTerms: 'Net 30',
   business: {
     name: 'Blake Eriks',

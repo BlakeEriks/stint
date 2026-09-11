@@ -38,7 +38,7 @@ export function toEntry(r: EntryRow) {
 }
 
 export const CLIENT_COLUMNS =
-  'id, name, email, address, hourly_rate, tax_rate, currency, color, archived_at';
+  'id, name, email, address, hourly_rate, tax_rate, currency, color, payment_profile_id, archived_at';
 
 export function toClient(r: Record<string, any>) {
   return {
@@ -50,6 +50,7 @@ export function toClient(r: Record<string, any>) {
     taxRate: num(r.tax_rate),
     currency: r.currency,
     color: r.color,
+    paymentProfileId: r.payment_profile_id,
     archivedAt: r.archived_at,
   };
 }
@@ -70,9 +71,7 @@ export function toProject(r: Record<string, any>) {
 }
 
 export const SETTINGS_COLUMNS =
-  'default_hourly_rate, currency, week_starts_on, time_format, max_timer_hours, ' +
-  'business_name, business_address, business_email, logo_url, tax_id, ' +
-  'default_payment_terms, invoice_number_prefix, next_invoice_number';
+  'default_hourly_rate, currency, week_starts_on, time_format, max_timer_hours, business_name, business_address, business_email, logo_url, tax_id, default_payment_terms, invoice_number_prefix, next_invoice_number, payment_notice';
 
 export function toSettings(r: Record<string, any>) {
   return {
@@ -89,6 +88,7 @@ export function toSettings(r: Record<string, any>) {
     defaultPaymentTerms: r.default_payment_terms,
     invoiceNumberPrefix: r.invoice_number_prefix,
     nextInvoiceNumber: r.next_invoice_number,
+    paymentNotice: r.payment_notice,
   };
 }
 
@@ -121,6 +121,7 @@ export const CLIENT_FIELDS = {
   taxRate: 'tax_rate',
   currency: 'currency',
   color: 'color',
+  paymentProfileId: 'payment_profile_id',
 } as const;
 
 export const PROJECT_FIELDS = {
@@ -144,4 +145,63 @@ export const SETTINGS_FIELDS = {
   taxId: 'tax_id',
   defaultPaymentTerms: 'default_payment_terms',
   invoiceNumberPrefix: 'invoice_number_prefix',
+  paymentNotice: 'payment_notice',
+} as const;
+
+// ── payment profiles ───────────────────────────────────────────────
+// One string literal, not a concatenation — supabase-js infers the row
+// type from the literal.
+export const PAYMENT_PROFILE_COLUMNS =
+  'id, name, is_default, account_holder_name, account_holder_address, bank_name, bank_address, account_number, routing_number, account_type, iban, swift_bic, local_code_label, local_code, intermediary_bank_name, intermediary_swift_bic, intermediary_account_number, payment_link_label, payment_link_url, currency, fee_allocation, notes, archived_at';
+
+export function toPaymentProfile(r: Record<string, any>) {
+  return {
+    id: r.id,
+    name: r.name,
+    isDefault: r.is_default,
+    accountHolderName: r.account_holder_name,
+    accountHolderAddress: r.account_holder_address,
+    bankName: r.bank_name,
+    bankAddress: r.bank_address,
+    accountNumber: r.account_number,
+    routingNumber: r.routing_number,
+    accountType: r.account_type,
+    iban: r.iban,
+    swiftBic: r.swift_bic,
+    localCodeLabel: r.local_code_label,
+    localCode: r.local_code,
+    intermediaryBankName: r.intermediary_bank_name,
+    intermediarySwiftBic: r.intermediary_swift_bic,
+    intermediaryAccountNumber: r.intermediary_account_number,
+    paymentLinkLabel: r.payment_link_label,
+    paymentLinkUrl: r.payment_link_url,
+    currency: r.currency,
+    feeAllocation: r.fee_allocation,
+    notes: r.notes,
+    archivedAt: r.archived_at,
+  };
+}
+
+export const PAYMENT_PROFILE_FIELDS = {
+  name: 'name',
+  isDefault: 'is_default',
+  accountHolderName: 'account_holder_name',
+  accountHolderAddress: 'account_holder_address',
+  bankName: 'bank_name',
+  bankAddress: 'bank_address',
+  accountNumber: 'account_number',
+  routingNumber: 'routing_number',
+  accountType: 'account_type',
+  iban: 'iban',
+  swiftBic: 'swift_bic',
+  localCodeLabel: 'local_code_label',
+  localCode: 'local_code',
+  intermediaryBankName: 'intermediary_bank_name',
+  intermediarySwiftBic: 'intermediary_swift_bic',
+  intermediaryAccountNumber: 'intermediary_account_number',
+  paymentLinkLabel: 'payment_link_label',
+  paymentLinkUrl: 'payment_link_url',
+  currency: 'currency',
+  feeAllocation: 'fee_allocation',
+  notes: 'notes',
 } as const;
