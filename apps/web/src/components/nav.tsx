@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { NavTimer } from './nav-timer';
 
 const LINKS = [
   { href: '/', label: 'Timer' },
@@ -22,7 +23,7 @@ export function Nav() {
     // Chrome on the ground, not a card: no border, no fill. The floating
     // panes below supply the structure that a divider used to.
     <nav aria-label="Sections">
-      <div className="mx-auto flex max-w-3xl gap-1 px-4 pt-2 sm:px-6">
+      <div className="mx-auto flex max-w-3xl items-center gap-1 px-4 pt-2 sm:px-6">
         {LINKS.map(({ href, label }) => {
           const active =
             href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -41,6 +42,11 @@ export function Nav() {
             </Link>
           );
         })}
+
+        {/* Right of the tabs, in space the row already had. */}
+        <div className="ml-auto">
+          <NavTimer onTimerScreen={pathname === "/"} />
+        </div>
       </div>
     </nav>
   );

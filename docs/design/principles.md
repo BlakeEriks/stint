@@ -47,8 +47,13 @@ secondary button.
 
 The rule is scarcity, not a literal timer check: a screen with no timer on it
 may spend the accent on the single thing the user came to do. Two green
-things on one screen is the failure, not one green thing on a timerless
-screen.
+things *meaning different things* on one screen is the failure, not one green
+thing on a timerless screen.
+
+The running timer appears twice on the timer screen — the hero and the nav
+readout — and both are green. That is not a violation: they are the same
+fact, so they reinforce rather than compete. What the rule forbids is green
+meaning several different things at once.
 
 **Content floats; chrome recedes.** The page ground is the *darkest*
 surface and every panel sits above it on `surface-primary` with

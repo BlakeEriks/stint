@@ -118,9 +118,20 @@ export default function PreviewLayout({
         return json(created);
       }
       if (path === '/summary') {
+        const running = new URLSearchParams(location.search).get('running')
+          ? {
+              id: 'run-1',
+              taskName: 'Invoice templates',
+              projectId: null,
+              startedAt: new Date(Date.now() - 25 * 60_000).toISOString(),
+              endedAt: null,
+              isBillable: true,
+              durationSeconds: null,
+            }
+          : null;
         return json({
-          running: null,
-          todaySeconds: 0,
+          running,
+          todaySeconds: running ? 1500 : 0,
           weekSeconds: 0,
           exceedsThreshold: false,
           maxTimerHours: 8,

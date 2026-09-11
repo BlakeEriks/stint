@@ -21,11 +21,16 @@ system — silent correction destroys trust in every number it reports.
 locally from `startedAt`, but the server decides whether it is running.
 
 **The accent (green `#52FC43`) marks the primary action on a screen, and
-inside the app that is the running timer.** At most one accent element in
+inside the app that is the running timer.** At most one accent *meaning* in
 view. Not navigation, not secondary buttons, not links, never decoration.
 On a screen with no timer (sign-in, an empty state), the one thing the user
 came to do may carry it. Green never means success — success is cyan
 `#2CCCEB`.
+
+The nav readout (`nav-timer.tsx`) is green on every screen including the
+timer screen, where the hero is also green. Both are the same fact, so they
+reinforce; the rule forbids green meaning several different things at once,
+not one thing shown twice.
 
 **Never white text on the accent** — 1.37:1. Use `--text-on-accent`. CI guards
 this specific regression.
