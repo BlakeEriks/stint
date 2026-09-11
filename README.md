@@ -16,7 +16,7 @@ handler (the client-side outbox exists; the server half does not).
 ## Layout
 
 ```
-docs/            architecture, data model, API contract, design system
+docs/            setup, architecture, data model, API contract, design system
 docs/design/samples/  committed renderer output
 packages/
   schema/        Zod schemas — the API contract

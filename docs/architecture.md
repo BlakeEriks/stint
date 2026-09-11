@@ -108,6 +108,11 @@ Deliberately not adopting ElectricSQL, PowerSync, Zero, Yjs, or Replicache.
 - **TinyBase** is the closest lightweight option, but still means modeling the
   data in its stores to replace ~115 lines.
 
+**Status: the client half is written and unused.** Nothing imports
+`outbox.ts` but its own tests, and `POST /sync` does not exist. Offline is
+worth revisiting when the Expo app lands — a phone opened to stop a timer
+with no signal is the real case — not before.
+
 The replacement is ~115 lines in `packages/core/src/outbox.ts`:
 client-generated UUIDv7 (so retries are idempotent), an append-only queue,
 and coalescing of redundant edits. The server half — `POST /api/v1/sync`

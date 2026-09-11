@@ -1,6 +1,17 @@
 /**
  * Offline outbox.
  *
+ * **Currently unused.** Nothing imports this but its own tests: the server
+ * half (`POST /sync`) does not exist, and the web app has no offline story.
+ * It is kept because the Expo app is where offline actually bites — you open
+ * the phone specifically to stop a timer, and you may have no signal. Decide
+ * there, with evidence, rather than building for it now.
+ *
+ * Note what offline could never cover: *starting* a timer needs the server to
+ * arbitrate the one-running-timer invariant. A running timer already ticks
+ * locally from `startedAt` without any of this. What is left is stopping or
+ * editing an entry while disconnected.
+ *
  * This replaces a sync engine. It is deliberately small because the
  * problem is small: one user, no concurrent editors, a few dozen writes
  * a day. Last-write-wins per entry is correct here, not a compromise.
