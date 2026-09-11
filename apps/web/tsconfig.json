@@ -3,14 +3,34 @@
   "compilerOptions": {
     "jsx": "preserve",
     "allowImportingTsExtensions": true,
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@tt/core": ["../../packages/core/src/index.ts"],
-      "@tt/schema": ["../../packages/schema/src/index.ts"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@tt/core": [
+        "../../packages/core/src/index.ts"
+      ],
+      "@tt/schema": [
+        "../../packages/schema/src/index.ts"
+      ],
+      "@tt/design-tokens": [
+        "../../packages/design-tokens/dist/tokens.ts"
+      ]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

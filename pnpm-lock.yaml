@@ -35,6 +35,9 @@ importers:
       '@tt/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@tt/design-tokens':
+        specifier: workspace:^
+        version: link:../../packages/design-tokens
       '@tt/schema':
         specifier: workspace:*
         version: link:../../packages/schema

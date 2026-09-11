@@ -88,8 +88,19 @@ export interface Project {
 export interface Client {
   id: string;
   name: string;
+  email: string | null;
+  address: string | null;
+  hourlyRate: number | null;
+  taxRate: number | null;
+  currency: string | null;
   color: string | null;
+  paymentProfileId: string | null;
+  archivedAt: string | null;
 }
+
+/** Everything a client is created or edited with. `id` is server-defaulted. */
+export type ClientInput = Partial<Omit<Client, 'id' | 'archivedAt'>> &
+  Pick<Client, 'name'>;
 
 export const api = {
   summary: (tz: string) =>
@@ -118,5 +129,22 @@ export const api = {
   deleteEntry: (id: string) => request<void>('DELETE', `/entries/${id}`),
 
   projects: () => request<{ projects: Project[] }>('GET', '/projects'),
-  clients: () => request<{ clients: Client[] }>('GET', '/clients'),
+
+  /** Archived clients are excluded unless asked for. */
+  clients: (opts: { includeArchived?: boolean } = {}) =>
+    request<{ clients: Client[] }>(
+      'GET',
+      `/clients${opts.includeArchived ? '?includeArchived=true' : ''}`,
+    ),
+
+  client: (id: string) => request<Client>('GET', `/clients/${id}`),
+
+  createClient: (body: ClientInput) =>
+    request<Client>('POST', '/clients', body),
+
+  updateClient: (id: string, body: Partial<ClientInput>) =>
+    request<Client>('PATCH', `/clients/${id}`, body),
+
+  /** Archival, not deletion — invoices reference clients. */
+  archiveClient: (id: string) => request<void>('DELETE', `/clients/${id}`),
 };
