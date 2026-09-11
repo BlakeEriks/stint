@@ -83,6 +83,20 @@ side effects.
 Timer hero at top, today's entries beneath it. This is the view seen 50× a day
 and it earns the least friction. Calendar and invoicing are separate tabs.
 
+Between the two sits a small set of stat cards, specified in
+`docs/design/home.md`. Two rules govern them at this altitude:
+
+**Stats are denominated in money.** This app resolves rates and owns an
+invoice table, so it can answer *how much is unbilled* — the question a
+contractor cannot answer from memory, and the one a time tracker that does not
+know rates structurally cannot ask. Hours are the raw material; dollars are
+what the user thinks in.
+
+**A card ships only if it carries a number the user cannot compute in their
+head, or a row they can click to act on.** "Interesting" is not the bar.
+Decoration on the home screen is the mechanism by which this app becomes the
+one it was built against.
+
 ## Platform scope
 
 The web app is where features are built. The native apps exist for the things

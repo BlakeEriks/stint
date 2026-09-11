@@ -141,7 +141,6 @@ export function createApiClient(opts: ApiClientOptions) {
       pdfUrl: (id: string) => `/api/v1/invoices/${id}/pdf?download=1`,
     },
 
-    sync: (body: unknown) => request('POST', '/sync', body),
   };
 }
 

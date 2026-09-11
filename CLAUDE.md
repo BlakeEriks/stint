@@ -58,7 +58,7 @@ from shadow and radius because `bg-base`→`bg-primary` is only 1.03:1; see
   grey. `src/oklch.mjs` holds the OKLCH↔sRGB maths with gamut mapping.
 - Durations are always mono + `tabular-nums`.
 - Time entry ids are **client-generated UUIDv7** (`uuidv7()` in `@tt/core`) so
-  offline retries are idempotent.
+  a retried insert is idempotent — the same id lands on the same row.
 - Rate resolution exists in SQL (authoritative) and TS (previews). Keep them in
   sync; the database wins.
 - `0` is a valid rate. Use null-coalescing, never truthiness.
@@ -203,9 +203,13 @@ visible — which is what fraud-prevention guidance tells payers to challenge.
 
 ## Docs
 
-`docs/api.md` marks unimplemented endpoints **(not implemented)** — currently
-`POST /sync`. Keep that honest: the audit that produced this section found
+`docs/api.md` marks unimplemented endpoints **(not implemented)** — there are
+none right now. Keep that honest: the audit that produced this section found
 docs describing planned work as built, which is worse than no docs.
+
+**The app is online-only.** There is no outbox and no `POST /sync`; both were
+removed as unused. `docs/architecture.md` records why, and why a sync engine
+still would not be the answer if offline ever comes back.
 
 ## Web UI
 

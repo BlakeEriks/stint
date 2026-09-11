@@ -10,8 +10,8 @@ including invoicing, payment details and PDF generation — are built and
 covered by integration tests. The app sends no email: invoices are downloaded
 and sent by the user from their own address.
 
-**Not built yet:** any UI, the mobile and macOS apps, and the `POST /sync`
-handler (the client-side outbox exists; the server half does not).
+**Not built yet:** the mobile and macOS apps. The web app is complete:
+timer, calendar, clients, projects, settings, payment profiles, invoicing.
 
 ## Layout
 
@@ -20,7 +20,7 @@ docs/            setup, architecture, data model, API contract, design system
 docs/design/samples/  committed renderer output
 packages/
   schema/        Zod schemas — the API contract
-  core/          duration, rates, timer, uuid, outbox, calendar,
+  core/          duration, rates, timer, uuid, calendar,
                  invoice, payment
   design-tokens/ tokens.json -> CSS + TS + Swift (generated into dist/)
   api-client/    typed fetch wrapper

@@ -82,51 +82,54 @@ Clients must treat 409 as a normal flow rather than an error state.
 
 ## Offline
 
-Local-first for **completed** entries; server-arbitrated for **starting** a timer.
+The app is **online-only**, deliberately.
 
 - A running timer keeps ticking locally from its known `startedAt`, so the
   display never depends on the network.
-- Completed entries, edits, clients and projects queue in an outbox and sync
-  on reconnect. **The client-side outbox exists
-  (`packages/core/src/outbox.ts`); the `POST /sync` handler does not yet.**
-- Starting a timer requires the server, because that is the one operation with
-  a global constraint.
+- Everything else — starting or stopping a timer, editing an entry, creating
+  a client — needs the server.
 
-### Why no sync engine
+### Why there is no offline queue
 
-Deliberately not adopting ElectricSQL, PowerSync, Zero, Yjs, or Replicache.
+There was one: ~115 lines in `packages/core/src/outbox.ts`, with `POST /sync`
+specified as its server half. **Both were removed**, because nothing imported
+the outbox but its own tests and the server half was never built. Code kept
+for a need that has not arrived is still code that has to be read, understood
+and maintained.
+
+The case for offline is also narrower than it first looks:
+
+- **Starting a timer can never be offline.** The server arbitrates the
+  one-running-timer invariant; that is what makes overlap impossible.
+- **A running timer already survives** a dropped connection without any
+  queue, because it counts from `startedAt`.
+
+What remains is stopping or editing an entry while disconnected — real, but
+rare in a browser tab. It gets interesting on **mobile**, where the app is
+opened specifically to stop a timer and there may be no signal. Revisit it
+there, with evidence.
+
+### If it comes back, still no sync engine
+
+The research that ruled these out holds regardless, so it should not be
+redone:
 
 - **The data model is the trivial case.** One user per dataset, a few dozen
   writes a day, no concurrent editors. Sync engines solve multi-user conflict
-  resolution and partial replication of large shared datasets — neither problem
-  exists here. Last-write-wins per entry is *correct*, not a compromise.
+  resolution and partial replication of large shared datasets — neither
+  problem exists here. Last-write-wins per entry is *correct*, not a
+  compromise.
 - **ElectricSQL is an operational risk** — acquired by Databricks (Aug 2026),
   Electric Cloud winding down.
 - **Zero needs an always-on `zero-cache`** holding a persistent replication
   connection to Postgres, which destroys the cheap Vercel + Supabase posture.
 - **Yjs / Replicache are the wrong shape** — CRDTs for collaborative editing.
 - **TinyBase** is the closest lightweight option, but still means modeling the
-  data in its stores to replace ~115 lines.
+  data in its stores.
 
-**Status: the client half is written and unused.** Nothing imports
-`outbox.ts` but its own tests, and `POST /sync` does not exist. Offline is
-worth revisiting when the Expo app lands — a phone opened to stop a timer
-with no signal is the real case — not before.
-
-The replacement is ~115 lines in `packages/core/src/outbox.ts`:
-client-generated UUIDv7 (so retries are idempotent), an append-only queue,
-and coalescing of redundant edits. The server half — `POST /api/v1/sync`
-with a cursor — is **specified in `docs/api.md` but not implemented**; it is
-only needed once a client that works offline exists.
-
-Optional later polish: TanStack DB as the client store — it works over plain
-REST with no sync engine. Its SQLite persistence was alpha as of 0.6, so treat
-it as polish, not foundation.
-
-The trade accepted: owning the sync logic, including replay and coalescing
-edge cases, in exchange for no vendor risk, no extra infrastructure, and code
-that is fully debuggable. The upgrade path is preserved — TanStack DB can
-later swap in a PowerSync or Electric adapter if this judgment proves wrong.
+A small hand-rolled queue was the right shape, and rebuilding one is cheap.
+TanStack DB is the escape hatch if that judgment ever proves wrong: it works
+over plain REST today and can swap in a PowerSync or Electric adapter later.
 
 ## Auth
 
@@ -166,7 +169,7 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
 
 ```
 packages/schema         Zod schemas — the API contract
-packages/core           duration, rates, timer, uuid, outbox, calendar,
+packages/core           duration, rates, timer, uuid, calendar,
                         invoice (line items), payment (details)
 packages/design-tokens  tokens.json -> CSS + TS + Swift (generated into dist/)
 packages/api-client     Typed fetch wrapper for web + Expo

@@ -36,7 +36,7 @@ trusting the device clock.
 |---|---|---|
 | `GET` | `/entries` | `?from&to&projectId&clientId&limit` (1–500, default 200) |
 | `GET` | `/entries/:id` | |
-| `POST` | `/entries` | Manual entry. `id` is client-supplied (UUIDv7) so replay is idempotent. Always complete — `endedAt` required. |
+| `POST` | `/entries` | Manual entry. `id` is client-supplied (UUIDv7) so a retry is idempotent. Always complete — `endedAt` required. |
 | `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice. Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs. |
 | `DELETE` | `/entries/:id` | Same lock applies. |
 
@@ -46,6 +46,8 @@ trusting the device clock.
 |---|---|---|
 | `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, exceedsThreshold, maxTimerHours, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. |
 | `GET` | `/calendar` | `?from&to` (**both required**) `&tz` — entries grouped by local day. |
+| `GET` | `/calendar?granularity=day` | **(not implemented)** Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. Backs the home screen's activity strip, where twelve weeks of full entries is a heavy payload for one rectangle per day. |
+| `GET` | `/stats` | **(not implemented)** `?tz` — the home screen card set in one call: unbilled by client with aging, month-to-date against target, billable ratio, and the attention rows (overdue invoices, unprojected entries, quiet clients, stale drafts). One request because the cards render together and a set that pops in piecemeal reads as broken. Specified in `docs/design/home.md`. |
 
 ## Clients / projects / settings
 
@@ -54,7 +56,7 @@ Standard CRUD: `GET|POST /clients`, `GET|PATCH|DELETE /clients/:id`, same for
 
 `POST` on all three accepts an optional client-supplied `id` (UUIDv7); a
 duplicate-key insert returns the existing row with `200` rather than an error,
-so an offline replay is idempotent.
+so a retried request is idempotent.
 
 Deletion is **archival** (`archivedAt`), never destructive — historical
 invoices reference these rows.
@@ -127,20 +129,6 @@ never alters an issued invoice.
 payment block, defaulted to a warning that details never change and should be
 verified by phone.
 
-## Sync — **(not implemented)**
-
-Specified here so the client-side outbox in `packages/core` has a target. No
-handler exists yet; it is only needed once a client that works offline exists.
-
-`POST /sync` — `{ mutations[], cursor }` → `{ applied[], rejected[], changes, cursor, serverTime }`
-
-- Max 500 mutations per batch.
-- Mutations carry a client UUIDv7, making replay safe.
-- Conflicts resolve by `clientUpdatedAt` (last-write-wins), which is correct
-  for a single-user dataset.
-- `rejected[]` carries a code per mutation — the client drops non-retryable
-  ones rather than looping.
-
 ## Errors
 
 ```json
@@ -162,9 +150,9 @@ handler exists yet; it is only needed once a client that works offline exists.
 `ENTRY_NOT_FOUND` is the generic 404 across resources — clients, projects,
 invoices, payment profiles and settings, not only time entries.
 
-**Retry policy** (`packages/core/src/outbox.ts`): 409, 429, 5xx and network
-failures retry with exponential backoff to a 5-minute ceiling. Other 4xx are
-rejections on the merits — retrying fails identically, so they dead-letter.
+**Retry policy:** 409, 429, 5xx and network failures are worth retrying.
+Other 4xx are rejections on the merits — an unchanged request fails
+identically, so surface them rather than retrying.
 
 ## Timezones
 

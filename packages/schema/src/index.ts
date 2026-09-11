@@ -242,36 +242,6 @@ export const PaymentDetailsSnapshot = z.object({
   notes: z.string().nullable(),
 });
 
-// ── sync ───────────────────────────────────────────────────────────
-export const SyncMutation = z.object({
-  id: uuid,
-  entity: z.enum(['time_entry', 'client', 'project', 'settings']),
-  entityId: uuid,
-  op: z.enum(['create', 'update', 'delete']),
-  payload: z.record(z.string(), z.unknown()),
-  clientUpdatedAt: iso,
-});
-
-export const SyncRequest = z.object({
-  mutations: z.array(SyncMutation).max(500),
-  cursor: z.string().nullable(),
-});
-
-export const SyncResponse = z.object({
-  applied: z.array(uuid),
-  rejected: z.array(z.object({
-    id: uuid,
-    reason: z.string(),
-    code: z.string(),
-  })),
-  changes: z.object({
-    timeEntries: z.array(TimeEntry),
-    clients: z.array(Client),
-    projects: z.array(Project),
-  }),
-  cursor: z.string(),
-  serverTime: iso,
-});
 
 // ── errors ─────────────────────────────────────────────────────────
 export const ErrorCode = z.enum([
@@ -304,6 +274,4 @@ export type Settings = z.infer<typeof Settings>;
 export type InvoicePreview = z.infer<typeof InvoicePreview>;
 export type PaymentProfile = z.infer<typeof PaymentProfile>;
 export type PaymentDetailsSnapshot = z.infer<typeof PaymentDetailsSnapshot>;
-export type SyncRequest = z.infer<typeof SyncRequest>;
-export type SyncResponse = z.infer<typeof SyncResponse>;
 export type ApiError = z.infer<typeof ApiError>;

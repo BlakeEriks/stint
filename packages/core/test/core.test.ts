@@ -4,7 +4,6 @@ import { formatClock, formatCompact, toBillableHours, elapsedSeconds } from '../
 import { resolveRate, resolveRateSource, lineAmount } from '../src/rates.ts';
 import { deriveTimerView, timerColorToken } from '../src/timer.ts';
 import { uuidv7 } from '../src/uuid.ts';
-import { coalesce, createMutation, isRetryable } from '../src/outbox.ts';
 
 test('formatClock renders the timer format', () => {
   assert.equal(formatClock(0), '0:00:00');
@@ -91,51 +90,3 @@ test('uuidv7 is time-ordered and well-formed', () => {
   assert.ok(a < b, 'later timestamp must sort after earlier');
 });
 
-test('outbox coalesces repeated edits into one write', () => {
-  const items = [
-    createMutation('time_entry', 'e1', 'create', { taskName: 'a' }),
-    createMutation('time_entry', 'e1', 'update', { taskName: 'b' }),
-    createMutation('time_entry', 'e1', 'update', { projectId: 'p1' }),
-  ];
-  const out = coalesce(items);
-  assert.equal(out.length, 1);
-  assert.equal(out[0]!.op, 'create', 'create must survive the merge');
-  assert.deepEqual(out[0]!.payload, { taskName: 'b', projectId: 'p1' });
-});
-
-test('outbox drops create-then-delete entirely', () => {
-  const out = coalesce([
-    createMutation('time_entry', 'e1', 'create', { taskName: 'a' }),
-    createMutation('time_entry', 'e1', 'delete', {}),
-  ]);
-  assert.equal(out.length, 0, 'server never needs to hear about it');
-});
-
-test('outbox keeps delete of a server-known entity', () => {
-  const out = coalesce([
-    createMutation('time_entry', 'e1', 'update', { taskName: 'a' }),
-    createMutation('time_entry', 'e1', 'delete', {}),
-  ]);
-  assert.equal(out.length, 1);
-  assert.equal(out[0]!.op, 'delete');
-});
-
-test('outbox preserves relative order across entities', () => {
-  const out = coalesce([
-    createMutation('client',     'c1', 'create', { name: 'N' }),
-    createMutation('project',    'p1', 'create', { clientId: 'c1' }),
-    createMutation('time_entry', 'e1', 'create', { projectId: 'p1' }),
-    createMutation('client',     'c1', 'update', { name: 'N2' }),
-  ]);
-  assert.deepEqual(out.map((i) => i.entityId), ['c1', 'p1', 'e1'],
-    'client must still precede the project that references it');
-});
-
-test('retry policy distinguishes server faults from rejections', () => {
-  assert.equal(isRetryable(500), true);
-  assert.equal(isRetryable(0), true);    // network down
-  assert.equal(isRetryable(409), true);  // timer conflict — resolvable
-  assert.equal(isRetryable(429), true);
-  assert.equal(isRetryable(400), false); // malformed — will never succeed
-  assert.equal(isRetryable(403), false);
-});
