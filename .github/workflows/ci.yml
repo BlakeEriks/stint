@@ -71,6 +71,9 @@ jobs:
           create table auth.users (id uuid primary key default gen_random_uuid(), email text);
           create or replace function auth.uid() returns uuid language sql stable as
             $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+          -- Supabase ships these; the grants migration needs them to exist.
+          create role anon nologin;
+          create role authenticated nologin;
           SQL
           for f in supabase/migrations/*.sql; do
             psql -h localhost -U postgres -d tt -v ON_ERROR_STOP=1 -f "$f"
@@ -101,18 +104,24 @@ jobs:
           create table auth.users (id uuid primary key default gen_random_uuid(), email text);
           create or replace function auth.uid() returns uuid language sql stable as
             $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+          -- Supabase ships these roles; a bare Postgres does not. They must
+          -- exist BEFORE the migrations run, because the grants migration
+          -- references them.
+          --
+          -- Mirrors the role PostgREST uses for a signed-in caller:
+          -- NOT a superuser and NOT BYPASSRLS, or the tests pass vacuously.
+          create role anon nologin;
+          create role authenticated login password 'test';
           SQL
           for f in supabase/migrations/*.sql; do
             psql -h localhost -U postgres -d tt_rls -v ON_ERROR_STOP=1 -f "$f"
           done
           psql -h localhost -U postgres -d tt_rls -v ON_ERROR_STOP=1 <<'SQL'
-          -- Mirrors the role PostgREST uses for a signed-in caller.
-          -- NOT a superuser and NOT BYPASSRLS, or the tests pass vacuously.
-          create role authenticated login password 'test';
           grant usage on schema public, auth to authenticated;
-          grant select, insert, update, delete on all tables in schema public to authenticated;
           grant select on auth.users to authenticated;
           grant execute on all functions in schema public, auth to authenticated;
+          -- Table privileges come from 00000000000004_api_grants.sql, not from
+          -- here: granting them ad-hoc would hide a broken grants migration.
           SQL
 
       - name: RLS tests
