@@ -71,7 +71,7 @@ numbering depends on `allocate_invoice_number()` holding the row lock.
 | `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries. Also accepts `issueDate`, `dueDate`, `notes`, `paymentTerms`, `tz`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if the period holds no billable time. |
 | `GET` | `/invoices/:id` | Invoice + frozen line items + client. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Releases its entries. |
-| `GET` | `/invoices/:id/pdf` | Streams `application/pdf` **inline** (not a URL) from the frozen line items. The `pdfUrl` field exists but is never populated. |
+| `GET` | `/invoices/:id/pdf` | Streams `application/pdf` **inline** (not a URL) from the frozen line items. |
 | `POST` | `/invoices/:id/send` | Renders, emails, then marks sent. `{ to?, markOnly? }`. **Drafts only** — `422` otherwise. Response adds `delivered`, `messageId`, `sentTo`. |
 | `PATCH` | `/invoices/:id/status` | `{ status, paidAt? }`. |
 

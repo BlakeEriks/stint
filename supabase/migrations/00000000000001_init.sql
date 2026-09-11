@@ -98,7 +98,6 @@ create table invoices (
 
   sent_at        timestamptz,
   paid_at        timestamptz,
-  pdf_url        text,
 
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now(),

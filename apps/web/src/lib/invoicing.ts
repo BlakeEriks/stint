@@ -157,7 +157,7 @@ export async function loadPaymentProfile(
 // One string literal, not a concatenation: supabase-js infers the row type
 // from the literal, and splitting it degrades every consumer to an error type.
 export const INVOICE_COLUMNS =
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, total, currency, notes, payment_terms, grouping_mode, payment_details, sent_at, paid_at, pdf_url, created_at';
+  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, total, currency, notes, payment_terms, grouping_mode, payment_details, sent_at, paid_at, created_at';
 
 export function toInvoice(r: Record<string, any>) {
   return {
@@ -181,7 +181,6 @@ export function toInvoice(r: Record<string, any>) {
     paymentDetails: r.payment_details ?? null,
     sentAt: r.sent_at,
     paidAt: r.paid_at,
-    pdfUrl: r.pdf_url,
     createdAt: r.created_at,
   };
 }
