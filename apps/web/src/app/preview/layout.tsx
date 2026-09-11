@@ -10,6 +10,15 @@ import { useEffect, useState } from 'react';
  *
  * Delete this directory once auth works against a live project.
  */
+const EMPTY_PROFILE = {
+  isDefault: false, accountHolderName: null, accountHolderAddress: null,
+  bankName: null, bankAddress: null, accountNumber: null, routingNumber: null,
+  accountType: null, iban: null, swiftBic: null, localCodeLabel: null,
+  localCode: null, intermediaryBankName: null, intermediarySwiftBic: null,
+  intermediaryAccountNumber: null, paymentLinkLabel: null, paymentLinkUrl: null,
+  currency: 'USD', feeAllocation: null, notes: null, archivedAt: null,
+};
+
 const seed = () => [
   {
     id: '0192f0a0-0000-7000-8000-000000000001',
@@ -59,6 +68,41 @@ export default function PreviewLayout({
   useEffect(() => {
     const store: Record<string, any>[] = seed();
     const projects: Record<string, any>[] = [];
+    const profiles: Record<string, any>[] = [
+      {
+        id: 'pp-1',
+        name: 'Chase business',
+        isDefault: true,
+        accountHolderName: 'Blake Eriks LLC',
+        accountHolderAddress: null,
+        bankName: 'Chase',
+        bankAddress: null,
+        accountNumber: '000123456789',
+        routingNumber: '021000021',
+        accountType: 'checking',
+        iban: null, swiftBic: null, localCodeLabel: null, localCode: null,
+        intermediaryBankName: null, intermediarySwiftBic: null,
+        intermediaryAccountNumber: null,
+        paymentLinkLabel: null, paymentLinkUrl: null,
+        currency: 'USD', feeAllocation: null, notes: null, archivedAt: null,
+      },
+    ];
+    let settings: Record<string, any> = {
+      defaultHourlyRate: 150,
+      currency: 'USD',
+      weekStartsOn: 1,
+      timeFormat: '24h',
+      maxTimerHours: 8,
+      businessName: 'Blake Eriks LLC',
+      businessAddress: '123 Main St\nAustin, TX 78701',
+      businessEmail: 'hi@example.com',
+      logoUrl: null,
+      taxId: '12-3456789',
+      defaultPaymentTerms: 'Net 30',
+      invoiceNumberPrefix: 'INV-',
+      nextInvoiceNumber: 14,
+      paymentNotice: null,
+    };
     const real = window.fetch.bind(window);
 
     const json = (body: unknown, status = 200) =>
@@ -139,6 +183,31 @@ export default function PreviewLayout({
         });
       }
       if (path === '/entries') return json({ entries: [] });
+
+      if (path === '/settings') {
+        if (method === 'PATCH') settings = { ...settings, ...body };
+        return json(settings);
+      }
+      if (path === '/payment-profiles') {
+        if (method === 'POST') {
+          const created = { ...EMPTY_PROFILE, ...body, id: crypto.randomUUID() };
+          if (profiles.length === 0) created.isDefault = true;
+          profiles.push(created);
+          return json(created);
+        }
+        return json({ paymentProfiles: profiles });
+      }
+      const pp = path.match(/^\/payment-profiles\/([^/]+)$/);
+      if (pp) {
+        const wanted = pp[1];
+        const i = profiles.findIndex((p) => p.id === wanted);
+        if (i === -1) return json({ code: 'NOT_FOUND', message: 'no' }, 404);
+        if (method === 'PATCH') {
+          if (body?.isDefault) profiles.forEach((p) => (p.isDefault = false));
+          profiles[i] = { ...profiles[i], ...body };
+          return json(profiles[i]);
+        }
+      }
 
       return json({ code: 'NOT_FOUND', message: path }, 404);
     }) as typeof window.fetch;

@@ -108,6 +108,57 @@ export interface Client {
 export type ClientInput = Partial<Omit<Client, 'id' | 'archivedAt'>> &
   Pick<Client, 'name'>;
 
+export interface Settings {
+  defaultHourlyRate: number | null;
+  currency: string;
+  weekStartsOn: number;
+  timeFormat: '12h' | '24h';
+  maxTimerHours: number;
+  businessName: string | null;
+  businessAddress: string | null;
+  businessEmail: string | null;
+  logoUrl: string | null;
+  taxId: string | null;
+  defaultPaymentTerms: string;
+  invoiceNumberPrefix: string;
+  /** Server-owned: gapless numbering depends on the row lock. Not settable. */
+  nextInvoiceNumber: number;
+  paymentNotice: string | null;
+}
+
+export type SettingsInput = Partial<Omit<Settings, 'nextInvoiceNumber'>>;
+
+export interface PaymentProfile {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  accountHolderName: string | null;
+  accountHolderAddress: string | null;
+  bankName: string | null;
+  bankAddress: string | null;
+  accountNumber: string | null;
+  routingNumber: string | null;
+  accountType: 'checking' | 'savings' | null;
+  iban: string | null;
+  swiftBic: string | null;
+  localCodeLabel: string | null;
+  localCode: string | null;
+  intermediaryBankName: string | null;
+  intermediarySwiftBic: string | null;
+  intermediaryAccountNumber: string | null;
+  paymentLinkLabel: string | null;
+  paymentLinkUrl: string | null;
+  currency: string | null;
+  feeAllocation: 'OUR' | 'SHA' | 'BEN' | null;
+  notes: string | null;
+  archivedAt: string | null;
+}
+
+export type PaymentProfileInput = Partial<
+  Omit<PaymentProfile, 'id' | 'archivedAt'>
+> &
+  Pick<PaymentProfile, 'name'>;
+
 export const api = {
   summary: (tz: string) =>
     request<Summary>('GET', `/summary?tz=${encodeURIComponent(tz)}`),
@@ -166,4 +217,21 @@ export const api = {
 
   /** Archival, not deletion — invoices reference clients. */
   archiveClient: (id: string) => request<void>('DELETE', `/clients/${id}`),
+
+  settings: () => request<Settings>('GET', '/settings'),
+
+  updateSettings: (body: SettingsInput) =>
+    request<Settings>('PATCH', '/settings', body),
+
+  paymentProfiles: () =>
+    request<{ paymentProfiles: PaymentProfile[] }>('GET', '/payment-profiles'),
+
+  createPaymentProfile: (body: PaymentProfileInput) =>
+    request<PaymentProfile>('POST', '/payment-profiles', body),
+
+  updatePaymentProfile: (id: string, body: Partial<PaymentProfileInput>) =>
+    request<PaymentProfile>('PATCH', `/payment-profiles/${id}`, body),
+
+  archivePaymentProfile: (id: string) =>
+    request<void>('DELETE', `/payment-profiles/${id}`),
 };

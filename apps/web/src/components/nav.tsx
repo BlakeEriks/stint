@@ -7,6 +7,7 @@ import { NavTimer } from './nav-timer';
 const LINKS = [
   { href: '/', label: 'Timer' },
   { href: '/clients', label: 'Clients' },
+  { href: '/settings', label: 'Settings' },
 ];
 
 /**
