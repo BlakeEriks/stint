@@ -8,6 +8,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/routes.test.ts test/invoices.test.ts",
+    "test:ui": "vitest run",
     "sample:invoice": "node --experimental-strip-types scripts/render-sample-invoice.mjs",
     "test:rls": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/rls.test.ts",
     "detox": "node scripts/shadcn-detox.mjs --check 'src/components/ui/*.tsx'"
@@ -33,10 +34,16 @@
     "zod": "^4.6.2"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.11.10",
     "@types/react": "^19.0.2",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.0.1",
     "pg": "^8.13.1",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^5.0.0"
   }
 }

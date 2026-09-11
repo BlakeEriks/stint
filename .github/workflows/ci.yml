@@ -52,6 +52,11 @@ jobs:
           npx tsc --noEmit -p tsconfig.json
           cd apps/web && npx tsc --noEmit
 
+      # Component tests: jsdom, no database. The route/RLS suites below run
+      # under `node --test` against real Postgres and are separate.
+      - name: UI component tests
+        run: cd apps/web && pnpm test:ui
+
       - name: Core logic tests
         run: node --test --experimental-strip-types packages/core/test/*.test.ts
 

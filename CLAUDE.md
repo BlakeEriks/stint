@@ -214,6 +214,43 @@ the palette was derived for.
 Import the token CSS by **relative path**, not the package export — Tailwind
 does not follow package specifiers when collecting `@theme` values.
 
+### Components
+
+`components/ui/` is **vendored shadcn**, rewritten to our tokens at install
+by `apps/web/scripts/shadcn-detox.mjs`. shadcn's palette names are never
+defined in `@theme`, because two of them collide with ours and mean the
+opposite: its `bg-primary` is the action colour (ours is neutral grey) and
+its `bg-accent` is hover grey (ours is the neon green).
+
+To add a component: `pnpm dlx shadcn@latest add <name>`, then
+`node scripts/shadcn-detox.mjs 'src/components/ui/<name>.tsx'`, then read the
+diff. Add any unmapped name to `MAP` rather than hand-editing the file.
+
+**The detox check is the only enforcement.** Tailwind 4 drops an unknown
+utility with no warning and exit 0, so a surviving `bg-primary` renders our
+grey on a primary button and the build still passes. `pnpm detox` runs in CI.
+
+The converter is one pass over an alternation, not sequential `replaceAll` —
+cascading turned `bg-primary` into `bg-surface-hover-default` (a green button
+silently grey) when a later rule matched its own output.
+
+Radix supplies dialog/dropdown/popover behaviour. Hand-rolled popups are how
+arrow keys, typeahead, roving tabindex and focus-return get quietly skipped;
+the restraint thesis is about *product surface*, not re-implementing
+accessible primitives.
+
+### UI tests
+
+`pnpm test:ui` — Vitest + Testing Library in jsdom, `test/ui/*.test.tsx`.
+Separate from `pnpm test` (route handlers against real Postgres under
+`node --test`); the Vitest config never picks those up.
+
+jsdom lacks the APIs Radix's popper needs, so `test/ui/setup.ts` shims
+`ResizeObserver`, `DOMRect` and the pointer-capture methods. Without them
+every DropdownMenu test throws on open.
+
+`userEvent.setup()` returns the instance synchronously — it is not a promise.
+
 ### The timer
 
 `useTimer` counts locally from `startedAt` and reconciles with `/summary`
