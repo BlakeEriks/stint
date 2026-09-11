@@ -113,6 +113,9 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
 - Invoice PDFs: `@react-pdf/renderer` — ~2MB, sub-500ms, no Chromium cold
   start. Puppeteer is only warranted if pixel-exact HTML fidelity is ever
   needed.
+- **No outbound mail.** Invoices are downloaded and emailed by the user, so
+  there is no provider, no domain reputation to maintain, and no deliverability
+  failure mode where a client silently never receives an invoice.
 - Note: Supabase free-tier projects pause after 7 days of inactivity.
 
 ## Repo layout

@@ -111,12 +111,16 @@ code. Routes in `apps/web/src/app/api/v1/invoices/`; shared loaders in
 - Running timers, non-billable entries, and already-invoiced entries never
   reach an invoice.
 
-### Email
+### No email
 
-`apps/web/src/lib/email.ts` is a seam, not a guess — no provider is chosen. A
-Resend implementation is included; set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`
-and `RESEND_API_KEY` to enable it. Until then `markOnly: true` records an
-invoice as sent.
+**The app sends no mail.** Invoices are downloaded and emailed by the user
+from their own address; `PATCH /invoices/:id/status` records that it went out.
+
+This is deliberate and should not be "fixed" by adding a provider: mail from a
+shared application domain gets filtered or blocked on the way to a client, and
+the sender only finds out when the client says it never arrived. Sending it
+themselves uses their own domain's reputation and leaves a copy in their Sent
+folder.
 
 ### PDF and the test runner
 

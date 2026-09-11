@@ -410,46 +410,32 @@ test('the PDF renders from the frozen line items', async () => {
   assert.deepEqual([...bytes.slice(0, 5)], [0x25, 0x50, 0x44, 0x46, 0x2d], 'starts with %PDF-');
 });
 
-// ── send ───────────────────────────────────────────────────────────
-test('markOnly records the invoice as sent without an email provider', async () => {
+// ── marking sent ───────────────────────────────────────────────────
+// The app does not email invoices; `PATCH /status` is how a user records
+// that they sent one themselves.
+test('an invoice is marked sent through the status route', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { POST: send } = await import('../src/app/api/v1/invoices/[id]/send/route.ts');
+  const { PATCH: setStatus } = await import('../src/app/api/v1/invoices/[id]/status/route.ts');
   await seedEntry({ id: E(1), hours: 1 });
   const inv = await json(await create(req('/invoices', { clientId: CLIENT, ...PERIOD })));
 
-  const res = await json(await send(req('/send', { markOnly: true }),
+  const sent = await json(await setStatus(req('/s', { status: 'sent' }, 'PATCH'),
     { params: Promise.resolve({ id: inv.body.id }) }));
-  assert.equal(res.status, 200);
-  assert.equal(res.body.status, 'sent');
-  assert.equal(res.body.delivered, false);
-  assert.ok(res.body.sentAt);
+  assert.equal(sent.body.status, 'sent');
+  assert.ok(sent.body.sentAt);
 });
 
-test('sending without a configured provider fails BEFORE marking as sent', async () => {
+test('a send date can be backdated', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { POST: send } = await import('../src/app/api/v1/invoices/[id]/send/route.ts');
+  const { PATCH: setStatus } = await import('../src/app/api/v1/invoices/[id]/status/route.ts');
   await seedEntry({ id: E(1), hours: 1 });
   const inv = await json(await create(req('/invoices', { clientId: CLIENT, ...PERIOD })));
 
-  const res = await json(await send(req('/send', {}),
+  const when = '2026-09-05T14:00:00.000Z';
+  const sent = await json(await setStatus(
+    req('/s', { status: 'sent', sentAt: when }, 'PATCH'),
     { params: Promise.resolve({ id: inv.body.id }) }));
-  assert.equal(res.status, 422);
-
-  const { rows } = await pool.query('select status from invoices where id=$1', [inv.body.id]);
-  assert.equal(rows[0].status, 'draft',
-    'a failed send must not claim the invoice reached the client');
-});
-
-test('an already-sent invoice cannot be sent again', async () => {
-  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
-  const { POST: send } = await import('../src/app/api/v1/invoices/[id]/send/route.ts');
-  await seedEntry({ id: E(1), hours: 1 });
-  const inv = await json(await create(req('/invoices', { clientId: CLIENT, ...PERIOD })));
-
-  await send(req('/send', { markOnly: true }), { params: Promise.resolve({ id: inv.body.id }) });
-  const again = await json(await send(req('/send', { markOnly: true }),
-    { params: Promise.resolve({ id: inv.body.id }) }));
-  assert.equal(again.status, 422);
+  assert.equal(new Date(sent.body.sentAt).toISOString(), when);
 });
 
 // ── payment details ────────────────────────────────────────────────

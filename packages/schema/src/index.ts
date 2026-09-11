@@ -179,6 +179,8 @@ export const CreateInvoice = InvoicePreviewRequest.extend({
 export const InvoiceStatus = z.enum(['draft', 'sent', 'paid', 'void']);
 export const UpdateInvoiceStatus = z.object({
   status: InvoiceStatus,
+  /** Record that the invoice went out earlier than now. */
+  sentAt: iso.optional(),
   /** Record a payment that arrived earlier than now. */
   paidAt: iso.optional(),
 });

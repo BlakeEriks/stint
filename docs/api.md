@@ -71,9 +71,8 @@ numbering depends on `allocate_invoice_number()` holding the row lock.
 | `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries. Also accepts `issueDate`, `dueDate`, `notes`, `paymentTerms`, `tz`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if the period holds no billable time. |
 | `GET` | `/invoices/:id` | Invoice + frozen line items + client. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Releases its entries. |
-| `GET` | `/invoices/:id/pdf` | Streams `application/pdf` **inline** (not a URL) from the frozen line items. |
-| `POST` | `/invoices/:id/send` | Renders, emails, then marks sent. `{ to?, markOnly? }`. **Drafts only** — `422` otherwise. Response adds `delivered`, `messageId`, `sentTo`. |
-| `PATCH` | `/invoices/:id/status` | `{ status, paidAt? }`. |
+| `GET` | `/invoices/:id/pdf` | Streams `application/pdf` from the frozen line items. `?download=1` for `attachment` rather than an inline preview. |
+| `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent. |
 
 **Status transitions are constrained:** draft→sent/void, sent→paid/void,
 paid→void. `void` is terminal, and setting a status to its current value is a
@@ -82,28 +81,29 @@ Nothing returns to draft — leaving `draft` is what locked the entries, and
 reopening would let billed time change after the client saw it. Voiding
 releases the entries for re-billing while the number stays on record.
 
-**Sending is an action, not an idempotent status write.** Only a draft can be
-sent; re-sending would email a second copy and overwrite `sentAt`. The status
-change happens *after* delivery succeeds, so a failed send leaves the invoice
-in draft rather than claiming it reached a client who never got it.
-
 **Excluded from billing:** running timers (you cannot bill time still
 accruing), non-billable entries, and entries already attached to an invoice.
 
 **Preview before generate is mandatory in the UI.** Generation is the step that
 allocates a gapless number and locks entries — it must never be a surprise.
 
+**The app does not email invoices.** You download the PDF and send it from
+your own address, then record that with `PATCH /status`. Mail sent from a
+shared application domain gets filtered or blocked on the way to a client, and
+you find out when they say it never arrived. Sending it yourself uses your own
+domain's reputation and leaves the invoice in your Sent folder.
+
 `grouping_mode` (`entry | task | project | day`) controls whether the invoice
 lists every entry or sums them. It is frozen onto the invoice.
 
 ## Payment details
 
-Bank details live on the **invoice PDF**, never in the email body. That is the
-convention every major invoicing tool follows, and it is the safer posture:
-details that render identically on every invoice create a baseline, so a
-*change* becomes visible and questionable — which is exactly what
-fraud-prevention guidance tells payers to challenge. There is deliberately no
-option to put them in an email.
+Bank details live on the **invoice PDF**. That is the convention every major
+invoicing tool follows, and it is the safer posture: details that render
+identically on every invoice create a baseline, so a *change* becomes visible
+and questionable — which is exactly what fraud-prevention guidance tells
+payers to challenge. (The app sends no mail at all, so the PDF is the only
+place they could go.)
 
 `GET|POST /payment-profiles`, `GET|PATCH|DELETE /payment-profiles/:id`.
 

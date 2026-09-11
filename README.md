@@ -7,7 +7,8 @@ and deliberately nothing else.
 
 Design system, schema, shared logic and the `/api/v1/*` route handlers —
 including invoicing, payment details and PDF generation — are built and
-covered by integration tests.
+covered by integration tests. The app sends no email: invoices are downloaded
+and sent by the user from their own address.
 
 **Not built yet:** any UI, the mobile and macOS apps, and the `POST /sync`
 handler (the client-side outbox exists; the server half does not).

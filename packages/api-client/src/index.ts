@@ -134,9 +134,11 @@ export function createApiClient(opts: ApiClientOptions) {
     invoices: {
       preview: (body: unknown) => request('POST', '/invoices/preview', body),
       create: (body: unknown) => request('POST', '/invoices', body),
-      setStatus: (id: string, status: string) =>
-        request('PATCH', `/invoices/${id}/status`, { status }),
-      send: (id: string) => request('POST', `/invoices/${id}/send`),
+      setStatus: (id: string, status: string, at?: { sentAt?: string; paidAt?: string }) =>
+        request('PATCH', `/invoices/${id}/status`, { status, ...at }),
+      /** The app sends no mail: this is the URL the user downloads and
+       *  emails themselves. */
+      pdfUrl: (id: string) => `/api/v1/invoices/${id}/pdf?download=1`,
     },
 
     sync: (body: unknown) => request('POST', '/sync', body),
