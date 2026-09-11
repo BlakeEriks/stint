@@ -20,9 +20,12 @@ system — silent correction destroys trust in every number it reports.
 **Server owns timer truth; clients own responsiveness.** A running timer ticks
 locally from `startedAt`, but the server decides whether it is running.
 
-**The accent (green `#52FC43`) appears in one place at a time: the running
-timer.** Not navigation, not secondary buttons, not links. Green never means
-success — success is cyan `#2CCCEB`.
+**The accent (green `#52FC43`) marks the primary action on a screen, and
+inside the app that is the running timer.** At most one accent element in
+view. Not navigation, not secondary buttons, not links, never decoration.
+On a screen with no timer (sign-in, an empty state), the one thing the user
+came to do may carry it. Green never means success — success is cyan
+`#2CCCEB`.
 
 **Never white text on the accent** — 1.37:1. Use `--text-on-accent`. CI guards
 this specific regression.

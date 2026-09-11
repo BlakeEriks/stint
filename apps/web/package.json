@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/routes.test.ts test/invoices.test.ts",
     "sample:invoice": "node --experimental-strip-types scripts/render-sample-invoice.mjs",
-    "test:rls": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/rls.test.ts"
+    "test:rls": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/rls.test.ts",
+    "detox": "node scripts/shadcn-detox.mjs --check 'src/components/ui/*.tsx'"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
@@ -19,9 +20,15 @@
     "@tanstack/react-query": "^5",
     "@tt/core": "workspace:*",
     "@tt/schema": "workspace:*",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cn": "^0.2.6",
+    "lucide-react": "^1.45.0",
     "next": "^16.3.4",
+    "radix-ui": "^1.6.7",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4",
     "zod": "^4.6.2"
   },

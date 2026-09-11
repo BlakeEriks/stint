@@ -40,9 +40,15 @@ system, silent modification is a trust failure, and trust is the whole product.
 locally with no network, but the server decides whether it is running. Clients
 never guess at global state.
 
-**One accent, one meaning.** Green means *time is accruing*. It appears in one
-place at a time. It never means success, never decorates navigation, never
-marks a secondary button.
+**One accent, one meaning.** Green means *the primary action here* — and
+inside the app, that is time accruing. At most one accent element is in view
+at a time. It never means success, never decorates navigation, never marks a
+secondary button.
+
+The rule is scarcity, not a literal timer check: a screen with no timer on it
+may spend the accent on the single thing the user came to do. Two green
+things on one screen is the failure, not one green thing on a timerless
+screen.
 
 **Preview before anything irreversible.** Invoice generation allocates a
 gapless number and locks entries. It is always preceded by a preview with no
