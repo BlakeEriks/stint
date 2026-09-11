@@ -5,8 +5,8 @@ and deliberately nothing else.
 
 ## Status
 
-Foundation. Design system, data model, API contract and shared logic are
-complete and verified. No app code yet.
+Foundation plus the API layer. Design system, schema, shared logic and all
+`/api/v1/*` route handlers are built and verified. No UI yet.
 
 ## Layout
 
@@ -29,8 +29,21 @@ supabase/migrations/
 ```bash
 pnpm tokens             # regenerate CSS / TS / Swift from tokens.json
 pnpm tokens:validate    # assert the contrast contract (runs in CI)
-pnpm test               # run package tests
+pnpm test               # package tests
+pnpm --filter @tt/web dev
 ```
+
+### Running the API tests
+
+They exercise the real handlers against a real database:
+
+```bash
+createdb tt && psql tt -f supabase/migrations/00000000000001_init.sql
+DATABASE_URL=postgresql://localhost/tt pnpm --filter @tt/web test
+```
+
+See `.github/workflows/ci.yml` for the full sequence, including the `auth`
+schema stub that stands in for Supabase locally.
 
 ## Read first
 

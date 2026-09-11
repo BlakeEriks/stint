@@ -69,7 +69,13 @@ A second concurrent start is rejected by the database itself. The API returns
 
 ### Billed entries are immutable
 A trigger blocks edits and deletes once an entry belongs to a **non-draft**
-invoice. Two deliberate exceptions:
+invoice. The guarded fields are `started_at`, `ended_at`, `is_billable`,
+`rate_override`, `project_id` **and `task_name`** — the last because the task
+name becomes the invoice line description, so editing it after issue changes
+what the client was told they were billed for, even when the money is
+unchanged. (This gap was found by an integration test, not by reading.)
+
+Two deliberate exceptions:
 
 - Entries on a **draft** invoice remain editable.
 - **Detaching** an entry (`invoice_id → null`) stays allowed, so a voided
@@ -109,3 +115,4 @@ Applied to a real Postgres 14 instance and exercised:
 | 13 | Entries on a draft invoice stay editable | pass |
 | 14 | Duplicate invoice number rejected | rejected as designed |
 | — | 20 concurrent allocations, no gaps | 100–119, counter at 120 |
+| 15 | **Editing `task_name` on a billed entry rejected** | rejected (added after a test caught the gap) |

@@ -8,5 +8,8 @@
     "tokens:validate": "pnpm --filter @tt/design-tokens validate",
     "test": "pnpm -r test"
   },
-  "devDependencies": { "typescript": "^5.7.2" }
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "@types/node": "^22.10.2"
+  }
 }

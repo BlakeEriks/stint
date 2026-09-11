@@ -18,5 +18,6 @@
       "@tt/design-tokens": ["./packages/design-tokens/dist/tokens.ts"]
     }
   },
-  "exclude": ["node_modules", "dist", ".next"]
+  "include": ["packages/**/*.ts"],
+  "exclude": ["node_modules", "dist", ".next", "apps"]
 }

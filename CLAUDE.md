@@ -48,3 +48,42 @@ No Supabase CLI installed. To test migrations, start a throwaway Postgres
 (`/opt/homebrew/opt/postgresql@14/bin`) on a spare port over TCP — the socket
 path in the scratchpad exceeds the 103-byte limit — stub `auth.users` and
 `auth.uid()`, apply both migrations, then tear it down.
+
+## API layer
+
+All routes live in `apps/web/src/app/api/v1/`. Shared plumbing in
+`apps/web/src/lib/`:
+
+- `auth.ts` — `requireSession()` accepts both a bearer token (Expo, macOS) and
+  a cookie session (web); both yield an RLS-scoped client.
+- `errors.ts` — `handle()` wraps every route; `ApiError` maps to documented
+  status codes. Contains a compile-time guard asserting the local `Code` union
+  matches `ErrorCode` in `@tt/schema`.
+- `rows.ts` — **the only place that knows both snake_case and camelCase.**
+  Rename a column here, nowhere else.
+- `validate.ts` — Zod parsing with 422 + `treeifyError` details.
+
+### Conventions
+
+- Never pre-check the running timer before inserting. Attempt the insert and
+  translate the unique-violation — a pre-check is a race, the index is not.
+- Numeric columns arrive from PostgREST as **strings**; `rows.ts` converts them.
+  Never pass them straight through.
+- Offline replays: a duplicate-key insert with a client-supplied id returns the
+  existing row with 200, not an error.
+- `nextInvoiceNumber` is not client-settable — gapless numbering depends on
+  `allocate_invoice_number()` holding the row lock.
+
+### Testing
+
+`apps/web/test/routes.test.ts` runs the **real** handlers against a **real**
+Postgres with the real migrations. `requireSession` has a `__TEST_DB__` seam;
+`test/shim.mjs` is a supabase-js-shaped builder over node-postgres, and
+`test/loader.mjs` resolves `next/*` and the `@/` alias for `node --test`.
+
+Node's `--experimental-strip-types` rejects **TypeScript parameter
+properties** — write constructor fields explicitly in any code the tests load.
+
+Zod 4 is used throughout: `z.uuid()`, `z.iso.datetime()`, `z.email()`,
+`z.record(z.string(), z.unknown())`. Keep every workspace package on the same
+Zod major, or `z.infer` degrades to `unknown` across package boundaries.

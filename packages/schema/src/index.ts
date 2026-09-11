@@ -8,8 +8,8 @@
 
 import { z } from 'zod';
 
-export const uuid = z.string().uuid();
-export const iso = z.string().datetime({ offset: true });
+export const uuid = z.uuid();
+export const iso = z.iso.datetime({ offset: true });
 export const money = z.number().nonnegative().multipleOf(0.01);
 export const currency = z.string().length(3);
 export const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
@@ -18,7 +18,7 @@ export const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
 export const Client = z.object({
   id: uuid,
   name: z.string().trim().min(1).max(200),
-  email: z.string().email().nullable().optional(),
+  email: z.email().nullable().optional(),
   address: z.string().max(1000).nullable().optional(),
   hourlyRate: money.nullable().optional(),
   taxRate: z.number().min(0).max(100).nullable().optional(),
@@ -120,8 +120,8 @@ export const Settings = z.object({
   maxTimerHours: z.number().positive().max(24),
   businessName: z.string().max(200).nullable(),
   businessAddress: z.string().max(1000).nullable(),
-  businessEmail: z.string().email().nullable(),
-  logoUrl: z.string().url().nullable(),
+  businessEmail: z.email().nullable(),
+  logoUrl: z.url().nullable(),
   taxId: z.string().max(100).nullable(),
   defaultPaymentTerms: z.string().max(200),
   invoiceNumberPrefix: z.string().max(20),
@@ -134,8 +134,8 @@ export const GroupingMode = z.enum(['entry', 'task', 'project', 'day']);
 
 export const InvoicePreviewRequest = z.object({
   clientId: uuid,
-  periodStart: z.string().date(),
-  periodEnd: z.string().date(),
+  periodStart: z.iso.date(),
+  periodEnd: z.iso.date(),
   groupingMode: GroupingMode.default('entry'),
 });
 
@@ -162,7 +162,7 @@ export const InvoicePreview = z.object({
 });
 
 export const CreateInvoice = InvoicePreviewRequest.extend({
-  dueDate: z.string().date().optional(),
+  dueDate: z.iso.date().optional(),
   notes: z.string().max(2000).optional(),
   paymentTerms: z.string().max(200).optional(),
 });
@@ -176,7 +176,7 @@ export const SyncMutation = z.object({
   entity: z.enum(['time_entry', 'client', 'project', 'settings']),
   entityId: uuid,
   op: z.enum(['create', 'update', 'delete']),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   clientUpdatedAt: iso,
 });
 

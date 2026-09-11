@@ -9,14 +9,21 @@
 import type { ApiError } from '@tt/schema';
 
 export class ApiException extends Error {
+  readonly status: number;
+  readonly code: ApiError['code'] | 'UNKNOWN';
+  readonly details?: unknown;
+
   constructor(
-    readonly status: number,
-    readonly code: ApiError['code'] | 'UNKNOWN',
+    status: number,
+    code: ApiError['code'] | 'UNKNOWN',
     message: string,
-    readonly details?: unknown,
+    details?: unknown,
   ) {
     super(message);
     this.name = 'ApiException';
+    this.status = status;
+    this.code = code;
+    this.details = details;
   }
 
   /** A running timer blocked this start. The entry is in `details`. */

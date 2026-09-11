@@ -99,8 +99,8 @@ test('outbox coalesces repeated edits into one write', () => {
   ];
   const out = coalesce(items);
   assert.equal(out.length, 1);
-  assert.equal(out[0].op, 'create', 'create must survive the merge');
-  assert.deepEqual(out[0].payload, { taskName: 'b', projectId: 'p1' });
+  assert.equal(out[0]!.op, 'create', 'create must survive the merge');
+  assert.deepEqual(out[0]!.payload, { taskName: 'b', projectId: 'p1' });
 });
 
 test('outbox drops create-then-delete entirely', () => {
@@ -117,7 +117,7 @@ test('outbox keeps delete of a server-known entity', () => {
     createMutation('time_entry', 'e1', 'delete', {}),
   ]);
   assert.equal(out.length, 1);
-  assert.equal(out[0].op, 'delete');
+  assert.equal(out[0]!.op, 'delete');
 });
 
 test('outbox preserves relative order across entities', () => {

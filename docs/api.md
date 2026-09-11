@@ -5,6 +5,11 @@ All clients (web, Expo, Swift) use these endpoints. Auth is a Supabase JWT as
 `packages/schema/src/index.ts` — that file is the source of truth; this
 document is the map.
 
+All handlers are covered by integration tests that run the real route code
+against a real Postgres instance with the real migrations applied
+(`apps/web/test/routes.test.ts`) — so the timer index and immutability
+triggers are genuinely exercised rather than mocked.
+
 ## Timer
 
 The timer is **server-authoritative**. These are the only endpoints whose
@@ -91,3 +96,20 @@ lists every entry or sums them. It is frozen onto the invoice.
 **Retry policy** (`packages/core/src/outbox.ts`): 409, 429, 5xx and network
 failures retry with exponential backoff to a 5-minute ceiling. Other 4xx are
 rejections on the merits — retrying fails identically, so they dead-letter.
+
+## Timezones
+
+`GET /summary` and `GET /calendar` accept a `tz` query parameter (IANA, e.g.
+`America/Sao_Paulo`). "Today" is a local-calendar question and the server
+cannot infer the caller's zone, so the client states it; an invalid zone falls
+back to UTC rather than failing the request.
+
+Day and week boundaries are computed by `@tt/core/calendar`, which resolves the
+offset **at the candidate instant** rather than the current one. Using the
+current offset is an hour wrong on DST transition days, which silently files
+entries under the wrong date twice a year. Covered by tests across both US
+transitions, Europe/London, Australia/Sydney, and Pacific/Chatham's 45-minute
+offset.
+
+Calendar grouping happens server-side so all three clients agree on which day
+an entry belongs to.

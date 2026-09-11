@@ -48,7 +48,10 @@ begin
      or new.ended_at   is distinct from old.ended_at
      or new.is_billable is distinct from old.is_billable
      or new.rate_override is distinct from old.rate_override
-     or new.project_id is distinct from old.project_id then
+     or new.project_id is distinct from old.project_id
+     -- task_name becomes the invoice line description: editing it after
+     -- issue changes what the client was told they were billed for.
+     or new.task_name is distinct from old.task_name then
     raise exception 'Entry % is billed on a % invoice and cannot be modified', old.id, inv_status
       using errcode = 'check_violation';
   end if;
