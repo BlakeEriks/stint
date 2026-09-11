@@ -66,7 +66,7 @@ export function ClientDetail({ id }: { id: string }) {
       </header>
 
       <dl className="grid gap-x-6 gap-y-4 rounded-xl border border-edge-subtle
-                     bg-surface-base p-5 sm:grid-cols-2">
+                     bg-surface-primary p-5 shadow-card sm:grid-cols-2">
         <Detail label="Email" value={client.email} />
         <Detail
           label="Hourly rate"

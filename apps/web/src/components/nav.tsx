@@ -19,11 +19,10 @@ export function Nav() {
   if (pathname === '/signin' || pathname.startsWith('/auth')) return null;
 
   return (
-    <nav
-      aria-label="Sections"
-      className="border-b border-edge-subtle bg-surface-base"
-    >
-      <div className="mx-auto flex max-w-3xl gap-1 px-4 sm:px-6">
+    // Chrome on the ground, not a card: no border, no fill. The floating
+    // panes below supply the structure that a divider used to.
+    <nav aria-label="Sections">
+      <div className="mx-auto flex max-w-3xl gap-1 px-4 pt-2 sm:px-6">
         {LINKS.map(({ href, label }) => {
           const active =
             href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -32,10 +31,10 @@ export function Nav() {
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
-              className={`-mb-px border-b-2 px-3 py-3 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors ${
+              className={`rounded-md px-3 py-2 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors ${
                 active
-                  ? 'border-edge-control text-strong'
-                  : 'border-transparent text-subtle hover:text-muted'
+                  ? 'bg-surface-primary text-strong shadow-card'
+                  : 'text-subtle hover:text-muted'
               }`}
             >
               {label}

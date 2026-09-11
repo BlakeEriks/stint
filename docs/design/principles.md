@@ -50,6 +50,25 @@ may spend the accent on the single thing the user came to do. Two green
 things on one screen is the failure, not one green thing on a timerless
 screen.
 
+**Content floats; chrome recedes.** The page ground is the *darkest*
+surface and every panel sits above it on `surface-primary` with
+`shadow-card` and a 10px radius — the VS Code / editor look. Navigation is
+chrome painted directly on the ground: no fill, no divider, with the active
+section raised as a small floating tab.
+
+This is not decoration. The neutral ramp is eased so the dark end is tightly
+packed — `bg-base` to `bg-primary` is only **1.03:1**, far too little to read
+as separation on its own. Depth has to come from shadow and radius, and
+because it does, the hierarchy survives at any contrast setting and never
+competes with the accent for attention. Inverting it — cards darker than the
+ground — makes every panel read as a hole.
+
+**Focus rings are neutral.** `border-focus` is `n-700` (8.76:1), not the
+accent. A focus ring appears constantly and involuntarily, so spending the
+accent on it would drown the one signal the accent exists for. The ring still
+out-ranks the resting control border (`n-500`, 4.10:1) so focus stays
+obvious.
+
 **Preview before anything irreversible.** Invoice generation allocates a
 gapless number and locks entries. It is always preceded by a preview with no
 side effects.

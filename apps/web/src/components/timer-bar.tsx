@@ -51,7 +51,7 @@ export function TimerBar({ projects }: { projects: Project[] }) {
 
   return (
     <section
-      className="rounded-xl border border-edge-subtle bg-surface-base"
+      className="rounded-xl border border-edge-subtle bg-surface-primary shadow-card"
       aria-label="Timer"
     >
       {/* Two rows on narrow screens: the task name needs the full width, and

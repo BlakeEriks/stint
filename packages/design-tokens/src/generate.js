@@ -36,6 +36,31 @@ const semanticVars = (theme) =>
     .map(([name, ref]) => `  --${name}: ${resolve(ref)};`)
     .join('\n');
 
+/**
+ * Shadows are composite CSS values, not colour references, so they bypass
+ * `resolve()` and are emitted verbatim. They are theme-aware for the same
+ * reason colours are: the alpha that reads correctly on a near-black ground
+ * looks like soot on a near-white one.
+ */
+/**
+ * Elevation in @theme, so `shadow-card` is a real utility and a hand-written
+ * box-shadow has nothing to hide behind.
+ *
+ * The theme key and the runtime var must differ: `--shadow-card:
+ * var(--shadow-card)` inside @theme inline is a self-reference that resolves
+ * to nothing and silently removes every shadow in the app. Hence the --tt-
+ * prefix on the values the theme blocks declare.
+ */
+const elevationTheme = () =>
+  Object.keys(tokens.elevation.dark)
+    .map((k) => `  --${k}: var(--tt-${k});`)
+    .join('\n');
+
+const elevationVars = (theme) =>
+  Object.entries(tokens.elevation[theme])
+    .map(([name, value]) => `  --tt-${name}: ${value};`)
+    .join('\n');
+
 // ── CSS ────────────────────────────────────────────────────────────
 // Dark is the primary theme: the bare :root carries it, so the
 // un-stamped "system" state and an explicit dark choice both resolve.
@@ -65,6 +90,7 @@ ${primitiveVars()}
 
   /* semantic — DARK (primary) */
 ${semanticVars('dark')}
+${elevationVars('dark')}
 
   --font-sans: ${tokens.type.fontFamily.sans};
   --font-mono: ${tokens.type.fontFamily.mono};
@@ -79,15 +105,18 @@ ${Object.entries(tokens.radius).map(([k, v]) => `  --radius-${k}: ${v}px;`).join
 @media (prefers-color-scheme: light) {
   :root[data-theme="light"] {
 ${semanticVars('light')}
+${elevationVars('light')}
   }
 }
 
 :root[data-theme="light"] {
 ${semanticVars('light')}
+${elevationVars('light')}
 }
 
 :root[data-theme="dark"] {
 ${semanticVars('dark')}
+${elevationVars('dark')}
 }
 
 /* Tailwind utilities for every semantic token, so bg-primary and
@@ -96,6 +125,8 @@ ${semanticVars('dark')}
    theme blocks above must already be in scope. */
 @theme inline {
 ${themeBlock()}
+
+${elevationTheme()}
 }
 `;
 writeFileSync(join(out, 'tokens.css'), css);

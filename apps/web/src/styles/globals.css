@@ -18,8 +18,11 @@
     --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
   }
 
+  /* The ground the cards float on, so it is the RECESSED surface — cards
+     use --bg-primary and sit above it. Reversing these makes every panel
+     read as a hole rather than a card. */
   body {
-    background: var(--bg-primary);
+    background: var(--bg-base);
     color: var(--text-primary);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;

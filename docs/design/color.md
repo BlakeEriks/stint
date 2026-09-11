@@ -122,3 +122,40 @@ vibrancy is wanted.
 3. Timer state is reinforced by form and motion, not color alone.
 4. **Only semantic tokens reach components.** Primitives stay in the token
    package.
+
+
+## Elevation
+
+Shadows are generated tokens (`elevation` in `tokens.json`), not hand-written
+`box-shadow` values, for the same reason colours are: a literal in a component
+has nothing stopping it drifting.
+
+They are **theme-aware**. An alpha that reads as depth on a near-black ground
+looks like soot on a near-white one, so dark uses `rgba(0,0,0,0.34–0.44)` and
+light uses `rgba(16,18,26,0.06–0.10)`.
+
+- `shadow-card` — panels, the default.
+- `shadow-float` — anything genuinely above the page (menus, dialogs).
+
+**Generator caveat.** The Tailwind theme key and the runtime variable must
+differ. `--shadow-card: var(--shadow-card)` inside `@theme inline` is a
+self-reference: it resolves to nothing and silently removes every shadow in
+the app, with no error. The theme block therefore points at `--tt-shadow-*`,
+which is what the light/dark blocks declare.
+
+## Why depth cannot come from surface colour
+
+The neutral ramp is eased (`L = 0.145 + 0.830·t^1.55`) so resolution
+concentrates in the dark end where a dark UI lives. That is right for text,
+but it means adjacent surface steps are nearly identical:
+
+| pair | contrast |
+|---|---|
+| `bg-base` → `bg-primary` (dark) | 1.03 : 1 |
+| `bg-base` → `bg-elevated` (dark) | 1.26 : 1 |
+| `bg-base` → `bg-primary` (light) | 1.06 : 1 |
+
+Layering therefore comes from **shadow and radius**, with surface colour only
+reinforcing it. This is a feature: the depth cue is independent of the colour
+channel, so it survives dichromacy and high-contrast modes, and it never
+competes with the accent.

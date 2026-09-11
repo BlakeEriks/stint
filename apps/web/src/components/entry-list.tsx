@@ -39,7 +39,7 @@ export function EntryList({
         </span>
       </header>
 
-      <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-base">
+      <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-primary shadow-card">
         {isLoading ? (
           <Placeholder>Loading…</Placeholder>
         ) : entries.length === 0 ? (

@@ -30,6 +30,16 @@ came to do may carry it. Green never means success — success is cyan
 **Never white text on the accent** — 1.37:1. Use `--text-on-accent`. CI guards
 this specific regression.
 
+**Focus rings are neutral, never the accent.** `border-focus` is `n-700`. A
+focus ring is constant and involuntary; spending the accent there drowns the
+one signal it exists for.
+
+**Content floats, chrome recedes.** The body is `--bg-base` (the darkest
+surface) and panels sit above it on `bg-surface-primary` with `shadow-card`.
+Never invert this — cards darker than the ground read as holes. Depth comes
+from shadow and radius because `bg-base`→`bg-primary` is only 1.03:1; see
+`docs/design/color.md`.
+
 ## Conventions
 
 - **No Server Actions** for anything Expo or Swift also needs. Everything goes
