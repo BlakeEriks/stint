@@ -279,10 +279,11 @@ export function EntryDialog({
               </Button>
             </DialogFooter>
           ) : (
-            // `justify-between` at every width, so Delete sits at the far left
-            // and Save at the far right — the separation is what stops a
-            // destructive action being hit by a thumb aiming for the confirm.
-            <DialogFooter className="justify-between">
+            // Both actions right-aligned, at the footer's own gap. Splitting
+            // them to opposite edges left 134px of empty row in a 293px
+            // footer on a phone, which read as two unrelated controls rather
+            // than one group.
+            <DialogFooter>
               {/* Deleting is destructive and irreversible, so it asks once. */}
               {existing ? (
                 confirmingDelete ? (
@@ -322,9 +323,7 @@ export function EntryDialog({
                     Delete
                   </Button>
                 )
-              ) : (
-                <span />
-              )}
+              ) : null}
 
               {/* Icon plus label, like every other action in the app: text +
                   colour + icon is more legible than any single channel. The

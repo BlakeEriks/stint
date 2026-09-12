@@ -103,12 +103,12 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        // Horizontal at every width. shadcn ships `flex-col-reverse` below
-        // `sm`, which stacks the actions into a column on a phone — and a
-        // destructive action sitting directly under the confirm one is the
-        // arrangement most likely to be mis-tapped. Ours stay side by side,
-        // which is also where the thumb expects them.
-        "flex flex-row items-center gap-2 sm:justify-end",
+        // Horizontal and right-aligned at every width. shadcn ships
+        // `flex-col-reverse` below `sm`, which stacks the actions into a
+        // column on a phone; ours stay side by side, where the thumb expects
+        // them, and `justify-end` rather than `sm:justify-end` so a phone
+        // gets the same arrangement instead of a left-aligned row.
+        "flex flex-row items-center justify-end gap-2",
         className
       )}
       {...props}
