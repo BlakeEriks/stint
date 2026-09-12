@@ -53,13 +53,16 @@ jobs:
       # marks the check pending on entry and reports the job's real outcome
       # on exit. Vercel watches that commit status by name.
       #
-      # The name must match the "Check Name" configured in
-      # Vercel -> Settings -> Git -> Deployment Checks. It renders there as
-      # "Vercel - stint: migrate".
+      # The name must match the "Check Name" in Vercel -> Settings -> Git ->
+      # Deployment Checks, and it carries the environment on purpose: Vercel
+      # warns that a status shared across triggered runs gets overwritten, so
+      # a preview dispatch must not be able to clobber the production result.
+      # The `if:` above already blocks that, but a name collision is the kind
+      # of thing that only bites once something else changes.
       - name: Report to Vercel
         uses: vercel/repository-dispatch/actions/status@v1
         with:
-          name: migrate
+          name: migrate-production
 
       - uses: actions/checkout@v7
         with:

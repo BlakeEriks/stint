@@ -72,11 +72,19 @@ migration scripts do, and they run in Actions.
   environments when you connected the repo.
 
 - **Vercel** → Project Settings → Git → **Deployment Checks** → Connect
-  GitHub Actions → **Check Name: `migrate`**.
+  GitHub Actions → **Check Name: `migrate-production`**.
 
   That name has to match the `name:` input on the status step in
-  `release.yml`. Vercel then watches for a commit status called
-  `Vercel - stint: migrate` on the deployed SHA.
+  `release.yml` exactly — the action passes it through verbatim, with no
+  `Vercel - <project>:` prefix despite what the docs' example looks like.
+
+  It carries the environment on purpose. Vercel warns that a status shared
+  across triggered runs gets overwritten, so a preview dispatch must never be
+  able to clobber the production result.
+
+  The "use the `vercel/repository-dispatch/actions/status@v1` action" banner
+  in that dialog is generic advice, not a correction — that is already what
+  `release.yml` does.
 
   "No configured checks found" in that dialog is expected until the workflow
   has run once — it is listing statuses it has already seen, and nothing has
