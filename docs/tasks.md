@@ -31,6 +31,14 @@ feel permanent, it belongs in the roadmap or in the bin.
 - [ ] **Icons on the remaining buttons.** Nav and the additive actions have
       them; the lifecycle buttons on an invoice (send, mark paid, void,
       download) and the settings forms do not.
+- [ ] **Client colour legend on the calendar.** A block's left edge carries
+      its client's colour and nothing on the screen says which client that is
+      — the mapping only exists in the clients list, on another page. Needs to
+      cover the no-client case too, since internal work renders with no edge
+      at all rather than a shared grey. Only list clients present in the week
+      being viewed; a legend of every client a contractor has ever had is a
+      key nobody reads. The same mapping is what the home screen's Activity
+      heatmap will need, so whatever this becomes should be reusable.
 
 ## Known rough edges
 
