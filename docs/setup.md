@@ -21,16 +21,25 @@ Supabase already provides the `auth` schema, `auth.users`, and `auth.uid()` —
 the migrations assume all three, so nothing needs stubbing.
 
 Get the connection string: **Project Settings → Database → Connection string
-→ Session pooler** (IPv4-friendly). Swap in your database password and put it
-in `apps/web/.env.local`:
+→ Session pooler**. Swap in your database password and put it in
+`apps/web/.env.local`:
 
 ```
-SUPABASE_DB_URL=postgresql://postgres.<ref>:<password>@<host>:6543/postgres
+SUPABASE_DB_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
 ```
 
-This one is a **secret** — it is full database access and bypasses RLS. Only
-the two scripts below ever read it; the app never does. `.env.local` is
-gitignored.
+The **pooler**, not the direct connection. `db.<ref>.supabase.co:5432` is
+IPv6-only, and GitHub runners have no IPv6 — the release gate fails there
+with `ENETUNREACH`. It may work locally if your ISP has IPv6, which makes
+this easy to miss until CI hits it.
+
+Two pooler ports, and only one is right: **5432 is Session mode**, which
+supports DDL; 6543 is Transaction mode, which does not, so migrations fail.
+The host to look for is `pooler.supabase.com` with `postgres.<ref>` as the
+username.
+
+This is a **secret** — full database access, bypassing RLS. Only the two
+scripts below ever read it; the app never does. `.env.local` is gitignored.
 
 Then:
 

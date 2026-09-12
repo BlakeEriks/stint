@@ -47,7 +47,7 @@ if (!url) {
 
 Add it to apps/web/.env.local:
 
-  SUPABASE_DB_URL=postgresql://postgres.<ref>:<password>@<host>:6543/postgres
+  SUPABASE_DB_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
 
 Supabase dashboard -> Project Settings -> Database -> Connection string ->
 choose "Session pooler" (IPv4-friendly) and swap in your database password.
