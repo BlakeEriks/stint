@@ -146,6 +146,20 @@ export const api = {
   updateRunning: (body: { taskName?: string; projectId?: string | null }) =>
     request<TimeEntry>('PATCH', '/timer/current', body),
 
+  /**
+   * A completed manual entry. `id` is a client-generated UUIDv7 (`uuidv7()`
+   * in `@stint/core`) so a retried insert lands on the same row rather than
+   * duplicating it — the server returns the existing entry with 200.
+   */
+  createEntry: (body: {
+    id: string;
+    taskName: string;
+    projectId?: string | null;
+    startedAt: string;
+    endedAt: string;
+    isBillable?: boolean;
+  }) => request<TimeEntry>('POST', '/entries', body),
+
   updateEntry: (
     id: string,
     body: Partial<

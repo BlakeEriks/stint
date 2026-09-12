@@ -24,28 +24,11 @@ later.
 
 ## Ready
 
-- [ ] **Edit and delete a logged entry.** `updateEntry`, `deleteEntry` and
-      `createEntry` all exist in `lib/client/api.ts` with **zero callers** —
-      the routes are built and tested, and no UI reaches them. So a mistracked
-      entry cannot be corrected and a bogus one cannot be removed, in an app
-      whose whole claim is that the numbers on the invoice are the numbers you
-      worked. This is the largest gap in the product.
-
-      Editing is also what the runaway-timer promise depends on: the app
-      "surfaces, never auto-trims", and surfacing is only honest if the user
-      can then act. Today the banner says to adjust the duration and there is
-      nowhere to do it.
-
-      `PATCH /entries/:id` already returns 409 `ENTRY_LOCKED` for an entry on
-      an issued invoice, so the UI must show that state rather than offering
-      an edit that will fail. Manual creation (`createEntry`) needs a
-      client-generated UUIDv7 — `uuidv7()` in `@stint/core` — so a retried
-      insert is idempotent.
-
 - [ ] **Runaway timer: offer keep / adjust / discard.** `principles.md`
-      specifies this choice and the app only renders a warning banner.
-      Depends on entry editing above. The rule that must not bend: the app
-      surfaces the problem and never modifies the entry itself.
+      specifies this choice and the app only renders a warning banner. Entry
+      editing now exists, so this is just wiring the banner to it. The rule
+      that must not bend: the app surfaces the problem and never modifies the
+      entry itself.
 
 - [ ] **`GET /stats`** — one call backing the home cards: unbilled by client
       with aging, month-to-date against target, billable ratio, attention

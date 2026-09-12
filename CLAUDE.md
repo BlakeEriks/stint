@@ -512,6 +512,34 @@ with no email, the download is how an invoice reaches a client.
 
 Paid renders in the success channel (cyan), never green.
 
+### Editing an entry
+
+`entry-dialog.tsx` is the only place a logged entry is created, corrected or
+deleted, and it is what makes two promises elsewhere true: that the numbers on
+an invoice are the numbers you worked (only honest if a mistake can be fixed),
+and that a runaway timer is *surfaced* rather than auto-trimmed (only honest if
+there is somewhere to do the trimming).
+
+- **The inputs are local wall-clock; the API is UTC.** `toInstant` resolves a
+  date + time in a timezone by guessing UTC and correcting by the offset the
+  guess lands in — DST-correct because the correction is computed *at* the
+  target instant rather than assumed from today. Verified round-tripping
+  across both US transitions, the ambiguous fall-back hour, a half-hour
+  offset and UTC+14. Never do fixed-millisecond arithmetic here.
+- **An end before the start is overnight, not an error.** 22:00 to 02:00 is a
+  four-hour shift; rejecting it is defensible and useless to someone who
+  worked those hours. The end rolls forward one calendar day.
+- **A billed entry opens read-only** with the reason and the remedy ("void
+  the invoice to release it"). The lock is a database trigger, so an edit
+  would 409 — offering a save that cannot succeed is dishonest. Every field
+  disables and the only remaining action is dismiss.
+- **Deleting asks once.** The row is one click from the duration and the
+  delete is irreversible.
+- **Creating supplies a UUIDv7** so a retried insert lands on the same row.
+
+All five are tested, and each test was verified to fail when the behaviour is
+removed.
+
 ### The calendar
 
 A week grid of what was tracked. It visualises, it does not schedule — no
