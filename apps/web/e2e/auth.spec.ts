@@ -27,8 +27,16 @@ test.describe('authentication', () => {
   }) => {
     await signIn(page);
 
+    /* Driven by the KEYBOARD, not a click. The dropdown animates open, and
+       on a slower runner Playwright found the item "not stable" and then
+       "outside of the viewport" — a click retried for 30s and timed out.
+       Radix gives the menu real roving focus, so Enter is both more robust
+       and closer to how a keyboard user signs out. */
     await page.getByRole('button', { name: /Account/ }).click();
-    await page.getByRole('menuitem', { name: 'Sign out' }).click();
+    const signOut = page.getByRole('menuitem', { name: 'Sign out' });
+    await expect(signOut).toBeVisible();
+    await signOut.focus();
+    await page.keyboard.press('Enter');
     await page.waitForURL('**/signin');
 
     /* The reason `router.refresh()` follows `router.replace()`: the server

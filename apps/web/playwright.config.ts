@@ -34,5 +34,24 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        /* Taller than the 720px default. The account menu sits at the FOOT
+           of the rail, so its dropdown opens against the bottom edge — on a
+           CI runner Radix's popper placed it outside the viewport and the
+           click never landed. Height is cheaper than teaching every test
+           about scroll position. */
+        viewport: { width: 1280, height: 900 },
+        /* The app honours `prefers-reduced-motion` (the timer dot's pulse is
+           `motion-safe:`), so asking for it removes Radix's open/close
+           animations. That is the actual cause of the "element is not stable"
+           timeout above, and it protects every future dropdown or dialog
+           test rather than just the one that found it. */
+        contextOptions: { reducedMotion: 'reduce' },
+      },
+    },
+  ],
 });
