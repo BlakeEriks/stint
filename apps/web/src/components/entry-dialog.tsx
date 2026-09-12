@@ -35,6 +35,7 @@ export function EntryDialog({
   open,
   onOpenChange,
   existing,
+  seed,
   projects,
   tz,
 }: {
@@ -42,6 +43,11 @@ export function EntryDialog({
   onOpenChange: (open: boolean) => void;
   /** Omitted for a new entry. */
   existing?: TimeEntry;
+  /**
+   * Starting times for a new entry, from clicking a time on the calendar.
+   * Ignored when `existing` is set — an edit opens on its own times.
+   */
+  seed?: { startedAt: string; endedAt: string };
   projects: Project[];
   tz: string;
 }) {
@@ -64,12 +70,13 @@ export function EntryDialog({
     setTaskName(existing?.taskName ?? '');
     setProjectId(existing?.projectId ?? null);
 
-    const from = existing ? new Date(existing.startedAt) : new Date();
+    const opened = existing ?? seed;
+    const from = opened ? new Date(opened.startedAt) : new Date();
     setDate(localDate(from, tz));
     setStart(localTime(from, tz));
-    setEnd(existing?.endedAt ? localTime(new Date(existing.endedAt), tz) : '');
+    setEnd(opened?.endedAt ? localTime(new Date(opened.endedAt), tz) : '');
     setBillable(existing?.isBillable ?? true);
-  }, [open, existing, tz]);
+  }, [open, existing, seed, tz]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['entries'] });

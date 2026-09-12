@@ -76,7 +76,7 @@ describe('Calendar', () => {
     render(<Calendar />, { wrapper });
 
     expect(
-      await screen.findByText('Nothing logged this week.'),
+      await screen.findByText(/Nothing logged this week/),
     ).toBeInTheDocument();
   });
 

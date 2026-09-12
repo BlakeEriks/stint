@@ -366,6 +366,3 @@ moves up — do not start one by guessing the answer.
 - **Expo app** — last by design; reuses the most.
 - **Runaway timer push notifications** — needs APNs/FCM, so effectively gated
   behind the native apps.
-- **Calendar editing** (drag-to-adjust, click-to-create) — the largest felt
-  gap day to day, since correcting a mistracked block means leaving the view
-  where you noticed it.

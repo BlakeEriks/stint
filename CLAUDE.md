@@ -820,6 +820,61 @@ Overlapping entries get side-by-side lanes rather than stacking — in a
 billing tool a block you cannot see is a block you cannot check. Tested, and
 the test was verified to fail when the laning is removed.
 
+#### Correcting time from the grid
+
+This is where a mistracked block is noticed, so it is where it gets fixed: a
+block opens the editor, dragging it adjusts its times, and clicking empty grid
+starts a new entry at the time clicked. Before this, noticing a mistake meant
+leaving the view you noticed it in.
+
+The inverse of the painting maths lives in `packages/core/src/grid.ts` —
+fraction of a column back to an instant — separately from the forward
+direction because it carries a trap the forward one does not, and every
+function takes the column's real span rather than 24 hours.
+
+- **Drags snap to 15 minutes** (`SNAP_MINUTES`). A pointer lands on whatever
+  minute a pixel happens to be, so an unsnapped drag bills 09:07–10:52 and
+  calls it precision. The snap is also what makes the gesture safe to offer on
+  billable time at all: it is the difference between a 4px slip being
+  invisible and it being a billing change.
+- **A move preserves the duration exactly; only a resize changes it.** The end
+  is derived by adding the original elapsed milliseconds, never by re-deriving
+  a wall clock — a two-hour block dragged across a DST boundary is still two
+  hours of billable work. Tested, and the test fails when the end is
+  re-derived.
+- **Dragging an edge past the other clamps to 15 minutes rather than
+  inverting.** The overnight reading (22:00–02:00) belongs to *typed* times,
+  where it is what the user meant; a gesture saying "this block ends here" has
+  no such reading.
+- **A billed or running block refuses the gesture.** The billed lock is a
+  database trigger, so a drag would 409 after the fact and spring back with no
+  explanation; a running entry has no end to adjust and the timer bar owns it.
+  Both still open the editor, which says why.
+- **The gesture commits only on release, and only past
+  `DRAG_THRESHOLD_PX`.** A block is *also* the control that opens the editor,
+  so without a threshold every click would land a PATCH. The click that
+  follows a drag is then suppressed by a flag the click consumes — asking
+  whether a drag is *in progress* cannot work, because pointer-up clears it
+  before the click fires. That ordering was a real bug, caught by a test.
+- **Clicking empty grid opens the editor pre-filled rather than writing a
+  row.** A click on a grid is too cheap a gesture to create a financial record
+  from. It seeds one hour, the commonest block.
+- **Each day heading carries an "Add an entry on …" button.** Clicking a time
+  is pointer-only, so without it the create path is unreachable by keyboard —
+  and it is the discoverable one, since clicking empty grid is faster but
+  invisible until tried. The column's own click handler is suppressed lint,
+  with the reason recorded: a role on the canvas would be a lie, and the
+  blocks inside it are the real controls.
+
+**A drag is vertical, within one day.** Moving an entry to another day is the
+rarer correction and the dialog already does it; keeping the gesture in one
+column is also what lets the maths use that column's own span.
+
+**The DST tests assert a wall clock, not that minutes divide by 15.** A fixed
+24-hour denominator also lands on quarter hours — it just lands on the wrong
+ones — so a divisibility check cannot tell the two apart. It was written that
+way first and a mutation walked straight through it.
+
 ### Forms save themselves
 
 Settings has **no save button**: `useAutosave` debounces to the server and

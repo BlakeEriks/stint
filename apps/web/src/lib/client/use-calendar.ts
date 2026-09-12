@@ -76,6 +76,10 @@ export function useCalendar(weekStartsOn = 1) {
     tz,
     days,
     weekStart,
+    // The exclusive end of the week, so the last column can compute its own
+    // span — a DST day is not 24 hours and the fraction→instant maths for a
+    // drag needs the real one.
+    weekEnd,
     weekSeconds,
     isLoading,
     offset,

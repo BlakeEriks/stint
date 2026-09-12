@@ -70,12 +70,63 @@ export function HomeCards() {
 
   if (!data) return null;
 
-  return (
-    <div className="mt-6 flex flex-col gap-4">
-      <NeedsAttention stats={data} />
-      <Unbilled stats={data} />
-      <Pace stats={data} />
+  /* Which cards will actually render. Both columns are built from this
+     rather than from a fixed grid, because two of the four cards hide
+     themselves: Needs attention renders only when it has rows (and with the
+     7-day grace period it is usually absent), and Pace hides entirely when no
+     monthly target is set.
+
+     A `grid-cols-2` with the cards dropped into fixed cells would leave a
+     visible hole on a good day — which is worse than the single column it
+     replaced. So the layout asks what is present first. */
+  const hasAttention =
+    data.attention.overdueInvoices.length +
+      data.attention.staleDrafts.length +
+      (data.attention.unprojected ? 1 : 0) >
+    0;
+  const hasUnbilled = data.unbilled.byClient.length > 0;
+  const hasPace = data.pace != null;
+
+  /* The right column carries the two fixed-size visuals, and Activity is
+     always one of them. When Pace is gone it would be alone in a narrow
+     column with a lot of air beneath it, so the split collapses and both
+     columns run full width — one card does not justify a column. */
+  const splitColumns = (hasAttention || hasUnbilled) && hasPace;
+
+  const left = (
+    <>
+      {hasAttention ? <NeedsAttention stats={data} /> : null}
+      {hasUnbilled ? <Unbilled stats={data} /> : null}
+    </>
+  );
+  const right = (
+    <>
+      {hasPace ? <Pace stats={data} /> : null}
       <ActivityStrip />
+    </>
+  );
+
+  if (!splitColumns) {
+    return (
+      <div className="mt-6 flex flex-col gap-4">
+        {left}
+        {right}
+      </div>
+    );
+  }
+
+  /* 1.6fr / 1fr, not equal columns. The left column is rows of client names,
+     ages, hours and amounts — content that grows and truncates when starved.
+     The right is a number with a bar and a fixed 12-week strip, neither of
+     which gets better with more room. Equal columns would starve the side
+     with something to say to pad the side without.
+
+     `items-start` so a short right column does not stretch its cards to match
+     a tall left one. */
+  return (
+    <div className="mt-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.6fr_1fr]">
+      <div className="flex flex-col gap-4">{left}</div>
+      <div className="flex flex-col gap-4">{right}</div>
     </div>
   );
 }
@@ -102,7 +153,7 @@ function NeedsAttention({ stats }: { stats: Stats }) {
         {overdueInvoices.map((i) => (
           <Row
             key={i.invoiceId}
-            href={`/invoices/${i.invoiceId}`}
+            href={`/app/invoices/${i.invoiceId}`}
             icon={
               <AlertTriangle aria-hidden className="size-3.5 text-danger" />
             }
@@ -137,7 +188,7 @@ function NeedsAttention({ stats }: { stats: Stats }) {
         {staleDrafts.map((d) => (
           <Row
             key={d.invoiceId}
-            href={`/invoices/${d.invoiceId}`}
+            href={`/app/invoices/${d.invoiceId}`}
             icon={<FileWarning aria-hidden className="size-3.5 text-warning" />}
             label={d.clientName ?? d.invoiceNumber}
             detail={`draft, ${d.ageDays} days old`}
@@ -167,7 +218,7 @@ function NeedsAttention({ stats }: { stats: Stats }) {
 
         {unprojected ? (
           <Row
-            href="/"
+            href="/app"
             icon={<Clock aria-hidden className="size-3.5 text-warning" />}
             label={
               unprojected.count === 1
@@ -205,8 +256,8 @@ function Unbilled({ stats }: { stats: Stats }) {
             // card an action rather than a readout.
             href={
               c.clientId
-                ? `/invoices/new?clientId=${c.clientId}`
-                : '/invoices/new'
+                ? `/app/invoices/new?clientId=${c.clientId}`
+                : '/app/invoices/new'
             }
             label={c.clientName}
             detail={
@@ -238,7 +289,7 @@ function Unbilled({ stats }: { stats: Stats }) {
           is money already asked for, and summing them double-counts. */}
       {stats.awaitingPayment > 0 ? (
         <Link
-          href="/invoices?status=sent"
+          href="/app/invoices?status=sent"
           className="flex items-baseline gap-1.5 border-t border-edge-subtle px-4 py-2 type-support text-subtle hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
         >
           <span className="type-meta text-muted">

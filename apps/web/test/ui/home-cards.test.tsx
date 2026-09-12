@@ -383,3 +383,90 @@ describe('HomeCards', () => {
     expect(screen.getByText(/1 unrated/)).toBeInTheDocument();
   });
 });
+
+describe('the wide layout survives its own empty states', () => {
+  /* The cards split into two columns at `lg`. Two of the four hide
+     themselves — Needs attention is usually absent thanks to the 7-day grace
+     period, and Pace hides when no target is set — so a fixed `grid-cols-2`
+     would leave a visible hole on an ordinary day, which is worse than the
+     single column it replaced.
+
+     These pin the collapse rules. They assert structure rather than class
+     strings: what must hold is that a column never renders empty and that a
+     lone card is not left in a narrow one. */
+  const oneClient = {
+    total: 100,
+    seconds: 3600,
+    byClient: [
+      {
+        clientId: 'c1',
+        clientName: 'Northwind',
+        currency: 'USD',
+        seconds: 3600,
+        amount: 100,
+        unratedCount: 0,
+        oldestDays: 2,
+      },
+    ],
+    moreClients: 0,
+  };
+  const target = {
+    unit: 'hours' as const,
+    target: 120,
+    actual: 21.4,
+    delta: -27.7,
+    businessDaysElapsed: 9,
+    businessDaysTotal: 22,
+  };
+
+  /** The grid element the split produces, if it produced one. */
+  const splitGrid = (c: HTMLElement) =>
+    c.querySelector('.grid.lg\\:grid-cols-\\[1\\.6fr_1fr\\]');
+
+  it('splits into two columns when both sides have a card', async () => {
+    serve(stats({ unbilled: oneClient, pace: target }));
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+
+    const grid = splitGrid(container);
+    expect(grid).not.toBeNull();
+    /* Exactly two columns, and neither is empty — an empty column div is the
+       hole this whole arrangement exists to avoid. */
+    const columns = [...(grid?.children ?? [])];
+    expect(columns).toHaveLength(2);
+    for (const col of columns) {
+      expect(col.querySelector('section')).not.toBeNull();
+    }
+  });
+
+  it('does not split when the left column would be empty', async () => {
+    /* Nothing wrong and nothing unbilled: the left column has no card at
+       all. Splitting here would put Pace and Activity in a narrow right
+       column beside 660px of nothing. */
+    serve(stats({ pace: target }));
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('Activity')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('Unbilled')).toBeNull();
+    expect(splitGrid(container)).toBeNull();
+  });
+
+  it('does not split when Activity would be alone in the narrow column', async () => {
+    /* No monthly target, so Pace hides and Activity is the only card the
+       right column would hold — a lone 12-week strip with a column of air
+       beneath it. One card does not justify a column. */
+    serve(stats({ unbilled: oneClient, pace: null }));
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('September')).toBeNull();
+    expect(splitGrid(container)).toBeNull();
+  });
+});
