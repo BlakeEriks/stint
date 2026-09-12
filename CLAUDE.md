@@ -438,6 +438,29 @@ On a phone it becomes two rows — identity and timer on top, sections scrolling
 beneath. They must not share one scrolling row: that pushed the running timer
 off the right edge, so it was invisible on the screen where it matters most.
 
+The **account menu** sits at the foot of the rail (`account-menu.tsx`),
+showing the signed-in email and holding **Settings** and **Sign out**.
+Settings is deliberately not in the rail's section list: the rail is places
+you go, and configuration visited rarely does not belong beside Home and
+Calendar.
+
+**It is not a Profile page, and that was a decision.** Settings is entirely
+business configuration — billing defaults, invoice identity, numbering,
+payment profiles — and none of it is "who am I". A profile for a single-user
+app holds an email, a sign-out and eventually a theme: three items, not a
+page. The email *is* the account; there is no name, avatar or organisation.
+
+**This is where sign-out lives, and the app previously had none at all** —
+you could get in and not out. `signOut()` then `router.replace('/signin')`
+*and* `router.refresh()`: the server components were rendered for a signed-in
+user, so without the refresh a Back navigation shows cached authenticated
+markup.
+
+Relatedly, `request()` in `api.ts` sends any **401** to `/signin`. Without it
+a signed-out page rendered its shell and sat on "Loading…" forever — React
+Query has `retry: false`, so the 401 never resolved into anything actionable.
+Hitting Back after signing out did exactly that.
+
 `Page` (`page.tsx`) owns the content column. Every screen used to carry its
 own copy of `mx-auto max-w-3xl px-4 py-8 …`, which is how the calendar ended
 up silently on a different width. `wide` is for screens that are a grid rather

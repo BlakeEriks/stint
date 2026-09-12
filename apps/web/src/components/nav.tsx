@@ -5,12 +5,12 @@ import { usePathname } from 'next/navigation';
 import {
   CalendarDays,
   FileText,
-  Settings,
   Timer,
   Users,
   type LucideIcon,
 } from 'lucide-react';
 import { NavTimer } from './nav-timer';
+import { AccountMenu } from './account-menu';
 
 /* Icon AND label, never icon alone. An icon is a fast second channel for
    somewhere you already know, and useless for somewhere you do not — the
@@ -21,7 +21,8 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/clients', label: 'Clients', icon: Users },
   { href: '/invoices', label: 'Invoices', icon: FileText },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  // Settings is NOT here: the rail is places you go, and configuration you
+  // visit rarely belongs in the account menu at the foot instead.
 ];
 
 /**
@@ -98,6 +99,12 @@ export function Nav() {
             </Link>
           );
         })}
+      </div>
+
+      {/* Pushed to the foot on the rail; inline on a phone, where there is no
+          vertical space to push into. */}
+      <div className="flex-none sm:mt-auto sm:pt-4">
+        <AccountMenu />
       </div>
     </nav>
   );

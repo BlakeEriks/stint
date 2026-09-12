@@ -53,22 +53,6 @@ later.
 - [ ] **Icons on the remaining buttons.** Nav and the additive actions have
       them; the lifecycle buttons on an invoice (send, mark paid, void,
       download) and the settings forms do not.
-- [ ] **Account menu at the bottom of the rail, absorbing Settings.** The
-      rail's sections are places you go; Settings is configuration you visit
-      rarely, so it does not belong in the same run of items as Home and
-      Calendar. Put the signed-in email at the foot of the rail as a dropdown
-      trigger holding **Settings** and **Sign out**.
-
-      **Not a Profile page.** Settings today is entirely business
-      configuration — billing defaults, invoice identity, numbering, payment
-      profiles — and none of it is "who am I". A profile for a single-user app
-      would hold an email, a sign-out and eventually a theme: three items, not
-      a page, and inventing one is the scope creep the thesis exists to
-      resist. Your email *is* the account; there is no name, avatar or org.
-
-      **This is also where sign-out finally lives — the app currently has
-      none at all**, anywhere. That is the real gap this closes.
-
 - [ ] **Collapsible rail.** Icon-only at ~3.5rem, full at 13rem, toggled by
       the user and remembered. The calendar is the screen that wants it: seven
       day columns plus a 13rem rail is tight on a laptop, and the rail is

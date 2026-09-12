@@ -4,6 +4,13 @@ import { afterEach, vi } from 'vitest';
 
 afterEach(cleanup);
 
+/* `createBrowserClient` throws without these, so any component that reads the
+   session — the account menu, for one — cannot even mount. The values are
+   never dialled: tests stub `fetch`, and these only have to be present and
+   well-formed. */
+process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'http://localhost:54321';
+process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??= 'sb_publishable_test';
+
 // Radix measures and positions its popper with APIs jsdom does not implement.
 // Without these, DropdownMenu throws on open.
 globalThis.ResizeObserver ??= class {

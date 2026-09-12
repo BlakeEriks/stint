@@ -8,7 +8,11 @@ import { TimerBar } from '@/components/timer-bar';
 import { Nav } from '@/components/nav';
 import type { Project, Summary, TimeEntry } from '@/lib/client/api';
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/calendar' }));
+/* Nav mounts the account menu, which needs a router to leave on sign-out. */
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/calendar',
+  useRouter: () => ({ replace: vi.fn(), refresh: vi.fn(), push: vi.fn() }),
+}));
 
 /**
  * Appearance, not behaviour.
