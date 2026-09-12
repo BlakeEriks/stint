@@ -99,9 +99,22 @@ export function HomeCards() {
      monthly target there is nothing to put beside the money cards. */
   const splitColumns = (hasAttention || hasUnbilled) && hasPace;
 
+  /* Needs attention also lives in the dock, which exists only at `xl`. So
+     Home's copy hides at exactly that width rather than being dropped: the
+     viewport is not knowable on the server, and branching on it in JS would
+     render one tree on the server and another on the client.
+
+     `hidden xl:contents` on a wrapper rather than on the card, so that when
+     it IS shown the wrapper disappears from the layout and the card remains a
+     direct flex child of the column — `display: contents` is what keeps the
+     gap between cards correct. */
   const left = (
     <>
-      {hasAttention ? <NeedsAttention stats={data} /> : null}
+      {hasAttention ? (
+        <div className="contents xl:hidden">
+          <NeedsAttention stats={data} />
+        </div>
+      ) : null}
       {hasUnbilled ? <Unbilled stats={data} /> : null}
     </>
   );
@@ -150,7 +163,7 @@ export function HomeCards() {
  * SaveIndicator problem — a check that is always present says nothing — and
  * the card's absence is the good news.
  */
-function NeedsAttention({ stats }: { stats: Stats }) {
+export function NeedsAttention({ stats }: { stats: Stats }) {
   const { overdueInvoices, staleDrafts, unprojected } = stats.attention;
   const setStatus = useStatusAction();
   const count =
@@ -524,18 +537,27 @@ function Row({
 }) {
   /* The row is a grid, not a link wrapping buttons: an <a> containing a
      <button> is invalid HTML and breaks keyboard navigation — Tab would land
-     inside the link. The label is the link; the actions sit beside it. */
+     inside the link. The label is the link; the actions sit beside it.
+
+     Sized by CONTAINER, not viewport. The same card renders in Home's wide
+     column and in the 280px dock, so a `sm:` breakpoint is the wrong
+     question: it is true in the dock at 1600px and lays the row out as though
+     there were room. Measured in the dock under the old rules, the label got
+     24px while the fixed-width duration kept 96.
+
+     `@container` on the row's own list, so every threshold below reads the
+     card's width. */
   return (
-    <li className="border-t border-edge-subtle first:border-t-0">
+    <li className="@container border-t border-edge-subtle first:border-t-0">
       <div className="flex items-center gap-2.5 px-4 py-2.5">
         {icon}
 
-        {/* Detail wraps under the label on a narrow screen rather than
+        {/* Detail wraps under the label when the card is narrow rather than
             hiding. "12 days late" IS the row — a client name and an amount
             without it is just an invoice, not something needing attention. */}
         <Link
           href={href}
-          className="flex min-w-0 flex-1 flex-col rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none sm:flex-row sm:items-baseline sm:gap-2.5"
+          className="flex min-w-0 flex-1 flex-col rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none @md:flex-row @md:items-baseline @md:gap-2.5"
         >
           <span className="truncate type-control text-primary">{label}</span>
           <span
@@ -551,12 +573,17 @@ function Row({
           </span>
         </Link>
 
+        {/* Hours are supporting detail, and the first thing to go: the amount
+            is what the row is for. */}
         {secondary ? (
-          <span className="hidden w-16 flex-none text-right type-meta text-subtle sm:inline">
+          <span className="hidden w-16 flex-none text-right type-meta text-subtle @md:inline">
             {secondary}
           </span>
         ) : null}
-        <span className="w-24 flex-none text-right type-duration text-primary">
+        {/* Auto-width in a narrow card. The fixed `w-24` exists so the
+            amounts form a column when there is room for one; in the dock it
+            was reserving a quarter of the card for six characters. */}
+        <span className="flex-none text-right type-duration text-primary @md:w-24">
           {value}
         </span>
 
@@ -597,7 +624,11 @@ function RowAction({
   const body = (
     <>
       {icon}
-      <span className="hidden sm:inline">{label}</span>
+      {/* Container-sized, like the row: three labelled buttons do not fit a
+          280px dock card any more than they fit a phone. The `aria-label`
+          carries the name either way, so the icon is never the only thing
+          naming the action to a screen reader. */}
+      <span className="hidden @md:inline">{label}</span>
     </>
   );
 

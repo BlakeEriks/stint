@@ -40,7 +40,10 @@ export function AccountMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Account"
-        className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 type-meta
+        /* Sizes to its content, not its container: this sat at `w-full` when
+           it lived at the foot of the rail, and in the header that stretched
+           it across the row and pushed the address under the avatar. */
+        className="flex min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 type-meta
                    text-subtle outline-none hover:bg-surface-hover hover:text-muted
                    focus-visible:ring-2 focus-visible:ring-edge-focus sm:px-3"
       >

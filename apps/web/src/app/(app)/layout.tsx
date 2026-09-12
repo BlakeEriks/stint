@@ -1,5 +1,7 @@
 import { Providers } from '@/components/providers';
+import { AppHeader } from '@/components/app-header';
 import { Nav } from '@/components/nav';
+import { Dock } from '@/components/dock';
 import { TimerDock } from '@/components/timer-dock';
 
 /**
@@ -17,33 +19,30 @@ import { TimerDock } from '@/components/timer-dock';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <Providers>
-      {/* The rail and the content sit side by side, so the content area
-          is a real column rather than the whole viewport with padding.
+      {/* The frame, top to bottom: header, then a row of rail + content +
+          dock, then the timer.
 
-          On the rail breakpoint the PAGE does not scroll — `h-dvh` plus
-          `overflow-hidden` pins it — and the content column scrolls inside
-          itself instead. The rail is a sibling of that scroller rather
-          than inside it, so it simply stays put; nothing is positioned
-          fixed and nothing needs a scroll offset.
+          The header and the timer bar bound the whole thing, which is what
+          makes the middle row read as columns of one frame rather than three
+          independent strips. Both are flex siblings rather than `position:
+          fixed` — the content column simply ends between them, so there is no
+          reserved padding to keep in sync and nothing overlaps the last row
+          of a list.
 
-          Below `sm` the nav is a horizontal strip above the content, and
-          there the whole page scrolls normally: pinning a strip that is
-          already two rows tall would eat a third of a phone viewport. */}
-      {/* The frame is a column: rail + content on top, timer docked beneath.
+          At `sm` and up the PAGE does not scroll (`h-dvh` + `overflow-hidden`)
+          and the content column scrolls inside itself, so the rail, header
+          and bar stay put without being positioned.
 
-          The timer is part of the frame rather than a card on one screen,
-          so it is present on every route and a timer can be started from
-          anywhere. It is a flex sibling rather than `position: fixed` — the
-          content column then simply ends above it, with no reserved padding
-          to keep in sync and nothing overlapping the last row of a list.
-
-          On a phone the whole page still scrolls, so the bar is `sticky`
-          there instead: it has to stay reachable without pinning a viewport
-          that is mostly keyboard once the input has focus. */}
+          On a phone the whole page scrolls instead: the nav is a horizontal
+          strip under the header, and the timer is `sticky` so it stays
+          reachable without pinning a viewport that is mostly keyboard once
+          the task input has focus. */}
       <div className="flex min-h-dvh flex-col sm:h-dvh sm:min-h-0 sm:overflow-hidden">
+        <AppHeader />
         <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
           <Nav />
           <div className="min-w-0 flex-1 sm:overflow-y-auto">{children}</div>
+          <Dock />
         </div>
         <div className="sticky bottom-0 z-20 sm:static">
           <TimerDock />

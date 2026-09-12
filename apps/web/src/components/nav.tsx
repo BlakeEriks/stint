@@ -10,7 +10,6 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
-import { AccountMenu } from './account-menu';
 
 /* Icon AND label, never icon alone. An icon is a fast second channel for
    somewhere you already know, and useless for somewhere you do not — the
@@ -48,8 +47,8 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
  * slightly different grey. In light mode the recession inverts (the rail goes
  * darker than the page) and means the same thing.
  *
- * On a phone it returns to a horizontal strip — a rail would eat a third of a
- * 375px viewport, and the timer hero is what that screen is for.
+ * On a phone it returns to a horizontal strip under the header — a rail would
+ * eat a third of a 375px viewport.
  */
 export function Nav() {
   const pathname = usePathname();
@@ -67,28 +66,12 @@ export function Nav() {
       className="flex flex-none flex-col gap-1 border-b border-edge-subtle bg-surface-recessed px-3 py-2
                  sm:h-full sm:w-52 sm:border-r sm:border-b-0 sm:py-4"
     >
-      {/* Wordmark doubles as the Home link, which is the convention the
-          logo-click already implies.
+      {/* Sections, and nothing else. The wordmark and the account menu moved
+          to the header, and the running timer to the docked bar — so the rail
+          is now purely places you go, which is what it always claimed to be.
 
-          The running timer used to sit beneath it here. It is docked to the
-          bottom of the frame now, on every screen — having it in both places
-          meant two identical green readouts in view at once, which the old
-          comment defended as "the same fact reinforcing itself" and which
-          simply read as a duplicate. */}
-      <div className="flex flex-none items-center justify-between gap-2 sm:mb-3 sm:flex-col sm:items-start">
-        <Link
-          href="/"
-          aria-label="Stint — home"
-          className="type-wordmark flex-none rounded-md px-2 py-1 text-strong
-                     hover:bg-surface-hover"
-        >
-          Stint
-        </Link>
-      </div>
-
-      {/* Sections. Only this scrolls — horizontally on a phone, and
-          vertically in the rail if the list ever outgrows the viewport, so a
-          short window cannot push the account menu off the bottom. */}
+          Only this scrolls: horizontally on a phone, vertically in the rail
+          if the list ever outgrows a short window. */}
       <div className="flex gap-1 overflow-x-auto sm:min-h-0 sm:flex-col sm:overflow-x-visible sm:overflow-y-auto">
         {LINKS.map(({ href, label, icon: Icon }) => {
           const active =
@@ -113,12 +96,6 @@ export function Nav() {
             </Link>
           );
         })}
-      </div>
-
-      {/* Pushed to the foot on the rail; inline on a phone, where there is no
-          vertical space to push into. */}
-      <div className="flex-none sm:mt-auto sm:pt-4">
-        <AccountMenu />
       </div>
     </nav>
   );
