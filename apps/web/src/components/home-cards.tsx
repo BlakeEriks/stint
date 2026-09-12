@@ -6,11 +6,14 @@ import { formatCompact } from '@stint/core';
 import {
   AlertTriangle,
   ArrowRight,
+  BarChart3,
   Check,
   Clock,
   Download,
   FileWarning,
+  type LucideIcon,
   Send,
+  Wallet,
 } from 'lucide-react';
 import { api, type InvoiceStatus, type Stats } from '@/lib/client/api';
 import { useTimeZone } from '@/lib/client/use-timer';
@@ -146,7 +149,7 @@ function NeedsAttention({ stats }: { stats: Stats }) {
   if (count === 0) return null;
 
   return (
-    <Card title="Needs attention">
+    <Card title="Needs attention" icon={AlertTriangle} iconTone="warning">
       <ul className="flex flex-col">
         {/* Overdue sorts first and carries danger; everything else is a
             warning. Never the accent — see the module comment. */}
@@ -247,7 +250,7 @@ function Unbilled({ stats }: { stats: Stats }) {
   if (byClient.length === 0) return null;
 
   return (
-    <Card title="Unbilled" value={money(total, stats.currency)}>
+    <Card title="Unbilled" icon={Wallet} value={money(total, stats.currency)}>
       <ul className="flex flex-col">
         {byClient.map((c) => (
           <Row
@@ -322,7 +325,7 @@ function Pace({ stats }: { stats: Stats }) {
   const ahead = p.delta != null && p.delta >= 0;
 
   return (
-    <Card title={monthName()}>
+    <Card title={monthName()} icon={BarChart3}>
       <div className="flex flex-col gap-2 px-4 pt-3.5 pb-3">
         {p.actual == null ? (
           <p className="type-support text-subtle">
@@ -377,10 +380,19 @@ function Pace({ stats }: { stats: Stats }) {
 
 function Card({
   title,
+  icon: Icon,
+  iconTone,
   value,
   children,
 }: {
   title: string;
+  icon: LucideIcon;
+  /* Neutral unless the card already carries a tone. Only Needs attention
+     passes one, because it is the only card that is *about* something being
+     wrong — colouring the rest would spend a channel the app uses for meaning
+     on decoration. Never the accent: five green glyphs on the one screen the
+     accent belongs to the running timer would undo the rule outright. */
+  iconTone?: 'warning';
   value?: string;
   children: React.ReactNode;
 }) {
@@ -398,13 +410,33 @@ function Card({
           It is the header's own bottom margin that carries it (`mx-4` on a
           zero-height div), so the rows below keep their `border-t` and the
           first row does not double up. */}
+      {/* The icon and the title are one group on the baseline, with the value
+          pushed to the far end. An SVG has no text baseline of its own, so
+          the icon is centred against the heading inside its own flex row
+          rather than dropped into the `items-baseline` row, where it would
+          sit low by roughly its own descender. */}
       <header className="flex items-baseline justify-between gap-3 px-4 pt-3 pb-2.5">
-        {/* A card header is a heading, not a system label: `type-label` is
-            11px uppercase mono with wide tracking, which reads as a tag
-            stamped on the panel rather than as the name of what follows. */}
-        <h2 className="type-heading text-strong">{title}</h2>
+        <div className="flex min-w-0 items-center gap-2">
+          <Icon
+            aria-hidden
+            strokeWidth={1.75}
+            className={`size-4 flex-none ${
+              iconTone === 'warning' ? 'text-warning' : 'text-muted'
+            }`}
+          />
+          {/* A card header is a heading, not a system label: `type-label` is
+              11px uppercase mono with wide tracking, which reads as a tag
+              stamped on the panel rather than as the name of what follows.
+
+              The icon is `aria-hidden`, so the accessible name stays the
+              heading text alone — a screen reader should not announce
+              "triangle alert Needs attention". */}
+          <h2 className="type-heading truncate text-strong">{title}</h2>
+        </div>
         {value ? (
-          <span className="type-amount-hero text-strong">{value}</span>
+          <span className="type-amount-hero flex-none text-strong">
+            {value}
+          </span>
         ) : null}
       </header>
       <div className="mx-4 border-t border-edge-subtle" />

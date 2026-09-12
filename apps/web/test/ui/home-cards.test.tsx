@@ -172,7 +172,7 @@ describe('HomeCards', () => {
     render(<HomeCards />, { wrapper });
 
     const link = await screen.findByRole('link', { name: /Northwind/ });
-    expect(link).toHaveAttribute('href', '/invoices/i1');
+    expect(link).toHaveAttribute('href', '/app/invoices/i1');
   });
 
   it('offers no destructive action inline', async () => {
@@ -381,6 +381,51 @@ describe('HomeCards', () => {
        says "no rate", and `unratedCount` says the total is incomplete. */
     await waitFor(() => expect(screen.getByText('—')).toBeInTheDocument());
     expect(screen.getByText(/1 unrated/)).toBeInTheDocument();
+  });
+});
+
+describe('card header icons', () => {
+  it('leaves the accessible name as the heading text alone', async () => {
+    serve(
+      stats({
+        attention: {
+          overdueInvoices: [overdue],
+          staleDrafts: [],
+          unprojected: null,
+        },
+        unbilled: {
+          total: 100,
+          seconds: 3600,
+          byClient: [
+            {
+              clientId: 'c1',
+              clientName: 'Northwind',
+              currency: 'USD',
+              seconds: 3600,
+              amount: 100,
+              unratedCount: 0,
+              oldestDays: 2,
+            },
+          ],
+          moreClients: 0,
+        },
+      }),
+    );
+    render(<HomeCards />, { wrapper });
+
+    /* The icon is a second channel for a card you are scanning, not part of
+       its name. Without `aria-hidden` a screen reader announces "triangle
+       alert Needs attention", and lucide's glyphs carry titles that would
+       leak in. Queried by exact accessible name, so an icon that starts
+       contributing to it fails here. */
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: 'Needs attention' }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Unbilled' }),
+    ).toBeInTheDocument();
   });
 });
 

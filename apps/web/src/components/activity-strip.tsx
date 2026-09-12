@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { formatCompact, startOfLocalDayOffset } from '@stint/core';
+import { CalendarRange } from 'lucide-react';
 import { api } from '@/lib/client/api';
 import { useTimeZone } from '@/lib/client/use-timer';
 
@@ -72,9 +73,22 @@ export function ActivityStrip() {
 
   return (
     <section className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
+      {/* Matches the `Card` shell in `home-cards.tsx`, which this predates and
+          duplicates — icon and title as one centred group, meta pushed to the
+          end. Neutral, and `aria-hidden` so the accessible name stays
+          "Activity". */}
       <header className="flex items-baseline justify-between gap-3 px-4 pt-3 pb-2.5">
-        <h2 className="type-heading text-strong">Activity</h2>
-        <span className="type-meta text-subtle">last {WEEKS} weeks</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <CalendarRange
+            aria-hidden
+            strokeWidth={1.75}
+            className="size-4 flex-none text-muted"
+          />
+          <h2 className="type-heading truncate text-strong">Activity</h2>
+        </div>
+        <span className="type-meta flex-none text-subtle">
+          last {WEEKS} weeks
+        </span>
       </header>
       {/* Inset to the content's own padding, matching the home cards — see
           the `Card` shell in `home-cards.tsx` for why it is not a border on
