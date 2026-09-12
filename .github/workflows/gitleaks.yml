@@ -1,0 +1,34 @@
+name: Secret scan
+
+# A public repo makes every past commit readable forever, so a secret that
+# lands in history is burned the moment it is pushed — rotating it is the
+# only remedy, and rewriting history does not un-publish it. This scans the
+# commits a push actually adds, before they are the permanent record.
+#
+# GitHub's own push protection covers provider-recognised formats. This is
+# the wider net: it also catches generic high-entropy strings and private
+# keys, which push protection does not.
+on:
+  push: { branches: [main] }
+  pull_request:
+
+concurrency:
+  group: gitleaks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: a secret added in an early commit and deleted in a
+      # later one is still readable in the pack, so scanning the tip alone
+      # would report clean on exactly the case that matters.
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: .gitleaks.toml

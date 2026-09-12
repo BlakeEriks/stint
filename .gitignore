@@ -16,6 +16,8 @@ xcuserdata/
 DerivedData/
 
 coverage/
+test-results/
+playwright-report/
 
 # Supabase CLI scratch
 supabase/.temp/

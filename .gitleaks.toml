@@ -1,0 +1,24 @@
+[extend]
+useDefault = true
+
+# The Supabase CLI's fixed local development key. It is identical on every
+# machine, published in Supabase's own docs, stable across `dev:reset`, and
+# only ever addresses 127.0.0.1 — there is nothing behind it to reach.
+#
+# Allowlisted by its literal value rather than by path: exempting the whole
+# file would mean a real key pasted into the same doc scans clean.
+[[rules]]
+id = "generic-api-key"
+[rules.allowlist]
+regexTarget = "match"
+regexes = [
+  '''sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH''',
+]
+
+# Placeholders in the example env and the CI build step. Both are committed
+# on purpose and neither is a credential.
+[allowlist]
+regexes = [
+  '''sb_publishable_\.\.\.''',
+  '''ci-placeholder''',
+]
