@@ -63,11 +63,19 @@ export default function RootLayout({
         <Providers>
           {/* The rail and the content sit side by side, so the content area
               is a real column rather than the whole viewport with padding.
-              `min-h-dvh` keeps the rail's border running the full height even
-              on a short page. */}
-          <div className="flex min-h-dvh flex-col sm:flex-row">
+
+              On the rail breakpoint the PAGE does not scroll — `h-dvh` plus
+              `overflow-hidden` pins it — and the content column scrolls inside
+              itself instead. The rail is a sibling of that scroller rather
+              than inside it, so it simply stays put; nothing is positioned
+              fixed and nothing needs a scroll offset.
+
+              Below `sm` the nav is a horizontal strip above the content, and
+              there the whole page scrolls normally: pinning a strip that is
+              already two rows tall would eat a third of a phone viewport. */}
+          <div className="flex min-h-dvh flex-col sm:h-dvh sm:min-h-0 sm:flex-row sm:overflow-hidden">
             <Nav />
-            <div className="min-w-0 flex-1">{children}</div>
+            <div className="min-w-0 flex-1 sm:overflow-y-auto">{children}</div>
           </div>
         </Providers>
         <SpeedInsights />
