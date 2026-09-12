@@ -27,6 +27,11 @@ permissions:
   # The status action writes a commit status on the deployed SHA; Vercel
   # watches that status by name.
   statuses: write
+  # It also LISTS THIS WORKFLOW'S JOBS to derive the conclusion for its
+  # `post` hook. Without this the very first step dies with "Resource not
+  # accessible by integration" and nothing downstream runs — no migration,
+  # no status, and Vercel waits forever with no check to find.
+  actions: read
 
 jobs:
   migrate:
