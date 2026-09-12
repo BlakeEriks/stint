@@ -97,6 +97,39 @@ head, or a row they can click to act on.** "Interesting" is not the bar.
 Decoration on the home screen is the mechanism by which this app becomes the
 one it was built against.
 
+## Onboarding
+
+**A new account is never given a running timer.** Starting one on the user's
+behalf — an "Stint Onboarding" entry to walk them through assigning a project
+— was proposed and rejected. It inverts the rule that the app never silently
+modifies user data, and does something worse than modifying: it *creates* a
+record of work that never happened.
+
+Four specific failures, each of which is the app breaking its own promise on
+the user's first screen:
+
+- It accrues time nobody worked, and goes on accruing until noticed.
+- It consumes the timer invariant. One running timer per user is enforced by
+  an index, so the first real thing the user tries — "let me track this call"
+  — gets a **409**. The tour is occupying the one slot the product exists to
+  provide.
+- Close the tab and come back tomorrow and it is a 14-hour entry tripping the
+  runaway-timer banner, so the first encounter with the warning system is a
+  false positive the app manufactured.
+- It is in the billing pipeline. A fabricated entry is one `Generate` away
+  from a preview; it would not survive to an invoice, but "why is Stint
+  Onboarding on my unbilled list" is a trust question on day one.
+
+The real problem it was reaching for is genuine — an empty timer screen
+teaches nothing. The answer is to **show the shape without writing the row**:
+a non-interactive example entry in the empty list, visibly an example, gone
+the moment a real entry exists. Same teaching, no fabricated record.
+
+**No multi-step walkthrough either.** A tour is a surface that needs
+maintaining, breaks whenever the UI moves, and is scope of exactly the kind
+the thesis refuses. Contextual empty states do the same work and cannot drift
+out of sync with the screen they describe, because they *are* the screen.
+
 ## Platform scope
 
 The web app is where features are built. The native apps exist for the things

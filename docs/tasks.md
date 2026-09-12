@@ -46,10 +46,71 @@ later.
       adding a card is not a migration. Decided; the one place in that table
       where a typed column does not fit.
 
+- [ ] **Projects live under their client, and there is no projects page.**
+      `/projects` API routes exist with no UI. A flat list of every project
+      across every client was considered and rejected: a project is
+      meaningless without its client — which is why the rate hierarchy runs
+      `project -> client -> default` — so a page listing three rows named
+      "Website redesign" under three different clients is a page you have to
+      decode. And a nav entry implies projects are a place you go, when they
+      are an attribute of work you assign in passing. The rail is already
+      competing with the calendar for width.
 
-- [ ] **Projects page.** `/projects` API routes exist with no page; projects
-      are only reachable through client dialogs. Everything else in the nav
-      has a home.
+      Walking the flow as a new user, creation already works: the picker
+      carries **+ New project**, the dialog has a client select, and `onSaved`
+      selects the new project immediately. Three things are actually missing.
+
+      - **The project dialog cannot create a client, and that is a dead end.**
+        The `<select>` offers `No client — internal work` plus clients that
+        already exist, so on a new account there is no path from "creating my
+        first project" to "creating my first client" — you have to leave for
+        `/clients`, abandoning whatever you had typed into the timer. Add an
+        `Add a client…` option opening `ClientForm` in a nested dialog, which
+        returns and selects it. This is the whole onboarding fix.
+      - **A Projects section on `ClientDetail`.** The list for that client, an
+        `Add project` button passing `defaultClientId` — a prop
+        `ProjectDialog` already accepts and nothing currently uses — and
+        edit/archive per row. Each row shows its **effective rate and where it
+        inherited from**, which is the thing you want to check and cannot see
+        anywhere today.
+      - **Internal work** (no client) has no home either. Put it as a final
+        "Internal work" group on the clients list rather than inventing a page
+        for one row: `client_id = null` is already how it is modelled
+        everywhere else in the schema.
+
+      If the client-nested view turns out to be insufficient, adding
+      `/projects` later is additive. Adding a nav entry now and removing it
+      later is a decision you have to un-make.
+
+- [ ] **Onboarding: teach the shape, never fabricate a record.** A new
+      account's timer screen has nothing on it, and the least discoverable
+      thing in the data model is that `client_id = null` is how unbillable
+      work is tracked — nobody guesses that. "No projects yet." is the most
+      discouraging string in the app.
+
+      - **Seed an `Internal` project with no client** in
+        `create_default_settings`, so the picker is not empty on first open
+        and the null-client path is demonstrated rather than explained. A
+        seeded *client* named "Blake Internal" was rejected: clients go on
+        invoices and appear in the picker, the calendar legend and the
+        unbilled rollup, so a non-customer sitting in the client list is
+        exactly the confusion the null-client path exists to avoid.
+
+        **Caution, and it is the highest-consequence write in the codebase:**
+        that trigger fires inside Supabase's signup transaction, so anything
+        it raises rolls the whole signup back and the client sees only
+        `Database error saving new user` with a 500. It needs the same
+        `security definer` + `set search_path = public, pg_temp` treatment as
+        the existing insert (see `00000000000005`), and the insert must be
+        `on conflict do nothing` for the same reason the settings insert is.
+      - **An example entry row in the empty list** — rendered, visibly an
+        example, never persisted, and gone the moment a real entry exists. An
+        empty list teaches nothing; this teaches the same shape without
+        writing a row.
+      - **Extend the empty states, do not build a tour.** `/clients` already
+        says "Add one to set a rate and bill against it" — that is the
+        pattern. A multi-step walkthrough is a surface that needs maintaining
+        and breaks whenever the UI moves.
 - [ ] **Icons on the remaining buttons.** Nav and the additive actions have
       them; the lifecycle buttons on an invoice (send, mark paid, void,
       download) and the settings forms do not.
