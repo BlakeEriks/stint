@@ -112,6 +112,7 @@ type Response<T> = { [K in keyof T]-?: Exclude<T[K], undefined> };
 export type TimeEntry = Response<schema.TimeEntry>;
 export type Project = Response<schema.Project>;
 export type Client = Response<schema.Client>;
+export type ClientWithScale = Response<schema.ClientWithScale>;
 export type Settings = Response<schema.Settings>;
 export type PaymentProfile = Response<schema.PaymentProfile>;
 export type InvoicePreview = Response<schema.InvoicePreview>;
@@ -228,11 +229,31 @@ export const api = {
   archiveProject: (id: string) => request<void>('DELETE', `/projects/${id}`),
 
   /** Archived clients are excluded unless asked for. */
-  clients: (opts: { includeArchived?: boolean } = {}) =>
-    request<{ clients: Client[] }>(
+  /* Overloaded so `withScale` narrows the result: without it every caller of
+     the plain list would carry fields the server did not send. */
+  clients: ((opts: { includeArchived?: boolean; withScale?: boolean } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.includeArchived) q.set('includeArchived', 'true');
+    if (opts.withScale) q.set('withScale', 'true');
+    const query = q.size > 0 ? `?${q}` : '';
+    return request<{ clients: Client[] | ClientWithScale[] }>(
       'GET',
-      `/clients${opts.includeArchived ? '?includeArchived=true' : ''}`,
-    ),
+      `/clients${query}`,
+    );
+  }) as {
+    (opts: {
+      includeArchived?: boolean;
+      withScale: true;
+    }): Promise<{
+      clients: ClientWithScale[];
+    }>;
+    (opts?: {
+      includeArchived?: boolean;
+      withScale?: false;
+    }): Promise<{
+      clients: Client[];
+    }>;
+  },
 
   client: (id: string) => request<Client>('GET', `/clients/${id}`),
 

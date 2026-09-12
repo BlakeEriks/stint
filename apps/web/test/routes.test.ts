@@ -483,3 +483,53 @@ test('calendar rejects an inverted period', async () => {
   assert.equal(res.status, 400);
   assert.equal(res.body.code, 'INVALID_PERIOD');
 });
+
+test('client scale covers every client, not just the top few', async () => {
+  const { POST: createClient, GET: listClients } = await import(
+    '../src/app/api/v1/clients/route.ts'
+  );
+  const { POST: createProject } = await import(
+    '../src/app/api/v1/projects/route.ts'
+  );
+
+  /* Seven clients, because /stats caps its rollup at five. That cap is right
+     for a home card and wrong for a full list: a missing amount reads as
+     "nothing owed" rather than "not shown", so the list must not inherit
+     it. */
+  const ids: string[] = [];
+  for (const name of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) {
+    const c = await json(
+      await createClient(req('/clients', { name, hourlyRate: 100 })),
+    );
+    assert.equal(c.status, 201);
+    ids.push(c.body.id);
+  }
+
+  // Two projects on the last client, so the count is not incidentally 1.
+  for (const name of ['One', 'Two']) {
+    await createProject(req('/projects', { clientId: ids[6], name }));
+  }
+
+  const plain = await json(await listClients(req('/clients')));
+  assert.equal(
+    plain.body.clients[0].projectCount,
+    undefined,
+    'scale is opt-in: the plain list stays one query',
+  );
+
+  const scaled = await json(await listClients(req('/clients?withScale=true')));
+  assert.equal(scaled.body.clients.length, 7);
+
+  const last = scaled.body.clients.find((c: { id: string }) => c.id === ids[6]);
+  assert.equal(last.projectCount, 2, 'the seventh client still gets a count');
+  assert.equal(
+    typeof last.unbilledAmount,
+    'number',
+    '0 is a real answer and must not arrive as null or a string',
+  );
+
+  const first = scaled.body.clients.find(
+    (c: { id: string }) => c.id === ids[0],
+  );
+  assert.equal(first.projectCount, 0, 'a client with no projects reports 0');
+});

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { api, type Client } from '@/lib/client/api';
+import { api, type ClientWithScale } from '@/lib/client/api';
 import { Page } from './page';
 import { Plus } from 'lucide-react';
 
@@ -18,8 +18,9 @@ export function ClientList() {
   const [showArchived, setShowArchived] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['clients', { archived: showArchived }],
-    queryFn: () => api.clients({ includeArchived: showArchived }),
+    queryKey: ['clients', { archived: showArchived, scale: true }],
+    queryFn: () =>
+      api.clients({ includeArchived: showArchived, withScale: true }),
   });
 
   const clients = data?.clients ?? [];
@@ -68,7 +69,7 @@ export function ClientList() {
   );
 }
 
-function Row({ client }: { client: Client }) {
+function Row({ client }: { client: ClientWithScale }) {
   return (
     <Link
       href={`/clients/${client.id}`}
@@ -81,8 +82,15 @@ function Row({ client }: { client: Client }) {
         style={{ background: client.color ?? 'var(--text-subtle)' }}
       />
 
-      <span className="min-w-0 flex-1 truncate type-control text-primary">
-        {client.name}
+      {/* Name above, secondary detail below. The email used to have its own
+          column; with a second line on the left it competed for width and
+          truncated to nothing, so it joins the detail line instead of
+          silently disappearing. */}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate type-control text-primary">
+          {client.name}
+        </span>
+        <Detail client={client} />
       </span>
 
       {client.archivedAt ? (
@@ -94,14 +102,49 @@ function Row({ client }: { client: Client }) {
         </span>
       ) : null}
 
-      <span className="hidden min-w-0 flex-1 truncate type-meta text-muted sm:block">
-        {client.email ?? ''}
-      </span>
-
       <span className="w-24 flex-none text-right type-duration text-muted">
         {client.hourlyRate != null ? `${usd.format(client.hourlyRate)}/h` : '—'}
       </span>
     </Link>
+  );
+}
+
+/**
+ * How much work sits under this client.
+ *
+ * A list of names says nothing about what is being worked on, and clicking
+ * through four clients to find a project is worse than the flat list the
+ * `/projects` page now provides. A count and an amount answer "where is my
+ * work?" in one line, with no interaction.
+ *
+ * Not a disclosure dropdown: expanding rows change the list's height as you
+ * poke them, need per-row fetches or one over-fetch, and create a second
+ * place project rows render. The wanted information here is SCALE, not the
+ * list itself.
+ */
+function Detail({ client }: { client: ClientWithScale }) {
+  const { projectCount, unbilledAmount } = client;
+
+  const parts: string[] = [];
+  if (projectCount > 0) {
+    parts.push(
+      `${projectCount} ${projectCount === 1 ? 'project' : 'projects'}`,
+    );
+  }
+  /* `0` unbilled is omitted rather than shown: it means everything is
+     invoiced, which is the quiet good state and does not need a figure. */
+  if (unbilledAmount > 0) {
+    parts.push(`${usd.format(unbilledAmount)} unbilled`);
+  }
+  if (client.email) parts.push(client.email);
+
+  // Nothing to say about an empty client, and a row of zeroes is noise.
+  if (parts.length === 0) return null;
+
+  return (
+    <span className="mt-0.5 block truncate type-support text-subtle">
+      {parts.join(' · ')}
+    </span>
   );
 }
 

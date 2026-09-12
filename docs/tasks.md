@@ -46,19 +46,6 @@ later.
       adding a card is not a migration. Decided; the one place in that table
       where a typed column does not fit.
 
-- [ ] **Project scale on the clients list.** A list of client names says
-      nothing about what is being worked on, and clicking through four clients
-      to find a project is worse than the flat list. Put the count and the
-      money on the row — "3 projects · $1,462.50 unbilled" — which is one
-      line, needs no interaction, and answers "where is my work?" directly.
-      The per-client unbilled rollup already exists and home already uses it.
-
-      **Not a disclosure dropdown.** Expanding rows change the list's height
-      as you poke it, need either per-row fetches or one big over-fetch, and
-      create a second place project rows render and have to be maintained.
-      The wanted information at list level is scale, not the full list. If the
-      names are still wanted without a click, a tooltip is the cheap version.
-
 - [ ] **Hours invested per project — blocked on `/reports` existing.** The app
       can report hours per client (the unbilled rollup) and per day (the
       calendar) but not per project, which is the number behind the questions
@@ -296,8 +283,6 @@ moves up — do not start one by guessing the answer.
       Worth a test that hits a real server with a real token before the Expo
       or macOS app depends on it.
 
-- [ ] **`type-section` is unused.** Kept because the home cards will want a
-      section heading. If they ship without it, delete the role.
 - [ ] **Calendar: a block can overlap the day's label.** Visible on Saturday
       in the seeded week — "Untitled" is clipped by the block above it.
 - [ ] **Calendar header weight mismatch.** `type-title` at 24px/600 sits next

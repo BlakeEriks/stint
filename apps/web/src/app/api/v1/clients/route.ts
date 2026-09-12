@@ -10,10 +10,13 @@ export const dynamic = 'force-dynamic';
 
 const ListQuery = z.object({
   includeArchived: z.enum(['true', 'false']).default('false'),
+  /** Project count and unbilled total per client. Opt-in: the plain list is
+   *  one cheap query and most callers (pickers, dialogs) want only that. */
+  withScale: z.enum(['true', 'false']).default('false'),
 });
 
 export const GET = handle(async (req: Request) => {
-  const { db } = await requireSession(req);
+  const { db, userId } = await requireSession(req);
   const q = parseQuery(req, ListQuery);
 
   let query = db.from('clients').select(CLIENT_COLUMNS).order('name');
@@ -21,8 +24,43 @@ export const GET = handle(async (req: Request) => {
 
   const { data, error } = await query;
   if (error) throw error;
+  const clients = (data ?? []).map(toClient);
 
-  return NextResponse.json({ clients: (data ?? []).map(toClient) });
+  if (q.withScale === 'false') return NextResponse.json({ clients });
+
+  /* The same rollup the home card uses, UNTRUNCATED. `/stats` caps it at the
+     top five, which is right for a card and wrong for a full list: the sixth
+     client would show no figure, and a missing amount reads as "nothing
+     owed" rather than "not shown". */
+  const [projects, unbilled] = await Promise.all([
+    db.from('projects').select('client_id').is('archived_at', null),
+    db.rpc('unbilled_by_client', { p_user_id: userId }),
+  ]);
+  if (projects.error) throw projects.error;
+  if (unbilled.error) throw unbilled.error;
+
+  const counts = new Map<string, number>();
+  for (const row of (projects.data ?? []) as { client_id: string | null }[]) {
+    if (!row.client_id) continue;
+    counts.set(row.client_id, (counts.get(row.client_id) ?? 0) + 1);
+  }
+
+  const owed = new Map<string, number>();
+  for (const row of (unbilled.data ?? []) as {
+    client_id: string | null;
+    amount: string | number;
+  }[]) {
+    if (!row.client_id) continue;
+    owed.set(row.client_id, Number(row.amount));
+  }
+
+  return NextResponse.json({
+    clients: clients.map((c) => ({
+      ...c,
+      projectCount: counts.get(c.id) ?? 0,
+      unbilledAmount: owed.get(c.id) ?? 0,
+    })),
+  });
 });
 
 const CreateClient = z.object({

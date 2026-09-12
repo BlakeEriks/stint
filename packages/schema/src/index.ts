@@ -32,6 +32,19 @@ export const Client = z.object({
 export const CreateClient = Client.omit({ id: true, archivedAt: true }).extend({
   id: uuid.optional(), // client-generated UUIDv7 for idempotent retries
 });
+
+/**
+ * A client plus how much work sits under it — `?withScale=true` only.
+ *
+ * Separate from `Client` because these are derived, response-only figures: on
+ * `Client` they would flow into `CreateClient` and imply they are writable.
+ */
+export const ClientWithScale = Client.extend({
+  projectCount: z.number().int().nonnegative(),
+  /** Unbilled work at resolved rates. `0` is a real answer, not a missing
+   *  one — the list must not render it as "unknown". */
+  unbilledAmount: money,
+});
 export const UpdateClient = CreateClient.partial().omit({ id: true });
 
 // ── project ────────────────────────────────────────────────────────
@@ -444,6 +457,7 @@ export type PaymentProfile = z.infer<typeof PaymentProfile>;
 export type Stats = z.infer<typeof Stats>;
 export type Pace = z.infer<typeof Pace>;
 export type UnbilledClient = z.infer<typeof UnbilledClient>;
+export type ClientWithScale = z.infer<typeof ClientWithScale>;
 export type Invoice = z.infer<typeof Invoice>;
 export type CalendarDay = z.infer<typeof CalendarDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
