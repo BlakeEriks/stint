@@ -19,11 +19,29 @@ import {
   type Project,
   type ProjectInput,
 } from '@/lib/client/api';
+import { ClientForm } from './client-form';
+
+/** The select's "create one" escape hatch. Not a client id, so it cannot
+    collide with one. */
+const NEW_CLIENT = '__new_client__';
 
 /**
  * A dialog rather than a page: a project is four fields, and it is created
  * mid-flow — from the picker while starting a timer — so leaving the screen
  * would lose what the user was doing.
+ *
+ * It can also create the client, and that is not a convenience. On a new
+ * account the select offered only "No client" and nothing else, so the first
+ * project could never be attached to anything: the only way to get a client
+ * was to leave for `/clients`, abandoning whatever had been typed into the
+ * timer. That was the one genuine dead end in the onboarding flow.
+ *
+ * The client form REPLACES this dialog's content rather than opening a second
+ * dialog on top of it. Stacked dialogs mean two overlays and two focus traps
+ * competing, and the nested one is the shallower surface — swapping in place
+ * keeps one overlay, one trap, and an obvious way back. The project fields
+ * live in component state, so they survive the detour and are still there on
+ * return.
  */
 export function ProjectDialog({
   open,
@@ -44,6 +62,7 @@ export function ProjectDialog({
   const [clientId, setClientId] = useState<string | null>(null);
   const [hourlyRate, setHourlyRate] = useState('');
   const [billable, setBillable] = useState(true);
+  const [addingClient, setAddingClient] = useState(false);
 
   // Reset each time it opens, so a cancelled edit does not leak into the
   // next one.
@@ -55,6 +74,9 @@ export function ProjectDialog({
       existing?.hourlyRate != null ? String(existing.hourlyRate) : '',
     );
     setBillable(existing?.isBillableDefault ?? true);
+    // Reopening must never land on the client form — it is a detour, not a
+    // state the dialog can be left in.
+    setAddingClient(false);
   }, [open, existing, defaultClientId]);
 
   const { data: clientData } = useQuery({
@@ -83,6 +105,32 @@ export function ProjectDialog({
       isBillableDefault: billable,
     });
   };
+
+  if (addingClient) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>New client</DialogTitle>
+            <DialogDescription>
+              It will be selected for this project once saved.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* The same form the page uses, so the field set and validation
+              cannot drift. Saving selects the new client and comes straight
+              back to the project; cancelling abandons only the client. */}
+          <ClientForm
+            onSaved={(client) => {
+              setClientId(client.id);
+              setAddingClient(false);
+            }}
+            onCancel={() => setAddingClient(false)}
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -116,7 +164,10 @@ export function ProjectDialog({
             <select
               id="project-client"
               value={clientId ?? ''}
-              onChange={(e) => setClientId(e.target.value || null)}
+              onChange={(e) => {
+                if (e.target.value === NEW_CLIENT) setAddingClient(true);
+                else setClientId(e.target.value || null);
+              }}
               className="h-9 rounded-md border border-edge-default bg-transparent px-3
                          type-control text-strong outline-none
                          focus-visible:border-edge-focus focus-visible:ring-[3px]
@@ -128,6 +179,10 @@ export function ProjectDialog({
                   {c.name}
                 </option>
               ))}
+              {/* Last, so it does not sit between real choices — and present
+                  even with no clients at all, which is the case that made the
+                  first project impossible to attach to anything. */}
+              <option value={NEW_CLIENT}>+ Add a client…</option>
             </select>
           </div>
 

@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ColorPicker } from './color-picker';
+import { Field } from './field';
 import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
 
 /**
@@ -15,8 +15,23 @@ import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
  *
  * Rate and tax are optional: a client with no rate falls back to the user
  * default, and a US contractor invoicing services usually owes no tax at all.
+ *
+ * What happens AFTER a save is injected, because the form renders both as a
+ * page and inside a dialog (created mid-flow from the project dialog). The
+ * page navigates to the new client; the dialog hands it back to the select
+ * that asked for it and stays where it was. Hardcoding `router.push` here
+ * would have meant a second copy of the field set, which is the drift this
+ * component exists to prevent.
  */
-export function ClientForm({ existing }: { existing?: Client }) {
+export function ClientForm({
+  existing,
+  onSaved,
+  onCancel,
+}: {
+  existing?: Client;
+  onSaved?: (client: Client) => void;
+  onCancel?: () => void;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -36,7 +51,8 @@ export function ClientForm({ existing }: { existing?: Client }) {
       existing ? api.updateClient(existing.id, body) : api.createClient(body),
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
-      router.push(`/clients/${saved.id}`);
+      if (onSaved) onSaved(saved);
+      else router.push(`/clients/${saved.id}`);
     },
   });
 
@@ -56,8 +72,9 @@ export function ClientForm({ existing }: { existing?: Client }) {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-5">
-      <Field label="Name" required>
+      <Field label="Name" htmlFor="client-name" required>
         <Input
+          id="client-name"
           required
           autoFocus
           value={name}
@@ -66,8 +83,9 @@ export function ClientForm({ existing }: { existing?: Client }) {
         />
       </Field>
 
-      <Field label="Email">
+      <Field label="Email" htmlFor="client-email">
         <Input
+          id="client-email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -75,8 +93,13 @@ export function ClientForm({ existing }: { existing?: Client }) {
         />
       </Field>
 
-      <Field label="Address" hint="Appears on the invoice.">
+      <Field
+        label="Address"
+        htmlFor="client-address"
+        hint="Appears on the invoice."
+      >
         <textarea
+          id="client-address"
           rows={3}
           value={address}
           onChange={(e) => setAddress(e.target.value)}
@@ -91,10 +114,12 @@ export function ClientForm({ existing }: { existing?: Client }) {
       <div className="flex flex-wrap gap-4">
         <Field
           label="Hourly rate"
+          htmlFor="client-rate"
           hint="Falls back to your default."
           className="flex-1 basis-40"
         >
           <Input
+            id="client-rate"
             type="number"
             min="0"
             step="0.01"
@@ -107,10 +132,12 @@ export function ClientForm({ existing }: { existing?: Client }) {
 
         <Field
           label="Tax rate %"
+          htmlFor="client-tax"
           hint="Usually none for US services."
           className="flex-1 basis-40"
         >
           <Input
+            id="client-tax"
             type="number"
             min="0"
             max="100"
@@ -141,35 +168,14 @@ export function ClientForm({ existing }: { existing?: Client }) {
               ? 'Save changes'
               : 'Add client'}
         </Button>
-        <Button type="button" variant="ghost" onClick={() => router.back()}>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => (onCancel ? onCancel() : router.back())}
+        >
           Cancel
         </Button>
       </div>
     </form>
-  );
-}
-
-function Field({
-  label,
-  hint,
-  required,
-  className,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  required?: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={`flex flex-col gap-1.5 ${className ?? ''}`}>
-      <Label className="type-label text-subtle">
-        {label}
-        {required ? <span aria-hidden> *</span> : null}
-      </Label>
-      {children}
-      {hint ? <p className="type-support text-subtle">{hint}</p> : null}
-    </div>
   );
 }
