@@ -88,11 +88,30 @@ rotation that invalidates every session.
 
 Dashboard → **Authentication** → **URL Configuration**.
 
-- **Site URL:** `http://localhost:3100`
-- **Redirect URLs:** add `http://localhost:3100/auth/callback`
+There is **one Site URL but many Redirect URLs**, and they do different jobs:
 
-Without the redirect entry the email link is rejected on return. Add the
-production equivalents when you deploy.
+- **Site URL** — a single fallback, used when a link carries no explicit
+  redirect, and in email templates. Set it to production.
+- **Redirect URLs** — an allowlist. Add as many origins as you need.
+
+`signin/page.tsx` passes `emailRedirectTo` built from
+`window.location.origin`, so a link always returns to wherever you signed in
+from. Local and production work at the same time; each origin just has to be
+on the allowlist.
+
+```
+Site URL:       https://<your-app>.vercel.app
+
+Redirect URLs:  http://localhost:3100/**
+                https://<your-app>.vercel.app/**
+```
+
+Without the matching entry the link is rejected on return, and the error does
+not say why.
+
+Vercel also gives each branch a preview URL. Add
+`https://<project>-*-<scope>.vercel.app/**` if you want sign-in on previews —
+though on a private project those URLs sit behind Vercel SSO anyway.
 
 The default email provider is rate-limited (a few per hour) and adequate for
 one developer. It is only for sign-in links — **the app never emails
