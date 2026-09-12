@@ -26,10 +26,14 @@ import { Inbox } from './inbox';
  * in 280px is the ~4px bar that ruled out a 90-day view. Both stay on Home,
  * which is what keeps Home worth opening.
  *
- * It is hidden below `xl` (1280px). Rail 208 + dock 280 leaves under 700px of
- * content at 1280, narrower than Home is today, so the dock has to be the
- * thing that yields. Every card in it therefore needs a home on a narrower
- * screen too — which is the argument for Home continuing to exist.
+ * **It is present at every width**, because the inbox has exactly one home
+ * and duplicating it onto Home for narrow screens is what produced the same
+ * content under two names, renaming itself as you crossed a breakpoint.
+ *
+ * Below `xl` it stops being a side column — rail 208 + dock 280 would leave
+ * under 700px of content — and becomes a band beneath the content instead,
+ * still inside the frame and still above the timer bar. The section keeps its
+ * identity and its position in the reading order; only its axis changes.
  */
 export function Dock() {
   const tz = useTimeZone();
@@ -48,7 +52,8 @@ export function Dock() {
          of thing when they are not. The one distinction that carries meaning
          is chrome against content, and that is the step from recessed to
          base. */
-      className="hidden w-[280px] flex-none overflow-y-auto border-l border-edge-subtle bg-surface-recessed p-4 xl:block"
+      className="flex-none border-t border-edge-subtle bg-surface-recessed p-4
+                 xl:w-[280px] xl:overflow-y-auto xl:border-t-0 xl:border-l"
     >
       {data ? <Inbox stats={data} /> : null}
     </aside>

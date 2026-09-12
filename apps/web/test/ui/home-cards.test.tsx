@@ -1,6 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { HomeCards } from '@/components/home-cards';
@@ -44,51 +43,9 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-const overdue = {
-  invoiceId: 'i1',
-  invoiceNumber: 'STINT-0001',
-  clientId: 'c1',
-  clientName: 'Northwind',
-  amount: 900,
-  currency: 'USD',
-  daysLate: 12,
-};
-
 afterEach(() => vi.unstubAllGlobals());
 
 describe('HomeCards', () => {
-  it('renders no attention card when nothing is wrong', async () => {
-    serve(
-      stats({
-        unbilled: {
-          total: 100,
-          seconds: 3600,
-          byClient: [
-            {
-              clientId: 'c1',
-              clientName: 'Northwind',
-              currency: 'USD',
-              seconds: 3600,
-              amount: 100,
-              unratedCount: 0,
-              oldestDays: 2,
-            },
-          ],
-          moreClients: 0,
-        },
-      }),
-    );
-    render(<HomeCards />, { wrapper });
-
-    /* A permanent "all clear" card is the SaveIndicator problem — a check
-       that is always present says nothing. The card's ABSENCE is the good
-       news, so it must not render an empty shell. */
-    await waitFor(() =>
-      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
-    );
-    expect(screen.queryByText('Needs attention')).toBeNull();
-  });
-
   it('hides the pace card entirely when no target is set', async () => {
     /* Give it something to render, so "nothing rendered at all" cannot make
        this pass vacuously — the first version of this test asserted only the
@@ -139,124 +96,6 @@ describe('HomeCards', () => {
     expect(screen.queryByText(/business days/)).toBeNull();
   });
 
-  it('shows how late an overdue invoice is, not just that it exists', async () => {
-    serve(
-      stats({
-        attention: {
-          overdueInvoices: [overdue],
-          staleDrafts: [],
-          unprojected: null,
-        },
-      }),
-    );
-    render(<HomeCards />, { wrapper });
-
-    /* The days-late figure is the row. A client name and an amount without it
-       is just an invoice, not something needing attention. */
-    await waitFor(() =>
-      expect(screen.getByText('12 days late')).toBeInTheDocument(),
-    );
-    expect(screen.getByText('$900.00')).toBeInTheDocument();
-  });
-
-  it('links every attention row to the surface that owns it', async () => {
-    serve(
-      stats({
-        attention: {
-          overdueInvoices: [overdue],
-          staleDrafts: [],
-          unprojected: null,
-        },
-      }),
-    );
-    render(<HomeCards />, { wrapper });
-
-    const link = await screen.findByRole('link', { name: /Northwind/ });
-    expect(link).toHaveAttribute('href', '/invoices/i1');
-  });
-
-  it('offers no destructive action inline', async () => {
-    serve(
-      stats({
-        attention: {
-          overdueInvoices: [overdue],
-          staleDrafts: [
-            {
-              ...overdue,
-              invoiceId: 'i2',
-              invoiceNumber: 'STINT-0002',
-              ageDays: 15,
-            },
-          ] as never,
-          unprojected: null,
-        },
-      }),
-    );
-    render(<HomeCards />, { wrapper });
-
-    /* Voiding and deleting are consequential and belong on the invoice
-       itself, where the whole document is in view. A card is a glance, and a
-       stray click on a glance must not destroy a financial record. */
-    await waitFor(() =>
-      expect(screen.getByLabelText('Mark paid')).toBeInTheDocument(),
-    );
-    for (const forbidden of [/void/i, /delete/i, /remove/i, /archive/i]) {
-      expect(screen.queryByRole('button', { name: forbidden })).toBeNull();
-      expect(screen.queryByRole('link', { name: forbidden })).toBeNull();
-    }
-  });
-
-  it('marks an overdue invoice paid without leaving the screen', async () => {
-    const calls: Array<{ method: string; path: string; body: unknown }> = [];
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url: string, init?: RequestInit) => {
-        const method = init?.method ?? 'GET';
-        if (method !== 'GET') {
-          calls.push({
-            method,
-            path: String(url).replace('/api/v1', ''),
-            body: init?.body ? JSON.parse(String(init.body)) : undefined,
-          });
-          return new Response('{}', { status: 200 });
-        }
-        const path = String(url);
-        if (path.includes('/calendar')) {
-          return new Response(JSON.stringify({ days: [] }), { status: 200 });
-        }
-        if (path.includes('/clients')) {
-          return new Response(JSON.stringify({ clients: [] }), { status: 200 });
-        }
-        return new Response(
-          JSON.stringify(
-            stats({
-              attention: {
-                overdueInvoices: [overdue],
-                staleDrafts: [],
-                unprojected: null,
-              },
-            }),
-          ),
-          { status: 200 },
-        );
-      }),
-    );
-    const user = userEvent.setup();
-    render(<HomeCards />, { wrapper });
-
-    /* The money usually arrived and was simply never recorded, so this is
-       the action that legitimately clears the row — the underlying fact
-       changed, rather than the nag being hidden. */
-    await user.click(await screen.findByLabelText('Mark paid'));
-
-    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
-    expect(calls[0]).toMatchObject({
-      method: 'PATCH',
-      path: '/invoices/i1/status',
-      body: { status: 'paid' },
-    });
-  });
-
   it('keeps awaiting-payment separate from the unbilled total', async () => {
     serve(
       stats({
@@ -296,11 +135,6 @@ describe('HomeCards', () => {
   it('never spends the accent on a card', async () => {
     serve(
       stats({
-        attention: {
-          overdueInvoices: [overdue],
-          staleDrafts: [],
-          unprojected: null,
-        },
         pace: {
           unit: 'hours',
           target: 120,
@@ -314,11 +148,13 @@ describe('HomeCards', () => {
     );
     const { container } = render(<HomeCards />, { wrapper });
 
-    /* On the home screen the accent is spent, and it is spent on the running
-       timer. A green progress bar here would put a second accent meaning on
-       the same screen. */
+    /* The accent is spent on the running timer, in the bar below this screen.
+       A green progress bar here would put a second accent meaning in view.
+
+       Waits on the Pace card specifically, so an empty render cannot make it
+       pass vacuously. */
     await waitFor(() =>
-      expect(screen.getByText('12 days late')).toBeInTheDocument(),
+      expect(screen.getByText(/business days/)).toBeInTheDocument(),
     );
     const classes = [container, ...container.querySelectorAll('*')].flatMap(
       (el) => Array.from((el as HTMLElement).classList ?? []),
@@ -388,11 +224,6 @@ describe('card header icons', () => {
   it('leaves the accessible name as the heading text alone', async () => {
     serve(
       stats({
-        attention: {
-          overdueInvoices: [overdue],
-          staleDrafts: [],
-          unprojected: null,
-        },
         unbilled: {
           total: 100,
           seconds: 3600,
@@ -409,23 +240,36 @@ describe('card header icons', () => {
           ],
           moreClients: 0,
         },
+        pace: {
+          unit: 'hours',
+          target: 120,
+          actual: 60,
+          expected: 50,
+          delta: 10,
+          businessDaysElapsed: 10,
+          businessDaysTotal: 22,
+        },
       }),
     );
     render(<HomeCards />, { wrapper });
 
     /* The icon is a second channel for a card you are scanning, not part of
-       its name. Without `aria-hidden` a screen reader announces "triangle
-       alert Needs attention", and lucide's glyphs carry titles that would
-       leak in. Queried by exact accessible name, so an icon that starts
-       contributing to it fails here. */
+       its name. Without `aria-hidden` a screen reader announces "wallet
+       Unbilled", and lucide's glyphs carry titles that would leak in.
+       Queried by exact accessible name, so an icon that starts contributing
+       to it fails here. */
     await waitFor(() =>
       expect(
-        screen.getByRole('heading', { name: 'Needs attention' }),
+        screen.getByRole('heading', { name: 'Unbilled' }),
       ).toBeInTheDocument(),
     );
-    expect(
-      screen.getByRole('heading', { name: 'Unbilled' }),
-    ).toBeInTheDocument();
+    /* Its own `waitFor`: the chart resolves a separate query, so asserting
+       synchronously here races its first render. */
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: 'Activity' }),
+      ).toBeInTheDocument(),
+    );
   });
 });
 

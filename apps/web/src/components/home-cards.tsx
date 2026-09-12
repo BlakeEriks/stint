@@ -1,23 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { formatCompact } from '@stint/core';
-import {
-  AlertTriangle,
-  ArrowRight,
-  BarChart3,
-  Check,
-  Clock,
-  Download,
-  FileWarning,
-  type LucideIcon,
-  Send,
-  Wallet,
-} from 'lucide-react';
-import { api, type InvoiceStatus, type Stats } from '@/lib/client/api';
+import { ArrowRight, BarChart3, type LucideIcon, Wallet } from 'lucide-react';
+import { api, type Stats } from '@/lib/client/api';
 import { useTimeZone } from '@/lib/client/use-timer';
-import { Button } from '@/components/ui/button';
 import { money } from './invoice-bits';
 /* `activity-strip.tsx` — the twelve-week heatmap this replaced — is still in
    the tree and still tested. It is left there on purpose: the chart answers
@@ -33,41 +21,19 @@ import { ActivityChart } from './activity-chart';
  * genuinely cannot answer from memory: how much money is sitting unbilled, is
  * anything about to go wrong, and am I on pace.
  *
- * Order is money at risk, money waiting, money coming, then texture. Nothing
- * here writes: every card reads, and every action is a link to the surface
- * that owns the mutation, because a dashboard that edits data turns a stray
- * click into a changed invoice.
+ * Order is money waiting, money coming, then texture. **Nothing here writes**
+ * any more: every card reads, and every action is a link to the surface that
+ * owns the mutation, because a dashboard that edits data turns a stray click
+ * into a changed invoice.
+ *
+ * That used to be narrowly untrue — marking an invoice paid or sent was
+ * offered inline, because it was the action that cleared an attention row.
+ * Those rows are the dock's inbox now (`inbox.tsx`), and the writes went with
+ * them, so the broad rule holds again on this screen.
  *
  * No card carries the accent. On this screen the accent is spent, and it is
- * spent on the running timer.
- *
- * The cards do WRITE, narrowly: marking an invoice paid or sent is the action
- * that legitimately clears an attention row, because the underlying fact
- * changed. Nothing destructive is offered here — voiding and deleting belong
- * on the invoice itself, where the whole document is in view. An earlier rule
- * said nothing on this screen writes at all; that was too broad, and the real
- * constraint is that every write is explicit, reversible in effect, and never
- * destructive.
+ * spent on the running timer in the bar below.
  */
-/**
- * Marking an invoice paid or sent, from the card.
- *
- * Invalidates `stats` AND `invoices`: the row must leave the attention card
- * and the invoice list must agree, or the two screens disagree about the same
- * document until something else refetches.
- */
-function useStatusAction() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
-      api.updateInvoiceStatus(id, { status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-    },
-  });
-}
-
 export function HomeCards() {
   const tz = useTimeZone();
   const { data } = useQuery({
@@ -77,47 +43,18 @@ export function HomeCards() {
 
   if (!data) return null;
 
-  /* Which cards will actually render. Both columns are built from this
-     rather than from a fixed grid, because two of the four cards hide
-     themselves: Needs attention renders only when it has rows (and with the
-     7-day grace period it is usually absent), and Pace hides entirely when no
-     monthly target is set.
+  /* Both cards hide themselves — Unbilled with nothing outstanding, Pace with
+     no monthly target — so the layout asks what is present before splitting.
+     A fixed `grid-cols-2` would leave a visible hole on an ordinary day,
+     which is worse than the single column it replaced.
 
-     A `grid-cols-2` with the cards dropped into fixed cells would leave a
-     visible hole on a good day — which is worse than the single column it
-     replaced. So the layout asks what is present first. */
-  const hasAttention =
-    data.attention.overdueInvoices.length +
-      data.attention.staleDrafts.length +
-      (data.attention.unprojected ? 1 : 0) >
-    0;
+     The inbox is NOT here. It belongs to the dock at every width; Home
+     briefly carried a copy below `xl`, which meant the same content appeared
+     under two names with two empty-state behaviours and renamed itself as you
+     resized across 1280px. */
   const hasUnbilled = data.unbilled.byClient.length > 0;
   const hasPace = data.pace != null;
-
-  /* Both sides need a card for a split to be worth making. The right column
-     is Pace alone now that Activity spans the full width below, so with no
-     monthly target there is nothing to put beside the money cards. */
-  const splitColumns = (hasAttention || hasUnbilled) && hasPace;
-
-  /* Needs attention also lives in the dock, which exists only at `xl`. So
-     Home's copy hides at exactly that width rather than being dropped: the
-     viewport is not knowable on the server, and branching on it in JS would
-     render one tree on the server and another on the client.
-
-     `hidden xl:contents` on a wrapper rather than on the card, so that when
-     it IS shown the wrapper disappears from the layout and the card remains a
-     direct flex child of the column — `display: contents` is what keeps the
-     gap between cards correct. */
-  const left = (
-    <>
-      {hasAttention ? (
-        <div className="contents xl:hidden">
-          <NeedsAttention stats={data} />
-        </div>
-      ) : null}
-      {hasUnbilled ? <Unbilled stats={data} /> : null}
-    </>
-  );
+  const splitColumns = hasUnbilled && hasPace;
 
   return (
     <div className="mt-6 flex flex-col gap-4">
@@ -131,14 +68,16 @@ export function HomeCards() {
            `items-start` so a short right column does not stretch its cards to
            match a tall left one. */
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.6fr_1fr]">
-          <div className="flex flex-col gap-4">{left}</div>
+          <div className="flex flex-col gap-4">
+            <Unbilled stats={data} />
+          </div>
           <div className="flex flex-col gap-4">
             <Pace stats={data} />
           </div>
         </div>
       ) : (
         <>
-          {left}
+          {hasUnbilled ? <Unbilled stats={data} /> : null}
           {hasPace ? <Pace stats={data} /> : null}
         </>
       )}
@@ -153,110 +92,6 @@ export function HomeCards() {
           valuable position. */}
       <ActivityChart />
     </div>
-  );
-}
-
-/**
- * Things that are wrong, each linking to the place that fixes it.
- *
- * Rendered ONLY when it has rows. A permanent "all clear" card is the
- * SaveIndicator problem — a check that is always present says nothing — and
- * the card's absence is the good news.
- */
-function NeedsAttention({ stats }: { stats: Stats }) {
-  const { overdueInvoices, staleDrafts, unprojected } = stats.attention;
-  const setStatus = useStatusAction();
-  const count =
-    overdueInvoices.length + staleDrafts.length + (unprojected ? 1 : 0);
-  if (count === 0) return null;
-
-  return (
-    <Card title="Needs attention" icon={AlertTriangle} iconTone="warning">
-      <ul className="flex flex-col">
-        {/* Overdue sorts first and carries danger; everything else is a
-            warning. Never the accent — see the module comment. */}
-        {overdueInvoices.map((i) => (
-          <Row
-            key={i.invoiceId}
-            href={`/invoices/${i.invoiceId}`}
-            icon={
-              <AlertTriangle aria-hidden className="size-3.5 text-danger" />
-            }
-            label={i.clientName ?? i.invoiceNumber}
-            detail={`${i.daysLate} ${i.daysLate === 1 ? 'day' : 'days'} late`}
-            value={money(i.amount, i.currency)}
-            tone="danger"
-            actions={
-              <>
-                {/* The money usually arrived and was never recorded, so this
-                    is the action nine times in ten. */}
-                <RowAction
-                  label="Mark paid"
-                  icon={<Check aria-hidden />}
-                  disabled={setStatus.isPending}
-                  onClick={() =>
-                    setStatus.mutate({ id: i.invoiceId, status: 'paid' })
-                  }
-                />
-                {/* With no outbound mail the download IS how an invoice
-                    reaches a client, so it is offered in every status. */}
-                <RowAction
-                  label="Download"
-                  icon={<Download aria-hidden />}
-                  href={`/api/v1/invoices/${i.invoiceId}/pdf`}
-                />
-              </>
-            }
-          />
-        ))}
-
-        {staleDrafts.map((d) => (
-          <Row
-            key={d.invoiceId}
-            href={`/invoices/${d.invoiceId}`}
-            icon={<FileWarning aria-hidden className="size-3.5 text-warning" />}
-            label={d.clientName ?? d.invoiceNumber}
-            detail={`draft, ${d.ageDays} days old`}
-            value={money(d.amount, d.currency)}
-            tone="warning"
-            actions={
-              <>
-                <RowAction
-                  label="Download"
-                  icon={<Download aria-hidden />}
-                  href={`/api/v1/invoices/${d.invoiceId}/pdf`}
-                />
-                {/* Sending is recorded, not performed: you email the PDF
-                    yourself, then say so here. */}
-                <RowAction
-                  label="Mark sent"
-                  icon={<Send aria-hidden />}
-                  disabled={setStatus.isPending}
-                  onClick={() =>
-                    setStatus.mutate({ id: d.invoiceId, status: 'sent' })
-                  }
-                />
-              </>
-            }
-          />
-        ))}
-
-        {unprojected ? (
-          <Row
-            href="/"
-            icon={<Clock aria-hidden className="size-3.5 text-warning" />}
-            label={
-              unprojected.count === 1
-                ? '1 entry with no project'
-                : `${unprojected.count} entries with no project`
-            }
-            detail="cannot resolve a rate"
-            value={formatCompact(unprojected.seconds)}
-            tone="warning"
-          />
-        ) : null}
-      </ul>
-    </Card>
   );
 }
 
@@ -594,62 +429,6 @@ function Row({
         )}
       </div>
     </li>
-  );
-}
-
-/**
- * One inline action.
- *
- * Icon-only below `sm` and icon-plus-label above it: on a phone three labelled
- * buttons would push the amount off the row, and the amount is why the row is
- * being read. The `aria-label` carries the name either way, so the icon is
- * never the only thing naming the action to a screen reader.
- *
- * Never the accent — these are useful, not primary; the accent is the running
- * timer.
- */
-function RowAction({
-  label,
-  icon,
-  onClick,
-  href,
-  disabled,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  onClick?: () => void;
-  href?: string;
-  disabled?: boolean;
-}) {
-  const body = (
-    <>
-      {icon}
-      {/* Container-sized, like the row: three labelled buttons do not fit a
-          280px dock card any more than they fit a phone. The `aria-label`
-          carries the name either way, so the icon is never the only thing
-          naming the action to a screen reader. */}
-      <span className="hidden @md:inline">{label}</span>
-    </>
-  );
-
-  return href ? (
-    <Button asChild variant="ghost" size="xs">
-      {/* A PDF download, so it leaves the SPA deliberately. */}
-      <a href={href} aria-label={label} download>
-        {body}
-      </a>
-    </Button>
-  ) : (
-    <Button
-      type="button"
-      variant="ghost"
-      size="xs"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      {body}
-    </Button>
   );
 }
 
