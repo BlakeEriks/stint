@@ -14,6 +14,14 @@
 
 @layer base {
   html {
+    /* Dark is the default, matching the token file: the palette is dark-first
+       and a light OS preference does NOT flip it — only an explicit
+       [data-theme="light"] does. So an un-stamped viewer gets dark chrome to
+       go with the dark surfaces.
+
+       Choosing light overrides this from `layout.tsx`'s inline script and
+       `applyTheme`, which set `style.colorScheme` on the element — an inline
+       style, so it wins over this declaration. */
     color-scheme: dark;
     /* next/font supplies the loaded families; the token file declares the
        fallback stacks, so bind them here rather than duplicating either. */
