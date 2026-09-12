@@ -23,7 +23,17 @@ function stats(over: Partial<Stats> = {}): Stats {
 function serve(data: Stats) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => new Response(JSON.stringify(data), { status: 200 })),
+    vi.fn(async (url: string) => {
+      // The Activity strip fetches its own range and the client list.
+      const path = String(url);
+      if (path.includes('/calendar')) {
+        return new Response(JSON.stringify({ days: [] }), { status: 200 });
+      }
+      if (path.includes('/clients')) {
+        return new Response(JSON.stringify({ clients: [] }), { status: 200 });
+      }
+      return new Response(JSON.stringify(data), { status: 200 });
+    }),
   );
 }
 
@@ -111,8 +121,21 @@ describe('HomeCards', () => {
 
     /* An empty progress bar asking to be configured is a chore the app
        assigned itself, so the whole SECTION must be gone — not merely its
-       text. Unbilled is the only card with data here. */
-    expect(container.querySelectorAll('section')).toHaveLength(1);
+       text. Counting sections would be fragile (the Activity strip is one
+       too), so this asserts on the card's own heading. */
+    const headings = [...container.querySelectorAll('h2')].map((h) =>
+      h.textContent?.trim(),
+    );
+    expect(headings).toContain('Unbilled');
+    expect(
+      headings.some(
+        (h) =>
+          h &&
+          /^(January|February|March|April|May|June|July|August|September|October|November|December)$/.test(
+            h,
+          ),
+      ),
+    ).toBe(false);
     expect(screen.queryByText(/business days/)).toBeNull();
   });
 
@@ -196,6 +219,13 @@ describe('HomeCards', () => {
             body: init?.body ? JSON.parse(String(init.body)) : undefined,
           });
           return new Response('{}', { status: 200 });
+        }
+        const path = String(url);
+        if (path.includes('/calendar')) {
+          return new Response(JSON.stringify({ days: [] }), { status: 200 });
+        }
+        if (path.includes('/clients')) {
+          return new Response(JSON.stringify({ clients: [] }), { status: 200 });
         }
         return new Response(
           JSON.stringify(

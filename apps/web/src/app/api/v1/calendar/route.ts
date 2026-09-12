@@ -12,6 +12,12 @@ const Query = z.object({
   from: z.iso.datetime({ offset: true }),
   to: z.iso.datetime({ offset: true }),
   tz: z.string().default('UTC'),
+  /**
+   * `day` returns totals only — `{ date, totalSeconds, byClient }` and no
+   * entries. The activity strip draws one rectangle per day, and twelve weeks
+   * of full entries is a heavy payload to build one.
+   */
+  granularity: z.enum(['entry', 'day']).default('entry'),
 });
 
 /**
@@ -19,7 +25,9 @@ const Query = z.object({
  *
  * Entries grouped by local day. Grouping happens server-side so all three
  * clients agree on which day an entry belongs to — a late-night entry must
- * not land on different days on different devices.
+ * not land on different days on different devices. That is also why the
+ * activity strip reuses this endpoint rather than bucketing client-side: the
+ * DST-correct grouping already lives here.
  */
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
@@ -38,6 +46,53 @@ export const GET = handle(async (req: Request) => {
     .order('started_at', { ascending: true });
 
   if (error) throw error;
+
+  if (q.granularity === 'day') {
+    /* Which client a day's work belongs to, so the strip can colour by
+       client. Fetched once for the range rather than per day. */
+    const { data: projects, error: projectError } = await db
+      .from('projects')
+      .select('id, client_id');
+    if (projectError) throw projectError;
+
+    const clientOf = new Map(
+      (projects ?? []).map((p) => [
+        p.id as string,
+        (p.client_id as string | null) ?? null,
+      ]),
+    );
+
+    const days = new Map<
+      string,
+      { date: string; totalSeconds: number; byClient: Record<string, number> }
+    >();
+
+    for (const row of data ?? []) {
+      const entry = toEntry(row as EntryRow);
+      // A running entry has no duration yet and contributes nothing.
+      if (entry.endedAt == null) continue;
+
+      const key = localDateKey(new Date(entry.startedAt), tz);
+      const day = days.get(key) ?? {
+        date: key,
+        totalSeconds: 0,
+        byClient: {},
+      };
+      const seconds = entry.durationSeconds ?? 0;
+      day.totalSeconds += seconds;
+
+      /* Internal work keys as the empty string rather than being dropped: a
+         day spent on unbilled work is not an empty day, and the strip must
+         be able to show it. */
+      const client = entry.projectId
+        ? (clientOf.get(entry.projectId) ?? '')
+        : '';
+      day.byClient[client] = (day.byClient[client] ?? 0) + seconds;
+      days.set(key, day);
+    }
+
+    return NextResponse.json({ days: [...days.values()] });
+  }
 
   const days = new Map<
     string,

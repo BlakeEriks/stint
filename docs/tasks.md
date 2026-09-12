@@ -24,13 +24,6 @@ later.
 
 ## Ready
 
-- [ ] **`GET /calendar?granularity=day`** — `{ date, totalSeconds, byClient }`
-      and nothing else, for the Activity strip. The existing endpoint already
-      buckets by local day server-side, which is the DST-correct grouping a
-      heatmap needs and the reason not to build a second one — but it returns
-      full entries, and twelve weeks of those is a heavy payload to draw one
-      rectangle per day.
-
 - [ ] **Record a reminder on a sent invoice.** `last_reminded_at`, so an
       overdue row can read "12 days late · chased 3d ago" rather than either
       nagging unchanged or disappearing. This is the honest alternative to a
@@ -48,12 +41,6 @@ later.
       unbilled-at-resolved-rate and that is a different query from summing
       time entries. The card currently says the figure is unavailable rather
       than showing hours against a money target.
-- [ ] **Activity heatmap** — the fourth card, needing
-      `GET /calendar?granularity=day` above. Hue is the CLIENT, intensity is
-      hours, 12 weeks by default. Never green: a green intensity ramp would
-      put a second green meaning on the screen the accent already owns.
-      Gaps are information — a blank day is a vacation or a dry spell.
-
 - [ ] **`home_cards` JSONB on `user_settings`** — card order and visibility.
       Validated by Zod at the API boundary rather than a check constraint, so
       adding a card is not a migration. Decided; the one place in that table

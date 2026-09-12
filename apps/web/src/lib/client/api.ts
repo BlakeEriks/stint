@@ -106,6 +106,14 @@ export type CalendarDay = Response<Omit<schema.CalendarDay, 'entries'>> & {
   entries: TimeEntry[];
 };
 
+/** A day of the activity strip: totals, no entries. */
+export interface ActivityDay {
+  date: string;
+  totalSeconds: number;
+  /** Client id -> seconds. `''` is internal work. */
+  byClient: Record<string, number>;
+}
+
 export type Summary = Response<Omit<schema.Summary, 'running'>> & {
   running: TimeEntry | null;
 };
@@ -217,6 +225,18 @@ export const api = {
   calendar: (params: { from: string; to: string; tz: string }) => {
     const q = new URLSearchParams(params);
     return request<{ days: CalendarDay[] }>('GET', `/calendar?${q}`);
+  },
+
+  /**
+   * Totals only, for the activity strip. Twelve weeks of full entries is a
+   * heavy payload to draw one rectangle per day.
+   *
+   * `byClient` keys by client id, with `''` for internal work — a day spent
+   * on unbilled work is not an empty day.
+   */
+  activity: (params: { from: string; to: string; tz: string }) => {
+    const q = new URLSearchParams({ ...params, granularity: 'day' });
+    return request<{ days: ActivityDay[] }>('GET', `/calendar?${q}`);
   },
 
   invoices: (params: { clientId?: string; status?: InvoiceStatus } = {}) => {

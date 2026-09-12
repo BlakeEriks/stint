@@ -16,6 +16,7 @@ import { api, type InvoiceStatus, type Stats } from '@/lib/client/api';
 import { useTimeZone } from '@/lib/client/use-timer';
 import { Button } from '@/components/ui/button';
 import { money } from './invoice-bits';
+import { ActivityStrip } from './activity-strip';
 
 /**
  * The home screen's card set.
@@ -74,6 +75,7 @@ export function HomeCards() {
       <NeedsAttention stats={data} />
       <Unbilled stats={data} />
       <Pace stats={data} />
+      <ActivityStrip />
     </div>
   );
 }

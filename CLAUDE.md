@@ -558,6 +558,33 @@ invoice — a row each would put ordinary, nothing-is-wrong invoices back on the
 home screen and undo the overdue grace period under a calmer heading. Tested,
 including that the sum appears nowhere.
 
+### The activity strip
+
+Twelve weeks, one cell per day, in `activity-strip.tsx`.
+
+- **Hue is the client; intensity is hours.** A single-hue ramp cannot answer
+  "when did the Acme work actually happen?", which is the question that comes
+  up in scope discussions. A day split across clients takes the hue of its
+  **largest share** — not a blend, which would read as a colour no client
+  owns.
+- **Never green.** `#52FC43` means the running timer, so a green intensity
+  ramp would put a second green meaning on the same screen. Tested, including
+  that the accent's rgb appears in no cell.
+- **Gaps are a real surface, not a hole.** All 84 cells render; a blank day is
+  a vacation or a dry spell and both matter, and a strip of only worked days
+  would hide the rhythm. Intensity floors at 0.25 so a short day is visible
+  rather than indistinguishable from rest.
+- **Internal work still reads as worked** — no client, so no hue, but not
+  rest either.
+- Twelve weeks rather than a year: a GitHub-style annual grid works because a
+  commit is binary and the grid dense. A contractor's year is five days a week
+  with holidays cut out, so at 52 weeks most cells are empty and the rest are
+  the same shade.
+
+It fetches `granularity=day`, which reuses the calendar endpoint's
+server-side local-day bucketing — the DST-correct grouping already lives
+there, and a second client-side implementation would drift.
+
 ### Reconciling on /invoices
 
 `/invoices` is the screen to open when money lands, which is why home needs
