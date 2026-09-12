@@ -76,3 +76,17 @@ Note that the root `pnpm test` recurses into `@stint/web`, which needs
 - [docs/api.md](docs/api.md) — endpoint contract
 - [docs/design/principles.md](docs/design/principles.md) — what this app refuses to do
 - [docs/roadmap.md](docs/roadmap.md) — wanted but not built
+
+## License
+
+Copyright (C) 2026 Blake Eriks. Licensed under the
+[GNU AGPL v3.0](LICENSE).
+
+You may use, modify and self-host this freely. The one obligation that
+matters: **if you run a modified version as a network service, you must
+publish your source** — that is the difference between the AGPL and the GPL,
+and it is why this license was chosen.
+
+Copyright is held solely by the author, so these terms bind everyone else and
+not the author. A commercial license, for anyone wanting to build on this
+without the source obligation, is available on request.
