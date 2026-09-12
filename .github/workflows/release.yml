@@ -24,14 +24,17 @@ concurrency:
 
 permissions:
   contents: read
-  # Reporting the deployment's conclusion back to Vercel.
+  # The status action writes a commit status on the deployed SHA; Vercel
+  # watches that status by name.
   statuses: write
-  deployments: write
 
 jobs:
   migrate:
-    # Preview and staging builds fire the same event; only gate production.
-    if: github.event.client_payload.target == 'production'
+    # Preview builds fire the same event; only gate production. The field is
+    # `environment` — an earlier `target` was wrong, and a mismatched
+    # condition fails SILENTLY: the job is skipped, no status is ever set,
+    # and the deployment just waits.
+    if: github.event.client_payload.environment == 'production'
     runs-on: ubuntu-latest
     # PRODUCTION_DB_URL lives on this environment rather than the repository,
     # so it is reachable only from a job that names it — a workflow added
@@ -40,10 +43,25 @@ jobs:
     # and it gives the deployment its own audit log.
     environment: Production
     steps:
+      # FIRST, before anything that can fail. This action's `post` hook sets
+      # the final commit status, so it has to be registered up front: it
+      # marks the check pending on entry and reports the job's real outcome
+      # on exit. Vercel watches that commit status by name.
+      #
+      # The name must match the "Check Name" configured in
+      # Vercel -> Settings -> Git -> Deployment Checks. It renders there as
+      # "Vercel - stint: migrate".
+      - name: Report to Vercel
+        uses: vercel/repository-dispatch/actions/status@v1
+        with:
+          name: migrate
+
       - uses: actions/checkout@v7
         with:
           # Migrate the commit being deployed, not whatever main points at
-          # now — they differ the moment a second merge lands.
+          # now — a repository_dispatch always runs with the default
+          # branch's HEAD as its SHA, and they differ the moment a second
+          # merge lands.
           ref: ${{ github.event.client_payload.git.sha }}
       # Version comes from package.json's `packageManager`.
       - uses: pnpm/action-setup@v6
@@ -62,19 +80,3 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
         run: pnpm verify:schema
-
-      - name: Report success to Vercel
-        if: success()
-        uses: vercel/repository-dispatch/actions/status@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          deployment-id: ${{ github.event.client_payload.deployment.id }}
-          conclusion: succeeded
-
-      - name: Report failure to Vercel
-        if: failure()
-        uses: vercel/repository-dispatch/actions/status@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          deployment-id: ${{ github.event.client_payload.deployment.id }}
-          conclusion: failed

@@ -67,16 +67,41 @@ migration scripts do, and they run in Actions.
   `environment: Production` can read it, so a workflow added later cannot
   reach production credentials by accident. It also gives the deployment its
   own audit log, and is where a required reviewer would go if this stops
-  being a solo project. Vercel already created the Production and Preview
+  being a solo project. Vercel created the Production and Preview
   environments when you connected the repo.
-- **Vercel** → Project Settings → Git → Deployment Checks → connect this
-  repository, and mark the check **Required**.
 
-That wires `.github/workflows/release.yml`: Vercel dispatches
-`vercel.deployment.ready`, the workflow migrates production and runs
-`verify:schema`, and reports back. Success aliases the deployment; failure
-leaves the previous one serving. **Force Promote** in the Vercel UI is the
-override.
+- **Vercel** → Project Settings → Git → **Deployment Checks** → Connect
+  GitHub Actions → **Check Name: `migrate`**.
+
+  That name has to match the `name:` input on the status step in
+  `release.yml`. Vercel then watches for a commit status called
+  `Vercel - stint: migrate` on the deployed SHA.
+
+  "No configured checks found" in that dialog is expected until the workflow
+  has run once — it is listing statuses it has already seen, and nothing has
+  produced one yet. Name it, save, and let the first production deployment
+  create it.
+
+- Mark the check **Required** once it has appeared, so a deployment is not
+  promoted until it passes.
+
+### How it fits together
+
+Vercel dispatches `vercel.deployment.ready` when a production build exists
+but is not yet serving. The workflow runs `pnpm migrate` and
+`pnpm verify:schema` against production while the *previous* build still
+answers requests, then the status action's `post` hook reports the job's
+outcome as a commit status. Success promotes the deployment; failure leaves
+the old one serving, with **Force Promote** as the override.
+
+Two things that fail quietly if they drift, so they are worth re-reading
+before changing that file:
+
+- The condition is `client_payload.environment == 'production'`. Get the
+  field wrong and the job is skipped, no status is ever written, and the
+  deployment simply waits.
+- The status step must be **first**. It registers a `post` hook that sets the
+  final status; placed after a step that fails, it never runs.
 
 ## 3a. Deployment protection
 

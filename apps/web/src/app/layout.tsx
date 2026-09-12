@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
 import { Providers } from '@/components/providers';
 import { Nav } from '@/components/nav';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import '@/styles/globals.css';
 
 const sans = IBM_Plex_Sans({
@@ -35,6 +36,7 @@ export default function RootLayout({
           <Nav />
           {children}
         </Providers>
+        <SpeedInsights />
       </body>
     </html>
   );
