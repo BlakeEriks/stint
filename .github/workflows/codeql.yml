@@ -1,0 +1,32 @@
+name: CodeQL
+
+# Free on private repos. Catches the injection and data-flow classes that
+# typecheck and the unit suite structurally cannot — this app builds SQL
+# filters and renders user-supplied strings into PDFs.
+on:
+  pull_request:
+  schedule:
+    # Monday early, so a new advisory surfaces before the week's work.
+    - cron: '17 6 * * 1'
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # Includes the security-and-quality suite, not just the default.
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v3

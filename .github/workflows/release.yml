@@ -22,6 +22,12 @@ concurrency:
   group: release-production
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  # Reporting the deployment's conclusion back to Vercel.
+  statuses: write
+  deployments: write
+
 jobs:
   migrate:
     # Preview and staging builds fire the same event; only gate production.
@@ -36,7 +42,7 @@ jobs:
       # Version comes from package.json's `packageManager`.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: 'pnpm' }
+        with: { node-version: '24', cache: 'pnpm' }
       - run: pnpm install --frozen-lockfile
 
       - name: Apply migrations to production

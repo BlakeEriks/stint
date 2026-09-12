@@ -1,0 +1,32 @@
+version: 2
+updates:
+  # One grouped PR a week. Ungrouped, a monorepo with Next, React, Tailwind,
+  # Radix and Supabase opens a dozen a week and they stop getting read — the
+  # failure mode is a stale repo full of ignored PRs, not an unpatched one.
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: monday, time: "09:00", timezone: America/Chicago }
+    open-pull-requests-limit: 3
+    versioning-strategy: increase
+    groups:
+      # Framework majors change behaviour; keep them reviewable on their own.
+      next:
+        patterns: ["next", "react", "react-dom", "@types/react*", "eslint-config-next"]
+        update-types: [minor, patch]
+      everything-else:
+        patterns: ["*"]
+        exclude-patterns: ["next", "react", "react-dom", "@types/react*"]
+        update-types: [minor, patch]
+    labels: [dependencies]
+    commit-message: { prefix: "deps", include: scope }
+
+  # Actions get pinned by major tag, so this mostly catches deprecations —
+  # the Node 20 runtime warning was exactly this class of thing.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday, time: "09:00", timezone: America/Chicago }
+    groups:
+      actions:
+        patterns: ["*"]
+    labels: [dependencies]
+    commit-message: { prefix: "ci" }

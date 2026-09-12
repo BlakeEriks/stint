@@ -4,6 +4,17 @@ on:
   push: { branches: [main] }
   pull_request:
 
+# The suite spins up five databases; a second push should supersede the
+# first rather than run it all twice.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: this workflow only reads code. Anything that needs more
+# asks for it on the job.
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -26,7 +37,7 @@ jobs:
       # both makes the action fail on a version mismatch.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: 'pnpm' }
+        with: { node-version: '24', cache: 'pnpm' }
 
       - run: pnpm install --frozen-lockfile
 
