@@ -1,8 +1,16 @@
 name: CodeQL
 
-# Free on private repos. Catches the injection and data-flow classes that
-# typecheck and the unit suite structurally cannot — this app builds SQL
-# filters and renders user-supplied strings into PDFs.
+# Catches the injection and data-flow classes that typecheck and the unit
+# suite structurally cannot — this app builds SQL filters and renders
+# user-supplied strings into PDFs.
+#
+# DORMANT while the repo is private: code scanning needs GitHub Advanced
+# Security, and without it every run scans all 123 files and then fails on
+# upload with "Code scanning is not enabled for this repository". A check
+# that is permanently red is worse than no check, so it only runs where it
+# can succeed — a public repo, or a private one with Advanced Security.
+#
+# Nothing to change to turn it on: making the repo public is enough.
 on:
   pull_request:
   schedule:
@@ -18,6 +26,9 @@ permissions:
 
 jobs:
   analyze:
+    # Code scanning is free on public repos; on private ones it needs
+    # Advanced Security. Skip rather than fail where it cannot upload.
+    if: github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
     permissions:
       contents: read

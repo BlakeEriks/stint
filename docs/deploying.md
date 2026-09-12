@@ -48,8 +48,16 @@ migration scripts do, and they run in Actions.
 
 ## 3. The release gate
 
-- **GitHub** → repo Settings → Secrets → Actions → add `PRODUCTION_DB_URL`
-  (the same Session-pooler connection string `pnpm migrate` uses locally).
+- **GitHub** → repo Settings → Environments → **Production** → add
+  `PRODUCTION_DB_URL` as an *environment* secret (the same Session-pooler
+  string `pnpm migrate` uses locally).
+
+  An environment secret, not a repository one: only a job that declares
+  `environment: Production` can read it, so a workflow added later cannot
+  reach production credentials by accident. It also gives the deployment its
+  own audit log, and is where a required reviewer would go if this stops
+  being a solo project. Vercel already created the Production and Preview
+  environments when you connected the repo.
 - **Vercel** → Project Settings → Git → Deployment Checks → connect this
   repository, and mark the check **Required**.
 
@@ -65,6 +73,22 @@ Supabase → Authentication → URL Configuration. Add the production origin to
 **Site URL** and `https://<domain>/auth/callback` to **Redirect URLs**, or
 magic links bounce. Preview deployments get a new URL per branch; add a
 wildcard redirect if you want sign-in to work on them.
+
+## Gated behind a paid plan
+
+Two checks exist in the repo but cannot run while it is private on a personal
+account:
+
+- **Branch protection / rulesets** need GitHub Pro. Until then `main` is
+  unprotected: CI still runs on every PR and every push, but nothing *stops*
+  a merge with it red. The workflow is the same either way — open a PR, let
+  it go green, merge.
+- **CodeQL** needs Advanced Security on a private repo. The workflow skips
+  itself unless the repo is public, because a permanently-red check trains
+  you to ignore checks.
+
+Making the repo public enables both, free. The reason not to is that the
+schema models bank details and invoicing.
 
 ## What is deliberately absent
 

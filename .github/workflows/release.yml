@@ -33,6 +33,12 @@ jobs:
     # Preview and staging builds fire the same event; only gate production.
     if: github.event.client_payload.target == 'production'
     runs-on: ubuntu-latest
+    # PRODUCTION_DB_URL lives on this environment rather than the repository,
+    # so it is reachable only from a job that names it — a workflow added
+    # later cannot read production credentials by accident. It is also where
+    # a required reviewer would go if this ever stops being a solo project,
+    # and it gives the deployment its own audit log.
+    environment: Production
     steps:
       - uses: actions/checkout@v4
         with:
