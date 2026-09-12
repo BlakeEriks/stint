@@ -473,6 +473,23 @@ every DropdownMenu test throws on open.
 
 `userEvent.setup()` returns the instance synchronously — it is not a promise.
 
+`test/ui/appearance.test.tsx` covers the design rules that fail **silently**:
+white-on-accent, the accent appearing on a stopped or runaway timer, an accent
+focus ring, a component hand-rolling type instead of naming a role, and a
+`type-*` that is not a real role. Each assertion was verified to fail when the
+rule is broken — a colour-pairing test that cannot fail is decoration.
+
+**Do not add computed-style assertions.** jsdom cannot parse Tailwind 4's
+compiled output (`@layer`, `@property`, `oklch()`, nested `@media`) and
+silently drops what it does not understand, so `getComputedStyle` returns
+browser defaults — 16px, black — for every one of our utilities. Injecting the
+real `.next` CSS was tried and resolves nothing. A suite built on it would
+pass while proving nothing; real pixels need a browser.
+
+These tests assert *rules*, not class strings. `toHaveClass('type-nav')` on
+its own restates the source and fails on any edit, which is a change detector
+rather than a test.
+
 ### The timer
 
 `useTimer` counts locally from `startedAt` and reconciles with `/summary`
