@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge, money, shortDate } from './invoice-bits';
 import { api, type Invoice } from '@/lib/client/api';
 import { Page } from './page';
+import { Plus } from 'lucide-react';
 
 export function InvoiceList() {
   const { data, isLoading } = useQuery({
@@ -25,7 +26,10 @@ export function InvoiceList() {
       <header className="flex items-center justify-between gap-3 pb-4">
         <h1 className="type-title text-strong">Invoices</h1>
         <Button asChild>
-          <Link href="/invoices/new">New invoice</Link>
+          <Link href="/invoices/new">
+            <Plus aria-hidden strokeWidth={2.25} />
+            New invoice
+          </Link>
         </Button>
       </header>
 

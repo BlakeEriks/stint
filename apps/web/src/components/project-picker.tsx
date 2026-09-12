@@ -13,6 +13,7 @@ import {
 import { ProjectDialog } from './project-dialog';
 import type { Project } from '@/lib/client/api';
 import { useProjectColors } from '@/lib/client/use-project-colors';
+import { Plus } from 'lucide-react';
 
 /** "No project" is a real choice, not an absent one, so it needs a value. */
 const NONE = '__none__';
@@ -90,7 +91,8 @@ export function ProjectPicker({
 
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => setCreating(true)}>
-            + New project
+            <Plus aria-hidden className="size-3.5" strokeWidth={2.25} />
+            New project
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -2,14 +2,26 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import {
+  CalendarDays,
+  FileText,
+  Settings,
+  Timer,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import { NavTimer } from './nav-timer';
 
-const LINKS = [
-  { href: '/', label: 'Home' },
-  { href: '/calendar', label: 'Calendar' },
-  { href: '/clients', label: 'Clients' },
-  { href: '/invoices', label: 'Invoices' },
-  { href: '/settings', label: 'Settings' },
+/* Icon AND label, never icon alone. An icon is a fast second channel for
+   somewhere you already know, and useless for somewhere you do not — the
+   label is what makes it findable the first time. lucide-react is already a
+   dependency (shadcn's dialog and dropdown use it), so this costs nothing. */
+const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: '/', label: 'Home', icon: Timer },
+  { href: '/calendar', label: 'Calendar', icon: CalendarDays },
+  { href: '/clients', label: 'Clients', icon: Users },
+  { href: '/invoices', label: 'Invoices', icon: FileText },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 /**
@@ -63,7 +75,7 @@ export function Nav() {
 
       {/* Sections. Only this scrolls on a phone. */}
       <div className="flex gap-1 overflow-x-auto sm:flex-col sm:overflow-visible">
-        {LINKS.map(({ href, label }) => {
+        {LINKS.map(({ href, label, icon: Icon }) => {
           const active =
             href === '/' ? pathname === '/' : pathname.startsWith(href);
           return (
@@ -71,12 +83,17 @@ export function Nav() {
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
-              className={`type-nav flex-none rounded-md px-2.5 py-2 transition-colors sm:px-3 ${
+              className={`type-nav flex flex-none items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors sm:px-3 ${
                 active
                   ? 'bg-surface-primary text-strong shadow-card'
                   : 'text-muted hover:text-strong hover:bg-surface-hover'
               }`}
             >
+              <Icon
+                aria-hidden
+                className="size-4 flex-none"
+                strokeWidth={1.75}
+              />
               {label}
             </Link>
           );

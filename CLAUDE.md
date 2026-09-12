@@ -428,12 +428,22 @@ own copy of `mx-auto max-w-3xl px-4 py-8 …`, which is how the calendar ended
 up silently on a different width. `wide` is for screens that are a grid rather
 than a column.
 
-**Known tension, not yet resolved:** the default `Button` variant is
-`bg-accent-default`, so a page with a primary action shows green while the
-rail's running timer is also green — two accent meanings in view, which is
-what the accent rule exists to prevent. It was invisible before the rail put
-the timer on every screen. Deciding it means either a neutral default variant
-or accepting the carve-out for the one primary action per screen.
+**The default `Button` variant is neutral.** The accent is opt-in via
+`variant="accent"`, because the previous default painted every primary action
+green while the rail's running timer was also green — two accent meanings in
+view, which the accent rule exists to prevent. Adding a client is not the most
+important thing on the clients page. Tested, and the test was verified to fail
+when the default goes back to the accent.
+
+**Buttons and nav carry icons, and an additive action carries a `+`.** Text +
+colour + icon is more legible than any single channel, and the plus reads
+before the label does. Icons are `aria-hidden` so the accessible name stays
+the label alone — a screen reader should not announce "plus".
+
+`lucide-react` is **already a dependency** (shadcn's dialog and dropdown use
+it); no icon library needed to be added. Icons never appear alone in nav: an
+icon is a fast second channel for a destination you already know and useless
+for one you do not, so the label is what makes it findable the first time.
 
 ### Components
 

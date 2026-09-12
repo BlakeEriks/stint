@@ -140,7 +140,10 @@ describe('ProjectPicker', () => {
     // The empty state is the one place a user is most likely to need this,
     // so it must be reachable there and not only when projects exist.
     expect(
-      screen.getByRole('menuitem', { name: '+ New project' }),
+      /* "New project", not "+ New project": the plus is an aria-hidden icon,
+         so it is not part of the accessible name — a screen reader should not
+         announce "plus". */
+      screen.getByRole('menuitem', { name: 'New project' }),
     ).toBeInTheDocument();
   });
 

@@ -49,18 +49,23 @@ the fastest way back to a known state. `pnpm dev:down` stops it;
 
 ## Signing in
 
-Seeded user: **dev@localhost.test**. Enter it on `/signin`, then open
-**Mailpit** and click the link — mail is captured locally and never sent.
+**Any email address works** — including your real one. Enter it on `/signin`,
+then open **Mailpit** and click the link. No mail leaves the machine, so
+there is nothing in your actual inbox and nothing to rate-limit.
 
-`auth.email.enable_confirmations` is `false` locally, so the account is usable
-immediately.
+`auth.email.enable_confirmations` is `false` locally, so a brand-new address
+is usable immediately; `dev@localhost.test` is the one the seed owns, so it is
+the only one that comes with clients, projects and entries.
 
-**Use `localhost` throughout, not `127.0.0.1`.** Browsers treat them as
-different hosts, so a link verified through `127.0.0.1` sets its session
-cookie for a host the app is not served from, and the app stays signed out
-while looking like it succeeded. Mailpit renders the link with whatever host
-GoTrue was configured with; if it says `127.0.0.1:54321`, swap in `localhost`
-before clicking.
+**Everything speaks `localhost`, never `127.0.0.1`.** A browser treats them as
+different hosts, so a link verified through one sets its session cookie for a
+host the app is not served from — the click appears to work and the app stays
+signed out. `auth.external_url` in `config.toml` is what puts the right host
+into the emailed link; it is set for this reason and should stay set.
+
+Note that `[studio].api_url` is a different setting and does *not* affect the
+link — it only changes Studio's own API calls. Changing it looks like it should
+work and does nothing.
 
 ## What the seed contains
 

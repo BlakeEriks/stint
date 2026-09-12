@@ -157,7 +157,12 @@ enabled = true
 # in emails.
 site_url = "http://localhost:3100"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
-# external_url = ""
+#
+# `localhost`, NOT `127.0.0.1`. This host is what GoTrue writes into the
+# magic-link it emails, and a browser treats the two as different hosts: a link
+# verified through 127.0.0.1 sets its session cookie for a host the app is not
+# served from, so clicking it appears to work and the app stays signed out.
+external_url = "http://localhost:54321/auth/v1"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 additional_redirect_urls = [
   "http://localhost:3100",

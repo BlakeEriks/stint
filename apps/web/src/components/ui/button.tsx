@@ -8,7 +8,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-accent-default text-on-accent hover:bg-accent-hover",
+        // Neutral by default, on purpose. The accent marks the running timer;
+        // a screen's "Add client" is not competing with that, and before this
+        // every page with a primary action put a second green meaning on
+        // screen beside the nav rail's timer. Opting in is a decision now.
+        default:
+          "bg-surface-elevated text-strong hover:bg-surface-active",
+        // The one primary action on a screen that genuinely has one — and
+        // only where no running timer is in view. See the accent rule in
+        // CLAUDE.md.
+        accent: "bg-accent-default text-on-accent hover:bg-accent-hover",
         destructive:
           "bg-danger text-on-danger hover:bg-danger focus-visible:ring-danger",
         outline:

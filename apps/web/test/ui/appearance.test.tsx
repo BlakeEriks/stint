@@ -170,6 +170,28 @@ describe('never white text on the accent', () => {
   });
 });
 
+describe('the default button is neutral', () => {
+  it('does not spend the accent on a button that merely exists', async () => {
+    const { Button } = await import('@/components/ui/button');
+    const { container } = render(<Button>Add client</Button>);
+    const button = container.querySelector('button')!;
+
+    /* Before this, every page with a primary action rendered green while the
+       nav rail's running timer was also green — two accent meanings in view,
+       which is the thing the accent rule exists to prevent. Opting in with
+       `variant="accent"` is now a decision. */
+    expect(button.className).not.toContain('accent');
+  });
+
+  it('still offers the accent explicitly', async () => {
+    const { Button } = await import('@/components/ui/button');
+    const { container } = render(<Button variant="accent">Start</Button>);
+    const button = container.querySelector('button')!;
+    expect(button.className).toContain('bg-accent-default');
+    expect(button.className).toContain('text-on-accent');
+  });
+});
+
 describe('focus rings are neutral', () => {
   it('never spends the accent on a focus ring in the timer', async () => {
     serve(summary({ running: null }));
