@@ -150,7 +150,7 @@ const FORBIDDEN = new RegExp(
 );
 
 /** Dark-mode variants: the app is dark-first and themed via [data-theme]. */
-const DARK_VARIANT = /\bdark:[^\s"'`]+/g;
+const _DARK_VARIANT = /\bdark:[^\s"'`]+/g;
 
 /**
  * One pass, longest-key-first.

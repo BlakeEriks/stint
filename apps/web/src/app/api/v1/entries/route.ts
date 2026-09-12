@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError } from '@/lib/errors';
+import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';

@@ -1,7 +1,6 @@
 // A minimal supabase-js-shaped query builder over node-postgres.
 // Exercises the REAL route handlers against the REAL schema, including
 // triggers and the partial unique index. Only the transport differs.
-import pg from 'pg';
 
 // Tables with no user_id column: access is inherited from the parent row
 // via RLS, so the shim must not add a user scope to them.
@@ -148,6 +147,9 @@ export function makeDb(pool, userId) {
         const { rows, error } = await api._exec();
         return { data: rows[0] ?? null, error };
       },
+      // supabase-js query builders are thenable, so `await db.from(...)`
+      // resolves without a terminal call. The shim must be too.
+      // biome-ignore lint/suspicious/noThenProperty: must mimic supabase-js
       then(res, rej) {
         return api
           ._exec()

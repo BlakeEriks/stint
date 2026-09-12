@@ -104,6 +104,9 @@ export function TimerBar({ projects }: { projects: Project[] }) {
           </time>
 
           <button
+            // Explicit: a bare <button> defaults to submit, and this sits
+            // beside an input that submits on Enter.
+            type="button"
             onClick={toggle}
             disabled={timer.start.isPending || timer.stop.isPending}
             aria-label={isRunning ? 'Stop timer' : 'Start timer'}
@@ -115,7 +118,9 @@ export function TimerBar({ projects }: { projects: Project[] }) {
             {isRunning ? (
               <span className="block size-2.5 rounded-[2px] bg-current" />
             ) : (
+              // The button carries the label; the glyph is decoration.
               <svg
+                aria-hidden="true"
                 viewBox="0 0 10 12"
                 className="ml-0.5 block h-3 w-2.5 fill-current"
               >

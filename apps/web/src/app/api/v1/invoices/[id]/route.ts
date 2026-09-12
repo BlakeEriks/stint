@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { handle, ApiError } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
-import { INVOICE_COLUMNS, loadPdfData } from '@/lib/invoicing';
+import { loadPdfData } from '@/lib/invoicing';
 
 export const dynamic = 'force-dynamic';
 

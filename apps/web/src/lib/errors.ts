@@ -100,7 +100,7 @@ import type { z } from 'zod';
 import type { ErrorCode } from '@stint/schema';
 
 type SchemaCode = z.infer<typeof ErrorCode>;
-type Assert<A extends B, B> = true;
+type Assert<_A extends B, B> = true;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 type _CodeMatchesSchema = [Assert<Code, SchemaCode>, Assert<SchemaCode, Code>];

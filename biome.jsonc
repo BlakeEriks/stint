@@ -9,9 +9,9 @@
     "includes": [
       "**",
       "!packages/design-tokens/tokens.json",
-      "!apps/web/src/components/ui/**",
-      "!**/dist/**",
-      "!**/.next/**"
+      "!apps/web/src/components/ui",
+      "!**/dist",
+      "!**/.next"
     ]
   },
   "formatter": {
@@ -32,10 +32,14 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "suspicious": {
         "noExplicitAny": "off",
-        "noConsole": "off"
+        "noConsole": "off",
+        // The only index-keyed lists here are invoice line items, which are
+        // frozen at generation and never reorder — the index IS their stable
+        // identity. Re-enable if a reorderable list is ever added.
+        "noArrayIndexKey": "off"
       },
       "style": {
         "noNonNullAssertion": "off",

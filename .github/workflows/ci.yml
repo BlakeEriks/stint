@@ -41,6 +41,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Formatting and lint. Fast enough to run first, so an obvious slip
+      # fails in seconds rather than after five databases have spun up.
+      - name: Lint
+        run: pnpm lint
+
       # Generated token files must match tokens.json. A hand-edit to dist/
       # fails here rather than drifting silently across three clients.
       - name: Design tokens are up to date

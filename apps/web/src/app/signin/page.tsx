@@ -59,6 +59,7 @@ export default function SignIn() {
             <input
               type="email"
               required
+              // biome-ignore lint/a11y/noAutofocus: one field on the page; typing an email is the only thing to do here
               autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}

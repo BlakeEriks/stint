@@ -9,6 +9,8 @@
   "scripts": {
     "tokens": "pnpm --filter @stint/design-tokens build",
     "tokens:validate": "pnpm --filter @stint/design-tokens validate",
+    "lint": "biome check .",
+    "lint:fix": "biome check . --write",
     "migrate": "node scripts/migrate.mjs",
     "verify:schema": "node scripts/verify-schema.mjs",
     "test": "pnpm -r test"
