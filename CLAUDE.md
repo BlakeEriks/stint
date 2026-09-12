@@ -51,6 +51,12 @@ from shadow and radius because `bg-base`→`bg-primary` is only 1.03:1; see
   through `/api/v1/*` route handlers.
 - Colors come from **semantic** tokens only. Primitives stay in the token
   package. Never hardcode a hex in a component.
+- **Only clients have a colour.** A project is a subdivision of a client that
+  is already identified, so colour answers *whose work is this?* and the name
+  answers *which piece?*. `useProjectColors()` resolves project -> client ->
+  colour; internal work gets none. `projects.color` still exists in the
+  database but nothing reads it — see `docs/design/color.md` for why
+  per-project variants were rejected.
 - Design tokens are **generated** — edit `packages/design-tokens/tokens.json`,
   then `pnpm tokens`. Never edit files in `dist/`.
 - The neutral ramp itself is **derived**, not hand-picked: change the floor or

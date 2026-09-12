@@ -11,7 +11,6 @@ const PROJECTS = [
     clientId: null,
     name: 'Acme',
     hourlyRate: null,
-    color: '#DA8188',
     isBillableDefault: true,
     archivedAt: null,
   },

@@ -55,8 +55,10 @@ export function toClient(r: Record<string, any>) {
   };
 }
 
+/* No `color`: colour identifies a client, not a project. The column still
+   exists — retiring one is two releases — but nothing reads or writes it. */
 export const PROJECT_COLUMNS =
-  'id, client_id, name, hourly_rate, color, is_billable_default, archived_at';
+  'id, client_id, name, hourly_rate, is_billable_default, archived_at';
 
 export function toProject(r: Record<string, any>) {
   return {
@@ -64,7 +66,6 @@ export function toProject(r: Record<string, any>) {
     clientId: r.client_id,
     name: r.name,
     hourlyRate: num(r.hourly_rate),
-    color: r.color,
     isBillableDefault: r.is_billable_default,
     archivedAt: r.archived_at,
   };
@@ -128,7 +129,6 @@ export const PROJECT_FIELDS = {
   clientId: 'client_id',
   name: 'name',
   hourlyRate: 'hourly_rate',
-  color: 'color',
   isBillableDefault: 'is_billable_default',
 } as const;
 

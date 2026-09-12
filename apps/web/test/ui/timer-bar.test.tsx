@@ -10,8 +10,8 @@ const START = '2026-09-11T09:00:00.000Z';
 const NOW = '2026-09-11T09:25:00.000Z';
 
 const PROJECTS = [
-  { id: 'p1', name: 'Acme Redesign', color: '#DA8188' },
-  { id: 'p2', name: 'Bluebird API', color: '#42B59A' },
+  { id: 'p1', name: 'Acme Redesign' },
+  { id: 'p2', name: 'Bluebird API' },
 ] as unknown as Project[];
 
 function entry(over: Partial<TimeEntry> = {}): TimeEntry {

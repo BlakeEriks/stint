@@ -84,12 +84,12 @@ export interface Summary {
   serverTime: string;
 }
 
+/** No `color` — that belongs to the client. See `use-project-colors.ts`. */
 export interface Project {
   id: string;
   clientId: string | null;
   name: string;
   hourlyRate: number | null;
-  color: string | null;
   isBillableDefault: boolean;
   archivedAt: string | null;
 }

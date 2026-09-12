@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { formatClock, formatCompact, startOfLocalDay } from '@stint/core';
 import { api, type Project, type TimeEntry } from '@/lib/client/api';
 import { useTimeZone } from '@/lib/client/use-timer';
+import { useProjectColors } from '@/lib/client/use-project-colors';
 
 /**
  * Today's entries, beneath the timer. This is the view seen 50× a day, so it
@@ -27,6 +28,7 @@ export function EntryList({
   // A running entry is shown in the timer bar, not duplicated here.
   const entries = (data?.entries ?? []).filter((e) => e.endedAt !== null);
   const byId = new Map(projects.map((p) => [p.id, p]));
+  const colors = useProjectColors();
 
   return (
     <section className="mt-6" aria-label="Today's entries">
@@ -51,6 +53,7 @@ export function EntryList({
                 <Row
                   entry={entry}
                   project={byId.get(entry.projectId ?? '')}
+                  color={colors.get(entry.projectId ?? '')}
                   tz={tz}
                 />
               </li>
@@ -65,10 +68,13 @@ export function EntryList({
 function Row({
   entry,
   project,
+  color,
   tz,
 }: {
   entry: TimeEntry;
   project?: Project;
+  /** The project's client's colour; absent for internal work. */
+  color?: string | null;
   tz: string;
 }) {
   const time = (iso: string) =>
@@ -90,7 +96,7 @@ function Row({
           <span
             aria-hidden
             className="size-1.5 rounded-[2px]"
-            style={{ background: project.color ?? 'var(--text-subtle)' }}
+            style={{ background: color ?? 'var(--text-subtle)' }}
           />
           {project.name}
         </span>

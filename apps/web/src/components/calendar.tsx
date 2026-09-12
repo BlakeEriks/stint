@@ -1,10 +1,9 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
 import { formatCompact, formatClock } from '@stint/core';
 import { Button } from '@/components/ui/button';
 import { useCalendar, type PositionedEntry } from '@/lib/client/use-calendar';
-import { api, type Project } from '@/lib/client/api';
+import { useProjectColors } from '@/lib/client/use-project-colors';
 
 const HOURS = [0, 3, 6, 9, 12, 15, 18, 21];
 
@@ -17,11 +16,7 @@ const HOURS = [0, 3, 6, 9, 12, 15, 18, 21];
  */
 export function Calendar() {
   const cal = useCalendar();
-  const { data } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => api.projects(),
-  });
-  const byId = new Map((data?.projects ?? []).map((p) => [p.id, p]));
+  const colorByProject = useProjectColors();
 
   const label = new Intl.DateTimeFormat('en-US', {
     month: 'long',
@@ -108,7 +103,7 @@ export function Calendar() {
               <DayColumn
                 key={day.date}
                 positioned={day.positioned}
-                projects={byId}
+                colors={colorByProject}
                 tz={cal.tz}
               />
             ))}
@@ -171,11 +166,11 @@ function DayHeading({
 
 function DayColumn({
   positioned,
-  projects,
+  colors,
   tz,
 }: {
   positioned: PositionedEntry[];
-  projects: Map<string, Project>;
+  colors: Map<string, string | null>;
   tz: string;
 }) {
   return (
@@ -193,12 +188,7 @@ function DayColumn({
       ))}
 
       {positioned.map((item) => (
-        <EntryBlock
-          key={item.entry.id}
-          item={item}
-          projects={projects}
-          tz={tz}
-        />
+        <EntryBlock key={item.entry.id} item={item} colors={colors} tz={tz} />
       ))}
     </div>
   );
@@ -206,15 +196,15 @@ function DayColumn({
 
 function EntryBlock({
   item,
-  projects,
+  colors,
   tz,
 }: {
   item: PositionedEntry;
-  projects: Map<string, Project>;
+  colors: Map<string, string | null>;
   tz: string;
 }) {
   const { entry, top, height, lane, lanes } = item;
-  const project = entry.projectId ? projects.get(entry.projectId) : undefined;
+  const color = entry.projectId ? colors.get(entry.projectId) : undefined;
   const running = entry.endedAt === null;
 
   const time = (iso: string) =>
@@ -241,9 +231,9 @@ function EntryBlock({
         height: `${height * 100}%`,
         left: `${(lane / lanes) * 100}%`,
         width: `${(1 / lanes) * 100}%`,
-        // A project colour reads as a left edge, so the block stays legible
+        // A client colour reads as a left edge, so the block stays legible
         // rather than becoming a saturated tile behind text.
-        borderLeft: project?.color ? `2.5px solid ${project.color}` : undefined,
+        borderLeft: color ? `2.5px solid ${color}` : undefined,
       }}
     >
       <p className="truncate type-support leading-tight text-primary">

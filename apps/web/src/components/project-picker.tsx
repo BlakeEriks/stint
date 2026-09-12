@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ProjectDialog } from './project-dialog';
 import type { Project } from '@/lib/client/api';
+import { useProjectColors } from '@/lib/client/use-project-colors';
 
 /** "No project" is a real choice, not an absent one, so it needs a value. */
 const NONE = '__none__';
@@ -19,8 +20,10 @@ const NONE = '__none__';
 /**
  * Project assignment.
  *
- * A native `<select>` cannot show the project's colour swatch, and the swatch
- * is how a project is recognised at a glance everywhere else in the app.
+ * A native `<select>` cannot show the colour swatch, and the swatch is how
+ * work is recognised at a glance everywhere else in the app. The colour is
+ * the CLIENT's — projects under one client share it, so the swatch answers
+ * "whose work is this?" and the name answers "which piece?".
  *
  * Radix supplies what the previous hand-rolled listbox did not: arrow-key
  * navigation, typeahead, focus return to the trigger on close, and correct
@@ -38,6 +41,7 @@ export function ProjectPicker({
   selected?: Project;
 }) {
   const [creating, setCreating] = useState(false);
+  const colors = useProjectColors();
 
   return (
     <>
@@ -50,7 +54,7 @@ export function ProjectPicker({
         >
           {selected ? (
             <>
-              <Swatch color={selected.color} />
+              <Swatch color={colors.get(selected.id)} />
               <span className="truncate">{selected.name}</span>
             </>
           ) : (
@@ -78,7 +82,7 @@ export function ProjectPicker({
 
             {projects.map((p) => (
               <DropdownMenuRadioItem key={p.id} value={p.id} className="pl-8">
-                <Swatch color={p.color} />
+                <Swatch color={colors.get(p.id)} />
                 <span className="truncate">{p.name}</span>
               </DropdownMenuRadioItem>
             ))}
@@ -102,7 +106,7 @@ export function ProjectPicker({
   );
 }
 
-/** Per-project colour is data, so it stays an inline style. */
+/** A client's colour is data, so it stays an inline style. */
 function Swatch({ color }: { color?: string | null }) {
   return (
     <span

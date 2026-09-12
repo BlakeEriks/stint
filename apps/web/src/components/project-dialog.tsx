@@ -13,7 +13,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ColorPicker } from './color-picker';
 import {
   api,
   ApiError,
@@ -44,7 +43,6 @@ export function ProjectDialog({
   const [name, setName] = useState('');
   const [clientId, setClientId] = useState<string | null>(null);
   const [hourlyRate, setHourlyRate] = useState('');
-  const [color, setColor] = useState<string | null>(null);
   const [billable, setBillable] = useState(true);
 
   // Reset each time it opens, so a cancelled edit does not leak into the
@@ -56,7 +54,6 @@ export function ProjectDialog({
     setHourlyRate(
       existing?.hourlyRate != null ? String(existing.hourlyRate) : '',
     );
-    setColor(existing?.color ?? null);
     setBillable(existing?.isBillableDefault ?? true);
   }, [open, existing, defaultClientId]);
 
@@ -83,7 +80,6 @@ export function ProjectDialog({
       name: name.trim(),
       clientId,
       hourlyRate: hourlyRate.trim() === '' ? null : Number(hourlyRate),
-      color,
       isBillableDefault: billable,
     });
   };
@@ -150,8 +146,6 @@ export function ProjectDialog({
               placeholder="Falls back to the client's rate"
             />
           </div>
-
-          <ColorPicker value={color} onChange={setColor} />
 
           <label className="flex items-center gap-2.5 type-control text-primary">
             <input

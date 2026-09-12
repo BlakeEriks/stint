@@ -18,11 +18,6 @@ const UpdateProject = z.object({
   clientId: z.uuid().nullable().optional(),
   name: z.string().trim().min(1).max(200).optional(),
   hourlyRate: z.number().nonnegative().nullable().optional(),
-  color: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/)
-    .nullable()
-    .optional(),
   isBillableDefault: z.boolean().optional(),
   archived: z.boolean().optional(),
 });

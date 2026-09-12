@@ -7,9 +7,9 @@ import { ProjectPicker } from '@/components/project-picker';
 import type { Project } from '@/lib/client/api';
 
 const PROJECTS = [
-  { id: 'p1', name: 'Acme Redesign', color: '#DA8188' },
-  { id: 'p2', name: 'Bluebird API', color: '#42B59A' },
-  { id: 'p3', name: 'Corvus Dashboard', color: '#6EA1E2' },
+  { id: 'p1', name: 'Acme Redesign' },
+  { id: 'p2', name: 'Bluebird API' },
+  { id: 'p3', name: 'Corvus Dashboard' },
 ] as unknown as Project[];
 
 /** The picker hosts the new-project dialog, which reads the client list. */

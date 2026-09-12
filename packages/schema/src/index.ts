@@ -32,12 +32,26 @@ export const CreateClient = Client.omit({ id: true, archivedAt: true }).extend({
 export const UpdateClient = CreateClient.partial().omit({ id: true });
 
 // ── project ────────────────────────────────────────────────────────
+/**
+ * No `color`. Colour identifies a CLIENT, and a project is a subdivision of
+ * one that is already identified — its name does that work. Two surfaces had
+ * already drifted apart on this (the calendar keyed blocks to the project
+ * colour while the home-screen spec keyed the heatmap to the client's), which
+ * is one visual channel carrying two meanings.
+ *
+ * Derived per-project variants were considered and rejected: project colours
+ * are pinned to L 0.70 / C 0.11 so a chip can never out-bright the accent, and
+ * varying hue within a client's own hue lands under the dichromacy
+ * discrimination threshold documented in `docs/design/color.md`.
+ *
+ * The column still exists in the database — retiring one is two releases, and
+ * this is the release that stops writing it.
+ */
 export const Project = z.object({
   id: uuid,
   clientId: uuid.nullable(), // null = internal / unbilled work
   name: z.string().trim().min(1).max(200),
   hourlyRate: money.nullable().optional(),
-  color: hexColor.nullable().optional(),
   isBillableDefault: z.boolean().default(true),
   archivedAt: iso.nullable().optional(),
 });

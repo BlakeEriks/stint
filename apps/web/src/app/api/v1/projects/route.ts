@@ -32,11 +32,6 @@ const CreateProject = z.object({
   clientId: z.uuid().nullable().optional(), // null = internal / unbilled
   name: z.string().trim().min(1).max(200),
   hourlyRate: z.number().nonnegative().nullable().optional(),
-  color: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/)
-    .nullable()
-    .optional(),
   isBillableDefault: z.boolean().optional(),
 });
 
@@ -52,7 +47,6 @@ export const POST = handle(async (req: Request) => {
       client_id: body.clientId ?? null,
       name: body.name,
       hourly_rate: body.hourlyRate ?? null,
-      color: body.color ?? null,
       is_billable_default: body.isBillableDefault ?? true,
     })
     .select(PROJECT_COLUMNS)

@@ -69,19 +69,45 @@ saved." Two different semantic categories, so two different hues.
 Info is intentionally the dullest (C 0.075) — it is a passive color and low
 chroma keeps it from competing.
 
-## Project colors
+## Client colors
 
 Eight hues at **fixed L 0.70 and C 0.11**, varying only hue, excluding the
 accent zone 142±22°.
 
-Fixed lightness below the accent's 0.87 means a project chip can never
-out-bright the running timer; chroma 0.11 against the accent's 0.26 means it
-can never out-saturate it. Coherence is automatic because only one dimension
-varies.
+Fixed lightness below the accent's 0.87 means a chip can never out-bright the
+running timer; chroma 0.11 against the accent's 0.26 means it can never
+out-saturate it. Coherence is automatic because only one dimension varies.
 
 Minimum pairwise ΔE is 0.075 — fine for labeled chips where text carries the
 identity. **For charts, use the two dedicated categoricals** (`#64A3E3` /
 `#F6964E`) on the blue/orange axis, the only axis dichromats retain.
+
+### Colour belongs to the client, not the project
+
+**Only clients have a colour.** A project is a subdivision of a client that is
+already identified, and its name does that work; colour answers *whose work is
+this?*, which is the question that recurs in a calendar, a heatmap and an
+invoice.
+
+This was not always true, and the drift is the argument: the calendar keyed
+blocks to the project's colour while the home-screen spec keyed its heatmap to
+the client's, so one visual channel carried two meanings depending on which
+screen you were looking at.
+
+**Per-project variants of a client's hue were considered and rejected.**
+Distinguishing several projects within one client means moving L or C — which
+either breaks the ceiling above (a chip out-brighting the accent) or lands the
+difference under the dichromacy discrimination threshold measured below. Five
+projects under one client would need five separable variants of a single hue,
+and that does not exist in the space these constraints leave.
+
+The cost is that a week spent entirely on one client reads as a single colour.
+That is honest: it *was* a single client's week, and time-of-day plus the task
+label carry the rest. Internal work (no client) gets no colour at all rather
+than a shared grey, which would read as a client of its own.
+
+`projects.color` still exists in the database — retiring a column is two
+releases — but nothing reads or writes it.
 
 ## Contrast — three failures, each resolved
 

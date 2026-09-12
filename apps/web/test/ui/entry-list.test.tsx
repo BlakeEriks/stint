@@ -5,9 +5,7 @@ import type { ReactNode } from 'react';
 import { EntryList } from '@/components/entry-list';
 import type { Project, TimeEntry } from '@/lib/client/api';
 
-const PROJECTS = [
-  { id: 'p1', name: 'Acme Redesign', color: '#DA8188' },
-] as unknown as Project[];
+const PROJECTS = [{ id: 'p1', name: 'Acme Redesign' }] as unknown as Project[];
 
 function entry(over: Partial<TimeEntry> = {}): TimeEntry {
   return {
