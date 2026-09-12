@@ -34,6 +34,12 @@ feel permanent, it belongs in the roadmap or in the bin.
 
 ## Known rough edges
 
+- [ ] **No test covers the bearer-token auth path.** It shipped broken —
+      `getClaims()` needs the token passed explicitly — and nothing caught it
+      because the route tests inject `__TEST_DB__` and never take that path.
+      Worth a test that hits a real server with a real token before the Expo
+      or macOS app depends on it.
+
 - [ ] **`type-section` is unused.** Kept because the home cards will want a
       section heading. If they ship without it, delete the role.
 - [ ] **Calendar: a block can overlap the day's label.** Visible on Saturday

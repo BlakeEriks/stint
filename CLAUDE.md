@@ -219,6 +219,14 @@ All routes live in `apps/web/src/app/api/v1/`. Shared plumbing in
 
 - `auth.ts` — `requireSession()` accepts both a bearer token (Expo, macOS) and
   a cookie session (web); both yield an RLS-scoped client.
+
+  **`getClaims()` must be passed the token explicitly on the bearer path.** It
+  reads the *stored session*, not the `Authorization` header that
+  `bearerClient` sets via `global.headers`; with no stored session it returns
+  `{ data: null, error: null }` — the call succeeds, yields no claims, and
+  every bearer request 401s. No error is raised, and the route tests inject
+  `__TEST_DB__` so they never exercise that path, which is why this shipped
+  broken and was only found by curling a real token at a real server.
 - `errors.ts` — `handle()` wraps every route; `ApiError` maps to documented
   status codes. Contains a compile-time guard asserting the local `Code` union
   matches `ErrorCode` in `@stint/schema`.
