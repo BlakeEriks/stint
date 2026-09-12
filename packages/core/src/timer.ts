@@ -43,19 +43,3 @@ export function deriveTimerView(
     exceedsThreshold: exceeds,
   };
 }
-
-/**
- * Which color token the timer readout uses.
- * An exceeded timer drops the accent for the warning color — the signal
- * that something needs attention, without touching the user's data.
- */
-export function timerColorToken(state: TimerDisplayState): string {
-  switch (state) {
-    case 'running':
-      return 'timer-running';
-    case 'exceeded':
-      return 'timer-warning';
-    case 'idle':
-      return 'timer-idle';
-  }
-}

@@ -202,7 +202,22 @@ export const InvoiceLineItem = z.object({
   quantitySeconds: z.number().int().nonnegative(),
   quantityHours: z.number().nonnegative(),
   resolvedRate: money,
-  rateSource: z.enum(['entry', 'project', 'client', 'default', 'none']),
+  /**
+   * Which level of the hierarchy supplied the rate — **preview and generation
+   * only**.
+   *
+   * `buildLineItems` computes it in memory, but there is no `rate_source`
+   * column: an issued invoice's lines are read back from the database, and
+   * the frozen row cannot say where the rate came from. So it is optional,
+   * and a caller reading an existing invoice must not rely on it.
+   *
+   * Deliberately not persisted. The rate itself is what the client is owed;
+   * how it was derived is a fact about configuration at generation time, and
+   * storing it would be a second thing to keep true forever.
+   */
+  rateSource: z
+    .enum(['entry', 'project', 'client', 'default', 'none'])
+    .optional(),
   amount: money,
 });
 

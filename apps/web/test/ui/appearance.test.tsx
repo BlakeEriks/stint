@@ -119,12 +119,11 @@ afterEach(() => {
 describe('the accent marks the running timer, and nothing else', () => {
   it('gives the readout the accent while running', async () => {
     serve(summary({ running: entry() }));
-    const { container } = render(<TimerBar projects={PROJECTS} />, { wrapper });
+    render(<TimerBar projects={PROJECTS} />, { wrapper });
     await waitFor(() => expect(screen.getByText(/25:00/)).toBeInTheDocument());
 
     const readout = screen.getByText(/25:00/);
     expect(readout.className).toContain('text-accent-default');
-    expect(container).toBeTruthy();
   });
 
   it('withholds the accent from the readout when stopped', async () => {
@@ -207,6 +206,9 @@ describe('focus rings are neutral', () => {
     const rings = classesIn(container).filter(
       (c) => c.includes('ring-') || c.includes('focus'),
     );
+    /* Without this the filter returning nothing would pass vacuously: a class
+       rename, or the control ceasing to render, would read as compliance. */
+    expect(rings.length).toBeGreaterThan(0);
     expect(rings.some((c) => c.includes('accent'))).toBe(false);
   });
 });

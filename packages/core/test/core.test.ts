@@ -7,7 +7,7 @@ import {
   elapsedSeconds,
 } from '../src/duration.ts';
 import { resolveRate, resolveRateSource, lineAmount } from '../src/rates.ts';
-import { deriveTimerView, timerColorToken } from '../src/timer.ts';
+import { deriveTimerView } from '../src/timer.ts';
 import { uuidv7 } from '../src/uuid.ts';
 
 test('formatClock renders the timer format', () => {
@@ -98,7 +98,6 @@ test('timer view: running below threshold', () => {
   assert.equal(v.state, 'running');
   assert.equal(v.seconds, 7200);
   assert.equal(v.exceedsThreshold, false);
-  assert.equal(timerColorToken(v.state), 'timer-running');
 });
 
 test('timer view: exceeded threshold switches to warning', () => {
@@ -115,7 +114,6 @@ test('timer view: exceeded threshold switches to warning', () => {
   );
   assert.equal(v.state, 'exceeded');
   assert.equal(v.exceedsThreshold, true);
-  assert.equal(timerColorToken(v.state), 'timer-warning');
 });
 
 test('uuidv7 is time-ordered and well-formed', () => {

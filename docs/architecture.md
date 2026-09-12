@@ -11,7 +11,7 @@ deliberately does not want.
 
 | Surface | Stack | Scope | Status |
 |---|---|---|---|
-| Web | Next.js App Router, API-first | **All features.** The primary product. | API built, no UI |
+| Web | Next.js App Router, API-first | **All features.** The primary product. | Built |
 | macOS | Native Swift menu bar app | Start / stop / view. Menu bar toggles between current timer and today's total. | **Not started** |
 | iOS + Android | React Native (Expo) | Start / stop / view, light editing. | **Not started** |
 
@@ -173,7 +173,7 @@ packages/core           duration, rates, timer, uuid, calendar,
                         invoice (line items), payment (details)
 packages/design-tokens  tokens.json -> CSS + TS + Swift (generated into dist/)
 packages/api-client     Typed fetch wrapper for web + Expo
-apps/web                Next.js — the API layer; no UI yet
+apps/web                Next.js — API routes and the web UI
 supabase/migrations     Schema, triggers, RLS
 docs/design/samples     Committed renderer output (pnpm sample:invoice)
 ```

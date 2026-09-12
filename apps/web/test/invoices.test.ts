@@ -785,3 +785,49 @@ test('the PDF renders the payment block', async () => {
   const bytes = new Uint8Array(await res.arrayBuffer());
   assert.ok(bytes.length > 1000);
 });
+
+test('the invoice detail response matches what the browser expects', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: getInvoice } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  await seedEntry({ id: E(1), task: 'Design', hours: 2 });
+
+  const made = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(made.status, 201);
+
+  const res = await json(
+    await getInvoice(req(`/invoices/${made.body.id}`), {
+      params: Promise.resolve({ id: made.body.id }),
+    }),
+  );
+  assert.equal(res.status, 200);
+
+  /* THE SHAPE, not just the values. This route shipped returning the invoice
+     FLAT while `api.ts` declared `{ invoice, lineItems, client }`, so
+     `data.invoice.status` threw and every invoice detail page rendered the
+     error boundary. Nothing caught it: the route tests never asserted the
+     envelope, and the UI test stubbed the same wrong shape the component
+     read, so both were wrong together and passed.
+
+     Asserting the contract here is what makes that class of bug impossible
+     to reintroduce silently. */
+  assert.equal(
+    res.body.invoice,
+    undefined,
+    'the invoice is flat, matching every other detail route',
+  );
+  assert.equal(typeof res.body.invoiceNumber, 'string');
+  assert.equal(typeof res.body.status, 'string');
+  assert.ok(Array.isArray(res.body.lineItems), 'line items travel alongside');
+  assert.equal(typeof res.body.client?.name, 'string', 'so does the client');
+
+  /* A frozen line has no `rateSource`: it is read back from the database and
+     there is no `rate_source` column. The preview and generation paths do
+     carry it, which is why the schema marks it optional — asserting the
+     difference keeps that honest. */
+  assert.equal(res.body.lineItems[0].rateSource, undefined);
+  assert.equal(res.body.lineItems[0].resolvedRate, 150);
+});

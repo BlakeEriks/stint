@@ -159,17 +159,17 @@ later.
       having one.
 
 - [ ] **Collapse the nav on narrow widths instead of scrolling it.** At 375px
-      the fifth and sixth sections sit past the right edge, so reaching
-      Invoices means a horizontal swipe on a strip that does not look
-      scrollable. Nothing is unreachable and the running timer is unaffected
+      the last sections sit past the right edge, so reaching Invoices means a
+      horizontal swipe on a strip that does not look scrollable. Nothing is unreachable and the running timer is unaffected
       (it lives in the identity row, deliberately separate from the scrolling
       strip), but a section you cannot see is a section you will not visit —
       and the answer is not to stop adding sections.
 
       Collapse rather than scroll. Options, in rough order of preference:
 
-      - **Icons only** below the breakpoint where labels stop fitting. Six
-        icons fit 375px comfortably. This is the one case where icon-only nav
+      - **Icons only** below the breakpoint where labels stop fitting. The
+        five current sections fit 375px comfortably as icons, with room to
+        grow. This is the one case where icon-only nav
         is defensible on a phone — the alternative is a label you cannot
         reach — but each needs a real `aria-label`, and the current-section
         marking has to survive losing its text.
@@ -205,12 +205,10 @@ later.
       (task + duration above, project + range + badge below) shows everything
       instead of hiding it.
 
-      Note this argues against the "an entry row is one line" rule in
-      CLAUDE.md, which exists because single-line rows make a dense list
-      scannable. The resolution is that the rule is about *wide* screens:
-      hiding billing-relevant fields is worse than two lines, and a phone list
-      is short enough that density is not the constraint. Update the rule
-      rather than leaving the contradiction.
+      Single-line rows are what make a dense list scannable, so the wide
+      layout should stay as it is; the argument is only about narrow screens,
+      where hiding billing-relevant fields is worse than wrapping and the list
+      is short enough that density is not the constraint.
 
 - [ ] **Client colour legend on the calendar.** A block's left edge carries
       its client's colour and nothing on the screen says which client that is
@@ -249,6 +247,55 @@ moves up — do not start one by guessing the answer.
       to find out costs the cheap hosting posture.
 
 ## Rough edges
+
+- [ ] **`/stats` has no handler tests, and it computes all the money on the
+      home screen.** `home-cards.test.tsx` stubs the entire response, which is
+      exactly the failure mode that let the invoice detail page ship broken —
+      the stub and the component agree and the route is free to be wrong.
+      Untested: the 7-day overdue grace period, `buildPace`'s divide-by-zero
+      guard, `MAX_UNBILLED_ROWS` truncation, `awaitingPayment` summing `sent`
+      only, and `businessDaysInLocalMonth` (which has no unit test either).
+
+- [ ] **`unbilled_by_client` is a third rate-resolution implementation and is
+      untested.** Its own header says the coalesce chain must stay identical
+      to `resolve_entry_rate`, and nothing enforces that. The grouping by
+      `(client, rate)` is the rule whose absence once reported $1,755.00
+      where $1,462.50 was owed — the seed reproduces the case, but no test
+      asserts on it. Seed one client at two rates and assert the rollup
+      agrees with `buildLineItems` over the same entries.
+
+- [ ] **Two snake↔camel converters.** `invoicing.ts` has its own `toInvoice`,
+      `toLineItem` and `ClientRow` alongside `rows.ts`, and `toLineItem`
+      takes `Record<string, any>` so nothing type-checks it. That is where
+      `rateSource` drifted. Consolidating them removes the seam; until then a
+      field change means editing both.
+
+- [ ] **`POST /invoices` and `/preview` leak `entryIds` per line item**, and
+      `POST /invoices` returns `lineItems` + `entryCount` while `api.ts`
+      declares plain `Invoice`. Internal entry ids are in no documented shape.
+      Decide whether they are part of the contract or should be stripped.
+
+- [ ] **Destructive and money mutations fail silently.** Archive client,
+      archive project and `makeDefault` have no `onError` and render no
+      error, so a rejected request leaves the button live and the UI
+      unchanged — it reads as "the click didn't register". The codebase
+      already has the pattern (`client-form.tsx`, `project-dialog.tsx`,
+      `invoice-new.tsx` all render `save.error` with `role="alert"`); these
+      skipped it.
+
+- [ ] **`entry-dialog` is stricter than the server about locked entries.** It
+      disables every field when `invoiceId` is set, but the server locks only
+      when the invoice is **issued** — a draft-billed entry stays editable
+      (`invoices.test.ts` covers that). Either the UI is wrong or the rule
+      is, and the test passes `invoiceId` with no status so it cannot tell.
+
+- [ ] **Duplicated empty-state primitives, already drifting.** `Empty` in
+      `client-list.tsx` and `invoice-list.tsx` are byte-identical;
+      `Placeholder` in `entry-list.tsx` is the same but `py-8`. Two `Shell`
+      back-link layouts likewise. The drift has already happened, which is
+      the state just before someone unifies them in the wrong direction.
+
+
 
 - [ ] **No test covers the bearer-token auth path.** It shipped broken —
       `getClaims()` needs the token passed explicitly — and nothing caught it

@@ -232,8 +232,19 @@ All routes live in `apps/web/src/app/api/v1/`. Shared plumbing in
 - `errors.ts` — `handle()` wraps every route; `ApiError` maps to documented
   status codes. Contains a compile-time guard asserting the local `Code` union
   matches `ErrorCode` in `@stint/schema`.
-- `rows.ts` — **the only place that knows both snake_case and camelCase.**
-  Rename a column here, nowhere else.
+- `rows.ts` — the snake_case↔camelCase boundary for entries, clients,
+  projects, settings and payment profiles. Rename one of those columns here
+  and nowhere else.
+
+  **Invoices are the exception, and it has already cost something.**
+  `invoicing.ts` carries its own `toInvoice` and `toLineItem` plus a
+  `ClientRow` interface, because the PDF loader needs shapes `rows.ts` does
+  not model. That second converter is where drift appears: `toLineItem` takes
+  `Record<string, any>`, so nothing type-checks it against the schema, and it
+  omits `rateSource` — which the preview and generation paths *do* emit,
+  because they build line items in memory rather than reading them back.
+  Consolidating the two is worth doing; until then, a change to invoice or
+  line-item fields means editing both files.
 
 The browser's types in `lib/client/api.ts` **derive** from `@stint/schema`;
 they are not copies of it. They were copies, and it drifted both ways —
@@ -568,8 +579,10 @@ on each row ("from Northwind Trading", "overrides Northwind Trading's
 $150.00") put a sentence under every project and read as clutter — and on
 `/projects` it restated the client heading immediately above it. The number is
 what gets checked; the hierarchy is legible from the grouping and from the
-dialog that sets it. `resolveRateSource` exists in `@stint/core` and is unit
-tested, but nothing in the app calls it.
+dialog that sets it. `resolveRateSource` is still used — `buildLineItems`
+calls it, so a preview and a freshly generated invoice carry `rateSource` per
+line. An invoice read back from the database does not: there is no
+`rate_source` column, which is why the schema marks the field optional.
 
 No resolvable rate renders in the **danger** channel, not as `$0.00`:
 invoicing refuses to generate from unrated entries, so without it the failure

@@ -168,3 +168,71 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
         run: cd apps/web && pnpm build
+
+  # The browser suite, in its own job because it needs the whole Supabase
+  # stack — GoTrue to issue magic links and Mailpit to catch them — not the
+  # bare Postgres service the job above uses. It is also the slowest, and
+  # keeping it separate means a lint or type failure reports in seconds
+  # rather than waiting behind a Docker pull.
+  #
+  # This is the only suite that exercises the browser: cookies, navigation,
+  # redirects and server components. It was added after a bug where every
+  # invoice detail page threw — the route returned the invoice flat while the
+  # client expected it nested — which the other three suites structurally
+  # could not catch, because route tests never render and jsdom's fetch is a
+  # stub that agreed with the component.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with: { node-version: '24', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+
+      - name: Start Supabase
+        run: npx supabase start
+
+      # Chromium only. The app is not browser-specific and three engines is
+      # three times the runtime for the same assertions.
+      - name: Install Chromium
+        run: cd apps/web && npx playwright install --with-deps chromium
+
+      # The dev server reads .env.development.local, which is gitignored
+      # because it holds a local-only key. CI writes its own from what
+      # `supabase start` just printed.
+      - name: Point the app at the local stack
+        run: |
+          cd apps/web
+          KEY=$(npx supabase status -o json | node -e \
+            "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).PUBLISHABLE_KEY))")
+          cat > .env.development.local <<ENV
+          NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$KEY
+          ENV
+
+      - name: Start the app
+        run: |
+          cd apps/web
+          pnpm dev > /tmp/dev.log 2>&1 &
+          # Poll rather than sleep: the first `next dev` compile is slow and
+          # variable, and a fixed wait is either flaky or wasted time.
+          for i in $(seq 1 90); do
+            curl -fsS http://localhost:3100/signin > /dev/null && exit 0
+            sleep 1
+          done
+          echo "The app did not come up:"; cat /tmp/dev.log; exit 1
+
+      - name: End-to-end tests
+        run: cd apps/web && pnpm test:e2e
+
+      # The trace and screenshots are what make a CI-only failure
+      # diagnosable; without them a red run is just a name.
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            apps/web/test-results/
+            /tmp/dev.log
+          retention-days: 7

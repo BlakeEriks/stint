@@ -197,13 +197,13 @@ export function InvoiceDetail({ id }: { id: string }) {
             ) : null}
           </div>
 
-          {setStatus.error || remove.error ? (
-            <p role="alert" className="type-support text-danger">
-              {(setStatus.error ?? remove.error) instanceof ApiError
-                ? (setStatus.error ?? remove.error)!.message
-                : 'That change was rejected.'}
-            </p>
-          ) : null}
+          {/* Pick the error ONCE. The previous form re-evaluated
+              `setStatus.error ?? remove.error` for the check and again for
+              the message, so a stale error from an earlier failed action
+              could be type-checked while a different one was printed —
+              and `??` does not clear on retry, since React Query holds the
+              last error until the next success. */}
+          <ActionError error={remove.error ?? setStatus.error} />
         </Section>
       </div>
     </Shell>
@@ -218,6 +218,16 @@ function statusHint(status: InvoiceStatus): string {
   if (status === 'sent') return 'Awaiting payment.';
   if (status === 'paid') return 'Settled.';
   return 'Voided. The number stays on record so numbering is gapless, and the entries were released for re-billing.';
+}
+
+/** Whatever went wrong last, in the user's terms. */
+function ActionError({ error }: { error: unknown }) {
+  if (!error) return null;
+  return (
+    <p role="alert" className="type-support text-danger">
+      {error instanceof ApiError ? error.message : 'That change was rejected.'}
+    </p>
+  );
 }
 
 function Shell({ children }: { children: React.ReactNode }) {

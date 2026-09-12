@@ -2,12 +2,11 @@
 
 import type { InvoiceStatus } from '@/lib/client/api';
 
-/** Money is read in columns, so it is always mono and tabular. */
-export function money(amount: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(
-    amount,
-  );
-}
+/* Money is read in columns, so it is always mono and tabular. Re-exported
+   here because the invoicing components already import it from this module;
+   the definition lives in `lib/client/format` so non-invoice screens can use
+   it without importing invoice bits. */
+export { money } from '@/lib/client/format';
 
 /** Invoice dates are plain `YYYY-MM-DD`, so they carry no zone to convert. */
 export function shortDate(date: string): string {

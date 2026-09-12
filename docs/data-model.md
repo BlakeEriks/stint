@@ -97,7 +97,10 @@ exactly 100–119 with no gaps or duplicates.
   `grouping_mode`, `time_format`, `account_type`, `fee_allocation`.
 - Ranges: `week_starts_on` 0–6, `tax_rate` 0–100, `max_timer_hours > 0`,
   `next_invoice_number > 0`; client and project names must be non-blank.
-- `updated_at` is maintained by a `touch_updated_at` trigger on every table.
+- `updated_at` is maintained by a `touch_updated_at` trigger on every table
+  **except `invoice_line_items`**, which has no such column: a line is frozen
+  at generation and never edited, so a "last modified" timestamp would be a
+  field that can only ever lie.
 - Partial indexes back the hot paths: active clients/projects/profiles,
   unbilled entries, entries by user and start time.
 - RLS on every table: `user_id = auth.uid()`; line items inherit from invoice.

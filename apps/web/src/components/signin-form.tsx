@@ -84,9 +84,12 @@ export function SignInForm({ error }: { error?: string }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
+              /* Neutral ring, never the accent: a focus ring is constant and
+                 involuntary, and this screen already spends its one accent on
+                 the submit button below. */
               className="rounded-md border border-edge-control bg-surface-elevated px-3 py-2 type-control
                          text-strong placeholder:text-subtle focus:outline-none
-                         focus:ring-2 focus:ring-accent-default"
+                         focus-visible:ring-2 focus-visible:ring-edge-focus"
             />
           </label>
 

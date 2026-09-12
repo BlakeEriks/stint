@@ -17,7 +17,7 @@ timer, calendar, clients, projects, settings, payment profiles, invoicing.
 
 ```
 docs/            setup, deploying, architecture, data model, API contract, design system
-docs/roadmap.md  wanted but not built, and the hard parts already thought through
+docs/tasks.md    wanted but not built, and the hard parts already thought through
 docs/design/samples/  committed renderer output
 packages/
   schema/        Zod schemas — the API contract
@@ -69,13 +69,20 @@ authoritative sequence for both.
 Note that the root `pnpm test` recurses into `@stint/web`, which needs
 `DATABASE_URL` — use the per-package commands above on a clean checkout.
 
+`pnpm test:e2e` is a fourth suite: Playwright against a real browser, needing
+the local Supabase stack (`pnpm dev:up`) and the app (`pnpm dev`) already
+running. It is deliberately outside `pnpm test` so a browser download is not
+a prerequisite for the unit suites, and it signs in for real through Mailpit
+rather than injecting a cookie. It is the only suite that sees cookies,
+navigation, redirects and server components — see `docs/local-dev.md`.
+
 ## Read first
 
 - [docs/architecture.md](docs/architecture.md) — the shape and why
 - [docs/data-model.md](docs/data-model.md) — schema and integrity rules
 - [docs/api.md](docs/api.md) — endpoint contract
 - [docs/design/principles.md](docs/design/principles.md) — what this app refuses to do
-- [docs/roadmap.md](docs/roadmap.md) — wanted but not built
+- [docs/tasks.md](docs/tasks.md) — wanted but not built
 
 ## License
 
