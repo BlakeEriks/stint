@@ -8,10 +8,19 @@ updates:
     schedule: { interval: weekly, day: monday, time: "09:00", timezone: America/Chicago }
     open-pull-requests-limit: 3
     versioning-strategy: increase
+    # `update-types` on a GROUP only decides what gets grouped — a major
+    # falls outside every group and still opens its own PR. So majors are
+    # ignored outright and bumped deliberately instead: TypeScript 5 -> 7 and
+    # @types/node 22 -> 26 both arrived unasked on the first run, and a
+    # toolchain major is a decision, not a chore.
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
     groups:
-      # Framework majors change behaviour; keep them reviewable on their own.
-      next:
-        patterns: ["next", "react", "react-dom", "@types/react*", "eslint-config-next"]
+      # Framework minors still change behaviour; keep them separate so a
+      # Next or React bump is reviewable on its own.
+      framework:
+        patterns: ["next", "react", "react-dom", "@types/react*"]
         update-types: [minor, patch]
       everything-else:
         patterns: ["*"]
