@@ -82,33 +82,20 @@ hosted project. No flag to remember.
 `dev@localhost.test` and click the link in Mailpit (`:54324`); mail is captured
 locally, never sent. Studio is on `:54323`.
 
-**Start from `/signin` in the browser you want signed in, and never paste
-someone else's link.** Sign-in is PKCE — the form stores a verifier in that
-browser's localStorage, and only a link whose token is `pkce_`-prefixed and
-redirects to `/auth/callback?code=…` can complete. A link minted by `curl`
-against `/auth/v1/otp` lacks both, so the token lands as a `#fragment` nothing
-reads and you stay signed out.
+**One sign-in at a time per browser.** Sign-in is PKCE and the code verifier
+lives in localStorage under one key per origin, so two tabs on
+`localhost:3100` share it: requesting a link while another tab holds a session
+overwrites the verifier and the exchange at `/auth/callback` fails against the
+wrong one. The symptom is a link that looks dead — `/verify` returns its
+`303`, the exchange fails a step later, and re-clicking says `Bad request`
+because the token is spent. Two guards now exist: `/signin` redirects home
+when a session exists, and requesting a link calls
+`signOut({ scope: 'local' })` first — local only, so a link requested on a
+laptop never revokes the session on a phone. Both are tested.
 
-**Never call `/auth/v1/otp` while someone else is signing in.** Only one
-magic-link token exists per user, so requesting another silently invalidates
-theirs — their valid-looking link then fails with `Bad request`. Sessions
-coexist fine; the pending token does not. And in Mailpit *click the anchor*
-rather than copying the URL, or the `href`'s `&amp;` separators arrive
-literally and GoTrue rejects the request for having no verification type.
-`docs/local-dev.md` has the queries for diagnosing a failed click.
-
-Three traps, all hit while setting this up — `docs/local-dev.md` has the rest:
-
-- **The CLI silently skips a migration named `init`**, then applies the
-  others, so the stack comes up with no tables and fails on the *second*
-  file. Ours is now `00000000000001_schema.sql`.
-- **A hand-written `auth.users` row needs empty strings, not NULL**, in the
-  four token columns; GoTrue scans them into non-nullable Go strings and a
-  NULL breaks every lookup with `Database error finding user` and a 500 that
-  names no column.
-- **`supabase db reset` invalidates the session you were holding.** RLS then
-  correctly returns nothing and the app looks broken. Clear cookies, sign in
-  again.
+When a click fails, a `303` from `/verify` means verification worked; look for
+the **`/token` call that should follow**, because its absence is the exchange
+failing. `docs/local-dev.md` has the log filters and the pending-token query.
 
 Use `localhost` throughout, not `127.0.0.1`: they are different hosts to a
 browser, so a session cookie set on one is invisible to the app served from

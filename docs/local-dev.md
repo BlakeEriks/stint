@@ -57,47 +57,45 @@ there is nothing in your actual inbox and nothing to rate-limit.
 is usable immediately; `dev@localhost.test` is the one the seed owns, so it is
 the only one that comes with clients, projects and entries.
 
-**Always start from `/signin` in the browser you want signed in**, and never
-paste someone else's link. Sign-in is PKCE: the form stores a code verifier in
-*that browser's* localStorage, and the emailed link carries a `pkce_` token
-redirecting to `/auth/callback?code=…`, which only completes with the matching
-verifier. A link generated any other way — `curl` against `/auth/v1/otp`, for
-instance — comes back **without** the `pkce_` prefix and with `redirect_to`
-defaulting to the bare origin, so the token arrives as a URL `#fragment` that
-nothing on `/` reads. The click looks like it worked and you land signed out.
+**One sign-in at a time per browser.** Sign-in is PKCE: the form stores a
+code verifier in localStorage under **one key per origin**, so two tabs on
+`localhost:3100` share the slot. Requesting a link while another tab holds a
+session — or a half-finished sign-in — overwrites the verifier, and the code
+exchange at `/auth/callback` then fails against the wrong one.
 
-**Only one magic-link token exists per user at a time.** Requesting another —
-a second click of the sign-in button, or anything hitting `/auth/v1/otp` —
-**invalidates the outstanding one**. Two people signing in at once therefore
-take each other's links away, and the symptom is a `Bad request` on a link
-that was valid when the email arrived. This bit hard: an agent "helpfully"
-curling for a fresh link destroyed the one the developer was about to click,
-repeatedly. **Do not touch `/auth/v1/otp` while someone else is signing in.**
-Sessions themselves are independent and can coexist; only the pending token is
-exclusive.
+**The failure looks like a broken link, which is why it is worth knowing.**
+`/verify` succeeds and returns its `303`; the exchange fails a step later, so
+the address bar sits on the Auth endpoint and re-clicking reports `Bad
+request` because the first attempt already consumed the token. Nothing about
+the symptom points at the real cause. `/signin` now redirects home when a
+session exists, and requesting a link clears local auth state first, so this
+should not recur — and the page reports the reason instead of leaving the
+user to guess.
 
-**Click the anchor in Mailpit, do not copy the URL text.** The HTML `href`
-correctly escapes its separators as `&amp;`, which a browser decodes on
-click — but pasting the raw text sends them literally, so GoTrue reads
-`amp;type` instead of `type` and returns
-`400 Verify requires a verification type`, i.e. the same `Bad request`. The
-token survives, so the next proper click still works.
+Diagnosing a failed click: a `303` from `/verify` means verification itself
+worked, so look for the **`/token` call that should follow it**. Its absence
+is the exchange failing.
 
-**Open the newest message.** Mailpit keeps every email and older tokens are
-invalidated by newer requests.
+```
+docker logs supabase_auth_stint --since 10m \
+  | grep -E '"path":"/(verify|token)"'
+```
 
-To confirm whether a pending token even exists:
+A pending token can also be checked directly — empty means there is nothing
+to click and a fresh `/signin` is needed:
 
 ```sql
 select token_type, created_at from auth.one_time_tokens;
 ```
 
-Empty means there is nothing to click and a fresh `/signin` is needed. The
-Auth service's own log is the fastest way to see why a click failed:
+**Click the anchor in Mailpit, do not copy the URL text.** The `href`
+correctly escapes its separators as `&amp;`, which a browser decodes on
+click; pasted literally, GoTrue reads `amp;type` instead of `type` and
+returns `400 Verify requires a verification type` — the same `Bad request`
+from a different cause. The token survives, so a proper click still works.
 
-```
-docker logs supabase_auth_stint --since 10m | grep '"path":"/verify"'
-```
+**Open the newest message.** Mailpit keeps every email, and requesting a new
+link invalidates the previous token.
 
 **Everything speaks `localhost`, never `127.0.0.1`.** A browser treats them as
 different hosts, so a link verified through one sets its session cookie for a
