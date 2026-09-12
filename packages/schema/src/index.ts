@@ -24,6 +24,9 @@ export const Client = z.object({
   taxRate: z.number().min(0).max(100).nullable().optional(),
   currency: currency.nullable().optional(),
   color: hexColor.nullable().optional(),
+  /** Overrides the user's default payment profile on this client's invoices;
+   *  a dangling reference falls back rather than rendering nothing. */
+  paymentProfileId: uuid.nullable().optional(),
   archivedAt: iso.nullable().optional(),
 });
 export const CreateClient = Client.omit({ id: true, archivedAt: true }).extend({
@@ -179,6 +182,12 @@ export const InvoiceLineItem = z.object({
 
 export const InvoicePreview = z.object({
   clientId: uuid,
+  /** Echoed back so the approval screen names the client it priced, rather
+   *  than trusting the caller's own copy to still match. */
+  clientName: z.string(),
+  periodStart: z.iso.date(),
+  periodEnd: z.iso.date(),
+  groupingMode: GroupingMode,
   lineItems: z.array(InvoiceLineItem),
   subtotal: money,
   taxRate: z.number().min(0).max(100),
@@ -197,7 +206,59 @@ export const CreateInvoice = InvoicePreviewRequest.extend({
   paymentTerms: z.string().max(200).optional(),
 });
 
+/** The frozen snapshot stored on an invoice. */
+export const PaymentDetailsSnapshot = z.object({
+  title: z.string().nullable(),
+  fields: z.array(z.object({ label: z.string(), value: z.string() })),
+  intermediary: z.array(z.object({ label: z.string(), value: z.string() })),
+  link: z.object({ label: z.string(), url: z.string() }).nullable(),
+  notes: z.string().nullable(),
+});
+
 export const InvoiceStatus = z.enum(['draft', 'sent', 'paid', 'void']);
+
+/**
+ * An issued invoice, as the API returns it.
+ *
+ * Line items are NOT part of this shape: they are frozen at generation and
+ * fetched with the detail view, and re-deriving them from time entries is the
+ * thing that must never happen — re-downloading a year later has to produce
+ * the same document.
+ */
+export const Invoice = z.object({
+  id: uuid,
+  clientId: uuid,
+  invoiceNumber: z.string(),
+  sequenceNo: z.number().int().positive(),
+  status: InvoiceStatus,
+  issueDate: z.iso.date(),
+  dueDate: z.iso.date().nullable(),
+  periodStart: z.iso.date(),
+  periodEnd: z.iso.date(),
+  subtotal: money,
+  taxRate: z.number().min(0).max(100),
+  taxAmount: money,
+  total: money,
+  currency,
+  notes: z.string().nullable(),
+  paymentTerms: z.string().nullable(),
+  groupingMode: GroupingMode,
+  /** The payment block as rendered at generation. Editing a profile later
+   *  never alters an issued invoice, so this is a snapshot, not a reference. */
+  paymentDetails: PaymentDetailsSnapshot.nullable(),
+  sentAt: iso.nullable(),
+  paidAt: iso.nullable(),
+  createdAt: iso,
+});
+
+/** A day of tracked time, grouped server-side so every client agrees on
+ *  which local day an entry belongs to. */
+export const CalendarDay = z.object({
+  date: z.iso.date(),
+  totalSeconds: z.number().int().nonnegative(),
+  entries: z.array(TimeEntry),
+});
+
 export const UpdateInvoiceStatus = z.object({
   status: InvoiceStatus,
   /** Record that the invoice went out earlier than now. */
@@ -254,15 +315,6 @@ export const UpdatePaymentProfile = CreatePaymentProfile.partial()
   .omit({ id: true })
   .extend({ archived: z.boolean().optional() });
 
-/** The frozen snapshot stored on an invoice. */
-export const PaymentDetailsSnapshot = z.object({
-  title: z.string().nullable(),
-  fields: z.array(z.object({ label: z.string(), value: z.string() })),
-  intermediary: z.array(z.object({ label: z.string(), value: z.string() })),
-  link: z.object({ label: z.string(), url: z.string() }).nullable(),
-  notes: z.string().nullable(),
-});
-
 // ── errors ─────────────────────────────────────────────────────────
 export const ErrorCode = z.enum([
   'TIMER_ALREADY_RUNNING',
@@ -293,5 +345,8 @@ export type Summary = z.infer<typeof Summary>;
 export type Settings = z.infer<typeof Settings>;
 export type InvoicePreview = z.infer<typeof InvoicePreview>;
 export type PaymentProfile = z.infer<typeof PaymentProfile>;
+export type Invoice = z.infer<typeof Invoice>;
+export type CalendarDay = z.infer<typeof CalendarDay>;
+export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
 export type PaymentDetailsSnapshot = z.infer<typeof PaymentDetailsSnapshot>;
 export type ApiError = z.infer<typeof ApiError>;

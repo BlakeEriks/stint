@@ -1,5 +1,8 @@
 'use client';
 
+import type { z } from 'zod';
+import type * as schema from '@stint/schema';
+
 /**
  * Browser-side API access.
  *
@@ -8,6 +11,12 @@
  * can branch on a code (a 409 from the timer is a normal flow, not a crash).
  */
 
+/**
+ * Deliberately NOT `z.infer<typeof schema.ApiError>`: that types `code` as the
+ * `ErrorCode` enum, and a client should not fail to parse an error just
+ * because a newer server introduced a code it has not heard of. Widening to
+ * `string` is what lets the unknown case fall through to generic handling.
+ */
 export interface ApiErrorBody {
   code: string;
   message: string;
@@ -63,162 +72,51 @@ async function request<T>(
 }
 
 // ── shapes the UI consumes ─────────────────────────────────────────
-export interface TimeEntry {
-  id: string;
-  projectId: string | null;
-  taskName: string;
-  startedAt: string;
-  endedAt: string | null;
-  isBillable: boolean;
-  rateOverride: number | null;
-  invoiceId: string | null;
-  durationSeconds: number | null;
-}
+/*
+ * These DERIVE from `@stint/schema`. They used to be hand-written copies of
+ * it, which drifted in both directions: removing `color` from the schema's
+ * Project produced no error here and a component went on reading the dead
+ * field, while `paymentProfileId` existed in the database, `rows.ts` and this
+ * file but had never been added to the schema at all.
+ *
+ * `Response<T>` is why a plain `z.infer` is not enough. A schema marks a
+ * field `.optional()` to say a REQUEST may omit it, so `z.infer` yields
+ * `field?: T | undefined`. Every converter in `rows.ts` sets every field
+ * unconditionally — absent values arrive as `null`, never missing — so a
+ * response has no optional fields, and typing them as optional would push a
+ * pointless `?? null` through the whole UI.
+ */
+type Response<T> = { [K in keyof T]-?: Exclude<T[K], undefined> };
 
-export interface Summary {
+export type TimeEntry = Response<schema.TimeEntry>;
+export type Project = Response<schema.Project>;
+export type Client = Response<schema.Client>;
+export type Settings = Response<schema.Settings>;
+export type PaymentProfile = Response<schema.PaymentProfile>;
+export type InvoicePreview = Response<schema.InvoicePreview>;
+export type Invoice = Response<schema.Invoice>;
+
+export type CalendarDay = Response<Omit<schema.CalendarDay, 'entries'>> & {
+  entries: TimeEntry[];
+};
+
+export type Summary = Response<Omit<schema.Summary, 'running'>> & {
   running: TimeEntry | null;
-  todaySeconds: number;
-  weekSeconds: number;
-  exceedsThreshold: boolean;
-  maxTimerHours: number;
-  serverTime: string;
-}
+};
 
-/** No `color` — that belongs to the client. See `use-project-colors.ts`. */
-export interface Project {
-  id: string;
-  clientId: string | null;
-  name: string;
-  hourlyRate: number | null;
-  isBillableDefault: boolean;
-  archivedAt: string | null;
-}
+export type GroupingMode = z.infer<typeof schema.GroupingMode>;
+export type InvoiceStatus = z.infer<typeof schema.InvoiceStatus>;
+export type InvoiceLineItem = Response<schema.InvoiceLineItem>;
 
 /** Everything a project is created or edited with. */
 export type ProjectInput = Partial<Omit<Project, 'id' | 'archivedAt'>> &
   Pick<Project, 'name'>;
 
-export interface Client {
-  id: string;
-  name: string;
-  email: string | null;
-  address: string | null;
-  hourlyRate: number | null;
-  taxRate: number | null;
-  currency: string | null;
-  color: string | null;
-  paymentProfileId: string | null;
-  archivedAt: string | null;
-}
-
 /** Everything a client is created or edited with. `id` is server-defaulted. */
 export type ClientInput = Partial<Omit<Client, 'id' | 'archivedAt'>> &
   Pick<Client, 'name'>;
 
-export type GroupingMode = 'entry' | 'task' | 'project' | 'day';
-export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'void';
-
-export interface InvoiceLineItem {
-  description: string;
-  quantitySeconds: number;
-  quantityHours: number;
-  resolvedRate: number;
-  rateSource: 'entry' | 'project' | 'client' | 'default' | 'none';
-  amount: number;
-}
-
-export interface InvoicePreview {
-  clientId: string;
-  clientName: string;
-  periodStart: string;
-  periodEnd: string;
-  groupingMode: GroupingMode;
-  currency: string;
-  lineItems: InvoiceLineItem[];
-  subtotal: number;
-  taxRate: number;
-  taxAmount: number;
-  total: number;
-  entryCount: number;
-  /** Entries with no resolvable rate. Generation is blocked until fixed. */
-  unratedEntryIds: string[];
-}
-
-export interface Invoice {
-  id: string;
-  clientId: string;
-  invoiceNumber: string;
-  sequenceNo: number;
-  status: InvoiceStatus;
-  issueDate: string;
-  dueDate: string | null;
-  periodStart: string;
-  periodEnd: string;
-  subtotal: number;
-  taxRate: number;
-  taxAmount: number;
-  total: number;
-  currency: string;
-  notes: string | null;
-  paymentTerms: string | null;
-  groupingMode: GroupingMode;
-  paymentDetails: unknown;
-  sentAt: string | null;
-  paidAt: string | null;
-  createdAt: string;
-}
-
-export interface CalendarDay {
-  date: string;
-  totalSeconds: number;
-  entries: TimeEntry[];
-}
-
-export interface Settings {
-  defaultHourlyRate: number | null;
-  currency: string;
-  weekStartsOn: number;
-  timeFormat: '12h' | '24h';
-  maxTimerHours: number;
-  businessName: string | null;
-  businessAddress: string | null;
-  businessEmail: string | null;
-  logoUrl: string | null;
-  taxId: string | null;
-  defaultPaymentTerms: string;
-  invoiceNumberPrefix: string;
-  /** Server-owned: gapless numbering depends on the row lock. Not settable. */
-  nextInvoiceNumber: number;
-  paymentNotice: string | null;
-}
-
 export type SettingsInput = Partial<Omit<Settings, 'nextInvoiceNumber'>>;
-
-export interface PaymentProfile {
-  id: string;
-  name: string;
-  isDefault: boolean;
-  accountHolderName: string | null;
-  accountHolderAddress: string | null;
-  bankName: string | null;
-  bankAddress: string | null;
-  accountNumber: string | null;
-  routingNumber: string | null;
-  accountType: 'checking' | 'savings' | null;
-  iban: string | null;
-  swiftBic: string | null;
-  localCodeLabel: string | null;
-  localCode: string | null;
-  intermediaryBankName: string | null;
-  intermediarySwiftBic: string | null;
-  intermediaryAccountNumber: string | null;
-  paymentLinkLabel: string | null;
-  paymentLinkUrl: string | null;
-  currency: string | null;
-  feeAllocation: 'OUR' | 'SHA' | 'BEN' | null;
-  notes: string | null;
-  archivedAt: string | null;
-}
 
 export type PaymentProfileInput = Partial<
   Omit<PaymentProfile, 'id' | 'archivedAt'>

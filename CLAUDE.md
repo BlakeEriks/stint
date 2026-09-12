@@ -191,6 +191,19 @@ All routes live in `apps/web/src/app/api/v1/`. Shared plumbing in
   matches `ErrorCode` in `@stint/schema`.
 - `rows.ts` — **the only place that knows both snake_case and camelCase.**
   Rename a column here, nowhere else.
+
+The browser's types in `lib/client/api.ts` **derive** from `@stint/schema`;
+they are not copies of it. They were copies, and it drifted both ways —
+removing `color` from the schema's `Project` raised no error in the app while a
+component went on reading it, and `paymentProfileId`, `clientName`, `Invoice`
+and `CalendarDay` all existed in the database and the routes without ever
+reaching the schema.
+
+The wrapper is `Response<T>`, which makes every field required. A schema marks
+a field `.optional()` to describe what a *request* may omit, so `z.infer`
+yields `field?: T | undefined` — but every converter in `rows.ts` sets every
+field unconditionally, so a response never omits one. Without the wrapper the
+UI would carry a `?? null` for each nullable column.
 - `validate.ts` — Zod parsing with 422 + `treeifyError` details.
 
 ### Conventions
