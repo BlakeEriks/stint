@@ -147,21 +147,19 @@ describe('ProjectList', () => {
     );
   });
 
-  it('shows the client rate on the heading, which each row refers back to', async () => {
+  it('states the client rate on the heading, so an inherited row reads against it', async () => {
     serve([project({ hourlyRate: null })], [NORTHWIND]);
     render(<ProjectList />, { wrapper });
 
-    /* "from Northwind" is only meaningful next to what Northwind's rate IS —
-       the comparison a flat list would lose. */
+    /* The row shows the resolved figure and nothing about where it came
+       from — naming the source on every row restated this heading. The
+       hierarchy is legible from the grouping instead, which only works if
+       the heading carries the client's own rate. */
     await waitFor(() =>
-      expect(screen.getByText('from Northwind')).toBeInTheDocument(),
+      expect(screen.getAllByText('$150.00/h').length).toBe(2),
     );
-    /* Twice, deliberately and in different places: the heading states the
-       client's rate, and the row states what this project resolved to. The
-       heading's copy is what "from Northwind" points at. */
     const heading = screen.getByRole('heading', { level: 2, name: 'Northwind' })
       .parentElement?.parentElement;
-    expect(heading).not.toBeUndefined();
     expect(heading?.textContent).toContain('$150.00/h');
   });
 

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, type Client, type Project } from '@/lib/client/api';
 import { Page } from './page';
@@ -218,6 +218,7 @@ function Row({
         aria-label={`Edit ${project.name}`}
         className="flex-none"
       >
+        <Pencil aria-hidden strokeWidth={1.75} />
         Edit
       </Button>
     </div>

@@ -85,7 +85,7 @@ export function ClientDetail({ id }: { id: string }) {
               ? `${usd.format(client.hourlyRate)}/h`
               : null
           }
-          hint="Falls back to your default rate."
+          hint="Defaults to your standard rate."
           mono
         />
         <Detail

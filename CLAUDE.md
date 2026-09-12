@@ -82,6 +82,15 @@ hosted project. No flag to remember.
 `dev@localhost.test` and click the link in Mailpit (`:54324`); mail is captured
 locally, never sent. Studio is on `:54323`.
 
+**Start from `/signin` in the browser you want signed in, and never paste
+someone else's link.** Sign-in is PKCE — the form stores a verifier in that
+browser's localStorage, and only a link whose token is `pkce_`-prefixed and
+redirects to `/auth/callback?code=…` can complete. A link minted by `curl`
+against `/auth/v1/otp` lacks both, so the token lands as a `#fragment` nothing
+reads: the click looks fine, you stay signed out, and re-clicking says `bad
+request` because the first attempt consumed it. Two sessions can coexist; the
+link cannot be shared.
+
 Three traps, all hit while setting this up — `docs/local-dev.md` has the rest:
 
 - **The CLI silently skips a migration named `init`**, then applies the
@@ -536,12 +545,10 @@ not help either: they would have to link to a client that does not exist.
 **Grouping by client answers the original objection** rather than trading
 against it. Three rows named "Website redesign" in one undifferentiated list
 have to be decoded; under client headings they do not. The heading carries the
-client's own rate, so each row's inherited figure has something to be read
-against — `$195.00/h overrides Northwind Trading's $150.00` sits directly
-under `NORTHWIND TRADING · $150.00/h`. And "No client" becomes a *heading*
-rather than an entity: a heading needs no detail page, no rate and no Edit
-button, so what was incoherent as a pseudo-client is ordinary as a group
-label.
+client's own rate, so an inherited row reads against it. And "No client"
+becomes a *heading* rather than an entity: a heading needs no detail page, no
+rate and no Edit button, so what was incoherent as a pseudo-client is ordinary
+as a group label.
 
 **"No client" is never labelled "internal work".** `client_id = null` covers
 at least three states the app cannot tell apart: genuinely internal, **not yet
@@ -560,10 +567,16 @@ fetches clients with `includeArchived`.
 **`ProjectRate` (`project-rate.tsx`) is shared by both surfaces.** Most
 projects store no rate of their own, so printing the column would show nothing
 for the common case — the opposite of the truth. It resolves through
-`resolveRate`/`resolveRateSource` from `@stint/core`, the same functions the
-invoice preview uses; a third implementation would be a third thing to drift.
-`resolveRateSource` had existed and been unit-tested since the beginning
-without ever being called from the app.
+`resolveRate` from `@stint/core`, the same function the invoice preview uses;
+a second implementation would be another thing to drift.
+
+**The row shows the figure alone, not where it came from.** Naming the source
+on each row ("from Northwind Trading", "overrides Northwind Trading's
+$150.00") put a sentence under every project and read as clutter — and on
+`/projects` it restated the client heading immediately above it. The number is
+what gets checked; the hierarchy is legible from the grouping and from the
+dialog that sets it. `resolveRateSource` exists in `@stint/core` and is unit
+tested, but nothing in the app calls it.
 
 No resolvable rate renders in the **danger** channel, not as `$0.00`:
 invoicing refuses to generate from unrated entries, so without it the failure

@@ -198,6 +198,29 @@ later.
       cleared) and **the invoice lifecycle** — rather than covering
       everything.
 
+- [ ] **Collapse the nav on narrow widths instead of scrolling it.** At 375px
+      the fifth and sixth sections sit past the right edge, so reaching
+      Invoices means a horizontal swipe on a strip that does not look
+      scrollable. Nothing is unreachable and the running timer is unaffected
+      (it lives in the identity row, deliberately separate from the scrolling
+      strip), but a section you cannot see is a section you will not visit —
+      and the answer is not to stop adding sections.
+
+      Collapse rather than scroll. Options, in rough order of preference:
+
+      - **Icons only** below the breakpoint where labels stop fitting. Six
+        icons fit 375px comfortably. This is the one case where icon-only nav
+        is defensible on a phone — the alternative is a label you cannot
+        reach — but each needs a real `aria-label`, and the current-section
+        marking has to survive losing its text.
+      - **A menu behind a single control**, which scales past six items but
+        costs a tap on every navigation and hides where you are.
+
+      Prefer the first; it keeps the sections visible, which is the property
+      being defended. Note this is the same breakpoint question as the
+      collapsible rail below, and the two should share a decision about what
+      collapsed nav looks like rather than inventing two answers.
+
 - [ ] **Collapsible rail.** Icon-only at ~3.5rem, full at 13rem, toggled by
       the user and remembered. The calendar is the screen that wants it: seven
       day columns plus a 13rem rail is tight on a laptop, and the rail is
@@ -272,14 +295,6 @@ moves up — do not start one by guessing the answer.
       because the route tests inject `__TEST_DB__` and never take that path.
       Worth a test that hits a real server with a real token before the Expo
       or macOS app depends on it.
-
-- [ ] **Six nav sections overflow the phone strip.** At 375px the fifth and
-      sixth items ("Projects", "Invoices") sit past the right edge and need a
-      horizontal scroll to reach. Nothing is unreachable and the running timer
-      is unaffected — it lives in the identity row above, which is separate
-      from the scrolling strip for exactly this reason — but a section you
-      cannot see is a section you will not visit. The rail is unaffected;
-      this is the horizontal phone layout only.
 
 - [ ] **`type-section` is unused.** Kept because the home cards will want a
       section heading. If they ship without it, delete the role.

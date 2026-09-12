@@ -115,7 +115,7 @@ export function ClientForm({
         <Field
           label="Hourly rate"
           htmlFor="client-rate"
-          hint="Falls back to your default."
+          hint="Defaults to your standard rate."
           className="flex-1 basis-40"
         >
           <Input

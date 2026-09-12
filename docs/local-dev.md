@@ -57,6 +57,24 @@ there is nothing in your actual inbox and nothing to rate-limit.
 is usable immediately; `dev@localhost.test` is the one the seed owns, so it is
 the only one that comes with clients, projects and entries.
 
+**Always start from `/signin` in the browser you want signed in**, and never
+paste someone else's link. Sign-in is PKCE: the form stores a code verifier in
+*that browser's* localStorage, and the emailed link carries a `pkce_` token
+redirecting to `/auth/callback?code=…`, which only completes with the matching
+verifier. A link generated any other way — `curl` against
+`/auth/v1/otp`, for instance — comes back **without** the `pkce_` prefix and
+with `redirect_to` defaulting to the bare origin, so the token arrives as a
+URL `#fragment` that nothing on `/` reads. The click looks like it worked and
+you land signed out; a re-click then says `bad request`, because verification
+consumed the one-time token on the first try.
+
+So two people (or a person and an agent) cannot share one link — but they can
+both be signed in at once. Sessions are independent; only the token is
+single-use and browser-bound. Request one link each.
+
+**Click the newest message in Mailpit.** It keeps every email, and an older
+one has almost certainly been spent.
+
 **Everything speaks `localhost`, never `127.0.0.1`.** A browser treats them as
 different hosts, so a link verified through one sets its session cookie for a
 host the app is not served from — the click appears to work and the app stays

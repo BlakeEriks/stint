@@ -105,20 +105,18 @@ describe('ClientProjects', () => {
     await waitFor(() =>
       expect(screen.getByText('$150.00/h')).toBeInTheDocument(),
     );
-    expect(screen.getByText('from Northwind')).toBeInTheDocument();
   });
 
-  it('names what an override overrides, not merely that it overrides', async () => {
+  it('shows a project override in place of the inherited rate', async () => {
     serve([project({ hourlyRate: 195 })]);
     render(<ClientProjects client={NORTHWIND} />, { wrapper });
 
-    // The comparison is the reason to look at all.
+    // The project's own rate wins over the client's, and only one figure
+    // appears — the resolved one.
     await waitFor(() =>
       expect(screen.getByText('$195.00/h')).toBeInTheDocument(),
     );
-    expect(
-      screen.getByText("overrides Northwind's $150.00"),
-    ).toBeInTheDocument();
+    expect(screen.queryByText('$150.00/h')).toBeNull();
   });
 
   it('falls through to the user default when neither level sets one', async () => {
@@ -131,7 +129,6 @@ describe('ClientProjects', () => {
     await waitFor(() =>
       expect(screen.getByText('$125.00/h')).toBeInTheDocument(),
     );
-    expect(screen.getByText('your default rate')).toBeInTheDocument();
   });
 
   it('warns when no rate resolves anywhere, because invoicing will refuse', async () => {

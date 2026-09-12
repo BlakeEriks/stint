@@ -198,7 +198,7 @@ export function ProjectDialog({
               inputMode="decimal"
               value={hourlyRate}
               onChange={(e) => setHourlyRate(e.target.value)}
-              placeholder="Falls back to the client's rate"
+              placeholder="Defaults to the client's rate"
             />
           </div>
 
