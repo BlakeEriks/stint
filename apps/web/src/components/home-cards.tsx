@@ -333,53 +333,67 @@ function Pace({ stats }: { stats: Stats }) {
      signal. */
   const ahead = p.delta != null && p.delta >= 0;
 
-  return (
-    <Card title={monthName()} icon={BarChart3}>
-      <div className="flex flex-col gap-2 px-4 pt-3.5 pb-3">
-        {p.actual == null ? (
+  /* No figure yet means no subject, so the card keeps a heading rather than
+     demoting its title above an empty space. */
+  if (p.actual == null) {
+    return (
+      <Card title={monthName()} icon={BarChart3}>
+        <div className="px-4 pt-3.5 pb-3">
           <p className="type-support text-subtle">
             A {p.unit} target is set, but pace in {p.unit} is not computed yet.
           </p>
-        ) : (
-          <>
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="type-amount-hero text-strong">
-                {p.actual.toFixed(1)}h
-                <span className="type-duration text-subtle">
-                  {' / '}
-                  {p.target}h
-                </span>
-              </span>
-              <span
-                className={`type-meta ${ahead ? 'text-muted' : 'text-warning'}`}
-              >
-                {ahead ? 'on pace' : 'behind'}{' '}
-                {p.delta != null
-                  ? `${p.delta >= 0 ? '+' : ''}${p.delta.toFixed(1)}h`
-                  : null}
-              </span>
-            </div>
+        </div>
+      </Card>
+    );
+  }
 
-            <div
-              className="h-1.5 overflow-hidden rounded-full bg-surface-hover"
-              role="img"
-              aria-label={`${p.actual.toFixed(1)} of ${p.target} hours`}
-            >
-              {/* Neutral, not accent: the accent is the running timer. */}
-              <div
-                className="h-full rounded-full bg-text-subtle"
-                style={{ width: `${ratio * 100}%` }}
-              />
-            </div>
+  const actual = p.actual;
 
-            <p className="type-support text-subtle">
-              {p.businessDaysElapsed} of {p.businessDaysTotal} business days
-              {stats.billableRatio != null
-                ? ` · ${Math.round(stats.billableRatio * 100)}% billable`
-                : null}
-            </p>
-          </>
-        )}
+  return (
+    <Card
+      title={monthName()}
+      icon={BarChart3}
+      value={
+        <>
+          {actual.toFixed(1)}h
+          {/* The target is context for the figure, not part of it, so it is
+              set at row scale rather than carried along at 30px. */}
+          <span className="type-duration text-subtle">
+            {' / '}
+            {p.target}h
+          </span>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-2 px-4 pt-3.5 pb-3">
+        <div
+          className="h-1.5 overflow-hidden rounded-full bg-surface-hover"
+          role="img"
+          aria-label={`${actual.toFixed(1)} of ${p.target} hours`}
+        >
+          {/* Neutral, not accent: the accent is the running timer. */}
+          <div
+            className="h-full rounded-full bg-text-subtle"
+            style={{ width: `${ratio * 100}%` }}
+          />
+        </div>
+
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="type-support text-subtle">
+            {p.businessDaysElapsed} of {p.businessDaysTotal} business days
+            {stats.billableRatio != null
+              ? ` · ${Math.round(stats.billableRatio * 100)}% billable`
+              : null}
+          </p>
+          <span
+            className={`flex-none type-meta ${ahead ? 'text-muted' : 'text-warning'}`}
+          >
+            {ahead ? 'on pace' : 'behind'}{' '}
+            {p.delta != null
+              ? `${p.delta >= 0 ? '+' : ''}${p.delta.toFixed(1)}h`
+              : null}
+          </span>
+        </div>
       </div>
     </Card>
   );
@@ -387,6 +401,21 @@ function Pace({ stats }: { stats: Stats }) {
 
 /* ── shared shell ─────────────────────────────────────────────────── */
 
+/**
+ * A card, in one of two header modes.
+ *
+ * **A card whose point is one figure demotes its own title.** Unbilled and
+ * Pace exist to show a number; the word only says *which* number, so it drops
+ * to a quiet `type-label` above a `type-figure` that the eye actually lands
+ * on. **A card whose point is a list keeps its heading**, because there is no
+ * single figure to be the subject and a demoted title would leave the card
+ * with no entry point at all.
+ *
+ * Passing `value` selects the first mode. That is the whole rule, and it is
+ * deliberately not a free choice per card: uniform headers are most of why
+ * the screen read flat, but headers styled ad hoc would be worse than
+ * uniform.
+ */
 function Card({
   title,
   icon: Icon,
@@ -402,9 +431,41 @@ function Card({
      on decoration. Never the accent: five green glyphs on the one screen the
      accent belongs to the running timer would undo the rule outright. */
   iconTone?: 'warning';
-  value?: string;
+  /** The card's subject. Supplying it demotes the title — see above. */
+  value?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  if (value !== undefined) {
+    return (
+      <section className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
+        <header className="px-4 pt-3 pb-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <Icon
+              aria-hidden
+              strokeWidth={1.75}
+              className={`size-3.5 flex-none ${
+                iconTone === 'warning' ? 'text-warning' : 'text-subtle'
+              }`}
+            />
+            {/* The title is the label on the number, so it is set as one:
+                small, uppercase, wide-tracked mono. `text-subtle` is legal
+                here because `type-label` is a non-text UI label rather than
+                reading copy — the same pairing every other label in the app
+                uses. */}
+            <h2 className="type-label truncate text-subtle">{title}</h2>
+          </div>
+          {/* The subject of the card, and much larger than the rows beneath
+              it. Uniform type is what made the screen read as strata; this is
+              the one place per card where size is allowed to say "start
+              here". */}
+          <div className="mt-1.5 type-figure text-strong">{value}</div>
+        </header>
+        <div className="mx-4 border-t border-edge-subtle" />
+        {children}
+      </section>
+    );
+  }
+
   return (
     <section className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
       {/* The rule is INSET to the same `px-4` the rows use, not a border on
@@ -416,37 +477,25 @@ function Card({
           part of the column — the same reason the rows are padded, applied to
           the line that separates them.
 
-          It is the header's own bottom margin that carries it (`mx-4` on a
-          zero-height div), so the rows below keep their `border-t` and the
-          first row does not double up. */}
-      {/* The icon and the title are one group on the baseline, with the value
-          pushed to the far end. An SVG has no text baseline of its own, so
-          the icon is centred against the heading inside its own flex row
-          rather than dropped into the `items-baseline` row, where it would
-          sit low by roughly its own descender. */}
-      <header className="flex items-baseline justify-between gap-3 px-4 pt-3 pb-2.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <Icon
-            aria-hidden
-            strokeWidth={1.75}
-            className={`size-4 flex-none ${
-              iconTone === 'warning' ? 'text-warning' : 'text-muted'
-            }`}
-          />
-          {/* A card header is a heading, not a system label: `type-label` is
-              11px uppercase mono with wide tracking, which reads as a tag
-              stamped on the panel rather than as the name of what follows.
+          The icon is centred against the heading inside its own flex row
+          rather than dropped into the header directly, where having no text
+          baseline of its own would sit it low by roughly its own descender. */}
+      <header className="flex items-center gap-2 px-4 pt-3 pb-2.5">
+        <Icon
+          aria-hidden
+          strokeWidth={1.75}
+          className={`size-4 flex-none ${
+            iconTone === 'warning' ? 'text-warning' : 'text-muted'
+          }`}
+        />
+        {/* A list card's title is a heading, not a system label — there is no
+            figure for it to be subordinate to, so demoting it would leave the
+            card with no entry point.
 
-              The icon is `aria-hidden`, so the accessible name stays the
-              heading text alone — a screen reader should not announce
-              "triangle alert Needs attention". */}
-          <h2 className="type-heading truncate text-strong">{title}</h2>
-        </div>
-        {value ? (
-          <span className="type-amount-hero flex-none text-strong">
-            {value}
-          </span>
-        ) : null}
+            The icon is `aria-hidden`, so the accessible name stays the
+            heading text alone — a screen reader should not announce
+            "triangle alert Needs attention". */}
+        <h2 className="type-heading truncate text-strong">{title}</h2>
       </header>
       <div className="mx-4 border-t border-edge-subtle" />
       {children}
