@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { api } from '@/lib/client/api';
+import { api, ApiError } from '@/lib/client/api';
 import { Page } from './page';
 import { ClientProjects } from './client-projects';
 
@@ -73,16 +73,28 @@ export function ClientDetail({ id }: { id: string }) {
         </div>
       </header>
 
+      {/* A rejected archive leaves the button live and the client unchanged,
+          which reads as the click not registering. The likely refusals are
+          worth reading — an archive can be blocked by what references the
+          client. */}
+      {archive.error ? (
+        <p role="alert" className="pb-4 type-support text-danger">
+          {archive.error instanceof ApiError
+            ? archive.error.message
+            : 'Could not archive this client.'}
+        </p>
+      ) : null}
+
       <dl
         className="grid gap-x-6 gap-y-4 rounded-xl border border-edge-subtle
-                     bg-surface-primary p-5 shadow-card sm:grid-cols-2"
+                     bg-surface-elevated p-5 shadow-card sm:grid-cols-2"
       >
         <Detail label="Email" value={client.email} />
         <Detail
           label="Hourly rate"
           value={
             client.hourlyRate != null
-              ? `${usd.format(client.hourlyRate)}/h`
+              ? `${money(client.hourlyRate, client.currency ?? undefined)}/h`
               : null
           }
           hint="Defaults to your standard rate."

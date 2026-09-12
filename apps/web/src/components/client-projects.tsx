@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { api, type Client, type Project } from '@/lib/client/api';
+import { api, ApiError, type Client, type Project } from '@/lib/client/api';
 import { ProjectDialog } from './project-dialog';
 import { ProjectRate } from './project-rate';
 
@@ -113,43 +113,52 @@ function Row({
   });
 
   return (
-    <div
-      className="flex items-center gap-3 border-t border-edge-subtle px-4 py-3
-                 first:border-t-0"
-    >
-      <div className="min-w-0 flex-1">
-        <p className="truncate type-body text-strong">{project.name}</p>
-        <ProjectRate
-          project={project}
-          client={client}
-          userDefaultRate={userDefaultRate}
-        />
-      </div>
+    <div className="border-t border-edge-subtle first:border-t-0">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate type-body text-strong">{project.name}</p>
+          <ProjectRate
+            project={project}
+            client={client}
+            userDefaultRate={userDefaultRate}
+          />
+        </div>
 
-      <div className="flex flex-none items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onEdit}
-          aria-label={`Edit ${project.name}`}
-        >
-          <Pencil aria-hidden strokeWidth={1.75} />
-          Edit
-        </Button>
-        {!project.archivedAt ? (
+        <div className="flex flex-none items-center gap-1">
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => archive.mutate()}
-            disabled={archive.isPending}
-            aria-label={`Archive ${project.name}`}
+            onClick={onEdit}
+            aria-label={`Edit ${project.name}`}
           >
-            Archive
+            <Pencil aria-hidden strokeWidth={1.75} />
+            Edit
           </Button>
-        ) : (
-          <span className="px-2 type-badge text-subtle">Archived</span>
-        )}
+          {!project.archivedAt ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => archive.mutate()}
+              disabled={archive.isPending}
+              aria-label={`Archive ${project.name}`}
+            >
+              Archive
+            </Button>
+          ) : (
+            <span className="px-2 type-badge text-subtle">Archived</span>
+          )}
+        </div>
       </div>
+
+      {/* In the row, naming the project: a list of identical failures at the
+          foot of the card could not say which archive was refused. */}
+      {archive.error ? (
+        <p role="alert" className="px-4 pb-3 type-support text-danger">
+          {archive.error instanceof ApiError
+            ? archive.error.message
+            : `Could not archive ${project.name}.`}
+        </p>
+      ) : null}
     </div>
   );
 }

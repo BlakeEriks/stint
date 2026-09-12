@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { PaymentProfiles } from '@/components/payment-profiles';
@@ -91,6 +92,50 @@ describe('PaymentProfiles', () => {
     expect(
       await screen.findByText(/Invoices will render without a payment block/),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * A refused "make default" used to change nothing and say nothing, which
+   * reads as the click not registering. This one decides which bank details
+   * print on an invoice, so a silent refusal means the next invoice carries
+   * the wrong account and nobody finds out until a client pays the wrong one.
+   */
+  it('reports a refused "make default" against the profile it failed on', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        if ((init?.method ?? 'GET') !== 'GET') {
+          return new Response(
+            JSON.stringify({
+              code: 'VALIDATION_FAILED',
+              message: 'Archived details cannot be made default',
+            }),
+            { status: 422 },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            paymentProfiles: [
+              BASE,
+              { ...BASE, id: 'pp-2', name: 'Wise USD', isDefault: false },
+            ],
+          }),
+          { status: 200 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    render(<PaymentProfiles />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Make default' }),
+    );
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Archived details cannot be made default');
+    // In the row that failed, not at the foot of the card: one mutation
+    // serves every row, so a shared message could not say which.
+    expect(alert.closest('li')).toHaveTextContent('Wise USD');
   });
 
   it('hides an archived profile', async () => {

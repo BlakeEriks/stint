@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { PaymentProfileDialog } from './payment-profile-dialog';
-import { api, type PaymentProfile } from '@/lib/client/api';
+import { api, ApiError, type PaymentProfile } from '@/lib/client/api';
 
 /**
  * Bank details, as named bundles.
@@ -32,6 +32,14 @@ export function PaymentProfiles() {
       queryClient.invalidateQueries({ queryKey: ['payment-profiles'] }),
   });
 
+  /* Which profile the failure belongs to. One mutation serves every row, so
+     without this the message would have to sit at the foot of the card and
+     could not say which "Make default" was refused — and this one decides
+     which bank details print on an invoice, so a silent refusal means the
+     next invoice carries the wrong account. */
+  const failedOn =
+    makeDefault.error != null ? (makeDefault.variables ?? null) : null;
+
   return (
     <Section
       title="Payment details"
@@ -46,42 +54,52 @@ export function PaymentProfiles() {
           {profiles.map((profile) => (
             <li
               key={profile.id}
-              className="flex items-center gap-3 rounded-lg border border-edge-subtle px-3 py-2.5"
+              className="rounded-lg border border-edge-subtle px-3 py-2.5"
             >
-              <div className="min-w-0 flex-1">
-                <p className="truncate type-control text-primary">
-                  {profile.name}
-                  {profile.isDefault ? (
-                    <span className="ml-2 rounded border border-edge-default px-1.5 py-px type-badge text-subtle">
-                      Default
-                    </span>
-                  ) : null}
-                </p>
-                <p className="mt-0.5 truncate type-meta text-subtle">
-                  {summarize(profile)}
-                </p>
-              </div>
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate type-control text-primary">
+                    {profile.name}
+                    {profile.isDefault ? (
+                      <span className="ml-2 rounded border border-edge-default px-1.5 py-px type-badge text-subtle">
+                        Default
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="mt-0.5 truncate type-meta text-subtle">
+                    {summarize(profile)}
+                  </p>
+                </div>
 
-              {!profile.isDefault ? (
+                {!profile.isDefault ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => makeDefault.mutate(profile.id)}
+                    disabled={makeDefault.isPending}
+                  >
+                    Make default
+                  </Button>
+                ) : null}
+
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
-                  onClick={() => makeDefault.mutate(profile.id)}
-                  disabled={makeDefault.isPending}
+                  onClick={() => setEditing(profile)}
                 >
-                  Make default
+                  Edit
                 </Button>
-              ) : null}
+              </div>
 
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setEditing(profile)}
-              >
-                Edit
-              </Button>
+              {failedOn === profile.id ? (
+                <p role="alert" className="mt-2 type-support text-danger">
+                  {makeDefault.error instanceof ApiError
+                    ? makeDefault.error.message
+                    : 'Could not make this the default.'}
+                </p>
+              ) : null}
             </li>
           ))}
         </ul>

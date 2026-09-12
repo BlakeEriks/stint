@@ -176,6 +176,46 @@ describe('ClientProjects', () => {
     }
   });
 
+  /* A refused archive left the button live and the row unchanged, which reads
+     as the click not registering. */
+  it('reports a refused archive in the row it failed on', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const path = String(url).replace('/api/v1', '');
+        if ((init?.method ?? 'GET') !== 'GET') {
+          return new Response(
+            JSON.stringify({
+              code: 'VALIDATION_FAILED',
+              message: 'A running timer is on this project',
+            }),
+            { status: 422 },
+          );
+        }
+        if (path.startsWith('/projects')) {
+          return new Response(JSON.stringify({ projects: [project()] }), {
+            status: 200,
+          });
+        }
+        if (path.startsWith('/clients')) {
+          return new Response(JSON.stringify({ clients: [NORTHWIND] }), {
+            status: 200,
+          });
+        }
+        return new Response('{}', { status: 200 });
+      }),
+    );
+    const user = userEvent.setup();
+    render(<ClientProjects client={NORTHWIND} />, { wrapper });
+
+    await user.click(await screen.findByLabelText('Archive Website redesign'));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('A running timer is on this project');
+    // Naming the project: a card of identical failures could not say which.
+    expect(screen.getByText('Website redesign')).toBeInTheDocument();
+  });
+
   it('does not offer to add work to an archived client', async () => {
     serve([project()]);
     render(
