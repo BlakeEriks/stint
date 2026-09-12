@@ -11,6 +11,10 @@
     "tokens:validate": "pnpm --filter @stint/design-tokens validate",
     "lint": "biome check .",
     "lint:fix": "biome check . --write",
+    "dev:up": "supabase start",
+    "dev:down": "supabase stop",
+    "dev:reset": "supabase db reset",
+    "dev:status": "supabase status",
     "migrate": "node scripts/migrate.mjs",
     "verify:schema": "node scripts/verify-schema.mjs",
     "test": "pnpm -r test"
@@ -19,6 +23,7 @@
     "@biomejs/biome": "^2.5.13",
     "@types/node": "^24.13.4",
     "pg": "^8.13.1",
+    "supabase": "2.117.0",
     "typescript": "^6.0.3"
   }
 }

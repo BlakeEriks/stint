@@ -70,6 +70,39 @@ from shadow and radius because `bg-base`→`bg-primary` is only 1.03:1; see
 - `0` is a valid rate. Use null-coalescing, never truthiness.
 - Archive, don't delete — invoices reference clients and projects.
 
+## Local development
+
+**Never point local dev at production.** `pnpm dev:up` runs the Supabase stack
+locally and `pnpm dev` talks to it, because Next.js loads
+`apps/web/.env.development.local` ahead of `.env.local` in development — while
+`pnpm migrate` and `pnpm verify:schema` still read `.env.local` and reach the
+hosted project. No flag to remember.
+
+`pnpm dev:reset` rebuilds from migrations plus `supabase/seed.sql`. Sign in as
+`dev@localhost.test` and click the link in Mailpit (`:54324`); mail is captured
+locally, never sent. Studio is on `:54323`.
+
+Three traps, all hit while setting this up — `docs/local-dev.md` has the rest:
+
+- **The CLI silently skips a migration named `init`**, then applies the
+  others, so the stack comes up with no tables and fails on the *second*
+  file. Ours is now `00000000000001_schema.sql`.
+- **A hand-written `auth.users` row needs empty strings, not NULL**, in the
+  four token columns; GoTrue scans them into non-nullable Go strings and a
+  NULL breaks every lookup with `Database error finding user` and a 500 that
+  names no column.
+- **`supabase db reset` invalidates the session you were holding.** RLS then
+  correctly returns nothing and the app looks broken. Clear cookies, sign in
+  again.
+
+Use `localhost` throughout, not `127.0.0.1`: they are different hosts to a
+browser, so a session cookie set on one is invisible to the app served from
+the other.
+
+`realtime`, `storage`, `edge_runtime` and `analytics` are off — the app's
+Supabase surface is `.from()`, one `.rpc()`, and auth. The subset runs in
+~540MB where the full stack wants ~7GB.
+
 ## Migrations
 
 `pnpm migrate` applies `supabase/migrations/` over a plain Postgres
