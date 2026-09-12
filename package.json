@@ -19,6 +19,6 @@
     "@biomejs/biome": "^2.5.13",
     "@types/node": "^22.10.2",
     "pg": "^8.13.1",
-    "typescript": "^5.7.2"
+    "typescript": "^7.0.2"
   }
 }
