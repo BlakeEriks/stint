@@ -39,11 +39,17 @@ this specific regression.
 focus ring is constant and involuntary; spending the accent there drowns the
 one signal it exists for.
 
-**Content floats, chrome recedes.** The body is `--bg-base` (the darkest
-surface) and panels sit above it on `bg-surface-primary` with `shadow-card`.
-Never invert this — cards darker than the ground read as holes. Depth comes
-from shadow and radius because `bg-base`→`bg-primary` is only 1.03:1; see
-`docs/design/color.md`.
+**Content floats, chrome recedes.** Panels sit above the body on
+`bg-surface-elevated` with `shadow-card`; the nav rail sits *below* it on
+`bg-surface-recessed`. Never invert this — cards darker than the ground read
+as holes.
+
+Depth comes from surface colour **and** shadow. It previously came from shadow
+alone, because `bg-base`→`bg-primary` was ΔL 0.0046 and the app read flat as a
+result. **Judge adjacent dark surfaces by OKLCH ΔL, never by WCAG contrast** —
+WCAG is compressive near black and reported that near-invisible pair as
+1.03:1, which is what made it look acceptable. Surface steps are pinned in
+`SURFACE_SPREAD`, not taken from the curve; see `docs/design/color.md`.
 
 ## Conventions
 
@@ -451,6 +457,15 @@ On a phone it becomes two rows — identity and timer on top, sections scrolling
 beneath. They must not share one scrolling row: that pushed the running timer
 off the right edge, so it was invisible on the screen where it matters most.
 
+**The rail does not scroll with the content.** At `sm` and up the page itself
+is pinned (`h-dvh` + `overflow-hidden` on the flex row) and the content column
+scrolls inside itself; the rail is a sibling of that scroller, so it stays put
+without being `position: fixed` and without anything needing a scroll offset.
+The rail's own section list can scroll vertically if it ever outgrows a short
+window, so the account menu at its foot cannot be pushed off-screen. Below
+`sm` the whole page scrolls normally — pinning a strip that is already two
+rows tall would eat a third of a phone viewport.
+
 **Adding a section costs nothing in the rail.** It is a fixed `sm:w-52` and
 grows downward into empty space, so "we already have five items" is not an
 argument against a sixth — that was the argument *for* the rail, and the rail
@@ -460,10 +475,23 @@ act on. The phone strip is the one place where more sections genuinely cost
 something, and there they scroll.
 
 The **account menu** sits at the foot of the rail (`account-menu.tsx`),
-showing the signed-in email and holding **Settings** and **Sign out**.
-Settings is deliberately not in the rail's section list: the rail is places
-you go, and configuration visited rarely does not belong beside Home and
-Calendar.
+showing the signed-in email and holding **Settings**, **Appearance** and
+**Sign out**. Settings is deliberately not in the rail's section list: the
+rail is places you go, and configuration visited rarely does not belong
+beside Home and Calendar.
+
+**Appearance (dark/light) lives here, not in Settings and not in the rail.**
+Settings is business configuration — billing defaults, invoice identity,
+numbering, payment profiles — and a theme is not that; it is the one genuinely
+personal preference the app has. Not the rail either: a control is not a
+destination, and it would spend a rail slot on something touched once.
+
+**There is no "System" option, on purpose.** The palette is dark-first — the
+token file keys its light block to an explicit `[data-theme="light"]`, so a
+light OS preference does not flip the surfaces. "System" would resolve to dark
+for everyone, including a viewer whose OS is light: a control that appears to
+do something and does nothing. See `docs/design/color.md` for what to change
+if the app should ever follow the OS for real.
 
 **It is not a Profile page, and that was a decision.** Settings is entirely
 business configuration — billing defaults, invoice identity, numbering,
@@ -481,6 +509,15 @@ Relatedly, `request()` in `api.ts` sends any **401** to `/signin`. Without it
 a signed-out page rendered its shell and sat on "Loading…" forever — React
 Query has `retry: false`, so the 401 never resolved into anything actionable.
 Hitting Back after signing out did exactly that.
+
+**A card's header rule is inset, never a full-width border.** The divider
+between a card header and its content is a `mx-4 border-t` div, holding the
+same `px-4` the rows below it use. A `border-b` on the header itself runs edge
+to edge and cuts the panel in two, which reads as two stacked cards rather
+than one card with a header. The shared `Card` in `home-cards.tsx` is the
+reference; `activity-strip.tsx` matches it by hand because it predates the
+shell. `field.tsx` deliberately has none — its title is followed by its own
+description, and a rule there would separate the two.
 
 `Page` (`page.tsx`) owns the content column. Every screen used to carry its
 own copy of `mx-auto max-w-3xl px-4 py-8 …`, which is how the calendar ended

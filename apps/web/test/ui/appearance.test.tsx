@@ -258,3 +258,65 @@ describe('durations are tabular, always', () => {
     expect(TOKENS.type.scale[role].family).toBe('mono');
   });
 });
+
+describe('both themes define the same semantic tokens', () => {
+  /* This is the silent failure the theme toggle introduced a path to.
+     Tailwind 4 drops an unknown utility with no warning and exit 0 — the same
+     silence that makes `detox` necessary — so a semantic token defined only
+     under `dark` renders as *nothing* the moment a user switches to light.
+     No error, no fallback, just an unstyled element on one theme only.
+
+     Adding `bg-recessed` for the nav rail is exactly that shape of change,
+     and it would have been easy to add to one block and not the other. */
+  it('has no token present in one theme and missing from the other', () => {
+    const dark = Object.keys(TOKENS.semantic.dark);
+    const light = Object.keys(TOKENS.semantic.light);
+
+    expect(light.filter((k) => !dark.includes(k))).toEqual([]);
+    expect(dark.filter((k) => !light.includes(k))).toEqual([]);
+  });
+
+  it('defines the recessed surface the nav rail sits on', () => {
+    /* Named directly because its absence is invisible: the rail would fall
+       back to the body's own background and silently stop reading as
+       recessed, which is the whole point of the token. */
+    expect(TOKENS.semantic.dark['bg-recessed']).toBeTruthy();
+    expect(TOKENS.semantic.light['bg-recessed']).toBeTruthy();
+  });
+});
+
+describe('the surface ramp is ordered, and far enough apart to see', () => {
+  /* The app read flat because `bg-base` and `bg-primary` were ΔL 0.0046
+     apart — a card with no edge of its own, leaving `shadow-card` to carry
+     all the depth against a ground it could barely darken.
+
+     Judged in OKLCH ΔL, NOT WCAG contrast. WCAG is compressive near black and
+     reported that near-invisible pair as 1.03:1 against the fixed pair's
+     1.16:1 — a difference that reads as trivial while the perceptual gap is
+     14x larger. Using the wrong instrument is what let this ship. */
+  const L = (ref: string) => {
+    const [group, step] = ref.split('.');
+    return TOKENS.primitive[group][step].oklch[0] as number;
+  };
+
+  it('rises recessed -> base -> primary -> elevated', () => {
+    const ramp = (
+      ['bg-recessed', 'bg-base', 'bg-primary', 'bg-elevated'] as const
+    ).map((k) => L(TOKENS.semantic.dark[k]));
+
+    expect(ramp).toEqual([...ramp].sort((a, b) => a - b));
+  });
+
+  it('separates a card from the ground it floats on', () => {
+    /* `bg-elevated` is the card surface — panels across the app (timer bar,
+       home cards, calendar, settings, the lists) sit on it, not on
+       `bg-primary`. Asserting the pair the components actually use, because
+       a gap proved between two tokens nobody renders proves nothing. */
+    const base = L(TOKENS.semantic.dark['bg-base']);
+    const card = L(TOKENS.semantic.dark['bg-elevated']);
+
+    /* 0.105 today. The floor is set well below that but far above the 0.0046
+       that caused the problem, so an incremental re-flattening trips it. */
+    expect(card - base).toBeGreaterThan(0.04);
+  });
+});

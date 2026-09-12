@@ -42,6 +42,13 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
  * Deliberately plain: the accent belongs to the running timer, so the current
  * section is marked with weight and a raised surface rather than colour.
  *
+ * The rail sits on `bg-surface-recessed`, a step *below* the page ground, so
+ * chrome falls back and the content column reads as the nearer plane. The
+ * active pill is `bg-surface-primary` — the same surface a card uses — which
+ * against the recessed ground now genuinely reads as raised rather than as a
+ * slightly different grey. In light mode the recession inverts (the rail goes
+ * darker than the page) and means the same thing.
+ *
  * On a phone it returns to a horizontal strip — a rail would eat a third of a
  * 375px viewport, and the timer hero is what that screen is for.
  */
@@ -54,8 +61,8 @@ export function Nav() {
   return (
     <nav
       aria-label="Sections"
-      className="flex flex-none flex-col gap-1 border-b border-edge-subtle px-3 py-2
-                 sm:w-52 sm:border-r sm:border-b-0 sm:py-4"
+      className="flex flex-none flex-col gap-1 border-b border-edge-subtle bg-surface-recessed px-3 py-2
+                 sm:h-dvh sm:w-52 sm:border-r sm:border-b-0 sm:py-4"
     >
       {/* Wordmark doubles as the Home link, which is the convention the
           logo-click already implies. `order-first` on mobile keeps it left of
@@ -76,8 +83,10 @@ export function Nav() {
         </div>
       </div>
 
-      {/* Sections. Only this scrolls on a phone. */}
-      <div className="flex gap-1 overflow-x-auto sm:flex-col sm:overflow-visible">
+      {/* Sections. Only this scrolls — horizontally on a phone, and
+          vertically in the rail if the list ever outgrows the viewport, so a
+          short window cannot push the account menu off the bottom. */}
+      <div className="flex gap-1 overflow-x-auto sm:min-h-0 sm:flex-col sm:overflow-x-visible sm:overflow-y-auto">
         {LINKS.map(({ href, label, icon: Icon }) => {
           const active =
             href === '/' ? pathname === '/' : pathname.startsWith(href);
