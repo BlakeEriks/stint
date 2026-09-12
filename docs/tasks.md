@@ -46,48 +46,6 @@ later.
       adding a card is not a migration. Decided; the one place in that table
       where a typed column does not fit.
 
-- [ ] **A `/projects` page after all, grouped by client.** The client-nested
-      section shipped and is the right place to *manage* a project, but it
-      cannot reach the ones with no client: there is no client detail page to
-      open, because there is no client. Putting them as a group on the clients
-      list does not fix it — the group's rows would have to link somewhere,
-      and the only somewhere is a client that does not exist.
-
-      So the flat list is needed, but **grouped by client rather than flat**,
-      which answers the original objection. A list of three rows named
-      "Website redesign" under three different clients has to be decoded; the
-      same rows under client headings do not, and "No client" becomes one
-      more heading instead of a special case needing its own surface. The
-      client heading carries its rate, so the inherited figure on each row has
-      something to be read against.
-
-      This does add the fifth nav entry, which is a real cost — see the
-      reports task, which adds one too. Between them, decide whether projects
-      belongs in the rail or is reached from `/clients`, because two new
-      entries plus the collapsible-rail work at once is how the rail becomes
-      the thing it was meant to avoid.
-
-- [ ] **"No client" is not "internal work", and must not be labelled as
-      such.** `client_id = null` covers at least three states the app cannot
-      currently tell apart: genuinely internal (admin, invoicing, this app's
-      own development), **not yet assigned** (tracking started before the
-      client existed), and speculative (pitch work for a prospect who has not
-      signed). The schema comment already hedges — `null = internal /
-      unbilled work`, two words for one state.
-
-      The second is the dangerous one: **billable work that will silently
-      never be billed**, because nothing asks about it. The app already treats
-      it that way — the attention card reads "1 entry with no project · cannot
-      resolve a rate", flagging it as wrong rather than as internal.
-
-      So the label is **"No client"** and nothing more. It is what `/invoices`
-      and the home card already say, and it asserts no intent the data does
-      not carry. There *is* a real signal available — `isBillableDefault`
-      distinguishes genuinely-internal (false) from unassigned or speculative
-      (true) — and that is the user's own answer, so do not overwrite it with
-      a guess. If pitch work later needs distinguishing from admin, that is an
-      explicit field, not an inference.
-
 - [ ] **Project scale on the clients list.** A list of client names says
       nothing about what is being worked on, and clicking through four clients
       to find a project is worse than the flat list. Put the count and the
@@ -126,11 +84,11 @@ later.
       so a link is shareable and Back works. Hours per project is its first
       content, and the project row links to it.
 
-      **The nav entry is the cost, and "Reports" is a word that attracts
-      scope** — Toggl's reports tab is most of what made it feel bloated. The
-      existing bar is the guard: a view ships only if it carries a number the
-      user cannot compute in their head, or rows they can act on. Hours per
-      project passes. "Time by day of week" does not.
+      **"Reports" is a word that attracts scope** — Toggl's reports tab is
+      most of what made it feel bloated. The guard is the existing bar on
+      content, not on the nav entry: a view ships only if it carries a number
+      the user cannot compute in their head, or rows they can act on. Hours
+      per project passes. "Time by day of week" does not.
 
       **It is also where the two held-back cards belong.** Week-over-week
       deltas and the time-of-day heatmap are in "Needs a decision first"
@@ -314,6 +272,14 @@ moves up — do not start one by guessing the answer.
       because the route tests inject `__TEST_DB__` and never take that path.
       Worth a test that hits a real server with a real token before the Expo
       or macOS app depends on it.
+
+- [ ] **Six nav sections overflow the phone strip.** At 375px the fifth and
+      sixth items ("Projects", "Invoices") sit past the right edge and need a
+      horizontal scroll to reach. Nothing is unreachable and the running timer
+      is unaffected — it lives in the identity row above, which is separate
+      from the scrolling strip for exactly this reason — but a section you
+      cannot see is a section you will not visit. The rail is unaffected;
+      this is the horizontal phone layout only.
 
 - [ ] **`type-section` is unused.** Kept because the home cards will want a
       section heading. If they ship without it, delete the role.

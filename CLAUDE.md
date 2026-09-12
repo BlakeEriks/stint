@@ -438,6 +438,14 @@ On a phone it becomes two rows — identity and timer on top, sections scrolling
 beneath. They must not share one scrolling row: that pushed the running timer
 off the right edge, so it was invisible on the screen where it matters most.
 
+**Adding a section costs nothing in the rail.** It is a fixed `sm:w-52` and
+grows downward into empty space, so "we already have five items" is not an
+argument against a sixth — that was the argument *for* the rail, and the rail
+solved it. The real bar is on content, not on the nav entry: a screen ships if
+it carries a number the user cannot compute in their head, or rows they can
+act on. The phone strip is the one place where more sections genuinely cost
+something, and there they scroll.
+
 The **account menu** sits at the foot of the rail (`account-menu.tsx`),
 showing the signed-in email and holding **Settings** and **Sign out**.
 Settings is deliberately not in the rail's section list: the rail is places
@@ -513,6 +521,53 @@ Radix supplies dialog/dropdown/popover behaviour. Hand-rolled popups are how
 arrow keys, typeahead, roving tabindex and focus-return get quietly skipped;
 the restraint thesis is about *product surface*, not re-implementing
 accessible primitives.
+
+### Projects
+
+**Two surfaces, different jobs.** `/projects` (`project-list.tsx`) is where
+you find a project; the Projects section on a client (`client-projects.tsx`)
+is where you manage one in the context of its rate.
+
+A flat list was rejected and then needed anyway, because the nested section
+**cannot reach a project with no client** — there is no client detail page to
+open, since there is no client. Putting those rows on the clients list does
+not help either: they would have to link to a client that does not exist.
+
+**Grouping by client answers the original objection** rather than trading
+against it. Three rows named "Website redesign" in one undifferentiated list
+have to be decoded; under client headings they do not. The heading carries the
+client's own rate, so each row's inherited figure has something to be read
+against — `$195.00/h overrides Northwind Trading's $150.00` sits directly
+under `NORTHWIND TRADING · $150.00/h`. And "No client" becomes a *heading*
+rather than an entity: a heading needs no detail page, no rate and no Edit
+button, so what was incoherent as a pseudo-client is ordinary as a group
+label.
+
+**"No client" is never labelled "internal work".** `client_id = null` covers
+at least three states the app cannot tell apart: genuinely internal, **not yet
+assigned** (billable work that will silently never be billed), and
+speculative. The attention card already treats the middle one as wrong —
+"cannot resolve a rate" — so an "Internal" heading would contradict it.
+`isBillableDefault` is the one real signal, and it is the user's own answer;
+do not overwrite it with a guess. Tested.
+
+**A project whose client cannot be resolved falls under "No client" rather
+than vanishing**, and an archived client keeps its own heading — filing its
+projects under "No client" would be a lie, and they are exactly the rows
+someone checks when reviewing a finished engagement. This is why the list
+fetches clients with `includeArchived`.
+
+**`ProjectRate` (`project-rate.tsx`) is shared by both surfaces.** Most
+projects store no rate of their own, so printing the column would show nothing
+for the common case — the opposite of the truth. It resolves through
+`resolveRate`/`resolveRateSource` from `@stint/core`, the same functions the
+invoice preview uses; a third implementation would be a third thing to drift.
+`resolveRateSource` had existed and been unit-tested since the beginning
+without ever being called from the app.
+
+No resolvable rate renders in the **danger** channel, not as `$0.00`:
+invoicing refuses to generate from unrated entries, so without it the failure
+is discovered at the moment of billing.
 
 ### The home screen
 

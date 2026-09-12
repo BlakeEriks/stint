@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   CalendarDays,
   FileText,
+  FolderOpen,
   Timer,
   Users,
   type LucideIcon,
@@ -20,6 +21,7 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/', label: 'Home', icon: Timer },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/clients', label: 'Clients', icon: Users },
+  { href: '/projects', label: 'Projects', icon: FolderOpen },
   { href: '/invoices', label: 'Invoices', icon: FileText },
   // Settings is NOT here: the rail is places you go, and configuration you
   // visit rarely belongs in the account menu at the foot instead.
