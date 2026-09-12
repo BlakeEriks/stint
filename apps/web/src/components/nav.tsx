@@ -10,7 +10,6 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
-import { NavTimer } from './nav-timer';
 import { AccountMenu } from './account-menu';
 
 /* Icon AND label, never icon alone. An icon is a fast second channel for
@@ -61,15 +60,22 @@ export function Nav() {
   return (
     <nav
       aria-label="Sections"
+      /* `h-full`, not `h-dvh`: the frame is now a column with the timer
+         docked beneath, so the rail fills its own row rather than the
+         viewport — at `h-dvh` it would run under the bar by the bar's own
+         height. */
       className="flex flex-none flex-col gap-1 border-b border-edge-subtle bg-surface-recessed px-3 py-2
-                 sm:h-dvh sm:w-52 sm:border-r sm:border-b-0 sm:py-4"
+                 sm:h-full sm:w-52 sm:border-r sm:border-b-0 sm:py-4"
     >
       {/* Wordmark doubles as the Home link, which is the convention the
-          logo-click already implies. `order-first` on mobile keeps it left of
-          the section strip. */}
-      {/* Identity row. On a phone the timer sits beside the wordmark so it
-          survives the horizontal scroll below; in the rail they stack. */}
-      <div className="flex flex-none items-center justify-between gap-2 sm:flex-col sm:items-start sm:gap-1">
+          logo-click already implies.
+
+          The running timer used to sit beneath it here. It is docked to the
+          bottom of the frame now, on every screen — having it in both places
+          meant two identical green readouts in view at once, which the old
+          comment defended as "the same fact reinforcing itself" and which
+          simply read as a duplicate. */}
+      <div className="flex flex-none items-center justify-between gap-2 sm:mb-3 sm:flex-col sm:items-start">
         <Link
           href="/"
           aria-label="Stint — home"
@@ -78,9 +84,6 @@ export function Nav() {
         >
           Stint
         </Link>
-        <div className="min-w-0 flex-none sm:mb-3 sm:w-full">
-          <NavTimer onTimerScreen={pathname === '/'} />
-        </div>
       </div>
 
       {/* Sections. Only this scrolls — horizontally on a phone, and

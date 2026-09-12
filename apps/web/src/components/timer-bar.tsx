@@ -10,8 +10,26 @@ import { Button } from '@/components/ui/button';
 import { api, type Project, type TimeEntry } from '@/lib/client/api';
 
 /**
- * The hero. A running timer is the only place the accent appears, which is
- * what makes green read as a signal rather than a brand color.
+ * The timer, docked to the bottom of the app frame on every screen.
+ *
+ * It used to be a card on Home *and* a readout in the nav rail — two
+ * identical green clocks in view at once. `nav-timer.tsx` argued that was
+ * fine because "both marks are the same fact, so they reinforce", which was a
+ * rationalisation written before anyone looked at it on a wide screen. One
+ * timer, in the frame, is the honest version of that rule.
+ *
+ * Docking it buys three things beyond tidiness:
+ *
+ * - **A timer can be started from anywhere.** It previously required
+ *   navigating to Home first, which put the app's most common action behind a
+ *   page load.
+ * - **Home gets its best band back.** The hero occupied 87px at the top of
+ *   the page and, on a wide screen, held content only in its right ~230px.
+ * - **The runaway choice has an obvious home.** Keep / Adjust / Discard now
+ *   sits with the timer rather than on a card that exists on one screen.
+ *
+ * A running timer is still the only place the accent appears, which is what
+ * makes green read as a signal rather than a brand colour.
  */
 export function TimerBar({ projects }: { projects: Project[] }) {
   const timer = useTimer();
@@ -94,14 +112,36 @@ export function TimerBar({ projects }: { projects: Project[] }) {
 
   return (
     <section
-      className="rounded-xl border border-edge-subtle bg-surface-primary shadow-card"
+      /* `bg-surface-recessed` is the rail's surface, not a card's: this is
+         chrome, so it belongs to the frame and recedes behind the content
+         scrolling above it. A card surface here would read as a panel that
+         happens to be stuck to the bottom. */
+      className="flex flex-none flex-col border-t border-edge-subtle bg-surface-recessed"
       aria-label="Timer"
     >
+      {/* The notice sits ABOVE the controls so the bar's own row never moves:
+          the stop button staying under the cursor matters more here than the
+          reading order, and the notice is what just appeared. */}
+      {exceeded && !dismissed ? (
+        <RunawayNotice
+          hours={Math.floor(timer.seconds / 3600)}
+          busy={adjust.isPending || discard.isPending}
+          onKeep={() => setDismissed(true)}
+          onAdjust={() => adjust.mutate()}
+          onDiscard={() => discard.mutate()}
+        />
+      ) : null}
+
       {/* Two rows on narrow screens: the task name needs the full width, and
           on one row it collapsed to nothing while the button clipped off. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-4 sm:flex-nowrap sm:gap-4 sm:p-5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:gap-4 sm:px-5">
         <StatusDot running={isRunning} exceeded={exceeded} />
 
+        {/* The field now looks like a field. Borderless, it read as broken
+            rather than ready — an empty 700px of nothing on a wide screen —
+            and the affordance was invisible until you happened to click it.
+            `border-edge-default` rather than `border-control`, because at
+            rest this is a boundary rather than a control needing 3:1. */}
         <input
           ref={inputRef}
           value={taskValue}
@@ -118,9 +158,10 @@ export function TimerBar({ projects }: { projects: Project[] }) {
           }}
           placeholder="What are you working on?"
           aria-label="Task name"
-          className="order-last min-w-0 flex-1 basis-full bg-transparent type-body
-                     text-strong placeholder:text-subtle focus:outline-none
-                     sm:order-none sm:basis-auto"
+          className="order-last min-w-0 flex-1 basis-full rounded-lg border border-edge-default
+                     bg-surface-base px-3 py-2 type-body text-strong
+                     placeholder:text-subtle focus:border-edge-focus focus:outline-none
+                     sm:order-none sm:max-w-md sm:basis-auto"
         />
 
         <ProjectPicker
@@ -135,8 +176,10 @@ export function TimerBar({ projects }: { projects: Project[] }) {
         />
 
         {/* Readout and control stay together so the control never wraps
-            away from the number it acts on. */}
-        <div className="ml-auto flex flex-none items-center gap-3 sm:ml-0 sm:gap-4">
+            away from the number it acts on. `ml-auto` on both sizes now: the
+            bar spans the window, so the clock anchors to the right edge
+            instead of drifting with the input's width. */}
+        <div className="ml-auto flex flex-none items-center gap-3 sm:gap-4">
           <time
             className={`type-timer
                         ${exceeded ? 'text-warning' : isRunning ? 'text-accent-default' : 'text-subtle'}`}
@@ -172,16 +215,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
           </button>
         </div>
       </div>
-
-      {exceeded && !dismissed ? (
-        <RunawayNotice
-          hours={Math.floor(timer.seconds / 3600)}
-          busy={adjust.isPending || discard.isPending}
-          onKeep={() => setDismissed(true)}
-          onAdjust={() => adjust.mutate()}
-          onDiscard={() => discard.mutate()}
-        />
-      ) : null}
 
       {/* Opened by Adjust, on the entry that was just stopped. */}
       <EntryDialog

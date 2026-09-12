@@ -5,18 +5,20 @@ import { formatClock } from '@stint/core';
 import { useTimer } from '@/lib/client/use-timer';
 
 /**
- * The running timer, visible from every screen.
+ * UNUSED. The rail's running-timer readout, replaced by the docked timer bar
+ * (`timer-bar.tsx`, mounted in the `(app)` layout).
  *
- * It lives in the nav row rather than a reserved band or a floating overlay:
- * the row already exists on every page and is mostly empty, so this costs no
- * vertical space and never overlaps content. It is also the same data and the
- * same toggle the macOS menu bar shows, from the same `/summary` call.
+ * Kept for one release the way `activity-strip.tsx` was: if the dock turns
+ * out to be wrong, this is what comes back. Delete it once the dock has
+ * proven itself.
  *
- * It is green on every screen, including the timer screen. That is a
- * deliberate exception to "at most one accent in view": both marks are the
- * *same* fact — this timer is running — so they reinforce each other rather
- * than compete. The rule exists to stop green meaning several different
- * things at once, which is not what happens here.
+ * It is also worth keeping the argument that was here, because it was wrong
+ * in an instructive way. This component claimed that showing the timer in
+ * both the rail and the Home hero was fine — "both marks are the same fact,
+ * so they reinforce each other rather than compete". On a wide screen that
+ * was two identical green clocks a few inches apart, and it read as a
+ * duplicate, not as reinforcement. The rule about one accent meaning was
+ * right; the exception carved out for it was a rationalisation.
  */
 export function NavTimer({ onTimerScreen }: { onTimerScreen: boolean }) {
   const timer = useTimer();
