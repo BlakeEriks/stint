@@ -248,22 +248,6 @@ moves up — do not start one by guessing the answer.
 
 ## Rough edges
 
-- [ ] **`/stats` has no handler tests, and it computes all the money on the
-      home screen.** `home-cards.test.tsx` stubs the entire response, which is
-      exactly the failure mode that let the invoice detail page ship broken —
-      the stub and the component agree and the route is free to be wrong.
-      Untested: the 7-day overdue grace period, `buildPace`'s divide-by-zero
-      guard, `MAX_UNBILLED_ROWS` truncation, `awaitingPayment` summing `sent`
-      only, and `businessDaysInLocalMonth` (which has no unit test either).
-
-- [ ] **`unbilled_by_client` is a third rate-resolution implementation and is
-      untested.** Its own header says the coalesce chain must stay identical
-      to `resolve_entry_rate`, and nothing enforces that. The grouping by
-      `(client, rate)` is the rule whose absence once reported $1,755.00
-      where $1,462.50 was owed — the seed reproduces the case, but no test
-      asserts on it. Seed one client at two rates and assert the rollup
-      agrees with `buildLineItems` over the same entries.
-
 - [ ] **Two snake↔camel converters.** `invoicing.ts` has its own `toInvoice`,
       `toLineItem` and `ClientRow` alongside `rows.ts`, and `toLineItem`
       takes `Record<string, any>` so nothing type-checks it. That is where

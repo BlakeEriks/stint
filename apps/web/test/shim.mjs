@@ -1,6 +1,18 @@
 // A minimal supabase-js-shaped query builder over node-postgres.
 // Exercises the REAL route handlers against the REAL schema, including
 // triggers and the partial unique index. Only the transport differs.
+//
+// PostgREST returns `date` and `timestamptz` columns as STRINGS; node-pg
+// parses them into `Date` objects. Routes are written against the real
+// service — `/stats` compares `due_date < overdueCutoff` as text — so
+// without these parsers the shim silently disagrees with production and a
+// test can pass or fail for a reason the app would never see.
+import pg from 'pg';
+
+// 1082 date, 1114 timestamp, 1184 timestamptz.
+pg.types.setTypeParser(1082, (v) => v);
+pg.types.setTypeParser(1114, (v) => v);
+pg.types.setTypeParser(1184, (v) => v);
 
 // Tables with no user_id column: access is inherited from the parent row
 // via RLS, so the shim must not add a user scope to them.
