@@ -1,29 +1,78 @@
 # Tasks
 
-The running list. `docs/roadmap.md` is for work that needs a decision made
-before it can start; this is work already decided and not yet done.
+Everything wanted and not yet built, in one file. The only file — there is no
+separate roadmap, because two lists means one of them is stale and you cannot
+tell which.
 
-Delete a line when it ships. If a line has been sitting here long enough to
-feel permanent, it belongs in the roadmap or in the bin.
+**A finished task is DELETED, not ticked.** A file of completed work stops
+being a to-do list and becomes a changelog that nobody updates; git already
+records what shipped, and `CLAUDE.md` records why. If a line no longer
+describes something we intend to do, delete it — including because we decided
+against it, in which case the refusal belongs in `docs/design/principles.md`
+where it will be read before being re-proposed.
 
-## Now
+Sections are about readiness, not priority: **Ready** needs no decisions,
+**Needs a decision first** names the question blocking it, **Deferred** says
+what it is waiting on.
 
-- [x] ~~Goals on `user_settings`~~ — `monthly_target` + `monthly_target_unit`,
-      both-or-neither enforced by a check constraint. Migration 6.
+Everything here has been measured against the thesis in
+`docs/design/principles.md`: *does this help a solo contractor track time and
+get paid?* Ideas that failed that test are recorded there as refusals, not
+here. A line is not a commitment to ship — it is a commitment to have already
+thought about the hard part, so the decision is not re-litigated from scratch
+later.
+
+## Ready
+
+- [ ] **Edit and delete a logged entry.** `updateEntry`, `deleteEntry` and
+      `createEntry` all exist in `lib/client/api.ts` with **zero callers** —
+      the routes are built and tested, and no UI reaches them. So a mistracked
+      entry cannot be corrected and a bogus one cannot be removed, in an app
+      whose whole claim is that the numbers on the invoice are the numbers you
+      worked. This is the largest gap in the product.
+
+      Editing is also what the runaway-timer promise depends on: the app
+      "surfaces, never auto-trims", and surfacing is only honest if the user
+      can then act. Today the banner says to adjust the duration and there is
+      nowhere to do it.
+
+      `PATCH /entries/:id` already returns 409 `ENTRY_LOCKED` for an entry on
+      an issued invoice, so the UI must show that state rather than offering
+      an edit that will fail. Manual creation (`createEntry`) needs a
+      client-generated UUIDv7 — `uuidv7()` in `@stint/core` — so a retried
+      insert is idempotent.
+
+- [ ] **Runaway timer: offer keep / adjust / discard.** `principles.md`
+      specifies this choice and the app only renders a warning banner.
+      Depends on entry editing above. The rule that must not bend: the app
+      surfaces the problem and never modifies the entry itself.
 
 - [ ] **`GET /stats`** — one call backing the home cards: unbilled by client
       with aging, month-to-date against target, billable ratio, attention
       rows. One request because they render together and a card set that pops
       in piecemeal reads as broken. Aggregate rate resolution belongs in SQL
-      as a set-returning rollup, not N calls to `resolve_entry_rate`.
-- [ ] **Home cards** — Needs attention, Unbilled, Pace, Activity. Spec is
-      written in `docs/design/home.md`, including what was rejected.
-- [ ] **`home_cards` JSONB on `user_settings`** — card order + visibility.
+      as a set-returning rollup, not N calls to `resolve_entry_rate`. Marked
+      **(not implemented)** in `docs/api.md`; spec in `docs/design/home.md`.
+
+- [ ] **`GET /calendar?granularity=day`** — `{ date, totalSeconds, byClient }`
+      and nothing else, for the Activity strip. The existing endpoint already
+      buckets by local day server-side, which is the DST-correct grouping a
+      heatmap needs and the reason not to build a second one — but it returns
+      full entries, and twelve weeks of those is a heavy payload to draw one
+      rectangle per day.
+
+- [ ] **Home cards** — Needs attention, Unbilled, Pace, Activity, in that
+      order: money at risk, money waiting, money coming, texture. Spec and
+      rejections in `docs/design/home.md`. Constraints worth restating: the
+      heatmap is never green, no card carries the accent, Needs attention
+      renders only when non-empty and cannot be hidden, and nothing on the
+      screen writes.
+
+- [ ] **`home_cards` JSONB on `user_settings`** — card order and visibility.
       Validated by Zod at the API boundary rather than a check constraint, so
       adding a card is not a migration. Decided; the one place in that table
       where a typed column does not fit.
 
-## Design decisions taken, not yet applied
 
 - [ ] **Projects page.** `/projects` API routes exist with no page; projects
       are only reachable through client dialogs. Everything else in the nav
@@ -87,7 +136,34 @@ feel permanent, it belongs in the roadmap or in the bin.
       key nobody reads. The same mapping is what the home screen's Activity
       heatmap will need, so whatever this becomes should be reusable.
 
-## Known rough edges
+## Needs a decision first
+
+Each of these names the question blocking it. Answer the question, then it
+moves up — do not start one by guessing the answer.
+
+- [ ] **Week-over-week deltas.** *Question: what threshold makes it fire
+      rarely enough to be worth reading?* On lumpy contract work a 40% drop
+      usually means a client's sprint ended, and a delta that is noise most
+      weeks trains you to ignore the one week it is real. Compared against a
+      **4-week median** and suppressed below a threshold it could mean
+      something — but the threshold is empirical and needs real data. If it
+      ships it is a line inside Pace, not a card.
+
+- [ ] **Time-of-day heatmap.** *Question: does the billable/unbillable split
+      actually vary by hour enough to see, on a real dataset?* Plain volume by
+      hour is interesting and changes nothing — the calendar week already
+      shows that shape. Crossed with billability it might yield "your
+      unbillable time clusters between 9 and 11am", which is actionable. If
+      admin turns out to be scattered evenly through the day, the card has
+      nothing to say and should not ship. Check before building.
+
+- [ ] **Realtime cross-device updates.** *Question: is the 60s reconcile
+      actually annoying in practice?* `architecture.md` notes Supabase
+      Realtime can drop in later with no API change. Local tick plus
+      reconcile-on-focus may well be enough; adding a persistent subscription
+      to find out costs the cheap hosting posture.
+
+## Rough edges
 
 - [ ] **No test covers the bearer-token auth path.** It shipped broken —
       `getClaims()` needs the token passed explicitly — and nothing caught it
@@ -106,16 +182,71 @@ feel permanent, it belongs in the roadmap or in the bin.
       requests are validated against a second copy of the truth. Response
       types now derive; requests do not.
 
-## Deferred with a reason
+## Deferred
 
 - **Branch protection** — needs GitHub Pro on a private repo. CI runs without
   enforcement by choice.
 - **CodeQL** — dormant until the repo is public; Advanced Security is not
   available on private repos.
-- **Toggl import** — thought through in `docs/roadmap.md`. Wait until Stint
-  has been used for real billing for a couple of weeks: importing two years of
-  history into a tracker whose rough edges are undiscovered means finding them
-  with real data inside.
+- **Toggl import** — waiting on Stint having been used for real billing for a
+  few weeks. Importing two years of history into a tracker whose rough edges
+  are undiscovered means finding them with real data inside.
+
+  Why it matters: Toggl is where a new user's history already lives, and a
+  contractor with two years in it cannot adopt Stint if adopting means
+  abandoning the invoices, the annual totals and the "what did I bill them
+  last spring" lookups. Without an import the switching cost is the real
+  competitor, not Toggl's feature set.
+
+  The model maps cleanly because ours is a subset — client → `clients`,
+  project → `projects` (no client → `client_id = null`, already how unbilled
+  work is modelled), entry → `time_entries` with `description` → `task_name`.
+  Tags are **dropped**: there is no tag concept here and adding one to serve
+  an import imports Toggl's scope along with its data. Toggl "tasks" flatten
+  into `task_name`; workspaces do not apply.
+
+  Four parts are actually hard, and each is a decision already made:
+
+  - **Overlaps violate the timer invariant.** Toggl permits overlapping
+    entries; a real export will contain them. This must NOT be resolved by
+    silently adjusting timestamps — the app does not quietly change a record
+    of billable work. Import everything unambiguous, then present the
+    conflicting set as a review step. Import happens once in a lifetime, so a
+    review step is cheap; a wrong hour inside a past invoice is not.
+  - **Rates are not in the export, and `0` is a real rate.** The CSV carries
+    an amount per entry, not the hierarchy that produced it. Back-computing
+    rate from amount ÷ duration gives rounding noise and is simply wrong for
+    anything billed flat. Imported entries resolve through the normal
+    hierarchy; those that cannot surface as unrated, the same state invoicing
+    already refuses to generate from. Never infer a rate, never write a
+    guessed one to `rate_override`.
+  - **Idempotency.** Derive a stable UUIDv7 per source entry so re-running a
+    partial or interrupted import cannot duplicate anything. Re-importing the
+    same file must be a no-op, not a second copy of the year.
+  - **Timestamps and DST.** Toggl exports wall-clock local time plus a
+    separate timezone field. Parse to an absolute instant and store UTC —
+    never fixed-millisecond arithmetic, the same trap as the calendar.
+
+  Durations are derived here (`duration_seconds` is generated), so the import
+  writes `started_at`/`ended_at` and never a duration; where Toggl's own
+  reported duration disagrees with its start/end pair, surface the
+  disagreement rather than picking a winner.
+
+  Shape: a **file upload**, not an API integration — the CSV/JSON export is
+  stable, needs no OAuth app or stored third-party credential, and keeps
+  working if their API changes. Parsing belongs in `packages/core` as pure
+  functions over parsed rows, so the preview a user reviews and the rows that
+  get written come from identical code, for the same reason invoice line-item
+  construction lives there.
+
+  **Out of scope, deliberately:** no live Toggl sync (two systems of record
+  for the same hours is how you get two different invoices for the same week —
+  the user is leaving Toggl, not running both), and no invoice import
+  (issued invoices are immutable records with frozen rates and gapless
+  numbering owned by `allocate_invoice_number()`; injecting foreign invoices
+  corrupts the one guarantee numbering provides — historical invoices stay
+  where they were issued, and entries already billed in Toggl import as
+  non-billable or pre-marked so they cannot be billed twice).
 - **macOS menu bar app** — `/summary` was built for it. The largest unbuilt
   surface and the one that would most change daily use.
 - **Expo app** — last by design; reuses the most.

@@ -365,6 +365,13 @@ visible — which is what fraud-prevention guidance tells payers to challenge.
 
 ## Docs
 
+**`docs/tasks.md` is the only list of unbuilt work.** There is no roadmap file;
+two lists means one is stale and you cannot tell which. A finished task is
+**deleted**, not ticked — git records what shipped and this file records why,
+so a list of completed work is a changelog nobody maintains. Something decided
+*against* is also deleted, with the refusal moved to
+`docs/design/principles.md` where it will be read before being re-proposed.
+
 `docs/api.md` marks unimplemented endpoints **(not implemented)** — there are
 none right now. Keep that honest: the audit that produced this section found
 docs describing planned work as built, which is worse than no docs.
