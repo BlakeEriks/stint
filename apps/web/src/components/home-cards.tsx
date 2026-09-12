@@ -163,7 +163,7 @@ export function HomeCards() {
  * SaveIndicator problem — a check that is always present says nothing — and
  * the card's absence is the good news.
  */
-export function NeedsAttention({ stats }: { stats: Stats }) {
+function NeedsAttention({ stats }: { stats: Stats }) {
   const { overdueInvoices, staleDrafts, unprojected } = stats.attention;
   const setStatus = useStatusAction();
   const count =

@@ -3,24 +3,22 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
 import { useTimeZone } from '@/lib/client/use-timer';
-import { NeedsAttention } from './home-cards';
+import { Inbox } from './inbox';
 
 /**
  * The right-hand column, on wide viewports only.
  *
- * It exists for one reason today: **Needs attention needed a fixed region.**
- * The card renders only when something is wrong and vanishes when you fix it,
- * which on Home meant the page reflowing at the moment of success. In a
- * 280px dock the card appearing or clearing moves only what is beneath it in
- * its own column, and the content column does not move at all.
+ * It exists to give the inbox a fixed region. As a card on Home that content
+ * appeared only when something was wrong and vanished when you fixed it, so
+ * the page reflowed at the moment of success and the section was somewhere
+ * you could not reliably find. Here it is furniture: always present, empty
+ * when there is nothing, and visible from every route rather than only from
+ * Home — an invoice going overdue while you were on Clients previously said
+ * nothing until you navigated back.
  *
- * It also makes the card *reachable*. On Home it was visible only from Home —
- * an invoice going overdue while you were on Clients or Calendar said nothing
- * until you happened to navigate back.
- *
- * **Deliberately holding one card.** The point of a persistent column is to
- * find out whether 280px permanently spent is worth it, and that question is
- * answerable with the card that has the real placement problem. Filling it
+ * **Deliberately holding one section.** The point of a persistent column is
+ * to find out whether 280px permanently spent is worth it, and that is
+ * answerable with the content that had the real placement problem. Filling it
  * first would make the answer unmeasurable.
  *
  * **What does not belong here.** Pace is a monthly reading checked a few
@@ -43,9 +41,16 @@ export function Dock() {
   return (
     <aside
       aria-label="At a glance"
-      className="hidden w-[280px] flex-none overflow-y-auto border-l border-edge-subtle p-4 xl:block"
+      /* `bg-surface-recessed`, the same surface as the header, rail and timer
+         bar. All four perimeter elements are one enclosure — the header and
+         bar are its top and bottom edges, the rail and dock its sides — so
+         tiering them into separate tones would say they are different kinds
+         of thing when they are not. The one distinction that carries meaning
+         is chrome against content, and that is the step from recessed to
+         base. */
+      className="hidden w-[280px] flex-none overflow-y-auto border-l border-edge-subtle bg-surface-recessed p-4 xl:block"
     >
-      {data ? <NeedsAttention stats={data} /> : null}
+      {data ? <Inbox stats={data} /> : null}
     </aside>
   );
 }

@@ -166,14 +166,52 @@ vibrancy is wanted.
 
 ## Usage discipline
 
-1. **The accent appears in one place at a time: the running timer.** Not
-   navigation, not secondary buttons, not links. Scarcity is what makes green
-   read as a signal, and it is the entire differentiation from Toggl's
-   everywhere-magenta.
-2. Green never means success.
-3. Timer state is reinforced by form and motion, not color alone.
-4. **Only semantic tokens reach components.** Primitives stay in the token
+**One meaning, not one instance.** The accent carries a single idea —
+*this is the live, primary thing here* — and it may appear as many times on a
+screen as that idea genuinely occurs. What is forbidden is the accent meaning
+several different things at once, which is when it stops being a signal and
+becomes decoration.
+
+This rule used to read "the accent appears in one place at a time: the running
+timer", and it was too strict to be useful. It was written against Toggl's
+everywhere-magenta, but it mistook the failure: Toggl's problem is not the
+quantity of magenta, it is that magenta marks navigation, buttons, links and
+brand simultaneously, so it tells you nothing about any of them. Spotify's
+green is on the play button, the shuffle toggle, the saved ticks, the download
+arrow and the now-playing indicator all at once, and it still reads clean —
+because every one of them means *yours / active*.
+
+So the test is not "how many green things are on this screen?" It is:
+
+> **Could a user state, in one short phrase, what green means here — and would
+> that phrase be true of every green thing in view?**
+
+If yes, the count does not matter. If it takes two phrases, one of them has to
+lose the accent.
+
+1. **Green means the live, primary thing.** In the app that is the running
+   timer, and the timer is usually the only such thing, so in practice the app
+   stays sparse. That is an outcome, not a quota.
+2. **Green never means success.** Success is an outcome channel (cyan, h215)
+   and it is a different idea from "live right now" — see above.
+3. **Never spend it on something constant and involuntary.** Focus rings stay
+   neutral: a ring that is always present cannot be a signal, and it would
+   drown the thing that is.
+4. Timer state is reinforced by form and motion, not color alone.
+5. **Only semantic tokens reach components.** Primitives stay in the token
    package.
+
+### On the landing page
+
+The marketing page reads the same rule with one meaning of its own: green is
+*what Stint does for you*. It is on the three ticked promises and on the CTA,
+and those are one idea — the product's job, and the button that starts it. The
+running timer in the hero is green for the in-app reason and does not conflict,
+because "the live primary thing" and "what the product does" collapse into the
+same claim on a page whose whole argument is that the product does one thing.
+
+What would break it there: green on a section heading, a link, a border, or a
+decorative flourish. Those are not the meaning; they are just green.
 
 
 ## Elevation
@@ -244,6 +282,22 @@ lives in three steps. Pin the surfaces; leave the curve alone.
 
 `100` and `200` are pinned only to keep the ramp monotonic, since the spread
 lifts `50` past where the curve was putting them.
+
+## The frame is one tone
+
+Header, nav rail, right dock and timer bar all sit on `bg-recessed`. They are
+the four edges of one enclosure — the header and bar its top and bottom, the
+rail and dock its sides — so tiering them into separate tones would say they
+are different kinds of thing when they are not.
+
+**A three-tier perimeter was modelled and rejected.** Bars darkest, docks
+mid, content lightest works out to ΔL 0.015 per step, and the gap that fixed
+the flatness (`bg-base` → `bg-elevated`) is **0.105** — seven times larger.
+At 0.015 the tiers read as uneven dark rather than deliberate layering, which
+is the flatness problem in a new costume.
+
+The one distinction that carries meaning is chrome against content, and that
+is the step from `bg-recessed` to `bg-base`.
 
 ## The rail is recessed
 

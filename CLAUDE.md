@@ -20,17 +20,27 @@ system — silent correction destroys trust in every number it reports.
 **Server owns timer truth; clients own responsiveness.** A running timer ticks
 locally from `startedAt`, but the server decides whether it is running.
 
-**The accent (green `#52FC43`) marks the primary action on a screen, and
-inside the app that is the running timer.** At most one accent *meaning* in
-view. Not navigation, not secondary buttons, not links, never decoration.
-On a screen with no timer (sign-in, an empty state), the one thing the user
-came to do may carry it. Green never means success — success is cyan
-`#2CCCEB`.
+**The accent (green `#52FC43`) marks the live, primary thing on a screen, and
+inside the app that is the running timer.** Not navigation, not secondary
+buttons, not links, never decoration. Green never means success — success is
+cyan `#2CCCEB`.
 
-The nav readout (`nav-timer.tsx`) is green on every screen including the
-timer screen, where the hero is also green. Both are the same fact, so they
-reinforce; the rule forbids green meaning several different things at once,
-not one thing shown twice.
+**The constraint is on meanings, not instances.** Green may appear as many
+times as that one idea genuinely occurs. The test: could a user say in one
+short phrase what green means on this screen, and would it be true of every
+green thing in view? If it takes two phrases, one of them loses the accent.
+So the nav readout and the hero timer are both green (same fact, shown twice —
+fine), and the landing page's three ticks plus its CTA are green (all of them
+"what Stint does for you" — also fine), while a green link beside a green
+timer is not.
+
+This replaces an earlier "at most one accent element in view" rule, which was
+too strict and misdiagnosed its own example: Toggl's magenta fails because it
+marks nav, buttons, links and brand at once, not because there is a lot of it.
+Spotify's green is on play, shuffle, saved, download and now-playing
+simultaneously and stays legible, because all of them mean *yours / active*.
+The app remains sparse in practice — there is usually only one live primary
+thing — but that is an outcome, not a quota. See `docs/design/color.md`.
 
 **Never white text on the accent** — 1.37:1. Use `--text-on-accent`. CI guards
 this specific regression.
@@ -399,6 +409,115 @@ docs describing planned work as built, which is worse than no docs.
 removed as unused. `docs/architecture.md` records why, and why a sync engine
 still would not be the answer if offline ever comes back.
 
+## Two sites, one deployment
+
+The marketing page and the product are split by **hostname**, decided in
+`apps/web/src/proxy.ts` — `proxy.ts`, not `middleware.ts`, because the
+middleware convention is deprecated in Next 16 and renamed.
+
+    trackwithstint.com      -> app/landing/page.tsx   (rewritten, not redirected)
+    app.trackwithstint.com  -> app/(app)/**
+
+**The app lives at the root of its own origin, so its URLs carry no segment.**
+`/invoices/…`, never `/app/invoices/…`. A `/app` path segment was tried first
+and rejected: under a `.app` TLD it read as a stutter, and in the source tree
+it produced `src/app/app/`. The subdomain removes the segment rather than
+renaming it.
+
+The apex `/` is **rewritten**, so the visitor keeps the bare domain in the
+address bar and the first impression costs no extra round trip. Any other apex
+path **redirects** to the subdomain, so an old link still arrives.
+
+Consequences worth knowing:
+
+- **The landing page is fully static.** The session cookie belongs to the app
+  subdomain, so the pitch never reads one and never renders per-request. Do not
+  add a session check to it — that was there in the first draft and the split
+  is what made it unnecessary.
+- **Cross-origin links are plain `<a>`, not `next/link`.** `next/link` would
+  try to route a subdomain jump client-side within the current origin. The CTA
+  and the Sign in link both point at `NEXT_PUBLIC_APP_ORIGIN`.
+- **Locally, bare `localhost` is the app**, so `pnpm dev` is unchanged. Any
+  other `*.localhost` is the apex — `http://stint.localhost:3100` previews the
+  landing page with no hosts-file entry, because browsers resolve every
+  `*.localhost` name on their own.
+- `isAppHost()` treats `*.vercel.app` as the app, so a preview deployment lands
+  somewhere useful rather than on the pitch.
+
+### The landing page
+
+`app/landing/page.tsx`. The full specification — strategy, verbatim copy, the
+banned-words list and the build notes — is `docs/design/landing.html`, written
+in the app's own design system so it doubles as the visual reference. Two rules
+the page must keep:
+
+**The accent appears on exactly two objects: the hero timer and the CTA.** They
+are the same fact (start tracking / time accruing), which is what the scarcity
+rule permits. Nothing else on the page is green — the unbilled card, the
+invoice and every heading are neutral.
+
+### The hero is the scope
+
+Three ticked lines for what it does — **Track hours. Send invoices. Get
+paid.** — then four struck-through lines for what it refuses, then the price.
+The refusal used to be a clause buried in a subhead paragraph, which is where
+the single most differentiating sentence on the page went unread.
+
+**The struck items are muted and struck, never red.** Red is this app's danger
+channel — it means something is wrong — and a stack of red marks reads as
+"this product is broken" for the half-second before it parses. Grey plus a
+line through it reads as *deliberately not included*, which is the proud
+version of the same fact.
+
+**The ticks are the accent.** On this page green means *what Stint does for
+you*, and the ticks, the CTA and the hero timer are all that one idea — which
+is what the meanings-not-instances rule asks for. They were cyan
+(`text-success`) first; green ties the left column to the timer panel on the
+right, which cyan did not, and the ticks read as a single object because they
+sit in a tight vertical column.
+
+What would break it: green on a section heading, a link, a border or a
+flourish. Those are not the meaning, they are just green.
+
+**The `<h1>` carries an `sr-only` sentence** covering both lists, because a
+screen reader hitting "Track hours. Send invoices. Get paid." followed by four
+struck words has no way to know the second list is negated — `line-through` is
+presentational and is not announced. The visible ✗ list is `aria-hidden` so it
+is not read twice.
+
+**Free gets its own block with a rule, not a card.** A card there would
+compete with the timer panel beside it.
+
+An earlier headline set "That's it." in mono with a drawn rule under it. It is
+gone, but two findings from it stand: a coloured rule under headline text wins
+the screen away from the CTA, and an `underline` in a headline reads as a
+link — draw a rule instead if one is ever wanted again.
+
+**The invoice preview renders its total in near-black, not the light-theme
+accent.** The real PDF uses `#1D7815` there, which is right on paper; on this
+page it would put a second green meaning beside the CTA.
+
+`SHOW_PLATFORMS` gates the "everywhere you work" section. It is **false** until
+the macOS and mobile apps actually ship — the section claims something a
+visitor can falsify by going looking for a download, which is a trust failure
+on the same axis as silently editing someone's hours.
+
+**No real personal data in the examples.** The invoice preview is billed from
+"Your name here / you@yourdomain.com". It shipped once with a real name and
+email on it, on a public page that also renders bank-detail labels. Sample
+rows are for showing the shape, and a name is not part of the shape.
+
+**Sections are full-bleed; `Container` holds the measure inside them.** That is
+what lets a section carry `bg-surface-recessed` edge to edge — the page gets
+its rhythm from alternating ground, not from rules or gaps. The first draft was
+one `max-w-3xl` column for the whole page and read as a document with 60% of a
+1280px screen empty beside it.
+
+**Every grid needs an explicit `grid-cols-[minmax(0,1fr)]`, including at the
+single-column breakpoint.** A grid item defaults to `min-width: auto`, so on a
+phone the timer card's intrinsic width set the column and the whole page
+scrolled sideways. The `lg:` two-column track is not enough on its own.
+
 ## Web UI
 
 Tailwind 4. Semantic tokens are registered in `@theme` by the token
@@ -641,9 +760,21 @@ fixed around them — they are why the screen is opened fifty times a day.
   case deliberately. Its coalesce chain must stay identical to
   `resolve_entry_rate`, or the home screen and an invoice preview will
   disagree about the same work.
-- **Needs attention renders only when it has rows.** A permanent "all clear"
-  card is the `SaveIndicator` problem — a check that is always present says
-  nothing — and the card's absence is the good news.
+- **This content is now the Inbox, in the dock, and it is ALWAYS present.**
+  It used to be a "Needs attention" card that rendered only when it had rows,
+  on the argument that a permanent "all clear" is the `SaveIndicator` problem
+  — a check that is always present says nothing.
+
+  **That was wrong, and the rule does not transfer.** A `SaveIndicator` is
+  transient and sits inline with a form, so always-present really does mean
+  always-ignored. A dock region is *furniture*: staying put is the entire
+  point, a section that vanishes leaves the user wondering where it went, and
+  "Nothing needs you" is information rather than noise. The card also reflowed
+  the page at the exact moment you fixed something.
+
+  The rename follows from that. "Needs attention" is a predicate and suited a
+  thing that appeared only when the predicate held; an inbox is a place, and
+  this is now a place. See `apps/web/src/components/inbox.tsx`.
 - **Pace hides entirely with no target**, rather than showing an empty bar
   that asks to be configured. It measures against **business days elapsed**:
   a 120-hour target is six hours a working day, and reading "behind" on a
