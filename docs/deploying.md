@@ -44,6 +44,11 @@ build has to run from the root so pnpm can link the workspace packages, and
 `apps/web`'s `prebuild` generates the design tokens that `dist/` does not
 carry into a clone.
 
+It deliberately sets **no `outputDirectory`** — Vercel's Next.js detection
+finds `apps/web/.next` on its own, and naming it explicitly made the path
+resolve twice (`apps/web/apps/web/.next`) and failed a build that had
+otherwise succeeded.
+
 Still set in the dashboard:
 - Environment variables (Production and Preview):
   - `NEXT_PUBLIC_SUPABASE_URL`
