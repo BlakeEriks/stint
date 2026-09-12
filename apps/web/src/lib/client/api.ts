@@ -210,11 +210,13 @@ export const api = {
 
   deleteEntry: (id: string) => request<void>('DELETE', `/entries/${id}`),
 
-  projects: (opts: { includeArchived?: boolean } = {}) =>
-    request<{ projects: Project[] }>(
-      'GET',
-      `/projects${opts.includeArchived ? '?includeArchived=true' : ''}`,
-    ),
+  projects: (opts: { includeArchived?: boolean; clientId?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.includeArchived) q.set('includeArchived', 'true');
+    if (opts.clientId) q.set('clientId', opts.clientId);
+    const query = q.size > 0 ? `?${q}` : '';
+    return request<{ projects: Project[] }>('GET', `/projects${query}`);
+  },
 
   createProject: (body: ProjectInput) =>
     request<Project>('POST', '/projects', body),

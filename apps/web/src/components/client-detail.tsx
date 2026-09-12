@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/client/api';
 import { Page } from './page';
+import { ClientProjects } from './client-projects';
 
 const usd = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -101,6 +102,8 @@ export function ClientDetail({ id }: { id: string }) {
           Archived. Past invoices still reference this client.
         </p>
       ) : null}
+
+      <ClientProjects client={client} />
     </Shell>
   );
 }
