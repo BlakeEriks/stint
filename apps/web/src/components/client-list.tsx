@@ -25,9 +25,7 @@ export function ClientList() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
       <header className="flex items-center justify-between gap-3 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-strong">
-          Clients
-        </h1>
+        <h1 className="type-title text-strong">Clients</h1>
         <Button asChild>
           <Link href="/clients/new">Add client</Link>
         </Button>
@@ -56,7 +54,7 @@ export function ClientList() {
       <button
         type="button"
         onClick={() => setShowArchived((v) => !v)}
-        className="mt-3 px-1 font-mono text-[11px] uppercase tracking-[0.14em]
+        className="mt-3 px-1 type-label
                    text-subtle hover:text-muted"
       >
         {showArchived ? 'Hide archived' : 'Show archived'}
@@ -78,24 +76,24 @@ function Row({ client }: { client: Client }) {
         style={{ background: client.color ?? 'var(--text-subtle)' }}
       />
 
-      <span className="min-w-0 flex-1 truncate text-[14.5px] text-primary">
+      <span className="min-w-0 flex-1 truncate type-control text-primary">
         {client.name}
       </span>
 
       {client.archivedAt ? (
         <span
           className="flex-none rounded border border-edge-default px-1.5 py-px
-                         font-mono text-[9.5px] uppercase tracking-wider text-subtle"
+                         type-badge text-subtle"
         >
           Archived
         </span>
       ) : null}
 
-      <span className="hidden min-w-0 flex-1 truncate font-mono text-[11.5px] text-muted sm:block">
+      <span className="hidden min-w-0 flex-1 truncate type-meta text-muted sm:block">
         {client.email ?? ''}
       </span>
 
-      <span className="tabular w-24 flex-none text-right font-mono text-[13px] text-muted">
+      <span className="w-24 flex-none text-right type-duration text-muted">
         {client.hourlyRate != null ? `${usd.format(client.hourlyRate)}/h` : '—'}
       </span>
     </Link>
@@ -104,7 +102,7 @@ function Row({ client }: { client: Client }) {
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-4 py-10 text-center text-[13.5px] text-subtle">
+    <p className="px-4 py-10 text-center type-support text-subtle">
       {children}
     </p>
   );

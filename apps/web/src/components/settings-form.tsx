@@ -48,7 +48,7 @@ export function SettingsForm() {
   const numbering = useAutosave(persist);
 
   if (isLoading || !form) {
-    return <p className="text-[13.5px] text-subtle">Loading…</p>;
+    return <p className="type-support text-subtle">Loading…</p>;
   }
 
   /** Update local state, then schedule that card's save with the new value. */
@@ -203,7 +203,7 @@ export function SettingsForm() {
             hint="Set by the system so numbering stays gapless."
             className="flex-1 basis-40"
           >
-            <p className="tabular flex h-9 items-center font-mono text-[14px] text-muted">
+            <p className="flex h-9 items-center type-duration text-muted">
               {data?.nextInvoiceNumber ?? '—'}
             </p>
           </Field>

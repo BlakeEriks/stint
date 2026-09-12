@@ -39,13 +39,13 @@ export function InvoiceDetail({ id }: { id: string }) {
   if (isLoading)
     return (
       <Shell>
-        <p className="text-[13.5px] text-subtle">Loading…</p>
+        <p className="type-support text-subtle">Loading…</p>
       </Shell>
     );
   if (!data)
     return (
       <Shell>
-        <p className="text-[13.5px] text-subtle">Not found.</p>
+        <p className="type-support text-subtle">Not found.</p>
       </Shell>
     );
 
@@ -58,12 +58,12 @@ export function InvoiceDetail({ id }: { id: string }) {
       <header className="flex flex-wrap items-start justify-between gap-3 pb-6">
         <div className="min-w-0">
           <div className="flex items-center gap-2.5">
-            <h1 className="truncate text-2xl font-semibold tracking-tight text-strong">
+            <h1 className="truncate type-title text-strong">
               {invoice.invoiceNumber}
             </h1>
             <StatusBadge status={invoice.status} />
           </div>
-          <p className="mt-1 text-[14px] text-muted">
+          <p className="mt-1 type-control text-muted">
             {client.name} · {shortDate(invoice.periodStart)} –{' '}
             {shortDate(invoice.periodEnd)}
           </p>
@@ -89,7 +89,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 
       <Section title="Lines">
         <div className="overflow-x-auto">
-          <table className="w-full text-[13.5px]">
+          <table className="w-full type-support">
             <thead>
               <tr className="border-b border-edge-subtle text-left">
                 <th scope="col" className={TH}>
@@ -113,13 +113,13 @@ export function InvoiceDetail({ id }: { id: string }) {
                   className="border-b border-edge-subtle last:border-0"
                 >
                   <td className="py-2 pr-3 text-primary">{item.description}</td>
-                  <td className="tabular py-2 pl-3 text-right font-mono text-muted">
+                  <td className="type-duration py-2 pl-3 text-right text-muted">
                     {item.quantityHours.toFixed(2)}
                   </td>
-                  <td className="tabular py-2 pl-3 text-right font-mono text-muted">
+                  <td className="type-duration py-2 pl-3 text-right text-muted">
                     {money(item.resolvedRate, invoice.currency)}
                   </td>
-                  <td className="tabular py-2 pl-3 text-right font-mono text-strong">
+                  <td className="type-duration py-2 pl-3 text-right text-strong">
                     {money(item.amount, invoice.currency)}
                   </td>
                 </tr>
@@ -128,7 +128,7 @@ export function InvoiceDetail({ id }: { id: string }) {
           </table>
         </div>
 
-        <dl className="ml-auto flex w-full max-w-[16rem] flex-col gap-1 text-[13.5px]">
+        <dl className="ml-auto flex w-full max-w-[16rem] flex-col gap-1 type-support">
           <Row
             label="Subtotal"
             value={money(invoice.subtotal, invoice.currency)}
@@ -146,7 +146,7 @@ export function InvoiceDetail({ id }: { id: string }) {
           />
         </dl>
 
-        <p className="text-[12px] text-subtle">
+        <p className="type-support text-subtle">
           Rates are frozen at generation — editing a client or project later
           never changes this invoice.
         </p>
@@ -197,7 +197,7 @@ export function InvoiceDetail({ id }: { id: string }) {
           </div>
 
           {setStatus.error || remove.error ? (
-            <p role="alert" className="text-[13px] text-danger">
+            <p role="alert" className="type-support text-danger">
               {(setStatus.error ?? remove.error) instanceof ApiError
                 ? (setStatus.error ?? remove.error)!.message
                 : 'That change was rejected.'}
@@ -209,8 +209,7 @@ export function InvoiceDetail({ id }: { id: string }) {
   );
 }
 
-const TH =
-  'pb-2 font-mono text-[10px] font-normal uppercase tracking-[0.14em] text-subtle';
+const TH = 'pb-2 type-label text-subtle';
 
 function statusHint(status: InvoiceStatus): string {
   if (status === 'draft')
@@ -225,7 +224,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
       <Link
         href="/invoices"
-        className="font-mono text-[11px] uppercase tracking-[0.14em] text-subtle hover:text-muted"
+        className="type-label text-subtle hover:text-muted"
       >
         ← Invoices
       </Link>
@@ -251,7 +250,7 @@ function Row({
     >
       <dt className={strong ? 'text-primary' : 'text-muted'}>{label}</dt>
       <dd
-        className={`tabular font-mono ${strong ? 'text-[15px] text-strong' : 'text-muted'}`}
+        className={`${strong ? 'type-amount text-strong' : 'type-duration text-muted'}`}
       >
         {value}
       </dd>

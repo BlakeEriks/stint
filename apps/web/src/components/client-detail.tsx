@@ -31,14 +31,14 @@ export function ClientDetail({ id }: { id: string }) {
   if (isLoading) {
     return (
       <Shell>
-        <p className="text-[13.5px] text-subtle">Loading…</p>
+        <p className="type-support text-subtle">Loading…</p>
       </Shell>
     );
   }
   if (!client) {
     return (
       <Shell>
-        <p className="text-[13.5px] text-subtle">Not found.</p>
+        <p className="type-support text-subtle">Not found.</p>
       </Shell>
     );
   }
@@ -52,9 +52,7 @@ export function ClientDetail({ id }: { id: string }) {
             className="size-3 flex-none rounded-[3px]"
             style={{ background: client.color ?? 'var(--text-subtle)' }}
           />
-          <h1 className="truncate text-2xl font-semibold tracking-tight text-strong">
-            {client.name}
-          </h1>
+          <h1 className="truncate type-title text-strong">{client.name}</h1>
         </div>
 
         <div className="flex flex-none gap-2">
@@ -98,7 +96,7 @@ export function ClientDetail({ id }: { id: string }) {
       </dl>
 
       {client.archivedAt ? (
-        <p className="mt-4 text-[13px] text-muted">
+        <p className="mt-4 type-support text-muted">
           Archived. Past invoices still reference this client.
         </p>
       ) : null}
@@ -111,7 +109,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
       <Link
         href="/clients"
-        className="font-mono text-[11px] uppercase tracking-[0.14em] text-subtle
+        className="type-label text-subtle
                    hover:text-muted"
       >
         ← Clients
@@ -136,18 +134,16 @@ function Detail({
 }) {
   return (
     <div>
-      <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-subtle">
-        {label}
-      </dt>
+      <dt className="type-label text-subtle">{label}</dt>
       <dd
-        className={`mt-1 text-[14px] ${value ? 'text-primary' : 'text-subtle'} ${
-          mono ? 'tabular font-mono' : ''
+        className={`mt-1 type-control ${value ? 'text-primary' : 'text-subtle'} ${
+          mono ? 'type-duration' : ''
         } ${multiline ? 'whitespace-pre-line' : ''}`}
       >
         {value || 'Not set'}
       </dd>
       {hint && !value ? (
-        <p className="mt-0.5 text-[12px] text-subtle">{hint}</p>
+        <p className="mt-0.5 type-support text-subtle">{hint}</p>
       ) : null}
     </div>
   );

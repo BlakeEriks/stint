@@ -38,7 +38,7 @@ export function PaymentProfiles() {
       description="Printed on the invoice itself, never in an email — details that look the same every time make a change worth questioning."
     >
       {profiles.length === 0 ? (
-        <p className="text-[13.5px] text-subtle">
+        <p className="type-support text-subtle">
           No payment details yet. Invoices will render without a payment block.
         </p>
       ) : (
@@ -49,15 +49,15 @@ export function PaymentProfiles() {
               className="flex items-center gap-3 rounded-lg border border-edge-subtle px-3 py-2.5"
             >
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] text-primary">
+                <p className="truncate type-control text-primary">
                   {profile.name}
                   {profile.isDefault ? (
-                    <span className="ml-2 rounded border border-edge-default px-1.5 py-px font-mono text-[9.5px] uppercase tracking-wider text-subtle">
+                    <span className="ml-2 rounded border border-edge-default px-1.5 py-px type-badge text-subtle">
                       Default
                     </span>
                   ) : null}
                 </p>
-                <p className="tabular mt-0.5 truncate font-mono text-[11.5px] text-subtle">
+                <p className="mt-0.5 truncate type-meta text-subtle">
                   {summarize(profile)}
                 </p>
               </div>

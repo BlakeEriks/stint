@@ -19,20 +19,18 @@ export function EditClient({ id }: { id: string }) {
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
       <Link
         href={`/clients/${id}`}
-        className="font-mono text-[11px] uppercase tracking-[0.14em] text-subtle hover:text-muted"
+        className="type-label text-subtle hover:text-muted"
       >
         ← Back
       </Link>
-      <h1 className="mt-4 mb-6 text-2xl font-semibold tracking-tight text-strong">
-        Edit client
-      </h1>
+      <h1 className="mt-4 mb-6 type-title text-strong">Edit client</h1>
 
       {isLoading ? (
-        <p className="text-[13.5px] text-subtle">Loading…</p>
+        <p className="type-support text-subtle">Loading…</p>
       ) : client ? (
         <ClientForm existing={client} />
       ) : (
-        <p className="text-[13.5px] text-subtle">Not found.</p>
+        <p className="type-support text-subtle">Not found.</p>
       )}
     </main>
   );

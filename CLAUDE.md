@@ -338,6 +338,26 @@ the palette was derived for.
 Import the token CSS by **relative path**, not the package export — Tailwind
 does not follow package specifiers when collecting `@theme` values.
 
+### Typography comes from the scale
+
+**A component names a role (`type-amount`), never assembles one
+(`font-mono text-[15px]`).** Each role in `tokens.json` under `type.scale`
+generates a real Tailwind `@utility` carrying family, size, weight, tracking,
+case and tabular-nums together, so half a role cannot be applied. Colour stays
+separate: a role says how text is set, not what it means.
+
+Need something the scale lacks? Add a role, with a reason. `pnpm check:type`
+runs in CI and rejects arbitrary sizes, arbitrary or preset tracking, bare
+`font-mono`/`font-sans`, Tailwind's own font scale, and any `type-*` that is
+not a real role — that last one matters because a typo'd role compiles to **no
+CSS, no warning, exit 0**, the same silence that makes `detox` necessary.
+
+This is enforced because documenting it did not work: the scale was written
+down and the app still grew twelve arbitrary font sizes across twenty-five
+components, two pairs of which differed by 0.5px for no reason, while the
+documented timer and title roles went unapplied. See
+`docs/design/typography.md` for the roles and what each is for.
+
 ### Components
 
 `components/ui/` is **vendored shadcn**, rewritten to our tokens at install

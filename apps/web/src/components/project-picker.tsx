@@ -45,7 +45,7 @@ export function ProjectPicker({
         <DropdownMenuTrigger
           aria-label="Project"
           className="flex max-w-[10rem] flex-none items-center gap-1.5 rounded-md px-2 py-1
-                   font-mono text-[11.5px] text-muted outline-none
+                   type-meta text-muted outline-none
                    hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus"
         >
           {selected ? (
@@ -63,7 +63,7 @@ export function ProjectPicker({
           className="max-h-72 w-56 overflow-y-auto"
         >
           {projects.length === 0 ? (
-            <p className="px-3 py-2 text-[13px] text-subtle">
+            <p className="px-3 py-2 type-support text-subtle">
               No projects yet.
             </p>
           ) : null}

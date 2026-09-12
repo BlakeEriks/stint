@@ -27,7 +27,7 @@ export function NavTimer({ onTimerScreen }: { onTimerScreen: boolean }) {
       // <span> has no role, and screen readers ignore a label on it.
       <span
         role="status"
-        className="tabular font-mono text-[12px] text-subtle"
+        className="type-meta text-subtle"
         aria-label={`No timer running. ${formatClock(timer.todaySeconds)} logged today.`}
       >
         {formatClock(timer.todaySeconds)}
@@ -48,10 +48,8 @@ export function NavTimer({ onTimerScreen }: { onTimerScreen: boolean }) {
             : 'bg-accent-default motion-safe:animate-pulse'
         }`}
       />
-      <span className={`tabular font-mono text-[12px] ${tone}`}>
-        {formatClock(timer.seconds)}
-      </span>
-      <span className="hidden max-w-[12ch] truncate text-[12px] text-subtle md:inline">
+      <span className={`type-meta ${tone}`}>{formatClock(timer.seconds)}</span>
+      <span className="hidden max-w-[12ch] truncate type-support text-subtle md:inline">
         {timer.running.taskName || 'Untitled'}
       </span>
     </>

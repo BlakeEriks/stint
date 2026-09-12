@@ -64,6 +64,14 @@ jobs:
       - name: shadcn components use our tokens
         run: cd apps/web && node scripts/shadcn-detox.mjs --check 'src/components/ui/*.tsx'
 
+      # Typography comes from the scale, never assembled at the call site.
+      # Same silence as above: `text-[13.5px]` compiles happily and a typo'd
+      # `type-lable` compiles to nothing at all, so neither shows up as a
+      # build failure. The app had accumulated twelve arbitrary font sizes
+      # before this existed.
+      - name: Typography uses the scale
+        run: cd apps/web && pnpm check:type
+
       - name: Typecheck
         run: |
           npx tsc --noEmit -p tsconfig.json

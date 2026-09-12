@@ -10,6 +10,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "detox": "node scripts/shadcn-detox.mjs --check 'src/components/ui/*.tsx'",
+    "check:type": "node scripts/check-type-roles.mjs 'src/**/*.tsx'",
     "test": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/routes.test.ts test/invoices.test.ts",
     "test:ui": "vitest run",
     "sample:invoice": "node --experimental-strip-types scripts/render-sample-invoice.mjs",

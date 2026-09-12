@@ -97,13 +97,11 @@ export function NewInvoice() {
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
       <Link
         href="/invoices"
-        className="font-mono text-[11px] uppercase tracking-[0.14em] text-subtle hover:text-muted"
+        className="type-label text-subtle hover:text-muted"
       >
         ← Invoices
       </Link>
-      <h1 className="mt-4 mb-6 text-2xl font-semibold tracking-tight text-strong">
-        New invoice
-      </h1>
+      <h1 className="mt-4 mb-6 type-title text-strong">New invoice</h1>
 
       <div className="flex flex-col gap-4">
         <Section title="What to bill">
@@ -175,7 +173,7 @@ export function NewInvoice() {
           </div>
 
           {runPreview.error ? (
-            <p role="alert" className="text-[13px] text-danger">
+            <p role="alert" className="type-support text-danger">
               {runPreview.error instanceof ApiError
                 ? runPreview.error.message
                 : 'Could not build a preview.'}
@@ -217,7 +215,7 @@ export function NewInvoice() {
             </Section>
 
             {blocked ? (
-              <p role="alert" className="text-[13px] text-warning">
+              <p role="alert" className="type-support text-warning">
                 {preview.unratedEntryIds.length} entr
                 {preview.unratedEntryIds.length === 1 ? 'y has' : 'ies have'} no
                 rate. Set a rate on the client, the project, or your defaults
@@ -226,7 +224,7 @@ export function NewInvoice() {
             ) : null}
 
             {generate.error ? (
-              <p role="alert" className="text-[13px] text-danger">
+              <p role="alert" className="type-support text-danger">
                 {generate.error instanceof ApiError
                   ? generate.error.message
                   : 'Could not generate this invoice.'}
@@ -241,7 +239,7 @@ export function NewInvoice() {
               >
                 {generate.isPending ? 'Generating…' : 'Generate invoice'}
               </Button>
-              <p className="text-[12px] text-subtle">
+              <p className="type-support text-subtle">
                 Assigns a number and locks these entries. Voiding later keeps
                 the number on record.
               </p>
@@ -257,7 +255,7 @@ function PreviewTable({ preview }: { preview: InvoicePreview }) {
   if (preview.lineItems.length === 0) {
     return (
       <Section title="Nothing to bill">
-        <p className="text-[13.5px] text-subtle">
+        <p className="type-support text-subtle">
           No billable, un-invoiced time in this period. Running timers and
           non-billable entries never reach an invoice.
         </p>
@@ -273,7 +271,7 @@ function PreviewTable({ preview }: { preview: InvoicePreview }) {
       description="Nothing has been created yet."
     >
       <div className="overflow-x-auto">
-        <table className="w-full text-[13.5px]">
+        <table className="w-full type-support">
           <thead>
             <tr className="border-b border-edge-subtle text-left">
               <Th>Description</Th>
@@ -295,7 +293,7 @@ function PreviewTable({ preview }: { preview: InvoicePreview }) {
         </table>
       </div>
 
-      <dl className="ml-auto flex w-full max-w-[16rem] flex-col gap-1 text-[13.5px]">
+      <dl className="ml-auto flex w-full max-w-[16rem] flex-col gap-1 type-support">
         <Total
           label="Subtotal"
           value={money(preview.subtotal, preview.currency)}
@@ -326,7 +324,7 @@ function Th({
   return (
     <th
       scope="col"
-      className={`pb-2 font-mono text-[10px] font-normal uppercase tracking-[0.14em] text-subtle ${
+      className={`pb-2 type-label text-subtle ${
         align === 'right' ? 'text-right' : ''
       }`}
     >
@@ -344,7 +342,7 @@ function Td({
 }) {
   return (
     <td
-      className={`tabular py-2 pl-3 text-right font-mono ${
+      className={`type-duration py-2 pl-3 text-right ${
         strong ? 'text-strong' : 'text-muted'
       }`}
     >
@@ -370,7 +368,7 @@ function Total({
     >
       <dt className={strong ? 'text-primary' : 'text-muted'}>{label}</dt>
       <dd
-        className={`tabular font-mono ${strong ? 'text-[15px] text-strong' : 'text-muted'}`}
+        className={`${strong ? 'type-amount text-strong' : 'type-duration text-muted'}`}
       >
         {value}
       </dd>

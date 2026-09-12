@@ -76,7 +76,7 @@ export function TimerBar({ projects }: { projects: Project[] }) {
           }}
           placeholder="What are you working on?"
           aria-label="Task name"
-          className="order-last min-w-0 flex-1 basis-full bg-transparent text-[15px]
+          className="order-last min-w-0 flex-1 basis-full bg-transparent type-body
                      text-strong placeholder:text-subtle focus:outline-none
                      sm:order-none sm:basis-auto"
         />
@@ -96,7 +96,7 @@ export function TimerBar({ projects }: { projects: Project[] }) {
             away from the number it acts on. */}
         <div className="ml-auto flex flex-none items-center gap-3 sm:ml-0 sm:gap-4">
           <time
-            className={`tabular font-mono text-2xl font-medium tracking-tight sm:text-3xl
+            className={`type-timer
                         ${exceeded ? 'text-warning' : isRunning ? 'text-accent-default' : 'text-subtle'}`}
             aria-live="off"
           >
@@ -165,7 +165,7 @@ function StatusDot({
  */
 function RunawayNotice({ hours }: { hours: number }) {
   return (
-    <p className="border-t border-edge-subtle px-5 py-2.5 text-[13px] text-warning">
+    <p className="border-t border-edge-subtle px-5 py-2.5 type-support text-warning">
       This timer has run for {hours} hours. Stop it and adjust the duration if
       you left it going.
     </p>

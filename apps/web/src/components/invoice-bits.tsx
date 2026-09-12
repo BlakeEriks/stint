@@ -34,7 +34,7 @@ const TONE: Record<InvoiceStatus, string> = {
 export function StatusBadge({ status }: { status: InvoiceStatus }) {
   return (
     <span
-      className={`flex-none rounded border px-1.5 py-px font-mono text-[9.5px] uppercase tracking-wider ${TONE[status]}`}
+      className={`flex-none rounded border px-1.5 py-px type-badge ${TONE[status]}`}
     >
       {status}
     </span>

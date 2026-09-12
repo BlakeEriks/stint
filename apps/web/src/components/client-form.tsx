@@ -82,7 +82,7 @@ export function ClientForm({ existing }: { existing?: Client }) {
           onChange={(e) => setAddress(e.target.value)}
           placeholder={'123 Main St\nAustin, TX 78701'}
           className="w-full rounded-md border border-edge-default bg-transparent px-3 py-2
-                     text-[14px] text-strong placeholder:text-subtle outline-none
+                     type-control text-strong placeholder:text-subtle outline-none
                      focus-visible:border-edge-focus focus-visible:ring-[3px]
                      focus-visible:ring-edge-focus"
         />
@@ -126,7 +126,7 @@ export function ClientForm({ existing }: { existing?: Client }) {
       <ColorPicker value={color} onChange={setColor} />
 
       {save.error ? (
-        <p role="alert" className="text-[13px] text-danger">
+        <p role="alert" className="type-support text-danger">
           {save.error instanceof ApiError
             ? save.error.message
             : 'Could not save this client.'}
@@ -164,12 +164,12 @@ function Field({
 }) {
   return (
     <div className={`flex flex-col gap-1.5 ${className ?? ''}`}>
-      <Label className="font-mono text-[11px] uppercase tracking-[0.14em] text-subtle">
+      <Label className="type-label text-subtle">
         {label}
         {required ? <span aria-hidden> *</span> : null}
       </Label>
       {children}
-      {hint ? <p className="text-[12px] text-subtle">{hint}</p> : null}
+      {hint ? <p className="type-support text-subtle">{hint}</p> : null}
     </div>
   );
 }

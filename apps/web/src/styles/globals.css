@@ -31,11 +31,6 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Durations sit in columns and must not reflow as digits change. */
-  .tabular {
-    font-variant-numeric: tabular-nums;
-  }
-
   :focus-visible {
     outline: 2px solid var(--border-focus);
     outline-offset: 2px;

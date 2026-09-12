@@ -33,10 +33,8 @@ export function Calendar() {
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
       <header className="flex flex-wrap items-center justify-between gap-3 pb-4">
         <div className="flex items-baseline gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight text-strong">
-            {label}
-          </h1>
-          <span className="tabular font-mono text-[13px] text-muted">
+          <h1 className="type-title text-strong">{label}</h1>
+          <span className="type-duration text-muted">
             {formatClock(cal.weekSeconds)}
           </span>
         </div>
@@ -96,7 +94,7 @@ export function Calendar() {
                      so digits sit on the line at every position. `00` hangs
                      below its line instead of above it, or the scroll
                      container clips it. */
-                  className={`tabular absolute right-2 flex h-0 items-center font-mono text-[10px] leading-none text-subtle ${
+                  className={`absolute right-2 flex h-0 items-center type-meta leading-none text-subtle ${
                     h === 0 ? 'translate-y-1.5' : ''
                   }`}
                   style={{ top: `${(h / 24) * 100}%` }}
@@ -119,9 +117,9 @@ export function Calendar() {
       </div>
 
       {cal.isLoading ? (
-        <p className="mt-3 text-[13px] text-subtle">Loading…</p>
+        <p className="mt-3 type-support text-subtle">Loading…</p>
       ) : cal.weekSeconds === 0 ? (
-        <p className="mt-3 text-[13px] text-subtle">
+        <p className="mt-3 type-support text-subtle">
           Nothing logged this week.
         </p>
       ) : null}
@@ -158,15 +156,13 @@ function DayHeading({
 
   return (
     <div className="min-w-0 flex-1 px-1 py-2 text-center">
-      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
-        {weekday}
-      </div>
+      <div className="type-label text-subtle">{weekday}</div>
       <div
-        className={`text-[15px] ${today ? 'font-semibold text-strong' : 'text-primary'}`}
+        className={`type-body ${today ? 'font-semibold text-strong' : 'text-primary'}`}
       >
         {dayNum}
       </div>
-      <div className="tabular font-mono text-[10.5px] text-subtle">
+      <div className="type-meta text-subtle">
         {seconds > 0 ? formatCompact(seconds) : '—'}
       </div>
     </div>
@@ -250,11 +246,11 @@ function EntryBlock({
         borderLeft: project?.color ? `2.5px solid ${project.color}` : undefined,
       }}
     >
-      <p className="truncate text-[11px] leading-tight text-primary">
+      <p className="truncate type-support leading-tight text-primary">
         {entry.taskName || 'Untitled'}
       </p>
       {height > 0.045 ? (
-        <p className="tabular truncate font-mono text-[9.5px] text-subtle">
+        <p className="truncate type-meta text-subtle">
           {formatCompact(entry.durationSeconds ?? 0)}
         </p>
       ) : null}

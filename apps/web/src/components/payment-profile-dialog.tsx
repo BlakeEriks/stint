@@ -219,7 +219,7 @@ export function PaymentProfileDialog({
               type="button"
               onClick={() => setShowInternational((v) => !v)}
               aria-expanded={showInternational}
-              className="font-mono text-[11px] uppercase tracking-[0.14em] text-subtle hover:text-muted"
+              className="type-label text-subtle hover:text-muted"
             >
               {showInternational ? '− ' : '+ '}
               International details
@@ -343,7 +343,7 @@ export function PaymentProfileDialog({
           ) : null}
 
           {save.error ? (
-            <p role="alert" className="text-[13px] text-danger">
+            <p role="alert" className="type-support text-danger">
               {save.error instanceof ApiError
                 ? save.error.message
                 : 'Could not save these details.'}

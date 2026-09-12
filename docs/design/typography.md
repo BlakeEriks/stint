@@ -12,26 +12,86 @@ to `1:10:00` must not shift the layout.
 Plex Mono over the usual candidates because its digits stay open and legible at
 13px, which is the macOS menu bar size.
 
-## Scale
+## Everything lives in the scale
 
-| Role | Family | Size | Weight | Tracking | Notes |
+**A component names a role. It never assembles one.**
+
+```tsx
+<span className="type-amount text-strong">    ✅ a role
+<span className="font-mono text-[15px]">      ❌ a one-off
+```
+
+Each role in `type.scale` is generated as a real Tailwind `@utility`, so one
+class carries family, size, weight, tracking, case and tabular-nums together
+and a component cannot apply half of a role. Colour is still applied
+separately — a role says how text is set, not what it means.
+
+Need something the scale does not have? **Add a role, with a reason.** Never an
+arbitrary value at the call site.
+
+### Why this is enforced rather than documented
+
+This file used to document eight roles. The app had accumulated **twelve
+arbitrary font sizes across twenty-five components** anyway — including 13 and
+13.5 for the same job, 14 and 14.5 for another, a nav that used the label
+tracking at 0.14em while the scale said 0.16em, and page titles at 24px while
+the scale said 28. Neither the timer role nor the title role was applied
+anywhere.
+
+Nothing failed, because nothing checked. Tailwind emits `text-[13.5px]`
+happily, and a *typo'd* role is worse: `type-lable` compiles to no CSS, no
+warning, exit 0 — the same silence that makes `shadcn-detox` necessary for
+colour.
+
+So `pnpm check:type` runs in CI and rejects arbitrary sizes, arbitrary or
+preset tracking, bare `font-mono`/`font-sans`, Tailwind's own font scale, and
+any `type-*` that is not a real role. `src/components/ui/**` is exempt —
+vendored shadcn, policed by `shadcn-detox.mjs` instead.
+
+## The roles
+
+| Role | Family | Size | Weight | Tracking | For |
 |---|---|---|---|---|---|
-| Timer | mono | 30 | 500 | −0.02em | tabular; the hero element |
-| Page title | sans | 28 | 600 | −0.02em | |
-| Section | sans | 18 | 500 | | |
-| Body / entry | sans | 15 | 400 | | |
-| Duration, inline | mono | 14 | 400 | | tabular |
-| Meta | mono | 11.5 | 400 | | muted |
-| Label | mono | 11 | 500 | 0.16em | uppercase |
-| Menu bar | mono | 13 | 400 | | tabular |
+| `type-timer` | mono | 24 → 30 @sm | 500 | −0.02em | the hero readout; tabular |
+| `type-title` | sans | 24 | 600 | −0.025em | page title |
+| `type-section` | sans | 18 | 500 | | section heading |
+| `type-heading` | sans | 15 | 500 | | card heading |
+| `type-body` | sans | 15 | 400 | | primary text |
+| `type-control` | sans | 14 | 400 | | inputs, list rows |
+| `type-support` | sans | 13 | 400 | | helper text, errors, empty states |
+| `type-amount` | mono | 15 | 400 | | invoice totals; tabular |
+| `type-duration` | mono | 14 | 400 | | durations, rates, money cells; tabular |
+| `type-meta` | mono | 11.5 | 400 | | secondary numerics, timestamps; tabular |
+| `type-nav` | mono | 13 | 500 | 0.08em | navigation; uppercase |
+| `type-label` | mono | 11 | 500 | 0.16em | field labels, column heads; uppercase |
+| `type-badge` | mono | 9.5 | 400 | 0.08em | status pills; uppercase |
 
 Defined in `packages/design-tokens/tokens.json` under `type.scale`, so all
-three clients share one scale.
+three clients share one scale. Sizes stay in **px**: the scale was derived at
+specific pixel sizes for legibility, and `rem` would let a browser setting
+resize the timer hero out of its own layout.
+
+`type-timer` is the only role that steps at a breakpoint — 30px would force a
+horizontal scroll on a narrow phone. A component writing `sm:text-3xl` itself
+is exactly the one-off this replaces, so the step belongs to the role.
+
+### Notes on specific roles
+
+**`type-nav` exists because the label role was too small for it.** Navigation
+is scanned and clicked constantly; a field label is read once while filling a
+form. Both are uppercase mono, and they legitimately want different sizes —
+nav also takes *less* tracking, because 0.16em at 13px sprawls.
+
+Inactive nav items use `text-muted`, not `text-subtle`: on `bg-base` subtle is
+**3.14:1** and fails AA. This was a real bug, not a preference.
+
+**`type-section` is currently unused** — kept because the home screen's cards
+will want it. If it is still unused when that ships, delete it.
 
 ## Rules
 
-- Durations are **always** tabular mono. No exceptions.
+- Numbers are **always** a mono role. No exceptions.
 - Running text stays near 65 characters.
-- Uppercase labels always carry letter-spacing.
+- Uppercase roles always carry letter-spacing; it is part of the role.
 - Task names truncate with ellipsis rather than wrapping — an entry row is one
   line, which is what makes a dense list scannable.

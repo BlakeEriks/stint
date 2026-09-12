@@ -14,7 +14,7 @@ export function SaveIndicator({ state }: { state: SaveState }) {
     return (
       <span
         role="status"
-        className="flex items-center gap-1.5 text-[12px] text-danger"
+        className="flex items-center gap-1.5 type-support text-danger"
       >
         <svg viewBox="0 0 12 12" aria-hidden className="size-3 fill-current">
           <path d="M6 0a6 6 0 100 12A6 6 0 006 0zm.75 9h-1.5V7.5h1.5V9zm0-2.5h-1.5V3h1.5v3.5z" />

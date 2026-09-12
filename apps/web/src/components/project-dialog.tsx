@@ -122,7 +122,7 @@ export function ProjectDialog({
               value={clientId ?? ''}
               onChange={(e) => setClientId(e.target.value || null)}
               className="h-9 rounded-md border border-edge-default bg-transparent px-3
-                         text-[14px] text-strong outline-none
+                         type-control text-strong outline-none
                          focus-visible:border-edge-focus focus-visible:ring-[3px]
                          focus-visible:ring-edge-focus"
             >
@@ -153,7 +153,7 @@ export function ProjectDialog({
 
           <ColorPicker value={color} onChange={setColor} />
 
-          <label className="flex items-center gap-2.5 text-[14px] text-primary">
+          <label className="flex items-center gap-2.5 type-control text-primary">
             <input
               type="checkbox"
               checked={billable}
@@ -167,7 +167,7 @@ export function ProjectDialog({
           </label>
 
           {save.error ? (
-            <p role="alert" className="text-[13px] text-danger">
+            <p role="alert" className="type-support text-danger">
               {save.error instanceof ApiError
                 ? save.error.message
                 : 'Could not save this project.'}
@@ -199,4 +199,4 @@ export function ProjectDialog({
   );
 }
 
-const LABEL = 'font-mono text-[11px] uppercase tracking-[0.14em] text-subtle';
+const LABEL = 'type-label text-subtle';

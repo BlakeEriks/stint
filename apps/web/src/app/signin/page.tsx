@@ -36,26 +36,22 @@ export default function SignIn() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-strong">
-        Stint
-      </h1>
-      <p className="mt-1.5 text-[14px] text-muted">
+      <h1 className="type-title text-strong">Stint</h1>
+      <p className="mt-1.5 type-control text-muted">
         Time tracking for solo contractors.
       </p>
 
       {state === 'sent' ? (
         <div className="mt-8 rounded-lg border border-edge-subtle bg-surface-base p-4">
-          <p className="text-[14px] text-primary">Check your email.</p>
-          <p className="mt-1 text-[13px] text-muted">
+          <p className="type-control text-primary">Check your email.</p>
+          <p className="mt-1 type-support text-muted">
             We sent a sign-in link to {email}.
           </p>
         </div>
       ) : (
         <form onSubmit={submit} className="mt-8 flex flex-col gap-3">
           <label className="flex flex-col gap-1.5">
-            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-subtle">
-              Email
-            </span>
+            <span className="type-label text-subtle">Email</span>
             <input
               type="email"
               required
@@ -64,7 +60,7 @@ export default function SignIn() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="rounded-md border border-edge-control bg-surface-elevated px-3 py-2 text-[14px]
+              className="rounded-md border border-edge-control bg-surface-elevated px-3 py-2 type-control
                          text-strong placeholder:text-subtle focus:outline-none
                          focus:ring-2 focus:ring-accent-default"
             />
@@ -73,7 +69,7 @@ export default function SignIn() {
           <button
             type="submit"
             disabled={state === 'sending'}
-            className="rounded-md bg-accent-default px-3 py-2 text-[14px] font-medium
+            className="rounded-md bg-accent-default px-3 py-2 type-control font-medium
                        text-on-accent transition-colors hover:bg-accent-hover
                        disabled:opacity-60"
           >
@@ -81,7 +77,7 @@ export default function SignIn() {
           </button>
 
           {state === 'error' ? (
-            <p className="text-[13px] text-danger">{message}</p>
+            <p className="type-support text-danger">{message}</p>
           ) : null}
         </form>
       )}

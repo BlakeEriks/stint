@@ -89,6 +89,32 @@ const themeBlock = () =>
     .map((name) => `  --color-${utilityKey(name)}: var(--${name});`)
     .join('\n');
 
+/* Each scale role becomes a `@utility`, so `type-nav` sets family, size,
+   weight, tracking, case and tabular-nums together and a component cannot
+   apply half of a role. Sizes stay in px: the scale was derived at specific
+   pixel sizes for legibility (Plex Mono's digits at 13px is a real
+   constraint, not a preference), and rem would let a browser setting
+   resize the timer hero out of its layout. */
+const typeUtilities = () =>
+  Object.entries(tokens.type.scale)
+    .map(([name, t]) => {
+      const lines = [
+        `  font-family: var(--font-${t.family});`,
+        `  font-size: ${t.size}px;`,
+        `  font-weight: ${t.weight};`,
+      ];
+      if (t.tracking) lines.push(`  letter-spacing: ${t.tracking};`);
+      /* A role may step up at a breakpoint. The hero is the only one today:
+         30px would force a horizontal scroll on a narrow phone, and a
+         component writing `sm:text-3xl` itself is the one-off this replaces. */
+      if (t.sizeSm)
+        lines.push(`  @media (width >= 40rem) { font-size: ${t.sizeSm}px; }`);
+      if (t.uppercase) lines.push('  text-transform: uppercase;');
+      if (t.tabular) lines.push('  font-variant-numeric: tabular-nums;');
+      return `@utility type-${name} {\n${lines.join('\n')}\n}`;
+    })
+    .join('\n\n');
+
 const css = `/* GENERATED from tokens.json — do not edit by hand. */
 /* ${tokens.$meta.derivation} */
 
@@ -140,6 +166,13 @@ ${themeBlock()}
 
 ${elevationTheme()}
 }
+
+/* One class per role in the type scale. Components name a ROLE
+   (type-label), never a size: an arbitrary text-[11px] with its own
+   tracking, spread across twenty files, is how a documented scale becomes
+   fiction — which is what these replace. Adding a size means adding a role
+   here, with a reason, not an arbitrary value at the call site. */
+${typeUtilities()}
 `;
 writeFileSync(join(out, 'tokens.css'), css);
 

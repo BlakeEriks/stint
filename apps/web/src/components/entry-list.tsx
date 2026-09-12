@@ -31,10 +31,8 @@ export function EntryList({
   return (
     <section className="mt-6" aria-label="Today's entries">
       <header className="flex items-baseline justify-between px-1 pb-2">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-subtle">
-          Today
-        </h2>
-        <span className="tabular font-mono text-[13px] text-muted">
+        <h2 className="type-label text-subtle">Today</h2>
+        <span className="type-duration text-muted">
           {formatClock(todaySeconds)}
         </span>
       </header>
@@ -83,12 +81,12 @@ function Row({
 
   return (
     <div className="flex items-center gap-3 border-t border-edge-subtle px-4 py-2.5 first:border-t-0 hover:bg-surface-hover">
-      <span className="min-w-0 flex-1 truncate text-[14.5px] text-primary">
+      <span className="min-w-0 flex-1 truncate type-control text-primary">
         {entry.taskName || <span className="text-subtle">Untitled</span>}
       </span>
 
       {project ? (
-        <span className="hidden flex-none items-center gap-1.5 font-mono text-[11.5px] text-muted sm:flex">
+        <span className="hidden flex-none items-center gap-1.5 type-meta text-muted sm:flex">
           <span
             aria-hidden
             className="size-1.5 rounded-[2px]"
@@ -99,16 +97,16 @@ function Row({
       ) : null}
 
       {!entry.isBillable ? (
-        <span className="flex-none rounded border border-edge-default px-1.5 py-px font-mono text-[9.5px] uppercase tracking-wider text-subtle">
+        <span className="flex-none rounded border border-edge-default px-1.5 py-px type-badge text-subtle">
           Non-billable
         </span>
       ) : null}
 
-      <span className="tabular hidden flex-none font-mono text-[11.5px] text-subtle sm:inline">
+      <span className="hidden flex-none type-meta text-subtle sm:inline">
         {time(entry.startedAt)} – {entry.endedAt ? time(entry.endedAt) : '—'}
       </span>
 
-      <span className="tabular w-16 flex-none text-right font-mono text-[14px] text-primary">
+      <span className="w-16 flex-none text-right type-duration text-primary">
         {formatCompact(entry.durationSeconds ?? 0)}
       </span>
     </div>
@@ -117,8 +115,6 @@ function Row({
 
 function Placeholder({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-4 py-8 text-center text-[13.5px] text-subtle">
-      {children}
-    </p>
+    <p className="px-4 py-8 text-center type-support text-subtle">{children}</p>
   );
 }

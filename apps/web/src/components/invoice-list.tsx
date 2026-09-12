@@ -22,9 +22,7 @@ export function InvoiceList() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
       <header className="flex items-center justify-between gap-3 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-strong">
-          Invoices
-        </h1>
+        <h1 className="type-title text-strong">Invoices</h1>
         <Button asChild>
           <Link href="/invoices/new">New invoice</Link>
         </Button>
@@ -67,21 +65,21 @@ function Row({
       className="flex items-center gap-3 border-t border-edge-subtle px-4 py-3
                  first:border-t-0 hover:bg-surface-hover"
     >
-      <span className="tabular w-20 flex-none font-mono text-[12.5px] text-muted">
+      <span className="w-20 flex-none type-meta text-muted">
         {invoice.invoiceNumber}
       </span>
 
-      <span className="min-w-0 flex-1 truncate text-[14.5px] text-primary">
+      <span className="min-w-0 flex-1 truncate type-control text-primary">
         {clientName ?? 'Unknown client'}
       </span>
 
       <StatusBadge status={invoice.status} />
 
-      <span className="tabular hidden w-24 flex-none text-right font-mono text-[11.5px] text-subtle sm:block">
+      <span className="hidden w-24 flex-none text-right type-meta text-subtle sm:block">
         {shortDate(invoice.issueDate)}
       </span>
 
-      <span className="tabular w-24 flex-none text-right font-mono text-[14px] text-primary">
+      <span className="w-24 flex-none text-right type-duration text-primary">
         {money(invoice.total, invoice.currency)}
       </span>
     </Link>
@@ -90,7 +88,7 @@ function Row({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-4 py-10 text-center text-[13.5px] text-subtle">
+    <p className="px-4 py-10 text-center type-support text-subtle">
       {children}
     </p>
   );

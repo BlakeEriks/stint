@@ -2,7 +2,7 @@
 
 import { Label } from '@/components/ui/label';
 
-const LABEL = 'font-mono text-[11px] uppercase tracking-[0.14em] text-subtle';
+const LABEL = 'type-label text-subtle';
 
 /** One labelled control with an optional hint. Shared by every form. */
 export function Field({
@@ -27,7 +27,7 @@ export function Field({
         {required ? <span aria-hidden> *</span> : null}
       </Label>
       {children}
-      {hint ? <p className="text-[12px] text-subtle">{hint}</p> : null}
+      {hint ? <p className="type-support text-subtle">{hint}</p> : null}
     </div>
   );
 }
@@ -54,9 +54,9 @@ export function Section({
     <section className="rounded-xl border border-edge-subtle bg-surface-primary p-5 shadow-card">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-[15px] font-medium text-strong">{title}</h2>
+          <h2 className="type-heading text-strong">{title}</h2>
           {description ? (
-            <p className="mt-1 text-[13px] text-muted">{description}</p>
+            <p className="mt-1 type-support text-muted">{description}</p>
           ) : null}
         </div>
         {status ? <div className="flex-none pt-1">{status}</div> : null}
@@ -67,11 +67,11 @@ export function Section({
 }
 
 export const inputClass =
-  'h-9 w-full rounded-md border border-edge-default bg-transparent px-3 text-[14px] ' +
+  'h-9 w-full rounded-md border border-edge-default bg-transparent px-3 type-control ' +
   'text-strong placeholder:text-subtle outline-none focus-visible:border-edge-focus ' +
   'focus-visible:ring-[3px] focus-visible:ring-edge-focus';
 
 export const textareaClass =
-  'w-full rounded-md border border-edge-default bg-transparent px-3 py-2 text-[14px] ' +
+  'w-full rounded-md border border-edge-default bg-transparent px-3 py-2 type-control ' +
   'text-strong placeholder:text-subtle outline-none focus-visible:border-edge-focus ' +
   'focus-visible:ring-[3px] focus-visible:ring-edge-focus';

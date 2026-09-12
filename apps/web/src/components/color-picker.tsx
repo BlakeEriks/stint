@@ -20,9 +20,7 @@ export function ColorPicker({
 }) {
   return (
     <fieldset>
-      <legend className="font-mono text-[11px] uppercase tracking-[0.14em] text-subtle">
-        {label}
-      </legend>
+      <legend className="type-label text-subtle">{label}</legend>
 
       <div className="mt-2 flex flex-wrap gap-2">
         <Swatch
@@ -66,7 +64,7 @@ function Swatch({
       style={{ background: color ?? 'transparent' }}
     >
       {color === null ? (
-        <span aria-hidden className="text-[13px] text-subtle">
+        <span aria-hidden className="type-support text-subtle">
           —
         </span>
       ) : null}

@@ -35,10 +35,10 @@ export function Nav() {
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
-              className={`flex-none rounded-md px-2.5 py-2 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors sm:px-3 ${
+              className={`type-nav flex-none rounded-md px-2.5 py-2 transition-colors sm:px-3 ${
                 active
                   ? 'bg-surface-primary text-strong shadow-card'
-                  : 'text-subtle hover:text-muted'
+                  : 'text-muted hover:text-strong'
               }`}
             >
               {label}
