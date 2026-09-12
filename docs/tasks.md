@@ -24,12 +24,6 @@ later.
 
 ## Ready
 
-- [ ] **Runaway timer: offer keep / adjust / discard.** `principles.md`
-      specifies this choice and the app only renders a warning banner. Entry
-      editing now exists, so this is just wiring the banner to it. The rule
-      that must not bend: the app surfaces the problem and never modifies the
-      entry itself.
-
 - [ ] **`GET /calendar?granularity=day`** — `{ date, totalSeconds, byClient }`
       and nothing else, for the Activity strip. The existing endpoint already
       buckets by local day server-side, which is the DST-correct grouping a

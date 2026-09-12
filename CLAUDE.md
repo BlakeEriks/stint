@@ -571,6 +571,26 @@ with no email, the download is how an invoice reaches a client.
 
 Paid renders in the success channel (cyan), never green.
 
+### The runaway timer choice
+
+Past `max_timer_hours` the timer bar offers **Keep · Adjust · Discard**, which
+is what makes "surfaces, never auto-trims" an honest promise rather than a
+refusal to help. The banner used to say "stop it and adjust the duration" with
+nowhere to do either.
+
+- **Keep touches nothing.** It dismisses the notice and leaves the timer
+  running, because a long timer is often correct — stopping it would be the
+  app editing billable work, which is the exact thing the principle forbids.
+  Tested, and the test fails if Keep also stops.
+- **Adjust stops first, then opens the entry editor.** A running entry has no
+  end yet, so there is nothing to adjust until it is stopped, and stopping is
+  what the user meant.
+- **Discard asks once.** Stop plus delete, and discarding sixteen hours you
+  actually worked is not recoverable.
+- The notice returns on a fresh overrun: `dismissed` resets when
+  `exceedsThreshold` goes false, so Keep silences this overrun rather than the
+  feature.
+
 ### Editing an entry
 
 `entry-dialog.tsx` is the only place a logged entry is created, corrected or

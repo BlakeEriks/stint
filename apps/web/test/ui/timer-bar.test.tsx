@@ -270,3 +270,66 @@ describe('TimerBar — runaway', () => {
     expect(screen.queryByText(/has run for/)).not.toBeInTheDocument();
   });
 });
+
+describe('the runaway timer choice', () => {
+  /* `principles.md`: the app surfaces the problem and NEVER modifies the
+     entry itself. All three of keep / adjust / discard are the user's, and
+     the notice must not act on its own. */
+  const runaway = () =>
+    summary({
+      running: entry({ startedAt: '2026-09-10T09:00:00.000Z' }),
+      maxTimerHours: 8,
+    });
+
+  it('offers keep, adjust and discard past the threshold', async () => {
+    serve(runaway());
+    render(<TimerBar projects={PROJECTS} />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText(/has run for/)).toBeInTheDocument(),
+    );
+    for (const name of ['Keep', 'Adjust', 'Discard']) {
+      expect(screen.getByRole('button', { name })).toBeInTheDocument();
+    }
+  });
+
+  it('keeps the timer running when Keep is chosen', async () => {
+    const calls = serve(runaway());
+    const user = userEvent.setup();
+    render(<TimerBar projects={PROJECTS} />, { wrapper });
+
+    await user.click(await screen.findByRole('button', { name: 'Keep' }));
+
+    /* A long timer is often correct. Keep must dismiss the notice and touch
+       nothing — stopping it here would be the app editing billable work. */
+    expect(calls).toEqual([]);
+    expect(screen.queryByText(/has run for/)).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Stop timer' }),
+    ).toBeInTheDocument();
+  });
+
+  it('does not discard until the confirmation is clicked', async () => {
+    const calls = serve(runaway());
+    const user = userEvent.setup();
+    render(<TimerBar projects={PROJECTS} />, { wrapper });
+
+    await user.click(await screen.findByRole('button', { name: 'Discard' }));
+
+    /* Discarding a 16-hour entry you actually worked is not recoverable, so
+       the first click only asks. */
+    expect(calls).toEqual([]);
+    expect(screen.getByText(/Delete this entry\?/)).toBeInTheDocument();
+  });
+
+  it('stops before adjusting, because a running entry has no end to edit', async () => {
+    const calls = serve(runaway());
+    const user = userEvent.setup();
+    render(<TimerBar projects={PROJECTS} />, { wrapper });
+
+    await user.click(await screen.findByRole('button', { name: 'Adjust' }));
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    expect(calls[0]).toMatchObject({ method: 'POST', path: '/timer/stop' });
+  });
+});

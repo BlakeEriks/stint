@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatClock } from '@stint/core';
-import { useTimer } from '@/lib/client/use-timer';
+import { useTimer, useTimeZone } from '@/lib/client/use-timer';
 import { ProjectPicker } from './project-picker';
-import type { Project } from '@/lib/client/api';
+import { EntryDialog } from './entry-dialog';
+import { Button } from '@/components/ui/button';
+import { api, type Project, type TimeEntry } from '@/lib/client/api';
 
 /**
  * The hero. A running timer is the only place the accent appears, which is
@@ -49,6 +52,45 @@ export function TimerBar({ projects }: { projects: Project[] }) {
   );
 
   const exceeded = timer.exceedsThreshold;
+
+  /* The runaway choice: keep, adjust, or discard. `principles.md` promises
+     the app surfaces the problem and never modifies the entry itself, and
+     this is where the user does the modifying. */
+  const tz = useTimeZone();
+  const queryClient = useQueryClient();
+  const [dismissed, setDismissed] = useState(false);
+  const [adjusting, setAdjusting] = useState<TimeEntry | undefined>();
+
+  // A fresh overrun deserves the notice again, even after an earlier dismiss.
+  useEffect(() => {
+    if (!exceeded) setDismissed(false);
+  }, [exceeded]);
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['summary'] });
+    queryClient.invalidateQueries({ queryKey: ['entries'] });
+    queryClient.invalidateQueries({ queryKey: ['stats'] });
+    queryClient.invalidateQueries({ queryKey: ['calendar'] });
+  };
+
+  /* Stop first, then edit. A running entry has no end yet, so there is
+     nothing to adjust until it is stopped — and stopping is what the user
+     meant by "I left it going". */
+  const adjust = useMutation({
+    mutationFn: () => api.stopTimer(),
+    onSuccess: (entry) => {
+      invalidateAll();
+      setAdjusting(entry);
+    },
+  });
+
+  const discard = useMutation({
+    mutationFn: async () => {
+      const entry = await api.stopTimer();
+      await api.deleteEntry(entry.id);
+    },
+    onSuccess: invalidateAll,
+  });
 
   return (
     <section
@@ -131,9 +173,26 @@ export function TimerBar({ projects }: { projects: Project[] }) {
         </div>
       </div>
 
-      {exceeded ? (
-        <RunawayNotice hours={Math.floor(timer.seconds / 3600)} />
+      {exceeded && !dismissed ? (
+        <RunawayNotice
+          hours={Math.floor(timer.seconds / 3600)}
+          busy={adjust.isPending || discard.isPending}
+          onKeep={() => setDismissed(true)}
+          onAdjust={() => adjust.mutate()}
+          onDiscard={() => discard.mutate()}
+        />
       ) : null}
+
+      {/* Opened by Adjust, on the entry that was just stopped. */}
+      <EntryDialog
+        open={adjusting !== undefined}
+        onOpenChange={(open) => {
+          if (!open) setAdjusting(undefined);
+        }}
+        existing={adjusting}
+        projects={projects}
+        tz={tz}
+      />
     </section>
   );
 }
@@ -163,11 +222,77 @@ function StatusDot({
  * Surfaced, never auto-corrected. Silently trimming a forgotten timer would
  * mean the app edited billable time without being asked.
  */
-function RunawayNotice({ hours }: { hours: number }) {
+function RunawayNotice({
+  hours,
+  onKeep,
+  onAdjust,
+  onDiscard,
+  busy,
+}: {
+  hours: number;
+  onKeep: () => void;
+  onAdjust: () => void;
+  onDiscard: () => void;
+  busy: boolean;
+}) {
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+
   return (
-    <p className="border-t border-edge-subtle px-5 py-2.5 type-support text-warning">
-      This timer has run for {hours} hours. Stop it and adjust the duration if
-      you left it going.
-    </p>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-edge-subtle px-5 py-2.5">
+      <p className="min-w-0 flex-1 type-support text-warning">
+        This timer has run for {hours} hours.
+      </p>
+
+      {confirmingDiscard ? (
+        <span className="flex flex-none items-center gap-2">
+          <span className="type-support text-muted">Delete this entry?</span>
+          <Button
+            type="button"
+            variant="destructive"
+            size="xs"
+            disabled={busy}
+            onClick={onDiscard}
+          >
+            Discard
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={() => setConfirmingDiscard(false)}
+          >
+            Cancel
+          </Button>
+        </span>
+      ) : (
+        <span className="flex flex-none items-center gap-1">
+          {/* Keep is first and plainest: the timer being long is often
+              correct, and the app must not imply otherwise. */}
+          <Button type="button" variant="ghost" size="xs" onClick={onKeep}>
+            Keep
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            disabled={busy}
+            onClick={onAdjust}
+          >
+            Adjust
+          </Button>
+          {/* Destructive, so it asks. Discarding a 16-hour entry you actually
+              worked is not recoverable. */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            disabled={busy}
+            onClick={() => setConfirmingDiscard(true)}
+          >
+            Discard
+          </Button>
+        </span>
+      )}
+    </div>
   );
 }
