@@ -199,6 +199,13 @@ export const GET = handle(async (req: Request) => {
     duration_seconds: number | null;
   }[];
 
+  /* Invoiced and not yet collected. DELIBERATELY separate from `unbilled`:
+     that is work not yet invoiced, this is money already asked for, and
+     summing the two would double-count the same hours. */
+  const awaitingPayment = invoiceRows
+    .filter((i) => i.status === 'sent')
+    .reduce((a, i) => a + Number(i.total), 0);
+
   return NextResponse.json({
     currency,
     unbilled: {
@@ -208,6 +215,8 @@ export const GET = handle(async (req: Request) => {
       byClient,
       moreClients: Math.max(0, rows.length - MAX_UNBILLED_ROWS),
     },
+    /** Sent, not yet paid. Never added to `unbilled.total`. */
+    awaitingPayment,
     pace: buildPace({
       target: settings.data?.monthly_target,
       unit: settings.data?.monthly_target_unit,

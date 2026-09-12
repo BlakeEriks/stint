@@ -14,6 +14,7 @@ function stats(over: Partial<Stats> = {}): Stats {
     unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
     pace: null,
     billableRatio: null,
+    awaitingPayment: 0,
     attention: { overdueInvoices: [], staleDrafts: [], unprojected: null },
     ...over,
   } as Stats;
@@ -224,6 +225,42 @@ describe('HomeCards', () => {
       path: '/invoices/i1/status',
       body: { status: 'paid' },
     });
+  });
+
+  it('keeps awaiting-payment separate from the unbilled total', async () => {
+    serve(
+      stats({
+        unbilled: {
+          total: 3000,
+          seconds: 3600,
+          byClient: [
+            {
+              clientId: 'c1',
+              clientName: 'Northwind',
+              currency: 'USD',
+              seconds: 3600,
+              amount: 3000,
+              unratedCount: 0,
+              oldestDays: 2,
+            },
+          ],
+          moreClients: 0,
+        },
+        awaitingPayment: 900,
+      } as never),
+    );
+    render(<HomeCards />, { wrapper });
+
+    /* Two different kinds of money: unbilled is work not yet invoiced,
+       awaiting payment is invoiced and not yet collected. Summing them
+       double-counts the same hours, so $3,900 must never appear. */
+    const line = await screen.findByText(/awaiting payment/);
+    expect(line.textContent).toContain('$900.00');
+
+    // The unbilled headline stays its own figure.
+    expect(screen.getAllByText('$3,000.00').length).toBeGreaterThan(0);
+    // The sum of the two must appear nowhere.
+    expect(screen.queryByText('$3,900.00')).toBeNull();
   });
 
   it('never spends the accent on a card', async () => {

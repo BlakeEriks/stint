@@ -226,6 +226,25 @@ function Unbilled({ stats }: { stats: Stats }) {
           +{moreClients} more
         </p>
       ) : null}
+
+      {/* One line, not a card and not a row per invoice. A row each would put
+          ordinary, nothing-is-wrong invoices back on the home screen and undo
+          the overdue grace period under a calmer heading; reconciling several
+          at once belongs on /invoices, which is a list.
+
+          Never added to the total above: that is work not yet invoiced, this
+          is money already asked for, and summing them double-counts. */}
+      {stats.awaitingPayment > 0 ? (
+        <Link
+          href="/invoices?status=sent"
+          className="flex items-baseline gap-1.5 border-t border-edge-subtle px-4 py-2 type-support text-subtle hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+        >
+          <span className="type-meta text-muted">
+            {money(stats.awaitingPayment, stats.currency)}
+          </span>
+          sent, awaiting payment
+        </Link>
+      ) : null}
     </Card>
   );
 }

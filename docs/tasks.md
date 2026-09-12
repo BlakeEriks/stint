@@ -31,26 +31,6 @@ later.
       full entries, and twelve weeks of those is a heavy payload to draw one
       rectangle per day.
 
-- [ ] **Awaiting payment, as one line on the Unbilled card.** Sent and not
-      yet paid, summed: "$1,650 sent, awaiting payment" under the unbilled
-      headline. Needs a field on `/stats` (sum of `total` where
-      `status = 'sent'`); the two numbers are deliberately different money and
-      must not be added together — unbilled is work not yet invoiced, this is
-      invoiced and not yet collected.
-
-      **Not a card, and not a row per invoice.** One number is a fact you can
-      act on; four rows of "nothing is wrong here" is a list you scroll past,
-      and it would undo the `OVERDUE_GRACE_DAYS` grace period by putting
-      ordinary invoices back on the home screen under a calmer heading.
-
-- [ ] **Make `/invoices` good at reconciling.** Inline **Mark paid** on the
-      list rows (same pattern as the attention card), default the filter to
-      open invoices, and a total outstanding at the top. Reconciling several
-      payments at once is a batch task — working down a list, which is what a
-      page is for and what a card is bad at. This is the screen to open when
-      money lands, and the reason the home screen does not need an
-      open-invoices panel.
-
 - [ ] **Record a reminder on a sent invoice.** `last_reminded_at`, so an
       overdue row can read "12 days late · chased 3d ago" rather than either
       nagging unchanged or disappearing. This is the honest alternative to a

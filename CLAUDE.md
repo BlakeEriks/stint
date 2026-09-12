@@ -550,6 +550,30 @@ fixed around them — they are why the screen is opened fifty times a day.
 Details wrap under the label on a narrow screen rather than hiding: "12 days
 late" *is* the row, and a client name with an amount is just an invoice.
 
+**`unbilled.total` and `awaitingPayment` are different money and must never be
+summed.** Unbilled is work not yet invoiced; awaiting payment is invoiced and
+not yet collected. Adding them double-counts the same hours. Awaiting payment
+is **one line** at the foot of the Unbilled card, not a card and not a row per
+invoice — a row each would put ordinary, nothing-is-wrong invoices back on the
+home screen and undo the overdue grace period under a calmer heading. Tested,
+including that the sum appears nowhere.
+
+### Reconciling on /invoices
+
+`/invoices` is the screen to open when money lands, which is why home needs
+only the one number. It defaults to **open** (draft + sent), carries a total
+of what is genuinely **outstanding** (`sent` only — a draft has not been asked
+for and a paid one has arrived), and offers inline **mark paid** on sent rows
+alone.
+
+The empty state distinguishes an empty account from an empty filter: "No
+invoices yet" would be a lie when one exists and is merely paid, and it would
+send the user to create a duplicate.
+
+Each action names its invoice (`Mark STINT-0001 paid`), because a list of
+identical buttons is unusable with a screen reader. Nothing destructive here
+either — voiding stays on the invoice itself.
+
 ### Invoicing UI
 
 **Preview then generate, and the two must agree.** Any change to what would

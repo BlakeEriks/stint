@@ -318,6 +318,14 @@ export const Stats = z.object({
     byClient: z.array(UnbilledClient),
     moreClients: z.number().int().nonnegative(),
   }),
+  /**
+   * Invoiced and not yet collected.
+   *
+   * NOT part of `unbilled` and never summed with it: unbilled is work not
+   * yet invoiced, this is money already asked for, and adding them
+   * double-counts the same hours.
+   */
+  awaitingPayment: money,
   /** Null when no monthly target is set; the card hides rather than nagging. */
   pace: Pace.nullable(),
   /** Null when nothing was tracked this month — 0/0 is not 0%. */
