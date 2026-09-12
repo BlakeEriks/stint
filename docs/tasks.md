@@ -53,6 +53,71 @@ later.
 - [ ] **Icons on the remaining buttons.** Nav and the additive actions have
       them; the lifecycle buttons on an invoice (send, mark paid, void,
       download) and the settings forms do not.
+- [ ] **Light mode.** The palette already exists: `tokens.css` emits the full
+      light ramp under `[data-theme="light"]`, the mirrored curve
+      (`L = 0.985 - 0.840 * t^1.55`) is derived, and `docs/design/color.md`
+      records the one forced concession — the accent drops 35 lightness points
+      to `#1F7E17` (4.96:1), because neon green's luminance is intrinsically
+      near white's and cannot carry text contrast on a light ground at any
+      chroma. In light mode the ground provides the energy.
+
+      So what is missing is not colour work: it is a **toggle**, persistence,
+      and verification.
+
+      - The app is **dark-first on purpose**: `prefers-color-scheme: light`
+        only applies under an explicit `[data-theme="light"]`, so an
+        un-stamped viewer gets the theme the palette was derived for. Keep
+        that — a system-following default would flip the app for anyone whose
+        OS is light, which is not what the palette assumes.
+      - Three states, not two: dark / light / follow-system. Store the choice
+        per-device in `localStorage` (a layout preference, not account state),
+        and stamp `data-theme` before first paint or the page flashes dark.
+      - `validate.js` asserts contrast on the dark palette. It must cover
+        **both** — `--text-on-accent` inverts between themes, and the
+        `text-on-danger` token exists precisely because near-black is 5.39:1
+        on dark danger but 3.25:1 on light.
+      - The shadows differ too (`docs/design/color.md`: light uses
+        `rgba(16,18,26,0.06-0.10)`), and "content floats, chrome recedes"
+        has to survive the inversion — cards must not read as holes.
+
+- [ ] **End-to-end tests in a real browser.** Everything verified by hand
+      this session is verified *once*: the three existing suites cannot reach
+      any of it. UI tests are jsdom with stubbed fetch — and jsdom **cannot
+      parse Tailwind 4's compiled CSS**, so they see no colours, no
+      breakpoints and no layout. Route tests never render. Nothing covers the
+      browser, navigation, cookies, server components or redirects.
+
+      The specific flows I checked manually and that nothing re-checks:
+
+      - **sign in via magic link** (Mailpit → click → session) and
+        **sign out** (cookies cleared, API 401s, Back does not show cached
+        authenticated markup — that last one was a real bug found by hand)
+      - **navigating between tabs** with the rail, and the active-section
+        marking
+      - **the runaway timer choice** end to end: a real overlong timer,
+        Adjust stopping it and opening the editor pre-filled, Discard
+        deleting it
+      - **entry editing** round-tripping local wall-clock through UTC, and
+        the overnight case
+      - **mark paid / mark sent** clearing an attention row, and the row
+        leaving because the fact changed
+      - **responsive layout** at 375px and 1280px, where the breakpoints the
+        jsdom tests cannot see actually apply
+      - **the accent rule** in rendered pixels, not class strings
+
+      Playwright is the obvious tool, and the local Supabase stack is what
+      makes it viable: a real database, a real auth server, and Mailpit to
+      read the magic link from, all disposable via `pnpm dev:reset`. Seed
+      first, run against `pnpm dev`, and keep it out of the `test` glob so a
+      browser download is not a prerequisite for the unit suites.
+
+      **Worth being honest about the cost:** e2e tests are the slowest and
+      flakiest kind, and a suite that fails randomly gets ignored, which is
+      worse than not having it. Start with the two flows whose breakage is
+      silent and expensive — **sign-out** (a session that is not really
+      cleared) and **the invoice lifecycle** — rather than covering
+      everything.
+
 - [ ] **Collapsible rail.** Icon-only at ~3.5rem, full at 13rem, toggled by
       the user and remembered. The calendar is the screen that wants it: seven
       day columns plus a 13rem rail is tight on a laptop, and the rail is
