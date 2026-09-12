@@ -37,6 +37,12 @@ later.
       full entries, and twelve weeks of those is a heavy payload to draw one
       rectangle per day.
 
+- [ ] **Record a reminder on a sent invoice.** `last_reminded_at`, so an
+      overdue row can read "12 days late · chased 3d ago" rather than either
+      nagging unchanged or disappearing. This is the honest alternative to a
+      snooze: it records what you did instead of hiding what is true, and
+      over time shows which clients need chasing twice. Needs a column, a
+      PATCH field, and a third inline action on the overdue row.
 - [ ] **Quiet clients in `/stats`.** The attention card is specified to flag
       an active client with no entries in 30 days, and it is the one row not
       yet implemented — it needs a per-client last-entry query, and the

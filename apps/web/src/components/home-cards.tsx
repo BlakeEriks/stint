@@ -1,11 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatCompact } from '@stint/core';
-import { AlertTriangle, ArrowRight, Clock, FileWarning } from 'lucide-react';
-import { api, type Stats } from '@/lib/client/api';
+import {
+  AlertTriangle,
+  ArrowRight,
+  Check,
+  Clock,
+  Download,
+  FileWarning,
+  Send,
+} from 'lucide-react';
+import { api, type InvoiceStatus, type Stats } from '@/lib/client/api';
 import { useTimeZone } from '@/lib/client/use-timer';
+import { Button } from '@/components/ui/button';
 import { money } from './invoice-bits';
 
 /**
@@ -23,7 +32,34 @@ import { money } from './invoice-bits';
  *
  * No card carries the accent. On this screen the accent is spent, and it is
  * spent on the running timer.
+ *
+ * The cards do WRITE, narrowly: marking an invoice paid or sent is the action
+ * that legitimately clears an attention row, because the underlying fact
+ * changed. Nothing destructive is offered here — voiding and deleting belong
+ * on the invoice itself, where the whole document is in view. An earlier rule
+ * said nothing on this screen writes at all; that was too broad, and the real
+ * constraint is that every write is explicit, reversible in effect, and never
+ * destructive.
  */
+/**
+ * Marking an invoice paid or sent, from the card.
+ *
+ * Invalidates `stats` AND `invoices`: the row must leave the attention card
+ * and the invoice list must agree, or the two screens disagree about the same
+ * document until something else refetches.
+ */
+function useStatusAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
+      api.updateInvoiceStatus(id, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    },
+  });
+}
+
 export function HomeCards() {
   const tz = useTimeZone();
   const { data } = useQuery({
@@ -51,6 +87,7 @@ export function HomeCards() {
  */
 function NeedsAttention({ stats }: { stats: Stats }) {
   const { overdueInvoices, staleDrafts, unprojected } = stats.attention;
+  const setStatus = useStatusAction();
   const count =
     overdueInvoices.length + staleDrafts.length + (unprojected ? 1 : 0);
   if (count === 0) return null;
@@ -71,6 +108,27 @@ function NeedsAttention({ stats }: { stats: Stats }) {
             detail={`${i.daysLate} ${i.daysLate === 1 ? 'day' : 'days'} late`}
             value={money(i.amount, i.currency)}
             tone="danger"
+            actions={
+              <>
+                {/* The money usually arrived and was never recorded, so this
+                    is the action nine times in ten. */}
+                <RowAction
+                  label="Mark paid"
+                  icon={<Check aria-hidden />}
+                  disabled={setStatus.isPending}
+                  onClick={() =>
+                    setStatus.mutate({ id: i.invoiceId, status: 'paid' })
+                  }
+                />
+                {/* With no outbound mail the download IS how an invoice
+                    reaches a client, so it is offered in every status. */}
+                <RowAction
+                  label="Download"
+                  icon={<Download aria-hidden />}
+                  href={`/api/v1/invoices/${i.invoiceId}/pdf`}
+                />
+              </>
+            }
           />
         ))}
 
@@ -83,6 +141,25 @@ function NeedsAttention({ stats }: { stats: Stats }) {
             detail={`draft, ${d.ageDays} days old`}
             value={money(d.amount, d.currency)}
             tone="warning"
+            actions={
+              <>
+                <RowAction
+                  label="Download"
+                  icon={<Download aria-hidden />}
+                  href={`/api/v1/invoices/${d.invoiceId}/pdf`}
+                />
+                {/* Sending is recorded, not performed: you email the PDF
+                    yourself, then say so here. */}
+                <RowAction
+                  label="Mark sent"
+                  icon={<Send aria-hidden />}
+                  disabled={setStatus.isPending}
+                  onClick={() =>
+                    setStatus.mutate({ id: d.invoiceId, status: 'sent' })
+                  }
+                />
+              </>
+            }
           />
         ))}
 
@@ -256,6 +333,7 @@ function Row({
   value,
   secondary,
   tone,
+  actions,
 }: {
   href: string;
   icon?: React.ReactNode;
@@ -264,19 +342,23 @@ function Row({
   value: string;
   secondary?: string;
   tone?: 'danger' | 'warning';
+  actions?: React.ReactNode;
 }) {
+  /* The row is a grid, not a link wrapping buttons: an <a> containing a
+     <button> is invalid HTML and breaks keyboard navigation — Tab would land
+     inside the link. The label is the link; the actions sit beside it. */
   return (
-    <li>
-      <Link
-        href={href}
-        className="flex items-center gap-2.5 border-t border-edge-subtle px-4 py-2.5 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
-      >
+    <li className="border-t border-edge-subtle first:border-t-0">
+      <div className="flex items-center gap-2.5 px-4 py-2.5">
         {icon}
 
-        {/* The detail wraps under the label on a narrow screen rather than
+        {/* Detail wraps under the label on a narrow screen rather than
             hiding. "12 days late" IS the row — a client name and an amount
             without it is just an invoice, not something needing attention. */}
-        <span className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-baseline sm:gap-2.5">
+        <Link
+          href={href}
+          className="flex min-w-0 flex-1 flex-col rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none sm:flex-row sm:items-baseline sm:gap-2.5"
+        >
           <span className="truncate type-control text-primary">{label}</span>
           <span
             className={`truncate type-meta ${
@@ -289,7 +371,7 @@ function Row({
           >
             {detail}
           </span>
-        </span>
+        </Link>
 
         {secondary ? (
           <span className="hidden w-16 flex-none text-right type-meta text-subtle sm:inline">
@@ -299,9 +381,66 @@ function Row({
         <span className="w-24 flex-none text-right type-duration text-primary">
           {value}
         </span>
-        <ArrowRight aria-hidden className="size-3.5 flex-none text-subtle" />
-      </Link>
+
+        {actions ? (
+          <span className="flex flex-none items-center gap-1">{actions}</span>
+        ) : (
+          <ArrowRight aria-hidden className="size-3.5 flex-none text-subtle" />
+        )}
+      </div>
     </li>
+  );
+}
+
+/**
+ * One inline action.
+ *
+ * Icon-only below `sm` and icon-plus-label above it: on a phone three labelled
+ * buttons would push the amount off the row, and the amount is why the row is
+ * being read. The `aria-label` carries the name either way, so the icon is
+ * never the only thing naming the action to a screen reader.
+ *
+ * Never the accent — these are useful, not primary; the accent is the running
+ * timer.
+ */
+function RowAction({
+  label,
+  icon,
+  onClick,
+  href,
+  disabled,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onClick?: () => void;
+  href?: string;
+  disabled?: boolean;
+}) {
+  const body = (
+    <>
+      {icon}
+      <span className="hidden sm:inline">{label}</span>
+    </>
+  );
+
+  return href ? (
+    <Button asChild variant="ghost" size="xs">
+      {/* A PDF download, so it leaves the SPA deliberately. */}
+      <a href={href} aria-label={label} download>
+        {body}
+      </a>
+    </Button>
+  ) : (
+    <Button
+      type="button"
+      variant="ghost"
+      size="xs"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {body}
+    </Button>
   );
 }
 

@@ -517,9 +517,31 @@ fixed around them — they are why the screen is opened fifty times a day.
   Holidays are not modelled, deliberately.
 - **No card carries the accent** — on this screen the accent is spent, and it
   is spent on the running timer. The progress bar is neutral.
-- **Nothing here writes.** Every card reads and every action is a link to the
-  surface that owns the mutation, because a dashboard that edits data turns a
-  stray click into a changed invoice.
+- **The cards write, narrowly.** Marking an invoice **paid** or **sent** is
+  offered inline, because that is the action that legitimately clears an
+  attention row — the underlying fact changed. **Nothing destructive is
+  offered here:** voiding and deleting belong on the invoice itself, where the
+  whole document is in view, and a stray click on a glance must not destroy a
+  financial record. Tested, including that no void/delete control exists on
+  the card.
+
+  This narrows an earlier rule that said nothing on this screen writes at all.
+  That was too broad: it made the card a dead end, since every row cost a page
+  load to act on. The real constraint is that every write is explicit, names
+  itself, and is never destructive.
+
+- **Overdue has a 7-day grace period** (`OVERDUE_GRACE_DAYS`). Firing the
+  moment `due_date` passes is accurate and useless: Net 30 with a client who
+  pays on day 32 is ordinary, and a card that flags it trains the user to
+  clear the list without reading it — which is how the one genuinely late
+  invoice gets dismissed with the rest. The invoice page still shows the true
+  due date; this only governs when the card speaks up.
+
+  **A snooze was considered and rejected.** Hiding a row that is still true
+  makes the card something dismissed reflexively rather than read, and the
+  user most likely to snooze everything is the one it exists for. A grace
+  period makes the card quiet enough that nothing needs dismissing, and
+  recording a chase (a later task) keeps the fact instead of hiding it.
 - **Unrated work shows an em-dash, not $0.00**, plus an `unratedCount` so the
   total reads as incomplete rather than low.
 - **Never labelled "earned" or "revenue"** — it is work done and not yet

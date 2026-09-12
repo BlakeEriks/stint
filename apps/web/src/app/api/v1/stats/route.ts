@@ -20,6 +20,20 @@ const Query = z.object({
 
 /** A draft left this long is usually forgotten, not deliberate. */
 const STALE_DRAFT_DAYS = 7;
+
+/**
+ * Days past the due date before an invoice is "overdue" here.
+ *
+ * Firing the moment `due_date` passes is technically accurate and practically
+ * noise: Net 30 terms and a client who pays on day 32 is ordinary, and a card
+ * that flags it trains the user to clear the list without reading it — which
+ * is how the one genuinely late invoice gets dismissed with the rest.
+ *
+ * Seven days is when a polite person starts wondering. The invoice detail
+ * page still shows the true due date; this only governs when the card speaks
+ * up.
+ */
+const OVERDUE_GRACE_DAYS = 7;
 /** Beyond this the card stops being a prompt and becomes a list. */
 const MAX_UNBILLED_ROWS = 5;
 
@@ -142,9 +156,15 @@ export const GET = handle(async (req: Request) => {
   );
 
   const todayKey = localKey(now, tz);
+  // The cutoff, not today: an invoice is listed once it is this far past due.
+  const overdueCutoff = localKey(
+    startOfLocalDayOffset(now, tz, OVERDUE_GRACE_DAYS),
+    tz,
+  );
   const overdueInvoices = invoiceRows
     .filter(
-      (i) => i.status === 'sent' && i.due_date != null && i.due_date < todayKey,
+      (i) =>
+        i.status === 'sent' && i.due_date != null && i.due_date < overdueCutoff,
     )
     .map((i) => ({
       invoiceId: i.id,

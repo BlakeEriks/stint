@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { HomeCards } from '@/components/home-cards';
@@ -134,7 +135,7 @@ describe('HomeCards', () => {
     expect(screen.getByText('$900.00')).toBeInTheDocument();
   });
 
-  it('links every attention row to the surface that fixes it', async () => {
+  it('links every attention row to the surface that owns it', async () => {
     serve(
       stats({
         attention: {
@@ -146,12 +147,83 @@ describe('HomeCards', () => {
     );
     render(<HomeCards />, { wrapper });
 
-    /* Nothing on this screen writes: every action is a link to the surface
-       that owns the mutation, because a dashboard that edits data turns a
-       stray click into a changed invoice. */
     const link = await screen.findByRole('link', { name: /Northwind/ });
     expect(link).toHaveAttribute('href', '/invoices/i1');
-    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('offers no destructive action inline', async () => {
+    serve(
+      stats({
+        attention: {
+          overdueInvoices: [overdue],
+          staleDrafts: [
+            {
+              ...overdue,
+              invoiceId: 'i2',
+              invoiceNumber: 'STINT-0002',
+              ageDays: 15,
+            },
+          ] as never,
+          unprojected: null,
+        },
+      }),
+    );
+    render(<HomeCards />, { wrapper });
+
+    /* Voiding and deleting are consequential and belong on the invoice
+       itself, where the whole document is in view. A card is a glance, and a
+       stray click on a glance must not destroy a financial record. */
+    await waitFor(() =>
+      expect(screen.getByLabelText('Mark paid')).toBeInTheDocument(),
+    );
+    for (const forbidden of [/void/i, /delete/i, /remove/i, /archive/i]) {
+      expect(screen.queryByRole('button', { name: forbidden })).toBeNull();
+      expect(screen.queryByRole('link', { name: forbidden })).toBeNull();
+    }
+  });
+
+  it('marks an overdue invoice paid without leaving the screen', async () => {
+    const calls: Array<{ method: string; path: string; body: unknown }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        if (method !== 'GET') {
+          calls.push({
+            method,
+            path: String(url).replace('/api/v1', ''),
+            body: init?.body ? JSON.parse(String(init.body)) : undefined,
+          });
+          return new Response('{}', { status: 200 });
+        }
+        return new Response(
+          JSON.stringify(
+            stats({
+              attention: {
+                overdueInvoices: [overdue],
+                staleDrafts: [],
+                unprojected: null,
+              },
+            }),
+          ),
+          { status: 200 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    render(<HomeCards />, { wrapper });
+
+    /* The money usually arrived and was simply never recorded, so this is
+       the action that legitimately clears the row — the underlying fact
+       changed, rather than the nag being hidden. */
+    await user.click(await screen.findByLabelText('Mark paid'));
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    expect(calls[0]).toMatchObject({
+      method: 'PATCH',
+      path: '/invoices/i1/status',
+      body: { status: 'paid' },
+    });
   });
 
   it('never spends the accent on a card', async () => {
