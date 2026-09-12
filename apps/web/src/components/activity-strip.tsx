@@ -71,13 +71,17 @@ export function ActivityStrip() {
   });
 
   return (
-    <section className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-primary shadow-card">
-      <header className="flex items-baseline justify-between gap-3 px-4 pt-3 pb-2">
-        <h2 className="type-label text-subtle">Activity</h2>
+    <section className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
+      <header className="flex items-baseline justify-between gap-3 px-4 pt-3 pb-2.5">
+        <h2 className="type-heading text-strong">Activity</h2>
         <span className="type-meta text-subtle">last {WEEKS} weeks</span>
       </header>
+      {/* Inset to the content's own padding, matching the home cards — see
+          the `Card` shell in `home-cards.tsx` for why it is not a border on
+          the header itself. */}
+      <div className="mx-4 border-t border-edge-subtle" />
 
-      <div className="overflow-x-auto px-4 pb-4">
+      <div className="overflow-x-auto px-4 pt-3 pb-4">
         {/* Columns are weeks, rows are weekdays — the orientation everyone
             already reads from commit graphs. */}
         <div
@@ -93,7 +97,7 @@ export function ActivityStrip() {
               <div
                 key={key}
                 title={`${key} — ${day ? formatCompact(day.totalSeconds) : 'nothing tracked'}`}
-                className="size-[11px] flex-none rounded-[2px] bg-surface-elevated"
+                className="size-[11px] flex-none rounded-[2px] bg-surface-hover"
                 style={
                   day && day.totalSeconds > 0
                     ? {

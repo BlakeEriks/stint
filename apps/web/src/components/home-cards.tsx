@@ -272,7 +272,7 @@ function Pace({ stats }: { stats: Stats }) {
 
   return (
     <Card title={monthName()}>
-      <div className="flex flex-col gap-2 px-4 py-3">
+      <div className="flex flex-col gap-2 px-4 pt-3.5 pb-3">
         {p.actual == null ? (
           <p className="type-support text-subtle">
             A {p.unit} target is set, but pace in {p.unit} is not computed yet.
@@ -280,7 +280,7 @@ function Pace({ stats }: { stats: Stats }) {
         ) : (
           <>
             <div className="flex items-baseline justify-between gap-3">
-              <span className="type-amount text-strong">
+              <span className="type-amount-hero text-strong">
                 {p.actual.toFixed(1)}h
                 <span className="type-duration text-subtle">
                   {' / '}
@@ -298,7 +298,7 @@ function Pace({ stats }: { stats: Stats }) {
             </div>
 
             <div
-              className="h-1.5 overflow-hidden rounded-full bg-surface-elevated"
+              className="h-1.5 overflow-hidden rounded-full bg-surface-hover"
               role="img"
               aria-label={`${p.actual.toFixed(1)} of ${p.target} hours`}
             >
@@ -334,13 +334,29 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-primary shadow-card">
-      <header className="flex items-baseline justify-between gap-3 px-4 pt-3 pb-1">
-        <h2 className="type-label text-subtle">{title}</h2>
+    <section className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
+      {/* The rule is INSET to the same `px-4` the rows use, not a border on
+          the header itself.
+
+          A `border-b` here would run the full width of the card and cut the
+          panel in two, which reads as two stacked cards rather than one with
+          a header. Held to the content's own left and right edges it reads as
+          part of the column — the same reason the rows are padded, applied to
+          the line that separates them.
+
+          It is the header's own bottom margin that carries it (`mx-4` on a
+          zero-height div), so the rows below keep their `border-t` and the
+          first row does not double up. */}
+      <header className="flex items-baseline justify-between gap-3 px-4 pt-3 pb-2.5">
+        {/* A card header is a heading, not a system label: `type-label` is
+            11px uppercase mono with wide tracking, which reads as a tag
+            stamped on the panel rather than as the name of what follows. */}
+        <h2 className="type-heading text-strong">{title}</h2>
         {value ? (
-          <span className="type-amount text-strong">{value}</span>
+          <span className="type-amount-hero text-strong">{value}</span>
         ) : null}
       </header>
+      <div className="mx-4 border-t border-edge-subtle" />
       {children}
     </section>
   );
