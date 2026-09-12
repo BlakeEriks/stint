@@ -30,7 +30,8 @@ export function TimerBar({ projects }: { projects: Project[] }) {
 
   const commitRename = () => {
     if (!isRunning || editing === null) return;
-    if (editing !== running!.taskName) timer.update.mutate({ taskName: editing });
+    if (editing !== running!.taskName)
+      timer.update.mutate({ taskName: editing });
     setEditing(null);
   };
 
@@ -84,7 +85,9 @@ export function TimerBar({ projects }: { projects: Project[] }) {
           projects={projects}
           value={isRunning ? running!.projectId : draftProject}
           onChange={(id) =>
-            isRunning ? timer.update.mutate({ projectId: id }) : setDraftProject(id)
+            isRunning
+              ? timer.update.mutate({ projectId: id })
+              : setDraftProject(id)
           }
           selected={project}
         />
@@ -112,7 +115,10 @@ export function TimerBar({ projects }: { projects: Project[] }) {
             {isRunning ? (
               <span className="block size-2.5 rounded-[2px] bg-current" />
             ) : (
-              <svg viewBox="0 0 10 12" className="ml-0.5 block h-3 w-2.5 fill-current">
+              <svg
+                viewBox="0 0 10 12"
+                className="ml-0.5 block h-3 w-2.5 fill-current"
+              >
                 <path d="M0 0l10 6-10 6z" />
               </svg>
             )}
@@ -120,12 +126,20 @@ export function TimerBar({ projects }: { projects: Project[] }) {
         </div>
       </div>
 
-      {exceeded ? <RunawayNotice hours={Math.floor(timer.seconds / 3600)} /> : null}
+      {exceeded ? (
+        <RunawayNotice hours={Math.floor(timer.seconds / 3600)} />
+      ) : null}
     </section>
   );
 }
 
-function StatusDot({ running, exceeded }: { running: boolean; exceeded: boolean }) {
+function StatusDot({
+  running,
+  exceeded,
+}: {
+  running: boolean;
+  exceeded: boolean;
+}) {
   return (
     <span
       aria-hidden

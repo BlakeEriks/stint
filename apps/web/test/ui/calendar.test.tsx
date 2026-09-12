@@ -6,7 +6,15 @@ import { Calendar } from '@/components/calendar';
 import type { CalendarDay, TimeEntry } from '@/lib/client/api';
 
 const PROJECTS = [
-  { id: 'p1', clientId: null, name: 'Acme', hourlyRate: null, color: '#DA8188', isBillableDefault: true, archivedAt: null },
+  {
+    id: 'p1',
+    clientId: null,
+    name: 'Acme',
+    hourlyRate: null,
+    color: '#DA8188',
+    isBillableDefault: true,
+    archivedAt: null,
+  },
 ];
 
 function entry(over: Partial<TimeEntry>): TimeEntry {
@@ -68,13 +76,19 @@ describe('Calendar', () => {
     serve([]);
     render(<Calendar />, { wrapper });
 
-    expect(await screen.findByText('Nothing logged this week.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Nothing logged this week.'),
+    ).toBeInTheDocument();
   });
 
   it('totals the week across days', async () => {
     serve([
       { date: '2026-09-07', totalSeconds: 7200, entries: [entry({})] },
-      { date: '2026-09-08', totalSeconds: 3600, entries: [entry({ id: 'e2' })] },
+      {
+        date: '2026-09-08',
+        totalSeconds: 3600,
+        entries: [entry({ id: 'e2' })],
+      },
     ]);
     render(<Calendar />, { wrapper });
 
@@ -97,7 +111,11 @@ describe('Calendar', () => {
 
   it('names an untitled entry rather than rendering an empty block', async () => {
     serve([
-      { date: '2026-09-07', totalSeconds: 7200, entries: [entry({ taskName: '' })] },
+      {
+        date: '2026-09-07',
+        totalSeconds: 7200,
+        entries: [entry({ taskName: '' })],
+      },
     ]);
     render(<Calendar />, { wrapper });
 
@@ -115,8 +133,18 @@ describe('Calendar', () => {
         date: '2026-09-07',
         totalSeconds: 10_800,
         entries: [
-          entry({ id: 'a', taskName: 'First', startedAt: '2026-09-07T09:00:00.000Z', endedAt: '2026-09-07T11:00:00.000Z' }),
-          entry({ id: 'b', taskName: 'Second', startedAt: '2026-09-07T10:00:00.000Z', endedAt: '2026-09-07T12:00:00.000Z' }),
+          entry({
+            id: 'a',
+            taskName: 'First',
+            startedAt: '2026-09-07T09:00:00.000Z',
+            endedAt: '2026-09-07T11:00:00.000Z',
+          }),
+          entry({
+            id: 'b',
+            taskName: 'Second',
+            startedAt: '2026-09-07T10:00:00.000Z',
+            endedAt: '2026-09-07T12:00:00.000Z',
+          }),
         ],
       },
     ]);
@@ -134,11 +162,17 @@ describe('Calendar', () => {
 
   it('keeps a single entry full width', async () => {
     serve([
-      { date: '2026-09-07', totalSeconds: 7200, entries: [entry({ taskName: 'Alone' })] },
+      {
+        date: '2026-09-07',
+        totalSeconds: 7200,
+        entries: [entry({ taskName: 'Alone' })],
+      },
     ]);
     render(<Calendar />, { wrapper });
 
-    const box = (await screen.findByText('Alone')).closest('[style]') as HTMLElement;
+    const box = (await screen.findByText('Alone')).closest(
+      '[style]',
+    ) as HTMLElement;
     expect(box.style.width).toBe('100%');
     expect(box.style.left).toBe('0%');
   });

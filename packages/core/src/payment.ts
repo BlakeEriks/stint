@@ -83,7 +83,10 @@ export function buildPaymentDetails(
   push('Routing number (ACH)', profile.routingNumber);
 
   if (has(profile.accountType)) {
-    push('Account type', profile.accountType === 'checking' ? 'Checking' : 'Savings');
+    push(
+      'Account type',
+      profile.accountType === 'checking' ? 'Checking' : 'Savings',
+    );
   }
 
   push('IBAN', profile.iban);
@@ -92,7 +95,10 @@ export function buildPaymentDetails(
   // A labelled pair covers every national clearing scheme (sort code, BSB…)
   // without a migration per country.
   if (has(profile.localCode)) {
-    push(has(profile.localCodeLabel) ? profile.localCodeLabel : 'Bank code', profile.localCode);
+    push(
+      has(profile.localCodeLabel) ? profile.localCodeLabel : 'Bank code',
+      profile.localCode,
+    );
   }
 
   push('Bank address', profile.bankAddress);
@@ -111,23 +117,32 @@ export function buildPaymentDetails(
   }
 
   const intermediary: PaymentField[] = [];
-  const pushIntermediary = (label: string, value: string | null | undefined) => {
+  const pushIntermediary = (
+    label: string,
+    value: string | null | undefined,
+  ) => {
     if (has(value)) intermediary.push({ label, value: value.trim() });
   };
   pushIntermediary('Intermediary bank', profile.intermediaryBankName);
   pushIntermediary('Intermediary SWIFT / BIC', profile.intermediarySwiftBic);
   pushIntermediary('Intermediary account', profile.intermediaryAccountNumber);
 
-  const link =
-    has(profile.paymentLinkUrl)
-      ? {
-          label: has(profile.paymentLinkLabel) ? profile.paymentLinkLabel : 'Pay online',
-          url: profile.paymentLinkUrl,
-        }
-      : null;
+  const link = has(profile.paymentLinkUrl)
+    ? {
+        label: has(profile.paymentLinkLabel)
+          ? profile.paymentLinkLabel
+          : 'Pay online',
+        url: profile.paymentLinkUrl,
+      }
+    : null;
 
   // Nothing to render: don't emit an empty section header.
-  if (fields.length === 0 && intermediary.length === 0 && !link && !has(profile.notes)) {
+  if (
+    fields.length === 0 &&
+    intermediary.length === 0 &&
+    !link &&
+    !has(profile.notes)
+  ) {
     return null;
   }
 

@@ -5,7 +5,10 @@ export const MINUTE = 60;
 export const HOUR = 3600;
 
 /** Seconds elapsed between two instants, floored at 0. */
-export function elapsedSeconds(startedAt: Date | string, now: Date = new Date()): number {
+export function elapsedSeconds(
+  startedAt: Date | string,
+  now: Date = new Date(),
+): number {
   const start = typeof startedAt === 'string' ? new Date(startedAt) : startedAt;
   return Math.max(0, Math.floor((now.getTime() - start.getTime()) / 1000));
 }

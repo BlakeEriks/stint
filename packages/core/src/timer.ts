@@ -51,8 +51,11 @@ export function deriveTimerView(
  */
 export function timerColorToken(state: TimerDisplayState): string {
   switch (state) {
-    case 'running':  return 'timer-running';
-    case 'exceeded': return 'timer-warning';
-    case 'idle':     return 'timer-idle';
+    case 'running':
+      return 'timer-running';
+    case 'exceeded':
+      return 'timer-warning';
+    case 'idle':
+      return 'timer-idle';
   }
 }

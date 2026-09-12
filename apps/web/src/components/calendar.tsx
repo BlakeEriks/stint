@@ -17,7 +17,10 @@ const HOURS = [0, 3, 6, 9, 12, 15, 18, 21];
  */
 export function Calendar() {
   const cal = useCalendar();
-  const { data } = useQuery({ queryKey: ['projects'], queryFn: () => api.projects() });
+  const { data } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => api.projects(),
+  });
   const byId = new Map((data?.projects ?? []).map((p) => [p.id, p]));
 
   const label = new Intl.DateTimeFormat('en-US', {
@@ -39,7 +42,12 @@ export function Calendar() {
         </div>
 
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={cal.prev} aria-label="Previous week">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={cal.prev}
+            aria-label="Previous week"
+          >
             ←
           </Button>
           <Button
@@ -49,7 +57,12 @@ export function Calendar() {
           >
             This week
           </Button>
-          <Button variant="ghost" size="sm" onClick={cal.next} aria-label="Next week">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={cal.next}
+            aria-label="Next week"
+          >
             →
           </Button>
         </div>
@@ -59,14 +72,23 @@ export function Calendar() {
         <div className="flex border-b border-edge-subtle">
           <div className="w-12 flex-none sm:w-14" />
           {cal.days.map((day) => (
-            <DayHeading key={day.date} date={day.date} at={day.at} tz={cal.tz} seconds={day.totalSeconds} />
+            <DayHeading
+              key={day.date}
+              date={day.date}
+              at={day.at}
+              tz={cal.tz}
+              seconds={day.totalSeconds}
+            />
           ))}
         </div>
 
         {/* One scroll container so the hour gutter cannot drift from the grid. */}
         <div className="max-h-[62vh] overflow-y-auto">
           <div className="flex">
-            <div className="relative w-12 flex-none sm:w-14" style={{ height: GRID_HEIGHT }}>
+            <div
+              className="relative w-12 flex-none sm:w-14"
+              style={{ height: GRID_HEIGHT }}
+            >
               {HOURS.map((h) => (
                 <span
                   key={h}
@@ -131,7 +153,8 @@ function DayHeading({
   }).format(at);
 
   const today =
-    new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date()) === date;
+    new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date()) ===
+    date;
 
   return (
     <div className="min-w-0 flex-1 px-1 py-2 text-center">
@@ -174,7 +197,12 @@ function DayColumn({
       ))}
 
       {positioned.map((item) => (
-        <EntryBlock key={item.entry.id} item={item} projects={projects} tz={tz} />
+        <EntryBlock
+          key={item.entry.id}
+          item={item}
+          projects={projects}
+          tz={tz}
+        />
       ))}
     </div>
   );

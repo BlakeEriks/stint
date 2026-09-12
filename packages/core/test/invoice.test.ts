@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLineItems, formatInvoiceNumber, type BillableEntry } from '../src/invoice.ts';
+import {
+  buildLineItems,
+  formatInvoiceNumber,
+  type BillableEntry,
+} from '../src/invoice.ts';
 
 const entry = (over: Partial<BillableEntry> = {}): BillableEntry => ({
   id: 'e1',
@@ -70,7 +74,9 @@ test('an entry with no rate anywhere is reported, not billed at zero', () => {
 });
 
 test('a deliberate zero rate bills at zero rather than being flagged unrated', () => {
-  const r = buildLineItems([entry({ projectRate: 0 })], { groupingMode: 'entry' });
+  const r = buildLineItems([entry({ projectRate: 0 })], {
+    groupingMode: 'entry',
+  });
   assert.deepEqual(r.unratedEntryIds, []);
   assert.equal(r.lineItems[0]!.resolvedRate, 0);
   assert.equal(r.lineItems[0]!.amount, 0);
@@ -107,7 +113,10 @@ test('same task name at different rates stays on separate lines', () => {
     { groupingMode: 'task' },
   );
   assert.equal(r.lineItems.length, 2, 'rates must not be merged');
-  assert.deepEqual(r.lineItems.map((li) => li.resolvedRate).sort((x, y) => x - y), [150, 200]);
+  assert.deepEqual(
+    r.lineItems.map((li) => li.resolvedRate).sort((x, y) => x - y),
+    [150, 200],
+  );
   assert.equal(r.subtotal, 350);
 });
 
@@ -120,7 +129,10 @@ test('grouping by project, with unassigned work labelled', () => {
     ],
     { groupingMode: 'project' },
   );
-  assert.deepEqual(r.lineItems.map((li) => li.description), ['Lifecycle', 'Unassigned']);
+  assert.deepEqual(
+    r.lineItems.map((li) => li.description),
+    ['Lifecycle', 'Unassigned'],
+  );
   assert.equal(r.lineItems[0]!.quantityHours, 2);
 });
 
@@ -175,7 +187,11 @@ test('grouped amounts round once per line, not per entry', () => {
   );
   assert.equal(r.lineItems.length, 1);
   assert.equal(r.lineItems[0]!.quantitySeconds, 3600);
-  assert.equal(r.lineItems[0]!.amount, 100, 'exactly 100, not 99.99 from 3 x 33.33');
+  assert.equal(
+    r.lineItems[0]!.amount,
+    100,
+    'exactly 100, not 99.99 from 3 x 33.33',
+  );
 });
 
 test('line order is deterministic for grouped modes', () => {
@@ -191,7 +207,10 @@ test('line order is deterministic for grouped modes', () => {
     second.lineItems.map((li) => li.description),
     'input order must not change the invoice',
   );
-  assert.deepEqual(first.lineItems.map((li) => li.description), ['Alpha', 'Mango', 'Zebra']);
+  assert.deepEqual(
+    first.lineItems.map((li) => li.description),
+    ['Alpha', 'Mango', 'Zebra'],
+  );
 });
 
 test('an empty entry set produces a zero invoice, not a crash', () => {
@@ -204,7 +223,9 @@ test('an empty entry set produces a zero invoice, not a crash', () => {
 });
 
 test('an untitled task still gets a description', () => {
-  const r = buildLineItems([entry({ taskName: '' })], { groupingMode: 'entry' });
+  const r = buildLineItems([entry({ taskName: '' })], {
+    groupingMode: 'entry',
+  });
   assert.equal(r.lineItems[0]!.description, 'Untitled');
 });
 
@@ -212,6 +233,10 @@ test('invoice numbers pad to four digits and grow beyond', () => {
   assert.equal(formatInvoiceNumber('INV-', 1), 'INV-0001');
   assert.equal(formatInvoiceNumber('INV-', 42), 'INV-0042');
   assert.equal(formatInvoiceNumber('INV-', 9999), 'INV-9999');
-  assert.equal(formatInvoiceNumber('INV-', 10000), 'INV-10000', 'grows rather than truncating');
+  assert.equal(
+    formatInvoiceNumber('INV-', 10000),
+    'INV-10000',
+    'grows rather than truncating',
+  );
   assert.equal(formatInvoiceNumber('2026-', 7), '2026-0007');
 });

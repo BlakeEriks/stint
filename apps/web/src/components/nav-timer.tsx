@@ -23,9 +23,12 @@ export function NavTimer({ onTimerScreen }: { onTimerScreen: boolean }) {
 
   if (!timer.running) {
     return (
+      // `role="status"` so the aria-label is actually honoured: a bare
+      // <span> has no role, and screen readers ignore a label on it.
       <span
+        role="status"
         className="tabular font-mono text-[12px] text-subtle"
-        aria-label="No timer running"
+        aria-label={`No timer running. ${formatClock(timer.todaySeconds)} logged today.`}
       >
         {formatClock(timer.todaySeconds)}
         <span className="hidden sm:inline"> today</span>

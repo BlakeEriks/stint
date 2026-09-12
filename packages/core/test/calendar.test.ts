@@ -1,15 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  startOfLocalDay, startOfLocalWeek, localDateKey,
-  localDayOfWeek, isValidTimeZone,
+  startOfLocalDay,
+  startOfLocalWeek,
+  localDateKey,
+  localDayOfWeek,
+  isValidTimeZone,
 } from '../src/calendar.ts';
 
 /** Renders an instant in a zone, for asserting it really is local midnight. */
 function render(at: Date, tz: string) {
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
   }).format(at);
 }
 
@@ -19,8 +28,8 @@ const cases: Array<[string, string]> = [
   ['2026-09-11T02:30:00Z', 'America/Sao_Paulo'],
   ['2026-09-11T14:30:00Z', 'America/New_York'],
   ['2026-09-11T23:30:00Z', 'Asia/Tokyo'],
-  ['2026-09-11T14:30:00Z', 'Asia/Kolkata'],      // +5:30
-  ['2026-09-11T14:30:00Z', 'Pacific/Chatham'],   // +12:45
+  ['2026-09-11T14:30:00Z', 'Asia/Kolkata'], // +5:30
+  ['2026-09-11T14:30:00Z', 'Pacific/Chatham'], // +12:45
   ['2026-10-18T12:00:00Z', 'America/Santiago'],
 ];
 
@@ -29,7 +38,11 @@ test('startOfLocalDay lands on local midnight of the same local date', () => {
     const now = new Date(iso);
     const out = render(startOfLocalDay(now, tz), tz);
     assert.ok(out.includes('00:00:00'), `${tz}: ${out} is not midnight`);
-    assert.equal(out.slice(0, 10), render(now, tz).slice(0, 10), `${tz}: wrong date`);
+    assert.equal(
+      out.slice(0, 10),
+      render(now, tz).slice(0, 10),
+      `${tz}: wrong date`,
+    );
   }
 });
 

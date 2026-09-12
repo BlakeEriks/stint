@@ -16,7 +16,12 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
 
   return NextResponse.json({
     ...invoice,
-    client: { id: client.id, name: client.name, email: client.email, address: client.address },
+    client: {
+      id: client.id,
+      name: client.name,
+      email: client.email,
+      address: client.address,
+    },
     lineItems: pdfData.lineItems,
   });
 });
@@ -57,7 +62,10 @@ export const DELETE = handle(async (req: Request, ctx: Ctx) => {
     .eq('invoice_id', id);
   if (releaseError) throw releaseError;
 
-  const { error: deleteError } = await db.from('invoices').delete().eq('id', id);
+  const { error: deleteError } = await db
+    .from('invoices')
+    .delete()
+    .eq('id', id);
   if (deleteError) throw deleteError;
 
   return new NextResponse(null, { status: 204 });

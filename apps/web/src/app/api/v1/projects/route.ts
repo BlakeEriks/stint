@@ -32,7 +32,11 @@ const CreateProject = z.object({
   clientId: z.uuid().nullable().optional(), // null = internal / unbilled
   name: z.string().trim().min(1).max(200),
   hourlyRate: z.number().nonnegative().nullable().optional(),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .nullable()
+    .optional(),
   isBillableDefault: z.boolean().optional(),
 });
 
@@ -57,7 +61,10 @@ export const POST = handle(async (req: Request) => {
   if (error) {
     if (error.code === '23505' && body.id) {
       const { data: existing } = await db
-        .from('projects').select(PROJECT_COLUMNS).eq('id', body.id).maybeSingle();
+        .from('projects')
+        .select(PROJECT_COLUMNS)
+        .eq('id', body.id)
+        .maybeSingle();
       if (existing) return NextResponse.json(toProject(existing));
     }
     throw error;

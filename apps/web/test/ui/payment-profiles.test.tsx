@@ -79,7 +79,9 @@ describe('PaymentProfiles', () => {
     render(<PaymentProfiles />, { wrapper });
 
     await screen.findByText('Wise USD');
-    expect(screen.getAllByRole('button', { name: 'Make default' })).toHaveLength(1);
+    expect(
+      screen.getAllByRole('button', { name: 'Make default' }),
+    ).toHaveLength(1);
   });
 
   it('says invoices render without a payment block when none exist', async () => {
@@ -92,7 +94,14 @@ describe('PaymentProfiles', () => {
   });
 
   it('hides an archived profile', async () => {
-    serve([{ ...BASE, id: 'pp-3', name: 'Old bank', archivedAt: '2026-01-01T00:00:00Z' }]);
+    serve([
+      {
+        ...BASE,
+        id: 'pp-3',
+        name: 'Old bank',
+        archivedAt: '2026-01-01T00:00:00Z',
+      },
+    ]);
     render(<PaymentProfiles />, { wrapper });
 
     await screen.findByText(/without a payment block/);

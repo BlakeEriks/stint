@@ -19,10 +19,15 @@ export interface ClientRow {
   payment_profile_id: string | null;
 }
 
-export async function loadClient(db: SupabaseClient, clientId: string): Promise<ClientRow> {
+export async function loadClient(
+  db: SupabaseClient,
+  clientId: string,
+): Promise<ClientRow> {
   const { data, error } = await db
     .from('clients')
-    .select('id, name, email, address, hourly_rate, tax_rate, currency, payment_profile_id')
+    .select(
+      'id, name, email, address, hourly_rate, tax_rate, currency, payment_profile_id',
+    )
     .eq('id', clientId)
     .maybeSingle();
 
@@ -65,7 +70,9 @@ export async function loadBillableEntries(
 
   const { data, error } = await db
     .from('time_entries')
-    .select('id, task_name, project_id, started_at, duration_seconds, is_billable, rate_override')
+    .select(
+      'id, task_name, project_id, started_at, duration_seconds, is_billable, rate_override',
+    )
     .in('project_id', [...byId.keys()])
     .is('invoice_id', null)
     .not('ended_at', 'is', null)
@@ -106,10 +113,14 @@ export interface InvoiceSettings {
   paymentNotice: string | null;
 }
 
-export async function loadSettings(db: SupabaseClient): Promise<InvoiceSettings> {
+export async function loadSettings(
+  db: SupabaseClient,
+): Promise<InvoiceSettings> {
   const { data, error } = await db
     .from('user_settings')
-    .select('default_hourly_rate, currency, default_payment_terms, invoice_number_prefix, business_name, business_address, business_email, logo_url, tax_id, payment_notice')
+    .select(
+      'default_hourly_rate, currency, default_payment_terms, invoice_number_prefix, business_name, business_address, business_email, logo_url, tax_id, payment_notice',
+    )
     .maybeSingle();
 
   if (error) throw error;
@@ -144,7 +155,9 @@ export async function loadPaymentProfile(
     .is('archived_at', null);
 
   if (error) throw error;
-  const profiles = (data ?? []).map((r) => toPaymentProfile(r as Record<string, any>));
+  const profiles = (data ?? []).map((r) =>
+    toPaymentProfile(r as Record<string, any>),
+  );
   if (profiles.length === 0) return null;
 
   const defaultProfile = profiles.find((p) => p.isDefault);
@@ -218,7 +231,9 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
   const [items, client, settings] = await Promise.all([
     db
       .from('invoice_line_items')
-      .select('id, description, quantity_seconds, resolved_rate, amount, sort_order')
+      .select(
+        'id, description, quantity_seconds, resolved_rate, amount, sort_order',
+      )
       .eq('invoice_id', invoiceId)
       .order('sort_order', { ascending: true }),
     loadClient(db, invoice.clientId),
@@ -252,8 +267,14 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
         logoUrl: settings.logoUrl,
         taxId: settings.taxId,
       },
-      client: { name: client.name, email: client.email, address: client.address },
-      lineItems: (items.data ?? []).map((r) => toLineItem(r as Record<string, any>)),
+      client: {
+        name: client.name,
+        email: client.email,
+        address: client.address,
+      },
+      lineItems: (items.data ?? []).map((r) =>
+        toLineItem(r as Record<string, any>),
+      ),
       // The FROZEN snapshot, never a live profile lookup: a re-downloaded
       // invoice must show the details the client was actually given.
       payment: invoice.paymentDetails ?? null,

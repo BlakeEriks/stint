@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { handle, ApiError } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
-import { SETTINGS_COLUMNS, toSettings, toColumns, SETTINGS_FIELDS } from '@/lib/rows';
+import {
+  SETTINGS_COLUMNS,
+  toSettings,
+  toColumns,
+  SETTINGS_FIELDS,
+} from '@/lib/rows';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +16,9 @@ export const GET = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
 
   const { data, error } = await db
-    .from('user_settings').select(SETTINGS_COLUMNS).maybeSingle();
+    .from('user_settings')
+    .select(SETTINGS_COLUMNS)
+    .maybeSingle();
 
   if (error) throw error;
 

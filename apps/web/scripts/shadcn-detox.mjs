@@ -165,12 +165,14 @@ function convert(src) {
   const lookup = new Map(MAP);
   const pattern = new RegExp(keys.map(escapeRe).join('|'), 'g');
 
-  return src
-    .replace(pattern, (m) => lookup.get(m) ?? m)
-    // Dark-mode variants: the app is dark-first and themed via [data-theme].
-    // Drop the variant and the space that preceded it, so indentation and
-    // the surrounding class list are left exactly as they were.
-    .replace(/ ?\bdark:[^\s"'`]+/g, '');
+  return (
+    src
+      .replace(pattern, (m) => lookup.get(m) ?? m)
+      // Dark-mode variants: the app is dark-first and themed via [data-theme].
+      // Drop the variant and the space that preceded it, so indentation and
+      // the surrounding class list are left exactly as they were.
+      .replace(/ ?\bdark:[^\s"'`]+/g, '')
+  );
 }
 
 function escapeRe(s) {
@@ -186,9 +188,7 @@ if (patterns.length === 0) {
   process.exit(2);
 }
 
-const files = patterns.flatMap((p) =>
-  p.includes('*') ? globSync(p) : [p],
-);
+const files = patterns.flatMap((p) => (p.includes('*') ? globSync(p) : [p]));
 
 let failed = 0;
 
@@ -228,4 +228,5 @@ if (failed > 0) {
   process.exit(1);
 }
 
-if (check) console.log(`✓ ${files.length} file(s) clean of shadcn palette names`);
+if (check)
+  console.log(`✓ ${files.length} file(s) clean of shadcn palette names`);

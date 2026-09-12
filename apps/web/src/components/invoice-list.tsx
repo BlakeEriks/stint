@@ -41,7 +41,10 @@ export function InvoiceList() {
           <ul>
             {invoices.map((invoice) => (
               <li key={invoice.id}>
-                <Row invoice={invoice} clientName={names.get(invoice.clientId)} />
+                <Row
+                  invoice={invoice}
+                  clientName={names.get(invoice.clientId)}
+                />
               </li>
             ))}
           </ul>
@@ -87,6 +90,8 @@ function Row({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-4 py-10 text-center text-[13.5px] text-subtle">{children}</p>
+    <p className="px-4 py-10 text-center text-[13.5px] text-subtle">
+      {children}
+    </p>
   );
 }

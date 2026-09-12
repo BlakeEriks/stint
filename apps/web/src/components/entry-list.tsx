@@ -50,7 +50,11 @@ export function EntryList({
           <ul>
             {entries.map((entry) => (
               <li key={entry.id}>
-                <Row entry={entry} project={byId.get(entry.projectId ?? '')} tz={tz} />
+                <Row
+                  entry={entry}
+                  project={byId.get(entry.projectId ?? '')}
+                  tz={tz}
+                />
               </li>
             ))}
           </ul>
@@ -112,5 +116,9 @@ function Row({
 }
 
 function Placeholder({ children }: { children: React.ReactNode }) {
-  return <p className="px-4 py-8 text-center text-[13.5px] text-subtle">{children}</p>;
+  return (
+    <p className="px-4 py-8 text-center text-[13.5px] text-subtle">
+      {children}
+    </p>
+  );
 }

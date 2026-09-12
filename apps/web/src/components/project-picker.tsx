@@ -41,58 +41,63 @@ export function ProjectPicker({
 
   return (
     <>
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label="Project"
-        className="flex max-w-[10rem] flex-none items-center gap-1.5 rounded-md px-2 py-1
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label="Project"
+          className="flex max-w-[10rem] flex-none items-center gap-1.5 rounded-md px-2 py-1
                    font-mono text-[11.5px] text-muted outline-none
                    hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus"
-      >
-        {selected ? (
-          <>
-            <Swatch color={selected.color} />
-            <span className="truncate">{selected.name}</span>
-          </>
-        ) : (
-          <span className="text-subtle">+ Project</span>
-        )}
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent align="end" className="max-h-72 w-56 overflow-y-auto">
-        {projects.length === 0 ? (
-          <p className="px-3 py-2 text-[13px] text-subtle">No projects yet.</p>
-        ) : null}
-
-        <DropdownMenuRadioGroup
-          value={value ?? NONE}
-          onValueChange={(v) => onChange(v === NONE ? null : v)}
         >
-          <DropdownMenuRadioItem value={NONE} className="pl-8 text-subtle">
-            No project
-          </DropdownMenuRadioItem>
+          {selected ? (
+            <>
+              <Swatch color={selected.color} />
+              <span className="truncate">{selected.name}</span>
+            </>
+          ) : (
+            <span className="text-subtle">+ Project</span>
+          )}
+        </DropdownMenuTrigger>
 
-          {projects.map((p) => (
-            <DropdownMenuRadioItem key={p.id} value={p.id} className="pl-8">
-              <Swatch color={p.color} />
-              <span className="truncate">{p.name}</span>
+        <DropdownMenuContent
+          align="end"
+          className="max-h-72 w-56 overflow-y-auto"
+        >
+          {projects.length === 0 ? (
+            <p className="px-3 py-2 text-[13px] text-subtle">
+              No projects yet.
+            </p>
+          ) : null}
+
+          <DropdownMenuRadioGroup
+            value={value ?? NONE}
+            onValueChange={(v) => onChange(v === NONE ? null : v)}
+          >
+            <DropdownMenuRadioItem value={NONE} className="pl-8 text-subtle">
+              No project
             </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
 
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => setCreating(true)}>
-          + New project
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+            {projects.map((p) => (
+              <DropdownMenuRadioItem key={p.id} value={p.id} className="pl-8">
+                <Swatch color={p.color} />
+                <span className="truncate">{p.name}</span>
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
 
-    {/* Selecting the new project immediately is the point of creating one
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => setCreating(true)}>
+            + New project
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Selecting the new project immediately is the point of creating one
         from here — otherwise the user has to reopen the menu and find it. */}
-    <ProjectDialog
-      open={creating}
-      onOpenChange={setCreating}
-      onSaved={(project) => onChange(project.id)}
-    />
+      <ProjectDialog
+        open={creating}
+        onOpenChange={setCreating}
+        onSaved={(project) => onChange(project.id)}
+      />
     </>
   );
 }

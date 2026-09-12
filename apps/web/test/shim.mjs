@@ -21,34 +21,94 @@ export function makeDb(pool, userId) {
     // Where-clauses are stored as (builder) thunks and numbered only in
     // _exec, so SET and WHERE placeholders can never collide regardless of
     // the order the builder methods were called in.
-    const st = { table, cols: '*', wheres: [], params: [], order: null, lim: null,
-                 op: 'select', payload: null };
+    const st = {
+      table,
+      cols: '*',
+      wheres: [],
+      params: [],
+      order: null,
+      lim: null,
+      op: 'select',
+      payload: null,
+    };
 
     const api = {
-      select(cols) { st.cols = cols || '*'; return api; },
-      insert(obj) { st.op = 'insert'; st.payload = obj; return api; },
-      update(obj) { st.op = 'update'; st.payload = obj; return api; },
-      delete() { st.op = 'delete'; return api; },
-      eq(c, v) { st.wheres.push((P) => `${c} = ${P(v)}`); return api; },
-      neq(c, v) { st.wheres.push((P) => `${c} <> ${P(v)}`); return api; },
-      is(c, v) { st.wheres.push(() => `${c} IS ${v === null ? 'NULL' : v}`); return api; },
-      not(c, _op, v) { st.wheres.push(() => `${c} IS NOT ${v === null ? 'NULL' : v}`); return api; },
-      gte(c, v) { st.wheres.push((P) => `${c} >= ${P(v)}`); return api; },
-      lte(c, v) { st.wheres.push((P) => `${c} <= ${P(v)}`); return api; },
-      lt(c, v) { st.wheres.push((P) => `${c} < ${P(v)}`); return api; },
-      gt(c, v) { st.wheres.push((P) => `${c} > ${P(v)}`); return api; },
-      in(c, vs) {
-        if (!vs.length) { st.wheres.push(() => 'false'); return api; }
-        st.wheres.push((P) => `${c} = ANY(${P(vs)})`); return api;
+      select(cols) {
+        st.cols = cols || '*';
+        return api;
       },
-      order(c, o) { st.order = `${c} ${o?.ascending === false ? 'DESC' : 'ASC'}`; return api; },
-      limit(n) { st.lim = n; return api; },
+      insert(obj) {
+        st.op = 'insert';
+        st.payload = obj;
+        return api;
+      },
+      update(obj) {
+        st.op = 'update';
+        st.payload = obj;
+        return api;
+      },
+      delete() {
+        st.op = 'delete';
+        return api;
+      },
+      eq(c, v) {
+        st.wheres.push((P) => `${c} = ${P(v)}`);
+        return api;
+      },
+      neq(c, v) {
+        st.wheres.push((P) => `${c} <> ${P(v)}`);
+        return api;
+      },
+      is(c, v) {
+        st.wheres.push(() => `${c} IS ${v === null ? 'NULL' : v}`);
+        return api;
+      },
+      not(c, _op, v) {
+        st.wheres.push(() => `${c} IS NOT ${v === null ? 'NULL' : v}`);
+        return api;
+      },
+      gte(c, v) {
+        st.wheres.push((P) => `${c} >= ${P(v)}`);
+        return api;
+      },
+      lte(c, v) {
+        st.wheres.push((P) => `${c} <= ${P(v)}`);
+        return api;
+      },
+      lt(c, v) {
+        st.wheres.push((P) => `${c} < ${P(v)}`);
+        return api;
+      },
+      gt(c, v) {
+        st.wheres.push((P) => `${c} > ${P(v)}`);
+        return api;
+      },
+      in(c, vs) {
+        if (!vs.length) {
+          st.wheres.push(() => 'false');
+          return api;
+        }
+        st.wheres.push((P) => `${c} = ANY(${P(vs)})`);
+        return api;
+      },
+      order(c, o) {
+        st.order = `${c} ${o?.ascending === false ? 'DESC' : 'ASC'}`;
+        return api;
+      },
+      limit(n) {
+        st.lim = n;
+        return api;
+      },
 
       async _exec() {
-        const P = (v) => { st.params.push(v); return `$${st.params.length}`; };
+        const P = (v) => {
+          st.params.push(v);
+          return `$${st.params.length}`;
+        };
         const whereSql = () => {
           const parts = st.wheres.map((w) => w(P));
-          if (!NO_USER_SCOPE.has(st.table)) parts.unshift(`user_id = ${P(userId)}`);
+          if (!NO_USER_SCOPE.has(st.table))
+            parts.unshift(`user_id = ${P(userId)}`);
           return parts.length ? parts.join(' AND ') : 'true';
         };
         let sql;
@@ -63,7 +123,9 @@ export function makeDb(pool, userId) {
           sql = `insert into ${st.table} (${keys.join(',')}) values ${tuples} returning ${st.cols}`;
         } else if (st.op === 'update') {
           // SET placeholders must be numbered before the WHERE ones.
-          const sets = Object.keys(st.payload).map((k) => `${k} = ${P(st.payload[k])}`);
+          const sets = Object.keys(st.payload).map(
+            (k) => `${k} = ${P(st.payload[k])}`,
+          );
           sql = `update ${st.table} set ${sets.join(',')} where ${whereSql()} returning ${st.cols}`;
         } else if (st.op === 'delete') {
           sql = `delete from ${st.table} where ${whereSql()} returning ${st.cols}`;
@@ -77,13 +139,21 @@ export function makeDb(pool, userId) {
       async single() {
         const { rows, error } = await api._exec();
         if (error) return { data: null, error };
-        return { data: rows[0] ?? null, error: rows.length ? null : { code: 'PGRST116', message: 'no rows' } };
+        return {
+          data: rows[0] ?? null,
+          error: rows.length ? null : { code: 'PGRST116', message: 'no rows' },
+        };
       },
       async maybeSingle() {
         const { rows, error } = await api._exec();
         return { data: rows[0] ?? null, error };
       },
-      then(res, rej) { return api._exec().then(({ rows, error }) => ({ data: rows, error })).then(res, rej); },
+      then(res, rej) {
+        return api
+          ._exec()
+          .then(({ rows, error }) => ({ data: rows, error }))
+          .then(res, rej);
+      },
     };
     return api;
   }
@@ -102,6 +172,8 @@ export function makeDb(pool, userId) {
   return {
     from,
     rpc,
-    auth: { getUser: async () => ({ data: { user: { id: userId } }, error: null }) },
+    auth: {
+      getUser: async () => ({ data: { user: { id: userId } }, error: null }),
+    },
   };
 }

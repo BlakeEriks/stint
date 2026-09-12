@@ -23,7 +23,11 @@ export const metadata: Metadata = {
   description: 'Time tracking for solo contractors.',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
       <body>

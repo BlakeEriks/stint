@@ -48,7 +48,7 @@ export function Nav() {
 
         {/* Right of the tabs, in space the row already had. */}
         <div className="ml-auto flex-none pl-2">
-          <NavTimer onTimerScreen={pathname === "/"} />
+          <NavTimer onTimerScreen={pathname === '/'} />
         </div>
       </div>
     </nav>

@@ -33,7 +33,11 @@ const CreateClient = z.object({
   hourlyRate: z.number().nonnegative().nullable().optional(),
   taxRate: z.number().min(0).max(100).nullable().optional(),
   currency: z.string().length(3).nullable().optional(),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .nullable()
+    .optional(),
 });
 
 export const POST = handle(async (req: Request) => {
@@ -60,7 +64,10 @@ export const POST = handle(async (req: Request) => {
     // Replayed offline mutation — return what already exists.
     if (error.code === '23505' && body.id) {
       const { data: existing } = await db
-        .from('clients').select(CLIENT_COLUMNS).eq('id', body.id).maybeSingle();
+        .from('clients')
+        .select(CLIENT_COLUMNS)
+        .eq('id', body.id)
+        .maybeSingle();
       if (existing) return NextResponse.json(toClient(existing));
     }
     throw error;

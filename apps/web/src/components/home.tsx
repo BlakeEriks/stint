@@ -12,7 +12,10 @@ import { EntryList } from './entry-list';
  */
 export function Home() {
   const timer = useTimer();
-  const { data } = useQuery({ queryKey: ['projects'], queryFn: () => api.projects() });
+  const { data } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => api.projects(),
+  });
   const projects = data?.projects ?? [];
 
   return (

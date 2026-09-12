@@ -25,7 +25,9 @@ function entry(over: Partial<TimeEntry> = {}): TimeEntry {
 function serve(entries: TimeEntry[]) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => new Response(JSON.stringify({ entries }), { status: 200 })),
+    vi.fn(
+      async () => new Response(JSON.stringify({ entries }), { status: 200 }),
+    ),
   );
 }
 
@@ -67,7 +69,12 @@ describe('EntryList', () => {
   it('omits the running entry, which the timer bar already shows', async () => {
     serve([
       entry({ id: 'done', taskName: 'Finished task' }),
-      entry({ id: 'live', taskName: 'Still running', endedAt: null, durationSeconds: null }),
+      entry({
+        id: 'live',
+        taskName: 'Still running',
+        endedAt: null,
+        durationSeconds: null,
+      }),
     ]);
     renderList();
 
@@ -115,6 +122,8 @@ describe('EntryList', () => {
     serve([]);
     renderList(0);
 
-    expect(await screen.findByText(/Nothing logged yet today/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Nothing logged yet today/),
+    ).toBeInTheDocument();
   });
 });

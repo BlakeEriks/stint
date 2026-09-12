@@ -106,14 +106,18 @@ function position(
   for (const entry of entries) {
     const start = new Date(entry.startedAt).getTime();
     // A running entry draws up to now; it has no end yet.
-    const end = entry.endedAt
-      ? new Date(entry.endedAt).getTime()
-      : Date.now();
+    const end = entry.endedAt ? new Date(entry.endedAt).getTime() : Date.now();
 
     const top = clamp((start - midnight) / span);
     // A minimum height keeps a two-minute entry clickable.
     const height = Math.max(clamp((end - start) / span), 0.012);
-    placed.push({ entry, top, height: Math.min(height, 1 - top), lane: 0, lanes: 1 });
+    placed.push({
+      entry,
+      top,
+      height: Math.min(height, 1 - top),
+      lane: 0,
+      lanes: 1,
+    });
   }
 
   assignLanes(placed);

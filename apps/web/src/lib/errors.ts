@@ -36,7 +36,10 @@ export class ApiError extends Error {
 }
 
 export function errorResponse(code: Code, message: string, details?: unknown) {
-  return NextResponse.json({ code, message, details }, { status: STATUS[code] });
+  return NextResponse.json(
+    { code, message, details },
+    { status: STATUS[code] },
+  );
 }
 
 /**
@@ -70,7 +73,9 @@ export const PG = {
 } as const;
 
 /** The partial unique index that enforces one running timer per user. */
-export function isTimerConflict(err: { code?: string; message?: string } | null): boolean {
+export function isTimerConflict(
+  err: { code?: string; message?: string } | null,
+): boolean {
   return (
     err?.code === PG.UNIQUE_VIOLATION &&
     (err.message ?? '').includes('one_running_timer_per_user')
@@ -78,7 +83,9 @@ export function isTimerConflict(err: { code?: string; message?: string } | null)
 }
 
 /** The trigger guarding entries billed on a non-draft invoice. */
-export function isBilledLock(err: { code?: string; message?: string } | null): boolean {
+export function isBilledLock(
+  err: { code?: string; message?: string } | null,
+): boolean {
   return (
     err?.code === PG.CHECK_VIOLATION &&
     /billed on a .* invoice/.test(err.message ?? '')

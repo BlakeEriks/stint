@@ -26,7 +26,8 @@ export function PaymentProfiles() {
   const profiles = (data?.paymentProfiles ?? []).filter((p) => !p.archivedAt);
 
   const makeDefault = useMutation({
-    mutationFn: (id: string) => api.updatePaymentProfile(id, { isDefault: true }),
+    mutationFn: (id: string) =>
+      api.updatePaymentProfile(id, { isDefault: true }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['payment-profiles'] }),
   });
@@ -87,7 +88,11 @@ export function PaymentProfiles() {
       )}
 
       <div>
-        <Button type="button" variant="secondary" onClick={() => setCreating(true)}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => setCreating(true)}
+        >
           Add payment details
         </Button>
       </div>

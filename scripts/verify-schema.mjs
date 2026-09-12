@@ -71,7 +71,9 @@ try {
     if (!byName.has(name)) {
       fail(`${name} — MISSING. Run \`pnpm migrate\`.`);
     } else if (byName.get(name) !== true) {
-      fail(`${name} — RLS IS OFF. Every user can read every other user's rows.`);
+      fail(
+        `${name} — RLS IS OFF. Every user can read every other user's rows.`,
+      );
     } else {
       console.log(`  ✓ ${name}`);
     }
@@ -98,7 +100,10 @@ try {
   console.log('\n  policies\n');
   for (const name of EXPECTED) {
     const n = policyCount.get(name) ?? 0;
-    if (n === 0) fail(`${name} — RLS is on but NO policies exist; every query returns nothing.`);
+    if (n === 0)
+      fail(
+        `${name} — RLS is on but NO policies exist; every query returns nothing.`,
+      );
     else console.log(`  ✓ ${name} (${n})`);
   }
 
@@ -109,9 +114,13 @@ try {
   );
   console.log('\n  invariants\n');
   if (idx.length === 0) {
-    fail('one_running_timer_per_user index is missing — overlapping timers become possible.');
+    fail(
+      'one_running_timer_per_user index is missing — overlapping timers become possible.',
+    );
   } else if (!/where \(ended_at IS NULL\)/i.test(idx[0].indexdef)) {
-    fail(`one_running_timer_per_user exists but is not partial:\n      ${idx[0].indexdef}`);
+    fail(
+      `one_running_timer_per_user exists but is not partial:\n      ${idx[0].indexdef}`,
+    );
   } else {
     console.log('  ✓ one running timer per user (partial unique index)');
   }
@@ -122,7 +131,9 @@ try {
      where tgrelid = 'auth.users'::regclass and not tgisinternal`,
   );
   if (!trg.some((t) => t.tgname === 't_new_user_settings')) {
-    fail('t_new_user_settings is missing — a new user would have no settings row.');
+    fail(
+      't_new_user_settings is missing — a new user would have no settings row.',
+    );
   } else {
     console.log('  ✓ new users get default settings');
   }
@@ -131,7 +142,9 @@ try {
 }
 
 if (failed > 0) {
-  console.error(`\n  ${failed} problem(s). Do not use this database until they are fixed.\n`);
+  console.error(
+    `\n  ${failed} problem(s). Do not use this database until they are fixed.\n`,
+  );
   process.exit(1);
 }
 console.log('\n  schema is sound\n');

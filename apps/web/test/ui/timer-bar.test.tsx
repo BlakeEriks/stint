@@ -74,8 +74,7 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-const renderBar = () =>
-  render(<TimerBar projects={PROJECTS} />, { wrapper });
+const renderBar = () => render(<TimerBar projects={PROJECTS} />, { wrapper });
 
 const taskInput = () => screen.getByLabelText('Task name');
 

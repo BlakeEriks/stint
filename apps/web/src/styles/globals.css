@@ -1,7 +1,7 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 /* Radix state-driven enter/exit utilities (data-[state=open]:animate-in …)
    that the vendored dialog and dropdown rely on. */
-@import 'tw-animate-css';
+@import "tw-animate-css";
 
 /* Generated from packages/design-tokens/tokens.json — run `pnpm tokens`.
    Defines the semantic CSS vars and registers each in Tailwind's @theme, so
@@ -10,7 +10,7 @@
    A relative path, not the package export: Tailwind must parse this file
    itself to see its @theme block, and it does not follow package
    specifiers when collecting theme values. */
-@import '../../../../packages/design-tokens/dist/tokens.css';
+@import "../../../../packages/design-tokens/dist/tokens.css";
 
 @layer base {
   html {

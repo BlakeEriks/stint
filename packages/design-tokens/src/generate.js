@@ -22,7 +22,13 @@ function resolve(ref) {
 
 const primitiveVars = () => {
   const lines = [];
-  const prefix = { neutral: 'n', accent: 'a', lightNeutral: 'ln', project: 'proj', categorical: 'cat' };
+  const prefix = {
+    neutral: 'n',
+    accent: 'a',
+    lightNeutral: 'ln',
+    project: 'proj',
+    categorical: 'cat',
+  };
   for (const [group, steps] of Object.entries(tokens.primitive)) {
     for (const [step, val] of Object.entries(steps)) {
       lines.push(`  --${prefix[group]}-${step}: ${val.hex};`);
@@ -74,7 +80,9 @@ const elevationVars = (theme) =>
 // `--color-muted` or no utility is generated. Strip the redundant
 // bg-/text-/border- prefix; everything else keeps its name.
 const utilityKey = (name) =>
-  name.replace(/^(bg|text|border)-/, (_, p) => (p === 'bg' ? 'surface-' : p === 'text' ? '' : 'edge-'));
+  name.replace(/^(bg|text|border)-/, (_, p) =>
+    p === 'bg' ? 'surface-' : p === 'text' ? '' : 'edge-',
+  );
 
 const themeBlock = () =>
   Object.keys(tokens.semantic.dark)
@@ -95,8 +103,12 @@ ${elevationVars('dark')}
   --font-sans: ${tokens.type.fontFamily.sans};
   --font-mono: ${tokens.type.fontFamily.mono};
 
-${Object.entries(tokens.space).map(([k, v]) => `  --space-${k}: ${v}px;`).join('\n')}
-${Object.entries(tokens.radius).map(([k, v]) => `  --radius-${k}: ${v}px;`).join('\n')}
+${Object.entries(tokens.space)
+  .map(([k, v]) => `  --space-${k}: ${v}px;`)
+  .join('\n')}
+${Object.entries(tokens.radius)
+  .map(([k, v]) => `  --radius-${k}: ${v}px;`)
+  .join('\n')}
 }
 
 /* The app is DARK-first, so a light OS preference does not flip it — only an
@@ -149,11 +161,15 @@ ${themeObj('light')}
 } as const;
 
 export const projectColors = [
-${Object.values(tokens.primitive.project).map((p) => `  '${p.hex}',`).join('\n')}
+${Object.values(tokens.primitive.project)
+  .map((p) => `  '${p.hex}',`)
+  .join('\n')}
 ] as const;
 
 export const categorical = [
-${Object.values(tokens.primitive.categorical).map((c) => `  '${c.hex}',`).join('\n')}
+${Object.values(tokens.primitive.categorical)
+  .map((c) => `  '${c.hex}',`)
+  .join('\n')}
 ] as const;
 
 export const font = ${JSON.stringify(tokens.type.fontFamily, null, 2)} as const;
@@ -170,7 +186,10 @@ writeFileSync(join(out, 'tokens.ts'), ts);
 const camel = (s) => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 const swiftTheme = (theme) =>
   Object.entries(tokens.semantic[theme])
-    .map(([name, ref]) => `        static let ${camel(name)} = Color(hex: "${resolve(ref)}")`)
+    .map(
+      ([name, ref]) =>
+        `        static let ${camel(name)} = Color(hex: "${resolve(ref)}")`,
+    )
     .join('\n');
 
 const swift = `// GENERATED from tokens.json — do not edit by hand.
@@ -198,7 +217,9 @@ ${swiftTheme('dark')}
 ${swiftTheme('light')}
     }
     public static let projectColors: [Color] = [
-${Object.values(tokens.primitive.project).map((p) => `        Color(hex: "${p.hex}"),`).join('\n')}
+${Object.values(tokens.primitive.project)
+  .map((p) => `        Color(hex: "${p.hex}"),`)
+  .join('\n')}
     ]
 }
 `;

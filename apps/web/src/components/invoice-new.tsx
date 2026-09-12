@@ -18,7 +18,11 @@ import {
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   { value: 'entry', label: 'Every entry', hint: 'One line per time entry.' },
-  { value: 'task', label: 'By task name', hint: 'Entries with the same name and rate are summed.' },
+  {
+    value: 'task',
+    label: 'By task name',
+    hint: 'Entries with the same name and rate are summed.',
+  },
   { value: 'project', label: 'By project', hint: 'One line per project.' },
   { value: 'day', label: 'By day', hint: 'One line per day worked.' },
 ];
@@ -51,7 +55,13 @@ export function NewInvoice() {
 
   const runPreview = useMutation({
     mutationFn: () =>
-      api.previewInvoice({ clientId, periodStart, periodEnd, groupingMode, tz }),
+      api.previewInvoice({
+        clientId,
+        periodStart,
+        periodEnd,
+        groupingMode,
+        tz,
+      }),
     onSuccess: setPreview,
   });
 
@@ -73,10 +83,12 @@ export function NewInvoice() {
   });
 
   // Any change to what would be billed invalidates the approved preview.
-  const reset = <T,>(set: (v: T) => void) => (v: T) => {
-    set(v);
-    setPreview(null);
-  };
+  const reset =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      set(v);
+      setPreview(null);
+    };
 
   const blocked = (preview?.unratedEntryIds.length ?? 0) > 0;
   const empty = preview !== null && preview.lineItems.length === 0;
@@ -189,7 +201,11 @@ export function NewInvoice() {
                 />
               </Field>
 
-              <Field label="Notes" htmlFor="inv-notes" hint="Printed on the invoice.">
+              <Field
+                label="Notes"
+                htmlFor="inv-notes"
+                hint="Printed on the invoice."
+              >
                 <textarea
                   id="inv-notes"
                   rows={2}
@@ -280,7 +296,10 @@ function PreviewTable({ preview }: { preview: InvoicePreview }) {
       </div>
 
       <dl className="ml-auto flex w-full max-w-[16rem] flex-col gap-1 text-[13.5px]">
-        <Total label="Subtotal" value={money(preview.subtotal, preview.currency)} />
+        <Total
+          label="Subtotal"
+          value={money(preview.subtotal, preview.currency)}
+        />
         {preview.taxRate > 0 ? (
           <Total
             label={`Tax (${preview.taxRate}%)`}
@@ -316,7 +335,13 @@ function Th({
   );
 }
 
-function Td({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
+function Td({
+  children,
+  strong,
+}: {
+  children: React.ReactNode;
+  strong?: boolean;
+}) {
   return (
     <td
       className={`tabular py-2 pl-3 text-right font-mono ${

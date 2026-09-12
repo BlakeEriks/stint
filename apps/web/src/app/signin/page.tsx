@@ -12,7 +12,9 @@ import { browserClient } from '@/lib/client/supabase';
  */
 export default function SignIn() {
   const [email, setEmail] = useState('');
-  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>(
+    'idle',
+  );
   const [message, setMessage] = useState('');
 
   async function submit(e: React.FormEvent) {
@@ -34,7 +36,9 @@ export default function SignIn() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-strong">Stint</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-strong">
+        Stint
+      </h1>
       <p className="mt-1.5 text-[14px] text-muted">
         Time tracking for solo contractors.
       </p>

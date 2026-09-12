@@ -35,8 +35,10 @@ const swc = loadSwc();
 
 const withExt = (p) => {
   if (existsSync(p) && !existsSync(`${p}.ts`)) return p;
-  for (const ext of ['.ts', '.tsx', '.js', '.mjs']) if (existsSync(p + ext)) return p + ext;
-  for (const ext of ['/index.ts', '/index.tsx']) if (existsSync(p + ext)) return p + ext;
+  for (const ext of ['.ts', '.tsx', '.js', '.mjs'])
+    if (existsSync(p + ext)) return p + ext;
+  for (const ext of ['/index.ts', '/index.tsx'])
+    if (existsSync(p + ext)) return p + ext;
   return p;
 };
 
@@ -52,17 +54,22 @@ export async function resolve(specifier, context, next) {
   // Any other `next/<subpath>` — Node cannot read Next's exports map.
   if (specifier.startsWith('next/')) {
     const file = resolvePath(here, `../node_modules/${specifier}.js`);
-    if (existsSync(file)) return { url: pathToFileURL(file).href, shortCircuit: true };
+    if (existsSync(file))
+      return { url: pathToFileURL(file).href, shortCircuit: true };
   }
   if (specifier.startsWith('@/')) {
     return {
-      url: pathToFileURL(withExt(resolvePath(srcRoot, specifier.slice(2)))).href,
+      url: pathToFileURL(withExt(resolvePath(srcRoot, specifier.slice(2))))
+        .href,
       shortCircuit: true,
     };
   }
   // Extensionless relative import from a TS file.
   if (specifier.startsWith('.') && /\.tsx?$/.test(context.parentURL ?? '')) {
-    const target = resolvePath(dirname(fileURLToPath(context.parentURL)), specifier);
+    const target = resolvePath(
+      dirname(fileURLToPath(context.parentURL)),
+      specifier,
+    );
     const resolved = withExt(target);
     if (resolved !== target || existsSync(resolved)) {
       return { url: pathToFileURL(resolved).href, shortCircuit: true };

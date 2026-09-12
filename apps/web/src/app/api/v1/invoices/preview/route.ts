@@ -31,7 +31,10 @@ export const POST = handle(async (req: Request) => {
   const body = await parseBody(req, PreviewRequest);
 
   if (body.periodEnd < body.periodStart) {
-    throw new ApiError('INVALID_PERIOD', '`periodEnd` must not precede `periodStart`');
+    throw new ApiError(
+      'INVALID_PERIOD',
+      '`periodEnd` must not precede `periodStart`',
+    );
   }
 
   const [client, settings] = await Promise.all([
@@ -39,7 +42,8 @@ export const POST = handle(async (req: Request) => {
     loadSettings(db),
   ]);
 
-  const clientRate = client.hourly_rate == null ? null : Number(client.hourly_rate);
+  const clientRate =
+    client.hourly_rate == null ? null : Number(client.hourly_rate);
   const taxRate = client.tax_rate == null ? 0 : Number(client.tax_rate);
 
   const entries = await loadBillableEntries(db, {

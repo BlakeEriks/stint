@@ -46,7 +46,9 @@ export const GET = handle(async (req: Request) => {
   const { data, error } = await query;
   if (error) throw error;
 
-  return NextResponse.json({ entries: (data ?? []).map((r) => toEntry(r as EntryRow)) });
+  return NextResponse.json({
+    entries: (data ?? []).map((r) => toEntry(r as EntryRow)),
+  });
 });
 
 const CreateEntry = z

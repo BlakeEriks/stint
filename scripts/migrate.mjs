@@ -57,7 +57,9 @@ only ever used by this script, never by the app, and .env.local is gitignored.`)
   process.exit(1);
 }
 
-const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+const files = readdirSync(dir)
+  .filter((f) => f.endsWith('.sql'))
+  .sort();
 if (files.length === 0) {
   console.error(`No .sql files in ${dir}`);
   process.exit(1);
@@ -109,7 +111,10 @@ try {
     try {
       await client.query('begin');
       await client.query(sql);
-      await client.query('insert into schema_migrations (version) values ($1)', [f]);
+      await client.query(
+        'insert into schema_migrations (version) values ($1)',
+        [f],
+      );
       await client.query('commit');
       console.log(`  ✓ ${f}`);
     } catch (err) {
@@ -121,7 +126,9 @@ try {
   }
 
   if (dryRun) {
-    console.log(`\n${pending.length} migration(s) would run. Nothing was changed.`);
+    console.log(
+      `\n${pending.length} migration(s) would run. Nothing was changed.`,
+    );
   } else {
     console.log(`\nApplied ${pending.length} migration(s).`);
   }

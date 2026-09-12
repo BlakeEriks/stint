@@ -25,7 +25,10 @@ export async function parseBody<T extends z.ZodType>(
 }
 
 /** Same for query parameters. */
-export function parseQuery<T extends z.ZodType>(req: Request, schema: T): z.infer<T> {
+export function parseQuery<T extends z.ZodType>(
+  req: Request,
+  schema: T,
+): z.infer<T> {
   const params = Object.fromEntries(new URL(req.url).searchParams);
   const result = schema.safeParse(params);
   if (!result.success) {

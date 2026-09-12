@@ -126,7 +126,11 @@ export function PaymentProfileDialog({
           </Field>
 
           <div className="flex flex-wrap gap-4">
-            <Field label="Account number" htmlFor="pp-acct" className="flex-1 basis-44">
+            <Field
+              label="Account number"
+              htmlFor="pp-acct"
+              className="flex-1 basis-44"
+            >
               <Input
                 id="pp-acct"
                 value={draft.accountNumber ?? ''}
@@ -169,7 +173,11 @@ export function PaymentProfileDialog({
           </Field>
 
           <div className="flex flex-wrap gap-4">
-            <Field label="Payment link label" htmlFor="pp-link-label" className="flex-1 basis-44">
+            <Field
+              label="Payment link label"
+              htmlFor="pp-link-label"
+              className="flex-1 basis-44"
+            >
               <Input
                 id="pp-link-label"
                 value={draft.paymentLinkLabel ?? ''}
@@ -177,7 +185,11 @@ export function PaymentProfileDialog({
                 placeholder="Pay online"
               />
             </Field>
-            <Field label="Payment link URL" htmlFor="pp-link-url" className="flex-1 basis-44">
+            <Field
+              label="Payment link URL"
+              htmlFor="pp-link-url"
+              className="flex-1 basis-44"
+            >
               <Input
                 id="pp-link-url"
                 type="url"
@@ -188,7 +200,11 @@ export function PaymentProfileDialog({
             </Field>
           </div>
 
-          <Field label="Notes" htmlFor="pp-notes" hint="Printed under the payment block.">
+          <Field
+            label="Notes"
+            htmlFor="pp-notes"
+            hint="Printed under the payment block."
+          >
             <textarea
               id="pp-notes"
               rows={2}
@@ -213,14 +229,22 @@ export function PaymentProfileDialog({
           {showInternational ? (
             <div className="flex flex-col gap-4 rounded-lg border border-edge-subtle p-4">
               <div className="flex flex-wrap gap-4">
-                <Field label="IBAN" htmlFor="pp-iban" className="flex-1 basis-44">
+                <Field
+                  label="IBAN"
+                  htmlFor="pp-iban"
+                  className="flex-1 basis-44"
+                >
                   <Input
                     id="pp-iban"
                     value={draft.iban ?? ''}
                     onChange={(e) => set('iban', e.target.value)}
                   />
                 </Field>
-                <Field label="SWIFT / BIC" htmlFor="pp-swift" className="flex-1 basis-44">
+                <Field
+                  label="SWIFT / BIC"
+                  htmlFor="pp-swift"
+                  className="flex-1 basis-44"
+                >
                   <Input
                     id="pp-swift"
                     value={draft.swiftBic ?? ''}
@@ -242,7 +266,11 @@ export function PaymentProfileDialog({
                     onChange={(e) => set('localCodeLabel', e.target.value)}
                   />
                 </Field>
-                <Field label="Local code" htmlFor="pp-local" className="flex-1 basis-44">
+                <Field
+                  label="Local code"
+                  htmlFor="pp-local"
+                  className="flex-1 basis-44"
+                >
                   <Input
                     id="pp-local"
                     value={draft.localCode ?? ''}
@@ -260,14 +288,24 @@ export function PaymentProfileDialog({
               </Field>
 
               <div className="flex flex-wrap gap-4">
-                <Field label="Intermediary SWIFT" htmlFor="pp-int-swift" className="flex-1 basis-44">
+                <Field
+                  label="Intermediary SWIFT"
+                  htmlFor="pp-int-swift"
+                  className="flex-1 basis-44"
+                >
                   <Input
                     id="pp-int-swift"
                     value={draft.intermediarySwiftBic ?? ''}
-                    onChange={(e) => set('intermediarySwiftBic', e.target.value)}
+                    onChange={(e) =>
+                      set('intermediarySwiftBic', e.target.value)
+                    }
                   />
                 </Field>
-                <Field label="Intermediary account" htmlFor="pp-int-acct" className="flex-1 basis-44">
+                <Field
+                  label="Intermediary account"
+                  htmlFor="pp-int-acct"
+                  className="flex-1 basis-44"
+                >
                   <Input
                     id="pp-int-acct"
                     value={draft.intermediaryAccountNumber ?? ''}
@@ -289,7 +327,8 @@ export function PaymentProfileDialog({
                   onChange={(e) =>
                     set(
                       'feeAllocation',
-                      (e.target.value || null) as PaymentProfile['feeAllocation'],
+                      (e.target.value ||
+                        null) as PaymentProfile['feeAllocation'],
                     )
                   }
                   className={inputClass}
@@ -312,10 +351,17 @@ export function PaymentProfileDialog({
           ) : null}
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={save.isPending || draft.name.trim() === ''}>
+            <Button
+              type="submit"
+              disabled={save.isPending || draft.name.trim() === ''}
+            >
               {save.isPending ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>

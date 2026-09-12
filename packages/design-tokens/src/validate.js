@@ -40,9 +40,7 @@ for (const f of tokens.contract.forbidden) {
   // token shift ever made one "pass", we notice the palette moved.
   const stillFails = ratio < 4.5;
   if (!stillFails) failed++;
-  console.log(
-    `  ${stillFails ? '✓' : '✗'} ${fmt(ratio)} : 1  ${f.reason}`,
-  );
+  console.log(`  ${stillFails ? '✓' : '✗'} ${fmt(ratio)} : 1  ${f.reason}`);
 }
 
 console.log(

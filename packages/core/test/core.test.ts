@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatClock, formatCompact, toBillableHours, elapsedSeconds } from '../src/duration.ts';
+import {
+  formatClock,
+  formatCompact,
+  toBillableHours,
+  elapsedSeconds,
+} from '../src/duration.ts';
 import { resolveRate, resolveRateSource, lineAmount } from '../src/rates.ts';
 import { deriveTimerView, timerColorToken } from '../src/timer.ts';
 import { uuidv7 } from '../src/uuid.ts';
@@ -33,8 +38,19 @@ test('elapsedSeconds never goes negative on clock skew', () => {
 });
 
 test('rate resolution walks all four levels', () => {
-  assert.equal(resolveRate({ entryRateOverride: 999, projectRate: 175, clientRate: 150, userDefaultRate: 100 }), 999);
-  assert.equal(resolveRate({ projectRate: 175, clientRate: 150, userDefaultRate: 100 }), 175);
+  assert.equal(
+    resolveRate({
+      entryRateOverride: 999,
+      projectRate: 175,
+      clientRate: 150,
+      userDefaultRate: 100,
+    }),
+    999,
+  );
+  assert.equal(
+    resolveRate({ projectRate: 175, clientRate: 150, userDefaultRate: 100 }),
+    175,
+  );
   assert.equal(resolveRate({ clientRate: 150, userDefaultRate: 100 }), 150);
   assert.equal(resolveRate({ userDefaultRate: 100 }), 100);
   assert.equal(resolveRate({}), null);
@@ -43,7 +59,10 @@ test('rate resolution walks all four levels', () => {
 test('rate resolution treats 0 as a real rate, not absent', () => {
   // A deliberate 0 (pro bono) must not fall through to a lower level.
   assert.equal(resolveRate({ projectRate: 0, clientRate: 150 }), 0);
-  assert.equal(resolveRateSource({ projectRate: 0, clientRate: 150 }), 'project');
+  assert.equal(
+    resolveRateSource({ projectRate: 0, clientRate: 150 }),
+    'project',
+  );
 });
 
 test('rate source is reported for the UI', () => {
@@ -67,7 +86,15 @@ test('timer view: idle', () => {
 test('timer view: running below threshold', () => {
   const now = new Date('2026-09-11T12:00:00Z');
   const v = deriveTimerView(
-    { id: 'x', taskName: 't', projectId: null, startedAt: '2026-09-11T10:00:00Z' }, 8, now);
+    {
+      id: 'x',
+      taskName: 't',
+      projectId: null,
+      startedAt: '2026-09-11T10:00:00Z',
+    },
+    8,
+    now,
+  );
   assert.equal(v.state, 'running');
   assert.equal(v.seconds, 7200);
   assert.equal(v.exceedsThreshold, false);
@@ -77,7 +104,15 @@ test('timer view: running below threshold', () => {
 test('timer view: exceeded threshold switches to warning', () => {
   const now = new Date('2026-09-12T04:00:00Z'); // 16h later
   const v = deriveTimerView(
-    { id: 'x', taskName: 't', projectId: null, startedAt: '2026-09-11T12:00:00Z' }, 8, now);
+    {
+      id: 'x',
+      taskName: 't',
+      projectId: null,
+      startedAt: '2026-09-11T12:00:00Z',
+    },
+    8,
+    now,
+  );
   assert.equal(v.state, 'exceeded');
   assert.equal(v.exceedsThreshold, true);
   assert.equal(timerColorToken(v.state), 'timer-warning');
@@ -86,7 +121,9 @@ test('timer view: exceeded threshold switches to warning', () => {
 test('uuidv7 is time-ordered and well-formed', () => {
   const a = uuidv7(1000000000000);
   const b = uuidv7(1000000000001);
-  assert.match(a, /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.match(
+    a,
+    /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+  );
   assert.ok(a < b, 'later timestamp must sort after earlier');
 });
-

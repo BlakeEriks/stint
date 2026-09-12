@@ -34,14 +34,17 @@ export const UpdateClient = CreateClient.partial().omit({ id: true });
 // ── project ────────────────────────────────────────────────────────
 export const Project = z.object({
   id: uuid,
-  clientId: uuid.nullable(),          // null = internal / unbilled work
+  clientId: uuid.nullable(), // null = internal / unbilled work
   name: z.string().trim().min(1).max(200),
   hourlyRate: money.nullable().optional(),
   color: hexColor.nullable().optional(),
   isBillableDefault: z.boolean().default(true),
   archivedAt: iso.nullable().optional(),
 });
-export const CreateProject = Project.omit({ id: true, archivedAt: true }).extend({
+export const CreateProject = Project.omit({
+  id: true,
+  archivedAt: true,
+}).extend({
   id: uuid.optional(),
 });
 export const UpdateProject = CreateProject.partial().omit({ id: true });
@@ -52,7 +55,7 @@ export const TimeEntry = z.object({
   projectId: uuid.nullable(),
   taskName: z.string().max(500).default(''),
   startedAt: iso,
-  endedAt: iso.nullable(),            // null == running
+  endedAt: iso.nullable(), // null == running
   isBillable: z.boolean().default(true),
   rateOverride: money.nullable().optional(),
   invoiceId: uuid.nullable().optional(),
@@ -60,18 +63,20 @@ export const TimeEntry = z.object({
 });
 
 /** Manual entry creation. The id is client-supplied so replay is safe. */
-export const CreateTimeEntry = z.object({
-  id: uuid,
-  projectId: uuid.nullable().optional(),
-  taskName: z.string().max(500).default(''),
-  startedAt: iso,
-  endedAt: iso,                       // manual entries are always complete
-  isBillable: z.boolean().optional(),
-  rateOverride: money.nullable().optional(),
-}).refine((e) => new Date(e.endedAt) > new Date(e.startedAt), {
-  message: 'endedAt must be after startedAt',
-  path: ['endedAt'],
-});
+export const CreateTimeEntry = z
+  .object({
+    id: uuid,
+    projectId: uuid.nullable().optional(),
+    taskName: z.string().max(500).default(''),
+    startedAt: iso,
+    endedAt: iso, // manual entries are always complete
+    isBillable: z.boolean().optional(),
+    rateOverride: money.nullable().optional(),
+  })
+  .refine((e) => new Date(e.endedAt) > new Date(e.startedAt), {
+    message: 'endedAt must be after startedAt',
+    path: ['endedAt'],
+  });
 
 export const UpdateTimeEntry = z.object({
   projectId: uuid.nullable().optional(),
@@ -87,11 +92,11 @@ export const StartTimer = z.object({
   id: uuid.optional(),
   projectId: uuid.nullable().optional(),
   taskName: z.string().max(500).default(''),
-  startedAt: iso.optional(),          // allows backdating a forgotten start
+  startedAt: iso.optional(), // allows backdating a forgotten start
 });
 
 export const StopTimer = z.object({
-  endedAt: iso.optional(),            // defaults to server now()
+  endedAt: iso.optional(), // defaults to server now()
 });
 
 /** GET /timer/current */
@@ -100,7 +105,7 @@ export const CurrentTimer = z.object({
   /** Server-computed against user_settings.max_timer_hours. */
   exceedsThreshold: z.boolean(),
   maxTimerHours: z.number().positive(),
-  serverTime: iso,                    // lets clients correct for clock skew
+  serverTime: iso, // lets clients correct for clock skew
 });
 
 // ── summary (the menu bar endpoint) ────────────────────────────────
@@ -133,7 +138,9 @@ export const Settings = z.object({
 });
 /** `nextInvoiceNumber` is not client-settable: gapless numbering depends on
  *  allocate_invoice_number() holding the row lock. */
-export const UpdateSettings = Settings.partial().omit({ nextInvoiceNumber: true });
+export const UpdateSettings = Settings.partial().omit({
+  nextInvoiceNumber: true,
+});
 
 // ── invoicing ──────────────────────────────────────────────────────
 export const GroupingMode = z.enum(['entry', 'task', 'project', 'day']);
@@ -241,7 +248,6 @@ export const PaymentDetailsSnapshot = z.object({
   link: z.object({ label: z.string(), url: z.string() }).nullable(),
   notes: z.string().nullable(),
 });
-
 
 // ── errors ─────────────────────────────────────────────────────────
 export const ErrorCode = z.enum([

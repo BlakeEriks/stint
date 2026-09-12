@@ -14,7 +14,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ColorPicker } from './color-picker';
-import { api, ApiError, type Project, type ProjectInput } from '@/lib/client/api';
+import {
+  api,
+  ApiError,
+  type Project,
+  type ProjectInput,
+} from '@/lib/client/api';
 
 /**
  * A dialog rather than a page: a project is four fields, and it is created
@@ -177,8 +182,15 @@ export function ProjectDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={save.isPending || name.trim() === ''}>
-              {save.isPending ? 'Saving…' : existing ? 'Save changes' : 'Add project'}
+            <Button
+              type="submit"
+              disabled={save.isPending || name.trim() === ''}
+            >
+              {save.isPending
+                ? 'Saving…'
+                : existing
+                  ? 'Save changes'
+                  : 'Add project'}
             </Button>
           </DialogFooter>
         </form>

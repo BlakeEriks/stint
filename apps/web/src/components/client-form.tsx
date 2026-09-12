@@ -135,7 +135,11 @@ export function ClientForm({ existing }: { existing?: Client }) {
 
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={save.isPending || name.trim() === ''}>
-          {save.isPending ? 'Saving…' : existing ? 'Save changes' : 'Add client'}
+          {save.isPending
+            ? 'Saving…'
+            : existing
+              ? 'Save changes'
+              : 'Add client'}
         </Button>
         <Button type="button" variant="ghost" onClick={() => router.back()}>
           Cancel

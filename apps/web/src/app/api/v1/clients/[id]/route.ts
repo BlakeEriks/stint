@@ -16,7 +16,11 @@ const UpdateClient = z.object({
   hourlyRate: z.number().nonnegative().nullable().optional(),
   taxRate: z.number().min(0).max(100).nullable().optional(),
   currency: z.string().length(3).nullable().optional(),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .nullable()
+    .optional(),
   archived: z.boolean().optional(),
 });
 
@@ -25,7 +29,10 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { id } = await ctx.params;
 
   const { data, error } = await db
-    .from('clients').select(CLIENT_COLUMNS).eq('id', id).maybeSingle();
+    .from('clients')
+    .select(CLIENT_COLUMNS)
+    .eq('id', id)
+    .maybeSingle();
 
   if (error) throw error;
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Client not found');
@@ -47,7 +54,11 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   }
 
   const { data, error } = await db
-    .from('clients').update(update).eq('id', id).select(CLIENT_COLUMNS).maybeSingle();
+    .from('clients')
+    .update(update)
+    .eq('id', id)
+    .select(CLIENT_COLUMNS)
+    .maybeSingle();
 
   if (error) throw error;
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Client not found');

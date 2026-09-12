@@ -10,27 +10,12 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@stint/core": [
-        "../../packages/core/src/index.ts"
-      ],
-      "@stint/schema": [
-        "../../packages/schema/src/index.ts"
-      ],
-      "@stint/design-tokens": [
-        "../../packages/design-tokens/dist/tokens.ts"
-      ]
+      "@/*": ["./src/*"],
+      "@stint/core": ["../../packages/core/src/index.ts"],
+      "@stint/schema": ["../../packages/schema/src/index.ts"],
+      "@stint/design-tokens": ["../../packages/design-tokens/dist/tokens.ts"]
     }
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
 }

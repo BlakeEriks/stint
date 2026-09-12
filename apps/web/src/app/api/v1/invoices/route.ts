@@ -71,7 +71,10 @@ export const POST = handle(async (req: Request) => {
   const body = await parseBody(req, CreateInvoice);
 
   if (body.periodEnd < body.periodStart) {
-    throw new ApiError('INVALID_PERIOD', '`periodEnd` must not precede `periodStart`');
+    throw new ApiError(
+      'INVALID_PERIOD',
+      '`periodEnd` must not precede `periodStart`',
+    );
   }
 
   const [client, settings] = await Promise.all([
@@ -79,7 +82,8 @@ export const POST = handle(async (req: Request) => {
     loadSettings(db),
   ]);
 
-  const clientRate = client.hourly_rate == null ? null : Number(client.hourly_rate);
+  const clientRate =
+    client.hourly_rate == null ? null : Number(client.hourly_rate);
   const taxRate = client.tax_rate == null ? 0 : Number(client.tax_rate);
 
   const entries = await loadBillableEntries(db, {
@@ -116,13 +120,20 @@ export const POST = handle(async (req: Request) => {
 
   // Gapless allocation happens inside the database under a row lock, so
   // concurrent requests cannot claim the same number.
-  const { data: allocated, error: allocError } = await db.rpc('allocate_invoice_number', {
-    p_user_id: userId,
-  });
+  const { data: allocated, error: allocError } = await db.rpc(
+    'allocate_invoice_number',
+    {
+      p_user_id: userId,
+    },
+  );
   if (allocError) throw allocError;
 
   const allocation = Array.isArray(allocated) ? allocated[0] : allocated;
-  if (!allocation) throw new ApiError('VALIDATION_FAILED', 'Could not allocate an invoice number');
+  if (!allocation)
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      'Could not allocate an invoice number',
+    );
 
   // Freeze the payment details alongside the rates. If the profile changes
   // or is deleted later, an issued invoice must still show what the client
@@ -193,7 +204,11 @@ export const POST = handle(async (req: Request) => {
   }
 
   return NextResponse.json(
-    { ...toInvoice(invoice), lineItems: totals.lineItems, entryCount: totals.entryCount },
+    {
+      ...toInvoice(invoice),
+      lineItems: totals.lineItems,
+      entryCount: totals.entryCount,
+    },
     { status: 201 },
   );
 });

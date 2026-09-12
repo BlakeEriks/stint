@@ -24,6 +24,10 @@ export async function maxTimerHours(db: SupabaseClient): Promise<number> {
   return data ? Number(data.max_timer_hours) : 8;
 }
 
-export function exceeds(startedAt: string, hours: number, now = new Date()): boolean {
+export function exceeds(
+  startedAt: string,
+  hours: number,
+  now = new Date(),
+): boolean {
   return (now.getTime() - new Date(startedAt).getTime()) / 1000 > hours * 3600;
 }

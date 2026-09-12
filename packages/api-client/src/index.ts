@@ -94,36 +94,53 @@ export function createApiClient(opts: ApiClientOptions) {
     request,
 
     timer: {
-      current: (signal?: AbortSignal) => request('GET', '/timer/current', undefined, signal),
-      start: (body: { id?: string; projectId?: string | null; taskName: string; startedAt?: string }) =>
-        request('POST', '/timer/start', body),
-      stop: (body?: { endedAt?: string }) => request('POST', '/timer/stop', body ?? {}),
+      current: (signal?: AbortSignal) =>
+        request('GET', '/timer/current', undefined, signal),
+      start: (body: {
+        id?: string;
+        projectId?: string | null;
+        taskName: string;
+        startedAt?: string;
+      }) => request('POST', '/timer/start', body),
+      stop: (body?: { endedAt?: string }) =>
+        request('POST', '/timer/stop', body ?? {}),
       update: (body: { taskName?: string; projectId?: string | null }) =>
         request('PATCH', '/timer/current', body),
     },
 
     entries: {
-      list: (params: { from?: string; to?: string; projectId?: string; clientId?: string } = {}) =>
-        request('GET', `/entries${qs(params)}`),
+      list: (
+        params: {
+          from?: string;
+          to?: string;
+          projectId?: string;
+          clientId?: string;
+        } = {},
+      ) => request('GET', `/entries${qs(params)}`),
       create: (body: unknown) => request('POST', '/entries', body),
-      update: (id: string, body: unknown) => request('PATCH', `/entries/${id}`, body),
+      update: (id: string, body: unknown) =>
+        request('PATCH', `/entries/${id}`, body),
       remove: (id: string) => request('DELETE', `/entries/${id}`),
     },
 
     /** The menu bar endpoint — running timer and today's total in one call. */
-    summary: (signal?: AbortSignal) => request('GET', '/summary', undefined, signal),
-    calendar: (from: string, to: string) => request('GET', `/calendar${qs({ from, to })}`),
+    summary: (signal?: AbortSignal) =>
+      request('GET', '/summary', undefined, signal),
+    calendar: (from: string, to: string) =>
+      request('GET', `/calendar${qs({ from, to })}`),
 
     clients: {
       list: () => request('GET', '/clients'),
       create: (body: unknown) => request('POST', '/clients', body),
-      update: (id: string, body: unknown) => request('PATCH', `/clients/${id}`, body),
+      update: (id: string, body: unknown) =>
+        request('PATCH', `/clients/${id}`, body),
     },
 
     projects: {
       list: () => request('GET', '/projects'),
       create: (body: unknown) => request('POST', '/projects', body),
-      update: (id: string, body: unknown) => request('PATCH', `/projects/${id}`, body),
+      update: (id: string, body: unknown) =>
+        request('PATCH', `/projects/${id}`, body),
     },
 
     settings: {
@@ -134,13 +151,15 @@ export function createApiClient(opts: ApiClientOptions) {
     invoices: {
       preview: (body: unknown) => request('POST', '/invoices/preview', body),
       create: (body: unknown) => request('POST', '/invoices', body),
-      setStatus: (id: string, status: string, at?: { sentAt?: string; paidAt?: string }) =>
-        request('PATCH', `/invoices/${id}/status`, { status, ...at }),
+      setStatus: (
+        id: string,
+        status: string,
+        at?: { sentAt?: string; paidAt?: string },
+      ) => request('PATCH', `/invoices/${id}/status`, { status, ...at }),
       /** The app sends no mail: this is the URL the user downloads and
        *  emails themselves. */
       pdfUrl: (id: string) => `/api/v1/invoices/${id}/pdf?download=1`,
     },
-
   };
 }
 

@@ -83,8 +83,10 @@ function Row({ client }: { client: Client }) {
       </span>
 
       {client.archivedAt ? (
-        <span className="flex-none rounded border border-edge-default px-1.5 py-px
-                         font-mono text-[9.5px] uppercase tracking-wider text-subtle">
+        <span
+          className="flex-none rounded border border-edge-default px-1.5 py-px
+                         font-mono text-[9.5px] uppercase tracking-wider text-subtle"
+        >
           Archived
         </span>
       ) : null}
@@ -102,6 +104,8 @@ function Row({ client }: { client: Client }) {
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-4 py-10 text-center text-[13.5px] text-subtle">{children}</p>
+    <p className="px-4 py-10 text-center text-[13.5px] text-subtle">
+      {children}
+    </p>
   );
 }

@@ -23,7 +23,8 @@ export function InvoiceDetail({ id }: { id: string }) {
   };
 
   const setStatus = useMutation({
-    mutationFn: (status: InvoiceStatus) => api.updateInvoiceStatus(id, { status }),
+    mutationFn: (status: InvoiceStatus) =>
+      api.updateInvoiceStatus(id, { status }),
     onSuccess: invalidate,
   });
 
@@ -35,8 +36,18 @@ export function InvoiceDetail({ id }: { id: string }) {
     },
   });
 
-  if (isLoading) return <Shell><p className="text-[13.5px] text-subtle">Loading…</p></Shell>;
-  if (!data) return <Shell><p className="text-[13.5px] text-subtle">Not found.</p></Shell>;
+  if (isLoading)
+    return (
+      <Shell>
+        <p className="text-[13.5px] text-subtle">Loading…</p>
+      </Shell>
+    );
+  if (!data)
+    return (
+      <Shell>
+        <p className="text-[13.5px] text-subtle">Not found.</p>
+      </Shell>
+    );
 
   const { invoice, lineItems, client } = data;
   const isDraft = invoice.status === 'draft';
@@ -65,7 +76,11 @@ export function InvoiceDetail({ id }: { id: string }) {
             <a href={api.invoicePdfUrl(invoice.id, true)}>Download PDF</a>
           </Button>
           <Button asChild variant="secondary">
-            <a href={api.invoicePdfUrl(invoice.id)} target="_blank" rel="noreferrer">
+            <a
+              href={api.invoicePdfUrl(invoice.id)}
+              target="_blank"
+              rel="noreferrer"
+            >
               Preview
             </a>
           </Button>
@@ -77,15 +92,26 @@ export function InvoiceDetail({ id }: { id: string }) {
           <table className="w-full text-[13.5px]">
             <thead>
               <tr className="border-b border-edge-subtle text-left">
-                <th scope="col" className={TH}>Description</th>
-                <th scope="col" className={`${TH} text-right`}>Hours</th>
-                <th scope="col" className={`${TH} text-right`}>Rate</th>
-                <th scope="col" className={`${TH} text-right`}>Amount</th>
+                <th scope="col" className={TH}>
+                  Description
+                </th>
+                <th scope="col" className={`${TH} text-right`}>
+                  Hours
+                </th>
+                <th scope="col" className={`${TH} text-right`}>
+                  Rate
+                </th>
+                <th scope="col" className={`${TH} text-right`}>
+                  Amount
+                </th>
               </tr>
             </thead>
             <tbody>
               {lineItems.map((item, i) => (
-                <tr key={i} className="border-b border-edge-subtle last:border-0">
+                <tr
+                  key={i}
+                  className="border-b border-edge-subtle last:border-0"
+                >
                   <td className="py-2 pr-3 text-primary">{item.description}</td>
                   <td className="tabular py-2 pl-3 text-right font-mono text-muted">
                     {item.quantityHours.toFixed(2)}
@@ -103,14 +129,21 @@ export function InvoiceDetail({ id }: { id: string }) {
         </div>
 
         <dl className="ml-auto flex w-full max-w-[16rem] flex-col gap-1 text-[13.5px]">
-          <Row label="Subtotal" value={money(invoice.subtotal, invoice.currency)} />
+          <Row
+            label="Subtotal"
+            value={money(invoice.subtotal, invoice.currency)}
+          />
           {invoice.taxRate > 0 ? (
             <Row
               label={`Tax (${invoice.taxRate}%)`}
               value={money(invoice.taxAmount, invoice.currency)}
             />
           ) : null}
-          <Row label="Total" value={money(invoice.total, invoice.currency)} strong />
+          <Row
+            label="Total"
+            value={money(invoice.total, invoice.currency)}
+            strong
+          />
         </dl>
 
         <p className="text-[12px] text-subtle">

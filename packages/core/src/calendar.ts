@@ -14,24 +14,37 @@
 function tzOffset(at: Date, tz: string): number {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: tz,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
     hour12: false,
   }).formatToParts(at);
 
-  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const get = (t: string) =>
+    Number(parts.find((p) => p.type === t)?.value ?? 0);
   const asUtc = Date.UTC(
-    get('year'), get('month') - 1, get('day'),
-    get('hour'), get('minute'), get('second'),
+    get('year'),
+    get('month') - 1,
+    get('day'),
+    get('hour'),
+    get('minute'),
+    get('second'),
   );
   return asUtc - Math.floor(at.getTime() / 1000) * 1000;
 }
 
 function localDate(at: Date, tz: string): { y: number; m: number; d: number } {
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   }).formatToParts(at);
-  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const get = (t: string) =>
+    Number(parts.find((p) => p.type === t)?.value ?? 0);
   return { y: get('year'), m: get('month'), d: get('day') };
 }
 
@@ -45,7 +58,11 @@ export function startOfLocalDay(now: Date, tz: string): Date {
 }
 
 /** Local day `n` days before the one containing `now`. */
-export function startOfLocalDayOffset(now: Date, tz: string, daysBack: number): Date {
+export function startOfLocalDayOffset(
+  now: Date,
+  tz: string,
+  daysBack: number,
+): Date {
   const { y, m, d } = localDate(now, tz);
   const wall = Date.UTC(y, m - 1, d - daysBack);
   let guess = new Date(wall - tzOffset(now, tz));
@@ -57,12 +74,19 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /** Local day-of-week, 0=Sunday. */
 export function localDayOfWeek(at: Date, tz: string): number {
-  const name = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(at);
+  const name = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    weekday: 'short',
+  }).format(at);
   return Math.max(0, DAYS.indexOf(name));
 }
 
 /** Start of the local week, honouring the user's `weekStartsOn` (0=Sun). */
-export function startOfLocalWeek(now: Date, tz: string, weekStartsOn: number): Date {
+export function startOfLocalWeek(
+  now: Date,
+  tz: string,
+  weekStartsOn: number,
+): Date {
   const back = (localDayOfWeek(now, tz) - weekStartsOn + 7) % 7;
   return startOfLocalDayOffset(now, tz, back);
 }

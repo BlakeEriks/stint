@@ -28,7 +28,9 @@ export const GET = handle(async (req: Request) => {
   if (error) throw error;
 
   return NextResponse.json({
-    paymentProfiles: (data ?? []).map((r) => toPaymentProfile(r as Record<string, any>)),
+    paymentProfiles: (data ?? []).map((r) =>
+      toPaymentProfile(r as Record<string, any>),
+    ),
   });
 });
 
@@ -125,10 +127,15 @@ export const POST = handle(async (req: Request) => {
         .select(PAYMENT_PROFILE_COLUMNS)
         .eq('id', body.id)
         .maybeSingle();
-      if (found) return NextResponse.json(toPaymentProfile(found as Record<string, any>));
+      if (found)
+        return NextResponse.json(
+          toPaymentProfile(found as Record<string, any>),
+        );
     }
     throw error;
   }
 
-  return NextResponse.json(toPaymentProfile(data as Record<string, any>), { status: 201 });
+  return NextResponse.json(toPaymentProfile(data as Record<string, any>), {
+    status: 201,
+  });
 });

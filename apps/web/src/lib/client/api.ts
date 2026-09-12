@@ -37,7 +37,11 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
   const res = await fetch(`/api/v1${path}`, {
     method,
     headers: body ? { 'content-type': 'application/json' } : undefined,
@@ -50,7 +54,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const json = text ? JSON.parse(text) : undefined;
 
   if (!res.ok) {
-    throw new ApiError(res.status, json ?? { code: 'UNKNOWN', message: res.statusText });
+    throw new ApiError(
+      res.status,
+      json ?? { code: 'UNKNOWN', message: res.statusText },
+    );
   }
   return json as T;
 }
@@ -227,7 +234,10 @@ export const api = {
     if (params.from) q.set('from', params.from);
     if (params.to) q.set('to', params.to);
     const s = q.toString();
-    return request<{ entries: TimeEntry[] }>('GET', `/entries${s ? `?${s}` : ''}`);
+    return request<{ entries: TimeEntry[] }>(
+      'GET',
+      `/entries${s ? `?${s}` : ''}`,
+    );
   },
 
   startTimer: (body: { taskName: string; projectId?: string | null }) =>
@@ -238,9 +248,15 @@ export const api = {
   updateRunning: (body: { taskName?: string; projectId?: string | null }) =>
     request<TimeEntry>('PATCH', '/timer/current', body),
 
-  updateEntry: (id: string, body: Partial<Pick<TimeEntry,
-    'taskName' | 'projectId' | 'startedAt' | 'endedAt' | 'isBillable'>>) =>
-    request<TimeEntry>('PATCH', `/entries/${id}`, body),
+  updateEntry: (
+    id: string,
+    body: Partial<
+      Pick<
+        TimeEntry,
+        'taskName' | 'projectId' | 'startedAt' | 'endedAt' | 'isBillable'
+      >
+    >,
+  ) => request<TimeEntry>('PATCH', `/entries/${id}`, body),
 
   deleteEntry: (id: string) => request<void>('DELETE', `/entries/${id}`),
 
@@ -285,7 +301,10 @@ export const api = {
   invoices: (params: { clientId?: string; status?: InvoiceStatus } = {}) => {
     const q = new URLSearchParams(params as Record<string, string>);
     const s = q.toString();
-    return request<{ invoices: Invoice[] }>('GET', `/invoices${s ? `?${s}` : ''}`);
+    return request<{ invoices: Invoice[] }>(
+      'GET',
+      `/invoices${s ? `?${s}` : ''}`,
+    );
   },
 
   invoice: (id: string) =>

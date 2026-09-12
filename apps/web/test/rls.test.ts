@@ -23,8 +23,8 @@ import pg from 'pg';
 const ALICE = '11111111-1111-1111-1111-111111111111';
 const BOB = '22222222-2222-2222-2222-222222222222';
 
-let admin: pg.Pool;   // superuser: seeds and verifies ground truth
-let tenant: pg.Pool;  // the `authenticated` role: RLS applies
+let admin: pg.Pool; // superuser: seeds and verifies ground truth
+let tenant: pg.Pool; // the `authenticated` role: RLS applies
 
 before(async () => {
   const url = process.env.RLS_DATABASE_URL;
@@ -39,7 +39,11 @@ before(async () => {
     'select current_user, rolsuper, rolbypassrls from pg_roles where rolname = current_user',
   );
   assert.equal(rows[0].rolsuper, false, 'the RLS role must not be a superuser');
-  assert.equal(rows[0].rolbypassrls, false, 'the RLS role must not have BYPASSRLS');
+  assert.equal(
+    rows[0].rolbypassrls,
+    false,
+    'the RLS role must not have BYPASSRLS',
+  );
 
   await admin.query(
     `insert into auth.users (id,email) values ($1,'alice@test'),($2,'bob@test')
@@ -119,10 +123,18 @@ test('an unfiltered select returns only the caller’s rows', async () => {
   const alice = await asUser(ALICE, 'select name from clients');
   const bob = await asUser(BOB, 'select name from clients');
 
-  assert.deepEqual(alice.map((r) => r.name), ['Alice Client']);
-  assert.deepEqual(bob.map((r) => r.name), ['Bob Client']);
+  assert.deepEqual(
+    alice.map((r) => r.name),
+    ['Alice Client'],
+  );
+  assert.deepEqual(
+    bob.map((r) => r.name),
+    ['Bob Client'],
+  );
 
-  const { rows: all } = await admin.query('select count(*)::int n from clients');
+  const { rows: all } = await admin.query(
+    'select count(*)::int n from clients',
+  );
   assert.equal(all[0].n, 2, 'both rows exist; RLS is filtering, not the seed');
 });
 
@@ -142,11 +154,20 @@ test('every user-scoped table is isolated', async () => {
   );
 
   for (const table of [
-    'clients', 'projects', 'time_entries', 'invoices', 'payment_profiles', 'user_settings',
+    'clients',
+    'projects',
+    'time_entries',
+    'invoices',
+    'payment_profiles',
+    'user_settings',
   ]) {
     const seen = await asUser(ALICE, `select count(*)::int n from ${table}`);
     const total = await admin.query(`select count(*)::int n from ${table}`);
-    assert.equal(seen[0].n, 1, `${table}: caller should see exactly their own row`);
+    assert.equal(
+      seen[0].n,
+      1,
+      `${table}: caller should see exactly their own row`,
+    );
     assert.equal(total.rows[0].n, 2, `${table}: both rows exist`);
   }
 });
@@ -155,12 +176,14 @@ test('targeting another user’s row by id returns nothing, not their data', asy
   await seedBoth();
 
   // The attack a broken route enables: a valid id belonging to someone else.
-  const rows = await asUser(
-    ALICE,
-    'select name from clients where id = $1',
-    ['cc000000-0000-4000-8000-00000000000b'],
+  const rows = await asUser(ALICE, 'select name from clients where id = $1', [
+    'cc000000-0000-4000-8000-00000000000b',
+  ]);
+  assert.equal(
+    rows.length,
+    0,
+    'a known-good id must not leak another tenant’s row',
   );
-  assert.equal(rows.length, 0, 'a known-good id must not leak another tenant’s row');
 });
 
 test('invoice line items inherit isolation from their invoice', async () => {
@@ -179,15 +202,23 @@ test('invoice line items inherit isolation from their invoice', async () => {
 
   // invoice_line_items has no user_id at all — its policy joins through the
   // invoice, so this is the one table where isolation is indirect.
-  const alice = await asUser(ALICE, 'select description from invoice_line_items');
-  assert.deepEqual(alice.map((r) => r.description), ['Alice line']);
+  const alice = await asUser(
+    ALICE,
+    'select description from invoice_line_items',
+  );
+  assert.deepEqual(
+    alice.map((r) => r.description),
+    ['Alice line'],
+  );
 });
 
 // ── writes ─────────────────────────────────────────────────────────
 test('a row cannot be inserted on another user’s behalf', async () => {
   await assert.rejects(
     () =>
-      asUser(ALICE, `insert into clients (user_id,name) values ($1,'Forged')`, [BOB]),
+      asUser(ALICE, `insert into clients (user_id,name) values ($1,'Forged')`, [
+        BOB,
+      ]),
     /row-level security/i,
     'the WITH CHECK clause must reject a forged user_id',
   );
@@ -217,7 +248,10 @@ test('an update cannot reassign a row to another user', async () => {
 
   await assert.rejects(
     () =>
-      asUser(ALICE, `update clients set user_id = $1 where user_id = $2`, [BOB, ALICE]),
+      asUser(ALICE, `update clients set user_id = $1 where user_id = $2`, [
+        BOB,
+        ALICE,
+      ]),
     /row-level security/i,
     'WITH CHECK must reject moving a row out of the caller’s scope',
   );
@@ -226,9 +260,11 @@ test('an update cannot reassign a row to another user', async () => {
 test('a delete cannot reach another user’s row', async () => {
   await seedBoth();
 
-  const deleted = await asUser(ALICE, 'delete from clients where id = $1 returning id', [
-    'cc000000-0000-4000-8000-00000000000b',
-  ]);
+  const deleted = await asUser(
+    ALICE,
+    'delete from clients where id = $1 returning id',
+    ['cc000000-0000-4000-8000-00000000000b'],
+  );
   assert.equal(deleted.length, 0);
 
   const { rows } = await admin.query('select count(*)::int n from clients');

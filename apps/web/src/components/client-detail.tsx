@@ -29,10 +29,18 @@ export function ClientDetail({ id }: { id: string }) {
   });
 
   if (isLoading) {
-    return <Shell><p className="text-[13.5px] text-subtle">Loading…</p></Shell>;
+    return (
+      <Shell>
+        <p className="text-[13.5px] text-subtle">Loading…</p>
+      </Shell>
+    );
   }
   if (!client) {
-    return <Shell><p className="text-[13.5px] text-subtle">Not found.</p></Shell>;
+    return (
+      <Shell>
+        <p className="text-[13.5px] text-subtle">Not found.</p>
+      </Shell>
+    );
   }
 
   return (
@@ -65,13 +73,17 @@ export function ClientDetail({ id }: { id: string }) {
         </div>
       </header>
 
-      <dl className="grid gap-x-6 gap-y-4 rounded-xl border border-edge-subtle
-                     bg-surface-primary p-5 shadow-card sm:grid-cols-2">
+      <dl
+        className="grid gap-x-6 gap-y-4 rounded-xl border border-edge-subtle
+                     bg-surface-primary p-5 shadow-card sm:grid-cols-2"
+      >
         <Detail label="Email" value={client.email} />
         <Detail
           label="Hourly rate"
           value={
-            client.hourlyRate != null ? `${usd.format(client.hourlyRate)}/h` : null
+            client.hourlyRate != null
+              ? `${usd.format(client.hourlyRate)}/h`
+              : null
           }
           hint="Falls back to your default rate."
           mono

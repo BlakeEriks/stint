@@ -39,7 +39,10 @@ export const GET = handle(async (req: Request) => {
 
   if (error) throw error;
 
-  const days = new Map<string, { date: string; totalSeconds: number; entries: unknown[] }>();
+  const days = new Map<
+    string,
+    { date: string; totalSeconds: number; entries: unknown[] }
+  >();
 
   for (const row of data ?? []) {
     const entry = toEntry(row as EntryRow);

@@ -33,7 +33,10 @@ async function open() {
  */
 describe('ProjectPicker', () => {
   it('lists every project plus an explicit "No project" choice', async () => {
-    render(<ProjectPicker projects={PROJECTS} value={null} onChange={() => {}} />, { wrapper });
+    render(
+      <ProjectPicker projects={PROJECTS} value={null} onChange={() => {}} />,
+      { wrapper },
+    );
     await open();
 
     const items = screen.getAllByRole('menuitemradio');
@@ -43,26 +46,41 @@ describe('ProjectPicker', () => {
   });
 
   it('marks the selected project checked, not merely styled', async () => {
-    render(<ProjectPicker projects={PROJECTS} value="p2" onChange={() => {}} />, { wrapper });
+    render(
+      <ProjectPicker projects={PROJECTS} value="p2" onChange={() => {}} />,
+      { wrapper },
+    );
     await open();
 
-    expect(screen.getByRole('menuitemradio', { name: /Bluebird API/ })).toBeChecked();
-    expect(screen.getByRole('menuitemradio', { name: /Acme/ })).not.toBeChecked();
+    expect(
+      screen.getByRole('menuitemradio', { name: /Bluebird API/ }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('menuitemradio', { name: /Acme/ }),
+    ).not.toBeChecked();
   });
 
   it('moves between items with the arrow keys', async () => {
-    render(<ProjectPicker projects={PROJECTS} value={null} onChange={() => {}} />, { wrapper });
+    render(
+      <ProjectPicker projects={PROJECTS} value={null} onChange={() => {}} />,
+      { wrapper },
+    );
     const user = await open();
 
     await user.keyboard('{ArrowDown}');
-    expect(screen.getByRole('menuitemradio', { name: 'No project' })).toHaveFocus();
+    expect(
+      screen.getByRole('menuitemradio', { name: 'No project' }),
+    ).toHaveFocus();
 
     await user.keyboard('{ArrowDown}');
     expect(screen.getByRole('menuitemradio', { name: /Acme/ })).toHaveFocus();
   });
 
   it('jumps to a project by typing its first letter', async () => {
-    render(<ProjectPicker projects={PROJECTS} value={null} onChange={() => {}} />, { wrapper });
+    render(
+      <ProjectPicker projects={PROJECTS} value={null} onChange={() => {}} />,
+      { wrapper },
+    );
     const user = await open();
 
     await user.keyboard('c');
@@ -80,7 +98,9 @@ describe('ProjectPicker', () => {
     await user.click(screen.getByRole('menuitemradio', { name: /Corvus/ }));
     expect(onChange).toHaveBeenCalledWith('p3');
 
-    rerender(<ProjectPicker projects={PROJECTS} value="p3" onChange={onChange} />);
+    rerender(
+      <ProjectPicker projects={PROJECTS} value="p3" onChange={onChange} />,
+    );
     user = await open();
     await user.click(screen.getByRole('menuitemradio', { name: 'No project' }));
     // null, not the sentinel the radio group uses internally.
@@ -88,7 +108,10 @@ describe('ProjectPicker', () => {
   });
 
   it('returns focus to the trigger after choosing', async () => {
-    render(<ProjectPicker projects={PROJECTS} value={null} onChange={() => {}} />, { wrapper });
+    render(
+      <ProjectPicker projects={PROJECTS} value={null} onChange={() => {}} />,
+      { wrapper },
+    );
     const user = await open();
 
     await user.click(screen.getByRole('menuitemradio', { name: /Acme/ }));
@@ -97,7 +120,10 @@ describe('ProjectPicker', () => {
 
   it('closes on Escape without selecting anything', async () => {
     const onChange = vi.fn();
-    render(<ProjectPicker projects={PROJECTS} value={null} onChange={onChange} />, { wrapper });
+    render(
+      <ProjectPicker projects={PROJECTS} value={null} onChange={onChange} />,
+      { wrapper },
+    );
     const user = await open();
 
     await user.keyboard('{Escape}');
@@ -106,7 +132,9 @@ describe('ProjectPicker', () => {
   });
 
   it('offers a way to create a project, including when there are none', async () => {
-    render(<ProjectPicker projects={[]} value={null} onChange={() => {}} />, { wrapper });
+    render(<ProjectPicker projects={[]} value={null} onChange={() => {}} />, {
+      wrapper,
+    });
     await open();
 
     // The empty state is the one place a user is most likely to need this,
@@ -117,7 +145,9 @@ describe('ProjectPicker', () => {
   });
 
   it('says so when there are no projects rather than showing an empty menu', async () => {
-    render(<ProjectPicker projects={[]} value={null} onChange={() => {}} />, { wrapper });
+    render(<ProjectPicker projects={[]} value={null} onChange={() => {}} />, {
+      wrapper,
+    });
     await open();
 
     expect(screen.getByText('No projects yet.')).toBeInTheDocument();

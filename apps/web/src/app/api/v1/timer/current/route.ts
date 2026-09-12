@@ -17,7 +17,10 @@ export const dynamic = 'force-dynamic';
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
 
-  const [entry, hours] = await Promise.all([findRunning(db), maxTimerHours(db)]);
+  const [entry, hours] = await Promise.all([
+    findRunning(db),
+    maxTimerHours(db),
+  ]);
 
   return NextResponse.json({
     entry,
@@ -56,7 +59,10 @@ export const PATCH = handle(async (req: Request) => {
 
   if (error) {
     if (isBilledLock(error)) {
-      throw new ApiError('ENTRY_LOCKED', 'This entry is billed and cannot be modified');
+      throw new ApiError(
+        'ENTRY_LOCKED',
+        'This entry is billed and cannot be modified',
+      );
     }
     throw error;
   }

@@ -17,8 +17,18 @@ const HUE = 264;
 
 /** Chroma per step — peaks mid-ramp so mid greys carry the blue cast. */
 const CHROMA = {
-  0: 0.006, 25: 0.0078, 50: 0.0107, 100: 0.0139, 200: 0.017, 300: 0.0196,
-  400: 0.0214, 500: 0.022, 600: 0.021, 700: 0.0181, 850: 0.0129, 975: 0.004,
+  0: 0.006,
+  25: 0.0078,
+  50: 0.0107,
+  100: 0.0139,
+  200: 0.017,
+  300: 0.0196,
+  400: 0.0214,
+  500: 0.022,
+  600: 0.021,
+  700: 0.0181,
+  850: 0.0129,
+  975: 0.004,
 };
 
 /**
@@ -42,14 +52,17 @@ const TOP = 0.985;
 const OFFSET = { 600: 0.03, 700: 0.035 };
 
 const lightness = (step) =>
-  FLOOR +
-  (TOP - FLOOR) * Math.pow(step / 975, EXPONENT) +
-  (OFFSET[step] ?? 0);
+  FLOOR + (TOP - FLOOR) * (step / 975) ** EXPONENT + (OFFSET[step] ?? 0);
 
 const ramp = Object.keys(CHROMA).map((s) => {
   const step = Number(s);
   const L = lightness(step);
-  return { step, L: +L.toFixed(4), C: CHROMA[step], hex: hex(L, CHROMA[step], HUE) };
+  return {
+    step,
+    L: +L.toFixed(4),
+    C: CHROMA[step],
+    hex: hex(L, CHROMA[step], HUE),
+  };
 });
 
 for (const { step, L, C, hex: h } of ramp) {
@@ -69,5 +82,7 @@ for (const [label, fg, min] of [
   ['border (500)', at(500), 3],
 ]) {
   const v = contrast(fg, card);
-  console.log(`//   ${label} ${v.toFixed(2)} (min ${min})${v >= min ? '' : '  FAILS'}`);
+  console.log(
+    `//   ${label} ${v.toFixed(2)} (min ${min})${v >= min ? '' : '  FAILS'}`,
+  );
 }

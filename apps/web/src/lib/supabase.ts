@@ -22,7 +22,8 @@ export async function cookieClient(): Promise<SupabaseClient> {
         getAll: () => store.getAll(),
         setAll: (list) => {
           try {
-            for (const { name, value, options } of list) store.set(name, value, options);
+            for (const { name, value, options } of list)
+              store.set(name, value, options);
           } catch {
             // Called from a Server Component render — safe to ignore, the
             // middleware refreshes the session.

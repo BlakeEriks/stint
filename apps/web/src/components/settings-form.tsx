@@ -71,7 +71,11 @@ export function SettingsForm() {
         status={<SaveIndicator state={billing.state} />}
       >
         <div className="flex flex-wrap gap-4">
-          <Field label="Default hourly rate" htmlFor="rate" className="flex-1 basis-44">
+          <Field
+            label="Default hourly rate"
+            htmlFor="rate"
+            className="flex-1 basis-44"
+          >
             <Input
               id="rate"
               type="number"
@@ -102,12 +106,18 @@ export function SettingsForm() {
               max="24"
               step="1"
               value={form.maxTimerHours}
-              onChange={(e) => setBilling('maxTimerHours', Number(e.target.value))}
+              onChange={(e) =>
+                setBilling('maxTimerHours', Number(e.target.value))
+              }
             />
           </Field>
         </div>
 
-        <Field label="Payment terms" htmlFor="terms" hint="Printed on every invoice.">
+        <Field
+          label="Payment terms"
+          htmlFor="terms"
+          hint="Printed on every invoice."
+        >
           <Input
             id="terms"
             value={form.defaultPaymentTerms}
@@ -126,7 +136,9 @@ export function SettingsForm() {
           <Input
             id="biz-name"
             value={form.businessName ?? ''}
-            onChange={(e) => setIdentity('businessName', e.target.value || null)}
+            onChange={(e) =>
+              setIdentity('businessName', e.target.value || null)
+            }
             placeholder="Your name or LLC"
           />
         </Field>
@@ -136,7 +148,9 @@ export function SettingsForm() {
             id="biz-email"
             type="email"
             value={form.businessEmail ?? ''}
-            onChange={(e) => setIdentity('businessEmail', e.target.value || null)}
+            onChange={(e) =>
+              setIdentity('businessEmail', e.target.value || null)
+            }
             placeholder="you@example.com"
           />
         </Field>
@@ -146,7 +160,9 @@ export function SettingsForm() {
             id="biz-address"
             rows={3}
             value={form.businessAddress ?? ''}
-            onChange={(e) => setIdentity('businessAddress', e.target.value || null)}
+            onChange={(e) =>
+              setIdentity('businessAddress', e.target.value || null)
+            }
             placeholder={'123 Main St\nAustin, TX 78701'}
             className={textareaClass}
           />
@@ -175,7 +191,9 @@ export function SettingsForm() {
             <Input
               id="prefix"
               value={form.invoiceNumberPrefix}
-              onChange={(e) => setNumbering('invoiceNumberPrefix', e.target.value)}
+              onChange={(e) =>
+                setNumbering('invoiceNumberPrefix', e.target.value)
+              }
               placeholder="INV-"
             />
           </Field>
@@ -200,7 +218,9 @@ export function SettingsForm() {
             id="notice"
             rows={2}
             value={form.paymentNotice ?? ''}
-            onChange={(e) => setNumbering('paymentNotice', e.target.value || null)}
+            onChange={(e) =>
+              setNumbering('paymentNotice', e.target.value || null)
+            }
             placeholder="We will never email you to change these bank details."
             className={textareaClass}
           />

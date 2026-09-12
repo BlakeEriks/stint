@@ -2,7 +2,13 @@ import { NextResponse } from 'next/server';
 import { handle, ApiError, isBilledLock, isTimerConflict } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
-import { ENTRY_COLUMNS, toEntry, toColumns, ENTRY_FIELDS, type EntryRow } from '@/lib/rows';
+import {
+  ENTRY_COLUMNS,
+  toEntry,
+  toColumns,
+  ENTRY_FIELDS,
+  type EntryRow,
+} from '@/lib/rows';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -62,12 +68,17 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
     if (!current) throw new ApiError('ENTRY_NOT_FOUND', 'Entry not found');
 
     const started = (update.started_at as string) ?? current.started_at;
-    const ended = update.ended_at !== undefined ? update.ended_at : current.ended_at;
+    const ended =
+      update.ended_at !== undefined ? update.ended_at : current.ended_at;
     if (ended != null && new Date(ended as string) <= new Date(started)) {
-      throw new ApiError('VALIDATION_FAILED', 'endedAt must be after startedAt', {
-        startedAt: started,
-        endedAt: ended,
-      });
+      throw new ApiError(
+        'VALIDATION_FAILED',
+        'endedAt must be after startedAt',
+        {
+          startedAt: started,
+          endedAt: ended,
+        },
+      );
     }
   }
 

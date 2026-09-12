@@ -9,7 +9,9 @@ const SUMMARY_KEY = ['summary'] as const;
 
 /** The browser's zone. "Today" is a local question the server can't infer. */
 export function useTimeZone() {
-  const [tz] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+  const [tz] = useState(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+  );
   return tz;
 }
 
@@ -92,7 +94,9 @@ export function useTimer() {
 
   // Totals include the running timer, so both menu-bar-style displays agree.
   const liveSeconds = running ? elapsedSeconds(running.startedAt, now) : 0;
-  const baseToday = (summary.data?.todaySeconds ?? 0) - (summary.data ? liveAtFetch(summary.data) : 0);
+  const baseToday =
+    (summary.data?.todaySeconds ?? 0) -
+    (summary.data ? liveAtFetch(summary.data) : 0);
   const todaySeconds = Math.max(0, baseToday + liveSeconds);
 
   const invalidate = () => {
