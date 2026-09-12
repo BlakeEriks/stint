@@ -8,10 +8,9 @@ feel permanent, it belongs in the roadmap or in the bin.
 
 ## Now
 
-- [ ] **Goals on `user_settings`** — nullable monthly target + unit
-      (hours | revenue). Blocks the Pace card. Monthly only; floor before
-      ceiling. Revenue pace counts invoiced + unbilled-at-resolved-rate, never
-      "collected", and is never labelled *earned*. See `docs/design/home.md`.
+- [x] ~~Goals on `user_settings`~~ — `monthly_target` + `monthly_target_unit`,
+      both-or-neither enforced by a check constraint. Migration 6.
+
 - [ ] **`GET /stats`** — one call backing the home cards: unbilled by client
       with aging, month-to-date against target, billable ratio, attention
       rows. One request because they render together and a card set that pops

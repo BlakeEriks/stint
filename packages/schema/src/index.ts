@@ -152,6 +152,19 @@ export const Settings = z.object({
   nextInvoiceNumber: z.number().int().positive(),
   /** Standing anti-fraud line printed under the invoice payment block. */
   paymentNotice: z.string().max(500).nullable(),
+
+  /**
+   * Monthly target for the Pace card. Both null means no target, and the card
+   * hides rather than rendering an empty bar that asks to be configured.
+   *
+   * `revenue` means work DONE — invoiced plus unbilled at its resolved rate —
+   * never money collected. A bar at 40% because a client has not paid yet is
+   * noise about someone else's behaviour.
+   *
+   * The database enforces that these are both set or both null.
+   */
+  monthlyTarget: money.nullable(),
+  monthlyTargetUnit: z.enum(['hours', 'revenue']).nullable(),
 });
 /** `nextInvoiceNumber` is not client-settable: gapless numbering depends on
  *  allocate_invoice_number() holding the row lock. */

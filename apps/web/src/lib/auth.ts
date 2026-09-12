@@ -27,7 +27,8 @@ export async function requireSession(req: Request): Promise<Session> {
   if (header?.startsWith('Bearer ')) {
     const token = header.slice(7);
     const db = bearerClient(token);
-    return { userId: await verify(db, 'Invalid or expired token'), db };
+    // The token must be passed EXPLICITLY — see verify().
+    return { userId: await verify(db, 'Invalid or expired token', token), db };
   }
 
   const db = await cookieClient();
@@ -49,9 +50,20 @@ export async function requireSession(req: Request): Promise<Session> {
  * `getSession()` would be wrong here. It reads the cookie without
  * revalidating, and a cookie is forgeable — it must never gate authorization
  * on the server.
+ *
+ * `token` MUST be passed for the bearer path. `getClaims()` reads the stored
+ * session, not the `Authorization` header that `bearerClient` sets via
+ * `global.headers` — with no stored session it returns `{ data: null, error:
+ * null }`, so the call *succeeds* while yielding no claims and every
+ * bearer request 401s. No error is raised, which is why this was invisible:
+ * the route tests inject `__TEST_DB__` and never take this path at all.
  */
-async function verify(db: SupabaseClient, message: string): Promise<string> {
-  const { data, error } = await db.auth.getClaims();
+async function verify(
+  db: SupabaseClient,
+  message: string,
+  token?: string,
+): Promise<string> {
+  const { data, error } = await db.auth.getClaims(token);
   const sub = data?.claims?.sub;
   if (error || !sub) {
     throw new ApiError('UNAUTHORIZED', message);

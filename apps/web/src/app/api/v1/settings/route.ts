@@ -37,20 +37,44 @@ export const GET = handle(async (req: Request) => {
   return NextResponse.json(toSettings(data));
 });
 
-const UpdateSettings = z.object({
-  defaultHourlyRate: z.number().nonnegative().nullable().optional(),
-  currency: z.string().length(3).optional(),
-  weekStartsOn: z.number().int().min(0).max(6).optional(),
-  timeFormat: z.enum(['12h', '24h']).optional(),
-  maxTimerHours: z.number().positive().max(24).optional(),
-  businessName: z.string().max(200).nullable().optional(),
-  businessAddress: z.string().max(1000).nullable().optional(),
-  businessEmail: z.email().nullable().optional(),
-  logoUrl: z.url().nullable().optional(),
-  taxId: z.string().max(100).nullable().optional(),
-  defaultPaymentTerms: z.string().max(200).optional(),
-  invoiceNumberPrefix: z.string().max(20).optional(),
-});
+const UpdateSettings = z
+  .object({
+    defaultHourlyRate: z.number().nonnegative().nullable().optional(),
+    currency: z.string().length(3).optional(),
+    weekStartsOn: z.number().int().min(0).max(6).optional(),
+    timeFormat: z.enum(['12h', '24h']).optional(),
+    maxTimerHours: z.number().positive().max(24).optional(),
+    businessName: z.string().max(200).nullable().optional(),
+    businessAddress: z.string().max(1000).nullable().optional(),
+    businessEmail: z.email().nullable().optional(),
+    logoUrl: z.url().nullable().optional(),
+    taxId: z.string().max(100).nullable().optional(),
+    defaultPaymentTerms: z.string().max(200).optional(),
+    invoiceNumberPrefix: z.string().max(20).optional(),
+    paymentNotice: z.string().max(500).nullable().optional(),
+    monthlyTarget: z.number().positive().nullable().optional(),
+    monthlyTargetUnit: z.enum(['hours', 'revenue']).nullable().optional(),
+  })
+  /*
+   * A target without a unit cannot be rendered, and a unit without a target
+   * means nothing. The database enforces this too — the check constraint is
+   * authoritative — but catching it here returns a 422 naming the problem
+   * instead of a 500 carrying a constraint name.
+   *
+   * Only when both appear in the same patch: setting one while the other
+   * already holds a value is legitimate, and the database still guards the
+   * result.
+   */
+  .refine(
+    (p) =>
+      !('monthlyTarget' in p && 'monthlyTargetUnit' in p) ||
+      (p.monthlyTarget === null) === (p.monthlyTargetUnit === null),
+    {
+      message:
+        'monthlyTarget and monthlyTargetUnit must be set or cleared together',
+      path: ['monthlyTarget'],
+    },
+  );
 
 /**
  * PATCH /api/v1/settings

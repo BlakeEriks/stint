@@ -72,7 +72,7 @@ export function toProject(r: Record<string, any>) {
 }
 
 export const SETTINGS_COLUMNS =
-  'default_hourly_rate, currency, week_starts_on, time_format, max_timer_hours, business_name, business_address, business_email, logo_url, tax_id, default_payment_terms, invoice_number_prefix, next_invoice_number, payment_notice';
+  'default_hourly_rate, currency, week_starts_on, time_format, max_timer_hours, business_name, business_address, business_email, logo_url, tax_id, default_payment_terms, invoice_number_prefix, next_invoice_number, payment_notice, monthly_target, monthly_target_unit';
 
 export function toSettings(r: Record<string, any>) {
   return {
@@ -90,6 +90,8 @@ export function toSettings(r: Record<string, any>) {
     invoiceNumberPrefix: r.invoice_number_prefix,
     nextInvoiceNumber: r.next_invoice_number,
     paymentNotice: r.payment_notice,
+    monthlyTarget: num(r.monthly_target),
+    monthlyTargetUnit: r.monthly_target_unit,
   };
 }
 
@@ -146,6 +148,8 @@ export const SETTINGS_FIELDS = {
   defaultPaymentTerms: 'default_payment_terms',
   invoiceNumberPrefix: 'invoice_number_prefix',
   paymentNotice: 'payment_notice',
+  monthlyTarget: 'monthly_target',
+  monthlyTargetUnit: 'monthly_target_unit',
 } as const;
 
 // ── payment profiles ───────────────────────────────────────────────
