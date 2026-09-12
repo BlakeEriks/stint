@@ -491,6 +491,43 @@ arrow keys, typeahead, roving tabindex and focus-return get quietly skipped;
 the restraint thesis is about *product surface*, not re-implementing
 accessible primitives.
 
+### The home screen
+
+`home-cards.tsx` renders Needs attention, Unbilled and Pace, in that order:
+money at risk, money waiting, money coming. The hero and the entry list are
+fixed around them — they are why the screen is opened fifty times a day.
+
+- **`GET /stats` is one call** because the cards render together and a set
+  that pops in piecemeal reads as broken.
+- **Unbilled totals come from `unbilled_by_client`**, a SQL rollup grouped by
+  **(client, rate)**. The rate is part of the grouping key for the same reason
+  it is on an invoice line: one client can have work at several rates, and
+  collapsing them misstates the money. A first version grouped by client alone
+  and reported $1755.00 where $1462.50 was owed — the seed reproduces that
+  case deliberately. Its coalesce chain must stay identical to
+  `resolve_entry_rate`, or the home screen and an invoice preview will
+  disagree about the same work.
+- **Needs attention renders only when it has rows.** A permanent "all clear"
+  card is the `SaveIndicator` problem — a check that is always present says
+  nothing — and the card's absence is the good news.
+- **Pace hides entirely with no target**, rather than showing an empty bar
+  that asks to be configured. It measures against **business days elapsed**:
+  a 120-hour target is six hours a working day, and reading "behind" on a
+  Monday because the weekend passed is noise pretending to be signal.
+  Holidays are not modelled, deliberately.
+- **No card carries the accent** — on this screen the accent is spent, and it
+  is spent on the running timer. The progress bar is neutral.
+- **Nothing here writes.** Every card reads and every action is a link to the
+  surface that owns the mutation, because a dashboard that edits data turns a
+  stray click into a changed invoice.
+- **Unrated work shows an em-dash, not $0.00**, plus an `unratedCount` so the
+  total reads as incomplete rather than low.
+- **Never labelled "earned" or "revenue"** — it is work done and not yet
+  invoiced, money the user might still never see.
+
+Details wrap under the label on a narrow screen rather than hiding: "12 days
+late" *is* the row, and a client name with an amount is just an invoice.
+
 ### Invoicing UI
 
 **Preview then generate, and the two must agree.** Any change to what would

@@ -47,7 +47,7 @@ trusting the device clock.
 | `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, exceedsThreshold, maxTimerHours, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. |
 | `GET` | `/calendar` | `?from&to` (**both required**) `&tz` — entries grouped by local day. |
 | `GET` | `/calendar?granularity=day` | **(not implemented)** Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. Backs the home screen's activity strip, where twelve weeks of full entries is a heavy payload for one rectangle per day. |
-| `GET` | `/stats` | **(not implemented)** `?tz` — the home screen card set in one call: unbilled by client with aging, month-to-date against target, billable ratio, and the attention rows (overdue invoices, unprojected entries, quiet clients, stale drafts). One request because the cards render together and a set that pops in piecemeal reads as broken. Specified in `docs/design/home.md`. |
+| `GET` | `/stats` | `?tz` — the home screen card set in one call: unbilled by client with aging, month-to-date against target, billable ratio, and the attention rows (overdue invoices, stale drafts, unprojected entries). One request because the cards render together and a set that pops in piecemeal reads as broken. Unbilled totals come from the `unbilled_by_client` SQL rollup, grouped by (client, rate). Quiet clients are not yet included. Specified in `docs/design/home.md`. |
 
 ## Clients / projects / settings
 

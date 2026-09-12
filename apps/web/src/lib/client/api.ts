@@ -96,6 +96,12 @@ export type PaymentProfile = Response<schema.PaymentProfile>;
 export type InvoicePreview = Response<schema.InvoicePreview>;
 export type Invoice = Response<schema.Invoice>;
 
+/* Nested objects keep their own optionality, so `Response` is applied only at
+   the top level here — every nested field is already required. */
+export type Stats = Response<schema.Stats>;
+export type Pace = schema.Pace;
+export type UnbilledClient = schema.UnbilledClient;
+
 export type CalendarDay = Response<Omit<schema.CalendarDay, 'entries'>> & {
   entries: TimeEntry[];
 };
@@ -126,6 +132,9 @@ export type PaymentProfileInput = Partial<
 export const api = {
   summary: (tz: string) =>
     request<Summary>('GET', `/summary?tz=${encodeURIComponent(tz)}`),
+
+  stats: (tz: string) =>
+    request<Stats>('GET', `/stats?tz=${encodeURIComponent(tz)}`),
 
   entries: (params: { from?: string; to?: string } = {}) => {
     const q = new URLSearchParams();

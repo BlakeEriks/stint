@@ -280,6 +280,81 @@ export const UpdateInvoiceStatus = z.object({
   paidAt: iso.optional(),
 });
 
+// ── home screen stats ──────────────────────────────────────────────
+// One response for the whole card set: the cards render together, and a set
+// that pops in piecemeal reads as broken.
+
+export const UnbilledClient = z.object({
+  /** Null for internal work — a project with no client. */
+  clientId: uuid.nullable(),
+  clientName: z.string(),
+  currency,
+  seconds: z.number().int().nonnegative(),
+  amount: money,
+  /** Entries with no resolvable rate: the total is incomplete, not low. */
+  unratedCount: z.number().int().nonnegative(),
+  /** Age of the oldest unbilled entry. A total is a fact; this is a prompt. */
+  oldestDays: z.number().int().nonnegative(),
+});
+
+export const Pace = z.object({
+  unit: z.enum(['hours', 'revenue']),
+  target: money,
+  /** Null when the unit cannot be computed from time entries alone. */
+  actual: z.number().nullable(),
+  expected: z.number().nullable(),
+  /** Positive is ahead. Spelled out rather than left to a bar to imply. */
+  delta: z.number().nullable(),
+  businessDaysElapsed: z.number().int().nonnegative(),
+  businessDaysTotal: z.number().int().nonnegative(),
+});
+
+export const Stats = z.object({
+  currency,
+  unbilled: z.object({
+    /** Work done and not yet invoiced. Never "earned" and never "revenue". */
+    total: money,
+    seconds: z.number().int().nonnegative(),
+    byClient: z.array(UnbilledClient),
+    moreClients: z.number().int().nonnegative(),
+  }),
+  /** Null when no monthly target is set; the card hides rather than nagging. */
+  pace: Pace.nullable(),
+  /** Null when nothing was tracked this month — 0/0 is not 0%. */
+  billableRatio: z.number().min(0).max(1).nullable(),
+  attention: z.object({
+    overdueInvoices: z.array(
+      z.object({
+        invoiceId: uuid,
+        invoiceNumber: z.string(),
+        clientId: uuid,
+        clientName: z.string().nullable(),
+        amount: money,
+        currency,
+        daysLate: z.number().int(),
+      }),
+    ),
+    staleDrafts: z.array(
+      z.object({
+        invoiceId: uuid,
+        invoiceNumber: z.string(),
+        clientId: uuid,
+        clientName: z.string().nullable(),
+        amount: money,
+        currency,
+        ageDays: z.number().int(),
+      }),
+    ),
+    /** Null rather than a zero row, so the UI renders nothing at all. */
+    unprojected: z
+      .object({
+        count: z.number().int().positive(),
+        seconds: z.number().int().nonnegative(),
+      })
+      .nullable(),
+  }),
+});
+
 // ── payment profiles ───────────────────────────────────────────────
 // Bank details render on the invoice PDF, never in an email body.
 // US-first: account + ACH routing is the default path, everything else
@@ -358,6 +433,9 @@ export type Summary = z.infer<typeof Summary>;
 export type Settings = z.infer<typeof Settings>;
 export type InvoicePreview = z.infer<typeof InvoicePreview>;
 export type PaymentProfile = z.infer<typeof PaymentProfile>;
+export type Stats = z.infer<typeof Stats>;
+export type Pace = z.infer<typeof Pace>;
+export type UnbilledClient = z.infer<typeof UnbilledClient>;
 export type Invoice = z.infer<typeof Invoice>;
 export type CalendarDay = z.infer<typeof CalendarDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;

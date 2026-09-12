@@ -91,6 +91,60 @@ export function startOfLocalWeek(
   return startOfLocalDayOffset(now, tz, back);
 }
 
+/** Start of the local calendar month containing `now`. */
+export function startOfLocalMonth(now: Date, tz: string): Date {
+  const { y, m } = localDate(now, tz);
+  const wall = Date.UTC(y, m - 1, 1);
+  let guess = new Date(wall - tzOffset(now, tz));
+  guess = new Date(wall - tzOffset(guess, tz));
+  return guess;
+}
+
+/** Start of the month AFTER the one containing `now` — the exclusive end. */
+export function startOfNextLocalMonth(now: Date, tz: string): Date {
+  const { y, m } = localDate(now, tz);
+  const wall = Date.UTC(y, m, 1); // month is 1-based here, so m == next month
+  let guess = new Date(wall - tzOffset(now, tz));
+  guess = new Date(wall - tzOffset(guess, tz));
+  return guess;
+}
+
+/**
+ * Business days elapsed in the local month, and the month's total.
+ *
+ * Pace is measured against business days, not calendar days: a 120-hour
+ * target is six hours a working day, and reading "behind" on a Monday because
+ * the weekend passed is noise dressed as signal.
+ *
+ * `elapsed` counts today as worked — you are in it — so on the 1st of a month
+ * that starts midweek the ratio is 1/n rather than 0/n, which would make any
+ * target look infinitely behind.
+ *
+ * Holidays are not modelled. A US federal calendar would be wrong for a
+ * contractor who works them, and asking would be a settings screen nobody
+ * wants; the error is at most a few percent and always in the direction of
+ * "you are slightly ahead".
+ */
+export function businessDaysInLocalMonth(
+  now: Date,
+  tz: string,
+): { elapsed: number; total: number } {
+  const { y, m, d: today } = localDate(now, tz);
+  // Day 0 of the next month is the last day of this one.
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+
+  let elapsed = 0;
+  let total = 0;
+  for (let d = 1; d <= daysInMonth; d += 1) {
+    // getUTCDay on a UTC-midnight date gives that calendar date's weekday.
+    const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+    if (dow === 0 || dow === 6) continue;
+    total += 1;
+    if (d <= today) elapsed += 1;
+  }
+  return { elapsed, total };
+}
+
 /** `2026-09-11` in the given zone — the key a calendar view groups by. */
 export function localDateKey(at: Date, tz: string): string {
   const { y, m, d } = localDate(at, tz);

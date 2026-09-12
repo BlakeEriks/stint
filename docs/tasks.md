@@ -30,13 +30,6 @@ later.
       that must not bend: the app surfaces the problem and never modifies the
       entry itself.
 
-- [ ] **`GET /stats`** — one call backing the home cards: unbilled by client
-      with aging, month-to-date against target, billable ratio, attention
-      rows. One request because they render together and a card set that pops
-      in piecemeal reads as broken. Aggregate rate resolution belongs in SQL
-      as a set-returning rollup, not N calls to `resolve_entry_rate`. Marked
-      **(not implemented)** in `docs/api.md`; spec in `docs/design/home.md`.
-
 - [ ] **`GET /calendar?granularity=day`** — `{ date, totalSeconds, byClient }`
       and nothing else, for the Activity strip. The existing endpoint already
       buckets by local day server-side, which is the DST-correct grouping a
@@ -44,12 +37,22 @@ later.
       full entries, and twelve weeks of those is a heavy payload to draw one
       rectangle per day.
 
-- [ ] **Home cards** — Needs attention, Unbilled, Pace, Activity, in that
-      order: money at risk, money waiting, money coming, texture. Spec and
-      rejections in `docs/design/home.md`. Constraints worth restating: the
-      heatmap is never green, no card carries the accent, Needs attention
-      renders only when non-empty and cannot be hidden, and nothing on the
-      screen writes.
+- [ ] **Quiet clients in `/stats`.** The attention card is specified to flag
+      an active client with no entries in 30 days, and it is the one row not
+      yet implemented — it needs a per-client last-entry query, and the
+      rollup only returns clients with unbilled work. Phrase it as an
+      observation, not an alarm: a finished engagement is the common cause and
+      archiving is the useful action, so the row links to the client.
+- [ ] **Revenue pace.** A revenue target is accepted and stored but pace
+      reports `actual: null` for it, because revenue means invoiced plus
+      unbilled-at-resolved-rate and that is a different query from summing
+      time entries. The card currently says the figure is unavailable rather
+      than showing hours against a money target.
+- [ ] **Activity heatmap** — the fourth card, needing
+      `GET /calendar?granularity=day` above. Hue is the CLIENT, intensity is
+      hours, 12 weeks by default. Never green: a green intensity ramp would
+      put a second green meaning on the screen the accent already owns.
+      Gaps are information — a blank day is a vacation or a dry spell.
 
 - [ ] **`home_cards` JSONB on `user_settings`** — card order and visibility.
       Validated by Zod at the API boundary rather than a check constraint, so

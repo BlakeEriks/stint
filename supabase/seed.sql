@@ -152,3 +152,46 @@ values
    date_trunc('day', now()) - interval '9 days' + interval '10 hours',
    date_trunc('day', now()) - interval '9 days' + interval '11 hours', true, null)
 on conflict (id) do nothing;
+
+-- ── invoices, for the home screen's attention rows ─────────────────
+-- One overdue and one stale draft, because "Needs attention" renders only
+-- when it has rows: with an empty database the card is invisible and cannot
+-- be reviewed at all.
+insert into invoices (
+  id, user_id, client_id, invoice_number, sequence_no, status,
+  issue_date, due_date, period_start, period_end,
+  subtotal, tax_rate, tax_amount, total, currency, grouping_mode
+)
+values
+  -- Sent, past due. US framing: Net 30 terms, no tax line.
+  ('00000000-0000-4000-8000-0000000000f1',
+   '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-0000000000c1',
+   'STINT-0001', 1, 'sent',
+   current_date - 40, current_date - 12, current_date - 60, current_date - 31,
+   900, 0, 0, 900, 'USD', 'task'),
+  -- A draft old enough to have been forgotten.
+  ('00000000-0000-4000-8000-0000000000f2',
+   '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-0000000000c2',
+   'STINT-0002', 2, 'draft',
+   current_date - 15, null, current_date - 45, current_date - 16,
+   400, 0, 0, 400, 'USD', 'task')
+on conflict (id) do nothing;
+
+-- Numbering must not collide with the seeded invoices.
+update user_settings
+   set next_invoice_number = 3
+ where user_id = '00000000-0000-4000-8000-000000000001';
+
+-- An entry with no project: it cannot resolve a rate beyond the user default
+-- and is the "unprojected" attention row.
+insert into time_entries (id, user_id, project_id, task_name, started_at, ended_at, is_billable)
+values
+  ('00000000-0000-7000-8000-0000000000e8',
+   '00000000-0000-4000-8000-000000000001', null,
+   'Forgot to pick a project',
+   date_trunc('day', now()) - interval '3 days' + interval '14 hours',
+   date_trunc('day', now()) - interval '3 days' + interval '15 hours 30 minutes',
+   true)
+on conflict (id) do nothing;
