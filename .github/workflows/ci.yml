@@ -22,8 +22,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      # No `version:` — package.json's `packageManager` pins it, and setting
+      # both makes the action fail on a version mismatch.
       - uses: pnpm/action-setup@v4
-        with: { version: 9 }
       - uses: actions/setup-node@v4
         with: { node-version: '22', cache: 'pnpm' }
 

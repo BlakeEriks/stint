@@ -33,8 +33,8 @@ jobs:
           # Migrate the commit being deployed, not whatever main points at
           # now — they differ the moment a second merge lands.
           ref: ${{ github.event.client_payload.git.sha }}
+      # Version comes from package.json's `packageManager`.
       - uses: pnpm/action-setup@v4
-        with: { version: 9 }
       - uses: actions/setup-node@v4
         with: { node-version: '22', cache: 'pnpm' }
       - run: pnpm install --frozen-lockfile
