@@ -78,6 +78,17 @@ That wires `.github/workflows/release.yml`: Vercel dispatches
 leaves the previous one serving. **Force Promote** in the Vercel UI is the
 override.
 
+## 3a. Deployment protection
+
+A private Vercel project puts SSO in front of every deployment URL, so an
+unauthenticated request gets a 302 to `vercel.com/sso-api` rather than the
+app. That is the platform, not a bug — but magic links will bounce off it,
+so turn it off for the production domain before testing sign-in:
+**Project Settings → Deployment Protection**.
+
+Leaving it on for *preview* deployments is reasonable; leaving it on for
+production means nobody can use the app.
+
 ## 4. Auth redirect URLs
 
 Supabase → Authentication → URL Configuration. Add the production origin to
