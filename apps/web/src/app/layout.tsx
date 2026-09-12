@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
-import { Providers } from '@/components/providers';
-import { Nav } from '@/components/nav';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import '@/styles/globals.css';
 
 const sans = IBM_Plex_Sans({
   subsets: ['latin'],
+  /* Every weight named in `type.scale`. Requesting one that is not loaded
+     gets a synthesised face with no warning, so this list and the scale have
+     to move together. */
   weight: ['400', '500', '600'],
   variable: '--font-plex-sans',
   display: 'swap',
@@ -19,8 +20,14 @@ const mono = IBM_Plex_Mono({
   display: 'swap',
 });
 
+/* The landing page overrides both of these; the app's own screens inherit
+   them. `template` keeps the product name on every in-app tab without each
+   page repeating it. */
 export const metadata: Metadata = {
-  title: 'Stint',
+  title: {
+    default: 'Stint',
+    template: '%s · Stint',
+  },
   description: 'Time tracking for solo contractors.',
 };
 
@@ -59,25 +66,12 @@ export default function RootLayout({
           }}
         />
       </head>
+      {/* No shell here: the app's nav rail lives in `(app)/layout.tsx` and the
+          landing page in `(marketing)` deliberately has none. Keeping one root
+          layout — rather than a root layout per route group — is what lets a
+          visitor move between the two without a full page reload. */}
       <body>
-        <Providers>
-          {/* The rail and the content sit side by side, so the content area
-              is a real column rather than the whole viewport with padding.
-
-              On the rail breakpoint the PAGE does not scroll — `h-dvh` plus
-              `overflow-hidden` pins it — and the content column scrolls inside
-              itself instead. The rail is a sibling of that scroller rather
-              than inside it, so it simply stays put; nothing is positioned
-              fixed and nothing needs a scroll offset.
-
-              Below `sm` the nav is a horizontal strip above the content, and
-              there the whole page scrolls normally: pinning a strip that is
-              already two rows tall would eat a third of a phone viewport. */}
-          <div className="flex min-h-dvh flex-col sm:h-dvh sm:min-h-0 sm:flex-row sm:overflow-hidden">
-            <Nav />
-            <div className="min-w-0 flex-1 sm:overflow-y-auto">{children}</div>
-          </div>
-        </Providers>
+        {children}
         <SpeedInsights />
       </body>
     </html>

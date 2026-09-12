@@ -40,15 +40,26 @@ system, silent modification is a trust failure, and trust is the whole product.
 locally with no network, but the server decides whether it is running. Clients
 never guess at global state.
 
-**One accent, one meaning.** Green means *the primary action here* — and
-inside the app, that is time accruing. At most one accent element is in view
-at a time. It never means success, never decorates navigation, never marks a
-secondary button.
+**One accent, one meaning.** Green means *the live, primary thing here* — and
+inside the app, that is time accruing. It never means success, never decorates
+navigation, never marks a secondary button.
 
-The rule is scarcity, not a literal timer check: a screen with no timer on it
-may spend the accent on the single thing the user came to do. Two green
-things *meaning different things* on one screen is the failure, not one green
-thing on a timerless screen.
+**The constraint is on meanings, not on instances.** Green may appear as many
+times as that one idea genuinely occurs; what it may not do is mean several
+different things at once. The test: could a user say in one short phrase what
+green means on this screen, and would it be true of every green thing in view?
+If it takes two phrases, one of them loses the accent.
+
+This is a deliberate loosening of an earlier rule that allowed *at most one
+accent element in view*. That was written against Toggl's everywhere-magenta
+but misdiagnosed it — Toggl's failure is that magenta marks nav, buttons,
+links and brand simultaneously, not that there is a lot of it. Spotify puts
+green on play, shuffle, saved, download and now-playing at once and it stays
+legible, because all of them mean *yours / active*.
+
+In practice the app is still sparse, because there is usually only one live
+primary thing on a screen. That is an outcome of the rule, not a quota it
+enforces.
 
 The running timer appears twice on the timer screen — the hero and the nav
 readout — and both are green. That is not a violation: they are the same

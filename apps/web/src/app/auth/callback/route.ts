@@ -4,6 +4,9 @@ import { cookieClient } from '@/lib/supabase';
 /**
  * Magic-link landing. Exchanges the one-time code for a cookie session and
  * redirects home.
+ *
+ * `/` is the app's own root here: auth lives on the app subdomain, where the
+ * marketing page is not routed at all.
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);

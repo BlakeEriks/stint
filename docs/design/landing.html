@@ -1,0 +1,1117 @@
+<title>Stint Landing Page Spec</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* ============================================================
+     Dark-first, exactly as the app is. The bare :root holds the
+     dark palette because that is the palette the system was
+     derived for; light is the guarded override.
+     ============================================================ */
+  :root {
+    --n-0:   #18191C;
+    --n-25:  #191B1E;
+    --n-50:  #1A1C21;
+    --n-100: #1D2128;
+    --n-200: #292E36;
+    --n-300: #393E48;
+    --n-400: #4B525E;
+    --n-500: #626875;
+    --n-600: #848B98;
+    --n-700: #A3A9B5;
+    --n-850: #CACED7;
+    --n-975: #F9FAFD;
+
+    --accent:      #52FC43;
+    --accent-400:  #3FE231;
+    --accent-800:  #0E4B09;
+    --text-on-accent: #18191C;
+
+    --success: #2CCCEB;
+    --warning: #DBA929;
+    --danger:  #E9504D;
+
+    --bg-base:      var(--n-0);
+    --bg-primary:   var(--n-50);
+    --bg-elevated:  var(--n-100);
+    --bg-hover:     var(--n-200);
+
+    --text-strong: var(--n-975);
+    --text-body:   var(--n-850);
+    --text-muted:  var(--n-600);
+    --text-subtle: var(--n-500);
+
+    --edge-subtle: var(--n-200);
+    --edge-strong: var(--n-300);
+
+    --shadow-card:  0 1px 2px rgba(0,0,0,.34), 0 2px 8px rgba(0,0,0,.34);
+    --shadow-float: 0 2px 6px rgba(0,0,0,.44), 0 12px 32px rgba(0,0,0,.44);
+
+    --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+    --measure: 62ch;
+    --gutter: clamp(1.25rem, 4vw, 3rem);
+  }
+
+  :root:not([data-theme="dark"]) {
+    /* Spec doc renders dark by default; no light inversion —
+       this is a deliberately single-world document, mirroring
+       the app's own dark-first stance. Background is still
+       painted explicitly so it holds on any host ground. */
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg-base);
+    color: var(--text-body);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Document shell ---------- */
+
+  .doc {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: clamp(2.5rem, 6vw, 5rem) var(--gutter) 6rem;
+  }
+
+  .doc-head {
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--edge-subtle);
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  h1.doc-title {
+    margin: 0;
+    font-size: clamp(1.75rem, 4.5vw, 2.5rem);
+    font-weight: 600;
+    letter-spacing: -.025em;
+    line-height: 1.15;
+    color: var(--text-strong);
+  }
+
+  .doc-standfirst {
+    margin: 0;
+    max-width: var(--measure);
+    color: var(--text-muted);
+  }
+
+  /* ---------- Sections ---------- */
+
+  section.sec {
+    margin-top: clamp(3rem, 7vw, 4.5rem);
+  }
+
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: .75rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: .6rem;
+    border-bottom: 1px solid var(--edge-subtle);
+  }
+
+  .sec-num {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-subtle);
+    flex: none;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 500;
+    letter-spacing: -.01em;
+    color: var(--text-strong);
+  }
+
+  h3 {
+    margin: 2rem 0 .6rem;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-strong);
+  }
+  h3:first-child { margin-top: 0; }
+
+  p { margin: 0 0 1rem; max-width: var(--measure); }
+  p:last-child { margin-bottom: 0; }
+
+  .lede { color: var(--text-body); }
+  .note { color: var(--text-muted); font-size: 14px; }
+
+  a { color: var(--text-strong); text-decoration-color: var(--n-400); text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--n-700);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: .88em;
+    background: var(--bg-elevated);
+    border: 1px solid var(--edge-subtle);
+    border-radius: 4px;
+    padding: .1em .35em;
+    color: var(--text-body);
+  }
+
+  /* ---------- Panels: content floats, chrome recedes ---------- */
+
+  .panel {
+    background: var(--bg-primary);
+    border-radius: 10px;
+    box-shadow: var(--shadow-card);
+    padding: clamp(1.25rem, 3vw, 1.75rem);
+  }
+
+  .stack { display: flex; flex-direction: column; gap: 1rem; }
+  .stack-lg { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  /* ---------- The hero demo ---------- */
+
+  .demo-frame {
+    background: var(--bg-base);
+    border: 1px solid var(--edge-subtle);
+    border-radius: 12px;
+    padding: clamp(1.5rem, 5vw, 3rem) clamp(1.25rem, 4vw, 2.5rem);
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    overflow: hidden;
+  }
+
+  .demo-tag {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+  }
+
+  .hero-copy { display: flex; flex-direction: column; gap: 1rem; }
+
+  .hero-h1 {
+    margin: 0;
+    font-family: var(--sans);
+    font-size: clamp(2rem, 6.5vw, 3.25rem);
+    font-weight: 600;
+    letter-spacing: -.03em;
+    line-height: 1.05;
+    color: var(--text-strong);
+  }
+
+  .hero-sub {
+    margin: 0;
+    max-width: 46ch;
+    font-size: clamp(15px, 1.8vw, 17px);
+    color: var(--text-muted);
+    line-height: 1.55;
+  }
+  .hero-sub strong { color: var(--text-body); font-weight: 400; }
+
+  /* The one green object. */
+  .timer-card {
+    background: var(--bg-primary);
+    border-radius: 10px;
+    box-shadow: var(--shadow-card);
+    padding: 1.5rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    align-self: flex-start;
+    min-width: min(100%, 22rem);
+  }
+
+  .timer-row {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+  }
+
+  .dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex: none;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1;   transform: scale(1); }
+    50%      { opacity: .45; transform: scale(.82); }
+  }
+
+  .timer-readout {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(1.5rem, 5vw, 1.875rem);
+    font-weight: 500;
+    letter-spacing: -.02em;
+    color: var(--accent);
+    line-height: 1.1;
+  }
+
+  .timer-meta {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    padding-left: calc(9px + .7rem);
+  }
+
+  .cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.25rem;
+  }
+
+  .btn-accent {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    border: 0;
+    border-radius: 8px;
+    padding: .8rem 1.4rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background .15s ease;
+  }
+  .btn-accent:hover { background: var(--accent-400); }
+
+  .cta-fine {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-subtle);
+  }
+
+  /* ---------- Spec tables ---------- */
+
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 32rem;
+  }
+
+  th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0 1rem .6rem 0;
+    border-bottom: 1px solid var(--edge-strong);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: .7rem 1rem .7rem 0;
+    border-bottom: 1px solid var(--edge-subtle);
+    vertical-align: top;
+    color: var(--text-body);
+  }
+  td:last-child, th:last-child { padding-right: 0; }
+  tr:last-child td { border-bottom: 0; }
+
+  td.mono, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  td.tight { white-space: nowrap; }
+
+  .swatch {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+  .chip {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,.14);
+    flex: none;
+  }
+
+  /* ---------- Copy blocks: the actual words ---------- */
+
+  .copy {
+    background: var(--bg-primary);
+    border-left: 2px solid var(--n-400);
+    border-radius: 0 8px 8px 0;
+    padding: 1.1rem 1.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+  }
+  .copy .k {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+  }
+  .copy .h {
+    font-size: 1.05rem;
+    font-weight: 500;
+    letter-spacing: -.015em;
+    color: var(--text-strong);
+    line-height: 1.25;
+  }
+  .copy .b { color: var(--text-body); max-width: var(--measure); }
+  .copy .b:last-child { margin-bottom: 0; }
+
+  /* ---------- Rules list ---------- */
+
+  ul.rules, ul.plain {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+  }
+  ul.rules li, ul.plain li {
+    display: block;
+    position: relative;
+    padding-left: 1.7rem;
+    max-width: var(--measure);
+    color: var(--text-body);
+  }
+  ul.rules li::before {
+    content: '';
+    position: absolute;
+    left: .35rem;
+    top: .62em;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--n-400);
+  }
+  ul.plain li::before {
+    content: '\2014';
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-family: var(--mono);
+    color: var(--text-subtle);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  li strong { color: var(--text-strong); font-weight: 500; }
+
+  /* ---------- Do / Don't ---------- */
+
+  .pair {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem;
+  }
+  .rail {
+    padding: 1rem 1.15rem;
+    border-radius: 8px;
+    background: var(--bg-primary);
+    border-top: 2px solid var(--n-400);
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+  }
+  .rail.yes { border-top-color: var(--success); }
+  .rail.no  { border-top-color: var(--danger); }
+  .rail .k {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .rail.yes .k { color: var(--success); }
+  .rail.no  .k { color: var(--danger); }
+  .rail p { font-size: 14px; margin: 0; }
+
+  /* ---------- Wireframe ---------- */
+
+  .wire {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .wire-row {
+    background: var(--bg-primary);
+    border: 1px solid var(--edge-subtle);
+    border-radius: 6px;
+    padding: .7rem .9rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .35rem .75rem;
+  }
+  .wire-row .n {
+    color: var(--text-subtle);
+    flex: none;
+    width: 1.6rem;
+  }
+  .wire-row .t { color: var(--text-strong); font-weight: 500; }
+  .wire-row .d { color: var(--text-muted); font-size: 11.5px; }
+  .wire-row.accented { border-color: var(--accent-800); }
+  .wire-row.accented .t { color: var(--accent); }
+
+  /* ---------- Invoice proof ---------- */
+
+  .invoice-shot {
+    background: #FFFFFF;
+    border-radius: 8px;
+    box-shadow: var(--shadow-float);
+    padding: 1.5rem 1.6rem;
+    color: #1A1C21;
+    font-size: 11px;
+    line-height: 1.45;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow: hidden;
+  }
+  .inv-top { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
+  .inv-from { display: flex; flex-direction: column; }
+  .inv-from b { font-size: 13px; font-weight: 600; }
+  .inv-from span { color: #626875; font-size: 10px; }
+  .inv-word {
+    font-size: 17px;
+    letter-spacing: -.01em;
+    font-weight: 400;
+    text-align: right;
+  }
+  .inv-num { font-family: var(--mono); font-size: 10px; color: #626875; text-align: right; }
+  .inv-lines { width: 100%; border-collapse: collapse; min-width: 0; font-size: 10.5px; }
+  .inv-lines th {
+    font-family: var(--mono);
+    font-size: 8.5px;
+    letter-spacing: .12em;
+    color: #848B98;
+    border-bottom: 1px solid #D1D5DD;
+    padding: 0 0 .35rem;
+    text-transform: uppercase;
+  }
+  .inv-lines th.r, .inv-lines td.r { text-align: right; }
+  .inv-lines td {
+    border-bottom: 1px solid #E4E6EC;
+    padding: .4rem 0;
+    color: #1A1C21;
+  }
+  .inv-lines td.r { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .inv-total {
+    display: flex;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: 1.25rem;
+    padding-top: .25rem;
+  }
+  .inv-total .lbl { font-size: 12px; }
+  .inv-total .amt {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    color: #1D7815;
+  }
+  .inv-pay {
+    background: #F2F3F6;
+    border-left: 2px solid #1A1C21;
+    padding: .7rem .85rem;
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+  }
+  .inv-pay b { font-size: 11px; font-weight: 500; }
+  .inv-pay .fraud { color: #626875; font-size: 9.5px; }
+
+  .proof-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 720px) {
+    .proof-grid { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  /* ---------- Stat proof ---------- */
+
+  .stat-card {
+    background: var(--bg-primary);
+    border-radius: 10px;
+    box-shadow: var(--shadow-card);
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+  }
+  .stat-card .k {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .stat-card .v {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.5rem;
+    color: var(--text-strong);
+    letter-spacing: -.02em;
+  }
+  .stat-rows { display: flex; flex-direction: column; gap: .35rem; margin-top: .25rem; }
+  .stat-rows .r {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 13px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--edge-subtle);
+    padding-top: .35rem;
+  }
+  .stat-rows .r .m { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text-body); }
+  .client-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: .5rem; flex: none; }
+
+  .footnote {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--edge-subtle);
+    color: var(--text-subtle);
+    font-size: 13px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dot { animation: none; }
+    * { transition: none !important; }
+  }
+</style>
+
+<div class="doc">
+
+  <header class="doc-head">
+    <div class="eyebrow">Stint · Landing page specification</div>
+    <h1 class="doc-title">Track hours. Bill clients. Nothing else.</h1>
+    <p class="doc-standfirst">
+      The marketing site for <strong>Stint</strong> — a time tracker and invoicing tool for solo
+      contractors. This document is written in the app's own design system, so it doubles as the
+      visual reference: every colour, type role and elevation below is the one the product already
+      ships. Build the page from this and it cannot drift from the app it sells.
+    </p>
+  </header>
+
+  <!-- ============================================================ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">01</span><h2>The strategy in four sentences</h2></div>
+
+    <div class="stack">
+      <p class="lede">
+        Every competitor's landing page is a feature list, because every competitor is selling a
+        platform. Stint's page has to do the opposite: it sells <strong>what the product refuses to
+        do</strong>, which means the page itself must be restrained or it contradicts its own pitch.
+        A busy page selling simplicity is a broken argument.
+      </p>
+
+      <ul class="rules">
+        <li><strong>Audience:</strong> solo contractors and freelancers who bill by the hour — one
+          person, no team, no seats. Anyone looking for team features should be able to tell in five
+          seconds that this is not for them, and leave. That is a success, not a loss.</li>
+        <li><strong>The claim:</strong> it tracks your hours, knows your rates, and produces an
+          invoice your client takes seriously. Free to use, fully.</li>
+        <li><strong>The proof:</strong> the page is quiet, fast and beautiful, and the invoice is
+          shown rather than described. Never claim it is well-designed — demonstrate it and let the
+          reader draw the conclusion.</li>
+        <li><strong>The competitor is never named.</strong> Describe the bloat ("project boards you
+          never asked for", "team seats you don't need") and let the reader fill in the blank. Naming
+          a company dates the page and invites a comparison the reader runs on someone else's terms.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Hero — built, not described</h2></div>
+
+    <p>
+      This is the section rendered as it should ship: one screen, one green object, live. Everything
+      below the fold is supporting argument.
+    </p>
+
+    <div class="demo-frame">
+      <div class="demo-tag">Hero · as specified</div>
+
+      <div class="hero-copy">
+        <h2 class="hero-h1">Time tracking and invoicing for one.</h2>
+        <p class="hero-sub">
+          Track hours, know what you're owed, send the invoice. No project boards, no team seats, no
+          upgrade prompt. <strong>Free to use, fully.</strong>
+        </p>
+      </div>
+
+      <div class="timer-card">
+        <div class="timer-row">
+          <span class="dot" aria-hidden="true"></span>
+          <span class="timer-readout" id="t" role="timer" aria-label="Example running timer">1:47:32</span>
+        </div>
+        <div class="timer-meta">Northwind Trading — API integration</div>
+      </div>
+
+      <div class="cta-row">
+        <a class="btn-accent" href="#cta-spec">Start tracking — free</a>
+        <span class="cta-fine">No card. Email link, no password.</span>
+      </div>
+    </div>
+
+    <h3>Why the timer and nothing else</h3>
+    <p>
+      A screenshot of the whole app would compete with the headline and date the moment the UI moves.
+      The running timer is the product's core sensation, it is the only element permitted the accent,
+      and motion is the one thing a competitor's static hero cannot reproduce. It also sets an
+      expectation the app then meets exactly, which is the cheapest trust you will ever buy.
+    </p>
+
+    <div class="pair">
+      <div class="rail yes">
+        <span class="k">Do</span>
+        <p>Tick live from page load, seeded at a plausible mid-session figure (<span class="mono">1:47:32</span>).
+          Mono, <span class="mono">tabular-nums</span>, so no digit change reflows the layout.</p>
+      </div>
+      <div class="rail no">
+        <span class="k">Don't</span>
+        <p>Start at <span class="mono">0:00:00</span> — a two-digit number reads as unimpressive in the
+          first frame, and the page's first impression is spent on nothing.</p>
+      </div>
+    </div>
+
+    <h3>Motion rules</h3>
+    <ul class="plain">
+      <li>The dot pulses on a 2s ease-in-out loop. It is the only ambient motion on the page.</li>
+      <li><span class="mono">prefers-reduced-motion</span> stops the pulse and the tick; the readout
+        holds its seeded value. The page must be completely legible at rest.</li>
+      <li>No scroll-triggered reveals. Everything is visible on load — that first still frame is what
+        a shared link and a search-result preview get.</li>
+      <li>Hero height is set by its content. Never <span class="mono">100vh</span>.</li>
+    </ul>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Page order</h2></div>
+
+    <p>
+      Six sections. The order is an argument: hook, the thing only this app can tell you, the
+      deliverable, where it runs, the price with its reason, and the ask.
+    </p>
+
+    <div class="wire">
+      <div class="wire-row accented">
+        <span class="n">01</span>
+        <span class="t">Hero — timer, headline, CTA</span>
+        <span class="d">the one accent on the page</span>
+      </div>
+      <div class="wire-row">
+        <span class="n">02</span>
+        <span class="t">Know what you're owed</span>
+        <span class="d">unbilled money · the question you can't answer from memory</span>
+      </div>
+      <div class="wire-row">
+        <span class="n">03</span>
+        <span class="t">This is what your client gets</span>
+        <span class="d">the invoice, shown · one image, one caption</span>
+      </div>
+      <div class="wire-row">
+        <span class="n">04</span>
+        <span class="t">Everywhere you work</span>
+        <span class="d">web · mac menu bar · phone</span>
+      </div>
+      <div class="wire-row">
+        <span class="n">05</span>
+        <span class="t">Free to use, fully</span>
+        <span class="d">the price, the reason, and the three promises in one line</span>
+      </div>
+      <div class="wire-row">
+        <span class="n">06</span>
+        <span class="t">Closing CTA</span>
+        <span class="d">repeat of the hero button · neutral, not accent</span>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top:1.25rem;">
+      No testimonials (there are none yet, and fake ones are unrecoverable), no logo wall, no feature
+      grid, no FAQ accordion. If a section cannot be justified by one of the six jobs above, it does
+      not ship — the same bar <code>docs/design/principles.md</code> applies to the app.
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">04</span><h2>The copy, verbatim</h2></div>
+
+    <p>Written to be shipped as-is. Sentences stay short; no adjective survives that the page itself could demonstrate instead.</p>
+
+    <div class="stack-lg">
+
+      <div class="copy">
+        <span class="k">01 · Hero</span>
+        <span class="h">Time tracking and invoicing for one.</span>
+        <p class="b">Track hours, know what you're owed, send the invoice. No project boards, no team
+          seats, no upgrade prompt. Free to use, fully.</p>
+        <p class="b note"><em>Button:</em> Start tracking — free · <em>beneath:</em> No card. Email
+          link, no password.</p>
+      </div>
+
+      <div class="copy">
+        <span class="k">02 · Know what you're owed</span>
+        <span class="h">You don't need a project management suite. You need to know what you worked on and what you're owed.</span>
+        <p class="b">Stint knows your rates, so it can answer the one question you can't do in your
+          head: how much work is sitting there un-invoiced, and for whom. Most trackers can't — they
+          only count hours.</p>
+      </div>
+
+      <div class="copy">
+        <span class="k">03 · The invoice</span>
+        <span class="h">This is what your client gets.</span>
+        <p class="b">Your hours, grouped by task, at the rate each one was worked. Your rates freeze
+          onto the invoice the moment you generate it — re-download it a year later and it's the same
+          document, to the cent.</p>
+        <p class="b note"><em>Caption under the image:</em> Payment details render on the invoice and
+          nowhere else, with a line telling your client to call you if they ever change. That's how
+          invoice fraud gets caught.</p>
+      </div>
+
+      <div class="copy">
+        <span class="k">04 · Everywhere you work</span>
+        <span class="h">Start it in the menu bar. Stop it from your phone.</span>
+        <p class="b">One timer, one truth, on the web, your Mac's menu bar and your phone. The apps
+          aren't shrunken copies of each other — each one does the thing only it can do.</p>
+      </div>
+
+      <div class="copy">
+        <span class="k">05 · Free to use, fully</span>
+        <span class="h">Free to use, fully.</span>
+        <p class="b">Every feature, every number, every export. Nothing is held back, nothing expires,
+          and there's no seat to upgrade because there's only ever one of you.</p>
+        <p class="b">Later, a few dollars a month will take the Stint mark off your invoices. That's
+          the only thing it buys — nothing that affects whether you get paid will ever sit behind it.</p>
+        <p class="b">One timer, always. It never edits your hours behind your back. Your rates freeze
+          onto the invoice the moment you generate it.</p>
+      </div>
+
+      <div class="copy">
+        <span class="k">06 · Closing</span>
+        <span class="h">Two things, done properly.</span>
+        <p class="b"><em>Button:</em> Start tracking — free · <em>beneath:</em> Free, no card, no trial
+          countdown.</p>
+      </div>
+
+    </div>
+
+    <h3>Words that are banned on this page</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Never write</th><th>Because</th></tr></thead>
+        <tbody>
+          <tr><td class="tight"><em>seamless, effortless, powerful, intuitive</em></td><td>Every SaaS page claims these, so they carry no information. The page's own speed and quietness is the claim.</td></tr>
+          <tr><td class="tight"><em>beautiful, pretty, well-designed</em></td><td>If it's true the reader can see it; if they can't see it, saying it won't help.</td></tr>
+          <tr><td class="tight"><em>revolutionary, reimagined, next-generation</em></td><td>It's a timer and an invoice. Overclaiming here undermines the restraint pitch specifically.</td></tr>
+          <tr><td class="tight"><em>earned, revenue</em> (for unbilled)</td><td>Unbilled work is money you might still never see. Same rule as the app — see <code>docs/design/home.md</code>.</td></tr>
+          <tr><td class="tight"><em>Pro, Premium, Upgrade</em></td><td>The paid plan is one sentence about a watermark. Tier language turns it into the upsell the page is arguing against.</td></tr>
+          <tr><td class="tight"><em>teams, collaborate, workspace</em></td><td>Wrong audience. Attracting them costs you the positioning and gets you a churned signup.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Proof sections, rendered</h2></div>
+
+    <p>
+      Both proof sections are evidence, not feature lists. Neither gets bullets and neither gets the
+      accent.
+    </p>
+
+    <div class="proof-grid">
+      <div class="stack">
+        <div class="demo-tag">02 · Know what you're owed</div>
+        <div class="stat-card">
+          <span class="k">Unbilled</span>
+          <span class="v">$1,462.50</span>
+          <div class="stat-rows">
+            <div class="r"><span><span class="client-dot" style="background:#64A3E3"></span>Northwind Trading</span><span class="m">$975.00</span></div>
+            <div class="r"><span><span class="client-dot" style="background:#F6964E"></span>Harbour &amp; Co.</span><span class="m">$487.50</span></div>
+            <div class="r"><span>Awaiting payment</span><span class="m">$2,340.00</span></div>
+          </div>
+        </div>
+        <p class="note">
+          Real figures from the app's own seed data. <strong>Unbilled and awaiting payment are
+          different money and are never summed</strong> — adding them double-counts the same hours.
+          Awaiting payment is one line at the foot of the card, never a card of its own.
+        </p>
+      </div>
+
+      <div class="stack">
+        <div class="demo-tag">03 · This is what your client gets</div>
+        <div class="invoice-shot">
+          <div class="inv-top">
+            <div class="inv-from">
+              <b>Blake Eriks</b>
+              <span>blake@example.dev</span>
+              <span>Tax ID EIN 88-4471992</span>
+            </div>
+            <div>
+              <div class="inv-word">INVOICE</div>
+              <div class="inv-num">INV-0042</div>
+            </div>
+          </div>
+          <table class="inv-lines">
+            <thead><tr><th>Description</th><th class="r">Hours</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead>
+            <tbody>
+              <tr><td>Onboarding email sequence rework</td><td class="r">12.25</td><td class="r">$175.00</td><td class="r">$2,143.75</td></tr>
+              <tr><td>Checkout validation fixes</td><td class="r">8.50</td><td class="r">$175.00</td><td class="r">$1,487.50</td></tr>
+              <tr><td>Q4 retainer scoping call</td><td class="r">1.75</td><td class="r">$220.00</td><td class="r">$385.00</td></tr>
+            </tbody>
+          </table>
+          <div class="inv-total">
+            <span class="lbl">Amount due</span>
+            <span class="amt">$6,779.16</span>
+          </div>
+          <div class="inv-pay">
+            <b>Payment — USD ACH</b>
+            <span class="fraud">Our payment details never change. If you receive any message stating
+              otherwise, call to verify before paying.</span>
+          </div>
+        </div>
+        <p class="note">
+          Use a real render of <code>docs/design/samples/invoice-default.pdf</code>, not a mockup.
+          Two rates on one invoice is deliberate — it proves rate resolution at a glance.
+        </p>
+      </div>
+    </div>
+
+    <h3>The one green conflict to watch</h3>
+    <p>
+      The invoice's <em>Amount due</em> is the <em>light-theme</em> accent
+      (<span class="swatch"><span class="chip" style="background:#1D7815"></span>#1D7815</span>), which
+      is correct on a white document but puts a second green in the viewport next to the CTA. On the
+      landing page, <strong>render the invoice's total in near-black</strong>
+      (<span class="swatch"><span class="chip" style="background:#1A1C21"></span>#1A1C21</span>). The
+      PDF itself does not change — only the marketing render, and only so the page keeps one green
+      meaning.
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Colour</h2></div>
+
+    <p>
+      Straight from <code>packages/design-tokens/tokens.json</code> — the landing page imports the
+      same generated CSS as the app. <strong>No new colours are invented for marketing.</strong>
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Role</th><th>Value</th><th>Where it goes on this page</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="tight">Accent</td>
+            <td><span class="swatch"><span class="chip" style="background:#52FC43"></span>#52FC43</span></td>
+            <td><strong>Two objects only:</strong> the hero timer readout + dot, and the primary CTA button. Nothing else on the page, ever.</td>
+          </tr>
+          <tr>
+            <td class="tight">Text on accent</td>
+            <td><span class="swatch"><span class="chip" style="background:#18191C"></span>#18191C</span></td>
+            <td>Button label. White on accent is <strong>1.37:1</strong> — CI guards this exact regression.</td>
+          </tr>
+          <tr>
+            <td class="tight">bg-base</td>
+            <td><span class="swatch"><span class="chip" style="background:#18191C"></span>#18191C</span></td>
+            <td>The page ground. Darkest surface, always.</td>
+          </tr>
+          <tr>
+            <td class="tight">bg-primary</td>
+            <td><span class="swatch"><span class="chip" style="background:#1A1C21"></span>#1A1C21</span></td>
+            <td>Every panel and card, lifted with <code>shadow-card</code> and a 10px radius.</td>
+          </tr>
+          <tr>
+            <td class="tight">text-strong</td>
+            <td><span class="swatch"><span class="chip" style="background:#F9FAFD"></span>#F9FAFD</span></td>
+            <td>Headline, section headings, key figures.</td>
+          </tr>
+          <tr>
+            <td class="tight">text-body</td>
+            <td><span class="swatch"><span class="chip" style="background:#CACED7"></span>#CACED7</span></td>
+            <td>Running copy.</td>
+          </tr>
+          <tr>
+            <td class="tight">text-muted</td>
+            <td><span class="swatch"><span class="chip" style="background:#848B98"></span>#848B98</span></td>
+            <td>Subheads, captions. The AA floor at <strong>5.04:1</strong> — never go lighter for body text.</td>
+          </tr>
+          <tr>
+            <td class="tight">border-focus</td>
+            <td><span class="swatch"><span class="chip" style="background:#A3A9B5"></span>#A3A9B5</span></td>
+            <td>Focus rings. <strong>Neutral, never the accent</strong> — a ring is involuntary and constant.</td>
+          </tr>
+          <tr>
+            <td class="tight">Client hues</td>
+            <td><span class="swatch"><span class="chip" style="background:#64A3E3"></span>#64A3E3 <span class="chip" style="background:#F6964E"></span>#F6964E</span></td>
+            <td>The unbilled card's client dots. Blue/orange — the only axis dichromats retain.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Dark only, and that's a decision</h3>
+    <p>
+      The app is dark-first because the palette was derived for a dark ground, and in light mode the
+      accent must drop 35 lightness points to <span class="swatch"><span class="chip" style="background:#1F7E17"></span>#1F7E17</span>
+      to carry contrast — it stops being neon and becomes signal green. The neon <em>is</em> the brand
+      impression, so <strong>the landing page ships dark only</strong>, with no theme toggle. The app
+      behind it still honours a light preference; the marketing page has one job and one look.
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Type</h2></div>
+
+    <p>
+      IBM Plex Sans and IBM Plex Mono, the app's own pairing. Marketing gets
+      <strong>three display roles the app doesn't need</strong>, because a 28px page title is too
+      small to open a landing page. They live in <code>tokens.json</code> under
+      <code>type.scale</code> like every other role — added with a reason, never assembled at the
+      call site.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Role</th><th>Family</th><th>Size</th><th>Weight</th><th>Tracking</th><th>For</th></tr></thead>
+        <tbody>
+          <tr><td class="mono tight">type-hero</td><td>sans</td><td class="mono">32 → 52 @sm</td><td class="mono">600</td><td class="mono">−0.03em</td><td><strong>New.</strong> The H1, once.</td></tr>
+          <tr><td class="mono tight">type-lede</td><td>sans</td><td class="mono">15 → 17 @sm</td><td class="mono">400</td><td class="mono">—</td><td><strong>New.</strong> Hero subhead, section ledes.</td></tr>
+          <tr><td class="mono tight">type-display</td><td>sans</td><td class="mono">22 → 28 @sm</td><td class="mono">500</td><td class="mono">−0.02em</td><td><strong>New.</strong> Section headlines.</td></tr>
+          <tr><td class="mono tight">type-timer</td><td>mono</td><td class="mono">24 → 30 @sm</td><td class="mono">500</td><td class="mono">−0.02em</td><td>The hero readout. Unchanged from the app.</td></tr>
+          <tr><td class="mono tight">type-body</td><td>sans</td><td class="mono">15</td><td class="mono">400</td><td class="mono">—</td><td>Running copy.</td></tr>
+          <tr><td class="mono tight">type-nav</td><td>mono</td><td class="mono">13</td><td class="mono">500</td><td class="mono">0.08em</td><td>The CTA button label. Uppercase.</td></tr>
+          <tr><td class="mono tight">type-label</td><td>mono</td><td class="mono">11</td><td class="mono">500</td><td class="mono">0.16em</td><td>Eyebrows, card labels. Uppercase.</td></tr>
+          <tr><td class="mono tight">type-meta</td><td>mono</td><td class="mono">11.5</td><td class="mono">400</td><td class="mono">—</td><td>Timer subtitle, fine print under the CTA.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ul class="rules" style="margin-top:1.5rem;">
+      <li><strong>Every number is a mono role.</strong> No exceptions, including in marketing copy —
+        <span class="mono">$1,462.50</span> and <span class="mono">1:47:32</span> are mono and
+        <span class="mono">tabular-nums</span>.</li>
+      <li><strong>Running copy stays near 62 characters.</strong> A full-width paragraph is the
+        single fastest way to make a page feel unconsidered.</li>
+      <li><span class="mono">pnpm check:type</span> must pass on the landing page too. A typo'd role
+        compiles to no CSS, no warning, exit 0.</li>
+    </ul>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">08</span><h2>Layout and build</h2></div>
+
+    <h3>Layout</h3>
+    <ul class="plain">
+      <li>Single column, <span class="mono">max-width 64rem</span>, generously gutter'd. No sidebar, no sticky header.</li>
+      <li><strong>No app nav.</strong> The landing page is not the app shell — no vertical rail. A minimal header with the wordmark and one text link ("Sign in") is all it gets.</li>
+      <li>Panels on <span class="mono">bg-primary</span> with <span class="mono">shadow-card</span> and a 10px radius, floating on <span class="mono">bg-base</span>. <strong>Never a card darker than the ground</strong> — it reads as a hole.</li>
+      <li>Sections separated by space, not by rules or alternating bands. Depth comes from shadow and radius, as it does in the app.</li>
+      <li>Every section is legible at 375px. The invoice image scrolls inside its own container rather than shrinking to illegibility.</li>
+    </ul>
+
+    <h3>Build</h3>
+    <ul class="plain">
+      <li>A <strong>static route in the existing Next app</strong> — a real RSC page, which is what the architecture doc reserves RSC for. No second repo, no CMS.</li>
+      <li>Imports the generated token CSS by relative path, so a token change reaches the landing page automatically.</li>
+      <li>The ticking timer is the page's <em>only</em> client component: a dozen lines, seeded server-side so SSR and the client agree on the first frame — the same hydration trap <code>useTimer</code> already solves.</li>
+      <li>Self-host the two Plex faces; subset to Latin. No render-blocking font request to a third party.</li>
+      <li>Target: no layout shift, no third-party script, no analytics that needs a cookie banner. A consent dialog on a page selling restraint is an own goal.</li>
+    </ul>
+
+    <h3>Search</h3>
+    <ul class="plain">
+      <li><span class="mono">&lt;title&gt;</span>: <strong>Stint — time tracking and invoicing for solo contractors</strong>. The H1 keeps its shorter voice; the title carries the search terms.</li>
+      <li>Meta description: <em>Free time tracking and invoicing for solo contractors. One timer, your rates, and an invoice your client takes seriously. No teams, no seats, no upsell.</em></li>
+      <li>One <span class="mono">h1</span>, then <span class="mono">h2</span> per section, matching the copy above.</li>
+      <li>OG image: the hero timer card on <span class="mono">bg-base</span> — static, with the accent readout. It is the one image that survives being 600px wide in a chat window.</li>
+    </ul>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="sec" id="cta-spec">
+    <div class="sec-head"><span class="sec-num">09</span><h2>Open questions</h2></div>
+
+    <p>Not blockers for a build, but each one changes a detail above.</p>
+
+    <ul class="rules">
+      <li><strong>The wordmark.</strong> This spec assumes "Stint" set in Plex Sans 600 with tight
+        tracking, no logotype. That is honest and quick; a real mark is worth doing once the page
+        exists and is earning visits.</li>
+      <li><strong>Domain and sign-in copy.</strong> "Email link, no password" is accurate to the PKCE
+        magic-link flow, but the button may want to say what actually happens next.</li>
+      <li><strong>The watermark's real price.</strong> The copy says "a few dollars a month" because
+        the number isn't decided. Name it as soon as it is — a vague price reads as an undecided
+        product.</li>
+      <li><strong>Section 04 currently oversells.</strong> The macOS and mobile apps are
+        <em>not started</em> per <code>docs/architecture.md</code>. Either ship the page without that
+        section, or write it in the future tense honestly ("Mac menu bar and phone apps are coming").
+        <strong>Do not imply they exist.</strong> A page that lies about platform support is a trust
+        failure on the same axis the whole product is built to defend.</li>
+    </ul>
+  </section>
+
+  <p class="footnote">
+    Every rule here traces to <code>docs/design/color.md</code>,
+    <code>docs/design/typography.md</code> or <code>docs/design/principles.md</code>. Where this
+    document and those disagree, those win — and this one is wrong.
+  </p>
+
+</div>
+
+<script>
+  (function () {
+    var el = document.getElementById('t');
+    if (!el) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    var seconds = 1 * 3600 + 47 * 60 + 32;
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+    function tick() {
+      seconds += 1;
+      var h = Math.floor(seconds / 3600);
+      var m = Math.floor((seconds % 3600) / 60);
+      var s = seconds % 60;
+      el.textContent = h + ':' + pad(m) + ':' + pad(s);
+    }
+    setInterval(tick, 1000);
+  })();
+</script>
