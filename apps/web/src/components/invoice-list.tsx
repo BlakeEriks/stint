@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { StatusBadge, money, shortDate } from './invoice-bits';
 import { api, type Invoice } from '@/lib/client/api';
+import { Page } from './page';
 
 export function InvoiceList() {
   const { data, isLoading } = useQuery({
@@ -20,7 +21,7 @@ export function InvoiceList() {
   const names = new Map((clientData?.clients ?? []).map((c) => [c.id, c.name]));
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+    <Page>
       <header className="flex items-center justify-between gap-3 pb-4">
         <h1 className="type-title text-strong">Invoices</h1>
         <Button asChild>
@@ -48,7 +49,7 @@ export function InvoiceList() {
           </ul>
         )}
       </div>
-    </main>
+    </Page>
   );
 }
 

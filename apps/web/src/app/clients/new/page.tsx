@@ -1,14 +1,15 @@
 import Link from 'next/link';
 import { ClientForm } from '@/components/client-form';
+import { Page as Shell } from '@/components/page';
 
 export default function Page() {
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+    <Shell>
       <Link href="/clients" className="type-label text-subtle hover:text-muted">
         ← Clients
       </Link>
       <h1 className="mt-4 mb-6 type-title text-strong">Add client</h1>
       <ClientForm />
-    </main>
+    </Shell>
   );
 }

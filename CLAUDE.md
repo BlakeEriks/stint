@@ -410,6 +410,31 @@ components, two pairs of which differed by 0.5px for no reason, while the
 documented timer and title roles went unapplied. See
 `docs/design/typography.md` for the roles and what each is for.
 
+### Layout
+
+The nav is a **vertical rail** (`nav.tsx`), with the wordmark at the top
+doubling as the Home link and the running timer beneath it. Horizontal nav was
+already needing `overflow-x-auto` at five items plus the timer, and the rail
+grows downward where there is room. It also stops the content column fighting
+the viewport: with the rail holding the left edge, the calendar gets the width
+it wants.
+
+On a phone it becomes two rows — identity and timer on top, sections scrolling
+beneath. They must not share one scrolling row: that pushed the running timer
+off the right edge, so it was invisible on the screen where it matters most.
+
+`Page` (`page.tsx`) owns the content column. Every screen used to carry its
+own copy of `mx-auto max-w-3xl px-4 py-8 …`, which is how the calendar ended
+up silently on a different width. `wide` is for screens that are a grid rather
+than a column.
+
+**Known tension, not yet resolved:** the default `Button` variant is
+`bg-accent-default`, so a page with a primary action shows green while the
+rail's running timer is also green — two accent meanings in view, which is
+what the accent rule exists to prevent. It was invisible before the rail put
+the timer on every screen. Deciding it means either a neutral default variant
+or accepting the carve-out for the one primary action per screen.
+
 ### Components
 
 `components/ui/` is **vendored shadcn**, rewritten to our tokens at install

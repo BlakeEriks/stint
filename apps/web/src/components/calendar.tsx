@@ -4,6 +4,7 @@ import { formatCompact, formatClock } from '@stint/core';
 import { Button } from '@/components/ui/button';
 import { useCalendar, type PositionedEntry } from '@/lib/client/use-calendar';
 import { useProjectColors } from '@/lib/client/use-project-colors';
+import { Page } from './page';
 
 const HOURS = [0, 3, 6, 9, 12, 15, 18, 21];
 
@@ -25,7 +26,7 @@ export function Calendar() {
   }).format(cal.weekStart);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+    <Page wide>
       <header className="flex flex-wrap items-center justify-between gap-3 pb-4">
         <div className="flex items-baseline gap-3">
           <h1 className="type-title text-strong">{label}</h1>
@@ -118,7 +119,7 @@ export function Calendar() {
           Nothing logged this week.
         </p>
       ) : null}
-    </main>
+    </Page>
   );
 }
 

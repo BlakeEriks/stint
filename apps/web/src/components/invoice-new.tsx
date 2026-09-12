@@ -15,6 +15,7 @@ import {
   type GroupingMode,
   type InvoicePreview,
 } from '@/lib/client/api';
+import { Page } from './page';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   { value: 'entry', label: 'Every entry', hint: 'One line per time entry.' },
@@ -94,7 +95,7 @@ export function NewInvoice() {
   const empty = preview !== null && preview.lineItems.length === 0;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+    <Page>
       <Link
         href="/invoices"
         className="type-label text-subtle hover:text-muted"
@@ -247,7 +248,7 @@ export function NewInvoice() {
           </>
         ) : null}
       </div>
-    </main>
+    </Page>
   );
 }
 

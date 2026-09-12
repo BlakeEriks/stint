@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { ClientForm } from './client-form';
 import { api } from '@/lib/client/api';
+import { Page } from './page';
 
 /**
  * The form needs the existing values before it can render, so the fetch lives
@@ -16,7 +17,7 @@ export function EditClient({ id }: { id: string }) {
   });
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+    <Page>
       <Link
         href={`/clients/${id}`}
         className="type-label text-subtle hover:text-muted"
@@ -32,6 +33,6 @@ export function EditClient({ id }: { id: string }) {
       ) : (
         <p className="type-support text-subtle">Not found.</p>
       )}
-    </main>
+    </Page>
   );
 }

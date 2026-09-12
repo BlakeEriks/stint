@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { StatusBadge, money, shortDate } from './invoice-bits';
 import { api, ApiError, type InvoiceStatus } from '@/lib/client/api';
+import { Page } from './page';
 
 export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
@@ -221,7 +222,7 @@ function statusHint(status: InvoiceStatus): string {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+    <Page>
       <Link
         href="/invoices"
         className="type-label text-subtle hover:text-muted"
@@ -229,7 +230,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         ← Invoices
       </Link>
       <div className="mt-4">{children}</div>
-    </main>
+    </Page>
   );
 }
 

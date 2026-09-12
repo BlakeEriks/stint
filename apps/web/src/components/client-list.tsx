@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { api, type Client } from '@/lib/client/api';
+import { Page } from './page';
 
 /** Rates are money and sit in a column, so they are mono and tabular. */
 const usd = new Intl.NumberFormat('en-US', {
@@ -23,7 +24,7 @@ export function ClientList() {
   const clients = data?.clients ?? [];
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+    <Page>
       <header className="flex items-center justify-between gap-3 pb-4">
         <h1 className="type-title text-strong">Clients</h1>
         <Button asChild>
@@ -59,7 +60,7 @@ export function ClientList() {
       >
         {showArchived ? 'Hide archived' : 'Show archived'}
       </button>
-    </main>
+    </Page>
   );
 }
 

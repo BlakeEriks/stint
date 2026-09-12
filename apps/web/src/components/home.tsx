@@ -5,6 +5,7 @@ import { api } from '@/lib/client/api';
 import { useTimer } from '@/lib/client/use-timer';
 import { TimerBar } from './timer-bar';
 import { EntryList } from './entry-list';
+import { Page } from './page';
 
 /**
  * Timer hero, today's entries beneath. The view seen 50× a day, so it earns
@@ -19,9 +20,9 @@ export function Home() {
   const projects = data?.projects ?? [];
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+    <Page>
       <TimerBar projects={projects} />
       <EntryList projects={projects} todaySeconds={timer.todaySeconds} />
-    </main>
+    </Page>
   );
 }

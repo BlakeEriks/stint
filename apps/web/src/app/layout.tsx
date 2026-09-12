@@ -33,8 +33,14 @@ export default function RootLayout({
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
       <body>
         <Providers>
-          <Nav />
-          {children}
+          {/* The rail and the content sit side by side, so the content area
+              is a real column rather than the whole viewport with padding.
+              `min-h-dvh` keeps the rail's border running the full height even
+              on a short page. */}
+          <div className="flex min-h-dvh flex-col sm:flex-row">
+            <Nav />
+            <div className="min-w-0 flex-1">{children}</div>
+          </div>
         </Providers>
         <SpeedInsights />
       </body>
