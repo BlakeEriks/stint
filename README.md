@@ -16,7 +16,7 @@ timer, calendar, clients, projects, settings, payment profiles, invoicing.
 ## Layout
 
 ```
-docs/            setup, architecture, data model, API contract, design system
+docs/            setup, deploying, architecture, data model, API contract, design system
 docs/roadmap.md  wanted but not built, and the hard parts already thought through
 docs/design/samples/  committed renderer output
 packages/

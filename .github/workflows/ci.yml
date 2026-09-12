@@ -131,6 +131,13 @@ jobs:
           RLS_DATABASE_URL: postgresql://authenticated:test@localhost:5432/tt_rls
         run: cd apps/web && pnpm test:rls
 
+      # The same assertions that gate a production release, run here against
+      # the RLS database — the one where RLS is still ON. Catches a migration
+      # that creates a table without RLS, or with RLS but no policy, before
+      # it can reach a real project.
+      - name: Schema is sound
+        run: pnpm verify:schema --url postgresql://postgres:postgres@localhost:5432/tt_rls
+
       - name: Build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co

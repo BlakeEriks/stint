@@ -1,0 +1,68 @@
+name: Release gate
+
+# Vercel fires this when a production build is ready but NOT yet serving
+# traffic. The build only becomes live once this workflow reports success,
+# which is what keeps schema and code in order: the migration runs against
+# production while the old code is still the one answering requests.
+#
+# Requires, in the Vercel project:
+#   Settings -> Git -> Deployment Checks -> connect this repository
+#   Settings -> Git -> "Required" for this check
+# and a PRODUCTION_DB_URL secret here.
+#
+# If this fails, the deployment is never aliased and the previous one keeps
+# serving. Vercel's "Force Promote" is the escape hatch.
+on:
+  repository_dispatch:
+    types: [vercel.deployment.ready]
+
+# A second push while this is running must not race the first one's
+# migration.
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    # Preview and staging builds fire the same event; only gate production.
+    if: github.event.client_payload.target == 'production'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Migrate the commit being deployed, not whatever main points at
+          # now — they differ the moment a second merge lands.
+          ref: ${{ github.event.client_payload.git.sha }}
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations to production
+        env:
+          SUPABASE_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+        run: pnpm migrate
+
+      # The actual gate. RLS off on any table, or a table with no policy,
+      # stops the release rather than exposing every user's rows.
+      - name: Schema is sound
+        env:
+          SUPABASE_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+        run: pnpm verify:schema
+
+      - name: Report success to Vercel
+        if: success()
+        uses: vercel/repository-dispatch/actions/status@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          deployment-id: ${{ github.event.client_payload.deployment.id }}
+          conclusion: succeeded
+
+      - name: Report failure to Vercel
+        if: failure()
+        uses: vercel/repository-dispatch/actions/status@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          deployment-id: ${{ github.event.client_payload.deployment.id }}
+          conclusion: failed

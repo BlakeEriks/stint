@@ -92,6 +92,29 @@ throwaway Postgres (`/opt/homebrew/opt/postgresql@14/bin`) on a spare port
 over TCP — the socket path in the scratchpad exceeds the 103-byte limit —
 stub `auth.users` and `auth.uid()`, then point `pnpm migrate --url` at it.
 
+## Migrations are additive, and forward-only
+
+`migrate.mjs` records versions and wraps each file in a transaction, so a
+migration that **fails** rolls back clean. There is no down path for one that
+**succeeds and is wrong** — and for a billing system that is the right trade:
+a rollback that drops a column takes issued invoices with it.
+
+So the rule is to write migrations that cannot need reverting:
+
+- **Add, never destroy.** New columns are nullable or defaulted. Do not drop
+  or rename a column that has shipped, and do not narrow a type.
+- **Retiring a column is two releases.** Stop writing it, ship, confirm
+  nothing reads it, then drop it in a later migration — never in the same one
+  that changes the code.
+- **A destructive change to unreleased schema is fine.** Before anything is
+  live, fold the correction into the original file rather than stacking a
+  fix-up on top; that is what happened to `client_updated_at` and `pdf_url`.
+- Backfills belong in their own migration, separate from the DDL, so a slow
+  one cannot hold a lock on the change that needs to land.
+
+CI cannot enforce this — `verify:schema` checks the shape is correct, not
+that getting there was safe. It is a review rule.
+
 ## Triggers on `auth.users`
 
 `create_default_settings` fires inside Supabase's **signup transaction**, so
