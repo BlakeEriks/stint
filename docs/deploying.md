@@ -103,16 +103,21 @@ before changing that file:
 - The status step must be **first**. It registers a `post` hook that sets the
   final status; placed after a step that fails, it never runs.
 
-## 3a. Deployment protection
+## 3a. Deployment protection, and which URL you are testing
 
-A private Vercel project puts SSO in front of every deployment URL, so an
-unauthenticated request gets a 302 to `vercel.com/sso-api` rather than the
-app. That is the platform, not a bug — but magic links will bounce off it,
-so turn it off for the production domain before testing sign-in:
-**Project Settings → Deployment Protection**.
+A Vercel project has two kinds of URL, and they behave differently:
 
-Leaving it on for *preview* deployments is reasonable; leaving it on for
-production means nobody can use the app.
+- The **production domain** (`stint-gamma.vercel.app`) — public. This is the
+  app.
+- Per-deployment URLs (`stint-<hash>-<scope>.vercel.app`) — fronted by SSO
+  on a private project, so an unauthenticated request 302s to
+  `vercel.com/sso-api`.
+
+That 302 is protection on the *deployment* URL, not a broken app. Test the
+production domain; a redirect on a hashed URL means nothing is wrong.
+
+The app's own redirect looks similar but is not the same thing: `/` returns
+307 to `/signin` when signed out, which is correct.
 
 ## 4. Auth redirect URLs
 

@@ -19,3 +19,4 @@ coverage/
 
 # Supabase CLI scratch
 supabase/.temp/
+.vercel
