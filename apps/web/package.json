@@ -4,14 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port ${PORT:-3100}",
+    "predev": "pnpm --filter @stint/design-tokens build",
     "build": "next build",
+    "prebuild": "pnpm --filter @stint/design-tokens build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "detox": "node scripts/shadcn-detox.mjs --check 'src/components/ui/*.tsx'",
     "test": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/routes.test.ts test/invoices.test.ts",
     "test:ui": "vitest run",
     "sample:invoice": "node --experimental-strip-types scripts/render-sample-invoice.mjs",
-    "test:rls": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/rls.test.ts",
-    "detox": "node scripts/shadcn-detox.mjs --check 'src/components/ui/*.tsx'"
+    "test:rls": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/rls.test.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

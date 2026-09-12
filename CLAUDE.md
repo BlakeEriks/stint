@@ -92,6 +92,21 @@ throwaway Postgres (`/opt/homebrew/opt/postgresql@14/bin`) on a spare port
 over TCP — the socket path in the scratchpad exceeds the 103-byte limit —
 stub `auth.users` and `auth.uid()`, then point `pnpm migrate --url` at it.
 
+## Generated files and a fresh clone
+
+`packages/design-tokens/dist/` is gitignored, and two of its outputs are
+needed to build: `tokens.ts` (imported by `color-picker.tsx`) and
+`tokens.css` (imported by `globals.css` by relative path). A fresh clone has
+neither, so `next build` fails with "Can't resolve '@stint/design-tokens'".
+
+This is why `apps/web` has **`prebuild` and `predev`** that run the token
+generator. Generating is part of building, not a step a caller has to
+remember — CI happened to run `generate.js` for its own drift check, which
+hid the gap until Vercel's first deploy failed on it.
+
+Anything else generated and gitignored needs the same treatment: assume the
+build machine has only what git tracks.
+
 ## Dependency versions
 
 Everything is current. **TypeScript is on 6.x**, and the jump to 7 is a

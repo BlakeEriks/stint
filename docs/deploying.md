@@ -35,10 +35,16 @@ leaves no gate at all.
 
 ## 2. Vercel project
 
-Import `BlakeEriks/stint` at vercel.com. Settings:
+Import `BlakeEriks/stint` at vercel.com. `vercel.json` at the repo root
+carries the build settings, so **leave Root Directory unset** — pointing it
+at `apps/web` would make Vercel ignore that file.
 
-- **Root directory:** `apps/web`
-- **Install command:** `pnpm install --frozen-lockfile`
+What it configures, and why it is in the repo rather than the dashboard: the
+build has to run from the root so pnpm can link the workspace packages, and
+`apps/web`'s `prebuild` generates the design tokens that `dist/` does not
+carry into a clone.
+
+Still set in the dashboard:
 - Environment variables (Production and Preview):
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
