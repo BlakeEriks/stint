@@ -172,7 +172,7 @@ describe('HomeCards', () => {
     render(<HomeCards />, { wrapper });
 
     const link = await screen.findByRole('link', { name: /Northwind/ });
-    expect(link).toHaveAttribute('href', '/app/invoices/i1');
+    expect(link).toHaveAttribute('href', '/invoices/i1');
   });
 
   it('offers no destructive action inline', async () => {
@@ -501,10 +501,10 @@ describe('the wide layout survives its own empty states', () => {
     expect(splitGrid(container)).toBeNull();
   });
 
-  it('does not split when Activity would be alone in the narrow column', async () => {
-    /* No monthly target, so Pace hides and Activity is the only card the
-       right column would hold — a lone 12-week strip with a column of air
-       beneath it. One card does not justify a column. */
+  it('does not split when the right column would be empty', async () => {
+    /* Pace is the whole right column — Activity spans the full width below
+       it — so with no monthly target there is nothing to put beside the money
+       cards and the split is not worth making. */
     serve(stats({ unbilled: oneClient, pace: null }));
     const { container } = render(<HomeCards />, { wrapper });
 

@@ -19,7 +19,11 @@ import { api, type InvoiceStatus, type Stats } from '@/lib/client/api';
 import { useTimeZone } from '@/lib/client/use-timer';
 import { Button } from '@/components/ui/button';
 import { money } from './invoice-bits';
-import { ActivityStrip } from './activity-strip';
+/* `activity-strip.tsx` — the twelve-week heatmap this replaced — is still in
+   the tree and still tested. It is left there on purpose: the chart answers
+   the same question and should prove itself over a week of real use before
+   the strip is deleted. Deleting it is one line later; rebuilding it is not. */
+import { ActivityChart } from './activity-chart';
 
 /**
  * The home screen's card set.
@@ -90,10 +94,9 @@ export function HomeCards() {
   const hasUnbilled = data.unbilled.byClient.length > 0;
   const hasPace = data.pace != null;
 
-  /* The right column carries the two fixed-size visuals, and Activity is
-     always one of them. When Pace is gone it would be alone in a narrow
-     column with a lot of air beneath it, so the split collapses and both
-     columns run full width — one card does not justify a column. */
+  /* Both sides need a card for a split to be worth making. The right column
+     is Pace alone now that Activity spans the full width below, so with no
+     monthly target there is nothing to put beside the money cards. */
   const splitColumns = (hasAttention || hasUnbilled) && hasPace;
 
   const left = (
@@ -102,34 +105,40 @@ export function HomeCards() {
       {hasUnbilled ? <Unbilled stats={data} /> : null}
     </>
   );
-  const right = (
-    <>
-      {hasPace ? <Pace stats={data} /> : null}
-      <ActivityStrip />
-    </>
-  );
 
-  if (!splitColumns) {
-    return (
-      <div className="mt-6 flex flex-col gap-4">
-        {left}
-        {right}
-      </div>
-    );
-  }
-
-  /* 1.6fr / 1fr, not equal columns. The left column is rows of client names,
-     ages, hours and amounts — content that grows and truncates when starved.
-     The right is a number with a bar and a fixed 12-week strip, neither of
-     which gets better with more room. Equal columns would starve the side
-     with something to say to pad the side without.
-
-     `items-start` so a short right column does not stretch its cards to match
-     a tall left one. */
   return (
-    <div className="mt-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.6fr_1fr]">
-      <div className="flex flex-col gap-4">{left}</div>
-      <div className="flex flex-col gap-4">{right}</div>
+    <div className="mt-6 flex flex-col gap-4">
+      {splitColumns ? (
+        /* 1.6fr / 1fr, not equal columns. The left column is rows of client
+           names, ages, hours and amounts — content that grows and truncates
+           when starved. The right is a number and a bar, which does not get
+           better with more room. Equal columns would starve the side with
+           something to say to pad the side without.
+
+           `items-start` so a short right column does not stretch its cards to
+           match a tall left one. */
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <div className="flex flex-col gap-4">{left}</div>
+          <div className="flex flex-col gap-4">
+            <Pace stats={data} />
+          </div>
+        </div>
+      ) : (
+        <>
+          {left}
+          {hasPace ? <Pace stats={data} /> : null}
+        </>
+      )}
+
+      {/* Full width, below the money and above Today.
+
+          It wants the room — 30 bars in a narrow column is a smear — but it
+          is texture rather than money: how the work felt, which the user was
+          there for. Needs attention and Unbilled are the things they cannot
+          recall, so those keep the top-left where the eye lands first. Making
+          the chart dominant would put the most decorative card in the most
+          valuable position. */}
+      <ActivityChart />
     </div>
   );
 }
@@ -156,7 +165,7 @@ function NeedsAttention({ stats }: { stats: Stats }) {
         {overdueInvoices.map((i) => (
           <Row
             key={i.invoiceId}
-            href={`/app/invoices/${i.invoiceId}`}
+            href={`/invoices/${i.invoiceId}`}
             icon={
               <AlertTriangle aria-hidden className="size-3.5 text-danger" />
             }
@@ -191,7 +200,7 @@ function NeedsAttention({ stats }: { stats: Stats }) {
         {staleDrafts.map((d) => (
           <Row
             key={d.invoiceId}
-            href={`/app/invoices/${d.invoiceId}`}
+            href={`/invoices/${d.invoiceId}`}
             icon={<FileWarning aria-hidden className="size-3.5 text-warning" />}
             label={d.clientName ?? d.invoiceNumber}
             detail={`draft, ${d.ageDays} days old`}
@@ -221,7 +230,7 @@ function NeedsAttention({ stats }: { stats: Stats }) {
 
         {unprojected ? (
           <Row
-            href="/app"
+            href="/"
             icon={<Clock aria-hidden className="size-3.5 text-warning" />}
             label={
               unprojected.count === 1
@@ -259,8 +268,8 @@ function Unbilled({ stats }: { stats: Stats }) {
             // card an action rather than a readout.
             href={
               c.clientId
-                ? `/app/invoices/new?clientId=${c.clientId}`
-                : '/app/invoices/new'
+                ? `/invoices/new?clientId=${c.clientId}`
+                : '/invoices/new'
             }
             label={c.clientName}
             detail={
@@ -292,7 +301,7 @@ function Unbilled({ stats }: { stats: Stats }) {
           is money already asked for, and summing them double-counts. */}
       {stats.awaitingPayment > 0 ? (
         <Link
-          href="/app/invoices?status=sent"
+          href="/invoices?status=sent"
           className="flex items-baseline gap-1.5 border-t border-edge-subtle px-4 py-2 type-support text-subtle hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
         >
           <span className="type-meta text-muted">
