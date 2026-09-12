@@ -92,6 +92,25 @@ throwaway Postgres (`/opt/homebrew/opt/postgresql@14/bin`) on a spare port
 over TCP — the socket path in the scratchpad exceeds the 103-byte limit —
 stub `auth.users` and `auth.uid()`, then point `pnpm migrate --url` at it.
 
+## Dependency versions
+
+Everything is current except TypeScript, deliberately.
+
+**TypeScript stays on 5.x. Not 7.** TS 7 (the Go port, stable July 2026) is
+~10x faster, but it **ships no programmatic API** until 7.1 — and Next.js's
+type checking and TS plugin depend on that API, so `next build` would run
+against a compiler it was not tested with. It also removes `baseUrl`, which
+`apps/web/tsconfig.json` uses, and defaults `types` to `[]`. The speedup buys
+nothing on a project where `tsc --noEmit` takes ~2s.
+
+Revisit when Next declares TS 7 support, or at 7.1.
+
+`@types/node` tracks the Node major actually in use (24), not whatever was
+pinned first — types for a runtime you are not running is a silent trap.
+
+Dependabot **ignores majors** on purpose. A toolchain major is a decision;
+its first run offered TypeScript 5 -> 7 and `@types/node` 22 -> 26 unasked.
+
 ## Migrations are additive, and forward-only
 
 `migrate.mjs` records versions and wraps each file in a transaction, so a
