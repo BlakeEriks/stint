@@ -35,19 +35,20 @@ leaves no gate at all.
 
 ## 2. Vercel project
 
-Import `BlakeEriks/stint` at vercel.com. `vercel.json` at the repo root
-carries the build settings, so **leave Root Directory unset** — pointing it
-at `apps/web` would make Vercel ignore that file.
+Import `BlakeEriks/stint` at vercel.com.
 
-What it configures, and why it is in the repo rather than the dashboard: the
-build has to run from the root so pnpm can link the workspace packages, and
-`apps/web`'s `prebuild` generates the design tokens that `dist/` does not
-carry into a clone.
+- **Root Directory:** `apps/web`
+- Build settings live in `apps/web/vercel.json`, beside the app they
+  describe, rather than in the dashboard where they are invisible from a
+  checkout.
 
-It deliberately sets **no `outputDirectory`** — Vercel's Next.js detection
-finds `apps/web/.next` on its own, and naming it explicitly made the path
-resolve twice (`apps/web/apps/web/.next`) and failed a build that had
-otherwise succeeded.
+`pnpm install` and `pnpm --filter` both walk up to the workspace root from
+there, so `prebuild` still reaches `packages/design-tokens` — verified from a
+clean clone rather than assumed.
+
+It deliberately sets **no `outputDirectory`**: Next.js detection finds
+`.next` on its own, and naming it explicitly made the path resolve twice and
+failed a build that had otherwise succeeded.
 
 Still set in the dashboard:
 - Environment variables (Production and Preview):
