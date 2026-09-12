@@ -12,8 +12,14 @@ const buttonVariants = cva(
         // a screen's "Add client" is not competing with that, and before this
         // every page with a primary action put a second green meaning on
         // screen beside the nav rail's timer. Opting in is a decision now.
+        /* Carries a border as well as a fill. The fill alone is
+           `bg-surface-elevated`, which is also the dialog surface — so inside
+           a dialog the button was the same colour as the panel behind it and
+           read as bare text. A neutral button has to stay legible as a
+           control on any surface it lands on, and the edge is what does
+           that. */
         default:
-          "bg-surface-elevated text-strong hover:bg-surface-active",
+          "border border-edge-default bg-surface-elevated text-strong hover:bg-surface-active",
         // The one primary action on a screen that genuinely has one — and
         // only where no running timer is in view. See the accent rule in
         // CLAUDE.md.

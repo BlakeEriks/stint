@@ -9,6 +9,7 @@ import {
   Clock,
   Download,
   FileWarning,
+  Inbox as InboxIcon,
 } from 'lucide-react';
 import { api, type InvoiceStatus, type Stats } from '@/lib/client/api';
 import { money } from './invoice-bits';
@@ -52,8 +53,18 @@ export function Inbox({ stats }: { stats: Stats }) {
 
   return (
     <section aria-label="Inbox">
-      <header className="flex items-baseline justify-between gap-2 px-1 pb-2">
-        <h2 className="type-label text-subtle">Inbox</h2>
+      <header className="flex items-center justify-between gap-2 px-1 pb-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          {/* `aria-hidden`, so the accessible name stays "Inbox" rather than
+              "inbox Inbox". Neutral: the section is a place, and the rows
+              inside it carry their own tone. */}
+          <InboxIcon
+            aria-hidden
+            strokeWidth={1.75}
+            className="size-3.5 flex-none text-subtle"
+          />
+          <h2 className="type-label truncate text-subtle">Inbox</h2>
+        </div>
         {/* The count is the whole status. No badge colour: a number that is
             sometimes zero says more than a dot that is sometimes lit. */}
         <span className="type-meta text-subtle">{count || 'clear'}</span>

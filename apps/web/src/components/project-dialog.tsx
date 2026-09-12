@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Check, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -231,10 +232,20 @@ export function ProjectDialog({
             >
               Cancel
             </Button>
+            {/* Icon plus label, like every other action in the app. The
+                glyph is `aria-hidden`, so the accessible name is the label
+                alone. */}
             <Button
               type="submit"
               disabled={save.isPending || name.trim() === ''}
             >
+              {save.isPending ? (
+                <Loader2 aria-hidden className="animate-spin" />
+              ) : existing ? (
+                <Check aria-hidden />
+              ) : (
+                <Plus aria-hidden />
+              )}
               {save.isPending
                 ? 'Saving…'
                 : existing

@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, inputClass, textareaClass } from './field';
@@ -358,10 +359,18 @@ export function PaymentProfileDialog({
             >
               Cancel
             </Button>
+            {/* Icon plus label, like every other action in the app. The
+                glyph is `aria-hidden`, so the accessible name is the label
+                alone. */}
             <Button
               type="submit"
               disabled={save.isPending || draft.name.trim() === ''}
             >
+              {save.isPending ? (
+                <Loader2 aria-hidden className="animate-spin" />
+              ) : (
+                <Check aria-hidden />
+              )}
               {save.isPending ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>

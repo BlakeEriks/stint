@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { uuidv7 } from '@stint/core';
-import { Trash2 } from 'lucide-react';
+import { Check, Loader2, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -129,9 +129,28 @@ export function EntryDialog({
       ),
   });
 
-  /* An entry billed on an issued invoice is frozen by a database trigger.
-     Showing it read-only is honest; offering an edit that will 409 is not. */
-  const locked = existing?.invoiceId != null;
+  /* An entry billed on an ISSUED invoice is frozen by a database trigger, so
+     showing it read-only is honest and offering an edit that will 409 is not.
+     A DRAFT is different and the trigger says so — `guard_billed_entry`
+     returns early when the invoice status is `draft` — because a draft holds
+     no number and has not been sent, so nothing has been told to a client
+     yet. Disabling those fields refused an edit the server would have
+     accepted, which is the more expensive direction: the fix for a wrong
+     draft is to correct the entry and preview again.
+
+     The status is not on the entry, so it is fetched — only when there is an
+     invoice to ask about, which is the rare case. */
+  const billedOn = useQuery({
+    queryKey: ['invoices', existing?.invoiceId],
+    queryFn: () => api.invoice(existing!.invoiceId!),
+    enabled: open && existing?.invoiceId != null,
+  });
+
+  /* Locked until proven otherwise: while the status is in flight the safe
+     assumption is the restrictive one, since the alternative is briefly
+     offering fields that are about to disable under the user's cursor. */
+  const locked =
+    existing?.invoiceId != null && billedOn.data?.status !== 'draft';
   const busy = save.isPending || remove.isPending;
 
   return (
@@ -142,7 +161,9 @@ export function EntryDialog({
           <DialogDescription>
             {locked
               ? 'This entry is billed on an issued invoice, so it can no longer be changed. Void the invoice to release it.'
-              : 'Times are in your local timezone. An end before the start counts as overnight.'}
+              : existing?.invoiceId != null
+                ? 'This entry is on a draft invoice. Editing it changes what that draft would bill, so preview it again before issuing.'
+                : 'Times are in your local timezone. An end before the start counts as overnight.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -258,9 +279,11 @@ export function EntryDialog({
               </Button>
             </DialogFooter>
           ) : (
-            <DialogFooter className="sm:justify-between">
-              {/* Deleting is destructive and irreversible, so it asks once.
-                  Nothing here is the primary action, so nothing is accent. */}
+            // `justify-between` at every width, so Delete sits at the far left
+            // and Save at the far right — the separation is what stops a
+            // destructive action being hit by a thumb aiming for the confirm.
+            <DialogFooter className="justify-between">
+              {/* Deleting is destructive and irreversible, so it asks once. */}
               {existing ? (
                 confirmingDelete ? (
                   <span className="flex items-center gap-2">
@@ -285,7 +308,12 @@ export function EntryDialog({
                 ) : (
                   <Button
                     type="button"
-                    variant="ghost"
+                    /* Destructive, not ghost. This removes a billing record
+                       irreversibly, and a borderless button gave it the same
+                       visual weight as Cancel — the channel should match the
+                       consequence. It still asks once before anything
+                       happens. */
+                    variant="destructive"
                     size="sm"
                     disabled={busy}
                     onClick={() => setConfirmingDelete(true)}
@@ -298,7 +326,16 @@ export function EntryDialog({
                 <span />
               )}
 
-              <Button type="submit" disabled={busy}>
+              {/* Icon plus label, like every other action in the app: text +
+                  colour + icon is more legible than any single channel. The
+                  glyph is `aria-hidden`, so the accessible name stays the
+                  label alone. */}
+              <Button type="submit" size="sm" disabled={busy}>
+                {save.isPending ? (
+                  <Loader2 aria-hidden className="animate-spin" />
+                ) : (
+                  <Check aria-hidden />
+                )}
                 {save.isPending ? 'Saving…' : existing ? 'Save' : 'Add entry'}
               </Button>
             </DialogFooter>
