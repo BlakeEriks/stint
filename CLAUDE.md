@@ -94,16 +94,26 @@ stub `auth.users` and `auth.uid()`, then point `pnpm migrate --url` at it.
 
 ## Dependency versions
 
-Everything is current except TypeScript, deliberately.
+Everything is current. **TypeScript is on 6.x**, and the jump to 7 is a
+deliberate wait, not drift.
 
-**TypeScript stays on 5.x. Not 7.** TS 7 (the Go port, stable July 2026) is
-~10x faster, but it **ships no programmatic API** until 7.1 — and Next.js's
-type checking and TS plugin depend on that API, so `next build` would run
-against a compiler it was not tested with. It also removes `baseUrl`, which
-`apps/web/tsconfig.json` uses, and defaults `types` to `[]`. The speedup buys
-nothing on a project where `tsc --noEmit` takes ~2s.
+TS 6 is the bridge release: the last one built on the JavaScript codebase, so
+it **keeps the programmatic API** while adopting 7's stricter defaults. That
+matters because Next's type checking and TS plugin use that API — TS 7 ships
+without one until 7.1, which would leave `next build` running against a
+compiler it was never tested with. Frameworks with embedded templates (Vue,
+Svelte, Astro, Angular) are in the same position.
 
-Revisit when Next declares TS 7 support, or at 7.1.
+Adopting 6 cost two config changes, both of which are what 7 will require
+anyway:
+
+- `types: ["node"]` in the root tsconfig — 6 stopped auto-discovering
+  `@types`, so what is used has to be named.
+- `baseUrl` removed from `apps/web/tsconfig.json` — deprecated in 6, gone in
+  7. The `paths` entries were already relative, so it was redundant.
+
+So the migration to 7 is now a version bump plus whatever 7.1's API needs,
+rather than a config project. Revisit when Next declares TS 7 support.
 
 `@types/node` tracks the Node major actually in use (24), not whatever was
 pinned first — types for a runtime you are not running is a silent trap.

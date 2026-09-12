@@ -8,7 +8,8 @@
         "name": "next"
       }
     ],
-    "baseUrl": ".",
+    // No baseUrl: deprecated in TS 6, removed in 7. The paths below are
+    // already relative to this file, so it was redundant.
     "paths": {
       "@/*": ["./src/*"],
       "@stint/core": ["../../packages/core/src/index.ts"],
