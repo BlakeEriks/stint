@@ -205,27 +205,49 @@ test('summary folds the live timer into today and week totals', async () => {
   const { POST: start } = await import('../src/app/api/v1/timer/start/route.ts');
   const { GET: summary } = await import('../src/app/api/v1/summary/route.ts');
 
+  // This asserts on the UTC day, so both entries must START inside it — the
+  // route counts an entry toward "today" by its start, and measures a
+  // running entry's live portion against the server's real clock.
+  //
+  // Naive offsets break at the edges in both directions, which is how this
+  // test failed in CI at 00:03 UTC: "two hours ago" was yesterday. A few
+  // minutes past midnight UTC, "ten minutes ago" is yesterday too.
   const now = new Date();
-  const twoHoursAgo = new Date(now.getTime() - 2 * 3600 * 1000);
-  const oneHourAgo = new Date(now.getTime() - 3600 * 1000);
+  const dayStart = new Date(now);
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const sinceDayStart = now.getTime() - dayStart.getTime();
+
+  // Split whatever the day has elapsed so far: the completed entry sits in
+  // the first half, the running one starts in the second. Both are then
+  // inside the day and in the past, at any hour and in any zone.
+  const half = Math.floor(sinceDayStart / 2);
+  const completedStart = new Date(dayStart.getTime());
+  const completedEnd = new Date(dayStart.getTime() + half);
+  const completedSeconds = Math.floor(half / 1000);
+
+  const runningStart = new Date(dayStart.getTime() + half);
+  const liveSeconds = Math.floor((now.getTime() - runningStart.getTime()) / 1000);
 
   await create(req('/entries', {
     id: '018f0000-0000-7000-8000-000000000010',
     taskName: 'Earlier',
-    startedAt: twoHoursAgo.toISOString(),
-    endedAt: oneHourAgo.toISOString(),
+    startedAt: completedStart.toISOString(),
+    endedAt: completedEnd.toISOString(),
   }));
   await start(req('/timer/start', {
-    taskName: 'Running', startedAt: new Date(now.getTime() - 600_000).toISOString(),
+    taskName: 'Running', startedAt: runningStart.toISOString(),
   }));
 
   const res = await json(await summary(req('/summary?tz=UTC')));
   assert.equal(res.status, 200);
   assert.ok(res.body.running, 'menu bar gets the running entry');
-  // 3600 completed + ~600 live, in ONE request — the menu bar toggles
+  // Completed hour + the live timer, in ONE request — the menu bar toggles
   // between modes without a second call.
-  assert.ok(res.body.todaySeconds >= 4190 && res.body.todaySeconds <= 4210,
-    `expected ~4200, got ${res.body.todaySeconds}`);
+  const expected = completedSeconds + liveSeconds;
+  assert.ok(
+    res.body.todaySeconds >= expected - 10 && res.body.todaySeconds <= expected + 10,
+    `expected ~${expected}, got ${res.body.todaySeconds}`,
+  );
   assert.ok(res.body.weekSeconds >= res.body.todaySeconds);
 });
 
