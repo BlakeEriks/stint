@@ -22,3 +22,7 @@ playwright-report/
 # Supabase CLI scratch
 supabase/.temp/
 .vercel
+
+# Playwright
+test-results/
+playwright-report/

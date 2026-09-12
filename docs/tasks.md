@@ -147,43 +147,16 @@ later.
         `rgba(16,18,26,0.06-0.10)`), and "content floats, chrome recedes"
         has to survive the inversion — cards must not read as holes.
 
-- [ ] **End-to-end tests in a real browser.** Everything verified by hand
-      this session is verified *once*: the three existing suites cannot reach
-      any of it. UI tests are jsdom with stubbed fetch — and jsdom **cannot
-      parse Tailwind 4's compiled CSS**, so they see no colours, no
-      breakpoints and no layout. Route tests never render. Nothing covers the
-      browser, navigation, cookies, server components or redirects.
+- [ ] **Extend the end-to-end suite.** Sign-in, sign-out and the invoice
+      lifecycle are covered (`pnpm test:e2e`). The flows still verified only
+      by hand: the runaway-timer choice end to end, entry editing
+      round-tripping local wall-clock through UTC and the overnight case,
+      responsive layout at 375px and 1280px, and the accent rule in rendered
+      pixels rather than class strings.
 
-      The specific flows I checked manually and that nothing re-checks:
-
-      - **sign in via magic link** (Mailpit → click → session) and
-        **sign out** (cookies cleared, API 401s, Back does not show cached
-        authenticated markup — that last one was a real bug found by hand)
-      - **navigating between tabs** with the rail, and the active-section
-        marking
-      - **the runaway timer choice** end to end: a real overlong timer,
-        Adjust stopping it and opening the editor pre-filled, Discard
-        deleting it
-      - **entry editing** round-tripping local wall-clock through UTC, and
-        the overnight case
-      - **mark paid / mark sent** clearing an attention row, and the row
-        leaving because the fact changed
-      - **responsive layout** at 375px and 1280px, where the breakpoints the
-        jsdom tests cannot see actually apply
-      - **the accent rule** in rendered pixels, not class strings
-
-      Playwright is the obvious tool, and the local Supabase stack is what
-      makes it viable: a real database, a real auth server, and Mailpit to
-      read the magic link from, all disposable via `pnpm dev:reset`. Seed
-      first, run against `pnpm dev`, and keep it out of the `test` glob so a
-      browser download is not a prerequisite for the unit suites.
-
-      **Worth being honest about the cost:** e2e tests are the slowest and
-      flakiest kind, and a suite that fails randomly gets ignored, which is
-      worse than not having it. Start with the two flows whose breakage is
-      silent and expensive — **sign-out** (a session that is not really
-      cleared) and **the invoice lifecycle** — rather than covering
-      everything.
+      Add them one at a time and only where breakage would be silent —
+      a suite that fails randomly gets ignored, which is worse than not
+      having one.
 
 - [ ] **Collapse the nav on narrow widths instead of scrolling it.** At 375px
       the fifth and sixth sections sit past the right edge, so reaching

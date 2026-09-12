@@ -101,7 +101,12 @@ export function SignInForm({ error }: { error?: string }) {
           </button>
 
           {state === 'error' ? (
-            <p className="type-support text-danger">{message}</p>
+            /* role=alert so a failed request is announced rather than only
+               appearing — this is the one thing telling the user the email is
+               not coming. */
+            <p role="alert" className="type-support text-danger">
+              {message}
+            </p>
           ) : null}
         </form>
       )}

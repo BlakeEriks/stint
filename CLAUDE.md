@@ -786,6 +786,43 @@ response can land after a newer one and the server keeps the older value.
 double-mounts in dev, and a ref that is only ever cleared leaves every save
 completing silently with the spinner stuck forever.
 
+### End-to-end tests
+
+`pnpm test:e2e` — Playwright against the **local Supabase stack**, which must
+already be running (`pnpm dev:up` plus `pnpm dev`). Deliberately outside
+`pnpm test`: a browser download must not become a prerequisite for the unit
+suites.
+
+**They sign in for real**, through Mailpit, because sign-in is the flow most
+worth covering and stubbing it would test the stub. `e2e/mailpit.ts` reads the
+**text** part of the email — the HTML `href` escapes its separators as
+`&amp;`, and following that string literally makes GoTrue read `amp;type`
+instead of `type`, a 400 that looks exactly like an expired link.
+
+Three things learned making them non-flaky, all of which will bite again:
+
+- **`auth.email.max_frequency` is `1s` and is already its minimum**, so two
+  sign-ins inside the same second collide with "you can only request this
+  after 0 seconds". `requestLink()` retries around it rather than pretending
+  the limit is not there. The hourly `email_sent` cap was raised from **2** to
+  100 for local development — 2 exhausts within one test run, and then every
+  further sign-in fails in a way that reads as a broken link.
+- **Next renders an always-present empty `role="alert"`** (the route
+  announcer), so an unscoped `getByRole('alert')` is ambiguous or matches
+  nothing useful. Scope to `main` or to the form.
+- **A test that writes must restore the seed.** `resetSeed()` runs
+  `supabase db reset` in `beforeAll`, because a suite that passes once and
+  then fails on its own leftovers is the flakiness that gets a suite ignored.
+  Ordering within a file matters: the mutating test goes last.
+
+The first run found a **real bug that had never been caught**:
+`GET /invoices/:id` returns the invoice flat, like every other detail route,
+but `api.ts` declared `{ invoice, lineItems, client }` — so
+`data.invoice.status` threw and *every invoice detail page* rendered the error
+boundary. Download, send, void and delete were all unreachable. Nothing else
+could have caught it: the route tests never render, and jsdom's fetch is
+stubbed with whatever shape the test author believed.
+
 ### UI tests
 
 `pnpm test:ui` — Vitest + Testing Library in jsdom, `test/ui/*.test.tsx`.

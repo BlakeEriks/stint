@@ -42,7 +42,12 @@ function serve(status: InvoiceStatus) {
       async () =>
         new Response(
           JSON.stringify({
-            invoice: invoice(status),
+            /* FLAT, matching the route — `{ invoice: … }` is what this stub
+               used to assert, and the component read `data.invoice.status` to
+               match it. Both were wrong together, so these tests passed while
+               every real invoice page threw. A stub is only as good as its
+               fidelity to the endpoint. */
+            ...invoice(status),
             client: { id: 'c1', name: 'Acme Corp' },
             lineItems: [
               {

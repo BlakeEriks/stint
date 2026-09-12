@@ -50,7 +50,7 @@ export function InvoiceDetail({ id }: { id: string }) {
       </Shell>
     );
 
-  const { invoice, lineItems, client } = data;
+  const { lineItems, client, ...invoice } = data;
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
 

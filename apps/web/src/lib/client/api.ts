@@ -292,11 +292,20 @@ export const api = {
     );
   },
 
+  /* The invoice is FLAT, matching every other detail route (`/clients/:id`,
+     `/projects/:id`), with the client and line items alongside it. This once
+     declared `{ invoice, lineItems, client }` and the page read
+     `data.invoice.status` on a response that had no `invoice` key — so every
+     invoice detail page threw and rendered the error boundary. Nothing
+     caught it: the types were hand-written on this side and never checked
+     against the route. */
   invoice: (id: string) =>
-    request<{ invoice: Invoice; lineItems: InvoiceLineItem[]; client: Client }>(
-      'GET',
-      `/invoices/${id}`,
-    ),
+    request<
+      Invoice & {
+        lineItems: InvoiceLineItem[];
+        client: Pick<Client, 'id' | 'name' | 'email' | 'address'>;
+      }
+    >('GET', `/invoices/${id}`),
 
   /** No side effects — this is what the user approves before generating. */
   previewInvoice: (body: {
