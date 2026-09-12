@@ -17,6 +17,8 @@ import pg from 'pg';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const EXPECTED = [
+  // TEMPORARY — release-gate failure test. Remove with the next commit.
+  'this_table_does_not_exist',
   'clients',
   'invoice_line_items',
   'invoices',
