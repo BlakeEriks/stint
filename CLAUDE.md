@@ -87,9 +87,15 @@ someone else's link.** Sign-in is PKCE — the form stores a verifier in that
 browser's localStorage, and only a link whose token is `pkce_`-prefixed and
 redirects to `/auth/callback?code=…` can complete. A link minted by `curl`
 against `/auth/v1/otp` lacks both, so the token lands as a `#fragment` nothing
-reads: the click looks fine, you stay signed out, and re-clicking says `bad
-request` because the first attempt consumed it. Two sessions can coexist; the
-link cannot be shared.
+reads and you stay signed out.
+
+**Never call `/auth/v1/otp` while someone else is signing in.** Only one
+magic-link token exists per user, so requesting another silently invalidates
+theirs — their valid-looking link then fails with `Bad request`. Sessions
+coexist fine; the pending token does not. And in Mailpit *click the anchor*
+rather than copying the URL, or the `href`'s `&amp;` separators arrive
+literally and GoTrue rejects the request for having no verification type.
+`docs/local-dev.md` has the queries for diagnosing a failed click.
 
 Three traps, all hit while setting this up — `docs/local-dev.md` has the rest:
 

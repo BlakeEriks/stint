@@ -61,19 +61,43 @@ the only one that comes with clients, projects and entries.
 paste someone else's link. Sign-in is PKCE: the form stores a code verifier in
 *that browser's* localStorage, and the emailed link carries a `pkce_` token
 redirecting to `/auth/callback?code=…`, which only completes with the matching
-verifier. A link generated any other way — `curl` against
-`/auth/v1/otp`, for instance — comes back **without** the `pkce_` prefix and
-with `redirect_to` defaulting to the bare origin, so the token arrives as a
-URL `#fragment` that nothing on `/` reads. The click looks like it worked and
-you land signed out; a re-click then says `bad request`, because verification
-consumed the one-time token on the first try.
+verifier. A link generated any other way — `curl` against `/auth/v1/otp`, for
+instance — comes back **without** the `pkce_` prefix and with `redirect_to`
+defaulting to the bare origin, so the token arrives as a URL `#fragment` that
+nothing on `/` reads. The click looks like it worked and you land signed out.
 
-So two people (or a person and an agent) cannot share one link — but they can
-both be signed in at once. Sessions are independent; only the token is
-single-use and browser-bound. Request one link each.
+**Only one magic-link token exists per user at a time.** Requesting another —
+a second click of the sign-in button, or anything hitting `/auth/v1/otp` —
+**invalidates the outstanding one**. Two people signing in at once therefore
+take each other's links away, and the symptom is a `Bad request` on a link
+that was valid when the email arrived. This bit hard: an agent "helpfully"
+curling for a fresh link destroyed the one the developer was about to click,
+repeatedly. **Do not touch `/auth/v1/otp` while someone else is signing in.**
+Sessions themselves are independent and can coexist; only the pending token is
+exclusive.
 
-**Click the newest message in Mailpit.** It keeps every email, and an older
-one has almost certainly been spent.
+**Click the anchor in Mailpit, do not copy the URL text.** The HTML `href`
+correctly escapes its separators as `&amp;`, which a browser decodes on
+click — but pasting the raw text sends them literally, so GoTrue reads
+`amp;type` instead of `type` and returns
+`400 Verify requires a verification type`, i.e. the same `Bad request`. The
+token survives, so the next proper click still works.
+
+**Open the newest message.** Mailpit keeps every email and older tokens are
+invalidated by newer requests.
+
+To confirm whether a pending token even exists:
+
+```sql
+select token_type, created_at from auth.one_time_tokens;
+```
+
+Empty means there is nothing to click and a fresh `/signin` is needed. The
+Auth service's own log is the fastest way to see why a click failed:
+
+```
+docker logs supabase_auth_stint --since 10m | grep '"path":"/verify"'
+```
 
 **Everything speaks `localhost`, never `127.0.0.1`.** A browser treats them as
 different hosts, so a link verified through one sets its session cookie for a
