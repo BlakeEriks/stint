@@ -218,8 +218,17 @@ export function EntryDialog({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="col-span-2 flex flex-col gap-1.5">
+          {/* Not four equal columns. A `type="time"` input renders its own
+              picker icon inside the box, and at 106.5px minus 24px of padding
+              the AM/PM was 4px past the edge — the meridiem clipped under the
+              clock, which is the one part of "05:39 AM" you cannot infer.
+
+              The date needs less than the two columns it had (a `yyyy-mm-dd`
+              is narrower than two times), so the track gives the times the
+              room instead: `1.2fr` each against the date's `1fr`. Measured,
+              not guessed — the text wants 70px and the icon ~16px. */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1.2fr_1.2fr]">
+            <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-1">
               <Label htmlFor="entry-date" className={LABEL}>
                 Date
               </Label>
