@@ -256,15 +256,19 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# The magic-link email carries a CODE as well as a link.
+# ONE magic-link template serves both clients, because GoTrue allows only one.
 #
-# `{{ .Token }}` is the six-digit OTP, which GoTrue generates for every magic
-# link whether or not the template shows it — the default template simply does
-# not. A code is what makes signing in on the desktop app sane: a link has to
-# reach a different application, and a browser will not hand one to a custom
-# scheme.
+# The web app opens the link; the macOS panel takes the six-digit code, since a
+# link cannot cross from a browser into another application. `{{ .Token }}` is
+# that code — GoTrue generates it for every magic link whether the template
+# shows it or not, and the default template does not, which is why ours exists.
+#
+# The SUBJECT must not name either one. It said "Your Stint sign-in code",
+# which is the wrong first word for someone who just clicked a button on the
+# web and is waiting for a link — and the subject is all you see in an inbox
+# list.
 [auth.email.template.magic_link]
-subject = "Your Stint sign-in code"
+subject = "Sign in to Stint"
 content_path = "./supabase/templates/magic_link.html"
 
 # Uncomment to customize email template

@@ -1,16 +1,29 @@
 <!--
-  The sign-in email.
+  The sign-in email, for BOTH clients.
 
-  It carries BOTH a code and a link, because they serve different clients: the
-  macOS app takes the code (a link cannot cross from a browser into another
-  application without going through the clipboard or a URL scheme a browser
-  will not follow), and the web app takes the link.
+  The web app opens the link; the macOS panel takes the six-digit code, because
+  a link cannot cross from a browser into another application without going
+  through the clipboard or a URL scheme a browser will not follow. GoTrue
+  generates both for every magic link whether a template shows them or not —
+  the default one shows only the link, which is why this file exists.
 
-  `{{ .Token }}` is the six-digit OTP, which GoTrue generates for every magic
-  link whether a template shows it or not — the default one does not, which is
-  why this file exists. `slice` splits it as xxx-xxx: three digits at a time is
-  what a person can hold while looking away from the screen, and the hyphen is
-  a grouping mark rather than part of the code.
+  **Neither is the footnote.** This was written for the desktop case first: the
+  code was a 32px hero and the web link a small "Signing in on the web
+  instead?" line below a divider. Most sign-ins are on the web, so that buried
+  the common path under the rare one — and the subject line said "sign-in code"
+  to someone who had just clicked a button in a browser and was waiting for a
+  link. GoTrue allows one template for both, so it has to read correctly
+  whichever client you started from.
+
+  `{{ slice .Token 0 3 }}` splits the code into two groups of three, because
+  three digits at a time is what a person can hold while looking away.
+
+  **The gap is padding, not a character.** It was a hyphen, which made the code
+  two words to a browser: a double-click selected `392` and stopped, so copying
+  it took two clicks and a drag. The code is pasted into the macOS panel more
+  often than retyped, so one double-click has to take all six digits. Nothing
+  may go between the two groups — not a hyphen, not a space, not a zero-width
+  character — or the word boundary comes back.
 
   Written as table-based HTML with inline styles on purpose. Mail clients strip
   <style> blocks, ignore most modern CSS, and Outlook renders through Word —
@@ -26,9 +39,21 @@
         <tr>
           <td style="padding:28px 28px 0 28px;">
             <!-- The wordmark, in its brackets. An image would be blocked by
-                 default in most clients; type always renders. -->
+                 default in most clients; type always renders.
+
+                 ONE colour, bounds included — `text-strong` (#F9FAFD), the
+                 same as `wordmark.tsx`. The S was green and the pipes grey
+                 here, which is the macOS lockup rather than the app's: green
+                 is the running timer, and a wordmark is one object, so it
+                 takes one value. The two greys read as a rendering fault at
+                 this size rather than as emphasis.
+
+                 Pipe characters, not drawn boxes: a mail client cannot be
+                 trusted with a 1px div, and the glyph's shortcomings beside
+                 a cap height matter less at 19px than a bar that fails to
+                 render at all. -->
             <div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:19px;font-weight:600;letter-spacing:0.12em;color:#F9FAFD;">
-              <span style="color:#838A97;">|</span><span style="color:#52FC43;">S</span>tint<span style="color:#838A97;">|</span>
+              |Stint|
             </div>
           </td>
         </tr>
@@ -36,39 +61,58 @@
         <tr>
           <td style="padding:22px 28px 0 28px;">
             <div style="font-size:15px;line-height:1.5;color:#CACED7;">
-              Enter this code to sign in:
+              Click to sign in on the web:
             </div>
           </td>
         </tr>
 
         <tr>
-          <td style="padding:14px 28px 0 28px;">
-            <!-- The code itself. Large, monospaced and spaced out: this is the
-                 one thing in the email that gets read character by character
-                 and retyped, so it is set to be copied by eye. -->
-            <div style="background:#202328;border:1px solid #2F333A;border-radius:8px;padding:18px 12px;text-align:center;">
-              <span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:32px;font-weight:600;letter-spacing:0.14em;color:#F9FAFD;">{{ slice .Token 0 3 }}<span style="color:#838A97;">-</span>{{ slice .Token 3 6 }}</span>
+          <td style="padding:16px 28px 0 28px;">
+            <!-- A real <a> styled as a button, not a <button>: mail clients
+                 do not run forms, and Outlook drops padding on inline anchors
+                 unless they are display:block inside a table cell. -->
+            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td align="center" bgcolor="#52FC43" style="border-radius:8px;">
+                  <a href="{{ .ConfirmationURL }}"
+                     style="display:block;padding:14px 24px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;font-weight:600;letter-spacing:0.08em;color:#111316;text-decoration:none;">
+                    OPEN STINT
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:24px 28px 0 28px;">
+            <!-- The code, for the menu bar app, which cannot follow a link.
+                 Below the button because most sign-ins are on the web, and
+                 beneath its own rule because it is an alternative rather than
+                 a step: nobody needs both. -->
+            <div style="border-top:1px solid #2F333A;padding-top:20px;font-size:13px;line-height:1.5;color:#838A97;">
+              Signing in on the Mac menu bar? Enter this code instead:
             </div>
           </td>
         </tr>
 
         <tr>
-          <td style="padding:14px 28px 0 28px;">
+          <td style="padding:12px 28px 0 28px;">
+            <div style="background:#202328;border:1px solid #2F333A;border-radius:8px;padding:14px 12px;text-align:center;">
+              <span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:26px;font-weight:600;letter-spacing:0.14em;color:#F9FAFD;">{{ slice .Token 0 3 }}<span style="padding-left:0.34em;">{{ slice .Token 3 6 }}</span></span>
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:18px 28px 28px 28px;">
             <div style="font-size:13px;line-height:1.5;color:#838A97;">
-              It expires shortly and can only be used once. If you did not ask
-              to sign in, you can ignore this email.
+              Either one expires shortly and can only be used once. If you did
+              not ask to sign in, you can ignore this email.
             </div>
           </td>
         </tr>
 
-        <tr>
-          <td style="padding:20px 28px 28px 28px;">
-            <div style="border-top:1px solid #2F333A;padding-top:18px;font-size:13px;line-height:1.5;color:#838A97;">
-              Signing in on the web instead?
-              <a href="{{ .ConfirmationURL }}" style="color:#CACED7;text-decoration:underline;">Open Stint</a>.
-            </div>
-          </td>
-        </tr>
       </table>
     </td>
   </tr>

@@ -125,6 +125,33 @@ because an empty app is a poor test of one:
 
 Dates are relative to `now()`, so the current week is always populated.
 
+## One email, two clients
+
+`supabase/templates/magic_link.html` is the sign-in email, and GoTrue allows
+**one** magic-link template — so it has to read correctly whichever client you
+started from. The web app opens the link; the macOS panel takes the six-digit
+code, because a link cannot cross from a browser into another application.
+
+**Neither is the footnote.** It was written for the desktop case first: the
+code was a 32px hero and the link a small "Signing in on the web instead?"
+line under a divider, with a subject reading *"Your Stint sign-in code"*. Most
+sign-ins are on the web, so that buried the common path under the rare one —
+and the subject is the whole of what you see in an inbox list. The button
+leads now, the code sits below a rule as a labelled alternative, and the
+subject is *"Sign in to Stint"*, which names neither.
+
+The wordmark is **one flat `#F9FAFD`**, matching `wordmark.tsx`. It had a
+green `S` and grey pipes, which is the macOS lockup rather than the app's —
+green means the running timer, and the only green in this email is the button.
+
+Both parts must survive in the **plaintext** body as well: `e2e/mailpit.ts`
+reads the text part, not the HTML.
+
+**GoTrue reads the template at startup.** Editing it changes nothing until
+`pnpm dev:down && pnpm dev:up` — the file on disk and the email you are
+looking at will disagree until then, which reads as the edit not having
+worked.
+
 ## Seeding your own account
 
 `seed.sql` belongs to `dev@localhost.test` — the account the e2e suite
