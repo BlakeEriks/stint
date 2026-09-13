@@ -910,3 +910,202 @@ test('stats sees only its own user’s work', async () => {
   assert.equal(res.body.unbilled.total, 200, 'eight of their hours are absent');
   assert.equal(res.body.unbilled.byClient.length, 1);
 });
+
+// ── stale drafts ───────────────────────────────────────────────────
+// A draft holds no invoice number and has not been sent, so it is not money
+// owed — it is a job half finished. It earns an inbox row because the work is
+// already billed to nobody: entries sit locked to a draft that never went out.
+
+test('a draft is stale only after a week, and the oldest sorts first', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-000000000009';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Drafty')`,
+    [c, USER],
+  );
+
+  const dayKey = (offset: number) =>
+    new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+
+  const mk = (id: string, num: string, issued: string, status = 'draft') =>
+    pool.query(
+      `insert into invoices
+         (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+          subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
+       values ($1,$2,$3,$4,$5,$6,$7,100,0,0,100,'USD','entry')`,
+      [id, USER, c, num, Number(num.slice(-1)), status, issued],
+    );
+
+  await mk('45444444-0000-4000-8000-000000000001', 'INV-0001', dayKey(-2));
+  await mk('45444444-0000-4000-8000-000000000002', 'INV-0002', dayKey(-9));
+  await mk('45444444-0000-4000-8000-000000000003', 'INV-0003', dayKey(-30));
+  // A SENT invoice of the same age is not a stale draft: it was finished and
+  // delivered, and it belongs to the overdue rule instead.
+  await mk(
+    '45444444-0000-4000-8000-000000000004',
+    'INV-0004',
+    dayKey(-30),
+    'sent',
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const numbers = res.body.attention.staleDrafts.map(
+    (d: { invoiceNumber: string }) => d.invoiceNumber,
+  );
+
+  /* Oldest first: the row least likely to still be in anyone's head. Two days
+     old is a draft someone is actively working on, not a forgotten one. */
+  assert.deepEqual(numbers, ['INV-0003', 'INV-0002'], 'a 2-day draft is fine');
+  assert.equal(res.body.attention.staleDrafts[0].ageDays, 30);
+  assert.equal(res.body.attention.staleDrafts[1].ageDays, 9);
+});
+
+test('a stale draft carries the money and the client it belongs to', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-00000000000a';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Namely',100)`,
+    [c, USER],
+  );
+  const p = '33333333-0000-4000-8000-0000000000a1';
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  /* The rollup only returns clients with UNBILLED work, so the name map is
+     built from it — a client whose work is entirely invoiced is absent and
+     the row falls back to null. This entry keeps it present, which is the
+     path the inbox actually renders. */
+  await entryFor({ id: S(40), projectId: p, hours: 1 });
+
+  await pool.query(
+    `insert into invoices
+       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+        subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
+     values ($1,$2,$3,'INV-0009',9,'draft',$4,400,0,0,400,'USD','entry')`,
+    [
+      '45444444-0000-4000-8000-000000000009',
+      USER,
+      c,
+      new Date(Date.now() - 20 * 86_400_000).toISOString().slice(0, 10),
+    ],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const [draft] = res.body.attention.staleDrafts;
+  assert.equal(draft.clientName, 'Namely');
+  assert.equal(draft.amount, 400);
+  assert.equal(draft.currency, 'USD');
+});
+
+// ── unprojected work ───────────────────────────────────────────────
+// Entries with no project cannot resolve a rate beyond the user default, so
+// they are billable work heading for an invoice that cannot be generated.
+
+test('unprojected is null rather than a zero row when everything has a project', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-00000000000b';
+  const p = '33333333-0000-4000-8000-0000000000b1';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Tidy',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await entryFor({ id: S(41), projectId: p, hours: 2 });
+
+  /* NULL, not `{count: 0}`. The UI renders the row from the object's
+     existence, so a zero row would print "0 entries, no project" — an inbox
+     item reporting that there is nothing to report. */
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.attention.unprojected, null);
+});
+
+test('unprojected counts the entries and their seconds', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  await entryFor({ id: S(42), projectId: null, hours: 2 });
+  await entryFor({ id: S(43), projectId: null, hours: 1 });
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.attention.unprojected.count, 2);
+  assert.equal(res.body.attention.unprojected.seconds, 3 * 3600);
+});
+
+test('unprojected ignores work that is billed, running or non-billable', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-00000000000c';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Mixed')`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into invoices
+       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+        subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
+     values ($1,$2,$3,'INV-0010',10,'sent','2026-09-01',100,0,0,100,'USD','entry')`,
+    ['45444444-0000-4000-8000-000000000010', USER, c],
+  );
+
+  // The one row that should count: unprojected, unbilled, billable, ended.
+  await entryFor({ id: S(44), projectId: null, hours: 1 });
+
+  // Already on an invoice — the rate question was settled at generation.
+  await pool.query(
+    `insert into time_entries
+       (id,user_id,project_id,task_name,started_at,ended_at,is_billable,invoice_id)
+     values ($1,$2,null,'billed','2026-09-09T09:00:00Z','2026-09-09T12:00:00Z',
+             true,$3)`,
+    [S(45), USER, '45444444-0000-4000-8000-000000000010'],
+  );
+
+  // Non-billable: no rate is MEANT to resolve, so it is not a problem.
+  await entryFor({ id: S(46), projectId: null, hours: 4, billable: false });
+
+  // Still running, so it has no duration yet and the timer bar owns it.
+  await pool.query(
+    `insert into time_entries
+       (id,user_id,project_id,task_name,started_at,is_billable)
+     values ($1,$2,null,'running','2026-09-10T09:00:00Z',true)`,
+    [S(47), USER],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.attention.unprojected.count, 1, 'only the open one');
+  assert.equal(res.body.attention.unprojected.seconds, 3600);
+});
+
+test('attention rows are scoped to their own user', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const theirs = '33333333-0000-4000-8000-00000000000d';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Theirs')`,
+    [theirs, OTHER],
+  );
+  // Their stale draft, their unprojected entry. Neither is ours to act on,
+  // and an inbox that shows another user's money is the worst kind of wrong.
+  await pool.query(
+    `insert into invoices
+       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+        subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
+     values ($1,$2,$3,'INV-0099',99,'draft','2026-01-01',500,0,0,500,'USD','entry')`,
+    ['45444444-0000-4000-8000-000000000099', OTHER, theirs],
+  );
+  await pool.query(
+    `insert into time_entries
+       (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+     values ($1,$2,null,'theirs','2026-09-09T09:00:00Z','2026-09-09T17:00:00Z',true)`,
+    [S(48), OTHER],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(res.body.attention.staleDrafts, []);
+  assert.equal(res.body.attention.unprojected, null);
+});
