@@ -676,142 +676,19 @@ documented timer and title roles went unapplied. See
 
 ### Layout
 
-The nav is **sections and nothing else** (`nav.tsx`) — the wordmark moved to
-the header and the running timer to the docked bar, so it is purely places you
-go, which is what it always claimed to be.
+Header, rail, content column, dock, timer bar — `screens/frame.html` shows the
+three arrangements and what changes at each breakpoint, plus the account menu
+and the error boundaries.
 
-**It is a vertical rail at `lg` and up, and a horizontal strip below.** The
-rail costs a fixed 208px whatever the window, and below 1024 the content is
-still a single column — so at 900px it spent 208px holding 183px of labels
-while the cards made do with 692. `lg` is where the cards go two-column and
-the width starts being *used* rather than just occupied; switching there took
-the content at 900px from 692px to the full 900.
+Two things that govern code rather than this frame:
 
-The strip needs 596px for five sections, so it fits at every width where it is
-shown and scrolls horizontally below that rather than wrapping — which is what
-keeps the header row one row tall on a phone.
+**`(app)/error.tsx` is nested inside the group on purpose**, so a failing
+screen replaces the content column and the running timer keeps counting. Do
+not move it to the root; `e2e/error-boundary.spec.ts` fails if you do.
 
-**The rail does not scroll with the content.** At `sm` and up the page itself
-is pinned (`h-dvh` + `overflow-hidden`) and the content column scrolls inside
-itself; the rail is a sibling of that scroller, so it stays put without being
-`position: fixed` and without anything needing a scroll offset. Note this is
-`sm`, not `lg` — the pinned frame and the nav's axis are separate decisions
-and were separated when the nav moved. Below `sm` the whole page scrolls.
-
-**Adding a section costs little in the rail** — a fixed `lg:w-52` growing
-downward into empty space — but it costs real width in the strip, which is now
-shown up to 1024px rather than only on phones. Five sections use 596 of the
-640 available at the narrowest width that shows labels. A sixth scrolls, which
-is a graceful degradation rather than a break, but it is no longer free. The
-real bar is still on content: a screen ships if it carries a number the user
-cannot compute in their head, or rows they can act on.
-
-The **account menu** sits at the foot of the rail (`account-menu.tsx`),
-showing the signed-in email and holding **Settings**, **Appearance** and
-**Sign out**. Settings is deliberately not in the rail's section list: the
-rail is places you go, and configuration visited rarely does not belong
-beside Home and Calendar.
-
-**Appearance (dark/light) lives here, not in Settings and not in the rail.**
-Settings is business configuration — billing defaults, invoice identity,
-numbering, payment profiles — and a theme is not that; it is the one genuinely
-personal preference the app has. Not the rail either: a control is not a
-destination, and it would spend a rail slot on something touched once.
-
-**There is no "System" option, on purpose.** The palette is dark-first — the
-token file keys its light block to an explicit `[data-theme="light"]`, so a
-light OS preference does not flip the surfaces. "System" would resolve to dark
-for everyone, including a viewer whose OS is light: a control that appears to
-do something and does nothing. See `docs/design/brand.html` for what to change
-if the app should ever follow the OS for real.
-
-**It is not a Profile page, and that was a decision.** Settings is entirely
-business configuration — billing defaults, invoice identity, numbering,
-payment profiles — and none of it is "who am I". A profile for a single-user
-app holds an email, a sign-out and eventually a theme: three items, not a
-page. The email *is* the account; there is no name, avatar or organisation.
-
-**This is where sign-out lives, and the app previously had none at all** —
-you could get in and not out. `signOut()` then `router.replace('/signin')`
-*and* `router.refresh()`: the server components were rendered for a signed-in
-user, so without the refresh a Back navigation shows cached authenticated
-markup.
-
-Relatedly, `request()` in `api.ts` sends any **401** to `/signin`. Without it
-a signed-out page rendered its shell and sat on "Loading…" forever — React
-Query has `retry: false`, so the 401 never resolved into anything actionable.
-Hitting Back after signing out did exactly that.
-
-**A screen fails; the app does not.** `(app)/error.tsx` is nested inside the
-group, so it replaces the CONTENT COLUMN and nothing else — the rail, the
-header, the inbox and **the running timer** all keep rendering. That placement
-is the whole point: the timer is billable work in progress, and a full-page
-error screen that unmounts it is the app losing track of time it was trusted
-to keep. `reset()` re-renders the segment without a reload, so the timer's
-local tick survives the recovery too. Verified by inducing a throw: the timer
-went 11:00:33 → 11:00:50 across the failure and back.
-
-`global-error.tsx` is the last resort, for the root layout itself failing. It
-renders its own `<html>`/`<body>` and **cannot use the design tokens** — the
-stylesheet is imported by the layout that is not rendering — so its styles are
-inline token *values*. That is the one place in the app where a hardcoded hex
-is correct, and it is dark unconditionally, since nothing is there to stamp
-`[data-theme]`.
-
-**`/throw` is a development-only route that exists to test this**, because
-nothing else in the app can be made to fail from the outside: a missing
-invoice renders "Not found.", a failed fetch renders its own message, a 401
-redirects. That is the app being correct, and it leaves the boundary
-unreachable without editing a component. `notFound()` makes the route a 404 in
-production — verified against a real build, not assumed.
-`e2e/error-boundary.spec.ts` drives it and asserts the rail AND the stop
-button survive; moving the boundary to the root fails that test, which is the
-property jsdom cannot check.
-
-Both show `error.digest` when present. Next withholds a server error's message
-from the client in production so an internal detail cannot leak onto someone's
-screen; the digest is what ties the screen to the server log, so a user who
-can quote it makes a bug report actionable.
-
-**A card's header rule is inset, never a full-width border.** The divider
-between a card header and its content is a `mx-4 border-t` div, holding the
-same `px-4` the rows below it use. A `border-b` on the header itself runs edge
-to edge and cuts the panel in two, which reads as two stacked cards rather
-than one card with a header. The shared `Card` in `home-cards.tsx` is the
-reference; `activity-strip.tsx` matches it by hand because it predates the
-shell. `field.tsx` deliberately has none — its title is followed by its own
-description, and a rule there would separate the two.
-
-`Page` (`page.tsx`) owns the content column. Every screen used to carry its
-own copy of `mx-auto max-w-3xl px-4 py-8 …`, which is how the calendar ended
-up silently on a different width. `wide` is for screens that are a grid rather
-than a column.
-
-**Its top padding follows the NAV's breakpoint (`lg`), not its own (`sm`).**
-At `lg` and up the rail sits *beside* the content, so the column opens against
-the top of the frame and wants the full 40px inset; below it the nav is a
-horizontal strip directly above, and the same 40px stops reading as margin and
-starts reading as a gap. That was first noticed on a phone and is just as true
-at 900px — which is why the two are now tied together rather than both
-guessing at `sm`. The horizontal padding is a separate question and still
-steps at `sm`; the bottom still needs clearance above the docked timer bar.
-
-**The default `Button` variant is neutral.** The accent is opt-in via
-`variant="accent"`, because the previous default painted every primary action
-green while the rail's running timer was also green — two accent meanings in
-view, which the accent rule exists to prevent. Adding a client is not the most
-important thing on the clients page. Tested, and the test was verified to fail
-when the default goes back to the accent.
-
-**Buttons and nav carry icons, and an additive action carries a `+`.** Text +
-colour + icon is more legible than any single channel, and the plus reads
-before the label does. Icons are `aria-hidden` so the accessible name stays
-the label alone — a screen reader should not announce "plus".
-
-`lucide-react` is **already a dependency** (shadcn's dialog and dropdown use
-it); no icon library needed to be added. Icons never appear alone in nav: an
-icon is a fast second channel for a destination you already know and useless
-for one you do not, so the label is what makes it findable the first time.
+**`Page` owns the content column.** Every screen used to carry its own copy of
+`mx-auto max-w-3xl px-4 py-8 …`, which is how the calendar ended up silently
+on a different width.
 
 ### Components
 

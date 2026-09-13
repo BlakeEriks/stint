@@ -1,0 +1,354 @@
+<meta charset="utf-8">
+<title>Stint Frame</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_mockup.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg-primary); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 88ch; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  .standfirst { margin: 0 0 1rem; color: var(--text-muted); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
+  .caption {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-subtle);
+    display: block; margin-top: .7rem;
+  }
+  table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+  th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  th {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle); font-weight: 500;
+  }
+  td { font-size: 14px; }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-strong); }
+  code { font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); }
+  .rule { list-style: none; margin: 1rem 0 0; padding: 0; }
+  .rule li { position: relative; padding-left: 1.5rem; margin-bottom: .85rem; }
+  .rule li::before {
+    content: ''; position: absolute; left: 0; top: .55em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--border-control);
+  }
+  .rule strong { color: var(--text-strong); font-weight: 600; }
+
+  /* ── miniature frames ─────────────────────────────────────────── */
+  .mini {
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px; overflow: hidden;
+    display: flex; flex-direction: column;
+    background: var(--bg-recessed);
+    margin-top: 1.25rem;
+  }
+  .mini .hd {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 10px; border-bottom: 1px solid var(--border-subtle);
+    font-size: 11px;
+  }
+  .mini .mid { display: flex; flex: 1; min-height: 0; }
+  .mini .rail {
+    flex: none; width: 104px;
+    background: var(--bg-base);
+    border-right: 1px solid var(--border-subtle);
+    padding: 8px 6px; display: flex; flex-direction: column; gap: 3px;
+  }
+  .mini .strip {
+    background: var(--bg-base);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 6px; display: flex; gap: 4px; overflow-x: auto;
+  }
+  .mini .navitem {
+    font-family: var(--font-mono); font-size: 8.5px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text-muted);
+    padding: 4px 6px; border-radius: 4px; white-space: nowrap; flex: none;
+  }
+  .mini .navitem.on { background: var(--bg-primary); color: var(--text-strong); box-shadow: var(--shadow-card); }
+  .mini .content { flex: 1; min-width: 0; background: var(--bg-primary); padding: 10px; }
+  .mini .card {
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: 6px; box-shadow: var(--shadow-card);
+    height: 34px; margin-bottom: 6px;
+  }
+  .mini .dock {
+    flex: none; width: 92px; background: var(--bg-base);
+    border-left: 1px solid var(--border-subtle); padding: 8px;
+  }
+  .mini .dockband {
+    background: var(--bg-base); border-top: 1px solid var(--border-subtle);
+    padding: 8px 10px;
+  }
+  .mini .bar {
+    border-top: 1px solid var(--border-subtle);
+    padding: 8px 10px; display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 10px;
+  }
+  .mini .pip { width: 6px; height: 6px; border-radius: 50%; background: var(--timer-idle); flex: none; }
+  .mini .lbl {
+    font-family: var(--font-mono); font-size: 8px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-subtle);
+  }
+
+  .w-lg { width: 100%; height: 300px; }
+  .w-md { width: 460px; height: 300px; }
+  .w-sm { width: 280px; height: 330px; }
+
+  .planes { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1.25rem; }
+  .plane { width: 150px; }
+  .plane .fill { height: 44px; border-radius: 6px; border: 1px solid var(--border-subtle); }
+  .plane .n { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-primary); margin-top: .4rem; display: block; }
+  .plane .w { font-family: var(--font-mono); font-size: 10px; color: var(--text-subtle); }
+</style>
+
+<div class="page">
+
+  <span class="eyebrow">Stint · Screens</span>
+  <h1>The frame</h1>
+  <p class="standfirst">
+    Header, rail, content column, dock and timer bar — what every screen
+    renders inside. Copy <code>_shell.html</code> to start a screen doc.
+  </p>
+
+  <!-- ───────────────────────── arrangements ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Three arrangements</span></div>
+
+    <div class="mini w-lg">
+      <div class="hd"><span class="mark" style="font-size:13px;color:var(--text-strong)">Stint</span><span class="lbl">you@yourdomain.com</span></div>
+      <div class="mid">
+        <div class="rail">
+          <span class="navitem on">Home</span>
+          <span class="navitem">Calendar</span>
+          <span class="navitem">Clients</span>
+          <span class="navitem">Projects</span>
+          <span class="navitem">Invoices</span>
+        </div>
+        <div class="content"><div class="card"></div><div class="card"></div></div>
+        <div class="dock"><span class="lbl">Inbox</span></div>
+      </div>
+      <div class="bar"><span class="pip"></span><span style="color:var(--text-subtle)">What are you working on?</span><span style="margin-left:auto;color:var(--timer-idle)">0:00:00</span></div>
+    </div>
+    <span class="caption">xl and up — rail beside content, dock its own column</span>
+
+    <div class="mini w-md">
+      <div class="hd"><span class="mark" style="font-size:13px;color:var(--text-strong)">Stint</span><span class="lbl">you@…</span></div>
+      <div class="mid">
+        <div class="rail">
+          <span class="navitem on">Home</span>
+          <span class="navitem">Calendar</span>
+          <span class="navitem">Clients</span>
+          <span class="navitem">Projects</span>
+          <span class="navitem">Invoices</span>
+        </div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+          <div class="content" style="flex:1"><div class="card"></div></div>
+          <div class="dockband"><span class="lbl">Inbox</span></div>
+        </div>
+      </div>
+      <div class="bar"><span class="pip"></span><span style="color:var(--text-subtle)">What are you working on?</span><span style="margin-left:auto;color:var(--timer-idle)">0:00:00</span></div>
+    </div>
+    <span class="caption">lg to xl — rail beside content, dock a band beneath it</span>
+
+    <div class="mini w-sm">
+      <div class="hd"><span class="mark" style="font-size:12px;color:var(--text-strong)">Stint</span><span class="lbl">you@…</span></div>
+      <div class="strip">
+        <span class="navitem on">Home</span>
+        <span class="navitem">Calendar</span>
+        <span class="navitem">Clients</span>
+        <span class="navitem">Projects</span>
+        <span class="navitem">Invoices</span>
+      </div>
+      <div class="mid" style="flex-direction:column">
+        <div class="content" style="flex:1"><div class="card"></div></div>
+        <div class="dockband"><span class="lbl">Inbox</span></div>
+      </div>
+      <div class="bar"><span class="pip"></span><span style="color:var(--text-subtle)">Task…</span><span style="margin-left:auto;color:var(--timer-idle)">0:00:00</span></div>
+    </div>
+    <span class="caption">Below lg — the nav is a horizontal strip that scrolls</span>
+
+    <table>
+      <tr><th>Breakpoint</th><th>What changes</th><th>Why there</th></tr>
+      <tr>
+        <td class="num">sm</td>
+        <td>The page stops scrolling; the content column scrolls inside itself</td>
+        <td>The rail is a sibling of that scroller, so it stays put with no <code>position: fixed</code> and nothing needing a scroll offset</td>
+      </tr>
+      <tr>
+        <td class="num">lg</td>
+        <td>Nav becomes a vertical rail, 208px</td>
+        <td>Where cards go two-column. At 900px the rail held 183px of labels in 208px while the cards made do with 692 — moving it took the content to the full 900</td>
+      </tr>
+      <tr>
+        <td class="num">xl</td>
+        <td>The dock becomes its own scrolling column</td>
+        <td>Below it the dock scrolls with the page it summarises</td>
+      </tr>
+    </table>
+
+    <p style="margin-top:1.5rem">
+      The strip needs 596px for five sections and is shown up to 1024px, so it
+      fits at every width where labels are visible and scrolls horizontally
+      below that rather than wrapping — which keeps the header one row tall on
+      a phone. A sixth section scrolls, which is graceful, but it is no longer
+      free.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── planes ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Four planes</span></div>
+
+    <div class="planes">
+      <div class="plane"><div class="fill" style="background:var(--bg-recessed)"></div><span class="n">bg-recessed</span><span class="w">header, timer bar</span></div>
+      <div class="plane"><div class="fill" style="background:var(--bg-base)"></div><span class="n">bg-base</span><span class="w">rail, dock</span></div>
+      <div class="plane"><div class="fill" style="background:var(--bg-primary)"></div><span class="n">bg-primary</span><span class="w">content column</span></div>
+      <div class="plane"><div class="fill" style="background:var(--bg-elevated); box-shadow:var(--shadow-card)"></div><span class="n">bg-elevated</span><span class="w">cards</span></div>
+    </div>
+
+    <p style="margin-top:1.5rem">
+      Depth increases toward what is being read. The active rail item lifts to
+      the content plane and takes the card shadow, which is what makes the
+      rail read as a tab strip into the column beside it.
+      <code>brand.html</code> carries the ramp.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── the column ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The content column</span></div>
+
+    <p>
+      <code>Page</code> owns the measure — every screen used to carry its own
+      copy of <code>mx-auto max-w-3xl px-4 py-8 …</code>, which is how the
+      calendar ended up silently on a different width.
+    </p>
+
+    <table>
+      <tr><th>Property</th><th>Value</th></tr>
+      <tr><td>Measure</td><td class="num">48rem, or 72rem with <code>wide</code></td></tr>
+      <tr><td>Top padding</td><td>Steps at <code>lg</code> — the nav's breakpoint, not its own</td></tr>
+      <tr><td>Horizontal padding</td><td>Steps at <code>sm</code></td></tr>
+    </table>
+
+    <p style="margin-top:1.25rem">
+      The top padding follows the NAV because at <code>lg</code> the rail sits
+      beside the content and the column opens against the top of the frame,
+      wanting the full 40px. Below it the nav is a strip directly above, and
+      the same 40px reads as a gap rather than margin.
+    </p>
+
+    <ul class="rule">
+      <li><strong>A card's header rule is inset</strong> — a <code>mx-4
+        border-t</code> div holding the same padding as the rows below it. A
+        <code>border-b</code> on the header runs edge to edge and cuts the
+        panel in two, which reads as two stacked cards.</li>
+      <li><strong>The default <code>Button</code> is neutral</strong>; the
+        accent is opt-in. The previous default painted every primary action
+        green while the running timer was also green. Adding a client is not
+        the most important thing on the clients page.</li>
+      <li><strong>Buttons and nav carry icons, and an additive action carries
+        a <code>+</code>.</strong> Icons are <code>aria-hidden</code>, so the
+        accessible name stays the label alone. They never appear alone in
+        nav — an icon is a fast second channel for a destination you already
+        know and useless for one you do not.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── account ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The account menu</span></div>
+
+    <p>
+      At the foot of the rail: the signed-in email, <strong
+      style="color:var(--text-strong)">Settings</strong>, <strong
+      style="color:var(--text-strong)">Appearance</strong> and <strong
+      style="color:var(--text-strong)">Sign out</strong>.
+    </p>
+
+    <ul class="rule">
+      <li><strong>Settings is not a rail section.</strong> The rail is places
+        you go; configuration visited rarely belongs beside Home and
+        Calendar.</li>
+      <li><strong>Appearance lives here, not in Settings.</strong> Settings is
+        business configuration — billing defaults, invoice identity,
+        numbering, payment profiles — and a theme is the one genuinely
+        personal preference the app has. Not the rail either: a control is not
+        a destination.</li>
+      <li><strong>Dark and light only.</strong> The palette is dark-first, so
+        "System" would resolve to dark for everyone including a viewer whose
+        OS is light — a control that appears to do something and does nothing.
+        <code>deriving-colour.md</code> says what to change to follow the OS
+        for real.</li>
+      <li><strong>Sign out is <code>signOut()</code> then
+        <code>router.replace('/signin')</code> AND
+        <code>router.refresh()</code>.</strong> The server components were
+        rendered for a signed-in user, so without the refresh a Back
+        navigation shows cached authenticated markup. Relatedly,
+        <code>request()</code> sends any 401 to <code>/signin</code> —
+        without it a signed-out page sat on "Loading…" forever, since React
+        Query has <code>retry: false</code>.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── errors ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">A screen fails; the app does not</span></div>
+
+    <div class="mini w-md" style="height:240px">
+      <div class="hd"><span class="mark" style="font-size:13px;color:var(--text-strong)">Stint</span><span class="lbl">you@…</span></div>
+      <div class="mid">
+        <div class="rail">
+          <span class="navitem on">Home</span>
+          <span class="navitem">Calendar</span>
+          <span class="navitem">Clients</span>
+        </div>
+        <div class="content" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px">
+          <span style="font-size:12px;color:var(--text-strong)">Something went wrong</span>
+          <span class="lbl">digest 4f2a91c</span>
+        </div>
+      </div>
+      <div class="bar"><span class="pip" style="background:var(--accent-default)"></span><span style="color:var(--text-strong)">API integration</span><span style="margin-left:auto;color:var(--accent-default)">1:47:32</span></div>
+    </div>
+    <span class="caption">The content column is replaced; the timer keeps counting</span>
+
+    <p style="margin-top:1.5rem">
+      <code>(app)/error.tsx</code> is nested inside the group, so it replaces
+      the content column and nothing else. That placement is the point: the
+      timer is billable work in progress, and a full-page error screen that
+      unmounts it is the app losing track of time it was trusted to keep.
+      <code>reset()</code> re-renders the segment without a reload, so the
+      local tick survives the recovery.
+    </p>
+    <p>
+      <code>global-error.tsx</code> is the last resort, for the root layout
+      itself failing. It renders its own <code>&lt;html&gt;</code> and cannot
+      use the design tokens — the stylesheet is imported by the layout that is
+      not rendering — so its styles are inline token <em>values</em>. That is
+      the one place in the app where a hardcoded hex is correct, and it is
+      dark unconditionally since nothing is there to stamp
+      <code>[data-theme]</code>.
+    </p>
+    <p>
+      Both show <code>error.digest</code> when present. Next withholds a
+      server error's message in production, so the digest is what ties the
+      screen to the server log and makes a bug report actionable.
+    </p>
+    <p>
+      <code>/throw</code> is a development-only route that exists to test
+      this, because nothing else in the app can be made to fail from the
+      outside: a missing invoice renders "Not found.", a failed fetch renders
+      its own message, a 401 redirects. <code>notFound()</code> makes it a 404
+      in production. <code>e2e/error-boundary.spec.ts</code> asserts the rail
+      AND the stop button survive — moving the boundary to the root fails that
+      test, which is the property jsdom cannot check.
+    </p>
+  </section>
+
+</div>
