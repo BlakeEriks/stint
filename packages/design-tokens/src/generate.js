@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { renderSwatches } from './swatches.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const tokens = JSON.parse(readFileSync(join(root, 'tokens.json'), 'utf8'));
@@ -258,4 +259,10 @@ ${Object.values(tokens.primitive.project)
 `;
 writeFileSync(join(out, 'Tokens.swift'), swift);
 
-console.log('generated: tokens.css, tokens.ts, Tokens.swift');
+// ── Swatch page (visual reference) ─────────────────────────────────
+// Built from the same tokens as everything above, so it cannot drift the way
+// a hand-maintained palette page does. `resolve` is passed in rather than
+// re-implemented, so a bad reference fails here exactly as it does elsewhere.
+writeFileSync(join(out, 'swatches.html'), renderSwatches(tokens, resolve));
+
+console.log('generated: tokens.css, tokens.ts, Tokens.swift, swatches.html');
