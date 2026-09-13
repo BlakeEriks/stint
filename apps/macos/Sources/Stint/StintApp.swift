@@ -64,8 +64,21 @@ struct StintApp: App {
                         ? NSColor(Tokens.Dark.accentDefault)
                         : nil
                 ))
+                /* Right-aligned in a fixed slot, so the MARK never moves.
+                   `MenuBarExtra` centres its whole label, so a clock that
+                   grows from 9:59:59 to 10:00:00 re-centres everything and
+                   slides the icon left — small, constant, and exactly the
+                   kind of drift that makes a menu bar feel unsettled.
+                   `monospacedDigit` does not help: the digit COUNT changes,
+                   not the glyph widths.
+
+                   57pt is measured, not guessed: at the menu bar's 13pt font
+                   `9:59:59` is 48.1pt and `10:00:00` is 56.2pt, which is the
+                   8pt slide you can see. The slot holds the wider of the two,
+                   so the only jump left is past 100 hours. */
                 Text(model.menuBarTitle)
                     .monospacedDigit()
+                    .frame(width: 57, alignment: .trailing)
             }
         }
         .menuBarExtraStyle(.window)

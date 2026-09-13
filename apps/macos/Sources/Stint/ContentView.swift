@@ -144,6 +144,39 @@ private struct TimerPanel: View {
     }
 }
 
+/// A button that shows where the keyboard is.
+///
+/// `.buttonStyle(.plain)` is what the panel's buttons need visually — none of
+/// them want AppKit's bezel — but it also drops the focus ring, so a Tab that
+/// lands on one is invisible. This puts the ring back without the bezel.
+///
+/// **Tab reaching a button at all is a system setting**, not something an app
+/// controls: with "Keyboard navigation" off (the macOS default) the Tab order
+/// holds text fields only, in every app. This makes the app correct for people
+/// who have it on rather than pretending to fix it for those who do not.
+private struct Focusable: ViewModifier {
+    @FocusState private var focused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .focusable()
+            .focused($focused)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(
+                        focused ? Tokens.Dark.borderFocus : .clear,
+                        lineWidth: 2
+                    )
+                    .padding(-2)
+            )
+    }
+}
+
+extension View {
+    /// Keyboard-reachable, with a ring that says so.
+    func keyboardReachable() -> some View { modifier(Focusable()) }
+}
+
 /// What is running: a dot, the task name, and a pencil to rename it.
 ///
 /// A readout, not a form. The entry already has a name, so the idle field's
@@ -328,6 +361,7 @@ private struct StartStopButton: View {
             }
         }
         .buttonStyle(.plain)
+        .keyboardReachable()
         .disabled(model.isBusy)
         .opacity(model.isBusy ? 0.6 : 1)
         .accessibilityLabel(model.isRunning ? "Stop timer" : "Start timer")
@@ -384,6 +418,13 @@ private struct SignInPanel: View {
     @State private var email = ""
     @State private var code = ""
     @State private var sent = false
+
+    /* Which field the caret belongs in. The panel is opened to do exactly one
+       thing, so landing somewhere you have to click first is a wasted step —
+       and on the code screen it is worse than wasted, because the code is in
+       another window and you are already typing. */
+    @FocusState private var focus: Field?
+    private enum Field { case email, code }
     @State private var busy = false
     @State private var error: String?
 
@@ -399,6 +440,7 @@ private struct SignInPanel: View {
 
             if !sent {
                 TextField("you@example.com", text: $email)
+                    .focused($focus, equals: .email)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
                     .foregroundStyle(Tokens.Dark.textStrong)
@@ -418,6 +460,7 @@ private struct SignInPanel: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
+                .keyboardReachable()
                 .disabled(busy || email.isEmpty)
             } else {
                 Text("We sent a six-digit code to \(email).")
@@ -430,7 +473,8 @@ private struct SignInPanel: View {
                    one that opened it, and every way of doing that is either
                    insecure (the clipboard) or silently refused (a browser
                    following a redirect into a custom scheme). */
-                TextField("000000", text: $code)
+                TextField("000-000", text: $code)
+                    .focused($focus, equals: .code)
                     .textFieldStyle(.plain)
                     .font(.system(size: 20, weight: .medium, design: .monospaced))
                     .tracking(6)
@@ -440,10 +484,20 @@ private struct SignInPanel: View {
                     .background(Tokens.Dark.bgElevated)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .onChange(of: code) { _, entered in
-                        // Digits only, six of them: a pasted code often
-                        // arrives with a space or a stray character.
+                        /* Shown as xxx-xxx, matching the email, so what is on
+                           screen can be compared to what was sent without
+                           re-grouping it by eye. The hyphen is inserted as you
+                           type and stripped before sending — it is a grouping
+                           mark, not part of the code.
+
+                           Typing over the whole field also has to work, which
+                           is why this rebuilds the display from the digits
+                           rather than appending to what is there. */
                         let digits = String(entered.filter(\.isNumber).prefix(6))
-                        if digits != entered { code = digits }
+                        let shown = digits.count > 3
+                            ? "\(digits.prefix(3))-\(digits.dropFirst(3))"
+                            : digits
+                        if shown != entered { code = shown }
                         // Submitting itself at six saves a keystroke on the
                         // one screen where there is nothing else to do.
                         if digits.count == 6 { verify() }
@@ -460,7 +514,8 @@ private struct SignInPanel: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
-                .disabled(busy || code.count < 6)
+                .keyboardReachable()
+                .disabled(busy || code.filter(\.isNumber).count < 6)
 
                 Button("Use a different email") {
                     sent = false
@@ -487,10 +542,26 @@ private struct SignInPanel: View {
                 .foregroundStyle(Tokens.Dark.textSubtle)
         }
         .padding(14)
+        /* The panel is rebuilt every time it opens (MenuBarExtra tears its
+           content down), so `task` runs on each open and the caret is always
+           where the next keystroke should go.
+
+           A beat of delay because the field does not exist yet at `task` time
+           — focusing it in the same turn as the view appearing is silently
+           dropped, which is the usual reason `@FocusState` "does not work". */
+        .task {
+            try? await Task.sleep(for: .milliseconds(120))
+            focus = sent ? .code : .email
+        }
+        // Following the step rather than the open: asking for a code moves the
+        // caret to where the code goes, so the field is ready when it arrives.
+        .onChange(of: sent) { _, isSent in
+            focus = isSent ? .code : .email
+        }
     }
 
     private func verify() {
-        guard !busy, code.count == 6 else { return }
+        guard !busy, code.filter(\.isNumber).count == 6 else { return }
         busy = true
         error = nil
         Task {
