@@ -1,0 +1,532 @@
+<title>Stint Menu Bar Spec</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    /* Verbatim from packages/design-tokens/dist/tokens.css. */
+    --bg-recessed: #0A0B0E;
+    --bg-base:     #111316;
+    --bg-primary:  #181B1F;
+    --bg-elevated: #202328;
+    --bg-hover:    #272A30;
+
+    --text-strong:  #F9FAFD;
+    --text-primary: #CACED7;
+    --text-muted:   #9299A6;
+    --text-subtle:  #838A97;
+    --text-on-accent: #111316;
+
+    --edge-subtle:  #2F333A;
+    --edge-default: #393E48;
+    --edge-control: #666D79;
+
+    --accent:     #52FC43;
+    --timer-idle: #666D79;
+    --warning:    #DBA929;
+
+    --client-a: #64A3E3;
+    --client-b: #F6964E;
+
+    --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --shadow-float: 0 2px 6px rgba(0,0,0,.44), 0 12px 32px rgba(0,0,0,.44);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #16181C;
+    color: var(--text-primary);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 1120px; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  h2 { margin: 0; font-size: 1.0625rem; font-weight: 500; color: var(--text-strong); }
+  .standfirst { margin: 0 0 2.5rem; max-width: 64ch; color: var(--text-muted); }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--edge-subtle); margin-bottom: 1.75rem; }
+
+  .states { display: flex; flex-wrap: wrap; gap: 2.25rem; align-items: flex-start; }
+  .state { display: flex; flex-direction: column; gap: 10px; }
+  .caption {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-subtle);
+  }
+
+  /* ---------- menu bar strip ---------- */
+  .menubar {
+    height: 26px; border-radius: 6px;
+    background: rgba(255,255,255,.07);
+    display: flex; align-items: center; justify-content: flex-end;
+    gap: 14px; padding: 0 10px;
+    font-family: var(--mono); font-size: 11.5px; color: rgba(255,255,255,.55);
+  }
+  .stint {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--text-strong); font-variant-numeric: tabular-nums;
+  }
+  /* The `|S|` mark from Mark.swift — an S between two bounds. Drawn with
+     borders here; the real one is a SwiftUI shape. The FILL is the state
+     channel, so there is no separate pip. */
+  .mark {
+    display: inline-flex; align-items: center; gap: 2px;
+    color: var(--text-strong); flex: none;
+  }
+  .mark .bound { width: 1.5px; height: 11px; background: currentColor; border-radius: 1px; }
+  .mark .s { font-weight: 600; font-size: 12px; line-height: 1; letter-spacing: .01em; }
+  .mark.running { color: var(--accent); }
+  .mark.warn { color: var(--warning); }
+
+  /* ---------- popover ---------- */
+  .pop {
+    width: 320px; background: var(--bg-base);
+    border: 1px solid var(--edge-subtle); border-radius: 12px;
+    box-shadow: var(--shadow-float); overflow: hidden;
+  }
+  .pad { padding: 14px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .between { justify-content: space-between; }
+  .grow { min-width: 0; flex: 1; }
+  .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--accent); }
+  .dot.idle { background: var(--timer-idle); }
+  .dot.warn { background: var(--warning); }
+
+  .readout {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 26px; font-weight: 500; letter-spacing: -.02em;
+    color: var(--accent); line-height: 1.1;
+  }
+  .readout.idle { color: var(--timer-idle); }
+  .readout.warn { color: var(--warning); }
+
+  .label {
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .meta { font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+  .task { font-size: 14px; color: var(--text-strong); }
+
+  .transport {
+    width: 38px; height: 38px; flex: none; border-radius: 50%; border: 0;
+    display: grid; place-items: center; cursor: pointer;
+    background: var(--accent); color: var(--text-on-accent);
+  }
+  .transport.stop { background: var(--bg-elevated); color: var(--text-primary); }
+  .transport .sq { width: 11px; height: 11px; border-radius: 2px; background: currentColor; }
+  .transport .tri {
+    width: 0; height: 0; margin-left: 3px;
+    border-left: 11px solid currentColor;
+    border-top: 7px solid transparent; border-bottom: 7px solid transparent;
+  }
+
+  .input {
+    width: 100%; background: var(--bg-primary);
+    border: 1px solid var(--edge-default); border-radius: 8px;
+    padding: 8px 10px; color: var(--text-strong);
+    font-family: var(--sans); font-size: 14px;
+  }
+  .input::placeholder { color: var(--text-subtle); }
+
+  .picker {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg-primary); border: 1px solid var(--edge-subtle);
+    border-radius: 7px; padding: 5px 8px; font-size: 13px;
+    color: var(--text-primary); cursor: pointer; max-width: 100%;
+  }
+  .chip { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .caret { color: var(--text-subtle); font-size: 10px; }
+
+  .divider { height: 1px; background: var(--edge-subtle); }
+
+  .entry { display: flex; align-items: baseline; gap: 8px; padding: 7px 14px; font-size: 13px; }
+  .entry:hover { background: var(--bg-hover); }
+  .entry .nm { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .entry .tm {
+    margin-left: auto; flex: none; font-family: var(--mono);
+    font-variant-numeric: tabular-nums; font-size: 12px; color: var(--text-muted);
+  }
+
+  .stats {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 11px 14px;
+  }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 15px; color: var(--text-strong); }
+
+  .foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 9px 14px; background: var(--bg-recessed); border-top: 1px solid var(--edge-subtle);
+  }
+  .foot a {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text-subtle); text-decoration: none;
+  }
+  .foot a:hover { color: var(--text-primary); }
+
+  .warnbar {
+    display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+    background: #2A2413; border-top: 1px solid #4A3E1C;
+    font-size: 12.5px; color: #E8D9A8;
+  }
+  .warnbar .acts { margin-left: auto; display: flex; gap: 6px; flex: none; }
+  .warnbar button {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
+    text-transform: uppercase; background: transparent;
+    border: 1px solid #6B5A28; color: #E8D9A8;
+    border-radius: 5px; padding: 3px 7px; cursor: pointer;
+  }
+
+  /* ---------- decision table ---------- */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 34rem; }
+  th {
+    text-align: left; font-family: var(--mono); font-size: 10.5px; font-weight: 500;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--text-subtle);
+    padding: 0 1rem .6rem 0; border-bottom: 1px solid var(--edge-default); white-space: nowrap;
+  }
+  td { padding: .8rem 1rem .8rem 0; border-bottom: 1px solid var(--edge-subtle); vertical-align: top; color: var(--text-muted); }
+  td:last-child, th:last-child { padding-right: 0; }
+  tr:last-child td { border-bottom: 0; }
+  td strong { color: var(--text-primary); font-weight: 500; }
+  .rec { color: var(--accent); font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+
+  .notes ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .6rem; max-width: 64ch; }
+  .notes li { position: relative; padding-left: 1.1rem; font-size: 14px; color: var(--text-muted); }
+  .notes li::before {
+    content: ''; position: absolute; left: 0; top: .62em;
+    width: 5px; height: 5px; border-radius: 50%; background: var(--edge-control);
+  }
+  .notes strong { color: var(--text-primary); font-weight: 500; }
+
+  code {
+    font-family: var(--mono); font-size: .87em; background: var(--bg-primary);
+    border: 1px solid var(--edge-subtle); border-radius: 4px; padding: .1em .35em;
+  }
+
+  footer.doc {
+    margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--edge-subtle);
+    color: var(--text-subtle); font-size: 13px;
+  }
+</style>
+
+<div class="page">
+
+  <h1>Stint in the menu bar</h1>
+  <p class="standfirst">
+    One design, three states. Built from the app's own tokens and components —
+    same accent, same neutral ramp, same mono readout, same round transport
+    button as the docked timer bar. Rendered at 320px, a real popover width.
+  </p>
+  <p class="standfirst" style="color:var(--text-primary);">
+    <strong style="font-weight:500;">This is the visual reference.</strong>
+    The implementation spec is <code>docs/design/menubar.md</code> beside this
+    file — sizes in points, token names, API calls, and the decisions that do
+    not survive being drawn in HTML. Where the two disagree, the markdown wins.
+  </p>
+
+  <!-- ================= the strip ================= -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The strip</span></div>
+
+    <div class="states">
+      <div class="state">
+        <div class="menubar" style="width:210px;">
+          <span class="stint"><span class="mark"><span class="bound"></span><span class="s">S</span><span class="bound"></span></span> 0:00:00</span>
+          <span>9:41</span>
+        </div>
+        <span class="caption">Stopped</span>
+      </div>
+      <div class="state">
+        <div class="menubar" style="width:210px;">
+          <span class="stint"><span class="mark running"><span class="bound"></span><span class="s">S</span><span class="bound"></span></span> 1:47:32</span>
+          <span>9:41</span>
+        </div>
+        <span class="caption">Running</span>
+      </div>
+      <div class="state">
+        <div class="menubar" style="width:210px;">
+          <span class="stint"><span class="mark warn"><span class="bound"></span><span class="s">S</span><span class="bound"></span></span> 9:12:44</span>
+          <span>9:41</span>
+        </div>
+        <span class="caption">Runaway</span>
+      </div>
+    </div>
+
+    <div class="notes" style="margin-top:1.5rem;">
+      <ul>
+        <li><strong>The mark stays; its fill is the state.</strong>
+          <code>Mark.swift</code> already draws the <code>|S|</code> — an S
+          between two bounds, carrying what the letter cannot: a stint is work
+          with a start and an end. A separate pip beside it was considered and
+          dropped, because that puts two state indicators in a 100pt strip
+          when the mark already tints.</li>
+        <li><strong>Three fills, not two.</strong> Accent running, the bar's
+          own foreground stopped, amber past the threshold. The amber case is
+          the one likely missing today, and it matters most — it is how a
+          runaway reaches someone whose panel is closed.</li>
+        <li><strong>Stopped shows today's total, running shows elapsed.</strong>
+          Both are worth a glance, and the fill says which you are reading.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ================= running ================= -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">State 1 · Running</span></div>
+
+    <div class="states">
+      <div class="state">
+        <div class="pop">
+          <div class="pad">
+            <div class="row" style="gap:10px;">
+              <span class="dot"></span>
+              <span class="readout">1:47:32</span>
+              <button class="transport stop" style="margin-left:auto;" aria-label="Stop"><span class="sq"></span></button>
+            </div>
+            <div class="truncate task" style="margin-top:8px;padding-left:19px;">API integration</div>
+            <div class="row" style="gap:6px;margin-top:4px;padding-left:19px;">
+              <span class="chip" style="background:var(--client-a)"></span>
+              <span class="meta">Northwind Trading</span>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="stats">
+            <div class="stat"><span class="label">Today</span><span class="v">6:12:04</span></div>
+            <div class="stat" style="align-items:flex-end;"><span class="label">Unbilled</span><span class="v">$1,462.50</span></div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div style="padding:10px 0 6px;">
+            <div class="row between" style="padding:0 14px 6px;">
+              <span class="label">Earlier today</span>
+            </div>
+            <div class="entry"><span class="nm">Checkout validation fixes</span><span class="tm">2:15:00</span></div>
+            <div class="entry"><span class="nm">Design review</span><span class="tm">1:30:00</span></div>
+            <div class="entry"><span class="nm">Q4 retainer scoping call</span><span class="tm">0:39:32</span></div>
+          </div>
+
+          <div class="foot">
+            <a href="#x">Open Stint &nearr;</a>
+            <a href="#x">Quit</a>
+          </div>
+        </div>
+        <span class="caption">Running · ~370px tall</span>
+      </div>
+
+      <div class="notes" style="flex:1;min-width:20rem;">
+        <ul>
+          <li><strong>Stop sits beside the readout, not top-right.</strong> The
+            two things are one fact — this is running, and this stops it — so
+            they belong on one line. Top-right puts a destructive-ish control
+            in the corner where window chrome lives, and separates it from the
+            thing it acts on.</li>
+          <li><strong>Task and client hang under the readout</strong>, indented
+            to the text rather than the dot, so the eye reads
+            time → what → whose without crossing back.</li>
+          <li><strong>Today and Unbilled are the two numbers</strong> you
+            cannot compute in your head. Same pair the web app leads with.</li>
+          <li>The accent appears exactly twice: the pip and the readout. Same
+            fact, shown twice — which the rule permits.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= stopped ================= -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">State 2 · Stopped</span></div>
+
+    <div class="states">
+      <div class="state">
+        <div class="pop">
+          <div class="pad" style="display:flex;flex-direction:column;gap:10px;">
+            <input class="input" placeholder="What are you working on?" />
+            <div class="row between">
+              <button class="picker">
+                <span class="chip" style="background:var(--client-b)"></span>
+                Harbour &amp; Co.
+                <span class="caret">&#9662;</span>
+              </button>
+              <button class="transport" aria-label="Start"><span class="tri"></span></button>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="stats">
+            <div class="stat"><span class="label">Today</span><span class="v">6:12:04</span></div>
+            <div class="stat" style="align-items:flex-end;"><span class="label">Unbilled</span><span class="v">$1,462.50</span></div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div style="padding:10px 0 6px;">
+            <div class="row between" style="padding:0 14px 6px;">
+              <span class="label">Today</span>
+            </div>
+            <div class="entry"><span class="nm">Checkout validation fixes</span><span class="tm">2:15:00</span></div>
+            <div class="entry"><span class="nm">Design review</span><span class="tm">1:30:00</span></div>
+            <div class="entry"><span class="nm">Q4 retainer scoping call</span><span class="tm">0:39:32</span></div>
+          </div>
+
+          <div class="foot">
+            <a href="#x">Open Stint &nearr;</a>
+            <a href="#x">Quit</a>
+          </div>
+        </div>
+        <span class="caption">Stopped · ~340px tall</span>
+      </div>
+
+      <div class="notes" style="flex:1;min-width:20rem;">
+        <ul>
+          <li><strong>No 0:00:00 readout.</strong> The current design gives the
+            biggest element on screen to a stopped clock. Nothing is accruing,
+            so there is no number to show — the input takes that space, because
+            starting is the only thing you came here to do.</li>
+          <li><strong>The green is on the start button, alone.</strong> One
+            accent object, and it is the primary action — exactly the rule the
+            landing page follows on a screen with no timer.</li>
+          <li><strong>Same stats, same entry list</strong> as the running
+            state. The two states differ only in their top block, so the
+            popover does not appear to restructure itself when you hit start.</li>
+          <li>Project picker inline beside the button saves a full row of
+            height versus a full-width dropdown.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= runaway ================= -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">State 3 · Runaway</span></div>
+
+    <div class="states">
+      <div class="state">
+        <div class="pop">
+          <div class="pad">
+            <div class="row" style="gap:10px;">
+              <span class="dot warn"></span>
+              <span class="readout warn">9:12:44</span>
+              <button class="transport stop" style="margin-left:auto;" aria-label="Stop"><span class="sq"></span></button>
+            </div>
+            <div class="truncate task" style="margin-top:8px;padding-left:19px;">API integration</div>
+            <div class="row" style="gap:6px;margin-top:4px;padding-left:19px;">
+              <span class="chip" style="background:var(--client-a)"></span>
+              <span class="meta">Northwind Trading</span>
+            </div>
+          </div>
+
+          <div class="warnbar">
+            <span>Running over 8 hours.</span>
+            <span class="acts">
+              <button>Keep</button>
+              <button>Adjust</button>
+              <button>Discard</button>
+            </span>
+          </div>
+
+          <div class="stats">
+            <div class="stat"><span class="label">Today</span><span class="v">6:12:04</span></div>
+            <div class="stat" style="align-items:flex-end;"><span class="label">Unbilled</span><span class="v">$1,462.50</span></div>
+          </div>
+
+          <div class="foot">
+            <a href="#x">Open Stint &nearr;</a>
+            <a href="#x">Quit</a>
+          </div>
+        </div>
+        <span class="caption">Runaway · entry list drops</span>
+      </div>
+
+      <div class="notes" style="flex:1;min-width:20rem;">
+        <ul>
+          <li><strong>This is the reason the menu bar app is worth
+            building.</strong> Forgetting to stop at 5pm is the most common way
+            a tracker produces a wrong invoice, and this is the only surface
+            that catches it without you opening anything.</li>
+          <li><strong>Amber, never green.</strong> The readout, the dot and the
+            strip pip all move together, so the warning reaches you while the
+            popover is closed.</li>
+          <li><strong>Keep does not stop the timer.</strong> A long timer is
+            often correct, and stopping it would be the app editing billable
+            work.</li>
+          <li>The entry list drops in this state — when something needs
+            deciding, the popover should not also be a dashboard.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= decisions ================= -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Decisions still open</span></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Question</th><th>Options</th><th>My read</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Strip: show the time at all?</strong></td>
+            <td>Mark + elapsed · mark only</td>
+            <td><span class="rec">Show it</span> — the whole point is a glance that costs no click. A mark-only mode is worth offering as a preference for people with crowded menu bars.</td>
+          </tr>
+          <tr>
+            <td><strong>Stop button placement</strong></td>
+            <td>Beside the readout · top-right corner</td>
+            <td><span class="rec">Beside</span> — the timer and its stop are one fact. The corner is where window chrome lives, and it separates the control from the thing it acts on.</td>
+          </tr>
+          <tr>
+            <td><strong>Entry list length</strong></td>
+            <td>3 · 5 · scrollable</td>
+            <td><span class="rec">3, then "Open Stint"</span> — a scrollable list inside a popover is fiddly, and the full day is one click away.</td>
+          </tr>
+          <tr>
+            <td><strong>Can you rename a running entry here?</strong></td>
+            <td>Yes, inline · no, only in the app</td>
+            <td><span class="rec">Yes</span> — "what was I doing" gets answered late more often than on start, and a menu bar that can only stop is half a tool. Costs a pencil affordance on the task line.</td>
+          </tr>
+          <tr>
+            <td><strong>Does Unbilled belong here?</strong></td>
+            <td>Yes · Today only</td>
+            <td><span class="rec">Yes</span> — it is the number no other tracker can show, and it is the difference between a timer widget and <em>Stint</em> in the menu bar.</td>
+          </tr>
+          <tr>
+            <td><strong>Sign-out / account</strong></td>
+            <td>In the popover footer · only in the app</td>
+            <td><span class="rec">Only in the app</span> — the current design spends a footer row on an email address. You know who you are; put Open Stint and Quit there instead.</td>
+          </tr>
+          <tr>
+            <td><strong>Global shortcut to start/stop</strong></td>
+            <td>Ship it · later</td>
+            <td><span class="rec">Ship it</span> — the fastest possible start is never opening the popover at all, and it is the one thing a menu bar app can do that the web app cannot.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="doc">
+    Colours, type roles and the transport button come from
+    <code>packages/design-tokens</code> and <code>timer-bar.tsx</code>. The
+    strip is a mock — macOS spacing and the system font will differ.
+  </footer>
+
+</div>
