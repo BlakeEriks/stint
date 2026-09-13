@@ -667,33 +667,35 @@ documented timer and title roles went unapplied. See
 
 ### Layout
 
-The nav is a **vertical rail** (`nav.tsx`), with the wordmark at the top
-doubling as the Home link and the running timer beneath it. Horizontal nav was
-already needing `overflow-x-auto` at five items plus the timer, and the rail
-grows downward where there is room. It also stops the content column fighting
-the viewport: with the rail holding the left edge, the calendar gets the width
-it wants.
+The nav is **sections and nothing else** (`nav.tsx`) — the wordmark moved to
+the header and the running timer to the docked bar, so it is purely places you
+go, which is what it always claimed to be.
 
-On a phone it becomes two rows — identity and timer on top, sections scrolling
-beneath. They must not share one scrolling row: that pushed the running timer
-off the right edge, so it was invisible on the screen where it matters most.
+**It is a vertical rail at `lg` and up, and a horizontal strip below.** The
+rail costs a fixed 208px whatever the window, and below 1024 the content is
+still a single column — so at 900px it spent 208px holding 183px of labels
+while the cards made do with 692. `lg` is where the cards go two-column and
+the width starts being *used* rather than just occupied; switching there took
+the content at 900px from 692px to the full 900.
+
+The strip needs 596px for five sections, so it fits at every width where it is
+shown and scrolls horizontally below that rather than wrapping — which is what
+keeps the header row one row tall on a phone.
 
 **The rail does not scroll with the content.** At `sm` and up the page itself
-is pinned (`h-dvh` + `overflow-hidden` on the flex row) and the content column
-scrolls inside itself; the rail is a sibling of that scroller, so it stays put
-without being `position: fixed` and without anything needing a scroll offset.
-The rail's own section list can scroll vertically if it ever outgrows a short
-window, so the account menu at its foot cannot be pushed off-screen. Below
-`sm` the whole page scrolls normally — pinning a strip that is already two
-rows tall would eat a third of a phone viewport.
+is pinned (`h-dvh` + `overflow-hidden`) and the content column scrolls inside
+itself; the rail is a sibling of that scroller, so it stays put without being
+`position: fixed` and without anything needing a scroll offset. Note this is
+`sm`, not `lg` — the pinned frame and the nav's axis are separate decisions
+and were separated when the nav moved. Below `sm` the whole page scrolls.
 
-**Adding a section costs nothing in the rail.** It is a fixed `sm:w-52` and
-grows downward into empty space, so "we already have five items" is not an
-argument against a sixth — that was the argument *for* the rail, and the rail
-solved it. The real bar is on content, not on the nav entry: a screen ships if
-it carries a number the user cannot compute in their head, or rows they can
-act on. The phone strip is the one place where more sections genuinely cost
-something, and there they scroll.
+**Adding a section costs little in the rail** — a fixed `lg:w-52` growing
+downward into empty space — but it costs real width in the strip, which is now
+shown up to 1024px rather than only on phones. Five sections use 596 of the
+640 available at the narrowest width that shows labels. A sixth scrolls, which
+is a graceful degradation rather than a break, but it is no longer free. The
+real bar is still on content: a screen ships if it carries a number the user
+cannot compute in their head, or rows they can act on.
 
 The **account menu** sits at the foot of the rail (`account-menu.tsx`),
 showing the signed-in email and holding **Settings**, **Appearance** and
@@ -745,12 +747,14 @@ own copy of `mx-auto max-w-3xl px-4 py-8 …`, which is how the calendar ended
 up silently on a different width. `wide` is for screens that are a grid rather
 than a column.
 
-**Its top padding is smaller below `sm`**, because the nav is a different
-object there. At `sm` and up the rail sits *beside* the content, so the column
-opens against the top of the frame and wants the full inset; on a phone the
-nav is a horizontal strip directly above, and the same 32px stopped reading as
-margin and started reading as a gap. Only the top changes — the bottom still
-needs clearance above the docked timer bar.
+**Its top padding follows the NAV's breakpoint (`lg`), not its own (`sm`).**
+At `lg` and up the rail sits *beside* the content, so the column opens against
+the top of the frame and wants the full 40px inset; below it the nav is a
+horizontal strip directly above, and the same 40px stops reading as margin and
+starts reading as a gap. That was first noticed on a phone and is just as true
+at 900px — which is why the two are now tied together rather than both
+guessing at `sm`. The horizontal padding is a separate question and still
+steps at `sm`; the bottom still needs clearance above the docked timer bar.
 
 **The default `Button` variant is neutral.** The accent is opt-in via
 `variant="accent"`, because the previous default painted every primary action

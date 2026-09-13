@@ -40,14 +40,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-dvh flex-col sm:h-dvh sm:min-h-0 sm:overflow-hidden">
         <AppHeader />
         {/* The rail and the dock change axis at different widths, so they are
-            not siblings in one row. The rail moves beside the content at `sm`;
-            the dock stays a band beneath it until `xl`, where there is finally
-            room for a third column.
+            not siblings in one row. The rail moves beside the content at
+            `lg`; the dock stays a band beneath it until `xl`, where there is
+            finally room for a third column.
+
+            `lg`, not `sm`: the rail costs a fixed 208px, and between 640 and
+            1024 the content is still one column, so that width buys nothing —
+            measured at 900px, the rail held 183px of labels in 208px while
+            the cards had 692px. `lg` is where the cards go two-column and
+            start actually using it. The strip needs 596px for five sections,
+            so it fits every width below that with room to spare.
 
             Below `xl` the scroller is therefore the wrapper around content +
             dock, so the dock scrolls with the page it summarises. At `xl` it
             becomes a column that scrolls on its own. */}
-        <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           <Nav />
           <div className="flex min-w-0 flex-1 flex-col overflow-y-auto xl:flex-row xl:overflow-visible">
             {/* `bg-surface-primary`, a step above the rail and dock that

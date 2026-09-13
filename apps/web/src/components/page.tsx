@@ -26,7 +26,13 @@ export function Page({
 }) {
   return (
     <main
-      className={`mx-auto px-4 pt-4 pb-8 sm:px-8 sm:pt-10 sm:pb-10 ${
+      /* The top inset follows the NAV's breakpoint (`lg`), not the page's own
+         (`sm`). Where the nav is a horizontal strip directly above, 40px stops
+         reading as margin and starts reading as a gap; where the rail is
+         beside the content, the column opens against the top of the frame and
+         wants the full inset. The horizontal padding is a separate question
+         and still steps at `sm`. */
+      className={`mx-auto px-4 pt-4 pb-8 sm:px-8 sm:pb-10 lg:pt-10 ${
         wide ? 'max-w-6xl' : 'max-w-3xl'
       }`}
     >

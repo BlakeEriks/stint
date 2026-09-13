@@ -48,8 +48,15 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
  * the rail rather than as a slightly different grey. In light mode the order
  * inverts (the rail goes darker than the page) and means the same thing.
  *
- * On a phone it returns to a horizontal strip under the header — a rail would
- * eat a third of a 375px viewport.
+ * **Below `lg` it is a horizontal strip under the header**, not a rail. The
+ * rail costs a fixed 208px whatever the window, and below 1024 the content is
+ * still a single column — so at 900px it was spending 208px to hold 183px of
+ * labels while the cards made do with 692. `lg` is where the cards go
+ * two-column and the width starts being used rather than just occupied.
+ *
+ * The strip needs 596px for five sections, so it fits comfortably at every
+ * width where it is shown; past that it scrolls horizontally rather than
+ * wrapping, which is what keeps the header row one row tall.
  */
 export function Nav() {
   const pathname = usePathname();
@@ -65,7 +72,7 @@ export function Nav() {
          viewport — at `h-dvh` it would run under the bar by the bar's own
          height. */
       className="flex flex-none flex-col gap-1 border-b border-edge-subtle bg-surface-base px-3 py-2
-                 sm:h-full sm:w-52 sm:border-r sm:border-b-0 sm:py-4"
+                 lg:h-full lg:w-52 lg:border-r lg:border-b-0 lg:py-4"
     >
       {/* Sections, and nothing else. The wordmark and the account menu moved
           to the header, and the running timer to the docked bar — so the rail
@@ -73,7 +80,7 @@ export function Nav() {
 
           Only this scrolls: horizontally on a phone, vertically in the rail
           if the list ever outgrows a short window. */}
-      <div className="flex gap-1 overflow-x-auto sm:min-h-0 sm:flex-col sm:overflow-x-visible sm:overflow-y-auto">
+      <div className="flex gap-1 overflow-x-auto lg:min-h-0 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
         {LINKS.map(({ href, label, icon: Icon }) => {
           const active =
             href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -82,7 +89,7 @@ export function Nav() {
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
-              className={`type-nav flex flex-none items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors sm:px-3 ${
+              className={`type-nav flex flex-none items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors lg:px-3 ${
                 active
                   ? 'bg-surface-primary text-strong shadow-card'
                   : 'text-muted hover:text-strong hover:bg-surface-hover'
