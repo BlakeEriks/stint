@@ -49,10 +49,11 @@ this specific regression.
 focus ring is constant and involuntary; spending the accent there drowns the
 one signal it exists for.
 
-**Content floats, chrome recedes.** Panels sit above the body on
-`bg-surface-elevated` with `shadow-card`; the nav rail sits *below* it on
-`bg-surface-recessed`. Never invert this — cards darker than the ground read
-as holes.
+**Content floats, chrome recedes — in four planes.** Depth increases toward
+what is being read: header and timer bar on `bg-surface-recessed`, nav rail
+and dock on `bg-surface-base`, the content column on `bg-surface-primary`,
+cards on `bg-surface-elevated` with `shadow-card`. Never invert this — a card
+darker than the surface under it reads as a hole.
 
 Depth comes from surface colour **and** shadow. It previously came from shadow
 alone, because `bg-base`→`bg-primary` was ΔL 0.0046 and the app read flat as a

@@ -45,14 +45,12 @@ export function Dock() {
   return (
     <aside
       aria-label="At a glance"
-      /* `bg-surface-recessed`, the same surface as the header, rail and timer
-         bar. All four perimeter elements are one enclosure — the header and
-         bar are its top and bottom edges, the rail and dock its sides — so
-         tiering them into separate tones would say they are different kinds
-         of thing when they are not. The one distinction that carries meaning
-         is chrome against content, and that is the step from recessed to
-         base. */
-      className="flex-none border-t border-edge-subtle bg-surface-recessed p-4
+      /* One step above the bars, one below the content. The frame is tiered
+         rather than flat: header and timer bar are the darkest plane, the
+         rail and dock sit above them, the content column above that, and
+         cards above that again. Depth increases as you move toward what you
+         are actually reading. */
+      className="flex-none border-t border-edge-subtle bg-surface-base p-4
                  xl:w-[280px] xl:overflow-y-auto xl:border-t-0 xl:border-l"
     >
       {data ? <Inbox stats={data} /> : null}

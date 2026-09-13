@@ -283,21 +283,33 @@ lives in three steps. Pin the surfaces; leave the curve alone.
 `100` and `200` are pinned only to keep the ramp monotonic, since the spread
 lifts `50` past where the curve was putting them.
 
-## The frame is one tone
+## The frame is tiered
 
-Header, nav rail, right dock and timer bar all sit on `bg-recessed`. They are
-the four edges of one enclosure — the header and bar its top and bottom, the
-rail and dock its sides — so tiering them into separate tones would say they
-are different kinds of thing when they are not.
+Four planes, each a real step on the ramp, getting lighter as you move toward
+what is actually being read:
 
-**A three-tier perimeter was modelled and rejected.** Bars darkest, docks
-mid, content lightest works out to ΔL 0.015 per step, and the gap that fixed
-the flatness (`bg-base` → `bg-elevated`) is **0.105** — seven times larger.
-At 0.015 the tiers read as uneven dark rather than deliberate layering, which
-is the flatness problem in a new costume.
+| plane | token | L |
+|---|---|---|
+| header, timer bar | `bg-recessed` | 0.1500 |
+| nav rail, dock | `bg-base` | 0.1800 |
+| content column | `bg-primary` | 0.2468 |
+| cards | `bg-elevated` | 0.2850 |
 
-The one distinction that carries meaning is chrome against content, and that
-is the step from `bg-recessed` to `bg-base`.
+Steps of ΔL 0.030 / 0.067 / 0.038. No new tokens were needed — the ramp
+already carried all four; they simply were not all in use as page surfaces.
+
+**An earlier version of this section argued the opposite** — that the frame
+should be one tone, because the four perimeter elements are the edges of one
+enclosure and tiering them would say they are different kinds of thing. It
+also rejected a three-tier scheme as too subtle, at ΔL 0.015 per step.
+
+The subtlety objection was sound and the numbers here answer it: these steps
+are 2-4x that, and land on ramp values rather than between them. The
+conceptual objection was wrong. The planes are not four edges of one box —
+they are depth, and depth is exactly what a frame should express: chrome
+furthest back, then the columns that hold content, then the content, then the
+cards you are reading. The one-tone version was flatter than the palette
+could afford.
 
 ## The rail is recessed
 

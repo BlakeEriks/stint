@@ -50,7 +50,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
           <Nav />
           <div className="flex min-w-0 flex-1 flex-col overflow-y-auto xl:flex-row xl:overflow-visible">
-            <div className="min-w-0 flex-1 xl:overflow-y-auto">{children}</div>
+            {/* `bg-surface-primary`, a step above the rail and dock that
+                flank it. The frame is tiered — bars darkest, rail and dock
+                above them, content above that, cards above that again — so
+                depth increases toward what is actually being read. */}
+            <div className="min-w-0 flex-1 bg-surface-primary xl:overflow-y-auto">
+              {children}
+            </div>
             <Dock />
           </div>
         </div>

@@ -2,14 +2,37 @@
 /**
  * Re-derives the dark neutral ramp and prints it for tokens.json.
  *
- * The palette is DERIVED, not picked — this is the script that does it, kept
- * in the repo so a future change to the ground lightness is a parameter edit
- * rather than a round of eyedropping hex codes.
+ *   node src/derive-neutrals.mjs            # the ramp
+ *   node src/derive-neutrals.mjs --surfaces # just the four painted planes
  *
- *   node src/derive-neutrals.mjs
+ * The palette is DERIVED, not picked. This is the script that does it, kept
+ * in the repo so a change to the ground is a parameter edit rather than a
+ * round of eyedropping hex codes.
  *
- * Verify it still reproduces the committed values before trusting a change:
- * every step it prints should match tokens.json unless a parameter moved.
+ * ## Two scales, not one
+ *
+ * This file used to force every step through one eased curve plus a growing
+ * pile of per-step overrides. By the time it was noticed, **8 of 12 steps
+ * were hand-pinned and every surface the app actually paints was an
+ * override** — the curve still governed only steps 300, 400, 850 and 975,
+ * none of which are backgrounds. It had become a lookup table wearing a
+ * curve's clothes, and each new layout idea meant editing four hexes.
+ *
+ * The cause was a real conflict, not carelessness. The two halves of a
+ * neutral ramp want opposite things:
+ *
+ * - **Surfaces** want EVEN PERCEPTUAL SPACING. They are compared to each
+ *   other, directly and side by side, so what matters is that each step feels
+ *   like the same size move. An eased curve deliberately bunches them.
+ * - **Text and borders** want RESOLUTION WHERE THE CONTRAST RATIOS ARE. They
+ *   are compared to the surface behind them, never to each other, and the
+ *   eased curve concentrates steps exactly where a dark UI needs them.
+ *
+ * So they are now generated separately. `surfaces()` is a linear ladder —
+ * every plane the app paints comes out of it, and "make cards pop" is one
+ * argument rather than four edited values. `inkRamp()` keeps the eased curve
+ * for everything text and borders sit on, where it was doing real work and
+ * where the contract assertions live.
  */
 import { contrast, hex } from "./oklch.mjs";
 
@@ -20,8 +43,7 @@ import { contrast, hex } from "./oklch.mjs";
  * (lightness is held constant, so every `contract` assertion still passes),
  * which makes the change tempting and cheap to evaluate — but a warm ground
  * reads as brown or red long before it reads as "inviting", and a neutral
- * that has an opinion of its own stops receding behind the content. See
- * `CHROMA_SCALE` for the dial if it is ever revisited.
+ * that has an opinion of its own stops receding behind the content.
  *
  * The hard floor is the accent at 142: `$meta.hueSeparation` is a real
  * constraint, and 264 keeps 122° of it. The obvious warm choices (60-75)
@@ -30,24 +52,86 @@ import { contrast, hex } from "./oklch.mjs";
  */
 const HUE = 264;
 
-/**
- * Multiplier over the per-step chroma below, so the ramp's saturation is one
- * parameter rather than twelve.
+/* ── surfaces ──────────────────────────────────────────────────────────
  *
- * 1.0 is the derived ramp. It exists because chroma and hue have to move
- * together to judge a cast: a warm hue needs roughly 1.5x to read as warm at
- * all, and past ~2x any hue stops being a neutral and becomes a tint over the
- * whole app. Leave it at 1.0 unless deliberately re-evaluating the ground.
+ * The four planes the app paints, darkest first: the header and timer bar,
+ * then the nav rail and dock, then the content column, then cards. Depth
+ * increases toward what is actually being read.
  */
-const CHROMA_SCALE = 1.0;
+
+/**
+ * @param floor  L of the darkest plane (the bars).
+ * @param steps  ΔL from each plane to the next, in order. Five entries for
+ *               six planes. Equal values through the first three give a
+ *               gradual ladder; a larger third value makes cards pop off the
+ *               content behind them.
+ *
+ *               The last two carry hover and active. They are surfaces the
+ *               app paints — on top of a card — so they belong on this scale
+ *               rather than the ink curve, which is where they used to sit
+ *               and which put them BELOW the card once it moved.
+ * @param chroma [start, end] — chroma is interpolated linearly across the
+ *               planes rather than tracking lightness.
+ *
+ *               Holding it nearly flat is deliberate. When chroma climbed
+ *               with L (0.0060 -> 0.0107 across these four), the blue-grey
+ *               cast washed out exactly where the ladder also jumped hardest,
+ *               and the middle of the app read as a different palette from
+ *               its frame — "dark blue to grey", as it was described. Flat
+ *               chroma carries the cast all the way up.
+ */
+function surfaces({ floor, steps, chroma: [c0, c1] }) {
+  const names = ["bars", "rail+dock", "content", "cards", "hover", "active"];
+  let L = floor;
+  return names.map((name, i) => {
+    if (i > 0) L += steps[i - 1];
+    const C = +(c0 + ((c1 - c0) * i) / (names.length - 1)).toFixed(4);
+    return { name, L: +L.toFixed(4), C, hex: hex(L, C, HUE) };
+  });
+}
+
+/**
+ * The two candidates under consideration.
+ *
+ * `gradual` is an even ladder — every step the same perceptual size.
+ * `pop` holds the frame gradual and spends the extra on the last step, so a
+ * card lifts off the content column rather than easing off it.
+ */
+const SURFACE_PLANS = {
+  gradual: {
+    floor: 0.15,
+    steps: [0.035, 0.035, 0.035, 0.03, 0.035],
+    chroma: [0.006, 0.014],
+  },
+  pop: {
+    floor: 0.15,
+    steps: [0.035, 0.033, 0.067, 0.03, 0.035],
+    chroma: [0.006, 0.014],
+  },
+};
+
+/* ── ink ───────────────────────────────────────────────────────────────
+ *
+ * Text, borders and hover states. These sit ON a surface and are judged
+ * against it by WCAG contrast, which is what the eased curve is tuned for.
+ */
+
+/**
+ * Floor lifted from 0.145 to 0.215: at 0.145 the ramp started at #090A0D,
+ * near enough to black that the app read as a terminal rather than a product.
+ * The exponent eased from 1.55 to 1.40 to compensate — a higher floor with
+ * the old curve bunches the midtones.
+ *
+ * These now describe the INK scale only. The surfaces no longer pass through
+ * here, which is why the floor can stay where the contrast maths wants it
+ * while the painted ground sits far below at 0.150.
+ */
+const FLOOR = 0.215;
+const EXPONENT = 1.4;
+const TOP = 0.985;
 
 /** Chroma per step — peaks mid-ramp so mid greys carry the cast. */
 const CHROMA = {
-  0: 0.006,
-  25: 0.0078,
-  50: 0.0107,
-  100: 0.0139,
-  200: 0.017,
   300: 0.0196,
   400: 0.0214,
   500: 0.022,
@@ -58,105 +142,122 @@ const CHROMA = {
 };
 
 /**
- * Floor lifted from 0.145 to 0.215: at 0.145 the ground was #090A0D, near
- * enough to black that the app read as a terminal rather than a product.
- * The exponent eased from 1.55 to 1.40 to compensate — a higher floor with
- * the old curve bunches the midtones.
+ * The three ink steps that must clear a ratio against the card behind them,
+ * and the ratio each one owes.
  *
- * It stays at 0.215 and the ground is lowered by pinning step 0 instead —
- * see `SURFACE_SPREAD`. Lowering FLOOR itself was tried and is wrong: it
- * drags the whole eased curve down with it, and the text steps go too. Muted
- * fell to 4.40 (under AA) and the control border to 2.63, breaking two
- * contract assertions to solve a problem that lives in three steps.
+ * These used to be fixed `OFFSET` nudges — +0.013, +0.03, +0.035 — tuned by
+ * hand against a card at L 0.2468. That is exactly the coupling that made the
+ * old file a lookup table: move the card and the numbers silently stop
+ * meaning anything, because nothing re-derives them.
+ *
+ * So the THRESHOLD is the constant now, not the nudge. Each step is lifted
+ * off the curve by however much it takes to clear its ratio against whatever
+ * card the surface plan produced — which makes "make cards pop" safe to try,
+ * because the ink follows.
+ *
+ * - `600` is the muted-text floor and owes AA, 4.5.
+ * - `700` is the focus ring, 3:1 under WCAG 1.4.11, and is additionally held
+ *   above 600 so the ramp stays monotonic instead of bunching them.
+ * - `500` is the control border, also 1.4.11's 3:1.
  */
-const FLOOR = 0.215;
-const EXPONENT = 1.4;
-const TOP = 0.985;
+const INK_MINIMA = { 500: 3, 600: 4.5, 700: 3 };
 
-/**
- * The three surface steps are spread by hand, and this is the fix for the
- * app reading flat.
- *
- * The curve is eased to concentrate resolution at the dark end, which is
- * correct for *text* steps. But it put the ground and the card 0.0046 apart
- * in L — `bg-base` 0.2150 and `bg-primary` 0.2196 — so a card had no edge of
- * its own and the entire sense of depth rested on `shadow-card`, which has
- * almost nothing to darken against on a near-black ground.
- *
- * WCAG contrast is the wrong instrument for judging this and is why it went
- * unnoticed: it is compressive near black, so it reported 1.02:1 for the old
- * pair and 1.16:1 for the new one — a difference that reads as trivial while
- * the perceptual gap (OKLCH ΔL) is 14x larger. Judge adjacent dark surfaces
- * by ΔL; keep WCAG for text, which is what it measures.
- *
- * Targets: ground 0.180, card 0.2468, elevated 0.2850. ΔL 0.067 and 0.038 —
- * enough that a card is a surface rather than a shadow, and still far too
- * little to compete with the accent or read as a separate colour.
- *
- * `100` and `200` are pinned too, only to keep the ramp monotonic: the spread
- * lifts `50` to 0.285, past where the curve was putting both of them. They
- * carry elevated and hover, which have to stay above the surface they appear
- * on.
- */
-const SURFACE_SPREAD = {
-  0: 0.18,
-  25: 0.2468,
-  50: 0.285,
-  100: 0.315,
-  200: 0.35,
-};
-
-/**
- * Steps lifted off the curve deliberately, to hold a contract assertion.
- *
- * `600` is the muted-text floor: raising the ground compresses the ramp, and
- * at the curve value it lands on 4.46 against a card — just under AA. `700`
- * moves with it so the ramp stays monotonic and evenly spaced instead of
- * bunching muted and focus together.
- *
- * `500` is the control border, and it moved when the card did. Lifting the
- * card to L 0.2468 (see `SURFACE_SPREAD`) narrowed the gap to the border that
- * sits on it: 3.09 -> 2.88, just under the 3:1 that WCAG 1.4.11 requires of a
- * control boundary. +0.013 restores it to 3.05. This is the cost of the
- * lighter card and it is the right trade — a border is one hairline, the card
- * is most of the screen.
- */
-const OFFSET = { 500: 0.013, 600: 0.03, 700: 0.035 };
-
-const lightness = (step) =>
-  SURFACE_SPREAD[step] ??
-  FLOOR + (TOP - FLOOR) * (step / 975) ** EXPONENT + (OFFSET[step] ?? 0);
-
-const ramp = Object.keys(CHROMA).map((s) => {
-  const step = Number(s);
-  const L = lightness(step);
-  const C = +(CHROMA[step] * CHROMA_SCALE).toFixed(4);
-  return {
-    step,
-    L: +L.toFixed(4),
-    C,
-    hex: hex(L, C, HUE),
-  };
-});
-
-for (const { step, L, C, hex: h } of ramp) {
-  console.log(
-    `"${step}":`.padEnd(8),
-    `{ "hex": "${h}", "oklch": [${L.toFixed(4)}, ${C.toFixed(4)}, ${HUE}] },`,
-  );
+/** Smallest lift (to 4dp) that clears `min` against `card`. */
+function liftFor(baseL, C, card, min) {
+  for (let lift = 0; lift <= 0.4; lift += 0.0001) {
+    if (contrast(hex(baseL + lift, C, HUE), card) >= min) return +lift.toFixed(4);
+  }
+  return 0;
 }
 
-const card = ramp.find((r) => r.step === 25).hex;
-const at = (s) => ramp.find((r) => r.step === s).hex;
-console.log("\n// against the card surface:");
-for (const [label, fg, min] of [
-  ["body   (850)", at(850), 4.5],
-  ["muted  (600)", at(600), 4.5],
-  ["focus  (700)", at(700), 3],
-  ["border (500)", at(500), 3],
-]) {
-  const v = contrast(fg, card);
-  console.log(
-    `//   ${label} ${v.toFixed(2)} (min ${min})${v >= min ? "" : "  FAILS"}`,
-  );
+function inkRamp(card) {
+  const rows = Object.entries(CHROMA).map(([s, C]) => {
+    const step = Number(s);
+    const base = FLOOR + (TOP - FLOOR) * (step / 975) ** EXPONENT;
+    const min = INK_MINIMA[step];
+    const L = base + (min ? liftFor(base, C, card, min) : 0);
+    return { step, L: +L.toFixed(4), C, hex: hex(L, C, HUE) };
+  });
+
+  /* 700 carries the focus ring and must stay above 600, which is lifted to a
+     stricter ratio — without this the two can cross and the ramp stops being
+     monotonic. */
+  const at = (s) => rows.find((r) => r.step === s);
+  const [six, seven] = [at(600), at(700)];
+  if (seven.L <= six.L) {
+    seven.L = +(six.L + 0.035).toFixed(4);
+    seven.hex = hex(seven.L, seven.C, HUE);
+  }
+  return rows;
+}
+
+/* ── output ────────────────────────────────────────────────────────────── */
+
+/** Ink is judged against the surface it sits on, which is the card. */
+function verify(ink, card) {
+  const at = (s) => ink.find((r) => r.step === s).hex;
+  console.log(`\n// ink against the card surface (${card}):`);
+  let ok = true;
+  for (const [label, fg, min] of [
+    ["body   (850)", at(850), 4.5],
+    ["muted  (600)", at(600), 4.5],
+    ["focus  (700)", at(700), 3],
+    ["border (500)", at(500), 3],
+  ]) {
+    const v = contrast(fg, card);
+    if (v < min) ok = false;
+    console.log(
+      `//   ${label} ${v.toFixed(2)} (min ${min})${v >= min ? "" : "  FAILS"}`,
+    );
+  }
+  return ok;
+}
+
+function printPlan(planName) {
+  const plan = SURFACE_PLANS[planName];
+  const s = surfaces(plan);
+
+  console.log(`\n${"=".repeat(58)}\n${planName.toUpperCase()}\n`);
+  console.log("plane        L        C        hex       dL");
+  s.forEach((p, i) => {
+    const dL = i ? `+${(p.L - s[i - 1].L).toFixed(4)}` : "  -";
+    console.log(
+      p.name.padEnd(12),
+      p.L.toFixed(4),
+      " ",
+      p.C.toFixed(4),
+      " ",
+      p.hex,
+      dL,
+    );
+  });
+
+  const ink = inkRamp(s[3].hex);
+  const ok = verify(ink, s[3].hex);
+  if (!ok) console.log("//   ^ ink needs re-tuning against this card value");
+  return { surfaces: s, ink };
+}
+
+const arg = process.argv[2];
+
+if (arg === "--surfaces") {
+  for (const name of Object.keys(SURFACE_PLANS)) printPlan(name);
+} else {
+  const plan = arg?.replace("--", "") ?? "pop";
+  const { surfaces: s, ink } = printPlan(plan);
+
+  console.log("\n// ---- paste into tokens.json primitive.neutral ----");
+  const SURFACE_KEYS = ["recessed", "0", "25", "50", "100", "200"];
+  s.forEach((p, i) => {
+    console.log(
+      `"${SURFACE_KEYS[i]}":`.padEnd(12),
+      `{ "hex": "${p.hex}", "oklch": [${p.L.toFixed(4)}, ${p.C.toFixed(4)}, ${HUE}] },`,
+    );
+  });
+  for (const { step, L, C, hex: h } of ink) {
+    console.log(
+      `"${step}":`.padEnd(12),
+      `{ "hex": "${h}", "oklch": [${L.toFixed(4)}, ${C.toFixed(4)}, ${HUE}] },`,
+    );
+  }
 }

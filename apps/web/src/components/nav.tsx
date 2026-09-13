@@ -63,7 +63,7 @@ export function Nav() {
          docked beneath, so the rail fills its own row rather than the
          viewport — at `h-dvh` it would run under the bar by the bar's own
          height. */
-      className="flex flex-none flex-col gap-1 border-b border-edge-subtle bg-surface-recessed px-3 py-2
+      className="flex flex-none flex-col gap-1 border-b border-edge-subtle bg-surface-base px-3 py-2
                  sm:h-full sm:w-52 sm:border-r sm:border-b-0 sm:py-4"
     >
       {/* Sections, and nothing else. The wordmark and the account menu moved
