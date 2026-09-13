@@ -1,7 +1,10 @@
 # The Home Screen
 
-Status: **specification.** The timer hero and entry list are built; every card
-described below is not. Nothing here is shipped behavior.
+Status: **built**, except where a section says otherwise. This was a
+specification and the note at the top still said "nothing here is shipped
+behavior" long after the cards and the inbox had shipped — read the row tables
+as describing the app, and `tasks.md` for what genuinely is not built
+(customization, quiet clients, revenue pace).
 
 ## What this screen answers
 
@@ -43,48 +46,92 @@ app becomes the thing it was built against.
 
 | Slot | Card | Why here |
 |---|---|---|
-| 1 | **Timer** hero | Unchanged. Seen 50× a day; earns the least friction. |
-| 2 | **Needs attention** | Money at risk. Only rendered when non-empty. |
-| 3 | **Unbilled** | Money waiting. |
-| 4 | **Pace** | Money coming. |
-| 5 | **Activity** (heatmap) | Texture. |
-| 6 | **Today's entries** | Unchanged. |
+| 1 | **Unbilled** | Money waiting. |
+| 2 | **Pace** | Money coming. |
+| 3 | **Activity** (heatmap) | Texture. |
+| 4 | **Today's entries** | Unchanged. |
 
-Money at risk, then waiting, then coming, then texture. Everything between the
-hero and the entry list should be readable in about three seconds.
+Money waiting, then coming, then texture. Everything above the entry list
+should be readable in about three seconds.
 
-The timer hero and the entry list are **fixed** — they are the reason the
-screen is opened fifty times a day, and the cards are what you scroll past to
-reach them. Billable ratio is a single line in the Pace card, not a card.
+**Two things left this screen and are now frame furniture.** The timer is
+docked to the bottom on every route, so it can be started from anywhere rather
+than only from here; and money *at risk* moved to the inbox in the dock, for
+the reasons in *The inbox* below. What remains is the money and the texture —
+the entry list is still fixed, because it is half of why the screen is opened
+fifty times a day. Billable ratio is a single line in the Pace card, not a
+card.
 
-## The cards
+## The inbox
 
-### Needs attention
-
-A list of things that are wrong, each a link to the place that fixes it.
+Everything that wants a decision, in one fixed place. It is **not a card on
+this screen** — it lives in the dock, visible from every route
+(`apps/web/src/components/inbox.tsx`). It is specified here because it is fed
+by the same `GET /stats` call as the cards below.
 
 | Row | Condition | Shows |
 |---|---|---|
-| Overdue invoice | `status = 'sent'` and `due_date < today` | Client, amount, days late |
-| Runaway timer | `exceedsThreshold` from `/summary` | Elapsed, and the keep/adjust/discard choice |
-| Unprojected entries | `project_id is null`, unbilled | Count, total hours |
-| Quiet client | Active client, no entries in 30 days | Name, days since last entry |
-| Stale draft | `status = 'draft'` older than 7 days | Client, amount, age |
+| Runaway timer | `exceedsThreshold` from `/summary` | Hours so far, and the keep/adjust/discard choice |
+| Overdue invoice | `status = 'sent'` and `due_date` more than **7 days** past | Client, amount, days late |
+| Stale draft | `status = 'draft'` issued more than **7 days** ago | Client, amount, age |
+| Unprojected entries | `project_id is null`, unbilled, billable, ended | Count, total hours |
 
-**Rendered only when it has rows.** A permanent "all clear" card is the
-`SaveIndicator` problem from the settings form — a check that is always
-present says nothing. The card's absence is the good news.
+**It is always present, including when it is empty**, and that is a deliberate
+reversal. The card this replaced rendered only when it had rows, on the
+argument that a permanent "all clear" is the `SaveIndicator` problem — a check
+that is always present says nothing.
 
-Overdue invoices sort first and carry `danger`; the rest carry `warning`.
-Never the accent — see *Constraints inherited* below.
+That rule does not transfer. A save indicator is transient and sits inline
+with a form, so always-present really does mean always-ignored; **a dock
+region is furniture**, and staying put is the entire point. A user wondering
+where a section went is a real cost, the page reflowed at the exact moment you
+fixed something, and "Nothing needs you." is information rather than noise.
 
-The runaway timer row **surfaces, it does not correct.** It offers the same
-keep/adjust/discard choice specified in `principles.md`, in a second place.
+The rename follows from that: "Needs attention" is a predicate and suited a
+thing that appeared only while the predicate held. An inbox is a place.
 
-"Quiet client" is the row most likely to be wrong, and it is phrased as an
-observation rather than an alarm. A finished engagement is the common cause,
-and the useful action is archiving the client — so the row links to the
-client, not to the timer.
+### Ordering and tone
+
+The runaway timer sorts first — it is the only row about time being recorded
+*wrongly right now*, where an overdue invoice is equally late in an hour, and
+the only row whose subject changes while you read it. Overdue invoices sort
+next and carry `danger`; the rest carry `warning`. Never the accent — see
+*Constraints inherited* below.
+
+### The grace periods are the point
+
+An invoice fires at **`due_date` + 7 days**, not the moment it passes. Net 30
+with a client who pays on day 32 is ordinary, and a card that flags it trains
+the user to clear the list without reading it — which is how the one genuinely
+late invoice gets dismissed with the rest. The invoice page still shows the
+true due date; this governs only when the inbox speaks up.
+
+A **snooze was considered and rejected.** Hiding a row that is still true
+makes the inbox something dismissed reflexively rather than read, and the user
+most likely to snooze everything is the one it exists for. Recording a chase
+(`tasks.md`) keeps the fact instead of hiding it.
+
+### What each row may do
+
+The rows **write, narrowly.** Marking an invoice paid or sent is offered
+inline, because that is the action that legitimately clears a row — the
+underlying fact changed. **Nothing destructive is offered:** voiding and
+deleting belong on the invoice itself, where the whole document is in view.
+
+The runaway timer row **surfaces, it does not correct**, and offers the
+keep/adjust/discard choice specified in `principles.md`. It is the one row
+that is dismissible, because it is the one whose condition is a judgement
+rather than a fact: a long timer is often correct. `dismissed` resets when the
+overrun ends, so Keep silences that overrun rather than the feature.
+
+Every other row disappears only when its condition stops holding. **Nothing is
+stored** — the rows are derived per request, so marking an invoice paid clears
+its row because the predicate stops being true, not because anything was
+written to a queue. An inbox table would need every write path to remember to
+clear it, and a stale row claiming money is late after it arrived is the same
+trust failure as silently editing hours.
+
+## The cards
 
 ### Unbilled
 
@@ -172,12 +219,13 @@ of a card. "Pick your own dashboard" is the most natural path by which a
 restraint-first product becomes the thing it was built against, and the answer
 is decided here rather than argued later.
 
-**Needs attention cannot be hidden.** A card that appears only when something
-is wrong is worthless if it can be switched off, and the user most likely to
-switch it off is the one it exists for. It can be reordered; it cannot be
-removed.
+**The inbox cannot be hidden**, and this is now structural rather than a rule
+to enforce: it is not a card, so there is nothing to reorder or switch off. A
+region that appears only when something is wrong is worthless if it can be
+turned off, and the user most likely to turn it off is the one it exists for.
 
-The timer hero and the entry list are not cards and are not customizable.
+The timer bar, the inbox and the entry list are not cards and are not
+customizable.
 
 **Open: where preferences are stored.** A `home_cards` JSONB column on
 `user_settings` versus discrete columns is undecided. JSONB is the obvious fit
@@ -240,7 +288,7 @@ surfacing runaway timers exists to catch. The app should never congratulate a
 user for a fourteen-day streak.
 
 **Team and comparison stats.** There is no team. This is the slot Toggl wastes
-and *Needs attention* fills.
+and the inbox fills.
 
 ## Constraints inherited
 
@@ -250,11 +298,13 @@ the one thing `principles.md` forbids. Activity uses client colors over a
 neutral empty cell. This is decided up front because a green heatmap is the
 natural first implementation and painful to unwind after it ships.
 
-No card carries the accent. On the home screen the accent is spent, and it is
-spent on the timer.
+No card carries the accent, and neither does the inbox — including its runaway
+timer row, which is about a timer and still renders in `warning`. On this
+screen the accent is spent, and it is spent on the running timer in the bar
+below. Tested (`test/ui/inbox.test.tsx` asserts no `accent` class survives).
 
 **Warning and danger are the alert channel.** `timer-warning` (`#DBA929`) and
-`danger` (`#E9504D`) carry *Needs attention*. Success cyan appears nowhere on
+`danger` (`#E9504D`) carry the inbox's rows. Success cyan appears nowhere on
 this screen — nothing here is an outcome.
 
 **Durations are mono and tabular**, without exception, as everywhere else.

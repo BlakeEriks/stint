@@ -24,18 +24,78 @@ later.
 
 ## Ready
 
+- [ ] **An inbox invoice row does not open.** Clicking the label on an overdue
+      or stale-draft row in the dock's inbox goes nowhere. The `href` is
+      `/invoices/${invoiceId}` and the detail page exists, so the fault is in
+      between — diagnose before writing the fix; candidates are the link losing
+      the click to the row's own handling, the id on the `/stats` row not being
+      the invoice's real id, or the detail page erroring and swallowing the
+      navigation. See `apps/web/src/components/inbox.tsx`.
+
+      This is the inbox's whole premise failing: a row is there to be acted on,
+      and every one of them names a record whose page is where the decision
+      gets made. The inline actions (mark paid, download) are the exception,
+      not the route — void and delete deliberately live on the invoice itself,
+      so a dead link means those are unreachable from the place that surfaced
+      the problem.
+
+- [ ] **A detail page's back link ignores where you came from.** `Shell` in
+      `invoice-detail.tsx` hardcodes `← Invoices`, so arriving from the home
+      inbox and clicking back lands on `/invoices` — a list you were not on,
+      with the row you were reading now one of many. `client-detail.tsx` and
+      `invoice-new.tsx` have the same hardcoded pattern, so whatever this
+      becomes should cover all three.
+
+      The link is doing two jobs and only one is honest. As **"up"** it is
+      correct: an invoice does sit under `/invoices`. As **"back"** — which is
+      what the arrow and the position promise — it is wrong whenever the
+      referrer was the home screen, and the inbox is a primary entry point to
+      exactly these pages.
+
+      Do not reach for `router.back()`: it inherits whatever is on the stack,
+      including an external referrer or a page that has since 404'd, and it
+      leaves the link with no text to render until it knows. Prefer naming the
+      origin explicitly — a `from` query param on the inbox's links, with the
+      current hardcoded path as the fallback — so the label says where it
+      goes, a direct visit still gets a sensible link, and the destination is
+      knowable at render time.
+
+- [ ] **Pace with no target: prompt for the first goal instead of hiding.**
+      `Pace` returns `null` when `stats.pace` is null, so a new account never
+      sees the card and has no way to discover that a target exists — the
+      feature is invisible to exactly the user who has not used it. Render the
+      card with its month heading and a prompt that opens a dialog to set one
+      (target plus `hours`/`revenue` unit, the fields already on
+      `user_settings`).
+
+      **This is not a contradiction of "no empty progress bar".** That rule
+      objected to the app assigning itself a chore — a bar rendered at zero
+      with nothing to say. A single prompt in place of the bar says what the
+      card is for and offers the one action that makes it work; it is the
+      empty-state pattern `/clients` already uses ("Add one to set a rate and
+      bill against it"), not a configuration nag.
+
+      Two things it must not become: a persistent dismissible banner (a card
+      you keep closing is worse than one that hides), and a second target
+      editor — Settings owns that field, so the dialog writes the same
+      setting and the card is a shortcut into it, not a duplicate.
+
 - [ ] **Record a reminder on a sent invoice.** `last_reminded_at`, so an
       overdue row can read "12 days late · chased 3d ago" rather than either
       nagging unchanged or disappearing. This is the honest alternative to a
       snooze: it records what you did instead of hiding what is true, and
       over time shows which clients need chasing twice. Needs a column, a
       PATCH field, and a third inline action on the overdue row.
-- [ ] **Quiet clients in `/stats`.** The attention card is specified to flag
-      an active client with no entries in 30 days, and it is the one row not
-      yet implemented — it needs a per-client last-entry query, and the
-      rollup only returns clients with unbilled work. Phrase it as an
-      observation, not an alarm: a finished engagement is the common cause and
-      archiving is the useful action, so the row links to the client.
+- [ ] **Quiet clients in the inbox.** An active client with no entries in 30
+      days. It needs a per-client last-entry query, because the rollup only
+      returns clients with unbilled work — a quiet one is absent from it by
+      definition. Phrase it as an observation, not an alarm: a finished
+      engagement is the common cause and archiving is the useful action, so
+      the row links to the client.
+
+      It was in `home.md`'s row table for a long time without being built,
+      which made the spec claim a row the app did not have. The design lives
+      here now and moves into that table when it ships.
 - [ ] **Revenue pace.** A revenue target is accepted and stored but pace
       reports `actual: null` for it, because revenue means invoiced plus
       unbilled-at-resolved-rate and that is a different query from summing

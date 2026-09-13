@@ -241,4 +241,19 @@ describe('the runaway timer choice', () => {
     expect(screen.queryByText(/nothing needs you/i)).toBeNull();
     expect(screen.getByText('1')).toBeInTheDocument();
   });
+
+  it('does not spend the accent, even on a row about the timer', async () => {
+    serveRunaway();
+    const { container } = render(<Inbox stats={stats()} />, { wrapper });
+    await screen.findByText(/9 hours so far/);
+
+    /* The sibling test renders an OVERDUE row, so it never saw this one — and
+       this is the row most likely to attract green, because its subject IS
+       the running timer. The accent belongs to the bar below; a second green
+       here would put two meanings on one screen. */
+    const classes = [container, ...container.querySelectorAll('*')].flatMap(
+      (el) => Array.from((el as HTMLElement).classList ?? []),
+    );
+    expect(classes.filter((c) => c.includes('accent'))).toEqual([]);
+  });
 });
