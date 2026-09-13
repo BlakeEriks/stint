@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { AccountMenu } from './account-menu';
+import { Wordmark } from './wordmark';
 
 /**
  * The frame's top edge: wordmark on the left, account on the right.
@@ -26,9 +27,9 @@ export function AppHeader() {
       <Link
         href="/"
         aria-label="Stint — home"
-        className="type-wordmark flex-none rounded-md px-2 py-1 text-strong hover:bg-surface-hover"
+        className="flex-none rounded-md px-2 py-1 hover:bg-surface-hover"
       >
-        Stint
+        <Wordmark />
       </Link>
 
       {/* The account sits here rather than at the foot of the rail. It is
