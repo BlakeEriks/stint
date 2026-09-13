@@ -250,14 +250,13 @@ function Unbilled() {
       lede={
         <>
           <p>
-            Most trackers only count hours &mdash; they don&rsquo;t know your
-            rates, so they can&rsquo;t answer this. Stint does, per client, on
-            the home screen. Two different rates for the same client stay
-            separate, because collapsing them would misstate the money.
+            Most trackers only count hours, so they can&rsquo;t tell you.
+            Stint knows your rates, so it can &mdash; per client, on the home
+            screen, every time you open it.
           </p>
           <p className="type-support mt-4 text-subtle">
-            Work with no rate yet shows a dash, never $0.00 &mdash; an
-            incomplete total is more useful than a wrong one.
+            Work with no rate yet shows a dash, never $0.00. An incomplete
+            total is more useful than a wrong one.
           </p>
         </>
       }
@@ -338,10 +337,8 @@ function Invoice() {
             One click, and this is what your client gets.
           </h2>
           <p className="type-body mt-4 text-muted">
-            Your hours, grouped by task, at the rate each one was worked. Your
-            rates freeze onto the invoice the moment you generate it &mdash;
-            re-download it a year later and it&rsquo;s the same document, to
-            the cent.
+            Your hours, grouped by task, at the rate each one was worked
+            &mdash; numbered, dated and ready to send.
           </p>
         </div>
 
@@ -360,17 +357,14 @@ function Invoice() {
             CLIENT rather than the user, and no competitor markets it. */}
         <div className="mt-10 grid gap-8 sm:grid-cols-2">
           <Aside title="You send it, from your address.">
-            Stint gives you the PDF; it doesn&rsquo;t mail it. Invoices from a
-            shared app domain land in spam and you find out when your client
-            says it never arrived. Sent by you, it carries your own
-            domain&rsquo;s reputation &mdash; and there&rsquo;s a copy in your
-            Sent folder.
+            Stint gives you the PDF and stays out of the way. Sent by you, it
+            carries your own domain&rsquo;s reputation &mdash; not a shared app
+            domain&rsquo;s spam score.
           </Aside>
           <Aside title="Payment details, on the invoice only.">
-            Never in an email. The invoice carries a line telling your client
-            to phone you if the details ever appear to change. Invoice fraud
-            works by altering numbers in transit, so details that render
-            identically every month make a change visible.
+            Never in an email, and the invoice tells your client to phone you
+            if they ever appear to change. That is how invoice fraud gets
+            caught.
           </Aside>
         </div>
       </Container>
@@ -505,9 +499,8 @@ function Platforms() {
       title="Start it in the menu bar. Stop it from your phone."
       lede={
         <>
-          One timer, one truth, on the web, your Mac&rsquo;s menu bar and your
-          phone. The apps aren&rsquo;t shrunken copies of each other &mdash;
-          each one does the thing only it can do.
+          One timer, one truth. The apps aren&rsquo;t shrunken copies of each
+          other &mdash; each does the thing only it can do.
         </>
       }
       aside={
@@ -529,58 +522,65 @@ function Platforms() {
 }
 
 /**
- * The price, with its reason — framed as patronage rather than a feature
- * gate, because "no upsell" and a capability paywall cannot both be true.
+ * The price and the promises, as a centred statement with three short
+ * pillars beneath it.
+ *
+ * It was a split section like everything around it, and at 154 words it was
+ * the second-biggest wall of prose on the page. Five of eight sections shared
+ * one shape, which is what made the page tiring to scan — this one breaks the
+ * rhythm, and the cut forced every line to earn its place.
  */
 function Free() {
   return (
-    <SplitSection
-      recessed
-      /* Answers "what's the catch?", which a free billing tool from an
-         unknown party guarantees. The old title ("Free to use, fully") just
-         restated the price; this one promises the reasoning the visitor is
-         actually after. */
-      title="Why it's free, and what happens next."
-      lede={
-        <>
-          <p>
-            Stint costs very little to run. There&rsquo;s no team plan to
-            support and no sales team to pay for.
+    <section className="bg-surface-recessed">
+      <Container className="py-20 sm:py-28">
+        <div className="mx-auto max-w-xl text-center">
+          <h2 className="type-display text-balance text-strong">
+            Free, and here&rsquo;s the catch.
+          </h2>
+          <p className="type-body mt-4 text-muted">
+            There isn&rsquo;t one. Later, a few dollars a month will take the
+            Stint mark off your invoices &mdash; and that is the only thing it
+            will ever buy.
           </p>
-          <p className="mt-4">
-            Later, a few dollars a month will take the Stint mark off your
-            invoices. That&rsquo;s the only thing it buys &mdash; nothing that
-            affects whether you get paid will ever sit behind it.
-          </p>
-          <p className="mt-4">
-            Your hours, rates and clients are yours. Export everything, any
-            time, on any plan.
-          </p>
-        </>
-      }
-      aside={
-        /* Three guarantees, each a thing the reader has actually worried
-           about. A fourth used to head this list — "overlapping entries are
-           impossible, enforced by a database index" — and it was cut: a solo
-           contractor with one timer has never produced an overlapping entry,
-           so it reassured them about a bug they have never had, in the
-           vocabulary of our implementation rather than their work. */
-        <dl className="flex flex-col gap-5 border-l-2 border-edge-default pl-6">
-          <Guarantee
-            term="Your data comes out as easily as it goes in."
-            detail="Export everything, any time, no plan required. If Stint stops being right for you, you leave with your hours and your invoices."
-          />
-          <Guarantee
-            term="It never edits your hours."
-            detail="Forgot to stop at 5pm? Stint shows you and asks. It doesn't guess and trim."
-          />
-          <Guarantee
-            term="Your rates freeze on the invoice."
-            detail="Raise your rate next year and the invoices you already sent don't change. Re-download one and it's the same document, to the cent."
-          />
+        </div>
+
+        <dl className="mt-12 grid gap-8 sm:grid-cols-3 sm:gap-10">
+          {/* A fourth pillar used to head this list — "overlapping entries
+              are impossible, enforced by a database index" — and it was cut:
+              a solo contractor with one timer has never produced an
+              overlapping entry, so it reassured them about a bug they have
+              never had, in the vocabulary of our implementation. */}
+          <Pillar term="Nothing is gated.">
+            Every feature, every export. Nothing that affects whether you get
+            paid will sit behind a payment.
+          </Pillar>
+          <Pillar term="Your hours are never edited.">
+            Left the timer running overnight? Stint shows you and asks.
+          </Pillar>
+          <Pillar term="Your rates freeze on the invoice.">
+            Raise your rate next year and the invoices you already sent
+            don&rsquo;t change.
+          </Pillar>
         </dl>
-      }
-    />
+      </Container>
+    </section>
+  );
+}
+
+/** One of three. Centred, no rule — the row IS the structure here. */
+function Pillar({
+  term,
+  children,
+}: {
+  term: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="type-heading text-strong">{term}</dt>
+      <dd className="type-support mt-2 text-muted">{children}</dd>
+    </div>
   );
 }
 
@@ -604,9 +604,9 @@ function NotForEveryone() {
               Not for everyone.
             </h2>
             <p className="type-body mt-4 max-w-md text-muted">
-              If you bill as a team, need timesheet approvals, or want project
-              management, Stint will frustrate you &mdash; and other tools are
-              genuinely good at those. Stint is for one person billing hourly.
+              Bill as a team, need approvals, want project management? Stint
+              will frustrate you, and other tools are genuinely good at those.
+              This one is for a person billing hourly.
             </p>
           </div>
 
@@ -633,15 +633,16 @@ function NotForEveryone() {
  * anyone asked it.
  */
 function Questions() {
+  /* Answers are one or two sentences. They were three or four, which made
+     this the biggest block of prose on the page and meant nobody would read
+     the one that matters ("what if Stint goes away"). */
   const qs: { q: string; a: React.ReactNode }[] = [
     {
-      q: 'Does it send the invoice for me?',
+      q: 'Does it email the invoice for me?',
       a: (
         <>
-          No, on purpose. Mail from a shared app domain gets spam-filtered
-          before it reaches your client, and you&rsquo;d never know. You
-          download the PDF and send it from your own address &mdash; better
-          delivery, and a copy in your Sent folder.
+          No, deliberately. Mail from a shared app domain gets spam-filtered on
+          the way to your client. You send the PDF yourself, from your address.
         </>
       ),
     },
@@ -649,69 +650,53 @@ function Questions() {
       q: 'What if Stint goes away?',
       a: (
         <>
-          Export everything whenever you want &mdash; hours, clients, rates,
-          invoices &mdash; on any plan. And every invoice you generate is a PDF
-          you have already downloaded and sent, so those live in your own files
-          and don&rsquo;t depend on Stint existing.
-        </>
-      ),
-    },
-    {
-      q: 'Why is it free?',
-      a: (
-        <>
-          It costs very little to run, and there&rsquo;s no team plan to
-          support. A few dollars a month will later remove the Stint mark from
-          your invoice PDF, and that is the only thing it will ever buy.
+          Every invoice is a PDF you already downloaded, so it doesn&rsquo;t
+          depend on us existing. Export the rest any time.
         </>
       ),
     },
     {
       q: 'Does it do taxes, expenses or mileage?',
-      a: (
-        <>
-          No. It tracks hours and makes invoices. If you keep books, the PDF
-          drops into your bookkeeping tool fine.
-        </>
-      ),
+      a: <>No. Hours and invoices. The PDF drops into your books fine.</>,
     },
     {
       q: 'Can I use it outside the US?',
       a: (
         <>
-          It&rsquo;s built US-first: USD, ACH routing and account number,
-          1099/W-9 framing, no VAT. You can use it elsewhere, but the defaults
-          will fight you.
+          You can, but it&rsquo;s built US-first &mdash; USD, ACH, 1099/W-9, no
+          VAT. The defaults will fight you.
         </>
       ),
     },
   ];
 
+  /* A single column of rules rather than a two-column grid: five stacked
+     cells read as a form to fill in, where a rule-separated list reads as a
+     conversation. It also makes the section narrow, which is a shape nothing
+     else on the page has. */
   return (
-    <section className="bg-surface-recessed">
+    <section>
       <Container className="py-20 sm:py-28">
-        <h2 className="type-display text-balance text-strong">
-          Reasonable questions.
-        </h2>
-        <dl className="mt-10 grid gap-x-16 gap-y-8 lg:grid-cols-2">
-          {qs.map(({ q, a }) => (
-            <div key={q} className="min-w-0">
-              <dt className="type-heading text-strong">{q}</dt>
-              <dd className="type-support mt-2 max-w-md text-muted">{a}</dd>
-            </div>
-          ))}
-        </dl>
+        <div className="mx-auto max-w-2xl">
+          <h2 className="type-display text-balance text-strong">
+            Reasonable questions.
+          </h2>
+          <dl className="mt-8 flex flex-col">
+            {qs.map(({ q, a }) => (
+              <div
+                key={q}
+                className="flex flex-col gap-1.5 border-t border-edge-subtle py-5 sm:flex-row sm:gap-8"
+              >
+                <dt className="type-heading min-w-0 text-strong sm:w-2/5 sm:flex-none">
+                  {q}
+                </dt>
+                <dd className="type-support min-w-0 text-muted">{a}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       </Container>
     </section>
-  );
-}
-
-function Guarantee({ term, detail }: { term: string; detail: string }) {
-  return (
-    <div>
-      <dt className="type-heading text-strong">{term}</dt>
-      <dd className="type-support mt-1 text-muted">{detail}</dd>
-    </div>
   );
 }
 
