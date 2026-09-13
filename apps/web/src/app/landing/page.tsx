@@ -1,12 +1,5 @@
 import type { Metadata } from 'next';
-import {
-  ArrowRight,
-  Check,
-  Laptop,
-  Monitor,
-  Smartphone,
-  X,
-} from 'lucide-react';
+import { ArrowRight, Laptop, Monitor, Smartphone, X } from 'lucide-react';
 import { DemoTimer } from '@/components/marketing/demo-timer';
 
 /**
@@ -34,14 +27,6 @@ export const metadata: Metadata = {
     type: 'website',
   },
 };
-
-/**
- * The macOS and mobile apps are being built in parallel. Until they ship,
- * section 04 claims something a visitor can immediately falsify by going
- * looking for a download — which is a trust failure on the same axis the
- * product is built to defend. Flip this to `true` the day they land.
- */
-const SHOW_PLATFORMS = false;
 
 /**
  * Sign-in lives on the app subdomain, so every CTA here is a cross-origin
@@ -74,13 +59,22 @@ function Container({
 
 export default function LandingPage() {
   return (
+    /* The spine: problem -> the differentiator -> the deliverable -> where it
+       runs -> the catch -> the fit -> the doubts -> go.
+
+       Unbilled sits second because it is the argument; everything after it is
+       support. It used to be third, below two sections about what the product
+       refuses to do and what it costs — which is philosophy ahead of the
+       reader's own problem. */
     <main>
       <Header />
       <Hero />
       <Unbilled />
       <Invoice />
-      {SHOW_PLATFORMS ? <Platforms /> : null}
+      <Platforms />
       <Free />
+      <NotForEveryone />
+      <Questions />
       <Closing />
       <Footer />
     </main>
@@ -120,99 +114,51 @@ function Hero() {
           scrolls sideways. The explicit track is what lets it shrink. */}
       <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16">
         <div className="flex min-w-0 flex-col gap-6">
-          {/* The headline IS the scope: TWO ticked things, then the outcome
-              they produce, then what it refuses.
+          {/* The headline names the COMPOUND JOB, not the two features.
+              "Track hours. Create invoices." described two nouns without
+              connecting them — and the connection is the entire product.
+              A visitor read it as "a tracker and an invoice tool, bundled",
+              which describes a dozen other tools.
 
-              Two, not three, and the count is load-bearing — the closing
-              section says "Two things, done properly", and three ticks
-              contradicted it. It is also the honest count: the app sends no
-              mail (see docs/architecture.md), so "Send invoices" claimed
-              something it does not do, and "Get paid" promised an outcome it
-              does not control. Tracking and creating are what Stint does;
-              getting paid is what the user does with the result, so it is
-              set as the consequence rather than a third tick.
+              What differentiates Stint is that it knows the rates, so the
+              hours are already money. That belongs in the first sentence
+              rather than three sections down.
 
-              The struck-through items are MUTED AND STRUCK, not red. Red is
-              this app's danger channel — it means something is wrong — and a
-              stack of red marks reads as "this product is broken" for the
-              half-second before it parses. Grey plus a line through it reads
-              as "deliberately not included", which is the proud version of
-              the same fact. */}
-          <h1 className="flex flex-col gap-1.5">
-            <span className="sr-only">
-              Stint tracks your hours and creates your invoices, so you get
-              paid. It has no project boards, no team seats, no timesheet
-              approvals and no upgrade prompts. It is free.
-            </span>
-            <Does>Track hours.</Does>
-            <Does>Create invoices.</Does>
-            <span aria-hidden className="mt-1 flex items-baseline gap-3">
-              {/* Aligned to the text, not the ticks: the outcome is not a
-                  third thing Stint does, and indenting it under the two that
-                  are says so without a word of explanation. */}
-              <span className="w-6 flex-none sm:w-7" />
-              <span className="type-hero text-muted">Get paid.</span>
-            </span>
+              The refusal list ("no project boards…") moved to its own
+              section further down. Four lines of struck-through grey in the
+              middle of the first screen was the least legible element on the
+              page occupying the most valuable space, and absence is not a
+              benefit to someone who has not yet been told what they get. */}
+          <h1 className="type-hero text-balance text-strong">
+            Your tracked hours, already an invoice.
           </h1>
+          <p className="type-lede max-w-md text-muted">
+            Stint knows what you charge each client, so a month of hours
+            becomes a numbered invoice you can send &mdash; instead of a CSV
+            export and a spreadsheet full of arithmetic.
+          </p>
 
-          <ul className="mt-6 flex flex-col gap-2" aria-hidden>
-            <Doesnt>Project boards</Doesnt>
-            <Doesnt>Team seats</Doesnt>
-            <Doesnt>Timesheet approvals</Doesnt>
-            <Doesnt>&ldquo;Upgrade to Pro&rdquo;</Doesnt>
-          </ul>
-
-          <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-3">
-            <CallToAction />
-            <span className="type-meta text-subtle">
-              Email link, no password.
-            </span>
-          </div>
-        </div>
-
-        {/* The timer and the price share the right column.
-
-            "Free." lived under the refusal list, which left the left column
-            at 695px against the timer's 286 — the card floated in the middle
-            of a lot of nothing. Moving it here balances the two sides AND
-            reads better: the product is what you get, the price is what it
-            costs, and they belong together. */}
-        <div className="flex min-w-0 flex-col gap-8">
-          <DemoTimer />
-
-          <div className="border-l-2 border-edge-control pl-5">
-            <p className="type-display text-strong">Free.</p>
-            <p className="type-body mt-1.5 text-muted">
-              Not free-for-now, not free-until-you-grow. Every feature, every
-              export, no card. There&rsquo;s no team plan to sell you, because
-              there&rsquo;s only ever one of you.
+          <div className="mt-4 flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+              <CallToAction />
+              <span className="type-meta text-subtle">
+                Email link, no password.
+              </span>
+            </div>
+            <p className="type-meta text-subtle">
+              Free, fully &mdash; no card, no trial.
             </p>
           </div>
         </div>
+
+        {/* The price used to sit under the timer here, and there was a whole
+            section about it further down as well — two of six sections spent
+            on "free", which is a check-the-box for a free product, not a
+            pillar. It is now one line under the CTA plus the "why it's free"
+            band, and the timer has the column to itself. */}
+        <DemoTimer />
       </div>
     </Container>
-  );
-}
-
-/**
- * A thing the product does.
- *
- * The tick is the accent. This is the one place the marketing page departs
- * from the in-app rule that green only ever means "time is accruing": here it
- * is the brand mark, and the three things it sits beside ARE the product, so
- * it reads as one meaning rather than several. The CTA below is the same
- * green and the same promise, which is what keeps it coherent.
- */
-function Does({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="flex items-center gap-3">
-      <Check
-        aria-hidden
-        strokeWidth={2.5}
-        className="size-6 flex-none text-accent-default sm:size-7"
-      />
-      <span className="type-hero text-strong">{children}</span>
-    </span>
   );
 }
 
@@ -297,13 +243,22 @@ function Unbilled() {
   return (
     <SplitSection
       recessed
-      title="You don't need a project management suite. You need to know what you're owed."
+      /* The old headline ("You don't need a project management suite…")
+         argued with a competitor's roadmap, which is an argument the visitor
+         is not in. This asks the question they already ask themselves. */
+      title="How much work is sitting there, unbilled?"
       lede={
         <>
-          Stint knows your rates, so it can answer the one question you
-          can&rsquo;t do in your head: how much work is sitting there
-          un-invoiced, and for whom. Most trackers can&rsquo;t &mdash; they
-          only count hours.
+          <p>
+            Most trackers only count hours &mdash; they don&rsquo;t know your
+            rates, so they can&rsquo;t answer this. Stint does, per client, on
+            the home screen. Two different rates for the same client stay
+            separate, because collapsing them would misstate the money.
+          </p>
+          <p className="type-support mt-4 text-subtle">
+            Work with no rate yet shows a dash, never $0.00 &mdash; an
+            incomplete total is more useful than a wrong one.
+          </p>
         </>
       }
       aside={
@@ -377,8 +332,10 @@ function Invoice() {
     <section>
       <Container className="py-20 sm:py-28">
         <div className="mx-auto max-w-xl text-center">
+          {/* "One click" is the pitch — the old headline was passive about
+              the thing that costs the user nothing. */}
           <h2 className="type-display text-balance text-strong">
-            This is what your client gets.
+            One click, and this is what your client gets.
           </h2>
           <p className="type-body mt-4 text-muted">
             Your hours, grouped by task, at the rate each one was worked. Your
@@ -392,13 +349,48 @@ function Invoice() {
           <InvoicePreview />
         </div>
 
-        <p className="type-support mx-auto mt-6 max-w-lg text-center text-subtle">
-          Payment details render on the invoice and nowhere else, with a line
-          telling your client to call you if they ever change. That&rsquo;s
-          how invoice fraud gets caught.
-        </p>
+        {/* Two decisions that were invisible or buried.
+
+            The no-email one MUST be stated: a visitor who discovers after
+            signing up that Stint does not mail the invoice reads it as a
+            missing feature. Said here, it is a reason to trust the product.
+
+            The fraud line was an 11px grey centred footnote under the
+            artifact — the only benefit on this page that protects the
+            CLIENT rather than the user, and no competitor markets it. */}
+        <div className="mt-10 grid gap-8 sm:grid-cols-2">
+          <Aside title="You send it, from your address.">
+            Stint gives you the PDF; it doesn&rsquo;t mail it. Invoices from a
+            shared app domain land in spam and you find out when your client
+            says it never arrived. Sent by you, it carries your own
+            domain&rsquo;s reputation &mdash; and there&rsquo;s a copy in your
+            Sent folder.
+          </Aside>
+          <Aside title="Payment details, on the invoice only.">
+            Never in an email. The invoice carries a line telling your client
+            to phone you if the details ever appear to change. Invoice fraud
+            works by altering numbers in transit, so details that render
+            identically every month make a change visible.
+          </Aside>
+        </div>
       </Container>
     </section>
+  );
+}
+
+/** A titled note beside an exhibit. Not a card — cards would compete. */
+function Aside({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border-l-2 border-edge-control pl-5">
+      <p className="type-heading text-strong">{title}</p>
+      <p className="type-support mt-1.5 text-muted">{children}</p>
+    </div>
   );
 }
 
@@ -418,8 +410,17 @@ function InvoicePreview() {
   ];
 
   return (
-    <div className="mt-2 overflow-x-auto rounded-lg shadow-float">
-      <div className="min-w-[34rem] bg-white p-6 text-[#1A1C21]">
+    /* The invoice needs 34rem to stay legible, so on a phone it scrolls
+       inside its own container rather than shrinking into unreadability.
+
+       That scroll has to be ADVERTISED. Without the hint below, a phone
+       visitor sees the description column and nothing else — the amount due,
+       the two different rates and the payment block are all off-screen with
+       nothing indicating they exist, which loses every persuasive element of
+       the page's strongest asset. */
+    <div className="mt-2">
+      <div className="overflow-x-auto rounded-lg shadow-float">
+        <div className="min-w-[34rem] bg-white p-6 text-[#1A1C21]">
         <div className="flex items-start justify-between gap-4">
           {/* A generic example, never a real person: this page is public and
               the invoice carries a name, an email and bank details. */}
@@ -477,13 +478,19 @@ function InvoicePreview() {
             Our payment details never change. If you receive any message
             stating otherwise, call to verify before paying.
           </p>
+          </div>
         </div>
       </div>
+
+      {/* Only where the scroll actually happens. `lg:hidden` would be a lie
+          on a tablet, where 34rem still overflows. */}
+      <p className="type-meta mt-3 text-center text-subtle xl:hidden">
+        Scroll the invoice to see the rates and the total &rarr;
+      </p>
     </div>
   );
 }
 
-/** Gated by SHOW_PLATFORMS until the native apps actually exist. */
 function Platforms() {
   const surfaces = [
     { icon: Laptop, label: 'Web', detail: 'Everything, everywhere' },
@@ -529,29 +536,39 @@ function Free() {
   return (
     <SplitSection
       recessed
-      title="Free to use, fully."
+      /* Answers "what's the catch?", which a free billing tool from an
+         unknown party guarantees. The old title ("Free to use, fully") just
+         restated the price; this one promises the reasoning the visitor is
+         actually after. */
+      title="Why it's free, and what happens next."
       lede={
         <>
           <p>
-            Every feature, every number, every export. Nothing is held back,
-            nothing expires, and there&rsquo;s no seat to upgrade because
-            there&rsquo;s only ever one of you.
+            Stint costs very little to run. There&rsquo;s no team plan to
+            support and no sales team to pay for.
           </p>
           <p className="mt-4">
             Later, a few dollars a month will take the Stint mark off your
             invoices. That&rsquo;s the only thing it buys &mdash; nothing that
             affects whether you get paid will ever sit behind it.
           </p>
+          <p className="mt-4">
+            Your hours, rates and clients are yours. Export everything, any
+            time, on any plan.
+          </p>
         </>
       }
       aside={
-        /* The three promises: one line in the spec, three rows here, because
-           in a column each one is a separate guarantee and reads as a list of
-           commitments rather than a run-on sentence. Still no cards. */
+        /* Three guarantees, each a thing the reader has actually worried
+           about. A fourth used to head this list — "overlapping entries are
+           impossible, enforced by a database index" — and it was cut: a solo
+           contractor with one timer has never produced an overlapping entry,
+           so it reassured them about a bug they have never had, in the
+           vocabulary of our implementation rather than their work. */
         <dl className="flex flex-col gap-5 border-l-2 border-edge-default pl-6">
           <Guarantee
-            term="One timer, always."
-            detail="Overlapping entries aren't cleaned up later — the database makes them impossible."
+            term="Your data comes out as easily as it goes in."
+            detail="Export everything, any time, no plan required. If Stint stops being right for you, you leave with your hours and your invoices."
           />
           <Guarantee
             term="It never edits your hours."
@@ -559,11 +576,133 @@ function Free() {
           />
           <Guarantee
             term="Your rates freeze on the invoice."
-            detail="Change your rate tomorrow and every invoice you already issued stays exactly as it was."
+            detail="Raise your rate next year and the invoices you already sent don't change. Re-download one and it's the same document, to the cent."
           />
         </dl>
       }
     />
+  );
+}
+
+/**
+ * Where the refusal list belongs.
+ *
+ * It used to be four struck-through lines in the hero, above any statement of
+ * benefit — an absence is not a benefit to someone who has not yet been told
+ * what they get, and it put the visitor's current tool on trial in paragraph
+ * one. Here the negation is the point of the section, so it reads as service
+ * rather than posture: conceding that other tools are better at things Stint
+ * does not do buys more trust than any claim about itself.
+ */
+function NotForEveryone() {
+  return (
+    <section>
+      <Container className="py-20 sm:py-28">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16">
+          <div className="min-w-0">
+            <h2 className="type-display text-balance text-strong">
+              Not for everyone.
+            </h2>
+            <p className="type-body mt-4 max-w-md text-muted">
+              If you bill as a team, need timesheet approvals, or want project
+              management, Stint will frustrate you &mdash; and other tools are
+              genuinely good at those. Stint is for one person billing hourly.
+            </p>
+          </div>
+
+          <ul className="flex min-w-0 flex-col gap-2">
+            <Doesnt>Project boards</Doesnt>
+            <Doesnt>Team seats</Doesnt>
+            <Doesnt>Timesheet approvals</Doesnt>
+            <Doesnt>&ldquo;Upgrade to Pro&rdquo;</Doesnt>
+          </ul>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+/**
+ * Objection handling, plainly.
+ *
+ * "Will this exist in a year?" is the hardest question a free billing tool
+ * faces, and it is severe rather than idle: an invoice is a tax record. The
+ * answer is not a promise about longevity — a promise from an unknown party
+ * is worth nothing — but the fact that every invoice is a PDF the user has
+ * already downloaded and sent. The no-email decision answered this before
+ * anyone asked it.
+ */
+function Questions() {
+  const qs: { q: string; a: React.ReactNode }[] = [
+    {
+      q: 'Does it send the invoice for me?',
+      a: (
+        <>
+          No, on purpose. Mail from a shared app domain gets spam-filtered
+          before it reaches your client, and you&rsquo;d never know. You
+          download the PDF and send it from your own address &mdash; better
+          delivery, and a copy in your Sent folder.
+        </>
+      ),
+    },
+    {
+      q: 'What if Stint goes away?',
+      a: (
+        <>
+          Export everything whenever you want &mdash; hours, clients, rates,
+          invoices &mdash; on any plan. And every invoice you generate is a PDF
+          you have already downloaded and sent, so those live in your own files
+          and don&rsquo;t depend on Stint existing.
+        </>
+      ),
+    },
+    {
+      q: 'Why is it free?',
+      a: (
+        <>
+          It costs very little to run, and there&rsquo;s no team plan to
+          support. A few dollars a month will later remove the Stint mark from
+          your invoice PDF, and that is the only thing it will ever buy.
+        </>
+      ),
+    },
+    {
+      q: 'Does it do taxes, expenses or mileage?',
+      a: (
+        <>
+          No. It tracks hours and makes invoices. If you keep books, the PDF
+          drops into your bookkeeping tool fine.
+        </>
+      ),
+    },
+    {
+      q: 'Can I use it outside the US?',
+      a: (
+        <>
+          It&rsquo;s built US-first: USD, ACH routing and account number,
+          1099/W-9 framing, no VAT. You can use it elsewhere, but the defaults
+          will fight you.
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <section className="bg-surface-recessed">
+      <Container className="py-20 sm:py-28">
+        <h2 className="type-display text-balance text-strong">
+          Reasonable questions.
+        </h2>
+        <dl className="mt-10 grid gap-x-16 gap-y-8 lg:grid-cols-2">
+          {qs.map(({ q, a }) => (
+            <div key={q} className="min-w-0">
+              <dt className="type-heading text-strong">{q}</dt>
+              <dd className="type-support mt-2 max-w-md text-muted">{a}</dd>
+            </div>
+          ))}
+        </dl>
+      </Container>
+    </section>
   );
 }
 
@@ -580,13 +719,18 @@ function Closing() {
   return (
     <section>
       <Container className="py-24 text-center sm:py-32">
+        {/* "Two things, done properly" was an internal slogan: it restated
+            the hero at the moment the visitor is deciding, and gave them
+            nothing new. The last line before a CTA should lower the cost of
+            clicking, not recap the pitch. */}
         <h2 className="type-hero text-balance text-strong">
-          Two things, done properly.
+          Start the timer. The invoice takes care of itself.
         </h2>
         <div className="mt-8 flex flex-col items-center gap-3">
           <CallToAction />
-          <span className="type-meta text-subtle">
-            Free, no card, no trial countdown.
+          <span className="type-meta max-w-sm text-subtle">
+            Email link, no password. Nothing to install, no card, and your data
+            exports whenever you want it.
           </span>
         </div>
       </Container>
@@ -594,14 +738,35 @@ function Closing() {
   );
 }
 
+/**
+ * A free financial tool from an unknown party with no way to reach a human is
+ * a trust hole, and the cheapest one on the page to plug.
+ *
+ * The support address waits on the domain — a personal Gmail on a billing
+ * product reads less established than nothing at all, so the row ships with
+ * the legal pages and gains the address when there is one to give.
+ */
 function Footer() {
   return (
     <footer className="border-t border-edge-subtle">
-      <Container className="flex flex-wrap items-center justify-between gap-4 py-8">
-        <span className="type-wordmark text-muted">Stint</span>
-        <p className="type-meta text-subtle">
-          Time tracking and invoicing for solo contractors.
-        </p>
+      <Container className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 py-10">
+        <div>
+          <span className="type-wordmark text-muted">Stint</span>
+          <p className="type-meta mt-1 text-subtle">
+            Time tracking and invoicing for solo contractors.
+          </p>
+        </div>
+        <nav aria-label="Legal" className="flex items-center gap-5">
+          <a
+            href="/privacy"
+            className="type-meta text-subtle hover:text-muted"
+          >
+            Privacy
+          </a>
+          <a href="/terms" className="type-meta text-subtle hover:text-muted">
+            Terms
+          </a>
+        </nav>
       </Container>
     </footer>
   );

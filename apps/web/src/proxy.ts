@@ -25,6 +25,9 @@ import type { NextRequest } from 'next/server';
  * convention is deprecated in Next 16 and renamed. Same semantics.
  */
 
+/** Public marketing pages that live on the apex alongside `/`. */
+const MARKETING_PATHS = new Set(['/privacy', '/terms']);
+
 /** Hostnames that serve the product rather than the pitch. */
 function isAppHost(hostname: string): boolean {
   // `app.` wins everywhere, including `app.localhost`.
@@ -70,6 +73,12 @@ export function proxy(request: NextRequest) {
   if (pathname === '/') {
     return NextResponse.rewrite(new URL('/landing', request.url));
   }
+
+  /* The marketing site's other public pages. They are linked from the
+     landing footer, so they must resolve on the apex rather than bouncing to
+     the app subdomain — a privacy policy that redirects into a signed-out app
+     screen is worse than no link at all. */
+  if (MARKETING_PATHS.has(pathname)) return NextResponse.next();
 
   /* Anything else on the apex belongs to the app. Send it to the subdomain
      rather than 404ing, so an old link or a typed path still arrives.
