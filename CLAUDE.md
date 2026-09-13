@@ -1089,6 +1089,27 @@ hours long, so fixed-millisecond arithmetic lands an hour off and mis-buckets
 the entries at the edges. Block positions divide by the column's own span for
 the same reason.
 
+**A legend keys the colours, built from the week in view.** A block's left
+border is its client's colour, which answers *whose work is this?* only once
+you know which hue is whose — before this the mapping was learnable only by
+clicking a block and reading the dialog. It is derived from the entries on
+screen rather than from the client list, so it never names a colour that is
+not showing, and it changes as you page between weeks because it describes
+*that* week. Ranked by time tracked, like the activity chart.
+
+Two differences from the activity chart's legend, both deliberate: there is
+**no `MAX_SERIES` cap**, because a week holds few enough clients that a cap
+would hide a real one (30 stacked bands is what forces the chart's hand), and
+internal work is named **"No client" with an outlined swatch** rather than
+merged into a neutral "Other" band — it has no stripe on the grid, so its
+swatch shows the absence rather than inventing a grey.
+
+`useProjectClients()` in `use-project-colors.ts` supplies both the colours and
+the client grouping from one pair of queries. `useProjectColors()` is now a
+thin wrapper over it; **both include archived clients**, which also fixed a
+quiet bug — entries billed to a finished engagement were losing their colour
+on the calendar and the entry list.
+
 Overlapping entries get side-by-side lanes rather than stacking — in a
 billing tool a block you cannot see is a block you cannot check. Tested, and
 the test was verified to fail when the laning is removed.

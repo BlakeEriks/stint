@@ -16,6 +16,33 @@ const PROJECTS = [
   },
 ];
 
+/* Two projects under ONE client, plus a second client. The legend groups by
+   client, so `p-north-a` and `p-north-b` must produce a single entry — colour
+   identifies a client, and two identical swatches would be a bug. */
+const CLIENT_PROJECTS = [
+  { id: 'p-north-a', clientId: 'c-north', name: 'Warehouse' },
+  { id: 'p-north-b', clientId: 'c-north', name: 'Peak season' },
+  { id: 'p-byrne', clientId: 'c-byrne', name: 'Typography' },
+  { id: 'p-internal', clientId: null, name: 'Internal' },
+  /* Belongs to a client with a colour, and has NO time this week. This is the
+     case that separates "built from the week" from "built from the project
+     list" — a client with no projects at all would be excluded by either. */
+  { id: 'p-absent', clientId: 'c-absent', name: 'Dormant' },
+].map((p) => ({
+  ...p,
+  hourlyRate: null,
+  isBillableDefault: true,
+  archivedAt: null,
+}));
+
+const CLIENTS = [
+  { id: 'c-north', name: 'Northwind Trading', color: '#6EA1E2' },
+  { id: 'c-byrne', name: 'Byrne Studio', color: '#42B59A' },
+  /* Has no time this week. A legend built from the CLIENT LIST would name it
+     anyway, which is the opposite of a key. */
+  { id: 'c-absent', name: 'Absent Co', color: '#DA8188' },
+].map((c) => ({ ...c, archivedAt: null, hourlyRate: null }));
+
 function entry(over: Partial<TimeEntry>): TimeEntry {
   return {
     id: 'e1',
@@ -29,14 +56,20 @@ function entry(over: Partial<TimeEntry>): TimeEntry {
   } as TimeEntry;
 }
 
-/** Serves the calendar and project endpoints the view reads. */
-function serve(days: CalendarDay[]) {
+/** Serves the calendar, project and client endpoints the view reads. */
+function serve(
+  days: CalendarDay[],
+  opts: { projects?: unknown[]; clients?: unknown[] } = {},
+) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
-      const body = String(url).includes('/projects')
-        ? { projects: PROJECTS }
-        : { days };
+      const u = String(url);
+      const body = u.includes('/projects')
+        ? { projects: opts.projects ?? PROJECTS }
+        : u.includes('/clients')
+          ? { clients: opts.clients ?? [] }
+          : { days };
       return new Response(JSON.stringify(body), { status: 200 });
     }),
   );
@@ -188,5 +221,115 @@ describe('Calendar', () => {
 
     await user.click(screen.getByRole('button', { name: 'This week' }));
     expect(await screen.findByText('September 2026')).toBeInTheDocument();
+  });
+});
+
+/**
+ * The key to the colours on the grid.
+ *
+ * A block's left border is its client's colour, which only answers "whose work
+ * is this?" once you know which hue is whose.
+ */
+describe('the calendar legend', () => {
+  const week = (): CalendarDay[] => [
+    {
+      date: '2026-09-07',
+      totalSeconds: 10800,
+      entries: [
+        entry({ id: 'a', projectId: 'p-north-a', durationSeconds: 3600 }),
+        entry({ id: 'b', projectId: 'p-north-b', durationSeconds: 3600 }),
+        entry({ id: 'c', projectId: 'p-byrne', durationSeconds: 3600 }),
+      ],
+    },
+  ];
+
+  const legendFor = (name: string) =>
+    screen.getByText(name, { selector: 'span' });
+
+  it('names one entry per CLIENT, not per project', async () => {
+    serve(week(), { projects: CLIENT_PROJECTS, clients: CLIENTS });
+    render(<Calendar />, { wrapper });
+
+    /* Two projects under Northwind, one entry — colour identifies a client, so
+       a row per project would repeat the same swatch twice and imply the hues
+       are different. */
+    expect(await screen.findAllByText('Northwind Trading')).toHaveLength(1);
+    expect(legendFor('Byrne Studio')).toBeInTheDocument();
+  });
+
+  it('describes the week in view, not the whole client list', async () => {
+    serve(week(), { projects: CLIENT_PROJECTS, clients: CLIENTS });
+    render(<Calendar />, { wrapper });
+
+    await screen.findAllByText('Northwind Trading');
+    /* `Absent Co` exists and has a colour, but no time this week. Naming it
+       would make the legend a client directory rather than a key to what is
+       actually on screen. */
+    expect(screen.queryByText('Absent Co')).toBeNull();
+  });
+
+  it('ranks by time tracked, so the week is read biggest-first', async () => {
+    serve(
+      [
+        {
+          date: '2026-09-07',
+          totalSeconds: 18000,
+          entries: [
+            entry({ id: 'a', projectId: 'p-byrne', durationSeconds: 3600 }),
+            entry({ id: 'b', projectId: 'p-north-a', durationSeconds: 14400 }),
+          ],
+        },
+      ],
+      { projects: CLIENT_PROJECTS, clients: CLIENTS },
+    );
+    render(<Calendar />, { wrapper });
+
+    await screen.findAllByText('Northwind Trading');
+    const labels = [...document.querySelectorAll('span.type-support')].map(
+      (el) => el.textContent,
+    );
+    /* Northwind has 4h against Byrne's 1h, so it leads regardless of the order
+       the entries happened to arrive in. */
+    expect(labels.indexOf('Northwind Trading')).toBeLessThan(
+      labels.indexOf('Byrne Studio'),
+    );
+  });
+
+  it('names internal work only when some is present, and gives it no colour', async () => {
+    serve(
+      [
+        {
+          date: '2026-09-07',
+          totalSeconds: 3600,
+          entries: [
+            entry({ id: 'a', projectId: 'p-internal', durationSeconds: 3600 }),
+          ],
+        },
+      ],
+      { projects: CLIENT_PROJECTS, clients: CLIENTS },
+    );
+    render(<Calendar />, { wrapper });
+
+    /* Internal work has no client and so no stripe on the grid. Its swatch is
+       an outline, describing the ABSENCE of colour — a shared grey would read
+       as a client of its own, which `use-project-colors.ts` refuses for the
+       same reason. */
+    const item = await screen.findByText('No client', { selector: 'span' });
+    const swatch = item.querySelector('span[aria-hidden]') as HTMLElement;
+    expect(swatch.style.backgroundColor).toBe('');
+  });
+
+  it('renders no strip at all when the week is empty', async () => {
+    serve([], { projects: CLIENT_PROJECTS, clients: CLIENTS });
+    const { container } = render(<Calendar />, { wrapper });
+
+    await screen.findByText(/Nothing logged this week/);
+
+    /* Asserting the CONTAINER, not the absence of labels. With no entries
+       there are no labels either way, so a label check passes whether or not
+       the strip renders — it was written that way first and a mutation walked
+       straight through it. What actually differs is the bordered bar, which
+       would otherwise sit empty under an empty grid. */
+    expect(container.querySelector('.flex-wrap.border-t')).toBeNull();
   });
 });

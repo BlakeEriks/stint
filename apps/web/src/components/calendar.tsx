@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { formatCompact, formatClock, instantAt } from '@stint/core';
 import { Button } from '@/components/ui/button';
 import { useCalendar, type PositionedEntry } from '@/lib/client/use-calendar';
-import { useProjectColors } from '@/lib/client/use-project-colors';
+import { useProjectClients } from '@/lib/client/use-project-colors';
 import {
   useEntryDrag,
   type Drag,
@@ -31,7 +31,7 @@ const HOURS = [0, 3, 6, 9, 12, 15, 18, 21];
  */
 export function Calendar() {
   const cal = useCalendar();
-  const colorByProject = useProjectColors();
+  const { colorByProject, clientByProject } = useProjectClients();
 
   const projects = useQuery({
     queryKey: ['projects'],
@@ -176,6 +176,8 @@ export function Calendar() {
             ))}
           </div>
         </div>
+
+        <Legend days={cal.days} clientByProject={clientByProject} />
       </div>
 
       {error ? (
@@ -204,6 +206,104 @@ export function Calendar() {
 
 /** Fixed pixel height so an hour is the same size on every screen. */
 const GRID_HEIGHT = 720;
+
+/**
+ * Which client each colour on the grid belongs to.
+ *
+ * A block's left border is its client's colour, which answers *whose work is
+ * this?* at a glance — but only once you know which hue is whose. Before this
+ * the mapping was learnable only by clicking a block and reading the dialog.
+ *
+ * **Built from the week in view, not from the client list.** A legend of every
+ * client would mostly name colours that are not on screen, which is the
+ * opposite of a key. It changes as you page between weeks, and that is
+ * correct: it describes this week.
+ *
+ * **Ordered by tracked time, descending.** The same ranking the activity chart
+ * uses, and for the same reason — the client you spent the week on should be
+ * read first, and a stable rule beats alphabetical here because it matches how
+ * much of the grid each colour actually occupies.
+ *
+ * **Internal work is named only when present.** It has no client and therefore
+ * no colour, so its entry describes the *absence* of a stripe rather than
+ * showing one. Unlike the activity chart's neutral "Other" band, there is no
+ * long tail to merge: every client with time this week is named, because a
+ * week holds few enough of them that a cap would hide a real one.
+ */
+function Legend({
+  days,
+  clientByProject,
+}: {
+  days: { positioned: PositionedEntry[] }[];
+  clientByProject: Map<string, { id: string; name: string; color: string }>;
+}) {
+  const seconds = new Map<string, number>();
+  const meta = new Map<string, { name: string; color: string }>();
+  let internalSeconds = 0;
+
+  for (const day of days) {
+    for (const { entry } of day.positioned) {
+      /* The entry's own duration, not the positioned block's height: a block
+         is clipped to its day, so a long entry would otherwise be undercounted
+         against the client it belongs to.
+
+         A RUNNING entry has no duration yet (the column is generated from
+         `ended_at`), so it contributes 0 to the ranking while still putting
+         its client in the legend — the block is on the grid, so its colour
+         needs explaining regardless of how long it ends up being. */
+      const secs = entry.durationSeconds ?? 0;
+      const client = entry.projectId
+        ? clientByProject.get(entry.projectId)
+        : undefined;
+
+      if (!client) {
+        internalSeconds += secs;
+        continue;
+      }
+      seconds.set(client.id, (seconds.get(client.id) ?? 0) + secs);
+      meta.set(client.id, { name: client.name, color: client.color });
+    }
+  }
+
+  const ranked = [...seconds.entries()].sort((a, b) => b[1] - a[1]);
+  if (ranked.length === 0 && internalSeconds === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-edge-subtle px-4 py-2.5">
+      {ranked.map(([id]) => (
+        <LegendItem
+          key={id}
+          colour={meta.get(id)?.color}
+          label={meta.get(id)?.name ?? 'Unknown client'}
+        />
+      ))}
+      {internalSeconds > 0 ? <LegendItem label="No client" /> : null}
+    </div>
+  );
+}
+
+/**
+ * `colour` absent means internal work, which carries no stripe on the grid.
+ *
+ * The swatch is then an outline rather than a fill — it shows what the absence
+ * looks like instead of inventing a grey, which would read as a client of its
+ * own. `use-project-colors.ts` refuses the same shared grey for the same
+ * reason.
+ */
+function LegendItem({ colour, label }: { colour?: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5 type-support text-muted">
+      <span
+        aria-hidden
+        className={`size-2 flex-none rounded-[2px] ${
+          colour ? '' : 'border border-edge-default'
+        }`}
+        style={colour ? { backgroundColor: colour } : undefined}
+      />
+      {label}
+    </span>
+  );
+}
 
 function DayHeading({
   date,
