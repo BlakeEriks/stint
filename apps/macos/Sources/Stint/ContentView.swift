@@ -72,11 +72,8 @@ private struct TimerPanel: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
                     .foregroundStyle(Tokens.Dark.textStrong)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .background(Tokens.Dark.bgElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
                     .focused($taskFocused)
+                    .fieldStyle(focused: taskFocused)
                     .onSubmit { commit() }
                     // Committing on blur as well: typing a name and clicking
                     // straight to Start should not lose what was typed.
@@ -88,7 +85,8 @@ private struct TimerPanel: View {
             ProjectField(model: model)
 
             HStack(spacing: 8) {
-                StartStopButton(model: model)
+                // Start only: stopping now lives beside the clock.
+                if !model.isRunning { StartStopButton(model: model) }
                 Spacer()
                 OpenAppButton()
             }
@@ -105,6 +103,23 @@ private struct TimerPanel: View {
             AccountRow(model: model)
         }
         .padding(14)
+        /* The caret goes to the task field on every open.
+           `MenuBarExtra` rebuilds its content each time the panel opens, so
+           this runs per open rather than once — which is what makes the panel
+           worth opening with the keyboard: type, hit Return, the timer runs.
+
+           The delay is required, not defensive: focusing in the same turn as
+           the view appearing is silently dropped, which is the usual reason
+           `@FocusState` looks broken.
+
+           Only when nothing is RUNNING. A running entry shows its name as
+           text with a pencil, so there is no field to focus, and stealing the
+           caret would put it somewhere invisible. */
+        .task {
+            guard !model.isRunning else { return }
+            try? await Task.sleep(for: .milliseconds(120))
+            taskFocused = true
+        }
         // Follow the server when a timer starts or stops elsewhere, but never
         // while the field has focus — overwriting what someone is typing is
         // the worst possible moment to reconcile.
@@ -125,23 +140,83 @@ private struct TimerPanel: View {
     ///
     /// The accent is spent here and only here: a running timer is the one
     /// thing in this app the colour is allowed to mean.
+    /// The clock and, while running, its control — always adjacent.
+    ///
+    /// The stop button belongs beside the number it stops. Down in the action
+    /// row it sat where the Start pill lives, which is the wrong place twice
+    /// over: it is round and small, so it read as a leftover rather than the
+    /// primary control, and it was the furthest thing in the panel from the
+    /// time it acts on. `timer-bar.tsx` groups them for the same reason.
     private var readout: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(model.isRunning ? format(model.elapsedSeconds) : format(model.todaySeconds))
-                .font(.system(size: 30, weight: .medium, design: .monospaced))
-                .monospacedDigit()
-                .foregroundStyle(
-                    model.isRunning ? Tokens.Dark.accentDefault : Tokens.Dark.textStrong
-                )
-                .contentTransition(.numericText())
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.isRunning ? format(model.elapsedSeconds) : format(model.todaySeconds))
+                    .font(.system(size: 30, weight: .medium, design: .monospaced))
+                    .monospacedDigit()
+                    .foregroundStyle(
+                        model.isRunning ? Tokens.Dark.accentDefault : Tokens.Dark.textStrong
+                    )
+                    .contentTransition(.numericText())
 
-            Text(model.isRunning ? "running" : "logged today")
-                .font(.system(size: 11))
-                .textCase(.uppercase)
-                .tracking(0.6)
-                .foregroundStyle(Tokens.Dark.textSubtle)
+                Text(model.isRunning ? "running" : "logged today")
+                    .font(.system(size: 11))
+                    .textCase(.uppercase)
+                    .tracking(0.6)
+                    .foregroundStyle(Tokens.Dark.textSubtle)
+            }
+
+            if model.isRunning {
+                Spacer(minLength: 0)
+                StartStopButton(model: model)
+            }
         }
     }
+}
+
+/// The panel's field styling, focus ring included.
+///
+/// Matches the web app's `inputClass`: a border that brightens to
+/// `border-focus` plus a 3px ring of the same colour. The macOS caret alone
+/// is a 1px line at the left edge of a dark box — technically present,
+/// invisible in practice, and on a panel that opens under the cursor there is
+/// nothing else to say where typing will go.
+///
+/// **Neutral, never the accent.** `CLAUDE.md`: a focus ring is constant and
+/// involuntary, so spending the accent there drowns the one signal it exists
+/// for — the running timer.
+private struct Field: ViewModifier {
+    var focused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(Tokens.Dark.bgElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(
+                        focused ? Tokens.Dark.borderFocus : Tokens.Dark.borderDefault,
+                        lineWidth: 1
+                    )
+            )
+            // The ring sits outside the border, so the two read as one
+            // thickening edge rather than two concentric outlines.
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(
+                        focused ? Tokens.Dark.borderFocus.opacity(0.4) : .clear,
+                        lineWidth: 3
+                    )
+                    .padding(-2)
+            )
+            .animation(.easeOut(duration: 0.12), value: focused)
+    }
+}
+
+extension View {
+    /// A panel input, showing whether it has the keyboard.
+    func fieldStyle(focused: Bool) -> some View { modifier(Field(focused: focused)) }
 }
 
 /// A button that shows where the keyboard is.
@@ -161,13 +236,18 @@ private struct Focusable: ViewModifier {
         content
             .focusable()
             .focused($focused)
+            /* AppKit's own ring is a blue rounded rectangle that ignores the
+               button's shape — on the round stop button it drew a square
+               around a circle, in a blue that appears nowhere else in the
+               app. Ours is neutral and follows the shape. */
+            .focusEffectDisabled()
             .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                Capsule()
                     .stroke(
                         focused ? Tokens.Dark.borderFocus : .clear,
                         lineWidth: 2
                     )
-                    .padding(-2)
+                    .padding(-3)
             )
     }
 }
@@ -433,7 +513,7 @@ private struct SignInPanel: View {
             Lockup(expanded: true, size: 17)
                 .padding(.bottom, 2)
 
-            Text("Sign in to keep tracking from the menu bar.")
+            Text("We'll email you a six-digit code.")
                 .font(.system(size: 11))
                 .foregroundStyle(Tokens.Dark.textSubtle)
                 .fixedSize(horizontal: false, vertical: true)
@@ -444,14 +524,11 @@ private struct SignInPanel: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
                     .foregroundStyle(Tokens.Dark.textStrong)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .background(Tokens.Dark.bgElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .fieldStyle(focused: focus == .email)
                     .onSubmit { request() }
 
                 Button(action: request) {
-                    Text(busy ? "Sending…" : "Email me a sign-in link")
+                    Text(busy ? "Sending…" : "Email me a code")
                         .font(.system(size: 12, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 7)
@@ -463,7 +540,7 @@ private struct SignInPanel: View {
                 .keyboardReachable()
                 .disabled(busy || email.isEmpty)
             } else {
-                Text("We sent a six-digit code to \(email).")
+                Text("Sent to \(email).")
                     .font(.system(size: 11))
                     .foregroundStyle(Tokens.Dark.textSubtle)
                     .fixedSize(horizontal: false, vertical: true)
@@ -480,9 +557,7 @@ private struct SignInPanel: View {
                     .tracking(6)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Tokens.Dark.textStrong)
-                    .padding(.vertical, 8)
-                    .background(Tokens.Dark.bgElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .fieldStyle(focused: focus == .code)
                     .onChange(of: code) { _, entered in
                         /* Shown as xxx-xxx, matching the email, so what is on
                            screen can be compared to what was sent without
