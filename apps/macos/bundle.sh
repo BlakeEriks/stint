@@ -33,4 +33,40 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
+# Sign with the local dev certificate when there is one.
+#
+# Without it the bundle is signed AD-HOC, whose identity is the binary's own
+# hash — so every rebuild is a different app to the Keychain, the ACL entry
+# "Always allow" wrote no longer matches, and the password prompt comes back
+# on every single build. A certificate gives one stable identity instead.
+#
+# Optional on purpose: a fresh clone still builds and runs, it just prompts.
+# `./dev-certificate.sh` creates one.
+IDENTITY="Stint Local Dev"
+if security find-identity -v -p codesigning 2>/dev/null | grep -q "$IDENTITY"; then
+    codesign --force --deep --sign "$IDENTITY" "$APP" 2>/dev/null \
+        && echo "signed with \"$IDENTITY\"" \
+        || echo "warning: signing failed; the Keychain will keep prompting"
+else
+    echo "unsigned (ad-hoc) — run ./dev-certificate.sh to stop the Keychain prompts"
+fi
+
 echo "built $APP"
+
+# Install, because a URL scheme only resolves from a real Applications folder.
+#
+# LaunchServices registers the scheme from a build directory — `lsregister
+# -dump` even shows the claim — and then refuses to open it, so the link
+# silently does nothing. Tested: identical bundle, `/tmp` fails and
+# ~/Applications works.
+#
+# Always overwritten, so the installed copy cannot drift from the built one.
+INSTALLED="$HOME/Applications/Stint.app"
+mkdir -p "$HOME/Applications"
+rm -rf "$INSTALLED"
+cp -R "$APP" "$INSTALLED"
+"/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister" \
+    -f "$INSTALLED"
+
+echo "installed $INSTALLED"
+echo "run it with: open \"$INSTALLED\""

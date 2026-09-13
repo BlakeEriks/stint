@@ -53,21 +53,37 @@ private struct TimerPanel: View {
                 RunawayNotice()
             }
 
-            TextField("What are you working on?", text: $taskDraft)
-                .textFieldStyle(.plain)
-                .font(.system(size: 13))
-                .foregroundStyle(Tokens.Dark.textStrong)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(Tokens.Dark.bgElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .focused($taskFocused)
-                .onSubmit { commit() }
-                // Committing on blur as well: typing a name and clicking
-                // straight to Stop should not lose what was typed.
-                .onChange(of: taskFocused) { _, focused in
-                    if !focused { commit() }
-                }
+            /* Running and idle are two arrangements, not one layout with
+               things hidden — the same split the web app makes, and for the
+               same reason. Idle is a COMPOSING row: the field is the subject
+               and you type into it. Running is a READOUT: the task already
+               has a name, so showing an empty "What are you working on?"
+               beneath a counting clock asks a question that has been
+               answered. */
+            if model.isRunning {
+                RunningRow(
+                    model: model,
+                    name: $taskDraft,
+                    focused: $taskFocused,
+                    onCommit: commit
+                )
+            } else {
+                TextField("What are you working on?", text: $taskDraft)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Tokens.Dark.textStrong)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(Tokens.Dark.bgElevated)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .focused($taskFocused)
+                    .onSubmit { commit() }
+                    // Committing on blur as well: typing a name and clicking
+                    // straight to Start should not lose what was typed.
+                    .onChange(of: taskFocused) { _, focused in
+                        if !focused { commit() }
+                    }
+            }
 
             ProjectField(model: model)
 
@@ -125,6 +141,84 @@ private struct TimerPanel: View {
                 .tracking(0.6)
                 .foregroundStyle(Tokens.Dark.textSubtle)
         }
+    }
+}
+
+/// What is running: a dot, the task name, and a pencil to rename it.
+///
+/// A readout, not a form. The entry already has a name, so the idle field's
+/// "What are you working on?" would be asking a question that has been
+/// answered — and an empty box under a counting clock reads as though the
+/// timer lost track of what it is timing.
+///
+/// The pencil is the affordance rather than an always-editable field: renaming
+/// mid-run is occasional, and a live text box invites a stray keystroke into
+/// billable work.
+private struct RunningRow: View {
+    @Bindable var model: TimerModel
+    @Binding var name: String
+    @FocusState.Binding var focused: Bool
+    var onCommit: () -> Void
+
+    @State private var editing = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            /* The dot is a second channel for "running", independent of
+               colour — `docs/design/color.md` records that no green survives
+               dichromacy, so the state cannot rest on the hue alone. */
+            Circle()
+                .fill(Tokens.Dark.accentDefault)
+                .frame(width: 8, height: 8)
+
+            if editing {
+                TextField("Task name", text: $name)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Tokens.Dark.textStrong)
+                    .focused($focused)
+                    .onSubmit {
+                        onCommit()
+                        editing = false
+                    }
+                    .onChange(of: focused) { _, isFocused in
+                        // Blur commits, so clicking straight to Stop keeps
+                        // what was typed.
+                        if !isFocused {
+                            onCommit()
+                            editing = false
+                        }
+                    }
+            } else {
+                Text(name.isEmpty ? "Untitled" : name)
+                    .font(.system(size: 13))
+                    .foregroundStyle(
+                        name.isEmpty ? Tokens.Dark.textSubtle : Tokens.Dark.textStrong
+                    )
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                Button {
+                    editing = true
+                    // Focus follows the mode change rather than the click, so
+                    // the field is ready however editing started.
+                    DispatchQueue.main.async { focused = true }
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Tokens.Dark.textSubtle)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Rename task")
+
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Tokens.Dark.bgElevated)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -203,26 +297,40 @@ private struct StartStopButton: View {
         Button {
             Task { await model.toggle() }
         } label: {
-            HStack(spacing: 5) {
-                Image(systemName: model.isRunning ? "stop.fill" : "play.fill")
-                    .font(.system(size: 10))
-                Text(model.isRunning ? "Stop" : "Start")
-                    .font(.system(size: 12, weight: .medium))
+            if model.isRunning {
+                /* Round and accent while running, matching the web app. The
+                   accent is already spent on the timer here, and this button
+                   IS the timer's control — one meaning, shown twice, which is
+                   what the rule permits. A neutral stop beside a green clock
+                   read as the secondary action on the panel, which it is not:
+                   stopping is the only thing you came to do. */
+                Image(systemName: "stop.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Tokens.Dark.textOnAccent)
+                    .frame(width: 32, height: 32)
+                    .background(Tokens.Dark.accentDefault)
+                    .clipShape(Circle())
+            } else {
+                HStack(spacing: 5) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 10))
+                    Text("Start")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                // Never white on the accent — 1.37:1. `textOnAccent` is the
+                // near-black the token package exists to enforce, and CI
+                // guards this exact pairing on the web.
+                .foregroundStyle(Tokens.Dark.textOnAccent)
+                .background(Tokens.Dark.accentDefault)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            // Never white on the accent — 1.37:1. `textOnAccent` is the
-            // near-black the token package exists to enforce, and CI guards
-            // this exact pairing on the web.
-            .foregroundStyle(
-                model.isRunning ? Tokens.Dark.textStrong : Tokens.Dark.textOnAccent
-            )
-            .background(model.isRunning ? Tokens.Dark.bgHover : Tokens.Dark.accentDefault)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
         }
         .buttonStyle(.plain)
         .disabled(model.isBusy)
         .opacity(model.isBusy ? 0.6 : 1)
+        .accessibilityLabel(model.isRunning ? "Stop timer" : "Start timer")
     }
 }
 
@@ -274,7 +382,7 @@ private struct SignInPanel: View {
     @Bindable var model: TimerModel
 
     @State private var email = ""
-    @State private var link = ""
+    @State private var code = ""
     @State private var sent = false
     @State private var busy = false
     @State private var error: String?
@@ -312,19 +420,34 @@ private struct SignInPanel: View {
                 .buttonStyle(.plain)
                 .disabled(busy || email.isEmpty)
             } else {
-                Text("Check your email, then paste the whole link here.")
+                Text("We sent a six-digit code to \(email).")
                     .font(.system(size: 11))
                     .foregroundStyle(Tokens.Dark.textSubtle)
                     .fixedSize(horizontal: false, vertical: true)
 
-                TextField("Paste the sign-in link", text: $link)
+                /* A code, typed. No link to paste and no scheme to hand off:
+                   a magic link has to reach a different application than the
+                   one that opened it, and every way of doing that is either
+                   insecure (the clipboard) or silently refused (a browser
+                   following a redirect into a custom scheme). */
+                TextField("000000", text: $code)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 12))
+                    .font(.system(size: 20, weight: .medium, design: .monospaced))
+                    .tracking(6)
+                    .multilineTextAlignment(.center)
                     .foregroundStyle(Tokens.Dark.textStrong)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, 8)
                     .background(Tokens.Dark.bgElevated)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .onChange(of: code) { _, entered in
+                        // Digits only, six of them: a pasted code often
+                        // arrives with a space or a stray character.
+                        let digits = String(entered.filter(\.isNumber).prefix(6))
+                        if digits != entered { code = digits }
+                        // Submitting itself at six saves a keystroke on the
+                        // one screen where there is nothing else to do.
+                        if digits.count == 6 { verify() }
+                    }
                     .onSubmit { verify() }
 
                 Button(action: verify) {
@@ -337,11 +460,11 @@ private struct SignInPanel: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
-                .disabled(busy || link.isEmpty)
+                .disabled(busy || code.count < 6)
 
                 Button("Use a different email") {
                     sent = false
-                    link = ""
+                    code = ""
                     error = nil
                 }
                 .buttonStyle(.plain)
@@ -366,6 +489,24 @@ private struct SignInPanel: View {
         .padding(14)
     }
 
+    private func verify() {
+        guard !busy, code.count == 6 else { return }
+        busy = true
+        error = nil
+        Task {
+            defer { busy = false }
+            do {
+                try await model.signIn(
+                    withCode: code,
+                    email: email.trimmingCharacters(in: .whitespaces)
+                )
+            } catch {
+                self.error = error.localizedDescription
+                code = ""
+            }
+        }
+    }
+
     private func request() {
         busy = true
         error = nil
@@ -374,19 +515,6 @@ private struct SignInPanel: View {
             do {
                 try await model.requestLink(email: email.trimmingCharacters(in: .whitespaces))
                 sent = true
-            } catch {
-                self.error = error.localizedDescription
-            }
-        }
-    }
-
-    private func verify() {
-        busy = true
-        error = nil
-        Task {
-            defer { busy = false }
-            do {
-                try await model.signIn(withLink: link)
             } catch {
                 self.error = error.localizedDescription
             }

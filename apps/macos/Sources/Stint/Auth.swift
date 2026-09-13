@@ -40,6 +40,9 @@ actor Auth {
            GoTrue answered "cannot unmarshal string into Go struct field
            OtpParams.create_user of type bool". Swift will not mix value types
            in a literal, and a struct is the fix rather than [String: Any]. */
+        /* No `redirect_to`: nothing is being redirected anywhere. The same
+           request produces both a link and a six-digit code, and this app
+           uses the code — so where a browser would land is not its concern. */
         struct Body: Encodable {
             let email: String
             let create_user: Bool
@@ -76,18 +79,29 @@ actor Auth {
         }
     }
 
-    /// Turn the emailed link into a session.
-    ///
-    /// The user pastes the whole link; the token is pulled out of it. Asking
-    /// for a link rather than a 6-digit code is not a preference — this
-    /// project's email template sends only a link, so a code field would be
-    /// asking for something the email does not contain.
-    func signIn(withLink link: String) async throws {
-        guard let token = Self.token(in: link) else {
+    /**
+     Turn the emailed six-digit code into a session.
+
+     A CODE, not a link, and that is the whole reason this is tolerable on the
+     desktop. A magic link has to reach a different application than the one
+     that opened it: pasting it puts a bearer credential through the
+     clipboard, and a custom URL scheme is refused by browsers when it is the
+     target of a *redirect* — silently, so the failure surfaces as "Bad
+     request" from a fallback request rather than as anything true.
+
+     A code is typed by a person. Nothing has to hand anything to anything.
+
+     GoTrue generates one for every magic link whether the email shows it or
+     not; `supabase/templates/magic_link.html` is what puts it in front of the
+     user, and `{{ .Token }}` is the field.
+     */
+    func signIn(withCode code: String, email: String) async throws {
+        let digits = code.filter(\.isNumber)
+        guard digits.count == 6 else {
             throw APIError(
                 status: 400,
-                code: "INVALID_LINK",
-                message: "That does not look like a sign-in link. Paste the whole link from the email."
+                code: "INVALID_CODE",
+                message: "A sign-in code is six digits."
             )
         }
 
@@ -95,12 +109,10 @@ actor Auth {
         req.httpMethod = "POST"
         req.setValue(anonKey, forHTTPHeaderField: "apikey")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // `token_hash`, NOT `token`. The value in the emailed URL is already
-        // hashed and the plain `token` field rejects it as `otp_expired` —
-        // which reads as an expired link and sends you hunting for the wrong
-        // bug. Verified against a real GoTrue before this was written.
+        // `type: "email"` — NOT "magiclink", which is the type for the hashed
+        // token in a link and rejects a typed code.
         req.httpBody = try JSONEncoder().encode(
-            ["type": "magiclink", "token_hash": token]
+            ["type": "email", "email": email, "token": digits]
         )
 
         let (data, response) = try await URLSession.shared.data(for: req)
@@ -109,29 +121,13 @@ actor Auth {
             throw Self.error(from: data, status: status)
                 ?? APIError(
                     status: status,
-                    code: "INVALID_LINK",
-                    message: "That link did not work. Links expire quickly and can only be used once."
+                    code: "INVALID_CODE",
+                    message: "That code did not work. Codes expire quickly and can only be used once."
                 )
         }
 
         let session = try JSONDecoder().decode(Session.self, from: data)
         await tokens.store(session)
-    }
-
-    /// The `token=` value from a pasted sign-in URL.
-    ///
-    /// Tolerates `&amp;` because a link copied out of an HTML email carries
-    /// the escaped separator — the same trap the e2e suite hit, where
-    /// following it literally makes GoTrue read `amp;type` and 400.
-    static func token(in link: String) -> String? {
-        let cleaned = link
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard let range = cleaned.range(of: "token=") else { return nil }
-        let rest = cleaned[range.upperBound...]
-        let token = rest.prefix { $0 != "&" && !$0.isWhitespace }
-        return token.isEmpty ? nil : String(token)
     }
 
     private static func error(from data: Data, status: Int) -> APIError? {

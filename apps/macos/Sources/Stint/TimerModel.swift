@@ -232,8 +232,8 @@ final class TimerModel {
         try await auth.requestLink(email: email)
     }
 
-    func signIn(withLink link: String) async throws {
-        try await auth.signIn(withLink: link)
+    func signIn(withCode code: String, email: String) async throws {
+        try await auth.signIn(withCode: code, email: email)
         await refresh()
     }
 
