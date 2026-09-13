@@ -78,6 +78,19 @@ const renderBar = () => render(<TimerBar projects={PROJECTS} />, { wrapper });
 
 const taskInput = () => screen.getByLabelText('Task name');
 
+/**
+ * Enter rename mode on a running timer.
+ *
+ * While running, the task name is TEXT — a running timer is read far more
+ * often than it is edited, and a permanently focusable field turns a stray
+ * click into a rename of billable work. The field appears only after the
+ * pencil, so every rename test goes through here.
+ */
+const startRename = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getByRole('button', { name: 'Rename task' }));
+  return taskInput();
+};
+
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(new Date(NOW));
@@ -153,9 +166,34 @@ describe('TimerBar — running', () => {
     renderBar();
 
     await screen.findByRole('button', { name: 'Stop timer' });
-    expect(taskInput()).toHaveValue('Writing');
+    expect(screen.getByText('Writing')).toBeInTheDocument();
     // 25 minutes, counted from startedAt.
     expect(screen.getByText('0:25:00')).toBeInTheDocument();
+  });
+
+  it('shows the running task as text, not an editable field', async () => {
+    serve(runningSummary());
+    renderBar();
+
+    await screen.findByRole('button', { name: 'Stop timer' });
+    /* The name is read on every screen and edited rarely; a live input makes
+       a stray click a rename of billable work. */
+    expect(screen.queryByLabelText('Task name')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Rename task' }),
+    ).toBeInTheDocument();
+  });
+
+  it('offers the rename control without needing hover', async () => {
+    /* Hover-to-reveal would hide the only edit affordance on touch, and a
+       name typed wrong at the start is otherwise uncorrectable until the
+       entry is stopped. jsdom has no hover, so merely finding it proves it
+       is not gated behind one. */
+    serve(runningSummary());
+    renderBar();
+
+    const pencil = await screen.findByRole('button', { name: 'Rename task' });
+    expect(pencil).toBeVisible();
   });
 
   it('stops on click', async () => {
@@ -176,6 +214,7 @@ describe('TimerBar — running', () => {
     renderBar();
 
     await screen.findByRole('button', { name: 'Stop timer' });
+    await startRename(user);
     await user.clear(taskInput());
     await user.type(taskInput(), 'Rewriting');
     await user.tab();
@@ -192,9 +231,8 @@ describe('TimerBar — running', () => {
   /**
    * An unchanged name must not generate a pointless write.
    *
-   * The edit has to actually happen and then be undone: merely focusing and
-   * blurring leaves `editing` null, so `commitRename` returns before it ever
-   * reaches the comparison this is meant to guard.
+   * The edit has to actually happen and then be undone, so the comparison in
+   * `commitRename` is genuinely reached rather than short-circuited.
    */
   it('does not patch when the task name ends up unchanged', async () => {
     const calls = serve(runningSummary());
@@ -202,11 +240,14 @@ describe('TimerBar — running', () => {
     renderBar();
 
     await screen.findByRole('button', { name: 'Stop timer' });
-    await user.type(taskInput(), '!');
-    await user.keyboard('{Backspace}');
+    await startRename(user);
+    /* The field opens with its text selected, so typing would REPLACE the
+       name rather than append to it. Collapse the selection first — this is
+       the difference between editing "Writing" and editing "". */
+    await user.keyboard('{End}!{Backspace}');
     await user.tab();
 
-    expect(taskInput()).toHaveValue('Writing');
+    expect(screen.getByText('Writing')).toBeInTheDocument();
     expect(calls).toHaveLength(0);
   });
 
@@ -216,10 +257,14 @@ describe('TimerBar — running', () => {
     renderBar();
 
     await screen.findByRole('button', { name: 'Stop timer' });
+    await startRename(user);
     await user.clear(taskInput());
     await user.type(taskInput(), 'Scratch that{Escape}');
 
-    expect(taskInput()).toHaveValue('Writing');
+    /* Back to text, showing the server's name — Escape abandons the edit
+       rather than merely closing the field on whatever was typed. */
+    expect(screen.getByText('Writing')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Task name')).toBeNull();
     expect(calls).toHaveLength(0);
   });
 

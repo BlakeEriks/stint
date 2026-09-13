@@ -903,6 +903,41 @@ with no email, the download is how an invoice reaches a client.
 
 Paid renders in the success channel (cyan), never green.
 
+### The timer bar has two arrangements, not one
+
+Running and idle want opposite things from the width, so they are written as
+two branches rather than one layout with pieces hidden.
+
+**Idle is a composing row** — the field is the subject and takes the space.
+**Running is a readout** of four small objects (dot, name, project, clock), and
+stretching those to the window's corners left ~900px of nothing between the
+first and the last: two fragments at opposite ends of the screen that read as
+unrelated. Centred, they read as one object, which is what they are.
+
+On a phone they diverge again. Running stays one centred row; idle wraps the
+field onto its own line beneath the controls, because no phone can give "What
+are you working on?" a usable width beside a tag and a clock — centring it on
+one row squeezed the field to ~250px and clipped the placeholder mid-word.
+
+**The running task name is TEXT, with an explicit rename button.** It was a
+live `<input>` for the whole run, which made a stray click into a rename of
+billable work and made the bar look like a form waiting for input on every
+screen. The pencil is **always rendered, never hover-only**: hover does not
+exist on touch, and this is the one control with no other route — a name typed
+wrong at the start is otherwise uncorrectable until the entry is stopped.
+
+Entering the rename seeds `editing` with the server's name, so the draft and
+the mode are one piece of state that cannot disagree. The commit rules are
+unchanged: blur or Enter writes, Escape reverts, an unchanged name writes
+nothing. `focus()` must precede `select()` — selecting does not focus, and
+without the focus the field opens with no cursor AND never fires the blur that
+commits. Tested, including that the running name is not a field.
+
+**The project picker is a tag**: bordered, with a chevron, dashed when empty.
+Borderless it read as static text — a swatch beside a name, with nothing
+inviting the click. The empty state keeps its border rather than going ghost,
+because an unassigned timer is exactly when the control most needs finding.
+
 ### The runaway timer choice
 
 Past `max_timer_hours` the timer bar offers **Keep · Adjust · Discard**, which

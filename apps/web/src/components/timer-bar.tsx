@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Pencil } from 'lucide-react';
 import { formatClock } from '@stint/core';
 import { useTimer, useTimeZone } from '@/lib/client/use-timer';
 import { ProjectPicker } from './project-picker';
@@ -35,15 +36,14 @@ export function TimerBar({ projects }: { projects: Project[] }) {
   const timer = useTimer();
   const [draft, setDraft] = useState('');
   const [draftProject, setDraftProject] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const running = timer.running;
   const isRunning = Boolean(running);
 
-  // While running, the input reflects the server's task name; the user can
-  // still edit it, which patches the running entry.
+  /* `null` means "not editing" — the running name is shown as text. Entering
+     a rename seeds this with the server's current name, so the draft and the
+     mode are one piece of state rather than two that can disagree. */
   const [editing, setEditing] = useState<string | null>(null);
-  const taskValue = isRunning ? (editing ?? running!.taskName) : draft;
 
   useEffect(() => {
     if (!isRunning) setEditing(null);
@@ -132,88 +132,102 @@ export function TimerBar({ projects }: { projects: Project[] }) {
         />
       ) : null}
 
-      {/* Two rows on narrow screens: the task name needs the full width, and
-          on one row it collapsed to nothing while the button clipped off. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:gap-4 sm:px-5">
-        <StatusDot running={isRunning} exceeded={exceeded} />
+      {/* Running and idle are two arrangements, not one layout with things
+          hidden.
 
-        {/* The field now looks like a field. Borderless, it read as broken
-            rather than ready — an empty 700px of nothing on a wide screen —
-            and the affordance was invisible until you happened to click it.
-            `border-edge-default` rather than `border-control`, because at
-            rest this is a boundary rather than a control needing 3:1. */}
-        <input
-          ref={inputRef}
-          value={taskValue}
-          onChange={(e) =>
-            isRunning ? setEditing(e.target.value) : setDraft(e.target.value)
-          }
-          onBlur={commitRename}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.currentTarget.blur();
-              if (!isRunning) toggle();
-            }
-            if (e.key === 'Escape' && isRunning) setEditing(null);
-          }}
-          placeholder="What are you working on?"
-          aria-label="Task name"
-          className="order-last min-w-0 flex-1 basis-full rounded-lg border border-edge-default
-                     bg-surface-base px-3 py-2 type-body text-strong
-                     placeholder:text-subtle focus:border-edge-focus focus:outline-none
-                     sm:order-none sm:max-w-md sm:basis-auto"
-        />
+          They want opposite things from the width. **Idle** is a composing
+          row: the field is the subject and should take the space, so the
+          controls push to the edges around it. **Running** is a readout of
+          four small objects, and stretching them to the window's corners left
+          ~900px of nothing between the dot and the clock — two fragments at
+          opposite ends of the screen that read as unrelated. Centred, they
+          read as one object, which is what they are.
 
-        <ProjectPicker
-          projects={projects}
-          value={isRunning ? running!.projectId : draftProject}
-          onChange={(id) =>
-            isRunning
-              ? timer.update.mutate({ projectId: id })
-              : setDraftProject(id)
-          }
-          selected={project}
-        />
-
-        {/* Readout and control stay together so the control never wraps
-            away from the number it acts on. `ml-auto` on both sizes now: the
-            bar spans the window, so the clock anchors to the right edge
-            instead of drifting with the input's width. */}
-        <div className="ml-auto flex flex-none items-center gap-3 sm:gap-4">
-          <time
-            className={`type-timer
-                        ${exceeded ? 'text-warning' : isRunning ? 'text-accent-default' : 'text-subtle'}`}
-            aria-live="off"
-          >
-            {formatClock(timer.seconds)}
-          </time>
-
-          <button
-            // Explicit: a bare <button> defaults to submit, and this sits
-            // beside an input that submits on Enter.
-            type="button"
-            onClick={toggle}
-            disabled={timer.start.isPending || timer.stop.isPending}
-            aria-label={isRunning ? 'Stop timer' : 'Start timer'}
-            /* text-on-accent is n-0 (14.48:1). Never white here — 1.37:1. */
-            className="grid size-9 flex-none place-items-center rounded-full
-                       bg-accent-default text-on-accent transition-colors
-                       hover:bg-accent-hover disabled:opacity-60"
-          >
-            {isRunning ? (
-              <span className="block size-2.5 rounded-[2px] bg-current" />
-            ) : (
-              // The button carries the label; the glyph is decoration.
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 10 12"
-                className="ml-0.5 block h-3 w-2.5 fill-current"
-              >
-                <path d="M0 0l10 6-10 6z" />
-              </svg>
-            )}
-          </button>
-        </div>
+          On a phone they diverge again. **Running** stays one centred row —
+          the four objects fit, and the old layout's `order-last basis-full`
+          pushed a field onto its own line while leaving the dot, project and
+          clock above it as three loose fragments. **Idle** still wraps to two
+          rows, because a phone cannot give "What are you working on?" a usable
+          width on the same line as a tag and a clock; centring it on one row
+          squeezed the field to ~250px and clipped the placeholder mid-word. */}
+      <div
+        className={`flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5 ${
+          isRunning
+            ? 'justify-center'
+            : 'flex-wrap justify-center gap-y-2 sm:flex-nowrap'
+        }`}
+      >
+        {isRunning ? (
+          <>
+            <StatusDot running exceeded={exceeded} />
+            <TaskName
+              name={running!.taskName}
+              editing={editing}
+              onEdit={() => setEditing(running!.taskName)}
+              onChange={setEditing}
+              onCommit={commitRename}
+              onCancel={() => setEditing(null)}
+            />
+            <ProjectPicker
+              projects={projects}
+              value={running!.projectId}
+              onChange={(id) => timer.update.mutate({ projectId: id })}
+              selected={project}
+            />
+            <Readout
+              seconds={timer.seconds}
+              exceeded={exceeded}
+              running
+              onToggle={toggle}
+              busy={timer.start.isPending || timer.stop.isPending}
+            />
+          </>
+        ) : (
+          <>
+            <StatusDot running={false} exceeded={false} />
+            {/* The field now looks like a field. Borderless, it read as broken
+                rather than ready, and the affordance was invisible until you
+                happened to click it. `border-edge-default` rather than
+                `border-control`, because at rest this is a boundary rather
+                than a control needing 3:1. */}
+            {/* `order-last basis-full` below `sm`: the field takes its own
+                row beneath the controls. Ordering it LAST rather than first is
+                what keeps the row above coherent — dot, tag and clock read
+                left to right as one strip, with the thing you type into
+                directly under them. */}
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') toggle();
+              }}
+              placeholder="What are you working on?"
+              aria-label="Task name"
+              className="order-last min-w-0 flex-1 basis-full rounded-lg border border-edge-default
+                         bg-surface-base px-3 py-2 type-body text-strong
+                         placeholder:text-subtle focus:border-edge-focus focus:outline-none
+                         sm:order-none sm:max-w-md sm:basis-auto"
+            />
+            <ProjectPicker
+              projects={projects}
+              value={draftProject}
+              onChange={setDraftProject}
+              selected={project}
+            />
+            {/* Pushed right on the wrapped row, so the dot and tag sit left
+                and the clock anchors the other end rather than the three
+                bunching together in the middle. Once the row is one line at
+                `sm`, centring takes over again. */}
+            <Readout
+              seconds={timer.seconds}
+              exceeded={false}
+              running={false}
+              onToggle={toggle}
+              busy={timer.start.isPending || timer.stop.isPending}
+              className="ml-auto sm:ml-0"
+            />
+          </>
+        )}
       </div>
 
       {/* Opened by Adjust, on the entry that was just stopped. */}
@@ -227,6 +241,153 @@ export function TimerBar({ projects }: { projects: Project[] }) {
         tz={tz}
       />
     </section>
+  );
+}
+
+/**
+ * The running task: read by default, edited on request.
+ *
+ * It was a live `<input>` the whole time the timer ran, which was wrong in two
+ * ways. A running timer is overwhelmingly *read* — you glance at what you are
+ * on — and rendering that glance as a focusable text field invites a stray
+ * click into an accidental rename of billable work. It also made the bar look
+ * like a form that was waiting for you, on every screen, permanently.
+ *
+ * **The pencil is always rendered, never hover-only.** Hover-to-reveal would
+ * hide the only edit affordance on touch, where there is no hover — and this
+ * is the one control that has no other route: a name typed wrong at the start
+ * is otherwise uncorrectable until the entry is stopped.
+ *
+ * Editing keeps the old commit rules exactly: blur or Enter writes, Escape
+ * reverts, and an unchanged name writes nothing.
+ */
+function TaskName({
+  name,
+  editing,
+  onEdit,
+  onChange,
+  onCommit,
+  onCancel,
+}: {
+  name: string;
+  editing: string | null;
+  onEdit: () => void;
+  onChange: (value: string) => void;
+  onCommit: () => void;
+  onCancel: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const isEditing = editing !== null;
+
+  /* Focus follows the mode change rather than an event, so the field is ready
+     however editing started — the pencil, or a future keyboard shortcut.
+
+     `focus()` before `select()`: selecting does not focus, and without the
+     focus the field opens with no cursor in it AND never fires the blur that
+     commits the rename. Caught by a test that tabbed away and found the
+     field still open. */
+  useEffect(() => {
+    if (!isEditing) return;
+    ref.current?.focus();
+    ref.current?.select();
+  }, [isEditing]);
+
+  if (isEditing) {
+    return (
+      <input
+        ref={ref}
+        value={editing}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onCommit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          if (e.key === 'Escape') onCancel();
+        }}
+        aria-label="Task name"
+        className="min-w-0 max-w-[16rem] flex-1 rounded-md border border-edge-focus
+                   bg-surface-base px-2 py-1 type-body text-strong
+                   focus:outline-none sm:max-w-xs"
+      />
+    );
+  }
+
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      {/* `truncate` needs a min-width-0 flex item to clip rather than push. An
+          untruncated long task name would shove the clock off the bar. */}
+      <span className="truncate type-body text-strong">{name}</span>
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-label="Rename task"
+        className="grid size-6 flex-none place-items-center rounded-md text-subtle
+                   transition-colors hover:bg-surface-hover hover:text-muted
+                   focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+      >
+        <Pencil aria-hidden className="size-3.5" strokeWidth={2} />
+      </button>
+    </span>
+  );
+}
+
+/**
+ * The clock and its control, always adjacent.
+ *
+ * They are one unit so the button can never wrap away from the number it acts
+ * on — a stop control that has drifted onto another row from the time it will
+ * stop is a misclick waiting to happen.
+ */
+function Readout({
+  seconds,
+  exceeded,
+  running,
+  onToggle,
+  busy,
+  className = '',
+}: {
+  seconds: number;
+  exceeded: boolean;
+  running: boolean;
+  onToggle: () => void;
+  busy: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-none items-center gap-3 sm:gap-4 ${className}`}>
+      <time
+        className={`type-timer
+                    ${exceeded ? 'text-warning' : running ? 'text-accent-default' : 'text-subtle'}`}
+        aria-live="off"
+      >
+        {formatClock(seconds)}
+      </time>
+
+      <button
+        // Explicit: a bare <button> defaults to submit, and this sits beside
+        // an input that submits on Enter.
+        type="button"
+        onClick={onToggle}
+        disabled={busy}
+        aria-label={running ? 'Stop timer' : 'Start timer'}
+        /* text-on-accent is n-0 (13.61:1). Never white here — 1.37:1. */
+        className="grid size-9 flex-none place-items-center rounded-full
+                   bg-accent-default text-on-accent transition-colors
+                   hover:bg-accent-hover disabled:opacity-60"
+      >
+        {running ? (
+          <span className="block size-2.5 rounded-[2px] bg-current" />
+        ) : (
+          // The button carries the label; the glyph is decoration.
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 10 12"
+            className="ml-0.5 block h-3 w-2.5 fill-current"
+          >
+            <path d="M0 0l10 6-10 6z" />
+          </svg>
+        )}
+      </button>
+    </div>
   );
 }
 

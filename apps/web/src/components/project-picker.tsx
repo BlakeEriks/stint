@@ -13,7 +13,7 @@ import {
 import { ProjectDialog } from './project-dialog';
 import type { Project } from '@/lib/client/api';
 import { useProjectColors } from '@/lib/client/use-project-colors';
-import { Plus } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 
 /** "No project" is a real choice, not an absent one, so it needs a value. */
 const NONE = '__none__';
@@ -47,11 +47,25 @@ export function ProjectPicker({
   return (
     <>
       <DropdownMenu>
+        {/* A tag, not a bare label. Borderless it read as static text — the
+            swatch looked like decoration beside a name rather than the face of
+            a control, so nothing invited the click. An outline plus a chevron
+            is the same affordance a select has, at the size a tag wants.
+
+            The empty state keeps the border rather than going ghost: an
+            unassigned timer is the case where the control most needs finding,
+            so it is drawn with a dashed edge (a slot to fill) instead of
+            disappearing until hovered. */}
         <DropdownMenuTrigger
           aria-label="Project"
-          className="flex max-w-[10rem] flex-none items-center gap-1.5 rounded-md px-2 py-1
-                   type-meta text-muted outline-none
-                   hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus"
+          className={`flex max-w-[11rem] flex-none items-center gap-1.5 rounded-full border
+                      px-2.5 py-1 type-meta outline-none transition-colors
+                      hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus
+                      ${
+                        selected
+                          ? 'border-edge-default text-muted'
+                          : 'border-edge-default border-dashed text-subtle hover:text-muted'
+                      }`}
         >
           {selected ? (
             <>
@@ -59,8 +73,20 @@ export function ProjectPicker({
               <span className="truncate">{selected.name}</span>
             </>
           ) : (
-            <span className="text-subtle">+ Project</span>
+            <>
+              <Plus
+                aria-hidden
+                className="size-3 flex-none"
+                strokeWidth={2.5}
+              />
+              <span>Project</span>
+            </>
           )}
+          <ChevronDown
+            aria-hidden
+            className="size-3 flex-none opacity-60"
+            strokeWidth={2.5}
+          />
         </DropdownMenuTrigger>
 
         <DropdownMenuContent
