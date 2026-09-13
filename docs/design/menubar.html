@@ -15,9 +15,13 @@
     --text-subtle:  #838A97;
     --text-on-accent: #111316;
 
+    --bg-active:    #2F333A;
+
     --edge-subtle:  #2F333A;
     --edge-default: #393E48;
     --edge-control: #666D79;
+    --border-focus: #9DA3AF;
+    --danger:       #E9504D;
 
     --accent:     #52FC43;
     --timer-idle: #666D79;
@@ -133,6 +137,24 @@
     font-family: var(--sans); font-size: 14px;
   }
   .input::placeholder { color: var(--text-subtle); }
+  /* Focus is a RING change, never a fill change — a field that changes
+     background on focus reads as a different control. */
+  .input.focused { border-color: var(--border-focus); border-width: 2px; padding: 7px 9px; }
+  .input.code {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 17px; letter-spacing: .22em; text-align: center;
+  }
+
+  .btn {
+    width: 100%; border: 0; border-radius: 8px; padding: 9px 12px;
+    background: var(--accent); color: var(--text-on-accent);
+    font-family: var(--sans); font-size: 14px; font-weight: 500; cursor: pointer;
+  }
+  /* Disabled is NEUTRAL, not a faded accent: the accent at 35% computes to
+     #286526 and puts the label at 2.64:1, under the floor. */
+  .btn.disabled {
+    background: var(--bg-active); color: var(--text-subtle); cursor: not-allowed;
+  }
 
   .picker {
     display: inline-flex; align-items: center; gap: 6px;
@@ -491,6 +513,89 @@
             deciding, the popover should not also be a dashboard.</li>
         </ul>
       </div>
+    </div>
+  </section>
+
+  <!-- ================= sign-in ================= -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Sign-in &amp; control states</span></div>
+
+    <div class="states">
+      <div class="state">
+        <div class="pop">
+          <div class="head">
+            <span class="wordmark">Stint</span>
+          </div>
+          <div class="pad" style="display:flex;flex-direction:column;gap:10px;">
+            <p style="margin:0;font-size:13px;color:var(--text-muted);">
+              We&rsquo;ll email you a six-digit code.
+            </p>
+            <input class="input focused" value="you@example.com" />
+            <button class="btn">Email me a code</button>
+          </div>
+        </div>
+        <span class="caption">Email &mdash; field focused</span>
+      </div>
+
+      <div class="state">
+        <div class="pop">
+          <div class="head">
+            <span class="wordmark">Stint</span>
+          </div>
+          <div class="pad" style="display:flex;flex-direction:column;gap:10px;">
+            <p style="margin:0;font-size:13px;color:var(--text-muted);">
+              Sent to you@example.com.
+            </p>
+            <input class="input code focused" placeholder="" />
+            <button class="btn disabled" disabled>Sign in</button>
+            <a href="#x" style="font-size:13px;color:var(--text-muted);text-decoration:none;">
+              Use a different email
+            </a>
+          </div>
+        </div>
+        <span class="caption">Code &mdash; empty, submit disabled</span>
+      </div>
+
+      <div class="state">
+        <div class="pop">
+          <div class="head">
+            <span class="wordmark">Stint</span>
+          </div>
+          <div class="pad" style="display:flex;flex-direction:column;gap:10px;">
+            <p style="margin:0;font-size:13px;color:var(--text-muted);">
+              Sent to you@example.com.
+            </p>
+            <input class="input code" value="418 209" />
+            <button class="btn">Sign in</button>
+            <p style="margin:0;font-size:13px;color:var(--danger);">
+              That code has expired.
+            </p>
+          </div>
+        </div>
+        <span class="caption">Filled, and an error</span>
+      </div>
+    </div>
+
+    <div class="notes" style="margin-top:1.5rem;">
+      <ul>
+        <li><strong>Disabled goes neutral, never a faded accent.</strong> The
+          current build fades the green: that computes to <code>#286526</code>
+          with the label at <strong>2.64:1</strong>, under the 4.5 floor and
+          exactly the pairing CI guards. Disabled is
+          <code>bgActive</code> + <code>textSubtle</code> — a different, inert
+          control rather than a dimmer version of a live one.</li>
+        <li><strong>Focus rings are <code>borderFocus</code></strong>
+          (6.82:1), never the accent and never the macOS system blue. The blue
+          ring in the current screens is a third colour meaning "focused" that
+          is not in the palette.</li>
+        <li><strong>The code placeholder is empty.</strong>
+          <code>000|000</code> reads as a value in a digits-only field and
+          puts the caret in the middle of it.</li>
+        <li><strong>The wordmark is the header treatment</strong>, not a
+          display headline. Sign-in currently renders it far larger than
+          anything in the timer panel, which makes the two look like different
+          products.</li>
+      </ul>
     </div>
   </section>
 

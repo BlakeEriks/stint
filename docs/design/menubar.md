@@ -231,6 +231,122 @@ Past the user's `max_timer_hours` (default 8, from `user_settings`):
 - The notice returns on a fresh overrun: the dismissed flag resets when the
   timer stops being over the threshold.
 
+## Controls, focus and disabled states
+
+These apply everywhere in the app, sign-in included. Three things in the
+current build need fixing and they are called out as they come up.
+
+### Focus rings
+
+**Neutral, never the accent, and never the system blue.**
+
+`borderFocus` is `#9DA3AF` — 6.82:1 on `bgPrimary`, so it is unmistakable
+without spending the accent. A focus ring appears constantly and
+involuntarily; spending green there drowns the one signal green exists for.
+
+macOS will draw its own blue focus ring unless you stop it. That is a third
+colour meaning "focused" which is not in the palette, and it is visible in the
+current sign-in screens.
+
+```swift
+.textFieldStyle(.plain)                 // kills the system bezel
+.focused($isFocused)
+.overlay(
+    RoundedRectangle(cornerRadius: 8)
+        .strokeBorder(
+            isFocused ? Tokens.Dark.borderFocus : Tokens.Dark.borderDefault,
+            lineWidth: isFocused ? 2 : 1
+        )
+)
+```
+
+Also set `NSWindow.allowsAutomaticWindowTabbing`-adjacent defaults off where
+AppKit insists: the panel should never show a system-blue ring on any control.
+
+**Focus is a ring change, never a fill change.** A field that changes
+background on focus reads as a different control.
+
+**Something is always focused when the panel opens.** Stopped → the task
+field. Sign-in → the email or code field. A panel you have to click into
+before typing wastes the interaction it exists to shorten.
+
+### Text fields
+
+| | Value |
+|---|---|
+| Fill | `bgPrimary` |
+| Border | `borderDefault`, 1pt |
+| Border, focused | `borderFocus`, 2pt |
+| Radius | 8pt |
+| Height | 34pt |
+| Text | `textStrong`, 14pt sans |
+| Placeholder | `textSubtle` |
+
+**Placeholders are hints, not fake values.** The code field currently shows
+`000|000`, which reads as content and puts the caret in the middle of it. Use
+an empty field with a `label` above, or a placeholder that cannot be mistaken
+for input:
+
+- Email: `you@example.com` — fine, it is obviously an example.
+- Code: **leave it empty.** The label already says six digits, and a
+  placeholder of digits in a digits-only field is indistinguishable from a
+  typed value at a glance.
+
+The code field is mono with `.monospacedDigit()` and generous tracking —
+it is a number being read back off a screen, so set it like one.
+
+### Buttons
+
+**Primary (accent):** `accentDefault` fill, `textOnAccent` label — never
+white, which is 1.37:1 and the specific regression CI guards. Radius 8pt,
+height 34pt, 14pt sans medium.
+
+**Disabled primary: go neutral, do not fade the accent.**
+
+This is the bug in the current sign-in screen. A disabled accent button drawn
+at reduced opacity computes to `#286526`, and `textOnAccent` on it is
+**2.64:1** — far under the 4.5 floor. Even at 50% it only reaches 4.16.
+
+```
+enabled   →  fill accentDefault   label textOnAccent   (14.48:1)
+disabled  →  fill bgActive        label textSubtle     (3.65:1, non-text weight)
+```
+
+The disabled state should not look like a dimmer version of the enabled one.
+It should look like a different, inert control — which is also the honest
+signal, because it is.
+
+**Secondary / tertiary:** no fill, `textMuted` label, `bgHover` on hover. The
+"Use a different email" and "Quit" links in the current build are already
+right.
+
+**Hit targets are 28pt minimum.** A menu bar panel is used in a hurry.
+
+### Sign-in, specifically
+
+The flow is settled (six-digit code, see `CLAUDE.md`); this is only how it
+should look.
+
+- **The wordmark is the header treatment**, the same one the main panel uses
+  — mono, 600, uppercase, 0.12em tracking. The current screens render it far
+  larger than anything else on the panel, which makes sign-in look like a
+  different product from the timer it leads to.
+- **Green on the `S` is the last place it survives.** If the status item is a
+  dot and the brand is a plain wordmark, the tinted `S` here is an orphan.
+  Render the wordmark in `textMuted` like the panel header.
+- **One field visible at a time.** Email, then code — never both, and never a
+  code field greyed out beneath an email field.
+- `Sent to you@example.com` is `textMuted`, 13pt. Good as is.
+- **Paste a whole code and it fills.** People copy the six digits out of the
+  email. Handle a paste of `123456` into a segmented field, and strip spaces
+  and hyphens.
+- **Submit on Return** from either field, and **auto-submit** when the sixth
+  digit lands — there is nothing else the user could mean.
+- Errors go under the field in `danger`, 13pt: `That code has expired.` /
+  `That code is not right.` Never a dialog.
+- The panel keeps the same 320pt width as the timer panel, so signing in does
+  not resize the window it becomes.
+
 ## The stats row
 
 **Today** and **Unbilled**, in every state.
