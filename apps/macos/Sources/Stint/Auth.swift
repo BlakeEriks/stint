@@ -51,7 +51,23 @@ actor Auth {
         let (data, response) = try await URLSession.shared.data(for: req)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard status == 200 else {
-            throw Self.error(from: data, status: status)
+            let reported = Self.error(from: data, status: status)
+
+            /* `otp_disabled` is what GoTrue answers when `create_user` is
+               false and the address has no account — but its message is
+               "Signups not allowed for otp", which describes a server setting
+               rather than the thing that went wrong, and leaves nowhere to
+               go. The account not existing is the fact; the web app is the
+               remedy. */
+            if reported?.code == "otp_disabled" {
+                throw APIError(
+                    status: status,
+                    code: "NO_ACCOUNT",
+                    message: "No Stint account for that email. Create one in the app first, then sign in here."
+                )
+            }
+
+            throw reported
                 ?? APIError(
                     status: status,
                     code: "UNKNOWN",
