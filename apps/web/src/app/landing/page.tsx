@@ -65,7 +65,17 @@ export default function LandingPage() {
        Unbilled sits second because it is the argument; everything after it is
        support. It used to be third, below two sections about what the product
        refuses to do and what it costs — which is philosophy ahead of the
-       reader's own problem. */
+       reader's own problem.
+
+       GROUNDS STRICTLY ALTERNATE, base / recessed, down to Questions. Two
+       recessed sections ran together (Platforms then Free) and then three
+       base ones, which made the banding look accidental rather than like a
+       rhythm. Adding a section means re-checking the whole run, not just the
+       neighbour above it.
+
+       The exception is the last pair: Questions and Closing share the base
+       ground on purpose, so the close reads as the page ending rather than
+       as one more section. */
     <main>
       <Header />
       <Hero />
@@ -130,7 +140,7 @@ function Hero() {
               page occupying the most valuable space, and absence is not a
               benefit to someone who has not yet been told what they get. */}
           <h1 className="type-hero text-balance text-strong">
-            Your tracked hours, already an invoice.
+            Start the timer, and the invoice takes care of itself.
           </h1>
           <p className="type-lede max-w-md text-muted">
             Stint knows what you charge each client, so a month of hours
@@ -138,16 +148,11 @@ function Hero() {
             export and a spreadsheet full of arithmetic.
           </p>
 
-          <div className="mt-4 flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-              <CallToAction />
-              <span className="type-meta text-subtle">
-                Email link, no password.
-              </span>
-            </div>
-            <p className="type-meta text-subtle">
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <CallToAction />
+            <span className="type-meta text-subtle">
               Free, fully &mdash; no card, no trial.
-            </p>
+            </span>
           </div>
         </div>
 
@@ -249,15 +254,9 @@ function Unbilled() {
       title="How much work is sitting there, unbilled?"
       lede={
         <>
-          <p>
-            Most trackers only count hours, so they can&rsquo;t tell you.
-            Stint knows your rates, so it can &mdash; per client, on the home
-            screen, every time you open it.
-          </p>
-          <p className="type-support mt-4 text-subtle">
-            Work with no rate yet shows a dash, never $0.00. An incomplete
-            total is more useful than a wrong one.
-          </p>
+          Most trackers only count hours, so they can&rsquo;t tell you. Stint
+          knows your rates, so it can &mdash; per client, on the home screen,
+          every time you open it.
         </>
       }
       aside={
@@ -361,10 +360,13 @@ function Invoice() {
             carries your own domain&rsquo;s reputation &mdash; not a shared app
             domain&rsquo;s spam score.
           </Aside>
-          <Aside title="Payment details, on the invoice only.">
-            Never in an email, and the invoice tells your client to phone you
-            if they ever appear to change. That is how invoice fraud gets
-            caught.
+          {/* This was about invoice fraud, which arrived out of nowhere for a
+              reader who had not been thinking about it. Same fact, framed as
+              the thing the section is actually about: what your client sees,
+              and why it makes paying you easy. */}
+          <Aside title="Your bank details, already on it.">
+            ACH routing and account number, rendered the same way every month
+            &mdash; so your client can pay it without emailing you to ask how.
           </Aside>
         </div>
       </Container>
@@ -532,7 +534,7 @@ function Platforms() {
  */
 function Free() {
   return (
-    <section className="bg-surface-recessed">
+    <section>
       <Container className="py-20 sm:py-28">
         <div className="mx-auto max-w-xl text-center">
           <h2 className="type-display text-balance text-strong">
@@ -596,7 +598,7 @@ function Pillar({
  */
 function NotForEveryone() {
   return (
-    <section>
+    <section className="bg-surface-recessed">
       <Container className="py-20 sm:py-28">
         <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16">
           <div className="min-w-0">
@@ -704,12 +706,12 @@ function Closing() {
   return (
     <section>
       <Container className="py-24 text-center sm:py-32">
-        {/* "Two things, done properly" was an internal slogan: it restated
-            the hero at the moment the visitor is deciding, and gave them
-            nothing new. The last line before a CTA should lower the cost of
-            clicking, not recap the pitch. */}
+        {/* The hero took this section's old line ("Start the timer…"), which
+            was the better headline of the two. The close now asks for the
+            decision instead of restating the pitch — the last line before a
+            CTA should lower the cost of clicking. */}
         <h2 className="type-hero text-balance text-strong">
-          Start the timer. The invoice takes care of itself.
+          Your next invoice could build itself.
         </h2>
         <div className="mt-8 flex flex-col items-center gap-3">
           <CallToAction />
