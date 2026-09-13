@@ -137,6 +137,17 @@ the other.
 Supabase surface is `.from()`, one `.rpc()`, and auth. The subset runs in
 ~540MB where the full stack wants ~7GB.
 
+**Studio is off too, and `config.toml` does not say so** — `[studio] enabled`
+is `true` while the container is simply not started, so `:54323` refuses the
+connection and the config looks like it should work. `pnpm dev:up:studio`
+brings it up (with `postgres-meta`, which it needs); `psql` against `:54322`,
+or any Postgres GUI, needs no containers at all.
+
+The exclusion must be passed at START: `-x` on an already-running stack is
+accepted and does nothing, which reads as the flag being wrong. Hence the
+`stop &&` in that script. Plain `stop` keeps the data volumes — only
+`--no-backup` deletes them.
+
 ## Migrations
 
 `pnpm migrate` applies `supabase/migrations/` over a plain Postgres
