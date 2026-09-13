@@ -52,7 +52,7 @@ export function ClientProjects({ client }: { client: Client }) {
         ) : null}
       </header>
 
-      <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-primary shadow-card">
+      <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
         {isLoading ? (
           <p className="px-4 py-6 type-support text-subtle">Loading…</p>
         ) : projects.length === 0 ? (

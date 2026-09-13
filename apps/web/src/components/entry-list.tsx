@@ -47,7 +47,7 @@ export function EntryList({
   return (
     <section className="mt-6" aria-label="Today's entries">
       <header className="flex items-baseline justify-between gap-3 px-1 pb-2">
-        <h2 className="type-label text-subtle">Today</h2>
+        <h2 className="type-heading text-primary">Today</h2>
         <span className="ml-auto type-duration text-muted">
           {formatClock(todaySeconds)}
         </span>
@@ -62,7 +62,7 @@ export function EntryList({
         </Button>
       </header>
 
-      <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-primary shadow-card">
+      <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
         {isLoading ? (
           <Placeholder>Loading…</Placeholder>
         ) : entries.length === 0 ? (

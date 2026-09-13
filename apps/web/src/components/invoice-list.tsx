@@ -112,7 +112,7 @@ export function InvoiceList() {
         ) : null}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-primary shadow-card">
+      <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
         {isLoading ? (
           <Empty>Loading…</Empty>
         ) : invoices.length === 0 ? (

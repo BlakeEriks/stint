@@ -51,7 +51,7 @@ export function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-edge-subtle bg-surface-primary p-5 shadow-card">
+    <section className="rounded-xl border border-edge-subtle bg-surface-elevated p-5 shadow-card">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="type-heading text-strong">{title}</h2>
