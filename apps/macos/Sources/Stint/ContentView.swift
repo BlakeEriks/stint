@@ -301,7 +301,7 @@ private struct RunningRow: View {
     var body: some View {
         HStack(spacing: 8) {
             /* The dot is a second channel for "running", independent of
-               colour — `docs/design/color.md` records that no green survives
+               colour — `docs/design/deriving-colour.md` records that no green survives
                dichromacy, so the state cannot rest on the hue alone. */
             Circle()
                 .fill(Tokens.Dark.accentDefault)
@@ -494,9 +494,19 @@ private struct OpenAppButton: View {
             dismiss()
             NSApp.hide(nil)
         } label: {
-            Text("Open Stint")
-                .font(.system(size: 12))
-                .foregroundStyle(Tokens.Dark.textMuted)
+            /* SF Symbols rather than lucide, which ships JSX and cannot cross
+               into Swift. The names match what the web uses for the same
+               action, so the two apps do not diverge on meaning.
+
+               An HStack rather than a `Label`: `Label` spaces its icon for a
+               menu row, which at this size left the glyph floating far enough
+               from its text to read as a separate control. */
+            HStack(spacing: 5) {
+                Image(systemName: "arrow.up.forward.app")
+                Text("Open Stint")
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(Tokens.Dark.textMuted)
         }
         .buttonStyle(.plain)
         .keyboardReachable()
@@ -507,21 +517,41 @@ private struct AccountRow: View {
     @Bindable var model: TimerModel
 
     var body: some View {
-        HStack {
+        /* 12pt between the two actions, against 4pt inside each. An icon must
+           sit nearer the word it belongs to than the next control does, or
+           "Sign out ⏻ Quit" reads as one row of four loose things. */
+        HStack(spacing: 12) {
             Text(model.email ?? "Signed in")
                 .font(.system(size: 11))
                 .foregroundStyle(Tokens.Dark.textSubtle)
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer()
-            Button("Sign out") { Task { await model.signOut() } }
-                .buttonStyle(.plain)
-                .font(.system(size: 11))
-                .foregroundStyle(Tokens.Dark.textSubtle)
-            Button("Quit") { NSApplication.shared.terminate(nil) }
-                .buttonStyle(.plain)
-                .font(.system(size: 11))
-                .foregroundStyle(Tokens.Dark.textSubtle)
+            // `rectangle.portrait.and.arrow.right` is SF Symbols' LogOut,
+            // which is what `account-menu.tsx` uses for the same action.
+            Button {
+                Task { await model.signOut() }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                    Text("Sign out")
+                }
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 11))
+            .foregroundStyle(Tokens.Dark.textSubtle)
+
+            Button {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "power")
+                    Text("Quit")
+                }
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 11))
+            .foregroundStyle(Tokens.Dark.textSubtle)
         }
     }
 }
@@ -599,11 +629,18 @@ private struct SignInPanel: View {
                     .foregroundStyle(Tokens.Dark.textStrong)
                     .fieldStyle(focused: focus == .code)
                     .onChange(of: code) { _, entered in
-                        /* Shown as xxx-xxx, matching the email, so what is on
-                           screen can be compared to what was sent without
-                           re-grouping it by eye. The hyphen is inserted as you
-                           type and stripped before sending — it is a grouping
-                           mark, not part of the code.
+                        /* Shown as xxx-xxx: three digits at a time is what a
+                           person can hold while looking from the email back to
+                           this field. The hyphen is inserted as you type and
+                           stripped before sending — a grouping mark, not part
+                           of the code.
+
+                           The email deliberately does NOT carry the hyphen: a
+                           hyphen there made the code two words, so copying it
+                           took two clicks and a drag. It stays here because a
+                           field being typed into is not a string being
+                           selected. Filtering to digits is what lets a pasted
+                           `392481` land in a field that displays `392-481`.
 
                            Typing over the whole field also has to work, which
                            is why this rebuilds the display from the digits
