@@ -109,14 +109,9 @@ export async function signIn(page: Page, email = SEED_EMAIL): Promise<void> {
  * flakiness that gets a suite ignored. Resetting is the cheap way to make
  * every run start from the state the assertions describe.
  *
- * It runs `supabase db reset`, which also invalidates any session, so it must
- * happen BEFORE signing in.
- *
  * **Skipped when the data is already pristine**, which in CI it always is:
  * the job starts its own stack on an empty volume and `supabase start`
- * applies the migrations AND the seed. The reset was bouncing a stack that
- * came up seconds earlier — its last act is "Restarting containers" — to
- * restore a state nothing had touched. That is ~13s a run.
+ * applies the migrations AND the seed, so there was nothing to undo.
  *
  * The check is on the DATA, not on `process.env.CI`. Keying it to CI was
  * tried and is a worse trade: it assumes "CI implies fresh database", which
@@ -126,6 +121,7 @@ export async function signIn(page: Page, email = SEED_EMAIL): Promise<void> {
  * test had already run. Asking the database removes the assumption: if it is
  * dirty we pay the reset, wherever we are.
  */
+
 /**
  * Does the database still hold exactly what `seed.sql` put there?
  *
@@ -170,13 +166,40 @@ async function seedIsPristine(): Promise<boolean> {
 export async function resetSeed(): Promise<void> {
   if (await seedIsPristine()) return;
 
-  const { execFile } = await import('node:child_process');
-  const { promisify } = await import('node:util');
+  const { readFile } = await import('node:fs/promises');
   const { resolve } = await import('node:path');
-  // Playwright loads these as CommonJS, so `import.meta` is unavailable.
-  // The config sets testDir to apps/web/e2e; the stack lives at the root.
-  await promisify(execFile)('npx', ['supabase', 'db', 'reset'], {
-    cwd: resolve(process.cwd(), '../..'),
-    timeout: 120_000,
+  const { Client } = await import('pg');
+
+  /* Restores the SEEDED ACCOUNT, not the database.
+   *
+   * This used to run `supabase db reset`, which rebuilds everything and so
+   * deleted every other account on the stack — including one being used to
+   * track real time against local dev. The suite only ever writes as the
+   * seeded user, so wiping everyone to undo that was far too blunt: a timer
+   * running in the menu bar vanished mid-run, and "the app killed my timer"
+   * is a convincing wrong diagnosis for a test suite dropping the table.
+   *
+   * Deleting that user's rows and replaying `seed.sql` is equivalent for the
+   * suite's purposes and leaves every other account alone. It is also much
+   * faster than rebuilding from migrations.
+   *
+   * Playwright loads these as CommonJS, so `import.meta` is unavailable; the
+   * config sets testDir to apps/web/e2e and the stack lives at the root. */
+  const here = resolve(process.cwd(), 'e2e');
+  const root = resolve(process.cwd(), '../..');
+
+  const client = new Client({
+    connectionString:
+      process.env.E2E_DATABASE_URL ??
+      'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
   });
+  await client.connect();
+  try {
+    await client.query(await readFile(resolve(here, 'reset-seed.sql'), 'utf8'));
+    await client.query(
+      await readFile(resolve(root, 'supabase/seed.sql'), 'utf8'),
+    );
+  } finally {
+    await client.end().catch(() => {});
+  }
 }
