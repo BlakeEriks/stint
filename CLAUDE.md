@@ -1243,12 +1243,44 @@ response can land after a newer one and the server keeps the older value.
 double-mounts in dev, and a ref that is only ever cleared leaves every save
 completing silently with the spinner stuck forever.
 
+### The pre-commit hook
+
+Husky runs `lint-staged` on every commit, which runs `biome check --write` over
+the **staged files only** and re-stages what it fixed. Sub-second, because it
+never walks the repo.
+
+It exists because there was nothing between the editor and CI: a formatting
+slip cost a full CI round trip and a follow-up commit, twice in one evening,
+for something Biome fixes itself in milliseconds. Lint is the *first* step in
+CI precisely so an obvious slip fails fast — but failing fast in CI is still
+two minutes slower than not failing at all.
+
+**Deliberately only formatting and lint.** `husky init` writes a `pnpm test`
+hook by default; that was replaced. A commit is not the right moment to run a
+test suite — it makes committing something you avoid, and the point of a hook
+is that you stop noticing it.
+
+It is a convenience, **not the enforcement**: `pnpm lint` in CI is still the
+gate, because a hook can be skipped with `--no-verify` and does not exist on a
+fresh clone until `pnpm install` runs `prepare`.
+
 ### End-to-end tests
 
 `pnpm test:e2e` — Playwright against the **local Supabase stack**, which must
 already be running (`pnpm dev:up` plus `pnpm dev`). Deliberately outside
 `pnpm test`: a browser download must not become a prerequisite for the unit
 suites.
+
+**No retries, in CI either.** A retry was never fixing anything — it doubled
+the time before a real failure was reported. A genuine failure is a 30s
+timeout, so two failures became four: the run that prompted this took 4m40s
+against a healthy 2m33s. The trade is that a genuinely flaky test now goes red
+rather than self-healing, which is the intent at ten tests and ~31s of work.
+
+**The stack's Docker images are cached in CI**, keyed on the pinned `supabase`
+version in `package.json` since that decides the image tags. The pull cost ~50s
+and is the one step depending on a third party: `public.ecr.aws` rate-limits
+anonymous pulls and a run hit `toomanyrequests` on four images at once.
 
 **They sign in for real**, through Mailpit, because sign-in is the flow most
 worth covering and stubbing it would test the stub. `e2e/mailpit.ts` reads the

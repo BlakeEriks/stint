@@ -18,11 +18,17 @@
     "migrate": "node scripts/migrate.mjs",
     "verify:schema": "node scripts/verify-schema.mjs",
     "test": "pnpm -r test",
-    "test:e2e": "pnpm --filter @stint/web test:e2e"
+    "test:e2e": "pnpm --filter @stint/web test:e2e",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,mjs,ts,tsx,json,jsonc,css}": "biome check --write --no-errors-on-unmatched"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",
     "@types/node": "^24.13.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
     "pg": "^8.13.1",
     "supabase": "2.117.0",
     "typescript": "^6.0.3"
