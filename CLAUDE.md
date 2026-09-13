@@ -97,8 +97,11 @@ wants resolution where the contrast ratios are. See `docs/design/color.md`.
 - Durations are always mono + `tabular-nums`.
 - Time entry ids are **client-generated UUIDv7** (`uuidv7()` in `@stint/core`) so
   a retried insert is idempotent — the same id lands on the same row.
-- Rate resolution exists in SQL (authoritative) and TS (previews). Keep them in
-  sync; the database wins.
+- Rate resolution is written **three times** — `resolveRate()` in TS (the one
+  that actually bills), `resolve_entry_rate()` in SQL (a reference
+  implementation with no callers), and the inline coalesce in
+  `unbilled_by_client` (the home card). Keep all three identical; nothing
+  checks that they are. See `docs/data-model.md`.
 - `0` is a valid rate. Use null-coalescing, never truthiness.
 - Archive, don't delete — invoices reference clients and projects.
 
@@ -595,10 +598,11 @@ link — draw a rule instead if one is ever wanted again.
 accent.** The real PDF uses `#1D7815` there, which is right on paper; on this
 page it would put a second green meaning beside the CTA.
 
-`SHOW_PLATFORMS` gates the "everywhere you work" section. It is **false** until
-the macOS and mobile apps actually ship — the section claims something a
-visitor can falsify by going looking for a download, which is a trust failure
-on the same axis as silently editing someone's hours.
+**The page never claims a platform a visitor cannot download.** An "everywhere
+you work" section was built and then removed rather than shipped dark, because
+claiming something a visitor can falsify by going looking is a trust failure on
+the same axis as silently editing someone's hours. It comes back when there is
+something to link to, not before.
 
 **No real personal data in the examples.** The invoice preview is billed from
 "Your name here / you@yourdomain.com". It shipped once with a real name and

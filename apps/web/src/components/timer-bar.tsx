@@ -83,10 +83,11 @@ export function TimerBar({ projects }: { projects: Project[] }) {
 
   return (
     <section
-      /* `bg-surface-recessed` is the rail's surface, not a card's: this is
-         chrome, so it belongs to the frame and recedes behind the content
-         scrolling above it. A card surface here would read as a panel that
-         happens to be stuck to the bottom. */
+      /* `bg-surface-recessed` is the header's surface, not a card's — and a
+         step BELOW the rail's `bg-surface-base`. This strip and the header
+         bound the whole app, so they sit on the deepest plane and recede
+         behind everything scrolling above them. A card surface here would
+         read as a panel that happens to be stuck to the bottom. */
       className="flex flex-none flex-col border-t border-edge-subtle bg-surface-recessed"
       aria-label="Timer"
     >

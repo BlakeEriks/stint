@@ -50,28 +50,51 @@ vendored shadcn, policed by `shadcn-detox.mjs` instead.
 
 ## The roles
 
+Twenty roles. `tokens.json` under `type.scale` is the source — if this table
+and that file disagree, the file is right.
+
+**Numeric** (all tabular):
+
 | Role | Family | Size | Weight | Tracking | For |
 |---|---|---|---|---|---|
-| `type-timer` | mono | 24 → 30 @sm | 500 | −0.02em | the hero readout; tabular |
+| `type-figure` | mono | 30 → 36 @sm | 500 | −0.02em | a card's headline number |
+| `type-timer` | mono | 24 → 30 @sm | 500 | −0.02em | the timer readout |
+| `type-amount-hero` | mono | 24 | 500 | −0.02em | an invoice's total |
+| `type-amount` | mono | 15 | 400 | | invoice line amounts |
+| `type-duration` | mono | 14 | 400 | | durations, rates, money cells |
+| `type-meta` | mono | 11.5 | 400 | | secondary numerics, timestamps |
+
+**Headings and text:**
+
+| Role | Family | Size | Weight | Tracking | For |
+|---|---|---|---|---|---|
+| `type-hero` | sans | 30 → 44 @sm | 600 | −0.03em | the landing headline |
+| `type-hero-strike` | sans | 19 → 23 @sm | 400 | −0.015em | the landing refusal list |
+| `type-display` | sans | 22 → 28 @sm | 500 | −0.02em | a section's opening line |
 | `type-title` | sans | 24 | 600 | −0.025em | page title |
 | `type-section` | sans | 18 | 500 | | section heading |
-| `type-heading` | sans | 15 | 500 | | card heading |
+| `type-heading` | sans | 16.5 | 600 | −0.01em | card heading |
+| `type-lede` | sans | 15 → 17 @sm | 400 | | a paragraph under a headline |
 | `type-body` | sans | 15 | 400 | | primary text |
 | `type-control` | sans | 14 | 400 | | inputs, list rows |
 | `type-support` | sans | 13 | 400 | | helper text, errors, empty states |
-| `type-amount` | mono | 15 | 400 | | invoice totals; tabular |
-| `type-duration` | mono | 14 | 400 | | durations, rates, money cells; tabular |
-| `type-meta` | mono | 11.5 | 400 | | secondary numerics, timestamps; tabular |
-| `type-nav` | mono | 13 | 500 | 0.08em | navigation; uppercase |
-| `type-label` | mono | 11 | 500 | 0.16em | field labels, column heads; uppercase |
-| `type-badge` | mono | 9.5 | 400 | 0.08em | status pills; uppercase |
+
+**Uppercase mono** (letter-spacing is part of the role):
+
+| Role | Family | Size | Weight | Tracking | For |
+|---|---|---|---|---|---|
+| `type-wordmark` | mono | 24 | 600 | 0.12em | `\|Stint\|` — mixed case, not upper |
+| `type-nav` | mono | 13 | 500 | 0.08em | navigation |
+| `type-label` | mono | 11 | 500 | 0.16em | field labels, column heads |
+| `type-badge` | mono | 9.5 | 400 | 0.08em | status pills |
 
 Defined in `packages/design-tokens/tokens.json` under `type.scale`, so all
 three clients share one scale. Sizes stay in **px**: the scale was derived at
 specific pixel sizes for legibility, and `rem` would let a browser setting
-resize the timer hero out of its own layout.
+resize the timer readout out of its own layout.
 
-`type-timer` is the only role that steps at a breakpoint — 30px would force a
+**Six roles step at `sm`** — `hero`, `hero-strike`, `figure`, `timer`, `lede`
+and `display`. Every one is large enough that its desktop size would force a
 horizontal scroll on a narrow phone. A component writing `sm:text-3xl` itself
 is exactly the one-off this replaces, so the step belongs to the role.
 
@@ -85,8 +108,16 @@ nav also takes *less* tracking, because 0.16em at 13px sprawls.
 Inactive nav items use `text-muted`, not `text-subtle`: on `bg-base` subtle is
 **3.14:1** and fails AA. This was a real bug, not a preference.
 
-**`type-section` is currently unused** — kept because the home screen's cards
-will want it. If it is still unused when that ships, delete it.
+**`type-section` and `type-heading` are not interchangeable.** A section
+heading sits above content that is already on the page (`Projects` on a client
+detail); a card heading names a panel. The home cards use neither by default —
+see the next note.
+
+**A card whose point is one figure demotes its own title.** It drops to a
+quiet `type-label` above a `type-figure` the eye actually lands on; a card
+whose point is a *list* keeps its `type-heading`. Passing a `value` to `Card`
+selects the first mode, and that is the whole rule — deliberately not a free
+choice per card. See `home-cards.tsx`.
 
 ## Rules
 

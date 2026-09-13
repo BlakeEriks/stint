@@ -15,8 +15,9 @@ import { Page } from './page';
  * the top 87px of the page — the band the eye lands on first — to the money
  * cards, which is where it should have been.
  *
- * The card order is money at risk, money waiting, money coming; the whole
- * screen should be readable in about three seconds.
+ * The card order is money waiting, then money coming, then texture; the whole
+ * screen should be readable in about three seconds. Money *at risk* is not
+ * here either — it moved to the inbox in the dock.
  *
  * `wide`, because the cards became a grid at `lg`. At the old `max-w-3xl` a
  * 1600px window left 312px empty on each side — 624px of dead space, nearly

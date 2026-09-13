@@ -5,15 +5,16 @@ All clients (web, Expo, Swift) use these endpoints. Auth is a Supabase JWT as
 `packages/schema/src/index.ts` — that file is the source of truth; this
 document is the map.
 
-Every implemented handler is covered by integration tests that run the real
-route code against a real Postgres instance with the real migrations applied
+Handlers are covered by integration tests that run the real route code against
+a real Postgres instance with the real migrations applied
 (`apps/web/test/routes.test.ts`, `apps/web/test/invoices.test.ts`) — so the
 timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Anything marked **(not implemented)** below is a specification, not shipped
-behavior.
+Coverage is not total, and the gaps are the mutating halves of two resources:
+`PATCH`/`DELETE` on `/projects/:id` and `/payment-profiles/:id` have no tests.
+Do not read a documented endpoint as a tested one.
 
 ## Timer
 
@@ -22,8 +23,8 @@ behavior depends on global state.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/timer/start` | `{ id?, projectId?, taskName, startedAt? }`. **`409 TIMER_ALREADY_RUNNING`** if one is running — the response includes the running entry so the client can display it. `startedAt` allows backdating a forgotten start. |
-| `POST` | `/timer/stop` | `{ endedAt? }`, defaults to server `now()`. `409 NO_TIMER_RUNNING` if none. |
+| `POST` | `/timer/start` | `{ id?, projectId?, taskName?, startedAt? }` — `taskName` defaults to `''`, since a timer started in a hurry can be named later. Returns `201`. **`409 TIMER_ALREADY_RUNNING`** if one is running, with the running entry in `details.running` so the client can display it rather than just reporting a conflict. `startedAt` allows backdating a forgotten start. |
+| `POST` | `/timer/stop` | `{ endedAt? }`, defaults to server `now()`. `409 NO_TIMER_RUNNING` if none; `422 VALIDATION_FAILED` if a backdated `endedAt` is at or before `startedAt`. |
 | `GET` | `/timer/current` | `{ entry, exceedsThreshold, maxTimerHours, serverTime }`. |
 | `PATCH` | `/timer/current` | Edit task name / project mid-run. `409 NO_TIMER_RUNNING` if none; `409 ENTRY_LOCKED` if billed. |
 
@@ -45,9 +46,9 @@ trusting the device clock.
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, exceedsThreshold, maxTimerHours, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. |
-| `GET` | `/calendar` | `?from&to` (**both required**) `&tz` — entries grouped by local day. |
-| `GET` | `/calendar?granularity=day` | Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. Backs the home screen's activity strip, where twelve weeks of full entries is a heavy payload for one rectangle per day. `byClient` keys by client id with `''` for internal work, and running entries are excluded. |
-| `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call: unbilled by client with aging, month-to-date against target, billable ratio, and the attention rows (overdue invoices, stale drafts, unprojected entries). One request because they render together and a set that pops in piecemeal reads as broken. The attention rows are **derived per request, never stored** — a row clears because its condition stops holding, so nothing has to remember to delete it. Unbilled totals come from the `unbilled_by_client` SQL rollup, grouped by (client, rate). The runaway timer is the inbox's fourth row and comes from `/summary`, not here. Quiet clients are not yet built (`tasks.md`). Specified in `docs/design/home.md`. |
+| `GET` | `/calendar` | `?from&to` (**both required**) `&tz&granularity`. Returns `{ days: [...] }`. `422 INVALID_PERIOD` if `to < from`. |
+| `GET` | `/calendar?granularity=day` | Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. Backs the home screen's activity chart, where a month of full entries is a heavy payload for something drawing one column per day. `byClient` keys by client id with `''` for internal work, and running entries are excluded. |
+| `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call: `currency`, `unbilled` (by client with aging, capped at **5 rows** plus a `moreClients` count — the total still covers every client), `awaitingPayment`, `pace`, `billableRatio`, and `attention`. One request because they render together and a set that pops in piecemeal reads as broken. **`awaitingPayment` is invoiced-not-yet-collected and must never be summed with `unbilled.total`** — that would double-count the same hours. The attention rows are **derived per request, never stored**, and carry grace periods: an invoice is overdue at `due_date` **+ 7 days**, a draft is stale **7 days** after issue. Unbilled totals come from the `unbilled_by_client` SQL rollup, grouped by (client, rate); a client-less row reports `clientName: "No client"`. The runaway timer is the inbox's fourth row and comes from `/summary`, not here. Quiet clients are not built (`tasks.md`). Specified in `docs/design/home.md`. |
 
 ## Clients / projects / settings
 
@@ -56,10 +57,26 @@ Standard CRUD: `GET|POST /clients`, `GET|PATCH|DELETE /clients/:id`, same for
 
 `POST` on all three accepts an optional client-supplied `id` (UUIDv7); a
 duplicate-key insert returns the existing row with `200` rather than an error,
-so a retried request is idempotent.
+so a retried request is idempotent. A fresh create returns `201`.
 
 Deletion is **archival** (`archivedAt`), never destructive — historical
-invoices reference these rows.
+invoices reference these rows. `DELETE` returns `204`.
+
+**Filters, all optional:**
+
+| Param | On | Effect |
+|---|---|---|
+| `includeArchived=true` | clients, projects, payment-profiles | Return archived rows too. Without it they are hidden. |
+| `withScale=true` | clients | Adds `projectCount` and `unbilledAmount` per client. |
+| `clientId=` | projects | Only that client's projects. |
+
+**`archived` is a PATCH field, and it is the only way back.** `archived: true`
+sets `archivedAt`; `archived: false` clears it. Un-archiving exists and has no
+other route.
+
+`isDefault` on a payment profile is likewise set through `POST`/`PATCH` — the
+first profile a user creates becomes the default automatically, and the
+database enforces one per user.
 
 `nextInvoiceNumber` is not settable through `PATCH /settings`: gapless
 numbering depends on `allocate_invoice_number()` holding the row lock.
@@ -68,10 +85,10 @@ numbering depends on `allocate_invoice_number()` holding the row lock.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/invoices` | `?clientId&status&limit`, newest first. |
-| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, tz? }` → resolved rates, line items, totals, `unratedEntryIds`, plus `clientName`, the echoed period and `groupingMode`. |
+| `GET` | `/invoices` | `?clientId&status&limit` (1–200, default 50), newest first — ordered by invoice sequence, not issue date. |
+| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, tz? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `total`, `entryCount`, `unratedEntryIds`, plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`. |
 | `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries. Also accepts `issueDate`, `dueDate`, `notes`, `paymentTerms`, `tz`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if the period holds no billable time. |
-| `GET` | `/invoices/:id` | Invoice + frozen line items + client. |
+| `GET` | `/invoices/:id` | Invoice + frozen line items + the client's `{ id, name, email, address }` (not the full client row). Returned **flat**, like every other detail route. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Releases its entries. |
 | `GET` | `/invoices/:id/pdf` | Streams `application/pdf` from the frozen line items. `?download=1` for `attachment` rather than an inline preview. |
 | `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent. |
@@ -150,9 +167,14 @@ verified by phone.
 `ENTRY_NOT_FOUND` is the generic 404 across resources — clients, projects,
 invoices, payment profiles and settings, not only time entries.
 
-**Retry policy:** 409, 429, 5xx and network failures are worth retrying.
-Other 4xx are rejections on the merits — an unchanged request fails
-identically, so surface them rather than retrying.
+**Success statuses:** `201` on a create, `200` on an idempotent replay of one
+(a duplicate-key insert with a client-supplied id), `204` on a delete, `200`
+otherwise.
+
+**Retry policy:** 409, 5xx and network failures are worth retrying. Other 4xx
+are rejections on the merits — an unchanged request fails identically, so
+surface them rather than retrying. There is no rate limiting, so nothing here
+returns 429; if that changes, it joins the retryable list.
 
 ## Timezones
 

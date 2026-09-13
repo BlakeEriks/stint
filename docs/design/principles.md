@@ -19,6 +19,16 @@ trustworthy.
 auto-corrected. Rates are frozen onto invoices at generation. In a billing
 system, silent modification is a trust failure, and trust is the whole product.
 
+**Where a gesture writes, it is made deliberate rather than removed.** A block
+on the calendar can be dragged to correct its times — the place you notice a
+mistake should be the place you fix it — and `packages/core/src/grid.ts` is
+what keeps that safe: drags **snap to 15 minutes**, so a pointer landing on
+whatever minute a pixel happens to be cannot bill 09:07–10:52 and call it
+precision. A drag commits only past a 4px threshold, because the block is also
+the control that opens the editor and every click would otherwise be a write.
+A move preserves the original duration exactly rather than re-deriving it, so
+a block dragged across a DST boundary is still the same billable hours.
+
 > The most common way a time tracker produces a wrong invoice: you forget to
 > stop at 5pm and come back at 9am to a 16-hour entry. Past
 > `max_timer_hours` (default 8, configurable) clients render the timer in
@@ -61,23 +71,29 @@ In practice the app is still sparse, because there is usually only one live
 primary thing on a screen. That is an outcome of the rule, not a quota it
 enforces.
 
-The running timer appears twice on the timer screen — the hero and the nav
-readout — and both are green. That is not a violation: they are the same
-fact, so they reinforce rather than compete. What the rule forbids is green
-meaning several different things at once.
+What the rule forbids is green meaning several different things at once — not
+the same fact appearing twice.
 
-**Content floats; chrome recedes.** The page ground is the *darkest*
-surface and every panel sits above it on `surface-primary` with
-`shadow-card` and a 10px radius — the VS Code / editor look. Navigation is
-chrome painted directly on the ground: no fill, no divider, with the active
-section raised as a small floating tab.
+**An exception was once carved out of that and it was wrong.** The timer used
+to render as a Home hero *and* a nav-rail readout, argued as fine because
+"both marks are the same fact, so they reinforce". On a wide screen it was two
+identical green clocks a few inches apart and read as a duplicate. The rule
+was right; the exception was a rationalisation. There is now one timer, docked
+to the frame — see `nav-timer.tsx`, kept only as the record of that.
 
-This is not decoration. The neutral ramp is eased so the dark end is tightly
-packed — `bg-base` to `bg-primary` is only **1.03:1**, far too little to read
-as separation on its own. Depth has to come from shadow and radius, and
-because it does, the hierarchy survives at any contrast setting and never
-competes with the accent for attention. Inverting it — cards darker than the
-ground — makes every panel read as a hole.
+**Content floats; chrome recedes, in four planes.** Depth increases toward
+what is being read: header and timer bar on `bg-recessed`, nav rail and dock
+on `bg-base`, the content column on `bg-primary`, cards on `bg-elevated` with
+`shadow-card` and a 10px radius. Inverting it — a card darker than the surface
+under it — makes every panel read as a hole.
+
+Depth comes from surface colour **and** shadow. This section used to say it
+could not come from colour, on the grounds that `bg-base`→`bg-primary` was
+only 1.03:1. That was a misreading of the instrument: **WCAG is compressive
+near black** and reports a near-invisible pair as 1.03:1 whether it is
+invisible or not. Judge adjacent dark surfaces by OKLCH ΔL instead — the four
+planes are an even ΔL 0.035 apart, and the app read flat until they were.
+`docs/design/color.md` carries the full correction.
 
 **Focus rings are neutral.** `border-focus` is `n-700` (6.22:1 on the card),
 not the accent. A focus ring appears constantly and involuntarily, so spending
@@ -91,8 +107,14 @@ side effects.
 
 ## The home screen
 
-Timer hero at top, today's entries beneath it. This is the view seen 50× a day
-and it earns the least friction. Calendar and invoicing are separate tabs.
+The cards first, today's entries beneath them. Calendar and invoicing are
+separate sections in the rail.
+
+**The timer is not on this screen — it is docked to the frame**, so it can be
+started from anywhere rather than only from here, and it is seen on every
+route rather than 50× a day on one. Money *at risk* is not here either; it
+moved to the inbox in the dock. What remains on Home is the money and the
+texture.
 
 Between the two sits a small set of stat cards, specified in
 `docs/design/home.md`. Two rules govern them at this altitude:

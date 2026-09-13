@@ -33,12 +33,19 @@ it, so the ramp stays smooth instead of kinking mid-scale.
 
 ### The curve
 
-`L(i) = 0.145 + 0.830 · t^1.55` — eased, not linear.
+`L(i) = 0.215 + 0.770 · t^1.40` — eased, not linear, with steps 600 and 700
+lifted above the curve to clear their AA ratios. `$meta.neutralCurve` in
+`tokens.json` carries the same formula, and `derive-neutrals.mjs` is where it
+lives.
 
-A dark UI spends nearly all its surface area between L 0.14–0.32 (background,
-elevated card, hover, border), so resolution is concentrated there: steps sit
-~0.02 apart at the dark end and ~0.11 at the light end. A linear ramp would
-space them a flat 0.075 and make those four surfaces indistinguishable.
+This is the **ink** curve. Resolution is concentrated at the dark end because
+that is where the contrast ratios are — a step that must clear 4.5:1 needs
+finer control than one chosen for aesthetics. A linear ramp would space them
+evenly and leave the legibility-critical steps too coarse to tune.
+
+**Surfaces do not use it.** They come off `surfaces()`, a linear ladder, for
+the opposite reason: surfaces are compared to each other and want even
+perceptual spacing. Two scales, because the two jobs want opposite things.
 
 ## Color vision deficiency — the important finding
 
@@ -160,8 +167,9 @@ Light had these separate already. Dark now matches it.
 
 ## Light theme
 
-**Derived, by `src/derive-light.mjs`** — the companion to `derive-neutrals.mjs`
-and, until recently, the thing light did not have. `lightNeutral` was twelve
+**Derived, by `src/derive-light.mjs`** — the companion to `derive-neutrals.mjs`.
+
+It exists because light once did not have one. `lightNeutral` was twelve
 hand-picked hexes with no generator and **no `oklch` field on any of them**, so
 nothing could be re-derived and nothing could be measured. Auditing it (which
 is what `rgbToOklch` in `oklch.mjs` exists for) found what that always costs:
@@ -388,13 +396,16 @@ what is actually being read:
 
 | plane | token | L |
 |---|---|---|
-| header, timer bar | `bg-recessed` | 0.1500 |
-| nav rail, dock | `bg-base` | 0.1800 |
-| content column | `bg-primary` | 0.2468 |
-| cards | `bg-elevated` | 0.2850 |
+| header, timer bar | `bg-recessed` | 0.150 |
+| nav rail, dock | `bg-base` | 0.185 |
+| content column | `bg-primary` | 0.220 |
+| cards | `bg-elevated` | 0.255 |
 
-Steps of ΔL 0.030 / 0.067 / 0.038. No new tokens were needed — the ramp
-already carried all four; they simply were not all in use as page surfaces.
+**An even ΔL 0.035 at every step**, which is what `surfaces()` exists to
+produce: surfaces are compared to each other, so they want even perceptual
+spacing rather than the eased curve ink uses. No new tokens were needed — the
+ramp already carried all four; they simply were not all in use as page
+surfaces.
 
 **An earlier version of this section argued the opposite** — that the frame
 should be one tone, because the four perimeter elements are the edges of one
@@ -409,20 +420,24 @@ furthest back, then the columns that hold content, then the content, then the
 cards you are reading. The one-tone version was flatter than the palette
 could afford.
 
-## The rail is recessed
+## Chrome recedes, in two steps
 
-`bg-recessed` (L 0.150) is a step *below* the page ground, and the nav rail
-sits on it. Chrome falls back; the content column reads as the nearer plane.
-This is the same "content floats, chrome recedes" rule applied to the axis the
-palette was previously ignoring — before, the rail and the body were the same
-surface separated by a 1px border, so the left edge of every screen was an
-undifferentiated void.
+`bg-recessed` (L 0.150) is the deepest plane and carries the **header and the
+timer bar** — the two strips pinned to the frame's edges. The **nav rail and
+the dock** sit one step up on `bg-base` (L 0.185), and the content column on
+`bg-primary` (L 0.220) above that.
 
-In light mode it inverts — `lightNeutral.50`, *darker* than the page — which
-means the same thing on a light ground.
+Two chrome levels rather than one, because the header and timer bar bound the
+whole app while the rail and dock bound the content. Before this, the rail and
+the body were the same surface separated by a 1px border, so the left edge of
+every screen was an undifferentiated void.
 
-The active nav item stays `bg-surface-primary`, the card surface. Against a
-recessed rail it now genuinely reads as raised.
+In light mode the order inverts and the meaning does not: `bg-recessed` is
+`lightNeutral.100` and `bg-base` is `lightNeutral.50`, both *darker* than the
+`lightNeutral.25` content column.
+
+The active nav item is `bg-surface-primary`, the content surface — one step
+above the rail it sits on, so it reads as raised in either theme.
 
 
 ## The dark floor
@@ -435,10 +450,11 @@ The floor is now **L 0.215** (`#18191C`) with the exponent eased 1.55 → 1.40,
 because a higher floor on the old curve bunches the midtones.
 
 `FLOOR` still reads 0.215 and still governs the text steps, but the ground the
-app actually paints is no longer that value: `bg-base` is pinned to L 0.180
-and the rail below it to 0.150. The terminal problem the 0.215 lift solved was
-real, and it was about the *card* — which is most of the lit surface area and
-is now lighter still, at 0.2468. See "Depth comes from surface colour".
+app actually paints is no longer that value: the surfaces come off their own
+ladder, running 0.150 (header, timer bar) to 0.255 (cards). The terminal
+problem the 0.215 lift solved was real, and it was about the *card* — which is
+most of the lit surface area and now sits at 0.255, lighter still. See
+"Chrome recedes, in two steps".
 
 Raising the floor compresses everything above it, which pushed muted text to
 4.46 — just under AA. Two steps are therefore lifted off the curve

@@ -9,11 +9,18 @@ deliberately does not want.
 
 ## Surfaces
 
-| Surface | Stack | Scope | Status |
-|---|---|---|---|
-| Web | Next.js App Router, API-first | **All features.** The primary product. | Built |
-| macOS | Native Swift menu bar app | Start / stop / view. Menu bar toggles between current timer and today's total. | **Timer shipped** — `apps/macos`, SwiftPM, no Xcode needed |
-| iOS + Android | React Native (Expo) | Start / stop / view, light editing. | **Not started** |
+| Surface | Stack | Scope |
+|---|---|---|
+| Web | Next.js App Router, API-first | The primary product. Every feature lands here first. |
+| macOS | Native Swift menu bar app (`apps/macos`, SwiftPM, no Xcode) | The timer and nothing else: start, stop, task name, project. The menu bar toggles between the running timer and today's total. |
+| iOS + Android | React Native (Expo), `apps/mobile` | Start / stop / view, light editing. |
+
+**Scope, not progress** — `tasks.md` is where unbuilt work lives, and a status
+column here would be a second list that silently disagrees with it. What
+exists on disk is the honest signal: `apps/mobile` has no directory.
+
+Neither native app is a port, and neither should grow into one. The scopes
+above are ceilings, not milestones.
 
 ## The shape: a client shell over an HTTP API
 
@@ -75,10 +82,10 @@ to reconcile later — which is what keeps invoices trustworthy.
 Enforcing it in the **database** rather than in API code means no code path —
 including one written later — can produce an overlap.
 
-The cost is that the timer is the one feature which is not fully
-offline-capable: *starting* needs the network. A running timer keeps ticking
-locally from its known `startedAt`, and completed entries still queue offline.
-Clients must treat 409 as a normal flow rather than an error state.
+The cost is that starting a timer needs the network. A running timer keeps
+ticking locally from its known `startedAt` — the client owns responsiveness,
+the server owns truth — but nothing is queued while offline; see *Offline*
+below. Clients must treat 409 as a normal flow rather than an error state.
 
 ## Offline
 
@@ -177,13 +184,15 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
 
 ```
 packages/schema         Zod schemas — the API contract
-packages/core           duration, rates, timer, uuid, calendar,
-                        invoice (line items), payment (details)
+packages/core           duration, rates, timer, uuid, calendar, grid
+                        (drag-to-edit geometry), invoice (line items),
+                        payment (details)
 packages/design-tokens  tokens.json -> CSS + TS + Swift (generated into dist/)
 packages/api-client     Typed fetch wrapper for web + Expo
 apps/web                Next.js — API routes and the web UI
 supabase/migrations     Schema, triggers, RLS
-docs/design/samples     Committed renderer output (pnpm sample:invoice)
+docs/design/samples     Committed renderer output
+                        (pnpm --filter @stint/web sample:invoice)
 ```
 
 `apps/mobile` does not exist yet. `packages/design-tokens`

@@ -1,10 +1,12 @@
 # The Home Screen
 
-Status: **built**, except where a section says otherwise. This was a
-specification and the note at the top still said "nothing here is shipped
-behavior" long after the cards and the inbox had shipped — read the row tables
-as describing the app, and `tasks.md` for what genuinely is not built
-(customization, quiet clients, revenue pace).
+This describes the screen as it is. Where something is specified but not
+built, the section says so and points at `tasks.md` — which is the only place
+unbuilt work is tracked.
+
+There is no status line here on purpose. This file carried one for a long
+time, and it said "nothing here is shipped behavior" for months after the
+cards and the inbox shipped.
 
 ## What this screen answers
 
@@ -44,12 +46,15 @@ app becomes the thing it was built against.
 
 ## Layout
 
-| Slot | Card | Why here |
-|---|---|---|
-| 1 | **Unbilled** | Money waiting. |
-| 2 | **Pace** | Money coming. |
-| 3 | **Activity** (heatmap) | Texture. |
-| 4 | **Today's entries** | Unchanged. |
+**Unbilled** and **Pace** share a row at `lg` — a `1.6fr / 1fr` grid, not
+equal columns, because Unbilled carries a list of clients and Pace carries one
+figure and a bar. Equal columns would starve the side with something to say to
+pad the side without. **Activity** spans the full width beneath them, then
+**today's entries**.
+
+The grid is conditional: both cards hide themselves when they have nothing
+(no unbilled work, no target set), and a fixed two-column track would leave a
+visible hole on an ordinary day.
 
 Money waiting, then coming, then texture. Everything above the entry list
 should be readable in about three seconds.
@@ -162,7 +167,18 @@ invoiced — money the user might still never see. Overstating it in a billing
 tool is the same trust failure as silently editing an entry.
 
 Rows are capped at five clients with a "+N more" line; a contractor with
-twenty unbilled clients has a different problem than this card solves.
+twenty unbilled clients has a different problem than this card solves. **The
+cap is server-side** — `/stats` returns at most five rows plus a `moreClients`
+count, so the card renders what it is given rather than deciding. The total
+above it still covers every client, capped or not.
+
+**A client with unrated work carries its count on the row**, beside the aging:
+"oldest 9d · 2 unrated". Those entries contribute hours but no money, so
+without it the row's amount reads as low rather than as incomplete.
+
+**`awaitingPayment` is one line at the foot, and is never added to the
+total.** Unbilled is work not yet invoiced; awaiting payment is money already
+asked for. Summing them double-counts the same hours.
 
 ### Pace
 
@@ -184,35 +200,54 @@ Billable ratio is the second line, not its own card. Contractors consistently
 underestimate how much unbillable admin they absorb, and one percentage is
 the entire finding — it does not deserve a chart.
 
-Whether the target is hours or revenue is a user choice; the card renders in
-whichever unit was set.
+Whether the target is hours or revenue is a user choice, and the database and
+route carry both. **The card only renders hours.** A revenue target stores and
+validates correctly, then the card says pace in that unit is not computed yet
+— revenue means invoiced plus unbilled-at-resolved-rate, which is a different
+query from summing time entries (`tasks.md`). Saying so is better than
+rendering hours under a money target.
 
 ### Activity
 
-A heatmap, keyed to clients rather than to volume alone.
+**Hours per day, stacked by client** (`activity-chart.tsx`). Ranges are 14 and
+30 days; 30 is the default.
 
-**Default range is 12 weeks.** A year-wide GitHub-style grid works because a
-commit is binary and the grid is dense; a solo contractor's year is five days
-a week with holidays cut out of it, and at 52 weeks most cells are empty and
-the rest are the same shade. Twelve weeks is a quarter, dense enough to read
-and wide enough to show a rhythm. 26 and 52 are available as a range control.
+It replaced a twelve-week heatmap, which is still in the tree
+(`activity-strip.tsx`) but is not rendered. The heatmap answered the same
+question — *when did the work happen, and whose was it?* — and could not do
+two things:
 
-**Hue is the client; intensity is hours.** Each client already carries a
-`color`, so the strip answers *when did the Acme work actually happen?* — a
-question that comes up in scope discussions and quarterly retros, and which a
-single-hue ramp cannot answer at all. A day split across clients takes the
-hue of its largest share; the tooltip carries the full breakdown.
+- **Show every share, not just the largest.** The endpoint always returned
+  `byClient` per day and the strip kept only the dominant hue, so a day split
+  6h Northwind / 2h Byrne rendered as a solid Northwind cell. That 2h is
+  exactly what gets argued about in a scope conversation.
+- **Show magnitude.** An intensity ramp carries about four distinguishable
+  steps; a bar carries the number. "Was Tuesday a three-hour day or a
+  nine-hour day?" is unanswerable on a heatmap.
 
-**Gaps are information.** For a contractor a blank day is a vacation or a dry
-spell, and both matter. A clean five-on-two-off rhythm versus a ragged one
-says something about sustainability that no total does. The empty-cell color
-is a real surface, not a hole — the strip should read as weeks that include
-rest, not as missing data.
+**Hue is still the client**, resolved as everywhere else, and never the accent
+— that belongs to the running timer. Internal work keeps a neutral that reads
+as worked rather than as rest.
+
+**Gaps stay real.** Every day in the range gets a column, so a blank one is a
+weekend or a dry spell rather than missing data. A clean five-on-two-off
+rhythm versus a ragged one says something no total does.
+
+**Past five clients the remainder collapses into one neutral band** — the same
+shape as `moreClients` on the Unbilled card, and for the same reason: beyond
+that the legend becomes the card and the hues stop being separable.
+
+**90 days is deliberately absent.** At day granularity that is 90 bars in a
+~660px card — a ~4px bar, worse than the heatmap was at the same job. It needs
+week bucketing server-side, for the same DST reason day bucketing already
+lives there, which is a route change with its own correctness tests rather
+than an option to add here.
 
 ### Customization
 
-Users may **reorder** cards and **hide** them, and may set the Activity range.
-Preferences are per-user and sync like any other setting.
+The Activity range control is the only customization that exists. Reordering
+and hiding cards are **not built** (`tasks.md`); what follows is the shape
+they must take if they ever are.
 
 They may **not** compose new metrics, choose chart types, or add a second copy
 of a card. "Pick your own dashboard" is the most natural path by which a
@@ -227,48 +262,22 @@ turned off, and the user most likely to turn it off is the one it exists for.
 The timer bar, the inbox and the entry list are not cards and are not
 customizable.
 
-**Open: where preferences are stored.** A `home_cards` JSONB column on
-`user_settings` versus discrete columns is undecided. JSONB is the obvious fit
-for an ordered list of card ids with visibility flags, but every other
-preference in that table is a typed column with a check constraint, and an
-unvalidated blob is exactly the kind of thing that drifts. Decide before
-building, not during.
+Preferences would live in a `home_cards` JSONB column on `user_settings` —
+decided, and recorded in `tasks.md` with the reasoning. It is the one place in
+that table where a typed column does not fit, since the value is an ordered
+list of card ids with visibility flags.
 
-## Under consideration
+## Held back, with the question each must answer
 
-Both were argued against in the original brainstorm and neither objection is
-fatal. Each states the question it has to answer before it ships.
+Two cards are argued for and not built: **week-over-week deltas** and a
+**time-of-day heatmap**. Neither objection to them is fatal, and each has one
+empirical question it has to answer first — what delta threshold fires rarely
+enough to be worth reading, and whether the billable/unbillable split really
+varies by hour on a real dataset.
 
-### Week-over-week deltas
+Both live in `tasks.md` with their full reasoning. They are named here only so
+that someone reading this file does not propose them a third time.
 
-*The objection:* on lumpy contract work a 40% week-over-week drop usually
-means a client's sprint ended, not that anything changed. A delta that is
-noise most weeks trains the user to ignore it, which then hides the one week
-it was real.
-
-*The counter:* the noise comes from the comparison, not the concept. Compared
-against a **4-week median** instead of last week, and **suppressed below a
-threshold**, a delta becomes rare enough to mean something.
-
-*The question it must answer:* what threshold makes it fire rarely enough to
-be worth reading? That is an empirical question, answerable only against real
-data — so this waits until there is some. If it ships, it belongs as a line
-inside Pace, not as its own card.
-
-### Time-of-day heatmap
-
-*The objection:* an hours-by-hour grid is genuinely interesting and changes
-nothing. The week view in `use-calendar.ts` already shows this shape for
-anyone who wants to look.
-
-*The counter:* it changes something when **crossed with billability**.
-"Your unbillable time clusters between 9 and 11am" is a finding a contractor
-can act on tomorrow. Plain volume by hour is not.
-
-*The question it must answer:* does the billable/unbillable split actually
-vary by hour enough to see, on a real dataset? If the answer is that admin is
-scattered evenly through the day, the card has nothing to say and should not
-ship. Check before building.
 
 ## Rejected
 
@@ -316,25 +325,27 @@ per-entry; the Unbilled card sums across potentially hundreds of entries and
 must not call it N times. A set-returning rollup is the correct shape, and per
 `data-model.md` the SQL implementation is authoritative regardless.
 
-**Nothing on this screen writes.** Every card reads, and every action is a
-link to the surface that owns the mutation. A dashboard that edits data is how
-an accidental click becomes a changed invoice.
+**No card writes.** Every card reads, and every action on one is a link to the
+surface that owns the mutation. A dashboard that edits data is how an
+accidental click becomes a changed invoice.
 
-## What this needs from the API
+The inbox is the narrow exception, and *What each row may do* above states its
+limits: it writes only what legitimately clears a row, and never destructively.
 
-Both marked **(not implemented)** in `docs/api.md`.
+## What this screen takes from the API
 
-`GET /stats` — one call backing cards 2 through 4: unbilled by client with
-aging, month-to-date against target, billable ratio, and the attention rows.
-One request because these render together and a card set that pops in
+`GET /stats` — one call backing every card and the inbox: unbilled by client
+with aging, month-to-date against target, billable ratio, and the attention
+rows. One request because these render together and a set that pops in
 piecemeal reads as broken.
 
-`GET /calendar?granularity=day` — the Activity strip. The existing endpoint
-already groups by local day server-side, which is the DST-correct bucketing a
-heatmap needs and the reason not to build a second one. It returns full
-entries, though, and twelve weeks of those is a heavy payload for a strip that
-draws one rectangle per day; the day-granularity mode returns
-`{ date, totalSeconds, byClient }` and nothing else.
+`GET /calendar?granularity=day` — the Activity chart. The existing endpoint
+already groups by local day server-side, which is the DST-correct bucketing
+this needs and the reason not to build a second one. It returns full entries
+in its default mode, which is a heavy payload for something drawing one column
+per day; the day-granularity mode returns `{ date, totalSeconds, byClient }`
+and nothing else.
 
-**Open: the target setting.** Pace needs a nullable monthly target and a unit
-(hours or revenue) on `user_settings`. Columns are not yet specified.
+The target lives on `user_settings` as `monthly_target` and
+`monthly_target_unit`, paired by a check constraint so neither can be set
+without the other — see `data-model.md`.

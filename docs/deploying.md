@@ -18,6 +18,37 @@ live invoices. Vercel builds a production deployment but does not alias it to
 the domain until required checks pass, so the migration runs while the
 *previous* build is still serving traffic.
 
+## 0. What CI runs
+
+`.github/workflows/ci.yml`, two jobs in parallel:
+
+- **`verify`** — lint, token drift, the contrast contract, shadcn detox, the
+  typography scale, typecheck, the UI suite, core logic, then the route and
+  RLS suites against a real Postgres service container, then a build. Lint is
+  first on purpose: an obvious slip fails in seconds rather than after five
+  databases have spun up.
+- **`e2e`** — Playwright against a real local Supabase stack. Its own job
+  because it needs GoTrue and Mailpit, not the bare Postgres the other uses,
+  and because keeping it separate means a type error reports without waiting
+  behind a Docker pull.
+
+Two narrowings pay for themselves and are easy to undo by accident:
+`supabase start -x studio,postgres-meta` skips 2.25GB of images the browser
+suite never touches, and `playwright install --only-shell` skips the full
+Chrome build that Playwright never launches. Both are CI-only; `pnpm dev:up`
+keeps Studio because it is useful while developing.
+
+**The Supabase images are pulled, not cached, and that was measured.** A cache
+cost 7s to restore plus 38s for `docker load` against an 18s pull — `docker
+load` decodes a tarball serially on a slow runner disk while a pull fetches
+layers in parallel. It took 6s locally, which is exactly the trap:
+extrapolating from a laptop made it look like a win twice. Do not reintroduce
+it without measuring on a runner.
+
+**`gh run rerun` cannot answer "is the cache hit now?"** A re-run replays the
+original run and keeps its point-in-time view of the caches, so a cache saved
+after that run started reports a miss forever. Use `workflow_dispatch`.
+
 ## 1. Branch protection
 
 Repo → Settings → Branches → Add rule for `main`:

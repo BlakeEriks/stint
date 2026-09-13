@@ -3,8 +3,7 @@
 Hierarchy: **Client → Project → Time Entry**
 
 Schema lives in `supabase/migrations/`. Every rule below is enforced by the
-database, not by convention — verified against Postgres 14 locally; CI runs
-Postgres 16.
+database, not by convention.
 
 ## Rate resolution
 
@@ -15,30 +14,56 @@ entry.rate_override
       → user_settings.default_hourly_rate
 ```
 
-Implemented twice, on purpose:
+Implemented **three** times, and only one of them is on the hot path:
 
-- `resolve_entry_rate(uuid)` in SQL — **authoritative**, used at invoice
-  generation.
-- `resolveRate()` in `packages/core/src/rates.ts` — used for previews without
-  a round trip.
+- `resolveRate()` in `packages/core/src/rates.ts` — **this is what actually
+  bills.** `POST /invoices` builds line items in memory and writes
+  `resolved_rate` from the value TypeScript computed. The preview and the
+  issued invoice therefore come from identical code, which is the property
+  that matters most.
+- `resolve_entry_rate(uuid)` in SQL (`00000000000002_integrity.sql`) — a
+  per-entry reference implementation. **Nothing calls it.** It is the shape
+  the chain must have, checked by `pnpm test:rls` against the real policies,
+  not a function the app invokes.
+- the inline coalesce in `unbilled_by_client(uuid)`
+  (`00000000000007_unbilled_rollup.sql`) — the Unbilled card and the client
+  list, where calling a per-entry function N times is not an option.
 
-If they ever disagree, the database wins.
+**All three chains must stay character-for-character identical.** They are not
+kept in sync by anything: no test compares them, and a change to one is
+invisible to the other two. The rollup's own header says so, and the home
+screen disagreeing with an invoice preview about the same work is exactly the
+failure that produces.
+
+This section used to say the SQL was "authoritative, used at invoice
+generation" and that "the database wins". Neither was true — the SQL function
+has no callers at all — and believing it would send someone to edit the
+function that does not bill while the one that does goes unchanged.
 
 **`0` is a real rate, not an absent one.** A project deliberately set to 0 (pro
-bono) does not fall through to the client's rate. Both implementations use
+bono) does not fall through to the client's rate. All three implementations use
 null-coalescing, never truthiness.
 
 **Rates are frozen onto invoice line items at generation time.** Changing a
 client's rate next year must never retroactively alter an invoice already sent.
-Verified: client rate 150 → 500 left an issued invoice at its original total.
 
 ## Tables
 
 ### `user_settings`
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, `max_timer_hours`, the invoice
-identity block (business name, address, logo, tax id, terms), and the invoice
-number sequence.
+identity block (business name, address, logo, tax id, terms), the invoice
+number sequence, `payment_notice`, and the monthly goal
+(`monthly_target`, `monthly_target_unit`).
+
+**The trigger is `security definer` with `set search_path = public, pg_temp`,
+and both halves matter.** It fires inside Supabase's signup transaction, so
+anything it raises rolls the whole signup back and the client sees only
+`unexpected_failure` / "Database error saving new user" — the useful error is
+swallowed by the Auth service. Definer gives it the owner's privileges; the
+pinned path resolves `user_settings` regardless of the caller's own search
+path, and the caller is `supabase_auth_admin`, which does not have `public` on
+it. **Any future definer function needs the same treatment.**
 
 ### `clients`
 Billing entity. `hourly_rate`, `tax_rate` and `currency` are all nullable —
@@ -54,9 +79,22 @@ null means "fall back".
   it cannot drift from `started_at`/`ended_at`.
 - `invoice_id` set means the entry is billed.
 
+### `payment_profiles`
+A named bundle of bank details, rendered on the invoice PDF. **US-first**:
+account number + ACH routing is the default path; IBAN/SWIFT, a labelled
+national bank code, and intermediary-bank fields are additive and render only
+when set.
+
+Resolution mirrors rates: the client's `payment_profile_id`, else the user's
+default. A dangling reference falls back rather than rendering nothing.
+
 ### `invoices` / `invoice_line_items`
 Line items are **denormalized on purpose**. An issued invoice is an immutable
 financial record, not a live view over time entries.
+
+`payment_details` (JSONB) freezes the rendered bank details at generation, for
+the same reason rates freeze: editing a profile must never alter an invoice
+already sent.
 
 ## Integrity rules
 
@@ -68,13 +106,26 @@ create unique index one_running_timer_per_user
 A second concurrent start is rejected by the database itself. The API returns
 `409 TIMER_ALREADY_RUNNING` with the running entry attached.
 
+### The default-profile invariant
+
+```sql
+create unique index one_default_payment_profile_per_user
+  on payment_profiles (user_id)
+  where is_default and archived_at is null;
+```
+
+Structurally the same trick, for the same reason: **one default per user,
+enforced by an index rather than by code that checks first.** A pre-check is a
+race; a partial unique index is not. The first profile a user creates becomes
+the default automatically.
+
 ### Billed entries are immutable
 A trigger blocks edits and deletes once an entry belongs to a **non-draft**
 invoice. The guarded fields are `started_at`, `ended_at`, `is_billable`,
 `rate_override`, `project_id` **and `task_name`** — the last because the task
 name becomes the invoice line description, so editing it after issue changes
 what the client was told they were billed for, even when the money is
-unchanged. (This gap was found by an integration test, not by reading.)
+unchanged.
 
 Two deliberate exceptions:
 
@@ -85,18 +136,22 @@ Two deliberate exceptions:
 ### Gapless invoice numbering
 `allocate_invoice_number(user_id)` increments `next_invoice_number` under a row
 lock and returns both the numeric sequence and the rendered string
-(`INV-0001`). The lock serializes concurrent callers.
-
-Verified: 20 concurrent allocations across 10 parallel connections produced
-exactly 100–119 with no gaps or duplicates.
+(`INV-0001`). The lock serializes concurrent callers, which is what makes the
+sequence gapless under concurrency rather than merely usually correct.
 
 ### Other constraints
 - `ended_at is null or ended_at > started_at`.
 - `invoice_number` and `sequence_no` unique per user.
 - Enumerations are check constraints, not conventions: `status`,
-  `grouping_mode`, `time_format`, `account_type`, `fee_allocation`.
+  `grouping_mode`, `time_format`, `account_type`, `fee_allocation`,
+  `monthly_target_unit`.
 - Ranges: `week_starts_on` 0–6, `tax_rate` 0–100, `max_timer_hours > 0`,
-  `next_invoice_number > 0`; client and project names must be non-blank.
+  `next_invoice_number > 0`, `monthly_target > 0`,
+  `quantity_seconds >= 0`; client, project and payment-profile names must be
+  non-blank, and an invoice's period must be ordered.
+- **Paired nullability is a constraint too**: `monthly_target_needs_unit`
+  asserts `(monthly_target is null) = (monthly_target_unit is null)`, so a
+  target can never exist without the unit that gives it meaning.
 - `updated_at` is maintained by a `touch_updated_at` trigger on every table
   **except `invoice_line_items`**, which has no such column: a line is frozen
   at generation and never edited, so a "last modified" timestamp would be a
@@ -107,28 +162,45 @@ exactly 100–119 with no gaps or duplicates.
   The route tests disable RLS (their subject is route logic);
   `apps/web/test/rls.test.ts` covers it against live policies.
 
-## Verified behavior
+### GRANT and RLS are two layers, and both are load-bearing
 
-Applied to a real Postgres 14 instance and exercised:
+`00000000000004_api_grants.sql` grants table privileges to `authenticated` and
+nothing to `anon`. **GRANT decides whether the role may touch the table at
+all; RLS decides which rows it sees once it may.** Enabling RLS on a new table
+without granting it produces a `42501` that looks nothing like a policy
+problem.
 
-| # | Check | Result |
-|---|---|---|
-| 1 | Settings auto-created on user insert | pass |
-| 2 | Timer starts | pass |
-| 3 | **Second concurrent timer rejected** | rejected as designed |
-| 4 | Stop-then-start allowed | pass |
-| 5 | `duration_seconds` generated (3600) | pass |
-| 6 | `ended_at <= started_at` rejected | rejected as designed |
-| 7 | Rate resolution 999 → 175 → 150 → 100 | all four levels correct |
-| 8 | Sequential numbering INV-0001..0003 | pass |
-| 9 | **Editing a billed entry rejected** | rejected as designed |
-| 10 | **Deleting a billed entry rejected** | rejected as designed |
-| 11 | Client rate 150→500 leaves issued invoice at 175 | frozen correctly |
-| 12 | Detaching from a voided invoice allowed | pass |
-| 13 | Entries on a draft invoice stay editable | pass |
-| 14 | Duplicate invoice number rejected | rejected as designed |
-| — | 20 concurrent allocations, no gaps | 100–119, counter at 120 |
-| 15 | **Editing `task_name` on a billed entry rejected** | rejected (added after a test caught the gap) |
+Supabase's **"Automatically expose new tables" must stay OFF** — the grants
+are explicit here so that a new table is unreachable until someone decides
+what may reach it. `pnpm verify:schema` is the real control: it asserts every
+table has RLS on and at least one policy, because RLS with no policies denies
+everything and is indistinguishable from a broken deploy until someone tries
+to read.
+
+## What the database guarantees
+
+These are enforced by the schema itself, so they hold no matter which client
+writes — and each is covered by `apps/web/test/routes.test.ts` against a real
+Postgres with the real migrations. The tests are the record of *whether* they
+hold; this list is the record of *what* must.
+
+- Settings are auto-created on user insert, by trigger.
+- A second concurrent timer is rejected; stop-then-start is not.
+- `duration_seconds` is generated, never written.
+- `ended_at <= started_at` is rejected.
+- Rate resolution walks all four levels, and `0` is a real rate.
+- Invoice numbers are sequential and gapless under concurrency, because
+  `allocate_invoice_number()` holds a row lock.
+- A duplicate invoice number is rejected.
+- Editing or deleting an entry billed to a **non-draft** invoice is rejected,
+  including its `task_name` — that becomes the invoice line description, so
+  changing it after issue rewrites what the client was told.
+- Entries on a **draft** invoice stay editable; a draft holds no number and
+  has been sent to nobody.
+- Detaching an entry from a voided invoice is allowed — that is the release
+  path voiding depends on.
+- Rates are frozen onto line items at generation: changing a client's rate
+  later leaves an issued invoice at its original total.
 
 ### RLS, verified against live policies
 
@@ -152,6 +224,6 @@ alone must still contain the query.
 | No JWT claim, or a malformed one | fails closed |
 
 The suite guards itself: `before` asserts the role is neither a superuser nor
-`BYPASSRLS`, since either would make every assertion pass vacuously. Verified
-by disabling RLS on one table (9 of 12 fail) and by granting `BYPASSRLS`
-(all 12 fail).
+`BYPASSRLS`, since either would make every assertion pass vacuously. Both
+failure modes were checked by inducing them — disabling RLS on one table, and
+granting `BYPASSRLS` — and the suite goes red for each.

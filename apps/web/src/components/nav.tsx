@@ -40,12 +40,13 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
  * Deliberately plain: the accent belongs to the running timer, so the current
  * section is marked with weight and a raised surface rather than colour.
  *
- * The rail sits on `bg-surface-recessed`, a step *below* the page ground, so
- * chrome falls back and the content column reads as the nearer plane. The
- * active pill is `bg-surface-primary` — the same surface a card uses — which
- * against the recessed ground now genuinely reads as raised rather than as a
- * slightly different grey. In light mode the recession inverts (the rail goes
- * darker than the page) and means the same thing.
+ * The rail sits on `bg-surface-base`, one step below the content column and
+ * one step ABOVE `bg-surface-recessed`, which carries the header and the
+ * timer bar. Two chrome levels, not one: those two strips bound the whole
+ * app, the rail and the dock bound the content. The active pill is
+ * `bg-surface-primary` — the content surface — so it reads as raised against
+ * the rail rather than as a slightly different grey. In light mode the order
+ * inverts (the rail goes darker than the page) and means the same thing.
  *
  * On a phone it returns to a horizontal strip under the header — a rail would
  * eat a third of a 375px viewport.

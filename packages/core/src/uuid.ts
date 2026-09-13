@@ -1,7 +1,8 @@
 /**
- * UUIDv7 — time-ordered, so entries sort naturally by creation and the
- * outbox can replay without a separate sequence. Client-generated, which
- * is what makes retries idempotent.
+ * UUIDv7 — time-ordered, so entries sort naturally by creation without a
+ * separate sequence. Client-generated, which is what makes a retried insert
+ * idempotent: the same id lands on the same row, and the API translates the
+ * duplicate-key violation into the existing row rather than an error.
  */
 
 function randomBytes(n: number): Uint8Array {

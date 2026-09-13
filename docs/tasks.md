@@ -24,6 +24,16 @@ later.
 
 ## Ready
 
+- [ ] **Two route handlers have no tests.** `PATCH`/`DELETE` on
+      `/projects/:id` and `/payment-profiles/:id` are the only handlers with
+      no integration coverage — 18 of 20 are tested. Both are mutating, and
+      the payment-profile one touches the default-profile invariant
+      (`one_default_payment_profile_per_user`), so an un-setting bug there is
+      silent until an invoice renders the wrong bank details.
+
+      `docs/api.md` used to claim every handler was covered. It now names the
+      gap instead, which is honest but is not the fix.
+
 - [ ] **An inbox invoice row does not open.** Clicking the label on an overdue
       or stale-draft row in the dock's inbox goes nowhere. The `href` is
       `/invoices/${invoiceId}` and the detail page exists, so the fault is in
