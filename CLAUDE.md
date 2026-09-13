@@ -1277,9 +1277,26 @@ timeout, so two failures became four: the run that prompted this took 4m40s
 against a healthy 2m33s. The trade is that a genuinely flaky test now goes red
 rather than self-healing, which is the intent at ten tests and ~31s of work.
 
-**The stack's Docker images are cached in CI.** The pull cost ~50s and is the
-one step depending on a third party: `public.ecr.aws` rate-limits anonymous
-pulls, and a run hit `toomanyrequests` on four images at once.
+**CI starts the stack with `-x studio,postgres-meta`.** Studio is the local
+dashboard and postgres-meta is its backend; the browser suite drives the app,
+never the dashboard. They are **2.25GB of the 4.4GB** of images — over half the
+weight, pulled and loaded for nothing. Excluding them takes the cached archive
+from 753MB to 432MB and is the only saving that applies on a cache MISS too,
+because the images are never fetched at all.
+
+`pnpm dev:up` deliberately keeps them: Studio on `:54323` is useful while
+developing. This is a CI-only narrowing.
+
+**The remaining images are cached.** The pull cost ~50s and is the one step
+depending on a third party: `public.ecr.aws` rate-limits anonymous pulls, and
+a run hit `toomanyrequests` on four images at once.
+
+**A cache hit is worth less than it looks**, and the numbers are worth knowing
+before adding more caching: restoring costs a download plus `docker load`,
+which measured **9s + 48s on a runner** against 7s + 6s locally — CI disk I/O
+is far slower, so do not extrapolate `docker load` timings from a laptop. That
+57s against a 69s pull is a ~24s net saving, not the ~70s it appears to be.
+The rate-limit insurance is the stronger half of the argument.
 
 The key is the **pinned CLI version alone** (`supabase-images-2.117.0`), read
 out of `package.json` at run time. `hashFiles('package.json')` is the tempting

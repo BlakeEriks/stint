@@ -201,9 +201,13 @@ jobs:
       # Keyed on the pinned CLI VERSION, because that alone decides the image
       # tags. `hashFiles('package.json')` was wrong and is the tempting
       # shortcut: it hashes the whole file, so adding a devDependency or
-      # editing a script threw away a 856MB archive that was still perfectly
-      # valid. The pin is exact (`"supabase": "2.117.0"`, no caret), so this
-      # is precise rather than approximate.
+      # editing a script threw away an archive that was still perfectly valid.
+      # The pin is exact (`"supabase": "2.117.0"`, no caret), so this is
+      # precise rather than approximate.
+      #
+      # The `-min` suffix marks the reduced image set below. Changing what is
+      # excluded MUST change this key, or a hit would restore the old archive
+      # and quietly undo the saving.
       - name: Resolve the Supabase CLI version
         id: cli
         run: |
@@ -214,26 +218,42 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/supabase-images.tar
-          key: supabase-images-${{ steps.cli.outputs.version }}
+          key: supabase-images-${{ steps.cli.outputs.version }}-min
 
       - name: Load cached images
         if: steps.docker-cache.outputs.cache-hit == 'true'
         run: docker load -i /tmp/supabase-images.tar
 
-      - name: Start Supabase
-        run: npx supabase start
-
-      # Only on a miss. The archive is ~856MB — well inside the 10GB repo
-      # budget, but writing it every run would spend time for nothing.
-      # Measured locally at ~7s to save and ~6s to load, so the round trip is
-      # comfortably cheaper than the ~50s pull it replaces.
+      # WITHOUT Studio or postgres-meta. Studio is the local dashboard and
+      # postgres-meta is its backend; the browser suite drives the app, never
+      # the dashboard, so CI was pulling and loading 2.25GB it does not use.
       #
-      # Listing `docker images` after the stack is up is what the CLI actually
-      # resolved, so this cannot drift from the version pinned above.
+      # That is over half the total image weight: excluding them takes the
+      # cached archive from 753MB to 432MB, which cuts the download and the
+      # `docker load` roughly in half. It is the only change here that helps
+      # on a cache MISS as well as a hit, because the images are never fetched
+      # at all rather than fetched from somewhere closer.
+      #
+      # `pnpm dev:up` deliberately does NOT exclude them — Studio on :54323 is
+      # useful while developing. This is a CI-only narrowing.
+      - name: Start Supabase
+        run: npx supabase start -x studio,postgres-meta
+
+      # Only on a miss. Writing it every run would spend time for nothing.
+      #
+      # Saves what is RUNNING, not every supabase image on the machine. On a
+      # clean runner those are the same five, but `docker images` would also
+      # sweep up anything a previous step happened to pull — the archive is
+      # meant to mirror the stack the exclusions produced, so it reads the
+      # containers rather than the image store.
+      #
+      # Still derived from what the CLI actually resolved, so it cannot drift
+      # from the version pinned above.
       - name: Save the images
         if: steps.docker-cache.outputs.cache-hit != 'true'
         run: |
-          docker images --format '{{.Repository}}:{{.Tag}}' \
+          docker ps --format '{{.Image}}' \
+            | sort -u \
             | grep '^public.ecr.aws/supabase/' \
             | xargs docker save -o /tmp/supabase-images.tar
 
