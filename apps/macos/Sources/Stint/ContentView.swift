@@ -103,6 +103,11 @@ private struct TimerPanel: View {
             AccountRow(model: model)
         }
         .padding(14)
+        /* One focus section, so Tab moves BETWEEN these controls.
+           `focusable()` alone makes a view a focus target without joining any
+           ring — which is how focus landed on the stop button and then had
+           nowhere to go, since Tab had no next element to move to. */
+        .focusSection()
         /* The caret goes to the task field on every open.
            `MenuBarExtra` rebuilds its content each time the panel opens, so
            this runs per open rather than once — which is what makes the panel
@@ -158,16 +163,29 @@ private struct TimerPanel: View {
                     )
                     .contentTransition(.numericText())
 
-                Text(model.isRunning ? "running" : "logged today")
-                    .font(.system(size: 11))
-                    .textCase(.uppercase)
-                    .tracking(0.6)
-                    .foregroundStyle(Tokens.Dark.textSubtle)
+                /* Only when STOPPED. A green clock counting up already says
+                   "running" — the word restated it and, being below the
+                   number, pushed the stop button out of line with the digits
+                   it belongs to. Stopped is the ambiguous case: `0:00:00` in
+                   white needs to say what it is a total of. */
+                if !model.isRunning {
+                    Text("logged today")
+                        .font(.system(size: 11))
+                        .textCase(.uppercase)
+                        .tracking(0.6)
+                        .foregroundStyle(Tokens.Dark.textSubtle)
+                }
             }
 
             if model.isRunning {
-                Spacer(minLength: 0)
+                /* Directly beside the number, NOT pushed to the far edge.
+                   A `Spacer` here put the control in the top-right corner,
+                   which reads as a window button rather than this clock's
+                   control — the web app keeps them adjacent so they are one
+                   object. The trailing Spacer holds the pair to the left so
+                   the panel's left edge stays the alignment for everything. */
                 StartStopButton(model: model)
+                Spacer(minLength: 0)
             }
         }
     }
@@ -229,7 +247,8 @@ extension View {
 /// controls: with "Keyboard navigation" off (the macOS default) the Tab order
 /// holds text fields only, in every app. This makes the app correct for people
 /// who have it on rather than pretending to fix it for those who do not.
-private struct Focusable: ViewModifier {
+private struct Focusable<S: InsettableShape>: ViewModifier {
+    var shape: S
     @FocusState private var focused: Bool
 
     func body(content: Content) -> some View {
@@ -237,12 +256,12 @@ private struct Focusable: ViewModifier {
             .focusable()
             .focused($focused)
             /* AppKit's own ring is a blue rounded rectangle that ignores the
-               button's shape — on the round stop button it drew a square
+               control's shape — on the round stop button it drew a square
                around a circle, in a blue that appears nowhere else in the
-               app. Ours is neutral and follows the shape. */
+               app. Ours is neutral and takes the shape it is given. */
             .focusEffectDisabled()
             .overlay(
-                Capsule()
+                shape
                     .stroke(
                         focused ? Tokens.Dark.borderFocus : .clear,
                         lineWidth: 2
@@ -254,7 +273,11 @@ private struct Focusable: ViewModifier {
 
 extension View {
     /// Keyboard-reachable, with a ring that says so.
-    func keyboardReachable() -> some View { modifier(Focusable()) }
+    func keyboardReachable<S: InsettableShape>(
+        shape: S = RoundedRectangle(cornerRadius: 6, style: .continuous)
+    ) -> some View {
+        modifier(Focusable(shape: shape))
+    }
 }
 
 /// What is running: a dot, the task name, and a pencil to rename it.
@@ -322,6 +345,7 @@ private struct RunningRow: View {
                         .foregroundStyle(Tokens.Dark.textSubtle)
                 }
                 .buttonStyle(.plain)
+                .keyboardReachable()
                 .accessibilityLabel("Rename task")
 
                 Spacer(minLength: 0)
@@ -391,6 +415,7 @@ private struct ProjectField: View {
             }
         }
         .menuStyle(.borderlessButton)
+        .keyboardReachable()
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(Tokens.Dark.bgElevated)
@@ -441,7 +466,16 @@ private struct StartStopButton: View {
             }
         }
         .buttonStyle(.plain)
-        .keyboardReachable()
+        /* The ring follows the button: a circle while running, a rounded
+           rectangle around the Start pill. One shape for both would be wrong
+           half the time. */
+        .keyboardReachable(
+            shape: AnyInsettableShape(
+                model.isRunning
+                    ? AnyInsettableShape(Circle())
+                    : AnyInsettableShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            )
+        )
         .disabled(model.isBusy)
         .opacity(model.isBusy ? 0.6 : 1)
         .accessibilityLabel(model.isRunning ? "Stop timer" : "Start timer")
@@ -460,6 +494,7 @@ private struct OpenAppButton: View {
                 .foregroundStyle(Tokens.Dark.textMuted)
         }
         .buttonStyle(.plain)
+        .keyboardReachable()
     }
 }
 
@@ -666,4 +701,23 @@ private struct SignInPanel: View {
             }
         }
     }
+}
+
+/// A type-erased `InsettableShape`, so a ring can change shape with state.
+///
+/// SwiftUI has `AnyShape` but not an insettable one, and `stroke` needs
+/// insettable to inset the line rather than straddle the edge.
+struct AnyInsettableShape: InsettableShape {
+    // `@Sendable` because Shape is Sendable under Swift 6's strict
+    // concurrency, and a stored closure has to carry the same guarantee.
+    private let makePath: @Sendable (CGRect) -> Path
+    private let makeInset: @Sendable (CGFloat) -> AnyInsettableShape
+
+    init<S: InsettableShape>(_ shape: S) {
+        makePath = { shape.path(in: $0) }
+        makeInset = { AnyInsettableShape(shape.inset(by: $0)) }
+    }
+
+    func path(in rect: CGRect) -> Path { makePath(rect) }
+    func inset(by amount: CGFloat) -> AnyInsettableShape { makeInset(amount) }
 }
