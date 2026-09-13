@@ -433,12 +433,27 @@ needs a Developer ID and notarisation.
 app should become a port; entries, invoices and the calendar stay in the
 browser, behind the panel's one "Open Stint" link.
 
-- **Sign-in is the emailed link, verified in-process** against GoTrue's
-  `/verify`. **The field is `token_hash`, NOT `token`** — the value in the
-  emailed URL is already hashed, and passing it as `token` returns
-  `otp_expired` on a link generated one second earlier, which reads as an
-  expired link and sends you hunting for the wrong bug entirely. Verified
-  against a real GoTrue before the code was written.
+- **Sign-in is an emailed six-digit CODE, typed into the panel**, verified
+  in-process against GoTrue's `/verify` with `type: "email"` and the digits in
+  the `token` field. Not `"magiclink"`, which is the type for the hashed token
+  in a link and rejects a typed code.
+
+  **A code, because a link has to reach a different application than the one
+  that opened it.** Pasting a link puts a bearer credential through the
+  clipboard, and a custom URL scheme is *silently refused* by browsers when it
+  is the target of a redirect — the failure then surfaces as "Bad request"
+  from a fallback rather than as anything true. A code is typed by a person,
+  so nothing has to hand anything to anything.
+
+  GoTrue generates a code for every magic link whether the email shows it or
+  not; `supabase/templates/magic_link.html` is what puts it in front of the
+  user, and `{{ .Token }}` is the field. The request sends no `redirect_to`:
+  nothing is being redirected, so where a browser would land is not this app's
+  concern.
+
+  `create_user` must be a real bool in an `Encodable` struct — a
+  `[String: String]` literal sends it quoted and GoTrue answers "cannot
+  unmarshal string into Go struct field OtpParams.create_user of type bool".
 
   PKCE was rejected for the same reason it bites on the web: the verifier
   lives per origin, and an app holding one while the link opens in a *browser*
