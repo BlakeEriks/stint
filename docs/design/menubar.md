@@ -64,8 +64,8 @@ idea occurs. In practice: the pip and the readout while running, or the start
 button while stopped. Never both — a stopped timer with a green readout is the
 regression to watch for.
 
-Never put the accent on: the stop button, a divider, the footer links, a
-focus ring, or the S in the status item.
+Never put the accent on: the stop button, a divider, anything in the header,
+or a focus ring.
 
 ## Typography
 
@@ -82,7 +82,7 @@ hand for now, and if the app grows past a handful of roles, extend
 | Stat value | IBM Plex Mono | 15pt | Regular | `monospacedDigit()` |
 | Client / meta | IBM Plex Mono | 11pt | Regular | |
 | Section label | IBM Plex Mono | 10pt | Medium | Uppercase, tracking 0.16em |
-| Footer link | IBM Plex Mono | 10.5pt | Regular | Uppercase, tracking 0.08em |
+| Header wordmark | IBM Plex Mono | 12pt | Semibold | Uppercase, tracking 0.12em |
 
 **Every number is mono with tabular figures.** A readout that reflows as its
 digits change is the specific thing this rule exists to prevent — use
@@ -93,31 +93,45 @@ Ship the Plex faces with the app rather than relying on them being installed.
 ## The status item
 
 ```
-|S| 1:47:32
+● 1:47:32
 ```
 
-**The `|S|` mark stays as it is.** `Mark.swift` already draws it — an `S`
-between two bounds, the same brackets as the wordmark, carrying the meaning
-the letter cannot: a stint is work with a start and an end. It is drawn rather
-than an image so it is sharp at every size and the running state is a fill
-change rather than a second asset. Do not replace it.
+**A filled dot and the time. No letterform.**
 
-A coloured pip beside it was considered and **rejected**: the mark already
-tints, and adding a dot would put two state indicators in a 100pt-wide strip.
-The mark's own fill is the status channel.
+`Mark.swift` draws a `|S|` today, and the status item should stop using it.
+Three reasons, in order of weight:
 
-What the spec asks for here:
+1. **A dot means *recording* in a way a letter cannot.** Every camera, every
+   DAW, every screen recorder uses a filled circle for "this is live". The
+   status item's whole job is to say whether time is accruing, and the dot
+   says it without being read.
+2. **The green `S` is not in the brand anywhere else.** The landing page, the
+   web app and the invoice carry a plain wordmark; a tinted letterform in the
+   menu bar would be the only place it exists, which makes it an orphan rather
+   than an identity.
+3. **Identity moves into the panel** (see below), where there is room for a
+   real wordmark. The status item does not have to carry both jobs, and a
+   12pt glyph is a bad place to do branding anyway.
 
-- **Three fills, not two:** `accentDefault` running, the bar's own foreground
-  when stopped, `timerWarning` past the threshold. The amber case is the one
-  that may be missing — it is how a runaway reaches someone whose panel is
-  closed, and it matters more than the other two.
+Findability is the honest cost. A bare dot is harder to pick out of a crowded
+menu bar than a letter, and people will learn its position rather than
+recognise its shape — which is how most menu bar apps are actually found.
+Accept it; do not re-add a letterform to compensate.
+
+- **The dot is the state:** `accentDefault` running, `timerIdle` stopped,
+  `timerWarning` past the threshold. The amber case is the one likely missing
+  today, and it matters most — it is how a runaway reaches someone whose panel
+  is closed.
 - **Running shows elapsed; stopped shows today's total.** Both are worth a
-  glance, and the mark's fill says which you are reading.
+  glance, and the dot's fill says which you are reading.
 - **Tabular figures, fixed width.** The item must not resize every second —
   that shoves every icon to its left all day.
-- Offer a **mark-only** preference for crowded menu bars.
+- Offer a **dot-only** preference for crowded menu bars.
 - Left-click opens the panel. Right-click: Start/Stop, Open Stint, Quit.
+
+`Mark.swift` itself is worth keeping for the panel header and anywhere else
+the app needs a mark — this is a change to what the *status item* renders, not
+a deletion of the mark.
 
 ## The popover
 
@@ -131,6 +145,8 @@ popover's arrow proves fussy — the mockup shows no arrow.
 
 ```
 ┌─────────────────────────────┐
+│  STINT                 ⚙ ↗  │  ← header, bgRecessed
+├─────────────────────────────┤
 │  [ state block ]            │  ← differs per state
 ├─────────────────────────────┤
 │  TODAY 6:12:04   UNBILLED $…│  ← same in every state
@@ -139,13 +155,32 @@ popover's arrow proves fussy — the mockup shows no arrow.
 │  Checkout validation…  2:15 │  ← three rows, never scrolls
 │  Design review         1:30 │
 │  Q4 retainer scoping…  0:39 │
-├─────────────────────────────┤
-│  OPEN STINT ↗        QUIT   │  ← bgRecessed
 └─────────────────────────────┘
 ```
 
-Only the top block changes between states. Keeping the rest identical is what
-stops the popover appearing to restructure itself when the user hits start.
+Only the state block changes. Keeping the rest identical is what stops the
+panel appearing to restructure itself when the user hits start.
+
+### The header
+
+**This is where the brand lives**, now that the status item is a bare dot.
+
+- The wordmark at 12pt, `type-wordmark`'s treatment: mono, 600, uppercase,
+  0.12em tracking, `textMuted` — present, not shouting. `Mark.swift` can sit
+  beside it if a mark is wanted; this is the one place in the app with room
+  for one.
+- On the right, two icon buttons: **Open Stint** (arrow-out-of-box) and a
+  **menu** (gear or ellipsis) holding Preferences, Sign out and Quit.
+- `bgRecessed`, with `borderSubtle` beneath it. Chrome recedes; the timer is
+  the content.
+
+This replaces the footer the earlier draft had. A footer row spent on
+`OPEN STINT / QUIT` put navigation at the bottom of a panel people open to do
+one thing at the top, and left nowhere for identity. Moving both to a header
+costs the same height and orders the panel the way it is read.
+
+**Nothing in the header is ever the accent.** It is chrome, and the accent
+belongs to the timer.
 
 ### State 1 — running
 
