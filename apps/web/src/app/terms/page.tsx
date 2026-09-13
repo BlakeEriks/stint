@@ -15,10 +15,10 @@ export default function Page() {
     <LegalPage title="Terms" updated="September 2026">
       <Clause heading="The short version">
         <p>
-          Stint is a time tracking and invoicing tool for one person. It is
-          free to use. It records what you tell it and produces invoices from
-          that &mdash; it does not give you accounting, tax or legal advice,
-          and the numbers on your invoices are your responsibility.
+          Stint is a time tracking and invoicing tool for one person. It is free
+          to use. It records what you tell it and produces invoices from that
+          &mdash; it does not give you accounting, tax or legal advice, and the
+          numbers on your invoices are your responsibility.
         </p>
       </Clause>
 

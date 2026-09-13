@@ -77,9 +77,21 @@ export function DemoTimer() {
       <div className="mt-6 border-t border-edge-subtle pt-4">
         <p className="type-label mb-3 text-subtle">Today · 6:12:04</p>
         <ul className="flex flex-col gap-2.5">
-          <EntryRow name="Checkout validation fixes" client="Northwind Trading" time="2:15:00" />
-          <EntryRow name="Design review" client="Harbour & Co." time="1:30:00" />
-          <EntryRow name="Q4 retainer scoping call" client="Harbour & Co." time="0:39:32" />
+          <EntryRow
+            name="Checkout validation fixes"
+            client="Northwind Trading"
+            time="2:15:00"
+          />
+          <EntryRow
+            name="Design review"
+            client="Harbour & Co."
+            time="1:30:00"
+          />
+          <EntryRow
+            name="Q4 retainer scoping call"
+            client="Harbour & Co."
+            time="0:39:32"
+          />
         </ul>
       </div>
     </div>

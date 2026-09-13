@@ -18,16 +18,16 @@ export default function Page() {
         <p>
           Stint holds the data you put into it &mdash; your hours, your rates,
           your clients and the invoices you generate. It is not sold, it is not
-          shared with advertisers, and it is not used to train anything. You
-          can export all of it, or delete your account, whenever you want.
+          shared with advertisers, and it is not used to train anything. You can
+          export all of it, or delete your account, whenever you want.
         </p>
       </Clause>
 
       <Clause heading="What is collected">
         <p>
           <strong className="text-primary">Your account:</strong> an email
-          address. There is no password &mdash; signing in sends a one-time
-          link to that address.
+          address. There is no password &mdash; signing in sends a one-time link
+          to that address.
         </p>
         <p>
           <strong className="text-primary">What you enter:</strong> time
@@ -51,9 +51,9 @@ export default function Page() {
           generating your invoices, and signing you in. Nothing else.
         </p>
         <p>
-          Stint does not send your invoices. The PDF is generated and
-          downloaded by you, and you send it from your own email address, so
-          your clients&rsquo; addresses are never used to send mail from Stint.
+          Stint does not send your invoices. The PDF is generated and downloaded
+          by you, and you send it from your own email address, so your
+          clients&rsquo; addresses are never used to send mail from Stint.
         </p>
       </Clause>
 
@@ -84,8 +84,8 @@ export default function Page() {
       <Clause heading="Security">
         <p>
           Data is encrypted in transit and at rest, and access is scoped per
-          account at the database level. No system is perfect; if something
-          goes wrong that affects you, you will be told.
+          account at the database level. No system is perfect; if something goes
+          wrong that affects you, you will be told.
         </p>
       </Clause>
 

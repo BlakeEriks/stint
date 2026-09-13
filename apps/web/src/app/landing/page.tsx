@@ -143,9 +143,9 @@ function Hero() {
             Start the timer, and the invoice takes care of itself.
           </h1>
           <p className="type-lede max-w-md text-muted">
-            Stint knows what you charge each client, so a month of hours
-            becomes a numbered invoice you can send &mdash; instead of a CSV
-            export and a spreadsheet full of arithmetic.
+            Stint knows what you charge each client, so a month of hours becomes
+            a numbered invoice you can send &mdash; instead of a CSV export and
+            a spreadsheet full of arithmetic.
           </p>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -233,7 +233,9 @@ function SplitSection({
               </p>
             ) : null}
           </div>
-          <div className={`min-w-0 ${reverse ? 'lg:order-1' : ''}`}>{aside}</div>
+          <div className={`min-w-0 ${reverse ? 'lg:order-1' : ''}`}>
+            {aside}
+          </div>
         </div>
       </Container>
     </section>
@@ -336,8 +338,8 @@ function Invoice() {
             One click, and this is what your client gets.
           </h2>
           <p className="type-body mt-4 text-muted">
-            Your hours, grouped by task, at the rate each one was worked
-            &mdash; numbered, dated and ready to send.
+            Your hours, grouped by task, at the rate each one was worked &mdash;
+            numbered, dated and ready to send.
           </p>
         </div>
 
@@ -417,63 +419,63 @@ function InvoicePreview() {
     <div className="mt-2">
       <div className="overflow-x-auto rounded-lg shadow-float">
         <div className="min-w-[34rem] bg-white p-6 text-[#1A1C21]">
-        <div className="flex items-start justify-between gap-4">
-          {/* A generic example, never a real person: this page is public and
+          <div className="flex items-start justify-between gap-4">
+            {/* A generic example, never a real person: this page is public and
               the invoice carries a name, an email and bank details. */}
-          <div className="flex flex-col">
-            <span className="type-heading">Your name here</span>
-            <span className="type-support text-[#626875]">
-              you@yourdomain.com
-            </span>
+            <div className="flex flex-col">
+              <span className="type-heading">Your name here</span>
+              <span className="type-support text-[#626875]">
+                you@yourdomain.com
+              </span>
+            </div>
+            <div className="text-right">
+              <div className="type-section">INVOICE</div>
+              <div className="type-meta text-[#626875]">INV-0042</div>
+            </div>
           </div>
-          <div className="text-right">
-            <div className="type-section">INVOICE</div>
-            <div className="type-meta text-[#626875]">INV-0042</div>
-          </div>
-        </div>
 
-        <table className="mt-6 w-full border-collapse">
-          <thead>
-            <tr className="border-b border-[#D1D5DD]">
-              <th className="type-label pb-2 text-left text-[#848B98]">
-                Description
-              </th>
-              <th className="type-label pb-2 text-right text-[#848B98]">
-                Hours
-              </th>
-              <th className="type-label pb-2 text-right text-[#848B98]">
-                Rate
-              </th>
-              <th className="type-label pb-2 text-right text-[#848B98]">
-                Amount
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map(([desc, hours, rate, amount]) => (
-              <tr key={desc} className="border-b border-[#E4E6EC]">
-                <td className="type-control py-2">{desc}</td>
-                <td className="type-duration py-2 text-right">{hours}</td>
-                <td className="type-duration py-2 text-right">{rate}</td>
-                <td className="type-duration py-2 text-right">{amount}</td>
+          <table className="mt-6 w-full border-collapse">
+            <thead>
+              <tr className="border-b border-[#D1D5DD]">
+                <th className="type-label pb-2 text-left text-[#848B98]">
+                  Description
+                </th>
+                <th className="type-label pb-2 text-right text-[#848B98]">
+                  Hours
+                </th>
+                <th className="type-label pb-2 text-right text-[#848B98]">
+                  Rate
+                </th>
+                <th className="type-label pb-2 text-right text-[#848B98]">
+                  Amount
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {lines.map(([desc, hours, rate, amount]) => (
+                <tr key={desc} className="border-b border-[#E4E6EC]">
+                  <td className="type-control py-2">{desc}</td>
+                  <td className="type-duration py-2 text-right">{hours}</td>
+                  <td className="type-duration py-2 text-right">{rate}</td>
+                  <td className="type-duration py-2 text-right">{amount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-        {/* Two rates on one invoice, deliberately: it proves rate resolution
+          {/* Two rates on one invoice, deliberately: it proves rate resolution
             at a glance, and the rate is always part of the grouping key. */}
-        <div className="mt-4 flex items-baseline justify-end gap-6">
-          <span className="type-body">Amount due</span>
-          <span className="type-amount-hero">$6,779.16</span>
-        </div>
+          <div className="mt-4 flex items-baseline justify-end gap-6">
+            <span className="type-body">Amount due</span>
+            <span className="type-amount-hero">$6,779.16</span>
+          </div>
 
-        <div className="mt-6 border-l-2 border-[#1A1C21] bg-[#F2F3F6] p-3">
-          <p className="type-heading">Payment — USD ACH</p>
-          <p className="type-support mt-1 text-[#626875]">
-            Our payment details never change. If you receive any message
-            stating otherwise, call to verify before paying.
-          </p>
+          <div className="mt-6 border-l-2 border-[#1A1C21] bg-[#F2F3F6] p-3">
+            <p className="type-heading">Payment — USD ACH</p>
+            <p className="type-support mt-1 text-[#626875]">
+              Our payment details never change. If you receive any message
+              stating otherwise, call to verify before paying.
+            </p>
           </div>
         </div>
       </div>
@@ -744,10 +746,7 @@ function Footer() {
           </p>
         </div>
         <nav aria-label="Legal" className="flex items-center gap-5">
-          <a
-            href="/privacy"
-            className="type-meta text-subtle hover:text-muted"
-          >
+          <a href="/privacy" className="type-meta text-subtle hover:text-muted">
             Privacy
           </a>
           <a href="/terms" className="type-meta text-subtle hover:text-muted">
