@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { ArrowRight, Laptop, Monitor, Smartphone, X } from 'lucide-react';
+import { ArrowRight, Laptop, Monitor, Smartphone } from 'lucide-react';
 import { DemoTimer } from '@/components/marketing/demo-timer';
 import { Wordmark } from '@/components/wordmark';
 
@@ -68,15 +68,11 @@ export default function LandingPage() {
        refuses to do and what it costs — which is philosophy ahead of the
        reader's own problem.
 
-       GROUNDS STRICTLY ALTERNATE, base / recessed, down to Questions. Two
-       recessed sections ran together (Platforms then Free) and then three
-       base ones, which made the banding look accidental rather than like a
-       rhythm. Adding a section means re-checking the whole run, not just the
-       neighbour above it.
-
-       The exception is the last pair: Questions and Closing share the base
-       ground on purpose, so the close reads as the page ending rather than
-       as one more section. */
+       GROUNDS STRICTLY ALTERNATE, base / recessed. Adding or removing a
+       section means re-checking the whole run, not just the neighbour above
+       it — both times this drifted, it was because one section moved and the
+       rest were left alone, and the banding then reads as accidental rather
+       than as a rhythm. */
     <main>
       <Header />
       <Hero />
@@ -84,7 +80,6 @@ export default function LandingPage() {
       <Invoice />
       <Platforms />
       <Free />
-      <NotForEveryone />
       <Questions />
       <Closing />
       <Footer />
@@ -165,22 +160,6 @@ function Hero() {
         <DemoTimer />
       </div>
     </Container>
-  );
-}
-
-/** A thing it deliberately doesn't. Muted and struck, never the danger red. */
-function Doesnt({ children }: { children: React.ReactNode }) {
-  return (
-    <li className="flex items-center gap-3">
-      <X
-        aria-hidden
-        strokeWidth={2.5}
-        className="size-5 flex-none text-subtle sm:size-6"
-      />
-      <span className="type-hero-strike text-subtle line-through decoration-[1.5px]">
-        {children}
-      </span>
-    </li>
   );
 }
 
@@ -590,44 +569,6 @@ function Pillar({
 }
 
 /**
- * Where the refusal list belongs.
- *
- * It used to be four struck-through lines in the hero, above any statement of
- * benefit — an absence is not a benefit to someone who has not yet been told
- * what they get, and it put the visitor's current tool on trial in paragraph
- * one. Here the negation is the point of the section, so it reads as service
- * rather than posture: conceding that other tools are better at things Stint
- * does not do buys more trust than any claim about itself.
- */
-function NotForEveryone() {
-  return (
-    <section className="bg-surface-recessed">
-      <Container className="py-20 sm:py-28">
-        <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16">
-          <div className="min-w-0">
-            <h2 className="type-display text-balance text-strong">
-              Not for everyone.
-            </h2>
-            <p className="type-body mt-4 max-w-md text-muted">
-              Bill as a team, need approvals, want project management? Stint
-              will frustrate you, and other tools are genuinely good at those.
-              This one is for a person billing hourly.
-            </p>
-          </div>
-
-          <ul className="flex min-w-0 flex-col gap-2">
-            <Doesnt>Project boards</Doesnt>
-            <Doesnt>Team seats</Doesnt>
-            <Doesnt>Timesheet approvals</Doesnt>
-            <Doesnt>&ldquo;Upgrade to Pro&rdquo;</Doesnt>
-          </ul>
-        </div>
-      </Container>
-    </section>
-  );
-}
-
-/**
  * Objection handling, plainly.
  *
  * "Will this exist in a year?" is the hardest question a free billing tool
@@ -680,7 +621,7 @@ function Questions() {
      conversation. It also makes the section narrow, which is a shape nothing
      else on the page has. */
   return (
-    <section>
+    <section className="bg-surface-recessed">
       <Container className="py-20 sm:py-28">
         <div className="mx-auto max-w-2xl">
           <h2 className="type-display text-balance text-strong">
