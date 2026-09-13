@@ -144,15 +144,15 @@ Supabase Auth. All three clients send the same JWT as a bearer token, and the
 route handlers verify it identically.
 
 - **Web** — `@supabase/ssr`, cookie-based sessions.
-- **macOS** — the emailed link, verified in-process against GoTrue's
-  `/verify` with `token_hash`, and the session kept in the Keychain.
-  `supabase-swift` is not used: the SDK is not needed to POST two endpoints,
-  and PKCE stores its verifier per origin, which is the collision documented
-  in `CLAUDE.md` and worse when the link opens in a *browser* while the app
-  holds the verifier. Sign in with Apple via `signInWithIdToken` remains the
-  intended addition; it needs a paid developer account, an App ID with the
-  capability and a signed bundle, none of which a SwiftPM executable
-  produces.
+- **macOS** — an emailed **six-digit code**, typed into the panel and verified
+  in-process against GoTrue's `/verify` (`type: "email"`, digits in `token`),
+  with the session kept in the Keychain. A code rather than a link because a
+  link has to cross from a browser into a different application: the clipboard
+  carries a bearer credential, and a custom URL scheme is silently refused as
+  a redirect target. `supabase-swift` is not used — the SDK is not needed to
+  POST two endpoints. Sign in with Apple via `signInWithIdToken` would need a
+  paid developer account, an App ID with the capability and a signed bundle,
+  none of which a SwiftPM executable produces (`tasks.md`).
 - **Expo** — AsyncStorage session store. **`AppState` must be wired to
   `startAutoRefresh()` / `stopAutoRefresh()`**, or the refresh timer keeps
   firing while suspended and sessions go stale on resume. Easy to miss.
@@ -195,9 +195,8 @@ docs/design/samples     Committed renderer output
                         (pnpm --filter @stint/web sample:invoice)
 ```
 
-`apps/mobile` does not exist yet. `packages/design-tokens`
-resolves through `dist/`, which is generated — run `pnpm tokens` before
-anything imports it.
+`packages/design-tokens` resolves through `dist/`, which is generated — run
+`pnpm tokens` before anything imports it.
 
 `packages/design-tokens` is a **build step, not a copy-paste**. One
 `tokens.json` generates CSS custom properties, a TS object, and a Swift `Color`

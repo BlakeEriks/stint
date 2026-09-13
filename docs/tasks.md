@@ -417,10 +417,11 @@ moves up — do not start one by guessing the answer.
   corrupts the one guarantee numbering provides — historical invoices stay
   where they were issued, and entries already billed in Toggl import as
   non-billable or pre-marked so they cannot be billed twice).
-- **macOS: Sign in with Apple.** The app signs in by the emailed link today.
-  `architecture.md` specifies `signInWithIdToken`, which needs a paid
-  developer account, an App ID with the capability and a signed bundle — so
-  it lands with distribution, not before. Nothing in the API changes.
+- **macOS: Sign in with Apple.** The app signs in with an emailed six-digit
+  code today, which works but is still six digits to type.
+  `signInWithIdToken` needs a paid developer account, an App ID with the
+  capability and a signed bundle — so it lands with distribution, not before.
+  Nothing in the API changes.
 - **macOS: signing and notarisation.** `bundle.sh` produces an unsigned
   `.app`, which is fine to run yourself and not something anyone else can
   open without right-clicking past Gatekeeper.
