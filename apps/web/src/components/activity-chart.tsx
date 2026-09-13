@@ -127,31 +127,43 @@ export function ActivityChart() {
           />
           <h2 className="type-heading truncate text-strong">Activity</h2>
         </div>
-        {/* Radio group, not buttons: these are one setting with two values,
-            and a screen reader should hear the current one. */}
-        <div
-          role="radiogroup"
-          aria-label="Period"
-          className="flex flex-none gap-0.5 rounded-md bg-surface-primary p-0.5"
-        >
+        {/* REAL radio inputs, not buttons wearing `role="radio"`.
+
+            These are one setting with two values, so a screen reader should
+            hear the current one — which the roles alone did convey. What they
+            could not is the keyboard behaviour: a native radio group is one
+            tab stop and moves between options with the arrow keys, and
+            hand-rolling that is exactly the work `components/ui` uses Radix to
+            avoid. The browser gives it away free here.
+
+            `sr-only` hides the input itself, not the control: the `<label>`
+            wraps it, so clicking the pill activates the input, and
+            `peer-checked:` styles the pill from the input's real state rather
+            than from React's. `peer-focus-visible:` puts the focus ring on the
+            visible pill, since the input has no box of its own. */}
+        <fieldset className="flex flex-none gap-0.5 rounded-md bg-surface-primary p-0.5">
+          <legend className="sr-only">Period</legend>
           {RANGES.map((r) => (
-            <button
-              key={r.days}
-              type="button"
-              role="radio"
-              aria-checked={days === r.days}
-              aria-label={`Last ${r.days} days`}
-              onClick={() => setDays(r.days)}
-              className={`type-badge rounded px-2 py-1 transition-colors focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none ${
-                days === r.days
-                  ? 'bg-surface-elevated text-strong'
-                  : 'text-muted hover:text-primary'
-              }`}
-            >
-              {r.label}
-            </button>
+            <label key={r.days} className="cursor-pointer">
+              <input
+                type="radio"
+                name="activity-period"
+                className="sr-only peer"
+                checked={days === r.days}
+                onChange={() => setDays(r.days)}
+                aria-label={`Last ${r.days} days`}
+              />
+              <span
+                className="block rounded px-2 py-1 type-badge text-muted transition-colors
+                           peer-checked:bg-surface-elevated peer-checked:text-strong
+                           peer-focus-visible:ring-2 peer-focus-visible:ring-edge-focus
+                           hover:text-primary"
+              >
+                {r.label}
+              </span>
+            </label>
           ))}
-        </div>
+        </fieldset>
       </header>
       <div className="mx-4 border-t border-edge-subtle" />
 
