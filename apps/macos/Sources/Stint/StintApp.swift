@@ -40,13 +40,30 @@ struct StintApp: App {
             // total when none does — the toggle `/summary` exists to serve,
             // answered from one request rather than two.
             //
-            // A dot rather than a green title: the accent is a colour the
-            // menu bar cannot be trusted to render (it tints for light and
-            // dark automatically), and shape survives that where colour does
-            // not — the same reason the web app reinforces timer state with
-            // form and not colour alone.
-            HStack(spacing: 4) {
-                Image(systemName: model.isRunning ? "circle.fill" : "timer")
+            // The mark goes through `markImage` rather than the SwiftUI
+            // `Mark` view: this label is rasterised into a status item and
+            // only renders Text and Image reliably, so the shapes that draw
+            // the bounds were dropped and the mark appeared as a bare `S`.
+            //
+            // Monochrome it ships as a TEMPLATE image, which is what makes
+            // AppKit tint it for a light or dark bar. The running state opts
+            // out, because a template is a mask and would discard the accent.
+            //
+            // The accent here is the DARK value. On a light menu bar #52FC43
+            // is ~1.6:1, which is why the light palette drops it to #1F7E17 —
+            // if the mark ever looks washed out on a light bar, that swap is
+            // the fix, not a brighter green.
+            /* 7pt, not 4. The mark's own right edge is a vertical bar and
+               the clock beside it is mono, so at 4pt `|S|` and `3:55:00` read
+               as one string — the icon looks like a prefix rather than an
+               icon. The gap is what separates them while the timer is
+               stopped and everything is the same colour. */
+            HStack(spacing: 7) {
+                Image(nsImage: markImage(
+                    accent: model.isRunning
+                        ? NSColor(Tokens.Dark.accentDefault)
+                        : nil
+                ))
                 Text(model.menuBarTitle)
                     .monospacedDigit()
             }

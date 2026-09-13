@@ -19,14 +19,31 @@ struct ContentView: View {
             }
         }
         .frame(width: 320)
+        /* Height is resolved in one pass, before the window is shown.
+           `MenuBarExtra(.window)` sizes its panel to the content and anchors
+           it under the menu bar, so a height that changes after first paint
+           moves the whole panel — it appeared low and snapped upward. The
+           cause was state settling during the first layout (the task field
+           seeding itself, conditional rows appearing); `fixedSize` makes the
+           view state its own height up front instead of growing into it. */
+        .fixedSize(horizontal: false, vertical: true)
         .background(Tokens.Dark.bgPrimary)
     }
 }
 
 private struct TimerPanel: View {
     @Bindable var model: TimerModel
-    @State private var taskDraft = ""
     @FocusState private var taskFocused: Bool
+
+    /* Seeded at construction rather than in `onAppear`. Assigning it on
+       appear mutated state during the first layout, which resized the panel
+       after it was already on screen. */
+    @State private var taskDraft: String
+
+    init(model: TimerModel) {
+        self.model = model
+        _taskDraft = State(initialValue: model.running?.taskName ?? model.draftTaskName)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -72,7 +89,6 @@ private struct TimerPanel: View {
             AccountRow(model: model)
         }
         .padding(14)
-        .onAppear { taskDraft = model.running?.taskName ?? model.draftTaskName }
         // Follow the server when a timer starts or stops elsewhere, but never
         // while the field has focus — overwriting what someone is typing is
         // the worst possible moment to reconcile.
@@ -265,15 +281,15 @@ private struct SignInPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Sign in to Stint")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Tokens.Dark.textStrong)
+            Lockup(expanded: true, size: 17)
+                .padding(.bottom, 2)
+
+            Text("Sign in to keep tracking from the menu bar.")
+                .font(.system(size: 11))
+                .foregroundStyle(Tokens.Dark.textSubtle)
+                .fixedSize(horizontal: false, vertical: true)
 
             if !sent {
-                Text("We'll email you a sign-in link.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Tokens.Dark.textSubtle)
-
                 TextField("you@example.com", text: $email)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
