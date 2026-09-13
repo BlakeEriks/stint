@@ -1096,6 +1096,31 @@ principle failing — a block you cannot read is a block you cannot check. One
 day gets ~295px, so titles read in full and the drag gesture becomes usable
 (146px per lane even for two overlapping entries).
 
+**The phone has no inner scroller, and the day is cropped to the hours in
+use.** Two scrollers competing for one viewport is what produced a double
+scroll: the grid took `62vh` — a fraction of the VIEWPORT, which knows nothing
+about the 210px of chrome above it or the dock below — and still hid 217px
+inside itself while the page had 240px more to go. Worse, no fixed height can
+fix that, because the inbox below is variable.
+
+So the page owns the scroll, which is one gesture at any inbox size. Cropping
+is what keeps that honest: an uncropped 24h column would just move the same
+excess into the page, and on a typical day a quarter of the grid is an empty
+midnight-to-six. `workedWindow()` takes the entries' range, pads an hour either
+side (so a block is never flush against an edge with nowhere to drag it
+earlier), floors it at 10 hours, and shows 07:00–19:00 when nothing was
+tracked. Height is 44px/hour up to a 620px cap — without the cap a day running
+to a still-open midnight rendered 912px, taller than the 720px it replaced.
+
+**Positions are fractions of the WINDOW, not of the day.** `instantAt` already
+takes arbitrary instants, so `grid.ts` needed no change — but the column must
+be handed `day.from`/`day.to` rather than the day's own bounds, or every click
+lands at the wrong time. Verified: a click 50% down an 06:00→01:00 window seeds
+14:30.
+
+The week view keeps all 24 hours, because seven columns share one window and
+cropping would crop them all to the busiest day's range.
+
 The grid is the same component either way; only the number of columns and the
 meaning of the arrows change. **The arrows step whatever unit is on screen** —
 one day on a phone, one week otherwise — so "back" always means "the previous

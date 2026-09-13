@@ -101,14 +101,29 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
          that much. A DST day is 23 or 25 hours, so this has to be the real
          next midnight rather than +24h. */
       const next = startOfLocalDayOffset(weekStart, tz, -(i + 1));
+
+      /* The hours the column actually draws.
+
+         On a phone this crops to the worked range: a full day at a fixed
+         height means scrolling past an empty midnight-to-six every time, and
+         on a typical day a quarter of the grid is scroll spent on nothing.
+         The week view keeps all 24, because cropping one column would have to
+         crop all seven to the busiest day's range. */
+      const [from, to] = byDay ? workedWindow(day, at, next) : [at, next];
+
       return {
         at,
         end: next,
+        /* What the column spans. Positions are fractions OF THIS, and so is
+           the inverse maths a drag uses — `instantAt` already takes arbitrary
+           instants, so cropping needs no change to `grid.ts`. */
+        from,
+        to,
         ...day,
-        positioned: position(day.entries, at, next),
+        positioned: position(day.entries, from, to),
       };
     });
-  }, [data, weekStart, tz]);
+  }, [data, weekStart, tz, byDay]);
 
   const weekSeconds = days.reduce((sum, d) => sum + d.totalSeconds, 0);
 
@@ -153,6 +168,78 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
     prev: () => setCursorDays((d) => d - step),
     today: () => setCursorDays(0),
   };
+}
+
+/** Hours of padding kept either side of the worked range. */
+const WINDOW_PAD_HOURS = 1;
+
+/** The window never shrinks below this, so a one-entry day is not a sliver. */
+const MIN_WINDOW_HOURS = 10;
+
+/** What an empty day shows: an ordinary working day, 07:00–19:00. */
+const EMPTY_WINDOW = [7, 19] as const;
+
+/**
+ * The hours a single-day column should draw.
+ *
+ * Returns `[from, to]` as instants, snapped to whole hours so the gridlines
+ * and their labels stay on the hour.
+ *
+ * **Derived from the entries, padded, floored.** Cropping tight to the work
+ * would put a block flush against the top edge with nowhere to drag it
+ * earlier, so an hour of margin either side is part of the gesture working
+ * rather than decoration. The floor stops a single 30-minute entry rendering
+ * as a two-hour sliver.
+ *
+ * **It never crops past midnight in either direction**, so the window is
+ * always a real subrange of the day the column represents — which is what lets
+ * `instantAt` keep mapping a fraction of the column to an instant with no
+ * special case.
+ *
+ * A running entry counts up to now, matching how `position` draws it.
+ */
+function workedWindow(
+  day: CalendarDay,
+  dayStart: Date,
+  dayEnd: Date,
+): [Date, Date] {
+  const hourMs = 3_600_000;
+  const at = (hours: number) =>
+    new Date(Math.min(dayStart.getTime() + hours * hourMs, dayEnd.getTime()));
+
+  if (day.entries.length === 0)
+    return [at(EMPTY_WINDOW[0]), at(EMPTY_WINDOW[1])];
+
+  /* Hours from the column's own start, not wall-clock hours: a DST day is 23
+     or 25 hours long, and the column is measured in elapsed time. */
+  const hoursFrom = (iso: string) =>
+    (new Date(iso).getTime() - dayStart.getTime()) / hourMs;
+
+  let first = Number.POSITIVE_INFINITY;
+  let last = Number.NEGATIVE_INFINITY;
+  for (const e of day.entries) {
+    first = Math.min(first, hoursFrom(e.startedAt));
+    last = Math.max(
+      last,
+      e.endedAt
+        ? hoursFrom(e.endedAt)
+        : (Date.now() - dayStart.getTime()) / hourMs,
+    );
+  }
+
+  const span = (dayEnd.getTime() - dayStart.getTime()) / hourMs;
+  let from = Math.max(0, Math.floor(first) - WINDOW_PAD_HOURS);
+  let to = Math.min(span, Math.ceil(last) + WINDOW_PAD_HOURS);
+
+  /* Grow to the floor, preferring to extend downward — later hours are the
+     likelier place to add work, and growing upward first would reintroduce
+     the empty early morning this exists to avoid. */
+  if (to - from < MIN_WINDOW_HOURS) {
+    to = Math.min(span, from + MIN_WINDOW_HOURS);
+    from = Math.max(0, to - MIN_WINDOW_HOURS);
+  }
+
+  return [at(from), at(to)];
 }
 
 /**

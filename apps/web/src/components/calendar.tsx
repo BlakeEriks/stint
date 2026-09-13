@@ -17,7 +17,57 @@ import { api, type TimeEntry } from '@/lib/client/api';
 import { Page } from './page';
 import { EntryDialog } from './entry-dialog';
 
-const HOURS = [0, 3, 6, 9, 12, 15, 18, 21];
+/** Hours between gridlines. Every 3 reads cleanly at both column widths. */
+const HOUR_STEP = 3;
+
+/**
+ * Pixels per hour in the cropped day view, and the ceiling it obeys.
+ *
+ * 44px is a comfortable hour — a 30-minute entry still clears the ~44px touch
+ * target — but the point of cropping is a SHORTER page, so a long window
+ * scales down rather than growing past `DAY_MAX_HEIGHT`. Without the cap a day
+ * spanning 06:00 to a still-running midnight rendered 912px, taller than the
+ * uncropped 720px it replaced.
+ */
+const PX_PER_HOUR = 44;
+const DAY_MAX_HEIGHT = 620;
+
+/**
+ * The gridlines for a column spanning `from`–`to`, as percentages of it.
+ *
+ * Marks fall on multiples of `HOUR_STEP` in local wall-clock terms, so a
+ * cropped window starting at 06:00 shows 06, 09, 12 rather than an offset
+ * sequence counted from the window's own start.
+ */
+function hourMarks(
+  from: Date,
+  to: Date,
+  tz: string,
+): { hour: number; pct: number }[] {
+  const span = to.getTime() - from.getTime();
+  const startHour = Number(
+    new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      hour12: false,
+      timeZone: tz,
+    }).format(from),
+  );
+
+  const marks: { hour: number; pct: number }[] = [];
+  const first = Math.ceil(startHour / HOUR_STEP) * HOUR_STEP;
+  /* Stepping by elapsed hours from the window's start: a DST day is 23 or 25
+     hours long, so a wall-clock hour is not always 3600s of the column. */
+  for (let h = first; ; h += HOUR_STEP) {
+    const at = from.getTime() + (h - startHour) * 3_600_000;
+    const pct = ((at - from.getTime()) / span) * 100;
+    if (pct > 100) break;
+    /* A full-day window ends on hour 24, which `% 24` turns back into 0 — the
+       same React key as the midnight at the top, and two children with one
+       key. Keyed by `pct` instead, which is unique by construction. */
+    marks.push({ hour: h % 24, pct });
+  }
+  return marks;
+}
 
 /**
  * A week of logged time.
@@ -49,6 +99,24 @@ export function Calendar() {
   const [error, setError] = useState<string | null>(null);
 
   const drag = useEntryDrag(setError);
+
+  /* The window every column draws. In week view it is the whole day; in day
+     view the hook has cropped it to the worked hours. Columns share one
+     window, so the gutter's labels line up with every column's gridlines. */
+  const from = cal.days[0]?.from ?? cal.weekStart;
+  const to = cal.days[0]?.to ?? cal.weekEnd;
+  const marks = hourMarks(from, to, cal.tz);
+
+  /* Fixed height in week view, so an hour is the same size on every screen.
+     In day view the height follows the window: the page scrolls rather than
+     the grid, so a shorter day is a shorter page rather than the same box
+     with more empty room in it. */
+  const gridHeight = byDay
+    ? Math.min(
+        DAY_MAX_HEIGHT,
+        Math.round(((to.getTime() - from.getTime()) / 3_600_000) * PX_PER_HOUR),
+      )
+    : GRID_HEIGHT;
 
   /* The heading names what is on screen. A month over a single day's grid
      would be vague where the view is precise — "Thu, Sep 10" is the whole
@@ -150,8 +218,19 @@ export function Calendar() {
           ))}
         </div>
 
-        {/* One scroll container so the hour gutter cannot drift from the grid. */}
-        <div className="max-h-[62vh] overflow-y-auto">
+        {/* One scroll container so the hour gutter cannot drift from the grid.
+
+            **On a phone there is no inner scroller at all.** Two scrollers
+            competing for one viewport is what produced the double scroll: the
+            grid took 62vh — a fraction of the VIEWPORT, which knows nothing
+            about the 210px of chrome or the dock below it — and still hid
+            217px inside itself while the page had 240px more to go. Letting
+            the page own the scroll gives one gesture regardless of how tall
+            the inbox happens to be, which a fixed height can never do.
+
+            The cropped window is what keeps that honest: an uncropped 24h
+            column would simply move the same excess into the page. */}
+        <div className="sm:max-h-[62vh] sm:overflow-y-auto">
           <div
             className="flex"
             /* The gesture is owned here rather than on each block: a drag
@@ -163,21 +242,21 @@ export function Calendar() {
           >
             <div
               className="relative w-12 flex-none sm:w-14"
-              style={{ height: GRID_HEIGHT }}
+              style={{ height: gridHeight }}
             >
-              {HOURS.map((h) => (
+              {marks.map(({ hour, pct }) => (
                 <span
-                  key={h}
+                  key={pct}
                   /* The label is a zero-height row anchored at the gridline,
-                     so digits sit on the line at every position. `00` hangs
-                     below its line instead of above it, or the scroll
+                     so digits sit on the line at every position. The first
+                     mark hangs below its line instead of above it, or the
                      container clips it. */
                   className={`absolute right-2 flex h-0 items-center type-meta leading-none text-subtle ${
-                    h === 0 ? 'translate-y-1.5' : ''
+                    pct === 0 ? 'translate-y-1.5' : ''
                   }`}
-                  style={{ top: `${(h / 24) * 100}%` }}
+                  style={{ top: `${pct}%` }}
                 >
-                  {String(h).padStart(2, '0')}
+                  {String(hour).padStart(2, '0')}
                 </span>
               ))}
             </div>
@@ -187,12 +266,16 @@ export function Calendar() {
                 key={day.date}
                 positioned={day.positioned}
                 colors={colorByProject}
+                /* The window the column DRAWS, which a cropped day view makes
+                   narrower than the day itself. Positions are fractions of
+                   this, so the inverse maths a click or drag uses has to take
+                   the same pair — passing the full day here would put every
+                   new entry at the wrong time. */
                 tz={cal.tz}
-                dayStart={day.at}
-                /* The day's own end, not the next column's start: in day view
-                   there is no next column, and falling back to the week's end
-                   would put the drag maths days out. */
-                dayEnd={day.end}
+                dayStart={day.from}
+                dayEnd={day.to}
+                marks={marks}
+                height={gridHeight}
                 drag={drag}
                 onEdit={edit}
                 onCreate={create}
@@ -415,6 +498,8 @@ function DayColumn({
   tz,
   dayStart,
   dayEnd,
+  marks,
+  height,
   drag,
   onEdit,
   onCreate,
@@ -422,8 +507,11 @@ function DayColumn({
   positioned: PositionedEntry[];
   colors: Map<string, string | null>;
   tz: string;
+  /** The window the column draws — not necessarily the whole day. */
   dayStart: Date;
   dayEnd: Date;
+  marks: { hour: number; pct: number }[];
+  height: number;
   drag: DragApi;
   onEdit: (entry: TimeEntry) => void;
   onCreate: (startedAt: Date, endedAt: Date) => void;
@@ -456,14 +544,15 @@ function DayColumn({
       ref={column}
       onClick={onBackgroundClick}
       className="relative min-w-0 flex-1 border-l border-edge-subtle"
-      style={{ height: GRID_HEIGHT }}
+      style={{ height }}
     >
-      {HOURS.map((h) => (
+      {/* The gutter carries the hour; a gridline only needs its position. */}
+      {marks.map(({ pct }) => (
         <div
-          key={h}
+          key={pct}
           aria-hidden
           className="absolute inset-x-0 border-t border-edge-subtle/60"
-          style={{ top: `${(h / 24) * 100}%` }}
+          style={{ top: `${pct}%` }}
         />
       ))}
 

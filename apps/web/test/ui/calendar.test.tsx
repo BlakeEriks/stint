@@ -462,3 +462,114 @@ describe('the calendar on a narrow viewport', () => {
     expect(await screen.findByText('August 2026')).toBeInTheDocument();
   });
 });
+
+/**
+ * The phone shows the hours that were worked, and the PAGE does the scrolling.
+ *
+ * Two scrollers competing for one viewport is what produced the double scroll:
+ * the grid took 62vh — a fraction of the viewport, which knows nothing about
+ * the chrome above it or the inbox below — and still hid content inside itself
+ * while the page had more to go. Cropping is what keeps the single page scroll
+ * honest; an uncropped 24h column would just move the excess into the page.
+ */
+describe('the mobile day grid crops to the hours in use', () => {
+  const dayWith = (entries: TimeEntry[]): CalendarDay[] => [
+    {
+      date: '2026-09-09',
+      totalSeconds: entries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0),
+      entries,
+    },
+  ];
+
+  /** The hour labels down the gutter, in order. */
+  const hourLabels = () =>
+    [...document.querySelectorAll('.type-meta.leading-none')].map(
+      (e) => e.textContent,
+    );
+
+  it('omits the empty night before the first entry', async () => {
+    matchMediaMock(true);
+    /* Work from 09:00. Rendering from midnight would put a quarter of the
+       grid above the first block — scroll spent on nothing. */
+    serve(
+      dayWith([
+        entry({
+          id: 'a',
+          startedAt: '2026-09-09T09:00:00.000Z',
+          endedAt: '2026-09-09T11:00:00.000Z',
+          durationSeconds: 7200,
+        }),
+      ]),
+    );
+    render(<Calendar />, { wrapper });
+
+    await screen.findByText(/Wed, Sep 9/);
+    expect(hourLabels()).not.toContain('00');
+    expect(hourLabels()).not.toContain('03');
+  });
+
+  it('pads an hour either side, so a block is never flush against the edge', async () => {
+    matchMediaMock(true);
+    /* A 2h block in a 10h minimum window sits 1h in: its top should be about
+       1/10 of the column. Asserting an UPPER bound as well as a lower one is
+       what makes this about the padding — `top > 0` alone passes on an
+       uncropped day too, where 09:00 is simply 37.5% down a full 24h. */
+    serve(
+      dayWith([
+        entry({
+          id: 'a',
+          startedAt: '2026-09-09T09:00:00.000Z',
+          endedAt: '2026-09-09T11:00:00.000Z',
+          durationSeconds: 7200,
+        }),
+      ]),
+    );
+    render(<Calendar />, { wrapper });
+
+    await screen.findByText(/Wed, Sep 9/);
+    const box = screen
+      .getByText('Work')
+      .closest('[style*="top"]') as HTMLElement;
+    const top = parseFloat(box.style.top);
+
+    /* Without the margin there is nowhere to drag the block earlier, so the
+       padding is part of the gesture working rather than decoration. */
+    expect(top).toBeGreaterThan(0);
+    expect(top).toBeLessThan(20);
+  });
+
+  it('shows an ordinary working day when nothing was tracked', async () => {
+    matchMediaMock(true);
+    serve([]);
+    render(<Calendar />, { wrapper });
+
+    await screen.findByText(/Nothing logged this day/);
+    /* 07:00-19:00: a day with no entries has no worked range to crop to, and
+       a blank midnight-to-midnight would be the longest possible page for the
+       least possible information. */
+    expect(hourLabels()).not.toContain('00');
+    expect(hourLabels()).toContain('09');
+  });
+
+  it('keeps all 24 hours in the week view', async () => {
+    matchMediaMock(false);
+    serve(
+      dayWith([
+        entry({
+          id: 'a',
+          startedAt: '2026-09-09T09:00:00.000Z',
+          endedAt: '2026-09-09T11:00:00.000Z',
+          durationSeconds: 7200,
+        }),
+      ]),
+    );
+    render(<Calendar />, { wrapper });
+
+    await screen.findByText('September 2026');
+    /* Seven columns share one window, so cropping would crop them all to the
+       busiest day's range — and the week's columns are short enough to read
+       whole anyway. */
+    expect(hourLabels()).toContain('00');
+    expect(hourLabels()).toContain('21');
+  });
+});
