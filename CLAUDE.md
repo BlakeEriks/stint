@@ -776,82 +776,14 @@ is discovered at the moment of billing.
 
 ### The home screen
 
-`home-cards.tsx` renders Needs attention, Unbilled and Pace, in that order:
-money at risk, money waiting, money coming. The hero and the entry list are
-fixed around them — they are why the screen is opened fifty times a day.
+Unbilled, Pace and Activity, with the inbox in the dock beside them.
+`screens/home.html` specifies all four and what each row may do.
 
-- **`GET /stats` is one call** because the cards render together and a set
-  that pops in piecemeal reads as broken.
-- **Unbilled totals come from `unbilled_by_client`**, a SQL rollup grouped by
-  **(client, rate)**. The rate is part of the grouping key for the same reason
-  it is on an invoice line: one client can have work at several rates, and
-  collapsing them misstates the money. A first version grouped by client alone
-  and reported $1755.00 where $1462.50 was owed — the seed reproduces that
-  case deliberately. Its coalesce chain must stay identical to
-  `resolve_entry_rate`, or the home screen and an invoice preview will
-  disagree about the same work.
-- **This content is now the Inbox, in the dock, and it is ALWAYS present.**
-  It used to be a "Needs attention" card that rendered only when it had rows,
-  on the argument that a permanent "all clear" is the `SaveIndicator` problem
-  — a check that is always present says nothing.
-
-  **That was wrong, and the rule does not transfer.** A `SaveIndicator` is
-  transient and sits inline with a form, so always-present really does mean
-  always-ignored. A dock region is *furniture*: staying put is the entire
-  point, a section that vanishes leaves the user wondering where it went, and
-  "Nothing needs you" is information rather than noise. The card also reflowed
-  the page at the exact moment you fixed something.
-
-  The rename follows from that. "Needs attention" is a predicate and suited a
-  thing that appeared only when the predicate held; an inbox is a place, and
-  this is now a place. See `apps/web/src/components/inbox.tsx`.
-- **Pace hides entirely with no target**, rather than showing an empty bar
-  that asks to be configured. It measures against **business days elapsed**:
-  a 120-hour target is six hours a working day, and reading "behind" on a
-  Monday because the weekend passed is noise pretending to be signal.
-  Holidays are not modelled, deliberately.
-- **No card carries the accent** — on this screen the accent is spent, and it
-  is spent on the running timer. The progress bar is neutral.
-- **The cards write, narrowly.** Marking an invoice **paid** or **sent** is
-  offered inline, because that is the action that legitimately clears an
-  attention row — the underlying fact changed. **Nothing destructive is
-  offered here:** voiding and deleting belong on the invoice itself, where the
-  whole document is in view, and a stray click on a glance must not destroy a
-  financial record. Tested, including that no void/delete control exists on
-  the card.
-
-  This narrows an earlier rule that said nothing on this screen writes at all.
-  That was too broad: it made the card a dead end, since every row cost a page
-  load to act on. The real constraint is that every write is explicit, names
-  itself, and is never destructive.
-
-- **Overdue has a 7-day grace period** (`OVERDUE_GRACE_DAYS`). Firing the
-  moment `due_date` passes is accurate and useless: Net 30 with a client who
-  pays on day 32 is ordinary, and a card that flags it trains the user to
-  clear the list without reading it — which is how the one genuinely late
-  invoice gets dismissed with the rest. The invoice page still shows the true
-  due date; this only governs when the card speaks up.
-
-  **A snooze was considered and rejected.** Hiding a row that is still true
-  makes the card something dismissed reflexively rather than read, and the
-  user most likely to snooze everything is the one it exists for. A grace
-  period makes the card quiet enough that nothing needs dismissing, and
-  recording a chase (a later task) keeps the fact instead of hiding it.
-- **Unrated work shows an em-dash, not $0.00**, plus an `unratedCount` so the
-  total reads as incomplete rather than low.
-- **Never labelled "earned" or "revenue"** — it is work done and not yet
-  invoiced, money the user might still never see.
-
-Details wrap under the label on a narrow screen rather than hiding: "12 days
-late" *is* the row, and a client name with an amount is just an invoice.
-
-**`unbilled.total` and `awaitingPayment` are different money and must never be
-summed.** Unbilled is work not yet invoiced; awaiting payment is invoiced and
-not yet collected. Adding them double-counts the same hours. Awaiting payment
-is **one line** at the foot of the Unbilled card, not a card and not a row per
-invoice — a row each would put ordinary, nothing-is-wrong invoices back on the
-home screen and undo the overdue grace period under a calmer heading. Tested,
-including that the sum appears nowhere.
+**`unbilled_by_client` groups by (client, rate)**, and its coalesce chain must
+stay identical to `resolve_entry_rate` — a first version grouped by client
+alone and reported $1755.00 where $1462.50 was owed, which the seed
+reproduces deliberately. Get these out of step and the home screen and an
+invoice preview disagree about the same work.
 
 ### The activity strip is parked, not current
 
@@ -864,42 +796,18 @@ could not show a day's smaller clients (only the dominant hue) or answer
 "three-hour day or nine-hour day", which is what bars fixed. Delete it, and
 `nav-timer.tsx` alongside, once the replacements have held — see `tasks.md`.
 
-### Reconciling on /invoices
+### Invoices
 
-`/invoices` is the screen to open when money lands, which is why home needs
-only the one number. It defaults to **open** (draft + sent), carries a total
-of what is genuinely **outstanding** (`sent` only — a draft has not been asked
-for and a paid one has arrived), and offers inline **mark paid** on sent rows
-alone.
+The list, the preview-then-generate flow, and what each status offers are in
+`screens/invoices.html`.
 
-The empty state distinguishes an empty account from an empty filter: "No
-invoices yet" would be a lie when one exists and is merely paid, and it would
-send the user to create a duplicate.
+**Preview and generation must agree.** Any change to what would be billed
+clears the approved preview and hides Generate; approving one set of numbers
+and generating a different set is the failure this prevents. Tested, and the
+test was verified to fail when the invalidation is removed.
 
-Each action names its invoice (`Mark STINT-0001 paid`), because a list of
-identical buttons is unusable with a screen reader. Nothing destructive here
-either — voiding stays on the invoice itself.
-
-### Invoicing UI
-
-**Preview then generate, and the two must agree.** Any change to what would
-be billed — client, period, grouping — clears the approved preview and hides
-the Generate button. Approving one set of numbers and generating a different
-set is the failure this prevents; it is tested, and the test was verified to
-fail when the invalidation is removed.
-
-Generation is disabled when the preview reports `unratedEntryIds` (an entry
-with no rate would bill at zero) or has no line items.
-
-**A draft is deleted; an issued invoice is voided.** A draft holds no number
-yet, so deleting it costs nothing. Once issued the number is on record and
-only voiding is offered — that is what keeps numbering gapless. The UI shows
-one and never the other.
-
-Downloading the PDF is the **primary action** and is offered in every status:
-with no email, the download is how an invoice reaches a client.
-
-Paid renders in the success channel (cyan), never green.
+**A draft is deleted; an issued invoice is voided** — that is what keeps
+numbering gapless.
 
 ### The timer bar
 

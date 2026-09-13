@@ -225,9 +225,7 @@
     <div class="sec-head"><span class="eyebrow">The content column</span></div>
 
     <p>
-      <code>Page</code> owns the measure — every screen used to carry its own
-      copy of <code>mx-auto max-w-3xl px-4 py-8 …</code>, which is how the
-      calendar ended up silently on a different width.
+      <code>Page</code> owns the measure, so no screen sets its own width.
     </p>
 
     <table>
@@ -250,9 +248,7 @@
         <code>border-b</code> on the header runs edge to edge and cuts the
         panel in two, which reads as two stacked cards.</li>
       <li><strong>The default <code>Button</code> is neutral</strong>; the
-        accent is opt-in. The previous default painted every primary action
-        green while the running timer was also green. Adding a client is not
-        the most important thing on the clients page.</li>
+        accent is opt-in, because the running timer already holds it.</li>
       <li><strong>Buttons and nav carry icons, and an additive action carries
         a <code>+</code>.</strong> Icons are <code>aria-hidden</code>, so the
         accessible name stays the label alone. They never appear alone in

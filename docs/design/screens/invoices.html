@@ -1,0 +1,269 @@
+<meta charset="utf-8">
+<title>Stint Invoices</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_mockup.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg-primary); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 88ch; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  .standfirst { margin: 0 0 1rem; color: var(--text-muted); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
+  .caption {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-subtle);
+    display: block; margin-top: .7rem;
+  }
+  table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+  th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  th {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle); font-weight: 500;
+  }
+  td { font-size: 14px; }
+  code { font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); }
+  .rule { list-style: none; margin: 1rem 0 0; padding: 0; }
+  .rule li { position: relative; padding-left: 1.5rem; margin-bottom: .85rem; }
+  .rule li::before {
+    content: ''; position: absolute; left: 0; top: .55em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--border-control);
+  }
+  .rule strong { color: var(--text-strong); font-weight: 600; }
+
+  .mock {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px; padding: 20px;
+    margin-top: 1.25rem;
+  }
+  .card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px; box-shadow: var(--shadow-card);
+  }
+  .card-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; padding: 14px 16px 10px;
+  }
+  .card-rule { height: 1px; margin: 0 16px; background: var(--border-subtle); }
+  .card-body { padding: 6px 16px 14px; }
+
+  .filters { display: flex; gap: 6px; margin-bottom: 14px; }
+  .chip {
+    padding: 4px 11px; border-radius: 999px;
+    border: 1px solid var(--border-default);
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: .06em; text-transform: uppercase;
+    color: var(--text-muted); background: transparent; cursor: pointer;
+  }
+  .chip.on { background: var(--bg-hover); color: var(--text-strong); border-color: var(--border-control); }
+
+  .irow {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 0;
+  }
+  .irow + .irow { border-top: 1px solid var(--border-subtle); }
+  .num { font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); flex: none; width: 92px; }
+  .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .amt { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-strong); flex: none; }
+
+  .badge {
+    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .08em;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 999px;
+    flex: none; border: 1px solid currentColor;
+  }
+  .badge.draft { color: var(--text-subtle); }
+  .badge.sent  { color: var(--timer-warning); }
+  .badge.paid  { color: var(--success); }
+  .badge.void  { color: var(--text-subtle); opacity: .7; }
+  .badge.late  { color: var(--danger); }
+
+  .btn {
+    padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-elevated); color: var(--text-strong);
+    font-family: var(--font-sans); font-size: 12.5px; cursor: pointer; flex: none;
+  }
+  .btn.primary { background: var(--bg-hover); }
+  .btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+  .empty { padding: 28px 16px; text-align: center; color: var(--text-muted); }
+</style>
+
+<div class="page">
+
+  <span class="eyebrow">Stint · Screens</span>
+  <h1>Invoices</h1>
+  <p class="standfirst">
+    The screen to open when money lands, which is why home needs only the one
+    number.
+  </p>
+
+  <!-- ───────────────────────── the list ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The list</span></div>
+
+    <div class="mock">
+      <div class="card">
+        <div class="card-head">
+          <span class="type-heading" style="color:var(--text-strong)">Invoices</span>
+          <span><span class="type-label" style="color:var(--text-subtle)">Outstanding</span>
+                <span class="type-amount-hero" style="color:var(--text-strong); margin-left:10px">$3,100.00</span></span>
+        </div>
+        <div class="card-rule"></div>
+        <div class="card-body">
+          <div class="filters">
+            <button class="chip on">Open</button>
+            <button class="chip">All</button>
+            <button class="chip">Paid</button>
+            <button class="chip">Void</button>
+          </div>
+          <div class="irow">
+            <span class="num">STINT-0014</span>
+            <span class="who type-body">Byrne Studio</span>
+            <span class="badge late">12d late</span>
+            <span class="amt">$1,125.00</span>
+            <button class="btn">Mark STINT-0014 paid</button>
+          </div>
+          <div class="irow">
+            <span class="num">STINT-0015</span>
+            <span class="who type-body">Northwind Trading</span>
+            <span class="badge sent">Sent</span>
+            <span class="amt">$1,975.00</span>
+            <button class="btn">Mark STINT-0015 paid</button>
+          </div>
+          <div class="irow">
+            <span class="num">STINT-0016</span>
+            <span class="who type-body">Acme Corp</span>
+            <span class="badge draft">Draft</span>
+            <span class="amt">$487.50</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="caption">Defaults to open — draft + sent</span>
+
+    <ul class="rule">
+      <li><strong>The total is what is genuinely outstanding</strong> —
+        <code>sent</code> only. A draft has not been asked for and a paid one
+        has arrived.</li>
+      <li><strong>Mark paid is offered on sent rows alone</strong>, and each
+        action names its invoice. A list of identical buttons is unusable with
+        a screen reader.</li>
+      <li><strong>Paid renders in the success channel</strong> — cyan, never
+        green.</li>
+      <li><strong>Nothing destructive here.</strong> Voiding stays on the
+        invoice itself, where the whole document is in view.</li>
+    </ul>
+
+    <div class="mock">
+      <div class="card">
+        <div class="card-body">
+          <div class="empty">
+            <div class="type-body" style="color:var(--text-strong)">No open invoices</div>
+            <div class="type-support" style="margin-top:4px">3 paid · 1 void</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="caption">An empty filter, not an empty account</span>
+
+    <p style="margin-top:1.5rem">
+      "No invoices yet" would be a lie when one exists and is merely paid —
+      and it would send the user to create a duplicate.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── generating ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Preview, then generate</span></div>
+
+    <div class="mock">
+      <div class="card">
+        <div class="card-head">
+          <span class="type-heading" style="color:var(--text-strong)">Preview</span>
+          <span class="type-amount-hero" style="color:var(--text-strong)">$1,462.50</span>
+        </div>
+        <div class="card-rule"></div>
+        <div class="card-body">
+          <div class="irow">
+            <span class="who type-body">Website redesign</span>
+            <span class="type-duration" style="color:var(--text-muted)">6.5h · $150.00</span>
+            <span class="amt">$975.00</span>
+          </div>
+          <div class="irow">
+            <span class="who type-body">API integration</span>
+            <span class="type-duration" style="color:var(--text-muted)">3.25h · $150.00</span>
+            <span class="amt">$487.50</span>
+          </div>
+          <div class="irow" style="justify-content:flex-end; gap:8px">
+            <button class="btn">Download PDF</button>
+            <button class="btn primary">Generate</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="caption">Approved — Generate is offered</span>
+
+    <div class="mock">
+      <div class="card">
+        <div class="card-head">
+          <span class="type-heading" style="color:var(--text-strong)">Preview</span>
+          <span class="type-amount-hero" style="color:var(--text-subtle)">—</span>
+        </div>
+        <div class="card-rule"></div>
+        <div class="card-body">
+          <div class="irow">
+            <span class="who type-body">Scoping call</span>
+            <span class="type-duration" style="color:var(--danger)">2 entries have no rate</span>
+          </div>
+          <div class="irow" style="justify-content:flex-end; gap:8px">
+            <button class="btn">Download PDF</button>
+            <button class="btn primary" disabled>Generate</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="caption">Unrated entries — generation is refused, not billed at zero</span>
+
+    <p style="margin-top:1.5rem">
+      <strong style="color:var(--text-strong)">Changing what would be billed
+      clears the approved preview and hides Generate.</strong> Client, period
+      or grouping — approving one set of numbers and generating a different
+      set is the failure this prevents. Tested, and the test was verified to
+      fail when the invalidation is removed.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── one invoice ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">What each status offers</span></div>
+
+    <table>
+      <tr><th>Status</th><th>Actions</th></tr>
+      <tr><td><span class="badge draft">Draft</span></td><td>Download · Send · <strong>Delete</strong></td></tr>
+      <tr><td><span class="badge sent">Sent</span></td><td>Download · Mark paid · <strong>Void</strong></td></tr>
+      <tr><td><span class="badge paid">Paid</span></td><td>Download · Void</td></tr>
+      <tr><td><span class="badge void">Void</span></td><td>Download</td></tr>
+    </table>
+
+    <ul class="rule">
+      <li><strong>A draft is deleted; an issued invoice is voided.</strong> A
+        draft holds no number, so deleting it costs nothing. Once issued the
+        number is on record and only voiding is offered — that is what keeps
+        numbering gapless. The UI shows one and never the other.</li>
+      <li><strong>Downloading is the primary action, in every status.</strong>
+        With no email, the download is how an invoice reaches a client.</li>
+    </ul>
+  </section>
+
+</div>

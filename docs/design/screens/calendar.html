@@ -211,12 +211,11 @@
       needs. A block you cannot read is a block you cannot check.
     </p>
     <p>
-      <strong style="color:var(--text-strong)">The page owns the scroll.</strong>
-      A <code>62vh</code> grid knew nothing about the chrome above it or the
-      dock below, so it hid 217px inside itself while the page still had 240px
-      to go — and no fixed height fixes that, because the inbox below is
-      variable. Cropping is what keeps one scroller honest: an uncropped 24h
-      column would move the same excess into the page.
+      <strong style="color:var(--text-strong)">The page owns the scroll —
+      one gesture at any inbox size.</strong> A viewport-relative grid height
+      cannot work here, because the inbox beneath it is variable. Cropping is
+      what keeps a single scroller honest: an uncropped 24h column would move
+      the same excess into the page.
     </p>
 
     <table>
@@ -224,7 +223,7 @@
       <tr><td><code>workedWindow()</code></td><td>The entries' range, padded an hour either side so a block is never flush against an edge with nowhere to drag it earlier</td></tr>
       <tr><td>Floor</td><td class="num">10 hours</td></tr>
       <tr><td>Nothing tracked</td><td class="num">07:00 – 19:00</td></tr>
-      <tr><td>Height</td><td>44px/hour, capped at 620px — uncapped, a day running to a still-open midnight rendered 912px</td></tr>
+      <tr><td>Height</td><td class="num">44px/hour, capped at 620px</td></tr>
     </table>
 
     <p style="margin-top:1.5rem">
