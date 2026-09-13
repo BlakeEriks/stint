@@ -1076,153 +1076,16 @@ removed.
 
 ### The calendar
 
-A week grid of what was tracked. It visualises, it does not schedule — no
-planned layer, no external calendar.
+A grid of what was tracked — a week at `sm` and up, one cropped day on a
+phone, with drag-to-correct. `screens/calendar.html` shows both and carries
+the gesture rules.
 
 **Never step days or weeks with `+ 86_400_000`.** Use
-`startOfLocalDayOffset` (negative `daysBack` steps forward): a week
-containing a DST transition is 167 or 169 hours, and a fall-back day is 25
-hours long, so fixed-millisecond arithmetic lands an hour off and mis-buckets
-the entries at the edges. Block positions divide by the column's own span for
-the same reason.
-
-**A phone gets ONE day, not a squeezed week.** At 375px a week gives each day
-42px: a block is a single letter wide, an overlapping one is 20px, and the
-drag target is under the ~44px a finger needs. That is the laning rule's own
-principle failing — a block you cannot read is a block you cannot check. One
-day gets ~295px, so titles read in full and the drag gesture becomes usable
-(146px per lane even for two overlapping entries).
-
-**The phone has no inner scroller, and the day is cropped to the hours in
-use.** Two scrollers competing for one viewport is what produced a double
-scroll: the grid took `62vh` — a fraction of the VIEWPORT, which knows nothing
-about the 210px of chrome above it or the dock below — and still hid 217px
-inside itself while the page had 240px more to go. Worse, no fixed height can
-fix that, because the inbox below is variable.
-
-So the page owns the scroll, which is one gesture at any inbox size. Cropping
-is what keeps that honest: an uncropped 24h column would just move the same
-excess into the page, and on a typical day a quarter of the grid is an empty
-midnight-to-six. `workedWindow()` takes the entries' range, pads an hour either
-side (so a block is never flush against an edge with nowhere to drag it
-earlier), floors it at 10 hours, and shows 07:00–19:00 when nothing was
-tracked. Height is 44px/hour up to a 620px cap — without the cap a day running
-to a still-open midnight rendered 912px, taller than the 720px it replaced.
-
-**Positions are fractions of the WINDOW, not of the day.** `instantAt` already
-takes arbitrary instants, so `grid.ts` needed no change — but the column must
-be handed `day.from`/`day.to` rather than the day's own bounds, or every click
-lands at the wrong time. Verified: a click 50% down an 06:00→01:00 window seeds
-14:30.
-
-The week view keeps all 24 hours, because seven columns share one window and
-cropping would crop them all to the busiest day's range.
-
-The grid is the same component either way; only the number of columns and the
-meaning of the arrows change. **The arrows step whatever unit is on screen** —
-one day on a phone, one week otherwise — so "back" always means "the previous
-one of these", and the labels say which. The heading names the day
-("Thu, Sep 10") rather than the month, and the total, the empty-state wording
-and the legend all follow what is actually rendered.
-
-**The fetch stays weekly regardless**, so stepping within a week costs no
-request and rotating a phone needs no refetch: the day view is a lens over
-week data, not a second data path. The hook keeps **one offset counted in
-days** and derives the week from it — two offsets would drift apart the moment
-you crossed the breakpoint.
-
-This is `useMediaQuery`, not a Tailwind `sm:`, because a breakpoint that
-changes *behaviour* cannot be expressed in CSS. Reach for `sm:` first; this
-exists for the rarer case. It is `useSyncExternalStore`-based and its server
-snapshot is `false`, so a component must render correctly as "wide" for one
-paint. jsdom has no `matchMedia` — `test/ui/setup.ts` shims it to not-matching
-and `calendar.test.tsx` overrides it per test.
-
-Each day also carries its **own exclusive end** rather than reading the next
-column's start. The component used to do the latter, which breaks the moment
-the list is one day: the fallback was the week's end, days away, and the
-fraction→instant maths a drag depends on would have been wrong by that much.
-
-**A legend keys the colours, built from what is on screen.** A block's left
-border is its client's colour, which answers *whose work is this?* only once
-you know which hue is whose — before this the mapping was learnable only by
-clicking a block and reading the dialog. It is derived from the rendered
-entries rather than from the client list, so it never names a colour that is
-not showing, and it changes as you page (by week on a desktop, by day on a
-phone) because it describes exactly the period in view. Ranked by time
-tracked, like the activity chart.
-
-Two differences from the activity chart's legend, both deliberate: there is
-**no `MAX_SERIES` cap**, because a week holds few enough clients that a cap
-would hide a real one (30 stacked bands is what forces the chart's hand), and
-internal work is named **"No client" with an outlined swatch** rather than
-merged into a neutral "Other" band — it has no stripe on the grid, so its
-swatch shows the absence rather than inventing a grey.
-
-`useProjectClients()` in `use-project-colors.ts` supplies both the colours and
-the client grouping from one pair of queries. `useProjectColors()` is now a
-thin wrapper over it; **both include archived clients**, which also fixed a
-quiet bug — entries billed to a finished engagement were losing their colour
-on the calendar and the entry list.
-
-Overlapping entries get side-by-side lanes rather than stacking — in a
-billing tool a block you cannot see is a block you cannot check. Tested, and
-the test was verified to fail when the laning is removed.
-
-#### Correcting time from the grid
-
-This is where a mistracked block is noticed, so it is where it gets fixed: a
-block opens the editor, dragging it adjusts its times, and clicking empty grid
-starts a new entry at the time clicked. Before this, noticing a mistake meant
-leaving the view you noticed it in.
-
-The inverse of the painting maths lives in `packages/core/src/grid.ts` —
-fraction of a column back to an instant — separately from the forward
-direction because it carries a trap the forward one does not, and every
-function takes the column's real span rather than 24 hours.
-
-- **Drags snap to 15 minutes** (`SNAP_MINUTES`). A pointer lands on whatever
-  minute a pixel happens to be, so an unsnapped drag bills 09:07–10:52 and
-  calls it precision. The snap is also what makes the gesture safe to offer on
-  billable time at all: it is the difference between a 4px slip being
-  invisible and it being a billing change.
-- **A move preserves the duration exactly; only a resize changes it.** The end
-  is derived by adding the original elapsed milliseconds, never by re-deriving
-  a wall clock — a two-hour block dragged across a DST boundary is still two
-  hours of billable work. Tested, and the test fails when the end is
-  re-derived.
-- **Dragging an edge past the other clamps to 15 minutes rather than
-  inverting.** The overnight reading (22:00–02:00) belongs to *typed* times,
-  where it is what the user meant; a gesture saying "this block ends here" has
-  no such reading.
-- **A billed or running block refuses the gesture.** The billed lock is a
-  database trigger, so a drag would 409 after the fact and spring back with no
-  explanation; a running entry has no end to adjust and the timer bar owns it.
-  Both still open the editor, which says why.
-- **The gesture commits only on release, and only past
-  `DRAG_THRESHOLD_PX`.** A block is *also* the control that opens the editor,
-  so without a threshold every click would land a PATCH. The click that
-  follows a drag is then suppressed by a flag the click consumes — asking
-  whether a drag is *in progress* cannot work, because pointer-up clears it
-  before the click fires. That ordering was a real bug, caught by a test.
-- **Clicking empty grid opens the editor pre-filled rather than writing a
-  row.** A click on a grid is too cheap a gesture to create a financial record
-  from. It seeds one hour, the commonest block.
-- **Each day heading carries an "Add an entry on …" button.** Clicking a time
-  is pointer-only, so without it the create path is unreachable by keyboard —
-  and it is the discoverable one, since clicking empty grid is faster but
-  invisible until tried. The column's own click handler is suppressed lint,
-  with the reason recorded: a role on the canvas would be a lie, and the
-  blocks inside it are the real controls.
-
-**A drag is vertical, within one day.** Moving an entry to another day is the
-rarer correction and the dialog already does it; keeping the gesture in one
-column is also what lets the maths use that column's own span.
-
-**The DST tests assert a wall clock, not that minutes divide by 15.** A fixed
-24-hour denominator also lands on quarter hours — it just lands on the wrong
-ones — so a divisibility check cannot tell the two apart. It was written that
-way first and a mutation walked straight through it.
+`startOfLocalDayOffset`: a week containing a DST transition is 167 or 169
+hours, so fixed-millisecond arithmetic mis-buckets the entries at its edges.
+The inverse maths — fraction of a column back to an instant — is
+`packages/core/src/grid.ts`, and every function takes the column's real span
+rather than 24 hours.
 
 ### Forms save themselves
 

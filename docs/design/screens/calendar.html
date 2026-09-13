@@ -1,0 +1,330 @@
+<meta charset="utf-8">
+<title>Stint Calendar</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_mockup.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg-primary); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 88ch; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  .standfirst { margin: 0 0 1rem; color: var(--text-muted); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
+  .caption {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-subtle);
+    display: block; margin-top: .7rem;
+  }
+  table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+  th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  th {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle); font-weight: 500;
+  }
+  td { font-size: 14px; }
+  code { font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); }
+  .rule { list-style: none; margin: 1rem 0 0; padding: 0; }
+  .rule li { position: relative; padding-left: 1.5rem; margin-bottom: .85rem; }
+  .rule li::before {
+    content: ''; position: absolute; left: 0; top: .55em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--border-control);
+  }
+  .rule strong { color: var(--text-strong); font-weight: 600; }
+
+  /* ── the grid ─────────────────────────────────────────────────── */
+  .cal {
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bg-primary);
+    margin-top: 1.25rem;
+  }
+  .cal-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-base);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .arrows { display: flex; gap: 4px; }
+  .arrows button {
+    width: 26px; height: 26px; border-radius: 6px;
+    border: 1px solid var(--border-default);
+    background: transparent; color: var(--text-muted); cursor: pointer;
+    font-size: 13px; line-height: 1;
+  }
+  .cal-total { margin-left: auto; }
+
+  .grid { display: flex; }
+  .gutter { flex: none; width: 46px; border-right: 1px solid var(--border-subtle); }
+  .gutter div {
+    height: 44px; padding-right: 6px; text-align: right;
+    font-family: var(--font-mono); font-size: 10px; color: var(--text-subtle);
+    transform: translateY(-6px);
+  }
+  .cols { display: flex; flex: 1; min-width: 0; }
+  .col { flex: 1; min-width: 0; border-right: 1px solid var(--border-subtle); position: relative; }
+  .col:last-child { border-right: 0; }
+  .colhead {
+    padding: 6px 4px; text-align: center;
+    border-bottom: 1px solid var(--border-subtle);
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--text-subtle); text-transform: uppercase; letter-spacing: .08em;
+  }
+  .slots { position: relative; height: 264px; }
+  .slots i { position: absolute; left: 0; right: 0; height: 44px; border-bottom: 1px solid var(--border-subtle); opacity: .5; }
+
+  .block {
+    position: absolute; left: 3px; right: 3px;
+    border-radius: 5px;
+    background: var(--bg-elevated);
+    border-left: 3px solid var(--border-control);
+    padding: 4px 6px;
+    overflow: hidden;
+    font-size: 11px; line-height: 1.25;
+    color: var(--text-strong);
+    box-shadow: var(--shadow-card);
+  }
+  .block .t { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-muted); }
+  .block.lane-l { right: 51%; }
+  .block.lane-r { left: 51%; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--border-subtle); }
+  .lg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+  .lg .sw { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+  .lg .sw.none { background: transparent; border: 1px solid var(--border-control); }
+
+  .phone { width: 375px; }
+  .phone .slots { height: 352px; }
+</style>
+
+<div class="page">
+
+  <span class="eyebrow">Stint · Screens</span>
+  <h1>The calendar</h1>
+  <p class="standfirst">
+    A grid of what was tracked. It visualises; it does not schedule — no
+    planned layer, no external calendar.
+  </p>
+
+  <!-- ───────────────────────── week ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">A week, at <code>sm</code> and up</span></div>
+
+    <div class="cal">
+      <div class="cal-head">
+        <span class="arrows"><button aria-label="Previous week">‹</button><button aria-label="Next week">›</button></span>
+        <span class="type-heading" style="color:var(--text-strong)">Sep 8 – 14</span>
+        <span class="type-duration cal-total" style="color:var(--text-muted)">31:45:00</span>
+      </div>
+      <div class="grid">
+        <div class="gutter">
+          <div style="height:22px"></div>
+          <div>09</div><div>10</div><div>11</div><div>12</div><div>13</div><div>14</div>
+        </div>
+        <div class="cols">
+          <div class="col"><div class="colhead">Mon</div><div class="slots">
+            <i style="top:0"></i><i style="top:44px"></i><i style="top:88px"></i><i style="top:132px"></i><i style="top:176px"></i><i style="top:220px"></i>
+            <div class="block" style="top:22px;height:80px;border-left-color:var(--proj-6)">Website redesign<div class="t">09:30</div></div>
+          </div></div>
+          <div class="col"><div class="colhead">Tue</div><div class="slots">
+            <i style="top:0"></i><i style="top:44px"></i><i style="top:88px"></i><i style="top:132px"></i><i style="top:176px"></i><i style="top:220px"></i>
+            <div class="block lane-l" style="top:44px;height:100px;border-left-color:var(--proj-6)">API<div class="t">10:00</div></div>
+            <div class="block lane-r" style="top:66px;height:78px;border-left-color:var(--proj-2)">Review<div class="t">10:30</div></div>
+          </div></div>
+          <div class="col"><div class="colhead">Wed</div><div class="slots">
+            <i style="top:0"></i><i style="top:44px"></i><i style="top:88px"></i><i style="top:132px"></i><i style="top:176px"></i><i style="top:220px"></i>
+            <div class="block" style="top:0;height:130px;border-left-color:var(--proj-2)">Checkout validation<div class="t">09:00</div></div>
+          </div></div>
+          <div class="col"><div class="colhead">Thu</div><div class="slots">
+            <i style="top:0"></i><i style="top:44px"></i><i style="top:88px"></i><i style="top:132px"></i><i style="top:176px"></i><i style="top:220px"></i>
+            <div class="block" style="top:88px;height:96px;border-left-color:var(--proj-6)">API integration<div class="t">11:00</div></div>
+          </div></div>
+          <div class="col"><div class="colhead">Fri</div><div class="slots">
+            <i style="top:0"></i><i style="top:44px"></i><i style="top:88px"></i><i style="top:132px"></i><i style="top:176px"></i><i style="top:220px"></i>
+            <div class="block" style="top:22px;height:60px;border-left-color:var(--border-control)">Admin<div class="t">09:30</div></div>
+            <div class="block" style="top:132px;height:80px;border-left-color:var(--proj-2)">Design review<div class="t">12:00</div></div>
+          </div></div>
+          <div class="col"><div class="colhead">Sat</div><div class="slots">
+            <i style="top:0"></i><i style="top:44px"></i><i style="top:88px"></i><i style="top:132px"></i><i style="top:176px"></i><i style="top:220px"></i>
+          </div></div>
+          <div class="col"><div class="colhead">Sun</div><div class="slots">
+            <i style="top:0"></i><i style="top:44px"></i><i style="top:88px"></i><i style="top:132px"></i><i style="top:176px"></i><i style="top:220px"></i>
+          </div></div>
+        </div>
+      </div>
+      <div class="legend">
+        <span class="lg"><span class="sw" style="background:var(--proj-6)"></span>Northwind Trading</span>
+        <span class="lg"><span class="sw" style="background:var(--proj-2)"></span>Byrne Studio</span>
+        <span class="lg"><span class="sw none"></span>No client</span>
+      </div>
+    </div>
+    <span class="caption">Seven columns, all 24 hours, overlapping entries in lanes</span>
+
+    <p style="margin-top:2rem">
+      A block's left border is its client's colour. The legend is built from
+      what is on screen and ranked by time tracked, so it never names a colour
+      that is not showing — and it changes as you page. Internal work is
+      <strong style="color:var(--text-strong)">"No client" with an outlined
+      swatch</strong>: it has no stripe on the grid, so the swatch shows the
+      absence rather than inventing a grey.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── phone ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">375px — one day, cropped to the hours in use</span></div>
+
+    <div class="cal phone">
+      <div class="cal-head">
+        <span class="arrows"><button aria-label="Previous day">‹</button><button aria-label="Next day">›</button></span>
+        <span class="type-heading" style="color:var(--text-strong)">Thu, Sep 10</span>
+        <span class="type-duration cal-total" style="color:var(--text-muted)">6:24:10</span>
+      </div>
+      <div class="grid">
+        <div class="gutter">
+          <div style="height:22px"></div>
+          <div>08</div><div>09</div><div>10</div><div>11</div><div>12</div><div>13</div><div>14</div><div>15</div>
+        </div>
+        <div class="cols">
+          <div class="col"><div class="colhead">Thu, Sep 10 &nbsp;+</div><div class="slots">
+            <i style="top:0"></i><i style="top:44px"></i><i style="top:88px"></i><i style="top:132px"></i><i style="top:176px"></i><i style="top:220px"></i><i style="top:264px"></i><i style="top:308px"></i>
+            <div class="block" style="top:44px;height:96px;border-left-color:var(--proj-6)">API integration<div class="t">09:00 – 11:10</div></div>
+            <div class="block lane-l" style="top:176px;height:88px;border-left-color:var(--proj-2)">Design review<div class="t">12:00</div></div>
+            <div class="block lane-r" style="top:198px;height:66px;border-left-color:var(--proj-6)">Scoping call<div class="t">12:30</div></div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+    <span class="caption">One day ≈ 295px wide — a title reads, and a lane is still 146px</span>
+
+    <p style="margin-top:2rem">
+      At 375px a week gives each day 42px: a block is a single letter wide, an
+      overlapping one 20px, and the drag target under the ~44px a finger
+      needs. A block you cannot read is a block you cannot check.
+    </p>
+    <p>
+      <strong style="color:var(--text-strong)">The page owns the scroll.</strong>
+      A <code>62vh</code> grid knew nothing about the chrome above it or the
+      dock below, so it hid 217px inside itself while the page still had 240px
+      to go — and no fixed height fixes that, because the inbox below is
+      variable. Cropping is what keeps one scroller honest: an uncropped 24h
+      column would move the same excess into the page.
+    </p>
+
+    <table>
+      <tr><th>Window</th><th></th></tr>
+      <tr><td><code>workedWindow()</code></td><td>The entries' range, padded an hour either side so a block is never flush against an edge with nowhere to drag it earlier</td></tr>
+      <tr><td>Floor</td><td class="num">10 hours</td></tr>
+      <tr><td>Nothing tracked</td><td class="num">07:00 – 19:00</td></tr>
+      <tr><td>Height</td><td>44px/hour, capped at 620px — uncapped, a day running to a still-open midnight rendered 912px</td></tr>
+    </table>
+
+    <p style="margin-top:1.5rem">
+      The week view keeps all 24 hours: seven columns share one window, and
+      cropping would crop them all to the busiest day's range.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── correcting ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Correcting time from the grid</span></div>
+
+    <p>
+      This is where a mistracked block is noticed, so it is where it gets
+      fixed: a block opens the editor, dragging it adjusts its times, and
+      clicking empty grid starts a new entry at the time clicked.
+    </p>
+
+    <table>
+      <tr><th>Gesture</th><th>Result</th></tr>
+      <tr><td>Click a block</td><td>Opens the editor</td></tr>
+      <tr><td>Drag a block</td><td>Moves it, preserving duration exactly</td></tr>
+      <tr><td>Drag an edge</td><td>Resizes; past the other edge it clamps to 15 minutes</td></tr>
+      <tr><td>Click empty grid</td><td>Opens the editor pre-filled, seeding one hour</td></tr>
+      <tr><td>"Add an entry on …"</td><td>The same, reachable by keyboard</td></tr>
+    </table>
+
+    <ul class="rule">
+      <li><strong>Drags snap to 15 minutes.</strong> A pointer lands on
+        whatever minute a pixel happens to be, so an unsnapped drag bills
+        09:07–10:52 and calls it precision. The snap is what makes the gesture
+        safe to offer on billable time at all.</li>
+      <li><strong>A move preserves the duration; only a resize changes
+        it.</strong> The end is derived by adding the original elapsed
+        milliseconds, never by re-deriving a wall clock — a two-hour block
+        dragged across a DST boundary is still two hours of billable work.</li>
+      <li><strong>The gesture commits on release, past
+        <code>DRAG_THRESHOLD_PX</code>.</strong> A block is also the control
+        that opens the editor, so without a threshold every click lands a
+        PATCH. The click that follows a drag is suppressed by a flag the click
+        consumes — asking whether a drag is <em>in progress</em> cannot work,
+        because pointer-up clears it before the click fires.</li>
+      <li><strong>A billed or running block refuses the gesture</strong> and
+        opens the editor, which says why. The billed lock is a database
+        trigger, so a drag would 409 after the fact and spring back with no
+        explanation.</li>
+      <li><strong>Clicking empty grid opens the editor rather than writing a
+        row.</strong> A click on a grid is too cheap a gesture to create a
+        financial record from.</li>
+      <li><strong>A drag is vertical, within one day.</strong> Moving an entry
+        to another day is the rarer correction and the dialog already does it.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── time maths ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Time arithmetic</span></div>
+
+    <ul class="rule">
+      <li><strong>Never step days or weeks with <code>+ 86_400_000</code>.</strong>
+        Use <code>startOfLocalDayOffset</code>. A week containing a DST
+        transition is 167 or 169 hours and a fall-back day is 25 hours long,
+        so fixed-millisecond arithmetic lands an hour off and mis-buckets the
+        entries at the edges.</li>
+      <li><strong>Positions are fractions of the WINDOW, not the day.</strong>
+        The column must be handed <code>day.from</code>/<code>day.to</code>
+        rather than the day's own bounds, or every click lands at the wrong
+        time. A click 50% down an 06:00→01:00 window seeds 14:30.</li>
+      <li><strong>Each day carries its own exclusive end</strong> rather than
+        reading the next column's start — which breaks the moment the list is
+        one day, where the fallback would be the week's end, days away.</li>
+      <li><strong>The DST tests assert a wall clock</strong>, not that minutes
+        divide by 15. A fixed 24-hour denominator also lands on quarter
+        hours — it just lands on the wrong ones.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── breakpoint ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">One data path, two lenses</span></div>
+
+    <p>
+      The fetch stays weekly regardless, so stepping within a week costs no
+      request and rotating a phone needs no refetch — the day view is a lens
+      over week data. The hook keeps <strong style="color:var(--text-strong)">one
+      offset counted in days</strong> and derives the week from it; two offsets
+      would drift apart the moment you crossed the breakpoint.
+    </p>
+    <p>
+      The arrows step whatever unit is on screen, so "back" always means "the
+      previous one of these" — and the heading, total, empty state and legend
+      all follow what is actually rendered.
+    </p>
+    <p>
+      This is <code>useMediaQuery</code>, not a Tailwind <code>sm:</code>,
+      because a breakpoint that changes <em>behaviour</em> cannot be expressed
+      in CSS. Reach for <code>sm:</code> first. Its server snapshot is
+      <code>false</code>, so a component must render correctly as "wide" for
+      one paint.
+    </p>
+  </section>
+
+</div>
