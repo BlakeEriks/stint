@@ -1024,94 +1024,14 @@ with no email, the download is how an invoice reaches a client.
 
 Paid renders in the success channel (cyan), never green.
 
-### The timer bar has two arrangements, not one
+### The timer bar
 
-Running and idle want opposite things from the width, so they are written as
-two branches rather than one layout with pieces hidden.
+Two arrangements — idle composes, running reads out — and both wrap to two
+rows on a phone. `screens/timer-bar.html` shows all four states and the
+runaway choice the inbox carries.
 
-**Idle is a composing row** — the field is the subject and takes the space.
-**Running is a readout** of four small objects (dot, name, project, clock), and
-stretching those to the window's corners left ~900px of nothing between the
-first and the last: two fragments at opposite ends of the screen that read as
-unrelated. Centred, they read as one object, which is what they are.
-
-**Both wrap to two rows on a phone.** 375px cannot hold four things plus a
-seven-character clock: squeezing them onto one line crushed the task name to
-15px, then to a useless "Ge…" beside an equally useless "Sti…". Two truncated
-words are worse than one whole one.
-
-Running splits by meaning — *what* you are working on (name, project) on top,
-*how long* plus the control beneath — so each row is one idea rather than a
-queue of fragments. Idle puts the field on its own line, since no phone gives
-"What are you working on?" a usable width beside a tag and a clock.
-
-**The first row is one grouped element, not three siblings.** Flex-wrap places
-items before it shrinks them, so as loose siblings the project tag wrapped to
-a line of its own rather than letting the name truncate beside it — three rows
-where two were intended. The group dissolves at `sm` with `contents`, so the
-desktop row still centres four equal items.
-
-**The name shrinks but never grows.** `flex-1` was tried and it re-created the
-exact problem the centring exists to solve: a greedy name fills a wide screen
-and shoves the tag and clock back to opposite corners. Resilient, not greedy.
-
-**The running task name is TEXT, with an explicit rename button.** It was a
-live `<input>` for the whole run, which made a stray click into a rename of
-billable work and made the bar look like a form waiting for input on every
-screen. The pencil is **always rendered, never hover-only**: hover does not
-exist on touch, and this is the one control with no other route — a name typed
-wrong at the start is otherwise uncorrectable until the entry is stopped.
-
-Entering the rename seeds `editing` with the server's name, so the draft and
-the mode are one piece of state that cannot disagree. The commit rules are
-unchanged: blur or Enter writes, Escape reverts, an unchanged name writes
-nothing. `focus()` must precede `select()` — selecting does not focus, and
-without the focus the field opens with no cursor AND never fires the blur that
-commits. Tested, including that the running name is not a field.
-
-**The project picker is a tag**: bordered, with a chevron, dashed when empty.
-Borderless it read as static text — a swatch beside a name, with nothing
-inviting the click. The empty state keeps its border rather than going ghost,
-because an unassigned timer is exactly when the control most needs finding.
-
-### The runaway timer choice
-
-Past `max_timer_hours` the **inbox** offers **Keep · Adjust · Discard**, which
-is what makes "surfaces, never auto-trims" an honest promise rather than a
-refusal to help. The banner used to say "stop it and adjust the duration" with
-nowhere to do either.
-
-**It is an inbox row, not a banner in the timer bar.** As a banner it rendered
-above the controls and GREW the bar — 96px became 140px — so the frame shifted
-at the exact moment something needed attention, and the content above it
-jumped. That is the same failure the inbox was built to fix when it was a card
-that appeared and vanished: chrome must not reflow to report a problem. The
-bar is a fixed readout; the inbox is where things wanting a decision live, and
-this wants three.
-
-It sorts **above the overdue invoices**, which is the one place something
-outranks danger-toned money: a runaway timer is mis-recording billable time
-*right now*, where an overdue invoice is equally late in an hour. It is also
-the only row whose subject changes while you read it.
-
-`useRunaway` (`lib/client/use-runaway.ts`) holds the state and the mutations,
-because the row and the editor Adjust opens are now in different components —
-the inbox is in the dock, the `EntryDialog` stays with the timer bar. The
-stopped entry crosses between them through a small module-level store rather
-than a context provider wrapping the whole app to carry one occasional value.
-
-- **Keep touches nothing.** It dismisses the notice and leaves the timer
-  running, because a long timer is often correct — stopping it would be the
-  app editing billable work, which is the exact thing the principle forbids.
-  Tested, and the test fails if Keep also stops.
-- **Adjust stops first, then opens the entry editor.** A running entry has no
-  end yet, so there is nothing to adjust until it is stopped, and stopping is
-  what the user meant.
-- **Discard asks once.** Stop plus delete, and discarding sixteen hours you
-  actually worked is not recoverable.
-- The notice returns on a fresh overrun: `dismissed` resets when
-  `exceedsThreshold` goes false, so Keep silences this overrun rather than the
-  feature.
+`useTimer` counts locally from `startedAt` and reconciles with `/summary`
+every 60s and on focus; `serverTime` corrects a skewed device clock.
 
 ### Editing an entry
 
@@ -1459,15 +1379,3 @@ pass while proving nothing; real pixels need a browser.
 These tests assert *rules*, not class strings. `toHaveClass('type-nav')` on
 its own restates the source and fails on any edit, which is a change detector
 rather than a test.
-
-### The timer
-
-`useTimer` counts locally from `startedAt` and reconciles with `/summary`
-every 60s and on focus. `serverTime` corrects for a skewed device clock.
-
-Before hydration it counts from the server's timestamp, not `Date.now()` —
-otherwise SSR and the client render different seconds and React reports a
-hydration mismatch.
-
-Today's total subtracts the running timer's elapsed-at-fetch before adding
-the live count, or the running time is counted twice.
