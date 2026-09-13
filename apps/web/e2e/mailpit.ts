@@ -111,8 +111,65 @@ export async function signIn(page: Page, email = SEED_EMAIL): Promise<void> {
  *
  * It runs `supabase db reset`, which also invalidates any session, so it must
  * happen BEFORE signing in.
+ *
+ * **Skipped when the data is already pristine**, which in CI it always is:
+ * the job starts its own stack on an empty volume and `supabase start`
+ * applies the migrations AND the seed. The reset was bouncing a stack that
+ * came up seconds earlier — its last act is "Restarting containers" — to
+ * restore a state nothing had touched. That is ~13s a run.
+ *
+ * The check is on the DATA, not on `process.env.CI`. Keying it to CI was
+ * tried and is a worse trade: it assumes "CI implies fresh database", which
+ * is true of `ubuntu-latest` today and silently false the moment a stack is
+ * reused (a self-hosted runner, a matrix sharing services). Verified — a
+ * second CI=1 run against one stack failed two tests, because the mutating
+ * test had already run. Asking the database removes the assumption: if it is
+ * dirty we pay the reset, wherever we are.
  */
+/**
+ * Does the database still hold exactly what `seed.sql` put there?
+ *
+ * Only the invoice statuses are checked, because they are the only thing the
+ * suite writes — the mark-paid test. A broader fingerprint would be more
+ * thorough and would also start failing for reasons that have nothing to do
+ * with this suite.
+ *
+ * Reads over `pg` (already a dependency of both the app and the root) rather
+ * than PostgREST: the seeded rows are behind RLS, so an anonymous REST read
+ * is a 42501 rather than an answer.
+ *
+ * A failure to connect returns `false` — pay the reset and let it produce the
+ * real error. This must never be the thing that decides a run is fine.
+ */
+async function seedIsPristine(): Promise<boolean> {
+  const { Client } = await import('pg');
+  const client = new Client({
+    connectionString:
+      process.env.E2E_DATABASE_URL ??
+      'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+  });
+  try {
+    await client.connect();
+    const { rows } = await client.query(
+      'select invoice_number, status from invoices order by invoice_number',
+    );
+    return (
+      rows.length === 2 &&
+      rows[0].invoice_number === 'STINT-0001' &&
+      rows[0].status === 'sent' &&
+      rows[1].invoice_number === 'STINT-0002' &&
+      rows[1].status === 'draft'
+    );
+  } catch {
+    return false;
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
 export async function resetSeed(): Promise<void> {
+  if (await seedIsPristine()) return;
+
   const { execFile } = await import('node:child_process');
   const { promisify } = await import('node:util');
   const { resolve } = await import('node:path');

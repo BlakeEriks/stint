@@ -13,7 +13,12 @@ import { signIn, resetSeed } from './mailpit';
  */
 /* Once for the file, not per test: `db reset` takes seconds, and only the
    mark-paid test writes. Ordering within the file is therefore significant —
-   the mutating test is last. */
+   the mutating test is last.
+
+   `resetSeed` now skips when the data is already pristine, which on a fresh
+   stack (every CI job) means it does nothing at all. It still fires the
+   moment this file has dirtied the database, so a repeated local run is
+   unchanged. */
 test.beforeAll(async () => {
   await resetSeed();
 });

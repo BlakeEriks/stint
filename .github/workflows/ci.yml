@@ -244,15 +244,23 @@ jobs:
           key: playwright-shell-${{ steps.pw.outputs.v }}
 
       # `--only-shell`: the suite runs headless, and the shell is 195MB
-      # against full Chrome's 359MB — plus it launches faster, which is a
-      # per-launch saving rather than a per-run one. See the `channel` note in
+      # against full Chrome's 359MB. See the `channel` note in
       # playwright.config.ts for what this gives up (nothing we use).
       #
-      # `--with-deps` runs apt-get for system libraries, which the cache does
-      # NOT cover — those land in /usr/lib, not ~/.cache. So it must run on a
-      # hit too; it is seconds when the packages are already present.
+      # NO `--with-deps`: it apt-gets system libraries that `ubuntu-latest`
+      # already carries, and unlike the browsers those land in /usr/lib where
+      # the cache cannot reach — so it was the whole cost of this step on a
+      # cache hit. The runner image is what makes this safe, which means it is
+      # also what could silently take it away.
       - name: Install Chromium
-        run: cd apps/web && npx playwright install --with-deps --only-shell chromium
+        run: cd apps/web && npx playwright install --only-shell chromium
+
+      # So a missing system library fails HERE, naming itself, instead of
+      # surfacing as ten opaque timeouts inside the suite. This is the guard
+      # that makes dropping `--with-deps` diagnosable: if the runner image ever
+      # stops shipping a dependency, this line says which one.
+      - name: The browser launches
+        run: cd apps/web && node -e "require('@playwright/test').chromium.launch().then(b=>b.close())"
 
       # The dev server reads .env.development.local, which is gitignored
       # because it holds a local-only key. CI writes its own from what
