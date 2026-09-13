@@ -35,13 +35,15 @@ PLIST
 
 # Sign with the local dev certificate when there is one.
 #
-# Without it the bundle is signed AD-HOC, whose identity is the binary's own
-# hash — so every rebuild is a different app to the Keychain, the ACL entry
-# "Always allow" wrote no longer matches, and the password prompt comes back
-# on every single build. A certificate gives one stable identity instead.
+# NOT what stops the Keychain password prompts — that was believed here for a
+# while and it is wrong. The certificate stabilises the ACL, and the ACL was
+# never the check that failed; the PARTITION LIST was, and macOS pins that to
+# the caller's cdhash whenever there is no team identifier to use instead.
+# `TokenStore.swift` explains it and carries the actual fix.
 #
-# Optional on purpose: a fresh clone still builds and runs, it just prompts.
-# `./dev-certificate.sh` creates one.
+# What signing still buys: a stable identity for anything that keys off the
+# designated requirement, and a bundle that is not ad-hoc. Optional — a fresh
+# clone builds and runs without it. `./dev-certificate.sh` creates one.
 echo "built $APP"
 
 # Install, because a URL scheme only resolves from a real Applications folder.
@@ -59,18 +61,17 @@ cp -R "$APP" "$INSTALLED"
 
 # Sign AFTER copying, and sign the copy.
 #
-# Signing the build directory and then `cp -R`ing it was the bug: the Keychain
-# identifies the app that runs, which is the copy, and copying does not
-# reliably carry the seal — so the installed app was effectively unsigned and
-# every rebuild asked for the password again, exactly as it had before the
-# certificate existed.
+# Signing the build directory and then `cp -R`ing it left the installed app
+# effectively unsigned, since copying does not reliably carry the seal. This
+# was once billed as the Keychain fix; it was not, but signing the artefact
+# that actually runs is still the correct order.
 IDENTITY="Stint Local Dev"
 if security find-identity -v -p codesigning 2>/dev/null | grep -q "$IDENTITY"; then
     codesign --force --deep --sign "$IDENTITY" "$INSTALLED" 2>/dev/null \
         && echo "signed with \"$IDENTITY\"" \
-        || echo "warning: signing failed; the Keychain will keep prompting"
+        || echo "warning: signing failed"
 else
-    echo "unsigned (ad-hoc) — run ./dev-certificate.sh to stop the Keychain prompts"
+    echo "unsigned (ad-hoc) — ./dev-certificate.sh gives it a stable identity"
 fi
 
 "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister" \
