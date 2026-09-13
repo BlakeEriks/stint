@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { ArrowRight, Laptop, Monitor, Smartphone, X } from 'lucide-react';
 import { DemoTimer } from '@/components/marketing/demo-timer';
+import { Wordmark } from '@/components/wordmark';
 
 /**
  * Served at `/` on the apex domain, rewritten there by `src/proxy.ts`.
@@ -94,7 +95,7 @@ export default function LandingPage() {
 function Header() {
   return (
     <Container className="flex items-center justify-between py-6">
-      <span className="type-wordmark text-strong">Stint</span>
+      <Wordmark />
       <a
         href={SIGN_IN_URL}
         className="type-nav rounded-md px-2 py-1 text-muted
@@ -740,7 +741,9 @@ function Footer() {
     <footer className="border-t border-edge-subtle">
       <Container className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 py-10">
         <div>
-          <span className="type-wordmark text-muted">Stint</span>
+          {/* Receded, unlike the header's. The footer is where the page ends
+              rather than where it introduces itself. */}
+          <Wordmark className="text-muted" />
           <p className="type-meta mt-1 text-subtle">
             Time tracking and invoicing for solo contractors.
           </p>
