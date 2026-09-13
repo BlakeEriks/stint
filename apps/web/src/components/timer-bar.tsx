@@ -143,43 +143,59 @@ export function TimerBar({ projects }: { projects: Project[] }) {
           opposite ends of the screen that read as unrelated. Centred, they
           read as one object, which is what they are.
 
-          On a phone they diverge again. **Running** stays one centred row —
-          the four objects fit, and the old layout's `order-last basis-full`
-          pushed a field onto its own line while leaving the dot, project and
-          clock above it as three loose fragments. **Idle** still wraps to two
-          rows, because a phone cannot give "What are you working on?" a usable
-          width on the same line as a tag and a clock; centring it on one row
-          squeezed the field to ~250px and clipped the placeholder mid-word. */}
-      <div
-        className={`flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5 ${
-          isRunning
-            ? 'justify-center'
-            : 'flex-wrap justify-center gap-y-2 sm:flex-nowrap'
-        }`}
-      >
+          **Both wrap to two rows on a phone**, because 375px cannot hold four
+          things plus a seven-character clock. Squeezing them onto one line was
+          tried and the task name — the most important text in the bar — lost:
+          it was crushed to 15px, then to a useless "Ge…" beside an equally
+          useless "Sti…". Two truncated words are worse than one whole one.
+
+          The split is by kind, which is also how they group by meaning: WHAT
+          you are working on (name, project) on top, HOW LONG and the control
+          beneath. Each row is then one idea rather than a queue of fragments,
+          and the name gets the full width instead of competing with a clock.
+          At `sm` everything is one centred row again. */}
+      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:gap-4 sm:px-5">
         {isRunning ? (
           <>
-            <StatusDot running exceeded={exceeded} />
-            <TaskName
-              name={running!.taskName}
-              editing={editing}
-              onEdit={() => setEditing(running!.taskName)}
-              onChange={setEditing}
-              onCommit={commitRename}
-              onCancel={() => setEditing(null)}
-            />
-            <ProjectPicker
-              projects={projects}
-              value={running!.projectId}
-              onChange={(id) => timer.update.mutate({ projectId: id })}
-              selected={project}
-            />
+            {/* Dot, name and project are ONE flex item, not three.
+                Flex-wrap places items before it shrinks them, so as three
+                siblings the tag wrapped to a line of its own rather than
+                letting the name truncate beside it — three rows where two
+                were intended. Grouped, the row shrinks internally and the
+                name gives way first, which is the right order: a truncated
+                task name beside a whole project tag still reads as one
+                statement. */}
+            <div className="flex min-w-0 items-center gap-3 sm:contents">
+              <StatusDot running exceeded={exceeded} />
+              <TaskName
+                name={running!.taskName}
+                editing={editing}
+                onEdit={() => setEditing(running!.taskName)}
+                onChange={setEditing}
+                onCommit={commitRename}
+                onCancel={() => setEditing(null)}
+              />
+              <ProjectPicker
+                projects={projects}
+                value={running!.projectId}
+                onChange={(id) => timer.update.mutate({ projectId: id })}
+                selected={project}
+              />
+            </div>
+            {/* `basis-full` breaks the row here: the clock and its control
+                take the second line together. `justify-center` on the
+                container centres each row on its own, so neither reads as
+                pinned to an edge.
+
+                Grouping the first row into its own element is what keeps the
+                split at exactly two; this only has to claim the line. */}
             <Readout
               seconds={timer.seconds}
               exceeded={exceeded}
               running
               onToggle={toggle}
               busy={timer.start.isPending || timer.stop.isPending}
+              className="basis-full justify-center sm:basis-auto"
             />
           </>
         ) : (
@@ -304,18 +320,33 @@ function TaskName({
           if (e.key === 'Escape') onCancel();
         }}
         aria-label="Task name"
-        className="min-w-0 max-w-[16rem] flex-1 rounded-md border border-edge-focus
+        /* `w-48`, not `flex-1`: a field that grows to fill the row would
+           push the tag and clock apart the moment you clicked the pencil,
+           so the bar would jump every time you renamed something. */
+        className="w-48 min-w-0 shrink rounded-md border border-edge-focus
                    bg-surface-base px-2 py-1 type-body text-strong
-                   focus:outline-none sm:max-w-xs"
+                   focus:outline-none sm:w-64"
       />
     );
   }
 
   return (
-    <span className="flex min-w-0 items-center gap-1.5">
+    /* Shrinks, but never grows.
+
+       Deliberately NOT `flex-1`. That was tried and it re-created the problem
+       this layout exists to solve: a greedy name fills a wide screen and
+       shoves the tag and clock back to the right edge, splitting the running
+       timer into two fragments at opposite corners again. The name takes its
+       content width and gives way only when there is no room.
+
+       `min-w-[7rem]` is a floor deep enough to stay readable and shallow
+       enough to keep the project tag on the same phone row — without it the
+       pair needed 338px at 375px and the tag wrapped to a line of its own,
+       making three rows out of the intended two. */
+    <span className="flex min-w-[7rem] shrink items-center gap-1.5">
       {/* `truncate` needs a min-width-0 flex item to clip rather than push. An
           untruncated long task name would shove the clock off the bar. */}
-      <span className="truncate type-body text-strong">{name}</span>
+      <span className="min-w-0 truncate type-body text-strong">{name}</span>
       <button
         type="button"
         onClick={onEdit}

@@ -715,6 +715,13 @@ own copy of `mx-auto max-w-3xl px-4 py-8 …`, which is how the calendar ended
 up silently on a different width. `wide` is for screens that are a grid rather
 than a column.
 
+**Its top padding is smaller below `sm`**, because the nav is a different
+object there. At `sm` and up the rail sits *beside* the content, so the column
+opens against the top of the frame and wants the full inset; on a phone the
+nav is a horizontal strip directly above, and the same 32px stopped reading as
+margin and started reading as a gap. Only the top changes — the bottom still
+needs clearance above the docked timer bar.
+
 **The default `Button` variant is neutral.** The accent is opt-in via
 `variant="accent"`, because the previous default painted every primary action
 green while the rail's running timer was also green — two accent meanings in
@@ -970,10 +977,25 @@ stretching those to the window's corners left ~900px of nothing between the
 first and the last: two fragments at opposite ends of the screen that read as
 unrelated. Centred, they read as one object, which is what they are.
 
-On a phone they diverge again. Running stays one centred row; idle wraps the
-field onto its own line beneath the controls, because no phone can give "What
-are you working on?" a usable width beside a tag and a clock — centring it on
-one row squeezed the field to ~250px and clipped the placeholder mid-word.
+**Both wrap to two rows on a phone.** 375px cannot hold four things plus a
+seven-character clock: squeezing them onto one line crushed the task name to
+15px, then to a useless "Ge…" beside an equally useless "Sti…". Two truncated
+words are worse than one whole one.
+
+Running splits by meaning — *what* you are working on (name, project) on top,
+*how long* plus the control beneath — so each row is one idea rather than a
+queue of fragments. Idle puts the field on its own line, since no phone gives
+"What are you working on?" a usable width beside a tag and a clock.
+
+**The first row is one grouped element, not three siblings.** Flex-wrap places
+items before it shrinks them, so as loose siblings the project tag wrapped to
+a line of its own rather than letting the name truncate beside it — three rows
+where two were intended. The group dissolves at `sm` with `contents`, so the
+desktop row still centres four equal items.
+
+**The name shrinks but never grows.** `flex-1` was tried and it re-created the
+exact problem the centring exists to solve: a greedy name fills a wide screen
+and shoves the tag and clock back to opposite corners. Resilient, not greedy.
 
 **The running task name is TEXT, with an explicit rename button.** It was a
 live `<input>` for the whole run, which made a stray click into a rename of

@@ -55,10 +55,16 @@ export function ProjectPicker({
             The empty state keeps the border rather than going ghost: an
             unassigned timer is the case where the control most needs finding,
             so it is drawn with a dashed edge (a slot to fill) instead of
-            disappearing until hovered. */}
+            disappearing until hovered.
+
+            **Shrinkable, not `flex-none`.** Fixed, it held its full 137px in
+            the timer bar while the task name beside it was crushed to 15px —
+            the label surviving intact while the thing it labels disappeared.
+            It gives way first now; the timer bar's own two-row phone layout
+            is what actually buys both of them room. */}
         <DropdownMenuTrigger
           aria-label="Project"
-          className={`flex max-w-[11rem] flex-none items-center gap-1.5 rounded-full border
+          className={`flex min-w-0 max-w-[11rem] shrink items-center gap-1.5 rounded-full border
                       px-2.5 py-1 type-meta outline-none transition-colors
                       hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus
                       ${

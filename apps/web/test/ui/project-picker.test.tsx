@@ -45,6 +45,29 @@ describe('ProjectPicker', () => {
     expect(items[3]).toHaveTextContent('Corvus Dashboard');
   });
 
+  /**
+   * The trigger's accessible name is "Project", not the selected project.
+   *
+   * It is a tag showing the current value, so its visible text changes with
+   * the selection — which would make the control's name change too, if the
+   * name came from the content. `aria-label` pins it, so a screen reader user
+   * hears what the control IS rather than what it currently holds.
+   */
+  it('names itself by its purpose, not by the project it holds', () => {
+    render(
+      <ProjectPicker
+        projects={PROJECTS}
+        value="p2"
+        onChange={() => {}}
+        selected={PROJECTS[1]}
+      />,
+      { wrapper },
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Project' });
+    expect(trigger).toHaveTextContent('Bluebird API');
+  });
+
   it('marks the selected project checked, not merely styled', async () => {
     render(
       <ProjectPicker projects={PROJECTS} value="p2" onChange={() => {}} />,
