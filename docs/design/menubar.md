@@ -30,6 +30,50 @@ only one thing from this spec ships correctly, make it that one.
 management, no settings beyond what is listed here. Everything else is behind
 *Open Stint*.
 
+## What is wrong with the current build
+
+Findings from the screenshots of the shipped panel, worst first. The first
+three are defects — measured, not preferences. The rest are design.
+
+**1. The disabled Sign in button is a faded accent — 2.64:1.**
+Drawn at ~35% over the ground it computes to `#286526`, and `textOnAccent` on
+that is **2.64:1**, well under the 4.5 floor. At 50% it still only reaches
+4.16. This is the exact pairing `packages/design-tokens/src/validate.js`
+guards on the web side, and the Mac app is outside that check. Fix: disabled
+is **neutral** — `bgActive` fill, `textSubtle` label.
+
+**2. Focus rings are the macOS system blue.** A third colour meaning "focused"
+that is not in the palette. `borderFocus` (`#9DA3AF`, 6.82:1) is the token,
+and AppKit draws its own unless you use `.textFieldStyle(.plain)` and an
+explicit overlay.
+
+**3. The code field's placeholder is `000|000`.** In a digits-only field that
+reads as a value rather than a hint, and the caret lands in the middle of it.
+Leave it empty.
+
+**4. The stopped panel gives its largest element to a clock showing nothing.**
+`0:00:00` in white at hero size, when nothing is accruing. There is no number
+to show — the task field should take that space, because starting is the only
+reason the panel was opened.
+
+**5. The sign-in wordmark is a display headline.** It is several times the
+size of anything in the timer panel, which makes sign-in look like a different
+product from the thing it leads to. It should be the header treatment: mono,
+600, uppercase, 0.12em, `textMuted`.
+
+**6. The green `S` is an orphan.** It appears nowhere else in the brand — not
+on the landing page, not in the web app, not on the invoice. With the status
+item moving to a dot, a tinted letterform in sign-in is the only place it
+would survive.
+
+**7. The footer spends a row on the signed-in email.** It is the least useful
+thing in a menu bar panel: you know who you are. That row becomes the header,
+and the email moves into settings where it sits next to Sign out.
+
+**8. `Start` is a labelled rectangle.** The app's transport is a round button
+with a single glyph — the shape says start before any word does, and it
+matches the web app's docked timer bar.
+
 ## Colours
 
 **Use the generated tokens; never type a hex.** `Tokens.swift` is already in
@@ -170,7 +214,7 @@ panel appearing to restructure itself when the user hits start.
   beside it if a mark is wanted; this is the one place in the app with room
   for one.
 - On the right, two icon buttons: **Open Stint** (arrow-out-of-box) and a
-  **menu** (gear or ellipsis) holding Preferences, Sign out and Quit.
+  **gear**, which pushes the settings view *inside this panel* — see below.
 - `bgRecessed`, with `borderSubtle` beneath it. Chrome recedes; the timer is
   the content.
 
@@ -181,6 +225,79 @@ costs the same height and orders the panel the way it is read.
 
 **Nothing in the header is ever the accent.** It is chrome, and the accent
 belongs to the timer.
+
+### Settings — a pushed view, not a second window
+
+**The gear pushes a view inside the same panel. It does not open a menu, a
+second popover, or a Settings window.**
+
+This is the one architectural decision in the panel, so the reasoning matters:
+
+**An `NSMenu` from the gear breaks the panel.** The panel is `.transient` —
+it dismisses when focus leaves, which is the behaviour people expect of a menu
+bar app. An `NSMenu` takes focus when it opens, so the panel closes underneath
+it and the menu is left anchored to a view that no longer exists. You can work
+around it by making the panel semi-transient, but then it stops closing when
+you click away, and you have traded a correct dismissal for a menu.
+
+**A second popover has the same focus problem**, and at 320pt two stacked
+shadows read as a mistake rather than a hierarchy.
+
+**A separate Settings window is worse than both.** It needs a Dock icon to be
+reachable if it falls behind something, and `LSUIElement` is the whole reason
+this app has no Dock icon. It also drags in window state, position memory and
+a menu bar of its own.
+
+So: same panel, same width, one view slides over another.
+
+```
+┌─────────────────────────────┐        ┌─────────────────────────────┐
+│  STINT                 ⚙ ↗  │   →    │  ← SETTINGS                 │
+├─────────────────────────────┤        ├─────────────────────────────┤
+│  [ timer ]                  │        │  Runaway after    [ 8 h ▾ ] │
+│  [ stats ]                  │        │  Start/stop       [ ⌥⌘T   ] │
+│  [ entries ]                │        │  Show time in bar  [ ●——  ] │
+└─────────────────────────────┘        │  Launch at login   [ ●——  ] │
+                                       ├─────────────────────────────┤
+                                       │  you@example.com            │
+                                       │  Sign out            Quit   │
+                                       └─────────────────────────────┘
+```
+
+- **The header swaps to a back affordance.** `← Settings` replaces the
+  wordmark; the gear and Open Stint are gone while you are in here. One way
+  in, one way out.
+- **Push from the right, 200ms.** It is the iOS navigation idiom and it says
+  "same place, deeper" rather than "new thing". Respect
+  `NSWorkspace.shared.accessibilityDisplayShouldReduceMotion` — cross-fade or
+  cut instead.
+- **The panel keeps its width** and grows or shrinks in height to fit. Do not
+  animate the height and the push at once; settle the height first.
+- **Escape, or the back button, returns to the timer.** Clicking away dismisses
+  the whole panel as usual — and reopening returns to the *timer*, not to
+  settings. Settings is somewhere you visit, not a place the panel remembers
+  being.
+- Settings never shows a running timer. If one is running while you are in
+  here, the status item still says so, which is enough.
+
+**What belongs in it.** Four rows, and the bar for a fifth is high:
+
+| Row | Control | Why it is here |
+|---|---|---|
+| Runaway after | Stepper or menu, hours | `max_timer_hours`, per-user, already in `user_settings` |
+| Start/stop shortcut | Key recorder | The global hotkey; no default, so it cannot collide silently |
+| Show time in menu bar | Toggle | The dot-only preference for crowded bars |
+| Launch at login | Toggle | `SMAppService`, off by default |
+
+Everything else — rates, clients, invoice identity, numbering, payment
+profiles — is **business configuration and lives in the web app**, behind
+Open Stint. `CLAUDE.md` makes the same argument for why Settings is not in the
+web app's nav rail: configuration visited rarely does not belong beside the
+thing you do fifty times a day.
+
+The account block at the foot is `bgRecessed`: the signed-in email as a plain
+label, then **Sign out** and **Quit**. Sign out is destructive-adjacent and
+should confirm; Quit does not need to.
 
 ### State 1 — running
 
