@@ -1277,10 +1277,24 @@ timeout, so two failures became four: the run that prompted this took 4m40s
 against a healthy 2m33s. The trade is that a genuinely flaky test now goes red
 rather than self-healing, which is the intent at ten tests and ~31s of work.
 
-**The stack's Docker images are cached in CI**, keyed on the pinned `supabase`
-version in `package.json` since that decides the image tags. The pull cost ~50s
-and is the one step depending on a third party: `public.ecr.aws` rate-limits
-anonymous pulls and a run hit `toomanyrequests` on four images at once.
+**The stack's Docker images are cached in CI.** The pull cost ~50s and is the
+one step depending on a third party: `public.ecr.aws` rate-limits anonymous
+pulls, and a run hit `toomanyrequests` on four images at once.
+
+The key is the **pinned CLI version alone** (`supabase-images-2.117.0`), read
+out of `package.json` at run time. `hashFiles('package.json')` is the tempting
+shortcut and is wrong: it hashes the whole file, so adding a devDependency or
+editing a script throws away a still-valid archive. The pin is exact — no
+caret — so the version is a precise key.
+
+So it is re-pulled **only when `supabase` is bumped**, and otherwise reused
+indefinitely. There is no `restore-keys` fallback on purpose: loading the
+previous version's images would restore tags `supabase start` then ignores
+while pulling the new ones, paying the load *and* the pull.
+
+Two things that can still cause a cold run: GitHub evicts caches **unused for
+7 days**, and evicts least-recently-used once the repo passes **10GB** (usage
+is ~2GB, of which the archive is ~446MB compressed).
 
 **They sign in for real**, through Mailpit, because sign-in is the flow most
 worth covering and stubbing it would test the stub. `e2e/mailpit.ts` reads the

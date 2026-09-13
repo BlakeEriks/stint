@@ -198,17 +198,23 @@ jobs:
       # retried with backoff and survived, but that is a red run waiting to
       # happen for a reason that has nothing to do with the code.
       #
-      # Keyed on the pinned CLI version, because that is what decides the
-      # image tags — bumping `supabase` in package.json invalidates this by
-      # itself. `restore-keys` lets a bumped version still start from the
-      # previous archive, so the pull is incremental rather than total.
+      # Keyed on the pinned CLI VERSION, because that alone decides the image
+      # tags. `hashFiles('package.json')` was wrong and is the tempting
+      # shortcut: it hashes the whole file, so adding a devDependency or
+      # editing a script threw away a 856MB archive that was still perfectly
+      # valid. The pin is exact (`"supabase": "2.117.0"`, no caret), so this
+      # is precise rather than approximate.
+      - name: Resolve the Supabase CLI version
+        id: cli
+        run: |
+          echo "version=$(node -p "require('./package.json').devDependencies.supabase")" >> "$GITHUB_OUTPUT"
+
       - name: Cache the Supabase images
         id: docker-cache
         uses: actions/cache@v4
         with:
           path: /tmp/supabase-images.tar
-          key: supabase-images-${{ hashFiles('package.json') }}
-          restore-keys: supabase-images-
+          key: supabase-images-${{ steps.cli.outputs.version }}
 
       - name: Load cached images
         if: steps.docker-cache.outputs.cache-hit == 'true'
