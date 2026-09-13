@@ -174,3 +174,39 @@ describe('InvoiceDetail', () => {
     expect(await screen.findByText(/numbering is gapless/)).toBeInTheDocument();
   });
 });
+
+/**
+ * `shortDate` renders a date that may be absent.
+ *
+ * The schema marks invoice periods required and `POST /invoices` always sets
+ * them, so a null can only arrive from data the API could not have produced —
+ * which is exactly what a seed script wrote, and the detail page threw
+ * `can't access property "split", date is null` on the whole invoice.
+ */
+describe('shortDate', () => {
+  it('renders a dash rather than throwing on a missing date', async () => {
+    const { shortDate } = await import('@/components/invoice-bits');
+
+    /* A date is decoration on a page whose subject is money. Taking the
+       totals, the line items and every action down to report one missing
+       date is the wrong trade — the dash is visibly wrong in the one place
+       that IS wrong. */
+    expect(shortDate(null)).toBe('—');
+    expect(shortDate(undefined)).toBe('—');
+    expect(shortDate('')).toBe('—');
+  });
+
+  it('renders a dash for a malformed date rather than "Invalid Date"', async () => {
+    const { shortDate } = await import('@/components/invoice-bits');
+
+    // `new Date(NaN, …)` formats as "Invalid Date", which reads as a bug
+    // in the invoice rather than in the data.
+    expect(shortDate('not-a-date')).toBe('—');
+    expect(shortDate('2026-13')).toBe('—');
+  });
+
+  it('still formats a real date', async () => {
+    const { shortDate } = await import('@/components/invoice-bits');
+    expect(shortDate('2026-07-26')).toBe('Jul 26, 2026');
+  });
+});

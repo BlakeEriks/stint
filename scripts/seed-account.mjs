@@ -377,15 +377,26 @@ try {
     const due = new Date();
     due.setDate(due.getDate() - inv.dueDaysAgo);
 
+    /* The month of work the invoice bills, ending the day it was issued —
+       which is what "generate for this period" produces in the app. */
+    const periodEnd = new Date(issued);
+    const periodStart = new Date(issued);
+    periodStart.setDate(periodStart.getDate() - 30);
+
     const seq = nextNumber + invoiceNo;
     const {
       rows: [{ id: invoiceId }],
     } = await db.query(
+      /* `period_start`/`period_end` are NOT optional in practice. The column
+         is nullable and `POST /invoices` always sets them, so a real invoice
+         never has them null — but this script wrote them null and the detail
+         page threw on `shortDate(null)`. A seed that produces data the API
+         could not have produced is testing the wrong app. */
       `insert into invoices
          (user_id, client_id, invoice_number, sequence_no, status, issue_date,
-          due_date, subtotal, tax_rate, tax_amount, total, currency,
-          grouping_mode, sent_at, paid_at)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,0,0,$8,'USD','entry',$9,$10)
+          due_date, period_start, period_end, subtotal, tax_rate, tax_amount,
+          total, currency, grouping_mode, sent_at, paid_at)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0,0,$10,'USD','entry',$11,$12)
        returning id`,
       [
         userId,
@@ -395,6 +406,8 @@ try {
         inv.status,
         issued.toISOString().slice(0, 10),
         due.toISOString().slice(0, 10),
+        periodStart.toISOString().slice(0, 10),
+        periodEnd.toISOString().slice(0, 10),
         inv.total,
         inv.status === 'draft' ? null : issued.toISOString(),
         inv.status === 'paid' ? due.toISOString() : null,

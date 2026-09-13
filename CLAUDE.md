@@ -733,6 +733,27 @@ a signed-out page rendered its shell and sat on "Loading…" forever — React
 Query has `retry: false`, so the 401 never resolved into anything actionable.
 Hitting Back after signing out did exactly that.
 
+**A screen fails; the app does not.** `(app)/error.tsx` is nested inside the
+group, so it replaces the CONTENT COLUMN and nothing else — the rail, the
+header, the inbox and **the running timer** all keep rendering. That placement
+is the whole point: the timer is billable work in progress, and a full-page
+error screen that unmounts it is the app losing track of time it was trusted
+to keep. `reset()` re-renders the segment without a reload, so the timer's
+local tick survives the recovery too. Verified by inducing a throw: the timer
+went 11:00:33 → 11:00:50 across the failure and back.
+
+`global-error.tsx` is the last resort, for the root layout itself failing. It
+renders its own `<html>`/`<body>` and **cannot use the design tokens** — the
+stylesheet is imported by the layout that is not rendering — so its styles are
+inline token *values*. That is the one place in the app where a hardcoded hex
+is correct, and it is dark unconditionally, since nothing is there to stamp
+`[data-theme]`.
+
+Both show `error.digest` when present. Next withholds a server error's message
+from the client in production so an internal detail cannot leak onto someone's
+screen; the digest is what ties the screen to the server log, so a user who
+can quote it makes a bug report actionable.
+
 **A card's header rule is inset, never a full-width border.** The divider
 between a card header and its content is a `mx-4 border-t` div, holding the
 same `px-4` the rows below it use. A `border-b` on the header itself runs edge
