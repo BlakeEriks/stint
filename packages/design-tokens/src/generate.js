@@ -2,7 +2,7 @@
 // tokens.json -> CSS custom properties, TS constants, Swift Color extension.
 // One source, three clients, no drift.
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderSwatches } from './swatches.js';
@@ -258,6 +258,19 @@ ${Object.values(tokens.primitive.project)
 }
 `;
 writeFileSync(join(out, 'Tokens.swift'), swift);
+
+/* Also into the macOS app's own sources.
+ *
+ * SwiftPM has no way to consume a file from `dist/`, which is gitignored, and
+ * a hand-copied palette is exactly the drift the token package exists to
+ * prevent. Writing it here keeps `apps/macos` buildable from a fresh clone
+ * while leaving `tokens.json` the only place a colour is decided. The file is
+ * committed and regenerated, like `dist/` would be if SwiftPM could read it. */
+const macosTokens = join(
+  import.meta.dirname,
+  '../../../apps/macos/Sources/Stint/Tokens.swift',
+);
+if (existsSync(dirname(macosTokens))) writeFileSync(macosTokens, swift);
 
 // ── Swatch page (visual reference) ─────────────────────────────────
 // Built from the same tokens as everything above, so it cannot drift the way

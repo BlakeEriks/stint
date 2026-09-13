@@ -10,8 +10,9 @@ including invoicing, payment details and PDF generation — are built and
 covered by integration tests. The app sends no email: invoices are downloaded
 and sent by the user from their own address.
 
-**Not built yet:** the mobile and macOS apps. The web app is complete:
-timer, calendar, clients, projects, settings, payment profiles, invoicing.
+**Not built yet:** the mobile app. The web app is complete: timer, calendar,
+clients, projects, settings, payment profiles, invoicing. The macOS menu bar
+app runs the timer — start, stop, task name, project — and nothing else.
 
 ## Layout
 
@@ -27,10 +28,11 @@ packages/
   api-client/    typed fetch wrapper
 apps/
   web/           Next.js — the API layer
+  macos/         Swift menu bar app — the timer only
 supabase/migrations/
 ```
 
-`apps/mobile` (Expo) and `apps/macos` (Swift) are planned, not created.
+`apps/mobile` (Expo) is planned, not created.
 
 ## Commands
 
@@ -41,6 +43,8 @@ pnpm --filter @stint/core test      # pure logic, no database needed
 pnpm --filter @stint/web dev
 pnpm --filter @stint/web typecheck
 pnpm --filter @stint/web sample:invoice   # regenerate docs/design/samples/
+
+cd apps/macos && ./bundle.sh            # build Stint.app, then `open .build/Stint.app`
 ```
 
 Run `pnpm tokens` first on a clean checkout: `@stint/design-tokens` resolves

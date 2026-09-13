@@ -12,7 +12,7 @@ deliberately does not want.
 | Surface | Stack | Scope | Status |
 |---|---|---|---|
 | Web | Next.js App Router, API-first | **All features.** The primary product. | Built |
-| macOS | Native Swift menu bar app | Start / stop / view. Menu bar toggles between current timer and today's total. | **Not started** |
+| macOS | Native Swift menu bar app | Start / stop / view. Menu bar toggles between current timer and today's total. | **Timer shipped** — `apps/macos`, SwiftPM, no Xcode needed |
 | iOS + Android | React Native (Expo) | Start / stop / view, light editing. | **Not started** |
 
 ## The shape: a client shell over an HTTP API
@@ -137,7 +137,15 @@ Supabase Auth. All three clients send the same JWT as a bearer token, and the
 route handlers verify it identically.
 
 - **Web** — `@supabase/ssr`, cookie-based sessions.
-- **macOS** — `supabase-swift`, PKCE, Sign in with Apple via `signInWithIdToken`.
+- **macOS** — the emailed link, verified in-process against GoTrue's
+  `/verify` with `token_hash`, and the session kept in the Keychain.
+  `supabase-swift` is not used: the SDK is not needed to POST two endpoints,
+  and PKCE stores its verifier per origin, which is the collision documented
+  in `CLAUDE.md` and worse when the link opens in a *browser* while the app
+  holds the verifier. Sign in with Apple via `signInWithIdToken` remains the
+  intended addition; it needs a paid developer account, an App ID with the
+  capability and a signed bundle, none of which a SwiftPM executable
+  produces.
 - **Expo** — AsyncStorage session store. **`AppState` must be wired to
   `startAutoRefresh()` / `stopAutoRefresh()`**, or the refresh timer keeps
   firing while suspended and sessions go stale on resume. Easy to miss.
@@ -178,7 +186,7 @@ supabase/migrations     Schema, triggers, RLS
 docs/design/samples     Committed renderer output (pnpm sample:invoice)
 ```
 
-`apps/mobile` and `apps/macos` do not exist yet. `packages/design-tokens`
+`apps/mobile` does not exist yet. `packages/design-tokens`
 resolves through `dist/`, which is generated — run `pnpm tokens` before
 anything imports it.
 

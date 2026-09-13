@@ -408,6 +408,62 @@ visible — which is what fraud-prevention guidance tells payers to challenge.
   the account numbers overleaf is the one page break that actually harms the
   reader.
 
+## The macOS menu bar app
+
+`apps/macos` is a **SwiftPM executable, not an Xcode project** — it builds and
+runs with the Command Line Tools alone (`swift build`), which is what makes it
+verifiable from a terminal. `./bundle.sh` wraps the binary in a `.app` with
+`LSUIElement`, because AppKit only honours "menu bar only, no Dock icon" from
+a bundle's Info.plist and not from a bare executable. Unsigned: distribution
+needs a Developer ID and notarisation.
+
+**It is the timer and nothing else** — start, stop, task name, project.
+`principles.md` scopes it to "menu bar presence" and warns that neither native
+app should become a port; entries, invoices and the calendar stay in the
+browser, behind the panel's one "Open Stint" link.
+
+- **Sign-in is the emailed link, verified in-process** against GoTrue's
+  `/verify`. **The field is `token_hash`, NOT `token`** — the value in the
+  emailed URL is already hashed, and passing it as `token` returns
+  `otp_expired` on a link generated one second earlier, which reads as an
+  expired link and sends you hunting for the wrong bug entirely. Verified
+  against a real GoTrue before the code was written.
+
+  PKCE was rejected for the same reason it bites on the web: the verifier
+  lives per origin, and an app holding one while the link opens in a *browser*
+  is that split-brain in a worse form. `supabase-swift` is not a dependency —
+  two POSTs do not need an SDK.
+- **The session lives in the Keychain**, not `UserDefaults`: a refresh token
+  is a long-lived credential and a plist in the container is readable by
+  anything running as the user. `jwt_expiry` is an hour with rotation on, so
+  refresh is mandatory — an app left open overnight would 401 on every poll by
+  morning and read as broken rather than signed out. One in-flight refresh is
+  shared, because two pollers racing would each spend a rotating token and one
+  would lose.
+- **Local tick, reconcile at 60s**, skew-corrected from `serverTime`. Today's
+  total adds live seconds **from the fetch**, not from `startedAt` — the route
+  already folded the running entry in, so counting from the start double-counts
+  it.
+- **A 409 from `/timer/start` refreshes rather than reports.** Another device
+  won the race, the invariant held, and showing what *is* running is more use
+  than the error. This caught a real leftover timer during development.
+- **The task field never overwrites itself mid-type.** It follows the server
+  when a timer starts or stops elsewhere, but only when unfocused.
+- **Colours come from `Tokens.swift`, written by `pnpm tokens`** into the app's
+  own sources. SwiftPM cannot read the gitignored `dist/`, and a hand-copied
+  palette is the drift the token package exists to prevent, so the generator
+  writes both. Note the Swift names keep the raw prefixes — `borderSubtle`,
+  not the Tailwind-stripped `edgeSubtle`.
+- **The runaway notice says something is wrong and stops there.** The web app
+  offers Keep / Adjust / Discard because it can edit an entry; adjusting needs
+  a date and two times, which this panel has no room for. Surfacing without
+  acting is still the honest half of "never auto-trims".
+
+**The API models are hand-written and nothing type-checks them against
+`packages/schema`.** `architecture.md` wants an OpenAPI spec from the Zod
+schemas for exactly this; until it exists, a renamed field fails at runtime in
+Swift and nowhere else.
+
 ## Docs
 
 **`docs/tasks.md` is the only list of unbuilt work.** There is no roadmap file;
