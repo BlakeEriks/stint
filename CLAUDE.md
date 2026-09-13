@@ -924,10 +924,23 @@ there is somewhere to do the trimming).
 - **An end before the start is overnight, not an error.** 22:00 to 02:00 is a
   four-hour shift; rejecting it is defensible and useless to someone who
   worked those hours. The end rolls forward one calendar day.
-- **A billed entry opens read-only** with the reason and the remedy ("void
-  the invoice to release it"). The lock is a database trigger, so an edit
-  would 409 — offering a save that cannot succeed is dishonest. Every field
-  disables and the only remaining action is dismiss.
+- **An entry billed on an ISSUED invoice opens read-only** with the reason and
+  the remedy ("void the invoice to release it"). The lock is a database
+  trigger, so an edit would 409 — offering a save that cannot succeed is
+  dishonest. Every field disables and the only remaining action is dismiss.
+
+  **A DRAFT is not a lock**, and `guard_billed_entry` says so: it returns
+  early when the invoice status is `draft`, because a draft holds no number
+  and has not been sent, so nothing has been told to a client yet. The dialog
+  disabled on any `invoiceId` and so refused an edit the server would have
+  accepted — the more expensive direction to be wrong in, since the fix for a
+  wrong draft is to correct the entry and preview again. Editing one now warns
+  that the draft needs previewing again rather than blocking it.
+
+  The status is not a column on the entry, so the dialog fetches the invoice —
+  only when there is one, which is the rare case. An embed was rejected:
+  `test/shim.mjs` passes the select string into raw SQL, so PostgREST's
+  `invoices(status)` syntax would break every route test.
 - **Deleting asks once.** The row is one click from the duration and the
   delete is irreversible.
 - **Creating supplies a UUIDv7** so a retried insert lands on the same row.

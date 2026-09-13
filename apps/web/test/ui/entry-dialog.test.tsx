@@ -27,17 +27,31 @@ function entry(over: Partial<TimeEntry> = {}): TimeEntry {
   } as TimeEntry;
 }
 
-/** Records what the server was asked to do — the part a user would feel. */
-function serve() {
+/**
+ * Records what the server was asked to do — the part a user would feel.
+ *
+ * `invoiceStatus` answers the ONE read the dialog makes beyond the entry
+ * itself. It matters that this is a real answer rather than a catch-all: the
+ * lock depends on it, and a stub that returned the entry for every path left
+ * the status undefined, so the locked assertion passed without ever
+ * exercising the rule it claims to test.
+ */
+function serve(invoiceStatus: string = 'sent') {
   const calls: Array<{ method: string; path: string; body: unknown }> = [];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
+      const path = String(url).replace('/api/v1', '');
       calls.push({
         method: init?.method ?? 'GET',
-        path: String(url).replace('/api/v1', ''),
+        path,
         body: init?.body ? JSON.parse(String(init.body)) : undefined,
       });
+      if (path.startsWith('/invoices/')) {
+        return new Response(JSON.stringify({ status: invoiceStatus }), {
+          status: 200,
+        });
+      }
       return new Response(JSON.stringify(entry()), { status: 200 });
     }),
   );
@@ -126,7 +140,7 @@ describe('EntryDialog', () => {
   });
 
   it('never offers an edit on an entry billed to an issued invoice', async () => {
-    serve();
+    serve('sent');
     open(entry({ invoiceId: 'inv1' }));
 
     /* The lock is a database trigger, so an edit here would 409. Showing the
@@ -145,6 +159,40 @@ describe('EntryDialog', () => {
       .map((b) => b.textContent?.trim() || 'Close');
     expect(actions.length).toBeGreaterThan(0);
     expect(new Set(actions)).toEqual(new Set(['Close']));
+  });
+
+  /**
+   * A DRAFT is not a lock, and the database says so: `guard_billed_entry`
+   * returns early when the invoice status is `draft`, because a draft holds
+   * no number and has not been sent — nothing has been told to a client yet.
+   *
+   * The UI used to disable on any `invoiceId`, refusing an edit the server
+   * would have accepted. That is the more expensive direction to be wrong in:
+   * the fix for a wrong draft is to correct the entry and preview again, and
+   * the old behaviour made that impossible without voiding something that was
+   * never issued.
+   */
+  it('still allows editing an entry on a DRAFT invoice', async () => {
+    serve('draft');
+    open(entry({ invoiceId: 'inv1' }));
+
+    await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
+    for (const field of ['Project', 'Date', 'Start', 'End']) {
+      expect(screen.getByLabelText(field)).toBeEnabled();
+    }
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+  });
+
+  /* Editing a draft-billed entry changes what that draft would bill, and the
+     preview the user approved is now stale. Saying so is the difference
+     between an allowed edit and a silent one. */
+  it('warns that a draft would need previewing again', async () => {
+    serve('draft');
+    open(entry({ invoiceId: 'inv1' }));
+
+    expect(
+      await screen.findByText(/draft invoice.*preview it again/i),
+    ).toBeInTheDocument();
   });
 
   it('does not delete until the confirmation is clicked', async () => {

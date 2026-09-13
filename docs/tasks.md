@@ -259,20 +259,6 @@ moves up — do not start one by guessing the answer.
       declares plain `Invoice`. Internal entry ids are in no documented shape.
       Decide whether they are part of the contract or should be stripped.
 
-- [ ] **Destructive and money mutations fail silently.** Archive client,
-      archive project and `makeDefault` have no `onError` and render no
-      error, so a rejected request leaves the button live and the UI
-      unchanged — it reads as "the click didn't register". The codebase
-      already has the pattern (`client-form.tsx`, `project-dialog.tsx`,
-      `invoice-new.tsx` all render `save.error` with `role="alert"`); these
-      skipped it.
-
-- [ ] **`entry-dialog` is stricter than the server about locked entries.** It
-      disables every field when `invoiceId` is set, but the server locks only
-      when the invoice is **issued** — a draft-billed entry stays editable
-      (`invoices.test.ts` covers that). Either the UI is wrong or the rule
-      is, and the test passes `invoiceId` with no status so it cannot tell.
-
 - [ ] **Duplicated empty-state primitives, already drifting.** `Empty` in
       `client-list.tsx` and `invoice-list.tsx` are byte-identical;
       `Placeholder` in `entry-list.tsx` is the same but `py-8`. Two `Shell`
