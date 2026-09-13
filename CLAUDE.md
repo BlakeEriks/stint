@@ -3,9 +3,12 @@
 A time tracker for solo contractors. The product thesis is **restraint**; Toggl
 is the comparison point and it does too much.
 
-Read `docs/` before changing anything structural. The rationale for each
-deliberate choice — and what was rejected — lives inline in the spec it
-belongs to, so it is read alongside the thing it constrains.
+Read `docs/` before changing anything structural — `docs/CLAUDE.md` says how
+those are written.
+
+**This file holds what constrains code anywhere in the repo.** A rule about
+one screen belongs in that screen's doc; a rule the build enforces belongs in
+the build. Say what a thing is, not what it was instead of.
 
 ## Non-negotiables
 
@@ -21,46 +24,24 @@ system — silent correction destroys trust in every number it reports.
 locally from `startedAt`, but the server decides whether it is running.
 
 **The accent (green `#52FC43`) marks the live, primary thing on a screen, and
-inside the app that is the running timer.** Not navigation, not secondary
-buttons, not links, never decoration. Green never means success — success is
-cyan `#2CCCEB`.
-
-The test: could a user say in one short phrase what green means on this
-screen, and would it be true of every green thing in view? If it takes two
-phrases, one of them loses the accent. It is a test, not a quota — the landing
-page's three ticks and its CTA are all green because all four are "what Stint
-does for you"; a green link beside a green timer is not. See
+inside the app that is the running timer.** Green never means success —
+success is cyan `#2CCCEB`. The test, and what it permits, is
 `docs/design/brand.html`.
 
 **Never white text on the accent** — 1.37:1. Use `--text-on-accent`. CI guards
 this specific regression.
 
-**Focus rings are neutral, never the accent.** `border-focus` is `n-700`. A
-focus ring is constant and involuntary; spending the accent there drowns the
-one signal it exists for.
+**Focus rings are neutral, never the accent.**
 
-**Content floats, chrome recedes — in four planes.** Depth increases toward
-what is being read: header and timer bar on `bg-surface-recessed`, nav rail
-and dock on `bg-surface-base`, the content column on `bg-surface-primary`,
-cards on `bg-surface-elevated` with `shadow-card`. Never invert this — a card
-darker than the surface under it reads as a hole.
+**Content floats, chrome recedes — in four planes**, deepest to nearest:
+`bg-surface-recessed`, `bg-surface-base`, `bg-surface-primary`,
+`bg-surface-elevated`. A card darker than the surface under it reads as a
+hole.
 
-Depth comes from surface colour **and** shadow. It previously came from shadow
-alone, because `bg-base`→`bg-primary` was ΔL 0.0046 and the app read flat as a
-result. **Judge adjacent surfaces by OKLCH ΔL, never by WCAG contrast** — WCAG
-is compressive near black and reported that near-invisible pair as 1.03:1,
-which is what made it look acceptable.
-
-**The frame rises toward the card in both themes.** The nearest plane is the
-lightest either way: a near-black card on a blacker frame, or a white card on
-a grey one. Light is not the mirror of dark — only the ink inverts, darkening
-to gain contrast where dark ink brightens.
-
-Surfaces come off a linear ladder (`surfaces()`), ink off an eased curve
-(`inkRamp()`), because the two want opposite things: surfaces are compared to
-each other and want even spacing, ink is compared to the card behind it and
-wants resolution where the contrast ratios are. See
-`docs/design/deriving-colour.md`.
+**Judge adjacent surfaces by OKLCH ΔL, never by WCAG contrast** — WCAG is
+compressive near black and reports a near-invisible pair as 1.03:1. Surfaces
+come off a linear ladder, ink off an eased curve; changing either means
+changing `deriving-colour.md`'s generators, never a hex.
 
 ## Conventions
 
@@ -68,23 +49,16 @@ wants resolution where the contrast ratios are. See
   through `/api/v1/*` route handlers.
 - Colors come from **semantic** tokens only. Primitives stay in the token
   package. Never hardcode a hex in a component.
-- **Only clients have a colour.** A project is a subdivision of a client that
-  is already identified, so colour answers *whose work is this?* and the name
-  answers *which piece?*. `useProjectColors()` resolves project -> client ->
-  colour; internal work gets none. `projects.color` still exists in the
-  database but nothing reads it — see `docs/design/brand.html` for why
-  per-project variants were rejected.
+- **Only clients have a colour**, resolved through `useProjectColors()`;
+  internal work gets none. `projects.color` is a dead column — nothing reads
+  or writes it.
 - Design tokens are **generated** — edit `packages/design-tokens/tokens.json`,
   then `pnpm tokens`. Never edit files in `dist/`.
-- Both neutral ramps are **derived**, not hand-picked: change a parameter in
+- Both neutral ramps are **derived**: change a parameter in
   `src/derive-neutrals.mjs` (dark) or `src/derive-light.mjs` (light) and paste
-  the output. Never eyedrop a grey — `pnpm tokens:validate` re-runs both
-  generators and diffs them against `tokens.json`, so a hand-edited hex fails
-  CI naming the step. That check exists because ratios prove a colour is
-  legible and only this proves it was derived; the dark ramp had drifted to
-  8 of 12 steps hand-pinned while passing every contrast assertion.
-  `src/oklch.mjs` holds the OKLCH↔sRGB maths with gamut mapping, plus
-  `rgbToOklch` for auditing a hex you did not generate.
+  the output. `pnpm tokens:validate` re-derives both and diffs them, so a
+  hand-edited hex fails CI naming the step. `src/oklch.mjs` has the OKLCH↔sRGB
+  maths plus `rgbToOklch` for auditing a hex you did not generate.
 - Durations are always mono + `tabular-nums`.
 - Time entry ids are **client-generated UUIDv7** (`uuidv7()` in `@stint/core`) so
   a retried insert is idempotent — the same id lands on the same row.
@@ -98,30 +72,25 @@ wants resolution where the contrast ratios are. See
 
 ## Local development
 
-**Never point local dev at production.** `pnpm dev:up` runs the Supabase stack
-locally and `pnpm dev` talks to it, because Next.js loads
-`apps/web/.env.development.local` ahead of `.env.local` in development — while
-`pnpm migrate` and `pnpm verify:schema` still read `.env.local` and reach the
-hosted project. No flag to remember.
+**Never point local dev at production.** `pnpm dev` talks to the local stack
+because Next.js loads `apps/web/.env.development.local` ahead of `.env.local`
+in development — while `pnpm migrate` and `pnpm verify:schema` read
+`.env.local` and reach the hosted project.
 
 `pnpm dev:reset` rebuilds from migrations plus `supabase/seed.sql`. Sign in as
 `dev@localhost.test` and click the link in Mailpit (`:54324`); mail is captured
 locally, never sent. Studio is on `:54323`.
 
-**One sign-in at a time per browser.** Sign-in is PKCE and the code verifier
-lives in localStorage under one key per origin, so two tabs on
-`localhost:3100` share it: requesting a link while another tab holds a session
-overwrites the verifier and the exchange at `/auth/callback` fails against the
-wrong one. The symptom is a link that looks dead — `/verify` returns its
-`303`, the exchange fails a step later, and re-clicking says `Bad request`
-because the token is spent. Two guards now exist: `/signin` redirects home
+**One sign-in at a time per browser.** PKCE keeps its code verifier in
+localStorage under one key per origin, so two tabs share it and the second
+request overwrites the first's verifier. Two guards: `/signin` redirects home
 when a session exists, and requesting a link calls
-`signOut({ scope: 'local' })` first — local only, so a link requested on a
-laptop never revokes the session on a phone. Both are tested.
+`signOut({ scope: 'local' })` — local only, so a laptop never revokes a
+phone's session.
 
-When a click fails, a `303` from `/verify` means verification worked; look for
-the **`/token` call that should follow**, because its absence is the exchange
-failing. `docs/local-dev.md` has the log filters and the pending-token query.
+The symptom is a link that looks dead. A `303` from `/verify` means
+verification worked; the missing **`/token` call** after it is the exchange
+failing. `docs/local-dev.md` has the log filters.
 
 Use `localhost` throughout, not `127.0.0.1`: they are different hosts to a
 browser, so a session cookie set on one is invisible to the app served from
@@ -131,39 +100,33 @@ the other.
 Supabase surface is `.from()`, one `.rpc()`, and auth. The subset runs in
 ~540MB where the full stack wants ~7GB.
 
-**Studio is off too, and `config.toml` does not say so** — `[studio] enabled`
-is `true` while the container is simply not started, so `:54323` refuses the
-connection and the config looks like it should work. `pnpm dev:up:studio`
-brings it up (with `postgres-meta`, which it needs); `psql` against `:54322`,
-or any Postgres GUI, needs no containers at all.
+**Studio is off, and `config.toml` does not say so** — `[studio] enabled` is
+`true` while the container is simply not started, so `:54323` refuses the
+connection. `pnpm dev:up:studio` brings it up; `psql` against `:54322` needs
+no containers at all.
 
-The exclusion must be passed at START: `-x` on an already-running stack is
-accepted and does nothing, which reads as the flag being wrong. Hence the
-`stop &&` in that script. Plain `stop` keeps the data volumes — only
-`--no-backup` deletes them.
+`-x` must be passed at START — on an already-running stack it is accepted and
+does nothing, hence the `stop &&` in that script. Plain `stop` keeps the data
+volumes; only `--no-backup` deletes them.
 
 ## Migrations
 
 `pnpm migrate` applies `supabase/migrations/` over a plain Postgres
-connection — no CLI, no pasting SQL into a dashboard. Each file runs in its
-own transaction and applied versions are recorded in `schema_migrations`, so
-re-running is a no-op and a new migration applies alone. `--dry-run` shows
-the plan; `--url` overrides the connection.
+connection. Each file runs in its own transaction and applied versions are
+recorded in `schema_migrations`, so re-running is a no-op and a new migration
+applies alone. `--dry-run` shows the plan; `--url` overrides the connection.
 
-**The publishable key is public by design** (it ships in the browser bundle);
-RLS is the only thing protecting the data. That makes `verify:schema` the
-real security control here, not the key choice — a table reaching production
-without RLS exposes every user's rows, and nothing else in the stack notices.
+**The publishable key is public by design** — it ships in the browser bundle,
+so RLS is the only thing protecting the data. That makes `verify:schema` the
+real security control: a table reaching production without RLS exposes every
+user's rows, and nothing else in the stack notices.
 
-`pnpm verify:schema` asserts the live database matches what the app assumes:
-seven tables with **RLS on**, at least one policy each (RLS with no policies
-denies everything), the partial unique index for the timer invariant, and the
-signup trigger. Exits non-zero on failure, so it belongs in CI once a staging
-database exists. Both read `SUPABASE_DB_URL` from `apps/web/.env.local` — a
-secret that bypasses RLS and is never used by the app itself. It is **not**
-the connection `pnpm test:rls` uses — that one connects as a non-superuser
-`authenticated` role on purpose, because a superuser bypasses RLS and would
-make the suite pass while proving nothing.
+`pnpm verify:schema` asserts seven tables with **RLS on**, at least one policy
+each (RLS with no policies denies everything), the partial unique index for
+the timer invariant, and the signup trigger. Exits non-zero, so it belongs in
+CI once a staging database exists. It reads `SUPABASE_DB_URL` from
+`apps/web/.env.local` — a secret that bypasses RLS and is never used by the
+app itself.
 
 To test a migration locally without touching a real project, start a
 throwaway Postgres (`/opt/homebrew/opt/postgresql@14/bin`) on a spare port
@@ -174,45 +137,25 @@ stub `auth.users` and `auth.uid()`, then point `pnpm migrate --url` at it.
 
 `packages/design-tokens/dist/` is gitignored, and two of its outputs are
 needed to build: `tokens.ts` (imported by `color-picker.tsx`) and
-`tokens.css` (imported by `globals.css` by relative path). A fresh clone has
-neither, so `next build` fails with "Can't resolve '@stint/design-tokens'".
+`tokens.css` (imported by `globals.css` by relative path), so a fresh clone
+fails with "Can't resolve '@stint/design-tokens'". Hence `prebuild` and
+`predev` in `apps/web`.
 
-This is why `apps/web` has **`prebuild` and `predev`** that run the token
-generator. Generating is part of building, not a step a caller has to
-remember — CI happened to run `generate.js` for its own drift check, which
-hid the gap until Vercel's first deploy failed on it.
-
-Anything else generated and gitignored needs the same treatment: assume the
+**Anything generated and gitignored needs the same treatment**: assume the
 build machine has only what git tracks.
 
 ## Dependency versions
 
-Everything is current. **TypeScript is on 6.x**, and the jump to 7 is a
-deliberate wait, not drift.
+**TypeScript stays on 6.x until Next declares TS 7 support.** 6 is the last
+release built on the JavaScript codebase, so it keeps the programmatic API
+that Next's type checking and TS plugin use; 7 ships without one until 7.1.
+The config work 7 needs is already done, so the move is a version bump.
 
-TS 6 is the bridge release: the last one built on the JavaScript codebase, so
-it **keeps the programmatic API** while adopting 7's stricter defaults. That
-matters because Next's type checking and TS plugin use that API — TS 7 ships
-without one until 7.1, which would leave `next build` running against a
-compiler it was never tested with. Frameworks with embedded templates (Vue,
-Svelte, Astro, Angular) are in the same position.
+**`@types/node` tracks the Node major actually in use** (24) — types for a
+runtime you are not running is a silent trap.
 
-Adopting 6 cost two config changes, both of which are what 7 will require
-anyway:
-
-- `types: ["node"]` in the root tsconfig — 6 stopped auto-discovering
-  `@types`, so what is used has to be named.
-- `baseUrl` removed from `apps/web/tsconfig.json` — deprecated in 6, gone in
-  7. The `paths` entries were already relative, so it was redundant.
-
-So the migration to 7 is now a version bump plus whatever 7.1's API needs,
-rather than a config project. Revisit when Next declares TS 7 support.
-
-`@types/node` tracks the Node major actually in use (24), not whatever was
-pinned first — types for a runtime you are not running is a silent trap.
-
-Dependabot **ignores majors** on purpose. A toolchain major is a decision;
-its first run offered TypeScript 5 -> 7 and `@types/node` 22 -> 26 unasked.
+**Dependabot ignores majors on purpose**; a toolchain major is a decision.
+`dependabot.yml` says why.
 
 ## Migrations are additive, and forward-only
 
@@ -230,7 +173,7 @@ So the rule is to write migrations that cannot need reverting:
   that changes the code.
 - **A destructive change to unreleased schema is fine.** Before anything is
   live, fold the correction into the original file rather than stacking a
-  fix-up on top; that is what happened to `client_updated_at` and `pdf_url`.
+  fix-up on top.
 - Backfills belong in their own migration, separate from the DDL, so a slow
   one cannot hold a lock on the change that needs to land.
 
@@ -260,12 +203,11 @@ All routes live in `apps/web/src/app/api/v1/`. Shared plumbing in
   a cookie session (web); both yield an RLS-scoped client.
 
   **`getClaims()` must be passed the token explicitly on the bearer path.** It
-  reads the *stored session*, not the `Authorization` header that
-  `bearerClient` sets via `global.headers`; with no stored session it returns
-  `{ data: null, error: null }` — the call succeeds, yields no claims, and
-  every bearer request 401s. No error is raised, and the route tests inject
-  `__TEST_DB__` so they never exercise that path, which is why this shipped
-  broken and was only found by curling a real token at a real server.
+  reads the *stored session*, not the `Authorization` header `bearerClient`
+  sets via `global.headers`. With no stored session it returns
+  `{ data: null, error: null }` — no error, no claims, and every bearer
+  request 401s. The route tests inject `__TEST_DB__` and never exercise this
+  path, so only a real token against a real server catches it.
 - `errors.ts` — `handle()` wraps every route; `ApiError` maps to documented
   status codes. Contains a compile-time guard asserting the local `Code` union
   matches `ErrorCode` in `@stint/schema`.
@@ -273,28 +215,19 @@ All routes live in `apps/web/src/app/api/v1/`. Shared plumbing in
   projects, settings and payment profiles. Rename one of those columns here
   and nowhere else.
 
-  **Invoices are the exception, and it has already cost something.**
-  `invoicing.ts` carries its own `toInvoice` and `toLineItem` plus a
-  `ClientRow` interface, because the PDF loader needs shapes `rows.ts` does
-  not model. That second converter is where drift appears: `toLineItem` takes
-  `Record<string, any>`, so nothing type-checks it against the schema, and it
-  omits `rateSource` — which the preview and generation paths *do* emit,
-  because they build line items in memory rather than reading them back.
-  Consolidating the two is worth doing; until then, a change to invoice or
-  line-item fields means editing both files.
+  **Invoices are the exception.** `invoicing.ts` carries its own `toInvoice`
+  and `toLineItem` plus a `ClientRow` interface, because the PDF loader needs
+  shapes `rows.ts` does not model. `toLineItem` takes `Record<string, any>`,
+  so nothing type-checks it against the schema. **A change to invoice or
+  line-item fields means editing both files.**
 
-The browser's types in `lib/client/api.ts` **derive** from `@stint/schema`;
-they are not copies of it. They were copies, and it drifted both ways —
-removing `color` from the schema's `Project` raised no error in the app while a
-component went on reading it, and `paymentProfileId`, `clientName`, `Invoice`
-and `CalendarDay` all existed in the database and the routes without ever
-reaching the schema.
+The browser's types in `lib/client/api.ts` **derive** from `@stint/schema`
+rather than copying it.
 
-The wrapper is `Response<T>`, which makes every field required. A schema marks
-a field `.optional()` to describe what a *request* may omit, so `z.infer`
-yields `field?: T | undefined` — but every converter in `rows.ts` sets every
-field unconditionally, so a response never omits one. Without the wrapper the
-UI would carry a `?? null` for each nullable column.
+The wrapper is `Response<T>`, which makes every field required: a schema marks
+a field `.optional()` to describe what a *request* may omit, but every
+converter in `rows.ts` sets every field unconditionally, so a response never
+omits one.
 - `validate.ts` — Zod parsing with 422 + `treeifyError` details.
 
 ### Conventions
@@ -347,14 +280,9 @@ code. Routes in `apps/web/src/app/api/v1/invoices/`; shared loaders in
 
 ### No email
 
-**The app sends no mail.** Invoices are downloaded and emailed by the user
-from their own address; `PATCH /invoices/:id/status` records that it went out.
-
-This is deliberate and should not be "fixed" by adding a provider: mail from a
-shared application domain gets filtered or blocked on the way to a client, and
-the sender only finds out when the client says it never arrived. Sending it
-themselves uses their own domain's reputation and leaves a copy in their Sent
-folder.
+**The app sends no mail.** Invoices are downloaded and sent by the user from
+their own address; `PATCH /invoices/:id/status` records that it went out.
+`principles.md` says why, and it is not a gap to fill.
 
 ### PDF and the test runner
 
@@ -392,11 +320,10 @@ sample data or a developer's current location.
 
 ## Payment details
 
-Bank details render on the **invoice PDF, never in an email body**. Every
-major invoicing tool works this way, and it is the safer posture: details that
-render identically on every invoice create a baseline, so a *change* becomes
-visible — which is what fraud-prevention guidance tells payers to challenge.
-**Do not add an option to email them.** Placement is not a user preference.
+Bank details render on the **invoice PDF, never in an email body**, and
+placement is not a user preference. Rendering identically on every invoice is
+what makes a *change* visible, which is what fraud-prevention guidance tells
+payers to challenge.
 
 - `payment_profiles` is a named bundle of fields. **US-first**: account number
   + ACH routing is the default path; IBAN/SWIFT, a labelled national bank
@@ -418,106 +345,81 @@ visible — which is what fraud-prevention guidance tells payers to challenge.
 `apps/macos` is a **SwiftPM executable, not an Xcode project** — it builds and
 runs with the Command Line Tools alone (`swift build`), which is what makes it
 verifiable from a terminal. `./bundle.sh` wraps the binary in a `.app` with
-`LSUIElement`, because AppKit only honours "menu bar only, no Dock icon" from
-a bundle's Info.plist and not from a bare executable. Unsigned: distribution
+`LSUIElement`, because AppKit honours "menu bar only, no Dock icon" from a
+bundle's Info.plist and not from a bare executable. Unsigned: distribution
 needs a Developer ID and notarisation.
 
 **It is the timer and nothing else** — start, stop, task name, project.
-`principles.md` scopes it to "menu bar presence" and warns that neither native
-app should become a port; entries, invoices and the calendar stay in the
-browser, behind the panel's one "Open Stint" link.
+`menubar.html` is the spec.
 
-- **Sign-in is an emailed six-digit CODE, typed into the panel**, verified
-  in-process against GoTrue's `/verify` with `type: "email"` and the digits in
-  the `token` field. Not `"magiclink"`, which is the type for the hashed token
-  in a link and rejects a typed code.
+### Sign-in
 
-  **A code, because a link has to reach a different application than the one
-  that opened it.** Pasting a link puts a bearer credential through the
-  clipboard, and a custom URL scheme is *silently refused* by browsers when it
-  is the target of a redirect — the failure then surfaces as "Bad request"
-  from a fallback rather than as anything true. A code is typed by a person,
-  so nothing has to hand anything to anything.
+**An emailed six-digit code, typed into the panel**, verified in-process
+against GoTrue's `/verify` with `type: "email"` and the digits in the `token`
+field — `"magiclink"` is the type for the hashed token in a link and rejects a
+typed code. The request sends no `redirect_to`.
 
-  GoTrue generates a code for every magic link whether the email shows it or
-  not; `supabase/templates/magic_link.html` is what puts it in front of the
-  user, and `{{ .Token }}` is the field. The request sends no `redirect_to`:
-  nothing is being redirected, so where a browser would land is not this app's
-  concern.
+GoTrue generates a code for every magic link whether the email shows it or
+not; `supabase/templates/magic_link.html` puts it in front of the user via
+`{{ .Token }}`.
 
-  `create_user` must be a real bool in an `Encodable` struct — a
-  `[String: String]` literal sends it quoted and GoTrue answers "cannot
-  unmarshal string into Go struct field OtpParams.create_user of type bool".
+`create_user` must be a real bool in an `Encodable` struct — a
+`[String: String]` literal sends it quoted and GoTrue answers "cannot
+unmarshal string into Go struct field OtpParams.create_user of type bool".
 
-  PKCE was rejected for the same reason it bites on the web: the verifier
-  lives per origin, and an app holding one while the link opens in a *browser*
-  is that split-brain in a worse form. `supabase-swift` is not a dependency —
-  two POSTs do not need an SDK.
-- **The session lives in the Keychain**, not `UserDefaults`: a refresh token
-  is a long-lived credential and a plist in the container is readable by
-  anything running as the user. `jwt_expiry` is an hour with rotation on, so
-  refresh is mandatory — an app left open overnight would 401 on every poll by
-  morning and read as broken rather than signed out. One in-flight refresh is
-  shared, because two pollers racing would each spend a rotating token and one
-  would lose.
+`supabase-swift` is not a dependency; two POSTs do not need an SDK.
+
+**The session lives in the Keychain**, not `UserDefaults` — a refresh token is
+a long-lived credential and a plist in the container is readable by anything
+running as the user. `jwt_expiry` is an hour with rotation on, so refresh is
+mandatory. One in-flight refresh is shared: two pollers racing would each
+spend a rotating token and one would lose.
+
+### The panel
+
 - **Local tick, reconcile at 60s**, skew-corrected from `serverTime`. Today's
   total adds live seconds **from the fetch**, not from `startedAt` — the route
-  already folded the running entry in, so counting from the start double-counts
-  it.
+  already folded the running entry in.
 - **A 409 from `/timer/start` refreshes rather than reports.** Another device
-  won the race, the invariant held, and showing what *is* running is more use
-  than the error. This caught a real leftover timer during development.
-- **The task field never overwrites itself mid-type.** It follows the server
-  when a timer starts or stops elsewhere, but only when unfocused.
-- **Colours come from `Tokens.swift`, written by `pnpm tokens`** into the app's
-  own sources. SwiftPM cannot read the gitignored `dist/`, and a hand-copied
-  palette is the drift the token package exists to prevent, so the generator
-  writes both. Note the Swift names keep the raw prefixes — `borderSubtle`,
-  not the Tailwind-stripped `edgeSubtle`.
-- **The runaway notice says something is wrong and stops there.** The web app
-  offers Keep / Adjust / Discard because it can edit an entry; adjusting needs
-  a date and two times, which this panel has no room for. Surfacing without
-  acting is still the honest half of "never auto-trims".
+  won the race and the invariant held, so showing what *is* running is more
+  use than the error.
+- **The task field follows the server only when unfocused**, so it never
+  overwrites itself mid-type.
+- **Colours come from `Tokens.swift`, written by `pnpm tokens`** into the
+  app's own sources, because SwiftPM cannot read the gitignored `dist/`. The
+  Swift names keep the raw prefixes — `borderSubtle`, not `edgeSubtle`.
+- **The runaway notice surfaces and stops there.** Adjusting needs a date and
+  two times, which this panel has no room for.
 
 **The API models are hand-written and nothing type-checks them against
-`packages/schema`.** `architecture.md` wants an OpenAPI spec from the Zod
-schemas for exactly this; until it exists, a renamed field fails at runtime in
-Swift and nowhere else.
+`packages/schema`**, so a renamed field fails at runtime in Swift and nowhere
+else. `architecture.md` wants an OpenAPI spec from the Zod schemas for exactly
+this.
 
 ## Docs
 
-**`docs/tasks.md` is the only list of unbuilt work.** There is no roadmap file;
-two lists means one is stale and you cannot tell which. A finished task is
-**deleted**, not ticked — git records what shipped and this file records why,
-so a list of completed work is a changelog nobody maintains. Something decided
-*against* is also deleted, with the refusal moved to
-`docs/design/principles.md` where it will be read before being re-proposed.
+`docs/CLAUDE.md` says how docs are written and `/trim <path>` measures one
+against it. The rule that matters most: a sentence earns its place only if the
+page cannot show it and CI cannot enforce it.
 
-`docs/api.md` marks unimplemented endpoints **(not implemented)** — there are
-none right now. Keep that honest: the audit that produced this section found
-docs describing planned work as built, which is worse than no docs.
+**`docs/tasks.md` is the only list of unbuilt work.** A finished task is
+deleted, not ticked; something decided against moves to
+`docs/design/principles.md`, where it will be read before being re-proposed.
 
-**The app is online-only.** There is no outbox and no `POST /sync`; both were
-removed as unused. `docs/architecture.md` records why, and why a sync engine
-still would not be the answer if offline ever comes back.
+**`docs/api.md` marks unimplemented endpoints (not implemented)** — there are
+none right now. Keep that honest.
 
-### Design docs
-
-**Anything visual is specified in HTML** — written in the app's own design
-system so the spec doubles as the visual reference. Architecture and process
-stay Markdown. `pnpm design` serves them at `localhost:8778`.
-
-`docs/CLAUDE.md` holds how to write one, and it is short. The rule that
-matters most: a sentence earns its place only if the page cannot show it and
-CI cannot enforce it. `/trim <path>` measures a doc against that.
+**The app is online-only.** There is no outbox and no `POST /sync`;
+`docs/architecture.md` records why a sync engine would not be the answer if
+offline ever comes back.
 
 **`screens/_mockup.css` is generated by `pnpm tokens` and committed**, for the
 same reason `Tokens.swift` is: a browser opening a file from disk cannot reach
 the gitignored `dist/`. Never hand-copy a palette into a doc's own `:root`.
 
 **The mark's geometry is a token.** `brand.mark` in `tokens.json` generates
-`--mark-bound-*` and `Tokens.Mark`, so `|Stint|` is one drawing rather than a
-web one and a Swift one that resemble each other.
+`--mark-bound-*` and `Tokens.Mark`, so `|Stint|` is one drawing across both
+apps.
 
 ## Two sites, one deployment
 
@@ -529,10 +431,7 @@ middleware convention is deprecated in Next 16 and renamed.
     app.trackwithstint.com  -> app/(app)/**
 
 **The app lives at the root of its own origin, so its URLs carry no segment.**
-`/invoices/…`, never `/app/invoices/…`. A `/app` path segment was tried first
-and rejected: under a `.app` TLD it read as a stutter, and in the source tree
-it produced `src/app/app/`. The subdomain removes the segment rather than
-renaming it.
+`/invoices/…`, never `/app/invoices/…`.
 
 The apex `/` is **rewritten**, so the visitor keeps the bare domain in the
 address bar and the first impression costs no extra round trip. Any other apex
@@ -541,9 +440,8 @@ path **redirects** to the subdomain, so an old link still arrives.
 Consequences worth knowing:
 
 - **The landing page is fully static.** The session cookie belongs to the app
-  subdomain, so the pitch never reads one and never renders per-request. Do not
-  add a session check to it — that was there in the first draft and the split
-  is what made it unnecessary.
+  subdomain, so the pitch never reads one and never renders per-request — do
+  not add a session check to it.
 - **Cross-origin links are plain `<a>`, not `next/link`.** `next/link` would
   try to route a subdomain jump client-side within the current origin. The CTA
   and the Sign in link both point at `NEXT_PUBLIC_APP_ORIGIN`.
@@ -568,66 +466,13 @@ invoice and every heading are neutral.
 
 ### The hero is the scope
 
-Three ticked lines for what it does — **Track hours. Send invoices. Get
-paid.** — then four struck-through lines for what it refuses, then the price.
-The refusal used to be a clause buried in a subhead paragraph, which is where
-the single most differentiating sentence on the page went unread.
+Three ticked lines for what it does, four struck lines for what it refuses,
+then the price. `landing.html` carries the verbatim copy, the banned words and
+the build rules.
 
-**The struck items are muted and struck, never red.** Red is this app's danger
-channel — it means something is wrong — and a stack of red marks reads as
-"this product is broken" for the half-second before it parses. Grey plus a
-line through it reads as *deliberately not included*, which is the proud
-version of the same fact.
-
-**The ticks are the accent.** On this page green means *what Stint does for
-you*, and the ticks, the CTA and the hero timer are all that one idea — which
-is what the meanings-not-instances rule asks for. They were cyan
-(`text-success`) first; green ties the left column to the timer panel on the
-right, which cyan did not, and the ticks read as a single object because they
-sit in a tight vertical column.
-
-What would break it: green on a section heading, a link, a border or a
-flourish. Those are not the meaning, they are just green.
-
-**The `<h1>` carries an `sr-only` sentence** covering both lists, because a
-screen reader hitting "Track hours. Send invoices. Get paid." followed by four
-struck words has no way to know the second list is negated — `line-through` is
-presentational and is not announced. The visible ✗ list is `aria-hidden` so it
-is not read twice.
-
-**Free gets its own block with a rule, not a card.** A card there would
-compete with the timer panel beside it.
-
-An earlier headline set "That's it." in mono with a drawn rule under it. It is
-gone, but two findings from it stand: a coloured rule under headline text wins
-the screen away from the CTA, and an `underline` in a headline reads as a
-link — draw a rule instead if one is ever wanted again.
-
-**The invoice preview renders its total in near-black, not the light-theme
-accent.** The real PDF uses `#1D7815` there, which is right on paper; on this
-page it would put a second green meaning beside the CTA.
-
-**The page never claims a platform a visitor cannot download.** An "everywhere
-you work" section was built and then removed rather than shipped dark, because
-claiming something a visitor can falsify by going looking is a trust failure on
-the same axis as silently editing someone's hours. It comes back when there is
-something to link to, not before.
-
-**No real personal data in the examples.** The invoice preview is billed from
-"Your name here / you@yourdomain.com". It shipped once with a real name and
-email on it, on a public page that also renders bank-detail labels. Sample
-rows are for showing the shape, and a name is not part of the shape.
-
-**Sections are full-bleed; `Container` holds the measure inside them.** That is
-what lets a section carry `bg-surface-recessed` edge to edge — the page gets
-its rhythm from alternating ground, not from rules or gaps. The first draft was
-one `max-w-3xl` column for the whole page and read as a document with 60% of a
-1280px screen empty beside it.
-
-**Every grid needs an explicit `grid-cols-[minmax(0,1fr)]`, including at the
-single-column breakpoint.** A grid item defaults to `min-width: auto`, so on a
-phone the timer card's intrinsic width set the column and the whole page
-scrolled sideways. The `lg:` two-column track is not enough on its own.
+**The struck items are muted and struck, never red.** Red is the danger
+channel, and a stack of red marks reads as "this product is broken" for the
+half-second before it parses.
 
 ## Web UI
 
@@ -658,21 +503,15 @@ does not follow package specifiers when collecting `@theme` values.
 
 **A component names a role (`type-amount`), never assembles one
 (`font-mono text-[15px]`).** Each role in `tokens.json` under `type.scale`
-generates a real Tailwind `@utility` carrying family, size, weight, tracking,
-case and tabular-nums together, so half a role cannot be applied. Colour stays
+generates a Tailwind `@utility` carrying family, size, weight, tracking, case
+and tabular-nums together, so half a role cannot be applied. Colour stays
 separate: a role says how text is set, not what it means.
 
-Need something the scale lacks? Add a role, with a reason. `pnpm check:type`
-runs in CI and rejects arbitrary sizes, arbitrary or preset tracking, bare
-`font-mono`/`font-sans`, Tailwind's own font scale, and any `type-*` that is
-not a real role — that last one matters because a typo'd role compiles to **no
-CSS, no warning, exit 0**, the same silence that makes `detox` necessary.
+Need something the scale lacks? Add a role, with a reason — `pnpm check:type`
+runs in CI and rejects anything off it. A typo'd role compiles to **no CSS, no
+warning, exit 0**, which is why it is a check rather than a convention.
 
-This is enforced because documenting it did not work: the scale was written
-down and the app still grew twelve arbitrary font sizes across twenty-five
-components, two pairs of which differed by 0.5px for no reason, while the
-documented timer and title roles went unapplied. See
-`docs/design/brand.html` for the roles and what each is for.
+`docs/design/brand.html` has the roles and what each is for.
 
 ### Layout
 
@@ -686,92 +525,72 @@ Two things that govern code rather than this frame:
 screen replaces the content column and the running timer keeps counting. Do
 not move it to the root; `e2e/error-boundary.spec.ts` fails if you do.
 
-**`Page` owns the content column.** Every screen used to carry its own copy of
-`mx-auto max-w-3xl px-4 py-8 …`, which is how the calendar ended up silently
-on a different width.
+**`Page` owns the content column**, so no screen sets its own width.
 
 ### Components
 
-`components/ui/` is **vendored shadcn**, rewritten to our tokens at install
-by `apps/web/scripts/shadcn-detox.mjs`. shadcn's palette names are never
-defined in `@theme`, because two of them collide with ours and mean the
-opposite: its `bg-primary` is the action colour (ours is neutral grey) and
-its `bg-accent` is hover grey (ours is the neon green).
+`components/ui/` is **vendored shadcn**, rewritten to our tokens at install by
+`apps/web/scripts/shadcn-detox.mjs`. shadcn's palette names are not defined in
+`@theme`: two collide with ours and mean the opposite — its `bg-primary` is
+the action colour (ours is neutral grey), its `bg-accent` is hover grey (ours
+is the neon green).
 
-To add a component: `pnpm dlx shadcn@latest add <name>`, then
+To add one: `pnpm dlx shadcn@latest add <name>`, then
 `node scripts/shadcn-detox.mjs 'src/components/ui/<name>.tsx'`, then read the
 diff. Add any unmapped name to `MAP` rather than hand-editing the file.
 
-**The detox check is the only enforcement.** Tailwind 4 drops an unknown
+**`pnpm detox` in CI is the only enforcement.** Tailwind 4 drops an unknown
 utility with no warning and exit 0, so a surviving `bg-primary` renders our
-grey on a primary button and the build still passes. `pnpm detox` runs in CI.
+grey on a primary button and the build still passes.
 
-Beyond colours, the converter also rewrites what the check cannot see:
-`bg-black/50` → `bg-overlay`, Tailwind's `shadow-lg`/`shadow-md` → our
-elevation tokens, and a floating panel's `bg-background` → `bg-surface-elevated`
-(shadcn means "the app surface"; ours is the recessed ground, so a dialog left
-on it would sit *below* the page it floats over).
+The converter also rewrites what the check cannot see: `bg-black/50` →
+`bg-overlay`, `shadow-lg`/`shadow-md` → our elevation tokens, and a floating
+panel's `bg-background` → `bg-surface-elevated` (shadcn means "the app
+surface"; ours is the recessed ground, so a dialog left on it would sit
+*below* the page it floats over).
 
-The converter is one pass over an alternation, not sequential `replaceAll` —
-cascading turned `bg-primary` into `bg-surface-hover-default` (a green button
-silently grey) when a later rule matched its own output.
+It is **one pass over an alternation**, not sequential `replaceAll` —
+cascading turned `bg-primary` into `bg-surface-hover-default` when a later
+rule matched its own output.
 
-Radix supplies dialog/dropdown/popover behaviour. Hand-rolled popups are how
-arrow keys, typeahead, roving tabindex and focus-return get quietly skipped;
-the restraint thesis is about *product surface*, not re-implementing
-accessible primitives.
+Radix supplies dialog/dropdown/popover behaviour: arrow keys, typeahead,
+roving tabindex and focus-return.
 
 ### Projects
 
-`/projects` groups by client; the Projects section on a client manages one in
-the context of its rate. `screens/projects.html` shows both and the entry
-dialog.
+`screens/projects.html` covers `/projects`, the Projects section on a client,
+and the entry dialog.
 
-**"No client" is a heading, not an entity** — and never labelled "internal
-work". `client_id = null` covers genuinely internal, not-yet-assigned and
-speculative, which the app cannot tell apart; `isBillableDefault` is the
-user's own answer and must not be overwritten with a guess.
+**`isBillableDefault` is the user's own answer**; infer nothing from
+`client_id = null`, which covers genuinely internal, not-yet-assigned and
+speculative work alike.
 
 ### The home screen
 
-Unbilled, Pace and Activity, with the inbox in the dock beside them.
-`screens/home.html` specifies all four and what each row may do.
+`screens/home.html` specifies the cards and the inbox.
 
 **`unbilled_by_client` groups by (client, rate)**, and its coalesce chain must
-stay identical to `resolve_entry_rate` — a first version grouped by client
-alone and reported $1755.00 where $1462.50 was owed, which the seed
-reproduces deliberately. Get these out of step and the home screen and an
-invoice preview disagree about the same work.
+stay identical to `resolve_entry_rate`, or the home screen and an invoice
+preview disagree about the same work. The seed reproduces the case
+deliberately.
 
-### The activity strip is parked, not current
-
-**Home renders `ActivityChart`** — hours per day as stacked bars, 14 or 30
-days. `screens/home.html` specifies it.
-
-`activity-strip.tsx` is the twelve-week heatmap it replaced. Still in the tree
-with its tests passing, deliberately, for one release; nothing imports it. It
-could not show a day's smaller clients (only the dominant hue) or answer
-"three-hour day or nine-hour day", which is what bars fixed. Delete it, and
-`nav-timer.tsx` alongside, once the replacements have held — see `tasks.md`.
+`activity-strip.tsx` and `nav-timer.tsx` are **parked** — unimported, kept for
+one release. `tasks.md` carries their removal.
 
 ### Invoices
 
-The list, the preview-then-generate flow, and what each status offers are in
-`screens/invoices.html`.
+`screens/invoices.html` specifies the list and the preview-then-generate flow.
 
 **Preview and generation must agree.** Any change to what would be billed
-clears the approved preview and hides Generate; approving one set of numbers
-and generating a different set is the failure this prevents. Tested, and the
-test was verified to fail when the invalidation is removed.
+clears the approved preview and hides Generate. Tested, and the test was
+verified to fail when the invalidation is removed.
 
 **A draft is deleted; an issued invoice is voided** — that is what keeps
 numbering gapless.
 
 ### The timer bar
 
-Two arrangements — idle composes, running reads out — and both wrap to two
-rows on a phone. `screens/timer-bar.html` shows all four states and the
-runaway choice the inbox carries.
+`screens/timer-bar.html` specifies its four states.
 
 `useTimer` counts locally from `startedAt` and reconciles with `/summary`
 every 60s and on focus; `serverTime` corrects a skewed device clock.
@@ -779,7 +598,7 @@ every 60s and on focus; `serverTime` corrects a skewed device clock.
 ### Editing an entry
 
 `entry-dialog.tsx` is the only place a logged entry is created, corrected or
-deleted. `screens/projects.html` shows its three states and carries the rules.
+deleted; `screens/projects.html` specifies it.
 
 **The inputs are local wall-clock; the API is UTC.** `toInstant` corrects by
 the offset the guess lands in, so it is DST-correct at the target instant.
@@ -790,16 +609,13 @@ returns early on a draft.
 
 ### The calendar
 
-A grid of what was tracked — a week at `sm` and up, one cropped day on a
-phone, with drag-to-correct. `screens/calendar.html` shows both and carries
-the gesture rules.
+`screens/calendar.html` specifies the grid and its gestures.
 
 **Never step days or weeks with `+ 86_400_000`.** Use
 `startOfLocalDayOffset`: a week containing a DST transition is 167 or 169
 hours, so fixed-millisecond arithmetic mis-buckets the entries at its edges.
-The inverse maths — fraction of a column back to an instant — is
-`packages/core/src/grid.ts`, and every function takes the column's real span
-rather than 24 hours.
+The inverse maths is `packages/core/src/grid.ts`, and every function takes the
+column's real span rather than 24 hours.
 
 ### Forms save themselves
 
@@ -819,24 +635,14 @@ completing silently with the spinner stuck forever.
 
 ### The pre-commit hook
 
-Husky runs `lint-staged` on every commit, which runs `biome check --write` over
-the **staged files only** and re-stages what it fixed. Sub-second, because it
-never walks the repo.
+Husky runs `lint-staged`, which runs `biome check --write` over the **staged
+files only** and re-stages what it fixed. Sub-second, because it never walks
+the repo.
 
-It exists because there was nothing between the editor and CI: a formatting
-slip cost a full CI round trip and a follow-up commit, twice in one evening,
-for something Biome fixes itself in milliseconds. Lint is the *first* step in
-CI precisely so an obvious slip fails fast — but failing fast in CI is still
-two minutes slower than not failing at all.
-
-**Deliberately only formatting and lint.** `husky init` writes a `pnpm test`
-hook by default; that was replaced. A commit is not the right moment to run a
-test suite — it makes committing something you avoid, and the point of a hook
-is that you stop noticing it.
-
-It is a convenience, **not the enforcement**: `pnpm lint` in CI is still the
-gate, because a hook can be skipped with `--no-verify` and does not exist on a
-fresh clone until `pnpm install` runs `prepare`.
+**Formatting and lint only** — a commit is not the moment to run a test suite.
+It is a convenience, not the gate: `pnpm lint` in CI is, since a hook can be
+skipped with `--no-verify` and does not exist on a fresh clone until
+`pnpm install` runs `prepare`.
 
 ### End-to-end tests
 
@@ -845,58 +651,17 @@ already be running (`pnpm dev:up` plus `pnpm dev`). Deliberately outside
 `pnpm test`: a browser download must not become a prerequisite for the unit
 suites.
 
-**No retries, in CI either.** A retry was never fixing anything — it doubled
-the time before a real failure was reported. A genuine failure is a 30s
-timeout, so two failures became four: the run that prompted this took 4m40s
-against a healthy 2m33s. The trade is that a genuinely flaky test now goes red
-rather than self-healing, which is the intent at ten tests and ~31s of work.
+**No retries, in CI either.** A retry doubles the time before a real failure
+is reported — a genuine failure is a 30s timeout, so two failures become four.
+At ten tests and ~31s of work, a flaky test going red is the intent.
 
-**CI starts the stack with `-x studio,postgres-meta`.** Studio is the local
-dashboard and postgres-meta is its backend; the browser suite drives the app,
-never the dashboard. They are **2.25GB of the 4.4GB** of images — over half the
-weight, pulled and loaded for nothing. Excluding them takes the cached archive
-from 753MB to 432MB and is the only saving that applies on a cache MISS too,
-because the images are never fetched at all.
+**CI starts the stack with `-x studio,postgres-meta`** — 2.25GB of the 4.4GB
+of images, for a dashboard the browser suite never drives. `pnpm dev:up` keeps
+them; this is a CI-only narrowing.
 
-`pnpm dev:up` deliberately keeps them: Studio on `:54323` is useful while
-developing. This is a CI-only narrowing.
-
-**The images are pulled, not cached — caching them was measured and was
-slower.** Restoring cost 7s to download plus **38s for `docker load`**, against
-an 18s pull once the unused images were dropped: ~20s worse per run. `docker
-load` decodes a tarball serially on a slow runner disk, while a pull fetches
-layers in parallel and skips that entirely.
-
-**Do not reintroduce it without measuring on a runner.** `docker load` took 6s
-locally and 38s in CI. Extrapolating from a laptop is exactly what made it look
-like a win, and it survived two rounds of "optimisation" before the numbers
-came in.
-
-**`gh run rerun` cannot answer "is the cache hit now?"** A re-run replays the
-original run, keeping its creation time and its point-in-time view of the
-caches, so a cache saved after that run started reports a miss forever. This
-produced three confidently wrong measurements. Use `workflow_dispatch`, which
-the workflow now has.
-
-What remains is a real exposure: `public.ecr.aws` rate-limits anonymous pulls
-and a run hit `toomanyrequests` on four images at once, surviving on the CLI's
-retry. If that starts failing rather than retrying, the fix is a registry
-mirror or an authenticated pull — not a tarball in the Actions cache.
-
-The key is the **pinned CLI version alone** (`supabase-images-2.117.0`), read
-out of `package.json` at run time. `hashFiles('package.json')` is the tempting
-shortcut and is wrong: it hashes the whole file, so adding a devDependency or
-editing a script throws away a still-valid archive. The pin is exact — no
-caret — so the version is a precise key.
-
-So it is re-pulled **only when `supabase` is bumped**, and otherwise reused
-indefinitely. There is no `restore-keys` fallback on purpose: loading the
-previous version's images would restore tags `supabase start` then ignores
-while pulling the new ones, paying the load *and* the pull.
-
-Two things that can still cause a cold run: GitHub evicts caches **unused for
-7 days**, and evicts least-recently-used once the repo passes **10GB** (usage
-is ~2GB, of which the archive is ~446MB compressed).
+The images are pulled rather than cached. `ci.yml` carries the measurements
+and the warning against reintroducing a cache, at the step where someone would
+add one.
 
 **They sign in for real**, through Mailpit, because sign-in is the flow most
 worth covering and stubbing it would test the stub. `e2e/mailpit.ts` reads the
@@ -904,29 +669,19 @@ worth covering and stubbing it would test the stub. `e2e/mailpit.ts` reads the
 `&amp;`, and following that string literally makes GoTrue read `amp;type`
 instead of `type`, a 400 that looks exactly like an expired link.
 
-Three things learned making them non-flaky, all of which will bite again:
+Three things that will bite again:
 
 - **`auth.email.max_frequency` is `1s` and is already its minimum**, so two
   sign-ins inside the same second collide with "you can only request this
-  after 0 seconds". `requestLink()` retries around it rather than pretending
-  the limit is not there. The hourly `email_sent` cap was raised from **2** to
-  100 for local development — 2 exhausts within one test run, and then every
-  further sign-in fails in a way that reads as a broken link.
+  after 0 seconds". `requestLink()` retries around it. The hourly `email_sent`
+  cap is raised to 100 locally — the default 2 exhausts within one test run,
+  and every further sign-in then fails in a way that reads as a broken link.
 - **Next renders an always-present empty `role="alert"`** (the route
-  announcer), so an unscoped `getByRole('alert')` is ambiguous or matches
-  nothing useful. Scope to `main` or to the form.
+  announcer), so an unscoped `getByRole('alert')` is ambiguous. Scope to
+  `main` or to the form.
 - **A test that writes must restore the seed.** `resetSeed()` runs
-  `supabase db reset` in `beforeAll`, because a suite that passes once and
-  then fails on its own leftovers is the flakiness that gets a suite ignored.
-  Ordering within a file matters: the mutating test goes last.
-
-The first run found a **real bug that had never been caught**:
-`GET /invoices/:id` returns the invoice flat, like every other detail route,
-but `api.ts` declared `{ invoice, lineItems, client }` — so
-`data.invoice.status` threw and *every invoice detail page* rendered the error
-boundary. Download, send, void and delete were all unreachable. Nothing else
-could have caught it: the route tests never render, and jsdom's fetch is
-stubbed with whatever shape the test author believed.
+  `supabase db reset` in `beforeAll`. Ordering within a file matters: the
+  mutating test goes last.
 
 ### UI tests
 
@@ -941,18 +696,15 @@ every DropdownMenu test throws on open.
 `userEvent.setup()` returns the instance synchronously — it is not a promise.
 
 `test/ui/appearance.test.tsx` covers the design rules that fail **silently**:
-white-on-accent, the accent appearing on a stopped or runaway timer, an accent
-focus ring, a component hand-rolling type instead of naming a role, and a
-`type-*` that is not a real role. Each assertion was verified to fail when the
-rule is broken — a colour-pairing test that cannot fail is decoration.
+white-on-accent, the accent on a stopped or runaway timer, an accent focus
+ring, hand-rolled type instead of a role, and a `type-*` that is not a real
+role. Verify each new assertion fails when its rule is broken.
 
 **Do not add computed-style assertions.** jsdom cannot parse Tailwind 4's
 compiled output (`@layer`, `@property`, `oklch()`, nested `@media`) and
 silently drops what it does not understand, so `getComputedStyle` returns
 browser defaults — 16px, black — for every one of our utilities. Injecting the
-real `.next` CSS was tried and resolves nothing. A suite built on it would
-pass while proving nothing; real pixels need a browser.
+real `.next` CSS does not resolve it either. Real pixels need a browser.
 
-These tests assert *rules*, not class strings. `toHaveClass('type-nav')` on
-its own restates the source and fails on any edit, which is a change detector
-rather than a test.
+These tests assert *rules*, not class strings — `toHaveClass('type-nav')` on
+its own is a change detector.

@@ -1051,6 +1051,10 @@
       <li>Panels on <span class="mono">bg-primary</span> with <span class="mono">shadow-card</span> and a 10px radius, floating on <span class="mono">bg-base</span>. <strong>Never a card darker than the ground</strong> — it reads as a hole.</li>
       <li>Sections separated by space, not by rules or alternating bands. Depth comes from shadow and radius, as it does in the app.</li>
       <li>Every section is legible at 375px. The invoice image scrolls inside its own container rather than shrinking to illegibility.</li>
+      <li>Sections are full-bleed; <span class="mono">Container</span> holds the measure inside them, which is what lets a section carry <span class="mono">bg-surface-recessed</span> edge to edge.</li>
+      <li>Every grid needs an explicit <span class="mono">grid-cols-[minmax(0,1fr)]</span>, including at the single-column breakpoint — a grid item defaults to <span class="mono">min-width: auto</span>, so the timer card's intrinsic width sets the column and the page scrolls sideways on a phone.</li>
+      <li>The <span class="mono">&lt;h1&gt;</span> carries an <span class="mono">sr-only</span> sentence covering both lists, and the visible ✗ list is <span class="mono">aria-hidden</span>. <span class="mono">line-through</span> is presentational and is not announced, so a screen reader has no other way to know the second list is negated.</li>
+      <li>The invoice preview is billed from "Your name here / you@yourdomain.com". Sample rows show the shape, and a name is not part of the shape — this is a public page that also renders bank-detail labels.</li>
     </ul>
 
     <h3>Build</h3>
