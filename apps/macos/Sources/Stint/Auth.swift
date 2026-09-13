@@ -35,8 +35,17 @@ actor Auth {
         req.httpMethod = "POST"
         req.setValue(anonKey, forHTTPHeaderField: "apikey")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        /* A struct, not a dictionary. `["email": …, "create_user": "false"]`
+           is a [String: String], so the bool went over the wire quoted and
+           GoTrue answered "cannot unmarshal string into Go struct field
+           OtpParams.create_user of type bool". Swift will not mix value types
+           in a literal, and a struct is the fix rather than [String: Any]. */
+        struct Body: Encodable {
+            let email: String
+            let create_user: Bool
+        }
         req.httpBody = try JSONEncoder().encode(
-            ["email": email, "create_user": "false"]
+            Body(email: email, create_user: false)
         )
 
         let (data, response) = try await URLSession.shared.data(for: req)

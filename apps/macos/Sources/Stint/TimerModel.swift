@@ -90,7 +90,22 @@ final class TimerModel {
 
     // MARK: Lifecycle
 
+    /// Whether `start()` has already run. `MenuBarExtra(.window)` rebuilds
+    /// its content view every time the panel is opened, so the `.task` that
+    /// calls this fires on each open — and restarting the ticker and poller
+    /// each time cancelled whatever request was in flight, which surfaced as
+    /// a red "cancelled" that appeared and vanished as the panel opened.
+    private var started = false
+
     func start() {
+        guard !started else {
+            // Already running; a fresh open is still a good moment to
+            // reconcile, since the panel may have been shut for hours.
+            Task { await refresh() }
+            return
+        }
+        started = true
+
         Task {
             await tokens.setOnChange { [weak self] session in
                 Task { @MainActor in
@@ -141,6 +156,18 @@ final class TimerModel {
             // The session is gone; saying "signed out" is the useful message,
             // not "401".
             await tokens.signOut()
+        } catch let error as URLError where error.code == .cancelled {
+            /* The one that actually fires. A cancelled `URLSession` request
+               throws `URLError(.cancelled)` — NOT `CancellationError`, which
+               is what you would reach for first — and its
+               `localizedDescription` is the bare string "cancelled", which is
+               precisely what appeared in red as the panel opened.
+
+               Never the user's business either way: a cancelled request is
+               one we abandoned. */
+        } catch is CancellationError {
+            // Kept for a cancellation raised by structured concurrency itself
+            // rather than by URLSession.
         } catch {
             errorMessage = error.localizedDescription
         }
