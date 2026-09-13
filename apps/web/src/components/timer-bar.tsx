@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Pencil } from 'lucide-react';
 import { formatClock } from '@stint/core';
 import { useTimer, useTimeZone } from '@/lib/client/use-timer';
+import { useAdjustingEntry } from '@/lib/client/use-runaway';
 import { ProjectPicker } from './project-picker';
 import { EntryDialog } from './entry-dialog';
-import { Button } from '@/components/ui/button';
-import { api, type Project, type TimeEntry } from '@/lib/client/api';
+import type { Project } from '@/lib/client/api';
 
 /**
  * The timer, docked to the bottom of the app frame on every screen.
@@ -26,11 +25,15 @@ import { api, type Project, type TimeEntry } from '@/lib/client/api';
  *   page load.
  * - **Home gets its best band back.** The hero occupied 87px at the top of
  *   the page and, on a wide screen, held content only in its right ~230px.
- * - **The runaway choice has an obvious home.** Keep / Adjust / Discard now
- *   sits with the timer rather than on a card that exists on one screen.
- *
  * A running timer is still the only place the accent appears, which is what
  * makes green read as a signal rather than a brand colour.
+ *
+ * **The bar is a fixed readout and never grows.** The runaway notice used to
+ * render above these controls, which pushed the whole frame down at the exact
+ * moment something needed attention — chrome reflowing when a problem
+ * appears, the same failure the inbox was built to fix as a card that
+ * vanished on success. Keep / Adjust / Discard is an inbox row now; what
+ * stays here is the `EntryDialog` that Adjust opens on the stopped entry.
  */
 export function TimerBar({ projects }: { projects: Project[] }) {
   const timer = useTimer();
@@ -71,44 +74,12 @@ export function TimerBar({ projects }: { projects: Project[] }) {
 
   const exceeded = timer.exceedsThreshold;
 
-  /* The runaway choice: keep, adjust, or discard. `principles.md` promises
-     the app surfaces the problem and never modifies the entry itself, and
-     this is where the user does the modifying. */
+  /* The runaway CHOICE lives in the inbox now — the notice used to grow this
+     bar, which put reflowing chrome at the moment a problem appeared. What
+     stays here is the editor Adjust opens: the entry it hands over is a
+     stopped one, and this is where `EntryDialog` already is. */
   const tz = useTimeZone();
-  const queryClient = useQueryClient();
-  const [dismissed, setDismissed] = useState(false);
-  const [adjusting, setAdjusting] = useState<TimeEntry | undefined>();
-
-  // A fresh overrun deserves the notice again, even after an earlier dismiss.
-  useEffect(() => {
-    if (!exceeded) setDismissed(false);
-  }, [exceeded]);
-
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: ['summary'] });
-    queryClient.invalidateQueries({ queryKey: ['entries'] });
-    queryClient.invalidateQueries({ queryKey: ['stats'] });
-    queryClient.invalidateQueries({ queryKey: ['calendar'] });
-  };
-
-  /* Stop first, then edit. A running entry has no end yet, so there is
-     nothing to adjust until it is stopped — and stopping is what the user
-     meant by "I left it going". */
-  const adjust = useMutation({
-    mutationFn: () => api.stopTimer(),
-    onSuccess: (entry) => {
-      invalidateAll();
-      setAdjusting(entry);
-    },
-  });
-
-  const discard = useMutation({
-    mutationFn: async () => {
-      const entry = await api.stopTimer();
-      await api.deleteEntry(entry.id);
-    },
-    onSuccess: invalidateAll,
-  });
+  const [adjusting, setAdjusting] = useAdjustingEntry();
 
   return (
     <section
@@ -119,19 +90,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
       className="flex flex-none flex-col border-t border-edge-subtle bg-surface-recessed"
       aria-label="Timer"
     >
-      {/* The notice sits ABOVE the controls so the bar's own row never moves:
-          the stop button staying under the cursor matters more here than the
-          reading order, and the notice is what just appeared. */}
-      {exceeded && !dismissed ? (
-        <RunawayNotice
-          hours={Math.floor(timer.seconds / 3600)}
-          busy={adjust.isPending || discard.isPending}
-          onKeep={() => setDismissed(true)}
-          onAdjust={() => adjust.mutate()}
-          onDiscard={() => discard.mutate()}
-        />
-      ) : null}
-
       {/* Running and idle are two arrangements, not one layout with things
           hidden.
 
@@ -440,84 +398,5 @@ function StatusDot({
             : 'bg-timer-idle'
       }`}
     />
-  );
-}
-
-/**
- * Surfaced, never auto-corrected. Silently trimming a forgotten timer would
- * mean the app edited billable time without being asked.
- */
-function RunawayNotice({
-  hours,
-  onKeep,
-  onAdjust,
-  onDiscard,
-  busy,
-}: {
-  hours: number;
-  onKeep: () => void;
-  onAdjust: () => void;
-  onDiscard: () => void;
-  busy: boolean;
-}) {
-  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
-
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-edge-subtle px-5 py-2.5">
-      <p className="min-w-0 flex-1 type-support text-warning">
-        This timer has run for {hours} hours.
-      </p>
-
-      {confirmingDiscard ? (
-        <span className="flex flex-none items-center gap-2">
-          <span className="type-support text-muted">Delete this entry?</span>
-          <Button
-            type="button"
-            variant="destructive"
-            size="xs"
-            disabled={busy}
-            onClick={onDiscard}
-          >
-            Discard
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={() => setConfirmingDiscard(false)}
-          >
-            Cancel
-          </Button>
-        </span>
-      ) : (
-        <span className="flex flex-none items-center gap-1">
-          {/* Keep is first and plainest: the timer being long is often
-              correct, and the app must not imply otherwise. */}
-          <Button type="button" variant="ghost" size="xs" onClick={onKeep}>
-            Keep
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            disabled={busy}
-            onClick={onAdjust}
-          >
-            Adjust
-          </Button>
-          {/* Destructive, so it asks. Discarding a 16-hour entry you actually
-              worked is not recoverable. */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            disabled={busy}
-            onClick={() => setConfirmingDiscard(true)}
-          >
-            Discard
-          </Button>
-        </span>
-      )}
-    </div>
   );
 }

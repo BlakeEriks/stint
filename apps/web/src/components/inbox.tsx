@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatCompact } from '@stint/core';
 import {
+  AlarmClock,
   AlertTriangle,
   Check,
   Clock,
@@ -12,6 +14,8 @@ import {
   Inbox as InboxIcon,
 } from 'lucide-react';
 import { api, type InvoiceStatus, type Stats } from '@/lib/client/api';
+import { useRunaway } from '@/lib/client/use-runaway';
+import { Button } from './ui/button';
 import { money } from './invoice-bits';
 
 /**
@@ -38,6 +42,7 @@ import { money } from './invoice-bits';
 export function Inbox({ stats }: { stats: Stats }) {
   const { overdueInvoices, staleDrafts, unprojected } = stats.attention;
   const queryClient = useQueryClient();
+  const runaway = useRunaway();
 
   const setStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
@@ -49,7 +54,10 @@ export function Inbox({ stats }: { stats: Stats }) {
   });
 
   const count =
-    overdueInvoices.length + staleDrafts.length + (unprojected ? 1 : 0);
+    overdueInvoices.length +
+    staleDrafts.length +
+    (unprojected ? 1 : 0) +
+    (runaway.showing ? 1 : 0);
 
   return (
     <section aria-label="Inbox">
@@ -74,8 +82,16 @@ export function Inbox({ stats }: { stats: Stats }) {
         <p className="px-1 py-3 type-support text-subtle">Nothing needs you.</p>
       ) : (
         <ul className="flex flex-col">
-          {/* Overdue sorts first and carries danger; everything else is a
-              warning. Never the accent — that belongs to the running timer. */}
+          {/* The runaway timer sorts above the invoices: it is the only row
+              about time being recorded WRONGLY RIGHT NOW, where an overdue
+              invoice is about money that is already late and will still be
+              late in an hour. It is also the only row whose subject is still
+              changing while you read it. */}
+          {runaway.showing ? <RunawayItem runaway={runaway} /> : null}
+
+          {/* Overdue sorts first among the invoices and carries danger;
+              everything else is a warning. Never the accent — that belongs to
+              the running timer. */}
           {overdueInvoices.map((i) => (
             <Item
               key={i.invoiceId}
@@ -147,6 +163,106 @@ export function Inbox({ stats }: { stats: Stats }) {
         </ul>
       )}
     </section>
+  );
+}
+
+/**
+ * The runaway timer's row: surfaced here, decided here.
+ *
+ * **Not an `Item`.** That row is a link to a record that already exists, with
+ * icon-only actions — and neither fits. There is nowhere to navigate (the
+ * entry is still running, so it has no detail page), and Keep / Adjust /
+ * Discard cannot be icons: they are three different judgements about billable
+ * work, and an icon that means "discard 52 hours" is not one a user should
+ * have to decode.
+ *
+ * It moved out of the timer bar because the notice GREW the bar — chrome
+ * reflowing at the moment a problem appears, which is the same failure the
+ * inbox was built to fix when it was a card that vanished on success. The bar
+ * is a fixed readout; this is something that wants a decision, and the inbox
+ * is where those live.
+ */
+function RunawayItem({ runaway }: { runaway: ReturnType<typeof useRunaway> }) {
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+
+  return (
+    <li className="border-t border-edge-subtle first:border-t-0">
+      <div className="flex gap-2 px-1 py-2.5">
+        <span className="mt-0.5 flex-none">
+          <AlarmClock aria-hidden className="size-3.5 text-warning" />
+        </span>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          {/* Plain text, not a link: the entry is still running, so there is
+              no record to open yet. */}
+          <span className="truncate type-control text-primary">
+            Timer still running
+          </span>
+
+          <span className="truncate type-meta text-warning">
+            {runaway.hours} hours so far
+          </span>
+
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            {confirmingDiscard ? (
+              <>
+                <span className="type-support text-muted">Delete it?</span>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="xs"
+                  disabled={runaway.busy}
+                  onClick={runaway.discard}
+                >
+                  Discard
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => setConfirmingDiscard(false)}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                {/* Keep is first and plainest: the timer being long is often
+                    correct, and the app must not imply otherwise. */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  onClick={runaway.keep}
+                >
+                  Keep
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  disabled={runaway.busy}
+                  onClick={runaway.adjust}
+                >
+                  Adjust
+                </Button>
+                {/* Destructive, so it asks. Discarding a 16-hour entry you
+                    actually worked is not recoverable. */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  disabled={runaway.busy}
+                  onClick={() => setConfirmingDiscard(true)}
+                >
+                  Discard
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </li>
   );
 }
 

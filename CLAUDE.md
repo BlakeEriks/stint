@@ -1029,10 +1029,29 @@ because an unassigned timer is exactly when the control most needs finding.
 
 ### The runaway timer choice
 
-Past `max_timer_hours` the timer bar offers **Keep · Adjust · Discard**, which
+Past `max_timer_hours` the **inbox** offers **Keep · Adjust · Discard**, which
 is what makes "surfaces, never auto-trims" an honest promise rather than a
 refusal to help. The banner used to say "stop it and adjust the duration" with
 nowhere to do either.
+
+**It is an inbox row, not a banner in the timer bar.** As a banner it rendered
+above the controls and GREW the bar — 96px became 140px — so the frame shifted
+at the exact moment something needed attention, and the content above it
+jumped. That is the same failure the inbox was built to fix when it was a card
+that appeared and vanished: chrome must not reflow to report a problem. The
+bar is a fixed readout; the inbox is where things wanting a decision live, and
+this wants three.
+
+It sorts **above the overdue invoices**, which is the one place something
+outranks danger-toned money: a runaway timer is mis-recording billable time
+*right now*, where an overdue invoice is equally late in an hour. It is also
+the only row whose subject changes while you read it.
+
+`useRunaway` (`lib/client/use-runaway.ts`) holds the state and the mutations,
+because the row and the editor Adjust opens are now in different components —
+the inbox is in the dock, the `EntryDialog` stays with the timer bar. The
+stopped entry crosses between them through a small module-level store rather
+than a context provider wrapping the whole app to carry one occasional value.
 
 - **Keep touches nothing.** It dismisses the notice and leaves the timer
   running, because a long timer is often correct — stopping it would be the
