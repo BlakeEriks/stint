@@ -79,10 +79,10 @@ because it does, the hierarchy survives at any contrast setting and never
 competes with the accent for attention. Inverting it — cards darker than the
 ground — makes every panel read as a hole.
 
-**Focus rings are neutral.** `border-focus` is `n-700` (8.76:1), not the
-accent. A focus ring appears constantly and involuntarily, so spending the
-accent on it would drown the one signal the accent exists for. The ring still
-out-ranks the resting control border (`n-500`, 4.10:1) so focus stays
+**Focus rings are neutral.** `border-focus` is `n-700` (6.22:1 on the card),
+not the accent. A focus ring appears constantly and involuntarily, so spending
+the accent on it would drown the one signal the accent exists for. The ring
+still out-ranks the resting control border (`n-400`, 3.02:1) so focus stays
 obvious.
 
 **Preview before anything irreversible.** Invoice generation allocates a

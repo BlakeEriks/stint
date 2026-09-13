@@ -2,6 +2,7 @@
 // Asserts the contrast contract in tokens.json. Exits non-zero on failure
 // so CI rejects any token change that breaks accessibility.
 
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,6 +42,61 @@ for (const f of tokens.contract.forbidden) {
   const stillFails = ratio < 4.5;
   if (!stillFails) failed++;
   console.log(`  ${stillFails ? '✓' : '✗'} ${fmt(ratio)} : 1  ${f.reason}`);
+}
+
+/**
+ * The neutral ramps must still be what their generators produce.
+ *
+ * The contrast contract above cannot catch a hand-edited hex — a value typed
+ * straight into tokens.json passes every assertion as long as it happens to
+ * clear its ratio, and that is exactly how the dark ramp drifted to 8 of 12
+ * steps hand-pinned while still looking compliant. Ratios prove a colour is
+ * legible; only this proves it was DERIVED.
+ *
+ * So both generators are re-run and diffed against the live file. A change to
+ * the palette is a parameter edit followed by a paste, and if the two ever
+ * disagree, CI says which step.
+ */
+console.log('\n  ramps match their generators\n');
+
+const RAMPS = [
+  { group: 'neutral', script: 'derive-neutrals.mjs', args: ['--gradual'] },
+  { group: 'lightNeutral', script: 'derive-light.mjs', args: [] },
+];
+
+for (const { group, script, args } of RAMPS) {
+  const out = execFileSync(
+    process.execPath,
+    [join(root, 'src', script), ...args],
+    {
+      encoding: 'utf8',
+    },
+  );
+
+  /* The paste block the generator prints, parsed back. Reading its own output
+     rather than importing it keeps this honest about the thing a human
+     actually copies. */
+  const generated = {};
+  for (const line of out.split('\n')) {
+    const m = line.match(/^"([a-z0-9]+)":\s*\{ "hex": "(#[0-9A-F]{6})"/);
+    if (m) generated[m[1]] = m[2];
+  }
+
+  const live = tokens.primitive[group];
+  const drifted = Object.keys(live).filter(
+    (step) => generated[step] !== live[step].hex,
+  );
+
+  for (const step of drifted) {
+    console.log(
+      `  ✗ ${group}.${step}  file ${live[step].hex}  generator ${generated[step] ?? '(absent)'}`,
+    );
+  }
+  failed += drifted.length;
+  if (drifted.length === 0)
+    console.log(
+      `  ✓ ${group} — ${Object.keys(live).length} steps, all derived`,
+    );
 }
 
 console.log(

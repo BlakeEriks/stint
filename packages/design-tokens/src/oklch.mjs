@@ -43,6 +43,28 @@ export function hex(L, C, h) {
     [r, g, b].map((v) => v.toString(16).padStart(2, '0').toUpperCase()).join('')
   );
 }
+/**
+ * sRGB hex -> [L, C, h]. The exact inverse of `oklchToRgb`.
+ *
+ * Exists to AUDIT, not to author: it is how a hand-picked hex gets measured
+ * against the ladder a generator would have produced. Never round-trip a
+ * colour through here and keep the result — the source of truth is the L, C
+ * and h that generated it.
+ */
+export function rgbToOklch(hx) {
+  const [r, g, b] = [1, 3, 5].map((i) =>
+    fi(parseInt(hx.slice(i, i + 2), 16) / 255),
+  );
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
+  const A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  const h = (Math.atan2(B, A) * 180) / Math.PI;
+  return [L, Math.hypot(A, B), h < 0 ? h + 360 : h];
+}
+
 export const relLum = (hx) => {
   const [r, g, b] = [1, 3, 5].map((i) =>
     fi(parseInt(hx.slice(i, i + 2), 16) / 255),

@@ -295,28 +295,76 @@ describe('the surface ramp is ordered, and far enough apart to see', () => {
      1.16:1 — a difference that reads as trivial while the perceptual gap is
      14x larger. Using the wrong instrument is what let this ship. */
   const L = (ref: string) => {
+    /* A semantic token points at a primitive as "group.step". If one ever
+       stops doing that, fail here saying so rather than reading `undefined`
+       off the ramp and comparing NaNs — which sorts as equal and would let
+       the ordering assertion below pass on a broken reference. */
     const [group, step] = ref.split('.');
-    return TOKENS.primitive[group][step].oklch[0] as number;
+    const value = group && step ? TOKENS.primitive[group]?.[step] : undefined;
+    if (!value) throw new Error(`${ref} does not name a primitive`);
+    return value.oklch[0] as number;
   };
 
-  it('rises recessed -> base -> primary -> elevated', () => {
-    const ramp = (
-      ['bg-recessed', 'bg-base', 'bg-primary', 'bg-elevated'] as const
-    ).map((k) => L(TOKENS.semantic.dark[k]));
+  /* The four painted planes, furthest to nearest. Depth increases toward what
+     is being read — and in BOTH themes that means lightness rises, because the
+     nearest plane is the lightest either way: a near-black card on a blacker
+     frame, or a white card on a grey one.
 
-    expect(ramp).toEqual([...ramp].sort((a, b) => a - b));
-  });
+     Light is not the mirror of dark here, which is the tempting assumption and
+     is wrong. What inverts is where the ink goes (light text darkens to gain
+     contrast, dark text brightens), not which end of the frame is lightest. */
+  const PLANES = [
+    'bg-recessed',
+    'bg-base',
+    'bg-primary',
+    'bg-elevated',
+  ] as const;
 
-  it('separates a card from the ground it floats on', () => {
-    /* `bg-elevated` is the card surface — panels across the app (timer bar,
-       home cards, calendar, settings, the lists) sit on it, not on
-       `bg-primary`. Asserting the pair the components actually use, because
-       a gap proved between two tokens nobody renders proves nothing. */
-    const base = L(TOKENS.semantic.dark['bg-base']);
-    const card = L(TOKENS.semantic.dark['bg-elevated']);
+  it.each(['dark', 'light'] as const)(
+    '%s: the frame rises monotonically to the card',
+    (theme) => {
+      const ramp = PLANES.map((k) => L(TOKENS.semantic[theme][k]));
+      expect(ramp).toEqual([...ramp].sort((a, b) => a - b));
+    },
+  );
 
-    /* 0.105 today. The floor is set well below that but far above the 0.0046
-       that caused the problem, so an incremental re-flattening trips it. */
-    expect(card - base).toBeGreaterThan(0.04);
-  });
+  it.each(['dark', 'light'] as const)(
+    '%s: separates a card from the ground it floats on',
+    (theme) => {
+      /* `bg-elevated` is the card surface — panels across the app (timer bar,
+         home cards, calendar, settings, the lists) sit on it, not on
+         `bg-primary`. Asserting the pair the components actually use, because
+         a gap proved between two tokens nobody renders proves nothing. */
+      const base = L(TOKENS.semantic[theme]['bg-base']);
+      const card = L(TOKENS.semantic[theme]['bg-elevated']);
+
+      /* Dark spends 0.105 here and light 0.044 — light needs less because
+         perceptual distance compresses toward white and its shadow does more
+         of the work. Both floors sit far above the 0.0046 that caused the
+         original flatness, so an incremental re-flattening of either trips it. */
+      expect(Math.abs(card - base)).toBeGreaterThan(0.04);
+    },
+  );
+
+  it.each(['dark', 'light'] as const)(
+    '%s: hover and active are distinct from the card and from each other',
+    (theme) => {
+      /* These are painted ON a card, so they must differ from it visibly and
+         differ from each other. They were once derived on the ink curve, which
+         put them BELOW the card the moment the surfaces moved — a hover state
+         that vanished into the thing you were pointing at.
+
+         Direction is not asserted: dark lightens on hover, light darkens, and
+         both read correctly. What must hold is that all three are separable. */
+      const card = L(TOKENS.semantic[theme]['bg-elevated']);
+      const hover = L(TOKENS.semantic[theme]['bg-hover']);
+      const active = L(TOKENS.semantic[theme]['bg-active']);
+
+      expect(Math.abs(hover - card)).toBeGreaterThan(0.015);
+      expect(Math.abs(active - hover)).toBeGreaterThan(0.015);
+      /* Active is the further move of the two, in whichever direction the
+         theme goes — otherwise pressing something would undo the hover. */
+      expect(Math.abs(active - card)).toBeGreaterThan(Math.abs(hover - card));
+    },
+  );
 });

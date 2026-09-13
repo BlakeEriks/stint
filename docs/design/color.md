@@ -112,25 +112,94 @@ than a shared grey, which would read as a client of its own.
 `projects.color` still exists in the database — retiring a column is two
 releases — but nothing reads or writes it.
 
-## Contrast — three failures, each resolved
+## Contrast
 
 Validated in CI by `packages/design-tokens/src/validate.js`. A token change
-that breaks these fails the build.
+that breaks these fails the build. Every assertion is measured against the
+**card** (`bg-elevated`), because that is the surface text is read on — they
+used to name `n-25`, which was "the background" when there were two planes and
+is the content *column* now that there are four.
 
 1. **White on accent = 1.37:1** — catastrophic, and the tempting mistake since
    neon green *looks* like it wants white on it. Accent buttons use `n-0`
-   (`#090A0D`, 14.48:1), encoded as `--text-on-accent` so it cannot be gotten
+   (`#090A0D`, 13.61:1), encoded as `--text-on-accent` so it cannot be gotten
    wrong by hand. **This is the specific regression the CI check guards.**
-2. **`n-500` as muted text = 4.10:1** — fails AA. The muted floor is `n-600`
-   (6.01:1); `n-500` is demoted to borders and icons as `--text-subtle`.
-3. **Borders `n-200/300/400` fail 3:1** — *correctly*, and they are exempt.
-   WCAG 1.4.11 governs boundaries that convey state, not decorative dividers.
-   Any border that *is* a control boundary (input, focus ring, checkbox) uses
-   `--border-control` at `n-500`.
+2. **Borders `n-200/300` fail 3:1** — *correctly*, and they are exempt. WCAG
+   1.4.11 governs boundaries that convey state, not decorative dividers. Any
+   border that *is* a control boundary (input, focus ring, checkbox) uses
+   `--border-control`.
+
+### `text-subtle` is text, and is now held to AA
+
+This entry used to read "`n-500` as muted text = 4.10:1 — fails AA, so `n-500`
+is demoted to borders and icons as `--text-subtle`." **The demotion never
+happened.** The app sets body copy in `text-subtle` in over a hundred places —
+`type-support` paragraphs, `type-meta` captions, entire empty states — so the
+rule lived in this file while every screen broke it, in both themes. Light was
+measured at 4.498:1: failing, and failing by a rounding error, which is the
+version nobody catches.
+
+A rule that only prose enforces is not a rule. So the ratio moved to the thing
+that generates the colour: `INK_MINIMA` in both derivation scripts holds `500`
+to **4.5** and `600` to **5.5**, and the contract asserts both.
+
+**`600` owes more than `500` on purpose.** Holding both to 4.5 against the same
+card is a contradiction rather than a contract — the threshold pins them to the
+same place and the curve's own separation is lost. Run that way they came out
+ΔL 0.0087 apart: two names for one grey. The hierarchy is strong > primary >
+muted > subtle, so muted owes the stricter ratio.
+
+**`border-control` moved to `n-400`.** `n-500` was carrying three jobs at once
+— `text-subtle`, `border-control` and `timer-idle` — which is precisely why it
+could not be derived for any of them: as text it owes 4.5, as a control
+boundary it owes 3, and one primitive cannot owe two ratios. Splitting the
+roles is what let both be generated. `timer-idle` went to `n-400` too; both its
+uses are a small dot, which is a boundary-class mark and not text.
+
+Light had these separate already. Dark now matches it.
 
 ## Light theme
 
-Same hues, mirrored curve (`L = 0.985 − 0.840 · t^1.55`).
+**Derived, by `src/derive-light.mjs`** — the companion to `derive-neutrals.mjs`
+and, until recently, the thing light did not have. `lightNeutral` was twelve
+hand-picked hexes with no generator and **no `oklch` field on any of them**, so
+nothing could be re-derived and nothing could be measured. Auditing it (which
+is what `rgbToOklch` in `oklch.mjs` exists for) found what that always costs:
+
+- **The hue wandered 262.3° to 271.4°.** Dark holds 264 exactly. Light was not
+  one neutral; it was twelve slightly different ones, drifting most at the pale
+  end where the surfaces live.
+- **The frame narrowed toward the card** — ΔL 0.039, 0.021, 0.015 across
+  recessed → base → primary → elevated, against dark's even 0.035. The ladder
+  ran out of room because `bg-elevated` was pinned at `#FFFFFF`, which is a
+  ceiling you cannot build on. It is `lightNeutral.0` at L 0.995 now, and the
+  three frame steps are an even 0.022.
+- **`bg-hover` and `bg-recessed` were the same colour** (`lightNeutral.50`), so
+  hovering a card painted it the shade of the furthest plane.
+- **`text-subtle` measured 4.498:1.** See above.
+
+### It is not the dark script with the numbers flipped
+
+That is what "same hues, mirrored curve" claimed here for a long time, and it
+is wrong in two specific ways:
+
+- **Ink moves the other way.** Dark text is *lifted* off the curve to gain
+  contrast against its card; light text is *pushed down*. `liftFor` and
+  `dropFor` are the same search in opposite directions.
+- **The planes descend from a ceiling rather than climbing from a floor.**
+  There is headroom below white and none above it, so the card anchors the
+  light ladder where the bars anchor the dark one.
+
+What is **not** mirrored, and is the easy thing to get backwards: the frame
+rises toward the card in *both* themes. The nearest plane is the lightest
+either way — a near-black card on a blacker frame, or a white card on a grey
+one. Only the ink inverts. `appearance.test.tsx` asserts this for both themes,
+and was written asserting the opposite first.
+
+Light also carries about a third of dark's chroma (0.0025→0.0055 against
+0.0060→0.0140). The same chroma is a larger share of the remaining distance to
+white, so a cast that reads as a considered neutral at L 0.25 reads as a
+colour at L 0.95.
 
 **Chosen explicitly, in the account menu — and there is deliberately no
 "System".** Offering one would be a lie here: the light block is keyed to
@@ -156,12 +225,12 @@ Two things the toggle must keep doing:
   wait for hydration.
 
 One forced concession: **the accent drops 35 lightness points** — 0.87 → 0.52,
-`#1F7E17`, 4.96:1. Neon green's luminance is intrinsically near white's, so it
-cannot carry text contrast on a light ground *at any chroma*. It stops being
-neon and becomes signal green.
+`#1F7E17`, 5.10:1 on the card. Neon green's luminance is intrinsically near
+white's, so it cannot carry text contrast on a light ground *at any chroma*. It
+stops being neon and becomes signal green.
 
 This is not a compromise to fix later. In light mode the ground provides the
-energy. `#289A1E` (3.51:1) is available for large UI and icons where more
+energy. `#289A1E` (3.61:1) is available for large UI and icons where more
 vibrancy is wanted.
 
 ## Usage discipline
@@ -250,38 +319,67 @@ reported 1.02:1 for that pair and 1.16:1 for the fixed one, a difference that
 reads as trivial, while the perceptual gap is **14x larger**. Judge surfaces
 by OKLCH ΔL. Keep WCAG for text, which is what it measures.
 
-The three surface steps are now pinned by hand (`SURFACE_SPREAD` in
-`derive-neutrals.mjs`) rather than taken from the curve:
+The surfaces now come off their **own linear ladder** (`surfaces()`), separate
+from the ink curve entirely:
 
-| token | L | ΔL from previous |
-|---|---|---|
-| `bg-recessed` | 0.1500 | — |
-| `bg-base` | 0.1800 | 0.030 |
-| `bg-primary` | 0.2468 | 0.067 |
-| `bg-elevated` | 0.2850 | 0.038 |
+| token | dark L | ΔL | light L | ΔL |
+|---|---|---|---|---|
+| `bg-recessed` | 0.1500 | — | 0.9290 | — |
+| `bg-base` | 0.1850 | 0.035 | 0.9510 | 0.022 |
+| `bg-primary` | 0.2200 | 0.035 | 0.9730 | 0.022 |
+| `bg-elevated` | 0.2550 | 0.035 | 0.9950 | 0.022 |
+
+Even spacing, because these are the surfaces compared *to each other*. Light
+spends less per step and needs to: perceptual distance compresses toward white,
+and shadow does far more work on a pale ground than on a near-black one.
 
 Panels render on **`bg-elevated`**, so the gap that matters in practice is
-`bg-base` → `bg-elevated`: **ΔL 0.105**. `bg-primary` is the intermediate
-step, used where something sits on a card rather than on the ground.
+`bg-base` → `bg-elevated`: **ΔL 0.105** dark, 0.044 light. `bg-primary` is the
+content column between them.
+
+`bg-hover` and `bg-active` are on this ladder too, past the card. They were
+once on the ink curve, which put them *below* the card the moment the surfaces
+moved — a hover state that darkened the thing you were pointing at.
 
 Shadow and radius still carry depth — the cue is deliberately redundant, so it
 survives dichromacy and high-contrast modes — but surface colour now does its
 share instead of leaving shadow to do all of it.
 
-### What this cost
+### Two scales, because one curve cannot serve both
 
-Lifting the card to 0.2468 narrowed the gap to the `n-500` control border that
-sits on it: 3.09 → 2.88, just under the 3:1 WCAG 1.4.11 requires. `500` is
-therefore lifted +0.013 in `OFFSET`, restoring 3.05. The right trade — a
-border is one hairline, the card is most of the screen.
+This is the lesson the whole section exists for. The two halves of a neutral
+ramp want opposite things:
+
+- **Surfaces** want **even perceptual spacing**. They are compared to each
+  other, side by side, so every step should feel like the same size move. An
+  eased curve deliberately bunches them.
+- **Text and borders** want **resolution where the contrast ratios are**. They
+  are compared to the card behind them, never to each other.
+
+Forcing both through one curve is what produced the mess: **8 of 12 steps
+hand-pinned**, every painted surface an override, and the curve still governing
+only 300, 400, 850 and 975 — none of which are backgrounds. It had become a
+lookup table wearing a curve's clothes, and each new layout idea meant editing
+four hexes by hand.
+
+**Thresholds, not nudges.** The ink steps that owe a ratio are lifted (dark) or
+dropped (light) by however much it takes to clear it *against whatever card the
+surface plan produced*. They used to be fixed `OFFSET` values tuned by hand
+against one specific card — so moving the card silently stopped them meaning
+anything. Making the threshold the constant is what makes "let's try a bigger
+card step" safe: the ink follows.
+
+**A separation sweep runs after.** Pushing a step to clear a threshold can
+drive it into its neighbour, since they move toward the same card and the one
+owing less catches up. Anything closer than ΔL 0.035 is pushed the rest of the
+way — a floor, never a ceiling, so a step that earned more distance keeps it.
+Without it `500` and `600` landed 0.0087 apart: two names for one grey.
 
 **Lowering `FLOOR` was tried first and is wrong.** It drags the entire eased
 curve down, taking the text steps with it: muted fell to 4.40 (under AA) and
 the border to 2.63. Two contract assertions broken to solve a problem that
-lives in three steps. Pin the surfaces; leave the curve alone.
-
-`100` and `200` are pinned only to keep the ramp monotonic, since the spread
-lifts `50` past where the curve was putting them.
+lives in the surfaces. Give the surfaces their own scale; leave the curve
+alone.
 
 ## The frame is tiered
 

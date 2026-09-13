@@ -57,10 +57,19 @@ darker than the surface under it reads as a hole.
 
 Depth comes from surface colour **and** shadow. It previously came from shadow
 alone, because `bg-base`→`bg-primary` was ΔL 0.0046 and the app read flat as a
-result. **Judge adjacent dark surfaces by OKLCH ΔL, never by WCAG contrast** —
-WCAG is compressive near black and reported that near-invisible pair as
-1.03:1, which is what made it look acceptable. Surface steps are pinned in
-`SURFACE_SPREAD`, not taken from the curve; see `docs/design/color.md`.
+result. **Judge adjacent surfaces by OKLCH ΔL, never by WCAG contrast** — WCAG
+is compressive near black and reported that near-invisible pair as 1.03:1,
+which is what made it look acceptable.
+
+**The frame rises toward the card in both themes.** The nearest plane is the
+lightest either way: a near-black card on a blacker frame, or a white card on
+a grey one. Light is not the mirror of dark — only the ink inverts, darkening
+to gain contrast where dark ink brightens.
+
+Surfaces come off a linear ladder (`surfaces()`), ink off an eased curve
+(`inkRamp()`), because the two want opposite things: surfaces are compared to
+each other and want even spacing, ink is compared to the card behind it and
+wants resolution where the contrast ratios are. See `docs/design/color.md`.
 
 ## Conventions
 
@@ -76,9 +85,15 @@ WCAG is compressive near black and reported that near-invisible pair as
   per-project variants were rejected.
 - Design tokens are **generated** — edit `packages/design-tokens/tokens.json`,
   then `pnpm tokens`. Never edit files in `dist/`.
-- The neutral ramp itself is **derived**, not hand-picked: change the floor or
-  curve in `src/derive-neutrals.mjs` and paste its output. Never eyedrop a
-  grey. `src/oklch.mjs` holds the OKLCH↔sRGB maths with gamut mapping.
+- Both neutral ramps are **derived**, not hand-picked: change a parameter in
+  `src/derive-neutrals.mjs` (dark) or `src/derive-light.mjs` (light) and paste
+  the output. Never eyedrop a grey — `pnpm tokens:validate` re-runs both
+  generators and diffs them against `tokens.json`, so a hand-edited hex fails
+  CI naming the step. That check exists because ratios prove a colour is
+  legible and only this proves it was derived; the dark ramp had drifted to
+  8 of 12 steps hand-pinned while passing every contrast assertion.
+  `src/oklch.mjs` holds the OKLCH↔sRGB maths with gamut mapping, plus
+  `rgbToOklch` for auditing a hex you did not generate.
 - Durations are always mono + `tabular-nums`.
 - Time entry ids are **client-generated UUIDv7** (`uuidv7()` in `@stint/core`) so
   a retried insert is idempotent — the same id lands on the same row.

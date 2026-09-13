@@ -34,7 +34,7 @@
  * for everything text and borders sit on, where it was doing real work and
  * where the contract assertions live.
  */
-import { contrast, hex } from "./oklch.mjs";
+import { contrast, hex } from './oklch.mjs';
 
 /**
  * Hue 264 — the blue-grey the palette was derived for.
@@ -81,7 +81,7 @@ const HUE = 264;
  *               chroma carries the cast all the way up.
  */
 function surfaces({ floor, steps, chroma: [c0, c1] }) {
-  const names = ["bars", "rail+dock", "content", "cards", "hover", "active"];
+  const names = ['bars', 'rail+dock', 'content', 'cards', 'hover', 'active'];
   let L = floor;
   return names.map((name, i) => {
     if (i > 0) L += steps[i - 1];
@@ -155,17 +155,35 @@ const CHROMA = {
  * card the surface plan produced — which makes "make cards pop" safe to try,
  * because the ink follows.
  *
- * - `600` is the muted-text floor and owes AA, 4.5.
+ * - `500` is `text-subtle`, and it owes **AA at 4.5** — not the 3:1 it used to.
+ *   `docs/design/color.md` demoted it to "borders and icons" when it measured
+ *   4.10 against the card, and the app then set body copy in it in over a
+ *   hundred places regardless. A rule that lives only in prose is not a rule;
+ *   deriving it at a text ratio settles it in the direction the app already
+ *   went. `border-control` keeps the 3:1 boundary job under its own name.
+ * - `600` is the muted floor at **5.5**. Held to 4.5 alongside 500 it lands on
+ *   the same value — both are pushed to the same threshold against the same
+ *   card, so the curve's own separation is lost and two names describe one
+ *   grey. The hierarchy is muted stronger than subtle; the ratios say so.
  * - `700` is the focus ring, 3:1 under WCAG 1.4.11, and is additionally held
  *   above 600 so the ramp stays monotonic instead of bunching them.
- * - `500` is the control border, also 1.4.11's 3:1.
+ * - `400` is `border-control`, 1.4.11's 3:1.
+ *
+ *   It took that job **from 500**, which was carrying three at once —
+ *   `text-subtle`, `border-control` and `timer-idle` — and that is why the
+ *   step could not be derived for any of them. Holding it to AA as text
+ *   immediately made it far too bright for a control boundary; holding it to
+ *   3:1 as a boundary is what had body copy failing AA. One primitive cannot
+ *   owe two different ratios, so the roles split, and dark now matches light
+ *   where they were already separate.
  */
-const INK_MINIMA = { 500: 3, 600: 4.5, 700: 3 };
+const INK_MINIMA = { 400: 3, 500: 4.5, 600: 5.5, 700: 3 };
 
 /** Smallest lift (to 4dp) that clears `min` against `card`. */
 function liftFor(baseL, C, card, min) {
   for (let lift = 0; lift <= 0.4; lift += 0.0001) {
-    if (contrast(hex(baseL + lift, C, HUE), card) >= min) return +lift.toFixed(4);
+    if (contrast(hex(baseL + lift, C, HUE), card) >= min)
+      return +lift.toFixed(4);
   }
   return 0;
 }
@@ -179,14 +197,20 @@ function inkRamp(card) {
     return { step, L: +L.toFixed(4), C, hex: hex(L, C, HUE) };
   });
 
-  /* 700 carries the focus ring and must stay above 600, which is lifted to a
-     stricter ratio — without this the two can cross and the ramp stops being
-     monotonic. */
-  const at = (s) => rows.find((r) => r.step === s);
-  const [six, seven] = [at(600), at(700)];
-  if (seven.L <= six.L) {
-    seven.L = +(six.L + 0.035).toFixed(4);
-    seven.hex = hex(seven.L, seven.C, HUE);
+  /* Lifting steps to clear a threshold can drive one INTO the next: they climb
+     away from the same card, so the one that owes less catches up. Sweeping the
+     whole ramp handles that generally, where the old guard only watched the
+     600/700 pair it had already been bitten by.
+
+     A minimum, not a nudge — 0.035 is roughly where two greys stop reading as
+     the same colour — and a floor, never a ceiling: a step that earned more
+     distance by owing a stricter ratio keeps it. */
+  const MIN_SEPARATION = 0.035;
+  for (let i = 1; i < rows.length; i++) {
+    const gap = rows[i].L - rows[i - 1].L;
+    if (gap >= MIN_SEPARATION) continue;
+    rows[i].L = +(rows[i - 1].L + MIN_SEPARATION).toFixed(4);
+    rows[i].hex = hex(rows[i].L, rows[i].C, HUE);
   }
   return rows;
 }
@@ -199,15 +223,16 @@ function verify(ink, card) {
   console.log(`\n// ink against the card surface (${card}):`);
   let ok = true;
   for (const [label, fg, min] of [
-    ["body   (850)", at(850), 4.5],
-    ["muted  (600)", at(600), 4.5],
-    ["focus  (700)", at(700), 3],
-    ["border (500)", at(500), 3],
+    ['body   (850)', at(850), 4.5],
+    ['muted  (600)', at(600), 4.5],
+    ['subtle (500)', at(500), 4.5],
+    ['focus  (700)', at(700), 3],
+    ['border (400)', at(400), 3],
   ]) {
     const v = contrast(fg, card);
     if (v < min) ok = false;
     console.log(
-      `//   ${label} ${v.toFixed(2)} (min ${min})${v >= min ? "" : "  FAILS"}`,
+      `//   ${label} ${v.toFixed(2)} (min ${min})${v >= min ? '' : '  FAILS'}`,
     );
   }
   return ok;
@@ -217,16 +242,16 @@ function printPlan(planName) {
   const plan = SURFACE_PLANS[planName];
   const s = surfaces(plan);
 
-  console.log(`\n${"=".repeat(58)}\n${planName.toUpperCase()}\n`);
-  console.log("plane        L        C        hex       dL");
+  console.log(`\n${'='.repeat(58)}\n${planName.toUpperCase()}\n`);
+  console.log('plane        L        C        hex       dL');
   s.forEach((p, i) => {
-    const dL = i ? `+${(p.L - s[i - 1].L).toFixed(4)}` : "  -";
+    const dL = i ? `+${(p.L - s[i - 1].L).toFixed(4)}` : '  -';
     console.log(
       p.name.padEnd(12),
       p.L.toFixed(4),
-      " ",
+      ' ',
       p.C.toFixed(4),
-      " ",
+      ' ',
       p.hex,
       dL,
     );
@@ -234,20 +259,20 @@ function printPlan(planName) {
 
   const ink = inkRamp(s[3].hex);
   const ok = verify(ink, s[3].hex);
-  if (!ok) console.log("//   ^ ink needs re-tuning against this card value");
+  if (!ok) console.log('//   ^ ink needs re-tuning against this card value');
   return { surfaces: s, ink };
 }
 
 const arg = process.argv[2];
 
-if (arg === "--surfaces") {
+if (arg === '--surfaces') {
   for (const name of Object.keys(SURFACE_PLANS)) printPlan(name);
 } else {
-  const plan = arg?.replace("--", "") ?? "pop";
+  const plan = arg?.replace('--', '') ?? 'pop';
   const { surfaces: s, ink } = printPlan(plan);
 
-  console.log("\n// ---- paste into tokens.json primitive.neutral ----");
-  const SURFACE_KEYS = ["recessed", "0", "25", "50", "100", "200"];
+  console.log('\n// ---- paste into tokens.json primitive.neutral ----');
+  const SURFACE_KEYS = ['recessed', '0', '25', '50', '100', '200'];
   s.forEach((p, i) => {
     console.log(
       `"${SURFACE_KEYS[i]}":`.padEnd(12),
