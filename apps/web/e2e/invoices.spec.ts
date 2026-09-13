@@ -66,7 +66,9 @@ test.describe('invoices', () => {
     page,
   }) => {
     await page.goto('/invoices');
-    await list(page).getByRole('link', { name: /STINT-0002/ }).click();
+    await list(page)
+      .getByRole('link', { name: /STINT-0002/ })
+      .click();
     await page.waitForURL(/\/invoices\/[0-9a-f-]+$/);
 
     /* A draft holds no number yet, so deleting it costs nothing. Once issued
@@ -80,7 +82,9 @@ test.describe('invoices', () => {
     page,
   }) => {
     await page.goto('/invoices');
-    await list(page).getByRole('link', { name: /STINT-0002/ }).click();
+    await list(page)
+      .getByRole('link', { name: /STINT-0002/ })
+      .click();
     await page.waitForURL(/\/invoices\/[0-9a-f-]+$/);
 
     // With no mail, the download IS how an invoice reaches a client.
