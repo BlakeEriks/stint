@@ -9,11 +9,7 @@ import { api, type Client, type Project } from '@/lib/client/api';
 import { Page } from './page';
 import { ProjectDialog } from './project-dialog';
 import { ProjectRate } from './project-rate';
-
-const usd = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-});
+import { money } from '@/lib/client/format';
 
 /**
  * Every project, grouped by client.
@@ -85,7 +81,7 @@ export function ProjectList() {
           {groups.map((g) => (
             <section key={g.client?.id ?? '__none__'}>
               <GroupHeading client={g.client} count={g.projects.length} />
-              <Panel>
+              <Panel color={g.client?.color}>
                 <ul>
                   {g.projects.map((project) => (
                     <li key={project.id}>
@@ -122,9 +118,22 @@ export function ProjectList() {
   );
 }
 
-function Panel({ children }: { children: React.ReactNode }) {
+function Panel({
+  color,
+  children,
+}: {
+  color?: string | null;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-primary shadow-card">
+    /* The client colour runs down the whole group rather than sitting in the
+       heading as a dot: the panel is the client's work, so the edge says so
+       for every row at once. "No client" is a grouping, not a record, so it
+       gets no colour — consistent with the heading. */
+    <div
+      className="overflow-hidden rounded-xl border border-l-2 border-edge-subtle bg-surface-elevated shadow-card"
+      style={{ borderLeftColor: color ?? undefined }}
+    >
       {children}
     </div>
   );
@@ -148,14 +157,9 @@ function GroupHeading({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 px-1 pb-2">
+      {/* No dot: the panel below carries the client's colour as a left edge,
+          and the two together read as one thing stated twice. */}
       <div className="flex min-w-0 items-center gap-2">
-        {client ? (
-          <span
-            aria-hidden
-            className="size-2 flex-none rounded-[2px]"
-            style={{ background: client.color ?? 'var(--text-subtle)' }}
-          />
-        ) : null}
         <h2 className="truncate type-label text-muted">
           {client ? client.name : 'No client'}
         </h2>
@@ -170,7 +174,7 @@ function GroupHeading({
         <span className="type-support text-subtle">
           {client
             ? client.hourlyRate != null
-              ? `${usd.format(client.hourlyRate)}/h`
+              ? `${money(client.hourlyRate, client.currency ?? undefined)}/h`
               : 'no rate'
             : `${count} ${count === 1 ? 'project' : 'projects'}`}
         </span>

@@ -2,11 +2,7 @@
 
 import { resolveRate } from '@stint/core';
 import type { Client, Project } from '@/lib/client/api';
-
-const usd = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-});
+import { money } from '@/lib/client/format';
 
 /**
  * The rate a project actually bills at, and WHERE IT CAME FROM.
@@ -68,6 +64,8 @@ export function ProjectRate({
   }
 
   return (
-    <p className="mt-0.5 type-amount text-primary">{usd.format(rate)}/h</p>
+    <p className="mt-0.5 type-amount text-primary">
+      {money(rate, client?.currency ?? undefined)}/h
+    </p>
   );
 }

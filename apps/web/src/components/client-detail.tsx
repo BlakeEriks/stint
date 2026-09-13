@@ -7,11 +7,7 @@ import { Button } from '@/components/ui/button';
 import { api, ApiError } from '@/lib/client/api';
 import { Page } from './page';
 import { ClientProjects } from './client-projects';
-
-const usd = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-});
+import { money } from '@/lib/client/format';
 
 export function ClientDetail({ id }: { id: string }) {
   const router = useRouter();
@@ -102,7 +98,10 @@ export function ClientDetail({ id }: { id: string }) {
         />
         <Detail
           label="Tax rate"
-          value={client.taxRate ? `${client.taxRate}%` : null}
+          /* `!= null`, not truthiness: 0% is a real answer a US contractor
+             sets deliberately, and rendering it as "Not set" is wrong about
+             tax. The rate field above already does this correctly. */
+          value={client.taxRate != null ? `${client.taxRate}%` : null}
           hint="US services usually owe none."
           mono
         />
