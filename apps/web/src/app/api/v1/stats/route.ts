@@ -18,6 +18,30 @@ const Query = z.object({
   tz: z.string().default('UTC'),
 });
 
+/**
+ * The unprojected row, or `null` when there is nothing to report.
+ *
+ * `null` rather than a zero row, so the UI renders nothing at all — a row
+ * reading "0 entries, no project" is an inbox item reporting that there is
+ * nothing to report.
+ *
+ * `oldestId` is what lets the row open the editor on something: it is a queue
+ * of decisions rather than a link to a record, and there is no entries page
+ * for it to lead to. Oldest, because that entry is closest to being invoiced
+ * without a rate.
+ */
+function buildUnprojected(
+  rows: { id: string; duration_seconds: number | null }[],
+) {
+  const [oldest] = rows;
+  if (!oldest) return null;
+  return {
+    count: rows.length,
+    seconds: rows.reduce((a, r) => a + (r.duration_seconds ?? 0), 0),
+    oldestId: oldest.id,
+  };
+}
+
 /** A draft left this long is usually forgotten, not deliberate. */
 const STALE_DRAFT_DAYS = 7;
 
@@ -85,13 +109,17 @@ export const GET = handle(async (req: Request) => {
 
     // Unbilled work with no project cannot resolve a rate beyond the user
     // default, and usually means the timer was started in a hurry.
+    /* Oldest first, because the inbox row opens the oldest one: it is the
+       closest to being invoiced without a rate, and it matches the overdue
+       and stale rows, which both lead with the most urgent. */
     db
       .from('time_entries')
       .select('id, duration_seconds')
       .is('project_id', null)
       .is('invoice_id', null)
       .not('ended_at', 'is', null)
-      .eq('is_billable', true),
+      .eq('is_billable', true)
+      .order('started_at', { ascending: true }),
   ]);
 
   for (const r of [unbilled, settings, month, invoices, unprojected]) {
@@ -196,6 +224,7 @@ export const GET = handle(async (req: Request) => {
     .sort((a, b) => b.ageDays - a.ageDays);
 
   const unprojectedRows = (unprojected.data ?? []) as {
+    id: string;
     duration_seconds: number | null;
   }[];
 
@@ -228,16 +257,7 @@ export const GET = handle(async (req: Request) => {
     attention: {
       overdueInvoices,
       staleDrafts,
-      unprojected:
-        unprojectedRows.length === 0
-          ? null
-          : {
-              count: unprojectedRows.length,
-              seconds: unprojectedRows.reduce(
-                (a, r) => a + (r.duration_seconds ?? 0),
-                0,
-              ),
-            },
+      unprojected: buildUnprojected(unprojectedRows),
     },
   });
 });

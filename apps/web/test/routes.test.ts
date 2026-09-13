@@ -1037,6 +1037,53 @@ test('unprojected counts the entries and their seconds', async () => {
   assert.equal(res.body.attention.unprojected.seconds, 3 * 3600);
 });
 
+test('unprojected names its OLDEST entry, which is the one the inbox opens', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  // Inserted newest-first, so a query without an explicit order would very
+  // plausibly hand back the wrong one.
+  await entryFor({ id: S(49), projectId: null, hours: 1, daysAgo: 1 });
+  await entryFor({ id: S(50), projectId: null, hours: 1, daysAgo: 9 });
+  await entryFor({ id: S(51), projectId: null, hours: 1, daysAgo: 5 });
+
+  /* The row is a queue of decisions with no list to land on, so it opens the
+     editor on one entry. Oldest, because that is the one closest to being
+     invoiced without a rate — and it matches the overdue and stale rows,
+     which both lead with the most urgent. */
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.attention.unprojected.oldestId, S(50));
+});
+
+test('entries can be filtered to those with NO project', async () => {
+  const { GET: list } = await import('../src/app/api/v1/entries/route.ts');
+
+  const c = '33333333-0000-4000-8000-00000000000e';
+  const p = '33333333-0000-4000-8000-0000000000e1';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Has projects')`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await entryFor({ id: S(52), projectId: p, hours: 1 });
+  await entryFor({ id: S(53), projectId: null, hours: 1 });
+
+  /* `projectId=none`, not an absent parameter: absent already means "every
+     entry", so there was no way to ask for the ones the inbox is about. */
+  const res = await json(await list(req('/entries?projectId=none')));
+  const ids = res.body.entries.map((e: { id: string }) => e.id);
+  assert.deepEqual(ids, [S(53)], 'the projected entry is excluded');
+
+  // And the uuid form still filters the other way.
+  const byProject = await json(await list(req(`/entries?projectId=${p}`)));
+  assert.deepEqual(
+    byProject.body.entries.map((e: { id: string }) => e.id),
+    [S(52)],
+  );
+});
+
 test('unprojected ignores work that is billed, running or non-billable', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 

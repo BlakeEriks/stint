@@ -166,10 +166,18 @@ export const api = {
   stats: (tz: string) =>
     request<Stats>('GET', `/stats?tz=${encodeURIComponent(tz)}`),
 
-  entries: (params: { from?: string; to?: string } = {}) => {
+  entries: (
+    params: {
+      from?: string;
+      to?: string;
+      /** A project id, or `'none'` for entries with no project. */
+      projectId?: string | 'none';
+    } = {},
+  ) => {
     const q = new URLSearchParams();
     if (params.from) q.set('from', params.from);
     if (params.to) q.set('to', params.to);
+    if (params.projectId) q.set('projectId', params.projectId);
     const s = q.toString();
     return request<{ entries: TimeEntry[] }>(
       'GET',

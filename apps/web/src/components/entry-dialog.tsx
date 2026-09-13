@@ -82,6 +82,11 @@ export function EntryDialog({
     queryClient.invalidateQueries({ queryKey: ['entries'] });
     queryClient.invalidateQueries({ queryKey: ['summary'] });
     queryClient.invalidateQueries({ queryKey: ['calendar'] });
+    /* `stats` too: editing an entry changes the unbilled total, and giving a
+       loose entry a project is what clears its inbox row. Without this the
+       row that opened this dialog still reports the old count afterwards,
+       which reads as the save having failed. */
+    queryClient.invalidateQueries({ queryKey: ['stats'] });
   };
 
   const save = useMutation({

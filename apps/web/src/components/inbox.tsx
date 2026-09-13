@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatCompact } from '@stint/core';
 import {
   AlarmClock,
@@ -13,8 +13,15 @@ import {
   FileWarning,
   Inbox as InboxIcon,
 } from 'lucide-react';
-import { api, type InvoiceStatus, type Stats } from '@/lib/client/api';
+import {
+  api,
+  type InvoiceStatus,
+  type Stats,
+  type TimeEntry,
+} from '@/lib/client/api';
 import { useRunaway } from '@/lib/client/use-runaway';
+import { useTimeZone } from '@/lib/client/use-timer';
+import { EntryDialog } from './entry-dialog';
 import { Button } from './ui/button';
 import { money } from './invoice-bits';
 
@@ -43,6 +50,34 @@ export function Inbox({ stats }: { stats: Stats }) {
   const { overdueInvoices, staleDrafts, unprojected } = stats.attention;
   const queryClient = useQueryClient();
   const runaway = useRunaway();
+
+  /* The ENTRY being given a project, not its id. `/stats` returns counts
+     rather than rows, so opening the row fetches it through the same
+     `projectId=none` filter the row is about.
+
+     Holding the entry rather than the id is what keeps the dialog and its
+     subject one piece of state. Keyed on the id, saving emptied the query
+     that supplied the entry — the entry now has a project, so it leaves that
+     result — while the id still said "open", and the editor reopened as a
+     blank "Add entry". */
+  const [assigning, setAssigning] = useState<TimeEntry | undefined>();
+  const tz = useTimeZone();
+
+  const { mutate: openOldest } = useMutation({
+    mutationFn: async (id: string) => {
+      const { entries } = await api.entries({ projectId: 'none' });
+      return entries.find((e) => e.id === id);
+    },
+    onSuccess: (found) => setAssigning(found),
+  });
+
+  /* React Query dedupes this against Home's identical query, so on the one
+     screen that renders both there is no second request. */
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => api.projects(),
+    select: (r) => r.projects,
+  });
 
   const setStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
@@ -148,7 +183,7 @@ export function Inbox({ stats }: { stats: Stats }) {
 
           {unprojected ? (
             <Item
-              href="/"
+              onSelect={() => openOldest(unprojected.oldestId)}
               icon={<Clock aria-hidden className="size-3.5 text-warning" />}
               label={
                 unprojected.count === 1
@@ -162,6 +197,20 @@ export function Inbox({ stats }: { stats: Stats }) {
           ) : null}
         </ul>
       )}
+
+      {/* The inbox renders its own, rather than reaching for the timer bar's.
+          Each surface opens the dialog on its own subject and they never open
+          together, so a second instance is cheaper than a shared store that
+          would have to carry two unrelated flows. */}
+      <EntryDialog
+        open={assigning !== undefined}
+        onOpenChange={(o) => {
+          if (!o) setAssigning(undefined);
+        }}
+        existing={assigning}
+        projects={projects}
+        tz={tz}
+      />
     </section>
   );
 }
@@ -275,6 +324,7 @@ function RunawayItem({ runaway }: { runaway: ReturnType<typeof useRunaway> }) {
  */
 function Item({
   href,
+  onSelect,
   icon,
   label,
   detail,
@@ -282,7 +332,10 @@ function Item({
   tone,
   actions,
 }: {
-  href: string;
+  /** A record with a page of its own. Omit it and pass `onSelect` instead. */
+  href?: string;
+  /** For a row that acts in place rather than navigating. */
+  onSelect?: () => void;
   icon: React.ReactNode;
   label: string;
   detail: string;
@@ -290,20 +343,30 @@ function Item({
   tone: 'danger' | 'warning';
   actions?: React.ReactNode;
 }) {
+  /* A link OR a button, because not every row leads to a page. Overdue
+     invoices and stale drafts name a record that has one; unprojected
+     entries are a queue of decisions with no list to land on, so that row
+     opens the editor in place. Same affordance either way — the label is the
+     control, and it never wraps the action buttons below it, which would be
+     invalid HTML and put Tab inside the link. */
+  const labelClass =
+    'truncate text-left rounded-sm type-control text-primary hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
+
   return (
     <li className="border-t border-edge-subtle first:border-t-0">
       <div className="flex gap-2 px-1 py-2.5">
         <span className="mt-0.5 flex-none">{icon}</span>
 
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {/* The link is the label alone — an <a> wrapping the buttons below
-              would be invalid HTML and put Tab inside the link. */}
-          <Link
-            href={href}
-            className="truncate rounded-sm type-control text-primary hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
-          >
-            {label}
-          </Link>
+          {href ? (
+            <Link href={href} className={labelClass}>
+              {label}
+            </Link>
+          ) : (
+            <button type="button" onClick={onSelect} className={labelClass}>
+              {label}
+            </button>
+          )}
 
           <div className="flex items-baseline justify-between gap-2">
             <span

@@ -386,6 +386,12 @@ export const Stats = z.object({
       .object({
         count: z.number().int().positive(),
         seconds: z.number().int().nonnegative(),
+        /**
+         * The oldest of them, so the inbox row can open the editor on
+         * something. This row is a queue of decisions rather than a link to a
+         * record, and there is no entries list for it to lead to.
+         */
+        oldestId: uuid,
       })
       .nullable(),
   }),

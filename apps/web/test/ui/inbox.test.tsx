@@ -31,6 +31,8 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
+const ENTRY_ID = '018f0000-0000-7000-8000-0000000000e1';
+
 const overdue = {
   invoiceId: 'i1',
   invoiceNumber: 'STINT-0001',
@@ -62,7 +64,7 @@ describe('Inbox', () => {
       <Inbox
         stats={stats({
           overdueInvoices: [overdue],
-          unprojected: { count: 2, seconds: 5400 },
+          unprojected: { count: 2, seconds: 5400, oldestId: ENTRY_ID },
         })}
       />,
       { wrapper },
@@ -255,5 +257,97 @@ describe('the runaway timer choice', () => {
       (el) => Array.from((el as HTMLElement).classList ?? []),
     );
     expect(classes.filter((c) => c.includes('accent'))).toEqual([]);
+  });
+});
+
+/**
+ * The unprojected row.
+ *
+ * Unlike every other row it names no record with a page of its own — there is
+ * no entries list to land on, and the entries scatter across days, so the
+ * today-only list on Home would not reach them. It is a queue of decisions,
+ * and the editor is what makes one.
+ */
+describe('entries with no project', () => {
+  const ENTRY = {
+    id: ENTRY_ID,
+    taskName: 'Untitled',
+    projectId: null,
+    startedAt: '2026-09-11T09:00:00.000Z',
+    endedAt: '2026-09-11T10:00:00.000Z',
+    isBillable: true,
+    durationSeconds: 3600,
+  };
+
+  function serve() {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const path = String(url).replace('/api/v1', '');
+        if (path.startsWith('/entries'))
+          return new Response(JSON.stringify({ entries: [ENTRY] }), {
+            status: 200,
+          });
+        if (path.startsWith('/projects'))
+          return new Response(JSON.stringify({ projects: [] }), {
+            status: 200,
+          });
+        return new Response(JSON.stringify({}), { status: 200 });
+      }),
+    );
+  }
+
+  const withRow = () =>
+    stats({ unprojected: { count: 2, seconds: 5400, oldestId: ENTRY_ID } });
+
+  it('acts in place rather than linking somewhere', () => {
+    serve();
+    render(<Inbox stats={withRow()} />, { wrapper });
+
+    /* It used to be a Link to `/`, which is the screen you are already on —
+       the inbox's whole premise failing quietly, since the row looked
+       actionable and did nothing. */
+    const label = screen.getByText(/2 entries, no project/);
+    expect(label.tagName).toBe('BUTTON');
+    expect(screen.queryByRole('link', { name: /no project/ })).toBeNull();
+  });
+
+  it('opens the editor on the entry, so a project can be assigned', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<Inbox stats={withRow()} />, { wrapper });
+
+    await user.click(screen.getByText(/2 entries, no project/));
+
+    /* The dialog is what assigns the project, and it is the same one the
+       calendar and the entry list open — same validation, same write path. */
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Project/)).toBeInTheDocument(),
+    );
+  });
+
+  it('is never a create form — the row edits, it does not add', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<Inbox stats={withRow()} />, { wrapper });
+
+    await user.click(screen.getByText(/2 entries, no project/));
+
+    /* "Edit entry", never "Add entry". The row names existing work that needs
+       a project; offering to CREATE one from it would be the opposite of what
+       was asked, on a surface where a stray click already writes.
+
+       This is a weaker test than it looks, and the gap is recorded on
+       purpose: the bug it was written for — the dialog reopening blank after
+       a save, because the open flag was an id while the entry came from a
+       query that had just stopped returning it — is NOT reproduced here, and
+       I could not build a jsdom sequence that failed against the broken
+       version. It was found and fixed in a browser. The structural fix is
+       that `assigning` holds the ENTRY, so the two cannot disagree; if that
+       ever goes back to an id, this test will not catch it. */
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(/Edit entry/);
+    expect(screen.queryByText('Add entry')).toBeNull();
   });
 });

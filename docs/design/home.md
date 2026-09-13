@@ -79,7 +79,7 @@ by the same `GET /stats` call as the cards below.
 | Runaway timer | `exceedsThreshold` from `/summary` | Hours so far, and the keep/adjust/discard choice |
 | Overdue invoice | `status = 'sent'` and `due_date` more than **7 days** past | Client, amount, days late |
 | Stale draft | `status = 'draft'` issued more than **7 days** ago | Client, amount, age |
-| Unprojected entries | `project_id is null`, unbilled, billable, ended | Count, total hours |
+| Unprojected entries | `project_id is null`, unbilled, billable, ended | Count, total hours; opens the editor on the oldest |
 
 **It is always present, including when it is empty**, and that is a deliberate
 reversal. The card this replaced rendered only when it had rows, on the
@@ -128,6 +128,14 @@ keep/adjust/discard choice specified in `principles.md`. It is the one row
 that is dismissible, because it is the one whose condition is a judgement
 rather than a fact: a long timer is often correct. `dismissed` resets when the
 overrun ends, so Keep silences that overrun rather than the feature.
+
+**The unprojected row acts in place rather than navigating.** Every other row
+names a record with a page of its own; these entries have none — there is no
+entries list, and they scatter across days, so the today-only list on Home
+would not reach them. The row opens `EntryDialog` on the **oldest** of them,
+which is the one closest to being invoiced without a rate. Assign a project,
+save, the count drops. A backlog of twenty means twenty dialogs, which is the
+point at which a real entries view earns its place.
 
 Every other row disappears only when its condition stops holding. **Nothing is
 stored** — the rows are derived per request, so marking an invoice paid clears

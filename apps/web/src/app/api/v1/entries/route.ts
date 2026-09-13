@@ -10,7 +10,11 @@ export const dynamic = 'force-dynamic';
 const ListQuery = z.object({
   from: z.iso.datetime({ offset: true }).optional(),
   to: z.iso.datetime({ offset: true }).optional(),
-  projectId: z.uuid().optional(),
+  /* A uuid, or the literal `none` for entries with no project at all.
+     Those cannot resolve a rate beyond the user default, so they are the
+     ones the inbox surfaces — and `projectId=` (empty) cannot express it,
+     since an absent param already means "no filter". */
+  projectId: z.union([z.uuid(), z.literal('none')]).optional(),
   clientId: z.uuid().optional(),
   limit: z.coerce.number().int().min(1).max(500).default(200),
 });
@@ -28,7 +32,8 @@ export const GET = handle(async (req: Request) => {
 
   if (q.from) query = query.gte('started_at', q.from);
   if (q.to) query = query.lte('started_at', q.to);
-  if (q.projectId) query = query.eq('project_id', q.projectId);
+  if (q.projectId === 'none') query = query.is('project_id', null);
+  else if (q.projectId) query = query.eq('project_id', q.projectId);
 
   // Filtering by client means "any project belonging to that client".
   if (q.clientId) {
