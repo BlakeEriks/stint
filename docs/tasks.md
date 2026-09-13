@@ -24,6 +24,29 @@ later.
 
 ## Ready
 
+- [ ] **Delete the two parked components, or say why they stay.**
+      `activity-strip.tsx` (the twelve-week heatmap `ActivityChart` replaced)
+      and `nav-timer.tsx` (the rail readout the docked bar replaced) are both
+      unimported, both still carry passing tests, and both were kept "for one
+      release". That release has passed.
+
+      The cost is not the file, it is that a reader cannot tell a parked
+      component from a current one — CLAUDE.md described the strip as what
+      Home renders for weeks after it stopped being true. Either delete them
+      with their tests, or record the condition that would bring them back.
+
+- [ ] **CLAUDE.md carries ~660 lines of per-screen design narrative that now
+      belongs in `docs/design/screens/`.** Its own opening says rationale
+      "lives inline in the spec it belongs to" — that was unachievable before
+      the screen docs existed, and is achievable now.
+
+      Timer bar, calendar, invoicing UI, entry dialog, projects and settings
+      each want a screen doc; Layout belongs in `_shell.html`. Process
+      sections (tests, the pre-commit hook, Components) stay. The file was 50
+      lines three days ago and has grown on 72 of 181 commits without ever
+      shrinking, so the fix is moving content to where it is read alongside
+      what it constrains, not trimming sentences.
+
 - [ ] **The mark still ships a green `S`, and the menu bar still draws a
       letterform.** `docs/design/brand.html` is the spec: `|Stint|` in one
       colour, bounds included, and a status item that is a pip plus the time.
