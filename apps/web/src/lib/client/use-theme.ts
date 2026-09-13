@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
  * Offering one would be a lie in this app. The palette is **dark-first**: the
  * token file keys its light block to an explicit `[data-theme="light"]`, so a
  * light OS preference does *not* flip the surfaces (see the comment above the
- * media query in `dist/tokens.css`, and `docs/design/color.md`). A "System"
+ * media query in `dist/tokens.css`, and `docs/design/deriving-colour.md`). A "System"
  * option would therefore resolve to dark for everyone, including the viewer
  * whose OS is set to light — a control that appears to do something and does
  * nothing.

@@ -10,7 +10,7 @@
  * carries family, size, weight, tracking, case and tabular-nums together.
  *
  * Why this has to be enforced rather than documented: the scale was already
- * documented in `docs/design/typography.md` and the app still accumulated
+ * documented in `docs/design/brand.html` and the app still accumulated
  * twelve arbitrary font sizes across twenty-five components — including two
  * that differed by 0.5px for no reason, and a nav that used the label
  * tracking at 0.14em while the scale said 0.16em. Nothing failed, because

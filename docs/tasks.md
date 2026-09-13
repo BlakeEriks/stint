@@ -24,6 +24,41 @@ later.
 
 ## Ready
 
+- [ ] **The mark still ships a green `S`, and the menu bar still draws a
+      letterform.** `docs/design/brand.html` is the spec: `|Stint|` in one
+      colour, bounds included, and a status item that is a pip plus the time.
+      Three places in `apps/macos` disagree with it.
+
+      `Mark.swift`'s `markImage(accent:)` tints the `S` with the accent when a
+      timer runs, and `StintApp.swift` passes it — so the status item is a
+      letterform whose colour carries state. Replace it with the pip; the
+      strip in `menubar.html` is drawn. `Lockup` defaults `accent:` to
+      `accentDefault` and lifts its `S` while receding the rest to 55%, which
+      is the panel header and the sign-in view — both should be one colour at
+      full strength.
+
+      Once the pip ships, `Lockup`'s `expanded:` contraction animation and
+      `markImage` itself are likely dead: nothing contracts to `|S|` any more.
+      Check before deleting.
+
+      Green on the mark is a second meaning for the accent, which already
+      means the running timer — and on the menu bar the pip is now carrying
+      exactly that signal, so the letterform would be saying it twice.
+
+- [ ] **The mark's geometry is hardcoded in two components.**
+      `tokens.json` now carries `brand.mark` and generates
+      `--mark-bound-*` into `tokens.css` plus `Tokens.Mark` into
+      `Tokens.swift`, but neither consumer reads them yet.
+
+      `apps/web/src/components/wordmark.tsx` has the ratios inline in its
+      `Bound()` class string (`h-[1.05em] w-[0.09em] mx-[0.18em]`); the
+      generated custom properties should replace them. `Mark.swift` computes
+      its own from the icon box (`side * 0.085`, `side * 0.80`) and so draws a
+      different mark — that divergence is what the token exists to end.
+
+      Note `check:type` rejects arbitrary values, so the web fix wants an
+      `@utility` or plain CSS rather than more bracket syntax.
+
 - [ ] **Two route handlers have no tests.** `PATCH`/`DELETE` on
       `/projects/:id` and `/payment-profiles/:id` are the only handlers with
       no integration coverage — 18 of 20 are tested. Both are mutating, and
@@ -103,7 +138,7 @@ later.
       engagement is the common cause and archiving is the useful action, so
       the row links to the client.
 
-      It was in `home.md`'s row table for a long time without being built,
+      It was in `screens/home.html`'s row table for a long time without being built,
       which made the spec claim a row the app did not have. The design lives
       here now and moves into that table when it ships.
 - [ ] **Revenue pace.** A revenue target is accepted and stored but pace
@@ -192,7 +227,7 @@ later.
       download) and the settings forms do not.
 - [ ] **Light mode.** The palette already exists: `tokens.css` emits the full
       light ramp under `[data-theme="light"]`, the mirrored curve
-      (`L = 0.985 - 0.840 * t^1.55`) is derived, and `docs/design/color.md`
+      (`L = 0.985 - 0.840 * t^1.55`) is derived, and `docs/design/deriving-colour.md`
       records the one forced concession — the accent drops 35 lightness points
       to `#1F7E17` (4.96:1), because neon green's luminance is intrinsically
       near white's and cannot carry text contrast on a light ground at any
@@ -213,7 +248,7 @@ later.
         **both** — `--text-on-accent` inverts between themes, and the
         `text-on-danger` token exists precisely because near-black is 5.39:1
         on dark danger but 3.25:1 on light.
-      - The shadows differ too (`docs/design/color.md`: light uses
+      - The shadows differ too (`docs/design/deriving-colour.md`: light uses
         `rgba(16,18,26,0.06-0.10)`), and "content floats, chrome recedes"
         has to survive the inversion — cards must not read as holes.
 

@@ -88,4 +88,14 @@ public enum Tokens {
         Color(hex: "#A390DC"),
         Color(hex: "#C984BA"),
     ]
+
+    /// The mark's geometry, as multiples of its own font size. Mark.swift
+    /// reads these rather than carrying its own numbers, so |Stint| is one
+    /// drawing across the web app and this one.
+    public enum Mark {
+        public static let boundWidth: CGFloat = 0.09
+        public static let boundHeight: CGFloat = 1.05
+        public static let boundGap: CGFloat = 0.18
+        public static let boundRadius: CGFloat = 999
+    }
 }

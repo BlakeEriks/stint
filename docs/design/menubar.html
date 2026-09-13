@@ -51,7 +51,10 @@
 
   h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
   h2 { margin: 0; font-size: 1.0625rem; font-weight: 500; color: var(--text-strong); }
-  .standfirst { margin: 0 0 2.5rem; max-width: 64ch; color: var(--text-muted); }
+  /* No narrower cap than the page: at 64ch the text ended ~500px short of
+     the state rows and section rules beside it, which reads as text pinned
+     to the left rather than as a column. */
+  .standfirst { margin: 0 0 2.5rem; color: var(--text-muted); }
 
   .eyebrow {
     font-family: var(--mono); font-size: 11px; font-weight: 500;
@@ -264,7 +267,7 @@
   td strong { color: var(--text-primary); font-weight: 500; }
   .rec { color: var(--accent); font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
 
-  .notes ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .6rem; max-width: 64ch; }
+  .notes ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .6rem; }
   .notes li { position: relative; padding-left: 1.1rem; font-size: 14px; color: var(--text-muted); }
   .notes li::before {
     content: ''; position: absolute; left: 0; top: .62em;
@@ -303,7 +306,7 @@
     <div class="sec-head"><span class="eyebrow">What is wrong with the current build</span></div>
 
     <div class="notes" style="margin-bottom:2.5rem;">
-      <p style="margin:0 0 .9rem;max-width:64ch;color:var(--text-muted);font-size:14px;">
+      <p style="margin:0 0 .9rem;color:var(--text-muted);font-size:14px;">
         Findings from the shipped panel, worst first. The first three are
         defects — measured, not preferences. Full reasoning in
         <code>menubar.md</code>.

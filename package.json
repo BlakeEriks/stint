@@ -9,6 +9,7 @@
   "scripts": {
     "tokens": "pnpm --filter @stint/design-tokens build",
     "tokens:validate": "pnpm --filter @stint/design-tokens validate",
+    "design": "node scripts/design-server.mjs",
     "lint": "biome check .",
     "lint:fix": "biome check . --write",
     "dev:up": "supabase start",

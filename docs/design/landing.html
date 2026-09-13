@@ -48,7 +48,12 @@
     --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
     --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-    --measure: 62ch;
+    /* The measure is the DOC's width, not a narrower cap inside it. At 62ch
+       every paragraph ended ~300px short of the panels and section rules
+       beside it, which reads as text pinned to the left rather than as a
+       column. Nested panels (.copy, the rails) set their own narrower
+       measure where the column really is narrow. */
+    --measure: 100%;
     --gutter: clamp(1.25rem, 4vw, 3rem);
   }
 
@@ -381,7 +386,7 @@
     color: var(--text-strong);
     line-height: 1.25;
   }
-  .copy .b { color: var(--text-body); max-width: var(--measure); }
+  .copy .b { color: var(--text-body); max-width: 62ch; }
   .copy .b:last-child { margin-bottom: 0; }
 
   /* ---------- Rules list ---------- */

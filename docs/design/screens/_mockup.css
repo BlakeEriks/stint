@@ -1,0 +1,259 @@
+/* GENERATED from tokens.json — do not edit by hand. Run `pnpm tokens`. */
+/* The palette for docs/design mockups. Token names are the RAW ones
+   (--bg-primary, --text-muted, --border-subtle), not the Tailwind-stripped
+   utilities the app uses — a mockup writes plain CSS, so there is no prefix
+   collision to work around. */
+
+:root {
+    --bg-recessed: #0A0B0E;
+    --bg-base: #111316;
+    --bg-primary: #181B1F;
+    --bg-elevated: #202328;
+    --bg-hover: #272A30;
+    --bg-active: #2F333A;
+    --text-strong: #F9FAFD;
+    --text-primary: #CACED7;
+    --text-muted: #9299A6;
+    --text-subtle: #838A97;
+    --text-on-accent: #111316;
+    --text-on-danger: #111316;
+    --overlay: #05060899;
+    --border-subtle: #2F333A;
+    --border-default: #393E48;
+    --border-control: #666D79;
+    --border-focus: #9DA3AF;
+    --accent-default: #52FC43;
+    --accent-hover: #8EFD83;
+    --accent-active: #3FE231;
+    --accent-subtle: #0E4B09;
+    --accent-muted: #1B3518;
+    --timer-running: #52FC43;
+    --timer-idle: #666D79;
+    --timer-warning: #DBA929;
+    --success: #2CCCEB;
+    --warning: #DBA929;
+    --danger: #E9504D;
+    --info: #6D7FAE;
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.40), 0 2px 10px rgba(0,0,0,0.34);
+    --shadow-float: 0 2px 4px rgba(0,0,0,0.44), 0 8px 24px rgba(0,0,0,0.40);
+
+    --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --mark-bound-width: 0.09em;
+    --mark-bound-height: 1.05em;
+    --mark-bound-gap: 0.18em;
+    --mark-bound-radius: 999px;
+
+    --proj-1: #DA8188;
+    --proj-2: #D38B59;
+    --proj-3: #B49D46;
+    --proj-4: #42B59A;
+    --proj-5: #35AFC9;
+    --proj-6: #6EA1E2;
+    --proj-7: #A390DC;
+    --proj-8: #C984BA;
+}
+
+[data-theme="light"] {
+    --bg-recessed: #E6E7EA;
+    --bg-base: #EDEFF1;
+    --bg-primary: #F5F6F8;
+    --bg-elevated: #FDFDFF;
+    --bg-hover: #DADCDF;
+    --bg-active: #CBCDD1;
+    --text-strong: #090A0B;
+    --text-primary: #292B30;
+    --text-muted: #646870;
+    --text-subtle: #71757F;
+    --text-on-accent: #FFFFFF;
+    --text-on-danger: #FFFFFF;
+    --overlay: #1B1E2799;
+    --border-subtle: #CBCDD1;
+    --border-default: #BFC3CB;
+    --border-control: #8F949C;
+    --border-focus: #52565D;
+    --accent-default: #1F7E17;
+    --accent-hover: #196A12;
+    --accent-active: #165E10;
+    --accent-subtle: #289A1E;
+    --accent-muted: #E8F7E4;
+    --timer-running: #1F7E17;
+    --timer-idle: #8F949C;
+    --timer-warning: #A66A00;
+    --success: #0E7490;
+    --warning: #A66A00;
+    --danger: #C21725;
+    --info: #4A5A85;
+
+    --shadow-card: 0 1px 2px rgba(16,18,26,0.06), 0 2px 8px rgba(16,18,26,0.07);
+    --shadow-float: 0 2px 4px rgba(16,18,26,0.08), 0 8px 24px rgba(16,18,26,0.10);
+}
+
+/* ── The type scale ────────────────────────────────────────────────
+   One class per role, same as the app's @utility set. A mockup names a
+   role (type-amount) and never assembles one, so a doc cannot invent a
+   size the product does not have. */
+.type-timer {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 30px; }
+    font-variant-numeric: tabular-nums;
+}
+
+.type-title {
+    font-family: var(--font-sans);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+.type-hero {
+    font-family: var(--font-sans);
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    @media (width >= 40rem) { font-size: 44px; }
+}
+
+.type-figure {
+    font-family: var(--font-mono);
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 36px; }
+    font-variant-numeric: tabular-nums;
+}
+
+.type-lede {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+    @media (width >= 40rem) { font-size: 17px; }
+}
+
+.type-display {
+    font-family: var(--font-sans);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 28px; }
+}
+
+.type-section {
+    font-family: var(--font-sans);
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.type-heading {
+    font-family: var(--font-sans);
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.type-body {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+}
+
+.type-control {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.type-support {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.type-amount {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-amount-hero {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-duration {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-meta {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-wordmark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.type-nav {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.type-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.type-badge {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ── The mark ──────────────────────────────────────────────────────
+   `|Stint|` — one colour, bounds included, inherited via currentColor.
+   Set a font-size on .mark and everything scales from it. */
+.mark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+.mark::before,
+.mark::after {
+    content: '';
+    display: inline-block;
+    flex: none;
+    width: var(--mark-bound-width);
+    height: var(--mark-bound-height);
+    margin: 0 var(--mark-bound-gap);
+    border-radius: var(--mark-bound-radius);
+    background: currentColor;
+}

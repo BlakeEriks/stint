@@ -141,7 +141,7 @@ const CHROMA = {
  * What each ink step owes the card behind it.
  *
  * **`500` owes 4.5, not 3, and that is the substantive change here.** In dark
- * it is a 3:1 token — `docs/design/color.md` demotes it to "borders and icons"
+ * it is a 3:1 token — `docs/design/deriving-colour.md` demotes it to "borders and icons"
  * because `n-500` on the card measured 4.10 and failed AA. The app then used
  * `text-subtle` as body text in over a hundred places anyway, so the rule
  * existed only in prose while every screen quietly broke it.

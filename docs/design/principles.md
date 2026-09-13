@@ -19,149 +19,63 @@ trustworthy.
 auto-corrected. Rates are frozen onto invoices at generation. In a billing
 system, silent modification is a trust failure, and trust is the whole product.
 
-**Where a gesture writes, it is made deliberate rather than removed.** A block
-on the calendar can be dragged to correct its times — the place you notice a
-mistake should be the place you fix it — and `packages/core/src/grid.ts` is
-what keeps that safe: drags **snap to 15 minutes**, so a pointer landing on
-whatever minute a pixel happens to be cannot bill 09:07–10:52 and call it
-precision. A drag commits only past a 4px threshold, because the block is also
-the control that opens the editor and every click would otherwise be a write.
-A move preserves the original duration exactly rather than re-deriving it, so
-a block dragged across a DST boundary is still the same billable hours.
-
-> The most common way a time tracker produces a wrong invoice: you forget to
-> stop at 5pm and come back at 9am to a 16-hour entry. Past
-> `max_timer_hours` (default 8, configurable) clients render the timer in
-> `--timer-warning` — computed locally, no server involvement — and
-> `GET /timer/current` and `GET /summary` both return `exceedsThreshold`. The
-> user chooses: keep, adjust, or discard.
->
-> Auto-trimming would mean the billing system silently changed a record of
-> billable work. Even when the guess is right, the user cannot tell what
-> happened. Surfacing costs one prompt; silent correction costs confidence in
-> every number the app reports.
->
-> macOS idle detection was considered and deferred — it is Mac-only and needs
-> a background watcher, while the threshold rule works identically on all
-> three platforms with one implementation. A push notification at the
-> threshold is deferred too (needs APNs/FCM).
+Past `max_timer_hours` (default 8) the inbox offers **keep, adjust or
+discard**. Auto-trimming would mean the billing system silently edited a record
+of billable work — and even when the guess is right, the user cannot tell what
+happened. Surfacing costs one prompt; silent correction costs confidence in
+every number the app reports.
 
 **Server owns truth; clients own responsiveness.** The timer keeps ticking
 locally with no network, but the server decides whether it is running. Clients
 never guess at global state.
 
-**One accent, one meaning.** Green means *the live, primary thing here* — and
-inside the app, that is time accruing. It never means success, never decorates
-navigation, never marks a secondary button.
-
-**The constraint is on meanings, not on instances.** Green may appear as many
-times as that one idea genuinely occurs; what it may not do is mean several
-different things at once. The test: could a user say in one short phrase what
-green means on this screen, and would it be true of every green thing in view?
-If it takes two phrases, one of them loses the accent.
-
-This is a deliberate loosening of an earlier rule that allowed *at most one
-accent element in view*. That was written against Toggl's everywhere-magenta
-but misdiagnosed it — Toggl's failure is that magenta marks nav, buttons,
-links and brand simultaneously, not that there is a lot of it. Spotify puts
-green on play, shuffle, saved, download and now-playing at once and it stays
-legible, because all of them mean *yours / active*.
-
-In practice the app is still sparse, because there is usually only one live
-primary thing on a screen. That is an outcome of the rule, not a quota it
-enforces.
-
-What the rule forbids is green meaning several different things at once — not
-the same fact appearing twice.
-
-**An exception was once carved out of that and it was wrong.** The timer used
-to render as a Home hero *and* a nav-rail readout, argued as fine because
-"both marks are the same fact, so they reinforce". On a wide screen it was two
-identical green clocks a few inches apart and read as a duplicate. The rule
-was right; the exception was a rationalisation. There is now one timer, docked
-to the frame — see `nav-timer.tsx`, kept only as the record of that.
-
-**Content floats; chrome recedes, in four planes.** Depth increases toward
-what is being read: header and timer bar on `bg-recessed`, nav rail and dock
-on `bg-base`, the content column on `bg-primary`, cards on `bg-elevated` with
-`shadow-card` and a 10px radius. Inverting it — a card darker than the surface
-under it — makes every panel read as a hole.
-
-Depth comes from surface colour **and** shadow. This section used to say it
-could not come from colour, on the grounds that `bg-base`→`bg-primary` was
-only 1.03:1. That was a misreading of the instrument: **WCAG is compressive
-near black** and reports a near-invisible pair as 1.03:1 whether it is
-invisible or not. Judge adjacent dark surfaces by OKLCH ΔL instead — the four
-planes are an even ΔL 0.035 apart, and the app read flat until they were.
-`docs/design/color.md` carries the full correction.
-
-**Focus rings are neutral.** `border-focus` is `n-700` (6.22:1 on the card),
-not the accent. A focus ring appears constantly and involuntarily, so spending
-the accent on it would drown the one signal the accent exists for. The ring
-still out-ranks the resting control border (`n-400`, 3.02:1) so focus stays
-obvious.
+**Where a gesture writes, it is made deliberate rather than removed.** A
+calendar block can be dragged to correct its times — the place you notice a
+mistake should be the place you fix it. Drags snap to 15 minutes, commit only
+past a 4px threshold, and a move preserves the original duration exactly rather
+than re-deriving it. See `packages/core/src/grid.ts`.
 
 **Preview before anything irreversible.** Invoice generation allocates a
 gapless number and locks entries. It is always preceded by a preview with no
 side effects.
-
-## The home screen
-
-The cards first, today's entries beneath them. Calendar and invoicing are
-separate sections in the rail.
-
-**The timer is not on this screen — it is docked to the frame**, so it can be
-started from anywhere rather than only from here, and it is seen on every
-route rather than 50× a day on one. Money *at risk* is not here either; it
-moved to the inbox in the dock. What remains on Home is the money and the
-texture.
-
-Between the two sits a small set of stat cards, specified in
-`docs/design/home.md`. Two rules govern them at this altitude:
-
-**Stats are denominated in money.** This app resolves rates and owns an
-invoice table, so it can answer *how much is unbilled* — the question a
-contractor cannot answer from memory, and the one a time tracker that does not
-know rates structurally cannot ask. Hours are the raw material; dollars are
-what the user thinks in.
 
 **A card ships only if it carries a number the user cannot compute in their
 head, or a row they can click to act on.** "Interesting" is not the bar.
 Decoration on the home screen is the mechanism by which this app becomes the
 one it was built against.
 
-## Onboarding
+**Stats are denominated in money.** This app resolves rates and owns an invoice
+table, so it can answer *how much is unbilled* — the question a contractor
+cannot answer from memory, and one a tracker that does not know rates
+structurally cannot ask. Hours are the raw material; dollars are what the user
+thinks in.
 
-**A new account is never given a running timer.** Starting one on the user's
-behalf — an "Stint Onboarding" entry to walk them through assigning a project
-— was proposed and rejected. It inverts the rule that the app never silently
-modifies user data, and does something worse than modifying: it *creates* a
-record of work that never happened.
+Visual rules — the accent, the four planes, focus rings, type — live in
+`brand.html`, where they can be seen rather than pictured.
 
-Four specific failures, each of which is the app breaking its own promise on
-the user's first screen:
+## Refusals
 
-- It accrues time nobody worked, and goes on accruing until noticed.
-- It consumes the timer invariant. One running timer per user is enforced by
-  an index, so the first real thing the user tries — "let me track this call"
-  — gets a **409**. The tour is occupying the one slot the product exists to
-  provide.
-- Close the tab and come back tomorrow and it is a 14-hour entry tripping the
-  runaway-timer banner, so the first encounter with the warning system is a
-  false positive the app manufactured.
-- It is in the billing pipeline. A fabricated entry is one `Generate` away
-  from a preview; it would not survive to an invoice, but "why is Stint
-  Onboarding on my unbilled list" is a trust question on day one.
+Things proposed, decided against, and likely to come back. Everything else that
+was rejected is simply not here.
 
-The real problem it was reaching for is genuine — an empty timer screen
-teaches nothing. The answer is to **show the shape without writing the row**:
-a non-interactive example entry in the empty list, visibly an example, gone
-the moment a real entry exists. Same teaching, no fabricated record.
+**No email sending.** Invoices are downloaded and sent by the user from their
+own address. Mail from a shared application domain gets filtered on the way to
+a client and the sender only finds out when the client says it never arrived.
+Sending it themselves uses their own domain's reputation and leaves a copy in
+their Sent folder.
 
-**No multi-step walkthrough either.** A tour is a surface that needs
-maintaining, breaks whenever the UI moves, and is scope of exactly the kind
-the thesis refuses. Contextual empty states do the same work and cannot drift
-out of sync with the screen they describe, because they *are* the screen.
+**No multi-step onboarding walkthrough.** A tour is a surface that needs
+maintaining, breaks whenever the UI moves, and is scope of exactly the kind the
+thesis refuses. Contextual empty states do the same work and cannot drift out
+of sync with the screen they describe, because they *are* the screen.
+
+**No snooze on the inbox.** Hiding a row that is still true makes the inbox
+something dismissed reflexively rather than read, and the user most likely to
+snooze everything is the one it exists for. Grace periods keep it quiet enough
+that nothing needs dismissing.
+
+**No per-project colours.** Colour answers *whose work is this?*; a project is
+a subdivision of a client already identified by it. See `brand.html`.
 
 ## Platform scope
 

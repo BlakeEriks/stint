@@ -1,0 +1,344 @@
+<meta charset="utf-8">
+<title>Stint App Shell</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_mockup.css">
+<style>
+  /* ═══════════════════════════════════════════════════════════════════
+     THE APP SHELL — the reference copy.
+
+     A screen doc copies this file, keeps the frame, and replaces only what
+     is inside `.content`. There is no include mechanism: these are static
+     files opened from disk, and a build step for mockups is the wrong trade.
+
+     Every colour, size and the mark come from _mockup.css, which
+     `pnpm tokens` generates. Nothing here hardcodes a hex.
+
+     The frame is four planes, depth increasing toward what is being read:
+       header + timer bar   bg-recessed   (furthest)
+       rail + dock          bg-base
+       content column       bg-primary
+       cards                bg-elevated + shadow-card   (nearest)
+     Never invert this — a card darker than its surface reads as a hole.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg-recessed);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── The frame ──────────────────────────────────────────────────
+     A column: header, then the rail+content row, then the timer bar.
+     Fixed height with the content column scrolling inside itself, which is
+     what keeps the rail put without position:fixed. */
+  .app {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header (plane 1) ───────────────────────────────────────────
+     The wordmark is a link to Home; the account menu sits opposite. */
+  .header {
+    flex: none;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 8px 16px;
+    background: var(--bg-recessed);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .header .mark { font-size: 24px; color: var(--text-strong); padding: 4px 8px; }
+
+  .account {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 6px;
+    font-size: 13px; color: var(--text-muted);
+    max-width: 260px;
+  }
+  .account .avatar {
+    width: 22px; height: 22px; border-radius: 50%; flex: none;
+    background: var(--bg-hover); border: 1px solid var(--border-default);
+  }
+  .account .email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── The middle row: rail | content | dock ──────────────────────
+     The rail is a vertical rail at lg and up, a horizontal strip below.
+     This file shows the lg+ arrangement; a phone doc overrides `.rail`. */
+  .middle { display: flex; flex: 1; min-height: 0; }
+
+  /* ── Rail (plane 2) ─────────────────────────────────────────────
+     Sections and nothing else — the wordmark is in the header, the timer
+     in the dock. 208px fixed. Settings is deliberately absent: the rail is
+     places you go, and configuration lives in the account menu. */
+  .rail {
+    flex: none; width: 208px;
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 16px 12px;
+    background: var(--bg-base);
+    border-right: 1px solid var(--border-subtle);
+  }
+  .rail a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 6px;
+    text-decoration: none;
+    color: var(--text-muted);
+  }
+  .rail a .ico { width: 16px; height: 16px; flex: none; opacity: .85; }
+  /* The active section lifts to the CONTENT plane and takes the card
+     shadow, so the rail reads as a tab strip into the column beside it. */
+  .rail a[aria-current="page"] {
+    background: var(--bg-primary);
+    color: var(--text-strong);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* ── Content column (plane 3) ───────────────────────────────────
+     The only thing that scrolls. `Page` owns the measure: max-width 48rem
+     normally, 72rem for a screen that is a grid rather than a column. */
+  /* Below xl the dock is a BAND BENEATH the content and the two scroll
+     together, so the dock scrolls with the page it summarises. At xl there
+     is finally room for a third column and it becomes one, scrolling on its
+     own. Mirror of the real frame — do not make the dock a column at every
+     width, which starves the measure at 1024. */
+  .scroller {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+  .content {
+    flex: 1; min-width: 0;
+    background: var(--bg-primary);
+  }
+  .measure { max-width: 48rem; margin: 0 auto; padding: 40px 32px 40px; }
+  .measure.wide { max-width: 72rem; }
+
+  @media (width >= 80rem) {
+    .scroller { flex-direction: row; overflow: hidden; }
+    .content { overflow-y: auto; }
+  }
+
+  /* ── Dock (plane 2, beside the content) ─────────────────────────
+     The inbox lives here and is ALWAYS present — it is furniture, so
+     "Nothing needs you" is information rather than noise. A region that
+     appears and vanishes reflows the page at the moment you fix something. */
+  .dock {
+    flex: none;
+    padding: 16px;
+    background: var(--bg-base);
+    border-top: 1px solid var(--border-subtle);
+  }
+  @media (width >= 80rem) {
+    .dock {
+      width: 320px;
+      border-top: 0;
+      border-left: 1px solid var(--border-subtle);
+      overflow-y: auto;
+    }
+  }
+
+  /* ── Timer bar (plane 1) ────────────────────────────────────────
+     Two arrangements, not one layout with pieces hidden: idle is a
+     composing row where the field takes the space; running is a centred
+     readout of four small objects. */
+  .timerbar {
+    flex: none;
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg-recessed);
+    border-top: 1px solid var(--border-subtle);
+  }
+  .timerbar.running { justify-content: center; }
+
+  .tdot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--accent-default); }
+  .tdot.idle { background: var(--timer-idle); }
+
+  .task-field {
+    flex: 1; min-width: 0;
+    padding: 9px 12px;
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 14px;
+  }
+  .task-field::placeholder { color: var(--text-subtle); }
+
+  .task-name { font-size: 14px; color: var(--text-strong); }
+
+  /* The project picker is a TAG: bordered with a chevron, dashed when
+     empty. Borderless it read as static text with nothing inviting a click. */
+  .tag {
+    display: inline-flex; align-items: center; gap: 6px; flex: none;
+    padding: 4px 9px;
+    border: 1px solid var(--border-default);
+    border-radius: 999px;
+    font-size: 12.5px; color: var(--text-primary);
+    background: transparent;
+  }
+  .tag.empty { border-style: dashed; color: var(--text-subtle); }
+  .tag .swatch { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+  /* ── Buttons ────────────────────────────────────────────────────
+     The default is NEUTRAL. The accent is opt-in, because the rail's
+     running timer is already green and two accent meanings in view is what
+     the rule exists to prevent. */
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px; flex: none;
+    padding: 8px 14px; border-radius: 8px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-elevated);
+    color: var(--text-strong);
+    font-family: var(--font-sans); font-size: 14px; font-weight: 500;
+    cursor: pointer;
+  }
+  .btn.accent {
+    background: var(--accent-default);
+    border-color: var(--accent-default);
+    color: var(--text-on-accent);   /* never white — 1.37:1 */
+  }
+  .btn.quiet { background: transparent; color: var(--text-muted); }
+
+  /* ── Cards (plane 4) ────────────────────────────────────────────
+     The header rule is INSET (mx-4), never a full-width border — edge to
+     edge it cuts the panel in two and reads as two stacked cards. */
+  .card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    box-shadow: var(--shadow-card);
+    margin-bottom: 16px;
+  }
+  .card-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 14px 16px 10px;
+  }
+  .card-rule { height: 1px; margin: 0 16px; background: var(--border-subtle); }
+  .card-body { padding: 12px 16px 16px; }
+
+  .row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 9px 0;
+  }
+  .row + .row { border-top: 1px solid var(--border-subtle); }
+
+  /* ── Demo-only helpers ──────────────────────────────────────────
+     Not part of the shell. Delete these in a real screen doc. */
+  .note {
+    margin: 0 0 20px; padding: 12px 14px;
+    border-left: 2px solid var(--border-control);
+    background: var(--bg-elevated);
+    border-radius: 0 8px 8px 0;
+    color: var(--text-muted); font-size: 13.5px;
+    max-width: 60ch;
+  }
+  .note strong { color: var(--text-strong); }
+</style>
+
+<div class="app">
+
+  <!-- ═══ HEADER ═══════════════════════════════════════════════ -->
+  <header class="header">
+    <span class="mark">Stint</span>
+    <span class="account">
+      <span class="avatar"></span>
+      <span class="email">you@yourdomain.com</span>
+    </span>
+  </header>
+
+  <div class="middle">
+
+    <!-- ═══ RAIL ═══════════════════════════════════════════════ -->
+    <nav class="rail" aria-label="Sections">
+      <a href="#" aria-current="page">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span class="type-nav">Home</span>
+      </a>
+      <a href="#">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        <span class="type-nav">Calendar</span>
+      </a>
+      <a href="#">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M17 11a3 3 0 1 0-2-5.2M21 20a5 5 0 0 0-4-4.9"/></svg>
+        <span class="type-nav">Clients</span>
+      </a>
+      <a href="#">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <span class="type-nav">Projects</span>
+      </a>
+      <a href="#">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>
+        <span class="type-nav">Invoices</span>
+      </a>
+    </nav>
+
+    <!-- ═══ CONTENT + DOCK ═════════════════════════════════════ -->
+    <div class="scroller">
+
+      <main class="content">
+        <div class="measure">
+
+          <p class="note">
+            <strong>This is the shell.</strong> Copy this file, keep everything
+            outside <code>.content</code>, and replace what is in here. The
+            card below is the reference — inset header rule, elevated surface,
+            neutral buttons.
+          </p>
+
+          <div class="card">
+            <div class="card-head">
+              <span class="type-heading" style="color:var(--text-strong)">Unbilled</span>
+              <span class="type-amount-hero" style="color:var(--text-strong)">$1,462.50</span>
+            </div>
+            <div class="card-rule"></div>
+            <div class="card-body">
+              <div class="row">
+                <span class="type-body">Northwind Trading</span>
+                <span class="type-amount" style="color:var(--text-strong)">$975.00</span>
+              </div>
+              <div class="row">
+                <span class="type-body">Acme Corp</span>
+                <span class="type-amount" style="color:var(--text-strong)">$487.50</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px; margin-top:20px">
+            <button class="btn">Secondary</button>
+            <button class="btn accent">Accent — opt in only</button>
+            <button class="btn quiet">Quiet</button>
+          </div>
+
+        </div>
+      </main>
+
+      <!-- The inbox is always present. "Nothing needs you" is information. -->
+      <aside class="dock" aria-label="Inbox">
+        <div class="type-label" style="color:var(--text-subtle); margin-bottom:12px">Inbox</div>
+        <div class="card" style="box-shadow:none">
+          <div class="card-body">
+            <div class="type-body" style="color:var(--text-muted)">Nothing needs you.</div>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- ═══ TIMER BAR ════════════════════════════════════════════
+       Idle: a composing row, the field takes the space.
+       Swap for `.timerbar.running` to show the centred readout. -->
+  <div class="timerbar">
+    <span class="tdot idle"></span>
+    <input class="task-field" placeholder="What are you working on?">
+    <button class="tag empty">No project <span aria-hidden="true">⌄</span></button>
+    <span class="type-timer" style="color:var(--timer-idle)">0:00:00</span>
+    <button class="btn accent">Start</button>
+  </div>
+
+</div>

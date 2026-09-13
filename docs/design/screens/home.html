@@ -1,0 +1,618 @@
+<meta charset="utf-8">
+<title>Stint Home</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_mockup.css">
+<style>
+  /* Chrome for the spec page itself. Everything the product owns comes from
+     _mockup.css. See _shell.html for the frame this screen sits in. */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0; background: var(--bg-primary); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* The page is one column at the measure. Mockups and tables are the same
+     width as the text, so everything shares one left and right edge — a
+     wider page with narrower paragraphs inside it reads as text pinned to
+     the left, which is the thing to avoid. */
+  .page { max-width: 78ch; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  .standfirst { margin: 0 0 1rem; color: var(--text-muted); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
+  h3 { margin: 2.25rem 0 .25rem; font-size: 15px; font-weight: 600; color: var(--text-strong); }
+
+  table { border-collapse: collapse; width: 100%; margin-top: .75rem; }
+  th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  th {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle); font-weight: 500;
+  }
+  td { font-size: 14px; }
+  code {
+    font-family: var(--font-mono); font-size: 13px; color: var(--text-strong);
+  }
+
+  .rule { list-style: none; margin: 1rem 0 0; padding: 0; }
+  .rule li { position: relative; padding-left: 1.5rem; margin-bottom: .85rem; }
+  .rule li::before {
+    content: ''; position: absolute; left: 0; top: .55em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--border-control);
+  }
+  .rule strong { color: var(--text-strong); font-weight: 600; }
+  .never li::before { background: var(--danger); }
+
+  /* ── The mockup surface ──────────────────────────────────────── */
+  .mock {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 1.5rem;
+  }
+  .caption {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-subtle);
+    display: block; margin-top: .7rem;
+  }
+
+  .card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    box-shadow: var(--shadow-card);
+  }
+  .card-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; padding: 14px 16px 10px;
+  }
+  .card-rule { height: 1px; margin: 0 16px; background: var(--border-subtle); }
+  .card-body { padding: 12px 16px 16px; }
+
+  .erow {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; padding: 9px 0;
+  }
+  .erow + .erow { border-top: 1px solid var(--border-subtle); }
+  .erow .left { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
+  .swatch { width: 8px; height: 8px; border-radius: 50%; flex: none; align-self: center; }
+  .aging { color: var(--text-subtle); }
+
+  .grid2 { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); gap: 16px; }
+  @media (width < 60rem) { .grid2 { grid-template-columns: minmax(0,1fr); } }
+
+  .bar {
+    height: 8px; border-radius: 999px; background: var(--bg-hover);
+    overflow: hidden; margin: 10px 0 8px;
+  }
+  .bar span { display: block; height: 100%; background: var(--text-muted); border-radius: 999px; }
+
+  /* inbox rows */
+  .inbox { background: var(--bg-base); border-radius: 10px; padding: 14px; }
+  .irow {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 0;
+  }
+  .irow + .irow { border-top: 1px solid var(--border-subtle); }
+  .idot { width: 7px; height: 7px; border-radius: 50%; flex: none; margin-top: 7px; }
+  .idot.danger { background: var(--danger); }
+  .idot.warn { background: var(--timer-warning); }
+  .ibody { flex: 1; min-width: 0; }
+  .iact { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+  .btn {
+    padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-elevated); color: var(--text-strong);
+    font-family: var(--font-sans); font-size: 12.5px; cursor: pointer;
+  }
+
+  /* activity chart */
+  .chart { display: flex; align-items: flex-end; gap: 3px; height: 90px; margin-top: 12px; }
+  .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 1px; min-width: 0; }
+  .col i { display: block; border-radius: 1px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+  .lg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+  .lg .sw { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+</style>
+
+<div class="page">
+
+  <span class="eyebrow">Stint · Screens</span>
+  <h1>Home</h1>
+  <p class="standfirst">
+    The screen opened fifty times a day. It answers three questions a
+    contractor cannot answer from memory: how much money is sitting unbilled,
+    is anything about to go wrong, and am I on pace.
+  </p>
+  <p class="standfirst">
+    The frame — header, rail, dock, timer bar — is <code>_shell.html</code>.
+    This page specifies the content column and the inbox that feeds from the
+    same call.
+  </p>
+
+  <!-- ───────────────────────── what earns a place ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">What earns a place</span></div>
+
+    <p>
+      Toggl's dashboard answers <em>how did I spend my time?</em> For a solo
+      contractor that is the wrong question — you already know, you were
+      there.
+    </p>
+
+    <ul class="rule">
+      <li><strong>A card ships only if it carries a number the user cannot
+        compute in their head, or a row they can click to act on.</strong>
+        Preferably both. "Interesting" is not the bar, and decoration here is
+        how this app becomes the one it was built against.</li>
+      <li><strong>Stats are denominated in money.</strong> Hours are the raw
+        material; dollars are what the user thinks in. The exception is
+        unbillable work, which has no rate by definition — those rows show
+        hours and an em-dash.</li>
+      <li><strong><code>GET /stats</code> is one call.</strong> The cards
+        render together, and a set that pops in piecemeal reads as broken.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── layout ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Layout</span></div>
+
+    <p>
+      Money waiting, then coming, then texture. Everything above the entry list
+      should be readable in about three seconds.
+    </p>
+
+    <div class="mock">
+      <div class="grid2">
+        <!-- Unbilled -->
+        <div class="card">
+          <div class="card-head">
+            <span class="type-heading" style="color:var(--text-strong)">Unbilled</span>
+            <span class="type-amount-hero" style="color:var(--text-strong)">$4,280.00</span>
+          </div>
+          <div class="card-rule"></div>
+          <div class="card-body">
+            <div class="erow">
+              <span class="left"><span class="swatch" style="background:var(--proj-6)"></span>
+                <span class="type-body">Acme Corp</span></span>
+              <span><span class="type-duration" style="color:var(--text-muted)">18.5h</span>
+                <span class="type-amount" style="color:var(--text-strong); margin-left:10px">$2,775.00</span>
+                <span class="type-meta aging" style="margin-left:10px">oldest 22d</span></span>
+            </div>
+            <div class="erow">
+              <span class="left"><span class="swatch" style="background:var(--proj-2)"></span>
+                <span class="type-body">Byrne Studio</span></span>
+              <span><span class="type-duration" style="color:var(--text-muted)">9.0h</span>
+                <span class="type-amount" style="color:var(--text-strong); margin-left:10px">$1,125.00</span>
+                <span class="type-meta aging" style="margin-left:10px">oldest 6d · 2 unrated</span></span>
+            </div>
+            <div class="erow">
+              <span class="left"><span class="swatch" style="border:1px solid var(--border-control)"></span>
+                <span class="type-body" style="color:var(--text-muted)">Internal</span></span>
+              <span><span class="type-duration" style="color:var(--text-muted)">4.2h</span>
+                <span class="type-amount" style="color:var(--text-subtle); margin-left:10px">—</span></span>
+            </div>
+            <div class="erow">
+              <span class="type-support" style="color:var(--text-muted)">Awaiting payment</span>
+              <span class="type-amount" style="color:var(--text-muted)">$3,100.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pace -->
+        <div class="card">
+          <div class="card-head">
+            <span class="type-heading" style="color:var(--text-strong)">September</span>
+            <span class="type-meta" style="color:var(--text-muted)">87h / 120h</span>
+          </div>
+          <div class="card-rule"></div>
+          <div class="card-body">
+            <div class="bar"><span style="width:72%"></span></div>
+            <div class="erow" style="padding-top:4px">
+              <span class="type-support" style="color:var(--text-muted)">On pace</span>
+              <span class="type-duration" style="color:var(--text-strong)">+2h</span>
+            </div>
+            <div class="erow">
+              <span class="type-support" style="color:var(--text-muted)">Billable</span>
+              <span class="type-duration" style="color:var(--text-strong)">82%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-head">
+          <span class="type-heading" style="color:var(--text-strong)">Activity</span>
+          <span class="type-meta" style="color:var(--text-subtle)">30 days</span>
+        </div>
+        <div class="card-rule"></div>
+        <div class="card-body">
+          <div class="chart">
+            <div class="col"><i style="height:22px;background:var(--proj-6)"></i><i style="height:9px;background:var(--proj-2)"></i></div>
+            <div class="col"><i style="height:34px;background:var(--proj-6)"></i></div>
+            <div class="col"><i style="height:14px;background:var(--proj-6)"></i><i style="height:20px;background:var(--proj-2)"></i></div>
+            <div class="col"><i style="height:44px;background:var(--proj-6)"></i><i style="height:6px;background:var(--text-subtle)"></i></div>
+            <div class="col"><i style="height:28px;background:var(--proj-2)"></i></div>
+            <div class="col"></div>
+            <div class="col"></div>
+            <div class="col"><i style="height:38px;background:var(--proj-6)"></i><i style="height:12px;background:var(--proj-2)"></i></div>
+            <div class="col"><i style="height:50px;background:var(--proj-6)"></i></div>
+            <div class="col"><i style="height:20px;background:var(--proj-2)"></i><i style="height:10px;background:var(--text-subtle)"></i></div>
+            <div class="col"><i style="height:46px;background:var(--proj-6)"></i></div>
+            <div class="col"><i style="height:30px;background:var(--proj-2)"></i></div>
+            <div class="col"></div>
+            <div class="col"></div>
+            <div class="col"><i style="height:40px;background:var(--proj-6)"></i><i style="height:16px;background:var(--proj-2)"></i></div>
+            <div class="col"><i style="height:26px;background:var(--proj-6)"></i></div>
+            <div class="col"><i style="height:52px;background:var(--proj-2)"></i></div>
+            <div class="col"><i style="height:18px;background:var(--proj-6)"></i></div>
+            <div class="col"><i style="height:36px;background:var(--proj-6)"></i><i style="height:8px;background:var(--text-subtle)"></i></div>
+            <div class="col"></div>
+            <div class="col"></div>
+          </div>
+          <div class="legend">
+            <span class="lg"><span class="sw" style="background:var(--proj-6)"></span>Acme Corp</span>
+            <span class="lg"><span class="sw" style="background:var(--proj-2)"></span>Byrne Studio</span>
+            <span class="lg"><span class="sw" style="background:var(--text-subtle)"></span>Internal</span>
+          </div>
+        </div>
+      </div>
+      <span class="caption">Unbilled · Pace · Activity, then today's entries</span>
+    </div>
+
+    <p style="margin-top:1.5rem">
+      Unbilled and Pace share a row at <code>lg</code> on a
+      <code>1.6fr / 1fr</code> grid, not equal columns — Unbilled carries a
+      list and Pace carries one figure and a bar, so equal columns would starve
+      the side with something to say to pad the side without. Activity spans
+      the full width beneath them, then today's entries.
+    </p>
+    <p>
+      The grid is conditional: both cards hide when they have nothing, and a
+      fixed two-column track would leave a visible hole on an ordinary day.
+    </p>
+    <p>
+      <strong style="color:var(--text-strong)">No card carries the
+      accent.</strong> On this screen the accent is spent, and it is spent on
+      the running timer in the bar below. The progress bar is neutral.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── unbilled ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Unbilled</span></div>
+
+    <p>
+      The headline number, and the reason this screen exists. Sources
+      <code>time_entries</code> where <code>invoice_id is null</code>,
+      <code>is_billable</code>, and <code>ended_at is not null</code> —
+      running timers never count, matching the invoicing rule that you cannot
+      bill time still accruing.
+    </p>
+
+    <ul class="rule">
+      <li><strong>The aging column is the insight.</strong> A total alone is a
+        fact; a total with "oldest 22 days" is a prompt. Work aging past a
+        month is the most common way a solo contractor loses money, and no
+        competitor surfaces it because none of them know the rate.</li>
+      <li><strong>Totals come from <code>unbilled_by_client</code>, grouped by
+        (client, rate).</strong> The rate is part of the grouping key for the
+        same reason it is on an invoice line: one client can have work at
+        several rates, and collapsing them misstates the money. Its coalesce
+        chain must stay identical to <code>resolve_entry_rate</code>, or this
+        card and an invoice preview will disagree about the same work.</li>
+      <li><strong>Each client row links to invoice generation</strong> for that
+        client, pre-filled with the period covering its unbilled entries. That
+        is what makes the card an action rather than a readout.</li>
+      <li><strong>A client with unrated work carries its count on the
+        row</strong> — "oldest 9d · 2 unrated". Those entries contribute hours
+        but no money, so without it the amount reads as low rather than as
+        incomplete. Unrated totals show an em-dash, never <code>$0.00</code>.</li>
+      <li><strong>Rows cap at five clients</strong> with a "+N more" line, and
+        <strong>the cap is server-side</strong> — <code>/stats</code> returns
+        at most five plus a <code>moreClients</code> count. The total above
+        still covers every client.</li>
+    </ul>
+
+    <ul class="rule never" style="margin-top:1.75rem">
+      <li><strong>Never labelled "earned" or "revenue".</strong> It is work
+        done and not yet invoiced — money the user might still never see.
+        Overstating it in a billing tool is the same trust failure as silently
+        editing an entry.</li>
+      <li><strong><code>awaitingPayment</code> is never added to the
+        total.</strong> Unbilled is work not yet invoiced; awaiting payment is
+        money already asked for. Summing them double-counts the same hours. It
+        is one line at the foot — a row per invoice would put ordinary,
+        nothing-is-wrong invoices back on the home screen.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── pace ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Pace</span></div>
+
+    <p>
+      Month-to-date against a target, with the ahead/behind figure spelled out.
+      <strong style="color:var(--text-strong)">"On pace" is derived from
+      business days elapsed</strong>, not calendar days — a 120-hour target is
+      six hours a business day, and reading "behind" on a Monday because the
+      weekend passed is noise pretending to be signal. Holidays are not
+      modelled, deliberately.
+    </p>
+
+    <ul class="rule">
+      <li><strong>The card hides entirely when no target is set.</strong> An
+        empty progress bar asking to be configured is a chore the app assigned
+        itself.</li>
+      <li><strong>Billable ratio is the second line, not its own card.</strong>
+        Contractors consistently underestimate how much unbillable admin they
+        absorb, and one percentage is the entire finding — it does not deserve
+        a chart.</li>
+      <li><strong>Only hours render.</strong> A revenue target stores and
+        validates, then the card says pace in that unit is not computed yet.
+        Revenue means invoiced plus unbilled-at-resolved-rate, a different
+        query from summing time entries. Saying so beats rendering hours under
+        a money target.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── activity ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Activity</span></div>
+
+    <p>
+      Hours per day, stacked by client. Ranges are 14 and 30 days; 30 is the
+      default. A bar carries the number, which is what answers "was Tuesday a
+      three-hour day or a nine-hour day?"
+    </p>
+
+    <ul class="rule">
+      <li><strong>Hue is the client</strong>, resolved as everywhere else, and
+        <strong>never the accent</strong> — that belongs to the running timer.
+        Internal work keeps a neutral that reads as worked rather than as
+        rest.</li>
+      <li><strong>Gaps stay real.</strong> Every day in the range gets a
+        column, so a blank one is a weekend or a dry spell rather than missing
+        data. A clean five-on-two-off rhythm versus a ragged one says something
+        no total does.</li>
+      <li><strong>Past five clients the remainder collapses into one neutral
+        band</strong> — beyond that the legend becomes the card and the hues
+        stop being separable.</li>
+      <li><strong>90 days is deliberately absent.</strong> At day granularity
+        that is 90 bars in a ~660px card — a ~4px bar. It needs week bucketing
+        server-side, for the same DST reason day bucketing already lives
+        there.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── the inbox ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The inbox</span></div>
+
+    <p>
+      Everything that wants a decision, in one fixed place. It is
+      <strong style="color:var(--text-strong)">not a card on this screen</strong>
+      — it lives in the dock, visible from every route. It is specified here
+      because it is fed by the same <code>GET /stats</code> call as the cards.
+    </p>
+
+    <div class="mock">
+      <div class="inbox">
+        <div class="type-label" style="color:var(--text-subtle); margin-bottom:6px">Inbox</div>
+        <div class="irow">
+          <span class="idot warn"></span>
+          <span class="ibody">
+            <span class="type-control" style="color:var(--text-strong)">Timer running 14h 2m</span><br>
+            <span class="type-support" style="color:var(--text-muted)">Website redesign · Acme Corp</span>
+            <span class="iact">
+              <button class="btn">Keep</button>
+              <button class="btn">Adjust</button>
+              <button class="btn">Discard</button>
+            </span>
+          </span>
+        </div>
+        <div class="irow">
+          <span class="idot danger"></span>
+          <span class="ibody">
+            <span class="type-control" style="color:var(--text-strong)">STINT-0014 · 12 days late</span><br>
+            <span class="type-support" style="color:var(--text-muted)">Byrne Studio · $1,125.00</span>
+            <span class="iact"><button class="btn">Mark STINT-0014 paid</button></span>
+          </span>
+        </div>
+        <div class="irow">
+          <span class="idot warn"></span>
+          <span class="ibody">
+            <span class="type-control" style="color:var(--text-strong)">6 entries with no project</span><br>
+            <span class="type-support" style="color:var(--text-muted)">11.5h · cannot resolve a rate</span>
+          </span>
+        </div>
+      </div>
+      <span class="caption">The dock's inbox — runaway first, then overdue</span>
+    </div>
+
+    <table>
+      <tr><th>Row</th><th>Condition</th><th>Shows</th></tr>
+      <tr><td>Runaway timer</td><td><code>exceedsThreshold</code> from <code>/summary</code></td><td>Hours so far, and keep / adjust / discard</td></tr>
+      <tr><td>Overdue invoice</td><td><code>sent</code> and <code>due_date</code> more than <strong>7 days</strong> past</td><td>Client, amount, days late</td></tr>
+      <tr><td>Stale draft</td><td><code>draft</code> issued more than <strong>7 days</strong> ago</td><td>Client, amount, age</td></tr>
+      <tr><td>Unprojected entries</td><td><code>project_id is null</code>, unbilled, billable, ended</td><td>Count, total hours; opens the editor on the oldest</td></tr>
+    </table>
+
+    <h3>It is always present, including when it is empty</h3>
+    <p>
+      A dock region is <strong style="color:var(--text-strong)">furniture</strong>
+      — staying put is the entire point. "Nothing needs you." is information
+      rather than noise, a section that vanishes leaves the user wondering
+      where it went, and a region that appears and disappears reflows the page
+      at the exact moment you fix something.
+    </p>
+    <p>
+      An inbox is a place, which is why it is named for one rather than for a
+      predicate.
+    </p>
+
+    <h3>Ordering and tone</h3>
+    <p>
+      The runaway timer sorts first — the one row about time being recorded
+      <em>wrongly right now</em>, where an overdue invoice is equally late in
+      an hour, and the only row whose subject changes while you read it.
+      Overdue invoices sort next and carry <code>danger</code>; the rest carry
+      <code>warning</code>. Never the accent.
+    </p>
+
+    <h3>The grace periods are the point</h3>
+    <p>
+      An invoice fires at <strong style="color:var(--text-strong)">due date +
+      7 days</strong>, not the moment it passes. Net 30 with a client who pays
+      on day 32 is ordinary, and a card that flags it trains the user to clear
+      the list without reading it — which is how the one genuinely late
+      invoice gets dismissed with the rest. The invoice page still shows the
+      true due date; this governs only when the inbox speaks up.
+    </p>
+
+    <h3>What each row may do</h3>
+    <ul class="rule">
+      <li><strong>The rows write, narrowly.</strong> Marking an invoice paid or
+        sent is offered inline, because that is the action that legitimately
+        clears a row — the underlying fact changed. Every write is explicit and
+        names itself (<code>Mark STINT-0014 paid</code>), because a list of
+        identical buttons is unusable with a screen reader.</li>
+      <li><strong>The runaway row surfaces; it does not correct.</strong> Keep
+        touches nothing and dismisses the notice — a long timer is often
+        correct, and stopping it would be the app editing billable work. Adjust
+        stops first, then opens the editor. Discard asks once.
+        <code>dismissed</code> resets when the overrun ends, so Keep silences
+        that overrun rather than the feature.</li>
+      <li><strong>The unprojected row acts in place rather than
+        navigating.</strong> These entries have no page of their own and
+        scatter across days, so the today-only list would not reach them. It
+        opens the editor on the <em>oldest</em> — the one closest to being
+        invoiced without a rate.</li>
+      <li><strong>Nothing is stored.</strong> Rows are derived per request, so
+        marking an invoice paid clears its row because the predicate stops
+        being true. An inbox table would need every write path to remember to
+        clear it, and a stale row claiming money is late after it arrived is
+        the same trust failure as silently editing hours.</li>
+    </ul>
+
+    <ul class="rule never" style="margin-top:1.75rem">
+      <li><strong>Nothing destructive is offered here.</strong> Voiding and
+        deleting belong on the invoice itself, where the whole document is in
+        view — a stray click on a glance must not destroy a financial
+        record.</li>
+      <li><strong>The inbox cannot be hidden.</strong> Structural rather than a
+        rule to enforce: it is not a card, so there is nothing to switch off. A
+        region that surfaces problems is worthless if it can be turned off, and
+        the user most likely to turn it off is the one it exists for.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── customization ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Customization</span></div>
+
+    <p>
+      The Activity range control is the only customization that exists.
+      Reordering and hiding cards are not built; if they ever are, they may
+      <strong style="color:var(--text-strong)">not</strong> compose new
+      metrics, choose chart types, or add a second copy of a card. "Pick your
+      own dashboard" is the most natural path by which a restraint-first
+      product becomes the thing it was built against.
+    </p>
+    <p>
+      The timer bar, the inbox and the entry list are not cards and are not
+      customizable.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── constraints ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Constraints this screen inherits</span></div>
+
+    <ul class="rule">
+      <li><strong>Warning and danger are the alert channel.</strong>
+        <code>timer-warning</code> and <code>danger</code> carry the inbox's
+        rows. Success cyan appears nowhere on this screen — nothing here is an
+        outcome.</li>
+      <li><strong>Nothing here is green</strong>, including the inbox's runaway
+        row, which is about a timer and still renders in <code>warning</code>.
+        Tested — <code>test/ui/inbox.test.tsx</code> asserts no accent class
+        survives.</li>
+      <li><strong>Durations and currency are mono and tabular</strong>, without
+        exception. An unbilled column that reflows as digits change is the same
+        defect as a timer that does.</li>
+      <li><strong>Aggregate rate resolution belongs in SQL.</strong>
+        <code>resolve_entry_rate(uuid)</code> is per-entry; the Unbilled card
+        sums across hundreds of entries and must not call it N times. A
+        set-returning rollup is the correct shape.</li>
+      <li><strong>No card writes.</strong> Every card reads, and every action on
+        one is a link to the surface that owns the mutation. The inbox is the
+        narrow exception, with the limits stated above.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── rejected ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Rejected — each will look appealing again</span></div>
+
+    <ul class="rule never">
+      <li><strong>Top projects this week.</strong> With one to three clients, a
+        ranked table is a ranked table of one. If the distribution is worth
+        showing at all it is a single horizontal stacked bar — one row, no
+        header, no ranking.</li>
+      <li><strong>Pie charts.</strong> A solo contractor's time splits two to
+        four ways. A bar does that in less space and stays readable when one
+        slice is 4%.</li>
+      <li><strong>Streaks and gamification.</strong> Logging every day is not a
+        virtue for someone billing hourly, and rewarding it pushes toward
+        exactly the overwork that surfacing runaway timers exists to catch. The
+        app should never congratulate a user for a fourteen-day streak.</li>
+      <li><strong>Team and comparison stats.</strong> There is no team. This is
+        the slot Toggl wastes and the inbox fills.</li>
+      <li><strong>A snooze on the inbox.</strong> Hiding a row that is still
+        true makes the inbox something dismissed reflexively rather than read.
+        The grace periods make it quiet enough that nothing needs dismissing.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── api ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">What this screen takes from the API</span></div>
+
+    <table>
+      <tr><th>Call</th><th>Feeds</th><th>Note</th></tr>
+      <tr>
+        <td><code>GET /stats</code></td>
+        <td>every card and the inbox</td>
+        <td>Unbilled by client with aging, month-to-date against target,
+            billable ratio, and the inbox rows. One request, because they
+            render together.</td>
+      </tr>
+      <tr>
+        <td><code>GET /calendar?granularity=day</code></td>
+        <td>Activity</td>
+        <td>Already groups by local day server-side, which is the DST-correct
+            bucketing this needs and the reason not to build a second one.
+            Returns <code>{ date, totalSeconds, byClient }</code> and nothing
+            else.</td>
+      </tr>
+    </table>
+
+    <p style="margin-top:1.25rem">
+      The target lives on <code>user_settings</code> as
+      <code>monthly_target</code> and <code>monthly_target_unit</code>, paired
+      by a check constraint so neither can be set without the other — see
+      <code>data-model.md</code>.
+    </p>
+  </section>
+
+</div>

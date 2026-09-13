@@ -47,7 +47,7 @@ export function DemoTimer() {
           <div className="flex items-center gap-3">
             {/* Form and motion carry the running state alongside colour,
                 because no green hue survives dichromacy — see
-                docs/design/color.md. */}
+                docs/design/deriving-colour.md. */}
             <span
               aria-hidden
               className="size-2.5 flex-none rounded-full bg-accent-default

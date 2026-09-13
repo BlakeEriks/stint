@@ -156,7 +156,7 @@ const CHROMA = {
  * because the ink follows.
  *
  * - `500` is `text-subtle`, and it owes **AA at 4.5** — not the 3:1 it used to.
- *   `docs/design/color.md` demoted it to "borders and icons" when it measured
+ *   `docs/design/deriving-colour.md` demoted it to "borders and icons" when it measured
  *   4.10 against the card, and the app then set body copy in it in over a
  *   hundred places regardless. A rule that lives only in prose is not a rule;
  *   deriving it at a text ratio settles it in the direction the app already

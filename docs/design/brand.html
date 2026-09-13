@@ -1,0 +1,557 @@
+<meta charset="utf-8">
+<title>Stint Brand</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="screens/_mockup.css">
+<style>
+  /* Page chrome only. Everything the product owns — palette, type scale and
+     the mark — comes from _mockup.css, which pnpm tokens generates. */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* The page is one column at the measure. Mockups and swatch rows are the
+     same width as the text, so everything shares one left edge and one right
+     edge — a wider page with narrower paragraphs inside it reads as text
+     pinned to the left, which is the thing to avoid. */
+  .page { max-width: 78ch; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  .standfirst { margin: 0 0 1rem; color: var(--text-muted); }
+
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
+
+  .row { display: flex; flex-wrap: wrap; gap: 2.25rem; align-items: flex-start; }
+  .spec { display: flex; flex-direction: column; gap: .7rem; }
+  .caption {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-subtle);
+  }
+
+  .swatch {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
+    border-radius: 10px;
+    padding: 1.5rem 1.75rem;
+    display: flex; align-items: center; justify-content: center;
+    min-width: 190px; min-height: 86px;
+  }
+  .swatch.on-light { background: #FFFFFF; border-color: #E4E6EC; }
+
+  table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+  th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  th {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle); font-weight: 500;
+  }
+  td { font-size: 14px; }
+  td.num, code {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-strong);
+    font-size: 13px;
+  }
+
+  .rule { list-style: none; margin: 0; padding: 0; }
+  .rule li { position: relative; padding-left: 1.5rem; margin-bottom: .85rem; }
+  .rule li::before {
+    content: ''; position: absolute; left: 0; top: .55em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--border-control);
+  }
+  .rule strong { color: var(--text-strong); font-weight: 600; }
+
+  .never li::before { background: var(--danger); }
+
+  .palette { display: flex; flex-wrap: wrap; gap: 1rem; }
+  .chip { display: flex; flex-direction: column; gap: .45rem; width: 132px; }
+  .chip .fill { height: 52px; border-radius: 8px; border: 1px solid var(--border-subtle); }
+  .chip .name { font-family: var(--font-mono); font-size: 11px; color: var(--text-primary); }
+  .chip .hex { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle); }
+</style>
+
+<div class="page">
+
+  <span class="eyebrow">Stint · Brand</span>
+  <h1>The mark, the type and the colour</h1>
+  <p class="standfirst">
+    Identity as it stands. Every value on this page is read from
+    <code>packages/design-tokens/tokens.json</code> through
+    <code>screens/_mockup.css</code>, so the mark you see here is the mark the
+    products draw — this page cannot show a stale one.
+  </p>
+  <p class="standfirst">
+    Screen-level specs live in <code>screens/</code>. The menu bar app is
+    <code>menubar.html</code>; the marketing page is <code>landing.html</code>.
+  </p>
+
+  <!-- ───────────────────────── the mark ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The mark</span></div>
+
+    <p>
+      <strong style="color:var(--text-strong)">The mark is <code>|Stint|</code>
+      — the word between two bounds, set in one colour.</strong>
+      The bounds carry what the letters cannot: a stint is work with a start
+      and an end, which is also what a calendar block draws and what an
+      invoice line is. The word sits inside them rather than beside them.
+    </p>
+
+    <div class="row" style="margin-top:2rem">
+      <div class="spec">
+        <div class="swatch" style="min-width:280px">
+          <span class="mark" style="font-size:48px; color:var(--text-strong)">Stint</span>
+        </div>
+        <span class="caption">The mark</span>
+      </div>
+      <div class="spec">
+        <div class="swatch on-light" style="min-width:280px">
+          <span class="mark" style="font-size:48px; color:#16181C">Stint</span>
+        </div>
+        <span class="caption">On a light ground</span>
+      </div>
+    </div>
+
+    <h3 style="margin:2.5rem 0 .25rem; font-size:15px; font-weight:600; color:var(--text-strong)">Construction</h3>
+    <p>
+      Every measurement is a multiple of the mark's own font size, so one
+      definition serves every size it is set at. The values live under
+      <code>brand.mark</code> in <code>tokens.json</code> and generate into
+      CSS custom properties and <code>Tokens.swift</code> together — the web
+      app and the macOS app read the same numbers.
+    </p>
+
+    <table>
+      <tr><th>Property</th><th>Token</th><th>Value</th><th>Why</th></tr>
+      <tr>
+        <td>Bound width</td>
+        <td><code>--mark-bound-width</code></td>
+        <td class="num">0.09em</td>
+        <td>Matches the stroke weight of the letterforms at semibold.</td>
+      </tr>
+      <tr>
+        <td>Bound height</td>
+        <td><code>--mark-bound-height</code></td>
+        <td class="num">1.05em</td>
+        <td>Overshoots the cap height top and bottom. At 17px a bound cut to
+            the cap height reads as a dot; the overshoot is what keeps it a
+            bar at the smallest size the mark is set.</td>
+      </tr>
+      <tr>
+        <td>Gap</td>
+        <td><code>--mark-bound-gap</code></td>
+        <td class="num">0.18em</td>
+        <td>Each side. Closer and the bound touches the <code>S</code>;
+            wider and the three parts stop reading as one object.</td>
+      </tr>
+      <tr>
+        <td>Radius</td>
+        <td><code>--mark-bound-radius</code></td>
+        <td class="num">999px</td>
+        <td>Fully rounded ends, so the bound is a drawn rule rather than a
+            rectangle.</td>
+      </tr>
+      <tr>
+        <td>Type</td>
+        <td><code>type-wordmark</code></td>
+        <td class="num">mono 600<br>0.12em</td>
+        <td>IBM Plex Mono, semibold, 0.12em tracking. Mixed case — the
+            <code>S</code> needs a cap to be taller than.</td>
+      </tr>
+    </table>
+
+    <p style="margin-top:1.5rem">
+      The bounds are <strong style="color:var(--text-strong)">drawn rules, not
+      pipe characters</strong>. A <code>|</code> glyph carries its own side
+      bearings and sits on the text baseline, so it renders shorter than the
+      cap height and too far from the letters — the mark reads as
+      "l Stint l".
+    </p>
+
+    <h3 style="margin:2.5rem 0 .25rem; font-size:15px; font-weight:600; color:var(--text-strong)">At every size it is used</h3>
+    <div class="row" style="margin-top:1.25rem; align-items:flex-end">
+      <div class="spec">
+        <div class="swatch"><span class="mark" style="font-size:17px; color:var(--text-strong)">Stint</span></div>
+        <span class="caption">17px · panel header</span>
+      </div>
+      <div class="spec">
+        <div class="swatch"><span class="mark" style="font-size:24px; color:var(--text-strong)">Stint</span></div>
+        <span class="caption">24px · app header, landing</span>
+      </div>
+      <div class="spec">
+        <div class="swatch"><span class="mark" style="font-size:24px; color:var(--text-muted)">Stint</span></div>
+        <span class="caption">24px · receded (landing footer)</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── colour of the mark ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The mark takes one colour</span></div>
+
+    <p>
+      <strong style="color:var(--text-strong)">One value for the whole mark,
+      bounds included.</strong> It inherits <code>currentColor</code>, so the
+      bounds track whatever the word is set in and the mark works on a dark
+      ground and a light one without a second definition.
+    </p>
+
+    <ul class="rule" style="margin-top:1.5rem">
+      <li><strong><code>text-strong</code> is the default.</strong> The mark
+        is a link to Home on every screen, so it is held to AA as body text —
+        <code>text-subtle</code> measures 3.73:1 on the light header and
+        clears only the large-text exemption.</li>
+      <li><strong><code>text-muted</code> where the mark recedes.</strong> The
+        landing page's footer mark is set in it while the header's is not.
+        The colour is passed in as a whole utility, not a shade parameter, so
+        the bounds keep tracking it.</li>
+    </ul>
+
+    <ul class="rule never" style="margin-top:1.75rem">
+      <li><strong>Never green.</strong> The accent means the running timer.
+        A green mark would be a second meaning for it on a screen where the
+        timer is already green.</li>
+      <li><strong>Never a lifted <code>S</code>.</strong> The mark is one
+        object and takes one value. Two greys a step apart read as a
+        rendering fault rather than emphasis.</li>
+      <li><strong>Never uppercase.</strong> STINT is four identical-height
+        letterforms with no ascender to give the word a shape.</li>
+      <li><strong>Never on the invoice PDF.</strong> An invoice is billed from
+        the user's business, not from Stint. The PDF carries their name and
+        their logo.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── type ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Typefaces</span></div>
+
+    <p>
+      Two families, both IBM Plex. <strong style="color:var(--text-strong)">Mono
+      is not decorative here</strong> — it carries every number the product is
+      trusted with, and durations and amounts are always tabular so digits do
+      not shift as they count.
+    </p>
+
+    <div class="row" style="margin-top:1.75rem">
+      <div class="spec" style="flex:1; min-width:280px">
+        <div class="swatch" style="flex-direction:column; align-items:flex-start; gap:.5rem">
+          <div style="font-family:var(--font-sans); font-size:30px; font-weight:600; color:var(--text-strong); letter-spacing:-.02em">IBM Plex Sans</div>
+          <div style="font-family:var(--font-sans); font-size:14px; color:var(--text-muted)">Prose, labels, controls. 400 / 500 / 600.</div>
+        </div>
+        <span class="caption">Sans · <code>--font-sans</code></span>
+      </div>
+      <div class="spec" style="flex:1; min-width:280px">
+        <div class="swatch" style="flex-direction:column; align-items:flex-start; gap:.5rem">
+          <div style="font-family:var(--font-mono); font-size:30px; font-weight:600; color:var(--text-strong)">IBM Plex Mono</div>
+          <div style="font-family:var(--font-mono); font-size:13px; color:var(--text-muted)">Durations, amounts, the mark, labels.</div>
+        </div>
+        <span class="caption">Mono · <code>--font-mono</code></span>
+      </div>
+    </div>
+
+    <p style="margin-top:1.75rem">
+      Plex Mono over the usual candidates because its digits stay open and
+      legible at 13px, which is the macOS menu bar size.
+    </p>
+
+    <h3 style="margin:2.5rem 0 .25rem; font-size:15px; font-weight:600; color:var(--text-strong)">A component names a role</h3>
+    <p>
+      It never assembles one. Each role generates a real Tailwind
+      <code>@utility</code> carrying family, size, weight, tracking, case and
+      tabular-nums together, so half a role cannot be applied — and colour
+      stays separate, because a role says how text is set, not what it means.
+      Need something the scale lacks? <strong style="color:var(--text-strong)">Add
+      a role, with a reason.</strong>
+    </p>
+    <p>
+      <code>pnpm check:type</code> runs in CI and rejects arbitrary sizes,
+      arbitrary or preset tracking, bare <code>font-mono</code>/<code>font-sans</code>,
+      Tailwind's own font scale, and any <code>type-*</code> that is not a real
+      role — that last one matters because a typo'd role compiles to no CSS, no
+      warning, exit 0. <code>src/components/ui/**</code> is exempt: vendored
+      shadcn, policed by <code>shadcn-detox.mjs</code> instead.
+    </p>
+
+    <h3 style="margin:2.5rem 0 1rem; font-size:15px; font-weight:600; color:var(--text-strong)">The roles</h3>
+    <p style="margin-bottom:1.5rem">
+      Set in their own role below. <code>tokens.json</code> under
+      <code>type.scale</code> is the source — if this page and that file
+      disagree, the file is right. Sizes stay in <strong style="color:var(--text-strong)">px</strong>:
+      the scale was derived at specific pixel sizes for legibility, and
+      <code>rem</code> would let a browser setting resize the timer readout out
+      of its own layout.
+    </p>
+
+    <table>
+      <tr><th>Role</th><th>Set in it</th><th>For</th></tr>
+
+      <tr><td colspan="3" style="padding-top:1.25rem"><span class="eyebrow">Numeric — all tabular</span></td></tr>
+      <tr><td><code>type-figure</code></td><td><span class="type-figure" style="color:var(--text-strong)">128.5</span></td><td>a card's headline number</td></tr>
+      <tr><td><code>type-timer</code></td><td><span class="type-timer" style="color:var(--text-strong)">3:55:00</span></td><td>the timer readout</td></tr>
+      <tr><td><code>type-amount-hero</code></td><td><span class="type-amount-hero" style="color:var(--text-strong)">$1,462.50</span></td><td>an invoice's total</td></tr>
+      <tr><td><code>type-amount</code></td><td><span class="type-amount" style="color:var(--text-strong)">$975.00</span></td><td>invoice line amounts</td></tr>
+      <tr><td><code>type-duration</code></td><td><span class="type-duration" style="color:var(--text-strong)">6:24:10</span></td><td>durations, rates, money cells</td></tr>
+      <tr><td><code>type-meta</code></td><td><span class="type-meta" style="color:var(--text-strong)">Sep 10, 14:30</span></td><td>secondary numerics, timestamps</td></tr>
+
+      <tr><td colspan="3" style="padding-top:1.25rem"><span class="eyebrow">Headings and text</span></td></tr>
+      <tr><td><code>type-hero</code></td><td><span class="type-hero" style="color:var(--text-strong)">Track hours.</span></td><td>the landing headline</td></tr>
+      <tr><td><code>type-display</code></td><td><span class="type-display" style="color:var(--text-strong)">A section opens</span></td><td>a section's opening line</td></tr>
+      <tr><td><code>type-title</code></td><td><span class="type-title" style="color:var(--text-strong)">Invoices</span></td><td>page title</td></tr>
+      <tr><td><code>type-section</code></td><td><span class="type-section" style="color:var(--text-strong)">Projects</span></td><td>section heading</td></tr>
+      <tr><td><code>type-heading</code></td><td><span class="type-heading" style="color:var(--text-strong)">Unbilled</span></td><td>card heading</td></tr>
+      <tr><td><code>type-lede</code></td><td><span class="type-lede">A paragraph under a headline</span></td><td>under a headline</td></tr>
+      <tr><td><code>type-body</code></td><td><span class="type-body">Primary text</span></td><td>primary text</td></tr>
+      <tr><td><code>type-control</code></td><td><span class="type-control">Inputs and list rows</span></td><td>inputs, list rows</td></tr>
+      <tr><td><code>type-support</code></td><td><span class="type-support" style="color:var(--text-muted)">Helper text</span></td><td>helper text, errors, empty states</td></tr>
+
+      <tr><td colspan="3" style="padding-top:1.25rem"><span class="eyebrow">Uppercase mono — tracking is part of the role</span></td></tr>
+      <tr><td><code>type-wordmark</code></td><td><span class="mark" style="color:var(--text-strong)">Stint</span></td><td>the mark — mixed case, never upper</td></tr>
+      <tr><td><code>type-nav</code></td><td><span class="type-nav" style="color:var(--text-strong)">Calendar</span></td><td>navigation</td></tr>
+      <tr><td><code>type-label</code></td><td><span class="type-label" style="color:var(--text-subtle)">Client</span></td><td>field labels, column heads</td></tr>
+      <tr><td><code>type-badge</code></td><td><span class="type-badge" style="color:var(--text-muted)">Draft</span></td><td>status pills</td></tr>
+    </table>
+
+    <p style="margin-top:1.75rem">
+      <strong style="color:var(--text-strong)">Six roles step up at
+      <code>sm</code></strong> — <code>hero</code>, <code>hero-strike</code>,
+      <code>figure</code>, <code>timer</code>, <code>lede</code> and
+      <code>display</code>. Each is large enough that its desktop size would
+      force a horizontal scroll on a narrow phone, and a component writing
+      <code>sm:text-3xl</code> itself is the one-off the scale replaces — so
+      the step belongs to the role.
+    </p>
+
+    <ul class="rule" style="margin-top:1.75rem">
+      <li><strong>Numbers are always a mono role.</strong> No exceptions.</li>
+      <li><strong>Running text stays near 65 characters.</strong></li>
+      <li><strong>Task names truncate rather than wrap.</strong> An entry row is
+        one line, which is what makes a dense list scannable.</li>
+      <li><strong><code>type-nav</code> is not <code>type-label</code>.</strong>
+        Navigation is scanned and clicked constantly; a field label is read
+        once while filling a form. Nav also takes less tracking — 0.16em at
+        13px sprawls. Inactive items use <code>text-muted</code>, not
+        <code>text-subtle</code>, which is 3.14:1 on <code>bg-base</code> and
+        fails AA.</li>
+      <li><strong><code>type-section</code> is not <code>type-heading</code>.</strong>
+        A section heading sits above content already on the page; a card
+        heading names a panel.</li>
+      <li><strong>A card whose point is one figure demotes its own title</strong>
+        to a quiet <code>type-label</code> above a <code>type-figure</code> the
+        eye lands on. A card whose point is a list keeps its
+        <code>type-heading</code>. Passing a <code>value</code> to
+        <code>Card</code> selects the first mode.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── colour ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The colours that mean something</span></div>
+
+    <p>
+      The full palette, both ramps and the derivation is
+      <code>deriving-colour.md</code>. These four are the ones that carry meaning, and
+      confusing them is how the app starts lying.
+    </p>
+
+    <div class="palette" style="margin-top:1.75rem">
+      <div class="chip">
+        <div class="fill" style="background:var(--accent-default)"></div>
+        <span class="name">accent-default</span>
+        <span class="hex">#52FC43 · the running timer</span>
+      </div>
+      <div class="chip">
+        <div class="fill" style="background:var(--success)"></div>
+        <span class="name">success</span>
+        <span class="hex">#2CCCEB · paid, saved, done</span>
+      </div>
+      <div class="chip">
+        <div class="fill" style="background:var(--timer-warning)"></div>
+        <span class="name">timer-warning</span>
+        <span class="hex">runaway, overdue soon</span>
+      </div>
+      <div class="chip">
+        <div class="fill" style="background:var(--danger)"></div>
+        <span class="name">danger</span>
+        <span class="hex">something is wrong</span>
+      </div>
+    </div>
+
+    <ul class="rule" style="margin-top:2rem">
+      <li><strong>Green marks the live, primary thing on a screen.</strong>
+        Inside the app that is the running timer. The test: could a user say
+        in one short phrase what green means on this screen, and would it be
+        true of every green thing in view? If it takes two phrases, one of
+        them loses the accent.</li>
+      <li><strong>Green never means success.</strong> Success is cyan.</li>
+      <li><strong>Never white text on the accent</strong> — 1.37:1. Use
+        <code>text-on-accent</code>. CI guards this one.</li>
+      <li><strong>Focus rings are neutral</strong>, never the accent. A focus
+        ring is constant and involuntary; spending the accent there drowns
+        the signal it exists for.</li>
+    </ul>
+
+    <p style="margin-top:1.25rem">
+      It is a test, not a quota — green may appear as often as that one idea
+      genuinely occurs. The landing page sets three ticks and a CTA in it
+      because all four are "what Stint does for you"; a green link beside a
+      green timer fails, because that needs two phrases.
+    </p>
+
+    <h3 style="margin:2.5rem 0 .25rem; font-size:15px; font-weight:600; color:var(--text-strong)">Success is not green</h3>
+    <p>
+      Green is a <strong style="color:var(--text-strong)">state</strong>
+      channel: continuous, present tense, <em>time is accruing right now</em>.
+      Success is an <strong style="color:var(--text-strong)">outcome</strong>
+      channel: discrete, past tense, <em>entry saved</em>. Two different
+      categories, so two different hues — and green never means "done"
+      anywhere in this UI.
+    </p>
+    <p>
+      Info is deliberately the dullest of them. It is a passive colour, and low
+      chroma keeps it from competing with the three that are not.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── surfaces ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Four planes</span></div>
+
+    <p>
+      <strong style="color:var(--text-strong)">Content floats; chrome
+      recedes.</strong> Depth increases toward what is being read. Never invert
+      it — a card darker than the surface under it reads as a hole.
+    </p>
+
+    <div class="palette" style="margin-top:1.75rem">
+      <div class="chip">
+        <div class="fill" style="background:var(--bg-recessed)"></div>
+        <span class="name">bg-recessed</span>
+        <span class="hex">header, timer bar</span>
+      </div>
+      <div class="chip">
+        <div class="fill" style="background:var(--bg-base)"></div>
+        <span class="name">bg-base</span>
+        <span class="hex">rail, dock</span>
+      </div>
+      <div class="chip">
+        <div class="fill" style="background:var(--bg-primary)"></div>
+        <span class="name">bg-primary</span>
+        <span class="hex">content column</span>
+      </div>
+      <div class="chip">
+        <div class="fill" style="background:var(--bg-elevated); box-shadow:var(--shadow-card)"></div>
+        <span class="name">bg-elevated</span>
+        <span class="hex">cards, + shadow-card</span>
+      </div>
+    </div>
+
+    <p style="margin-top:1.75rem">
+      Depth comes from surface colour <strong style="color:var(--text-strong)">and</strong>
+      shadow. <strong style="color:var(--text-strong)">Judge adjacent surfaces
+      by OKLCH ΔL, never by WCAG contrast</strong> — WCAG is compressive near
+      black and reports a near-invisible pair as 1.03:1 whether it is invisible
+      or not. The four planes sit an even ΔL 0.035 apart.
+    </p>
+    <p>
+      <strong style="color:var(--text-strong)">The frame rises toward the card
+      in both themes.</strong> The nearest plane is the lightest either way: a
+      near-black card on a blacker frame, or a white card on a grey one. Light
+      is not the mirror of dark — only the ink inverts, darkening to gain
+      contrast where dark ink brightens.
+    </p>
+    <p>
+      Shadows are generated tokens, theme-aware. An alpha that reads as depth
+      on a near-black ground looks like soot on a light one.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── client colours ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Client colours</span></div>
+
+    <p>
+      Eight hues at fixed <strong style="color:var(--text-strong)">L 0.70 and
+      C 0.11</strong>, varying only hue and excluding the accent zone 142±22°.
+      Fixed lightness below the accent's 0.87 means a chip can never out-bright
+      the running timer; chroma 0.11 against its 0.26 means it can never
+      out-saturate it. Coherence is automatic because only one dimension
+      varies.
+    </p>
+
+    <div class="palette" style="margin-top:1.75rem">
+      <div class="chip" style="width:88px"><div class="fill" style="background:var(--proj-1)"></div><span class="hex">proj-1</span></div>
+      <div class="chip" style="width:88px"><div class="fill" style="background:var(--proj-2)"></div><span class="hex">proj-2</span></div>
+      <div class="chip" style="width:88px"><div class="fill" style="background:var(--proj-3)"></div><span class="hex">proj-3</span></div>
+      <div class="chip" style="width:88px"><div class="fill" style="background:var(--proj-4)"></div><span class="hex">proj-4</span></div>
+      <div class="chip" style="width:88px"><div class="fill" style="background:var(--proj-5)"></div><span class="hex">proj-5</span></div>
+      <div class="chip" style="width:88px"><div class="fill" style="background:var(--proj-6)"></div><span class="hex">proj-6</span></div>
+      <div class="chip" style="width:88px"><div class="fill" style="background:var(--proj-7)"></div><span class="hex">proj-7</span></div>
+      <div class="chip" style="width:88px"><div class="fill" style="background:var(--proj-8)"></div><span class="hex">proj-8</span></div>
+    </div>
+
+    <ul class="rule" style="margin-top:2rem">
+      <li><strong>Only clients have a colour.</strong> A project is a
+        subdivision of a client already identified by it — the name answers
+        <em>which piece?</em> and the colour answers <em>whose work is
+        this?</em>, which is the question that recurs in a calendar, a heatmap
+        and an invoice. <code>useProjectColors()</code> resolves project →
+        client → colour.</li>
+      <li><strong>Internal work gets no colour</strong>, rather than a shared
+        grey that would read as a client of its own.</li>
+      <li><strong>Charts use the two dedicated categoricals</strong>
+        (<code>#64A3E3</code> / <code>#F6964E</code>) on the blue/orange axis,
+        the only axis dichromats retain. Minimum pairwise ΔE across the eight
+        is 0.075 — fine for labelled chips, where text carries the identity,
+        and not for a chart.</li>
+      <li><strong>Only semantic tokens reach components.</strong> Primitives
+        stay in the token package.</li>
+    </ul>
+
+    <p style="margin-top:1.25rem">
+      A week spent entirely on one client reads as a single colour. That is
+      honest — it <em>was</em> a single client's week, and time of day plus the
+      task label carry the rest.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── where it lives ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Where the mark appears</span></div>
+    <table>
+      <tr><th>Placement</th><th>Size</th><th>Colour</th></tr>
+      <tr><td>App header (a link to Home)</td><td class="num">24px</td><td><code>text-strong</code></td></tr>
+      <tr><td>Landing page header</td><td class="num">24px</td><td><code>text-strong</code></td></tr>
+      <tr><td>Landing page footer</td><td class="num">24px</td><td><code>text-muted</code></td></tr>
+      <tr><td>macOS panel header</td><td class="num">17px</td><td><code>text-strong</code></td></tr>
+      <tr><td>macOS sign-in</td><td class="num">17px</td><td><code>text-strong</code></td></tr>
+      <tr><td>Root error screen</td><td class="num">19px</td><td>inline hex — the stylesheet is what failed</td></tr>
+    </table>
+    <p style="margin-top:1.25rem">
+      The macOS status item and the invoice PDF are the two places that carry
+      no mark, each for its own reason above.
+    </p>
+    <p style="margin-top:1rem">
+      <code>global-error.tsx</code> is the one place the mark is set with
+      literal <code>|</code> characters rather than drawn bounds, and in a
+      system mono rather than Plex. It renders when the root layout itself has
+      failed, so the stylesheet that defines the bounds and loads the typeface
+      is exactly what is missing. It is the same exception that makes it the
+      only file in the app allowed a hardcoded hex.
+    </p>
+  </section>
+
+</div>

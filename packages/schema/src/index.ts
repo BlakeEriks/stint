@@ -58,7 +58,7 @@ export const UpdateClient = CreateClient.partial().omit({ id: true });
  * Derived per-project variants were considered and rejected: project colours
  * are pinned to L 0.70 / C 0.11 so a chip can never out-bright the accent, and
  * varying hue within a client's own hue lands under the dichromacy
- * discrimination threshold documented in `docs/design/color.md`.
+ * discrimination threshold documented in `docs/design/deriving-colour.md`.
  *
  * The column still exists in the database — retiring one is two releases, and
  * this is the release that stops writing it.
