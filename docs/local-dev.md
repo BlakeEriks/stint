@@ -125,6 +125,43 @@ because an empty app is a poor test of one:
 
 Dates are relative to `now()`, so the current week is always populated.
 
+## Seeding your own account
+
+`seed.sql` belongs to `dev@localhost.test` — the account the e2e suite
+restores, so do not track real time in it. For a second account:
+
+```
+pnpm seed you@example.com            # sign in through the app once first
+pnpm seed you@example.com --clear    # remove it again
+```
+
+**It creates one of every inbox row**, which is the part that cannot be
+produced by using the app for ten minutes: a runaway timer needs 8 hours to
+elapse, an overdue invoice 37 days, a stale draft 7. The script backdates them
+instead. `SCENARIOS` at the top of `scripts/seed-account.mjs` lists the four
+conditions and the thresholds each is checked against — and it overshoots each
+one, so the seed never sits on a boundary a timezone could round the wrong
+way.
+
+It also sets a monthly target, without which the Pace card hides rather than
+rendering empty.
+
+**Idempotent by client name.** Re-running replaces what it made last time
+rather than stacking a second copy, and it touches nothing it did not create —
+your own entries and invoices survive. Invoices are deleted before entries,
+because a billed entry cannot be deleted while its invoice stands
+(`guard_billed_entry_delete`); removing the invoice releases them through
+`on delete set null`.
+
+The runaway timer is an **update**, not an insert: one running timer per user
+is a database index, so the entry the script already left running is backdated
+rather than joined by a second one. If a timer is already running when you
+seed — yours — it is left alone and the summary says so.
+
+`next_invoice_number` advances past whatever the seed used. Numbering is
+gapless and allocated from that counter, so leaving it behind would make your
+next real invoice collide.
+
 ## Traps found setting this up
 
 **The CLI skips a migration named `init`.** Ours was

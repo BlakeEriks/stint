@@ -16,6 +16,7 @@
     "dev:down": "supabase stop",
     "dev:reset": "supabase db reset",
     "dev:status": "supabase status",
+    "seed": "node scripts/seed-account.mjs",
     "migrate": "node scripts/migrate.mjs",
     "verify:schema": "node scripts/verify-schema.mjs",
     "test": "pnpm -r test",

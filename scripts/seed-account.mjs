@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Give an account something to look at.
+ * Give an account something to look at — including one of every inbox row.
  *
  * `supabase/seed.sql` belongs to `dev@localhost.test` — the test account, which
  * the e2e suite restores and which you should not be tracking real time in.
@@ -8,15 +8,21 @@
  * second local user is useful from the first launch rather than an empty
  * timer screen.
  *
- *   node scripts/seed-account.mjs you@example.com
+ *   pnpm seed you@example.com
+ *   pnpm seed you@example.com --clear     # remove it again
+ *
+ * **Every inbox scenario is represented**, because the inbox is the hardest
+ * surface to exercise by hand: each row needs a condition that takes days to
+ * arrive naturally. See `SCENARIOS` below for the four and what each requires.
  *
  * Idempotent by client name: re-running replaces what it made last time
  * rather than stacking a second copy. It touches nothing it did not create,
- * so entries you logged yourself are safe.
+ * so entries and invoices you made yourself are safe.
  *
  * Dates are relative to today, not fixed like `seed.sql`'s — a screen with
  * "last worked on: three months ago" teaches you nothing about how the app
- * looks in use.
+ * looks in use, and a fixed date drifts further into the past every day the
+ * file is not touched.
  */
 import pg from 'pg';
 
@@ -55,6 +61,68 @@ const CLIENTS = [
 /** Internal work: no client, which is how unbillable time is tracked. */
 const INTERNAL = 'Admin and invoicing';
 
+/**
+ * One of every inbox row, and what each needs to appear.
+ *
+ * These are the numbers the server checks (`api/v1/stats/route.ts` and
+ * `/summary`), not guesses — a row that needs 7 days gets 12, so the seed is
+ * not sitting on the boundary where a timezone rounds it the wrong way.
+ *
+ * | Row                 | Condition                                    |
+ * |---------------------|----------------------------------------------|
+ * | Runaway timer       | a running entry past `max_timer_hours` (8)   |
+ * | Overdue invoice     | `sent`, `due_date` more than 7 days past     |
+ * | Stale draft         | `draft`, issued more than 7 days ago         |
+ * | Unprojected entries | ended, billable, unbilled, no project        |
+ *
+ * The inbox is the one surface that is genuinely hard to exercise by hand:
+ * every row needs a condition that takes days of real time to arrive.
+ */
+const OVERDUE_DAYS = 19; // 12 past a 7-day grace
+const STALE_DRAFT_DAYS = 12; // 5 past the 7-day threshold
+const RUNAWAY_HOURS = 11; // 3 past the 8-hour default
+
+/** Invoices the seed writes, so the inbox has something to be about. */
+const INVOICES = [
+  {
+    status: 'sent',
+    /* Overdue: the row that carries `danger` and sorts first among invoices.
+       Issued a month ago on 30-day terms, so it is genuinely late rather
+       than merely unpaid. */
+    issuedDaysAgo: OVERDUE_DAYS + 30,
+    dueDaysAgo: OVERDUE_DAYS,
+    total: 2340,
+    description: 'Warehouse dashboard — October',
+  },
+  {
+    status: 'sent',
+    /* Sent and NOT yet due, so `awaitingPayment` has something the overdue
+       row does not — the two are different money and must never be summed. */
+    issuedDaysAgo: 6,
+    dueDaysAgo: -24,
+    total: 1125,
+    description: 'Peak season fixes — November',
+  },
+  {
+    /* Stale draft: generated and then forgotten, which is the case the row
+       exists to catch. A draft holds no number with a client yet. */
+    status: 'draft',
+    issuedDaysAgo: STALE_DRAFT_DAYS,
+    dueDaysAgo: STALE_DRAFT_DAYS - 30,
+    total: 780,
+    description: 'Data pipeline audit — partial',
+  },
+  {
+    /* Paid, so the invoice list has all three states and the home cards are
+       not reporting every invoice as outstanding. */
+    status: 'paid',
+    issuedDaysAgo: 45,
+    dueDaysAgo: 15,
+    total: 3200,
+    description: 'Warehouse dashboard — September',
+  },
+];
+
 const db = new pg.Client({
   connectionString: process.env.SEED_DATABASE_URL ?? DEFAULT_URL,
 });
@@ -78,6 +146,22 @@ try {
      names above and to the internal project, so anything you logged yourself
      survives — this must never be the thing that eats your own work. */
   const names = CLIENTS.map((c) => c.name);
+
+  /* Invoices first: a time entry cannot be deleted while it is billed to a
+     non-draft invoice — `guard_billed_entry_delete` raises — and detaching
+     is the only way past that, which is exactly what voiding does in the
+     app. Deleting the invoice releases its entries by the same FK rule
+     (`on delete set null`), so the entry delete below then succeeds.
+
+     Scoped to this seed's own clients, so an invoice you generated yourself
+     is never touched. */
+  await db.query(
+    `delete from invoices
+      where user_id = $1
+        and client_id in (select id from clients where user_id = $1 and name = any($2))`,
+    [userId, names],
+  );
+
   await db.query(
     `delete from time_entries
       where user_id = $1
@@ -106,15 +190,20 @@ try {
     process.exit(0);
   }
 
-  // A default rate, so a client with none has something to inherit.
+  /* A default rate, so a client with none has something to inherit — and a
+     monthly target, without which the Pace card hides entirely rather than
+     showing an empty bar. */
   await db.query(
     `update user_settings
-        set default_hourly_rate = coalesce(default_hourly_rate, 125)
+        set default_hourly_rate = coalesce(default_hourly_rate, 125),
+            monthly_target = coalesce(monthly_target, 120),
+            monthly_target_unit = coalesce(monthly_target_unit, 'hours')
       where user_id = $1`,
     [userId],
   );
 
   const projectIds = [];
+  const clientIds = [];
   for (const client of CLIENTS) {
     const {
       rows: [{ id: clientId }],
@@ -123,6 +212,7 @@ try {
        values ($1, $2, $3, $4, 'USD', $5) returning id`,
       [userId, client.name, client.email, client.rate, client.color],
     );
+    clientIds.push(clientId);
     for (const project of client.projects) {
       const {
         rows: [{ id }],
@@ -220,12 +310,132 @@ try {
     }
   }
 
+  /* ── the inbox ──────────────────────────────────────────────────────
+     Everything above gives the app shape. This gives the INBOX one of each
+     row, which is the part that cannot be produced by using the app for ten
+     minutes: every condition needs days of real elapsed time. */
+
+  /* Unprojected entries: billable, ended, unbilled, and with no project, so
+     no rate resolves beyond the user default. Two of them, on different
+     days, because one is a special case that hides an off-by-one in the
+     count and they must not all fall on today. */
+  const unprojected = [
+    { daysAgo: 3, hours: 0.75, task: 'Seeded: call with a prospective client' },
+    { daysAgo: 9, hours: 1.5, task: 'Seeded: scoping notes, unfiled' },
+  ];
+  for (const u of unprojected) {
+    const start = new Date();
+    start.setDate(start.getDate() - u.daysAgo);
+    start.setHours(14, 0, 0, 0);
+    await db.query(
+      `insert into time_entries
+         (id, user_id, project_id, task_name, started_at, ended_at, is_billable)
+       values (gen_random_uuid(), $1, null, $2, $3, $4, true)`,
+      [
+        userId,
+        u.task,
+        start.toISOString(),
+        new Date(start.getTime() + u.hours * 3_600_000).toISOString(),
+      ],
+    );
+    entries += 1;
+  }
+
+  /* The runaway timer, which replaces the ordinary running entry above when
+     nothing else is running. Started far enough back to be past
+     `max_timer_hours`, so the inbox offers keep / adjust / discard.
+
+     `update`, not `insert`: one running timer per user is a partial unique
+     index, so the entry the loop already left running is backdated rather
+     than joined by a second one. */
+  let runaway = false;
+  if (!someoneIsRunning) {
+    const startedAt = new Date(Date.now() - RUNAWAY_HOURS * 3_600_000);
+    const { rowCount } = await db.query(
+      `update time_entries set started_at = $2
+        where user_id = $1 and ended_at is null`,
+      [userId, startedAt.toISOString()],
+    );
+    runaway = rowCount > 0;
+  }
+
+  /* Invoices: overdue, awaiting payment, stale draft, and paid. Each carries
+     one line item, because an invoice with no lines renders a total of zero
+     and reads as broken rather than as seeded. */
+  const firstClientId = clientIds[0];
+  let invoiceNo = 0;
+  const { rows: settingsRows } = await db.query(
+    'select next_invoice_number, invoice_number_prefix from user_settings where user_id = $1',
+    [userId],
+  );
+  const prefix = settingsRows[0]?.invoice_number_prefix ?? 'INV-';
+  const nextNumber = settingsRows[0]?.next_invoice_number ?? 1;
+
+  for (const inv of INVOICES) {
+    const issued = new Date();
+    issued.setDate(issued.getDate() - inv.issuedDaysAgo);
+    const due = new Date();
+    due.setDate(due.getDate() - inv.dueDaysAgo);
+
+    const seq = nextNumber + invoiceNo;
+    const {
+      rows: [{ id: invoiceId }],
+    } = await db.query(
+      `insert into invoices
+         (user_id, client_id, invoice_number, sequence_no, status, issue_date,
+          due_date, subtotal, tax_rate, tax_amount, total, currency,
+          grouping_mode, sent_at, paid_at)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,0,0,$8,'USD','entry',$9,$10)
+       returning id`,
+      [
+        userId,
+        firstClientId,
+        `${prefix}${String(seq).padStart(4, '0')}`,
+        seq,
+        inv.status,
+        issued.toISOString().slice(0, 10),
+        due.toISOString().slice(0, 10),
+        inv.total,
+        inv.status === 'draft' ? null : issued.toISOString(),
+        inv.status === 'paid' ? due.toISOString() : null,
+      ],
+    );
+    await db.query(
+      `insert into invoice_line_items
+         (invoice_id, description, quantity_seconds, resolved_rate, amount, sort_order)
+       values ($1, $2, $3, $4, $5, 0)`,
+      [
+        invoiceId,
+        inv.description,
+        Math.round((inv.total / 150) * 3600),
+        150,
+        inv.total,
+      ],
+    );
+    invoiceNo += 1;
+  }
+
+  /* Numbering is gapless and allocated from here, so a seed that writes
+     invoices must move the counter past what it used. Leaving it behind
+     makes the next real invoice collide on `invoice_number`. */
+  await db.query(
+    'update user_settings set next_invoice_number = $2 where user_id = $1',
+    [userId, nextNumber + invoiceNo],
+  );
+
   await db.query('commit');
   console.log(`Seeded ${email}:`);
   console.log(
     `  ${CLIENTS.length} clients, ${projectIds.length + 1} projects, ${entries} entries`,
   );
-  console.log('  the most recent entry is left running, so the timer is live');
+  console.log(`  ${INVOICES.length} invoices (overdue, sent, draft, paid)`);
+  console.log('\n  Inbox:');
+  console.log(
+    `    runaway timer      ${runaway ? 'yes' : 'skipped — one was already running'}`,
+  );
+  console.log('    overdue invoice    yes');
+  console.log('    stale draft        yes');
+  console.log(`    unprojected work   yes (${unprojected.length} entries)`);
 } catch (error) {
   await db.query('rollback').catch(() => {});
   throw error;
