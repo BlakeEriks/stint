@@ -195,75 +195,35 @@ jobs:
         with: { node-version: '24', cache: 'pnpm' }
       - run: pnpm install --frozen-lockfile
 
-      # The stack's images, restored from cache rather than pulled.
+      # The images are PULLED, not cached, and that is deliberate.
       #
-      # Pulling them cost ~50s and, worse, is the one step here that depends
-      # on a third party being reachable: public.ecr.aws rate-limits anonymous
+      # Caching them was tried and measured, and it made the job slower:
+      # restoring cost 7s to download plus **38s for `docker load`** against a
+      # pull of 18s once the unused images were dropped. `docker load` decodes
+      # a tarball serially on a slow runner disk; a pull fetches layers in
+      # parallel and skips that entirely. Net ~20s WORSE per run.
+      #
+      # Do not reintroduce it without measuring on a runner. `docker load` took
+      # 6s locally and 38s in CI, which is the trap — extrapolating from a
+      # laptop is what made it look like a win.
+      #
+      # What remains is a real exposure: `public.ecr.aws` rate-limits anonymous
       # pulls, and a run hit `toomanyrequests` on four images at once. The CLI
-      # retried with backoff and survived, but that is a red run waiting to
-      # happen for a reason that has nothing to do with the code.
+      # retried with backoff and survived. If that starts failing rather than
+      # retrying, the fix is a registry mirror or an authenticated pull, not a
+      # tarball in the Actions cache.
       #
-      # Keyed on the pinned CLI VERSION, because that alone decides the image
-      # tags. `hashFiles('package.json')` was wrong and is the tempting
-      # shortcut: it hashes the whole file, so adding a devDependency or
-      # editing a script threw away an archive that was still perfectly valid.
-      # The pin is exact (`"supabase": "2.117.0"`, no caret), so this is
-      # precise rather than approximate.
-      #
-      # The `-min` suffix marks the reduced image set below. Changing what is
-      # excluded MUST change this key, or a hit would restore the old archive
-      # and quietly undo the saving.
-      - name: Resolve the Supabase CLI version
-        id: cli
-        run: |
-          echo "version=$(node -p "require('./package.json').devDependencies.supabase")" >> "$GITHUB_OUTPUT"
-
-      - name: Cache the Supabase images
-        id: docker-cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/supabase-images.tar
-          key: supabase-images-${{ steps.cli.outputs.version }}-min
-
-      - name: Load cached images
-        if: steps.docker-cache.outputs.cache-hit == 'true'
-        run: docker load -i /tmp/supabase-images.tar
-
       # WITHOUT Studio or postgres-meta. Studio is the local dashboard and
       # postgres-meta is its backend; the browser suite drives the app, never
-      # the dashboard, so CI was pulling and loading 2.25GB it does not use.
+      # the dashboard, so CI was pulling 2.25GB it does not use — over half the
+      # total image weight. This took the e2e job from 198s to ~150s and is
+      # where the actual saving came from.
       #
-      # That is over half the total image weight: excluding them takes the
-      # cached archive from 753MB to 432MB, which cuts the download and the
-      # `docker load` roughly in half. It is the only change here that helps
-      # on a cache MISS as well as a hit, because the images are never fetched
-      # at all rather than fetched from somewhere closer.
-      #
-      # `pnpm dev:up` deliberately does NOT exclude them — Studio on :54323 is
+      # `pnpm dev:up` deliberately does NOT exclude them: Studio on :54323 is
       # useful while developing. This is a CI-only narrowing.
       - name: Start Supabase
         run: npx supabase start -x studio,postgres-meta
 
-      # Only on a miss. Writing it every run would spend time for nothing.
-      #
-      # Saves what is RUNNING, not every supabase image on the machine. On a
-      # clean runner those are the same five, but `docker images` would also
-      # sweep up anything a previous step happened to pull — the archive is
-      # meant to mirror the stack the exclusions produced, so it reads the
-      # containers rather than the image store.
-      #
-      # Still derived from what the CLI actually resolved, so it cannot drift
-      # from the version pinned above.
-      - name: Save the images
-        if: steps.docker-cache.outputs.cache-hit != 'true'
-        run: |
-          docker ps --format '{{.Image}}' \
-            | sort -u \
-            | grep '^public.ecr.aws/supabase/' \
-            | xargs docker save -o /tmp/supabase-images.tar
-
-      # Chromium only. The app is not browser-specific and three engines is
-      # three times the runtime for the same assertions.
       - name: Install Chromium
         run: cd apps/web && npx playwright install --with-deps chromium
 

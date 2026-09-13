@@ -1287,16 +1287,27 @@ because the images are never fetched at all.
 `pnpm dev:up` deliberately keeps them: Studio on `:54323` is useful while
 developing. This is a CI-only narrowing.
 
-**The remaining images are cached.** The pull cost ~50s and is the one step
-depending on a third party: `public.ecr.aws` rate-limits anonymous pulls, and
-a run hit `toomanyrequests` on four images at once.
+**The images are pulled, not cached — caching them was measured and was
+slower.** Restoring cost 7s to download plus **38s for `docker load`**, against
+an 18s pull once the unused images were dropped: ~20s worse per run. `docker
+load` decodes a tarball serially on a slow runner disk, while a pull fetches
+layers in parallel and skips that entirely.
 
-**A cache hit is worth less than it looks**, and the numbers are worth knowing
-before adding more caching: restoring costs a download plus `docker load`,
-which measured **9s + 48s on a runner** against 7s + 6s locally — CI disk I/O
-is far slower, so do not extrapolate `docker load` timings from a laptop. That
-57s against a 69s pull is a ~24s net saving, not the ~70s it appears to be.
-The rate-limit insurance is the stronger half of the argument.
+**Do not reintroduce it without measuring on a runner.** `docker load` took 6s
+locally and 38s in CI. Extrapolating from a laptop is exactly what made it look
+like a win, and it survived two rounds of "optimisation" before the numbers
+came in.
+
+**`gh run rerun` cannot answer "is the cache hit now?"** A re-run replays the
+original run, keeping its creation time and its point-in-time view of the
+caches, so a cache saved after that run started reports a miss forever. This
+produced three confidently wrong measurements. Use `workflow_dispatch`, which
+the workflow now has.
+
+What remains is a real exposure: `public.ecr.aws` rate-limits anonymous pulls
+and a run hit `toomanyrequests` on four images at once, surviving on the CLI's
+retry. If that starts failing rather than retrying, the fix is a registry
+mirror or an authenticated pull — not a tarball in the Actions cache.
 
 The key is the **pinned CLI version alone** (`supabase-images-2.117.0`), read
 out of `package.json` at run time. `hashFiles('package.json')` is the tempting
