@@ -1,21 +1,12 @@
 #!/bin/bash
-# Create a local code-signing certificate, so rebuilds keep one identity.
+# Create a local code-signing certificate, so rebuilds keep one identity
+# rather than an ad-hoc one derived from the binary's own bytes.
 #
-# THIS DOES NOT STOP THE KEYCHAIN PASSWORD PROMPTS. It was written believing
-# it would, and that was wrong in a way worth recording: a keychain grant is
-# checked against a PARTITION LIST as well as an ACL. The certificate makes
-# the ACL stable, and the ACL was never what failed. macOS writes the
-# partition list itself, and with no team identifier — which a self-signed
-# certificate cannot carry — the only identity it can pin is the caller's
-# cdhash, which changes with the code. `TokenStore.swift` has the real fix.
+# It does NOT stop the Keychain password prompts — see `TokenStore.swift`.
 #
-# What this still buys: a bundle with one stable designated requirement
-# instead of an ad-hoc identity derived from the binary's own bytes, which is
-# what anything keying off the signature wants.
-#
-# This certificate is self-signed, lives only in YOUR login keychain, and is
-# trusted by nothing except this machine. It is not a Developer ID and cannot
-# distribute an app — see `docs/tasks.md` for that. Run it once.
+# Self-signed, lives only in YOUR login keychain, trusted by nothing except
+# this machine. Not a Developer ID and cannot distribute an app — see
+# `docs/tasks.md`. Run it once.
 set -euo pipefail
 
 NAME="Stint Local Dev"

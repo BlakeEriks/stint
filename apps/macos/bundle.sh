@@ -33,17 +33,12 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Sign with the local dev certificate when there is one.
+# Sign with the local dev certificate when there is one, giving the bundle one
+# stable designated requirement instead of an ad-hoc identity derived from its
+# own bytes. Optional: a fresh clone builds and runs without it.
+# `./dev-certificate.sh` creates one.
 #
-# NOT what stops the Keychain password prompts — that was believed here for a
-# while and it is wrong. The certificate stabilises the ACL, and the ACL was
-# never the check that failed; the PARTITION LIST was, and macOS pins that to
-# the caller's cdhash whenever there is no team identifier to use instead.
-# `TokenStore.swift` explains it and carries the actual fix.
-#
-# What signing still buys: a stable identity for anything that keys off the
-# designated requirement, and a bundle that is not ad-hoc. Optional — a fresh
-# clone builds and runs without it. `./dev-certificate.sh` creates one.
+# It does NOT stop the Keychain password prompts — see `TokenStore.swift`.
 echo "built $APP"
 
 # Install, because a URL scheme only resolves from a real Applications folder.
@@ -59,12 +54,8 @@ mkdir -p "$HOME/Applications"
 rm -rf "$INSTALLED"
 cp -R "$APP" "$INSTALLED"
 
-# Sign AFTER copying, and sign the copy.
-#
-# Signing the build directory and then `cp -R`ing it left the installed app
-# effectively unsigned, since copying does not reliably carry the seal. This
-# was once billed as the Keychain fix; it was not, but signing the artefact
-# that actually runs is still the correct order.
+# Sign AFTER copying, and sign the copy: `cp -R` does not reliably carry the
+# seal, so signing the build directory leaves the installed app unsigned.
 IDENTITY="Stint Local Dev"
 if security find-identity -v -p codesigning 2>/dev/null | grep -q "$IDENTITY"; then
     codesign --force --deep --sign "$IDENTITY" "$INSTALLED" 2>/dev/null \

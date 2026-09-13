@@ -1,5 +1,4 @@
 import Foundation
-import Security
 
 /// A Supabase session, as GoTrue returns it.
 struct Session: Codable, Equatable {
@@ -148,27 +147,19 @@ actor TokenStore {
 /// Not `UserDefaults`: a refresh token is a long-lived credential and a plist
 /// in the app container is readable by anything running as the user.
 ///
-/// **Every call goes through `/usr/bin/security`, not the in-process Security
-/// framework, and that is the whole reason the password prompt stopped.**
+/// **Every call shells out to `/usr/bin/security`. Do not replace this with
+/// `SecItemCopyMatching`.** A grant is checked against a partition list as
+/// well as an ACL, and macOS pins that list to the calling binary's `cdhash`
+/// whenever the app has no team identifier — which a self-signed certificate
+/// cannot carry. The hash changes with the code, so an in-process read is a
+/// new caller on every build and prompts for the login password. Signing and
+/// an explicit `SecAccess` both leave that untouched. `/usr/bin/security` has
+/// a fixed identity, so one grant holds.
 ///
-/// A keychain grant is checked against a PARTITION LIST as well as an ACL.
-/// The ACL can name a stable identity — ours names the certificate from
-/// `dev-certificate.sh` — but macOS writes the partition list itself, pinned
-/// to the calling binary's `cdhash`, and supplying an explicit `SecAccess` at
-/// `SecItemAdd` does not change that. A cdhash moves on every build — measured
-/// on two builds of IDENTICAL source, and by definition on any code change.
-/// So an in-process read is a NEW CALLER every time, and each "Always allow"
-/// only appended one more dead hash to a list that recorded past prompts
-/// rather than granting future access.
-///
-/// `/usr/bin/security` is a system binary with a fixed identity, so one grant
-/// against it holds across every rebuild and OS update. The trade is explicit:
-/// any process running as this user can also invoke it, so the item is
-/// protected by the login keychain's lock rather than by app identity — which
-/// is what it was protected by anyway, since the ACL never survived a build.
-///
-/// Measured before this was written: a rebuilt binary's read prompted while
-/// `security find-generic-password` returned the token instantly.
+/// The trade: anything running as this user can invoke `security` too, so the
+/// item rests on the login keychain's lock rather than on app identity. A
+/// Developer ID would earn a `teamid:` partition and make the in-process API
+/// viable — see `docs/tasks.md`.
 private enum Keychain {
     private static let service = "dev.stint.session"
     private static let account = "supabase"
@@ -184,16 +175,10 @@ private enum Keychain {
         guard let data = try? JSONEncoder().encode(session),
               let json = String(data: data, encoding: .utf8)
         else { return }
-        /* No `-T`. A fresh item already gets `/usr/bin/security` as its one
-           trusted app and `apple-tool:` as its partition, because that IS the
-           caller. Passing `-T /usr/bin/security` as well was harmless on
-           creation and a prompt on every update: `-U` with `-T` APPENDS to
-           the ACL rather than recognising the entry it already holds, and an
-           ACL change is the one write the owner's password still guards.
-           This runs at every hourly token refresh, so that was the password
-           once an hour. Measured: `-U -T` on an existing item blocked 20s
-           until the password was typed; `-U` alone took 20ms and left the
-           ACL and partition list exactly as they were. */
+        /* No `-T`, deliberately. The caller IS `security`, so a fresh item
+           already trusts it. Adding `-T` makes `-U` append to the ACL, and an
+           ACL change is the one write still guarded by the owner's password —
+           which this path would then ask for at every hourly token refresh. */
         _ = run([
             "add-generic-password", "-U",
             "-s", service, "-a", account, "-w", json,
