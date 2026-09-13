@@ -120,10 +120,17 @@ function Hero() {
           scrolls sideways. The explicit track is what lets it shrink. */}
       <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16">
         <div className="flex min-w-0 flex-col gap-6">
-          {/* The headline IS the scope: three things it does, then the things
-              it refuses. The refusal used to be subtext in a paragraph, where
-              it was the most differentiating sentence on the page and nobody
-              would read it.
+          {/* The headline IS the scope: TWO ticked things, then the outcome
+              they produce, then what it refuses.
+
+              Two, not three, and the count is load-bearing — the closing
+              section says "Two things, done properly", and three ticks
+              contradicted it. It is also the honest count: the app sends no
+              mail (see docs/architecture.md), so "Send invoices" claimed
+              something it does not do, and "Get paid" promised an outcome it
+              does not control. Tracking and creating are what Stint does;
+              getting paid is what the user does with the result, so it is
+              set as the consequence rather than a third tick.
 
               The struck-through items are MUTED AND STRUCK, not red. Red is
               this app's danger channel — it means something is wrong — and a
@@ -133,37 +140,29 @@ function Hero() {
               the same fact. */}
           <h1 className="flex flex-col gap-1.5">
             <span className="sr-only">
-              Stint tracks hours, sends invoices and gets you paid. It has no
-              project boards, no team seats, no timesheet approvals and no
-              upgrade prompts. It is free.
+              Stint tracks your hours and creates your invoices, so you get
+              paid. It has no project boards, no team seats, no timesheet
+              approvals and no upgrade prompts. It is free.
             </span>
             <Does>Track hours.</Does>
-            <Does>Send invoices.</Does>
-            <Does>Get paid.</Does>
+            <Does>Create invoices.</Does>
+            <span aria-hidden className="mt-1 flex items-baseline gap-3">
+              {/* Aligned to the text, not the ticks: the outcome is not a
+                  third thing Stint does, and indenting it under the two that
+                  are says so without a word of explanation. */}
+              <span className="w-6 flex-none sm:w-7" />
+              <span className="type-hero text-muted">Get paid.</span>
+            </span>
           </h1>
 
-          <ul className="mt-5 flex flex-col gap-2" aria-hidden>
+          <ul className="mt-6 flex flex-col gap-2" aria-hidden>
             <Doesnt>Project boards</Doesnt>
             <Doesnt>Team seats</Doesnt>
             <Doesnt>Timesheet approvals</Doesnt>
             <Doesnt>&ldquo;Upgrade to Pro&rdquo;</Doesnt>
           </ul>
 
-          {/* The price, as a statement rather than a footnote. "Free" is the
-              second-most differentiating claim on the page after the refusal
-              above it, and it was previously the tail of a paragraph. The
-              rule to its left groups it as one block without making it a card
-              — a card here would compete with the timer beside it. */}
-          <div className="mt-8 border-l-2 border-edge-control pl-5">
-            <p className="type-display text-strong">Free.</p>
-            <p className="type-body mt-1.5 max-w-sm text-muted">
-              Not free-for-now, not free-until-you-grow. Every feature, every
-              export, no card. There&rsquo;s no team plan to sell you, because
-              there&rsquo;s only ever one of you.
-            </p>
-          </div>
-
-          <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
+          <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-3">
             <CallToAction />
             <span className="type-meta text-subtle">
               Email link, no password.
@@ -171,7 +170,25 @@ function Hero() {
           </div>
         </div>
 
-        <DemoTimer />
+        {/* The timer and the price share the right column.
+
+            "Free." lived under the refusal list, which left the left column
+            at 695px against the timer's 286 — the card floated in the middle
+            of a lot of nothing. Moving it here balances the two sides AND
+            reads better: the product is what you get, the price is what it
+            costs, and they belong together. */}
+        <div className="flex min-w-0 flex-col gap-8">
+          <DemoTimer />
+
+          <div className="border-l-2 border-edge-control pl-5">
+            <p className="type-display text-strong">Free.</p>
+            <p className="type-body mt-1.5 text-muted">
+              Not free-for-now, not free-until-you-grow. Every feature, every
+              export, no card. There&rsquo;s no team plan to sell you, because
+              there&rsquo;s only ever one of you.
+            </p>
+          </div>
+        </div>
       </div>
     </Container>
   );
