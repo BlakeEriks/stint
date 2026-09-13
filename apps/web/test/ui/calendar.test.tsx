@@ -75,6 +75,27 @@ function serve(
   );
 }
 
+/**
+ * Make `useMediaQuery` report the narrow viewport.
+ *
+ * The calendar shows one day below `sm`, and that is a JS decision rather than
+ * a CSS one because the arrows change what they STEP — a day instead of a
+ * week — which no stylesheet can express. jsdom has no real viewport, so the
+ * query has to be answered here.
+ */
+function matchMediaMock(matches: boolean) {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  }));
+}
+
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
@@ -331,5 +352,113 @@ describe('the calendar legend', () => {
        straight through it. What actually differs is the bordered bar, which
        would otherwise sit empty under an empty grid. */
     expect(container.querySelector('.flex-wrap.border-t')).toBeNull();
+  });
+});
+
+/**
+ * One day at a time on a phone.
+ *
+ * At 375px a week gives each day 42px: a block is one letter wide, an
+ * overlapping one is 20px, and the drag target is below the ~44px a finger
+ * needs. A block you cannot read is a block you cannot check, which is the
+ * same principle the laning rule protects. A single day gets ~295px.
+ */
+describe('the calendar on a narrow viewport', () => {
+  const week = (): CalendarDay[] => [
+    {
+      date: '2026-09-07',
+      totalSeconds: 7200,
+      entries: [entry({ id: 'mon', taskName: 'Monday work' })],
+    },
+    {
+      date: '2026-09-09',
+      totalSeconds: 3600,
+      entries: [
+        entry({
+          id: 'wed',
+          taskName: 'Wednesday work',
+          startedAt: '2026-09-09T09:00:00.000Z',
+          endedAt: '2026-09-09T10:00:00.000Z',
+          durationSeconds: 3600,
+        }),
+      ],
+    },
+  ];
+
+  it('shows only the selected day, not the whole week', async () => {
+    matchMediaMock(true);
+    serve(week());
+    render(<Calendar />, { wrapper });
+
+    /* Today is Wednesday the 9th in these tests, so that day's entry shows
+       and Monday's does not — the grid is one column, not seven. */
+    expect(await screen.findByText('Wednesday work')).toBeInTheDocument();
+    expect(screen.queryByText('Monday work')).toBeNull();
+  });
+
+  it('names the day in the heading rather than the month', async () => {
+    matchMediaMock(true);
+    serve(week());
+    render(<Calendar />, { wrapper });
+
+    /* "Wed, Sep 9" answers "which day am I looking at?" outright; a month
+       would be vague where the view is precise. */
+    expect(await screen.findByText(/Wed, Sep 9/)).toBeInTheDocument();
+    expect(screen.queryByText('September 2026')).toBeNull();
+  });
+
+  it('steps ONE DAY with the arrows, not one week', async () => {
+    matchMediaMock(true);
+    serve(week());
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<Calendar />, { wrapper });
+
+    await screen.findByText(/Wed, Sep 9/);
+    await user.click(screen.getByRole('button', { name: 'Previous day' }));
+
+    /* The 8th, not the 2nd. This is the whole reason the breakpoint is a JS
+       decision: the arrows step whatever unit is on screen. */
+    expect(await screen.findByText(/Tue, Sep 8/)).toBeInTheDocument();
+  });
+
+  it('totals the day on screen, not the week around it', async () => {
+    matchMediaMock(true);
+    serve(week());
+    render(<Calendar />, { wrapper });
+
+    /* Wednesday is 1h of the week's 3h. Showing the week's total over a
+       single day's grid would misreport what is being looked at. */
+    expect(await screen.findByText('1:00:00')).toBeInTheDocument();
+    expect(screen.queryByText('3:00:00')).toBeNull();
+  });
+
+  it('says the DAY is empty, not the week', async () => {
+    matchMediaMock(true);
+    /* Monday has hours; Wednesday — the day on screen — does not. */
+    serve([
+      {
+        date: '2026-09-07',
+        totalSeconds: 7200,
+        entries: [entry({ id: 'mon' })],
+      },
+    ]);
+    render(<Calendar />, { wrapper });
+
+    expect(
+      await screen.findByText(/Nothing logged this day/),
+    ).toBeInTheDocument();
+  });
+
+  it('still steps one week when the viewport is wide', async () => {
+    matchMediaMock(false);
+    serve(week());
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<Calendar />, { wrapper });
+
+    await screen.findByText('September 2026');
+    await user.click(screen.getByRole('button', { name: 'Previous week' }));
+    expect(await screen.findByText('August 2026')).toBeInTheDocument();
   });
 });

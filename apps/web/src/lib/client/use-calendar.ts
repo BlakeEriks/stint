@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
+  startOfLocalDay,
   startOfLocalWeek,
   startOfLocalDayOffset,
   localDateKey,
@@ -27,18 +28,46 @@ export interface PositionedEntry {
  * different day on a different device — so this only positions what it is
  * given.
  */
-export function useCalendar(weekStartsOn = 1) {
+/**
+ * @param byDay Step one DAY at a time instead of one week.
+ *
+ *   A phone shows a single day — at 375px a week gives each day 42px, so a
+ *   block is one letter wide and an overlapping one is 20px, which is a block
+ *   you cannot read and therefore cannot check. The grid is the same component
+ *   either way; only how many columns it renders and what the arrows mean
+ *   change.
+ *
+ *   The FETCH stays weekly regardless. Stepping day by day inside a week then
+ *   costs no request, and switching between the two views (rotating a phone,
+ *   resizing a window) needs no refetch — the day view is a lens over week
+ *   data, not a second data path.
+ */
+export function useCalendar(weekStartsOn = 1, byDay = false) {
   const tz = useTimeZone();
-  const [offset, setOffset] = useState(0);
+
+  /* ONE offset, counted in days from today, for both views.
+
+     Two offsets (weeks and days) would drift apart the moment you crossed a
+     breakpoint. Counting days and deriving the week from the selected day
+     keeps them in lockstep: paging a week on desktop moves the cursor seven
+     days, and rotating to a phone shows a day inside the week you were
+     looking at. */
+  const [cursorDays, setCursorDays] = useState(0);
 
   // Negative `daysBack` steps forward. Going through the core helper rather
-  // than adding 7 * 86_400_000 matters: a week containing a DST transition is
-  // 167 or 169 hours, so fixed-millisecond arithmetic lands an hour off and
-  // silently mis-buckets the entries at the edges.
-  const weekStart = useMemo(() => {
-    const base = startOfLocalWeek(new Date(), tz, weekStartsOn);
-    return offset === 0 ? base : startOfLocalDayOffset(base, tz, -offset * 7);
-  }, [tz, weekStartsOn, offset]);
+  // than adding 86_400_000 matters: a week containing a DST transition is 167
+  // or 169 hours and a fall-back day is 25, so fixed-millisecond arithmetic
+  // lands an hour off and silently mis-buckets the entries at the edges.
+  const cursor = useMemo(
+    () =>
+      startOfLocalDayOffset(startOfLocalDay(new Date(), tz), tz, -cursorDays),
+    [tz, cursorDays],
+  );
+
+  const weekStart = useMemo(
+    () => startOfLocalWeek(cursor, tz, weekStartsOn),
+    [cursor, tz, weekStartsOn],
+  );
 
   const weekEnd = useMemo(
     () => startOfLocalDayOffset(weekStart, tz, -7),
@@ -65,27 +94,64 @@ export function useCalendar(weekStartsOn = 1) {
         totalSeconds: 0,
         entries: [],
       };
+      /* Each day carries its OWN exclusive end. The component used to read it
+         from the next column, which breaks the moment the list is filtered to
+         one day — the fallback was the week's end, days away, and the
+         fraction→instant maths a drag depends on would have been wrong by
+         that much. A DST day is 23 or 25 hours, so this has to be the real
+         next midnight rather than +24h. */
       const next = startOfLocalDayOffset(weekStart, tz, -(i + 1));
-      return { at, ...day, positioned: position(day.entries, at, next) };
+      return {
+        at,
+        end: next,
+        ...day,
+        positioned: position(day.entries, at, next),
+      };
     });
   }, [data, weekStart, tz]);
 
   const weekSeconds = days.reduce((sum, d) => sum + d.totalSeconds, 0);
 
+  /* The day view renders exactly one of the week's columns. Same objects, so
+     positioning, laning and dragging are the code that already works — the
+     view is a filter, not a second implementation. */
+  const cursorKey = localDateKey(cursor, tz);
+  const visible = byDay ? days.filter((d) => d.date === cursorKey) : days;
+
+  /* What the header totals: the day on a phone, the week on a desktop.
+     Labelling a week's hours over a single day's grid would misreport it. */
+  const visibleSeconds = byDay ? (visible[0]?.totalSeconds ?? 0) : weekSeconds;
+
+  const step = byDay ? 1 : 7;
+
   return {
     tz,
-    days,
+    /** The columns to render — one day on a phone, seven otherwise. */
+    days: visible,
+    /** Always all seven, for anything that needs the week regardless. */
+    weekDays: days,
     weekStart,
     // The exclusive end of the week, so the last column can compute its own
     // span — a DST day is not 24 hours and the fraction→instant maths for a
     // drag needs the real one.
     weekEnd,
     weekSeconds,
+    visibleSeconds,
+    /** The selected day, which is also the week's anchor. */
+    cursor,
+    byDay,
     isLoading,
-    offset,
-    next: () => setOffset((o) => o + 1),
-    prev: () => setOffset((o) => o - 1),
-    today: () => setOffset(0),
+    /* Whether the period on screen contains today, which is what the
+       "Today" / "This week" button reflects. Derived by comparing dates
+       rather than by tracking a counter: on a phone only the cursor day
+       counts, while on a desktop any day of this week does. */
+    isCurrent: byDay
+      ? cursorKey === localDateKey(startOfLocalDay(new Date(), tz), tz)
+      : localDateKey(weekStart, tz) ===
+        localDateKey(startOfLocalWeek(new Date(), tz, weekStartsOn), tz),
+    next: () => setCursorDays((d) => d + step),
+    prev: () => setCursorDays((d) => d - step),
+    today: () => setCursorDays(0),
   };
 }
 

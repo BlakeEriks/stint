@@ -38,6 +38,25 @@ globalThis.DOMRect ??= class {
   }
 } as unknown as typeof DOMRect;
 
+/**
+ * jsdom has no `matchMedia`, and `useMediaQuery` calls it during render — so
+ * without this, any component behind a breakpoint throws before it mounts.
+ *
+ * **Defaults to not matching**, which is the desktop path for a `max-width`
+ * query. A test that needs the other side sets `window.matchMedia` itself; see
+ * `matchMediaMock` in `calendar.test.tsx`.
+ */
+window.matchMedia ??= ((query: string) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  addListener: () => {},
+  removeListener: () => {},
+  dispatchEvent: () => false,
+})) as unknown as typeof window.matchMedia;
+
 Element.prototype.scrollIntoView ??= vi.fn();
 Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.setPointerCapture ??= vi.fn();

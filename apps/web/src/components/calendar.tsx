@@ -6,6 +6,7 @@ import { formatCompact, formatClock, instantAt } from '@stint/core';
 import { Button } from '@/components/ui/button';
 import { useCalendar, type PositionedEntry } from '@/lib/client/use-calendar';
 import { useProjectClients } from '@/lib/client/use-project-colors';
+import { useMediaQuery } from '@/lib/client/use-media-query';
 import {
   useEntryDrag,
   type Drag,
@@ -30,7 +31,11 @@ const HOURS = [0, 3, 6, 9, 12, 15, 18, 21];
  * its times, and empty space starts a new entry at the time clicked.
  */
 export function Calendar() {
-  const cal = useCalendar();
+  /* One day on a phone. At 375px a week gives each day 42px — a block is one
+     letter wide, an overlapping one is 20px, and the drag target is under the
+     ~44px a finger needs. A single day gets ~295px, which is 7x. */
+  const byDay = useMediaQuery('(max-width: 639px)');
+  const cal = useCalendar(1, byDay);
   const { colorByProject, clientByProject } = useProjectClients();
 
   const projects = useQuery({
@@ -45,11 +50,21 @@ export function Calendar() {
 
   const drag = useEntryDrag(setError);
 
-  const label = new Intl.DateTimeFormat('en-US', {
-    month: 'long',
-    year: 'numeric',
-    timeZone: cal.tz,
-  }).format(cal.weekStart);
+  /* The heading names what is on screen. A month over a single day's grid
+     would be vague where the view is precise — "Thu, Sep 10" is the whole
+     answer to "which day am I looking at?". */
+  const label = byDay
+    ? new Intl.DateTimeFormat('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        timeZone: cal.tz,
+      }).format(cal.cursor)
+    : new Intl.DateTimeFormat('en-US', {
+        month: 'long',
+        year: 'numeric',
+        timeZone: cal.tz,
+      }).format(cal.weekStart);
 
   const edit = (entry: TimeEntry) => {
     setError(null);
@@ -76,32 +91,37 @@ export function Calendar() {
       <header className="flex flex-wrap items-center justify-between gap-3 pb-4">
         <div className="flex items-baseline gap-3">
           <h1 className="type-title text-strong">{label}</h1>
+          {/* The total matches the grid: this day on a phone, the week
+              otherwise. A week's hours over one day's columns would
+              misreport what is being looked at. */}
           <span className="type-duration text-muted">
-            {formatClock(cal.weekSeconds)}
+            {formatClock(cal.visibleSeconds)}
           </span>
         </div>
 
         <div className="flex items-center gap-1">
+          {/* The arrows step whatever unit is on screen, so "back" always
+              means "the previous one of these". The labels say which. */}
           <Button
             variant="ghost"
             size="sm"
             onClick={cal.prev}
-            aria-label="Previous week"
+            aria-label={byDay ? 'Previous day' : 'Previous week'}
           >
             ←
           </Button>
           <Button
-            variant={cal.offset === 0 ? 'secondary' : 'ghost'}
+            variant={cal.isCurrent ? 'secondary' : 'ghost'}
             size="sm"
             onClick={cal.today}
           >
-            This week
+            {byDay ? 'Today' : 'This week'}
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={cal.next}
-            aria-label="Next week"
+            aria-label={byDay ? 'Next day' : 'Next week'}
           >
             →
           </Button>
@@ -118,6 +138,7 @@ export function Calendar() {
               at={day.at}
               tz={cal.tz}
               seconds={day.totalSeconds}
+              nameless={byDay}
               /* 09:00, because a day added from the heading has no clicked
                  position to take a time from and the start of a working day is
                  the likeliest intent. */
@@ -161,14 +182,17 @@ export function Calendar() {
               ))}
             </div>
 
-            {cal.days.map((day, i) => (
+            {cal.days.map((day) => (
               <DayColumn
                 key={day.date}
                 positioned={day.positioned}
                 colors={colorByProject}
                 tz={cal.tz}
                 dayStart={day.at}
-                dayEnd={cal.days[i + 1]?.at ?? cal.weekEnd}
+                /* The day's own end, not the next column's start: in day view
+                   there is no next column, and falling back to the week's end
+                   would put the drag maths days out. */
+                dayEnd={day.end}
                 drag={drag}
                 onEdit={edit}
                 onCreate={create}
@@ -177,6 +201,8 @@ export function Calendar() {
           </div>
         </div>
 
+        {/* Keyed to what is on screen — the day in day view, the week
+            otherwise — so it never names a colour that is not showing. */}
         <Legend days={cal.days} clientByProject={clientByProject} />
       </div>
 
@@ -186,9 +212,13 @@ export function Calendar() {
         </p>
       ) : cal.isLoading ? (
         <p className="mt-3 type-support text-subtle">Loading…</p>
-      ) : cal.weekSeconds === 0 ? (
+      ) : cal.visibleSeconds === 0 ? (
+        /* Says what is actually empty. "Nothing logged this week" over a
+           single day's grid would be wrong whenever the rest of the week has
+           hours in it. */
         <p className="mt-3 type-support text-subtle">
-          Nothing logged this week. Click a time to add an entry.
+          Nothing logged {byDay ? 'this day' : 'this week'}. Click a time to add
+          an entry.
         </p>
       ) : null}
 
@@ -311,12 +341,15 @@ function DayHeading({
   tz,
   seconds,
   onAdd,
+  /** Day view: the `h1` already names this day, so the label would repeat it. */
+  nameless = false,
 }: {
   date: string;
   at: Date;
   tz: string;
   seconds: number;
   onAdd: () => void;
+  nameless?: boolean;
 }) {
   const weekday = new Intl.DateTimeFormat('en-US', {
     weekday: 'short',
@@ -340,12 +373,16 @@ function DayHeading({
 
   return (
     <div className="group min-w-0 flex-1 px-1 py-2 text-center">
-      <div className="type-label text-subtle">{weekday}</div>
-      <div
-        className={`type-body ${today ? 'font-semibold text-strong' : 'text-primary'}`}
-      >
-        {dayNum}
-      </div>
+      {nameless ? null : (
+        <>
+          <div className="type-label text-subtle">{weekday}</div>
+          <div
+            className={`type-body ${today ? 'font-semibold text-strong' : 'text-primary'}`}
+          >
+            {dayNum}
+          </div>
+        </>
+      )}
       <div className="flex items-center justify-center gap-1">
         <span className="type-meta text-subtle">
           {seconds > 0 ? formatCompact(seconds) : '—'}

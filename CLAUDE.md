@@ -1089,13 +1089,46 @@ hours long, so fixed-millisecond arithmetic lands an hour off and mis-buckets
 the entries at the edges. Block positions divide by the column's own span for
 the same reason.
 
-**A legend keys the colours, built from the week in view.** A block's left
+**A phone gets ONE day, not a squeezed week.** At 375px a week gives each day
+42px: a block is a single letter wide, an overlapping one is 20px, and the
+drag target is under the ~44px a finger needs. That is the laning rule's own
+principle failing — a block you cannot read is a block you cannot check. One
+day gets ~295px, so titles read in full and the drag gesture becomes usable
+(146px per lane even for two overlapping entries).
+
+The grid is the same component either way; only the number of columns and the
+meaning of the arrows change. **The arrows step whatever unit is on screen** —
+one day on a phone, one week otherwise — so "back" always means "the previous
+one of these", and the labels say which. The heading names the day
+("Thu, Sep 10") rather than the month, and the total, the empty-state wording
+and the legend all follow what is actually rendered.
+
+**The fetch stays weekly regardless**, so stepping within a week costs no
+request and rotating a phone needs no refetch: the day view is a lens over
+week data, not a second data path. The hook keeps **one offset counted in
+days** and derives the week from it — two offsets would drift apart the moment
+you crossed the breakpoint.
+
+This is `useMediaQuery`, not a Tailwind `sm:`, because a breakpoint that
+changes *behaviour* cannot be expressed in CSS. Reach for `sm:` first; this
+exists for the rarer case. It is `useSyncExternalStore`-based and its server
+snapshot is `false`, so a component must render correctly as "wide" for one
+paint. jsdom has no `matchMedia` — `test/ui/setup.ts` shims it to not-matching
+and `calendar.test.tsx` overrides it per test.
+
+Each day also carries its **own exclusive end** rather than reading the next
+column's start. The component used to do the latter, which breaks the moment
+the list is one day: the fallback was the week's end, days away, and the
+fraction→instant maths a drag depends on would have been wrong by that much.
+
+**A legend keys the colours, built from what is on screen.** A block's left
 border is its client's colour, which answers *whose work is this?* only once
 you know which hue is whose — before this the mapping was learnable only by
-clicking a block and reading the dialog. It is derived from the entries on
-screen rather than from the client list, so it never names a colour that is
-not showing, and it changes as you page between weeks because it describes
-*that* week. Ranked by time tracked, like the activity chart.
+clicking a block and reading the dialog. It is derived from the rendered
+entries rather than from the client list, so it never names a colour that is
+not showing, and it changes as you page (by week on a desktop, by day on a
+phone) because it describes exactly the period in view. Ranked by time
+tracked, like the activity chart.
 
 Two differences from the activity chart's legend, both deliberate: there is
 **no `MAX_SERIES` cap**, because a week holds few enough clients that a cap
