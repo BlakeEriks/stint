@@ -32,9 +32,15 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: tt
         ports: ['5432:5432']
+        # `--health-interval 1s`, not the usual 10s. The runner polls on its
+        # own backoff (2s, 3s, 7s) and only stops at the first probe that
+        # reports healthy, so a slow interval is spent waiting on a Postgres
+        # that is already up: measured 13.6s of a 19s step, against ~2s for
+        # the container to actually start. The probe is `pg_isready` against a
+        # local socket — running it every second costs nothing.
         options: >-
-          --health-cmd pg_isready --health-interval 10s
-          --health-timeout 5s --health-retries 5
+          --health-cmd pg_isready --health-interval 1s
+          --health-timeout 5s --health-retries 10
 
     steps:
       - uses: actions/checkout@v7
@@ -45,6 +51,22 @@ jobs:
         with: { node-version: '24', cache: 'pnpm' }
 
       - run: pnpm install --frozen-lockfile
+
+      # Next's build cache. `restore-keys` IS wanted here, unlike the Supabase
+      # images: a previous build's cache is a genuine head start (Next
+      # revalidates what changed), where a previous version's image tarball
+      # would be loaded and then ignored.
+      #
+      # Keyed on the source it compiles, so an unchanged tree restores exactly
+      # and a changed one falls back to the newest prefix match rather than
+      # starting cold.
+      - uses: actions/cache@v4
+        with:
+          path: apps/web/.next/cache
+          key: next-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/src/**', 'packages/*/src/**') }}
+          restore-keys: |
+            next-${{ hashFiles('pnpm-lock.yaml') }}-
+            next-
 
       # Formatting and lint. Fast enough to run first, so an obvious slip
       # fails in seconds rather than after five databases have spun up.
