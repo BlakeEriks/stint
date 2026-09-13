@@ -32,11 +32,23 @@ if (!paths.length) {
 const PATTERNS = {
   prohibition:
     /(^|[.;—]\s+)(never\b|no\b|do not\b|don't\b|avoid\b|it never\b|cannot be\b|must not\b)/i,
-  ci: /\b(exit 0|check:type|shadcn-detox|\bdetox\b|tokens:validate|runs in CI|CI rejects|CI guards)\b/,
+  /* Naming a check is fine and wanted ("CI rejects anything off the scale").
+   * What bloats is RESTATING what it rejects, which reads as a long block that
+   * also mentions the check — so this fires on length, not on the mention. */
+  ciRestated:
+    /\b(exit 0|check:type|shadcn-detox|\bdetox\b|tokens:validate|runs in CI|CI rejects|CI guards)\b/,
   history:
-    /\b(used to|previously|was tried|tried first|an earlier|this replaces|had already|shipped once|first draft|was wrong)\b/i,
+    /\b(used to|previously|was tried|tried first|an earlier|this replaces|had already|shipped once|first draft|was wrong|which is how|only found by)\b/i,
+  /* "…over a plain Postgres connection — no CLI, no pasting SQL into a
+   * dashboard" describes two workflows we do not have. */
+  byAbsence:
+    /(—|,)\s*(no [a-z]+[a-z, ]*\b(and|,|—)|not by |without having to)/i,
   sibling: /\b(see|in|is)\s+<?code>?(menubar|landing|brand)\.html/i,
 };
+
+/* A block mentioning a check is only a candidate when it is long enough to be
+ * explaining the check rather than naming it. */
+const CI_RESTATE_WORDS = 45;
 
 const clean = (s) =>
   s
@@ -76,8 +88,13 @@ for (const path of paths) {
   const hit = {};
   for (const k of Object.keys(PATTERNS)) hit[k] = [];
   for (const b of blocks)
-    for (const [k, re] of Object.entries(PATTERNS))
-      if (re.test(b)) hit[k].push(b);
+    for (const [k, re] of Object.entries(PATTERNS)) {
+      if (!re.test(b)) continue;
+      // A short block naming a check is the good shape; skip it.
+      if (k === 'ciRestated' && b.split(/\s+/).length < CI_RESTATE_WORDS)
+        continue;
+      hit[k].push(b);
+    }
 
   const pct = (n) =>
     blocks.length ? Math.round((100 * n) / blocks.length) : 0;
@@ -89,7 +106,7 @@ for (const path of paths) {
   console.log(
     `  prohibition ${String(hit.prohibition.length).padStart(3)}  ${String(negPct).padStart(3)}%  ${negPct > 25 ? '← over 25%, look at these' : 'ok'}`,
   );
-  for (const k of ['ci', 'history', 'sibling'])
+  for (const k of ['ciRestated', 'history', 'byAbsence', 'sibling'])
     if (hit[k].length)
       console.log(`  ${k.padEnd(11)} ${String(hit[k].length).padStart(3)}`);
 
