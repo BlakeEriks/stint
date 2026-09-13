@@ -20,9 +20,25 @@ export default defineConfig({
   // would sign each other out and truncate each other's data.
   workers: 1,
   fullyParallel: false,
-  // A flaky suite gets ignored, which is worse than not having one — so a
-  // retry locally is a signal to investigate, not a fix.
-  retries: process.env.CI ? 1 : 0,
+  /**
+   * **No retries, in CI either.**
+   *
+   * A flaky suite gets ignored, which is worse than not having one, so a
+   * retry has always been a signal to investigate rather than a fix — this
+   * just stops CI pretending otherwise.
+   *
+   * It is also most of the runtime when something breaks. A genuine failure
+   * is a 30s timeout, and retrying turns two of those into four: the run that
+   * prompted this took 4m40s against a healthy 2m33s, and every one of those
+   * extra seconds was spent re-confirming a real regression. The failure it
+   * was hiding — a strict-mode violation from the dock's Inbox — was
+   * deterministic and reproduced first try locally.
+   *
+   * The trade is that a genuinely flaky test now goes red instead of
+   * self-healing. That is the intent: the suite is ten tests and ~31s of
+   * work, so re-running it by hand costs less than never being told.
+   */
+  retries: 0,
   reporter: process.env.CI ? 'github' : 'list',
   timeout: 30_000,
   expect: { timeout: 10_000 },

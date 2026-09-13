@@ -190,8 +190,46 @@ jobs:
         with: { node-version: '24', cache: 'pnpm' }
       - run: pnpm install --frozen-lockfile
 
+      # The stack's images, restored from cache rather than pulled.
+      #
+      # Pulling them cost ~50s and, worse, is the one step here that depends
+      # on a third party being reachable: public.ecr.aws rate-limits anonymous
+      # pulls, and a run hit `toomanyrequests` on four images at once. The CLI
+      # retried with backoff and survived, but that is a red run waiting to
+      # happen for a reason that has nothing to do with the code.
+      #
+      # Keyed on the pinned CLI version, because that is what decides the
+      # image tags — bumping `supabase` in package.json invalidates this by
+      # itself. `restore-keys` lets a bumped version still start from the
+      # previous archive, so the pull is incremental rather than total.
+      - name: Cache the Supabase images
+        id: docker-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/supabase-images.tar
+          key: supabase-images-${{ hashFiles('package.json') }}
+          restore-keys: supabase-images-
+
+      - name: Load cached images
+        if: steps.docker-cache.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/supabase-images.tar
+
       - name: Start Supabase
         run: npx supabase start
+
+      # Only on a miss. The archive is ~856MB — well inside the 10GB repo
+      # budget, but writing it every run would spend time for nothing.
+      # Measured locally at ~7s to save and ~6s to load, so the round trip is
+      # comfortably cheaper than the ~50s pull it replaces.
+      #
+      # Listing `docker images` after the stack is up is what the CLI actually
+      # resolved, so this cannot drift from the version pinned above.
+      - name: Save the images
+        if: steps.docker-cache.outputs.cache-hit != 'true'
+        run: |
+          docker images --format '{{.Repository}}:{{.Tag}}' \
+            | grep '^public.ecr.aws/supabase/' \
+            | xargs docker save -o /tmp/supabase-images.tar
 
       # Chromium only. The app is not browser-specific and three engines is
       # three times the runtime for the same assertions.
