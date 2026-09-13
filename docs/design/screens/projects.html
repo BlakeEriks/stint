@@ -1,0 +1,285 @@
+<meta charset="utf-8">
+<title>Stint Projects</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_mockup.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg-primary); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 88ch; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  .standfirst { margin: 0 0 1rem; color: var(--text-muted); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
+  .caption {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-subtle);
+    display: block; margin-top: .7rem;
+  }
+  code { font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); }
+  .rule { list-style: none; margin: 1rem 0 0; padding: 0; }
+  .rule li { position: relative; padding-left: 1.5rem; margin-bottom: .85rem; }
+  .rule li::before {
+    content: ''; position: absolute; left: 0; top: .55em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--border-control);
+  }
+  .rule strong { color: var(--text-strong); font-weight: 600; }
+
+  .mock {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px; padding: 20px;
+    margin-top: 1.25rem;
+  }
+  .card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px; box-shadow: var(--shadow-card);
+    padding: 6px 16px 12px;
+  }
+  .grouphead {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 14px 0 8px;
+  }
+  .grouphead .sw { width: 8px; height: 8px; border-radius: 50%; flex: none; align-self: center; }
+  .grouphead .rate { margin-left: auto; }
+
+  .prow {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; padding: 9px 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .prow .amt { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-strong); }
+  .prow .none { color: var(--danger); font-family: var(--font-mono); font-size: 13px; }
+  .arch {
+    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text-subtle);
+    border: 1px solid currentColor; border-radius: 999px; padding: 1px 6px;
+  }
+
+  /* dialog */
+  .dlg {
+    width: 420px; max-width: 100%;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px; box-shadow: var(--shadow-float);
+    overflow: hidden;
+  }
+  .dlg-head { padding: 14px 16px 10px; }
+  .dlg-body { padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field input, .field .fake {
+    padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-base); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 14px;
+  }
+  .field.disabled input, .field.disabled .fake { opacity: .5; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .notice {
+    padding: 8px 10px; border-radius: 8px;
+    background: var(--bg-base); border: 1px solid var(--border-subtle);
+    font-size: 13px; color: var(--text-muted);
+  }
+  .notice.locked { border-color: var(--danger); }
+  .dlg-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 0 16px 16px; }
+  .btn {
+    padding: 6px 12px; border-radius: 7px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-elevated); color: var(--text-strong);
+    font-family: var(--font-sans); font-size: 13px; cursor: pointer;
+  }
+  .btn.danger { color: var(--danger); border-color: var(--danger); }
+  .btn[disabled] { opacity: .45; cursor: not-allowed; }
+  .row-dlg { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-start; }
+</style>
+
+<div class="page">
+
+  <span class="eyebrow">Stint · Screens</span>
+  <h1>Projects &amp; the entry dialog</h1>
+  <p class="standfirst">
+    Where a project is found, and the one place a logged entry is created,
+    corrected or deleted.
+  </p>
+
+  <!-- ───────────────────────── the list ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">/projects — grouped by client</span></div>
+
+    <div class="mock">
+      <div class="card">
+        <div class="grouphead">
+          <span class="sw" style="background:var(--proj-6)"></span>
+          <span class="type-section" style="color:var(--text-strong)">Northwind Trading</span>
+          <span class="type-duration rate" style="color:var(--text-muted)">$150.00/h</span>
+        </div>
+        <div class="prow"><span class="type-body">Website redesign</span><span class="amt">$150.00</span></div>
+        <div class="prow"><span class="type-body">API integration</span><span class="amt">$175.00</span></div>
+
+        <div class="grouphead">
+          <span class="sw" style="background:var(--proj-2)"></span>
+          <span class="type-section" style="color:var(--text-strong)">Byrne Studio</span>
+          <span class="arch">Archived</span>
+          <span class="type-duration rate" style="color:var(--text-muted)">$125.00/h</span>
+        </div>
+        <div class="prow"><span class="type-body">Checkout validation</span><span class="amt">$125.00</span></div>
+
+        <div class="grouphead">
+          <span class="type-section" style="color:var(--text-muted)">No client</span>
+        </div>
+        <div class="prow"><span class="type-body">Admin</span><span class="none">No rate</span></div>
+        <div class="prow"><span class="type-body">Website redesign</span><span class="none">No rate</span></div>
+      </div>
+    </div>
+    <span class="caption">The heading carries the client's rate, so an inherited row reads against it</span>
+
+    <p style="margin-top:1.5rem">
+      <strong style="color:var(--text-strong)">Two surfaces, different
+      jobs.</strong> <code>/projects</code> is where you find a project; the
+      Projects section on a client is where you manage one in the context of
+      its rate.
+    </p>
+
+    <ul class="rule">
+      <li><strong>Grouping is what makes a flat list readable.</strong> Three
+        rows named "Website redesign" have to be decoded in one
+        undifferentiated list; under client headings they do not.</li>
+      <li><strong>"No client" is a heading, not an entity</strong> — it needs
+        no detail page, no rate and no Edit button. It is also the only way to
+        reach a project with no client, which the nested section structurally
+        cannot.</li>
+      <li><strong>It is never labelled "internal work".</strong>
+        <code>client_id = null</code> covers three states the app cannot tell
+        apart: genuinely internal, <em>not yet assigned</em> (billable work
+        that will silently never be billed), and speculative. The inbox
+        already treats the middle one as wrong, so an "Internal" heading would
+        contradict it. <code>isBillableDefault</code> is the user's own
+        answer.</li>
+      <li><strong>An archived client keeps its own heading.</strong> Filing
+        its projects under "No client" would be a lie, and they are exactly
+        the rows someone checks when reviewing a finished engagement — which
+        is why the list fetches clients with <code>includeArchived</code>.</li>
+      <li><strong>The row shows the figure alone, not where it came
+        from.</strong> Naming the source on each row restated the client
+        heading immediately above it. <code>ProjectRate</code> resolves
+        through <code>resolveRate</code> — the same function the invoice
+        preview uses.</li>
+      <li><strong>No resolvable rate renders in the danger channel</strong>,
+        not as <code>$0.00</code>. Invoicing refuses to generate from unrated
+        entries, so without it the failure is discovered at the moment of
+        billing.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── the dialog ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The entry dialog</span></div>
+
+    <div class="row-dlg">
+      <div>
+        <div class="dlg">
+          <div class="dlg-head"><span class="type-heading" style="color:var(--text-strong)">Edit entry</span></div>
+          <div class="dlg-body">
+            <div class="field"><span class="type-label" style="color:var(--text-subtle)">Task</span><input value="API integration"></div>
+            <div class="two">
+              <div class="field"><span class="type-label" style="color:var(--text-subtle)">Date</span><input value="2026-09-10"></div>
+              <div class="field"><span class="type-label" style="color:var(--text-subtle)">Project</span><span class="fake">Website redesign</span></div>
+            </div>
+            <div class="two">
+              <div class="field"><span class="type-label" style="color:var(--text-subtle)">Start</span><input value="22:00"></div>
+              <div class="field"><span class="type-label" style="color:var(--text-subtle)">End</span><input value="02:00"></div>
+            </div>
+            <div class="notice">4h 0m — ends the next day</div>
+          </div>
+          <div class="dlg-foot">
+            <button class="btn danger">Delete</button>
+            <button class="btn">Save</button>
+          </div>
+        </div>
+        <span class="caption">Editable — an overnight span is a shift, not an error</span>
+      </div>
+
+      <div>
+        <div class="dlg">
+          <div class="dlg-head"><span class="type-heading" style="color:var(--text-strong)">Entry</span></div>
+          <div class="dlg-body">
+            <div class="notice locked">Billed on STINT-0014. Void the invoice to release it.</div>
+            <div class="field disabled"><span class="type-label" style="color:var(--text-subtle)">Task</span><input value="API integration" disabled></div>
+            <div class="two">
+              <div class="field disabled"><span class="type-label" style="color:var(--text-subtle)">Start</span><input value="09:00" disabled></div>
+              <div class="field disabled"><span class="type-label" style="color:var(--text-subtle)">End</span><input value="11:10" disabled></div>
+            </div>
+          </div>
+          <div class="dlg-foot"><button class="btn">Dismiss</button></div>
+        </div>
+        <span class="caption">Billed on an issued invoice — read-only</span>
+      </div>
+
+      <div>
+        <div class="dlg">
+          <div class="dlg-head"><span class="type-heading" style="color:var(--text-strong)">Edit entry</span></div>
+          <div class="dlg-body">
+            <div class="notice">On draft STINT-0016 — preview it again after saving.</div>
+            <div class="field"><span class="type-label" style="color:var(--text-subtle)">Task</span><input value="Design review"></div>
+            <div class="two">
+              <div class="field"><span class="type-label" style="color:var(--text-subtle)">Start</span><input value="12:00"></div>
+              <div class="field"><span class="type-label" style="color:var(--text-subtle)">End</span><input value="13:30"></div>
+            </div>
+          </div>
+          <div class="dlg-foot">
+            <button class="btn danger">Delete</button>
+            <button class="btn">Save</button>
+          </div>
+        </div>
+        <span class="caption">On a draft — warns, does not block</span>
+      </div>
+    </div>
+
+    <p style="margin-top:2rem">
+      This is what makes two promises elsewhere true: that the numbers on an
+      invoice are the numbers you worked (only honest if a mistake can be
+      fixed), and that a runaway timer is <em>surfaced</em> rather than
+      auto-trimmed (only honest if there is somewhere to do the trimming).
+    </p>
+
+    <ul class="rule">
+      <li><strong>The inputs are local wall-clock; the API is UTC.</strong>
+        <code>toInstant</code> resolves a date + time in a timezone by
+        guessing UTC and correcting by the offset the guess lands in —
+        DST-correct because the correction is computed <em>at</em> the target
+        instant rather than assumed from today. Verified round-tripping across
+        both US transitions, the ambiguous fall-back hour, a half-hour offset
+        and UTC+14. Never do fixed-millisecond arithmetic here.</li>
+      <li><strong>An end before the start is overnight.</strong> 22:00 to
+        02:00 is a four-hour shift; the end rolls forward one calendar day.
+        Rejecting it is defensible and useless to someone who worked those
+        hours.</li>
+      <li><strong>An issued invoice locks the entry; a draft does
+        not.</strong> <code>guard_billed_entry</code> returns early on a
+        draft, because a draft holds no number and has not been sent. The
+        dialog disabled on any <code>invoiceId</code> and so refused an edit
+        the server would have accepted — the more expensive direction to be
+        wrong in, since the fix for a wrong draft is to correct the entry and
+        preview again.</li>
+      <li><strong>The status is fetched, not embedded.</strong> It is not a
+        column on the entry, so the dialog fetches the invoice — only when
+        there is one, which is the rare case. <code>test/shim.mjs</code>
+        passes the select string into raw SQL, so PostgREST's
+        <code>invoices(status)</code> syntax would break every route
+        test.</li>
+      <li><strong>Deleting asks once.</strong> The row is one click from the
+        duration and the delete is irreversible.</li>
+      <li><strong>Creating supplies a UUIDv7</strong>, so a retried insert
+        lands on the same row.</li>
+    </ul>
+  </section>
+
+</div>

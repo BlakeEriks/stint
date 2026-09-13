@@ -723,56 +723,14 @@ accessible primitives.
 
 ### Projects
 
-**Two surfaces, different jobs.** `/projects` (`project-list.tsx`) is where
-you find a project; the Projects section on a client (`client-projects.tsx`)
-is where you manage one in the context of its rate.
+`/projects` groups by client; the Projects section on a client manages one in
+the context of its rate. `screens/projects.html` shows both and the entry
+dialog.
 
-A flat list was rejected and then needed anyway, because the nested section
-**cannot reach a project with no client** — there is no client detail page to
-open, since there is no client. Putting those rows on the clients list does
-not help either: they would have to link to a client that does not exist.
-
-**Grouping by client answers the original objection** rather than trading
-against it. Three rows named "Website redesign" in one undifferentiated list
-have to be decoded; under client headings they do not. The heading carries the
-client's own rate, so an inherited row reads against it. And "No client"
-becomes a *heading* rather than an entity: a heading needs no detail page, no
-rate and no Edit button, so what was incoherent as a pseudo-client is ordinary
-as a group label.
-
-**"No client" is never labelled "internal work".** `client_id = null` covers
-at least three states the app cannot tell apart: genuinely internal, **not yet
-assigned** (billable work that will silently never be billed), and
-speculative. The attention card already treats the middle one as wrong —
-"cannot resolve a rate" — so an "Internal" heading would contradict it.
-`isBillableDefault` is the one real signal, and it is the user's own answer;
-do not overwrite it with a guess. Tested.
-
-**A project whose client cannot be resolved falls under "No client" rather
-than vanishing**, and an archived client keeps its own heading — filing its
-projects under "No client" would be a lie, and they are exactly the rows
-someone checks when reviewing a finished engagement. This is why the list
-fetches clients with `includeArchived`.
-
-**`ProjectRate` (`project-rate.tsx`) is shared by both surfaces.** Most
-projects store no rate of their own, so printing the column would show nothing
-for the common case — the opposite of the truth. It resolves through
-`resolveRate` from `@stint/core`, the same function the invoice preview uses;
-a second implementation would be another thing to drift.
-
-**The row shows the figure alone, not where it came from.** Naming the source
-on each row ("from Northwind Trading", "overrides Northwind Trading's
-$150.00") put a sentence under every project and read as clutter — and on
-`/projects` it restated the client heading immediately above it. The number is
-what gets checked; the hierarchy is legible from the grouping and from the
-dialog that sets it. `resolveRateSource` is still used — `buildLineItems`
-calls it, so a preview and a freshly generated invoice carry `rateSource` per
-line. An invoice read back from the database does not: there is no
-`rate_source` column, which is why the schema marks the field optional.
-
-No resolvable rate renders in the **danger** channel, not as `$0.00`:
-invoicing refuses to generate from unrated entries, so without it the failure
-is discovered at the moment of billing.
+**"No client" is a heading, not an entity** — and never labelled "internal
+work". `client_id = null` covers genuinely internal, not-yet-assigned and
+speculative, which the app cannot tell apart; `isBillableDefault` is the
+user's own answer and must not be overwritten with a guess.
 
 ### The home screen
 
@@ -821,43 +779,14 @@ every 60s and on focus; `serverTime` corrects a skewed device clock.
 ### Editing an entry
 
 `entry-dialog.tsx` is the only place a logged entry is created, corrected or
-deleted, and it is what makes two promises elsewhere true: that the numbers on
-an invoice are the numbers you worked (only honest if a mistake can be fixed),
-and that a runaway timer is *surfaced* rather than auto-trimmed (only honest if
-there is somewhere to do the trimming).
+deleted. `screens/projects.html` shows its three states and carries the rules.
 
-- **The inputs are local wall-clock; the API is UTC.** `toInstant` resolves a
-  date + time in a timezone by guessing UTC and correcting by the offset the
-  guess lands in — DST-correct because the correction is computed *at* the
-  target instant rather than assumed from today. Verified round-tripping
-  across both US transitions, the ambiguous fall-back hour, a half-hour
-  offset and UTC+14. Never do fixed-millisecond arithmetic here.
-- **An end before the start is overnight, not an error.** 22:00 to 02:00 is a
-  four-hour shift; rejecting it is defensible and useless to someone who
-  worked those hours. The end rolls forward one calendar day.
-- **An entry billed on an ISSUED invoice opens read-only** with the reason and
-  the remedy ("void the invoice to release it"). The lock is a database
-  trigger, so an edit would 409 — offering a save that cannot succeed is
-  dishonest. Every field disables and the only remaining action is dismiss.
+**The inputs are local wall-clock; the API is UTC.** `toInstant` corrects by
+the offset the guess lands in, so it is DST-correct at the target instant.
+Never do fixed-millisecond arithmetic here.
 
-  **A DRAFT is not a lock**, and `guard_billed_entry` says so: it returns
-  early when the invoice status is `draft`, because a draft holds no number
-  and has not been sent, so nothing has been told to a client yet. The dialog
-  disabled on any `invoiceId` and so refused an edit the server would have
-  accepted — the more expensive direction to be wrong in, since the fix for a
-  wrong draft is to correct the entry and preview again. Editing one now warns
-  that the draft needs previewing again rather than blocking it.
-
-  The status is not a column on the entry, so the dialog fetches the invoice —
-  only when there is one, which is the rare case. An embed was rejected:
-  `test/shim.mjs` passes the select string into raw SQL, so PostgREST's
-  `invoices(status)` syntax would break every route test.
-- **Deleting asks once.** The row is one click from the duration and the
-  delete is irreversible.
-- **Creating supplies a UUIDv7** so a retried insert lands on the same row.
-
-All five are tested, and each test was verified to fail when the behaviour is
-removed.
+**An issued invoice locks an entry; a draft does not** — `guard_billed_entry`
+returns early on a draft.
 
 ### The calendar
 
