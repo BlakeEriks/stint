@@ -181,7 +181,60 @@ private enum Keychain {
         // `WhenUnlocked` keeps it out of reach of anything reading the disk
         // on a locked machine.
         q[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
+        if let access = selfAccess() {
+            q[kSecAttrAccess as String] = access
+        }
         SecItemAdd(q as CFDictionary, nil)
+    }
+
+    /**
+     Who may read this item, named as THIS BUNDLE rather than these bytes.
+
+     The default `SecItemAdd` writes a partition list pinned to the calling
+     binary's `cdhash` — a hash of the executable's own bytes. That is the
+     whole problem: it changes on every build, and not only when the source
+     changes. Two builds of IDENTICAL source produce different hashes, because
+     the binary carries a timestamp. So the check failed on every rebuild,
+     macOS asked for the login password, and "Always allow" appended one more
+     dead hash to a list that recorded past prompts rather than granting
+     future access.
+
+     `SecTrustedApplicationCreateFromPath` records the app's SIGNING IDENTITY
+     instead — for a signed bundle that is the certificate, which is exactly
+     the part a rebuild preserves. `dev-certificate.sh` is what supplies one.
+
+     Ad-hoc signing has no such identity (its "identity" is the hash again),
+     so there the prompts remain. That is the honest outcome: the alternative
+     is granting every process on the machine a read of the refresh token.
+     */
+    private static func selfAccess() -> SecAccess? {
+        guard let path = Bundle.main.bundlePath as String?,
+              !path.isEmpty
+        else { return nil }
+
+        var trusted: SecTrustedApplication?
+        guard SecTrustedApplicationCreateFromPath(path, &trusted) == errSecSuccess,
+              let trusted
+        else { return nil }
+
+        guard let access = SecAccessCreateWithOwnerAndACL(
+            getuid(), 0, SecAccessOwnerType(kSecUseOnlyUID), nil, nil
+        ) else { return nil }
+
+        /* Only the decrypt-side ACLs matter: they say who may READ the
+           secret. The owner entry created above governs who may change the
+           access itself, and that stays with the user. */
+        guard let acls = SecAccessCopyMatchingACLList(
+            access, kSecACLAuthorizationDecrypt
+        ) as? [SecACL] else { return nil }
+
+        for acl in acls {
+            /* An EMPTY prompt selector is the point: it is the set of
+               conditions under which macOS asks anyway, and we want none of
+               them for an app the list already names. */
+            SecACLSetContents(acl, [trusted] as CFArray, service as CFString, [])
+        }
+        return access
     }
 
     static func clear() {
