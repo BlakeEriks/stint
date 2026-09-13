@@ -42,15 +42,6 @@ PLIST
 #
 # Optional on purpose: a fresh clone still builds and runs, it just prompts.
 # `./dev-certificate.sh` creates one.
-IDENTITY="Stint Local Dev"
-if security find-identity -v -p codesigning 2>/dev/null | grep -q "$IDENTITY"; then
-    codesign --force --deep --sign "$IDENTITY" "$APP" 2>/dev/null \
-        && echo "signed with \"$IDENTITY\"" \
-        || echo "warning: signing failed; the Keychain will keep prompting"
-else
-    echo "unsigned (ad-hoc) — run ./dev-certificate.sh to stop the Keychain prompts"
-fi
-
 echo "built $APP"
 
 # Install, because a URL scheme only resolves from a real Applications folder.
@@ -65,6 +56,23 @@ INSTALLED="$HOME/Applications/Stint.app"
 mkdir -p "$HOME/Applications"
 rm -rf "$INSTALLED"
 cp -R "$APP" "$INSTALLED"
+
+# Sign AFTER copying, and sign the copy.
+#
+# Signing the build directory and then `cp -R`ing it was the bug: the Keychain
+# identifies the app that runs, which is the copy, and copying does not
+# reliably carry the seal — so the installed app was effectively unsigned and
+# every rebuild asked for the password again, exactly as it had before the
+# certificate existed.
+IDENTITY="Stint Local Dev"
+if security find-identity -v -p codesigning 2>/dev/null | grep -q "$IDENTITY"; then
+    codesign --force --deep --sign "$IDENTITY" "$INSTALLED" 2>/dev/null \
+        && echo "signed with \"$IDENTITY\"" \
+        || echo "warning: signing failed; the Keychain will keep prompting"
+else
+    echo "unsigned (ad-hoc) — run ./dev-certificate.sh to stop the Keychain prompts"
+fi
+
 "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister" \
     -f "$INSTALLED"
 

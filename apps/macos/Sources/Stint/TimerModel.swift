@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 
@@ -140,6 +141,30 @@ final class TimerModel {
                 guard let self, self.isSignedIn else { continue }
                 await self.refresh()
             }
+        }
+        watchWake()
+    }
+
+    /**
+     Reconcile when the Mac wakes.
+
+     Polling alone is wrong across sleep: a laptop shut overnight comes back
+     with a readout fourteen hours stale and keeps it for up to a minute,
+     which is the moment it is most likely to be looked at and most likely to
+     be wrong. The timer may also have been stopped from a phone in between.
+
+     This is why a 60s interval is enough rather than a compromise — the gaps
+     that matter are closed by events, not by polling faster. A WebSocket
+     would answer the same question with a connection held open all day, and
+     `realtime` is deliberately not in the local stack.
+     */
+    private func watchWake() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in await self?.refresh() }
         }
     }
 

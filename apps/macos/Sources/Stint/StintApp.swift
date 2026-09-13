@@ -28,12 +28,18 @@ struct StintApp: App {
         let tokens = TokenStore(supabaseURL: Config.supabaseURL, anonKey: Config.anonKey)
         let api = API(baseURL: Config.appURL, tokens: tokens)
         let auth = Auth(supabaseURL: Config.supabaseURL, anonKey: Config.anonKey, tokens: tokens)
-        _model = State(initialValue: TimerModel(api: api, auth: auth, tokens: tokens))
+        let model = TimerModel(api: api, auth: auth, tokens: tokens)
+        _model = State(initialValue: model)
+
     }
 
     var body: some Scene {
         MenuBarExtra {
             ContentView(model: model)
+                /* Re-reconciles on each open; the ticker and poller are
+                   already running by then. `start()` is idempotent, so this
+                   is "the panel was just opened, check now" rather than a
+                   second set of loops. */
                 .task { model.start() }
         } label: {
             // The menu bar shows the elapsed timer when one runs and today's
@@ -58,6 +64,17 @@ struct StintApp: App {
                as one string — the icon looks like a prefix rather than an
                icon. The gap is what separates them while the timer is
                stopped and everything is the same colour. */
+            /* `task` on the LABEL, not on the panel's content.
+               `MenuBarExtra` does not build its content until the panel is
+               first opened, so starting there left the menu bar stale until
+               it was clicked — a running timer did not count, and one stopped
+               on another device still read as running. The label is built at
+               launch, which is when the readout needs to start being right.
+
+               `init()` was tried first and is worse than it looks: a `Task`
+               spawned there may never run, because SwiftUI can initialise an
+               App before the run loop is ready. It failed silently, with zero
+               network connections, which is exactly how it was found. */
             HStack(spacing: 7) {
                 Image(nsImage: markImage(
                     accent: model.isRunning
@@ -80,6 +97,7 @@ struct StintApp: App {
                     .monospacedDigit()
                     .frame(width: 57, alignment: .trailing)
             }
+            .task { model.start() }
         }
         .menuBarExtraStyle(.window)
     }
