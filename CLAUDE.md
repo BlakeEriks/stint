@@ -749,6 +749,16 @@ inline token *values*. That is the one place in the app where a hardcoded hex
 is correct, and it is dark unconditionally, since nothing is there to stamp
 `[data-theme]`.
 
+**`/throw` is a development-only route that exists to test this**, because
+nothing else in the app can be made to fail from the outside: a missing
+invoice renders "Not found.", a failed fetch renders its own message, a 401
+redirects. That is the app being correct, and it leaves the boundary
+unreachable without editing a component. `notFound()` makes the route a 404 in
+production — verified against a real build, not assumed.
+`e2e/error-boundary.spec.ts` drives it and asserts the rail AND the stop
+button survive; moving the boundary to the root fails that test, which is the
+property jsdom cannot check.
+
 Both show `error.digest` when present. Next withholds a server error's message
 from the client in production so an internal detail cannot leak onto someone's
 screen; the digest is what ties the screen to the server log, so a user who
