@@ -484,10 +484,15 @@ private struct StartStopButton: View {
 
 private struct OpenAppButton: View {
     @Environment(\.openURL) private var openURL
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         Button {
             openURL(Config.appURL)
+            /* The panel is not a window, so `dismiss` alone is unreliable
+               here; resigning active status is what actually closes it. */
+            dismiss()
+            NSApp.hide(nil)
         } label: {
             Text("Open Stint")
                 .font(.system(size: 12))
