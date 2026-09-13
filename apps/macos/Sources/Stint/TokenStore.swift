@@ -147,97 +147,82 @@ actor TokenStore {
 ///
 /// Not `UserDefaults`: a refresh token is a long-lived credential and a plist
 /// in the app container is readable by anything running as the user.
+///
+/// **Every call goes through `/usr/bin/security`, not the in-process Security
+/// framework, and that is the whole reason the password prompt stopped.**
+///
+/// A keychain grant is checked against a PARTITION LIST as well as an ACL.
+/// The ACL can name a stable identity — ours names the certificate from
+/// `dev-certificate.sh` — but macOS writes the partition list itself, pinned
+/// to the calling binary's `cdhash`, and supplying an explicit `SecAccess` at
+/// `SecItemAdd` does not change that. A cdhash moves on every build — measured
+/// on two builds of IDENTICAL source, and by definition on any code change.
+/// So an in-process read is a NEW CALLER every time, and each "Always allow"
+/// only appended one more dead hash to a list that recorded past prompts
+/// rather than granting future access.
+///
+/// `/usr/bin/security` is a system binary with a fixed identity, so one grant
+/// against it holds across every rebuild and OS update. The trade is explicit:
+/// any process running as this user can also invoke it, so the item is
+/// protected by the login keychain's lock rather than by app identity — which
+/// is what it was protected by anyway, since the ACL never survived a build.
+///
+/// Measured before this was written: a rebuilt binary's read prompted while
+/// `security find-generic-password` returned the token instantly.
 private enum Keychain {
     private static let service = "dev.stint.session"
     private static let account = "supabase"
 
-    private static var query: [String: Any] {
-        [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-        ]
-    }
-
     static func read() -> Session? {
-        var q = query
-        q[kSecReturnData as String] = true
-        q[kSecMatchLimit as String] = kSecMatchLimitOne
-
-        var item: CFTypeRef?
-        guard SecItemCopyMatching(q as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data
+        guard let out = run(["find-generic-password", "-s", service, "-a", account, "-w"]),
+              let data = out.data(using: .utf8)
         else { return nil }
         return try? JSONDecoder().decode(Session.self, from: data)
     }
 
     static func write(_ session: Session) {
-        guard let data = try? JSONEncoder().encode(session) else { return }
-        SecItemDelete(query as CFDictionary)
-
-        var q = query
-        q[kSecValueData as String] = data
-        // The session is only needed while someone is using the Mac, and
-        // `WhenUnlocked` keeps it out of reach of anything reading the disk
-        // on a locked machine.
-        q[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
-        if let access = selfAccess() {
-            q[kSecAttrAccess as String] = access
-        }
-        SecItemAdd(q as CFDictionary, nil)
-    }
-
-    /**
-     Who may read this item, named as THIS BUNDLE rather than these bytes.
-
-     The default `SecItemAdd` writes a partition list pinned to the calling
-     binary's `cdhash` — a hash of the executable's own bytes. That is the
-     whole problem: it changes on every build, and not only when the source
-     changes. Two builds of IDENTICAL source produce different hashes, because
-     the binary carries a timestamp. So the check failed on every rebuild,
-     macOS asked for the login password, and "Always allow" appended one more
-     dead hash to a list that recorded past prompts rather than granting
-     future access.
-
-     `SecTrustedApplicationCreateFromPath` records the app's SIGNING IDENTITY
-     instead — for a signed bundle that is the certificate, which is exactly
-     the part a rebuild preserves. `dev-certificate.sh` is what supplies one.
-
-     Ad-hoc signing has no such identity (its "identity" is the hash again),
-     so there the prompts remain. That is the honest outcome: the alternative
-     is granting every process on the machine a read of the refresh token.
-     */
-    private static func selfAccess() -> SecAccess? {
-        guard let path = Bundle.main.bundlePath as String?,
-              !path.isEmpty
-        else { return nil }
-
-        var trusted: SecTrustedApplication?
-        guard SecTrustedApplicationCreateFromPath(path, &trusted) == errSecSuccess,
-              let trusted
-        else { return nil }
-
-        guard let access = SecAccessCreateWithOwnerAndACL(
-            getuid(), 0, SecAccessOwnerType(kSecUseOnlyUID), nil, nil
-        ) else { return nil }
-
-        /* Only the decrypt-side ACLs matter: they say who may READ the
-           secret. The owner entry created above governs who may change the
-           access itself, and that stays with the user. */
-        guard let acls = SecAccessCopyMatchingACLList(
-            access, kSecACLAuthorizationDecrypt
-        ) as? [SecACL] else { return nil }
-
-        for acl in acls {
-            /* An EMPTY prompt selector is the point: it is the set of
-               conditions under which macOS asks anyway, and we want none of
-               them for an app the list already names. */
-            SecACLSetContents(acl, [trusted] as CFArray, service as CFString, [])
-        }
-        return access
+        guard let data = try? JSONEncoder().encode(session),
+              let json = String(data: data, encoding: .utf8)
+        else { return }
+        /* No `-T`. A fresh item already gets `/usr/bin/security` as its one
+           trusted app and `apple-tool:` as its partition, because that IS the
+           caller. Passing `-T /usr/bin/security` as well was harmless on
+           creation and a prompt on every update: `-U` with `-T` APPENDS to
+           the ACL rather than recognising the entry it already holds, and an
+           ACL change is the one write the owner's password still guards.
+           This runs at every hourly token refresh, so that was the password
+           once an hour. Measured: `-U -T` on an existing item blocked 20s
+           until the password was typed; `-U` alone took 20ms and left the
+           ACL and partition list exactly as they were. */
+        _ = run([
+            "add-generic-password", "-U",
+            "-s", service, "-a", account, "-w", json,
+        ])
     }
 
     static func clear() {
-        SecItemDelete(query as CFDictionary)
+        _ = run(["delete-generic-password", "-s", service, "-a", account])
+    }
+
+    /* Arguments are passed as argv, never through a shell: the session is
+       JSON and carries quotes and braces that a shell would interpret. */
+    private static func run(_ arguments: [String]) -> String? {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        task.arguments = arguments
+
+        let stdout = Pipe()
+        task.standardOutput = stdout
+        task.standardError = FileHandle.nullDevice
+
+        do { try task.run() } catch { return nil }
+        let out = stdout.fileHandleForReading.readDataToEndOfFile()
+        task.waitUntilExit()
+        guard task.terminationStatus == 0 else { return nil }
+
+        let text = String(decoding: out, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
     }
 }
+
