@@ -224,8 +224,35 @@ jobs:
       - name: Start Supabase
         run: npx supabase start -x studio,postgres-meta
 
+      # The Playwright version alone is the key: browser builds are pinned to
+      # it, so a lockfile bump is the only thing that invalidates them. Read
+      # from the installed package rather than hashing a file — hashing the
+      # lockfile would throw away a still-valid browser on every unrelated
+      # dependency change, the same trap the Supabase image key had.
+      #
+      # Unlike the Supabase images, this one is worth caching: it restores a
+      # plain directory. That cache lost to a pull because `docker load`
+      # decodes a tarball serially; there is no decode step here.
+      - name: Playwright version
+        id: pw
+        run: echo "v=$(node -p "require('./apps/web/node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-shell-${{ steps.pw.outputs.v }}
+
+      # `--only-shell`: the suite runs headless, and the shell is 195MB
+      # against full Chrome's 359MB — plus it launches faster, which is a
+      # per-launch saving rather than a per-run one. See the `channel` note in
+      # playwright.config.ts for what this gives up (nothing we use).
+      #
+      # `--with-deps` runs apt-get for system libraries, which the cache does
+      # NOT cover — those land in /usr/lib, not ~/.cache. So it must run on a
+      # hit too; it is seconds when the packages are already present.
       - name: Install Chromium
-        run: cd apps/web && npx playwright install --with-deps chromium
+        run: cd apps/web && npx playwright install --with-deps --only-shell chromium
 
       # The dev server reads .env.development.local, which is gitignored
       # because it holds a local-only key. CI writes its own from what

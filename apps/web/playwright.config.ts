@@ -55,6 +55,19 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
+        /* NO `channel` here, deliberately. Playwright already launches the
+         * headless SHELL by default (195MB, faster to start); `channel:
+         * 'chromium'` is what would force the full 359MB browser instead.
+         * Verified by reading the launched process path, not
+         * `executablePath()` — that reports the default install regardless of
+         * the channel passed, which reads as a confident wrong answer.
+         *
+         * This is why CI installs `--only-shell`: the full browser was being
+         * downloaded on every run and never launched. Nothing here needs it —
+         * no `video` (the shell cannot record), no headed mode, no
+         * extensions. The PDF comes from `@react-pdf/renderer` in a route
+         * handler, NOT Chrome's print engine, and `test/invoices.test.ts`
+         * asserts its bytes and `%PDF-` magic directly. */
         /* Taller than the 720px default. The account menu sits at the FOOT
            of the rail, so its dropdown opens against the bottom edge — on a
            CI runner Radix's popper placed it outside the viewport and the
