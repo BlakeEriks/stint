@@ -3,6 +3,11 @@ name: CI
 on:
   push: { branches: [main] }
   pull_request:
+  # Run it on demand. `gh run rerun` is NOT a substitute: a re-run replays the
+  # original run, keeping its creation time and its point-in-time view of the
+  # caches — so re-running to check whether a newly-saved cache is now hit
+  # reports a miss every time, which cost three misleading measurements.
+  workflow_dispatch:
 
 # The suite spins up five databases; a second push should supersede the
 # first rather than run it all twice.
