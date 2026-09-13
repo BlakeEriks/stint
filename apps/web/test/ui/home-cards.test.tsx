@@ -303,6 +303,10 @@ describe('the wide layout survives its own empty states', () => {
     unit: 'hours' as const,
     target: 120,
     actual: 21.4,
+    /* 120 * 9/22. `delta` is `actual - expected`, so the two have to agree —
+       a fixture that contradicts itself would let a card render a bar from
+       one number and a caption from the other and still pass. */
+    expected: 49.1,
     delta: -27.7,
     businessDaysElapsed: 9,
     businessDaysTotal: 22,
