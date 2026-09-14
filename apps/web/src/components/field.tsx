@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback } from 'react';
 import { Label } from '@/components/ui/label';
 
 const LABEL = 'type-label text-subtle';
@@ -34,6 +34,40 @@ export function Field({
 }
 
 /**
+ * Bring a linked-to section into view and put the caret in its first field.
+ *
+ * The content column scrolls inside itself rather than the page scrolling, and
+ * a native anchor jump does not reach an element inside a nested scroll
+ * container — `/settings#goal` arrived with the card still below the fold.
+ *
+ * Focus is the other half: arriving from another screen should leave the user
+ * in the field the link was about, not at the top of the document.
+ * `preventScroll`, because the scroll above already placed the card and
+ * letting focus scroll again would fight it.
+ */
+function focusSection(section: HTMLElement) {
+  section.scrollIntoView({ block: 'start' });
+
+  const field = section.querySelector<HTMLElement>(
+    'input:not([type="hidden"]), select, textarea',
+  );
+  if (!field) return;
+
+  field.focus({ preventScroll: true });
+
+  /* Selecting means typing replaces the value the user came to change rather
+     than appending to it. A number input reports a null `selectionStart` and
+     still selects, so this is guarded by type rather than by capability. */
+  if (
+    field instanceof HTMLInputElement &&
+    field.type !== 'checkbox' &&
+    field.type !== 'radio'
+  ) {
+    field.select();
+  }
+}
+
+/**
  * A titled group of fields inside a floating pane.
  *
  * `status` renders top-right. Each card saves independently, so the
@@ -54,23 +88,23 @@ export function Section({
   status?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const ref = useRef<HTMLElement>(null);
-
-  /* The content column scrolls inside itself rather than the page scrolling,
-     and a native anchor jump does not reach an element inside a nested scroll
-     container on a client-side navigation — `/settings#goal` arrived with the
-     card still below the fold. Scrolling it in explicitly is what makes the
-     link land. */
-  useEffect(() => {
-    if (!id || typeof window === 'undefined') return;
-    if (window.location.hash !== `#${id}`) return;
-    ref.current?.scrollIntoView({ block: 'start' });
-  }, [id]);
+  /* A callback ref rather than `useRef` + an effect keyed on `id`: the form
+     renders "Loading…" until settings arrive, so on a cold load of
+     `/settings#goal` an effect would fire before this section exists and find
+     nothing to focus. A callback ref runs when the node actually mounts. */
+  const onMount = useCallback(
+    (section: HTMLElement | null) => {
+      if (!section || !id || typeof window === 'undefined') return;
+      if (window.location.hash !== `#${id}`) return;
+      focusSection(section);
+    },
+    [id],
+  );
 
   return (
     <section
       id={id}
-      ref={ref}
+      ref={onMount}
       /* `scroll-mt` keeps a little air above the card when it is jumped to,
          so it does not sit flush against the top of the column. */
       className="scroll-mt-4 rounded-xl border border-edge-subtle bg-surface-elevated p-5 shadow-card"
