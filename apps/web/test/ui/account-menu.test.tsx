@@ -51,16 +51,19 @@ describe('AccountMenu', () => {
     expect(router.refresh).toHaveBeenCalled();
   });
 
-  it('holds Settings, so the rail keeps only places you go', async () => {
+  it('offers sign out and nothing else', async () => {
     const user = userEvent.setup();
     render(<AccountMenu />);
 
     await user.click(screen.getByRole('button', { name: 'Account' }));
+    await screen.findByRole('menuitem', { name: /sign out/i });
 
-    /* The rail is destinations; configuration visited rarely does not belong
-       in the same run of items as Home and Calendar. */
-    const settings = await screen.findByRole('menuitem', { name: /settings/i });
-    expect(settings).toHaveAttribute('href', '/settings');
+    /* Settings is a section in the rail and the theme is a field inside it,
+       so the email has exactly one thing left to do. */
+    expect(screen.getAllByRole('menuitem')).toHaveLength(1);
+    expect(
+      screen.queryByRole('menuitem', { name: /settings/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('still works when the token carries no email', async () => {

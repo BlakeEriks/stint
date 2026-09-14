@@ -6,6 +6,7 @@ import {
   CalendarDays,
   FileText,
   FolderOpen,
+  Settings,
   Timer,
   Users,
   type LucideIcon,
@@ -21,8 +22,10 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/clients', label: 'Clients', icon: Users },
   { href: '/projects', label: 'Projects', icon: FolderOpen },
   { href: '/invoices', label: 'Invoices', icon: FileText },
-  // Settings is NOT here: the rail is places you go, and configuration you
-  // visit rarely belongs in the account menu at the foot instead.
+  /* Settings is a place, and it is the only one the account menu used to
+     hide. It sorts last: the sections above are the work, this is the setup
+     behind it. */
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 /**
@@ -54,9 +57,8 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
  * labels while the cards made do with 692. `lg` is where the cards go
  * two-column and the width starts being used rather than just occupied.
  *
- * The strip needs 596px for five sections, so it fits comfortably at every
- * width where it is shown; past that it scrolls horizontally rather than
- * wrapping, which is what keeps the header row one row tall.
+ * The strip scrolls horizontally rather than wrapping, which is what keeps
+ * the header row one row tall however many sections it holds.
  */
 export function Nav() {
   const pathname = usePathname();

@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
-import { Field, Section, textareaClass } from './field';
+import { Field, inputClass, Section, textareaClass } from './field';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
 import { api, type Settings, type SettingsInput } from '@/lib/client/api';
+import { type Theme, useTheme } from '@/lib/client/use-theme';
 
 /**
  * Settings.
@@ -21,14 +22,20 @@ import { api, type Settings, type SettingsInput } from '@/lib/client/api';
  */
 export function SettingsForm() {
   const queryClient = useQueryClient();
+  const { theme, setTheme } = useTheme();
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: api.settings,
   });
 
   const [form, setForm] = useState<Settings | null>(null);
+  /** What the unit select shows, which outlives an empty target. */
+  const [goalUnit, setGoalUnit] = useState<'hours' | 'revenue'>('hours');
   useEffect(() => {
-    if (data && form === null) setForm(data);
+    if (data && form === null) {
+      setForm(data);
+      if (data.monthlyTargetUnit) setGoalUnit(data.monthlyTargetUnit);
+    }
   }, [data, form]);
 
   /**
@@ -46,6 +53,7 @@ export function SettingsForm() {
   const billing = useAutosave(persist);
   const identity = useAutosave(persist);
   const numbering = useAutosave(persist);
+  const goal = useAutosave(persist);
 
   if (isLoading || !form) {
     return <p className="type-support text-subtle">Loading…</p>;
@@ -63,8 +71,43 @@ export function SettingsForm() {
   const setIdentity = edit(identity);
   const setNumbering = edit(numbering);
 
+  /* The target and its unit travel together: `schedule` replaces the queued
+     payload rather than merging into it, so sending one key would drop the
+     other mid-debounce. Clearing the target clears the unit with it — the
+     database rejects one without the other.
+
+     The unit the SELECT shows is held separately, because a unit chosen
+     before a target has been typed cannot be persisted yet: writing it alone
+     would violate the constraint, and writing null would snap the select back
+     to Hours under the user mid-choice. */
+  const setGoal = (target: number | null, unit: 'hours' | 'revenue') => {
+    setGoalUnit(unit);
+    const paired = target === null ? null : unit;
+    setForm((f) =>
+      f ? { ...f, monthlyTarget: target, monthlyTargetUnit: paired } : f,
+    );
+    goal.schedule({ monthlyTarget: target, monthlyTargetUnit: paired });
+  };
+
   return (
     <>
+      {/* No SaveIndicator: the theme is a device preference in localStorage,
+          not a row on `user_settings`, so it applies on click and there is no
+          request to report. An indicator here would imply it syncs. */}
+      <Section title="Appearance" description="This device only.">
+        <Field label="Theme" htmlFor="theme">
+          <select
+            id="theme"
+            value={theme}
+            onChange={(e) => setTheme(e.target.value as Theme)}
+            className={inputClass}
+          >
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </Field>
+      </Section>
+
       <Section
         title="Billing defaults"
         description="What a client or project falls back to when it sets no rate of its own."
@@ -125,6 +168,64 @@ export function SettingsForm() {
             placeholder="Net 30"
           />
         </Field>
+      </Section>
+
+      {/* The Pace card on Home is the only thing that reads this. Leaving the
+          target empty is a valid answer, not an unfinished one: the card stays
+          away rather than nagging for a number the user does not work to. */}
+      <Section
+        title="Monthly goal"
+        description="Drives the Pace card on Home. Leave it empty for no goal."
+        status={<SaveIndicator state={goal.state} />}
+      >
+        <div className="flex flex-wrap gap-4">
+          <Field
+            label="Target"
+            htmlFor="goal-target"
+            className="flex-1 basis-44"
+          >
+            <Input
+              id="goal-target"
+              type="number"
+              min="0"
+              step={goalUnit === 'revenue' ? '0.01' : '1'}
+              inputMode="decimal"
+              value={form.monthlyTarget ?? ''}
+              onChange={(e) =>
+                setGoal(
+                  e.target.value === '' ? null : Number(e.target.value),
+                  goalUnit,
+                )
+              }
+              placeholder={goalUnit === 'revenue' ? '10000' : '120'}
+            />
+          </Field>
+
+          <Field
+            label="Measured in"
+            htmlFor="goal-unit"
+            /* Revenue is work DONE — invoiced plus unbilled at its resolved
+               rate — never money collected, so a slow-paying client never
+               makes the month look worse than it was. */
+            hint="Revenue counts work done, not money collected."
+            className="flex-1 basis-44"
+          >
+            <select
+              id="goal-unit"
+              value={goalUnit}
+              onChange={(e) =>
+                setGoal(
+                  form.monthlyTarget,
+                  e.target.value as 'hours' | 'revenue',
+                )
+              }
+              className={inputClass}
+            >
+              <option value="hours">Hours</option>
+              <option value="revenue">Revenue</option>
+            </select>
+          </Field>
+        </div>
       </Section>
 
       <Section
