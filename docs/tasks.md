@@ -27,60 +27,30 @@ later.
 - [ ] **Delete the two parked components, or say why they stay.**
       `activity-strip.tsx` (the twelve-week heatmap `ActivityChart` replaced)
       and `nav-timer.tsx` (the rail readout the docked bar replaced) are both
-      unimported, both still carry passing tests, and both were kept "for one
-      release". That release has passed.
+      unimported and both were kept "for one release". That release has
+      passed. `activity-strip` still carries a passing test
+      (`test/ui/activity-strip.test.tsx`); `nav-timer` has none, so deleting
+      it costs nothing and proves nothing either.
 
       The cost is not the file, it is that a reader cannot tell a parked
       component from a current one — CLAUDE.md described the strip as what
       Home renders for weeks after it stopped being true. Either delete them
       with their tests, or record the condition that would bring them back.
 
-- [ ] **CLAUDE.md carries ~660 lines of per-screen design narrative that now
-      belongs in `docs/design/screens/`.** Its own opening says rationale
-      "lives inline in the spec it belongs to" — that was unachievable before
-      the screen docs existed, and is achievable now.
+- [ ] **Identity is missing from both panel headers.** `menubar.html` moves
+      identity into the panel, "where there is room for a real wordmark and a
+      12pt glyph is not being asked to do branding" — that was the trade for
+      dropping the letterform from the status item, and only half of it
+      shipped. The macOS timer panel renders no mark at all; the sign-in view
+      has the `Lockup`.
 
-      Timer bar, calendar, invoicing UI, entry dialog, projects and settings
-      each want a screen doc; Layout belongs in `_shell.html`. Process
-      sections (tests, the pre-commit hook, Components) stay. The file was 50
-      lines three days ago and has grown on 72 of 181 commits without ever
-      shrinking, so the fix is moving content to where it is read alongside
-      what it constrains, not trimming sentences.
-
-- [ ] **The mark still ships a green `S`, and the menu bar still draws a
-      letterform.** `docs/design/brand.html` is the spec: `|Stint|` in one
-      colour, bounds included, and a status item that is a pip plus the time.
-      Three places in `apps/macos` disagree with it.
-
-      `Mark.swift`'s `markImage(accent:)` tints the `S` with the accent when a
-      timer runs, and `StintApp.swift` passes it — so the status item is a
-      letterform whose colour carries state. Replace it with the pip; the
-      strip in `menubar.html` is drawn. `Lockup` defaults `accent:` to
-      `accentDefault` and lifts its `S` while receding the rest to 55%, which
-      is the panel header and the sign-in view — both should be one colour at
-      full strength.
-
-      Once the pip ships, `Lockup`'s `expanded:` contraction animation and
-      `markImage` itself are likely dead: nothing contracts to `|S|` any more.
-      Check before deleting.
-
-      Green on the mark is a second meaning for the accent, which already
-      means the running timer — and on the menu bar the pip is now carrying
-      exactly that signal, so the letterform would be saying it twice.
-
-- [ ] **The mark's geometry is hardcoded in two components.**
-      `tokens.json` now carries `brand.mark` and generates
-      `--mark-bound-*` into `tokens.css` plus `Tokens.Mark` into
-      `Tokens.swift`, but neither consumer reads them yet.
-
-      `apps/web/src/components/wordmark.tsx` has the ratios inline in its
-      `Bound()` class string (`h-[1.05em] w-[0.09em] mx-[0.18em]`); the
-      generated custom properties should replace them. `Mark.swift` computes
-      its own from the icon box (`side * 0.085`, `side * 0.80`) and so draws a
-      different mark — that divergence is what the token exists to end.
-
-      Note `check:type` rejects arbitrary values, so the web fix wants an
-      `@utility` or plain CSS rather than more bracket syntax.
+      The web sign-in has the same gap from the other direction:
+      `signin-form.tsx` sets `<h1 className="type-title">Stint</h1>`, so the
+      word is set in the title role rather than drawn as the mark. Per
+      `brand.html`'s placement table both are wordmark placements, and
+      `menubar.html` separately notes sign-in currently renders it far larger
+      than anything in the timer panel, which makes the two look like
+      different products.
 
 - [ ] **Two route handlers have no tests.** `PATCH`/`DELETE` on
       `/projects/:id` and `/payment-profiles/:id` are the only handlers with
