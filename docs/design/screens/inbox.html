@@ -100,8 +100,12 @@
 
   /* The action slot is ALWAYS in flow; only its contents fade. `display:none`
      would drop it out of flow and the row would grow on hover. */
+  /* No negative margin: pulling the slot left by the button's own padding
+     aligns the label with the title, but puts the hover background hard
+     against the severity rule. The box is what the eye sees, so the box is
+     what lines up. */
   .iact {
-    display: flex; gap: 2px; margin: 8px 0 0 -8px;
+    display: flex; gap: 2px; margin: 8px 0 0;
     min-height: 26px; align-items: center;
   }
   .iact > * { opacity: 0; }

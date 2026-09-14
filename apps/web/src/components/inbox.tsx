@@ -470,10 +470,16 @@ function Item({
  *
  * `reveal-on-hover` (globals.css) keeps the buttons visible on a touch device,
  * where there is no hover to reveal them.
+ *
+ * **No negative margin.** Pulling the slot left by the button's own padding
+ * aligns the LABEL with the title above it, but puts the button's hover
+ * background 8px further left than anything else in the row — hard against
+ * the severity rule. The box is the thing the eye sees, so the box is what
+ * lines up.
  */
 function ActionSlot({ children }: { children: React.ReactNode }) {
   return (
-    <div className="reveal-on-hover mt-2 -ml-2 flex min-h-[26px] items-center gap-0.5">
+    <div className="reveal-on-hover mt-2 flex min-h-[26px] items-center gap-0.5">
       {children}
     </div>
   );
