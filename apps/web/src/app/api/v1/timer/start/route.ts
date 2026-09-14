@@ -5,17 +5,9 @@ import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { uuidv7 } from '@stint/core';
-import { z } from 'zod';
+import { StartTimer } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
-
-const StartTimer = z.object({
-  id: z.uuid().optional(),
-  projectId: z.uuid().nullable().optional(),
-  taskName: z.string().max(500).default(''),
-  startedAt: z.iso.datetime({ offset: true }).optional(),
-  isBillable: z.boolean().optional(),
-});
 
 /**
  * POST /api/v1/timer/start

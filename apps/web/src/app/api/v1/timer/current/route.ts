@@ -4,7 +4,7 @@ import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning, maxTimerHours, exceeds } from '@/lib/timer';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
-import { z } from 'zod';
+import { UpdateRunningTimer } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,15 +30,10 @@ export const GET = handle(async (req: Request) => {
   });
 });
 
-const PatchCurrent = z.object({
-  taskName: z.string().max(500).optional(),
-  projectId: z.uuid().nullable().optional(),
-});
-
 /** PATCH /api/v1/timer/current — retitle or reassign a running timer. */
 export const PATCH = handle(async (req: Request) => {
   const { db } = await requireSession(req);
-  const patch = await parseBody(req, PatchCurrent);
+  const patch = await parseBody(req, UpdateRunningTimer);
 
   const update: Record<string, unknown> = {};
   if (patch.taskName !== undefined) update.task_name = patch.taskName;

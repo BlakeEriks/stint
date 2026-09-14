@@ -6,6 +6,7 @@
  * Swift models honest, but that generator is not written yet.
  */
 
+import { isValidTimeZone } from '@stint/core';
 import { z } from 'zod';
 
 export const uuid = z.uuid();
@@ -13,6 +14,27 @@ export const iso = z.iso.datetime({ offset: true });
 export const money = z.number().nonnegative().multipleOf(0.01);
 export const currency = z.string().length(3);
 const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
+
+/**
+ * An IANA zone. "Today" and "September" are local-calendar questions the
+ * server cannot infer, so the client states the zone.
+ *
+ * `catch` rather than a hard failure on the read endpoints: a view that
+ * renders in UTC beats a view that does not render. The write endpoints use
+ * `timeZoneStrict`, because a zone that silently becomes UTC decides which
+ * entries land on an invoice.
+ */
+export const timeZone = z.string().refine(isValidTimeZone).catch('UTC');
+export const timeZoneStrict = z
+  .string()
+  .refine(isValidTimeZone, { message: 'not an IANA time zone' })
+  .default('UTC');
+
+/** Query parameters arrive as strings; a flag is spelled out either way. */
+const boolParam = z
+  .enum(['true', 'false'])
+  .default('false')
+  .transform((v) => v === 'true');
 
 // ── client ─────────────────────────────────────────────────────────
 export const Client = z.object({
@@ -45,7 +67,16 @@ export const ClientWithScale = Client.extend({
    *  one — the list must not render it as "unknown". */
   unbilledAmount: money,
 });
-export const UpdateClient = CreateClient.partial().omit({ id: true });
+export const UpdateClient = CreateClient.partial()
+  .omit({ id: true })
+  .extend({ archived: z.boolean().optional() });
+
+export const ListClientsQuery = z.object({
+  includeArchived: boolParam,
+  /** Project count and unbilled total per client. Opt-in: the plain list is
+   *  one cheap query and most callers (pickers, dialogs) want only that. */
+  withScale: boolParam,
+});
 
 // ── project ────────────────────────────────────────────────────────
 /**
@@ -77,7 +108,14 @@ export const CreateProject = Project.omit({
 }).extend({
   id: uuid.optional(),
 });
-export const UpdateProject = CreateProject.partial().omit({ id: true });
+export const UpdateProject = CreateProject.partial()
+  .omit({ id: true })
+  .extend({ archived: z.boolean().optional() });
+
+export const ListProjectsQuery = z.object({
+  clientId: uuid.optional(),
+  includeArchived: boolParam,
+});
 
 // ── time entry ─────────────────────────────────────────────────────
 export const TimeEntry = z.object({
@@ -125,6 +163,18 @@ export const UpdateTimeEntry = z.object({
   durationOk: z.boolean().optional(),
 });
 
+export const ListEntriesQuery = z.object({
+  from: iso.optional(),
+  to: iso.optional(),
+  /* A uuid, or the literal `none` for entries with no project at all.
+     Those cannot resolve a rate beyond the user default, so they are the
+     ones the inbox surfaces — and `projectId=` (empty) cannot express it,
+     since an absent param already means "no filter". */
+  projectId: z.union([uuid, z.literal('none')]).optional(),
+  clientId: uuid.optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+});
+
 // ── timer ──────────────────────────────────────────────────────────
 export const StartTimer = z.object({
   id: uuid.optional(),
@@ -143,6 +193,12 @@ export const StopTimer = z.object({
   endedAt: iso.optional(), // defaults to server now()
 });
 
+/** Retitle or reassign a running timer. */
+export const UpdateRunningTimer = z.object({
+  taskName: z.string().max(500).optional(),
+  projectId: uuid.nullable().optional(),
+});
+
 // ── summary (the menu bar endpoint) ────────────────────────────────
 export const Summary = z.object({
   running: TimeEntry.nullable(),
@@ -151,6 +207,21 @@ export const Summary = z.object({
   exceedsThreshold: z.boolean(),
   maxTimerHours: z.number().positive(),
   serverTime: iso,
+});
+
+export const SummaryQuery = z.object({ tz: timeZone });
+export const StatsQuery = z.object({ tz: timeZone });
+
+export const CalendarQuery = z.object({
+  from: iso,
+  to: iso,
+  tz: timeZone,
+  /**
+   * `day` returns totals only — `{ date, totalSeconds, byClient }` and no
+   * entries. The activity strip draws one rectangle per day, and twelve weeks
+   * of full entries is a heavy payload to build one.
+   */
+  granularity: z.enum(['entry', 'day']).default('entry'),
 });
 
 // ── settings ───────────────────────────────────────────────────────
@@ -196,11 +267,29 @@ export const Settings = z.object({
   monthlyTarget: money.nullable(),
   monthlyTargetUnit: z.enum(['hours', 'revenue']).nullable(),
 });
-/** `nextInvoiceNumber` is not client-settable: gapless numbering depends on
- *  allocate_invoice_number() holding the row lock. */
-export const UpdateSettings = Settings.partial().omit({
-  nextInvoiceNumber: true,
-});
+/**
+ * `nextInvoiceNumber` is not client-settable: gapless numbering depends on
+ * allocate_invoice_number() holding the row lock.
+ *
+ * A target without a unit cannot be rendered, and a unit without a target
+ * means nothing. The database enforces this too — the check constraint is
+ * authoritative — but catching it here returns a 422 naming the problem
+ * instead of a 500 carrying a constraint name. Only when both appear in the
+ * same patch: setting one while the other already holds a value is
+ * legitimate, and the database still guards the result.
+ */
+export const UpdateSettings = Settings.partial()
+  .omit({ nextInvoiceNumber: true })
+  .refine(
+    (p) =>
+      !('monthlyTarget' in p && 'monthlyTargetUnit' in p) ||
+      (p.monthlyTarget === null) === (p.monthlyTargetUnit === null),
+    {
+      message:
+        'monthlyTarget and monthlyTargetUnit must be set or cleared together',
+      path: ['monthlyTarget'],
+    },
+  );
 
 // ── invoicing ──────────────────────────────────────────────────────
 export const GroupingMode = z.enum(['entry', 'task', 'project', 'day']);
@@ -210,8 +299,12 @@ export const InvoicePreviewRequest = z.object({
   periodStart: z.iso.date(),
   periodEnd: z.iso.date(),
   groupingMode: GroupingMode.default('entry'),
-  /** IANA zone; only affects `day` grouping. */
-  tz: z.string().default('UTC'),
+  /**
+   * The period is local dates, so the window is resolved in this zone — and
+   * it decides which entries land on the invoice. Rejected rather than
+   * silently coerced to UTC, which would move the boundary by hours.
+   */
+  tz: timeZoneStrict,
 });
 
 export const InvoiceLineItem = z.object({
@@ -307,6 +400,12 @@ export const Invoice = z.object({
   sentAt: iso.nullable(),
   paidAt: iso.nullable(),
   createdAt: iso,
+});
+
+export const ListInvoicesQuery = z.object({
+  clientId: uuid.optional(),
+  status: InvoiceStatus.optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 
 /** A day of tracked time, grouped server-side so every client agrees on
@@ -481,6 +580,10 @@ export const CreatePaymentProfile = PaymentProfile.omit({
 export const UpdatePaymentProfile = CreatePaymentProfile.partial()
   .omit({ id: true })
   .extend({ archived: z.boolean().optional() });
+
+export const ListPaymentProfilesQuery = z.object({
+  includeArchived: boolParam,
+});
 
 // ── errors ─────────────────────────────────────────────────────────
 export const ErrorCode = z.enum([

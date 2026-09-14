@@ -4,29 +4,22 @@ import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import { CLIENT_COLUMNS, toClient } from '@/lib/rows';
 import { uuidv7 } from '@stint/core';
-import { z } from 'zod';
+import { CreateClient, ListClientsQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
-const ListQuery = z.object({
-  includeArchived: z.enum(['true', 'false']).default('false'),
-  /** Project count and unbilled total per client. Opt-in: the plain list is
-   *  one cheap query and most callers (pickers, dialogs) want only that. */
-  withScale: z.enum(['true', 'false']).default('false'),
-});
-
 export const GET = handle(async (req: Request) => {
   const { db, userId } = await requireSession(req);
-  const q = parseQuery(req, ListQuery);
+  const q = parseQuery(req, ListClientsQuery);
 
   let query = db.from('clients').select(CLIENT_COLUMNS).order('name');
-  if (q.includeArchived === 'false') query = query.is('archived_at', null);
+  if (!q.includeArchived) query = query.is('archived_at', null);
 
   const { data, error } = await query;
   if (error) throw error;
   const clients = (data ?? []).map(toClient);
 
-  if (q.withScale === 'false') return NextResponse.json({ clients });
+  if (!q.withScale) return NextResponse.json({ clients });
 
   /* The same rollup the home card uses, UNTRUNCATED. `/stats` caps it at the
      top five, which is right for a card and wrong for a full list: the sixth
@@ -63,21 +56,6 @@ export const GET = handle(async (req: Request) => {
   });
 });
 
-const CreateClient = z.object({
-  id: z.uuid().optional(),
-  name: z.string().trim().min(1).max(200),
-  email: z.email().nullable().optional(),
-  address: z.string().max(1000).nullable().optional(),
-  hourlyRate: z.number().nonnegative().nullable().optional(),
-  taxRate: z.number().min(0).max(100).nullable().optional(),
-  currency: z.string().length(3).nullable().optional(),
-  color: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/)
-    .nullable()
-    .optional(),
-});
-
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
   const body = await parseBody(req, CreateClient);
@@ -94,6 +72,7 @@ export const POST = handle(async (req: Request) => {
       tax_rate: body.taxRate ?? null,
       currency: body.currency ?? null,
       color: body.color ?? null,
+      payment_profile_id: body.paymentProfileId ?? null,
     })
     .select(CLIENT_COLUMNS)
     .single();

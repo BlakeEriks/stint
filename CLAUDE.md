@@ -196,8 +196,16 @@ standard hardening against a caller shadowing a table name.
 
 ## API layer
 
-All routes live in `apps/web/src/app/api/v1/`. Shared plumbing in
-`apps/web/src/lib/`:
+All routes live in `apps/web/src/app/api/v1/`.
+
+**Every request shape comes from `@stint/schema`.** A route parses its body or
+query against a schema the package exports; it never declares one inline. A
+route validating something the package does not model means adding it to the
+package, because the package is also what the browser's types derive from — an
+inline copy drifts from the contract in silence, and Zod strips what it does
+not name, so a field the schema forgets is a 200 that discards the value.
+
+Shared plumbing in `apps/web/src/lib/`:
 
 - `auth.ts` — `requireSession()` accepts both a bearer token (Expo, macOS) and
   a cookie session (web); both yield an RLS-scoped client.
@@ -211,15 +219,16 @@ All routes live in `apps/web/src/app/api/v1/`. Shared plumbing in
 - `errors.ts` — `handle()` wraps every route; `ApiError` maps to documented
   status codes. Contains a compile-time guard asserting the local `Code` union
   matches `ErrorCode` in `@stint/schema`.
-- `rows.ts` — the snake_case↔camelCase boundary for entries, clients,
-  projects, settings and payment profiles. Rename one of those columns here
-  and nowhere else.
+- `rows.ts` — the only snake_case↔camelCase boundary, invoices and line
+  items included. Rename a column here and nowhere else.
 
-  **Invoices are the exception.** `invoicing.ts` carries its own `toInvoice`
-  and `toLineItem` plus a `ClientRow` interface, because the PDF loader needs
-  shapes `rows.ts` does not model. `toLineItem` takes `Record<string, any>`,
-  so nothing type-checks it against the schema. **A change to invoice or
-  line-item fields means editing both files.**
+  Each converter takes a row interface, and `columns<Row>()` ties that
+  interface to the select list that fills it — a column the row does not
+  declare and a field the list does not select both fail to compile. The list
+  stays one string literal because supabase-js parses it to infer the row
+  type; a `join()` over an array degrades every consumer to an error type.
+
+- `validate.ts` — Zod parsing with 422 + `treeifyError` details.
 
 The browser's types in `lib/client/api.ts` **derive** from `@stint/schema`
 rather than copying it.
@@ -228,7 +237,6 @@ The wrapper is `Response<T>`, which makes every field required: a schema marks
 a field `.optional()` to describe what a *request* may omit, but every
 converter in `rows.ts` sets every field unconditionally, so a response never
 omits one.
-- `validate.ts` — Zod parsing with 422 + `treeifyError` details.
 
 ### Conventions
 
@@ -260,7 +268,12 @@ Zod major, or `z.infer` degrades to `unknown` across package boundaries.
 Line-item construction lives in `packages/core/src/invoice.ts` — pure, so the
 preview a user approves and the invoice that issues are built by identical
 code. Routes in `apps/web/src/app/api/v1/invoices/`; shared loaders in
-`apps/web/src/lib/invoicing.ts`.
+`apps/web/src/lib/invoicing.ts`, which reads rows through `rows.ts` like
+everything else.
+
+**`tz` is rejected rather than defaulted here.** The period is local dates, so
+the zone decides which entries are billed; the read endpoints fall back to UTC,
+these two return 422.
 
 ### Rules that must not regress
 

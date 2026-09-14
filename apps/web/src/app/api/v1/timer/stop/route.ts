@@ -4,13 +4,9 @@ import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
-import { z } from 'zod';
+import { StopTimer } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
-
-const StopTimer = z.object({
-  endedAt: z.iso.datetime({ offset: true }).optional(),
-});
 
 /**
  * POST /api/v1/timer/stop

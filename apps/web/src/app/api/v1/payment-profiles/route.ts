@@ -2,19 +2,19 @@ import { NextResponse } from 'next/server';
 import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
-import { PAYMENT_PROFILE_COLUMNS, toPaymentProfile } from '@/lib/rows';
+import {
+  PAYMENT_PROFILE_COLUMNS,
+  toPaymentProfile,
+  type PaymentProfileRow,
+} from '@/lib/rows';
 import { uuidv7 } from '@stint/core';
-import { z } from 'zod';
+import { CreatePaymentProfile, ListPaymentProfilesQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
-const ListQuery = z.object({
-  includeArchived: z.enum(['true', 'false']).default('false'),
-});
-
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
-  const q = parseQuery(req, ListQuery);
+  const q = parseQuery(req, ListPaymentProfilesQuery);
 
   let query = db
     .from('payment_profiles')
@@ -22,54 +22,21 @@ export const GET = handle(async (req: Request) => {
     .order('is_default', { ascending: false })
     .order('name');
 
-  if (q.includeArchived === 'false') query = query.is('archived_at', null);
+  if (!q.includeArchived) query = query.is('archived_at', null);
 
   const { data, error } = await query;
   if (error) throw error;
 
   return NextResponse.json({
     paymentProfiles: (data ?? []).map((r) =>
-      toPaymentProfile(r as Record<string, any>),
+      toPaymentProfile(r as PaymentProfileRow),
     ),
   });
 });
 
-/**
- * Every field is optional except the name. A profile is a bundle of whatever
- * a payer needs — a US contractor fills in routing + account and nothing
- * else, while an international one fills in more.
- */
-export const PaymentProfileFields = z.object({
-  accountHolderName: z.string().max(200).nullable().optional(),
-  accountHolderAddress: z.string().max(1000).nullable().optional(),
-  bankName: z.string().max(200).nullable().optional(),
-  bankAddress: z.string().max(1000).nullable().optional(),
-  accountNumber: z.string().max(64).nullable().optional(),
-  routingNumber: z.string().max(64).nullable().optional(),
-  accountType: z.enum(['checking', 'savings']).nullable().optional(),
-  iban: z.string().max(64).nullable().optional(),
-  swiftBic: z.string().max(16).nullable().optional(),
-  localCodeLabel: z.string().max(64).nullable().optional(),
-  localCode: z.string().max(64).nullable().optional(),
-  intermediaryBankName: z.string().max(200).nullable().optional(),
-  intermediarySwiftBic: z.string().max(16).nullable().optional(),
-  intermediaryAccountNumber: z.string().max(64).nullable().optional(),
-  paymentLinkLabel: z.string().max(64).nullable().optional(),
-  paymentLinkUrl: z.url().nullable().optional(),
-  currency: z.string().length(3).nullable().optional(),
-  feeAllocation: z.enum(['OUR', 'SHA', 'BEN']).nullable().optional(),
-  notes: z.string().max(1000).nullable().optional(),
-});
-
-const CreateProfile = PaymentProfileFields.extend({
-  id: z.uuid().optional(),
-  name: z.string().trim().min(1).max(100),
-  isDefault: z.boolean().default(false),
-});
-
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
-  const body = await parseBody(req, CreateProfile);
+  const body = await parseBody(req, CreatePaymentProfile);
 
   const { data: existing, error: countError } = await db
     .from('payment_profiles')
@@ -128,14 +95,12 @@ export const POST = handle(async (req: Request) => {
         .eq('id', body.id)
         .maybeSingle();
       if (found)
-        return NextResponse.json(
-          toPaymentProfile(found as Record<string, any>),
-        );
+        return NextResponse.json(toPaymentProfile(found as PaymentProfileRow));
     }
     throw error;
   }
 
-  return NextResponse.json(toPaymentProfile(data as Record<string, any>), {
+  return NextResponse.json(toPaymentProfile(data as PaymentProfileRow), {
     status: 201,
   });
 });

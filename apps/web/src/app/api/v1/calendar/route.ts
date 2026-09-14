@@ -3,22 +3,10 @@ import { handle, ApiError } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseQuery } from '@/lib/validate';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
-import { localDateKey, isValidTimeZone } from '@stint/core';
-import { z } from 'zod';
+import { localDateKey } from '@stint/core';
+import { CalendarQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
-
-const Query = z.object({
-  from: z.iso.datetime({ offset: true }),
-  to: z.iso.datetime({ offset: true }),
-  tz: z.string().default('UTC'),
-  /**
-   * `day` returns totals only — `{ date, totalSeconds, byClient }` and no
-   * entries. The activity strip draws one rectangle per day, and twelve weeks
-   * of full entries is a heavy payload to build one.
-   */
-  granularity: z.enum(['entry', 'day']).default('entry'),
-});
 
 /**
  * GET /api/v1/calendar
@@ -31,8 +19,7 @@ const Query = z.object({
  */
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
-  const q = parseQuery(req, Query);
-  const tz = isValidTimeZone(q.tz) ? q.tz : 'UTC';
+  const q = parseQuery(req, CalendarQuery);
 
   if (new Date(q.to) < new Date(q.from)) {
     throw new ApiError('INVALID_PERIOD', '`to` must not precede `from`');
@@ -72,7 +59,7 @@ export const GET = handle(async (req: Request) => {
       // A running entry has no duration yet and contributes nothing.
       if (entry.endedAt == null) continue;
 
-      const key = localDateKey(new Date(entry.startedAt), tz);
+      const key = localDateKey(new Date(entry.startedAt), q.tz);
       const day = days.get(key) ?? {
         date: key,
         totalSeconds: 0,
@@ -101,7 +88,7 @@ export const GET = handle(async (req: Request) => {
 
   for (const row of data ?? []) {
     const entry = toEntry(row as EntryRow);
-    const key = localDateKey(new Date(entry.startedAt), tz);
+    const key = localDateKey(new Date(entry.startedAt), q.tz);
     const day = days.get(key) ?? { date: key, totalSeconds: 0, entries: [] };
     day.entries.push(entry);
     day.totalSeconds += entry.durationSeconds ?? 0;

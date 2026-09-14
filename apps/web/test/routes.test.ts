@@ -44,6 +44,7 @@ beforeEach(async () => {
   await pool.query('delete from invoices');
   await pool.query('delete from projects');
   await pool.query('delete from clients');
+  await pool.query('delete from payment_profiles');
   await pool.query(
     `update user_settings set default_hourly_rate=100, max_timer_hours=8,
                     week_starts_on=1, next_invoice_number=1,
@@ -505,6 +506,56 @@ test('a patch naming no known field is rejected, not a silent no-op', async () =
   assert.equal(res.status, 422);
 });
 
+/* Which payment profile a client's invoices carry. The column and the
+   converter always had it; only the route's own schema did not, so it was
+   accepted, stripped and lost. */
+test('a client can be pointed at a payment profile, on create and on patch', async () => {
+  const { POST: createProfile } = await import(
+    '../src/app/api/v1/payment-profiles/route.ts'
+  );
+  const { POST: createClient } = await import(
+    '../src/app/api/v1/clients/route.ts'
+  );
+  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
+
+  const a = await json(
+    await createProfile(req('/payment-profiles', { name: 'Checking' })),
+  );
+  const b = await json(
+    await createProfile(req('/payment-profiles', { name: 'Savings' })),
+  );
+
+  const created = await json(
+    await createClient(
+      req('/clients', { name: 'Northwind', paymentProfileId: a.body.id }),
+    ),
+  );
+  assert.equal(created.body.paymentProfileId, a.body.id);
+
+  const moved = await json(
+    await PATCH(
+      patchReq('/clients/x', { paymentProfileId: b.body.id }),
+      ctx(created.body.id),
+    ),
+  );
+  assert.equal(moved.body.paymentProfileId, b.body.id);
+});
+
+/* `money` is `multipleOf(0.01)`. A third decimal is not a rate anyone can be
+   billed at, and rounding it silently would misstate an invoice. */
+test('a rate finer than a cent is rejected, not rounded', async () => {
+  const { POST: createClient } = await import(
+    '../src/app/api/v1/clients/route.ts'
+  );
+  const res = await json(
+    await createClient(
+      req('/clients', { name: 'Northwind', hourlyRate: 10.005 }),
+    ),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
+});
+
 test('a project is read back by id, and 404s when unknown', async () => {
   const { GET } = await import('../src/app/api/v1/projects/[id]/route.ts');
   const { clientId, projectId } = await seedClientAndProject();
@@ -649,6 +700,46 @@ test('settings update, and nextInvoiceNumber cannot be moved by a client', async
     1,
     'gapless numbering is not a client-settable field',
   );
+});
+
+/* Every field the converter maps must survive a PATCH. Zod strips what its
+   schema does not name, so a missing field is a 200 that discards the value —
+   which is how the strange-duration thresholds became unreachable while the
+   inbox went on reading them. */
+test('every settable field round-trips, rather than being silently dropped', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+
+  const sent = {
+    minEntrySeconds: 60,
+    maxEntryHours: 10,
+    taxId: '12-3456789',
+    businessAddress: '1 Main St\nAustin, TX 78701',
+    paymentNotice: 'Details never change. Verify by phone.',
+    invoiceNumberPrefix: 'STINT-',
+    monthlyTarget: 12000,
+    monthlyTargetUnit: 'revenue',
+  };
+
+  const res = await json(await patch(req('/settings', sent, 'PATCH')));
+  assert.equal(res.status, 200);
+  for (const [field, value] of Object.entries(sent)) {
+    assert.deepEqual(res.body[field], value, field);
+  }
+});
+
+test('a target and its unit must be set or cleared together', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+
+  const res = await json(
+    await patch(
+      req(
+        '/settings',
+        { monthlyTarget: 12000, monthlyTargetUnit: null },
+        'PATCH',
+      ),
+    ),
+  );
+  assert.equal(res.status, 422);
 });
 
 // ── calendar ───────────────────────────────────────────────────────

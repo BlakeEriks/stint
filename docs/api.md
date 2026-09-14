@@ -2,8 +2,8 @@
 
 All clients (web, Expo, Swift) use these endpoints. Auth is a Supabase JWT as
 `Authorization: Bearer <token>`. Request/response shapes are defined in
-`packages/schema/src/index.ts` — that file is the source of truth; this
-document is the map.
+`packages/schema/src/index.ts` — that file is the source of truth, and every
+route parses its request against it; this document is the map.
 
 Handlers are covered by integration tests that run the real route code against
 a real Postgres instance with the real migrations applied
@@ -82,15 +82,26 @@ promotes the next profile by name. Without that, resolution falls through to
 null and the next invoice carries no bank details.
 
 `nextInvoiceNumber` is not settable through `PATCH /settings`: gapless
-numbering depends on `allocate_invoice_number()` holding the row lock.
+numbering depends on `allocate_invoice_number()` holding the row lock. Every
+other field of `Settings` is, including the `minEntrySeconds` /
+`maxEntryHours` thresholds that drive the inbox's strange-duration row, and
+`monthlyTarget` / `monthlyTargetUnit`, which must be set or cleared together
+in the same request (`422` otherwise; the database constraint says the same).
+
+A client carries `paymentProfileId` on `POST` and `PATCH` — every field of
+`Client` is writable except `id` and `archivedAt`.
+
+**Money is cents.** Every rate and amount is validated as a non-negative
+multiple of `0.01`, so `10.005` is a `422` rather than a silently rounded
+rate. `0` is a real rate, distinct from `null`, which means "fall back".
 
 ## Invoicing
 
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/invoices` | `?clientId&status&limit` (1–200, default 50), newest first — ordered by invoice sequence, not issue date. |
-| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, tz? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `total`, `entryCount`, `unratedEntryIds`, plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`. |
-| `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries. Also accepts `issueDate`, `dueDate`, `notes`, `paymentTerms`, `tz`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if the period holds no billable time. |
+| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, tz? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `total`, `entryCount`, `unratedEntryIds`, plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
+| `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries. Also accepts `issueDate`, `dueDate`, `notes`, `paymentTerms`, `tz`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if the period holds no billable time; `422 VALIDATION_FAILED` on an invalid `tz`. |
 | `GET` | `/invoices/:id` | Invoice + frozen line items + the client's `{ id, name, email, address }` (not the full client row). Returned **flat**, like every other detail route. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Releases its entries. |
 | `GET` | `/invoices/:id/pdf` | Streams `application/pdf` from the frozen line items. `?download=1` for `attachment` rather than an inline preview. |
@@ -181,10 +192,16 @@ returns 429; if that changes, it joins the retryable list.
 
 ## Timezones
 
-`GET /summary` and `GET /calendar` accept a `tz` query parameter (IANA, e.g.
-`America/Sao_Paulo`). "Today" is a local-calendar question and the server
-cannot infer the caller's zone, so the client states it; an invalid zone falls
-back to UTC rather than failing the request.
+`GET /summary`, `GET /stats` and `GET /calendar` accept a `tz` query
+parameter (IANA, e.g. `America/Sao_Paulo`). "Today" is a local-calendar
+question and the server cannot infer the caller's zone, so the client states
+it; an invalid zone falls back to UTC rather than failing the request, because
+a view that renders in the wrong zone beats a view that does not render.
+
+**The invoicing routes reject one instead.** `POST /invoices/preview` and
+`POST /invoices` resolve the billing period in `tz`, so the zone decides which
+entries are billed — falling back to UTC there would move the boundary by
+hours and put the wrong work on an invoice.
 
 Day and week boundaries are computed by `@stint/core/calendar`, which resolves the
 offset **at the candidate instant** rather than the current one. Using the

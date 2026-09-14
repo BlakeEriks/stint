@@ -5,6 +5,7 @@
   "type": "module",
   "main": "./src/index.ts",
   "dependencies": {
+    "@stint/core": "workspace:*",
     "zod": "^4.6.2"
   }
 }

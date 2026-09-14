@@ -7,23 +7,16 @@ import {
   loadSettings,
   loadBillableEntries,
   loadPaymentProfile,
-  INVOICE_COLUMNS,
-  toInvoice,
 } from '@/lib/invoicing';
+import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
 import { buildLineItems, buildPaymentDetails } from '@stint/core';
-import { z } from 'zod';
+import { CreateInvoice, ListInvoicesQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
-const ListQuery = z.object({
-  clientId: z.uuid().optional(),
-  status: z.enum(['draft', 'sent', 'paid', 'void']).optional(),
-  limit: z.coerce.number().int().min(1).max(200).default(50),
-});
-
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
-  const q = parseQuery(req, ListQuery);
+  const q = parseQuery(req, ListInvoicesQuery);
 
   let query = db
     .from('invoices')
@@ -37,19 +30,9 @@ export const GET = handle(async (req: Request) => {
   const { data, error } = await query;
   if (error) throw error;
 
-  return NextResponse.json({ invoices: (data ?? []).map(toInvoice) });
-});
-
-const CreateInvoice = z.object({
-  clientId: z.uuid(),
-  periodStart: z.iso.date(),
-  periodEnd: z.iso.date(),
-  groupingMode: z.enum(['entry', 'task', 'project', 'day']).default('entry'),
-  tz: z.string().default('UTC'),
-  issueDate: z.iso.date().optional(),
-  dueDate: z.iso.date().optional(),
-  notes: z.string().max(2000).optional(),
-  paymentTerms: z.string().max(200).optional(),
+  return NextResponse.json({
+    invoices: (data ?? []).map((r) => toInvoice(r as InvoiceRow)),
+  });
 });
 
 /**
@@ -206,7 +189,7 @@ export const POST = handle(async (req: Request) => {
 
   return NextResponse.json(
     {
-      ...toInvoice(invoice),
+      ...toInvoice(invoice as InvoiceRow),
       lineItems: totals.lineItems,
       entryCount: totals.entryCount,
     },

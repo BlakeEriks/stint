@@ -9,22 +9,11 @@ import {
   ENTRY_FIELDS,
   type EntryRow,
 } from '@/lib/rows';
-import { z } from 'zod';
+import { UpdateTimeEntry } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string }> };
-
-const UpdateEntry = z.object({
-  projectId: z.uuid().nullable().optional(),
-  taskName: z.string().max(500).optional(),
-  startedAt: z.iso.datetime({ offset: true }).optional(),
-  endedAt: z.iso.datetime({ offset: true }).nullable().optional(),
-  isBillable: z.boolean().optional(),
-  rateOverride: z.number().nonnegative().nullable().optional(),
-  /** The inbox's "It's correct" — an answer about the length, not an edit. */
-  durationOk: z.boolean().optional(),
-});
 
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
@@ -51,7 +40,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
 export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
   const { id } = await ctx.params;
-  const patch = await parseBody(req, UpdateEntry);
+  const patch = await parseBody(req, UpdateTimeEntry);
 
   const update = toColumns(patch, ENTRY_FIELDS);
   if (Object.keys(update).length === 0) {

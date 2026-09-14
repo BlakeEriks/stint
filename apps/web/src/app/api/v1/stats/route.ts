@@ -4,19 +4,13 @@ import { requireSession } from '@/lib/auth';
 import { parseQuery } from '@/lib/validate';
 import {
   businessDaysInLocalMonth,
-  isValidTimeZone,
   startOfLocalDayOffset,
   startOfLocalMonth,
   startOfNextLocalMonth,
 } from '@stint/core';
-import { z } from 'zod';
+import { StatsQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
-
-const Query = z.object({
-  /** "This month" is a local-calendar question; the server cannot infer it. */
-  tz: z.string().default('UTC'),
-});
 
 /**
  * One row per unprojected entry, oldest first.
@@ -155,8 +149,7 @@ const MAX_UNBILLED_ROWS = 5;
  */
 export const GET = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
-  const { tz: raw } = parseQuery(req, Query);
-  const tz = isValidTimeZone(raw) ? raw : 'UTC';
+  const { tz } = parseQuery(req, StatsQuery);
   const now = new Date();
 
   const monthStart = startOfLocalMonth(now, tz);

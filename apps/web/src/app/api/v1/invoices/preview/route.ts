@@ -4,17 +4,9 @@ import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { loadClient, loadSettings, loadBillableEntries } from '@/lib/invoicing';
 import { buildLineItems } from '@stint/core';
-import { z } from 'zod';
+import { InvoicePreviewRequest } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
-
-const PreviewRequest = z.object({
-  clientId: z.uuid(),
-  periodStart: z.iso.date(),
-  periodEnd: z.iso.date(),
-  groupingMode: z.enum(['entry', 'task', 'project', 'day']).default('entry'),
-  tz: z.string().default('UTC'),
-});
 
 /**
  * POST /api/v1/invoices/preview
@@ -28,7 +20,7 @@ const PreviewRequest = z.object({
  */
 export const POST = handle(async (req: Request) => {
   const { db } = await requireSession(req);
-  const body = await parseBody(req, PreviewRequest);
+  const body = await parseBody(req, InvoicePreviewRequest);
 
   if (body.periodEnd < body.periodStart) {
     throw new ApiError(

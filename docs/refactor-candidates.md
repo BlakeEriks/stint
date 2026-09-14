@@ -35,52 +35,6 @@ Worth deciding: is the SQL duplication removable (a shared SQL function the
 rollups call), or is it inherent to set-based queries and the real fix a test
 that asserts all four agree on a fixture matrix?
 
-## 2. `packages/schema` is decorative — no route imports it
-
-`packages/schema/src/index.ts:2` calls itself "The API contract. Single source
-of truth." Only two files import it (`lib/errors.ts`, `lib/client/api.ts`), both
-types-only. **All 20 route handlers re-declare their Zod schemas inline.**
-
-The drift is already live and two cases are bugs:
-
-- **Settings thresholds are unsettable.** `UpdateSettings`
-  (`api/v1/settings/route.ts:40`) omits `minEntrySeconds` and `maxEntryHours`,
-  but `SETTINGS_FIELDS` (`rows.ts:146-147`) maps them and `stats/route.ts:376`
-  reads them to drive the inbox's strange-duration rows. Zod strips unknown
-  keys, so a PATCH carrying them returns **200 and silently discards them**.
-  A documented feature is unreachable, and nothing errors.
-- **The API accepts money it forbids.** Route `CreateClient`
-  (`clients/route.ts:66`) uses `z.number().nonnegative()`; the contract's
-  `money` adds `.multipleOf(0.01)`. `$10.005` rates enter a billing system.
-- Route `CreateClient` also has **no `paymentProfileId`**, though the schema
-  has it, `rows.ts` maps it, and the column exists — unsettable at creation.
-
-This is the root cause of items 1, 3 and 7: there is no compile-time link
-between contract, validation and row mapping, so every pairing drifts silently.
-Making the schema load-bearing closes the settings hole *by construction*.
-
-## 3. The DB→API boundary is untyped
-
-`apps/web/src/lib/rows.ts` calls itself "the single boundary" and "if a field
-is renamed, it is renamed here." Neither holds.
-
-- Four of five converters take `Record<string, any>` (`toClient:45`,
-  `toProject:65`, `toSettings:79`, `toPaymentProfile:168`). Only `toEntry`
-  has a real row interface. A renamed column type-checks clean and returns
-  `undefined` at runtime.
-- Each converter is paired with a hand-maintained `*_COLUMNS` string literal
-  that must stay in sync with it by eye. `SETTINGS_COLUMNS` lists 18 columns.
-- `apps/web/src/lib/invoicing.ts` is a **second** boundary — `toInvoice:192`
-  and `toLineItem:218`, both `Record<string, any>` — because the PDF loader
-  needs shapes `rows.ts` does not model. A change to invoice fields means
-  editing both files, and nothing fails if you edit one.
-
-Ten `as Record<string, any>` casts across the payment-profile routes launder
-rows past the type system entirely.
-
-The fix is probably generated row types from the schema, but the tradeoff
-against build complexity is the thing to weigh.
-
 ## 4. The row-exit animation — seven mechanisms for one fade
 
 The single most expensive complexity in the app, and all of it exists so a
@@ -231,20 +185,16 @@ A key factory plus one `invalidateEntryData()` removes the drift and fixes the
 
 ## Suggested sequencing
 
-**1b → 2 → 6** are one program: make `packages/schema` load-bearing for route
-validation, derive the row-converter types from it, delete the second boundary
-in `invoicing.ts`. That closes the settings bug by construction, removes every
-`Record<string, any>`, and makes generating a Swift client cheap rather than
-speculative. Highest leverage in the repo.
-
 **1** (one rate expression + a test asserting TS and SQL agree over the seed)
-and **8** (key factory, which fixes the `use-timer` staleness) are independent
-and self-contained — good first cuts.
+and **9** (key factory, which fixes the `use-timer` staleness) are independent
+and self-contained — good first cuts. **7** is now cheap: the contract is
+load-bearing, so generating a Swift client is a generator rather than a
+rewrite.
 
-**3** is the biggest single deletion and needs a product decision first: is the
+**4** is the biggest single deletion and needs a product decision first: is the
 exit animation worth keeping at all? Answer that before planning it.
 
-**5** and **9** are decide-and-delete.
+**5** and **6** are decide-and-delete.
 
 ---
 

@@ -259,7 +259,53 @@ test('preview rejects an inverted period', async () => {
   assert.equal(res.body.code, 'INVALID_PERIOD');
 });
 
+/* The zone decides which entries land on the invoice, so a typo cannot be
+   coerced to UTC — that would move the period boundary by hours and bill the
+   wrong work. It used to reach `Intl` and 500. */
+test('an invalid timezone is rejected on both preview and generation', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const body = { clientId: CLIENT, ...PERIOD, tz: 'Mars/Olympus_Mons' };
+
+  for (const route of [preview, create]) {
+    const res = await json(await route(req('/invoices', body)));
+    assert.equal(res.status, 422);
+    assert.equal(res.body.code, 'VALIDATION_FAILED');
+  }
+});
+
 // ── generation ─────────────────────────────────────────────────────
+/* The same boundary the preview test covers, on the route that actually
+   bills: a preview honouring `tz` while generation did not would issue an
+   invoice the user never approved. */
+test('generation resolves the period in the caller timezone too', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  // 20:00 on the last day of the period, New York.
+  await seedEntry({ id: E(1), task: 'Late', start: '2026-10-01T00:00:00Z' });
+  // 19:00 the evening BEFORE it starts — must stay out.
+  await seedEntry({ id: E(2), task: 'Early', start: '2026-08-31T23:00:00Z' });
+
+  const res = await json(
+    await create(
+      req('/invoices', { clientId: CLIENT, ...PERIOD, tz: 'America/New_York' }),
+    ),
+  );
+  assert.equal(res.status, 201);
+  assert.equal(res.body.entryCount, 1);
+  assert.deepEqual(
+    res.body.lineItems.map((li: { description: string }) => li.description),
+    ['Late'],
+  );
+
+  const { rows } = await pool.query(
+    'select invoice_id from time_entries where id=$1',
+    [E(2)],
+  );
+  assert.equal(rows[0].invoice_id, null, 'the August entry stays unbilled');
+});
+
 test('generating allocates a number, freezes line items and locks entries', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1), task: 'Design', hours: 2 });

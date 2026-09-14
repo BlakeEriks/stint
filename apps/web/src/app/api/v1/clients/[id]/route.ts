@@ -3,26 +3,11 @@ import { handle, ApiError } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { CLIENT_COLUMNS, toClient, toColumns, CLIENT_FIELDS } from '@/lib/rows';
-import { z } from 'zod';
+import { UpdateClient } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string }> };
-
-const UpdateClient = z.object({
-  name: z.string().trim().min(1).max(200).optional(),
-  email: z.email().nullable().optional(),
-  address: z.string().max(1000).nullable().optional(),
-  hourlyRate: z.number().nonnegative().nullable().optional(),
-  taxRate: z.number().min(0).max(100).nullable().optional(),
-  currency: z.string().length(3).nullable().optional(),
-  color: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/)
-    .nullable()
-    .optional(),
-  archived: z.boolean().optional(),
-});
 
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);

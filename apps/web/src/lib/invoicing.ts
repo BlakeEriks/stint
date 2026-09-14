@@ -1,6 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ApiError } from './errors';
-import { PAYMENT_PROFILE_COLUMNS, toPaymentProfile } from './rows';
+import {
+  CLIENT_COLUMNS,
+  INVOICE_COLUMNS,
+  LINE_ITEM_COLUMNS,
+  PAYMENT_PROFILE_COLUMNS,
+  toInvoice,
+  toLineItem,
+  toPaymentProfile,
+  type ClientRow,
+  type InvoiceRow,
+  type LineItemRow,
+  type PaymentProfileRow,
+} from './rows';
 import { resolvePaymentProfile, startOfLocalDate } from '@stint/core';
 import type { BillableEntry } from '@stint/core';
 
@@ -15,26 +27,13 @@ function nextDate(date: string): string {
   return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
 }
 
-export interface ClientRow {
-  id: string;
-  name: string;
-  email: string | null;
-  address: string | null;
-  hourly_rate: string | number | null;
-  tax_rate: string | number | null;
-  currency: string | null;
-  payment_profile_id: string | null;
-}
-
 export async function loadClient(
   db: SupabaseClient,
   clientId: string,
 ): Promise<ClientRow> {
   const { data, error } = await db
     .from('clients')
-    .select(
-      'id, name, email, address, hourly_rate, tax_rate, currency, payment_profile_id',
-    )
+    .select(CLIENT_COLUMNS)
     .eq('id', clientId)
     .maybeSingle();
 
@@ -173,7 +172,7 @@ export async function loadPaymentProfile(
 
   if (error) throw error;
   const profiles = (data ?? []).map((r) =>
-    toPaymentProfile(r as Record<string, any>),
+    toPaymentProfile(r as PaymentProfileRow),
   );
   if (profiles.length === 0) return null;
 
@@ -182,49 +181,6 @@ export async function loadPaymentProfile(
     clientProfileId,
     defaultProfileId: defaultProfile?.id ?? null,
   });
-}
-
-// One string literal, not a concatenation: supabase-js infers the row type
-// from the literal, and splitting it degrades every consumer to an error type.
-export const INVOICE_COLUMNS =
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, total, currency, notes, payment_terms, grouping_mode, payment_details, sent_at, paid_at, created_at';
-
-export function toInvoice(r: Record<string, any>) {
-  return {
-    id: r.id,
-    clientId: r.client_id,
-    invoiceNumber: r.invoice_number,
-    sequenceNo: r.sequence_no,
-    status: r.status,
-    issueDate: r.issue_date,
-    dueDate: r.due_date,
-    periodStart: r.period_start,
-    periodEnd: r.period_end,
-    subtotal: num(r.subtotal),
-    taxRate: num(r.tax_rate),
-    taxAmount: num(r.tax_amount),
-    total: num(r.total),
-    currency: r.currency,
-    notes: r.notes,
-    paymentTerms: r.payment_terms,
-    groupingMode: r.grouping_mode,
-    paymentDetails: r.payment_details ?? null,
-    sentAt: r.sent_at,
-    paidAt: r.paid_at,
-    createdAt: r.created_at,
-  };
-}
-
-export function toLineItem(r: Record<string, any>) {
-  return {
-    id: r.id,
-    description: r.description,
-    quantitySeconds: r.quantity_seconds,
-    quantityHours: Math.round((r.quantity_seconds / 3600) * 100) / 100,
-    resolvedRate: num(r.resolved_rate),
-    amount: num(r.amount),
-    sortOrder: r.sort_order,
-  };
 }
 
 /**
@@ -243,14 +199,12 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
   if (error) throw error;
   if (!row) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
 
-  const invoice = toInvoice(row as Record<string, any>);
+  const invoice = toInvoice(row as InvoiceRow);
 
   const [items, client, settings] = await Promise.all([
     db
       .from('invoice_line_items')
-      .select(
-        'id, description, quantity_seconds, resolved_rate, amount, sort_order',
-      )
+      .select(LINE_ITEM_COLUMNS)
       .eq('invoice_id', invoiceId)
       .order('sort_order', { ascending: true }),
     loadClient(db, invoice.clientId),
@@ -289,9 +243,7 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
         email: client.email,
         address: client.address,
       },
-      lineItems: (items.data ?? []).map((r) =>
-        toLineItem(r as Record<string, any>),
-      ),
+      lineItems: (items.data ?? []).map((r) => toLineItem(r as LineItemRow)),
       // The FROZEN snapshot, never a live profile lookup: a re-downloaded
       // invoice must show the details the client was actually given.
       payment: invoice.paymentDetails ?? null,

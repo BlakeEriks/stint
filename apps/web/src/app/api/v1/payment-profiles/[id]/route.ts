@@ -7,19 +7,13 @@ import {
   toPaymentProfile,
   toColumns,
   PAYMENT_PROFILE_FIELDS,
+  type PaymentProfileRow,
 } from '@/lib/rows';
-import { PaymentProfileFields } from '../route';
-import { z } from 'zod';
+import { UpdatePaymentProfile } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string }> };
-
-const UpdateProfile = PaymentProfileFields.extend({
-  name: z.string().trim().min(1).max(100).optional(),
-  isDefault: z.boolean().optional(),
-  archived: z.boolean().optional(),
-});
 
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
@@ -34,7 +28,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
   if (error) throw error;
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Payment profile not found');
 
-  return NextResponse.json(toPaymentProfile(data as Record<string, any>));
+  return NextResponse.json(toPaymentProfile(data as PaymentProfileRow));
 });
 
 /**
@@ -46,7 +40,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
 export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
   const { id } = await ctx.params;
-  const patch = await parseBody(req, UpdateProfile);
+  const patch = await parseBody(req, UpdatePaymentProfile);
 
   const update = toColumns(patch, PAYMENT_PROFILE_FIELDS);
   if (patch.archived !== undefined) {
@@ -93,7 +87,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
         if (!unchanged)
           throw new ApiError('ENTRY_NOT_FOUND', 'Payment profile not found');
         return NextResponse.json(
-          toPaymentProfile(unchanged as Record<string, any>),
+          toPaymentProfile(unchanged as PaymentProfileRow),
         );
       }
     }
@@ -109,7 +103,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   if (error) throw error;
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Payment profile not found');
 
-  return NextResponse.json(toPaymentProfile(data as Record<string, any>));
+  return NextResponse.json(toPaymentProfile(data as PaymentProfileRow));
 });
 
 /**
@@ -146,7 +140,7 @@ export const DELETE = handle(async (req: Request, ctx: Ctx) => {
      other live profiles was left with none of them default — and resolution
      falls through to null, putting an invoice out with no bank details. The
      default moves to a survivor rather than evaporating. */
-  if ((before as Record<string, any>).is_default) {
+  if (before.is_default) {
     const { data: survivors, error: survivorError } = await db
       .from('payment_profiles')
       .select('id')

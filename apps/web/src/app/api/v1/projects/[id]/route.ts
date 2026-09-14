@@ -8,19 +8,11 @@ import {
   toColumns,
   PROJECT_FIELDS,
 } from '@/lib/rows';
-import { z } from 'zod';
+import { UpdateProject } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string }> };
-
-const UpdateProject = z.object({
-  clientId: z.uuid().nullable().optional(),
-  name: z.string().trim().min(1).max(200).optional(),
-  hourlyRate: z.number().nonnegative().nullable().optional(),
-  isBillableDefault: z.boolean().optional(),
-  archived: z.boolean().optional(),
-});
 
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);

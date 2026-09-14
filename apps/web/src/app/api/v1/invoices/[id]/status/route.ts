@@ -2,20 +2,13 @@ import { NextResponse } from 'next/server';
 import { handle, ApiError } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
-import { INVOICE_COLUMNS, toInvoice, assertTransition } from '@/lib/invoicing';
-import { z } from 'zod';
+import { assertTransition } from '@/lib/invoicing';
+import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
+import { UpdateInvoiceStatus } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string }> };
-
-const UpdateStatus = z.object({
-  status: z.enum(['draft', 'sent', 'paid', 'void']),
-  /** Record that the invoice went out earlier than now. */
-  sentAt: z.iso.datetime({ offset: true }).optional(),
-  /** Record a payment that arrived earlier than now. */
-  paidAt: z.iso.datetime({ offset: true }).optional(),
-});
 
 /**
  * PATCH /api/v1/invoices/:id/status
@@ -34,7 +27,7 @@ const UpdateStatus = z.object({
 export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
   const { id } = await ctx.params;
-  const body = await parseBody(req, UpdateStatus);
+  const body = await parseBody(req, UpdateInvoiceStatus);
 
   const { data: current, error } = await db
     .from('invoices')
@@ -71,5 +64,5 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
     if (releaseError) throw releaseError;
   }
 
-  return NextResponse.json(toInvoice(data));
+  return NextResponse.json(toInvoice(data as InvoiceRow));
 });

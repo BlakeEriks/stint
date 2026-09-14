@@ -3,24 +3,10 @@ import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseQuery } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
-import { z } from 'zod';
-import {
-  elapsedSeconds,
-  startOfLocalDay,
-  startOfLocalWeek,
-  isValidTimeZone,
-} from '@stint/core';
+import { elapsedSeconds, startOfLocalDay, startOfLocalWeek } from '@stint/core';
+import { SummaryQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
-
-const Query = z.object({
-  /**
-   * IANA zone, e.g. "America/Sao_Paulo". "Today" is a local-calendar
-   * question and the server cannot infer the caller's zone, so the client
-   * states it. Falls back to UTC rather than failing the request.
-   */
-  tz: z.string().default('UTC'),
-});
 
 /**
  * GET /api/v1/summary
@@ -34,8 +20,7 @@ const Query = z.object({
  */
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
-  const q = parseQuery(req, Query);
-  const tz = isValidTimeZone(q.tz) ? q.tz : 'UTC';
+  const { tz } = parseQuery(req, SummaryQuery);
   const now = new Date();
 
   const { data: settings } = await db

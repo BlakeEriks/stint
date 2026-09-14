@@ -3,26 +3,14 @@ import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
-import { z } from 'zod';
+import { CreateTimeEntry, ListEntriesQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
-
-const ListQuery = z.object({
-  from: z.iso.datetime({ offset: true }).optional(),
-  to: z.iso.datetime({ offset: true }).optional(),
-  /* A uuid, or the literal `none` for entries with no project at all.
-     Those cannot resolve a rate beyond the user default, so they are the
-     ones the inbox surfaces — and `projectId=` (empty) cannot express it,
-     since an absent param already means "no filter". */
-  projectId: z.union([z.uuid(), z.literal('none')]).optional(),
-  clientId: z.uuid().optional(),
-  limit: z.coerce.number().int().min(1).max(500).default(200),
-});
 
 /** GET /api/v1/entries — newest first. */
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
-  const q = parseQuery(req, ListQuery);
+  const q = parseQuery(req, ListEntriesQuery);
 
   let query = db
     .from('time_entries')
@@ -56,21 +44,6 @@ export const GET = handle(async (req: Request) => {
   });
 });
 
-const CreateEntry = z
-  .object({
-    id: z.uuid(),
-    projectId: z.uuid().nullable().optional(),
-    taskName: z.string().max(500).default(''),
-    startedAt: z.iso.datetime({ offset: true }),
-    endedAt: z.iso.datetime({ offset: true }),
-    isBillable: z.boolean().optional(),
-    rateOverride: z.number().nonnegative().nullable().optional(),
-  })
-  .refine((e) => new Date(e.endedAt) > new Date(e.startedAt), {
-    message: 'endedAt must be after startedAt',
-    path: ['endedAt'],
-  });
-
 /**
  * POST /api/v1/entries — a completed manual entry.
  *
@@ -80,7 +53,7 @@ const CreateEntry = z
  */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
-  const body = await parseBody(req, CreateEntry);
+  const body = await parseBody(req, CreateTimeEntry);
 
   const { data, error } = await db
     .from('time_entries')
