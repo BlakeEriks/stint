@@ -205,6 +205,27 @@ popover's arrow proves fussy — the mockup shows no arrow.
 Only the state block changes. Keeping the rest identical is what stops the
 panel appearing to restructure itself when the user hits start.
 
+### The entry list resumes work
+
+**A row starts new work carrying that entry's name, project and billable
+answer.** Picking a task back up after lunch is the second most common thing
+this panel is opened for, and it is otherwise retyping a name the app already
+knows.
+
+The whole row is the control, which is what its hover highlight already
+promised; a play glyph appears under the pointer to say what a click does
+rather than to be aimed at. The web app spends its row's click on the editor
+instead — a dense list where a second target would be a small one — so the
+two surfaces differ deliberately at three rows against a full day's.
+
+**It never reopens the original entry.** A finished entry is a record, and
+`isBillable` travels with the new one because resuming internal work must not
+quietly produce a billable timer.
+
+While a timer runs the row **says so rather than doing nothing**: a control
+that highlights and takes focus but silently ignores a click reads as broken.
+The message is the one the 409 carries.
+
 ### The header
 
 **This is where the brand lives**, now that the status item is a bare dot.

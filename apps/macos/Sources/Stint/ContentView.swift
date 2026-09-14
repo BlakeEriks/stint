@@ -178,7 +178,7 @@ private struct TimerPanel: View {
                 .padding(.top, 10)
                 .padding(.bottom, 6)
             ForEach(model.today) { entry in
-                EntryRow(entry: entry)
+                EntryRow(entry: entry) { Task { await model.resume(entry) } }
             }
         }
         .padding(.bottom, 6)
@@ -289,27 +289,50 @@ private struct ProjectPicker: View {
     }
 }
 
+/// One finished entry, and the way to pick that work back up.
+///
+/// **The whole row is the control**, which is what the hover highlight was
+/// already promising — the row is the thing you mean to act on, and a play
+/// glyph in its corner would be a small target in a list this narrow. The
+/// glyph appears under the pointer to say what the click does, not to be
+/// aimed at.
+///
+/// Resuming starts NEW work carrying this entry's name, project and billable
+/// answer. It never reopens the original row: a finished entry is a record,
+/// and editing one needs a date and two times the panel has no room for.
 private struct EntryRow: View {
     let entry: TimeEntry
+    var resume: () -> Void
 
     var body: some View {
-        Hovering { on in
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(entry.taskName.isEmpty ? "Untitled" : entry.taskName)
-                    .role(.body)
-                    .foregroundStyle(entry.taskName.isEmpty ? Tokens.Dark.textSubtle : Tokens.Dark.textPrimary)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                Text(format(entry.durationSeconds ?? 0))
-                    .role(.duration)
-                    .foregroundStyle(Tokens.Dark.textMuted)
-                    .layoutPriority(1)
+        Button(action: resume) {
+            Hovering { on in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(entry.taskName.isEmpty ? "Untitled" : entry.taskName)
+                        .role(.body)
+                        .foregroundStyle(entry.taskName.isEmpty ? Tokens.Dark.textSubtle : Tokens.Dark.textPrimary)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(Tokens.Dark.textSubtle)
+                        .opacity(on ? 1 : 0)
+                    Text(format(entry.durationSeconds ?? 0))
+                        .role(.duration)
+                        .foregroundStyle(Tokens.Dark.textMuted)
+                        .layoutPriority(1)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(on ? Tokens.Dark.bgHover : .clear)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(on ? Tokens.Dark.bgHover : .clear)
         }
+        .buttonStyle(PanelButtonStyle(shape: Rectangle()))
+        // Flush to the panel's edges, so the ring sits inside rather than
+        // over the rows above and below.
+        .panelFocus(Rectangle(), inset: -1)
+        .accessibilityLabel("Start \(entry.taskName.isEmpty ? "untitled entry" : entry.taskName) again")
     }
 }
 

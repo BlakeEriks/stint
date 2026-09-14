@@ -202,6 +202,38 @@ final class TimerModel {
         }
     }
 
+    /// Start fresh work with a past entry's name, project and billable
+    /// answer.
+    ///
+    /// **Says so rather than doing nothing while a timer runs.** One running
+    /// timer is the database's invariant, and a row that highlights and takes
+    /// focus but silently ignores a click reads as broken. The message is the
+    /// same fact the 409 carries.
+    func resume(_ entry: TimeEntry) async {
+        guard !isBusy else { return }
+        guard !isRunning else {
+            errorMessage = "A timer is already running. Stop it before starting another."
+            return
+        }
+        isBusy = true
+        defer { isBusy = false }
+        errorMessage = nil
+        do {
+            _ = try await api.startTimer(
+                taskName: entry.taskName,
+                projectId: entry.projectId,
+                isBillable: entry.isBillable
+            )
+            await refresh()
+        } catch let error as APIError where error.isTimerConflict {
+            // Another device won the race; the invariant held either way.
+            errorMessage = error.message
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func rename(to name: String) async {
         guard isRunning else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -131,6 +131,12 @@ export const StartTimer = z.object({
   projectId: uuid.nullable().optional(),
   taskName: z.string().max(500).default(''),
   startedAt: iso.optional(), // allows backdating a forgotten start
+  /**
+   * Omitted, the column's `true` default applies. Sent, it carries a source
+   * entry's own answer — resuming non-billable work must not silently
+   * produce a billable entry.
+   */
+  isBillable: z.boolean().optional(),
 });
 
 export const StopTimer = z.object({

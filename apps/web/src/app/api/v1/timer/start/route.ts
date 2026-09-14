@@ -14,6 +14,7 @@ const StartTimer = z.object({
   projectId: z.uuid().nullable().optional(),
   taskName: z.string().max(500).default(''),
   startedAt: z.iso.datetime({ offset: true }).optional(),
+  isBillable: z.boolean().optional(),
 });
 
 /**
@@ -40,6 +41,11 @@ export const POST = handle(async (req: Request) => {
       task_name: body.taskName,
       started_at: body.startedAt ?? new Date().toISOString(),
       ended_at: null,
+      // Spread, not `?? true`: an absent flag must leave the column's own
+      // default to apply rather than this route asserting one.
+      ...(body.isBillable === undefined
+        ? {}
+        : { is_billable: body.isBillable }),
     })
     .select(ENTRY_COLUMNS)
     .single();
