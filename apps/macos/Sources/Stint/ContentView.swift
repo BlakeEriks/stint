@@ -19,8 +19,6 @@ struct ContentView: View {
         // that settles later moves the whole window.
         .fixedSize(horizontal: false, vertical: true)
         .background(Tokens.Dark.bgBase)
-        // The system ring is blue and square; every control draws its own.
-        .focusEffectDisabled()
     }
 }
 
@@ -42,6 +40,9 @@ private struct PanelHeader: View {
                     IconGlyph("arrow.up.forward.app")
                 }
                 .buttonStyle(.panel)
+                // 1pt: the header's own 6pt padding is all the room a ring
+                // has before the panel's top edge clips it.
+                .panelFocus(RoundedRectangle(cornerRadius: 6), inset: 1)
                 .accessibilityLabel("Open Stint")
 
                 Menu {
@@ -56,6 +57,7 @@ private struct PanelHeader: View {
                 .buttonStyle(.panel)
                 .menuIndicator(.hidden)
                 .fixedSize()
+                .panelFocus(RoundedRectangle(cornerRadius: 6), inset: 1)
                 .accessibilityLabel("Account")
             }
         }
@@ -218,6 +220,7 @@ private struct RenameRow: View {
                 }
             }
             .buttonStyle(.panel)
+            .panelFocus()
             .accessibilityLabel("Rename task")
             .onAppear { name = model.running?.taskName ?? "" }
             .onChange(of: model.running?.taskName) { _, new in name = new ?? "" }
@@ -282,6 +285,7 @@ private struct ProjectPicker: View {
         .buttonStyle(PanelButtonStyle(shape: RoundedRectangle(cornerRadius: 7)))
         .menuIndicator(.hidden)
         .fixedSize()
+        .panelFocus(RoundedRectangle(cornerRadius: 7))
     }
 }
 
@@ -327,6 +331,7 @@ private struct TransportButton: View {
                 .clipShape(Circle())
         }
         .buttonStyle(PanelButtonStyle(shape: Circle()))
+        .panelFocus(Circle())
         .disabled(model.isBusy)
         .opacity(model.isBusy ? 0.6 : 1)
         .accessibilityLabel(model.isRunning ? "Stop timer" : "Start timer")
@@ -372,6 +377,7 @@ private struct SignInPanel: View {
                     .onSubmit(verify)
                 Button(busy ? "Signing in…" : "Sign in", action: verify)
                     .buttonStyle(.primary)
+                    .panelFocus(RoundedRectangle(cornerRadius: 8))
                     .disabled(busy || !codeReady)
                 Button("Use a different email") {
                     sent = false
@@ -379,6 +385,7 @@ private struct SignInPanel: View {
                     error = nil
                 }
                 .buttonStyle(.tertiary)
+                .panelFocus(RoundedRectangle(cornerRadius: 4))
             } else {
                 TextField("you@example.com", text: $email)
                     .textFieldStyle(.plain)
@@ -387,6 +394,7 @@ private struct SignInPanel: View {
                     .onSubmit(request)
                 Button(busy ? "Sending…" : "Email me a code", action: request)
                     .buttonStyle(.primary)
+                    .panelFocus(RoundedRectangle(cornerRadius: 8))
                     .disabled(busy || email.isEmpty)
             }
 
@@ -400,6 +408,7 @@ private struct SignInPanel: View {
             rule
             Button("Quit") { NSApp.terminate(nil) }
                 .buttonStyle(.tertiary)
+                .panelFocus(RoundedRectangle(cornerRadius: 4))
         }
         .padding(14)
         .defaultFocus($focus, sent ? .code : .email)
@@ -469,28 +478,51 @@ private struct Hovering<Content: View>: View {
     }
 }
 
-/// A neutral focus ring outside `shape`, `borderFocus` and never the accent.
-private struct FocusRing<S: Shape>: ViewModifier {
+/// A neutral focus ring outside `shape` — `borderFocus`, never the accent.
+///
+/// **The `FocusState` lives here, not in a `ButtonStyle`.** A style's
+/// `@Environment(\.isFocused)` reads the environment at the style's own
+/// position rather than the control's focus, so it never turns on. A
+/// modifier that declares the state and attaches `.focused()` does.
+///
+/// `focusEffectDisabled` is local for the same reason it is not global:
+/// applied at the root it suppresses the effect for every descendant, which
+/// is what left these controls with no indicator at all.
+private struct PanelFocus<S: Shape>: ViewModifier {
     let shape: S
-    let on: Bool
+    /// How far the ring sits outside the control. Pulled in where a control
+    /// is flush against the panel edge.
+    var inset: CGFloat = 3
+    @FocusState private var focused: Bool
 
     func body(content: Content) -> some View {
-        content.overlay(
-            shape.stroke(on ? Tokens.Dark.borderFocus : .clear, lineWidth: 2).padding(-3)
-        )
+        content
+            .focused($focused)
+            .focusEffectDisabled()
+            .overlay(
+                shape
+                    .stroke(focused ? Tokens.Dark.borderFocus : .clear, lineWidth: 2)
+                    .padding(-inset)
+            )
     }
 }
 
-/// No bezel; a ring when focused. `Button` supplies Tab, Space and Return.
+extension View {
+    /// The panel's focus ring. Every keyboard-reachable control takes it —
+    /// `Menu` included, which handles its own keys and needs only the ring.
+    func panelFocus(_ shape: some Shape = RoundedRectangle(cornerRadius: 6), inset: CGFloat = 3) -> some View {
+        modifier(PanelFocus(shape: shape, inset: inset))
+    }
+}
+
+/// No bezel, and a press that reads. Focus is `panelFocus`'s job.
 struct PanelButtonStyle<S: Shape>: ButtonStyle {
     let shape: S
-    @Environment(\.isFocused) private var focused
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .contentShape(shape)
             .opacity(configuration.isPressed ? 0.7 : 1)
-            .modifier(FocusRing(shape: shape, on: focused))
     }
 }
 
@@ -498,7 +530,6 @@ struct PanelButtonStyle<S: Shape>: ButtonStyle {
 /// never a faded accent: `bgActive` + `textMuted` holds 4.43:1.
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
-    @Environment(\.isFocused) private var focused
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -508,14 +539,11 @@ struct PrimaryButtonStyle: ButtonStyle {
             .background(enabled ? Tokens.Dark.accentDefault : Tokens.Dark.bgActive)
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .opacity(configuration.isPressed ? 0.85 : 1)
-            .modifier(FocusRing(shape: RoundedRectangle(cornerRadius: 8), on: focused))
     }
 }
 
 /// A text link: no fill, muted, brighter under the pointer.
 struct TertiaryButtonStyle: ButtonStyle {
-    @Environment(\.isFocused) private var focused
-
     func makeBody(configuration: Configuration) -> some View {
         Hovering { on in
             configuration.label
@@ -524,7 +552,6 @@ struct TertiaryButtonStyle: ButtonStyle {
                 .padding(.horizontal, 4)
                 .padding(.vertical, 2)
                 .contentShape(Rectangle())
-                .modifier(FocusRing(shape: RoundedRectangle(cornerRadius: 4), on: focused))
         }
     }
 }
