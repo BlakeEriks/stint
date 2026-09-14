@@ -14,37 +14,31 @@ entry.rate_override
       → user_settings.default_hourly_rate
 ```
 
-Implemented **three** times, and only one of them is on the hot path:
+Implemented **twice**, once per language:
 
 - `resolveRate()` in `packages/core/src/rates.ts` — **this is what actually
   bills.** `POST /invoices` builds line items in memory and writes
   `resolved_rate` from the value TypeScript computed. The preview and the
   issued invoice therefore come from identical code, which is the property
-  that matters most.
-- `resolve_entry_rate(uuid)` in SQL (`00000000000002_integrity.sql`) — a
-  per-entry reference implementation. **Nothing calls it.** It is the shape
-  the chain must have, checked by `pnpm test:rls` against the real policies,
-  not a function the app invokes.
-- the inline coalesce in `unbilled_by_client(uuid)`
-  (`00000000000007_unbilled_rollup.sql`) — the Unbilled card and the client
-  list, where calling a per-entry function N times is not an option.
-- the inline coalesce in `month_revenue(uuid, timestamptz, timestamptz)`
-  (`00000000000008_month_revenue.sql`) — Pace's figure under a revenue
-  target, summed across a month for the same reason.
+  that matters most. `ProjectRate` prints the same figure on `/projects`.
+- `resolve_rate(numeric, numeric, numeric, numeric)` in SQL
+  (`00000000000010_one_rate_chain.sql`) — the chain over the four columns,
+  called by `resolve_entry_rate(uuid)` for a single entry and by both
+  rollups, `unbilled_by_client(uuid)` and
+  `month_revenue(uuid, timestamptz, timestamptz)`, once per row in their
+  joins. It is `immutable` and carries no `search_path`, so Postgres inlines
+  it and the rollups plan as the plain `COALESCE` they used to spell out.
 
-**All four chains must stay character-for-character identical.** They are not
-kept in sync by anything: no test compares them, and a change to one is
-invisible to the others. The rollup's own header says so, and the home
-screen disagreeing with an invoice preview about the same work is exactly the
-failure that produces.
-
-This section used to say the SQL was "authoritative, used at invoice
-generation" and that "the database wins". Neither was true — the SQL function
-has no callers at all — and believing it would send someone to edit the
-function that does not bill while the one that does goes unchanged.
+**`apps/web/test/rates.test.ts` is what keeps them in step.** It builds every
+combination of the four levels being unset, `0`, or a distinct rate, and
+asserts that SQL and TypeScript resolve each entry identically and that both
+rollups' totals equal what `buildLineItems` produces. Neither side is
+authoritative on its own; the test is. Without it a change to one language is
+invisible to the other, and the home screen disagreeing with an invoice
+preview about the same work is what that produces.
 
 **`0` is a real rate, not an absent one.** A project deliberately set to 0 (pro
-bono) does not fall through to the client's rate. All three implementations use
+bono) does not fall through to the client's rate. Both implementations use
 null-coalescing, never truthiness.
 
 **Rates are frozen onto invoice line items at generation time.** Changing a

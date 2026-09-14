@@ -62,11 +62,11 @@ changing `deriving-colour.md`'s generators, never a hex.
 - Durations are always mono + `tabular-nums`.
 - Time entry ids are **client-generated UUIDv7** (`uuidv7()` in `@stint/core`) so
   a retried insert is idempotent — the same id lands on the same row.
-- Rate resolution is written **three times** — `resolveRate()` in TS (the one
-  that actually bills), `resolve_entry_rate()` in SQL (a reference
-  implementation with no callers), and the inline coalesce in
-  `unbilled_by_client` (the home card). Keep all three identical; nothing
-  checks that they are. See `docs/data-model.md`.
+- Rate resolution is written **twice** — `resolveRate()` in TS (the one that
+  actually bills) and `resolve_rate()` in SQL, which `resolve_entry_rate()`
+  and both home-screen rollups call. `apps/web/test/rates.test.ts` asserts
+  they agree across every combination of the four levels. See
+  `docs/data-model.md`.
 - `0` is a valid rate. Use null-coalescing, never truthiness.
 - Archive, don't delete — invoices reference clients and projects.
 
@@ -596,9 +596,9 @@ speculative work alike.
 
 `screens/home.html` specifies the cards; `screens/inbox.html` the dock's inbox.
 
-**`unbilled_by_client` groups by (client, rate)**, and its coalesce chain must
-stay identical to `resolve_entry_rate`, or the home screen and an invoice
-preview disagree about the same work. The seed reproduces the case
+**`unbilled_by_client` groups by (client, rate)** and resolves through
+`resolve_rate()`, so the home screen and an invoice preview cannot disagree
+about the same work. The seed reproduces a client billing at two rates
 deliberately.
 
 ### Invoices

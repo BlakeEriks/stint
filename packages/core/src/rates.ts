@@ -3,9 +3,10 @@
  *
  * Precedence: entry override -> project -> client -> user default.
  *
- * This exists client-side so invoice PREVIEWS can be rendered without a
- * round trip. The database remains authoritative at generation time —
- * if these ever disagree, the database wins.
+ * This is what bills: `POST /invoices` writes the rate TypeScript computed, so
+ * the preview and the issued invoice come from identical code. The SQL chain
+ * feeds the home screen's rollups, and `apps/web/test/rates.test.ts` asserts
+ * the two agree across every combination of the four levels.
  */
 
 export interface RateContext {

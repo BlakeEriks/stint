@@ -19,11 +19,11 @@ import { money } from '@/lib/client/format';
  * checked; the hierarchy is visible in the grouping and in the dialog that
  * sets it.
  *
- * `resolveRate` comes from `@stint/core` — the same function the invoice
- * preview uses, mirroring `resolve_entry_rate()` in the database. A second
- * implementation here is another thing to drift, which is also why this
- * component is shared by the client's own projects section and the grouped
- * `/projects` list rather than copied into both.
+ * `resolveRate` comes from `@stint/core` — the same function that bills, kept
+ * in step with SQL's `resolve_entry_rate()` by `apps/web/test/rates.test.ts`.
+ * A second implementation here is another thing to drift, which is also why
+ * this component is shared by the client's own projects section and the
+ * grouped `/projects` list rather than copied into both.
  *
  * `client` is null for work with no client, where the chain simply skips that
  * level. Do not read a missing client as "internal": null covers genuinely
