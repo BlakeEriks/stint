@@ -53,9 +53,7 @@ export function Inbox({ stats }: { stats: Stats }) {
   const queryClient = useQueryClient();
   const runaway = useRunaway();
 
-  /* The ENTRY being given a project, not its id. `/stats` returns counts
-     rather than rows, so opening the row fetches it through the same
-     `projectId=none` filter the row is about.
+  /* The ENTRY being edited, not its id, and which field opened it.
 
      Holding the entry rather than the id is what keeps the dialog and its
      subject one piece of state. Keyed on the id, saving emptied the query
@@ -63,15 +61,24 @@ export function Inbox({ stats }: { stats: Stats }) {
      result — while the id still said "open", and the editor reopened as a
      blank "Add entry". */
   const [assigning, setAssigning] = useState<TimeEntry | undefined>();
+  const [focusField, setFocusField] = useState<'task' | 'project'>('task');
   const tz = useTimeZone();
 
   /* The stats rows carry enough to render, but `EntryDialog` edits a whole
      entry — so opening one fetches it. Keyed by id rather than filter: a
      strange-duration entry usually HAS a project, so `projectId=none` would
-     not find it. */
+     not find it.
+
+     The row says which field it is about: an unprojected row exists BECAUSE
+     the project is missing, so the cursor belongs there rather than on a task
+     name that is already right. */
   const { mutate: openEntry } = useMutation({
-    mutationFn: (id: string) => api.entry(id),
-    onSuccess: (found) => setAssigning(found),
+    mutationFn: ({ id }: { id: string; focus: 'task' | 'project' }) =>
+      api.entry(id),
+    onSuccess: (found, { focus }) => {
+      setFocusField(focus);
+      setAssigning(found);
+    },
   });
 
   /* "It's correct" answers the question and nothing else — it never edits the
@@ -155,7 +162,8 @@ export function Inbox({ stats }: { stats: Stats }) {
                       this is the action nine times in ten. A currency glyph,
                       not a check: the check belongs to "It's correct". */}
                   <Action
-                    label={`Mark ${i.invoiceNumber} paid`}
+                    label="Mark paid"
+                    ariaLabel={`Mark ${i.invoiceNumber} paid`}
                     icon={<DollarSign aria-hidden className="size-3.5" />}
                     disabled={setStatus.isPending}
                     onClick={() =>
@@ -184,7 +192,8 @@ export function Inbox({ stats }: { stats: Stats }) {
               actions={
                 <>
                   <Action
-                    label={`Mark ${d.invoiceNumber} sent`}
+                    label="Mark sent"
+                    ariaLabel={`Mark ${d.invoiceNumber} sent`}
                     icon={<Send aria-hidden className="size-3.5" />}
                     disabled={setStatus.isPending}
                     onClick={() =>
@@ -207,7 +216,7 @@ export function Inbox({ stats }: { stats: Stats }) {
           {unprojected.map((u) => (
             <Item
               key={u.entryId}
-              onSelect={() => openEntry(u.entryId)}
+              onSelect={() => openEntry({ id: u.entryId, focus: 'project' })}
               label={u.taskName || 'Untitled entry'}
               detail={`No project · ${dayLabel(u.startedAt, tz)}`}
               value={formatCompact(u.seconds)}
@@ -217,7 +226,7 @@ export function Inbox({ stats }: { stats: Stats }) {
                   label="Assign project"
                   ariaLabel={`Assign a project to ${u.taskName || 'this entry'}`}
                   icon={<FolderInput aria-hidden className="size-3.5" />}
-                  onClick={() => openEntry(u.entryId)}
+                  onClick={() => openEntry({ id: u.entryId, focus: 'project' })}
                 />
               }
             />
@@ -229,7 +238,7 @@ export function Inbox({ stats }: { stats: Stats }) {
           {strangeDurations.map((e) => (
             <Item
               key={e.entryId}
-              onSelect={() => openEntry(e.entryId)}
+              onSelect={() => openEntry({ id: e.entryId, focus: 'task' })}
               label={e.taskName || 'Untitled entry'}
               detail={[
                 e.clientName ?? e.projectName,
@@ -247,7 +256,7 @@ export function Inbox({ stats }: { stats: Stats }) {
                     label="Edit entry"
                     ariaLabel={`Edit ${e.taskName || 'this entry'}`}
                     icon={<Pencil aria-hidden className="size-3.5" />}
-                    onClick={() => openEntry(e.entryId)}
+                    onClick={() => openEntry({ id: e.entryId, focus: 'task' })}
                   />
                   {/* The one action that means "this is already right", and
                       the only one wearing a check mark. */}
@@ -275,6 +284,7 @@ export function Inbox({ stats }: { stats: Stats }) {
           if (!o) setAssigning(undefined);
         }}
         existing={assigning}
+        focus={focusField}
         projects={projects}
         tz={tz}
       />

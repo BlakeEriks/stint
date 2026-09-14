@@ -174,7 +174,7 @@
           </div>
           <div class="isub"><span class="type-support tone-danger">20 days late</span></div>
           <div class="iact">
-            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Mark STINT-0014 paid</button>
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Mark paid</button>
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download</button>
           </div>
         </div>
@@ -186,7 +186,7 @@
           </div>
           <div class="isub"><span class="type-support tone-warn">Draft, 13 days old</span></div>
           <div class="iact">
-            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Mark STINT-0019 sent</button>
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Mark sent</button>
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download</button>
           </div>
         </div>
@@ -252,13 +252,13 @@
         <td>Overdue invoice</td>
         <td><code>sent</code> and <code>due_date</code> more than <strong>7 days</strong> past</td>
         <td>Client, amount, days late</td>
-        <td>Mark <em>n</em> paid · Download</td>
+        <td>Mark paid · Download</td>
       </tr>
       <tr>
         <td>Stale draft</td>
         <td><code>draft</code> issued more than <strong>7 days</strong> ago</td>
         <td>Client, amount, age</td>
-        <td>Mark <em>n</em> sent · Download</td>
+        <td>Mark sent · Download</td>
       </tr>
       <tr>
         <td>Unprojected entry</td>
@@ -301,9 +301,11 @@
         its own glyph. The check mark belongs to <code>It's correct</code> —
         the one action meaning "this is already right" — so no other action
         uses it.</li>
-      <li><strong>Every write names its object</strong>
-        (<code>Mark STINT-0014 paid</code>). A list of identical
-        <code>Mark paid</code> buttons is unusable with a screen reader.</li>
+      <li><strong>The label is the verb; the accessible name carries the
+        object.</strong> <code>Mark paid</code> reads cleanly in a row that
+        already names its invoice twice, but a screen reader meets the buttons
+        without that context — so every write and download sets an
+        <code>aria-label</code> naming its invoice.</li>
       <li><strong>Two inline actions, or three on the timer row.</strong> The
         timer is the only row that needs a third, and the only one that sorts
         alone at the top.</li>

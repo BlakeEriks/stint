@@ -36,6 +36,7 @@ export function EntryDialog({
   onOpenChange,
   existing,
   seed,
+  focus = 'task',
   projects,
   tz,
 }: {
@@ -48,6 +49,14 @@ export function EntryDialog({
    * Ignored when `existing` is set — an edit opens on its own times.
    */
   seed?: { startedAt: string; endedAt: string };
+  /**
+   * Which field takes focus on open. Defaults to the task, which is what a
+   * new entry or an ordinary edit starts from — but a caller that opened the
+   * dialog to fix ONE field should land the cursor there instead. The inbox's
+   * unprojected row is the case: the task name is already correct and the
+   * missing project is the entire reason the row exists.
+   */
+  focus?: 'task' | 'project';
   projects: Project[];
   tz: string;
 }) {
@@ -186,7 +195,7 @@ export function EntryDialog({
             </Label>
             <Input
               id="entry-task"
-              autoFocus
+              autoFocus={focus === 'task'}
               disabled={locked}
               value={taskName}
               onChange={(e) => setTaskName(e.target.value)}
@@ -200,6 +209,12 @@ export function EntryDialog({
             </Label>
             <select
               id="entry-project"
+              /* biome-ignore lint/a11y/noAutofocus: the rule guards against
+                 stealing focus on PAGE load. This is a modal the user just
+                 opened, where something must take focus — and when the row
+                 they clicked exists because the project is missing, this is
+                 the field they came for. */
+              autoFocus={focus === 'project'}
               disabled={locked}
               value={projectId ?? ''}
               onChange={(e) => setProjectId(e.target.value || null)}

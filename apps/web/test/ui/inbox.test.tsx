@@ -100,15 +100,17 @@ describe('Inbox', () => {
       wrapper,
     });
 
-    /* The visible label can be short, but the accessible name must still name
-       its invoice: a column of identical "Download"s is unusable with a
-       screen reader. */
-    expect(
-      screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'Download STINT-0001' }),
-    ).toBeInTheDocument();
+    /* The visible label is the verb alone — the row already names its invoice
+       twice above. A screen reader meets the buttons without that context, so
+       the accessible name still carries it: a column of identical "Mark paid"
+       and "Download" buttons would be unusable. */
+    const paid = screen.getByRole('button', { name: 'Mark STINT-0001 paid' });
+    expect(paid).toHaveTextContent('Mark paid');
+    expect(paid).not.toHaveTextContent('STINT-0001');
+
+    const pdf = screen.getByRole('link', { name: 'Download STINT-0001' });
+    expect(pdf).toHaveTextContent('Download');
+    expect(pdf).not.toHaveTextContent('STINT-0001');
   });
 
   it('keeps the actions in the document when the row is not hovered', () => {
@@ -381,6 +383,22 @@ describe('entries with no project', () => {
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByLabelText(/Project/)).toBeInTheDocument(),
+    );
+  });
+
+  it('lands the cursor on the project, the field the row is about', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<Inbox stats={withRow()} />, { wrapper });
+
+    await user.click(screen.getByText('Client call'));
+    await screen.findByRole('dialog');
+
+    /* The row exists BECAUSE the project is missing; the task name is already
+       right. Opening on the task would make the first keystroke edit the one
+       field nobody came to change. */
+    await waitFor(() =>
+      expect(document.activeElement?.id).toBe('entry-project'),
     );
   });
 
