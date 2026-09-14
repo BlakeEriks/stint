@@ -37,7 +37,11 @@ export function makeDb(pool, userId) {
       cols: '*',
       wheres: [],
       params: [],
-      order: null,
+      // A list, because PostgREST APPENDS each .order() — chaining two of
+      // them is how a route says "default first, then by name". Holding one
+      // string here let the second call silently drop the first, so the
+      // shim sorted by the last key alone and a test could not see it.
+      order: [],
       lim: null,
       op: 'select',
       payload: null,
@@ -103,7 +107,7 @@ export function makeDb(pool, userId) {
         return api;
       },
       order(c, o) {
-        st.order = `${c} ${o?.ascending === false ? 'DESC' : 'ASC'}`;
+        st.order.push(`${c} ${o?.ascending === false ? 'DESC' : 'ASC'}`);
         return api;
       },
       limit(n) {
@@ -142,7 +146,7 @@ export function makeDb(pool, userId) {
           sql = `delete from ${st.table} where ${whereSql()} returning ${st.cols}`;
         } else {
           sql = `select ${st.cols} from ${st.table} where ${whereSql()}`;
-          if (st.order) sql += ` order by ${st.order}`;
+          if (st.order.length) sql += ` order by ${st.order.join(', ')}`;
           if (st.lim) sql += ` limit ${st.lim}`;
         }
         return run(sql, st.params);

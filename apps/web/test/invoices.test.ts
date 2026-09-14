@@ -762,6 +762,222 @@ test('only one payment profile can be the default', async () => {
   assert.equal(rows[0].n, 1, 'the partial unique index holds');
 });
 
+/**
+ * The `[id]` handlers had no tests at all until now, and PATCH is the one
+ * that costs money: it is the only path that can change which bank details
+ * an invoice renders.
+ */
+const ctx = (id: string) => ({ params: Promise.resolve({ id }) }) as never;
+
+test('a profile can be read back by id', async () => {
+  const { POST: createProfile } = await import(
+    '../src/app/api/v1/payment-profiles/route.ts'
+  );
+  const { GET } = await import(
+    '../src/app/api/v1/payment-profiles/[id]/route.ts'
+  );
+
+  const made = await json(
+    await createProfile(
+      req('/pp', { name: 'ACH', accountNumber: '111', routingNumber: '999' }),
+    ),
+  );
+  const got = await json(await GET(req('/pp'), ctx(made.body.id)));
+
+  assert.equal(got.status, 200);
+  assert.equal(got.body.name, 'ACH');
+  /* The camelCase boundary is `rows.ts`, and nothing type-checks it for
+     payment profiles — a renamed column surfaces as undefined here. */
+  assert.equal(got.body.accountNumber, '111');
+  assert.equal(got.body.routingNumber, '999');
+});
+
+test('an unknown profile id is 404, not an empty 200', async () => {
+  const { GET } = await import(
+    '../src/app/api/v1/payment-profiles/[id]/route.ts'
+  );
+  const res = await json(
+    await GET(req('/pp'), ctx('018f0000-0000-7000-8000-0000000000ff')),
+  );
+  assert.equal(res.status, 404);
+});
+
+test('promoting a profile demotes the one that was default', async () => {
+  const { POST: createProfile } = await import(
+    '../src/app/api/v1/payment-profiles/route.ts'
+  );
+  const { PATCH } = await import(
+    '../src/app/api/v1/payment-profiles/[id]/route.ts'
+  );
+
+  const ach = await json(
+    await createProfile(req('/pp', { name: 'ACH', accountNumber: '111' })),
+  );
+  const wire = await json(
+    await createProfile(req('/pp', { name: 'Wire', accountNumber: '222' })),
+  );
+  assert.equal(ach.body.isDefault, true, 'the first profile is the default');
+  assert.equal(wire.body.isDefault, false);
+
+  const promoted = await json(
+    await PATCH(req('/pp', { isDefault: true }, 'PATCH'), ctx(wire.body.id)),
+  );
+  assert.equal(promoted.status, 200);
+  assert.equal(promoted.body.isDefault, true);
+
+  /* Exactly one, and it is the RIGHT one. Asserting only the count would
+     pass if the handler demoted both and promoted neither. */
+  const { rows } = await pool.query(
+    'select id from payment_profiles where is_default and archived_at is null',
+  );
+  assert.equal(rows.length, 1, 'promoting demotes the previous default');
+  assert.equal(rows[0].id, wire.body.id);
+});
+
+test('editing a profile leaves an already-issued invoice alone', async () => {
+  const { POST: createProfile } = await import(
+    '../src/app/api/v1/payment-profiles/route.ts'
+  );
+  const { PATCH } = await import(
+    '../src/app/api/v1/payment-profiles/[id]/route.ts'
+  );
+  const { POST: createInvoice } = await import(
+    '../src/app/api/v1/invoices/route.ts'
+  );
+
+  const profile = await json(
+    await createProfile(
+      req('/pp', { name: 'ACH', accountNumber: '111', routingNumber: '999' }),
+    ),
+  );
+  await seedEntry({ id: E(1) });
+  const inv = await json(
+    await createInvoice(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(inv.status, 201);
+
+  await PATCH(
+    req('/pp', { accountNumber: '222', routingNumber: '888' }, 'PATCH'),
+    ctx(profile.body.id),
+  );
+
+  /* The frozen snapshot is the whole point: the client was told to pay
+     account 111, and re-downloading the PDF a year later must still say so. */
+  const { rows } = await pool.query(
+    'select payment_details from invoices where id=$1',
+    [inv.body.id],
+  );
+  type Field = { label: string; value: string };
+  const value = (label: string) =>
+    (rows[0].payment_details.fields as Field[]).find((f) => f.label === label)
+      ?.value;
+  assert.equal(value('Account number'), '111');
+  assert.equal(value('Routing number (ACH)'), '999');
+});
+
+test('archiving the default hands the default to a survivor', async () => {
+  const { POST: createProfile } = await import(
+    '../src/app/api/v1/payment-profiles/route.ts'
+  );
+  const { DELETE } = await import(
+    '../src/app/api/v1/payment-profiles/[id]/route.ts'
+  );
+
+  const ach = await json(
+    await createProfile(req('/pp', { name: 'ACH', accountNumber: '111' })),
+  );
+  await createProfile(req('/pp', { name: 'Wire', accountNumber: '222' }));
+
+  const res = await DELETE(req('/pp', undefined, 'DELETE'), ctx(ach.body.id));
+  assert.equal(res.status, 204);
+
+  /* Archiving the default cleared `is_default` and stopped there, leaving a
+     user with a live profile and no default — so `loadPaymentProfile` fell
+     through to null and the next invoice rendered no bank details at all.
+     One profile left means it is the default; there is nothing to choose. */
+  const { rows } = await pool.query(
+    'select id, is_default from payment_profiles where archived_at is null',
+  );
+  assert.equal(rows.length, 1, 'the survivor is still live');
+  assert.equal(
+    rows[0].is_default,
+    true,
+    'a lone surviving profile is the default',
+  );
+});
+
+test('the last profile cannot be un-defaulted into silence', async () => {
+  const { POST: createProfile } = await import(
+    '../src/app/api/v1/payment-profiles/route.ts'
+  );
+  const { PATCH } = await import(
+    '../src/app/api/v1/payment-profiles/[id]/route.ts'
+  );
+
+  const only = await json(
+    await createProfile(req('/pp', { name: 'ACH', accountNumber: '111' })),
+  );
+
+  await json(
+    await PATCH(req('/pp', { isDefault: false }, 'PATCH'), ctx(only.body.id)),
+  );
+
+  /* `POST` guarantees the first profile is the default so that "a user who
+     never ticks the box" still gets payment details. PATCH could take that
+     away again, which made the guarantee only true until the first edit. */
+  const { rows } = await pool.query(
+    'select count(*)::int n from payment_profiles where is_default and archived_at is null',
+  );
+  assert.equal(rows[0].n, 1, 'the only profile stays the default');
+});
+
+test('the list excludes archived profiles unless asked', async () => {
+  const { POST: createProfile, GET: list } = await import(
+    '../src/app/api/v1/payment-profiles/route.ts'
+  );
+  const { DELETE } = await import(
+    '../src/app/api/v1/payment-profiles/[id]/route.ts'
+  );
+
+  const ach = await json(
+    await createProfile(req('/pp', { name: 'ACH', accountNumber: '111' })),
+  );
+  await createProfile(req('/pp', { name: 'Wire', accountNumber: '222' }));
+  await DELETE(req('/pp', undefined, 'DELETE'), ctx(ach.body.id));
+
+  const live = await json(await list(req('/payment-profiles')));
+  assert.equal(live.status, 200);
+  assert.deepEqual(
+    live.body.paymentProfiles.map((p: { name: string }) => p.name),
+    ['Wire'],
+  );
+
+  const all = await json(
+    await list(req('/payment-profiles?includeArchived=true')),
+  );
+  assert.equal(all.body.paymentProfiles.length, 2);
+});
+
+test('the default sorts first, then by name', async () => {
+  const { POST: createProfile, GET: list } = await import(
+    '../src/app/api/v1/payment-profiles/route.ts'
+  );
+
+  // Created in an order that neither alphabetical nor insertion order fixes.
+  await createProfile(req('/pp', { name: 'Zelle', accountNumber: '111' }));
+  await createProfile(req('/pp', { name: 'ACH', accountNumber: '222' }));
+  await createProfile(req('/pp', { name: 'Mercury', accountNumber: '333' }));
+
+  /* Zelle was created first, so it is the default and leads despite sorting
+     last alphabetically — the picker's first entry is the one that applies
+     when nothing is chosen. */
+  const res = await json(await list(req('/payment-profiles')));
+  assert.deepEqual(
+    res.body.paymentProfiles.map((p: { name: string }) => p.name),
+    ['Zelle', 'ACH', 'Mercury'],
+  );
+});
+
 test('the PDF renders the payment block', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const { GET: pdf } = await import(

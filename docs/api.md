@@ -12,9 +12,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Coverage is not total, and the gaps are the mutating halves of two resources:
-`PATCH`/`DELETE` on `/projects/:id` and `/payment-profiles/:id` have no tests.
-Do not read a documented endpoint as a tested one.
+Every handler is covered — 36 of 36, counting handlers rather than files.
 
 ## Timer
 
@@ -77,6 +75,11 @@ other route.
 `isDefault` on a payment profile is likewise set through `POST`/`PATCH` — the
 first profile a user creates becomes the default automatically, and the
 database enforces one per user.
+
+**A user with any live profile always has a default.** `isDefault: false` on
+the last one is answered with the unchanged profile, and archiving the default
+promotes the next profile by name. Without that, resolution falls through to
+null and the next invoice carries no bank details.
 
 `nextInvoiceNumber` is not settable through `PATCH /settings`: gapless
 numbering depends on `allocate_invoice_number()` holding the row lock.

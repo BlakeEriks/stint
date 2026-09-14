@@ -50,24 +50,6 @@ later.
       table has no row for it, which is the reason it was missed — add one
       when it is fixed, and use `<Wordmark />`.
 
-- [ ] **Eight route handlers have no tests, across four routes.** Nothing in
-      `test/` imports these, so none of them has ever run in a test:
-
-      | Route | Untested |
-      | --- | --- |
-      | `/projects/:id` | GET, PATCH, DELETE |
-      | `/payment-profiles/:id` | GET, PATCH, DELETE |
-      | `/payment-profiles` | GET |
-      | `/clients/:id` | GET, PATCH |
-
-      **`/payment-profiles/:id` PATCH is the one that costs money.** It
-      touches `one_default_payment_profile_per_user`, so a bug that un-sets
-      the default is silent until an invoice renders the wrong bank details —
-      and by then it has been sent.
-
-      Count handlers, not files — 34 across 20 route files. Counting files
-      reports this gap as two.
-
 - [ ] **An inbox invoice row does not open.** Clicking the label on an overdue
       or stale-draft row in the dock's inbox goes nowhere. The `href` is
       `/invoices/${invoiceId}` and the detail page exists, so the fault is in

@@ -132,6 +132,13 @@ enforced by an index rather than by code that checks first.** A pre-check is a
 race; a partial unique index is not. The first profile a user creates becomes
 the default automatically.
 
+**The index stops two defaults; it cannot stop zero, and zero is the one that
+costs money.** With no default, `loadPaymentProfile` resolves to null and the
+next invoice renders with no bank details at all — valid, silent, and already
+sent by the time anyone notices. So the routes hold the other half:
+`PATCH` refuses to demote the last live profile, and archiving the default
+hands it to a survivor. Both are covered in `invoices.test.ts`.
+
 ### Billed entries are immutable
 A trigger blocks edits and deletes once an entry belongs to a **non-draft**
 invoice. The guarded fields are `started_at`, `ended_at`, `is_billable`,

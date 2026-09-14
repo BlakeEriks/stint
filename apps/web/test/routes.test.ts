@@ -412,6 +412,216 @@ test('clients and projects create, list and archive', async () => {
   );
 });
 
+/**
+ * The `[id]` handlers for clients and projects. `req` above forces POST
+ * whenever a body is present, so a PATCH is built directly.
+ */
+const patchReq = (url: string, body: unknown) =>
+  new Request(`http://t${url}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+const ctx = (id: string) => ({ params: Promise.resolve({ id }) }) as never;
+
+/** A client and a project on it, for the detail handlers to act on. */
+async function seedClientAndProject() {
+  const { POST: createClient } = await import(
+    '../src/app/api/v1/clients/route.ts'
+  );
+  const { POST: createProject } = await import(
+    '../src/app/api/v1/projects/route.ts'
+  );
+  const c = await json(
+    await createClient(req('/clients', { name: 'Northwind', hourlyRate: 150 })),
+  );
+  const p = await json(
+    await createProject(
+      req('/projects', { clientId: c.body.id, name: 'Lifecycle' }),
+    ),
+  );
+  return { clientId: c.body.id as string, projectId: p.body.id as string };
+}
+
+test('a client is read back by id, and 404s when unknown', async () => {
+  const { GET } = await import('../src/app/api/v1/clients/[id]/route.ts');
+  const { clientId } = await seedClientAndProject();
+
+  const got = await json(await GET(req('/clients/x'), ctx(clientId)));
+  assert.equal(got.status, 200);
+  assert.equal(got.body.name, 'Northwind');
+  // Numeric columns arrive from PostgREST as strings; `rows.ts` converts.
+  assert.equal(got.body.hourlyRate, 150);
+
+  const missing = await json(
+    await GET(req('/clients/x'), ctx('cc000000-0000-4000-8000-0000000000ff')),
+  );
+  assert.equal(missing.status, 404);
+});
+
+test('a client patch changes only the fields it names', async () => {
+  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
+  const { clientId } = await seedClientAndProject();
+
+  const res = await json(
+    await PATCH(
+      patchReq('/clients/x', { name: 'Northwind Ltd' }),
+      ctx(clientId),
+    ),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.name, 'Northwind Ltd');
+  /* The rate was not in the patch, so it must survive untouched — a
+     converter that wrote every column would null it silently, and the next
+     invoice would bill this client at the user's fallback rate instead. */
+  assert.equal(res.body.hourlyRate, 150);
+});
+
+test('a client rate can be cleared to fall back, which is not the same as 0', async () => {
+  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
+  const { clientId } = await seedClientAndProject();
+
+  const cleared = await json(
+    await PATCH(patchReq('/clients/x', { hourlyRate: null }), ctx(clientId)),
+  );
+  assert.equal(cleared.body.hourlyRate, null, 'null means "fall back"');
+
+  const zero = await json(
+    await PATCH(patchReq('/clients/x', { hourlyRate: 0 }), ctx(clientId)),
+  );
+  /* `0` is a real rate — pro bono work billed at zero, not work that falls
+     through to the user's default. Truthiness here would conflate them. */
+  assert.equal(zero.body.hourlyRate, 0);
+});
+
+test('a patch naming no known field is rejected, not a silent no-op', async () => {
+  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
+  const { clientId } = await seedClientAndProject();
+
+  const res = await json(
+    await PATCH(patchReq('/clients/x', {}), ctx(clientId)),
+  );
+  assert.equal(res.status, 422);
+});
+
+test('a project is read back by id, and 404s when unknown', async () => {
+  const { GET } = await import('../src/app/api/v1/projects/[id]/route.ts');
+  const { clientId, projectId } = await seedClientAndProject();
+
+  const got = await json(await GET(req('/projects/x'), ctx(projectId)));
+  assert.equal(got.status, 200);
+  assert.equal(got.body.name, 'Lifecycle');
+  assert.equal(got.body.clientId, clientId);
+
+  const missing = await json(
+    await GET(req('/projects/x'), ctx('bb000000-0000-4000-8000-0000000000ff')),
+  );
+  assert.equal(missing.status, 404);
+});
+
+test('a project can be detached from its client, and that is not archiving', async () => {
+  const { PATCH } = await import('../src/app/api/v1/projects/[id]/route.ts');
+  const { projectId } = await seedClientAndProject();
+
+  const res = await json(
+    await PATCH(patchReq('/projects/x', { clientId: null }), ctx(projectId)),
+  );
+  assert.equal(res.status, 200);
+  /* A null `client_id` is how internal work is modeled, so clearing it is a
+     legitimate edit rather than a broken reference. */
+  assert.equal(res.body.clientId, null);
+  assert.equal(res.body.archivedAt ?? null, null);
+});
+
+test('isBillableDefault is the user answer, not inferred from the client', async () => {
+  const { PATCH } = await import('../src/app/api/v1/projects/[id]/route.ts');
+  const { projectId } = await seedClientAndProject();
+
+  /* Detaching a project from its client must not flip it to non-billable:
+     `client_id = null` covers internal, not-yet-assigned and speculative
+     work alike, and only the user knows which. */
+  const detached = await json(
+    await PATCH(patchReq('/projects/x', { clientId: null }), ctx(projectId)),
+  );
+  assert.equal(detached.body.isBillableDefault, true);
+
+  const answered = await json(
+    await PATCH(
+      patchReq('/projects/x', { isBillableDefault: false }),
+      ctx(projectId),
+    ),
+  );
+  assert.equal(answered.body.isBillableDefault, false);
+});
+
+test('archiving a project hides it from the list but keeps the row', async () => {
+  const { DELETE } = await import('../src/app/api/v1/projects/[id]/route.ts');
+  const { GET: list } = await import('../src/app/api/v1/projects/route.ts');
+  const { projectId } = await seedClientAndProject();
+
+  const res = await DELETE(
+    req('/projects/x', undefined, 'DELETE'),
+    ctx(projectId),
+  );
+  assert.equal(res.status, 204);
+
+  const active = await json(await list(req('/projects')));
+  assert.equal(active.body.projects.length, 0);
+
+  /* Archive, don't delete: time entries and invoices reference this row, so
+     it stays retrievable rather than orphaning them. */
+  const all = await json(await list(req('/projects?includeArchived=true')));
+  assert.equal(all.body.projects.length, 1);
+
+  const { rows } = await pool.query(
+    'select archived_at from projects where id=$1',
+    [projectId],
+  );
+  assert.ok(rows[0].archived_at, 'the row survives, marked archived');
+});
+
+test('archiving an unknown project is 404, not a silent 204', async () => {
+  const { DELETE } = await import('../src/app/api/v1/projects/[id]/route.ts');
+  const res = await DELETE(
+    req('/projects/x', undefined, 'DELETE'),
+    ctx('bb000000-0000-4000-8000-0000000000ff'),
+  );
+  assert.equal(res.status, 404);
+});
+
+test("another user's client is invisible to these handlers", async () => {
+  const { GET } = await import('../src/app/api/v1/clients/[id]/route.ts');
+  const { PATCH } = await import('../src/app/api/v1/clients/[id]/route.ts');
+
+  const theirs = '33333333-0000-4000-8000-0000000000c1';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Theirs')`,
+    [theirs, OTHER],
+  );
+
+  /* The route tests run with RLS disabled, so this is the handler's own
+     `user_id` scoping under test — `rls.test.ts` covers the policy layer.
+     Both exist because either alone would let the other's absence pass. */
+  assert.equal(
+    (await json(await GET(req('/clients/x'), ctx(theirs)))).status,
+    404,
+  );
+  assert.equal(
+    (
+      await json(
+        await PATCH(patchReq('/clients/x', { name: 'Mine' }), ctx(theirs)),
+      )
+    ).status,
+    404,
+  );
+
+  const { rows } = await pool.query('select name from clients where id=$1', [
+    theirs,
+  ]);
+  assert.equal(rows[0].name, 'Theirs', 'and it was not modified');
+});
+
 // ── settings ───────────────────────────────────────────────────────
 test('settings update, and nextInvoiceNumber cannot be moved by a client', async () => {
   const { GET: get, PATCH: patch } = await import(
