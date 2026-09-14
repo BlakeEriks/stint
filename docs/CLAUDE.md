@@ -74,6 +74,10 @@ Git holds the history. A doc states the current final form.
 One screen, one doc; states are sections inside it. A doc never points at its
 siblings — that is the index's job, and a second list drifts.
 
+`screens/components.html` is the exception, and the only one: it is what a
+screen is assembled *from*, so a rule that would otherwise be restated in
+every screen doc belongs there instead.
+
 Unbuilt work goes to `tasks.md`. A rejection goes to `design/principles.md`
 only if someone would plausibly propose it again; that file is a short list of
 live refusals, not an archive.
