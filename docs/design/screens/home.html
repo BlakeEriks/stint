@@ -61,44 +61,73 @@
     text-transform: uppercase; color: var(--text-subtle);
     display: block; margin-top: .7rem;
   }
+  /* States sit side by side so the difference between them is visible in one
+     glance rather than by scrolling between two mockups. `.states.stack` is
+     for a card that is wide in the app — halving it here would make its rows
+     wrap and misreport the layout. */
+  .states { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .states.stack { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .state > .caption { margin-top: .55rem; }
 
+  /* ── Cards, as the app builds them ───────────────────────────── */
   .card {
     background: var(--bg-elevated);
     border: 1px solid var(--border-subtle);
-    border-radius: 10px;
+    border-radius: 12px;
     box-shadow: var(--shadow-card);
+    overflow: hidden;
   }
-  .card-head {
-    display: flex; align-items: baseline; justify-content: space-between;
-    gap: 12px; padding: 14px 16px 10px;
-  }
+  /* Figure mode: icon + demoted label, then the figure the eye lands on. */
+  .card-head { padding: 12px 16px; }
+  .card-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .card-title .ico { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
+  .card-figure { margin-top: 6px; }
+  /* List mode: the heading is the entry point, so it stays a heading. */
+  .card-head.listmode { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px 10px; }
+  .card-head.listmode .ico { width: 16px; height: 16px; color: var(--text-muted); }
   .card-rule { height: 1px; margin: 0 16px; background: var(--border-subtle); }
-  .card-body { padding: 12px 16px 16px; }
+  .card-body { padding: 14px 16px; }
 
+  /* A row: label + aging on the left, hours and amount right-aligned. */
   .erow {
-    display: flex; align-items: baseline; justify-content: space-between;
-    gap: 12px; padding: 9px 0;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border-subtle);
   }
-  .erow + .erow { border-top: 1px solid var(--border-subtle); }
-  .erow .left { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
-  .swatch { width: 8px; height: 8px; border-radius: 50%; flex: none; align-self: center; }
-  .aging { color: var(--text-subtle); }
-
-  .grid2 { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); gap: 16px; }
-  @media (width < 60rem) { .grid2 { grid-template-columns: minmax(0,1fr); } }
+  .erow .left { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1; }
+  .erow .hours { width: 64px; text-align: right; flex: none; }
+  .erow .amt { width: 96px; text-align: right; flex: none; }
+  .erow .arrow { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
+  .foot {
+    display: flex; align-items: baseline; gap: 6px;
+    padding: 8px 16px; border-top: 1px solid var(--border-subtle);
+  }
 
   .bar {
-    height: 8px; border-radius: 999px; background: var(--bg-hover);
-    overflow: hidden; margin: 10px 0 8px;
+    height: 6px; border-radius: 999px; background: var(--bg-hover);
+    overflow: hidden; margin-bottom: 8px;
   }
-  .bar span { display: block; height: 100%; background: var(--text-muted); border-radius: 999px; }
+  .bar span { display: block; height: 100%; background: var(--text-subtle); border-radius: 999px; }
+  .paceline { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+
+  /* Range pills, as the card renders them. */
+  .pills { display: inline-flex; gap: 2px; padding: 2px; border-radius: 6px; background: var(--bg-primary); }
+  .pill { padding: 4px 8px; border-radius: 4px; color: var(--text-muted); }
+  .pill.on { background: var(--bg-elevated); color: var(--text-strong); }
+
+  /* activity chart */
+  .chart { display: grid; align-items: end; gap: 3px; height: 92px; }
+  .col { display: flex; flex-direction: column; justify-content: flex-end; gap: 1px; min-width: 0; height: 100%; }
+  .col i { display: block; border-radius: 1.5px; }
+  .col i:first-child { border-radius: 3px 3px 1.5px 1.5px; }
+  .ends { display: flex; justify-content: space-between; margin-top: 8px; }
+  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 10px 16px; border-top: 1px solid var(--border-subtle); }
+  .lg { display: inline-flex; align-items: center; gap: 6px; }
+  .lg .sw { width: 8px; height: 8px; border-radius: 2px; flex: none; }
 
   /* inbox rows */
   .inbox { background: var(--bg-base); border-radius: 10px; padding: 14px; }
-  .irow {
-    display: flex; align-items: flex-start; gap: 10px;
-    padding: 10px 0;
-  }
+  .irow { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; }
   .irow + .irow { border-top: 1px solid var(--border-subtle); }
   .idot { width: 7px; height: 7px; border-radius: 50%; flex: none; margin-top: 7px; }
   .idot.danger { background: var(--danger); }
@@ -112,14 +141,8 @@
     font-family: var(--font-sans); font-size: 12.5px; cursor: pointer;
   }
 
-  /* activity chart */
-  .chart { display: flex; align-items: flex-end; gap: 3px; height: 90px; margin-top: 12px; }
-  .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 1px; min-width: 0; }
-  .col i { display: block; border-radius: 1px; }
-
-  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
-  .lg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
-  .lg .sw { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+  .grid2 { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); gap: 16px; align-items: start; }
+  @media (width < 60rem) { .grid2 { grid-template-columns: minmax(0,1fr); } }
 </style>
 
 <div class="page">
@@ -158,6 +181,9 @@
         hours and an em-dash.</li>
       <li><strong><code>GET /stats</code> is one call.</strong> The cards
         render together, and a set that pops in piecemeal reads as broken.</li>
+      <li><strong>No card writes.</strong> Every card reads, and every action on
+        one is a link to the surface that owns the mutation. The inbox is the
+        narrow exception, with the limits stated under that section.</li>
     </ul>
   </section>
 
@@ -172,119 +198,174 @@
 
     <div class="mock">
       <div class="grid2">
-        <!-- Unbilled -->
         <div class="card">
           <div class="card-head">
-            <span class="type-heading" style="color:var(--text-strong)">Unbilled</span>
-            <span class="type-amount-hero" style="color:var(--text-strong)">$4,280.00</span>
+            <span class="card-title">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M19 7V4H5a2 2 0 0 0 0 4h15v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M18 12h.01"/></svg>
+              <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
+            </span>
+            <div class="card-figure type-figure" style="color:var(--text-strong)">$3,022.50</div>
           </div>
           <div class="card-rule"></div>
-          <div class="card-body">
-            <div class="erow">
-              <span class="left"><span class="swatch" style="background:var(--proj-6)"></span>
-                <span class="type-body">Acme Corp</span></span>
-              <span><span class="type-duration" style="color:var(--text-muted)">18.5h</span>
-                <span class="type-amount" style="color:var(--text-strong); margin-left:10px">$2,775.00</span>
-                <span class="type-meta aging" style="margin-left:10px">oldest 22d</span></span>
-            </div>
-            <div class="erow">
-              <span class="left"><span class="swatch" style="background:var(--proj-2)"></span>
-                <span class="type-body">Byrne Studio</span></span>
-              <span><span class="type-duration" style="color:var(--text-muted)">9.0h</span>
-                <span class="type-amount" style="color:var(--text-strong); margin-left:10px">$1,125.00</span>
-                <span class="type-meta aging" style="margin-left:10px">oldest 6d · 2 unrated</span></span>
-            </div>
-            <div class="erow">
-              <span class="left"><span class="swatch" style="border:1px solid var(--border-control)"></span>
-                <span class="type-body" style="color:var(--text-muted)">Internal</span></span>
-              <span><span class="type-duration" style="color:var(--text-muted)">4.2h</span>
-                <span class="type-amount" style="color:var(--text-subtle); margin-left:10px">—</span></span>
-            </div>
-            <div class="erow">
-              <span class="type-support" style="color:var(--text-muted)">Awaiting payment</span>
-              <span class="type-amount" style="color:var(--text-muted)">$3,100.00</span>
-            </div>
+          <div class="erow" style="border-top:0">
+            <span class="left"><span class="type-control">Northwind Trading</span>
+              <span class="type-meta" style="color:var(--text-subtle)">oldest 10d</span></span>
+            <span class="hours type-meta" style="color:var(--text-subtle)">9h</span>
+            <span class="amt type-duration">$1,462.50</span>
+            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </div>
+          <div class="erow">
+            <span class="left"><span class="type-control">Byrne Studio</span>
+              <span class="type-meta" style="color:var(--text-subtle)">oldest 4d</span></span>
+            <span class="hours type-meta" style="color:var(--text-subtle)">10h 30m</span>
+            <span class="amt type-duration">$1,372.50</span>
+            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </div>
+          <div class="foot">
+            <span class="type-meta" style="color:var(--text-muted)">$3,465.00</span>
+            <span class="type-support" style="color:var(--text-subtle)">sent, awaiting payment</span>
           </div>
         </div>
 
-        <!-- Pace -->
         <div class="card">
           <div class="card-head">
-            <span class="type-heading" style="color:var(--text-strong)">September</span>
-            <span class="type-meta" style="color:var(--text-muted)">87h / 120h</span>
+            <span class="card-title">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
+              <span class="type-label" style="color:var(--text-subtle)">September</span>
+            </span>
+            <div class="card-figure type-figure" style="color:var(--text-strong)">21.4h<span class="type-duration" style="color:var(--text-subtle)"> / 120h</span></div>
           </div>
           <div class="card-rule"></div>
           <div class="card-body">
-            <div class="bar"><span style="width:72%"></span></div>
-            <div class="erow" style="padding-top:4px">
-              <span class="type-support" style="color:var(--text-muted)">On pace</span>
-              <span class="type-duration" style="color:var(--text-strong)">+2h</span>
-            </div>
-            <div class="erow">
-              <span class="type-support" style="color:var(--text-muted)">Billable</span>
-              <span class="type-duration" style="color:var(--text-strong)">82%</span>
+            <div class="bar"><span style="width:18%"></span></div>
+            <div class="paceline">
+              <span class="type-support" style="color:var(--text-subtle)">10 of 22 business days · 98% billable</span>
+              <span class="type-meta" style="color:var(--text-warning)">behind −33.1h</span>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- Activity -->
-      <div class="card" style="margin-top:16px">
-        <div class="card-head">
-          <span class="type-heading" style="color:var(--text-strong)">Activity</span>
-          <span class="type-meta" style="color:var(--text-subtle)">30 days</span>
-        </div>
-        <div class="card-rule"></div>
-        <div class="card-body">
-          <div class="chart">
-            <div class="col"><i style="height:22px;background:var(--proj-6)"></i><i style="height:9px;background:var(--proj-2)"></i></div>
-            <div class="col"><i style="height:34px;background:var(--proj-6)"></i></div>
-            <div class="col"><i style="height:14px;background:var(--proj-6)"></i><i style="height:20px;background:var(--proj-2)"></i></div>
-            <div class="col"><i style="height:44px;background:var(--proj-6)"></i><i style="height:6px;background:var(--text-subtle)"></i></div>
-            <div class="col"><i style="height:28px;background:var(--proj-2)"></i></div>
-            <div class="col"></div>
-            <div class="col"></div>
-            <div class="col"><i style="height:38px;background:var(--proj-6)"></i><i style="height:12px;background:var(--proj-2)"></i></div>
-            <div class="col"><i style="height:50px;background:var(--proj-6)"></i></div>
-            <div class="col"><i style="height:20px;background:var(--proj-2)"></i><i style="height:10px;background:var(--text-subtle)"></i></div>
-            <div class="col"><i style="height:46px;background:var(--proj-6)"></i></div>
-            <div class="col"><i style="height:30px;background:var(--proj-2)"></i></div>
-            <div class="col"></div>
-            <div class="col"></div>
-            <div class="col"><i style="height:40px;background:var(--proj-6)"></i><i style="height:16px;background:var(--proj-2)"></i></div>
-            <div class="col"><i style="height:26px;background:var(--proj-6)"></i></div>
-            <div class="col"><i style="height:52px;background:var(--proj-2)"></i></div>
-            <div class="col"><i style="height:18px;background:var(--proj-6)"></i></div>
-            <div class="col"><i style="height:36px;background:var(--proj-6)"></i><i style="height:8px;background:var(--text-subtle)"></i></div>
-            <div class="col"></div>
-            <div class="col"></div>
-          </div>
-          <div class="legend">
-            <span class="lg"><span class="sw" style="background:var(--proj-6)"></span>Acme Corp</span>
-            <span class="lg"><span class="sw" style="background:var(--proj-2)"></span>Byrne Studio</span>
-            <span class="lg"><span class="sw" style="background:var(--text-subtle)"></span>Internal</span>
-          </div>
-        </div>
-      </div>
-      <span class="caption">Unbilled · Pace · Activity, then today's entries</span>
+      <span class="caption">Unbilled · Pace, then Activity, then today's entries</span>
     </div>
 
     <p style="margin-top:1.5rem">
       Unbilled and Pace share a row at <code>lg</code> on a
-      <code>1.6fr / 1fr</code> grid, not equal columns — Unbilled carries a
-      list and Pace carries one figure and a bar, so equal columns would starve
-      the side with something to say to pad the side without. Activity spans
-      the full width beneath them, then today's entries.
+      <code>1.6fr / 1fr</code> grid. Unbilled carries a list that truncates when
+      starved; Pace carries one figure and a bar, which does not improve with
+      more room. Activity spans the full width beneath them, then today's
+      entries.
     </p>
     <p>
       The grid is conditional: both cards hide when they have nothing, and a
       fixed two-column track would leave a visible hole on an ordinary day.
+      <code>items-start</code>, so a short right column does not stretch to
+      match a tall left one.
     </p>
     <p>
       <strong style="color:var(--text-strong)">No card carries the
       accent.</strong> On this screen the accent is spent, and it is spent on
       the running timer in the bar below. The progress bar is neutral.
     </p>
+
+    <h3>The inset above the first card belongs to <code>Page</code></h3>
+    <p>
+      The content column owns its top padding and the card set adds none. Both
+      would stack, and the gap between the header and the first card is the one
+      measurement on this screen that is read as "is this app tidy?".
+    </p>
+    <table>
+      <tr><th>Owner</th><th>Spacing</th><th>Between</th></tr>
+      <tr><td><code>Page</code></td><td><code>pt-4</code> → <code>lg:pt-10</code></td><td>Frame and the first card</td></tr>
+      <tr><td>Card set</td><td><code>gap-4</code></td><td>Card and card</td></tr>
+      <tr><td><code>EntryList</code></td><td><code>mt-6</code></td><td>Cards and Today</td></tr>
+    </table>
+  </section>
+
+  <!-- ───────────────────────── the card header ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The card header, in two modes</span></div>
+
+    <p>
+      Every card on this screen is one of two shapes, and which one is decided
+      by whether the card has a single figure as its subject — not chosen per
+      card.
+    </p>
+
+    <div class="mock">
+      <div class="states">
+        <div class="state">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M19 7V4H5a2 2 0 0 0 0 4h15v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M18 12h.01"/></svg>
+                <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
+              </span>
+              <div class="card-figure type-figure" style="color:var(--text-strong)">$3,022.50</div>
+            </div>
+            <div class="card-rule"></div>
+            <div class="erow" style="border-top:0">
+              <span class="left"><span class="type-control">Northwind Trading</span></span>
+              <span class="amt type-duration">$1,462.50</span>
+            </div>
+          </div>
+          <span class="caption">Figure mode — the word says which number</span>
+        </div>
+
+        <div class="state">
+          <div class="card">
+            <div class="card-head listmode">
+              <span class="card-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
+                <span class="type-heading" style="color:var(--text-strong)">Activity</span>
+              </span>
+              <span class="pills"><span class="pill type-badge">14d</span><span class="pill on type-badge">30d</span></span>
+            </div>
+            <div class="card-rule"></div>
+            <div class="card-body">
+              <div class="chart" style="height:44px; grid-template-columns:repeat(12,minmax(0,1fr))">
+                <div class="col"><i style="height:50%;background:var(--proj-6)"></i></div>
+                <div class="col"><i style="height:72%;background:var(--proj-6)"></i></div>
+                <div class="col"><i style="height:36%;background:var(--proj-2)"></i></div>
+                <div class="col"></div>
+                <div class="col"></div>
+                <div class="col"><i style="height:64%;background:var(--proj-6)"></i></div>
+                <div class="col"><i style="height:44%;background:var(--proj-2)"></i></div>
+                <div class="col"><i style="height:80%;background:var(--proj-6)"></i></div>
+                <div class="col"><i style="height:30%;background:var(--proj-2)"></i></div>
+                <div class="col"></div>
+                <div class="col"></div>
+                <div class="col"><i style="height:58%;background:var(--proj-6)"></i></div>
+              </div>
+            </div>
+          </div>
+          <span class="caption">List mode — the heading is the entry point</span>
+        </div>
+      </div>
+    </div>
+
+    <ul class="rule">
+      <li><strong>A card whose point is one figure demotes its own
+        title.</strong> The word only says <em>which</em> number, so it drops to
+        a quiet <code>type-label</code> above the <code>type-figure</code> the
+        eye lands on.</li>
+      <li><strong>A card whose point is a list keeps its heading.</strong> There
+        is no single figure to be the subject, and a demoted title would leave
+        the card with no entry point at all.</li>
+      <li><strong>The mode follows from the content, not from taste.</strong>
+        Supplying a value selects figure mode. Headers styled per card would be
+        worse than uniform ones.</li>
+      <li><strong>The icon is <code>aria-hidden</code></strong>, so the
+        accessible name stays the heading text — never "wallet Unbilled".</li>
+      <li><strong>The rule under the header is inset to the rows'
+        own <code>px-4</code></strong>. Edge to edge it cuts the panel in two
+        and reads as two stacked cards.</li>
+    </ul>
+
+    <ul class="rule never" style="margin-top:1.75rem">
+      <li><strong>The icon never carries the accent</strong>, and carries a tone
+        only on a card that is <em>about</em> something being wrong. Colouring
+        the rest spends a meaning channel on decoration.</li>
+    </ul>
   </section>
 
   <!-- ───────────────────────── unbilled ───────────────────────── -->
@@ -298,6 +379,74 @@
       running timers never count, matching the invoicing rule that you cannot
       bill time still accruing.
     </p>
+
+    <div class="mock">
+      <div class="states stack">
+        <div class="state">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M19 7V4H5a2 2 0 0 0 0 4h15v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M18 12h.01"/></svg>
+                <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
+              </span>
+              <div class="card-figure type-figure" style="color:var(--text-strong)">$3,022.50</div>
+            </div>
+            <div class="card-rule"></div>
+            <div class="erow" style="border-top:0">
+              <span class="left"><span class="type-control">Northwind Trading</span>
+                <span class="type-meta" style="color:var(--text-subtle)">oldest 10d</span></span>
+              <span class="hours type-meta" style="color:var(--text-subtle)">9h</span>
+              <span class="amt type-duration">$1,462.50</span>
+              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </div>
+            <div class="erow">
+              <span class="left"><span class="type-control">Byrne Studio</span>
+                <span class="type-meta" style="color:var(--text-subtle)">oldest 4d · 2 unrated</span></span>
+              <span class="hours type-meta" style="color:var(--text-subtle)">10h 30m</span>
+              <span class="amt type-duration">$1,372.50</span>
+              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </div>
+            <div class="erow">
+              <span class="left"><span class="type-control" style="color:var(--text-muted)">No client</span>
+                <span class="type-meta" style="color:var(--text-subtle)">oldest 4d</span></span>
+              <span class="hours type-meta" style="color:var(--text-subtle)">1h 30m</span>
+              <span class="amt type-duration" style="color:var(--text-subtle)">—</span>
+              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </div>
+            <div class="foot">
+              <span class="type-support" style="color:var(--text-subtle)">+3 more</span>
+            </div>
+            <div class="foot">
+              <span class="type-meta" style="color:var(--text-muted)">$3,465.00</span>
+              <span class="type-support" style="color:var(--text-subtle)">sent, awaiting payment</span>
+            </div>
+          </div>
+          <span class="caption">Aging, unrated work, an unbillable row, the cap, and the foot</span>
+        </div>
+
+        <div class="state">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M19 7V4H5a2 2 0 0 0 0 4h15v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M18 12h.01"/></svg>
+                <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
+              </span>
+              <div class="card-figure type-figure" style="color:var(--text-strong)">$281.25</div>
+            </div>
+            <div class="card-rule"></div>
+            <div class="erow" style="border-top:0">
+              <span class="left"><span class="type-control" style="color:var(--text-muted)">No client</span>
+                <span class="type-meta" style="color:var(--text-subtle)">oldest 9d</span></span>
+              <span class="hours type-meta" style="color:var(--text-subtle)">2h 15m</span>
+              <span class="amt type-duration">$281.25</span>
+              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+          <span class="caption">One client, nothing sent — no cap line, no foot</span>
+        </div>
+      </div>
+      <span class="caption">Nothing outstanding: the card is absent, and the grid becomes one column</span>
+    </div>
 
     <ul class="rule">
       <li><strong>The aging column is the insight.</strong> A total alone is a
@@ -314,13 +463,19 @@
         client, pre-filled with the period covering its unbilled entries. That
         is what makes the card an action rather than a readout.</li>
       <li><strong>A client with unrated work carries its count on the
-        row</strong> — "oldest 9d · 2 unrated". Those entries contribute hours
+        row</strong> — "oldest 4d · 2 unrated". Those entries contribute hours
         but no money, so without it the amount reads as low rather than as
         incomplete. Unrated totals show an em-dash, never <code>$0.00</code>.</li>
       <li><strong>Rows cap at five clients</strong> with a "+N more" line, and
         <strong>the cap is server-side</strong> — <code>/stats</code> returns
         at most five plus a <code>moreClients</code> count. The total above
         still covers every client.</li>
+      <li><strong>The row is a grid, not a link wrapping buttons.</strong> The
+        label is the link; an <code>&lt;a&gt;</code> containing a
+        <code>&lt;button&gt;</code> is invalid and puts Tab inside the link.</li>
+      <li><strong>The row sizes by container, not viewport.</strong> The same
+        card renders in this wide column and in the 280px dock, so hours drop
+        and the amount column loses its fixed width from the card's own width.</li>
     </ul>
 
     <ul class="rule never" style="margin-top:1.75rem">
@@ -349,19 +504,93 @@
       modelled, deliberately.
     </p>
 
+    <div class="mock">
+      <div class="states">
+        <div class="state">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
+                <span class="type-label" style="color:var(--text-subtle)">September</span>
+              </span>
+              <div class="card-figure type-figure" style="color:var(--text-strong)">96.0h<span class="type-duration" style="color:var(--text-subtle)"> / 120h</span></div>
+            </div>
+            <div class="card-rule"></div>
+            <div class="card-body">
+              <div class="bar"><span style="width:80%"></span></div>
+              <div class="paceline">
+                <span class="type-support" style="color:var(--text-subtle)">18 of 22 business days · 82% billable</span>
+                <span class="type-meta" style="color:var(--text-muted)">on pace +2.0h</span>
+              </div>
+            </div>
+          </div>
+          <span class="caption">Ahead — neutral</span>
+        </div>
+
+        <div class="state">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
+                <span class="type-label" style="color:var(--text-subtle)">September</span>
+              </span>
+              <div class="card-figure type-figure" style="color:var(--text-strong)">21.4h<span class="type-duration" style="color:var(--text-subtle)"> / 120h</span></div>
+            </div>
+            <div class="card-rule"></div>
+            <div class="card-body">
+              <div class="bar"><span style="width:18%"></span></div>
+              <div class="paceline">
+                <span class="type-support" style="color:var(--text-subtle)">10 of 22 business days · 98% billable</span>
+                <span class="type-meta" style="color:var(--text-warning)">behind −33.1h</span>
+              </div>
+            </div>
+          </div>
+          <span class="caption">Behind — warning on the delta only</span>
+        </div>
+
+        <div class="state">
+          <div class="card">
+            <div class="card-head listmode">
+              <span class="card-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
+                <span class="type-heading" style="color:var(--text-strong)">September</span>
+              </span>
+            </div>
+            <div class="card-rule"></div>
+            <div class="card-body">
+              <span class="type-support" style="color:var(--text-subtle)">
+                A revenue target is set, but pace in revenue is not computed yet.
+              </span>
+            </div>
+          </div>
+          <span class="caption">Revenue target — keeps a heading, no figure</span>
+        </div>
+
+      </div>
+      <span class="caption">No target set: the card is absent, not an empty bar asking to be configured</span>
+    </div>
+
     <ul class="rule">
       <li><strong>The card hides entirely when no target is set.</strong> An
         empty progress bar asking to be configured is a chore the app assigned
         itself.</li>
-      <li><strong>Billable ratio is the second line, not its own card.</strong>
+      <li><strong>Only the delta takes the warning tone.</strong> The figure,
+        the bar and the business-day line stay neutral — being behind on the
+        14th is ordinary, and colouring the whole card would read as an
+        alarm.</li>
+      <li><strong>Billable ratio rides the business-day line.</strong>
         Contractors consistently underestimate how much unbillable admin they
         absorb, and one percentage is the entire finding — it does not deserve
-        a chart.</li>
+        a card or a chart.</li>
       <li><strong>Only hours render.</strong> A revenue target stores and
         validates, then the card says pace in that unit is not computed yet.
         Revenue means invoiced plus unbilled-at-resolved-rate, a different
-        query from summing time entries. Saying so beats rendering hours under
-        a money target.</li>
+        query from summing time entries. With no figure there is no subject, so
+        the card keeps a heading rather than demoting its title above an empty
+        space.</li>
+      <li><strong>The bar is capped at the target.</strong> It reports progress
+        toward a number, and a fill running past its own track reports
+        nothing.</li>
     </ul>
   </section>
 
@@ -375,6 +604,64 @@
       three-hour day or a nine-hour day?"
     </p>
 
+    <div class="mock">
+      <div class="card">
+        <div class="card-head listmode">
+          <span class="card-title">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
+            <span class="type-heading" style="color:var(--text-strong)">Activity</span>
+          </span>
+          <span class="pills"><span class="pill type-badge">14d</span><span class="pill on type-badge">30d</span></span>
+        </div>
+        <div class="card-rule"></div>
+        <div class="card-body">
+          <div class="chart" style="grid-template-columns:repeat(30,minmax(0,1fr))">
+            <div class="col"><i style="height:38%;background:var(--proj-6)"></i><i style="height:14%;background:var(--proj-2)"></i></div>
+            <div class="col"><i style="height:52%;background:var(--proj-6)"></i></div>
+            <div class="col"><i style="height:22%;background:var(--proj-6)"></i><i style="height:30%;background:var(--proj-2)"></i></div>
+            <div class="col"><i style="height:66%;background:var(--proj-6)"></i><i style="height:9%;background:var(--text-subtle)"></i></div>
+            <div class="col"><i style="height:44%;background:var(--proj-2)"></i></div>
+            <div class="col"></div>
+            <div class="col"></div>
+            <div class="col"><i style="height:58%;background:var(--proj-6)"></i><i style="height:18%;background:var(--proj-2)"></i></div>
+            <div class="col"><i style="height:76%;background:var(--proj-6)"></i></div>
+            <div class="col"><i style="height:30%;background:var(--proj-2)"></i><i style="height:15%;background:var(--text-subtle)"></i></div>
+            <div class="col"><i style="height:70%;background:var(--proj-6)"></i></div>
+            <div class="col"><i style="height:46%;background:var(--proj-2)"></i></div>
+            <div class="col"></div>
+            <div class="col"></div>
+            <div class="col"><i style="height:62%;background:var(--proj-6)"></i><i style="height:24%;background:var(--proj-2)"></i></div>
+            <div class="col"><i style="height:40%;background:var(--proj-6)"></i></div>
+            <div class="col"><i style="height:80%;background:var(--proj-2)"></i></div>
+            <div class="col"><i style="height:28%;background:var(--proj-6)"></i></div>
+            <div class="col"><i style="height:55%;background:var(--proj-6)"></i><i style="height:12%;background:var(--text-subtle)"></i></div>
+            <div class="col"></div>
+            <div class="col"></div>
+            <div class="col"><i style="height:48%;background:var(--proj-6)"></i></div>
+            <div class="col"><i style="height:64%;background:var(--proj-6)"></i><i style="height:20%;background:var(--proj-2)"></i></div>
+            <div class="col"><i style="height:36%;background:var(--proj-2)"></i></div>
+            <div class="col"><i style="height:90%;background:var(--proj-6)"></i></div>
+            <div class="col"><i style="height:42%;background:var(--proj-6)"></i><i style="height:16%;background:var(--text-subtle)"></i></div>
+            <div class="col"></div>
+            <div class="col"></div>
+            <div class="col"><i style="height:54%;background:var(--proj-6)"></i></div>
+            <div class="col"><i style="height:33%;background:var(--proj-2)"></i><i style="height:26%;background:var(--proj-2)"></i></div>
+          </div>
+          <div class="ends">
+            <span class="type-meta" style="color:var(--text-subtle)">Aug 16</span>
+            <span class="type-meta" style="color:var(--text-subtle)">Sep 14</span>
+          </div>
+        </div>
+        <div class="legend">
+          <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-6)"></span>Northwind Trading</span>
+          <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-2)"></span>Byrne Studio</span>
+          <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--text-subtle)"></span>Other</span>
+          <span class="type-meta" style="color:var(--text-subtle); margin-left:auto">21h 25m · 30 days</span>
+        </div>
+      </div>
+      <span class="caption">Gaps are weekends, and the tallest day sets the scale</span>
+    </div>
+
     <ul class="rule">
       <li><strong>Hue is the client</strong>, resolved as everywhere else, and
         <strong>never the accent</strong> — that belongs to the running timer.
@@ -384,9 +671,25 @@
         column, so a blank one is a weekend or a dry spell rather than missing
         data. A clean five-on-two-off rhythm versus a ragged one says something
         no total does.</li>
+      <li><strong>The tallest day sets the scale.</strong> A fixed axis
+        flattens a quiet fortnight into nothing; this keeps the shape readable
+        at any workload.</li>
+      <li><strong>Clients rank over the whole window, not per day</strong>, so a
+        band keeps its stacking position across columns. Order that jumps
+        between days cannot be followed by eye.</li>
       <li><strong>Past five clients the remainder collapses into one neutral
         band</strong> — beyond that the legend becomes the card and the hues
-        stop being separable.</li>
+        stop being separable. Those hours are still counted, so the column
+        stays the day's real height.</li>
+      <li><strong>Archived clients keep their colour.</strong> Work billed to a
+        finished engagement belongs in the history, and dropping the hue would
+        silently reassign those hours to the neutral band.</li>
+      <li><strong>The range control is a real radio group.</strong> One setting
+        with two values: one tab stop, arrow keys between options, and the
+        current one announced — which the browser gives away free.</li>
+      <li><strong>Only the ends are labelled.</strong> A label under every
+        column is unreadable at 30 bars, and each column's own date is in its
+        tooltip.</li>
       <li><strong>90 days is deliberately absent.</strong> At day granularity
         that is 90 bars in a ~660px card — a ~4px bar. It needs week bucketing
         server-side, for the same DST reason day bucketing already lives
@@ -406,37 +709,53 @@
     </p>
 
     <div class="mock">
-      <div class="inbox">
-        <div class="type-label" style="color:var(--text-subtle); margin-bottom:6px">Inbox</div>
-        <div class="irow">
-          <span class="idot warn"></span>
-          <span class="ibody">
-            <span class="type-control" style="color:var(--text-strong)">Timer running 14h 2m</span><br>
-            <span class="type-support" style="color:var(--text-muted)">Website redesign · Acme Corp</span>
-            <span class="iact">
-              <button class="btn">Keep</button>
-              <button class="btn">Adjust</button>
-              <button class="btn">Discard</button>
-            </span>
-          </span>
+      <div class="states">
+        <div class="state">
+          <div class="inbox">
+            <div class="type-label" style="color:var(--text-subtle); margin-bottom:6px">Inbox</div>
+            <div class="irow">
+              <span class="idot warn"></span>
+              <span class="ibody">
+                <span class="type-control" style="color:var(--text-strong)">Timer running 14h 2m</span><br>
+                <span class="type-support" style="color:var(--text-muted)">Website redesign · Acme Corp</span>
+                <span class="iact">
+                  <button class="btn">Keep</button>
+                  <button class="btn">Adjust</button>
+                  <button class="btn">Discard</button>
+                </span>
+              </span>
+            </div>
+            <div class="irow">
+              <span class="idot danger"></span>
+              <span class="ibody">
+                <span class="type-control" style="color:var(--text-strong)">STINT-0014 · 12 days late</span><br>
+                <span class="type-support" style="color:var(--text-muted)">Byrne Studio · $1,125.00</span>
+                <span class="iact"><button class="btn">Mark STINT-0014 paid</button></span>
+              </span>
+            </div>
+            <div class="irow">
+              <span class="idot warn"></span>
+              <span class="ibody">
+                <span class="type-control" style="color:var(--text-strong)">6 entries with no project</span><br>
+                <span class="type-support" style="color:var(--text-muted)">11.5h · cannot resolve a rate</span>
+              </span>
+            </div>
+          </div>
+          <span class="caption">Runaway first, then overdue</span>
         </div>
-        <div class="irow">
-          <span class="idot danger"></span>
-          <span class="ibody">
-            <span class="type-control" style="color:var(--text-strong)">STINT-0014 · 12 days late</span><br>
-            <span class="type-support" style="color:var(--text-muted)">Byrne Studio · $1,125.00</span>
-            <span class="iact"><button class="btn">Mark STINT-0014 paid</button></span>
-          </span>
-        </div>
-        <div class="irow">
-          <span class="idot warn"></span>
-          <span class="ibody">
-            <span class="type-control" style="color:var(--text-strong)">6 entries with no project</span><br>
-            <span class="type-support" style="color:var(--text-muted)">11.5h · cannot resolve a rate</span>
-          </span>
+
+        <div class="state">
+          <div class="inbox">
+            <div class="type-label" style="color:var(--text-subtle); margin-bottom:6px">Inbox</div>
+            <div class="card" style="box-shadow:none">
+              <div class="card-body">
+                <span class="type-body" style="color:var(--text-muted)">Nothing needs you.</span>
+              </div>
+            </div>
+          </div>
+          <span class="caption">Empty — still present</span>
         </div>
       </div>
-      <span class="caption">The dock's inbox — runaway first, then overdue</span>
     </div>
 
     <table>
@@ -541,8 +860,8 @@
     <ul class="rule">
       <li><strong>Warning and danger are the alert channel.</strong>
         <code>timer-warning</code> and <code>danger</code> carry the inbox's
-        rows. Success cyan appears nowhere on this screen — nothing here is an
-        outcome.</li>
+        rows and Pace's delta. Success cyan appears nowhere on this screen —
+        nothing here is an outcome.</li>
       <li><strong>Nothing here is green</strong>, including the inbox's runaway
         row, which is about a timer and still renders in <code>warning</code>.
         Tested — <code>test/ui/inbox.test.tsx</code> asserts no accent class
@@ -554,9 +873,6 @@
         <code>resolve_entry_rate(uuid)</code> is per-entry; the Unbilled card
         sums across hundreds of entries and must not call it N times. A
         set-returning rollup is the correct shape.</li>
-      <li><strong>No card writes.</strong> Every card reads, and every action on
-        one is a link to the surface that owns the mutation. The inbox is the
-        narrow exception, with the limits stated above.</li>
     </ul>
   </section>
 
@@ -604,6 +920,12 @@
             bucketing this needs and the reason not to build a second one.
             Returns <code>{ date, totalSeconds, byClient }</code> and nothing
             else.</td>
+      </tr>
+      <tr>
+        <td><code>GET /clients?includeArchived</code></td>
+        <td>Activity's hues and legend</td>
+        <td>Archived clients included, so a finished engagement keeps its
+            colour instead of falling into the neutral band.</td>
       </tr>
     </table>
 

@@ -56,8 +56,11 @@ export function HomeCards() {
   const hasPace = data.pace != null;
   const splitColumns = hasUnbilled && hasPace;
 
+  /* No top margin: `Page` owns the inset above the first card, and a margin
+     here stacked on top of it. `EntryList` carries its own `mt-6` for the gap
+     below, which is a real separation between two things. */
   return (
-    <div className="mt-6 flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
       {splitColumns ? (
         /* 1.6fr / 1fr, not equal columns. The left column is rows of client
            names, ages, hours and amounts — content that grows and truncates
