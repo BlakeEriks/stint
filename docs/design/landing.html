@@ -1,5 +1,6 @@
 <title>Stint Landing Page Spec</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="screens/_mockup.css">
 <style>
   /* ============================================================
      Dark-first, exactly as the app is. The bare :root holds the
@@ -7,46 +8,8 @@
      derived for; light is the guarded override.
      ============================================================ */
   :root {
-    --n-0:   #18191C;
-    --n-25:  #191B1E;
-    --n-50:  #1A1C21;
-    --n-100: #1D2128;
-    --n-200: #292E36;
-    --n-300: #393E48;
-    --n-400: #4B525E;
-    --n-500: #626875;
-    --n-600: #848B98;
-    --n-700: #A3A9B5;
-    --n-850: #CACED7;
-    --n-975: #F9FAFD;
-
-    --accent:      #52FC43;
-    --accent-400:  #3FE231;
-    --accent-800:  #0E4B09;
-    --text-on-accent: #18191C;
-
-    --success: #2CCCEB;
-    --warning: #DBA929;
-    --danger:  #E9504D;
-
-    --bg-base:      var(--n-0);
-    --bg-primary:   var(--n-50);
-    --bg-elevated:  var(--n-100);
-    --bg-hover:     var(--n-200);
-
-    --text-strong: var(--n-975);
-    --text-body:   var(--n-850);
-    --text-muted:  var(--n-600);
-    --text-subtle: var(--n-500);
-
-    --edge-subtle: var(--n-200);
-    --edge-strong: var(--n-300);
-
-    --shadow-card:  0 1px 2px rgba(0,0,0,.34), 0 2px 8px rgba(0,0,0,.34);
-    --shadow-float: 0 2px 6px rgba(0,0,0,.44), 0 12px 32px rgba(0,0,0,.44);
-
-    --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    /* Layout only. Every colour, font and shadow comes from
+       screens/_mockup.css, which pnpm tokens generates. */
 
     /* The measure is the DOC's width, not a narrower cap inside it. At 62ch
        every paragraph ended ~300px short of the panels and section rules
@@ -69,8 +32,8 @@
   body {
     margin: 0;
     background: var(--bg-base);
-    color: var(--text-body);
-    font-family: var(--sans);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
     font-size: 15px;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
@@ -89,11 +52,11 @@
     flex-direction: column;
     gap: .9rem;
     padding-bottom: 2rem;
-    border-bottom: 1px solid var(--edge-subtle);
+    border-bottom: 1px solid var(--border-subtle);
   }
 
   .eyebrow {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 500;
     letter-spacing: .16em;
@@ -128,11 +91,11 @@
     gap: .75rem;
     margin-bottom: 1.5rem;
     padding-bottom: .6rem;
-    border-bottom: 1px solid var(--edge-subtle);
+    border-bottom: 1px solid var(--border-subtle);
   }
 
   .sec-num {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 11.5px;
     color: var(--text-subtle);
     flex: none;
@@ -157,24 +120,24 @@
   p { margin: 0 0 1rem; max-width: var(--measure); }
   p:last-child { margin-bottom: 0; }
 
-  .lede { color: var(--text-body); }
+  .lede { color: var(--text-primary); }
   .note { color: var(--text-muted); font-size: 14px; }
 
-  a { color: var(--text-strong); text-decoration-color: var(--n-400); text-underline-offset: 2px; }
+  a { color: var(--text-strong); text-decoration-color: var(--border-control); text-underline-offset: 2px; }
   a:focus-visible, button:focus-visible {
-    outline: 2px solid var(--n-700);
+    outline: 2px solid var(--border-focus);
     outline-offset: 2px;
     border-radius: 3px;
   }
 
   code {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: .88em;
     background: var(--bg-elevated);
-    border: 1px solid var(--edge-subtle);
+    border: 1px solid var(--border-subtle);
     border-radius: 4px;
     padding: .1em .35em;
-    color: var(--text-body);
+    color: var(--text-primary);
   }
 
   /* ---------- Panels: content floats, chrome recedes ---------- */
@@ -193,7 +156,7 @@
 
   .demo-frame {
     background: var(--bg-base);
-    border: 1px solid var(--edge-subtle);
+    border: 1px solid var(--border-subtle);
     border-radius: 12px;
     padding: clamp(1.5rem, 5vw, 3rem) clamp(1.25rem, 4vw, 2.5rem);
     display: flex;
@@ -203,7 +166,7 @@
   }
 
   .demo-tag {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 9.5px;
     letter-spacing: .08em;
     text-transform: uppercase;
@@ -214,7 +177,7 @@
 
   .hero-h1 {
     margin: 0;
-    font-family: var(--sans);
+    font-family: var(--font-sans);
     font-size: clamp(2rem, 6.5vw, 3.25rem);
     font-weight: 600;
     letter-spacing: -.03em;
@@ -229,7 +192,7 @@
     color: var(--text-muted);
     line-height: 1.55;
   }
-  .hero-sub strong { color: var(--text-body); font-weight: 400; }
+  .hero-sub strong { color: var(--text-primary); font-weight: 400; }
 
   /* The one green object. */
   .timer-card {
@@ -253,7 +216,7 @@
   .dot {
     width: 9px; height: 9px;
     border-radius: 50%;
-    background: var(--accent);
+    background: var(--accent-default);
     flex: none;
     animation: pulse 2s ease-in-out infinite;
   }
@@ -263,17 +226,17 @@
   }
 
   .timer-readout {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: clamp(1.5rem, 5vw, 1.875rem);
     font-weight: 500;
     letter-spacing: -.02em;
-    color: var(--accent);
+    color: var(--accent-default);
     line-height: 1.1;
   }
 
   .timer-meta {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 11.5px;
     font-variant-numeric: tabular-nums;
     color: var(--text-muted);
@@ -288,12 +251,12 @@
   }
 
   .btn-accent {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 13px;
     font-weight: 500;
     letter-spacing: .08em;
     text-transform: uppercase;
-    background: var(--accent);
+    background: var(--accent-default);
     color: var(--text-on-accent);
     border: 0;
     border-radius: 8px;
@@ -302,10 +265,10 @@
     text-decoration: none;
     transition: background .15s ease;
   }
-  .btn-accent:hover { background: var(--accent-400); }
+  .btn-accent:hover { background: var(--accent-active); }
 
   .cta-fine {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 11.5px;
     color: var(--text-subtle);
   }
@@ -323,34 +286,34 @@
 
   th {
     text-align: left;
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 500;
     letter-spacing: .16em;
     text-transform: uppercase;
     color: var(--text-muted);
     padding: 0 1rem .6rem 0;
-    border-bottom: 1px solid var(--edge-strong);
+    border-bottom: 1px solid var(--border-default);
     white-space: nowrap;
   }
 
   td {
     padding: .7rem 1rem .7rem 0;
-    border-bottom: 1px solid var(--edge-subtle);
+    border-bottom: 1px solid var(--border-subtle);
     vertical-align: top;
-    color: var(--text-body);
+    color: var(--text-primary);
   }
   td:last-child, th:last-child { padding-right: 0; }
   tr:last-child td { border-bottom: 0; }
 
-  td.mono, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  td.mono, .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   td.tight { white-space: nowrap; }
 
   .swatch {
     display: inline-flex;
     align-items: center;
     gap: .5rem;
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 12.5px;
     white-space: nowrap;
   }
@@ -365,7 +328,7 @@
 
   .copy {
     background: var(--bg-primary);
-    border-left: 2px solid var(--n-400);
+    border-left: 2px solid var(--border-control);
     border-radius: 0 8px 8px 0;
     padding: 1.1rem 1.35rem;
     display: flex;
@@ -373,7 +336,7 @@
     gap: .5rem;
   }
   .copy .k {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 9.5px;
     letter-spacing: .08em;
     text-transform: uppercase;
@@ -386,7 +349,7 @@
     color: var(--text-strong);
     line-height: 1.25;
   }
-  .copy .b { color: var(--text-body); max-width: 62ch; }
+  .copy .b { color: var(--text-primary); max-width: 62ch; }
   .copy .b:last-child { margin-bottom: 0; }
 
   /* ---------- Rules list ---------- */
@@ -404,7 +367,7 @@
     position: relative;
     padding-left: 1.7rem;
     max-width: var(--measure);
-    color: var(--text-body);
+    color: var(--text-primary);
   }
   ul.rules li::before {
     content: '';
@@ -413,14 +376,14 @@
     top: .62em;
     width: 5px; height: 5px;
     border-radius: 50%;
-    background: var(--n-400);
+    background: var(--border-control);
   }
   ul.plain li::before {
     content: '\2014';
     position: absolute;
     left: 0;
     top: 0;
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     color: var(--text-subtle);
     font-size: 12px;
     line-height: 1.7;
@@ -438,7 +401,7 @@
     padding: 1rem 1.15rem;
     border-radius: 8px;
     background: var(--bg-primary);
-    border-top: 2px solid var(--n-400);
+    border-top: 2px solid var(--border-control);
     display: flex;
     flex-direction: column;
     gap: .45rem;
@@ -446,7 +409,7 @@
   .rail.yes { border-top-color: var(--success); }
   .rail.no  { border-top-color: var(--danger); }
   .rail .k {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 9.5px;
     letter-spacing: .08em;
     text-transform: uppercase;
@@ -462,12 +425,12 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 12px;
   }
   .wire-row {
     background: var(--bg-primary);
-    border: 1px solid var(--edge-subtle);
+    border: 1px solid var(--border-subtle);
     border-radius: 6px;
     padding: .7rem .9rem;
     display: flex;
@@ -482,11 +445,13 @@
   }
   .wire-row .t { color: var(--text-strong); font-weight: 500; }
   .wire-row .d { color: var(--text-muted); font-size: 11.5px; }
-  .wire-row.accented { border-color: var(--accent-800); }
-  .wire-row.accented .t { color: var(--accent); }
+  .wire-row.accented { border-color: var(--accent-subtle); }
+  .wire-row.accented .t { color: var(--accent-default); }
 
-  /* ---------- Invoice proof ---------- */
-
+  /* ---------- Invoice proof ----------
+     not-app-chrome: a PDF on white paper. The print palette is not in our
+     tokens — the app has no white ground and no #1D7815 — so these are
+     literal by necessity rather than by neglect. */
   .invoice-shot {
     background: #FFFFFF;
     border-radius: 8px;
@@ -510,10 +475,10 @@
     font-weight: 400;
     text-align: right;
   }
-  .inv-num { font-family: var(--mono); font-size: 10px; color: #626875; text-align: right; }
+  .inv-num { font-family: var(--font-mono); font-size: 10px; color: #626875; text-align: right; }
   .inv-lines { width: 100%; border-collapse: collapse; min-width: 0; font-size: 10.5px; }
   .inv-lines th {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 8.5px;
     letter-spacing: .12em;
     color: #848B98;
@@ -527,7 +492,7 @@
     padding: .4rem 0;
     color: #1A1C21;
   }
-  .inv-lines td.r { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .inv-lines td.r { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   .inv-total {
     display: flex;
     justify-content: flex-end;
@@ -537,7 +502,7 @@
   }
   .inv-total .lbl { font-size: 12px; }
   .inv-total .amt {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 15px;
     color: #1D7815;
@@ -575,14 +540,14 @@
     gap: .5rem;
   }
   .stat-card .k {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 11px;
     letter-spacing: .16em;
     text-transform: uppercase;
     color: var(--text-muted);
   }
   .stat-card .v {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 1.5rem;
     color: var(--text-strong);
@@ -595,16 +560,16 @@
     gap: 1rem;
     font-size: 13px;
     color: var(--text-muted);
-    border-top: 1px solid var(--edge-subtle);
+    border-top: 1px solid var(--border-subtle);
     padding-top: .35rem;
   }
-  .stat-rows .r .m { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text-body); }
+  .stat-rows .r .m { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-primary); }
   .client-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: .5rem; flex: none; }
 
   .footnote {
     margin-top: 4rem;
     padding-top: 1.5rem;
-    border-top: 1px solid var(--edge-subtle);
+    border-top: 1px solid var(--border-subtle);
     color: var(--text-subtle);
     font-size: 13px;
   }

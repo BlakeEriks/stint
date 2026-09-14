@@ -50,13 +50,6 @@ later.
         round button with a single glyph. Note the running state is already
         the round glyph, so this is the two halves disagreeing.
 
-- [ ] **`menubar.html` hand-copies the palette into its own `:root`.**
-      CLAUDE.md forbids exactly this ("Never hand-copy a palette into a doc's
-      own `:root`") — the file predates `screens/_mockup.css` and was never
-      converted, so every colour in it is a second copy that drifts. The mark
-      geometry was added the same way for the same reason. Point it at
-      `screens/_mockup.css` like the screen docs do.
-
 - [ ] **The web sign-in sets the word instead of drawing the mark.**
       `signin-form.tsx` has `<h1 className="type-title">Stint</h1>`, so it
       renders in the sans title role with no bounds. `brand.html`'s placement

@@ -355,6 +355,10 @@ ${Object.entries(tokens.brand.mark)
 ${Object.entries(tokens.primitive.project)
   .map(([step, p]) => `    --proj-${step}: ${p.hex};`)
   .join('\n')}
+
+${Object.entries(tokens.primitive.categorical)
+  .map(([step, p]) => `    --cat-${step}: ${p.hex};`)
+  .join('\n')}
 }
 
 [data-theme="light"] {

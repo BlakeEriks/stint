@@ -1,52 +1,19 @@
 <title>Stint Menu Bar Spec</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="screens/_mockup.css">
 <style>
-  :root {
-    /* Verbatim from packages/design-tokens/dist/tokens.css. */
-    --bg-recessed: #0A0B0E;
-    --bg-base:     #111316;
-    --bg-primary:  #181B1F;
-    --bg-elevated: #202328;
-    --bg-hover:    #272A30;
-
-    --text-strong:  #F9FAFD;
-    --text-primary: #CACED7;
-    --text-muted:   #9299A6;
-    --text-subtle:  #838A97;
-    --text-on-accent: #111316;
-
-    --bg-active:    #2F333A;
-
-    --edge-subtle:  #2F333A;
-    --edge-default: #393E48;
-    --edge-control: #666D79;
-    --border-focus: #9DA3AF;
-    --danger:       #E9504D;
-
-    --accent:     #52FC43;
-    --timer-idle: #666D79;
-    --warning:    #DBA929;
-
-    --client-a: #64A3E3;
-    --client-b: #F6964E;
-
-    --mark-bound-width:  0.09em;
-    --mark-bound-height: 1.05em;
-    --mark-bound-gap:    0.18em;
-    --mark-bound-radius: 999px;
-
-    --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
-    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
-    --shadow-float: 0 2px 6px rgba(0,0,0,.44), 0 12px 32px rgba(0,0,0,.44);
-  }
+  /* Every colour, size and the mark come from screens/_mockup.css, which
+     pnpm tokens generates. This file holds only the shapes that are specific
+     to the panel — a stale hex renders perfectly and quietly misrepresents
+     the app, which is the whole reason nothing here is written by hand. */
 
   *, *::before, *::after { box-sizing: border-box; }
 
   body {
     margin: 0;
-    background: #16181C;
+    background: var(--bg-primary);
     color: var(--text-primary);
-    font-family: var(--sans);
+    font-family: var(--font-sans);
     font-size: 15px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
@@ -62,17 +29,17 @@
   .standfirst { margin: 0 0 2.5rem; color: var(--text-muted); }
 
   .eyebrow {
-    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
     letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
   }
 
   .sec { margin-top: 3.25rem; }
-  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--edge-subtle); margin-bottom: 1.75rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
 
   .states { display: flex; flex-wrap: wrap; gap: 2.25rem; align-items: flex-start; }
   .state { display: flex; flex-direction: column; gap: 10px; }
   .caption {
-    font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
     text-transform: uppercase; color: var(--text-subtle);
   }
 
@@ -82,7 +49,7 @@
     background: rgba(255,255,255,.07);
     display: flex; align-items: center; justify-content: flex-end;
     gap: 14px; padding: 0 10px;
-    font-family: var(--mono); font-size: 11.5px; color: rgba(255,255,255,.55);
+    font-family: var(--font-mono); font-size: 11.5px; color: rgba(255,255,255,.55);
   }
   .stint {
     display: inline-flex; align-items: center; gap: 6px;
@@ -91,13 +58,13 @@
   /* The status item is a filled dot and the time — no letterform. The dot
      is the state channel; identity lives in the panel header instead. */
   .pip { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--timer-idle); }
-  .pip.running { background: var(--accent); }
-  .pip.warn { background: var(--warning); }
+  .pip.running { background: var(--accent-default); }
+  .pip.warn { background: var(--timer-warning); }
 
   /* ---------- popover ---------- */
   .pop {
     width: 320px; background: var(--bg-base);
-    border: 1px solid var(--edge-subtle); border-radius: 12px;
+    border: 1px solid var(--border-subtle); border-radius: 12px;
     box-shadow: var(--shadow-float); overflow: hidden;
   }
   .pad { padding: 14px; }
@@ -106,29 +73,29 @@
   .grow { min-width: 0; flex: 1; }
   .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--accent); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--accent-default); }
   .dot.idle { background: var(--timer-idle); }
-  .dot.warn { background: var(--warning); }
+  .dot.warn { background: var(--timer-warning); }
 
   .readout {
-    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
     font-size: 26px; font-weight: 500; letter-spacing: -.02em;
-    color: var(--accent); line-height: 1.1;
+    color: var(--accent-default); line-height: 1.1;
   }
   .readout.idle { color: var(--timer-idle); }
-  .readout.warn { color: var(--warning); }
+  .readout.warn { color: var(--timer-warning); }
 
   .label {
-    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
     letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
   }
-  .meta { font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+  .meta { font-family: var(--font-mono); font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-muted); }
   .task { font-size: 14px; color: var(--text-strong); }
 
   .transport {
     width: 38px; height: 38px; flex: none; border-radius: 50%; border: 0;
     display: grid; place-items: center; cursor: pointer;
-    background: var(--accent); color: var(--text-on-accent);
+    background: var(--accent-default); color: var(--text-on-accent);
   }
   .transport.stop { background: var(--bg-elevated); color: var(--text-primary); }
   .transport .sq { width: 11px; height: 11px; border-radius: 2px; background: currentColor; }
@@ -140,23 +107,23 @@
 
   .input {
     width: 100%; background: var(--bg-primary);
-    border: 1px solid var(--edge-default); border-radius: 8px;
+    border: 1px solid var(--border-default); border-radius: 8px;
     padding: 8px 10px; color: var(--text-strong);
-    font-family: var(--sans); font-size: 14px;
+    font-family: var(--font-sans); font-size: 14px;
   }
   .input::placeholder { color: var(--text-subtle); }
   /* Focus is a RING change, never a fill change — a field that changes
      background on focus reads as a different control. */
   .input.focused { border-color: var(--border-focus); border-width: 2px; padding: 7px 9px; }
   .input.code {
-    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
     font-size: 17px; letter-spacing: .22em; text-align: center;
   }
 
   .btn {
     width: 100%; border: 0; border-radius: 8px; padding: 9px 12px;
-    background: var(--accent); color: var(--text-on-accent);
-    font-family: var(--sans); font-size: 14px; font-weight: 500; cursor: pointer;
+    background: var(--accent-default); color: var(--text-on-accent);
+    font-family: var(--font-sans); font-size: 14px; font-weight: 500; cursor: pointer;
   }
   /* Disabled is NEUTRAL, not a faded accent: the accent faded computes to
      #285c28 and puts the label at 2.33:1, under the floor. text-muted rather
@@ -173,8 +140,8 @@
   }
   .setrow:hover { background: var(--bg-hover); }
   .kbd {
-    font-family: var(--mono); font-size: 11.5px; color: var(--text-primary);
-    background: var(--bg-primary); border: 1px solid var(--edge-default);
+    font-family: var(--font-mono); font-size: 11.5px; color: var(--text-primary);
+    background: var(--bg-primary); border: 1px solid var(--border-default);
     border-radius: 5px; padding: 3px 7px;
   }
   /* Neutral when off AND on. A settings toggle is not the live primary
@@ -188,36 +155,36 @@
     width: 12px; height: 12px; border-radius: 50%;
     background: var(--text-subtle);
   }
-  .toggle.on { background: var(--edge-control); }
+  .toggle.on { background: var(--border-control); }
   .toggle.on::after { left: 15px; background: var(--text-strong); }
 
   .acct {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
     padding: 10px 14px; background: var(--bg-recessed);
-    border-top: 1px solid var(--edge-subtle);
+    border-top: 1px solid var(--border-subtle);
   }
   .acct-link {
-    font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .08em;
     text-transform: uppercase; color: var(--text-subtle); text-decoration: none;
   }
   .acct-link:hover { color: var(--text-primary); }
 
   .picker {
     display: inline-flex; align-items: center; gap: 6px;
-    background: var(--bg-primary); border: 1px solid var(--edge-subtle);
+    background: var(--bg-primary); border: 1px solid var(--border-subtle);
     border-radius: 7px; padding: 5px 8px; font-size: 13px;
     color: var(--text-primary); cursor: pointer; max-width: 100%;
   }
   .chip { width: 8px; height: 8px; border-radius: 50%; flex: none; }
   .caret { color: var(--text-subtle); font-size: 10px; }
 
-  .divider { height: 1px; background: var(--edge-subtle); }
+  .divider { height: 1px; background: var(--border-subtle); }
 
   .entry { display: flex; align-items: baseline; gap: 8px; padding: 7px 14px; font-size: 13px; }
   .entry:hover { background: var(--bg-hover); }
   .entry .nm { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .entry .tm {
-    margin-left: auto; flex: none; font-family: var(--mono);
+    margin-left: auto; flex: none; font-family: var(--font-mono);
     font-variant-numeric: tabular-nums; font-size: 12px; color: var(--text-muted);
   }
 
@@ -226,19 +193,19 @@
     gap: 10px; padding: 11px 14px;
   }
   .stat { display: flex; flex-direction: column; gap: 2px; }
-  .stat .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 15px; color: var(--text-strong); }
+  .stat .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 15px; color: var(--text-strong); }
 
   /* Header, not footer: identity plus the two ways out, at the top where the
      panel is read. Chrome recedes — nothing here is ever the accent. */
   .head {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
     padding: 8px 12px 8px 14px;
-    background: var(--bg-recessed); border-bottom: 1px solid var(--edge-subtle);
+    background: var(--bg-recessed); border-bottom: 1px solid var(--border-subtle);
   }
   /* The mark, so it keeps its bounds and one colour. 17px per brand.html's
      placement table, which owns every size the mark is set at. */
   .wordmark {
-    font-family: var(--mono); font-size: 17px; font-weight: 600;
+    font-family: var(--font-mono); font-size: 17px; font-weight: 600;
     letter-spacing: .12em; color: var(--text-strong);
     display: inline-flex; align-items: center;
   }
@@ -256,16 +223,19 @@
   }
   .icon:hover { background: var(--bg-hover); color: var(--text-primary); }
 
+  /* Amber text on an elevated ground, which is what the app draws. Three
+     hand-mixed ambers used to live here — a tinted ground, a border and a
+     muted label, none of them in the palette. */
   .warnbar {
     display: flex; align-items: center; gap: 8px; padding: 8px 14px;
-    background: #2A2413; border-top: 1px solid #4A3E1C;
-    font-size: 12.5px; color: #E8D9A8;
+    background: var(--bg-elevated); border-top: 1px solid var(--border-subtle);
+    font-size: 12.5px; color: var(--timer-warning);
   }
   .warnbar .acts { margin-left: auto; display: flex; gap: 6px; flex: none; }
   .warnbar button {
-    font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em;
     text-transform: uppercase; background: transparent;
-    border: 1px solid #6B5A28; color: #E8D9A8;
+    border: 1px solid var(--border-default); color: var(--timer-warning);
     border-radius: 5px; padding: 3px 7px; cursor: pointer;
   }
 
@@ -273,31 +243,31 @@
   .table-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 34rem; }
   th {
-    text-align: left; font-family: var(--mono); font-size: 10.5px; font-weight: 500;
+    text-align: left; font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
     letter-spacing: .14em; text-transform: uppercase; color: var(--text-subtle);
-    padding: 0 1rem .6rem 0; border-bottom: 1px solid var(--edge-default); white-space: nowrap;
+    padding: 0 1rem .6rem 0; border-bottom: 1px solid var(--border-default); white-space: nowrap;
   }
-  td { padding: .8rem 1rem .8rem 0; border-bottom: 1px solid var(--edge-subtle); vertical-align: top; color: var(--text-muted); }
+  td { padding: .8rem 1rem .8rem 0; border-bottom: 1px solid var(--border-subtle); vertical-align: top; color: var(--text-muted); }
   td:last-child, th:last-child { padding-right: 0; }
   tr:last-child td { border-bottom: 0; }
   td strong { color: var(--text-primary); font-weight: 500; }
-  .rec { color: var(--accent); font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+  .rec { color: var(--accent-default); font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
 
   .notes ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .6rem; }
   .notes li { position: relative; padding-left: 1.1rem; font-size: 14px; color: var(--text-muted); }
   .notes li::before {
     content: ''; position: absolute; left: 0; top: .62em;
-    width: 5px; height: 5px; border-radius: 50%; background: var(--edge-control);
+    width: 5px; height: 5px; border-radius: 50%; background: var(--border-control);
   }
   .notes strong { color: var(--text-primary); font-weight: 500; }
 
   code {
-    font-family: var(--mono); font-size: .87em; background: var(--bg-primary);
-    border: 1px solid var(--edge-subtle); border-radius: 4px; padding: .1em .35em;
+    font-family: var(--font-mono); font-size: .87em; background: var(--bg-primary);
+    border: 1px solid var(--border-subtle); border-radius: 4px; padding: .1em .35em;
   }
 
   footer.doc {
-    margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--edge-subtle);
+    margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border-subtle);
     color: var(--text-subtle); font-size: 13px;
   }
 </style>
@@ -388,7 +358,7 @@
             </div>
             <div class="truncate task" style="margin-top:8px;padding-left:19px;">API integration</div>
             <div class="row" style="gap:6px;margin-top:4px;padding-left:19px;">
-              <span class="chip" style="background:var(--client-a)"></span>
+              <span class="chip" style="background:var(--cat-1)"></span>
               <span class="meta">Northwind Trading</span>
             </div>
           </div>
@@ -453,7 +423,7 @@
             <input class="input" placeholder="What are you working on?" />
             <div class="row between">
               <button class="picker">
-                <span class="chip" style="background:var(--client-b)"></span>
+                <span class="chip" style="background:var(--cat-2)"></span>
                 Harbour &amp; Co.
                 <span class="caret">&#9662;</span>
               </button>
@@ -525,7 +495,7 @@
             </div>
             <div class="truncate task" style="margin-top:8px;padding-left:19px;">API integration</div>
             <div class="row" style="gap:6px;margin-top:4px;padding-left:19px;">
-              <span class="chip" style="background:var(--client-a)"></span>
+              <span class="chip" style="background:var(--cat-1)"></span>
               <span class="meta">Northwind Trading</span>
             </div>
           </div>

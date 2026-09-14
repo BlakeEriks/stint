@@ -17,6 +17,12 @@ spec doubles as the visual reference: `design/brand.html`,
 `design/screens/_shell.html`; the index and nav are built by reading the
 directory, so there is no list to update.
 
+**Colour comes from `screens/_mockup.css`**, which `pnpm tokens` generates.
+`tokens:validate` rejects a hex literal in any doc's stylesheet, because a
+stale one renders perfectly and quietly misrepresents the app. A surface that
+genuinely is not app chrome — the invoice PDF on white paper — opens its block
+with `not-app-chrome:` and a reason.
+
 ## A sentence earns its place only if nothing else already says it
 
 Four things say it better, and each is a filter to apply before writing:
