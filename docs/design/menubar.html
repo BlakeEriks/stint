@@ -30,6 +30,11 @@
     --client-a: #64A3E3;
     --client-b: #F6964E;
 
+    --mark-bound-width:  0.09em;
+    --mark-bound-height: 1.05em;
+    --mark-bound-gap:    0.18em;
+    --mark-bound-radius: 999px;
+
     --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
     --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
     --shadow-float: 0 2px 6px rgba(0,0,0,.44), 0 12px 32px rgba(0,0,0,.44);
@@ -153,10 +158,12 @@
     background: var(--accent); color: var(--text-on-accent);
     font-family: var(--sans); font-size: 14px; font-weight: 500; cursor: pointer;
   }
-  /* Disabled is NEUTRAL, not a faded accent: the accent at 35% computes to
-     #286526 and puts the label at 2.64:1, under the floor. */
+  /* Disabled is NEUTRAL, not a faded accent: the accent faded computes to
+     #285c28 and puts the label at 2.33:1, under the floor. text-muted rather
+     than text-subtle — subtle measures 3.65:1 here, which fails the same
+     floor this rule exists to hold. */
   .btn.disabled {
-    background: var(--bg-active); color: var(--text-subtle); cursor: not-allowed;
+    background: var(--bg-active); color: var(--text-muted); cursor: not-allowed;
   }
 
   /* ---------- settings ---------- */
@@ -228,9 +235,18 @@
     padding: 8px 12px 8px 14px;
     background: var(--bg-recessed); border-bottom: 1px solid var(--edge-subtle);
   }
+  /* The mark, so it keeps its bounds and one colour. 17px per brand.html's
+     placement table, which owns every size the mark is set at. */
   .wordmark {
-    font-family: var(--mono); font-size: 12px; font-weight: 600;
-    letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted);
+    font-family: var(--mono); font-size: 17px; font-weight: 600;
+    letter-spacing: .12em; color: var(--text-strong);
+    display: inline-flex; align-items: center;
+  }
+  .wordmark::before, .wordmark::after {
+    content: ''; display: inline-block; flex: none;
+    width: var(--mark-bound-width); height: var(--mark-bound-height);
+    margin: 0 var(--mark-bound-gap); border-radius: var(--mark-bound-radius);
+    background: currentColor;
   }
   .head-acts { display: flex; gap: 2px; }
   .icon {
@@ -303,40 +319,6 @@
 
   <!-- ================= the strip ================= -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">What is wrong with the current build</span></div>
-
-    <div class="notes" style="margin-bottom:2.5rem;">
-      <p style="margin:0 0 .9rem;color:var(--text-muted);font-size:14px;">
-        Findings from the shipped panel, worst first. The first three are
-        defects — measured, not preferences. Full reasoning in
-        <code>menubar.md</code>.
-      </p>
-      <ul>
-        <li><strong>The disabled Sign in button is a faded accent &mdash;
-          2.64:1.</strong> At ~35% over the ground it computes to
-          <code>#286526</code>, and the label on it lands well under the 4.5
-          floor. This is the pairing the token validator guards on the web
-          side, and the Mac app is outside that check.</li>
-        <li><strong>Focus rings are the macOS system blue</strong> &mdash; a
-          third colour meaning "focused" that is not in the palette.</li>
-        <li><strong>The code placeholder <code>000|000</code> reads as a
-          value</strong> in a digits-only field, and the caret lands in the
-          middle of it.</li>
-        <li><strong>The stopped panel gives its largest element to a clock
-          showing nothing.</strong> Nothing is accruing, so there is no number
-          to show.</li>
-        <li><strong>The sign-in wordmark is a display headline</strong>, several
-          times the size of anything in the timer panel — which makes sign-in
-          look like a different product from the thing it leads to.</li>
-        <li><strong>The green <code>S</code> is an orphan.</strong> It appears
-          nowhere else in the brand.</li>
-        <li><strong>The footer spends a row on the signed-in email.</strong>
-          The least useful thing in a menu bar panel: you know who you are.</li>
-        <li><strong><code>Start</code> is a labelled rectangle</strong>, where
-          the app's transport is a round button with a single glyph.</li>
-      </ul>
-    </div>
-
     <div class="sec-head"><span class="eyebrow">The strip</span></div>
 
     <div class="states">
@@ -368,20 +350,17 @@
         <li><strong>A dot, not a letterform.</strong> A filled circle means
           <em>recording</em> in a way a letter cannot — it is what every
           camera and every recorder uses — and the status item's whole job is
-          to say whether time is accruing. The green <code>S</code> also
-          appears nowhere else in the brand, which would make the menu bar its
-          only home.</li>
+          to say whether time is accruing.</li>
         <li><strong>Three fills:</strong> accent running, <code>timerIdle</code>
-          stopped, amber past the threshold. The amber case is the one likely
-          missing today and it matters most — it is how a runaway reaches
-          someone whose panel is closed.</li>
+          stopped, amber past the threshold. The amber one matters most — it
+          is how a runaway reaches someone whose panel is closed.</li>
         <li><strong>Findability is the honest cost.</strong> A bare dot is
           harder to pick out of a crowded bar than a letter, and people will
           learn its position rather than recognise its shape. That is how most
           menu bar apps are actually found; do not re-add a letterform to
           compensate.</li>
-        <li><strong>Identity moves into the panel header</strong>, where there
-          is room for a real wordmark and a 12pt glyph is not being asked to
+        <li><strong>Identity lives in the panel header</strong>, where there is
+          room for the mark at full size and a 12pt glyph is not being asked to
           do branding.</li>
       </ul>
     </div>
@@ -718,23 +697,16 @@
 
     <div class="notes" style="margin-top:1.5rem;">
       <ul>
-        <li><strong>Disabled goes neutral, never a faded accent.</strong> The
-          current build fades the green: that computes to <code>#286526</code>
-          with the label at <strong>2.64:1</strong>, under the 4.5 floor and
-          exactly the pairing CI guards. Disabled is
-          <code>bgActive</code> + <code>textSubtle</code> — a different, inert
-          control rather than a dimmer version of a live one.</li>
+        <li><strong>Disabled is <code>bgActive</code> + <code>textMuted</code></strong>
+          (4.43:1) — a different, inert control rather than a dimmer version of
+          a live one. A faded accent computes to <code>#285c28</code> with its
+          label at <strong>2.33:1</strong>, which is the white-on-accent
+          pairing CI guards on the web and cannot see here.</li>
         <li><strong>Focus rings are <code>borderFocus</code></strong>
-          (6.82:1), never the accent and never the macOS system blue. The blue
-          ring in the current screens is a third colour meaning "focused" that
-          is not in the palette.</li>
-        <li><strong>The code placeholder is empty.</strong>
-          <code>000|000</code> reads as a value in a digits-only field and
+          (6.82:1), never the accent and never the macOS system blue.</li>
+        <li><strong>The code field has no placeholder.</strong>
+          <code>000-000</code> reads as a value in a digits-only field and
           puts the caret in the middle of it.</li>
-        <li><strong>The wordmark is the header treatment</strong>, not a
-          display headline. Sign-in currently renders it far larger than
-          anything in the timer panel, which makes the two look like different
-          products.</li>
       </ul>
     </div>
   </section>

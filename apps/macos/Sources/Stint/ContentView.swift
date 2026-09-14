@@ -12,6 +12,7 @@ struct ContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            PanelHeader()
             if model.isSignedIn {
                 TimerPanel(model: model)
             } else {
@@ -28,6 +29,37 @@ struct ContentView: View {
            view state its own height up front instead of growing into it. */
         .fixedSize(horizontal: false, vertical: true)
         .background(Tokens.Dark.bgPrimary)
+    }
+}
+
+/// Identity, on a recessed bar above both panels.
+///
+/// This is where identity lives now that the status item is a pip: dropping
+/// the letterform from the menu bar was paid for here, where there is room
+/// for a real wordmark and a 12pt glyph is not being asked to do branding.
+///
+/// The mark at 17pt, per `brand.html`'s placement table — it is the mark, so
+/// it keeps its bounds and its one colour rather than being set as a word.
+/// On `bgRecessed` so the bar itself recedes; nothing here is ever the accent.
+///
+/// It appears once, above both panels, which is what stops sign-in rendering
+/// identity at a different size from the timer and making the two read as
+/// different products.
+private struct PanelHeader: View {
+    var body: some View {
+        HStack {
+            Lockup(size: 17)
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(Tokens.Dark.bgRecessed)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Tokens.Dark.borderSubtle)
+                .frame(height: 1)
+        }
     }
 }
 
@@ -235,6 +267,36 @@ private struct Field: ViewModifier {
 extension View {
     /// A panel input, showing whether it has the keyboard.
     func fieldStyle(focused: Bool) -> some View { modifier(Field(focused: focused)) }
+
+    /// The panel's full-width primary action.
+    func primaryButtonStyle(enabled: Bool) -> some View {
+        modifier(PrimaryButton(enabled: enabled))
+    }
+}
+
+/// Accent when it can be pressed, neutral when it cannot.
+///
+/// **Disabled is a different control, not a dimmer one.** Fading the accent —
+/// which is what `.opacity()` on an accent button does — computes to `#285c28`
+/// with the label at **2.33:1**, under the 4.5 floor and exactly the
+/// white-on-accent pairing CI guards on the web. CI cannot see Swift, so this
+/// is the only thing enforcing it here.
+///
+/// `bgActive` + `textMuted` reads as inert instead, at 4.43:1. The spec said
+/// `textSubtle`, which measures 3.65:1 — under the floor it was written to
+/// fix, so it is `textMuted` here and in `menubar.html`.
+private struct PrimaryButton: ViewModifier {
+    var enabled: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: 12, weight: .medium))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 7)
+            .foregroundStyle(enabled ? Tokens.Dark.textOnAccent : Tokens.Dark.textMuted)
+            .background(enabled ? Tokens.Dark.accentDefault : Tokens.Dark.bgActive)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
 }
 
 /// A button that shows where the keyboard is.
@@ -477,6 +539,10 @@ private struct StartStopButton: View {
             )
         )
         .disabled(model.isBusy)
+        /* A fade, not the neutral disabled fill the sign-in buttons take:
+           `isBusy` lasts one request, so this reads as "working" where a
+           swap to grey would flash the button dead and back. The contrast
+           floor is about a control you are stuck looking at. */
         .opacity(model.isBusy ? 0.6 : 1)
         .accessibilityLabel(model.isRunning ? "Stop timer" : "Start timer")
     }
@@ -580,9 +646,6 @@ private struct SignInPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Lockup(size: 17)
-                .padding(.bottom, 2)
-
             Text("We'll email you a six-digit code.")
                 .font(.system(size: 11))
                 .foregroundStyle(Tokens.Dark.textSubtle)
@@ -599,12 +662,7 @@ private struct SignInPanel: View {
 
                 Button(action: request) {
                     Text(busy ? "Sending…" : "Email me a code")
-                        .font(.system(size: 12, weight: .medium))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 7)
-                        .foregroundStyle(Tokens.Dark.textOnAccent)
-                        .background(Tokens.Dark.accentDefault)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .primaryButtonStyle(enabled: !(busy || email.isEmpty))
                 }
                 .buttonStyle(.plain)
                 .keyboardReachable()
@@ -620,7 +678,9 @@ private struct SignInPanel: View {
                    one that opened it, and every way of doing that is either
                    insecure (the clipboard) or silently refused (a browser
                    following a redirect into a custom scheme). */
-                TextField("000-000", text: $code)
+                // No placeholder: `000-000` reads as a value in a digits-only
+                // field, and the caret lands in the middle of it.
+                TextField("", text: $code)
                     .focused($focus, equals: .code)
                     .textFieldStyle(.plain)
                     .font(.system(size: 20, weight: .medium, design: .monospaced))
@@ -658,12 +718,9 @@ private struct SignInPanel: View {
 
                 Button(action: verify) {
                     Text(busy ? "Signing in…" : "Sign in")
-                        .font(.system(size: 12, weight: .medium))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 7)
-                        .foregroundStyle(Tokens.Dark.textOnAccent)
-                        .background(Tokens.Dark.accentDefault)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .primaryButtonStyle(
+                            enabled: !(busy || code.filter(\.isNumber).count < 6)
+                        )
                 }
                 .buttonStyle(.plain)
                 .keyboardReachable()

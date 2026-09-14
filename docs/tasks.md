@@ -37,20 +37,31 @@ later.
       Home renders for weeks after it stopped being true. Either delete them
       with their tests, or record the condition that would bring them back.
 
-- [ ] **Identity is missing from both panel headers.** `menubar.html` moves
-      identity into the panel, "where there is room for a real wordmark and a
-      12pt glyph is not being asked to do branding" — that was the trade for
-      dropping the letterform from the status item, and only half of it
-      shipped. The macOS timer panel renders no mark at all; the sign-in view
-      has the `Lockup`.
+- [ ] **Three menu bar panel details still disagree with `menubar.html`.**
+      Held out of the header/disabled/placeholder pass because each is a
+      layout change rather than a value:
 
-      The web sign-in has the same gap from the other direction:
-      `signin-form.tsx` sets `<h1 className="type-title">Stint</h1>`, so the
-      word is set in the title role rather than drawn as the mark. Per
-      `brand.html`'s placement table both are wordmark placements, and
-      `menubar.html` separately notes sign-in currently renders it far larger
-      than anything in the timer panel, which makes the two look like
-      different products.
+      - **The stopped panel gives its largest element to a clock showing
+        nothing.** Nothing is accruing, so there is no number to show.
+      - **The footer spends a row on the signed-in email** — the least useful
+        thing in a menu bar panel: you know who you are. `AccountRow` in
+        `ContentView.swift`.
+      - **`Start` is a labelled rectangle** where the app's transport is a
+        round button with a single glyph. Note the running state is already
+        the round glyph, so this is the two halves disagreeing.
+
+- [ ] **`menubar.html` hand-copies the palette into its own `:root`.**
+      CLAUDE.md forbids exactly this ("Never hand-copy a palette into a doc's
+      own `:root`") — the file predates `screens/_mockup.css` and was never
+      converted, so every colour in it is a second copy that drifts. The mark
+      geometry was added the same way for the same reason. Point it at
+      `screens/_mockup.css` like the screen docs do.
+
+- [ ] **The web sign-in sets the word instead of drawing the mark.**
+      `signin-form.tsx` has `<h1 className="type-title">Stint</h1>`, so it
+      renders in the sans title role with no bounds. `brand.html`'s placement
+      table has no row for it, which is the reason it was missed — add one
+      when it is fixed, and use `<Wordmark />`.
 
 - [ ] **Two route handlers have no tests.** `PATCH`/`DELETE` on
       `/projects/:id` and `/payment-profiles/:id` are the only handlers with
