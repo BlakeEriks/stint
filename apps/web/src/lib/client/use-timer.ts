@@ -45,7 +45,8 @@ function useTick(active: boolean): boolean {
  *
  * The server owns whether a timer is running; the display counts locally
  * from `startedAt` so it is smooth and works without the network, and
- * reconciles on an interval and on window focus.
+ * reconciles on an interval and on **every** window focus — the menu bar app
+ * starts timers this tab never hears about.
  *
  * `serverTime` from the response corrects for a skewed device clock — a
  * laptop several minutes off would otherwise show a wrong elapsed time.
@@ -60,6 +61,16 @@ export function useTimer() {
     // A running timer is reconciled every 60s; the local tick covers the
     // seconds in between.
     refetchInterval: (q) => (q.state.data?.running ? 60_000 : false),
+    /* `true` would still be gated on staleness, and the default `staleTime`
+       is 10s — so starting a timer in the menu bar and tabbing straight back
+       showed a stopped bar, while returning slowly worked. Whether the tab
+       sees the timer cannot depend on how long the user took to switch.
+       `'always'` is the only value that skips the staleness check. */
+    refetchOnWindowFocus: 'always',
+    /* The timer is the one thing on the page that is wrong rather than
+       merely old when it is stale: it says stopped while time is accruing.
+       Nothing else here overrides the shared 10s. */
+    staleTime: 0,
   });
 
   const running = summary.data?.running ?? null;
