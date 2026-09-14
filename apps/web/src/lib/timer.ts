@@ -13,7 +13,12 @@ export async function findRunning(db: SupabaseClient) {
   return data ? toEntry(data as EntryRow) : null;
 }
 
-/** Threshold for runaway-timer detection. Defaults to 8h if unset. */
+/**
+ * Threshold for runaway-timer detection.
+ *
+ * The column is NOT NULL with a default and the signup trigger writes a row
+ * for every user, so a signed-in caller always has one.
+ */
 export async function maxTimerHours(db: SupabaseClient): Promise<number> {
   const { data, error } = await db
     .from('user_settings')
@@ -21,7 +26,7 @@ export async function maxTimerHours(db: SupabaseClient): Promise<number> {
     .maybeSingle();
 
   if (error) throw error;
-  return data ? Number(data.max_timer_hours) : 8;
+  return Number(data?.max_timer_hours);
 }
 
 export function exceeds(

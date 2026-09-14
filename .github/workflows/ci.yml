@@ -21,27 +21,10 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  # Everything that needs no database, so an obvious slip reports in seconds
+  # rather than behind a Postgres container.
+  static:
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: tt
-        ports: ['5432:5432']
-        # `--health-interval 1s`, not the usual 10s. The runner polls on its
-        # own backoff (2s, 3s, 7s) and only stops at the first probe that
-        # reports healthy, so a slow interval is spent waiting on a Postgres
-        # that is already up: measured 13.6s of a 19s step, against ~2s for
-        # the container to actually start. The probe is `pg_isready` against a
-        # local socket — running it every second costs nothing.
-        options: >-
-          --health-cmd pg_isready --health-interval 1s
-          --health-timeout 5s --health-retries 10
-
     steps:
       - uses: actions/checkout@v7
       # No `version:` — package.json's `packageManager` pins it, and setting
@@ -68,8 +51,6 @@ jobs:
             next-${{ hashFiles('pnpm-lock.yaml') }}-
             next-
 
-      # Formatting and lint. Fast enough to run first, so an obvious slip
-      # fails in seconds rather than after five databases have spun up.
       - name: Lint
         run: pnpm lint
 
@@ -77,19 +58,21 @@ jobs:
       # fails here rather than drifting silently across three clients.
       - name: Design tokens are up to date
         run: |
-          node packages/design-tokens/src/generate.js
+          pnpm tokens
           git diff --exit-code packages/design-tokens/dist
 
-      # Guards the white-on-accent regression (1.37:1) and the AA floors.
+      # Guards the white-on-accent regression (1.37:1) and the AA floors, and
+      # re-derives both neutral ramps so a hand-edited hex fails naming its
+      # step.
       - name: Contrast contract
-        run: node packages/design-tokens/src/validate.js
+        run: pnpm tokens:validate
 
       # Vendored shadcn components are rewritten to our tokens at install.
       # This is the only enforcement: Tailwind 4 drops an unknown utility
       # with no warning and exit 0, so a surviving `bg-primary` would render
       # our neutral grey on a primary button and never fail the build.
       - name: shadcn components use our tokens
-        run: cd apps/web && node scripts/shadcn-detox.mjs --check 'src/components/ui/*.tsx'
+        run: pnpm --filter @stint/web detox
 
       # Typography comes from the scale, never assembled at the call site.
       # Same silence as above: `text-[13.5px]` compiles happily and a typo'd
@@ -97,91 +80,78 @@ jobs:
       # build failure. The app had accumulated twelve arbitrary font sizes
       # before this existed.
       - name: Typography uses the scale
-        run: cd apps/web && pnpm check:type
+        run: pnpm --filter @stint/web check:type
 
       - name: Typecheck
         run: |
           npx tsc --noEmit -p tsconfig.json
-          cd apps/web && npx tsc --noEmit
+          pnpm --filter @stint/web typecheck
 
-      # Component tests: jsdom, no database. The route/RLS suites below run
-      # under `node --test` against real Postgres and are separate.
+      # Component tests: jsdom, no database. The route/RLS suites run under
+      # `node --test` against real Postgres in the `database` job.
       - name: UI component tests
-        run: cd apps/web && pnpm test:ui
+        run: pnpm --filter @stint/web test:ui
 
       - name: Core logic tests
         run: node --test --experimental-strip-types packages/core/test/*.test.ts
 
-      # Applies the real migrations, then runs the real route handlers
-      # against them — so the timer index and immutability triggers are
-      # genuinely exercised, not mocked.
-      - name: Apply migrations
-        env: { PGPASSWORD: postgres }
-        run: |
-          psql -h localhost -U postgres -d tt -v ON_ERROR_STOP=1 <<'SQL'
-          create schema if not exists auth;
-          create table auth.users (id uuid primary key default gen_random_uuid(), email text);
-          create or replace function auth.uid() returns uuid language sql stable as
-            $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-          -- Supabase ships these; the grants migration needs them to exist.
-          -- Roles are CLUSTER-wide, so the RLS database below must not
-          -- recreate them — it only upgrades `authenticated` to log in.
-          create role anon nologin;
-          create role authenticated nologin;
-          SQL
-          for f in supabase/migrations/*.sql; do
-            psql -h localhost -U postgres -d tt -v ON_ERROR_STOP=1 -f "$f"
-          done
-          psql -h localhost -U postgres -d tt -c "
-            alter table user_settings disable row level security;
-            alter table clients disable row level security;
-            alter table projects disable row level security;
-            alter table invoices disable row level security;
-            alter table time_entries disable row level security;
-            alter table invoice_line_items disable row level security;
-            alter table payment_profiles disable row level security;"
+      - name: Build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+        run: pnpm --filter @stint/web build
+
+  # Applies the real migrations, then runs the real route handlers against
+  # them — so the timer index and immutability triggers are genuinely
+  # exercised, not mocked.
+  database:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tt
+        ports: ['5432:5432']
+        # `--health-interval 1s`, not the usual 10s. The runner polls on its
+        # own backoff (2s, 3s, 7s) and only stops at the first probe that
+        # reports healthy, so a slow interval is spent waiting on a Postgres
+        # that is already up: measured 13.6s of a 19s step, against ~2s for
+        # the container to actually start. The probe is `pg_isready` against a
+        # local socket — running it every second costs nothing.
+        options: >-
+          --health-cmd pg_isready --health-interval 1s
+          --health-timeout 5s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with: { node-version: '24', cache: 'pnpm' }
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: The route-test database
+        run: bash scripts/ci-db.sh tt
 
       - name: API route tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tt
-        run: cd apps/web && pnpm test
+        run: pnpm --filter @stint/web test
 
       # A SEPARATE database, because the route tests above disable RLS on
       # theirs. Here RLS stays on and the caller is a non-superuser role, so
       # auth.uid() resolves and the policies actually run.
-      - name: Set up the RLS database
-        env: { PGPASSWORD: postgres }
-        run: |
-          psql -h localhost -U postgres -c 'create database tt_rls'
-          psql -h localhost -U postgres -d tt_rls -v ON_ERROR_STOP=1 <<'SQL'
-          create schema if not exists auth;
-          create table auth.users (id uuid primary key default gen_random_uuid(), email text);
-          create or replace function auth.uid() returns uuid language sql stable as
-            $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-          -- anon/authenticated already exist from the first database: roles
-          -- are cluster-wide, and re-creating them fails the step.
-          --
-          -- `authenticated` mirrors the role PostgREST uses for a signed-in
-          -- caller, so it needs to log in here — NOT a superuser and NOT
-          -- BYPASSRLS, or every assertion passes vacuously.
-          alter role authenticated login password 'test';
-          SQL
-          for f in supabase/migrations/*.sql; do
-            psql -h localhost -U postgres -d tt_rls -v ON_ERROR_STOP=1 -f "$f"
-          done
-          psql -h localhost -U postgres -d tt_rls -v ON_ERROR_STOP=1 <<'SQL'
-          grant usage on schema public, auth to authenticated;
-          grant select on auth.users to authenticated;
-          grant execute on all functions in schema public, auth to authenticated;
-          -- Table privileges come from 00000000000004_api_grants.sql, not from
-          -- here: granting them ad-hoc would hide a broken grants migration.
-          SQL
+      - name: The RLS database
+        run: bash scripts/ci-db.sh tt_rls --rls
 
       - name: RLS tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tt_rls
           RLS_DATABASE_URL: postgresql://authenticated:test@localhost:5432/tt_rls
-        run: cd apps/web && pnpm test:rls
+        run: pnpm --filter @stint/web test:rls
 
       # The same assertions that gate a production release, run here against
       # the RLS database — the one where RLS is still ON. Catches a migration
@@ -190,17 +160,21 @@ jobs:
       - name: Schema is sound
         run: pnpm verify:schema --url postgresql://postgres:postgres@localhost:5432/tt_rls
 
-      - name: Build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
-        run: cd apps/web && pnpm build
+  # The menu bar app, and the only check it has. Billed at 10x a Linux
+  # minute, which buys a compile error surfacing here rather than in the
+  # terminal of whoever next runs `bundle.sh`.
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the menu bar app
+        run: cd apps/macos && swift build
 
   # The browser suite, in its own job because it needs the whole Supabase
   # stack — GoTrue to issue magic links and Mailpit to catch them — not the
-  # bare Postgres service the job above uses. It is also the slowest, and
-  # keeping it separate means a lint or type failure reports in seconds
-  # rather than waiting behind a Docker pull.
+  # bare Postgres service container the database job uses. It is also the
+  # slowest, and keeping it separate means a lint or type failure reports in
+  # seconds rather than waiting behind a Docker pull.
   #
   # This is the only suite that exercises the browser: cookies, navigation,
   # redirects and server components. It was added after a bug where every
@@ -240,9 +214,6 @@ jobs:
       # the dashboard, so CI was pulling 2.25GB it does not use — over half the
       # total image weight. This took the e2e job from 198s to ~150s and is
       # where the actual saving came from.
-      #
-      # `pnpm dev:up` deliberately does NOT exclude them: Studio on :54323 is
-      # useful while developing. This is a CI-only narrowing.
       - name: Start Supabase
         run: npx supabase start -x studio,postgres-meta
 

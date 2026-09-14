@@ -462,8 +462,8 @@ moves up — do not start one by guessing the answer.
   `signInWithIdToken` needs a paid developer account, an App ID with the
   capability and a signed bundle — so it lands with distribution, not before.
   Nothing in the API changes.
-- **macOS: signing and notarisation.** `bundle.sh` produces an unsigned
-  `.app`, which is fine to run yourself and not something anyone else can
+- **macOS: signing and notarisation.** `bundle.sh` self-signs with a local
+  identity, which is fine to run yourself and not something anyone else can
   open without right-clicking past Gatekeeper.
 - **macOS: a global hotkey to start and stop.** The reason to have a menu bar
   app at all is not reaching for the mouse, and the panel still needs a click.

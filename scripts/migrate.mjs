@@ -14,32 +14,17 @@
  * Each file runs inside a transaction. A migration that fails rolls back
  * whole, so the database never sits half-migrated.
  */
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { connectionString, short, sslFor } from './db-url.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = join(root, 'supabase', 'migrations');
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
-const urlFlag = args.indexOf('--url');
-
-function connectionString() {
-  if (urlFlag !== -1 && args[urlFlag + 1]) return args[urlFlag + 1];
-  if (process.env.SUPABASE_DB_URL) return process.env.SUPABASE_DB_URL;
-
-  // Convenience: read it out of the web app's env file.
-  const envPath = join(root, 'apps', 'web', '.env.local');
-  if (existsSync(envPath)) {
-    const line = readFileSync(envPath, 'utf8')
-      .split('\n')
-      .find((l) => l.startsWith('SUPABASE_DB_URL='));
-    if (line) return line.slice('SUPABASE_DB_URL='.length).trim();
-  }
-  return null;
-}
 
 const url = connectionString();
 if (!url) {
@@ -65,14 +50,7 @@ if (files.length === 0) {
   process.exit(1);
 }
 
-const client = new pg.Client({
-  connectionString: url,
-  // Supabase terminates TLS with its own CA; the connection is still
-  // encrypted, we just do not pin the chain.
-  ssl: url.includes('localhost') ? false : { rejectUnauthorized: false },
-});
-
-const short = (u) => u.replace(/:[^:@/]+@/, ':***@');
+const client = new pg.Client({ connectionString: url, ssl: sslFor(url) });
 
 try {
   await client.connect();

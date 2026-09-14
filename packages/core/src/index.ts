@@ -7,3 +7,4 @@ export * from './grid.ts';
 export * from './invoice.ts';
 export * from './payment.ts';
 export * from './format.ts';
+export * from './stats.ts';

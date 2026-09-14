@@ -12,7 +12,7 @@
     "design": "node scripts/design-server.mjs",
     "lint": "biome check .",
     "lint:fix": "biome check . --write",
-    "dev:up": "supabase start",
+    "dev:up": "supabase stop && supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,studio,postgres-meta",
     "dev:up:studio": "supabase stop && supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor",
     "dev:down": "supabase stop",
     "dev:reset": "supabase db reset",

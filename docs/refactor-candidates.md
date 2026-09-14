@@ -76,19 +76,6 @@ Removing it would delete the hook, ~120 lines of `inbox.tsx`, the
 `onSaved`/`onClosed` two-beat protocol, and all fifty lines of `settle`.
 `use-leaving.ts` is uncommitted, so it is the cheapest point of entry.
 
-## 5. `stats/route.ts` — 504-line route handler
-
-`apps/web/src/app/api/v1/stats/route.ts` does query parsing, six pure
-business-logic builders (`buildUnprojected`, strange-duration detection, pace,
-etc.) with their own row interfaces, and response shaping — in one file.
-
-The builders are pure and testable and belong in `packages/core`, which is
-where comparable logic (`invoice.ts`, `grid.ts`, `calendar.ts`) already lives.
-As written they are reachable only through an HTTP handler.
-
-This is also the widest surface feeding the home screen and the dock, so it is
-the file most likely to keep growing.
-
 ## 6. Over-documentation: the same history retold in five files
 
 The house style explains *why*, which is right and worth keeping. The debt is
@@ -123,36 +110,12 @@ Explicitly **not** on this list, despite high density: `packages/core/src/grid.t
 Those document real DST, RLS and hydration traps that would otherwise be
 reintroduced. Density is not the signal; subject matter is.
 
-## 7. Swift models have already drifted, and CI never compiles them
-
-`apps/macos/Sources/Stint/API.swift` hand-writes seven `Codable` structs and
-says so plainly: "Hand-written and unchecked against `packages/schema`."
-
-It has already drifted. Swift's `TimeEntry` omits `durationOk` and
-`rateOverride`; `Project` omits `hourlyRate` and `isBillableDefault`; `Client`
-decodes only `id` and `color` — pinning the macOS app to `projects.color`-era
-assumptions, a column `CLAUDE.md` calls dead.
-
-It also mirrors **`rows.ts`**, not `packages/schema` — coupling the client to
-the internal DB-mapping layer rather than the published contract.
-
-And there is **no CI job touching Swift at all** — no workflow references
-`swift` or `macos`. The models are not compiled in CI, let alone checked.
-
-`docs/architecture.md` already wants OpenAPI generated from the Zod schemas for
-exactly this. Worth costing: generated Swift, versus a contract test decoding
-real fixtures, versus accepting the risk for a panel touching five endpoints.
-Cheapest immediate win is simply compiling it in CI.
-
 ## Suggested sequencing
-
-**7** is now cheap: the contract is load-bearing, so generating a Swift client
-is a generator rather than a rewrite.
 
 **4** is the biggest single deletion and needs a product decision first: is the
 exit animation worth keeping at all? Answer that before planning it.
 
-**5** and **6** are decide-and-delete.
+**6** is decide-and-delete.
 
 ---
 

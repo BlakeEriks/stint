@@ -20,23 +20,26 @@ the domain until required checks pass, so the migration runs while the
 
 ## 0. What CI runs
 
-`.github/workflows/ci.yml`, two jobs in parallel:
+`.github/workflows/ci.yml`, four jobs in parallel:
 
-- **`verify`** — lint, token drift, the contrast contract, shadcn detox, the
-  typography scale, typecheck, the UI suite, core logic, then the route and
-  RLS suites against a real Postgres service container, then a build. Lint is
-  first on purpose: an obvious slip fails in seconds rather than after five
-  databases have spun up.
+- **`static`** — lint, token drift, the contrast contract, shadcn detox, the
+  typography scale, typecheck, the UI suite, core logic, then a build.
+  Needs no database, so an obvious slip fails in seconds.
+- **`database`** — the route and RLS suites against a real Postgres service
+  container, then `verify:schema`. Both databases are built by
+  `scripts/ci-db.sh`, which applies migrations through `pnpm migrate` so the
+  real migration script is what runs.
+- **`macos`** — `swift build` on the menu bar app, its only check.
 - **`e2e`** — Playwright against a real local Supabase stack. Its own job
-  because it needs GoTrue and Mailpit, not the bare Postgres the other uses,
+  because it needs GoTrue and Mailpit, not the bare Postgres the others use,
   and because keeping it separate means a type error reports without waiting
   behind a Docker pull.
 
 Two narrowings pay for themselves and are easy to undo by accident:
 `supabase start -x studio,postgres-meta` skips 2.25GB of images the browser
 suite never touches, and `playwright install --only-shell` skips the full
-Chrome build that Playwright never launches. Both are CI-only; `pnpm dev:up`
-keeps Studio because it is useful while developing.
+Chrome build that Playwright never launches. `pnpm dev:up:studio` brings
+Studio up locally when the dashboard is what you want.
 
 **The Supabase images are pulled, not cached, and that was measured.** A cache
 cost 7s to restore plus 38s for `docker load` against an 18s pull — `docker
@@ -54,7 +57,7 @@ after that run started reports a miss forever. Use `workflow_dispatch`.
 Repo → Settings → Branches → Add rule for `main`:
 
 - Require a pull request before merging
-- Require status checks to pass → **`verify`**
+- Require status checks to pass → **`static`** and **`database`**
 - **Leave "include administrators" off.** Solo, you want the gate to hold by
   default but to be bypassable at 2am when you are the only person who can
   fix production.

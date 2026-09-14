@@ -10,7 +10,11 @@ struct TimeEntry: Codable, Identifiable, Equatable {
     let startedAt: Date
     let endedAt: Date?
     let isBillable: Bool
+    let rateOverride: Double?
     let durationSeconds: Int?
+    /// False is what puts an entry in the strange-duration row. `0` is a
+    /// valid rate, so `rateOverride` is read for null, never for truth.
+    let durationOk: Bool
     let invoiceId: String?
 }
 
@@ -18,12 +22,15 @@ struct Project: Codable, Identifiable, Equatable {
     let id: String
     let clientId: String?
     let name: String
+    let hourlyRate: Double?
+    let isBillableDefault: Bool
     let archivedAt: Date?
 }
 
 /// Colour belongs to the client; a project's colour is its client's.
 struct Client: Codable, Identifiable, Equatable {
     let id: String
+    let name: String
     let color: String?
 }
 

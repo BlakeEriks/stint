@@ -9,12 +9,8 @@
  * and everyone else's. A table that reaches production without it exposes
  * client bank details, and nothing else in the stack would notice.
  */
-import { readFileSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+import { connectionString, sslFor } from './db-url.mjs';
 
 const EXPECTED = [
   'clients',
@@ -26,30 +22,13 @@ const EXPECTED = [
   'user_settings',
 ];
 
-function connectionString() {
-  const i = process.argv.indexOf('--url');
-  if (i !== -1 && process.argv[i + 1]) return process.argv[i + 1];
-  if (process.env.SUPABASE_DB_URL) return process.env.SUPABASE_DB_URL;
-  const envPath = join(root, 'apps', 'web', '.env.local');
-  if (existsSync(envPath)) {
-    const line = readFileSync(envPath, 'utf8')
-      .split('\n')
-      .find((l) => l.startsWith('SUPABASE_DB_URL='));
-    if (line) return line.slice('SUPABASE_DB_URL='.length).trim();
-  }
-  return null;
-}
-
 const url = connectionString();
 if (!url) {
   console.error('No SUPABASE_DB_URL. See `pnpm migrate` for where to get one.');
   process.exit(1);
 }
 
-const client = new pg.Client({
-  connectionString: url,
-  ssl: url.includes('localhost') ? false : { rejectUnauthorized: false },
-});
+const client = new pg.Client({ connectionString: url, ssl: sslFor(url) });
 await client.connect();
 
 let failed = 0;
