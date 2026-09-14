@@ -540,6 +540,33 @@ test('a client can be pointed at a payment profile, on create and on patch', asy
   assert.equal(moved.body.paymentProfileId, b.body.id);
 });
 
+/* `.partial()` keeps a `.default()`, so an update schema that inherits
+   `isDefault` turns every unrelated PATCH into a demotion — and the next
+   invoice then renders with no bank details. */
+test('editing a default profile does not demote it', async () => {
+  const { POST: createProfile } = await import(
+    '../src/app/api/v1/payment-profiles/route.ts'
+  );
+  const { PATCH } = await import(
+    '../src/app/api/v1/payment-profiles/[id]/route.ts'
+  );
+
+  const first = await json(
+    await createProfile(req('/payment-profiles', { name: 'Checking' })),
+  );
+  await createProfile(req('/payment-profiles', { name: 'Savings' }));
+  assert.equal(first.body.isDefault, true, 'the first profile is the default');
+
+  const renamed = await json(
+    await PATCH(
+      patchReq('/payment-profiles/x', { name: 'Business checking' }),
+      ctx(first.body.id),
+    ),
+  );
+  assert.equal(renamed.status, 200);
+  assert.equal(renamed.body.isDefault, true);
+});
+
 /* `money` is `multipleOf(0.01)`. A third decimal is not a rate anyone can be
    billed at, and rounding it silently would misstate an invoice. */
 test('a rate finer than a cent is rejected, not rounded', async () => {
@@ -553,6 +580,16 @@ test('a rate finer than a cent is rejected, not rounded', async () => {
   );
   assert.equal(res.status, 422);
   assert.equal(res.body.code, 'VALIDATION_FAILED');
+});
+
+/* Internal work is the documented case for a project with no client, so the
+   field is omittable rather than merely nullable. */
+test('a project needs only a name, and is then internal work', async () => {
+  const { POST } = await import('../src/app/api/v1/projects/route.ts');
+
+  const res = await json(await POST(req('/projects', { name: 'Admin' })));
+  assert.equal(res.status, 201);
+  assert.equal(res.body.clientId, null);
 });
 
 test('a project is read back by id, and 404s when unknown', async () => {
@@ -723,6 +760,24 @@ test('every settable field round-trips, rather than being silently dropped', asy
   for (const [field, value] of Object.entries(sent)) {
     assert.deepEqual(res.body[field], value, field);
   }
+});
+
+/* The database check is `monthly_target > 0`, so a zero that passes Zod comes
+   back as a 500 instead of a field error the form can show. */
+test('a monthly target of zero is a validation error, not a 500', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+
+  const res = await json(
+    await patch(
+      req(
+        '/settings',
+        { monthlyTarget: 0, monthlyTargetUnit: 'revenue' },
+        'PATCH',
+      ),
+    ),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
 });
 
 test('a target and its unit must be set or cleared together', async () => {

@@ -104,9 +104,9 @@ export function Empty({
 }
 
 /**
- * A query's three non-answers, then its data. The failure message is neutral,
- * never red: a list that could not load is a condition, and the answer is to
- * try again.
+ * A query's non-answers, then its data. The failure message is neutral, never
+ * red: a list that could not load is a condition, and the answer is to try
+ * again.
  *
  * `empty` is the message for data that arrived and holds nothing — omit it
  * where the record is a single object, which is never empty, only missing.
@@ -136,8 +136,16 @@ export function Listing<T>({
     return panel ? <Panel>{p}</Panel> : p;
   };
 
-  if (query.isLoading) return message('Loading…');
-  if (query.error || query.data === undefined) {
+  /* A 401 has already sent the browser to `/signin`. Reporting a failure over
+     the top of a navigation in flight tells the user something is broken when
+     nothing is. */
+  const leaving = query.error instanceof ApiError && query.error.isUnauthorized;
+
+  if (query.isLoading || leaving) return message('Loading…');
+  /* Data the user can still read beats an error message in its place: a failed
+     REFETCH would otherwise replace a form mid-edit and take the unsent text
+     with it. */
+  if (query.data === undefined) {
     const gone =
       missing !== undefined &&
       query.error instanceof ApiError &&

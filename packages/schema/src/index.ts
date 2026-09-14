@@ -107,6 +107,7 @@ export const CreateProject = Project.omit({
   archivedAt: true,
 }).extend({
   id: uuid.optional(),
+  clientId: uuid.nullable().optional(), // omitted == internal work
 });
 export const UpdateProject = CreateProject.partial()
   .omit({ id: true })
@@ -264,7 +265,9 @@ export const Settings = z.object({
    *
    * The database enforces that these are both set or both null.
    */
-  monthlyTarget: money.nullable(),
+  /** Positive, matching the database check — `0` is not a target, and
+   *  sending it would 500 rather than fail validation. */
+  monthlyTarget: money.positive().nullable(),
   monthlyTargetUnit: z.enum(['hours', 'revenue']).nullable(),
 });
 /**
@@ -577,9 +580,15 @@ export const CreatePaymentProfile = PaymentProfile.omit({
   isDefault: z.boolean().default(false),
 });
 
+/* `isDefault` is re-declared rather than inherited: `.partial()` keeps the
+   create schema's `.default(false)`, so a PATCH of any other field would parse
+   as a demotion and silently strip the user's default. */
 export const UpdatePaymentProfile = CreatePaymentProfile.partial()
   .omit({ id: true })
-  .extend({ archived: z.boolean().optional() });
+  .extend({
+    isDefault: z.boolean().optional(),
+    archived: z.boolean().optional(),
+  });
 
 export const ListPaymentProfilesQuery = z.object({
   includeArchived: boolParam,
