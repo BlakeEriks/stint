@@ -154,7 +154,13 @@ private struct TimerPanel: View {
     /* Spacing is NOT uniform here, per menubar.html: 8pt from the clock to
        the task, then 4pt from the task to the project. The task and project
        are one pair of facts about the timer, so they sit tighter to each
-       other than the pair does to the number it describes. */
+       other than the pair does to the number it describes.
+
+       **Those are TEXT-to-text gaps, and both rows carry 6pt of their own
+       vertical padding** for their hover surfaces — so the gap added here is
+       what is left after that padding: 2pt below the clock, and none between
+       the two rows, whose 6+6 already exceeds the 4 the spec asks for. Adding
+       8 and 4 on top measured 20 and 16, which is what read as loose. */
     private var runningBlock: some View {
         VStack(alignment: .leading, spacing: 0) {
             readout
@@ -170,10 +176,9 @@ private struct TimerPanel: View {
                 focused: $taskFocused,
                 onCommit: commit
             )
-            .padding(.top, 8)
+            .padding(.top, 2)
 
             ProjectField(model: model)
-                .padding(.top, 4)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
