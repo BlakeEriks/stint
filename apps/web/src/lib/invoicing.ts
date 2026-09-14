@@ -13,19 +13,12 @@ import {
   type LineItemRow,
   type PaymentProfileRow,
 } from './rows';
-import { resolvePaymentProfile, startOfLocalDate } from '@stint/core';
+import { addDays, resolvePaymentProfile, startOfLocalDate } from '@stint/core';
 import type { BillableEntry } from '@stint/core';
 
 /** numeric columns arrive from PostgREST as strings. */
 const num = (v: string | number | null | undefined): number | null =>
   v == null ? null : typeof v === 'number' ? v : Number(v);
-
-/** The day after `date`, stepped on the calendar rather than in milliseconds. */
-function nextDate(date: string): string {
-  const [y = 0, m = 1, d = 1] = date.split('-').map(Number);
-  const next = new Date(Date.UTC(y, m - 1, d + 1));
-  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
-}
 
 export async function loadClient(
   db: SupabaseClient,
@@ -82,7 +75,7 @@ export async function loadBillableEntries(
      day begins. Stepping the date on the calendar rather than adding 24h:
      a day containing a DST transition is 23 or 25 hours long. */
   const startInstant = startOfLocalDate(opts.periodStart, opts.tz);
-  const endExclusive = startOfLocalDate(nextDate(opts.periodEnd), opts.tz);
+  const endExclusive = startOfLocalDate(addDays(opts.periodEnd, 1), opts.tz);
 
   const { data, error } = await db
     .from('time_entries')

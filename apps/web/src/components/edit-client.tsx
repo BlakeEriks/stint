@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ClientForm } from './client-form';
 import { api } from '@/lib/client/api';
 import { Page } from './page';
+import { keys } from '@/lib/client/query-keys';
 
 /**
  * The form needs the existing values before it can render, so the fetch lives
@@ -12,7 +13,7 @@ import { Page } from './page';
  */
 export function EditClient({ id }: { id: string }) {
   const { data: client, isLoading } = useQuery({
-    queryKey: ['clients', id],
+    queryKey: keys.client(id),
     queryFn: () => api.client(id),
   });
 

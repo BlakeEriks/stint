@@ -5,11 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 import { formatClock, formatCompact, startOfLocalDay } from '@stint/core';
 import { Lock, Plus } from 'lucide-react';
 import { api, type Project, type TimeEntry } from '@/lib/client/api';
-import { useTimeZone } from '@/lib/client/use-timer';
+import { timeZone as tz } from '@/lib/client/use-timer';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
 import { Empty, Panel } from './page';
+import { keys } from '@/lib/client/query-keys';
 
 /**
  * Today's entries, beneath the timer. This is the view seen 50× a day, so it
@@ -22,11 +23,10 @@ export function EntryList({
   projects: Project[];
   todaySeconds: number;
 }) {
-  const tz = useTimeZone();
   const from = startOfLocalDay(new Date(), tz).toISOString();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['entries', 'today', from],
+    queryKey: keys.entries({ from }),
     queryFn: () => api.entries({ from }),
   });
 
@@ -76,7 +76,6 @@ export function EntryList({
                   entry={entry}
                   project={byId.get(entry.projectId ?? '')}
                   color={colors.get(entry.projectId ?? '')}
-                  tz={tz}
                   onEdit={() => openFor(entry)}
                 />
               </li>
@@ -90,7 +89,6 @@ export function EntryList({
         onOpenChange={setOpen}
         existing={editing}
         projects={projects}
-        tz={tz}
       />
     </section>
   );
@@ -100,14 +98,12 @@ function Row({
   entry,
   project,
   color,
-  tz,
   onEdit,
 }: {
   entry: TimeEntry;
   project?: Project;
   /** The project's client's colour; absent for internal work. */
   color?: string | null;
-  tz: string;
   onEdit: () => void;
 }) {
   const time = (iso: string) =>

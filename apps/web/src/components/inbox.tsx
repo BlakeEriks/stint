@@ -23,9 +23,10 @@ import {
 } from '@/lib/client/api';
 import { useLeaving } from '@/lib/client/use-leaving';
 import { useRunaway } from '@/lib/client/use-runaway';
-import { useTimeZone } from '@/lib/client/use-timer';
+import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
-import { money } from './invoice-bits';
+import { formatCurrency } from './invoice-bits';
+import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 type Attention = Stats['attention'];
 
@@ -86,7 +87,6 @@ export function Inbox({ stats }: { stats: Stats }) {
      blank "Add entry". */
   const [assigning, setAssigning] = useState<TimeEntry | undefined>();
   const [focusField, setFocusField] = useState<'task' | 'project'>('task');
-  const tz = useTimeZone();
   const { keeping, leaving, leave, hold, release, settle } = useLeaving();
 
   /* Every row this inbox has rendered, by id. A row being animated out is
@@ -117,15 +117,14 @@ export function Inbox({ stats }: { stats: Stats }) {
     mutationFn: (id: string) => api.updateEntry(id, { durationOk: true }),
     onSuccess: (_r, id) => {
       leave(id);
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-      queryClient.invalidateQueries({ queryKey: ['entries'] });
+      invalidateEntryData(queryClient);
     },
   });
 
   /* React Query dedupes this against Home's identical query, so on the one
      screen that renders both there is no second request. */
   const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
+    queryKey: keys.projects(),
     queryFn: () => api.projects(),
     select: (r) => r.projects,
   });
@@ -135,8 +134,8 @@ export function Inbox({ stats }: { stats: Stats }) {
       api.updateInvoiceStatus(id, { status }),
     onSuccess: (_r, { id }) => {
       leave(id);
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: keys.invoices() });
+      invalidateEntryData(queryClient);
     },
   });
 
@@ -251,7 +250,6 @@ export function Inbox({ stats }: { stats: Stats }) {
               entry={r}
               leaving={leaving.has(r.id)}
               onLeft={() => settle(r.id)}
-              tz={tz}
               busy={setStatus.isPending}
               confirming={confirmLength.isPending}
               onStatus={setStatus.mutate}
@@ -283,7 +281,6 @@ export function Inbox({ stats }: { stats: Stats }) {
         onSaved={hold}
         onClosed={release}
         projects={projects}
-        tz={tz}
       />
     </section>
   );
@@ -294,7 +291,6 @@ function Row({
   entry,
   leaving,
   onLeft,
-  tz,
   busy,
   confirming,
   onStatus,
@@ -304,7 +300,6 @@ function Row({
   entry: InboxRow;
   leaving: boolean;
   onLeft: () => void;
-  tz: string;
   busy: boolean;
   confirming: boolean;
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
@@ -322,7 +317,7 @@ function Row({
         href={`/invoices/${i.invoiceId}`}
         label={i.clientName ?? i.invoiceNumber}
         detail={`${i.daysLate} ${i.daysLate === 1 ? 'day' : 'days'} late`}
-        value={money(i.amount, i.currency)}
+        value={formatCurrency(i.amount, i.currency)}
         tone="danger"
         actions={
           <>
@@ -356,7 +351,7 @@ function Row({
         href={`/invoices/${d.invoiceId}`}
         label={d.clientName ?? d.invoiceNumber}
         detail={`Draft, ${d.ageDays}d old`}
-        value={money(d.amount, d.currency)}
+        value={formatCurrency(d.amount, d.currency)}
         tone="warning"
         actions={
           <>

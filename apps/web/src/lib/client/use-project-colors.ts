@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { api } from './api';
+import { keys } from './query-keys';
 
 /**
  * Resolves each project to its CLIENT's colour.
@@ -40,11 +41,11 @@ export function useProjectClients(): {
   clientByProject: Map<string, { id: string; name: string; color: string }>;
 } {
   const projects = useQuery({
-    queryKey: ['projects'],
+    queryKey: keys.projects(),
     queryFn: () => api.projects(),
   });
   const clients = useQuery({
-    queryKey: ['clients', 'withArchived'],
+    queryKey: keys.clients({ archived: true }),
     queryFn: () => api.clients({ includeArchived: true }),
   });
 

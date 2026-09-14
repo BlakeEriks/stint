@@ -5,22 +5,26 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Section } from './field';
-import { StatusBadge, money, shortDate } from './invoice-bits';
+import { StatusBadge, formatCurrency, shortDate } from './invoice-bits';
+import { formatHours } from '@stint/core';
 import { api, ApiError, type InvoiceStatus } from '@/lib/client/api';
 import { DetailPage } from './page';
+import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['invoices', id],
+    queryKey: keys.invoice(id),
     queryFn: () => api.invoice(id),
   });
 
+  /* Voiding releases the entries and deleting a draft frees them, so every
+     view of that work moves with the invoice. */
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['invoices'] });
-    queryClient.invalidateQueries({ queryKey: ['entries'] });
+    queryClient.invalidateQueries({ queryKey: keys.invoices() });
+    invalidateEntryData(queryClient);
   };
 
   const setStatus = useMutation({
@@ -115,13 +119,13 @@ export function InvoiceDetail({ id }: { id: string }) {
                 >
                   <td className="py-2 pr-3 text-primary">{item.description}</td>
                   <td className="type-duration py-2 pl-3 text-right text-muted">
-                    {item.quantityHours.toFixed(2)}
+                    {formatHours(item.quantityHours)}
                   </td>
                   <td className="type-duration py-2 pl-3 text-right text-muted">
-                    {money(item.resolvedRate, invoice.currency)}
+                    {formatCurrency(item.resolvedRate, invoice.currency)}
                   </td>
                   <td className="type-duration py-2 pl-3 text-right text-strong">
-                    {money(item.amount, invoice.currency)}
+                    {formatCurrency(item.amount, invoice.currency)}
                   </td>
                 </tr>
               ))}
@@ -132,17 +136,17 @@ export function InvoiceDetail({ id }: { id: string }) {
         <dl className="ml-auto flex w-full max-w-[16rem] flex-col gap-1 type-support">
           <Row
             label="Subtotal"
-            value={money(invoice.subtotal, invoice.currency)}
+            value={formatCurrency(invoice.subtotal, invoice.currency)}
           />
           {invoice.taxRate > 0 ? (
             <Row
               label={`Tax (${invoice.taxRate}%)`}
-              value={money(invoice.taxAmount, invoice.currency)}
+              value={formatCurrency(invoice.taxAmount, invoice.currency)}
             />
           ) : null}
           <Row
             label="Total"
-            value={money(invoice.total, invoice.currency)}
+            value={formatCurrency(invoice.total, invoice.currency)}
             strong
           />
         </dl>

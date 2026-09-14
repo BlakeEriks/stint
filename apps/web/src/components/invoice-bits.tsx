@@ -2,11 +2,10 @@
 
 import type { InvoiceStatus } from '@/lib/client/api';
 
-/* Money is read in columns, so it is always mono and tabular. Re-exported
-   here because the invoicing components already import it from this module;
-   the definition lives in `lib/client/format` so non-invoice screens can use
-   it without importing invoice bits. */
-export { money } from '@/lib/client/format';
+/* Re-exported because the invoicing components already import it from this
+   module; the definition is in `@stint/core` so the PDF renders through the
+   same function. */
+export { formatCurrency } from '@stint/core';
 
 /**
  * Invoice dates are plain `YYYY-MM-DD`, so they carry no zone to convert.

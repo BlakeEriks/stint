@@ -2,8 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
-import { useTimeZone } from '@/lib/client/use-timer';
+import { timeZone as tz } from '@/lib/client/use-timer';
 import { Inbox } from './inbox';
+import { keys } from '@/lib/client/query-keys';
 
 /**
  * The right-hand column, on wide viewports only.
@@ -36,9 +37,8 @@ import { Inbox } from './inbox';
  * identity and its position in the reading order; only its axis changes.
  */
 export function Dock() {
-  const tz = useTimeZone();
   const { data } = useQuery({
-    queryKey: ['stats', tz],
+    queryKey: keys.stats(tz),
     queryFn: () => api.stats(tz),
   });
 

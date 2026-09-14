@@ -4,16 +4,24 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api, ApiError, type Summary } from './api';
 import { elapsedSeconds, deriveTimerView } from '@stint/core';
+import { keys, invalidateEntryData } from './query-keys';
 
-const SUMMARY_KEY = ['summary'] as const;
-
-/** The browser's zone. "Today" is a local question the server can't infer. */
-export function useTimeZone() {
-  const [tz] = useState(
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-  );
-  return tz;
-}
+/**
+ * The zone this render is happening in. "Today" is a local question the
+ * server cannot infer.
+ *
+ * Read once at module load rather than per component: it cannot change while
+ * the page is open, so a hook was paying re-derivation for a constant.
+ *
+ * Resolved the same way on both sides deliberately. Timestamps reach the
+ * markup formatted in this zone, so a server that answered `UTC` while the
+ * client answered `America/Denver` would hydrate a different clock time onto
+ * every one of them. The prerender is in the deploy region's zone and the
+ * browser corrects it on hydration, which is the same trade every other
+ * timestamp on the page already makes.
+ */
+export const timeZone =
+  Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 /**
  * A second-resolution clock, shared by everything that counts up.
@@ -52,12 +60,11 @@ function useTick(active: boolean): boolean {
  * laptop several minutes off would otherwise show a wrong elapsed time.
  */
 export function useTimer() {
-  const tz = useTimeZone();
   const queryClient = useQueryClient();
 
   const summary = useQuery({
-    queryKey: SUMMARY_KEY,
-    queryFn: () => api.summary(tz),
+    queryKey: keys.summary(),
+    queryFn: () => api.summary(timeZone),
     // A running timer is reconciled every 60s; the local tick covers the
     // seconds in between.
     refetchInterval: (q) => (q.state.data?.running ? 60_000 : false),
@@ -110,10 +117,7 @@ export function useTimer() {
     (summary.data ? liveAtFetch(summary.data) : 0);
   const todaySeconds = Math.max(0, baseToday + liveSeconds);
 
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: SUMMARY_KEY });
-    queryClient.invalidateQueries({ queryKey: ['entries'] });
-  };
+  const invalidate = () => invalidateEntryData(queryClient);
 
   const start = useMutation({
     mutationFn: (body: { taskName: string; projectId?: string | null }) =>

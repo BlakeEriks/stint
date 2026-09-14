@@ -21,6 +21,7 @@ import {
   type ProjectInput,
 } from '@/lib/client/api';
 import { ClientForm } from './client-form';
+import { keys } from '@/lib/client/query-keys';
 
 /** The select's "create one" escape hatch. Not a client id, so it cannot
     collide with one. */
@@ -81,7 +82,7 @@ export function ProjectDialog({
   }, [open, existing, defaultClientId]);
 
   const { data: clientData } = useQuery({
-    queryKey: ['clients'],
+    queryKey: keys.clients(),
     queryFn: () => api.clients(),
     enabled: open,
   });
@@ -91,7 +92,9 @@ export function ProjectDialog({
     mutationFn: (body: ProjectInput) =>
       existing ? api.updateProject(existing.id, body) : api.createProject(body),
     onSuccess: (saved) => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: keys.projects() });
+      // A project's rate is what its unbilled work is valued at.
+      queryClient.invalidateQueries({ queryKey: keys.stats() });
       onSaved?.(saved);
       onOpenChange(false);
     },

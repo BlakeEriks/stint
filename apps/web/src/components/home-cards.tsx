@@ -12,9 +12,10 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, type Stats } from '@/lib/client/api';
-import { useTimeZone } from '@/lib/client/use-timer';
-import { money } from './invoice-bits';
+import { timeZone as tz } from '@/lib/client/use-timer';
+import { formatCurrency } from './invoice-bits';
 import { ActivityChart } from './activity-chart';
+import { keys } from '@/lib/client/query-keys';
 
 /**
  * The home screen's card set.
@@ -38,9 +39,8 @@ import { ActivityChart } from './activity-chart';
  * spent on the running timer in the bar below.
  */
 export function HomeCards() {
-  const tz = useTimeZone();
   const { data } = useQuery({
-    queryKey: ['stats', tz],
+    queryKey: keys.stats(tz),
     queryFn: () => api.stats(tz),
   });
 
@@ -111,7 +111,11 @@ function Unbilled({ stats }: { stats: Stats }) {
   if (byClient.length === 0) return null;
 
   return (
-    <Card title="Unbilled" icon={Wallet} value={money(total, stats.currency)}>
+    <Card
+      title="Unbilled"
+      icon={Wallet}
+      value={formatCurrency(total, stats.currency)}
+    >
       <ul className="flex flex-col">
         {byClient.map((c) => (
           <Row
@@ -132,7 +136,7 @@ function Unbilled({ stats }: { stats: Stats }) {
             value={
               /* Unbillable work has no rate by definition; an em-dash is
                  honest where a zero would look like a real figure. */
-              c.amount > 0 ? money(c.amount, c.currency) : '—'
+              c.amount > 0 ? formatCurrency(c.amount, c.currency) : '—'
             }
             secondary={formatCompact(c.seconds)}
           />
@@ -157,7 +161,7 @@ function Unbilled({ stats }: { stats: Stats }) {
           className="flex items-baseline gap-1.5 border-t border-edge-subtle px-4 py-2 type-support text-subtle hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
         >
           <span className="type-meta text-muted">
-            {money(stats.awaitingPayment, stats.currency)}
+            {formatCurrency(stats.awaitingPayment, stats.currency)}
           </span>
           sent, awaiting payment
         </Link>
@@ -221,7 +225,7 @@ function Pace({ stats }: { stats: Stats }) {
   const isRevenue = p.unit === 'revenue';
   /** Money in the unit the target is in; hours keep one decimal and an `h`. */
   const fmt = (n: number) =>
-    isRevenue ? money(n, stats.currency) : `${n.toFixed(1)}h`;
+    isRevenue ? formatCurrency(n, stats.currency) : `${n.toFixed(1)}h`;
 
   return (
     <Card

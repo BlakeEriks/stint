@@ -9,7 +9,8 @@ import { api, type Client, type Project } from '@/lib/client/api';
 import { Page, Panel } from './page';
 import { ProjectDialog } from './project-dialog';
 import { ProjectRate } from './project-rate';
-import { money } from '@/lib/client/format';
+import { formatCurrency } from '@stint/core';
+import { keys } from '@/lib/client/query-keys';
 
 /**
  * Every project, grouped by client.
@@ -36,17 +37,17 @@ export function ProjectList() {
   const [showArchived, setShowArchived] = useState(false);
 
   const { data: projectData, isLoading } = useQuery({
-    queryKey: ['projects', { archived: showArchived }],
+    queryKey: keys.projects({ archived: showArchived }),
     queryFn: () => api.projects({ includeArchived: showArchived }),
   });
   const { data: clientData } = useQuery({
-    queryKey: ['clients', { archived: true }],
+    queryKey: keys.clients({ archived: true }),
     // Archived clients included: their projects still exist and would
     // otherwise fall into "No client", which would be a lie.
     queryFn: () => api.clients({ includeArchived: true }),
   });
   const { data: settings } = useQuery({
-    queryKey: ['settings'],
+    queryKey: keys.settings(),
     queryFn: () => api.settings(),
   });
 
@@ -153,7 +154,7 @@ function GroupHeading({
         <span className="type-support text-subtle">
           {client
             ? client.hourlyRate != null
-              ? `${money(client.hourlyRate, client.currency ?? undefined)}/h`
+              ? `${formatCurrency(client.hourlyRate, client.currency ?? undefined)}/h`
               : 'no rate'
             : `${count} ${count === 1 ? 'project' : 'projects'}`}
         </span>

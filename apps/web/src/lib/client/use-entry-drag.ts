@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { instantAt, movedTo, resized, DRAG_THRESHOLD_PX } from '@stint/core';
 import { api, ApiError, type TimeEntry } from './api';
+import { invalidateEntryData } from './query-keys';
 
 /** What the pointer is doing to a block. */
 export type DragMode = 'move' | 'start' | 'end';
@@ -59,12 +60,7 @@ export function useEntryDrag(onConflict?: (message: string) => void) {
         startedAt: v.startedAt.toISOString(),
         endedAt: v.endedAt.toISOString(),
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar'] });
-      queryClient.invalidateQueries({ queryKey: ['entries'] });
-      queryClient.invalidateQueries({ queryKey: ['summary'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-    },
+    onSuccess: () => invalidateEntryData(queryClient),
     /* A rejected drag must say so. The block springs back to where the server
        says it is, which without a message reads as the gesture not registering
        — and the most likely rejection is the billed-entry lock, which the user

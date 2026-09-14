@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { PaymentProfileDialog } from './payment-profile-dialog';
 import { api, ApiError, type PaymentProfile } from '@/lib/client/api';
+import { keys } from '@/lib/client/query-keys';
 
 /**
  * Bank details, as named bundles.
@@ -20,7 +21,7 @@ export function PaymentProfiles() {
   const [creating, setCreating] = useState(false);
 
   const { data } = useQuery({
-    queryKey: ['payment-profiles'],
+    queryKey: keys.paymentProfiles(),
     queryFn: api.paymentProfiles,
   });
   const profiles = (data?.paymentProfiles ?? []).filter((p) => !p.archivedAt);
@@ -29,7 +30,7 @@ export function PaymentProfiles() {
     mutationFn: (id: string) =>
       api.updatePaymentProfile(id, { isDefault: true }),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['payment-profiles'] }),
+      queryClient.invalidateQueries({ queryKey: keys.paymentProfiles() }),
   });
 
   /* Which profile the failure belongs to. One mutation serves every row, so

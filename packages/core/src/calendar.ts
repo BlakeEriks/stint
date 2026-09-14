@@ -166,11 +166,35 @@ export function localDateKey(at: Date, tz: string): string {
  * today — the same reason the rest of this file re-checks its offset.
  */
 export function startOfLocalDate(date: string, tz: string): Date {
+  return localDateTimeToInstant(date, '00:00', tz);
+}
+
+/**
+ * The instant at which `date` (`YYYY-MM-DD`) and `time` (`HH:MM`) read on a
+ * wall clock in `tz` — `startOfLocalDate` with a time of day.
+ *
+ * The entry editor's inputs are wall-clock and the API is UTC, so this is the
+ * conversion between them, corrected the same way: never by a fixed number of
+ * milliseconds, which lands an hour off across a DST transition.
+ */
+export function localDateTimeToInstant(
+  date: string,
+  time: string,
+  tz: string,
+): Date {
   const [y = 0, m = 1, d = 1] = date.split('-').map(Number);
-  const wall = Date.UTC(y, m - 1, d);
+  const [hh = 0, mm = 0] = time.split(':').map(Number);
+  const wall = Date.UTC(y, m - 1, d, hh, mm);
   let guess = new Date(wall - tzOffset(new Date(wall), tz));
   guess = new Date(wall - tzOffset(guess, tz));
   return guess;
+}
+
+/** `date` stepped `n` days on the calendar rather than in milliseconds. */
+export function addDays(date: string, n: number): string {
+  const [y = 0, m = 1, d = 1] = date.split('-').map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + n));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
 }
 
 /** Rejects a bad IANA zone before it reaches a query. */

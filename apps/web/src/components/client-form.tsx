@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ColorPicker } from './color-picker';
 import { Field } from './field';
 import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
+import { keys } from '@/lib/client/query-keys';
 
 /**
  * Create and edit are the same form — the only difference is which request
@@ -51,7 +52,9 @@ export function ClientForm({
     mutationFn: (body: ClientInput) =>
       existing ? api.updateClient(existing.id, body) : api.createClient(body),
     onSuccess: (saved) => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: keys.clients() });
+      // The client's rate is what unbilled work is valued at.
+      queryClient.invalidateQueries({ queryKey: keys.stats() });
       if (onSaved) onSaved(saved);
       else router.push(`/clients/${saved.id}`);
     },

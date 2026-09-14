@@ -6,6 +6,9 @@ import {
   localDateKey,
   localDayOfWeek,
   isValidTimeZone,
+  startOfLocalDate,
+  localDateTimeToInstant,
+  addDays,
 } from '../src/calendar.ts';
 
 /** Renders an instant in a zone, for asserting it really is local midnight. */
@@ -106,4 +109,41 @@ test('isValidTimeZone rejects garbage before it reaches a query', () => {
   assert.equal(isValidTimeZone('UTC'), true);
   assert.equal(isValidTimeZone('Not/AZone'), false);
   assert.equal(isValidTimeZone(''), false);
+});
+
+test('localDateTimeToInstant round-trips a wall clock across DST', () => {
+  const tz = 'America/New_York';
+  const at = (date: string, time: string) =>
+    render(localDateTimeToInstant(date, time, tz), tz);
+
+  // An ordinary day, and the hour after each transition — the entry editor's
+  // inputs are wall-clock, so 03:00 must come back as 03:00 on every one.
+  assert.match(at('2026-06-15', '14:05'), /^2026-06-15, 14:05/);
+  assert.match(at('2026-03-08', '03:00'), /^2026-03-08, 03:00/);
+  assert.match(at('2026-11-01', '03:00'), /^2026-11-01, 03:00/);
+});
+
+test('localDateTimeToInstant at midnight is startOfLocalDate', () => {
+  for (const tz of ['UTC', 'America/Denver', 'Australia/Lord_Howe']) {
+    assert.equal(
+      localDateTimeToInstant('2026-03-08', '00:00', tz).getTime(),
+      startOfLocalDate('2026-03-08', tz).getTime(),
+    );
+  }
+});
+
+/** The overnight-shift roll-forward and the invoice period end both step here. */
+test('addDays steps the calendar, including over month and year ends', () => {
+  assert.equal(addDays('2026-09-11', 1), '2026-09-12');
+  assert.equal(addDays('2026-09-30', 1), '2026-10-01');
+  assert.equal(addDays('2026-12-31', 1), '2027-01-01');
+  assert.equal(addDays('2028-02-28', 1), '2028-02-29');
+  assert.equal(addDays('2026-03-08', -1), '2026-03-07');
+});
+
+/* A DST day is 23 or 25 hours, so the step has to be on the calendar: the
+   day after a spring-forward date is still exactly one date later. */
+test('addDays is unaffected by a DST transition in the range', () => {
+  assert.equal(addDays('2026-03-07', 1), '2026-03-08');
+  assert.equal(addDays('2026-10-31', 2), '2026-11-02');
 });

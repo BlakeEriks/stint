@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Image,
 } from '@react-pdf/renderer';
+import { formatCurrency, formatHours } from '@stint/core';
 
 /**
  * The invoice document.
@@ -229,13 +230,6 @@ export interface InvoicePdfData {
   paymentNotice?: string | null;
 }
 
-const money = (n: number | null, currency: string) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency || 'USD',
-    currencyDisplay: 'narrowSymbol',
-  }).format(n ?? 0);
-
 const date = (iso: string | null) =>
   iso
     ? new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', {
@@ -342,9 +336,11 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
         {data.lineItems.map((li, i) => (
           <View key={i} style={styles.row} wrap={false}>
             <Text style={styles.cDesc}>{li.description}</Text>
-            <Text style={styles.cQty}>{li.quantityHours.toFixed(2)}</Text>
-            <Text style={styles.cRate}>{money(li.resolvedRate, cur)}</Text>
-            <Text style={styles.cAmt}>{money(li.amount, cur)}</Text>
+            <Text style={styles.cQty}>{formatHours(li.quantityHours)}</Text>
+            <Text style={styles.cRate}>
+              {formatCurrency(li.resolvedRate, cur)}
+            </Text>
+            <Text style={styles.cAmt}>{formatCurrency(li.amount, cur)}</Text>
           </View>
         ))}
 
@@ -352,7 +348,7 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
           <View style={styles.totalRow}>
             <Text style={{ color: c.muted }}>Subtotal</Text>
             <Text style={{ fontFamily: 'Courier' }}>
-              {money(data.subtotal, cur)}
+              {formatCurrency(data.subtotal, cur)}
             </Text>
           </View>
 
@@ -360,14 +356,16 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
             <View style={styles.totalRow}>
               <Text style={{ color: c.muted }}>Tax ({data.taxRate}%)</Text>
               <Text style={{ fontFamily: 'Courier' }}>
-                {money(data.taxAmount, cur)}
+                {formatCurrency(data.taxAmount, cur)}
               </Text>
             </View>
           ) : null}
 
           <View style={styles.grand}>
             <Text style={styles.grandLabel}>Amount due</Text>
-            <Text style={styles.grandValue}>{money(data.total, cur)}</Text>
+            <Text style={styles.grandValue}>
+              {formatCurrency(data.total, cur)}
+            </Text>
           </View>
 
           {data.paymentTerms ? (

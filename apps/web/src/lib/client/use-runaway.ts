@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type TimeEntry } from './api';
 import { useTimer } from './use-timer';
+import { invalidateEntryData } from './query-keys';
 
 /**
  * The runaway timer choice: keep, adjust, or discard.
@@ -68,12 +69,7 @@ export function useRunaway(onRetired?: () => void) {
     if (!exceeded) setDismissed(false);
   }, [exceeded]);
 
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: ['summary'] });
-    queryClient.invalidateQueries({ queryKey: ['entries'] });
-    queryClient.invalidateQueries({ queryKey: ['stats'] });
-    queryClient.invalidateQueries({ queryKey: ['calendar'] });
-  };
+  const invalidateAll = () => invalidateEntryData(queryClient);
 
   /* Stop first, then edit. A running entry has no end yet, so there is
      nothing to adjust until it is stopped — and stopping is what the user

@@ -269,7 +269,8 @@ Line-item construction lives in `packages/core/src/invoice.ts` — pure, so the
 preview a user approves and the invoice that issues are built by identical
 code. Routes in `apps/web/src/app/api/v1/invoices/`; shared loaders in
 `apps/web/src/lib/invoicing.ts`, which reads rows through `rows.ts` like
-everything else.
+everything else. `formatCurrency` and `formatHours` are in core for the same
+reason: the preview and the PDF render one number one way.
 
 **`tz` is rejected rather than defaulted here.** The period is local dates, so
 the zone decides which entries are billed; the read endpoints fall back to UTC,
@@ -618,6 +619,12 @@ numbering gapless.
 
 `useTimer` counts locally from `startedAt` and reconciles with `/summary`
 every 60s and on focus; `serverTime` corrects a skewed device clock.
+
+**Cache keys come from `lib/client/query-keys.ts`, never written inline**, so
+one shape per query is what an invalidation can match. Anything that changes a
+time entry calls `invalidateEntryData()` — summary, entries, stats, calendar
+and activity all read those rows, and refreshing a subset makes two screens
+disagree about the same work.
 
 ### Editing an entry
 

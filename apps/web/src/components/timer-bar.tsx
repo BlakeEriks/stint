@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { formatClock } from '@stint/core';
-import { useTimer, useTimeZone } from '@/lib/client/use-timer';
+import { useTimer } from '@/lib/client/use-timer';
 import { useAdjustingEntry } from '@/lib/client/use-runaway';
 import { ProjectPicker } from './project-picker';
 import { EntryDialog } from './entry-dialog';
@@ -64,7 +64,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
      bar, which put reflowing chrome at the moment a problem appeared. What
      stays here is the editor Adjust opens: the entry it hands over is a
      stopped one, and this is where `EntryDialog` already is. */
-  const tz = useTimeZone();
   const [adjusting, setAdjusting] = useAdjustingEntry();
 
   return (
@@ -199,7 +198,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
         }}
         existing={adjusting}
         projects={projects}
-        tz={tz}
       />
     </section>
   );

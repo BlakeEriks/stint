@@ -2,7 +2,12 @@
 
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { formatCompact, formatClock, instantAt } from '@stint/core';
+import {
+  formatCompact,
+  formatClock,
+  instantAt,
+  localDateKey,
+} from '@stint/core';
 import { Button } from '@/components/ui/button';
 import { useCalendar, type PositionedEntry } from '@/lib/client/use-calendar';
 import { useProjectClients } from '@/lib/client/use-project-colors';
@@ -16,6 +21,8 @@ import { Plus } from 'lucide-react';
 import { api, type TimeEntry } from '@/lib/client/api';
 import { Page } from './page';
 import { EntryDialog } from './entry-dialog';
+import { keys } from '@/lib/client/query-keys';
+import { timeZone as tz } from '@/lib/client/use-timer';
 
 /** Hours between gridlines. Every 3 reads cleanly at both column widths. */
 const HOUR_STEP = 3;
@@ -39,11 +46,7 @@ const DAY_MAX_HEIGHT = 620;
  * cropped window starting at 06:00 shows 06, 09, 12 rather than an offset
  * sequence counted from the window's own start.
  */
-function hourMarks(
-  from: Date,
-  to: Date,
-  tz: string,
-): { hour: number; pct: number }[] {
+function hourMarks(from: Date, to: Date): { hour: number; pct: number }[] {
   const span = to.getTime() - from.getTime();
   const startHour = Number(
     new Intl.DateTimeFormat('en-GB', {
@@ -89,7 +92,7 @@ export function Calendar() {
   const { colorByProject, clientByProject } = useProjectClients();
 
   const projects = useQuery({
-    queryKey: ['projects'],
+    queryKey: keys.projects(),
     queryFn: () => api.projects(),
   });
 
@@ -105,7 +108,7 @@ export function Calendar() {
      window, so the gutter's labels line up with every column's gridlines. */
   const from = cal.days[0]?.from ?? cal.weekStart;
   const to = cal.days[0]?.to ?? cal.weekEnd;
-  const marks = hourMarks(from, to, cal.tz);
+  const marks = hourMarks(from, to);
 
   /* Fixed height in week view, so an hour is the same size on every screen.
      In day view the height follows the window: the page scrolls rather than
@@ -126,12 +129,12 @@ export function Calendar() {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
-        timeZone: cal.tz,
+        timeZone: tz,
       }).format(cal.cursor)
     : new Intl.DateTimeFormat('en-US', {
         month: 'long',
         year: 'numeric',
-        timeZone: cal.tz,
+        timeZone: tz,
       }).format(cal.weekStart);
 
   const edit = (entry: TimeEntry) => {
@@ -204,7 +207,6 @@ export function Calendar() {
               key={day.date}
               date={day.date}
               at={day.at}
-              tz={cal.tz}
               seconds={day.totalSeconds}
               nameless={byDay}
               /* 09:00, because a day added from the heading has no clicked
@@ -271,7 +273,6 @@ export function Calendar() {
                    this, so the inverse maths a click or drag uses has to take
                    the same pair — passing the full day here would put every
                    new entry at the wrong time. */
-                tz={cal.tz}
                 dayStart={day.from}
                 dayEnd={day.to}
                 marks={marks}
@@ -311,7 +312,6 @@ export function Calendar() {
         existing={editing}
         seed={seed}
         projects={projects.data?.projects ?? []}
-        tz={cal.tz}
       />
     </Page>
   );
@@ -421,7 +421,6 @@ function LegendItem({ colour, label }: { colour?: string; label: string }) {
 function DayHeading({
   date,
   at,
-  tz,
   seconds,
   onAdd,
   /** Day view: the `h1` already names this day, so the label would repeat it. */
@@ -429,7 +428,6 @@ function DayHeading({
 }: {
   date: string;
   at: Date;
-  tz: string;
   seconds: number;
   onAdd: () => void;
   nameless?: boolean;
@@ -443,9 +441,7 @@ function DayHeading({
     timeZone: tz,
   }).format(at);
 
-  const today =
-    new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date()) ===
-    date;
+  const today = localDateKey(new Date(), tz) === date;
 
   const full = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -495,7 +491,6 @@ type DragApi = ReturnType<typeof useEntryDrag>;
 function DayColumn({
   positioned,
   colors,
-  tz,
   dayStart,
   dayEnd,
   marks,
@@ -506,7 +501,6 @@ function DayColumn({
 }: {
   positioned: PositionedEntry[];
   colors: Map<string, string | null>;
-  tz: string;
   /** The window the column draws — not necessarily the whole day. */
   dayStart: Date;
   dayEnd: Date;
@@ -561,7 +555,6 @@ function DayColumn({
           key={item.entry.id}
           item={item}
           colors={colors}
-          tz={tz}
           dayStart={dayStart}
           dayEnd={dayEnd}
           column={column}
@@ -578,7 +571,6 @@ function DayColumn({
 function EntryBlock({
   item,
   colors,
-  tz,
   dayStart,
   dayEnd,
   column,
@@ -587,7 +579,6 @@ function EntryBlock({
 }: {
   item: PositionedEntry;
   colors: Map<string, string | null>;
-  tz: string;
   dayStart: Date;
   dayEnd: Date;
   column: React.RefObject<HTMLDivElement | null>;

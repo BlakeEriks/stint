@@ -8,6 +8,7 @@ import { api, ApiError, type Client, type Project } from '@/lib/client/api';
 import { Panel } from './page';
 import { ProjectDialog } from './project-dialog';
 import { ProjectRate } from './project-rate';
+import { keys } from '@/lib/client/query-keys';
 
 /**
  * The projects belonging to one client.
@@ -26,7 +27,7 @@ export function ClientProjects({ client }: { client: Client }) {
   const [editing, setEditing] = useState<Project | undefined>();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['projects', { clientId: client.id }],
+    queryKey: keys.projects({ clientId: client.id }),
     queryFn: () => api.projects({ clientId: client.id }),
   });
   const projects = data?.projects ?? [];
@@ -34,7 +35,7 @@ export function ClientProjects({ client }: { client: Client }) {
   // The user default is the last link in the chain, so the row cannot say
   // where a rate came from without it.
   const { data: settings } = useQuery({
-    queryKey: ['settings'],
+    queryKey: keys.settings(),
     queryFn: () => api.settings(),
   });
 
@@ -72,7 +73,7 @@ export function ClientProjects({ client }: { client: Client }) {
                   userDefaultRate={settings?.defaultHourlyRate ?? null}
                   onEdit={() => setEditing(project)}
                   onArchived={() =>
-                    queryClient.invalidateQueries({ queryKey: ['projects'] })
+                    queryClient.invalidateQueries({ queryKey: keys.projects() })
                   }
                 />
               </li>

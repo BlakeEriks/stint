@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { uuidv7 } from '@stint/core';
+import {
+  uuidv7,
+  addDays,
+  localDateKey,
+  localDateTimeToInstant,
+} from '@stint/core';
 import { Check, Loader2, Trash2 } from 'lucide-react';
 import {
   Dialog,
@@ -16,6 +21,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, ApiError, type Project, type TimeEntry } from '@/lib/client/api';
+import { keys, invalidateEntryData } from '@/lib/client/query-keys';
+import { timeZone } from '@/lib/client/use-timer';
 
 const LABEL = 'type-label text-subtle';
 
@@ -40,7 +47,7 @@ export function EntryDialog({
   onSaved,
   onClosed,
   projects,
-  tz,
+  tz = timeZone,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -75,7 +82,8 @@ export function EntryDialog({
    */
   onClosed?: (id: string) => void;
   projects: Project[];
-  tz: string;
+  /** Overridable so a test can pin a zone; production always uses the real one. */
+  tz?: string;
 }) {
   const queryClient = useQueryClient();
 
@@ -98,7 +106,7 @@ export function EntryDialog({
 
     const opened = existing ?? seed;
     const from = opened ? new Date(opened.startedAt) : new Date();
-    setDate(localDate(from, tz));
+    setDate(localDateKey(from, tz));
     setStart(localTime(from, tz));
     setEnd(opened?.endedAt ? localTime(new Date(opened.endedAt), tz) : '');
     setBillable(existing?.isBillable ?? true);
@@ -154,27 +162,24 @@ export function EntryDialog({
     const bail = setTimeout(finish, 1000);
   };
 
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['entries'] });
-    queryClient.invalidateQueries({ queryKey: ['summary'] });
-    queryClient.invalidateQueries({ queryKey: ['calendar'] });
-    /* `stats` too: editing an entry changes the unbilled total, and giving a
-       loose entry a project is what clears its inbox row. Without this the
-       row that opened this dialog still reports the old count afterwards,
-       which reads as the save having failed. */
-    queryClient.invalidateQueries({ queryKey: ['stats'] });
-  };
+  /* `stats` is in there too: editing an entry changes the unbilled total, and
+     giving a loose entry a project is what clears its inbox row. Without it
+     the row that opened this dialog still reports the old count afterwards,
+     which reads as the save having failed. */
+  const invalidate = () => invalidateEntryData(queryClient);
 
   const save = useMutation({
     mutationFn: async () => {
-      const startedAt = toInstant(date, start, tz);
-      const endedAt = toInstant(date, end, tz);
+      const startedAt = localDateTimeToInstant(date, start, tz);
+      const endedAt = localDateTimeToInstant(date, end, tz);
 
       /* An entry that ends "before" it starts is almost always an overnight
          shift — 22:00 to 02:00 — not a typo. Rolling the end forward a day is
          what the user meant, and the server would otherwise reject it. */
       const ended =
-        endedAt <= startedAt ? addDays(endedAt, 1, tz, date, end) : endedAt;
+        endedAt <= startedAt
+          ? localDateTimeToInstant(addDays(date, 1), end, tz)
+          : endedAt;
 
       const body = {
         taskName: taskName.trim(),
@@ -216,7 +221,7 @@ export function EntryDialog({
      The status is not on the entry, so it is fetched — only when there is an
      invoice to ask about, which is the rare case. */
   const billedOn = useQuery({
-    queryKey: ['invoices', existing?.invoiceId],
+    queryKey: keys.invoice(existing?.invoiceId),
     queryFn: () => api.invoice(existing!.invoiceId!),
     enabled: open && existing?.invoiceId != null,
   });
@@ -441,63 +446,17 @@ export function EntryDialog({
   );
 }
 
-/* ── local wall-clock <-> instant ──────────────────────────────────
-   The inputs are wall-clock in the user's timezone; the API is UTC. These
-   convert without fixed-millisecond arithmetic, for the same reason the
-   calendar uses `startOfLocalDayOffset`: a day containing a DST transition is
-   not 24 hours long, so adding 86_400_000 lands an hour off. */
-
-function parts(at: Date, tz: string) {
-  const f = new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-  return Object.fromEntries(
-    f.formatToParts(at).map((p) => [p.type, p.value]),
-  ) as Record<string, string>;
-}
-
-function localDate(at: Date, tz: string) {
-  const p = parts(at, tz);
-  return `${p.year}-${p.month}-${p.day}`;
-}
-
+/** `14:05` on a wall clock in `tz`. The date half is `localDateKey`. */
 function localTime(at: Date, tz: string) {
-  const p = parts(at, tz);
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+      .formatToParts(at)
+      .map((part) => [part.type, part.value]),
+  ) as Record<string, string>;
   return `${p.hour === '24' ? '00' : p.hour}:${p.minute}`;
-}
-
-/**
- * The instant at which `date` + `time` reads on a wall clock in `tz`.
- *
- * Resolved by guessing UTC and correcting by the offset that guess lands in,
- * which is the standard trick and is DST-correct: the correction is computed
- * *at* the target instant rather than assumed from today.
- */
-function toInstant(date: string, time: string, tz: string): Date {
-  const [y = 0, m = 1, d = 1] = date.split('-').map(Number);
-  const [hh = 0, mm = 0] = time.split(':').map(Number);
-  const guess = Date.UTC(y, m - 1, d, hh, mm);
-  const p = parts(new Date(guess), tz);
-  const landed = Date.UTC(
-    Number(p.year),
-    Number(p.month) - 1,
-    Number(p.day),
-    Number(p.hour === '24' ? 0 : p.hour),
-    Number(p.minute),
-  );
-  return new Date(guess + (guess - landed));
-}
-
-/** Same wall-clock time, `n` days later — via the calendar, not milliseconds. */
-function addDays(_at: Date, n: number, tz: string, date: string, time: string) {
-  const [y = 0, m = 1, d = 1] = date.split('-').map(Number);
-  const next = new Date(Date.UTC(y, m - 1, d + n));
-  const iso = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
-  return toInstant(iso, time, tz);
 }

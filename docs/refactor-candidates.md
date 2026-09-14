@@ -144,52 +144,10 @@ exactly this. Worth costing: generated Swift, versus a contract test decoding
 real fixtures, versus accepting the risk for a panel touching five endpoints.
 Cheapest immediate win is simply compiling it in CI.
 
-## 8. Formatting and DST helpers duplicated
-
-**Formatting across the PDF boundary.** Currency is built twice
-(`lib/client/format.ts:11`, `lib/invoice-pdf.tsx:233`) and
-`quantityHours.toFixed(2)` is inlined in `invoice-detail.tsx:118`,
-`invoice-new.tsx:282`, `invoice-pdf.tsx:345`. The preview a user approves and
-the PDF that issues format numbers through different code.
-`packages/core/src/invoice.ts` exists precisely so preview and generation share
-construction; formatting never got the same treatment.
-
-**The DST logic has the same disease as the rates.** `localDateKey` is exported
-from core and used correctly in two places — while **four** files hand-roll the
-same `Intl.DateTimeFormat('en-CA')`: `stats/route.ts:482`,
-`entry-dialog.tsx:451`, `activity-chart.tsx:271` and `calendar.tsx:447`.
-Separately, `toInstant` (`entry-dialog.tsx:444-503`)
-and `startOfLocalDate` (`core/calendar.ts`) are the same "guess UTC, correct by
-the offset the guess lands in" algorithm written twice with near-identical
-comments, and `nextDate` (`invoicing.ts:12`) duplicates `addDays`
-(`entry-dialog.tsx:498`) verbatim — `addDays` even takes an unused first
-parameter.
-
-This is the rate-resolution failure mode reproduced in the date logic, which
-`CLAUDE.md` correctly identifies as the most trap-laden code in the repo.
-
-## 9. Cache invalidation is hand-copied, and already wrong
-
-The list `['summary'], ['entries'], ['stats'], ['calendar']` is retyped at six
-call sites in varying order. **`use-timer.ts:114` invalidates only two of the
-four** — so stopping a timer leaves `stats` and `calendar` stale, and the dock
-and calendar keep showing pre-stop figures until something else refetches.
-
-Query keys compound it: `['clients', 'withArchived']` and
-`['clients', { archived: true }]` are different cache entries for overlapping
-data, and `['stats']` vs `['stats', tz]` coexist. 31 hand-written
-`invalidateQueries` calls, one named constant among them.
-
-A key factory plus one `invalidateEntryData()` removes the drift and fixes the
-`use-timer` bug as a side effect.
-
 ## Suggested sequencing
 
-**1** (one rate expression + a test asserting TS and SQL agree over the seed)
-and **9** (key factory, which fixes the `use-timer` staleness) are independent
-and self-contained — good first cuts. **7** is now cheap: the contract is
-load-bearing, so generating a Swift client is a generator rather than a
-rewrite.
+**7** is now cheap: the contract is load-bearing, so generating a Swift client
+is a generator rather than a rewrite.
 
 **4** is the biggest single deletion and needs a product decision first: is the
 exit animation worth keeping at all? Answer that before planning it.

@@ -9,7 +9,8 @@ import {
   localDateKey,
 } from '@stint/core';
 import { api, type CalendarDay, type TimeEntry } from './api';
-import { useTimeZone } from './use-timer';
+import { timeZone as tz } from './use-timer';
+import { keys } from './query-keys';
 
 export interface PositionedEntry {
   entry: TimeEntry;
@@ -43,8 +44,6 @@ export interface PositionedEntry {
  *   data, not a second data path.
  */
 export function useCalendar(weekStartsOn = 1, byDay = false) {
-  const tz = useTimeZone();
-
   /* ONE offset, counted in days from today, for both views.
 
      Two offsets (weeks and days) would drift apart the moment you crossed a
@@ -61,21 +60,21 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
   const cursor = useMemo(
     () =>
       startOfLocalDayOffset(startOfLocalDay(new Date(), tz), tz, -cursorDays),
-    [tz, cursorDays],
+    [cursorDays],
   );
 
   const weekStart = useMemo(
     () => startOfLocalWeek(cursor, tz, weekStartsOn),
-    [cursor, tz, weekStartsOn],
+    [cursor, weekStartsOn],
   );
 
   const weekEnd = useMemo(
     () => startOfLocalDayOffset(weekStart, tz, -7),
-    [weekStart, tz],
+    [weekStart],
   );
 
   const { data, isLoading } = useQuery({
-    queryKey: ['calendar', weekStart.toISOString(), tz],
+    queryKey: keys.calendar(weekStart.toISOString(), tz),
     queryFn: () =>
       api.calendar({
         from: weekStart.toISOString(),
@@ -123,7 +122,7 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
         positioned: position(day.entries, from, to),
       };
     });
-  }, [data, weekStart, tz, byDay]);
+  }, [data, weekStart, byDay]);
 
   const weekSeconds = days.reduce((sum, d) => sum + d.totalSeconds, 0);
 
@@ -140,7 +139,6 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
   const step = byDay ? 1 : 7;
 
   return {
-    tz,
     /** The columns to render — one day on a phone, seven otherwise. */
     days: visible,
     /** Always all seven, for anything that needs the week regardless. */

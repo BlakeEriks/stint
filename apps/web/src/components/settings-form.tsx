@@ -8,6 +8,7 @@ import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
 import { api, type Settings, type SettingsInput } from '@/lib/client/api';
 import { type Theme, useTheme } from '@/lib/client/use-theme';
+import { keys } from '@/lib/client/query-keys';
 
 /**
  * Settings.
@@ -24,7 +25,7 @@ export function SettingsForm() {
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
   const { data, isLoading } = useQuery({
-    queryKey: ['settings'],
+    queryKey: keys.settings(),
     queryFn: api.settings,
   });
 
@@ -47,7 +48,10 @@ export function SettingsForm() {
       nextInvoiceNumber?: number;
     };
     await api.updateSettings(rest);
-    queryClient.invalidateQueries({ queryKey: ['settings'] });
+    queryClient.invalidateQueries({ queryKey: keys.settings() });
+    /* The default rate and the monthly target are both inputs to the home
+       cards, so a settings edit that leaves them stale contradicts itself. */
+    queryClient.invalidateQueries({ queryKey: keys.stats() });
   };
 
   const billing = useAutosave(persist);

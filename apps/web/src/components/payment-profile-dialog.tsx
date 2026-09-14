@@ -20,6 +20,7 @@ import {
   type PaymentProfile,
   type PaymentProfileInput,
 } from '@/lib/client/api';
+import { keys } from '@/lib/client/query-keys';
 
 type Draft = Partial<PaymentProfile> & { name: string };
 
@@ -64,7 +65,7 @@ export function PaymentProfileDialog({
         ? api.updatePaymentProfile(existing.id, body)
         : api.createPaymentProfile(body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payment-profiles'] });
+      queryClient.invalidateQueries({ queryKey: keys.paymentProfiles() });
       onOpenChange(false);
     },
   });

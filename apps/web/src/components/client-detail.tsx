@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { api, ApiError } from '@/lib/client/api';
 import { DetailPage } from './page';
 import { ClientProjects } from './client-projects';
-import { money } from '@/lib/client/format';
+import { formatCurrency } from '@stint/core';
+import { keys } from '@/lib/client/query-keys';
 
 /** Named once, because loading, not-found and the client itself all use it. */
 const Shell = ({ children }: { children: React.ReactNode }) => (
@@ -22,14 +23,15 @@ export function ClientDetail({ id }: { id: string }) {
   const queryClient = useQueryClient();
 
   const { data: client, isLoading } = useQuery({
-    queryKey: ['clients', id],
+    queryKey: keys.client(id),
     queryFn: () => api.client(id),
   });
 
   const archive = useMutation({
     mutationFn: () => api.archiveClient(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: keys.clients() });
+      queryClient.invalidateQueries({ queryKey: keys.stats() });
       router.push('/clients');
     },
   });
@@ -102,7 +104,7 @@ export function ClientDetail({ id }: { id: string }) {
           label="Hourly rate"
           value={
             client.hourlyRate != null
-              ? `${money(client.hourlyRate, client.currency ?? undefined)}/h`
+              ? `${formatCurrency(client.hourlyRate, client.currency ?? undefined)}/h`
               : null
           }
           hint="Defaults to your standard rate."

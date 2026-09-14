@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { StatusBadge, money, shortDate } from './invoice-bits';
+import { StatusBadge, formatCurrency, shortDate } from './invoice-bits';
 import { api, type Invoice, type InvoiceStatus } from '@/lib/client/api';
 import { Empty, Page, Panel } from './page';
 import { Check, Plus } from 'lucide-react';
+import { keys } from '@/lib/client/query-keys';
 
 /**
  * Open means "money still owed": issued and not yet collected. A draft is
@@ -34,11 +35,11 @@ export function InvoiceList() {
   const showAll = status === 'all';
 
   const { data, isLoading } = useQuery({
-    queryKey: ['invoices'],
+    queryKey: keys.invoices(),
     queryFn: () => api.invoices(),
   });
   const { data: clientData } = useQuery({
-    queryKey: ['clients'],
+    queryKey: keys.clients(),
     queryFn: () => api.clients({ includeArchived: true }),
   });
 
@@ -60,8 +61,8 @@ export function InvoiceList() {
   const markPaid = useMutation({
     mutationFn: (id: string) => api.updateInvoiceStatus(id, { status: 'paid' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: keys.invoices() });
+      queryClient.invalidateQueries({ queryKey: keys.stats() });
     },
   });
 
@@ -105,7 +106,7 @@ export function InvoiceList() {
         {outstanding > 0 ? (
           <span className="type-support text-subtle">
             <span className="type-meta text-muted">
-              {money(outstanding, all[0]?.currency)}
+              {formatCurrency(outstanding, all[0]?.currency)}
             </span>{' '}
             outstanding
           </span>
@@ -179,7 +180,7 @@ function Row({
       </span>
 
       <span className="w-24 flex-none text-right type-duration text-primary">
-        {money(invoice.total, invoice.currency)}
+        {formatCurrency(invoice.total, invoice.currency)}
       </span>
 
       {/* Nothing destructive here either — voiding stays on the invoice. */}

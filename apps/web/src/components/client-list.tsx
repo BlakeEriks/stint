@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { api, type ClientWithScale } from '@/lib/client/api';
 import { Empty, Page, Panel } from './page';
 import { Plus } from 'lucide-react';
-import { money } from '@/lib/client/format';
+import { formatCurrency } from '@stint/core';
+import { keys } from '@/lib/client/query-keys';
 
 /** Rates are money and sit in a column, so they are mono and tabular. */
 export function ClientList() {
@@ -18,7 +19,7 @@ export function ClientList() {
   const wantArchived = status === 'archived' || status === 'all';
 
   const { data, isLoading } = useQuery({
-    queryKey: ['clients', { archived: wantArchived, scale: true }],
+    queryKey: keys.clients({ archived: wantArchived, scale: true }),
     queryFn: () =>
       api.clients({ includeArchived: wantArchived, withScale: true }),
   });
@@ -129,7 +130,7 @@ function Row({ client }: { client: ClientWithScale }) {
 
       <span className="w-24 flex-none text-right type-duration text-muted">
         {client.hourlyRate != null
-          ? `${money(client.hourlyRate, client.currency ?? undefined)}/h`
+          ? `${formatCurrency(client.hourlyRate, client.currency ?? undefined)}/h`
           : '—'}
       </span>
     </Link>
@@ -162,7 +163,7 @@ function Detail({ client }: { client: ClientWithScale }) {
      invoiced, which is the quiet good state and does not need a figure. */
   if (unbilledAmount > 0) {
     parts.push(
-      `${money(unbilledAmount, client.currency ?? undefined)} unbilled`,
+      `${formatCurrency(unbilledAmount, client.currency ?? undefined)} unbilled`,
     );
   }
   if (client.email) parts.push(client.email);

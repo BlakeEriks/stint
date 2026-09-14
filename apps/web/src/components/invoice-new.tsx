@@ -7,8 +7,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, Section, inputClass, textareaClass } from './field';
-import { money } from './invoice-bits';
-import { useTimeZone } from '@/lib/client/use-timer';
+import { formatCurrency } from './invoice-bits';
+import { formatHours } from '@stint/core';
+import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   api,
   ApiError,
@@ -16,6 +17,7 @@ import {
   type InvoicePreview,
 } from '@/lib/client/api';
 import { DetailPage } from './page';
+import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   { value: 'entry', label: 'Every entry', hint: 'One line per time entry.' },
@@ -38,7 +40,6 @@ const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
 export function NewInvoice() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const tz = useTimeZone();
 
   const [clientId, setClientId] = useState('');
   const [periodStart, setPeriodStart] = useState(defaultStart);
@@ -49,7 +50,7 @@ export function NewInvoice() {
   const [preview, setPreview] = useState<InvoicePreview | null>(null);
 
   const { data: clientData } = useQuery({
-    queryKey: ['clients'],
+    queryKey: keys.clients(),
     queryFn: () => api.clients(),
   });
   const clients = clientData?.clients ?? [];
@@ -78,7 +79,9 @@ export function NewInvoice() {
         dueDate: dueDate || undefined,
       }),
     onSuccess: (invoice) => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: keys.invoices() });
+      // Generation marks the entries invoiced, so they leave every unbilled view.
+      invalidateEntryData(queryClient);
       router.push(`/invoices/${invoice.id}`);
     },
   });
@@ -279,9 +282,9 @@ function PreviewTable({ preview }: { preview: InvoicePreview }) {
             {preview.lineItems.map((item, i) => (
               <tr key={i} className="border-b border-edge-subtle last:border-0">
                 <td className="py-2 pr-3 text-primary">{item.description}</td>
-                <Td>{item.quantityHours.toFixed(2)}</Td>
-                <Td>{money(item.resolvedRate, preview.currency)}</Td>
-                <Td strong>{money(item.amount, preview.currency)}</Td>
+                <Td>{formatHours(item.quantityHours)}</Td>
+                <Td>{formatCurrency(item.resolvedRate, preview.currency)}</Td>
+                <Td strong>{formatCurrency(item.amount, preview.currency)}</Td>
               </tr>
             ))}
           </tbody>
@@ -291,17 +294,17 @@ function PreviewTable({ preview }: { preview: InvoicePreview }) {
       <dl className="ml-auto flex w-full max-w-[16rem] flex-col gap-1 type-support">
         <Total
           label="Subtotal"
-          value={money(preview.subtotal, preview.currency)}
+          value={formatCurrency(preview.subtotal, preview.currency)}
         />
         {preview.taxRate > 0 ? (
           <Total
             label={`Tax (${preview.taxRate}%)`}
-            value={money(preview.taxAmount, preview.currency)}
+            value={formatCurrency(preview.taxAmount, preview.currency)}
           />
         ) : null}
         <Total
           label="Total"
-          value={money(preview.total, preview.currency)}
+          value={formatCurrency(preview.total, preview.currency)}
           strong
         />
       </dl>

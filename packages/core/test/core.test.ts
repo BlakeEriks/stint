@@ -9,6 +9,7 @@ import {
 import { resolveRate, resolveRateSource, lineAmount } from '../src/rates.ts';
 import { deriveTimerView } from '../src/timer.ts';
 import { uuidv7 } from '../src/uuid.ts';
+import { formatCurrency, formatHours } from '../src/format.ts';
 
 test('formatClock renders the timer format', () => {
   assert.equal(formatClock(0), '0:00:00');
@@ -124,4 +125,22 @@ test('uuidv7 is time-ordered and well-formed', () => {
     /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
   );
   assert.ok(a < b, 'later timestamp must sort after earlier');
+});
+
+/* One formatter, so the preview a user approves and the PDF that issues
+   describe the same number the same way. */
+test('formatCurrency renders a narrow symbol, defaulting to USD', () => {
+  assert.equal(formatCurrency(1200), '$1,200.00');
+  assert.equal(formatCurrency(1200, 'USD'), '$1,200.00');
+  assert.equal(formatCurrency(0), '$0.00');
+  // A missing amount is a blank line item, not a crash.
+  assert.equal(formatCurrency(null), '$0.00');
+  // An empty currency falls back rather than throwing on an invalid code.
+  assert.equal(formatCurrency(5, ''), '$5.00');
+});
+
+test('formatHours keeps the 2dp the amount was computed from', () => {
+  assert.equal(formatHours(1.5), '1.50');
+  assert.equal(formatHours(0), '0.00');
+  assert.equal(formatHours(10), '10.00');
 });

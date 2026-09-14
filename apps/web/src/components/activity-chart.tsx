@@ -2,10 +2,15 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { formatCompact, startOfLocalDayOffset } from '@stint/core';
+import {
+  formatCompact,
+  localDateKey,
+  startOfLocalDayOffset,
+} from '@stint/core';
 import { BarChart3 } from 'lucide-react';
 import { api } from '@/lib/client/api';
-import { useTimeZone } from '@/lib/client/use-timer';
+import { timeZone as tz } from '@/lib/client/use-timer';
+import { keys } from '@/lib/client/query-keys';
 
 /**
  * Hours per day, stacked by client.
@@ -50,13 +55,12 @@ const INTERNAL = '';
 const NEUTRAL = 'var(--text-subtle)';
 
 export function ActivityChart() {
-  const tz = useTimeZone();
   const [days, setDays] = useState<Days>(30);
   const now = new Date();
   const from = startOfLocalDayOffset(now, tz, days - 1);
 
   const { data } = useQuery({
-    queryKey: ['activity', tz, days],
+    queryKey: keys.activity(tz, days),
     queryFn: () =>
       api.activity({ from: from.toISOString(), to: now.toISOString(), tz }),
   });
@@ -65,7 +69,7 @@ export function ActivityChart() {
      belongs in the history, and dropping its colour would silently reassign
      those hours to the neutral band. */
   const { data: clientData } = useQuery({
-    queryKey: ['clients', 'withArchived'],
+    queryKey: keys.clients({ archived: true }),
     queryFn: () => api.clients({ includeArchived: true }),
   });
 
@@ -76,7 +80,7 @@ export function ActivityChart() {
 
   const columns = Array.from({ length: days }, (_, i) => {
     const at = startOfLocalDayOffset(now, tz, days - 1 - i);
-    const key = localKey(at, tz);
+    const key = localDateKey(at, tz);
     return { key, at, day: byDate.get(key) };
   });
 
@@ -260,15 +264,6 @@ function stackFor(
 
   named.sort((a, b) => b.seconds - a.seconds);
   return other > 0 ? [...named, { id: INTERNAL, seconds: other }] : named;
-}
-
-function localKey(at: Date, tz: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(at);
 }
 
 function monthDay(at: Date, tz: string): string {

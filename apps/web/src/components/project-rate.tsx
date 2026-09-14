@@ -2,7 +2,7 @@
 
 import { resolveRate } from '@stint/core';
 import type { Client, Project } from '@/lib/client/api';
-import { money } from '@/lib/client/format';
+import { formatCurrency } from '@stint/core';
 
 /**
  * The rate a project actually bills at, and WHERE IT CAME FROM.
@@ -65,7 +65,7 @@ export function ProjectRate({
 
   return (
     <p className="mt-0.5 type-amount text-primary">
-      {money(rate, client?.currency ?? undefined)}/h
+      {formatCurrency(rate, client?.currency ?? undefined)}/h
     </p>
   );
 }

@@ -83,6 +83,25 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
+/** A wrapper whose `invalidateQueries` is recorded, for the cache assertions. */
+function watched() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+  const invalidated: string[] = [];
+  const real = client.invalidateQueries.bind(client);
+  client.invalidateQueries = (filters?: { queryKey?: readonly unknown[] }) => {
+    invalidated.push(String(filters?.queryKey?.[0]));
+    return real(filters);
+  };
+  return {
+    invalidated,
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  };
+}
+
 const chooseClient = async (user: ReturnType<typeof userEvent.setup>) => {
   await screen.findByRole('option', { name: 'Acme Corp' });
   await user.selectOptions(screen.getByLabelText(/Client/), 'c1');
@@ -205,5 +224,27 @@ describe('NewInvoice', () => {
     await user.click(screen.getByRole('button', { name: /Generate/ }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith('/invoices/inv-1'));
+  });
+
+  /**
+   * Generation marks the entries invoiced, so every view that counts unbilled
+   * work is wrong the moment it returns. Invalidating only `invoices` left the
+   * home cards and the calendar still offering work that had just been billed.
+   */
+  it('refreshes everything derived from the entries it just billed', async () => {
+    serve();
+    const { invalidated, wrapper: watchedWrapper } = watched();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper: watchedWrapper });
+
+    await chooseClient(user);
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await screen.findByText('Design review');
+    await user.click(screen.getByRole('button', { name: /Generate/ }));
+
+    await waitFor(() => expect(invalidated).toContain('invoices'));
+    for (const key of ['summary', 'entries', 'stats', 'calendar']) {
+      expect(invalidated).toContain(key);
+    }
   });
 });

@@ -150,6 +150,42 @@ describe('useTimer', () => {
     expect(result.current.seconds).toBe(1500);
   });
 
+  /**
+   * Stopping a timer changes what every entry-derived view reports. It used to
+   * refresh only `summary` and `entries`, so the dock's stats and the calendar
+   * kept showing pre-stop figures until something else happened to refetch.
+   */
+  it('refreshes every entry-derived view when the timer stops', async () => {
+    serve(summary({ running: entry() }));
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    const invalidated: string[] = [];
+    const real = client.invalidateQueries.bind(client);
+    client.invalidateQueries = (filters?: {
+      queryKey?: readonly unknown[];
+    }) => {
+      invalidated.push(String(filters?.queryKey?.[0]));
+      return real(filters);
+    };
+
+    const { result } = renderHook(() => useTimer(), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    await act(async () => {
+      await result.current.stop.mutateAsync();
+    });
+
+    for (const key of ['summary', 'entries', 'stats', 'calendar']) {
+      expect(invalidated).toContain(key);
+    }
+  });
+
   it('flags a timer past the configured threshold', async () => {
     // 9h against an 8h threshold.
     vi.setSystemTime(new Date('2026-09-11T18:00:00.000Z'));

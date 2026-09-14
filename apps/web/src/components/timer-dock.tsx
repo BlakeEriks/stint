@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
 import { TimerBar } from './timer-bar';
+import { keys } from '@/lib/client/query-keys';
 
 /**
  * `TimerBar`, wired to its own data so the layout can mount it.
@@ -18,7 +19,7 @@ import { TimerBar } from './timer-bar';
  */
 export function TimerDock() {
   const { data } = useQuery({
-    queryKey: ['projects'],
+    queryKey: keys.projects(),
     queryFn: () => api.projects(),
   });
 
