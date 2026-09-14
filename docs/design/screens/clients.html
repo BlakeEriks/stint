@@ -1,0 +1,381 @@
+<meta charset="utf-8">
+<title>Stint Clients</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_mockup.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg-primary); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 88ch; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  .standfirst { margin: 0 0 1rem; color: var(--text-muted); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
+  .caption {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-subtle);
+    display: block; margin-top: .7rem;
+  }
+  table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+  th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  th {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle); font-weight: 500;
+  }
+  td { font-size: 14px; }
+  code { font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); }
+  .rule { list-style: none; margin: 1rem 0 0; padding: 0; }
+  .rule li { position: relative; padding-left: 1.5rem; margin-bottom: .85rem; }
+  .rule li::before {
+    content: ''; position: absolute; left: 0; top: .55em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--border-control);
+  }
+  .rule strong { color: var(--text-strong); font-weight: 600; }
+
+  .mock {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px; padding: 20px;
+    margin-top: 1.25rem;
+  }
+
+  /* ── the list ────────────────────────────────────────────────── */
+  .list-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding-bottom: 16px;
+  }
+  .h-title { font-size: 24px; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+
+  .btn {
+    border: 0; border-radius: 8px; padding: 7px 12px;
+    background: var(--accent-default); color: var(--text-on-accent);
+    font-family: var(--font-sans); font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  .btn.secondary { background: var(--bg-active); color: var(--text-primary); }
+  .btn.ghost { background: transparent; color: var(--text-muted); }
+
+  .rows { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
+  /* Each row is its own card, so the client's colour is that row's left
+     edge. Inside one panel the edges butt into a striped bar owned by no
+     row in particular. */
+  .row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-left: 2px solid var(--border-subtle);
+    border-radius: 10px; box-shadow: var(--shadow-card);
+    padding: 12px 16px;
+  }
+  .row .name { font-size: 14px; color: var(--text-primary); }
+  .row .detail {
+    display: block; margin-top: 2px;
+    font-size: 12px; color: var(--text-subtle);
+  }
+  .row .grow { min-width: 0; flex: 1; }
+  .row .rate {
+    width: 6rem; flex: none; text-align: right;
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size: 13px; color: var(--text-muted);
+  }
+  .badge {
+    flex: none; border: 1px solid var(--border-default); border-radius: 4px;
+    padding: 1px 6px; font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .panel {
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: 12px; box-shadow: var(--shadow-card);
+    padding: 40px 16px; text-align: center;
+    font-size: 13px; color: var(--text-subtle);
+  }
+  .archive-toggle {
+    margin-top: 12px; background: none; border: 0; padding: 0 4px; cursor: pointer;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle);
+  }
+
+  /* ── the detail page ─────────────────────────────────────────── */
+  .back {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle); text-decoration: none;
+  }
+  .d-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 0 24px; }
+  .d-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .chip { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .acts { display: flex; gap: 8px; flex: none; }
+
+  .facts {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px;
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: 12px; box-shadow: var(--shadow-card); padding: 20px;
+    margin: 0;
+  }
+  .facts dt {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .facts dd { margin: 4px 0 0; font-size: 14px; color: var(--text-primary); }
+  .facts dd.unset { color: var(--text-subtle); }
+  .facts dd.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; }
+  .facts .hint { margin: 2px 0 0; font-size: 12px; color: var(--text-subtle); }
+
+  /* ── swatches ────────────────────────────────────────────────── */
+  .swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .sw {
+    width: 28px; height: 28px; border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+  }
+  .sw.none {
+    background: transparent; display: grid; place-items: center;
+    font-size: 12px; color: var(--text-subtle);
+  }
+  .sw.sel { border-color: var(--border-control); box-shadow: 0 0 0 2px var(--border-control); }
+</style>
+
+<div class="page">
+  <p class="eyebrow">Stint · Screens</p>
+  <h1>Clients</h1>
+  <p class="standfirst">
+    <code>/clients</code>, one client's page, and the form that serves both
+    create and edit. A client is where a rate and a colour are set, which is
+    what makes it the top of two chains the rest of the app reads.
+  </p>
+
+  <!-- ═══════════════ the list ═══════════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">/clients</span></div>
+
+    <div class="mock">
+      <div class="list-head">
+        <span class="h-title">Clients</span>
+        <button class="btn">+ Add client</button>
+      </div>
+
+      <ul class="rows">
+        <li class="row" style="border-left-color:var(--proj-6)">
+          <span class="grow">
+            <span class="name">Northwind Trading</span>
+            <span class="detail">3 projects · $2,143.75 unbilled · billing@northwind.example</span>
+          </span>
+          <span class="rate">$175.00/h</span>
+        </li>
+        <li class="row" style="border-left-color:var(--proj-2)">
+          <span class="grow">
+            <span class="name">Harbour &amp; Co.</span>
+            <span class="detail">1 project · hello@harbour.example</span>
+          </span>
+          <span class="rate">$150.00/h</span>
+        </li>
+        <li class="row">
+          <span class="grow">
+            <span class="name">Bellweather Studio</span>
+            <span class="detail">2 projects · $485.00 unbilled</span>
+          </span>
+          <span class="rate">—</span>
+        </li>
+        <li class="row" style="border-left-color:var(--proj-4)">
+          <span class="grow">
+            <span class="name">Quill &amp; Press</span>
+            <span class="detail">4 projects</span>
+          </span>
+          <span class="badge">Archived</span>
+          <span class="rate">$120.00/h</span>
+        </li>
+      </ul>
+
+      <button class="archive-toggle">Show archived</button>
+    </div>
+    <span class="caption">Colour is the row's left edge · rate right-aligned and mono</span>
+
+    <ul class="rule">
+      <li><strong>The detail line is scale, not contents.</strong> Project
+        count and unbilled amount answer "where is my work?" without a click.
+        A disclosure row would change the list's height as you poke it and
+        put project rows in a second place.</li>
+      <li><strong>Zero unbilled is omitted.</strong> Everything invoiced is
+        the quiet good state; a row of zeroes is noise.</li>
+      <li><strong>An unset rate is <code>—</code>, never <code>$0.00</code>.</strong>
+        Zero is a real rate someone can choose, so the two must look
+        different. The client falls back to the user default.</li>
+      <li><strong>Archived clients are hidden behind a toggle</strong> and
+        keep their row shape, because a past client is still where past
+        invoices point.</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════ one client ═══════════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">/clients/:id</span></div>
+
+    <div class="mock">
+      <a class="back" href="#x">← Clients</a>
+      <div class="d-head">
+        <span class="d-name">
+          <span class="chip" style="background:var(--proj-6)"></span>
+          <span class="h-title">Northwind Trading</span>
+        </span>
+        <span class="acts">
+          <button class="btn secondary">Edit</button>
+          <button class="btn ghost">Archive</button>
+        </span>
+      </div>
+
+      <dl class="facts">
+        <div>
+          <dt>Email</dt>
+          <dd>billing@northwind.example</dd>
+        </div>
+        <div>
+          <dt>Hourly rate</dt>
+          <dd class="mono">$175.00/h</dd>
+        </div>
+        <div>
+          <dt>Tax rate</dt>
+          <dd class="mono">0%</dd>
+        </div>
+        <div>
+          <dt>Address</dt>
+          <dd class="unset">Not set</dd>
+          <p class="hint">Appears on the invoice.</p>
+        </div>
+      </dl>
+    </div>
+    <span class="caption">The colour is a chip here, not an edge — one subject, not a row in a list</span>
+
+    <ul class="rule">
+      <li><strong>A hint replaces an unset value, never accompanies a set
+        one.</strong> "Defaults to your standard rate" is useful while the
+        field is empty and is clutter once it is filled.</li>
+      <li><strong><code>0%</code> tax renders as <code>0%</code>.</strong>
+        Checked with <code>!= null</code>, not truthiness — a US contractor
+        invoicing services sets zero deliberately, and "Not set" would be
+        wrong about tax.</li>
+      <li><strong>A refused archive says so in the page.</strong> Leaving the
+        button live and the client unchanged reads as the click not
+        registering, and the refusal is worth reading: something references
+        this client.</li>
+      <li><strong>Archived shows a line, not a different layout</strong> —
+        "Past invoices still reference this client" — and the Archive button
+        goes.</li>
+    </ul>
+
+    <p style="margin-top:1.5rem;color:var(--text-muted)">
+      The Projects section below these facts is specified in
+      <code>projects.html</code>, which owns every place a project row is
+      drawn.
+    </p>
+  </section>
+
+  <!-- ═══════════════ colour ═══════════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Colour</span></div>
+
+    <p>
+      <strong style="color:var(--text-strong)">Only clients have a colour</strong>,
+      and it answers one question wherever it appears: <em>whose work is
+      this?</em> The calendar, the entry list and this list all read the same
+      value through <code>useProjectColors()</code>.
+    </p>
+
+    <div class="mock">
+      <div class="swatches">
+        <span class="sw none">—</span>
+        <span class="sw" style="background:var(--proj-1)"></span>
+        <span class="sw sel" style="background:var(--proj-2)"></span>
+        <span class="sw" style="background:var(--proj-3)"></span>
+        <span class="sw" style="background:var(--proj-4)"></span>
+        <span class="sw" style="background:var(--proj-5)"></span>
+        <span class="sw" style="background:var(--proj-6)"></span>
+        <span class="sw" style="background:var(--proj-7)"></span>
+        <span class="sw" style="background:var(--proj-8)"></span>
+      </div>
+    </div>
+    <span class="caption">Eight generated colours and none · the selected one carries a ring</span>
+
+    <table>
+      <tr><th></th><th>L</th><th>C</th><th>Hues</th></tr>
+      <tr><td>The eight</td><td><code>0.700</code></td><td><code>0.110</code></td><td><code>15…335</code>, stepping over 142</td></tr>
+      <tr><td>The accent</td><td><code>0.871</code></td><td><code>0.260</code></td><td><code>142</code></td></tr>
+    </table>
+
+    <ul class="rule">
+      <li><strong>A closed set, not a colour input.</strong> One lightness and
+        one chroma for all eight, well under the accent on both, so a chip can
+        never out-bright the running timer. An arbitrary colour could.</li>
+      <li><strong>None is a real choice</strong>, first in the row. Internal
+        work has no client and so no colour, and that is a state to pick, not
+        an absence to explain.</li>
+      <li><strong>Selection is a ring, never a checkmark</strong> — a glyph
+        drawn on the colour has to contrast against all eight.</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════ the form ═══════════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Add and edit</span></div>
+
+    <p>
+      One form for both, differing only in which request it issues, so the
+      field set and its validation cannot drift. It renders as a page and
+      inside a dialog — created mid-flow from the project dialog — so what
+      happens after a save is passed in: the page goes to the new client, the
+      dialog hands it back to the select that asked.
+    </p>
+
+    <table>
+      <tr><th>Field</th><th>Required</th><th>Empty means</th></tr>
+      <tr><td>Name</td><td>Yes</td><td>—</td></tr>
+      <tr><td>Email</td><td>No</td><td><code>null</code>, not <code>""</code></td></tr>
+      <tr><td>Address</td><td>No</td><td><code>null</code> · appears on the invoice</td></tr>
+      <tr><td>Hourly rate</td><td>No</td><td>Falls back to the user default</td></tr>
+      <tr><td>Tax rate %</td><td>No</td><td>No tax line on the invoice</td></tr>
+      <tr><td>Colour</td><td>No</td><td>No edge in any list</td></tr>
+    </table>
+
+    <ul class="rule">
+      <li><strong>Submit is disabled until the name is non-empty</strong>, and
+        it is the only required field — everything else has a defined
+        fallback.</li>
+      <li><strong>An empty optional field saves <code>null</code>.</strong>
+        The columns are nullable and the schema rejects a blank email, so an
+        empty string is a validation error rather than "unset".</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════ the rate chain ═══════════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Where the rate goes</span></div>
+
+    <p>
+      A client's rate is the middle link. <code>resolveRate()</code> in
+      <code>@stint/core</code> reads them in order, and the first non-null
+      wins — <code>0</code> included, which is why the chain coalesces on
+      null rather than on truthiness.
+    </p>
+
+    <table>
+      <tr><th>Order</th><th>Source</th><th>Set in</th></tr>
+      <tr><td><code>1</code></td><td>Entry override</td><td>The entry dialog</td></tr>
+      <tr><td><code>2</code></td><td>Project rate</td><td>The project dialog</td></tr>
+      <tr><td><code>3</code></td><td><strong style="color:var(--text-strong)">Client rate</strong></td><td>This screen</td></tr>
+      <tr><td><code>4</code></td><td>User default</td><td>Settings</td></tr>
+      <tr><td><code>—</code></td><td>No rate anywhere</td><td>Invoicing refuses to generate</td></tr>
+    </table>
+
+    <ul class="rule">
+      <li><strong>Archive, never delete.</strong> Invoices and time entries
+        reference clients, and an issued invoice must render the same
+        document a year later.</li>
+      <li><strong>The rate on an issued invoice is frozen.</strong> Changing
+        it here changes what future work bills at and nothing already
+        billed.</li>
+    </ul>
+  </section>
+</div>
