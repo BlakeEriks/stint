@@ -15,29 +15,19 @@ struct Session: Codable, Equatable {
         case user
     }
 
-    init(accessToken: String, refreshToken: String, expiresAt: Date, email: String?) {
-        self.accessToken = accessToken
-        self.refreshToken = refreshToken
-        self.expiresAt = expiresAt
-        self.email = email
-    }
+    private struct User: Codable { let email: String? }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         accessToken = try c.decode(String.self, forKey: .accessToken)
         refreshToken = try c.decode(String.self, forKey: .refreshToken)
-
-        // GoTrue sends `expires_at` as a Unix second AND `expires_in` as a
-        // duration. Prefer the absolute one: a duration is relative to a
-        // response time this app does not know precisely.
+        // `expires_at` is absolute; `expires_in` is relative to a response
+        // time this app does not know precisely.
         if let at = try? c.decode(Double.self, forKey: .expiresAt) {
             expiresAt = Date(timeIntervalSince1970: at)
         } else {
-            let seconds = (try? c.decode(Double.self, forKey: .expiresIn)) ?? 3600
-            expiresAt = Date().addingTimeInterval(seconds)
+            expiresAt = Date().addingTimeInterval((try? c.decode(Double.self, forKey: .expiresIn)) ?? 3600)
         }
-
-        struct User: Decodable { let email: String? }
         email = (try? c.decode(User.self, forKey: .user))?.email
     }
 
@@ -46,27 +36,21 @@ struct Session: Codable, Equatable {
         try c.encode(accessToken, forKey: .accessToken)
         try c.encode(refreshToken, forKey: .refreshToken)
         try c.encode(expiresAt.timeIntervalSince1970, forKey: .expiresAt)
-        struct User: Encodable { let email: String? }
         try c.encode(User(email: email), forKey: .user)
     }
 }
 
 /// Holds the session, refreshes it before it dies, and keeps it in the
-/// Keychain so quitting the app is not signing out.
-///
-/// An access token lives an hour (`jwt_expiry = 3600`) and rotation is on, so
-/// refreshing is not optional: an app left open overnight would otherwise 401
-/// on every poll by morning and read as broken rather than signed out.
+/// Keychain so quitting is not signing out. `jwt_expiry` is an hour with
+/// rotation on, so refresh is mandatory.
 actor TokenStore {
     private let supabaseURL: URL
     private let anonKey: String
     private var session: Session?
-    /// One in-flight refresh, shared. Two pollers racing would each spend a
+    /// One in-flight refresh, shared: two pollers racing would each spend a
     /// rotating refresh token and one would lose.
     private var refreshTask: Task<Session, Error>?
-
-    /// Fires when the session appears or disappears, so the UI can follow.
-    var onChange: (@Sendable (Session?) -> Void)?
+    private var onChange: (@Sendable (Session?) -> Void)?
 
     init(supabaseURL: URL, anonKey: String) {
         self.supabaseURL = supabaseURL
@@ -79,9 +63,7 @@ actor TokenStore {
         handler(session)
     }
 
-    var current: Session? { session }
     var isSignedIn: Bool { session != nil }
-    var email: String? { session?.email }
 
     func store(_ session: Session) {
         self.session = session
@@ -97,14 +79,11 @@ actor TokenStore {
         onChange?(nil)
     }
 
-    /// A token good for the next request, refreshing first if it is close to
-    /// expiry. Sixty seconds of headroom: a token that expires mid-flight
-    /// fails a request that had every reason to succeed.
+    /// A token good for the next request, refreshed with 60s of headroom so
+    /// one cannot expire mid-flight.
     func accessToken() async -> String? {
         guard let session else { return nil }
-        guard session.expiresAt.timeIntervalSinceNow < 60 else {
-            return session.accessToken
-        }
+        guard session.expiresAt.timeIntervalSinceNow < 60 else { return session.accessToken }
 
         if let existing = refreshTask {
             return try? await existing.value.accessToken
@@ -114,9 +93,7 @@ actor TokenStore {
         defer { refreshTask = nil }
 
         guard let refreshed = try? await task.value else {
-            // The refresh token is spent or revoked; this is a real sign-out,
-            // not a transient failure, and pretending otherwise would leave
-            // the app retrying forever against a session that cannot return.
+            // The refresh token is spent or revoked: a real sign-out.
             signOut()
             return nil
         }
@@ -142,24 +119,23 @@ actor TokenStore {
     }
 }
 
-/// The Keychain, holding one session under a fixed account.
-///
-/// Not `UserDefaults`: a refresh token is a long-lived credential and a plist
-/// in the app container is readable by anything running as the user.
+/// The login Keychain, holding one session under a fixed account. Not
+/// `UserDefaults`: a refresh token is a long-lived credential.
 ///
 /// **Every call shells out to `/usr/bin/security`. Do not replace this with
 /// `SecItemCopyMatching`.** A grant is checked against a partition list as
 /// well as an ACL, and macOS pins that list to the calling binary's `cdhash`
 /// whenever the app has no team identifier — which a self-signed certificate
 /// cannot carry. The hash changes with the code, so an in-process read is a
-/// new caller on every build and prompts for the login password. Signing and
-/// an explicit `SecAccess` both leave that untouched. `/usr/bin/security` has
-/// a fixed identity, so one grant holds.
+/// new caller on every build and prompts for the login password, "Always
+/// Allow" included. Signing and an explicit `SecAccess` both leave that
+/// untouched. `/usr/bin/security` has a fixed identity, so one grant holds
+/// across rebuilds.
 ///
-/// The trade: anything running as this user can invoke `security` too, so the
-/// item rests on the login keychain's lock rather than on app identity. A
-/// Developer ID would earn a `teamid:` partition and make the in-process API
-/// viable — see `docs/tasks.md`.
+/// The trade: anything running as this user can invoke `security` too, so
+/// the item rests on the login keychain's lock rather than on app identity.
+/// A Developer ID would earn a `teamid:` partition and make the in-process
+/// API viable — see `docs/tasks.md`.
 private enum Keychain {
     private static let service = "dev.stint.session"
     private static let account = "supabase"
@@ -171,31 +147,26 @@ private enum Keychain {
         return try? JSONDecoder().decode(Session.self, from: data)
     }
 
+    /// No `-T`, deliberately: the caller is `security`, so a fresh item
+    /// already trusts it, and `-T` with `-U` appends to the ACL — the one
+    /// write still guarded by the owner's password, which would then be
+    /// asked for at every hourly refresh.
     static func write(_ session: Session) {
         guard let data = try? JSONEncoder().encode(session),
               let json = String(data: data, encoding: .utf8)
         else { return }
-        /* No `-T`, deliberately. The caller IS `security`, so a fresh item
-           already trusts it. Adding `-T` makes `-U` append to the ACL, and an
-           ACL change is the one write still guarded by the owner's password —
-           which this path would then ask for at every hourly token refresh. */
-        _ = run([
-            "add-generic-password", "-U",
-            "-s", service, "-a", account, "-w", json,
-        ])
+        _ = run(["add-generic-password", "-U", "-s", service, "-a", account, "-w", json])
     }
 
     static func clear() {
         _ = run(["delete-generic-password", "-s", service, "-a", account])
     }
 
-    /* Arguments are passed as argv, never through a shell: the session is
-       JSON and carries quotes and braces that a shell would interpret. */
+    /// Arguments go as argv, never through a shell: the session is JSON.
     private static func run(_ arguments: [String]) -> String? {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/security")
         task.arguments = arguments
-
         let stdout = Pipe()
         task.standardOutput = stdout
         task.standardError = FileHandle.nullDevice
@@ -205,9 +176,7 @@ private enum Keychain {
         task.waitUntilExit()
         guard task.terminationStatus == 0 else { return nil }
 
-        let text = String(decoding: out, as: UTF8.self)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = String(decoding: out, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         return text.isEmpty ? nil : text
     }
 }
-

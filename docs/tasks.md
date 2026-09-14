@@ -40,9 +40,18 @@ later.
 - [ ] **The menu bar panel names no client.** `menubar.html` draws the client
       NAME under the task while a timer runs ("Northwind Trading" beside its
       dot), where the panel now shows the project alone. The colour is
-      resolved; the name needs `Client.name` decoding and a second line in
-      `RunningRow`. Cheap, but it is another line in a 320pt panel — worth
+      resolved; the name needs `Client.name` decoding and a second line under
+      `RenameRow`. Cheap, but it is another line in a 320pt panel — worth
       confirming it earns the height before adding it.
+
+- [ ] **The menu bar app sets type in the system font.** `menubar.md` asks
+      for IBM Plex, shipped with the app. `TypeRole` in `ContentView.swift`
+      has the two lines where the family lands; the fonts need vendoring as a
+      SwiftPM resource and registering at launch.
+
+- [ ] **Settings as a pushed view in the menu bar panel.** `menubar.html`
+      specifies it — runaway threshold, shortcut, show time in bar, launch at
+      login, with the account block beneath. The gear opens a `Menu` today.
 
 - [ ] **The web sign-in sets the word instead of drawing the mark.**
       `signin-form.tsx` has `<h1 className="type-title">Stint</h1>`, so it
