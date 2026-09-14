@@ -328,14 +328,6 @@ moves up — do not start one by guessing the answer.
       of a two-release retirement: a migration of its own that drops the
       column and touches no code.
 
-- [ ] **A settings patch can break the target pairing and return 500.**
-      `UpdateSettings`'s refine only fires when `monthlyTarget` and
-      `monthlyTargetUnit` are both in the same body, so setting one against an
-      existing other passes Zod and hits the database check constraint, which
-      `errors.ts` does not map — the caller sees `INTERNAL` where it should see
-      a 422. Either widen the refine to read the stored row, or map the check
-      violation the way `isBilledLock` is mapped.
-
 - [ ] **A 90-day activity range needs week bucketing.**
       `granularity: 'week'`, server-side for the same DST reason day bucketing
       already lives there — a route change with its own correctness tests, not

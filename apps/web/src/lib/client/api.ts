@@ -126,12 +126,7 @@ export type CalendarDay = Response<Omit<schema.CalendarDay, 'entries'>> & {
 };
 
 /** A day of the activity strip: totals, no entries. */
-export interface ActivityDay {
-  date: string;
-  totalSeconds: number;
-  /** Client id -> seconds. `''` is internal work. */
-  byClient: Record<string, number>;
-}
+export type ActivityDay = Response<schema.CalendarTotalsDay>;
 
 export type Summary = Response<Omit<schema.Summary, 'running'>> & {
   running: TimeEntry | null;
@@ -139,7 +134,8 @@ export type Summary = Response<Omit<schema.Summary, 'running'>> & {
 
 export type GroupingMode = z.infer<typeof schema.GroupingMode>;
 export type InvoiceStatus = z.infer<typeof schema.InvoiceStatus>;
-export type InvoiceLineItem = Response<schema.InvoiceLineItem>;
+export type ComputedLineItem = Response<schema.ComputedLineItem>;
+export type StoredLineItem = Response<schema.StoredLineItem>;
 
 /** Everything a project is created or edited with. */
 export type ProjectInput = Partial<Omit<Project, 'id' | 'archivedAt'>> &
@@ -315,7 +311,7 @@ export const api = {
   invoice: (id: string) =>
     request<
       Invoice & {
-        lineItems: InvoiceLineItem[];
+        lineItems: StoredLineItem[];
         client: Pick<Client, 'id' | 'name' | 'email' | 'address'>;
       }
     >('GET', `/invoices/${id}`),
@@ -340,7 +336,12 @@ export const api = {
     dueDate?: string;
     notes?: string;
     paymentTerms?: string;
-  }) => request<Invoice>('POST', '/invoices', body),
+  }) =>
+    request<Invoice & { lineItems: ComputedLineItem[]; entryCount: number }>(
+      'POST',
+      '/invoices',
+      body,
+    ),
 
   updateInvoiceStatus: (
     id: string,

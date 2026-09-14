@@ -795,6 +795,26 @@ test('a target and its unit must be set or cleared together', async () => {
   assert.equal(res.status, 422);
 });
 
+/* Zod cannot see the stored row, so a patch naming only one half of the pair
+   passes it and the database check is what rejects the result. */
+test('clearing only the unit breaks the pairing with a 422, not a 500', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+
+  await patch(
+    req(
+      '/settings',
+      { monthlyTarget: 120, monthlyTargetUnit: 'hours' },
+      'PATCH',
+    ),
+  );
+
+  const res = await json(
+    await patch(req('/settings', { monthlyTargetUnit: null }, 'PATCH')),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
+});
+
 // ── calendar ───────────────────────────────────────────────────────
 test('calendar groups entries by LOCAL day', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');

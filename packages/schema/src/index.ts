@@ -310,28 +310,39 @@ export const InvoicePreviewRequest = z.object({
   tz: timeZoneStrict,
 });
 
+/** What every line item states, however it was produced. */
 export const InvoiceLineItem = z.object({
   description: z.string(),
   quantitySeconds: z.number().int().nonnegative(),
   quantityHours: z.number().nonnegative(),
   resolvedRate: money,
-  /**
-   * Which level of the hierarchy supplied the rate — **preview and generation
-   * only**.
-   *
-   * `buildLineItems` computes it in memory, but there is no `rate_source`
-   * column: an issued invoice's lines are read back from the database, and
-   * the frozen row cannot say where the rate came from. So it is optional,
-   * and a caller reading an existing invoice must not rely on it.
-   *
-   * Deliberately not persisted. The rate itself is what the client is owed;
-   * how it was derived is a fact about configuration at generation time, and
-   * storing it would be a second thing to keep true forever.
-   */
-  rateSource: z
-    .enum(['entry', 'project', 'client', 'default', 'none'])
-    .optional(),
   amount: money,
+});
+
+/**
+ * A line item as `buildLineItems` computes it — what `/invoices/preview` and
+ * `POST /invoices` return.
+ *
+ * `rateSource` and `entryIds` are deliberately not persisted: the rate is
+ * what the client is owed, and how it was derived is a fact about
+ * configuration at generation time that would be a second thing to keep true
+ * forever. So neither can appear on a line read back from the database.
+ */
+export const ComputedLineItem = InvoiceLineItem.extend({
+  /** Which level of the hierarchy supplied the rate. */
+  rateSource: z.enum(['entry', 'project', 'client', 'default', 'none']),
+  /** The entries this line merged. Internal ids; see `docs/tasks.md`. */
+  entryIds: z.array(uuid),
+});
+
+/**
+ * A line item frozen onto an issued invoice and read back — what
+ * `GET /invoices/:id` returns. `sortOrder` is the stored order that keeps a
+ * re-downloaded PDF identical to the one first issued.
+ */
+export const StoredLineItem = InvoiceLineItem.extend({
+  id: uuid,
+  sortOrder: z.number().int().nonnegative(),
 });
 
 export const InvoicePreview = z.object({
@@ -342,7 +353,7 @@ export const InvoicePreview = z.object({
   periodStart: z.iso.date(),
   periodEnd: z.iso.date(),
   groupingMode: GroupingMode,
-  lineItems: z.array(InvoiceLineItem),
+  lineItems: z.array(ComputedLineItem),
   subtotal: money,
   taxRate: z.number().min(0).max(100),
   taxAmount: money,
@@ -411,12 +422,26 @@ export const ListInvoicesQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 
-/** A day of tracked time, grouped server-side so every client agrees on
- *  which local day an entry belongs to. */
-export const CalendarDay = z.object({
+/** What both granularities share: a local day and its total. Grouped
+ *  server-side so every client agrees which day an entry belongs to. */
+const CalendarDayBase = z.object({
   date: z.iso.date(),
   totalSeconds: z.number().int().nonnegative(),
+});
+
+/** `granularity=entry` — the day with the entries that make it up. */
+export const CalendarDay = CalendarDayBase.extend({
   entries: z.array(TimeEntry),
+});
+
+/**
+ * `granularity=day` — totals only, for the activity strip.
+ *
+ * `byClient` keys by client id, with `''` for internal work: a day spent
+ * unbilled is not an empty day. Running entries contribute nothing.
+ */
+export const CalendarTotalsDay = CalendarDayBase.extend({
+  byClient: z.record(z.string(), z.number().int().nonnegative()),
 });
 
 export const UpdateInvoiceStatus = z.object({
@@ -625,5 +650,8 @@ export type UnbilledClient = z.infer<typeof UnbilledClient>;
 export type ClientWithScale = z.infer<typeof ClientWithScale>;
 export type Invoice = z.infer<typeof Invoice>;
 export type CalendarDay = z.infer<typeof CalendarDay>;
+export type CalendarTotalsDay = z.infer<typeof CalendarTotalsDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
+export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
+export type StoredLineItem = z.infer<typeof StoredLineItem>;
 export type ApiError = z.infer<typeof ApiError>;

@@ -55,6 +55,16 @@ export function handle<T extends unknown[]>(
       if (err instanceof ApiError) {
         return errorResponse(err.code, err.message, err.details);
       }
+      /* A check constraint is the database restating a rule the request
+         broke, so it is the caller's error however it got there — a partial
+         patch can break a pairing no single-body Zod refinement can see. */
+      if (isCheckViolation(err)) {
+        return errorResponse(
+          'VALIDATION_FAILED',
+          'The database rejected this change as invalid',
+          { constraint: (err as { message?: string }).message },
+        );
+      }
       console.error('Unhandled API error:', err);
       return NextResponse.json(
         { code: 'INTERNAL', message: 'Internal server error' },
@@ -79,6 +89,11 @@ export function isTimerConflict(
     err?.code === PG.UNIQUE_VIOLATION &&
     (err.message ?? '').includes('one_running_timer_per_user')
   );
+}
+
+/** Postgres rejected the row against a CHECK — a rule the request broke. */
+export function isCheckViolation(err: unknown): boolean {
+  return (err as { code?: string } | null)?.code === PG.CHECK_VIOLATION;
 }
 
 /** The trigger guarding entries billed on a non-draft invoice. */

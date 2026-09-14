@@ -93,9 +93,9 @@ other field of `Settings` is, including the `minEntrySeconds` /
 `maxEntryHours` thresholds that drive the inbox's strange-duration row, and
 `monthlyTarget` / `monthlyTargetUnit`, which must be set or cleared together.
 `monthlyTarget` is **positive or null** — `0` is a `422`, since a zero target
-is a cleared one said a second way. The pairing's `422` fires only when
+is a cleared one said a second way. The pairing's Zod `422` fires only when
 **both** keys are in the same patch; a single-field patch that breaks it
-reaches the database constraint, which surfaces as a `500`.
+reaches the database constraint, which is mapped to the same `422`.
 
 A client carries `paymentProfileId` on `POST` and `PATCH` — every field of
 `Client` is writable except `id` and `archivedAt`.
@@ -111,7 +111,7 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 | `GET` | `/invoices` | `?clientId&status&limit` (1–200, default 50), newest first — ordered by invoice sequence, not issue date. |
 | `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, tz? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `total`, `entryCount`, `unratedEntryIds`, plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
 | `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries. Also accepts `issueDate`, `dueDate`, `notes`, `paymentTerms`, `tz`. Returns the `Invoice` plus `lineItems` and `entryCount`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if the period holds no billable time; `422 VALIDATION_FAILED` on an invalid `tz`. |
-| `GET` | `/invoices/:id` | Invoice + frozen line items + the client's `{ id, name, email, address }` (not the full client row). Returned **flat**, like every other detail route. These `lineItems` carry `id` and `sortOrder` and never `rateSource`; the ones a preview returns are the other way round. |
+| `GET` | `/invoices/:id` | Invoice + frozen line items + the client's `{ id, name, email, address }` (not the full client row). Returned **flat**, like every other detail route. These `lineItems` carry `id` and `sortOrder`; the ones a preview or a generation returns carry `rateSource` and `entryIds` instead. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Releases its entries. |
 | `GET` | `/invoices/:id/pdf` | Streams `application/pdf` from the frozen line items. `?download=1` for `attachment` rather than an inline preview. |
 | `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent. `422 VALIDATION_FAILED` on a transition the table below forbids. |
