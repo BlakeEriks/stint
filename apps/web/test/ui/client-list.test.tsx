@@ -5,7 +5,13 @@ import type { ReactNode } from 'react';
 import { ClientList } from '@/components/client-list';
 import type { ClientWithScale } from '@/lib/client/api';
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/clients' }));
+/* Held in a box so a test can set the filter before rendering: the mock
+   factory is hoisted above every other statement in this file. */
+const search = { value: new URLSearchParams() };
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => search.value,
+  usePathname: () => '/clients',
+}));
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({
@@ -40,7 +46,11 @@ function serve(clients: ClientWithScale[]) {
   return urls;
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  // The filter is module state, so a test that sets it would leak into the next.
+  search.value = new URLSearchParams();
+});
 
 describe('ClientList', () => {
   it('asks the server for scale rather than deriving it in the browser', async () => {
@@ -124,5 +134,44 @@ describe('ClientList', () => {
     await waitFor(() =>
       expect(screen.getByText('$187.50 unbilled')).toBeInTheDocument(),
     );
+  });
+
+  /* The filter lives in the URL rather than component state, so the view is
+     linkable and Back returns to it. These pin the two halves of that: what
+     the server is asked for, and what survives the narrowing afterwards. */
+  it('asks only for active clients until a filter says otherwise', async () => {
+    const urls = serve([client()]);
+    render(<ClientList />, { wrapper });
+
+    await waitFor(() => expect(urls.length).toBeGreaterThan(0));
+    expect(urls.some((u) => u.includes('includeArchived'))).toBe(false);
+  });
+
+  it('narrows to archived only, though the server returns both', async () => {
+    search.value = new URLSearchParams('status=archived');
+    serve([
+      client({ id: 'c1', name: 'Northwind' }),
+      client({ id: 'c2', name: 'Quill', archivedAt: '2026-01-04T00:00:00Z' }),
+    ]);
+    render(<ClientList />, { wrapper });
+
+    /* `includeArchived` ADDS archived rows to the active ones, so "Archived"
+       has to filter what came back — asking the server is not enough. */
+    await waitFor(() => expect(screen.getByText('Quill')).toBeInTheDocument());
+    expect(screen.queryByText('Northwind')).not.toBeInTheDocument();
+  });
+
+  it('keeps both under "All"', async () => {
+    search.value = new URLSearchParams('status=all');
+    serve([
+      client({ id: 'c1', name: 'Northwind' }),
+      client({ id: 'c2', name: 'Quill', archivedAt: '2026-01-04T00:00:00Z' }),
+    ]);
+    render(<ClientList />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('Northwind')).toBeInTheDocument(),
+    );
+    expect(screen.getByText('Quill')).toBeInTheDocument();
   });
 });

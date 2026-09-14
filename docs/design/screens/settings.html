@@ -1,0 +1,389 @@
+<meta charset="utf-8">
+<title>Stint Settings</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_mockup.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg-primary); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 88ch; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  .standfirst { margin: 0 0 1rem; color: var(--text-muted); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
+  .caption {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-subtle);
+    display: block; margin-top: .7rem;
+  }
+  table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+  th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  th {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle); font-weight: 500;
+  }
+  td { font-size: 14px; }
+  code { font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); }
+  .rule { list-style: none; margin: 1rem 0 0; padding: 0; }
+  .rule li { position: relative; padding-left: 1.5rem; margin-bottom: .85rem; }
+  .rule li::before {
+    content: ''; position: absolute; left: 0; top: .55em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--border-control);
+  }
+  .rule strong { color: var(--text-strong); font-weight: 600; }
+
+  .mock {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px; padding: 20px;
+    margin-top: 1.25rem;
+  }
+
+  /* ── a settings card ─────────────────────────────────────────── */
+  .card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px; box-shadow: var(--shadow-card);
+    padding: 20px;
+  }
+  .card + .card { margin-top: 16px; }
+  .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .card h2 { margin: 0; font-size: 15px; font-weight: 600; color: var(--text-strong); }
+  .card .desc { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); }
+  .fields { margin-top: 16px; display: flex; flex-direction: column; gap: 16px; }
+  .pair { display: flex; flex-wrap: wrap; gap: 16px; }
+  .field { flex: 1; min-width: 11rem; }
+  .field > label {
+    display: block;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .input {
+    margin-top: 6px; width: 100%; height: 36px;
+    background: transparent; border: 1px solid var(--border-default);
+    border-radius: 6px; padding: 0 12px;
+    color: var(--text-strong); font-family: var(--font-sans); font-size: 14px;
+    display: flex; align-items: center;
+  }
+  .input.ph { color: var(--text-subtle); }
+  .input.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  /* A server-owned value is not a field. No border, no box — it reads as a
+     figure the screen is reporting rather than one you can type into. */
+  .readonly {
+    margin-top: 6px; height: 36px; display: flex; align-items: center;
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size: 14px; color: var(--text-muted);
+  }
+  .hint { margin: 4px 0 0; font-size: 12px; color: var(--text-subtle); }
+
+  /* ── the save indicator ──────────────────────────────────────── */
+  .ind { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+  .ind .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--timer-idle); }
+  .ind .spin {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--border-default); border-top-color: var(--text-muted);
+  }
+  .ind .tick { width: 14px; height: 14px; color: var(--success); }
+  .ind .tick svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .ind.err { color: var(--danger); }
+
+  .states { display: flex; flex-wrap: wrap; gap: 2rem; margin-top: 1.25rem; }
+  .state { display: flex; flex-direction: column; gap: 8px; }
+  .state .box {
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: 8px; padding: 12px 14px; min-width: 9rem;
+  }
+
+  /* ── payment profiles ────────────────────────────────────────── */
+  .prof {
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid var(--border-subtle); border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .prof + .prof { margin-top: 8px; }
+  .prof .name { font-size: 14px; color: var(--text-primary); }
+  .prof .sum { display: block; margin-top: 2px; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-subtle); }
+  .badge {
+    border: 1px solid var(--border-default); border-radius: 4px;
+    padding: 1px 6px; font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--border-default); border-radius: 8px; padding: 6px 11px;
+    background: var(--bg-elevated); color: var(--text-strong);
+    font-family: var(--font-sans); font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  .btn.ghost { border-color: transparent; background: transparent; color: var(--text-muted); }
+  .btn svg { width: 14px; height: 14px; flex: none; stroke: currentColor; fill: none;
+             stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+
+<div class="page">
+  <p class="eyebrow">Stint · Screens</p>
+  <h1>Settings</h1>
+  <p class="standfirst">
+    Six cards and no save button. Everything here is a default that something
+    else falls back to, which is what makes it a pile of independent
+    preferences rather than a transaction.
+  </p>
+
+  <!-- ═══════════════ the shape ═══════════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">A card</span></div>
+
+    <div class="mock">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>Billing defaults</h2>
+            <p class="desc">What a client or project falls back to when it sets no rate of its own.</p>
+          </div>
+          <span class="ind"><span class="dot"></span></span>
+        </div>
+        <div class="fields">
+          <div class="pair">
+            <div class="field">
+              <label>Default hourly rate</label>
+              <div class="input ph">150.00</div>
+            </div>
+            <div class="field">
+              <label>Runaway timer after</label>
+              <div class="input mono">8</div>
+              <p class="hint">Flagged, never trimmed.</p>
+            </div>
+          </div>
+          <div class="field">
+            <label>Payment terms</label>
+            <div class="input">Net 30</div>
+            <p class="hint">Printed on every invoice.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="caption">Title, description, and the card's own save state in the corner</span>
+
+    <ul class="rule">
+      <li><strong>Each card owns its own autosave</strong>, so the indicator
+        refers to the fields being looked at. One indicator for the page
+        could only say that <em>something</em> saved.</li>
+      <li><strong>A hint sits under the field it qualifies</strong>, and only
+        where the field's own label cannot carry it.</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════ saving ═══════════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Saving</span></div>
+
+    <p>
+      Edits persist 700ms after typing stops. There is nothing to review
+      before committing, so a button would only be a step between deciding
+      and having it apply.
+    </p>
+
+    <div class="states">
+      <div class="state">
+        <div class="box"><span class="ind"><span class="dot"></span></span></div>
+        <span class="caption" style="margin:0">Idle</span>
+      </div>
+      <div class="state">
+        <div class="box"><span class="ind"><span class="spin"></span></span></div>
+        <span class="caption" style="margin:0">Pending</span>
+      </div>
+      <div class="state">
+        <div class="box"><span class="ind"><span class="tick"><svg viewBox="0 0 14 14" aria-hidden><path d="M2.5 7.5l3 3 6-6.5"/></svg></span></span></div>
+        <span class="caption" style="margin:0">Saved</span>
+      </div>
+      <div class="state">
+        <div class="box"><span class="ind err">Not saved</span></div>
+        <span class="caption" style="margin:0">Error</span>
+      </div>
+    </div>
+
+    <ul class="rule">
+      <li><strong>Idle is a dot, not a checkmark.</strong> A check that is
+        always present says nothing and stops being read; this one appears
+        only after a save the user caused, so it answers "did that land?"
+        and nothing else.</li>
+      <li><strong>Idle still occupies the space</strong> — the row would
+        otherwise reflow the moment a save starts.</li>
+      <li><strong>Pending is set on the EDIT, not on the request</strong>, so
+        a field is never shown as saved while it holds unsent text. It stays
+        pending through the debounce and the request both.</li>
+      <li><strong>An edit during an in-flight request is queued, not
+        raced.</strong> Without that a slow first response can land after a
+        newer one and the server keeps the older value.</li>
+      <li><strong>The error state is worded, not coloured alone.</strong>
+        "Not saved" is the one state a glyph cannot carry, because it is the
+        one the user has to act on.</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════ the cards ═══════════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The six cards</span></div>
+
+    <table>
+      <tr><th>Card</th><th>Holds</th><th>Read by</th></tr>
+      <tr>
+        <td>Appearance</td>
+        <td>Theme</td>
+        <td><strong style="color:var(--text-strong)">This device only</strong> — <code>localStorage</code>, not the server</td>
+      </tr>
+      <tr>
+        <td>Billing defaults</td>
+        <td>Rate, runaway threshold, payment terms</td>
+        <td>The rate chain's last link; the timer; every invoice</td>
+      </tr>
+      <tr>
+        <td>Monthly goal</td>
+        <td>Target and its unit</td>
+        <td>The Pace card on Home, and nothing else</td>
+      </tr>
+      <tr>
+        <td>Business identity</td>
+        <td>Name, email, address, tax ID</td>
+        <td>The invoice header</td>
+      </tr>
+      <tr>
+        <td>Invoice numbering</td>
+        <td>Prefix, next number, payment notice</td>
+        <td>Invoice generation</td>
+      </tr>
+      <tr>
+        <td>Payment details</td>
+        <td>Named bundles of bank fields</td>
+        <td>The invoice PDF — <em>never</em> an email body</td>
+      </tr>
+    </table>
+
+    <ul class="rule">
+      <li><strong>Appearance carries no save indicator.</strong> The theme is
+        a device preference and applies on click, so there is no request to
+        report — an indicator would imply it syncs.</li>
+      <li><strong>An empty goal is a valid answer, not an unfinished
+        one.</strong> The Pace card stays away rather than nagging for a
+        number the user does not work to.</li>
+      <li><strong>The target and its unit travel together.</strong> Scheduling
+        one key replaces the queued payload rather than merging into it, so
+        sending the target alone would drop the unit mid-debounce — and the
+        database rejects one without the other.</li>
+      <li><strong>Revenue counts work done, not money collected</strong> —
+        invoiced plus unbilled at its resolved rate, so a slow-paying client
+        never makes the month look worse than it was.</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════ numbering ═══════════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Invoice numbering</span></div>
+
+    <div class="mock">
+      <div class="card">
+        <div class="card-head">
+          <div><h2>Invoice numbering</h2></div>
+          <span class="ind"><span class="dot"></span></span>
+        </div>
+        <div class="fields">
+          <div class="pair">
+            <div class="field">
+              <label>Prefix</label>
+              <div class="input mono">INV-</div>
+            </div>
+            <div class="field">
+              <label>Next number</label>
+              <div class="readonly">0042</div>
+              <p class="hint">Set by the system so numbering stays gapless.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="caption">Next number has no box — it is reported, not edited</span>
+
+    <ul class="rule">
+      <li><strong>The next number is server-owned and never goes back.</strong>
+        Gapless numbering depends on <code>allocate_invoice_number()</code>
+        holding the row lock, so the client strips this field from every
+        patch it sends rather than trusting the form not to include it.</li>
+      <li><strong>The payment notice is a standing line</strong> under the
+        payment block. Details that never change are what make a change worth
+        challenging, which is the whole anti-fraud argument for printing bank
+        details identically every time.</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════ payment details ═══════════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Payment details</span></div>
+
+    <div class="mock">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>Payment details</h2>
+            <p class="desc">Printed on the invoice itself, never in an email — details that look the same every time make a change worth questioning.</p>
+          </div>
+        </div>
+        <div class="fields">
+          <div>
+            <div class="prof">
+              <span style="flex:1;min-width:0">
+                <span class="name">Main account <span class="badge">Default</span></span>
+                <span class="sum">First National · ••••4417 · ABA 021000021</span>
+              </span>
+              <button class="btn ghost">
+                <svg viewBox="0 0 24 24" aria-hidden><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                Edit
+              </button>
+            </div>
+            <div class="prof">
+              <span style="flex:1;min-width:0">
+                <span class="name">EUR clients</span>
+                <span class="sum">Wise · ••••8823</span>
+              </span>
+              <button class="btn ghost">Make default</button>
+              <button class="btn ghost">
+                <svg viewBox="0 0 24 24" aria-hidden><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                Edit
+              </button>
+            </div>
+          </div>
+          <div>
+            <button class="btn">
+              <svg viewBox="0 0 24 24" aria-hidden><path d="M5 12h14M12 5v14"/></svg>
+              Add payment details
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="caption">Account numbers masked to the last four · one default, badged</span>
+
+    <ul class="rule">
+      <li><strong>Resolution mirrors rates:</strong> the client's own profile,
+        else the user's default. A dangling reference falls back rather than
+        rendering nothing.</li>
+      <li><strong>One default, enforced by a partial unique index</strong>, and
+        the first profile created becomes it automatically. So "Make default"
+        appears on every row except the one that already is.</li>
+      <li><strong>A refused "Make default" names its row.</strong> One
+        mutation serves every profile, and this is the setting that decides
+        which account prints on an invoice — a failure that lands at the foot
+        of the card could not say which one was refused.</li>
+      <li><strong>Invoices freeze the rendered snapshot</strong> at
+        generation, like rates. Editing a profile never alters an issued
+        invoice.</li>
+      <li><strong>No profiles is a stated outcome</strong>, not an empty list:
+        "Invoices will render without a payment block."</li>
+    </ul>
+  </section>
+</div>

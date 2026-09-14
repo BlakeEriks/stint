@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { api, type ClientWithScale } from '@/lib/client/api';
 import { Page } from './page';
@@ -11,15 +11,22 @@ import { money } from '@/lib/client/format';
 
 /** Rates are money and sit in a column, so they are mono and tabular. */
 export function ClientList() {
-  const [showArchived, setShowArchived] = useState(false);
+  /* The filter lives in the URL, like /invoices: the view is linkable and
+     Back returns to it, where a local toggle was neither. */
+  const params = useSearchParams();
+  const status = params.get('status');
+  const wantArchived = status === 'archived' || status === 'all';
 
   const { data, isLoading } = useQuery({
-    queryKey: ['clients', { archived: showArchived, scale: true }],
+    queryKey: ['clients', { archived: wantArchived, scale: true }],
     queryFn: () =>
-      api.clients({ includeArchived: showArchived, withScale: true }),
+      api.clients({ includeArchived: wantArchived, withScale: true }),
   });
 
-  const clients = data?.clients ?? [];
+  /* The API includes archived rather than returning only them, so
+     "Archived" narrows what came back. */
+  const all = data?.clients ?? [];
+  const clients = status === 'archived' ? all.filter((c) => c.archivedAt) : all;
 
   return (
     <Page>
@@ -33,6 +40,30 @@ export function ClientList() {
         </Button>
       </header>
 
+      <nav aria-label="Filter" className="flex gap-1 pb-2">
+        {[
+          { key: null, label: 'Active' },
+          { key: 'archived', label: 'Archived' },
+          { key: 'all', label: 'All' },
+        ].map(({ key, label }) => {
+          const active = key === null ? !status : status === key;
+          return (
+            <Link
+              key={label}
+              href={key ? `/clients?status=${key}` : '/clients'}
+              aria-current={active ? 'page' : undefined}
+              className={`rounded-md px-2 py-1 type-label ${
+                active
+                  ? 'bg-surface-elevated text-strong'
+                  : 'text-subtle hover:text-muted'
+              }`}
+            >
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
+
       {isLoading ? (
         <Panel>
           <Empty>Loading…</Empty>
@@ -40,9 +71,11 @@ export function ClientList() {
       ) : clients.length === 0 ? (
         <Panel>
           <Empty>
-            {showArchived
-              ? 'No clients yet.'
-              : 'No clients yet. Add one to set a rate and bill against it.'}
+            {status === 'archived'
+              ? 'No archived clients.'
+              : status === 'all'
+                ? 'No clients yet.'
+                : 'No clients yet. Add one to set a rate and bill against it.'}
           </Empty>
         </Panel>
       ) : (
@@ -57,15 +90,6 @@ export function ClientList() {
           ))}
         </ul>
       )}
-
-      <button
-        type="button"
-        onClick={() => setShowArchived((v) => !v)}
-        className="mt-3 px-1 type-label
-                   text-subtle hover:text-muted"
-      >
-        {showArchived ? 'Hide archived' : 'Show archived'}
-      </button>
     </Page>
   );
 }

@@ -104,11 +104,15 @@
     padding: 40px 16px; text-align: center;
     font-size: 13px; color: var(--text-subtle);
   }
-  .archive-toggle {
-    margin-top: 12px; background: none; border: 0; padding: 0 4px; cursor: pointer;
-    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
-    text-transform: uppercase; color: var(--text-subtle);
+  /* Same filter idiom as /invoices: URL-driven pills above the list, so the
+     view is linkable and Back works. */
+  .filters { display: flex; gap: 4px; padding-bottom: 8px; }
+  .filters a {
+    border-radius: 6px; padding: 4px 8px; text-decoration: none;
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--text-subtle);
   }
+  .filters a.on { background: var(--bg-elevated); color: var(--text-strong); }
 
   /* ── the detail page ─────────────────────────────────────────── */
   .back {
@@ -170,6 +174,12 @@
         </button>
       </div>
 
+      <nav class="filters" aria-label="Filter">
+        <a class="on" href="#x">Active</a>
+        <a href="#x">Archived</a>
+        <a href="#x">All</a>
+      </nav>
+
       <ul class="rows">
         <li class="row" style="border-left-color:var(--proj-6)">
           <span class="grow">
@@ -202,7 +212,6 @@
         </li>
       </ul>
 
-      <button class="archive-toggle">Show archived</button>
     </div>
     <span class="caption">Colour is the row's left edge · rate right-aligned and mono</span>
 
@@ -216,9 +225,12 @@
       <li><strong>An unset rate is <code>—</code>, never <code>$0.00</code>.</strong>
         Zero is a real rate someone can choose, so the two must look
         different. The client falls back to the user default.</li>
-      <li><strong>Archived clients are hidden behind a toggle</strong> and
-        keep their row shape, because a past client is still where past
-        invoices point.</li>
+      <li><strong>The filter is <code>/invoices</code>'s, and lives in the
+        URL</strong> — <code>?status=archived</code> — so the view is
+        linkable and Back returns to it. A local toggle at the foot of the
+        list was neither.</li>
+      <li><strong>Archived clients keep their row shape</strong> and take a
+        badge, because a past client is still where past invoices point.</li>
     </ul>
   </section>
 
