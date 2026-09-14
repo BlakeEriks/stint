@@ -54,7 +54,11 @@ private struct PanelHeader: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            Lockup(size: 17)
+            /* Receded, per brand.html's muted placement. The header is chrome
+               and the panel is read below it — at full strength the mark was
+               the brightest thing on screen, competing with the readout it
+               sits above. */
+            Lockup(size: 17, color: Tokens.Dark.textMuted)
             Spacer()
             if signedIn {
                 OpenAppButton()
@@ -241,40 +245,29 @@ private struct TimerPanel: View {
     /// primary control, and it was the furthest thing in the panel from the
     /// time it acts on. `timer-bar.tsx` groups them for the same reason.
     private var readout: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(model.isRunning ? format(model.elapsedSeconds) : format(model.todaySeconds))
-                    .font(.system(size: 30, weight: .medium, design: .monospaced))
-                    .monospacedDigit()
-                    .foregroundStyle(
-                        model.isRunning ? Tokens.Dark.accentDefault : Tokens.Dark.textStrong
-                    )
-                    .contentTransition(.numericText())
+        HStack(alignment: .center, spacing: 10) {
+            /* The dot is a second channel for "running", independent of
+               colour — `deriving-colour.md` records that no green survives
+               dichromacy, so the state cannot rest on the hue alone. It sits
+               beside the number it qualifies, which is also what makes the
+               task and client below line up to the text rather than the dot. */
+            Circle()
+                .fill(Tokens.Dark.accentDefault)
+                .frame(width: 9, height: 9)
 
-                /* Only when STOPPED. A green clock counting up already says
-                   "running" — the word restated it and, being below the
-                   number, pushed the stop button out of line with the digits
-                   it belongs to. Stopped is the ambiguous case: `0:00:00` in
-                   white needs to say what it is a total of. */
-                if !model.isRunning {
-                    Text("logged today")
-                        .font(.system(size: 11))
-                        .textCase(.uppercase)
-                        .tracking(0.6)
-                        .foregroundStyle(Tokens.Dark.textSubtle)
-                }
-            }
+            Text(format(model.elapsedSeconds))
+                .font(.system(size: 26, weight: .medium, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(Tokens.Dark.accentDefault)
+                .contentTransition(.numericText())
 
-            if model.isRunning {
-                /* Directly beside the number, NOT pushed to the far edge.
-                   A `Spacer` here put the control in the top-right corner,
-                   which reads as a window button rather than this clock's
-                   control — the web app keeps them adjacent so they are one
-                   object. The trailing Spacer holds the pair to the left so
-                   the panel's left edge stays the alignment for everything. */
-                StartStopButton(model: model)
-                Spacer(minLength: 0)
-            }
+            /* Trailing edge, on the readout's own line — `menubar.html` draws
+               it there. The two are still one object because they share the
+               line: the row IS the timer, and the control sits at its end
+               rather than floating after the digits at whatever width the
+               clock happens to be. */
+            Spacer(minLength: 8)
+            StartStopButton(model: model)
         }
     }
 }
@@ -417,14 +410,7 @@ private struct RunningRow: View {
     @State private var editing = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            /* The dot is a second channel for "running", independent of
-               colour — `docs/design/deriving-colour.md` records that no green survives
-               dichromacy, so the state cannot rest on the hue alone. */
-            Circle()
-                .fill(Tokens.Dark.accentDefault)
-                .frame(width: 8, height: 8)
-
+        HStack(spacing: 6) {
             if editing {
                 TextField("Task name", text: $name)
                     .textFieldStyle(.plain)
@@ -435,6 +421,7 @@ private struct RunningRow: View {
                         onCommit()
                         editing = false
                     }
+                    .fieldStyle(focused: focused)
                     .onChange(of: focused) { _, isFocused in
                         // Blur commits, so clicking straight to Stop keeps
                         // what was typed.
@@ -469,11 +456,15 @@ private struct RunningRow: View {
                 Spacer(minLength: 0)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        /* No box. A running task already has a name — it is a fact hanging
+           under the clock, not a field asking to be filled. Editing turns it
+           into one; `fieldStyle` then draws the border, so the box appears
+           exactly when there is something to type into.
+
+           Indented to the readout's TEXT rather than its dot, so the eye
+           reads time → what → whose down one edge. */
+        .padding(.leading, 19)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Tokens.Dark.bgElevated)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -554,17 +545,17 @@ private struct StartStopButton: View {
             Task { await model.toggle() }
         } label: {
             if model.isRunning {
-                /* Round and accent while running, matching the web app. The
-                   accent is already spent on the timer here, and this button
-                   IS the timer's control — one meaning, shown twice, which is
-                   what the rule permits. A neutral stop beside a green clock
-                   read as the secondary action on the panel, which it is not:
-                   stopping is the only thing you came to do. */
+                /* Neutral, per menubar.html. The accent is already on the
+                   readout and the dot — the same fact shown twice, which the
+                   rule permits — and a green stop would be a third object
+                   competing with the number it belongs to. Round, because the
+                   transport is one glyph in a circle whether it starts or
+                   stops. */
                 Image(systemName: "stop.fill")
                     .font(.system(size: 11))
-                    .foregroundStyle(Tokens.Dark.textOnAccent)
+                    .foregroundStyle(Tokens.Dark.textPrimary)
                     .frame(width: 32, height: 32)
-                    .background(Tokens.Dark.accentDefault)
+                    .background(Tokens.Dark.bgElevated)
                     .clipShape(Circle())
             } else {
                 HStack(spacing: 5) {

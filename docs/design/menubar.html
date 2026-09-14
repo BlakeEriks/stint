@@ -202,11 +202,12 @@
     padding: 8px 12px 8px 14px;
     background: var(--bg-recessed); border-bottom: 1px solid var(--border-subtle);
   }
-  /* The mark, so it keeps its bounds and one colour. 17px per brand.html's
-     placement table, which owns every size the mark is set at. */
+  /* The mark, so it keeps its bounds and one colour. 17px muted per
+     brand.html's placement table, which owns every size and shade the mark is
+     set at — the header is chrome above the thing being read. */
   .wordmark {
     font-family: var(--font-mono); font-size: 17px; font-weight: 600;
-    letter-spacing: .12em; color: var(--text-strong);
+    letter-spacing: .12em; color: var(--text-muted);
     display: inline-flex; align-items: center;
   }
   .wordmark::before, .wordmark::after {
