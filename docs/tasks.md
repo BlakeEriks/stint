@@ -37,18 +37,26 @@ later.
       Home renders for weeks after it stopped being true. Either delete them
       with their tests, or record the condition that would bring them back.
 
-- [ ] **Three menu bar panel details still disagree with `menubar.html`.**
-      Held out of the header/disabled/placeholder pass because each is a
-      layout change rather than a value:
+- [ ] **The menu bar panel's stats row is half of what the spec draws.**
+      `menubar.html` pairs Today with an **Unbilled** total, and `/summary`
+      carries no such figure — it returns `running`, `todaySeconds`,
+      `weekSeconds` and the threshold. The web home screen gets its number
+      from the `unbilled_by_client` rollup, so the work is adding it to
+      `/summary` rather than a new endpoint.
 
-      - **The stopped panel gives its largest element to a clock showing
-        nothing.** Nothing is accruing, so there is no number to show.
-      - **The footer spends a row on the signed-in email** — the least useful
-        thing in a menu bar panel: you know who you are. `AccountRow` in
-        `ContentView.swift`.
-      - **`Start` is a labelled rectangle** where the app's transport is a
-        round button with a single glyph. Note the running state is already
-        the round glyph, so this is the two halves disagreeing.
+      Note the coalesce chain in that view has to stay identical to
+      `resolve_entry_rate`, which `CLAUDE.md` already records as written three
+      times with nothing checking it.
+
+- [ ] **The menu bar panel has no entry list.** `menubar.html` draws today's
+      entries under the stats row in both states ("Earlier today" while
+      running), which is what makes the panel worth opening rather than
+      glancing at. Needs `/entries?from=` in `API.swift` and a row view; the
+      web `entry-list.tsx` is the reference for what a row carries.
+
+- [ ] **`Start` is a labelled rectangle** where the app's transport is a
+      round button with a single glyph. The running state is already the
+      round glyph, so this is the two halves disagreeing.
 
 - [ ] **The web sign-in sets the word instead of drawing the mark.**
       `signin-form.tsx` has `<h1 className="type-title">Stint</h1>`, so it
@@ -224,6 +232,24 @@ later.
         says "Add one to set a rate and bill against it" — that is the
         pattern. A multi-step walkthrough is a surface that needs maintaining
         and breaks whenever the UI moves.
+- [ ] **A showcase in `screens/components.html`** — every button variant,
+      filter, badge and card rendered side by side, so choosing one is
+      looking rather than grepping. The page currently names the primitives
+      and the conventions but shows almost none of them, which is the
+      show-don't-tell gap it was written to close.
+
+      **It belongs there, not in `brand.html`.** The two answer different
+      questions: `brand.html` is what the system *is* (the mark, the scale,
+      what green means) and is read once when deciding; `components.html` is
+      what to reach for, and is read every time a screen gets built. The test
+      is which file adding a component would edit — a `variant="ghost"`
+      button is an assembly choice, where a type role is the brand itself.
+
+      Cover the six `Button` variants at their four sizes, the filter pill in
+      both states, `StatusBadge`'s five statuses, `SaveIndicator`'s four, and
+      `Panel` with and without an edge. Name the token each uses, since the
+      point is picking one rather than admiring it.
+
 - [ ] **Icons on the remaining buttons.** Nav and the additive actions have
       them; the lifecycle buttons on an invoice (send, mark paid, void,
       download) and the settings forms do not.

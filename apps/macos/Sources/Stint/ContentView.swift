@@ -12,7 +12,7 @@ struct ContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            PanelHeader()
+            PanelHeader(signedIn: model.isSignedIn, model: model)
             if model.isSignedIn {
                 TimerPanel(model: model)
             } else {
@@ -46,12 +46,23 @@ struct ContentView: View {
 /// identity at a different size from the timer and making the two read as
 /// different products.
 private struct PanelHeader: View {
+    /// The two ways out ride here once there is somewhere to go. Signed out
+    /// there is no app to open and no account to sign out of, so the bar is
+    /// identity alone.
+    var signedIn: Bool
+    @Bindable var model: TimerModel
+
     var body: some View {
-        HStack {
+        HStack(spacing: 2) {
             Lockup(size: 17)
             Spacer()
+            if signedIn {
+                OpenAppButton()
+                AccountMenu(model: model)
+            }
         }
-        .padding(.horizontal, 14)
+        .padding(.leading, 14)
+        .padding(.trailing, 8)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .background(Tokens.Dark.bgRecessed)
@@ -78,8 +89,26 @@ private struct TimerPanel: View {
     }
 
     var body: some View {
+        /* Two blocks: the padded controls, then the stats rule edge to edge.
+           The rule has to reach both sides, so it cannot live inside the
+           padding the controls take. */
+        VStack(alignment: .leading, spacing: 0) {
+            composer
+            Divider().overlay(Tokens.Dark.borderSubtle)
+            stats
+        }
+    }
+
+    private var composer: some View {
         VStack(alignment: .leading, spacing: 12) {
-            readout
+            /* Only while running. A stopped clock reading 0:00:00 was the
+               biggest element on screen saying nothing is happening — the
+               composing row takes that space instead, because starting is
+               the only thing you came here to do. Today's total still shows,
+               in the stats row below. */
+            if model.isRunning {
+                readout
+            }
 
             if model.exceedsThreshold {
                 RunawayNotice()
@@ -114,13 +143,15 @@ private struct TimerPanel: View {
                     }
             }
 
-            ProjectField(model: model)
-
+            /* Picker and Start on one row, which saves a full row of height
+               against a full-width dropdown above a button. Stopping lives
+               beside the clock, so this row carries Start alone. */
             HStack(spacing: 8) {
-                // Start only: stopping now lives beside the clock.
-                if !model.isRunning { StartStopButton(model: model) }
-                Spacer()
-                OpenAppButton()
+                ProjectField(model: model)
+                if !model.isRunning {
+                    Spacer(minLength: 0)
+                    StartStopButton(model: model)
+                }
             }
 
             if let error = model.errorMessage {
@@ -129,10 +160,6 @@ private struct TimerPanel: View {
                     .foregroundStyle(Tokens.Dark.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
-
-            Divider().overlay(Tokens.Dark.borderSubtle)
-
-            AccountRow(model: model)
         }
         .padding(14)
         /* One focus section, so Tab moves BETWEEN these controls.
@@ -163,6 +190,35 @@ private struct TimerPanel: View {
         .onChange(of: model.running?.id) { _, _ in
             if !taskFocused { taskDraft = model.running?.taskName ?? "" }
         }
+    }
+
+    /// Today's total, edge to edge under its own rule.
+    ///
+    /// This is where the stopped state's number went when the 0:00:00 readout
+    /// came out: a total is a fact to glance at, not the panel's subject.
+    /// Neutral, because the accent is spent on the running clock — and when
+    /// nothing runs there is nothing live to mark.
+    ///
+    /// `menubar.html` pairs it with an Unbilled figure. `/summary` does not
+    /// carry one yet; `tasks.md` has the entry.
+    private var stats: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Today")
+                    .font(.system(size: 10, weight: .medium))
+                    .textCase(.uppercase)
+                    .tracking(1.6)
+                    .foregroundStyle(Tokens.Dark.textSubtle)
+                Text(format(model.todaySeconds))
+                    .font(.system(size: 15, design: .monospaced))
+                    .monospacedDigit()
+                    .foregroundStyle(Tokens.Dark.textStrong)
+                    .contentTransition(.numericText())
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
     }
 
     private func commit() {
@@ -560,65 +616,53 @@ private struct OpenAppButton: View {
             dismiss()
             NSApp.hide(nil)
         } label: {
-            /* SF Symbols rather than lucide, which ships JSX and cannot cross
-               into Swift. The names match what the web uses for the same
-               action, so the two apps do not diverge on meaning.
+            /* Glyph alone in the header bar: the label was carrying a full
+               row at the foot of the panel for an action that is chrome, and
+               the arrow is the same one the web uses for leaving the app.
 
-               An HStack rather than a `Label`: `Label` spaces its icon for a
-               menu row, which at this size left the glyph floating far enough
-               from its text to read as a separate control. */
-            HStack(spacing: 5) {
-                Image(systemName: "arrow.up.forward.app")
-                Text("Open Stint")
-            }
-            .font(.system(size: 12))
-            .foregroundStyle(Tokens.Dark.textMuted)
+               SF Symbols rather than lucide, which ships JSX and cannot cross
+               into Swift. The names match what the web uses for the same
+               action, so the two apps do not diverge on meaning. */
+            Image(systemName: "arrow.up.forward.app")
+                .font(.system(size: 12))
+                .foregroundStyle(Tokens.Dark.textSubtle)
+                .frame(width: 24, height: 24)
         }
         .buttonStyle(.plain)
-        .keyboardReachable()
+        .accessibilityLabel("Open Stint")
+        .keyboardReachable(shape: AnyInsettableShape(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+        ))
     }
 }
 
-private struct AccountRow: View {
+/// Sign out and Quit, behind one glyph.
+///
+/// They were a footer row carrying the signed-in email beside them — the
+/// least useful line in a menu bar panel, since you know who you are. The
+/// email moves into this menu, where it is a label on the sign-out rather
+/// than a row of its own.
+private struct AccountMenu: View {
     @Bindable var model: TimerModel
 
     var body: some View {
-        /* 12pt between the two actions, against 4pt inside each. An icon must
-           sit nearer the word it belongs to than the next control does, or
-           "Sign out ⏻ Quit" reads as one row of four loose things. */
-        HStack(spacing: 12) {
-            Text(model.email ?? "Signed in")
-                .font(.system(size: 11))
+        Menu {
+            if let email = model.email {
+                Text(email)
+            }
+            Button("Sign out") { Task { await model.signOut() } }
+            Divider()
+            Button("Quit Stint") { NSApplication.shared.terminate(nil) }
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 12))
                 .foregroundStyle(Tokens.Dark.textSubtle)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer()
-            // `rectangle.portrait.and.arrow.right` is SF Symbols' LogOut,
-            // which is what `account-menu.tsx` uses for the same action.
-            Button {
-                Task { await model.signOut() }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                    Text("Sign out")
-                }
-            }
-            .buttonStyle(.plain)
-            .font(.system(size: 11))
-            .foregroundStyle(Tokens.Dark.textSubtle)
-
-            Button {
-                NSApplication.shared.terminate(nil)
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "power")
-                    Text("Quit")
-                }
-            }
-            .buttonStyle(.plain)
-            .font(.system(size: 11))
-            .foregroundStyle(Tokens.Dark.textSubtle)
+                .frame(width: 24, height: 24)
         }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel("Account")
     }
 }
 
