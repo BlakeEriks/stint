@@ -206,11 +206,24 @@ private struct TimerPanel: View {
             }
         }
         .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        /* Clicking the panel's own empty space puts the caret down.
+           `contentShape` is what makes the gaps hittable — without it a tap
+           between controls lands on nothing and the field keeps focus, which
+           is the thing that has no other way out on a panel with no window
+           chrome to click.
+
+           `.plain` so the whole block does not become one grey button. */
+        .contentShape(Rectangle())
+        .onTapGesture { taskFocused = false }
         /* One focus section, so Tab moves BETWEEN these controls.
            `focusable()` alone makes a view a focus target without joining any
            ring — which is how focus landed on the stop button and then had
            nowhere to go, since Tab had no next element to move to. */
         .focusSection()
+        // Escape leaves the field without committing a stray keystroke to a
+        // billable record; the blur handler still saves what was typed.
+        .onExitCommand { taskFocused = false }
         /* The caret goes to the task field on every open.
            `MenuBarExtra` rebuilds its content each time the panel opens, so
            this runs per open rather than once — which is what makes the panel
@@ -418,12 +431,19 @@ private struct PrimaryButton: ViewModifier {
 /// who have it on rather than pretending to fix it for those who do not.
 private struct Focusable<S: InsettableShape>: ViewModifier {
     var shape: S
+    /// What Space and Return do once this has the keyboard. `.focusable()`
+    /// makes a view a focus TARGET and nothing more — without this, Tab
+    /// reaches a button that then cannot be pressed, which is worse than not
+    /// being reachable at all.
+    var activate: (() -> Void)?
     @FocusState private var focused: Bool
 
     func body(content: Content) -> some View {
         content
             .focusable()
             .focused($focused)
+            .onKeyPress(.space) { fire() }
+            .onKeyPress(.return) { fire() }
             /* AppKit's own ring is a blue rounded rectangle that ignores the
                control's shape — on the round stop button it drew a square
                around a circle, in a blue that appears nowhere else in the
@@ -438,14 +458,28 @@ private struct Focusable<S: InsettableShape>: ViewModifier {
                     .padding(-3)
             )
     }
+
+    /// `.ignored` when there is nothing to do, so the key falls through to
+    /// whatever else might want it rather than being silently swallowed.
+    private func fire() -> KeyPress.Result {
+        guard let activate else { return .ignored }
+        activate()
+        return .handled
+    }
 }
 
 extension View {
     /// Keyboard-reachable, with a ring that says so.
+    /// Focus ring, and what Space or Return does once focused.
+    ///
+    /// `activate` is not optional in spirit: a control Tab can reach and the
+    /// keyboard cannot press is worse than one Tab skips. It is optional only
+    /// so a Menu, which handles its own keys, can take the ring alone.
     func keyboardReachable<S: InsettableShape>(
-        shape: S = RoundedRectangle(cornerRadius: 6, style: .continuous)
+        shape: S = RoundedRectangle(cornerRadius: 6, style: .continuous),
+        activate: (() -> Void)? = nil
     ) -> some View {
-        modifier(Focusable(shape: shape))
+        modifier(Focusable(shape: shape, activate: activate))
     }
 }
 
@@ -467,6 +501,13 @@ private struct RunningRow: View {
 
     @State private var editing = false
     @State private var hovering = false
+
+    private func beginEditing() {
+        editing = true
+        // Focus follows the mode change rather than the click, so the field is
+        // ready however editing started — pointer or keyboard.
+        DispatchQueue.main.async { focused = true }
+    }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -502,19 +543,16 @@ private struct RunningRow: View {
                    and a permanent pencil beside it made the panel look like a
                    form. It is still keyboard-reachable while hidden, so Tab
                    reaches the rename without a pointer. */
-                Button {
-                    editing = true
-                    // Focus follows the mode change rather than the click, so
-                    // the field is ready however editing started.
-                    DispatchQueue.main.async { focused = true }
-                } label: {
+                Button(action: beginEditing) {
                     Image(systemName: "pencil")
                         .font(.system(size: 10))
                         .foregroundStyle(Tokens.Dark.textSubtle)
+                        // Visible while focused as well as hovered: a control
+                        // Tab has reached has to be findable without a mouse.
                         .opacity(hovering ? 1 : 0)
                 }
                 .buttonStyle(.plain)
-                .keyboardReachable()
+                .keyboardReachable(activate: beginEditing)
                 .accessibilityLabel("Rename task")
 
                 Spacer(minLength: 0)
@@ -750,7 +788,9 @@ private struct StartStopButton: View {
                 model.isRunning
                     ? AnyInsettableShape(Circle())
                     : AnyInsettableShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            )
+            ),
+            // Guarded, so a key cannot fire a second request while one is out.
+            activate: { if !model.isBusy { Task { await model.toggle() } } }
         )
         .disabled(model.isBusy)
         /* A fade, not the neutral disabled fill the sign-in buttons take:
@@ -766,14 +806,16 @@ private struct OpenAppButton: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
 
+    private func open() {
+        openURL(Config.appURL)
+        /* The panel is not a window, so `dismiss` alone is unreliable here;
+           resigning active status is what actually closes it. */
+        dismiss()
+        NSApp.hide(nil)
+    }
+
     var body: some View {
-        Button {
-            openURL(Config.appURL)
-            /* The panel is not a window, so `dismiss` alone is unreliable
-               here; resigning active status is what actually closes it. */
-            dismiss()
-            NSApp.hide(nil)
-        } label: {
+        Button(action: open) {
             /* Glyph alone in the header bar: the label was carrying a full
                row at the foot of the panel for an action that is chrome, and
                the arrow is the same one the web uses for leaving the app.
@@ -788,9 +830,12 @@ private struct OpenAppButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Open Stint")
-        .keyboardReachable(shape: AnyInsettableShape(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-        ))
+        .keyboardReachable(
+            shape: AnyInsettableShape(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+            ),
+            activate: open
+        )
     }
 }
 
@@ -871,7 +916,9 @@ private struct SignInPanel: View {
                         .primaryButtonStyle(enabled: !(busy || email.isEmpty))
                 }
                 .buttonStyle(.plain)
-                .keyboardReachable()
+                .keyboardReachable(
+                    activate: { if !(busy || email.isEmpty) { request() } }
+                )
                 .disabled(busy || email.isEmpty)
             } else {
                 Text("Sent to \(email).")
@@ -929,7 +976,13 @@ private struct SignInPanel: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .keyboardReachable()
+                .keyboardReachable(
+                    activate: {
+                        if !(busy || code.filter(\.isNumber).count < 6) {
+                            verify()
+                        }
+                    }
+                )
                 .disabled(busy || code.filter(\.isNumber).count < 6)
 
                 Button("Use a different email") {
