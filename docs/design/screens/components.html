@@ -193,42 +193,43 @@
     </ul>
   </section>
 
-  <!-- ═══════════════ the drift ═══════════════ -->
+  <!-- ═══════════════ the shared three ═══════════════ -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Already duplicated</span></div>
+    <div class="sec-head"><span class="eyebrow">Panel, Empty, DetailPage</span></div>
 
     <p>
-      Three shapes are re-declared privately across six files. They are listed
-      here because the next screen will want them too, and copying one again
-      is what this page exists to stop.
+      All three live in <code>page.tsx</code> beside <code>Page</code>, because
+      they are the column's furniture rather than any one screen's.
     </p>
 
-    <table>
-      <tr><th>Shape</th><th>Copies</th><th>State</th></tr>
-      <tr>
-        <td><code>Empty</code> / <code>Placeholder</code></td>
-        <td><code>client-list</code>, <code>invoice-list</code>, <code>entry-list</code></td>
-        <td>Two byte-identical, one <code>py-8</code></td>
-      </tr>
-      <tr>
-        <td><code>Panel</code></td>
-        <td><code>client-list</code>, <code>project-list</code></td>
-        <td>The same bordered card</td>
-      </tr>
-      <tr>
-        <td><code>Shell</code> with a back link</td>
-        <td><code>client-detail</code>, <code>invoice-detail</code></td>
-        <td>Hardcodes where "back" goes</td>
-      </tr>
-    </table>
+<pre><span class="c">// A list, and the message standing in for one.</span>
+&lt;<span class="k">Panel</span>&gt;
+  {isLoading ? &lt;<span class="k">Empty</span>&gt;Loading…&lt;/<span class="k">Empty</span>&gt;
+   : rows.length === 0 ? &lt;<span class="k">Empty</span>&gt;Nothing yet. Add one to…&lt;/<span class="k">Empty</span>&gt;
+   : &lt;ul&gt;…&lt;/ul&gt;}
+&lt;/<span class="k">Panel</span>&gt;
+
+<span class="c">// A group of panels, aligned whether or not each has a colour.</span>
+&lt;<span class="k">Panel</span> edge color={client?.color}&gt;…&lt;/<span class="k">Panel</span>&gt;
+
+<span class="c">// A detail screen.</span>
+&lt;<span class="k">DetailPage</span> back="/clients" label="Clients"&gt;…&lt;/<span class="k">DetailPage</span>&gt;</pre>
 
     <ul class="rule">
-      <li class="warn"><strong>The drift has already happened</strong>, which
-        is the state just before someone unifies them in the wrong direction.
-        <code>tasks.md</code> carries the entry.</li>
-      <li class="warn"><strong>The back link is the one worth care.</strong>
-        It reads as "back" and behaves as "up", so arriving from the home
-        inbox and clicking it lands on a list you were never on.</li>
+      <li><strong><code>edge</code> is opt-in, and a null colour still reserves
+        the rail.</strong> Panels in a group must align whether or not each
+        client has a colour — "No client" is a grouping rather than a record,
+        so it gets the space and no colour. A standalone panel omits
+        <code>edge</code> and has nothing to align with.</li>
+      <li><strong><code>Empty</code> takes <code>tight</code></strong> for the
+        in-page variant: today's entries sit under a heading that already has
+        space above it, where a list filling its own panel does not.</li>
+      <li class="warn"><strong><code>back</code> is where the record sits, not
+        where you came from.</strong> The arrow promises "back" while the href
+        means "up", so arriving from the home inbox and clicking it lands on a
+        list you were never on. <code>tasks.md</code> carries the fix — and it
+        is now one change rather than three, which is the argument for the
+        component.</li>
     </ul>
   </section>
 

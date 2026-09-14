@@ -9,6 +9,7 @@ import { useTimeZone } from '@/lib/client/use-timer';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
+import { Empty, Panel } from './page';
 
 /**
  * Today's entries, beneath the timer. This is the view seen 50× a day, so it
@@ -62,13 +63,11 @@ export function EntryList({
         </Button>
       </header>
 
-      <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
+      <Panel>
         {isLoading ? (
-          <Placeholder>Loading…</Placeholder>
+          <Empty tight>Loading…</Empty>
         ) : entries.length === 0 ? (
-          <Placeholder>
-            Nothing logged yet today. Start a timer above.
-          </Placeholder>
+          <Empty tight>Nothing logged yet today. Start a timer above.</Empty>
         ) : (
           <ul>
             {entries.map((entry) => (
@@ -84,7 +83,7 @@ export function EntryList({
             ))}
           </ul>
         )}
-      </div>
+      </Panel>
 
       <EntryDialog
         open={open}
@@ -170,11 +169,5 @@ function Row({
         {formatCompact(entry.durationSeconds ?? 0)}
       </span>
     </button>
-  );
-}
-
-function Placeholder({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="px-4 py-8 text-center type-support text-subtle">{children}</p>
   );
 }

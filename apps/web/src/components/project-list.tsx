@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, type Client, type Project } from '@/lib/client/api';
-import { Page } from './page';
+import { Page, Panel } from './page';
 import { ProjectDialog } from './project-dialog';
 import { ProjectRate } from './project-rate';
 import { money } from '@/lib/client/format';
@@ -81,7 +81,7 @@ export function ProjectList() {
           {groups.map((g) => (
             <section key={g.client?.id ?? '__none__'}>
               <GroupHeading client={g.client} count={g.projects.length} />
-              <Panel color={g.client?.color}>
+              <Panel edge color={g.client?.color}>
                 <ul>
                   {g.projects.map((project) => (
                     <li key={project.id}>
@@ -115,27 +115,6 @@ export function ProjectList() {
         existing={editing}
       />
     </Page>
-  );
-}
-
-function Panel({
-  color,
-  children,
-}: {
-  color?: string | null;
-  children: React.ReactNode;
-}) {
-  return (
-    /* The client colour runs down the whole group rather than sitting in the
-       heading as a dot: the panel is the client's work, so the edge says so
-       for every row at once. "No client" is a grouping, not a record, so it
-       gets no colour — consistent with the heading. */
-    <div
-      className="overflow-hidden rounded-xl border border-l-2 border-edge-subtle bg-surface-elevated shadow-card"
-      style={{ borderLeftColor: color ?? undefined }}
-    >
-      {children}
-    </div>
   );
 }
 

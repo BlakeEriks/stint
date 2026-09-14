@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { StatusBadge, money, shortDate } from './invoice-bits';
 import { api, ApiError, type InvoiceStatus } from '@/lib/client/api';
-import { Page } from './page';
+import { DetailPage } from './page';
 
 export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
@@ -230,17 +230,12 @@ function ActionError({ error }: { error: unknown }) {
   );
 }
 
+/** Named once, because loading, not-found and the invoice itself all use it. */
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <Page>
-      <Link
-        href="/invoices"
-        className="type-label text-subtle hover:text-muted"
-      >
-        ← Invoices
-      </Link>
-      <div className="mt-4">{children}</div>
-    </Page>
+    <DetailPage back="/invoices" label="Invoices">
+      {children}
+    </DetailPage>
   );
 }
 

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, ApiError, type Client, type Project } from '@/lib/client/api';
+import { Panel } from './page';
 import { ProjectDialog } from './project-dialog';
 import { ProjectRate } from './project-rate';
 
@@ -52,7 +53,7 @@ export function ClientProjects({ client }: { client: Client }) {
         ) : null}
       </header>
 
-      <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
+      <Panel>
         {isLoading ? (
           <p className="px-4 py-6 type-support text-subtle">Loading…</p>
         ) : projects.length === 0 ? (
@@ -78,7 +79,7 @@ export function ClientProjects({ client }: { client: Client }) {
             ))}
           </ul>
         )}
-      </div>
+      </Panel>
 
       <ProjectDialog
         open={creating}

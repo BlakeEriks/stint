@@ -56,15 +56,23 @@ later.
       table has no row for it, which is the reason it was missed — add one
       when it is fixed, and use `<Wordmark />`.
 
-- [ ] **Two route handlers have no tests.** `PATCH`/`DELETE` on
-      `/projects/:id` and `/payment-profiles/:id` are the only handlers with
-      no integration coverage — 18 of 20 are tested. Both are mutating, and
-      the payment-profile one touches the default-profile invariant
-      (`one_default_payment_profile_per_user`), so an un-setting bug there is
-      silent until an invoice renders the wrong bank details.
+- [ ] **Eight route handlers have no tests, across four routes.** Nothing in
+      `test/` imports these, so none of them has ever run in a test:
 
-      `docs/api.md` used to claim every handler was covered. It now names the
-      gap instead, which is honest but is not the fix.
+      | Route | Untested |
+      | --- | --- |
+      | `/projects/:id` | GET, PATCH, DELETE |
+      | `/payment-profiles/:id` | GET, PATCH, DELETE |
+      | `/payment-profiles` | GET |
+      | `/clients/:id` | GET, PATCH |
+
+      **`/payment-profiles/:id` PATCH is the one that costs money.** It
+      touches `one_default_payment_profile_per_user`, so a bug that un-sets
+      the default is silent until an invoice renders the wrong bank details —
+      and by then it has been sent.
+
+      Count handlers, not files — 34 across 20 route files. Counting files
+      reports this gap as two.
 
 - [ ] **An inbox invoice row does not open.** Clicking the label on an overdue
       or stale-draft row in the dock's inbox goes nowhere. The `href` is
@@ -81,12 +89,14 @@ later.
       so a dead link means those are unreachable from the place that surfaced
       the problem.
 
-- [ ] **A detail page's back link ignores where you came from.** `Shell` in
-      `invoice-detail.tsx` hardcodes `← Invoices`, so arriving from the home
-      inbox and clicking back lands on `/invoices` — a list you were not on,
-      with the row you were reading now one of many. `client-detail.tsx` and
-      `invoice-new.tsx` have the same hardcoded pattern, so whatever this
-      becomes should cover all three.
+- [ ] **A detail page's back link ignores where you came from.**
+      `DetailPage` takes a hardcoded `back`, so arriving from the home inbox
+      and clicking back lands on `/invoices` — a list you were not on, with
+      the row you were reading now one of many.
+
+      All three callers (`invoice-detail`, `client-detail`, `invoice-new`)
+      now go through one component, so this is a single change rather than
+      three.
 
       The link is doing two jobs and only one is honest. As **"up"** it is
       correct: an invoice does sit under `/invoices`. As **"back"** — which is
@@ -102,25 +112,20 @@ later.
       goes, a direct visit still gets a sensible link, and the destination is
       knowable at render time.
 
-- [ ] **Pace with no target: prompt for the first goal instead of hiding.**
-      `Pace` returns `null` when `stats.pace` is null, so a new account never
-      sees the card and has no way to discover that a target exists — the
-      feature is invisible to exactly the user who has not used it. Render the
-      card with its month heading and a prompt that opens a dialog to set one
-      (target plus `hours`/`revenue` unit, the fields already on
-      `user_settings`).
+- [ ] **Pace is unreachable until you already know it exists.** `Pace` returns
+      `null` when `stats.pace` is null, so an account with no target sees
+      nothing on Home, and the only route to one is knowing to open Settings
+      and scroll to a field nothing points at.
 
-      **This is not a contradiction of "no empty progress bar".** That rule
-      objected to the app assigning itself a chore — a bar rendered at zero
-      with nothing to say. A single prompt in place of the bar says what the
-      card is for and offers the one action that makes it work; it is the
-      empty-state pattern `/clients` already uses ("Add one to set a rate and
-      bill against it"), not a configuration nag.
+      Settings owns the field and should keep owning it — the gap is a way in
+      from the screen the card would appear on.
 
-      Two things it must not become: a persistent dismissible banner (a card
-      you keep closing is worse than one that hides), and a second target
-      editor — Settings owns that field, so the dialog writes the same
-      setting and the card is a shortcut into it, not a duplicate.
+      **This is not the "no empty progress bar" rule being overturned.** That
+      rule objects to a bar rendered at zero with nothing to say; a single
+      line that names what the card does and links to the field is the
+      empty-state pattern `/clients` already uses. What it must not become is
+      a second target editor, or a dismissible banner — a card you keep
+      closing is worse than one that hides.
 
 - [ ] **Record a reminder on a sent invoice.** `last_reminded_at`, so an
       overdue row can read "12 days late · chased 3d ago" rather than either
@@ -316,15 +321,6 @@ later.
       where hiding billing-relevant fields is worse than wrapping and the list
       is short enough that density is not the constraint.
 
-- [ ] **Client colour legend on the calendar.** A block's left edge carries
-      its client's colour and nothing on the screen says which client that is
-      — the mapping only exists in the clients list, on another page. Needs to
-      cover the no-client case too, since internal work renders with no edge
-      at all rather than a shared grey. Only list clients present in the week
-      being viewed; a legend of every client a contractor has ever had is a
-      key nobody reads. The same mapping is what the home screen's Activity
-      heatmap will need, so whatever this becomes should be reusable.
-
 ## Needs a decision first
 
 Each of these names the question blocking it. Answer the question, then it
@@ -365,12 +361,6 @@ moves up — do not start one by guessing the answer.
       declares plain `Invoice`. Internal entry ids are in no documented shape.
       Decide whether they are part of the contract or should be stripped.
 
-- [ ] **Duplicated empty-state primitives, already drifting.** `Empty` in
-      `client-list.tsx` and `invoice-list.tsx` are byte-identical;
-      `Placeholder` in `entry-list.tsx` is the same but `py-8`. Two `Shell`
-      back-link layouts likewise. The drift has already happened, which is
-      the state just before someone unifies them in the wrong direction.
-
 
 
 - [ ] **No test covers the bearer-token auth path.** It shipped broken —
@@ -383,10 +373,15 @@ moves up — do not start one by guessing the answer.
       in the seeded week — "Untitled" is clipped by the block above it.
 - [ ] **Calendar header weight mismatch.** `type-title` at 24px/600 sits next
       to a mono readout and the pairing reads unbalanced.
-- [ ] **`api.ts` still hand-writes request validation.** The route handlers
-      define their own local Zod schemas and never import `@stint/schema`, so
-      requests are validated against a second copy of the truth. Response
-      types now derive; requests do not.
+- [ ] **Route handlers validate against a second copy of the schema.** Every
+      handler under `api/v1/` defines its own local Zod schemas and none
+      imports `@stint/schema` — `invoices/preview/route.ts` has a
+      `PreviewRequest` duplicating the schema's `InvoicePreviewRequest`, and
+      `invoices/route.ts` a `CreateInvoice` duplicating its `CreateInvoice`.
+
+      The browser half is already done: `lib/client/api.ts` derives its
+      response types from `@stint/schema` rather than copying them. Requests
+      are the remaining direction.
 
 ## Deferred
 

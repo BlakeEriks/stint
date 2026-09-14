@@ -6,9 +6,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, ApiError } from '@/lib/client/api';
-import { Page } from './page';
+import { DetailPage } from './page';
 import { ClientProjects } from './client-projects';
 import { money } from '@/lib/client/format';
+
+/** Named once, because loading, not-found and the client itself all use it. */
+const Shell = ({ children }: { children: React.ReactNode }) => (
+  <DetailPage back="/clients" label="Clients">
+    {children}
+  </DetailPage>
+);
 
 export function ClientDetail({ id }: { id: string }) {
   const router = useRouter();
@@ -121,21 +128,6 @@ export function ClientDetail({ id }: { id: string }) {
 
       <ClientProjects client={client} />
     </Shell>
-  );
-}
-
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <Page>
-      <Link
-        href="/clients"
-        className="type-label text-subtle
-                   hover:text-muted"
-      >
-        ← Clients
-      </Link>
-      <div className="mt-4">{children}</div>
-    </Page>
   );
 }
 

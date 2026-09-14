@@ -15,7 +15,7 @@ import {
   type GroupingMode,
   type InvoicePreview,
 } from '@/lib/client/api';
-import { Page } from './page';
+import { DetailPage } from './page';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   { value: 'entry', label: 'Every entry', hint: 'One line per time entry.' },
@@ -95,14 +95,8 @@ export function NewInvoice() {
   const empty = preview !== null && preview.lineItems.length === 0;
 
   return (
-    <Page>
-      <Link
-        href="/invoices"
-        className="type-label text-subtle hover:text-muted"
-      >
-        ← Invoices
-      </Link>
-      <h1 className="mt-4 mb-6 type-title text-strong">New invoice</h1>
+    <DetailPage back="/invoices" label="Invoices">
+      <h1 className="mb-6 type-title text-strong">New invoice</h1>
 
       <div className="flex flex-col gap-4">
         <Section title="What to bill">
@@ -248,7 +242,7 @@ export function NewInvoice() {
           </>
         ) : null}
       </div>
-    </Page>
+    </DetailPage>
   );
 }
 

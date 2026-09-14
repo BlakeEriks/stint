@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { StatusBadge, money, shortDate } from './invoice-bits';
 import { api, type Invoice, type InvoiceStatus } from '@/lib/client/api';
-import { Page } from './page';
+import { Empty, Page, Panel } from './page';
 import { Check, Plus } from 'lucide-react';
 
 /**
@@ -112,7 +112,7 @@ export function InvoiceList() {
         ) : null}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
+      <Panel>
         {isLoading ? (
           <Empty>Loading…</Empty>
         ) : invoices.length === 0 ? (
@@ -139,7 +139,7 @@ export function InvoiceList() {
             ))}
           </ul>
         )}
-      </div>
+      </Panel>
     </Page>
   );
 }
@@ -199,13 +199,5 @@ function Row({
         <span className="w-6 flex-none" aria-hidden />
       )}
     </div>
-  );
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="px-4 py-10 text-center type-support text-subtle">
-      {children}
-    </p>
   );
 }

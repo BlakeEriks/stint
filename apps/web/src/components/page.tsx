@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 /**
  * The content column.
  *
@@ -38,5 +40,97 @@ export function Page({
     >
       {children}
     </main>
+  );
+}
+
+/**
+ * A detail screen: a back link, then the content.
+ *
+ * `client-detail`, `invoice-detail` and `invoice-new` each had their own copy,
+ * two of them byte-identical and the third inlined without a wrapper at all.
+ *
+ * **`back` is where this record sits, not where you came from.** The arrow
+ * and the position promise "back" while the hardcoded href means "up", so
+ * arriving from the home inbox and clicking it lands on a list you were never
+ * on. `tasks.md` carries the fix — a `from` param, resolved at render time —
+ * and it is one change here rather than three once it happens, which is the
+ * argument for this component existing at all.
+ */
+export function DetailPage({
+  back,
+  label,
+  wide = false,
+  children,
+}: {
+  back: string;
+  label: string;
+  wide?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Page wide={wide}>
+      <Link href={back} className="type-label text-subtle hover:text-muted">
+        ← {label}
+      </Link>
+      <div className="mt-4">{children}</div>
+    </Page>
+  );
+}
+
+/**
+ * A card that holds rows, or one message where rows would be.
+ *
+ * `edge` draws the client's colour down the whole left edge — the panel is
+ * that client's work, so the edge says so for every row at once.
+ *
+ * **`edge` is opt-in, and a null colour still reserves the rail.** A group of
+ * panels has to align whether or not each client has a colour, and "No
+ * client" is a grouping rather than a record, so it gets the space and no
+ * colour — the same rule the headings follow. A panel that is not part of
+ * such a group (a loading or empty message) omits `edge` entirely and has no
+ * rail to align with.
+ */
+export function Panel({
+  edge = false,
+  color,
+  children,
+}: {
+  edge?: boolean;
+  color?: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card${
+        edge ? ' border-l-2' : ''
+      }`}
+      style={edge && color ? { borderLeftColor: color } : undefined}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The message standing in for rows: loading, or nothing to show.
+ *
+ * `tight` is the in-page variant — today's entries sit under a heading that
+ * already has space above it, where a list filling its own panel does not.
+ */
+export function Empty({
+  tight = false,
+  children,
+}: {
+  tight?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <p
+      className={`px-4 text-center type-support text-subtle ${
+        tight ? 'py-8' : 'py-10'
+      }`}
+    >
+      {children}
+    </p>
   );
 }

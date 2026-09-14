@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { api, type ClientWithScale } from '@/lib/client/api';
-import { Page } from './page';
+import { Empty, Page, Panel } from './page';
 import { Plus } from 'lucide-react';
 import { money } from '@/lib/client/format';
 
@@ -174,22 +174,5 @@ function Detail({ client }: { client: ClientWithScale }) {
     <span className="mt-0.5 block truncate type-support text-subtle">
       {parts.join(' · ')}
     </span>
-  );
-}
-
-/** Holds an empty or loading message, which has no client and so no edge. */
-function Panel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
-      {children}
-    </div>
-  );
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="px-4 py-10 text-center type-support text-subtle">
-      {children}
-    </p>
   );
 }
