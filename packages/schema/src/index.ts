@@ -90,6 +90,12 @@ export const TimeEntry = z.object({
   rateOverride: money.nullable().optional(),
   invoiceId: uuid.nullable().optional(),
   durationSeconds: z.number().int().nonnegative().nullable(),
+  /**
+   * The user's answer to "is this length correct?". A trigger clears it
+   * whenever the times change, so the answer cannot outlive the length it was
+   * given about.
+   */
+  durationOk: z.boolean().default(false),
 });
 
 /** Manual entry creation. The id is client-supplied so replay is safe. */
@@ -115,6 +121,8 @@ export const UpdateTimeEntry = z.object({
   endedAt: iso.nullable().optional(),
   isBillable: z.boolean().optional(),
   rateOverride: money.nullable().optional(),
+  /** How the inbox's "It's correct" answers the strange-duration row. */
+  durationOk: z.boolean().optional(),
 });
 
 // ── timer ──────────────────────────────────────────────────────────
@@ -155,6 +163,18 @@ export const Settings = z.object({
   weekStartsOn: z.number().int().min(0).max(6),
   timeFormat: z.enum(['12h', '24h']),
   maxTimerHours: z.number().positive().max(24),
+
+  /**
+   * Thresholds for the inbox's strange-duration row. Null switches off that
+   * side; null on both retires the row, which is the default — nobody gets a
+   * new inbox row without asking for it.
+   *
+   * Seconds on the short side, not minutes: an entry under a minute was
+   * started and stopped without work between it, where a twenty-minute call
+   * is ordinary billable work.
+   */
+  minEntrySeconds: z.number().int().positive().nullable(),
+  maxEntryHours: z.number().positive().max(24).nullable(),
   businessName: z.string().max(200).nullable(),
   businessAddress: z.string().max(1000).nullable(),
   businessEmail: z.email().nullable(),
@@ -381,19 +401,39 @@ export const Stats = z.object({
         ageDays: z.number().int(),
       }),
     ),
-    /** Null rather than a zero row, so the UI renders nothing at all. */
-    unprojected: z
-      .object({
-        count: z.number().int().positive(),
+    /**
+     * One row per entry, oldest first — not a rollup.
+     *
+     * The work is done one entry at a time: open it, assign a project, move
+     * to the next. A row naming a count is a row the user then has to go and
+     * find. Empty array, never null: an empty list renders nothing already.
+     */
+    unprojected: z.array(
+      z.object({
+        entryId: uuid,
+        taskName: z.string(),
+        startedAt: z.iso.datetime(),
         seconds: z.number().int().nonnegative(),
-        /**
-         * The oldest of them, so the inbox row can open the editor on
-         * something. This row is a queue of decisions rather than a link to a
-         * record, and there is no entries list for it to lead to.
-         */
-        oldestId: uuid,
-      })
-      .nullable(),
+      }),
+    ),
+    /**
+     * Entries whose length is implausible — under `minEntrySeconds` or over
+     * `maxEntryHours`, and not yet answered with `durationOk`.
+     *
+     * One row per entry in both directions. `kind` is what the row's
+     * qualifier states in words, because colour alone never carries meaning.
+     */
+    strangeDurations: z.array(
+      z.object({
+        entryId: uuid,
+        kind: z.enum(['short', 'long']),
+        taskName: z.string(),
+        projectName: z.string().nullable(),
+        clientName: z.string().nullable(),
+        startedAt: z.iso.datetime(),
+        seconds: z.number().int().nonnegative(),
+      }),
+    ),
   }),
 });
 

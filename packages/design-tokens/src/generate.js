@@ -70,6 +70,19 @@ const elevationVars = (theme) =>
     .map(([name, value]) => `  --tt-${name}: ${value};`)
     .join('\n');
 
+/* Motion carries no theme — a duration is the same in light and dark, so it
+ * is emitted once in the root block rather than per palette. An easing keeps
+ * its own --ease- prefix: `var(--ease-standard)` reads as what it is, where
+ * `var(--motion-ease-standard)` reads as a duration. */
+const motionVars = (indent) =>
+  Object.entries(tokens.motion)
+    .map(([name, value]) =>
+      name.startsWith('ease-')
+        ? `${indent}--${name}: ${value};`
+        : `${indent}--motion-${name}: ${value};`,
+    )
+    .join('\n');
+
 // ── CSS ────────────────────────────────────────────────────────────
 // Dark is the primary theme: the bare :root carries it, so the
 // un-stamped "system" state and an explicit dark choice both resolve.
@@ -138,6 +151,9 @@ ${Object.entries(tokens.space)
 ${Object.entries(tokens.radius)
   .map(([k, v]) => `  --radius-${k}: ${v}px;`)
   .join('\n')}
+
+  /* Motion. Theme-independent: a duration does not change with the palette. */
+${motionVars('  ')}
 
   /* The mark's geometry, in em so one definition serves every size it is
      set at. No colour here — the mark takes one, via currentColor. */
@@ -238,6 +254,7 @@ export const font = ${JSON.stringify(tokens.type.fontFamily, null, 2)} as const;
 export const type = ${JSON.stringify(tokens.type.scale, null, 2)} as const;
 export const space = ${JSON.stringify(tokens.space, null, 2)} as const;
 export const radius = ${JSON.stringify(tokens.radius, null, 2)} as const;
+export const motion = ${JSON.stringify(tokens.motion, null, 2)} as const;
 
 export type ThemeName = keyof typeof theme;
 export type ColorToken = keyof typeof theme.dark;
@@ -344,6 +361,8 @@ ${Object.entries(tokens.elevation.dark)
 
     --font-sans: ${tokens.type.fontFamily.sans};
     --font-mono: ${tokens.type.fontFamily.mono};
+
+${motionVars('    ')}
 
 ${Object.entries(tokens.brand.mark)
   .map(

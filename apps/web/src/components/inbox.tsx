@@ -5,13 +5,15 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatCompact } from '@stint/core';
 import {
-  AlarmClock,
-  AlertTriangle,
   Check,
   Clock,
+  DollarSign,
   Download,
-  FileWarning,
+  FolderInput,
   Inbox as InboxIcon,
+  Pencil,
+  Send,
+  Trash2,
 } from 'lucide-react';
 import {
   api,
@@ -22,7 +24,6 @@ import {
 import { useRunaway } from '@/lib/client/use-runaway';
 import { useTimeZone } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
-import { Button } from './ui/button';
 import { money } from './invoice-bits';
 
 /**
@@ -47,7 +48,8 @@ import { money } from './invoice-bits';
  * already the container, so a second one inside it is wasted width.
  */
 export function Inbox({ stats }: { stats: Stats }) {
-  const { overdueInvoices, staleDrafts, unprojected } = stats.attention;
+  const { overdueInvoices, staleDrafts, unprojected, strangeDurations } =
+    stats.attention;
   const queryClient = useQueryClient();
   const runaway = useRunaway();
 
@@ -63,12 +65,23 @@ export function Inbox({ stats }: { stats: Stats }) {
   const [assigning, setAssigning] = useState<TimeEntry | undefined>();
   const tz = useTimeZone();
 
-  const { mutate: openOldest } = useMutation({
-    mutationFn: async (id: string) => {
-      const { entries } = await api.entries({ projectId: 'none' });
-      return entries.find((e) => e.id === id);
-    },
+  /* The stats rows carry enough to render, but `EntryDialog` edits a whole
+     entry — so opening one fetches it. Keyed by id rather than filter: a
+     strange-duration entry usually HAS a project, so `projectId=none` would
+     not find it. */
+  const { mutate: openEntry } = useMutation({
+    mutationFn: (id: string) => api.entry(id),
     onSuccess: (found) => setAssigning(found),
+  });
+
+  /* "It's correct" answers the question and nothing else — it never edits the
+     times. A trigger clears the answer if they change later. */
+  const confirmLength = useMutation({
+    mutationFn: (id: string) => api.updateEntry(id, { durationOk: true }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['entries'] });
+    },
   });
 
   /* React Query dedupes this against Home's identical query, so on the one
@@ -91,7 +104,8 @@ export function Inbox({ stats }: { stats: Stats }) {
   const count =
     overdueInvoices.length +
     staleDrafts.length +
-    (unprojected ? 1 : 0) +
+    unprojected.length +
+    strangeDurations.length +
     (runaway.showing ? 1 : 0);
 
   return (
@@ -131,9 +145,6 @@ export function Inbox({ stats }: { stats: Stats }) {
             <Item
               key={i.invoiceId}
               href={`/invoices/${i.invoiceId}`}
-              icon={
-                <AlertTriangle aria-hidden className="size-3.5 text-danger" />
-              }
               label={i.clientName ?? i.invoiceNumber}
               detail={`${i.daysLate} ${i.daysLate === 1 ? 'day' : 'days'} late`}
               value={money(i.amount, i.currency)}
@@ -141,17 +152,19 @@ export function Inbox({ stats }: { stats: Stats }) {
               actions={
                 <>
                   {/* The money usually arrived and was never recorded, so
-                      this is the action nine times in ten. */}
+                      this is the action nine times in ten. A currency glyph,
+                      not a check: the check belongs to "It's correct". */}
                   <Action
                     label={`Mark ${i.invoiceNumber} paid`}
-                    icon={<Check aria-hidden className="size-3.5" />}
+                    icon={<DollarSign aria-hidden className="size-3.5" />}
                     disabled={setStatus.isPending}
                     onClick={() =>
                       setStatus.mutate({ id: i.invoiceId, status: 'paid' })
                     }
                   />
                   <Action
-                    label={`Download ${i.invoiceNumber}`}
+                    label="Download"
+                    ariaLabel={`Download ${i.invoiceNumber}`}
                     icon={<Download aria-hidden className="size-3.5" />}
                     href={`/api/v1/invoices/${i.invoiceId}/pdf`}
                   />
@@ -164,37 +177,91 @@ export function Inbox({ stats }: { stats: Stats }) {
             <Item
               key={d.invoiceId}
               href={`/invoices/${d.invoiceId}`}
-              icon={
-                <FileWarning aria-hidden className="size-3.5 text-warning" />
-              }
               label={d.clientName ?? d.invoiceNumber}
-              detail={`draft, ${d.ageDays}d old`}
+              detail={`Draft, ${d.ageDays}d old`}
               value={money(d.amount, d.currency)}
               tone="warning"
               actions={
+                <>
+                  <Action
+                    label={`Mark ${d.invoiceNumber} sent`}
+                    icon={<Send aria-hidden className="size-3.5" />}
+                    disabled={setStatus.isPending}
+                    onClick={() =>
+                      setStatus.mutate({ id: d.invoiceId, status: 'sent' })
+                    }
+                  />
+                  <Action
+                    label="Download"
+                    ariaLabel={`Download ${d.invoiceNumber}`}
+                    icon={<Download aria-hidden className="size-3.5" />}
+                    href={`/api/v1/invoices/${d.invoiceId}/pdf`}
+                  />
+                </>
+              }
+            />
+          ))}
+
+          {/* One row per entry, not a rollup: the work is done an entry at a
+              time — open it, assign a project, move to the next. */}
+          {unprojected.map((u) => (
+            <Item
+              key={u.entryId}
+              onSelect={() => openEntry(u.entryId)}
+              label={u.taskName || 'Untitled entry'}
+              detail={`No project · ${dayLabel(u.startedAt, tz)}`}
+              value={formatCompact(u.seconds)}
+              tone="warning"
+              actions={
                 <Action
-                  label={`Download ${d.invoiceNumber}`}
-                  icon={<Download aria-hidden className="size-3.5" />}
-                  href={`/api/v1/invoices/${d.invoiceId}/pdf`}
+                  label="Assign project"
+                  ariaLabel={`Assign a project to ${u.taskName || 'this entry'}`}
+                  icon={<FolderInput aria-hidden className="size-3.5" />}
+                  onClick={() => openEntry(u.entryId)}
                 />
               }
             />
           ))}
 
-          {unprojected ? (
+          {/* A record already written, where the runaway row is a timer still
+              running. The qualifier names which threshold it tripped, because
+              colour alone never says which way. */}
+          {strangeDurations.map((e) => (
             <Item
-              onSelect={() => openOldest(unprojected.oldestId)}
-              icon={<Clock aria-hidden className="size-3.5 text-warning" />}
-              label={
-                unprojected.count === 1
-                  ? '1 entry, no project'
-                  : `${unprojected.count} entries, no project`
-              }
-              detail="cannot resolve a rate"
-              value={formatCompact(unprojected.seconds)}
+              key={e.entryId}
+              onSelect={() => openEntry(e.entryId)}
+              label={e.taskName || 'Untitled entry'}
+              detail={[
+                e.clientName ?? e.projectName,
+                dayLabel(e.startedAt, tz),
+                e.kind === 'short' ? 'unusually short' : 'unusually long',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              value={formatCompact(e.seconds)}
+              valueTone="warning"
               tone="warning"
+              actions={
+                <>
+                  <Action
+                    label="Edit entry"
+                    ariaLabel={`Edit ${e.taskName || 'this entry'}`}
+                    icon={<Pencil aria-hidden className="size-3.5" />}
+                    onClick={() => openEntry(e.entryId)}
+                  />
+                  {/* The one action that means "this is already right", and
+                      the only one wearing a check mark. */}
+                  <Action
+                    label="It's correct"
+                    ariaLabel={`Keep ${e.taskName || 'this entry'} as it is`}
+                    icon={<Check aria-hidden className="size-3.5" />}
+                    disabled={confirmLength.isPending}
+                    onClick={() => confirmLength.mutate(e.entryId)}
+                  />
+                </>
+              }
             />
-          ) : null}
+          ))}
         </ul>
       )}
 
@@ -235,100 +302,97 @@ function RunawayItem({ runaway }: { runaway: ReturnType<typeof useRunaway> }) {
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
 
   return (
-    <li className="border-t border-edge-subtle first:border-t-0">
-      <div className="flex gap-2 px-1 py-2.5">
-        <span className="mt-0.5 flex-none">
-          <AlarmClock aria-hidden className="size-3.5 text-warning" />
-        </span>
-
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {/* Plain text, not a link: the entry is still running, so there is
-              no record to open yet. */}
-          <span className="truncate type-control text-primary">
-            Timer still running
-          </span>
-
-          <span className="truncate type-meta text-warning">
-            {runaway.hours} hours so far
-          </span>
-
-          <div className="mt-1 flex flex-wrap items-center gap-1">
-            {confirmingDiscard ? (
-              <>
-                <span className="type-support text-muted">Delete it?</span>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="xs"
-                  disabled={runaway.busy}
-                  onClick={runaway.discard}
-                >
-                  Discard
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => setConfirmingDiscard(false)}
-                >
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <>
-                {/* Keep is first and plainest: the timer being long is often
-                    correct, and the app must not imply otherwise. */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={runaway.keep}
-                >
-                  Keep
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  disabled={runaway.busy}
-                  onClick={runaway.adjust}
-                >
-                  Adjust
-                </Button>
-                {/* Destructive, so it asks. Discarding a 16-hour entry you
-                    actually worked is not recoverable. */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  disabled={runaway.busy}
-                  onClick={() => setConfirmingDiscard(true)}
-                >
-                  Discard
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </li>
+    <Item
+      label="Timer still running"
+      detail={`${runaway.hours} hours so far`}
+      value={`${runaway.hours}h`}
+      valueTone="warning"
+      tone="warning"
+      actions={
+        confirmingDiscard ? (
+          <>
+            <span className="px-2 type-support text-muted">Delete it?</span>
+            <Action
+              label="Discard"
+              icon={<Trash2 aria-hidden className="size-3.5" />}
+              destructive
+              disabled={runaway.busy}
+              onClick={runaway.discard}
+            />
+            <Action
+              label="Cancel"
+              icon={<Clock aria-hidden className="size-3.5" />}
+              onClick={() => setConfirmingDiscard(false)}
+            />
+          </>
+        ) : (
+          <>
+            {/* Keep is first and plainest: the timer being long is often
+                correct, and the app must not imply otherwise. A clock, not a
+                check — the check belongs to "It's correct". */}
+            {/* No aria-label: there is exactly one runaway row, so the
+                visible word is already unambiguous. An aria-label here would
+                only make the accessible name differ from what is read. */}
+            <Action
+              label="Keep"
+              icon={<Clock aria-hidden className="size-3.5" />}
+              onClick={runaway.keep}
+            />
+            <Action
+              label="Adjust"
+              icon={<Pencil aria-hidden className="size-3.5" />}
+              disabled={runaway.busy}
+              onClick={runaway.adjust}
+            />
+            {/* Destructive, so it asks. Discarding a 16-hour entry you
+                actually worked is not recoverable. */}
+            <Action
+              label="Discard"
+              icon={<Trash2 aria-hidden className="size-3.5" />}
+              destructive
+              disabled={runaway.busy}
+              onClick={() => setConfirmingDiscard(true)}
+            />
+          </>
+        )
+      }
+    />
   );
+}
+
+/**
+ * The entry's own day, in the user's zone.
+ *
+ * A date rather than a time: these rows are about work already recorded, and
+ * which day it landed on is what identifies it in a list.
+ */
+function dayLabel(iso: string, tz: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: tz,
+  }).format(new Date(iso));
 }
 
 /**
  * One inbox row.
  *
- * Stacked rather than tabular: at 280px there is no room for a label column
- * and a value column that both hold their width, and the label is what
- * identifies the row. The value sits on the second line beside the detail.
+ * Two lines then an action slot: title and figure on the first, the qualifier
+ * on the second. A title, a figure and three buttons do not share one line at
+ * any dock width worth having.
+ *
+ * **Severity is the left rule, never a per-row icon.** Six small coloured
+ * glyphs are six focal points; six aligned rules are one texture, and the
+ * danger one in it is conspicuous. Colour never carries the meaning alone —
+ * the qualifier states it in words.
  */
 function Item({
   href,
   onSelect,
-  icon,
   label,
   detail,
   value,
+  valueTone,
   tone,
   actions,
 }: {
@@ -336,94 +400,136 @@ function Item({
   href?: string;
   /** For a row that acts in place rather than navigating. */
   onSelect?: () => void;
-  icon: React.ReactNode;
   label: string;
   detail: string;
   value: string;
+  /** Warning only where the figure IS the problem — a runaway or a length. */
+  valueTone?: 'warning';
   tone: 'danger' | 'warning';
   actions?: React.ReactNode;
 }) {
-  /* A link OR a button, because not every row leads to a page. Overdue
-     invoices and stale drafts name a record that has one; unprojected
-     entries are a queue of decisions with no list to land on, so that row
-     opens the editor in place. Same affordance either way — the label is the
-     control, and it never wraps the action buttons below it, which would be
-     invalid HTML and put Tab inside the link. */
-  const labelClass =
-    'truncate text-left rounded-sm type-control text-primary hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
+  const titleClass =
+    'truncate text-left rounded-sm type-control text-strong hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
 
   return (
-    <li className="border-t border-edge-subtle first:border-t-0">
-      <div className="flex gap-2 px-1 py-2.5">
-        <span className="mt-0.5 flex-none">{icon}</span>
-
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {href ? (
-            <Link href={href} className={labelClass}>
-              {label}
-            </Link>
-          ) : (
-            <button type="button" onClick={onSelect} className={labelClass}>
-              {label}
-            </button>
-          )}
-
-          <div className="flex items-baseline justify-between gap-2">
-            <span
-              className={`truncate type-meta ${
-                tone === 'danger' ? 'text-danger' : 'text-warning'
-              }`}
-            >
-              {detail}
-            </span>
-            <span className="flex-none type-meta text-primary">{value}</span>
-          </div>
-
-          {actions ? (
-            <div className="mt-1 flex items-center gap-1">{actions}</div>
-          ) : null}
-        </div>
+    <li
+      className={`group rounded-r-md border-l-2 py-2.5 pr-2.5 pl-3 transition-colors hover:bg-surface-primary ${
+        tone === 'danger' ? 'border-danger' : 'border-timer-warning'
+      }`}
+    >
+      <div className="flex items-baseline gap-2.5">
+        {href ? (
+          <Link href={href} className={`flex-1 ${titleClass}`}>
+            {label}
+          </Link>
+        ) : onSelect ? (
+          <button
+            type="button"
+            onClick={onSelect}
+            className={`flex-1 ${titleClass}`}
+          >
+            {label}
+          </button>
+        ) : (
+          /* Plain text where there is nothing to open — a running timer has
+             no record yet. */
+          <span className={`flex-1 ${titleClass} hover:no-underline`}>
+            {label}
+          </span>
+        )}
+        <span
+          className={`flex-none ${
+            valueTone === 'warning' ? 'text-warning' : 'text-primary'
+          } ${value.startsWith('$') ? 'type-amount' : 'type-duration'}`}
+        >
+          {value}
+        </span>
       </div>
+
+      <div className="mt-px">
+        <span
+          className={`truncate type-support ${
+            tone === 'danger' ? 'text-danger' : 'text-warning'
+          }`}
+        >
+          {detail}
+        </span>
+      </div>
+
+      {actions ? <ActionSlot>{actions}</ActionSlot> : null}
     </li>
   );
 }
 
 /**
- * An inline action, icon-only.
+ * The row's actions, revealed on hover.
  *
- * There is no room for labels at 280px, so `aria-label` carries the name —
- * and it names its invoice, because a column of identical icon buttons is
- * unusable with a screen reader.
+ * **The slot is always in flow; only its contents fade.** `display:none` would
+ * drop it out of flow and the row would grow the moment a pointer crossed it —
+ * six rows reflowing under the cursor is worse than the buttons ever were.
+ *
+ * `reveal-on-hover` (globals.css) keeps the buttons visible on a touch device,
+ * where there is no hover to reveal them.
+ */
+function ActionSlot({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="reveal-on-hover mt-2 -ml-2 flex min-h-[26px] items-center gap-0.5">
+      {children}
+    </div>
+  );
+}
+
+/**
+ * An inline action: a label, and an icon that does not repeat another one.
+ *
+ * The check mark belongs to "It's correct" — the one action meaning "this is
+ * already right" — so nothing else uses it. A single glyph on both `Keep` and
+ * `Mark paid` would mean "change nothing" and "record a payment" at once.
+ *
+ * `aria-label` still names the invoice where the visible text is generic, so a
+ * column of `Download`s stays distinguishable to a screen reader.
  */
 function Action({
   label,
+  ariaLabel,
   icon,
   onClick,
   href,
   disabled,
+  destructive,
 }: {
   label: string;
+  ariaLabel?: string;
   icon: React.ReactNode;
   onClick?: () => void;
   href?: string;
   disabled?: boolean;
+  destructive?: boolean;
 }) {
-  const className =
-    'grid size-6 place-items-center rounded text-subtle transition-colors hover:bg-surface-hover hover:text-primary focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none disabled:opacity-50';
+  const className = `inline-flex items-center gap-1.5 rounded-md px-2 py-1 type-support whitespace-nowrap text-muted transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none disabled:opacity-50 ${
+    destructive ? 'hover:text-danger' : 'hover:text-strong'
+  }`;
 
   return href ? (
-    <a href={href} aria-label={label} download className={className}>
+    <a
+      href={href}
+      aria-label={ariaLabel ?? label}
+      download
+      className={className}
+    >
       {icon}
+      {label}
     </a>
   ) : (
     <button
       type="button"
-      aria-label={label}
+      aria-label={ariaLabel ?? label}
       disabled={disabled}
       onClick={onClick}
       className={className}
     >
       {icon}
+      {label}
     </button>
   );
 }

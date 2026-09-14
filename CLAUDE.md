@@ -581,7 +581,7 @@ speculative work alike.
 
 ### The home screen
 
-`screens/home.html` specifies the cards and the inbox.
+`screens/home.html` specifies the cards; `screens/inbox.html` the dock's inbox.
 
 **`unbilled_by_client` groups by (client, rate)**, and its coalesce chain must
 stay identical to `resolve_entry_rate`, or the home screen and an invoice

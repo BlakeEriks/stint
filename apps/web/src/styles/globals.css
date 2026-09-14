@@ -44,3 +44,27 @@
     outline-offset: 2px;
   }
 }
+
+/* ── Revealing an action on hover ──────────────────────────────────
+   Used by the inbox's rows. The slot stays in flow and only its contents
+   fade, so the row never changes height under the cursor — `display:none`
+   here regrows the row, which is the regression `test/ui/inbox.test.tsx`
+   pins down.
+
+   A touch device has no hover to reveal anything, so the actions are simply
+   always visible there. Tailwind has no variant for this, hence a utility. */
+@layer utilities {
+  .reveal-on-hover > * {
+    opacity: 0;
+    transition: opacity var(--motion-instant) var(--ease-standard);
+  }
+  .group:hover .reveal-on-hover > *,
+  .group:focus-within .reveal-on-hover > * {
+    opacity: 1;
+  }
+  @media (hover: none) {
+    .reveal-on-hover > * {
+      opacity: 1;
+    }
+  }
+}

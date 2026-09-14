@@ -47,7 +47,10 @@ beforeEach(async () => {
   await pool.query(
     `update user_settings set default_hourly_rate=100, max_timer_hours=8,
                     week_starts_on=1, next_invoice_number=1,
-                    monthly_target=null, monthly_target_unit=null
+                    monthly_target=null, monthly_target_unit=null,
+                    -- Null is the shipped default: the strange-duration row
+                    -- does not exist until a threshold is set.
+                    min_entry_seconds=null, max_entry_hours=null
      where user_id=$1`,
     [USER],
   );
@@ -1088,7 +1091,7 @@ test('a stale draft carries the money and the client it belongs to', async () =>
 // Entries with no project cannot resolve a rate beyond the user default, so
 // they are billable work heading for an invoice that cannot be generated.
 
-test('unprojected is null rather than a zero row when everything has a project', async () => {
+test('unprojected is empty when everything has a project', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   const c = '33333333-0000-4000-8000-00000000000b';
@@ -1103,25 +1106,36 @@ test('unprojected is null rather than a zero row when everything has a project',
   );
   await entryFor({ id: S(41), projectId: p, hours: 2 });
 
-  /* NULL, not `{count: 0}`. The UI renders the row from the object's
-     existence, so a zero row would print "0 entries, no project" — an inbox
-     item reporting that there is nothing to report. */
   const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.attention.unprojected, null);
+  assert.deepEqual(res.body.attention.unprojected, []);
 });
 
-test('unprojected counts the entries and their seconds', async () => {
+test('unprojected is one row per entry, carrying what the row renders', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   await entryFor({ id: S(42), projectId: null, hours: 2 });
   await entryFor({ id: S(43), projectId: null, hours: 1 });
 
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.attention.unprojected.count, 2);
-  assert.equal(res.body.attention.unprojected.seconds, 3 * 3600);
+  /* One row each rather than a count: the work is done an entry at a time,
+     and a row naming a number is a row the user then has to go and find. */
+  const rows = (await json(await stats(req('/stats?tz=UTC')))).body.attention
+    .unprojected;
+  assert.equal(rows.length, 2);
+  assert.deepEqual(
+    rows
+      .map((r: { seconds: number }) => r.seconds)
+      .sort((a: number, b: number) => a - b),
+    [3600, 7200],
+  );
+  // The row renders a task name and a date without a second request.
+  for (const r of rows) {
+    assert.equal(typeof r.taskName, 'string');
+    assert.ok(r.startedAt, 'carries its own date');
+    assert.ok(r.entryId, 'names the entry it opens');
+  }
 });
 
-test('unprojected names its OLDEST entry, which is the one the inbox opens', async () => {
+test('unprojected sorts oldest first', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   // Inserted newest-first, so a query without an explicit order would very
@@ -1130,12 +1144,248 @@ test('unprojected names its OLDEST entry, which is the one the inbox opens', asy
   await entryFor({ id: S(50), projectId: null, hours: 1, daysAgo: 9 });
   await entryFor({ id: S(51), projectId: null, hours: 1, daysAgo: 5 });
 
-  /* The row is a queue of decisions with no list to land on, so it opens the
-     editor on one entry. Oldest, because that is the one closest to being
-     invoiced without a rate — and it matches the overdue and stale rows,
-     which both lead with the most urgent. */
+  /* Oldest first: that entry is closest to being invoiced without a rate,
+     and it matches the overdue and stale rows, which both lead with the most
+     urgent. */
   const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.attention.unprojected.oldestId, S(50));
+  assert.deepEqual(
+    res.body.attention.unprojected.map((r: { entryId: string }) => r.entryId),
+    [S(50), S(51), S(49)],
+  );
+});
+
+// ── strange durations ──────────────────────────────────────────────
+// An entry that STOPPED at an implausible length. Not the runaway row: that
+// one is about a timer still running, this is about a record already written.
+// Both thresholds are opt-in, so the row does not exist until asked for.
+
+/**
+ * A project for the strange-duration fixtures.
+ *
+ * These entries must HAVE a project: an unprojected entry is surfaced as that
+ * row instead, so a fixture without one would test the suppression rather than
+ * the threshold it means to.
+ */
+const DUR_PROJECT = '33333333-0000-4000-8000-0000000000d9';
+async function durProject() {
+  const c = '33333333-0000-4000-8000-0000000000d8';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Acme')
+       on conflict (id) do nothing`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Website')
+       on conflict (id) do nothing`,
+    [DUR_PROJECT, USER, c],
+  );
+  return DUR_PROJECT;
+}
+
+/** Seconds rather than hours: the short threshold is a minute. */
+async function entrySeconds(id: string, seconds: number, daysAgo = 1) {
+  const start = new Date(Date.UTC(2026, 8, 10) - daysAgo * 86_400_000);
+  const end = new Date(start.getTime() + seconds * 1000);
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
+     values ($1,$2,$3,'work',$4,$5)`,
+    [id, USER, await durProject(), start.toISOString(), end.toISOString()],
+  );
+}
+
+const setThresholds = (min: number | null, max: number | null) =>
+  pool.query(
+    `update user_settings set min_entry_seconds=$2, max_entry_hours=$3 where user_id=$1`,
+    [USER, min, max],
+  );
+
+test('no thresholds means no strange-duration rows at all', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  await entrySeconds(S(60), 12); // a 12-second mis-tap
+  await entryFor({ id: S(61), projectId: await durProject(), hours: 14 }); // an overnight timer
+
+  /* Both columns default to null, so nobody gets a new inbox row without
+     asking for it. */
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(res.body.attention.strangeDurations, []);
+});
+
+test('each threshold switches on only its own side', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  await entrySeconds(S(62), 12);
+  await entryFor({ id: S(63), projectId: await durProject(), hours: 14 });
+
+  await setThresholds(60, null);
+  let rows = (await json(await stats(req('/stats?tz=UTC')))).body.attention
+    .strangeDurations;
+  assert.deepEqual(
+    rows.map((r: { entryId: string }) => r.entryId),
+    [S(62)],
+    'short only',
+  );
+
+  await setThresholds(null, 8);
+  rows = (await json(await stats(req('/stats?tz=UTC')))).body.attention
+    .strangeDurations;
+  assert.deepEqual(
+    rows.map((r: { entryId: string }) => r.entryId),
+    [S(63)],
+    'long only',
+  );
+});
+
+test('short and long each get their own row, and say which they are', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await setThresholds(60, 8);
+
+  const p = await durProject();
+  await entrySeconds(S(64), 12, 2);
+  await entryFor({ id: S(65), projectId: p, hours: 14, daysAgo: 1 });
+  // Ordinary work between the two thresholds never fires.
+  await entryFor({ id: S(66), projectId: p, hours: 3 });
+
+  const rows = (await json(await stats(req('/stats?tz=UTC')))).body.attention
+    .strangeDurations;
+  assert.equal(rows.length, 2, 'one row each, never grouped');
+  const byId = new Map(rows.map((r: { entryId: string }) => [r.entryId, r]));
+  assert.equal((byId.get(S(64)) as { kind: string }).kind, 'short');
+  assert.equal((byId.get(S(65)) as { kind: string }).kind, 'long');
+});
+
+test('a boundary length is ordinary, not strange', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await setThresholds(60, 8);
+
+  await entrySeconds(S(67), 60); // exactly the minimum
+  await entryFor({ id: S(68), projectId: await durProject(), hours: 8 }); // exactly the maximum
+
+  /* The thresholds are the shortest and longest ACCEPTABLE lengths. Firing on
+     the boundary would question an entry the user set the threshold to
+     allow. */
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(res.body.attention.strangeDurations, []);
+});
+
+test('a running timer is a runaway, never a strange duration', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await setThresholds(60, 8);
+
+  await pool.query(
+    `insert into time_entries (id,user_id,task_name,started_at,ended_at)
+     values ($1,$2,'still going',$3,null)`,
+    [S(69), USER, new Date(Date.UTC(2026, 8, 1)).toISOString()],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(res.body.attention.strangeDurations, [], 'never both');
+});
+
+test('answering the row with durationOk silences it', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await setThresholds(60, 8);
+
+  await entryFor({ id: S(70), projectId: await durProject(), hours: 14 });
+  let res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.attention.strangeDurations.length, 1);
+
+  await pool.query(`update time_entries set duration_ok=true where id=$1`, [
+    S(70),
+  ]);
+  res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(res.body.attention.strangeDurations, []);
+});
+
+test('editing the times asks the question again', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await setThresholds(60, 8);
+
+  await entryFor({ id: S(71), projectId: await durProject(), hours: 14 });
+  await pool.query(`update time_entries set duration_ok=true where id=$1`, [
+    S(71),
+  ]);
+
+  /* A trigger clears the answer whenever the times change, so a "yes" given
+     about nine hours cannot silence a later edit to fourteen. */
+  await pool.query(
+    `update time_entries set ended_at = started_at + interval '20 hours' where id=$1`,
+    [S(71)],
+  );
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.attention.strangeDurations.length, 1, 'asks again');
+});
+
+test('an unprojected entry is one row, not two', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await setThresholds(60, 8);
+
+  // No project AND implausibly long: both facts hold of the same record.
+  await entryFor({ id: S(73), projectId: null, hours: 14 });
+
+  /* One entry is one decision. Unprojected wins because it blocks invoicing
+     outright — an entry with no project cannot resolve a rate at all, where
+     an implausible length still bills. */
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.attention.unprojected.length, 1);
+  assert.deepEqual(
+    res.body.attention.strangeDurations,
+    [],
+    'the inbox does not repeat itself',
+  );
+});
+
+test('a projected entry of strange length still gets its row', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await setThresholds(60, 8);
+
+  const c = '33333333-0000-4000-8000-0000000000e9';
+  const p = '33333333-0000-4000-8000-0000000000e8';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Acme')`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Website')`,
+    [p, USER, c],
+  );
+  await entryFor({ id: S(74), projectId: p, hours: 14 });
+
+  // The suppression is narrow: it drops the duplicate, not the feature.
+  const rows = (await json(await stats(req('/stats?tz=UTC')))).body.attention
+    .strangeDurations;
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].projectName, 'Website');
+  assert.equal(rows[0].clientName, 'Acme', 'the qualifier names the client');
+});
+
+test('an entry on an ISSUED invoice never fires the row', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await setThresholds(60, 8);
+
+  const c = '33333333-0000-4000-8000-0000000000d1';
+  const inv = '45444444-0000-4000-8000-0000000000d1';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Billed')`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into invoices
+       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+        subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
+     values ($1,$2,$3,'INV-0900',900,'sent','2026-09-01',100,0,0,100,'USD','entry')`,
+    [inv, USER, c],
+  );
+  await entryFor({ id: S(72), projectId: await durProject(), hours: 14 });
+  await pool.query(`update time_entries set invoice_id=$2 where id=$1`, [
+    S(72),
+    inv,
+  ]);
+
+  /* The row offers an edit, and an issued invoice locks the entry — so the
+     row would be an action that cannot happen. */
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(res.body.attention.strangeDurations, []);
 });
 
 test('entries can be filtered to those with NO project', async () => {
@@ -1208,8 +1458,8 @@ test('unprojected ignores work that is billed, running or non-billable', async (
   );
 
   const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.attention.unprojected.count, 1, 'only the open one');
-  assert.equal(res.body.attention.unprojected.seconds, 3600);
+  assert.equal(res.body.attention.unprojected.length, 1, 'only the open one');
+  assert.equal(res.body.attention.unprojected[0].seconds, 3600);
 });
 
 test('attention rows are scoped to their own user', async () => {
@@ -1238,5 +1488,5 @@ test('attention rows are scoped to their own user', async () => {
 
   const res = await json(await stats(req('/stats?tz=UTC')));
   assert.deepEqual(res.body.attention.staleDrafts, []);
-  assert.equal(res.body.attention.unprojected, null);
+  assert.deepEqual(res.body.attention.unprojected, []);
 });

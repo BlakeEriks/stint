@@ -1,0 +1,458 @@
+<meta charset="utf-8">
+<title>Stint Inbox</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_mockup.css">
+<style>
+  /* Chrome for the spec page itself. Everything the product owns comes from
+     _mockup.css. See _shell.html for the frame the dock sits in. */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0; background: var(--bg-primary); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 88ch; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  .standfirst { margin: 0 0 1rem; color: var(--text-muted); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
+  h3 { margin: 2.25rem 0 .25rem; font-size: 15px; font-weight: 600; color: var(--text-strong); }
+
+  table { border-collapse: collapse; width: 100%; margin-top: .75rem; }
+  th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  th {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle); font-weight: 500;
+  }
+  td { font-size: 14px; }
+  code { font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); }
+  td code { white-space: nowrap; }
+
+  .rule { list-style: none; margin: 1rem 0 0; padding: 0; }
+  .rule li { position: relative; padding-left: 1.5rem; margin-bottom: .85rem; }
+  .rule li::before {
+    content: ''; position: absolute; left: 0; top: .55em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--border-control);
+  }
+  .rule strong { color: var(--text-strong); font-weight: 600; }
+  .never li::before { background: var(--danger); }
+
+  .mock {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 1.5rem;
+  }
+  .caption {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-subtle);
+    display: block; margin-top: .7rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     THE INBOX, as the app builds it.
+
+     The dock is `bg-base`. The inbox is not a card and never sits on
+     `bg-elevated` — an elevated row here would float above the dock
+     and compete with the real cards in the column beside it.
+     ═══════════════════════════════════════════════════════════════ */
+  .dock {
+    background: var(--bg-base);
+    border-radius: 10px;
+    padding: 8px 14px 12px;
+    max-width: 372px;
+  }
+  .dock-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; color: var(--text-subtle);
+  }
+  .count { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+
+  /* Severity is a 2px left rule, not an icon per row. Six small coloured
+     glyphs are six focal points; six aligned rules are one texture, and the
+     danger one in it is conspicuous. */
+  .irow {
+    border-left: 2px solid var(--border-default);
+    padding: 9px 10px 9px 12px;
+    border-radius: 0 6px 6px 0;
+    transition: background var(--motion-quick) var(--ease-standard);
+  }
+  .irow + .irow { margin-top: 2px; }
+  .irow.warn { border-left-color: var(--timer-warning); }
+  .irow.danger { border-left-color: var(--danger); }
+  .irow:hover { background: var(--bg-primary); }
+
+  .itop { display: flex; align-items: baseline; gap: 10px; }
+  .ittl {
+    flex: 1; min-width: 0; color: var(--text-strong);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .isub { display: flex; justify-content: space-between; gap: 10px; margin-top: 1px; }
+  .tone-warn { color: var(--timer-warning); }
+  .tone-danger { color: var(--danger); }
+
+  /* The action slot is ALWAYS in flow; only its contents fade. `display:none`
+     would drop it out of flow and the row would grow on hover. */
+  .iact {
+    display: flex; gap: 2px; margin: 8px 0 0 -8px;
+    min-height: 26px; align-items: center;
+  }
+  .iact > * { opacity: 0; }
+  .irow:hover .iact > *, .irow:focus-within .iact > * { opacity: 1; }
+
+  /* Type comes from the scale: the label is `type-support`, the role for
+     secondary text. A button is not a reason to invent a size. */
+  .btn-quiet {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 8px; border-radius: 6px;
+    border: 1px solid transparent; background: none;
+    color: var(--text-muted);
+    cursor: pointer; white-space: nowrap;
+    transition: opacity var(--motion-instant) var(--ease-standard),
+                background var(--motion-quick) var(--ease-standard),
+                color var(--motion-quick) var(--ease-standard);
+  }
+  .btn-quiet:hover { background: var(--bg-hover); color: var(--text-strong); }
+  .btn-quiet.destructive:hover { color: var(--danger); }
+  .btn-quiet:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+  .btn-quiet svg { width: 13px; height: 13px; flex: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 1ms !important; transition-delay: 0ms !important; }
+  }
+</style>
+
+<div class="page">
+
+  <span class="eyebrow">Stint · Screens</span>
+  <h1>The inbox</h1>
+  <p class="standfirst">
+    Everything that wants a decision, in one fixed place. It lives in the
+    dock, visible from every route, and is fed by the same
+    <code>GET /stats</code> call as the home cards.
+  </p>
+
+  <!-- ───────────────────────── the rows ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The rows</span></div>
+
+    <div class="mock">
+      <div class="dock">
+        <div class="dock-head">
+          <span class="type-label">Inbox</span>
+          <span class="count">7</span>
+        </div>
+
+        <div class="irow warn">
+          <div class="itop">
+            <span class="type-control ittl">Timer still running</span>
+            <span class="type-duration tone-warn">31h 04m</span>
+          </div>
+          <div class="isub"><span class="type-support" style="color:var(--text-muted)">Website redesign · Acme Corp</span></div>
+          <div class="iact">
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Keep</button>
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Adjust</button>
+            <button class="btn-quiet destructive type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Discard</button>
+          </div>
+        </div>
+
+        <div class="irow danger">
+          <div class="itop">
+            <span class="type-control ittl">STINT-0014 · Northwind</span>
+            <span class="type-amount" style="color:var(--text-strong)">$2,340.00</span>
+          </div>
+          <div class="isub"><span class="type-support tone-danger">20 days late</span></div>
+          <div class="iact">
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Mark STINT-0014 paid</button>
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download</button>
+          </div>
+        </div>
+
+        <div class="irow warn">
+          <div class="itop">
+            <span class="type-control ittl">STINT-0019 · Northwind</span>
+            <span class="type-amount" style="color:var(--text-strong)">$780.00</span>
+          </div>
+          <div class="isub"><span class="type-support tone-warn">Draft, 13 days old</span></div>
+          <div class="iact">
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Mark STINT-0019 sent</button>
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download</button>
+          </div>
+        </div>
+
+        <div class="irow warn">
+          <div class="itop">
+            <span class="type-control ittl">Client call</span>
+            <span class="type-duration" style="color:var(--text-muted)">1h 30m</span>
+          </div>
+          <div class="isub"><span class="type-support tone-warn">No project · 11 Sep</span></div>
+          <div class="iact">
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v10H3Z"/></svg>Assign project</button>
+          </div>
+        </div>
+
+        <div class="irow warn">
+          <div class="itop">
+            <span class="type-control ittl">Spec review</span>
+            <span class="type-duration" style="color:var(--text-muted)">45m</span>
+          </div>
+          <div class="isub"><span class="type-support tone-warn">No project · 9 Sep</span></div>
+          <div class="iact">
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v10H3Z"/></svg>Assign project</button>
+          </div>
+        </div>
+
+        <div class="irow warn">
+          <div class="itop">
+            <span class="type-control ittl">Migration</span>
+            <span class="type-duration tone-warn">11h 40m</span>
+          </div>
+          <div class="isub"><span class="type-support" style="color:var(--text-muted)">Acme Corp · 11 Sep · over 8h</span></div>
+          <div class="iact">
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Edit entry</button>
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>It's correct</button>
+          </div>
+        </div>
+
+        <div class="irow warn">
+          <div class="itop">
+            <span class="type-control ittl">Standup</span>
+            <span class="type-duration tone-warn">12s</span>
+          </div>
+          <div class="isub"><span class="type-support" style="color:var(--text-muted)">Byrne Studio · 12 Sep · under 1m</span></div>
+          <div class="iact">
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Edit entry</button>
+            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>It's correct</button>
+          </div>
+        </div>
+      </div>
+      <span class="caption">Hover a row to reveal its actions</span>
+    </div>
+
+    <table>
+      <tr><th>Row</th><th>Condition</th><th>Shows</th><th>Actions</th></tr>
+      <tr>
+        <td>Runaway timer</td>
+        <td><code>exceedsThreshold</code> from <code>/summary</code></td>
+        <td>Elapsed, in warning</td>
+        <td>Keep · Adjust · Discard</td>
+      </tr>
+      <tr>
+        <td>Overdue invoice</td>
+        <td><code>sent</code> and <code>due_date</code> more than <strong>7 days</strong> past</td>
+        <td>Client, amount, days late</td>
+        <td>Mark <em>n</em> paid · Download</td>
+      </tr>
+      <tr>
+        <td>Stale draft</td>
+        <td><code>draft</code> issued more than <strong>7 days</strong> ago</td>
+        <td>Client, amount, age</td>
+        <td>Mark <em>n</em> sent · Download</td>
+      </tr>
+      <tr>
+        <td>Unprojected entry</td>
+        <td><code>project_id is null</code>, unbilled, billable, ended</td>
+        <td>Task, date, hours</td>
+        <td>Assign project</td>
+      </tr>
+      <tr>
+        <td>Strange duration</td>
+        <td>A stopped entry shorter than <code>min_entry_seconds</code> or longer than <code>max_entry_hours</code>, with <code>duration_ok</code> false</td>
+        <td>Task, date, which threshold it tripped, length in warning</td>
+        <td>Edit entry · It's correct</td>
+      </tr>
+    </table>
+
+    <h3>One row per entry</h3>
+    <p>
+      An unprojected entry gets its own row rather than joining a count,
+      because the work is done one entry at a time: open it, assign a project,
+      move to the next. A rollup names a number the user then has to go and
+      find.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── the row ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">How a row is built</span></div>
+
+    <ul class="rule">
+      <li><strong>Two lines, then the action slot.</strong> A title, a figure
+        and three buttons do not share one line at any dock width worth
+        having.</li>
+      <li><strong>Severity is a 2px left rule</strong> — <code>danger</code> for
+        an overdue invoice, <code>timer-warning</code> for everything else.
+        Colour alone never carries the meaning: the qualifier line states it in
+        words.</li>
+      <li><strong>The title is always <code>text-strong</code>.</strong> A
+        column of coloured headlines reads as an outage.</li>
+      <li><strong>Actions are text buttons with an icon</strong>, each carrying
+        its own glyph. The check mark belongs to <code>It's correct</code> —
+        the one action meaning "this is already right" — so no other action
+        uses it.</li>
+      <li><strong>Every write names its object</strong>
+        (<code>Mark STINT-0014 paid</code>). A list of identical
+        <code>Mark paid</code> buttons is unusable with a screen reader.</li>
+      <li><strong>Two inline actions, or three on the timer row.</strong> The
+        timer is the only row that needs a third, and the only one that sorts
+        alone at the top.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── motion ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Revealing the actions</span></div>
+
+    <p>
+      Actions appear on <code>:hover</code> and <code>:focus-within</code>, so
+      a resting row is content rather than a control panel. On a touch device
+      they are always visible — there is no hover to reveal them.
+    </p>
+
+    <ul class="rule">
+      <li><strong>The action slot is always in flow; only its contents
+        fade.</strong> <code>display:none</code> removes the slot, so the row
+        grows the moment a pointer crosses it. The slot reserves its height
+        and the buttons animate <code>opacity</code> alone.</li>
+      <li><strong>The reveal is <code>--motion-instant</code> with
+        <code>--ease-standard</code></strong>, flat across the group — this is
+        a surface crossed fifty times a day.</li>
+      <li><strong>Only <code>Discard</code> takes colour</strong>, on its own
+        hover. It is the one action here that destroys something.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── behaviour ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">What each row may do</span></div>
+
+    <ul class="rule">
+      <li><strong>The rows write, narrowly.</strong> Marking an invoice paid or
+        sent is offered inline, because that is the action that legitimately
+        clears a row — the underlying fact changed.</li>
+      <li><strong>The runaway row surfaces; it does not correct.</strong> Keep
+        touches nothing and dismisses the notice — stopping the timer would be
+        the app editing billable work. Adjust stops first, then opens the
+        editor. Discard asks once. <code>dismissed</code> resets when the
+        overrun ends, so Keep silences that overrun rather than the
+        feature.</li>
+      <li><strong>An unprojected row opens the entry dialog in place.</strong>
+        These entries scatter across days, so the today-only list would not
+        reach them.</li>
+      <li><strong>Rows are derived per request.</strong> A stale row claiming
+        money is late after it arrived is the same trust failure as silently
+        editing hours.</li>
+    </ul>
+
+    <h3>The two flags</h3>
+    <p>
+      A long timer stays long and an entry of unusual length keeps that length
+      forever, so those two rows cannot clear the ordinary way. Each carries a
+      flag instead — <code>dismissed</code> on the running timer,
+      <code>duration_ok</code> on the entry. Both record an answer the user
+      gave about one object and die with it, which is what separates them from
+      a snooze.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── strange duration ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Strange duration</span></div>
+
+    <p>
+      A stopped entry whose length is implausible. Thresholds live on
+      <code>user_settings</code> as <code>min_entry_seconds</code> (60) and
+      <code>max_entry_hours</code> (8). Both are nullable and default to null,
+      so the row is opt-in: null switches off that side, and null on both
+      retires the row. <code>duration_ok</code> is a column on the entry.
+    </p>
+    <p>
+      <strong>A minute is the short threshold, not an hour.</strong> An entry
+      under a minute was started and stopped without work between, where a
+      twenty-minute call is ordinary billable work the app must never
+      question.
+    </p>
+
+    <ul class="rule">
+      <li><strong>It is about a record, not a timer.</strong> A running timer
+        past the long threshold is a runaway and shows that row — never
+        both.</li>
+      <li><strong>A billed entry never fires it.</strong> An issued invoice
+        locks the entry, so the row would offer an edit that cannot
+        happen.</li>
+      <li><strong>An unprojected entry is one row, not two.</strong> Both facts
+        can hold of the same record, but it is one entry and one decision, and
+        two rows about it read as the inbox repeating itself. Unprojected wins:
+        it blocks invoicing outright, where an implausible length still
+        bills.</li>
+      <li><strong>One row per entry, short or long.</strong> Each row is a
+        decision about one record, and a row naming a count is a row the user
+        has to go and act on somewhere else.</li>
+      <li><strong>"It's correct" sets <code>duration_ok</code> on that
+        entry.</strong> Editing the entry to a plausible length clears the row
+        the ordinary way, by making the condition false.</li>
+      <li><strong>Changing an entry's times clears
+        <code>duration_ok</code></strong>, in a trigger rather than in the
+        route, so the answer cannot outlive the length it was given about. An
+        entry confirmed at 9h and later edited to 14h is a new question.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── presence ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Ordering and presence</span></div>
+
+    <p>
+      The runaway timer sorts first — the one row about time being recorded
+      <em>wrongly right now</em>, where an overdue invoice is equally late in
+      an hour, and the only row whose subject changes while you read it.
+      Overdue invoices sort next and carry <code>danger</code>; the rest carry
+      <code>warning</code>. Never the accent.
+    </p>
+    <p>
+      An invoice fires at <strong>due date + 7 days</strong>, because paying on
+      day 32 of net 30 is ordinary and a row that flags it trains the user to
+      clear the list without reading it. The invoice page still shows the true
+      due date; this governs only when the inbox speaks up.
+    </p>
+
+    <h3>It is always present, including when it is empty</h3>
+    <p>
+      An inbox is a place, which is why it is named for one rather than for a
+      predicate. Every row is shown — the grace periods keep the list short
+      enough that the count is the summary.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── never ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Never</span></div>
+
+    <ul class="rule never">
+      <li><strong>Nothing destructive beyond the timer.</strong> Voiding and
+        deleting an invoice belong on the invoice itself, where the whole
+        document is in view — a stray click on a glance must not destroy a
+        financial record.</li>
+      <li><strong>The inbox cannot be hidden.</strong> Structural rather than a
+        rule to enforce: it is not a card, so there is nothing to switch off. A
+        region that surfaces problems is worthless if it can be turned off, and
+        the user most likely to turn it off is the one it exists for.</li>
+      <li><strong>No snooze.</strong> Hiding a row whose condition is still
+        true and unanswered makes the inbox something dismissed reflexively
+        rather than read.</li>
+      <li><strong>Nothing here is green</strong>, including the runaway row,
+        whose subject <em>is</em> the running timer.
+        <code>test/ui/inbox.test.tsx</code> asserts it.</li>
+      <li><strong>No card on the dock.</strong> An elevated row competes with
+        the real cards in the column beside it.</li>
+    </ul>
+  </section>
+
+</div>

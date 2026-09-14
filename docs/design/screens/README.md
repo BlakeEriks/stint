@@ -75,7 +75,7 @@ Four planes, depth increasing toward what is being read:
 Never invert this — a card darker than the surface under it reads as a hole.
 
 The rail is 208px and appears at `lg`; the dock is a band beneath the content
-until `xl`, where it becomes a 320px column. The content measure is 48rem, or
+until `xl`, where it becomes a 372px column. The content measure is 48rem, or
 72rem for a screen that is a grid rather than a column.
 
 ## Identity

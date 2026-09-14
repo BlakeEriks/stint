@@ -207,12 +207,20 @@ export const api = {
     isBillable?: boolean;
   }) => request<TimeEntry>('POST', '/entries', body),
 
+  /** One entry by id, for a surface that holds a reference rather than a row. */
+  entry: (id: string) => request<TimeEntry>('GET', `/entries/${id}`),
+
   updateEntry: (
     id: string,
     body: Partial<
       Pick<
         TimeEntry,
-        'taskName' | 'projectId' | 'startedAt' | 'endedAt' | 'isBillable'
+        | 'taskName'
+        | 'projectId'
+        | 'startedAt'
+        | 'endedAt'
+        | 'isBillable'
+        | 'durationOk'
       >
     >,
   ) => request<TimeEntry>('PATCH', `/entries/${id}`, body),

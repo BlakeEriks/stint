@@ -18,7 +18,8 @@ function stats(attention: Partial<Stats['attention']> = {}): Stats {
     attention: {
       overdueInvoices: [],
       staleDrafts: [],
-      unprojected: null,
+      unprojected: [],
+      strangeDurations: [],
       ...attention,
     },
   } as Stats;
@@ -32,6 +33,24 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 const ENTRY_ID = '018f0000-0000-7000-8000-0000000000e1';
+
+/** One unprojected entry, as `/stats` now returns it: a row, not a count. */
+const unprojectedEntry = {
+  entryId: ENTRY_ID,
+  taskName: 'Client call',
+  startedAt: '2026-09-11T09:00:00.000Z',
+  seconds: 5400,
+};
+
+const longEntry = {
+  entryId: '018f0000-0000-7000-8000-0000000000f1',
+  kind: 'long' as const,
+  taskName: 'Migration',
+  projectName: 'Website',
+  clientName: 'Acme',
+  startedAt: '2026-09-11T09:00:00.000Z',
+  seconds: 42000,
+};
 
 const overdue = {
   invoiceId: 'i1',
@@ -64,7 +83,7 @@ describe('Inbox', () => {
       <Inbox
         stats={stats({
           overdueInvoices: [overdue],
-          unprojected: { count: 2, seconds: 5400, oldestId: ENTRY_ID },
+          unprojected: [unprojectedEntry],
         })}
       />,
       { wrapper },
@@ -76,20 +95,34 @@ describe('Inbox', () => {
     expect(screen.queryByText(/nothing needs you/i)).toBeNull();
   });
 
-  it('names the invoice in every action, not just the icon', () => {
+  it('names the invoice in every action, even where the label is generic', () => {
     render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
       wrapper,
     });
 
-    /* Labels do not fit at 280px, so the actions are icon-only and the
-       accessible name is all a screen reader gets. A column of identical
-       "Download" buttons would be unusable. */
+    /* The visible label can be short, but the accessible name must still name
+       its invoice: a column of identical "Download"s is unusable with a
+       screen reader. */
     expect(
       screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'Download STINT-0001' }),
     ).toBeInTheDocument();
+  });
+
+  it('keeps the actions in the document when the row is not hovered', () => {
+    render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
+      wrapper,
+    });
+
+    /* The reveal is opacity, never `display:none` — a slot that leaves the
+       flow regrows the row the moment a pointer crosses it. jsdom cannot see
+       Tailwind's opacity, but it CAN see the element leaving the tree, which
+       is the regression worth pinning. */
+    expect(
+      screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
+    ).toBeVisible();
   });
 
   it('offers nothing destructive', () => {
@@ -284,6 +317,9 @@ describe('entries with no project', () => {
       'fetch',
       vi.fn(async (url: string) => {
         const path = String(url).replace('/api/v1', '');
+        // `/entries/:id` returns the entry itself; `/entries` a list.
+        if (/^\/entries\/[^/]/.test(path))
+          return new Response(JSON.stringify(ENTRY), { status: 200 });
         if (path.startsWith('/entries'))
           return new Response(JSON.stringify({ entries: [ENTRY] }), {
             status: 200,
@@ -297,8 +333,30 @@ describe('entries with no project', () => {
     );
   }
 
-  const withRow = () =>
-    stats({ unprojected: { count: 2, seconds: 5400, oldestId: ENTRY_ID } });
+  const withRow = () => stats({ unprojected: [unprojectedEntry] });
+
+  it('gives every entry its own row rather than a count', () => {
+    serve();
+    render(
+      <Inbox
+        stats={stats({
+          unprojected: [
+            unprojectedEntry,
+            { ...unprojectedEntry, entryId: 'e2', taskName: 'Spec review' },
+          ],
+        })}
+      />,
+      { wrapper },
+    );
+
+    /* A row naming a number is a row the user then has to go and find. Each
+       entry is a decision, so each gets a row and its own action. */
+    expect(screen.getByText('Client call')).toBeInTheDocument();
+    expect(screen.getByText('Spec review')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('button', { name: /Assign a project/ }),
+    ).toHaveLength(2);
+  });
 
   it('acts in place rather than linking somewhere', () => {
     serve();
@@ -307,9 +365,8 @@ describe('entries with no project', () => {
     /* It used to be a Link to `/`, which is the screen you are already on —
        the inbox's whole premise failing quietly, since the row looked
        actionable and did nothing. */
-    const label = screen.getByText(/2 entries, no project/);
-    expect(label.tagName).toBe('BUTTON');
-    expect(screen.queryByRole('link', { name: /no project/ })).toBeNull();
+    expect(screen.getByText('Client call').tagName).toBe('BUTTON');
+    expect(screen.queryByRole('link', { name: /Client call/ })).toBeNull();
   });
 
   it('opens the editor on the entry, so a project can be assigned', async () => {
@@ -317,7 +374,7 @@ describe('entries with no project', () => {
     const user = userEvent.setup();
     render(<Inbox stats={withRow()} />, { wrapper });
 
-    await user.click(screen.getByText(/2 entries, no project/));
+    await user.click(screen.getByText('Client call'));
 
     /* The dialog is what assigns the project, and it is the same one the
        calendar and the entry list open — same validation, same write path. */
@@ -332,7 +389,7 @@ describe('entries with no project', () => {
     const user = userEvent.setup();
     render(<Inbox stats={withRow()} />, { wrapper });
 
-    await user.click(screen.getByText(/2 entries, no project/));
+    await user.click(screen.getByText('Client call'));
 
     /* "Edit entry", never "Add entry". The row names existing work that needs
        a project; offering to CREATE one from it would be the opposite of what
@@ -349,5 +406,126 @@ describe('entries with no project', () => {
     const dialog = await screen.findByRole('dialog');
     expect(dialog).toHaveTextContent(/Edit entry/);
     expect(screen.queryByText('Add entry')).toBeNull();
+  });
+});
+
+/**
+ * The strange-duration row.
+ *
+ * A record already written, where the runaway row is a timer still running.
+ * It is the only row gated by a STORED answer, because its condition never
+ * stops holding on its own: a nine-hour entry stays nine hours forever.
+ */
+describe('entries of unusual length', () => {
+  const ENTRY = {
+    id: longEntry.entryId,
+    taskName: 'Migration',
+    projectId: 'p1',
+    startedAt: '2026-09-11T09:00:00.000Z',
+    endedAt: '2026-09-11T20:40:00.000Z',
+    isBillable: true,
+    durationSeconds: 42000,
+    durationOk: false,
+  };
+
+  function serve() {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const path = String(url).replace('/api/v1', '');
+      if (/^\/entries\/[^/]/.test(path))
+        return new Response(
+          JSON.stringify({
+            ...ENTRY,
+            ...(init?.body ? JSON.parse(String(init.body)) : {}),
+          }),
+          {
+            status: 200,
+          },
+        );
+      if (path.startsWith('/projects'))
+        return new Response(JSON.stringify({ projects: [] }), { status: 200 });
+      return new Response(JSON.stringify({}), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  it('says which threshold it tripped, in words', () => {
+    serve();
+    render(<Inbox stats={stats({ strangeDurations: [longEntry] })} />, {
+      wrapper,
+    });
+
+    /* Colour marks severity; it never carries the meaning alone. With both
+       directions in one list, "unusual" does not say which way. */
+    expect(screen.getByText(/unusually long/)).toBeInTheDocument();
+  });
+
+  it('gives a short entry its own row, never a group', () => {
+    serve();
+    render(
+      <Inbox
+        stats={stats({
+          strangeDurations: [
+            longEntry,
+            {
+              ...longEntry,
+              entryId: 'e-short',
+              kind: 'short' as const,
+              taskName: 'Standup',
+              seconds: 12,
+            },
+          ],
+        })}
+      />,
+      { wrapper },
+    );
+
+    expect(screen.getByText('Migration')).toBeInTheDocument();
+    expect(screen.getByText('Standup')).toBeInTheDocument();
+    expect(screen.getByText(/unusually short/)).toBeInTheDocument();
+  });
+
+  it('answers with durationOk and edits nothing else', async () => {
+    const fetchMock = serve();
+    const user = userEvent.setup();
+    render(<Inbox stats={stats({ strangeDurations: [longEntry] })} />, {
+      wrapper,
+    });
+
+    await user.click(screen.getByRole('button', { name: /as it is/ }));
+
+    /* "It's correct" is an answer about the length, not an edit to it — a
+       write touching the times would be the app editing billable work. */
+    await waitFor(() => {
+      const patch = fetchMock.mock.calls.find(
+        ([, init]) => (init as RequestInit | undefined)?.method === 'PATCH',
+      );
+      expect(patch).toBeTruthy();
+      expect(JSON.parse(String((patch![1] as RequestInit).body))).toEqual({
+        durationOk: true,
+      });
+    });
+  });
+
+  it('the check mark belongs to "It\'s correct" alone', () => {
+    serve();
+    render(
+      <Inbox
+        stats={stats({
+          overdueInvoices: [overdue],
+          strangeDurations: [longEntry],
+        })}
+      />,
+      { wrapper },
+    );
+
+    /* A single glyph on both `Keep` and `Mark paid` would mean "change
+       nothing" and "record a payment" at once. Each verb gets its own. */
+    const correct = screen.getByRole('button', { name: /as it is/ });
+    const paid = screen.getByRole('button', { name: 'Mark STINT-0001 paid' });
+    const glyph = (el: HTMLElement) =>
+      el.querySelector('svg')?.getAttribute('class') ?? '';
+    expect(glyph(correct)).not.toEqual('');
+    expect(correct.innerHTML).not.toEqual(paid.innerHTML);
   });
 });

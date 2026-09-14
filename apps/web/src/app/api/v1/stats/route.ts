@@ -19,27 +19,92 @@ const Query = z.object({
 });
 
 /**
- * The unprojected row, or `null` when there is nothing to report.
+ * One row per unprojected entry, oldest first.
  *
- * `null` rather than a zero row, so the UI renders nothing at all — a row
- * reading "0 entries, no project" is an inbox item reporting that there is
- * nothing to report.
+ * Not a rollup: the work is done one entry at a time — open it, assign a
+ * project, move to the next — and a row naming a count is a row the user then
+ * has to go and find. Oldest first because that entry is closest to being
+ * invoiced without a rate.
  *
- * `oldestId` is what lets the row open the editor on something: it is a queue
- * of decisions rather than a link to a record, and there is no entries page
- * for it to lead to. Oldest, because that entry is closest to being invoiced
- * without a rate.
+ * Uncapped, deliberately. The other rows carry grace periods that keep them
+ * rare; this one does not, so a long list is a true report of a real mess.
  */
-function buildUnprojected(
-  rows: { id: string; duration_seconds: number | null }[],
+function buildUnprojected(rows: UnprojectedRow[]) {
+  return rows.map((r) => ({
+    entryId: r.id,
+    taskName: r.task_name,
+    startedAt: r.started_at,
+    seconds: r.duration_seconds ?? 0,
+  }));
+}
+
+interface UnprojectedRow {
+  id: string;
+  task_name: string;
+  started_at: string;
+  duration_seconds: number | null;
+}
+
+interface DurationRow extends UnprojectedRow {
+  project_id: string | null;
+}
+
+/** Project id -> its name and its client's, for the qualifier line. */
+export type ProjectNames = Map<
+  string,
+  { name: string; clientName: string | null }
+>;
+
+/**
+ * Entries whose length is implausible — one row each, short or long.
+ *
+ * Both thresholds are opt-in: null retires that side, and null on both retires
+ * the row entirely, which is the default. Nobody gets a new inbox row without
+ * asking for it.
+ *
+ * `kind` is what the row's qualifier states in words. Colour marks severity;
+ * it never carries the meaning on its own.
+ *
+ * **An entry already surfaced as unprojected never appears here too.** Both
+ * facts are true of it, but they are one entry and one decision — two rows
+ * about the same record read as the inbox repeating itself. Unprojected wins
+ * because it blocks invoicing: an entry with no project cannot resolve a rate
+ * at all, where an implausible length still bills.
+ */
+function buildStrangeDurations(
+  rows: DurationRow[],
+  minSeconds: number | null,
+  maxHours: number | null,
+  projects: ProjectNames,
+  alreadyShown: ReadonlySet<string>,
 ) {
-  const [oldest] = rows;
-  if (!oldest) return null;
-  return {
-    count: rows.length,
-    seconds: rows.reduce((a, r) => a + (r.duration_seconds ?? 0), 0),
-    oldestId: oldest.id,
-  };
+  if (minSeconds == null && maxHours == null) return [];
+  const maxSeconds = maxHours == null ? null : maxHours * 3600;
+
+  const out = [];
+  for (const r of rows) {
+    if (alreadyShown.has(r.id)) continue;
+    const s = r.duration_seconds;
+    if (s == null) continue;
+    const kind =
+      minSeconds != null && s < minSeconds
+        ? ('short' as const)
+        : maxSeconds != null && s > maxSeconds
+          ? ('long' as const)
+          : null;
+    if (!kind) continue;
+    const p = r.project_id ? projects.get(r.project_id) : undefined;
+    out.push({
+      entryId: r.id,
+      kind,
+      taskName: r.task_name,
+      projectName: p?.name ?? null,
+      clientName: p?.clientName ?? null,
+      startedAt: r.started_at,
+      seconds: s,
+    });
+  }
+  return out;
 }
 
 /**
@@ -97,57 +162,88 @@ export const GET = handle(async (req: Request) => {
   const monthStart = startOfLocalMonth(now, tz);
   const monthEnd = startOfNextLocalMonth(now, tz);
 
-  const [unbilled, monthRevenue, settings, month, invoices, unprojected] =
-    await Promise.all([
-      // The rollup resolves rates in SQL, grouped by (client, rate) — one
-      // client can have work at several rates, and collapsing them to one rate
-      // misstates the money. See the function's own comments.
-      db.rpc('unbilled_by_client', { p_user_id: userId }),
+  const [
+    unbilled,
+    monthRevenue,
+    settings,
+    month,
+    invoices,
+    unprojected,
+    durationCandidates,
+    projectRows,
+  ] = await Promise.all([
+    // The rollup resolves rates in SQL, grouped by (client, rate) — one
+    // client can have work at several rates, and collapsing them to one rate
+    // misstates the money. See the function's own comments.
+    db.rpc('unbilled_by_client', { p_user_id: userId }),
 
-      /* Revenue for the month, for a money target. Work DONE — invoiced at its
+    /* Revenue for the month, for a money target. Work DONE — invoiced at its
        resolved rate plus unbilled at the same — never money collected, and
        bucketed by the entry's own date rather than the invoice's issue date.
        The function's comments carry why. */
-      db.rpc('month_revenue', {
-        p_user_id: userId,
-        p_from: monthStart.toISOString(),
-        p_to: monthEnd.toISOString(),
-      }),
+    db.rpc('month_revenue', {
+      p_user_id: userId,
+      p_from: monthStart.toISOString(),
+      p_to: monthEnd.toISOString(),
+    }),
 
-      db
-        .from('user_settings')
-        .select('monthly_target, monthly_target_unit, currency')
-        .maybeSingle(),
+    db
+      .from('user_settings')
+      .select(
+        'monthly_target, monthly_target_unit, currency, min_entry_seconds, max_entry_hours',
+      )
+      .maybeSingle(),
 
-      // Month-to-date, for Pace and the billable ratio.
-      db
-        .from('time_entries')
-        .select('duration_seconds, is_billable')
-        .gte('started_at', monthStart.toISOString())
-        .lt('started_at', monthEnd.toISOString())
-        .not('ended_at', 'is', null),
+    // Month-to-date, for Pace and the billable ratio.
+    db
+      .from('time_entries')
+      .select('duration_seconds, is_billable')
+      .gte('started_at', monthStart.toISOString())
+      .lt('started_at', monthEnd.toISOString())
+      .not('ended_at', 'is', null),
 
-      db
-        .from('invoices')
-        .select(
-          'id, invoice_number, client_id, status, due_date, total, currency, issue_date',
-        )
-        .in('status', ['sent', 'draft']),
+    db
+      .from('invoices')
+      .select(
+        'id, invoice_number, client_id, status, due_date, total, currency, issue_date',
+      )
+      .in('status', ['sent', 'draft']),
 
-      // Unbilled work with no project cannot resolve a rate beyond the user
-      // default, and usually means the timer was started in a hurry.
-      /* Oldest first, because the inbox row opens the oldest one: it is the
+    // Unbilled work with no project cannot resolve a rate beyond the user
+    // default, and usually means the timer was started in a hurry.
+    /* Oldest first, because the inbox row opens the oldest one: it is the
        closest to being invoiced without a rate, and it matches the overdue
        and stale rows, which both lead with the most urgent. */
-      db
-        .from('time_entries')
-        .select('id, duration_seconds')
-        .is('project_id', null)
-        .is('invoice_id', null)
-        .not('ended_at', 'is', null)
-        .eq('is_billable', true)
-        .order('started_at', { ascending: true }),
-    ]);
+    db
+      .from('time_entries')
+      .select('id, task_name, started_at, duration_seconds')
+      .is('project_id', null)
+      .is('invoice_id', null)
+      .not('ended_at', 'is', null)
+      .eq('is_billable', true)
+      .order('started_at', { ascending: true }),
+
+    /* Candidates for the strange-duration row: every stopped, uninvoiced
+         entry the user has not already answered for. The thresholds live in
+         settings and are fetched in the same batch, so the comparison happens
+         below rather than in the filter. `ended_at is not null` is also what
+         keeps a running timer out of this row — that is the runaway row's
+         subject, and never both. */
+    db
+      .from('time_entries')
+      .select('id, task_name, started_at, duration_seconds, project_id')
+      .is('invoice_id', null)
+      .not('ended_at', 'is', null)
+      .eq('duration_ok', false)
+      .order('started_at', { ascending: true }),
+
+    /* Project and client names for whichever of those rows survives the
+         threshold test. Fetched flat rather than as an embedded join: the
+         route tests run the real handler against real Postgres through a
+         supabase-shaped shim, which passes `select()` straight into SQL and
+         has no PostgREST embedding to expand. */
+    db.from('projects').select('id, name, client_id'),
+  ]);
 
   for (const r of [
     unbilled,
@@ -156,6 +252,8 @@ export const GET = handle(async (req: Request) => {
     month,
     invoices,
     unprojected,
+    durationCandidates,
+    projectRows,
   ]) {
     if (r.error) throw r.error;
   }
@@ -257,10 +355,31 @@ export const GET = handle(async (req: Request) => {
     }))
     .sort((a, b) => b.ageDays - a.ageDays);
 
-  const unprojectedRows = (unprojected.data ?? []) as {
-    id: string;
-    duration_seconds: number | null;
-  }[];
+  const unprojectedRows = (unprojected.data ?? []) as UnprojectedRow[];
+  const projectNames: ProjectNames = new Map(
+    (
+      (projectRows.data ?? []) as {
+        id: string;
+        name: string;
+        client_id: string | null;
+      }[]
+    ).map((p) => [
+      p.id,
+      {
+        name: p.name,
+        clientName: p.client_id ? (clientNames.get(p.client_id) ?? null) : null,
+      },
+    ]),
+  );
+  const strangeDurations = buildStrangeDurations(
+    (durationCandidates.data ?? []) as DurationRow[],
+    settings.data?.min_entry_seconds ?? null,
+    settings.data?.max_entry_hours == null
+      ? null
+      : Number(settings.data.max_entry_hours),
+    projectNames,
+    new Set(unprojectedRows.map((r) => r.id)),
+  );
 
   /* Invoiced and not yet collected. DELIBERATELY separate from `unbilled`:
      that is work not yet invoiced, this is money already asked for, and
@@ -293,6 +412,7 @@ export const GET = handle(async (req: Request) => {
       overdueInvoices,
       staleDrafts,
       unprojected: buildUnprojected(unprojectedRows),
+      strangeDurations,
     },
   });
 });

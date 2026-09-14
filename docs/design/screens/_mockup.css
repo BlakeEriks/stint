@@ -41,6 +41,14 @@
     --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
+    --motion-instant: 90ms;
+    --motion-quick: 160ms;
+    --motion-settle: 260ms;
+    --motion-rise: 3px;
+    --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+    --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+
     --mark-bound-width: 0.09em;
     --mark-bound-height: 1.05em;
     --mark-bound-gap: 0.18em;

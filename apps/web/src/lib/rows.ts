@@ -14,6 +14,7 @@ export interface EntryRow {
   rate_override: string | number | null;
   invoice_id: string | null;
   duration_seconds: number | null;
+  duration_ok: boolean;
 }
 
 /** numeric columns arrive as strings from PostgREST to preserve precision. */
@@ -21,7 +22,7 @@ const num = (v: string | number | null | undefined): number | null =>
   v == null ? null : typeof v === 'number' ? v : Number(v);
 
 export const ENTRY_COLUMNS =
-  'id, project_id, task_name, started_at, ended_at, is_billable, rate_override, invoice_id, duration_seconds';
+  'id, project_id, task_name, started_at, ended_at, is_billable, rate_override, invoice_id, duration_seconds, duration_ok';
 
 export function toEntry(r: EntryRow) {
   return {
@@ -34,6 +35,7 @@ export function toEntry(r: EntryRow) {
     rateOverride: num(r.rate_override),
     invoiceId: r.invoice_id,
     durationSeconds: r.duration_seconds,
+    durationOk: r.duration_ok,
   };
 }
 
@@ -72,7 +74,7 @@ export function toProject(r: Record<string, any>) {
 }
 
 export const SETTINGS_COLUMNS =
-  'default_hourly_rate, currency, week_starts_on, time_format, max_timer_hours, business_name, business_address, business_email, logo_url, tax_id, default_payment_terms, invoice_number_prefix, next_invoice_number, payment_notice, monthly_target, monthly_target_unit';
+  'default_hourly_rate, currency, week_starts_on, time_format, max_timer_hours, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, tax_id, default_payment_terms, invoice_number_prefix, next_invoice_number, payment_notice, monthly_target, monthly_target_unit';
 
 export function toSettings(r: Record<string, any>) {
   return {
@@ -81,6 +83,8 @@ export function toSettings(r: Record<string, any>) {
     weekStartsOn: r.week_starts_on,
     timeFormat: r.time_format,
     maxTimerHours: Number(r.max_timer_hours),
+    minEntrySeconds: num(r.min_entry_seconds),
+    maxEntryHours: num(r.max_entry_hours),
     businessName: r.business_name,
     businessAddress: r.business_address,
     businessEmail: r.business_email,
@@ -114,6 +118,7 @@ export const ENTRY_FIELDS = {
   endedAt: 'ended_at',
   isBillable: 'is_billable',
   rateOverride: 'rate_override',
+  durationOk: 'duration_ok',
 } as const;
 
 export const CLIENT_FIELDS = {
@@ -140,6 +145,8 @@ export const SETTINGS_FIELDS = {
   weekStartsOn: 'week_starts_on',
   timeFormat: 'time_format',
   maxTimerHours: 'max_timer_hours',
+  minEntrySeconds: 'min_entry_seconds',
+  maxEntryHours: 'max_entry_hours',
   businessName: 'business_name',
   businessAddress: 'business_address',
   businessEmail: 'business_email',
