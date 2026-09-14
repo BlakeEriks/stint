@@ -364,6 +364,13 @@ private struct TimerPanel: View {
         .overlay(alignment: .trailing) {
             StartStopButton(model: model)
         }
+        /* Its own section, so the transport keeps its place in the Tab order.
+           An overlay is traversed AFTER the content it sits on, so without
+           this the stop button came after the task field — reading as though
+           it belonged to the row below rather than to the clock it is part
+           of. The section makes the readout one stop, wherever the button is
+           drawn. */
+        .focusSection()
     }
 }
 
