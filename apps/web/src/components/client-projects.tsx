@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus } from 'lucide-react';
+import { Archive, Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, ApiError, type Client, type Project } from '@/lib/client/api';
 import { ProjectDialog } from './project-dialog';
@@ -142,6 +142,7 @@ function Row({
               disabled={archive.isPending}
               aria-label={`Archive ${project.name}`}
             >
+              <Archive aria-hidden strokeWidth={1.75} />
               Archive
             </Button>
           ) : (

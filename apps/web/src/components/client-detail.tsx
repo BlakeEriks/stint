@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Archive, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, ApiError } from '@/lib/client/api';
 import { Page } from './page';
@@ -55,7 +56,10 @@ export function ClientDetail({ id }: { id: string }) {
 
         <div className="flex flex-none gap-2">
           <Button asChild variant="secondary">
-            <Link href={`/clients/${id}/edit`}>Edit</Link>
+            <Link href={`/clients/${id}/edit`}>
+              <Pencil aria-hidden strokeWidth={1.75} />
+              Edit
+            </Link>
           </Button>
           {!client.archivedAt ? (
             <Button
@@ -63,6 +67,7 @@ export function ClientDetail({ id }: { id: string }) {
               onClick={() => archive.mutate()}
               disabled={archive.isPending}
             >
+              <Archive aria-hidden strokeWidth={1.75} />
               Archive
             </Button>
           ) : null}

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ColorPicker } from './color-picker';
@@ -162,12 +163,20 @@ export function ClientForm({
 
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={save.isPending || name.trim() === ''}>
+          {save.isPending ? (
+            <Loader2 aria-hidden className="animate-spin" />
+          ) : (
+            <Check aria-hidden />
+          )}
           {save.isPending
             ? 'Saving…'
             : existing
               ? 'Save changes'
               : 'Add client'}
         </Button>
+        {/* No icon: Cancel undoes the intent rather than performing one, and
+            a glyph would give a dismissal the same weight as the save it
+            sits beside. */}
         <Button
           type="button"
           variant="ghost"
