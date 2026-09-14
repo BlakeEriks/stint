@@ -37,6 +37,8 @@ export function EntryDialog({
   existing,
   seed,
   focus = 'task',
+  onSaved,
+  onClosed,
   projects,
   tz,
 }: {
@@ -57,6 +59,21 @@ export function EntryDialog({
    * missing project is the entire reason the row exists.
    */
   focus?: 'task' | 'project';
+  /**
+   * The entry a save or delete just settled, for a caller that is showing a
+   * row about it — fired immediately, before the refetch that would drop it.
+   *
+   * It says which entry changed, never that the row should go: the dialog
+   * cannot know why the entry was listed. Renaming a strange-duration entry
+   * without fixing its length leaves it strange, and `/stats` returns it
+   * again — the caller reconciles.
+   */
+  onSaved?: (id: string) => void;
+  /**
+   * The same entry, once this dialog is off the screen. A caller animating
+   * that row away starts it here, so the motion is not hidden by the overlay.
+   */
+  onClosed?: (id: string) => void;
   projects: Project[];
   tz: string;
 }) {
@@ -86,6 +103,56 @@ export function EntryDialog({
     setEnd(opened?.endedAt ? localTime(new Date(opened.endedAt), tz) : '');
     setBillable(existing?.isBillable ?? true);
   }, [open, existing, seed, tz]);
+
+  /* Claim, close, then refetch and hand over once this dialog is off screen.
+
+     A caller animating a row away needs two different moments, and using one
+     for both is what made this invisible twice over:
+
+     **`onSaved` fires immediately**, before `invalidate`. The refetch is what
+     drops the row from the caller's list, so refetching first leaves nothing
+     to claim and the row blinks out.
+
+     **`onClosed` waits for the overlay to leave the DOM.** A collapse that runs
+     underneath it is a movement nobody sees. Waited for, not timed: a fixed
+     delay has to guess Radix's exit plus the save's own latency, and measuring
+     gave ~510ms where the content's `duration-200` suggested 200.
+
+     `onOpenChange` is synchronous, so the dialog still closes immediately.
+
+     **The watch outlives this component on purpose.** Closing is what unmounts
+     it — the caller drops the entry it was editing — so tearing the observer
+     down on unmount would cancel the very thing it waits for, every time. A
+     timeout bounds it in case the overlay never goes. */
+  const settle = (id: string) => {
+    onSaved?.(id);
+    onOpenChange(false);
+
+    const done = () => {
+      invalidate();
+      onClosed?.(id);
+    };
+
+    const overlay = document.querySelector('[data-slot="dialog-overlay"]');
+    if (!overlay?.isConnected) {
+      done();
+      return;
+    }
+
+    let fired = false;
+    const finish = () => {
+      if (fired) return;
+      fired = true;
+      observer.disconnect();
+      clearTimeout(bail);
+      done();
+    };
+    const observer = new MutationObserver(() => {
+      if (!overlay.isConnected) finish();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    const bail = setTimeout(finish, 1000);
+  };
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['entries'] });
@@ -121,10 +188,7 @@ export function EntryDialog({
         ? api.updateEntry(existing.id, body)
         : api.createEntry({ id: uuidv7(), ...body });
     },
-    onSuccess: () => {
-      invalidate();
-      onOpenChange(false);
-    },
+    onSuccess: (entry) => settle(entry.id),
     onError: (e) =>
       setError(
         e instanceof ApiError ? e.message : 'Could not save this entry.',
@@ -133,10 +197,7 @@ export function EntryDialog({
 
   const remove = useMutation({
     mutationFn: () => api.deleteEntry(existing!.id),
-    onSuccess: () => {
-      invalidate();
-      onOpenChange(false);
-    },
+    onSuccess: () => settle(existing!.id),
     onError: (e) =>
       setError(
         e instanceof ApiError ? e.message : 'Could not delete this entry.',

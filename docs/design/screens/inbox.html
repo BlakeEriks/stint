@@ -335,6 +335,53 @@
     </ul>
   </section>
 
+  <!-- ───────────────────────── leaving ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">A row leaving</span></div>
+
+    <p>
+      A dealt-with row fades, then runs its own height to zero over
+      <code>--motion-settle</code>; the rows below are carried up by ordinary
+      flow. Six rows vanishing instantly is the inbox losing its place under
+      the cursor — the collapse is what says <em>that one, and it is gone</em>.
+    </p>
+
+    <ul class="rule">
+      <li><strong>The row outlives its own data.</strong> The action
+        invalidates the query, so the row is absent from the next render — it
+        is kept on screen from its last-seen copy until the animation ends.</li>
+      <li><strong>It collapses where it sits</strong>, holding the position it
+        had rather than sorting to the end of its group. A row that jumps
+        before it collapses is worse than no animation.</li>
+      <li><strong>The count drops on the click</strong>, not when the animation
+        finishes. The count is what still wants a decision, and the decision is
+        already made.</li>
+      <li><strong>"Nothing needs you" waits for the last row to go</strong>, or
+        it renders above the row it is denying.</li>
+      <li><strong>Under <code>prefers-reduced-motion</code> the animation still
+        runs, at 1ms.</strong> Its <code>animationend</code> is what removes the
+        row, and a zero-duration animation never fires one.</li>
+      <li><strong>A row retired from the entry dialog collapses in two
+        beats.</strong> The row is claimed the instant the save lands — before
+        the refetch, which would otherwise drop it and leave nothing to
+        animate — and only starts collapsing once the dialog's overlay has left
+        the screen. Doing both at one moment loses the motion either to the
+        refetch or behind the overlay.</li>
+      <li><strong>The exit is bounded, not left to
+        <code>animationend</code>.</strong> An environment with no animation
+        engine never fires one and neither does an interrupted animation, so a
+        row waiting only on that event stays on screen for good.</li>
+      <li><strong>The empty state counts a collapsing row as present.</strong>
+        Swapping the list for "Nothing needs you" while the last row is still
+        going removes that row from the document mid-animation.</li>
+      <li><strong>Adjust does not animate its row</strong>, and that is where it
+        stands rather than a decision. The dialog it opens covers the row, so
+        the collapse has no audience; the row also re-renders every second
+        behind the dialog while the timer ticks, which restarts the animation
+        before it can advance.</li>
+    </ul>
+  </section>
+
   <!-- ───────────────────────── behaviour ───────────────────────── -->
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">What each row may do</span></div>

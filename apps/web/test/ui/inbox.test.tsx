@@ -241,7 +241,12 @@ describe('the runaway timer choice', () => {
     /* A long timer is often correct. Keep must dismiss the row and touch
        nothing — stopping it here would be the app editing billable work. */
     expect(calls).toEqual([]);
-    expect(screen.queryByText(/hours so far/)).toBeNull();
+
+    /* The row outlives the click by one collapse. jsdom runs no animations, so
+       what removes it here is the bounded fallback in `Item` rather than
+       `animationend` — which is the point of that fallback: the row leaves
+       whether or not anything animated. */
+    await waitFor(() => expect(screen.queryByText(/hours so far/)).toBeNull());
   });
 
   it('does not discard until the confirmation is clicked', async () => {

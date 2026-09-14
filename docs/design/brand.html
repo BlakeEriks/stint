@@ -89,6 +89,23 @@
   .chip .fill { height: 52px; border-radius: 8px; border: 1px solid var(--border-subtle); }
   .chip .name { font-family: var(--font-mono); font-size: 11px; color: var(--text-primary); }
   .chip .hex { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle); }
+
+  /* A motion specimen: the swatch IS the measurement, so the page shows what
+     90ms and 260ms actually feel like rather than only naming them. */
+  .mo {
+    width: 116px; height: 22px; border-radius: 5px;
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    overflow: hidden; cursor: pointer;
+  }
+  .mo i {
+    display: block; height: 100%; width: 22px; border-radius: 4px;
+    background: var(--text-subtle);
+    transition: transform var(--d) var(--e, var(--ease-standard));
+  }
+  .mo:hover i { transform: translateX(94px); }
+  @media (prefers-reduced-motion: reduce) {
+    .mo i { transition-duration: 1ms; }
+  }
 </style>
 
 <div class="page">
@@ -379,6 +396,74 @@
       Charts use the two dedicated categoricals on the blue/orange axis, the
       only axis dichromats retain — the eight are separable enough for labelled
       chips, where text carries the identity, and not for a chart.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── motion ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Motion</span></div>
+
+    <p>
+      Three durations and three curves, and a component picks from them the way
+      it picks a type role. Hover a swatch to run it.
+    </p>
+
+    <table style="margin-top:1.5rem">
+      <tr><th>Token</th><th></th><th>What moves at this speed</th></tr>
+      <tr>
+        <td><code>motion-instant</code> <span class="num">90ms</span></td>
+        <td><div class="mo" style="--d:var(--motion-instant)"><i></i></div></td>
+        <td>A state already under the cursor — a hover fill, an action fading in</td>
+      </tr>
+      <tr>
+        <td><code>motion-quick</code> <span class="num">160ms</span></td>
+        <td><div class="mo" style="--d:var(--motion-quick)"><i></i></div></td>
+        <td>Something small changing on its own — a row's background, a dot becoming a check</td>
+      </tr>
+      <tr>
+        <td><code>motion-settle</code> <span class="num">260ms</span></td>
+        <td><div class="mo" style="--d:var(--motion-settle)"><i></i></div></td>
+        <td>Layout moving — a row leaving the inbox and the rows below closing the gap</td>
+      </tr>
+    </table>
+
+    <table style="margin-top:1.25rem">
+      <tr><th>Curve</th><th></th><th>For</th></tr>
+      <tr>
+        <td><code>ease-standard</code></td>
+        <td><div class="mo" style="--d:var(--motion-settle); --e:var(--ease-standard)"><i></i></div></td>
+        <td>Anything that starts and ends on screen. The default</td>
+      </tr>
+      <tr>
+        <td><code>ease-decelerate</code></td>
+        <td><div class="mo" style="--d:var(--motion-settle); --e:var(--ease-decelerate)"><i></i></div></td>
+        <td>Arriving — a dialog, a row appearing. Fast in, settling</td>
+      </tr>
+      <tr>
+        <td><code>ease-accelerate</code></td>
+        <td><div class="mo" style="--d:var(--motion-settle); --e:var(--ease-accelerate)"><i></i></div></td>
+        <td>Leaving for good. Never for something the user must watch finish</td>
+      </tr>
+    </table>
+
+    <p style="margin-top:1.75rem">
+      <strong style="color:var(--text-strong)">Motion reports a change; it
+      never announces one.</strong> The timer is the only thing on a screen
+      that moves on its own, and it moves because the number is genuinely
+      changing. Nothing pulses, slides on arrival, or draws attention to a
+      figure that has been sitting there — this is a billing screen, and a
+      number that moves reads as a number that changed.
+    </p>
+    <p>
+      <code>motion-rise</code> (3px) is the whole vocabulary of travel. A
+      thing that needs to move further than that is changing layout, and
+      layout moves at <code>motion-settle</code> or not at all.
+    </p>
+    <p>
+      Every duration honours <code>prefers-reduced-motion</code>. A transition
+      may drop to nothing; an animation whose <code>animationend</code> removes
+      an element runs at 1ms instead, because a zero-duration animation never
+      fires and the element would stay forever.
     </p>
   </section>
 

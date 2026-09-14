@@ -68,3 +68,42 @@
     }
   }
 }
+
+/* ── A row leaving the inbox ───────────────────────────────────────
+   The row fades, then runs its own height to zero; the rows below are
+   carried up by ordinary flow. Nothing measures the survivors.
+
+   **The height is pinned in px by the component before this class lands**,
+   because keyframes cannot interpolate from `auto` — without it the row
+   snaps shut on frame one and the animation is decorative.
+
+   The fade finishes at 40% so the text is gone before the box closes;
+   reversing that reads as the row being crushed. */
+@layer utilities {
+  .leaving {
+    overflow: hidden;
+    pointer-events: none;
+    animation: inbox-leave var(--motion-settle) var(--ease-standard) forwards;
+  }
+  @keyframes inbox-leave {
+    from {
+      opacity: 1;
+    }
+    40% {
+      opacity: 0;
+    }
+    to {
+      opacity: 0;
+      height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+  }
+  /* The row still has to go, so the animation runs — just too fast to read.
+     `animationend` is what removes it, and a duration of 0 never fires. */
+  @media (prefers-reduced-motion: reduce) {
+    .leaving {
+      animation-duration: 1ms;
+    }
+  }
+}
