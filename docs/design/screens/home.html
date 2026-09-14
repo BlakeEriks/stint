@@ -125,22 +125,6 @@
   .lg { display: inline-flex; align-items: center; gap: 6px; }
   .lg .sw { width: 8px; height: 8px; border-radius: 2px; flex: none; }
 
-  /* inbox rows */
-  .inbox { background: var(--bg-base); border-radius: 10px; padding: 14px; }
-  .irow { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; }
-  .irow + .irow { border-top: 1px solid var(--border-subtle); }
-  .idot { width: 7px; height: 7px; border-radius: 50%; flex: none; margin-top: 7px; }
-  .idot.danger { background: var(--danger); }
-  .idot.warn { background: var(--timer-warning); }
-  .ibody { flex: 1; min-width: 0; }
-  .iact { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
-  .btn {
-    padding: 4px 10px; border-radius: 6px;
-    border: 1px solid var(--border-default);
-    background: var(--bg-elevated); color: var(--text-strong);
-    font-family: var(--font-sans); font-size: 12.5px; cursor: pointer;
-  }
-
   .grid2 { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); gap: 16px; align-items: start; }
   @media (width < 60rem) { .grid2 { grid-template-columns: minmax(0,1fr); } }
 </style>
@@ -150,14 +134,13 @@
   <span class="eyebrow">Stint · Screens</span>
   <h1>Home</h1>
   <p class="standfirst">
-    The screen opened fifty times a day. It answers three questions a
-    contractor cannot answer from memory: how much money is sitting unbilled,
-    is anything about to go wrong, and am I on pace.
+    The screen opened fifty times a day. It answers two questions a contractor
+    cannot answer from memory: how much money is sitting unbilled, and am I on
+    pace.
   </p>
   <p class="standfirst">
     The frame — header, rail, dock, timer bar — is <code>_shell.html</code>.
-    This page specifies the content column and the inbox that feeds from the
-    same call.
+    This page specifies the content column.
   </p>
 
   <!-- ───────────────────────── what earns a place ───────────────────────── -->
@@ -180,8 +163,8 @@
       <li><strong><code>GET /stats</code> is one call.</strong> The cards
         render together, and a set that pops in piecemeal reads as broken.</li>
       <li><strong>No card writes.</strong> Every card reads, and every action on
-        one is a link to the surface that owns the mutation. The inbox is the
-        narrow exception, with the limits stated under that section.</li>
+        one is a link to the surface that owns the mutation — a dashboard that
+        edits data turns a stray click into a changed invoice.</li>
     </ul>
   </section>
 
@@ -667,136 +650,6 @@
     </ul>
   </section>
 
-  <!-- ───────────────────────── the inbox ───────────────────────── -->
-  <section class="sec">
-    <div class="sec-head"><span class="eyebrow">The inbox</span></div>
-
-    <p>
-      Everything that wants a decision, in one fixed place. It is
-      <strong style="color:var(--text-strong)">not a card on this screen</strong>
-      — it lives in the dock, visible from every route. It is specified here
-      because it is fed by the same <code>GET /stats</code> call as the cards.
-    </p>
-
-    <div class="mock">
-      <div class="states">
-        <div class="state">
-          <div class="inbox">
-            <div class="type-label" style="color:var(--text-subtle); margin-bottom:6px">Inbox</div>
-            <div class="irow">
-              <span class="idot warn"></span>
-              <span class="ibody">
-                <span class="type-control" style="color:var(--text-strong)">Timer running 14h 2m</span><br>
-                <span class="type-support" style="color:var(--text-muted)">Website redesign · Acme Corp</span>
-                <span class="iact">
-                  <button class="btn">Keep</button>
-                  <button class="btn">Adjust</button>
-                  <button class="btn">Discard</button>
-                </span>
-              </span>
-            </div>
-            <div class="irow">
-              <span class="idot danger"></span>
-              <span class="ibody">
-                <span class="type-control" style="color:var(--text-strong)">STINT-0014 · 12 days late</span><br>
-                <span class="type-support" style="color:var(--text-muted)">Byrne Studio · $1,125.00</span>
-                <span class="iact"><button class="btn">Mark STINT-0014 paid</button></span>
-              </span>
-            </div>
-            <div class="irow">
-              <span class="idot warn"></span>
-              <span class="ibody">
-                <span class="type-control" style="color:var(--text-strong)">6 entries with no project</span><br>
-                <span class="type-support" style="color:var(--text-muted)">11.5h · cannot resolve a rate</span>
-              </span>
-            </div>
-          </div>
-          <span class="caption">Runaway first, then overdue</span>
-        </div>
-
-        <div class="state">
-          <div class="inbox">
-            <div class="type-label" style="color:var(--text-subtle); margin-bottom:6px">Inbox</div>
-            <div class="card" style="box-shadow:none">
-              <div class="card-body">
-                <span class="type-body" style="color:var(--text-muted)">Nothing needs you.</span>
-              </div>
-            </div>
-          </div>
-          <span class="caption">Empty — still present</span>
-        </div>
-      </div>
-    </div>
-
-    <table>
-      <tr><th>Row</th><th>Condition</th><th>Shows</th></tr>
-      <tr><td>Runaway timer</td><td><code>exceedsThreshold</code> from <code>/summary</code></td><td>Hours so far, and keep / adjust / discard</td></tr>
-      <tr><td>Overdue invoice</td><td><code>sent</code> and <code>due_date</code> more than <strong>7 days</strong> past</td><td>Client, amount, days late</td></tr>
-      <tr><td>Stale draft</td><td><code>draft</code> issued more than <strong>7 days</strong> ago</td><td>Client, amount, age</td></tr>
-      <tr><td>Unprojected entries</td><td><code>project_id is null</code>, unbilled, billable, ended</td><td>Count, total hours; opens the editor on the oldest</td></tr>
-    </table>
-
-    <h3>It is always present, including when it is empty</h3>
-    <p>
-      A dock region is <strong style="color:var(--text-strong)">furniture</strong>
-      — staying put is the entire point. "Nothing needs you." is information,
-      and a region that appears and disappears reflows the page at the exact
-      moment you fix something. An inbox is a place, which is why it is named
-      for one rather than for a predicate.
-    </p>
-
-    <h3>Ordering and tone</h3>
-    <p>
-      The runaway timer sorts first: it is the only row whose subject changes
-      while you read it, where an overdue invoice is equally late in an hour.
-      Overdue invoices sort next and carry <code>danger</code>; the rest carry
-      <code>warning</code>.
-    </p>
-
-    <h3>The grace periods are the point</h3>
-    <p>
-      Net 30 with a client who pays on day 32 is ordinary, and a row that flags
-      it trains the user to clear the list without reading it — which is how
-      the one genuinely late invoice gets dismissed with the rest. The invoice
-      page still shows the true due date; the grace period governs only when
-      the inbox speaks up.
-    </p>
-
-    <h3>What each row may do</h3>
-    <ul class="rule">
-      <li><strong>The rows write, narrowly.</strong> Marking an invoice paid or
-        sent is the action that legitimately clears a row — the underlying fact
-        changed. Every write names itself (<code>Mark STINT-0014 paid</code>),
-        because a list of identical buttons is unusable with a screen
-        reader.</li>
-      <li><strong>The runaway row surfaces; it does not correct.</strong> Keep
-        touches nothing and dismisses the notice — a long timer is often
-        correct, and stopping it would be the app editing billable work. Adjust
-        stops first, then opens the editor. <code>dismissed</code> resets when
-        the overrun ends, so Keep silences that overrun rather than the
-        feature.</li>
-      <li><strong>The unprojected row opens the editor on the
-        <em>oldest</em></strong> — the one closest to being invoiced without a
-        rate. These entries scatter across days, so the today-only list would
-        not reach them.</li>
-      <li><strong>Nothing is stored.</strong> Rows are derived per request, so
-        marking an invoice paid clears its row because the predicate stops
-        being true. A stale row claiming money is late after it arrived is the
-        same trust failure as silently editing hours.</li>
-    </ul>
-
-    <ul class="rule never" style="margin-top:1.75rem">
-      <li><strong>Nothing destructive is offered here.</strong> Voiding and
-        deleting belong on the invoice itself, where the whole document is in
-        view — a stray click on a glance must not destroy a financial
-        record.</li>
-      <li><strong>The inbox cannot be hidden.</strong> Structural rather than a
-        rule to enforce: it is not a card, so there is nothing to switch off. A
-        region that surfaces problems is worthless if it can be turned off, and
-        the user most likely to turn it off is the one it exists for.</li>
-    </ul>
-  </section>
-
   <!-- ───────────────────────── customization ───────────────────────── -->
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">Customization</span></div>
@@ -810,7 +663,7 @@
       product becomes the thing it was built against.
     </p>
     <p>
-      The timer bar, the inbox and the entry list are not cards and are not
+      The timer bar and the entry list are not cards and are not
       customizable.
     </p>
   </section>
@@ -820,13 +673,11 @@
     <div class="sec-head"><span class="eyebrow">Constraints this screen inherits</span></div>
 
     <ul class="rule">
-      <li><strong>Warning and danger are the alert channel.</strong>
-        <code>timer-warning</code> and <code>danger</code> carry the inbox's
-        rows and Pace's delta. Success cyan appears nowhere on this screen —
-        nothing here is an outcome.</li>
-      <li><strong>Nothing here is green</strong>, including the inbox's runaway
-        row, which is about a timer and still renders in <code>warning</code>.
-        <code>test/ui/inbox.test.tsx</code> enforces it.</li>
+      <li><strong>Warning is the alert channel</strong>, and Pace's delta is
+        the only thing on this screen that uses it. Success cyan appears
+        nowhere — nothing here is an outcome.</li>
+      <li><strong>Nothing here is green.</strong> The accent is spent on the
+        running timer in the bar below.</li>
       <li><strong>Durations and currency are mono and tabular</strong>, without
         exception. An unbilled column that reflows as digits change is the same
         defect as a timer that does.</li>
@@ -853,10 +704,7 @@
         exactly the overwork that surfacing runaway timers exists to catch. The
         app should never congratulate a user for a fourteen-day streak.</li>
       <li><strong>Team and comparison stats.</strong> There is no team. This is
-        the slot Toggl wastes and the inbox fills.</li>
-      <li><strong>A snooze on the inbox.</strong> Hiding a row that is still
-        true makes the inbox something dismissed reflexively rather than read.
-        The grace periods make it quiet enough that nothing needs dismissing.</li>
+        the slot Toggl wastes.</li>
     </ul>
   </section>
 
@@ -868,10 +716,9 @@
       <tr><th>Call</th><th>Feeds</th><th>Note</th></tr>
       <tr>
         <td><code>GET /stats</code></td>
-        <td>every card and the inbox</td>
-        <td>Unbilled by client with aging, month-to-date against target,
-            billable ratio, and the inbox rows. One request, because they
-            render together.</td>
+        <td>every card</td>
+        <td>Unbilled by client with aging, month-to-date against target, and
+            the billable ratio. One request, because they render together.</td>
       </tr>
       <tr>
         <td><code>GET /calendar?granularity=day</code></td>
