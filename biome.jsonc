@@ -22,7 +22,8 @@
       // "should not be edited" — formatting it is a fight with the codegen.
       "!apps/web/next-env.d.ts",
       "!**/dist",
-      "!**/.next"
+      "!**/.next",
+      "!.claude"
     ]
   },
   "formatter": {
