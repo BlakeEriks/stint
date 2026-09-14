@@ -366,6 +366,25 @@ moves up — do not start one by guessing the answer.
 
 ## Rough edges
 
+- [ ] **A write accepts another user's `project_id`.** `POST /timer/start`
+      with a project belonging to a different account returns 201 and stores
+      the reference — verified against the local stack with a real bearer
+      token. RLS protects every READ, so the entry then renders with no
+      project name, but the row is wrong in the database rather than merely
+      displayed wrong.
+
+      Found because the macOS app held a stale `draftProjectID` across a
+      `dev:reset` that reseeded under a different user. That is the benign
+      version; the same hole accepts a deliberately supplied id.
+
+      `time_entries.project_id` has a foreign key, which is why this is not
+      caught: the row genuinely exists, it just is not the caller's. The fix
+      belongs in the database rather than each route — a check that the
+      referenced project's `user_id` matches — because `/timer/start`,
+      `PATCH /timer` and `PATCH /entries/:id` all write the column and a
+      route-level check would need repeating in three places and would be a
+      race besides. `rls.test.ts` is where the assertion goes.
+
 - [ ] **Two snake↔camel converters.** `invoicing.ts` has its own `toInvoice`,
       `toLineItem` and `ClientRow` alongside `rows.ts`, and `toLineItem`
       takes `Record<string, any>` so nothing type-checks it. That is where

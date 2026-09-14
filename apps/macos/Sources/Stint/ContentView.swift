@@ -632,6 +632,9 @@ private struct ProjectField: View {
             }
         }
         .menuStyle(.borderlessButton)
+        /* The style draws its own indicator, which sat beside the one in the
+           label — two carets, and only one of them knew about hover. */
+        .menuIndicator(.hidden)
         .keyboardReachable()
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
