@@ -218,9 +218,15 @@ export function EntryDialog({
               disabled={locked}
               value={projectId ?? ''}
               onChange={(e) => setProjectId(e.target.value || null)}
+              /* `focus:` as well as `focus-visible:`. A field focused
+                 PROGRAMMATICALLY — as the inbox's unprojected row does on
+                 open — is never `:focus-visible`, which the browser reserves
+                 for keyboard-driven focus. Without this the cursor is really
+                 there and arrow keys work, but nothing on screen says so. */
               className="h-9 rounded-md border border-edge-default bg-transparent px-3
                          type-control text-strong outline-none
                          disabled:opacity-60
+                         focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus
                          focus-visible:border-edge-focus focus-visible:ring-[3px]
                          focus-visible:ring-edge-focus"
             >
