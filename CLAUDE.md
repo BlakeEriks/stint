@@ -352,6 +352,14 @@ needs a Developer ID and notarisation.
 **It is the timer and nothing else** — start, stop, task name, project.
 `menubar.html` is the spec.
 
+**Changing its Swift means rebuilding and relaunching it**, because the
+running copy is the `.app` in `~/Applications` rather than the build product,
+so `swift build` alone leaves the menu bar on the old binary:
+
+    pkill -f 'Stint.app/Contents/MacOS/Stint'; ./apps/macos/bundle.sh && open ~/Applications/Stint.app
+
+Quit first — `bundle.sh` always overwrites the installed copy.
+
 ### Sign-in
 
 **An emailed six-digit code, typed into the panel**, verified in-process
