@@ -345,12 +345,20 @@ private struct TimerPanel: View {
                 .foregroundStyle(Tokens.Dark.accentDefault)
                 .contentTransition(.numericText())
 
-            /* Trailing edge, on the readout's own line — `menubar.html` draws
-               it there. The two are still one object because they share the
-               line: the row IS the timer, and the control sits at its end
-               rather than floating after the digits at whatever width the
-               clock happens to be. */
-            Spacer(minLength: 8)
+            // Reserves the overlaid button's width plus a gap, so a long
+            // clock cannot run underneath it.
+            Spacer(minLength: 46)
+        }
+        /* **The button OVERFLOWS this row rather than sizing it.** At 38pt
+           against 26pt digits it was the tallest thing here, so the row stood
+           38pt high and left ~6pt of dead space under the clock that no gap
+           setting could close — the space was inside the row, not between
+           rows.
+
+           An overlay takes it out of the layout pass: the digits set the
+           height, and the control still sits at the trailing edge on the
+           readout's own line, which is where menubar.html draws it. */
+        .overlay(alignment: .trailing) {
             StartStopButton(model: model)
         }
     }
