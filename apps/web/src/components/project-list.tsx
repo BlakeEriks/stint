@@ -13,23 +13,12 @@ import { formatCurrency } from '@stint/core';
 import { keys } from '@/lib/client/query-keys';
 
 /**
- * Every project, grouped by client.
+ * Every project, grouped by client — which is the only screen that reaches a
+ * project with no client, since there is no client page to open for one.
  *
- * A flat list was rejected and then needed anyway: the client-nested section
- * is the right place to MANAGE a project, but it cannot reach one with no
- * client — there is no client detail page to open, because there is no
- * client. Putting those rows on the clients list does not help either, since
- * they would have to link to a client that does not exist.
- *
- * Grouping answers the original objection rather than trading against it.
- * Three rows named "Website redesign" in one undifferentiated list have to be
- * decoded; under client headings they do not. The heading carries the client's
- * own rate, so each row's inherited figure has something to be read against —
- * which the nested view gets for free and a flat list would lose.
- *
- * And "No client" becomes a HEADING rather than an entity: a heading needs no
- * detail page, no rate and no Edit button, so the thing that was incoherent
- * as a pseudo-client is ordinary as a group label.
+ * The heading carries the client's own rate, so each row's inherited figure
+ * has something to be read against. "No client" is a heading rather than an
+ * entity, so it needs no detail page, rate or Edit button.
  */
 export function ProjectList() {
   const [creating, setCreating] = useState(false);
@@ -121,11 +110,9 @@ export function ProjectList() {
 /**
  * The client's name, its own rate, and a link to manage it.
  *
- * "No client" gets none of those: it is a grouping, not a record. Labelling
- * it "Internal work" would assert intent the data does not carry — null also
- * covers work not yet assigned to a client, which is billable work that will
- * silently never be billed, and speculative work. Only
- * `isBillableDefault` distinguishes them, and that is the user's own answer.
+ * "No client" gets none of those: it is a grouping, not a record. Nor is it
+ * "Internal work" — null also covers work not yet assigned to a client and
+ * speculative work, and only `isBillableDefault` distinguishes them.
  */
 function GroupHeading({
   client,

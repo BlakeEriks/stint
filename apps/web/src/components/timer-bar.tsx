@@ -10,16 +10,12 @@ import { EntryDialog } from './entry-dialog';
 import type { Project } from '@/lib/client/api';
 
 /**
- * The timer, docked to the bottom of the app frame on every screen.
- *
- * One timer, in the frame, so it can be started from any screen without a
- * page load. A running timer is the only place the accent appears, which is
- * what makes green read as a signal rather than a brand colour.
+ * The timer, docked to the bottom of the app frame on every screen. A running
+ * timer is the only place the accent appears.
  *
  * **The bar is a fixed readout and never grows** — chrome must not reflow at
- * the moment something needs attention. Keep / Adjust / Discard is an inbox
- * row; what stays here is the `EntryDialog` that Adjust opens on the stopped
- * entry.
+ * the moment something needs attention. The runaway choice is an inbox row;
+ * what stays here is the `EntryDialog` that Adjust opens on the stopped entry.
  */
 export function TimerBar({ projects }: { projects: Project[] }) {
   const timer = useTimer();
@@ -60,55 +56,27 @@ export function TimerBar({ projects }: { projects: Project[] }) {
 
   const exceeded = timer.exceedsThreshold;
 
-  /* The runaway CHOICE lives in the inbox now — the notice used to grow this
-     bar, which put reflowing chrome at the moment a problem appeared. What
-     stays here is the editor Adjust opens: the entry it hands over is a
-     stopped one, and this is where `EntryDialog` already is. */
   const [adjusting, setAdjusting] = useAdjustingEntry();
 
   return (
     <section
-      /* `bg-surface-recessed` is the header's surface, not a card's — and a
-         step BELOW the rail's `bg-surface-base`. This strip and the header
-         bound the whole app, so they sit on the deepest plane and recede
-         behind everything scrolling above them. A card surface here would
-         read as a panel that happens to be stuck to the bottom. */
+      /* The header's surface: this strip and the header bound the app, so they
+         sit on the deepest plane. */
       className="flex flex-none flex-col border-t border-edge-subtle bg-surface-recessed"
       aria-label="Timer"
     >
       {/* Running and idle are two arrangements, not one layout with things
-          hidden.
-
-          They want opposite things from the width. **Idle** is a composing
-          row: the field is the subject and should take the space, so the
-          controls push to the edges around it. **Running** is a readout of
-          four small objects, and stretching them to the window's corners left
-          ~900px of nothing between the dot and the clock — two fragments at
-          opposite ends of the screen that read as unrelated. Centred, they
-          read as one object, which is what they are.
-
-          **Both wrap to two rows on a phone**, because 375px cannot hold four
-          things plus a seven-character clock. Squeezing them onto one line was
-          tried and the task name — the most important text in the bar — lost:
-          it was crushed to 15px, then to a useless "Ge…" beside an equally
-          useless "Sti…". Two truncated words are worse than one whole one.
-
-          The split is by kind, which is also how they group by meaning: WHAT
-          you are working on (name, project) on top, HOW LONG and the control
-          beneath. Each row is then one idea rather than a queue of fragments,
-          and the name gets the full width instead of competing with a clock.
-          At `sm` everything is one centred row again. */}
+          hidden. Both wrap to two rows below `sm` — 375px cannot hold four
+          objects plus a seven-character clock without crushing the task name.
+          The split is by kind: WHAT you are working on above, HOW LONG and the
+          control beneath. */}
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:gap-4 sm:px-5">
         {isRunning ? (
           <>
-            {/* Dot, name and project are ONE flex item, not three.
-                Flex-wrap places items before it shrinks them, so as three
-                siblings the tag wrapped to a line of its own rather than
-                letting the name truncate beside it — three rows where two
-                were intended. Grouped, the row shrinks internally and the
-                name gives way first, which is the right order: a truncated
-                task name beside a whole project tag still reads as one
-                statement. */}
+            {/* Dot, name and project are ONE flex item: flex-wrap places items
+                before it shrinks them, so as three siblings the tag takes a
+                line of its own instead of letting the name truncate beside
+                it. */}
             <div className="flex min-w-0 items-center gap-3 sm:contents">
               <StatusDot running exceeded={exceeded} />
               <TaskName
@@ -126,13 +94,8 @@ export function TimerBar({ projects }: { projects: Project[] }) {
                 selected={project}
               />
             </div>
-            {/* `basis-full` breaks the row here: the clock and its control
-                take the second line together. `justify-center` on the
-                container centres each row on its own, so neither reads as
-                pinned to an edge.
-
-                Grouping the first row into its own element is what keeps the
-                split at exactly two; this only has to claim the line. */}
+            {/* `basis-full` breaks the row: the clock and its control take the
+                second line together. */}
             <Readout
               seconds={timer.seconds}
               exceeded={exceeded}
@@ -145,16 +108,11 @@ export function TimerBar({ projects }: { projects: Project[] }) {
         ) : (
           <>
             <StatusDot running={false} exceeded={false} />
-            {/* The field now looks like a field. Borderless, it read as broken
-                rather than ready, and the affordance was invisible until you
-                happened to click it. `border-edge-default` rather than
-                `border-control`, because at rest this is a boundary rather
-                than a control needing 3:1. */}
-            {/* `order-last basis-full` below `sm`: the field takes its own
-                row beneath the controls. Ordering it LAST rather than first is
-                what keeps the row above coherent — dot, tag and clock read
-                left to right as one strip, with the thing you type into
-                directly under them. */}
+            {/* `border-edge-default` rather than `border-control`: at rest this
+                is a boundary, not a control needing 3:1.
+
+                `order-last basis-full` below `sm` puts the field on its own row
+                beneath the dot, tag and clock, which read as one strip. */}
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -174,10 +132,8 @@ export function TimerBar({ projects }: { projects: Project[] }) {
               onChange={setDraftProject}
               selected={project}
             />
-            {/* Pushed right on the wrapped row, so the dot and tag sit left
-                and the clock anchors the other end rather than the three
-                bunching together in the middle. Once the row is one line at
-                `sm`, centring takes over again. */}
+            {/* Pushed right on the wrapped row so the clock anchors its end;
+                centring takes over at `sm`. */}
             <Readout
               seconds={timer.seconds}
               exceeded={false}
@@ -204,21 +160,13 @@ export function TimerBar({ projects }: { projects: Project[] }) {
 }
 
 /**
- * The running task: read by default, edited on request.
+ * The running task: read by default, edited on request, so a stray click
+ * cannot rename billable work.
  *
- * It was a live `<input>` the whole time the timer ran, which was wrong in two
- * ways. A running timer is overwhelmingly *read* — you glance at what you are
- * on — and rendering that glance as a focusable text field invites a stray
- * click into an accidental rename of billable work. It also made the bar look
- * like a form that was waiting for you, on every screen, permanently.
+ * **The pencil is always rendered, never hover-only** — it is the only route
+ * to this edit, and touch has no hover.
  *
- * **The pencil is always rendered, never hover-only.** Hover-to-reveal would
- * hide the only edit affordance on touch, where there is no hover — and this
- * is the one control that has no other route: a name typed wrong at the start
- * is otherwise uncorrectable until the entry is stopped.
- *
- * Editing keeps the old commit rules exactly: blur or Enter writes, Escape
- * reverts, and an unchanged name writes nothing.
+ * Blur or Enter writes, Escape reverts, an unchanged name writes nothing.
  */
 function TaskName({
   name,
@@ -238,13 +186,9 @@ function TaskName({
   const ref = useRef<HTMLInputElement>(null);
   const isEditing = editing !== null;
 
-  /* Focus follows the mode change rather than an event, so the field is ready
-     however editing started — the pencil, or a future keyboard shortcut.
-
-     `focus()` before `select()`: selecting does not focus, and without the
-     focus the field opens with no cursor in it AND never fires the blur that
-     commits the rename. Caught by a test that tabbed away and found the
-     field still open. */
+  /* `focus()` before `select()`: selecting does not focus, and without the
+     focus the field opens with no cursor in it and never fires the blur that
+     commits the rename. */
   useEffect(() => {
     if (!isEditing) return;
     ref.current?.focus();
@@ -263,9 +207,8 @@ function TaskName({
           if (e.key === 'Escape') onCancel();
         }}
         aria-label="Task name"
-        /* `w-48`, not `flex-1`: a field that grows to fill the row would
-           push the tag and clock apart the moment you clicked the pencil,
-           so the bar would jump every time you renamed something. */
+        /* `w-48`, not `flex-1`: a field that fills the row would push the tag
+           and clock apart the moment you clicked the pencil. */
         className="w-48 min-w-0 shrink rounded-md border border-edge-focus
                    bg-surface-base px-2 py-1 type-body text-strong
                    focus:outline-none sm:w-64"
@@ -274,21 +217,11 @@ function TaskName({
   }
 
   return (
-    /* Shrinks, but never grows.
-
-       Deliberately NOT `flex-1`. That was tried and it re-created the problem
-       this layout exists to solve: a greedy name fills a wide screen and
-       shoves the tag and clock back to the right edge, splitting the running
-       timer into two fragments at opposite corners again. The name takes its
-       content width and gives way only when there is no room.
-
-       `min-w-[7rem]` is a floor deep enough to stay readable and shallow
-       enough to keep the project tag on the same phone row — without it the
-       pair needed 338px at 375px and the tag wrapped to a line of its own,
-       making three rows out of the intended two. */
+    /* Shrinks, never grows: not `flex-1`, so a long name cannot shove the tag
+       and clock to the far edge. `min-w-[7rem]` stays readable while leaving
+       the project tag room on the same phone row. */
     <span className="flex min-w-[7rem] shrink items-center gap-1.5">
-      {/* `truncate` needs a min-width-0 flex item to clip rather than push. An
-          untruncated long task name would shove the clock off the bar. */}
+      {/* `truncate` needs a min-width-0 flex item to clip rather than push. */}
       <span className="min-w-0 truncate type-body text-strong">{name}</span>
       <button
         type="button"
@@ -305,11 +238,8 @@ function TaskName({
 }
 
 /**
- * The clock and its control, always adjacent.
- *
- * They are one unit so the button can never wrap away from the number it acts
- * on — a stop control that has drifted onto another row from the time it will
- * stop is a misclick waiting to happen.
+ * The clock and its control, one unit so the button can never wrap away from
+ * the number it acts on.
  */
 function Readout({
   seconds,

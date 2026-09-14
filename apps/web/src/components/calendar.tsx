@@ -28,13 +28,9 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 const HOUR_STEP = 3;
 
 /**
- * Pixels per hour in the cropped day view, and the ceiling it obeys.
- *
- * 44px is a comfortable hour — a 30-minute entry still clears the ~44px touch
- * target — but the point of cropping is a SHORTER page, so a long window
- * scales down rather than growing past `DAY_MAX_HEIGHT`. Without the cap a day
- * spanning 06:00 to a still-running midnight rendered 912px, taller than the
- * uncropped 720px it replaced.
+ * Pixels per hour in the cropped day view, and the ceiling it obeys. 44px
+ * keeps a 30-minute entry at the touch target; the cap is what keeps a long
+ * window from rendering taller than the uncropped day it crops.
  */
 const PX_PER_HOUR = 44;
 const DAY_MAX_HEIGHT = 620;
@@ -73,20 +69,16 @@ function hourMarks(from: Date, to: Date): { hour: number; pct: number }[] {
 }
 
 /**
- * A week of logged time.
+ * A week of logged time, and where it gets corrected: a block opens the
+ * editor, dragging it adjusts its times, empty space starts a new entry at the
+ * time clicked.
  *
- * This visualises what was tracked; it does not schedule. There is no
- * "planned" layer and no external calendar — the app's claim is that the
- * numbers on the invoice are the numbers you worked.
- *
- * It is also where those numbers get corrected, because this is where a
- * mistracked block is noticed: a block opens the editor, dragging it adjusts
- * its times, and empty space starts a new entry at the time clicked.
+ * It visualises what was tracked and does not schedule — the app's claim is
+ * that the numbers on the invoice are the numbers you worked.
  */
 export function Calendar() {
-  /* One day on a phone. At 375px a week gives each day 42px — a block is one
-     letter wide, an overlapping one is 20px, and the drag target is under the
-     ~44px a finger needs. A single day gets ~295px, which is 7x. */
+  /* One day on a phone. At 375px a week gives each day 42px, under the ~44px a
+     finger needs; a single day gets ~295px. */
   const byDay = useMediaQuery('(max-width: 639px)');
   const cal = useCalendar(1, byDay);
   const { colorByProject, clientByProject } = useProjectClients();
@@ -110,10 +102,9 @@ export function Calendar() {
   const to = cal.days[0]?.to ?? cal.weekEnd;
   const marks = hourMarks(from, to);
 
-  /* Fixed height in week view, so an hour is the same size on every screen.
-     In day view the height follows the window: the page scrolls rather than
-     the grid, so a shorter day is a shorter page rather than the same box
-     with more empty room in it. */
+  /* Fixed height in week view, so an hour is the same size on every screen. In
+     day view the height follows the window and the page scrolls, so a shorter
+     day is a shorter page. */
   const gridHeight = byDay
     ? Math.min(
         DAY_MAX_HEIGHT,
@@ -121,9 +112,7 @@ export function Calendar() {
       )
     : GRID_HEIGHT;
 
-  /* The heading names what is on screen. A month over a single day's grid
-     would be vague where the view is precise — "Thu, Sep 10" is the whole
-     answer to "which day am I looking at?". */
+  /* The heading names what is on screen, down to the day in day view. */
   const label = byDay
     ? new Intl.DateTimeFormat('en-US', {
         weekday: 'short',
@@ -163,8 +152,7 @@ export function Calendar() {
         <div className="flex items-baseline gap-3">
           <h1 className="type-title text-strong">{label}</h1>
           {/* The total matches the grid: this day on a phone, the week
-              otherwise. A week's hours over one day's columns would
-              misreport what is being looked at. */}
+              otherwise. */}
           <span className="type-duration text-muted">
             {formatClock(cal.visibleSeconds)}
           </span>
@@ -222,16 +210,9 @@ export function Calendar() {
 
         {/* One scroll container so the hour gutter cannot drift from the grid.
 
-            **On a phone there is no inner scroller at all.** Two scrollers
-            competing for one viewport is what produced the double scroll: the
-            grid took 62vh — a fraction of the VIEWPORT, which knows nothing
-            about the 210px of chrome or the dock below it — and still hid
-            217px inside itself while the page had 240px more to go. Letting
-            the page own the scroll gives one gesture regardless of how tall
-            the inbox happens to be, which a fixed height can never do.
-
-            The cropped window is what keeps that honest: an uncropped 24h
-            column would simply move the same excess into the page. */}
+            **On a phone there is no inner scroller at all** — the page owns
+            the scroll, so there is one gesture however tall the chrome around
+            it is. The cropped window is what keeps that honest. */}
         <div className="sm:max-h-[62vh] sm:overflow-y-auto">
           <div
             className="flex"
@@ -329,25 +310,12 @@ const GRID_HEIGHT = 720;
 /**
  * Which client each colour on the grid belongs to.
  *
- * A block's left border is its client's colour, which answers *whose work is
- * this?* at a glance — but only once you know which hue is whose. Before this
- * the mapping was learnable only by clicking a block and reading the dialog.
+ * **Built from the period in view, not from the client list**, so it never
+ * names a colour that is not on screen, and **ordered by tracked time**, which
+ * is how much of the grid each colour occupies.
  *
- * **Built from the week in view, not from the client list.** A legend of every
- * client would mostly name colours that are not on screen, which is the
- * opposite of a key. It changes as you page between weeks, and that is
- * correct: it describes this week.
- *
- * **Ordered by tracked time, descending.** The same ranking the activity chart
- * uses, and for the same reason — the client you spent the week on should be
- * read first, and a stable rule beats alphabetical here because it matches how
- * much of the grid each colour actually occupies.
- *
- * **Internal work is named only when present.** It has no client and therefore
- * no colour, so its entry describes the *absence* of a stripe rather than
- * showing one. Unlike the activity chart's neutral "Other" band, there is no
- * long tail to merge: every client with time this week is named, because a
- * week holds few enough of them that a cap would hide a real one.
+ * Every client with time is named — no long tail to merge — and internal work
+ * appears only when present.
  */
 function Legend({
   days,

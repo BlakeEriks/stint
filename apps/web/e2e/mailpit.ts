@@ -52,11 +52,9 @@ export async function magicLink(after: number): Promise<string> {
 /**
  * Submit the form, waiting out GoTrue's per-user send interval.
  *
- * `auth.email.max_frequency` is `1s` — already its minimum, so this is a real
- * constraint rather than a misconfiguration, and two sign-ins inside the same
- * second collide. The app surfaces the refusal correctly ("you can only
- * request this after 0 seconds"); a test that ploughs on regardless would be
- * testing the rate limiter.
+ * `auth.email.max_frequency` is `1s` and already its minimum, so two sign-ins
+ * inside the same second collide with "you can only request this after 0
+ * seconds" — a test that ploughs on regardless tests the rate limiter.
  */
 export async function requestLink(page: Page): Promise<void> {
   const button = page.getByRole('button', { name: /Email me a sign-in link/ });
@@ -80,9 +78,9 @@ export async function requestLink(page: Page): Promise<void> {
 /**
  * Sign in the way a person does: the form, the inbox, the link.
  *
- * Not a cookie injected into the context. The bug that cost an afternoon
- * lived in the PKCE exchange between the form and the callback, and a test
- * that skips the form skips exactly the thing worth covering.
+ * Not a cookie injected into the context: the PKCE exchange between the form
+ * and the callback is the thing worth covering, and a test that skips the form
+ * skips it.
  */
 export async function signIn(page: Page, email = SEED_EMAIL): Promise<void> {
   await clearInbox();
@@ -109,30 +107,21 @@ export async function signIn(page: Page, email = SEED_EMAIL): Promise<void> {
  * flakiness that gets a suite ignored. Resetting is the cheap way to make
  * every run start from the state the assertions describe.
  *
- * **Skipped when the data is already pristine**, which in CI it always is:
- * the job starts its own stack on an empty volume and `supabase start`
- * applies the migrations AND the seed, so there was nothing to undo.
+ * **Skipped when the data is already pristine**, which in CI it usually is.
  *
- * The check is on the DATA, not on `process.env.CI`. Keying it to CI was
- * tried and is a worse trade: it assumes "CI implies fresh database", which
- * is true of `ubuntu-latest` today and silently false the moment a stack is
- * reused (a self-hosted runner, a matrix sharing services). Verified — a
- * second CI=1 run against one stack failed two tests, because the mutating
- * test had already run. Asking the database removes the assumption: if it is
- * dirty we pay the reset, wherever we are.
+ * The check is on the DATA, never on `process.env.CI`: that assumes "CI
+ * implies fresh database", which is silently false the moment a stack is
+ * reused (a self-hosted runner, a matrix sharing services).
  */
 
 /**
  * Does the database still hold exactly what `seed.sql` put there?
  *
- * Only the invoice statuses are checked, because they are the only thing the
- * suite writes — the mark-paid test. A broader fingerprint would be more
- * thorough and would also start failing for reasons that have nothing to do
- * with this suite.
+ * Only the invoice statuses, because they are the only thing the suite writes.
+ * A broader fingerprint would start failing for reasons unrelated to it.
  *
- * Reads over `pg` (already a dependency of both the app and the root) rather
- * than PostgREST: the seeded rows are behind RLS, so an anonymous REST read
- * is a 42501 rather than an answer.
+ * Reads over `pg` rather than PostgREST: the seeded rows are behind RLS, so an
+ * anonymous REST read is a 42501 rather than an answer.
  *
  * A failure to connect returns `false` — pay the reset and let it produce the
  * real error. This must never be the thing that decides a run is fine.
@@ -170,17 +159,10 @@ export async function resetSeed(): Promise<void> {
   const { resolve } = await import('node:path');
   const { Client } = await import('pg');
 
-  /* Restores the SEEDED ACCOUNT, not the database.
-   *
-   * This used to run `supabase db reset`, which rebuilds everything and so
-   * deleted every other account on the stack — including one being used to
-   * track real time against local dev. The suite only ever writes as the
-   * seeded user, so wiping everyone to undo that was far too blunt: a timer
-   * running in the menu bar vanished mid-run, and "the app killed my timer"
-   * is a convincing wrong diagnosis for a test suite dropping the table.
-   *
-   * Deleting that user's rows and replaying `seed.sql` is equivalent for the
-   * suite's purposes and leaves every other account alone. It is also much
+  /* Restores the SEEDED ACCOUNT, not the database. The suite only ever writes
+   * as the seeded user, and `supabase db reset` would take every other account
+   * on the stack with it — including one tracking real time against local dev.
+   * Deleting that user's rows and replaying `seed.sql` is equivalent here, and
    * faster than rebuilding from migrations.
    *
    * Playwright loads these as CommonJS, so `import.meta` is unavailable; the

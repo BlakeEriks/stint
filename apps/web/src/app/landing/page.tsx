@@ -120,21 +120,13 @@ function Hero() {
           scrolls sideways. The explicit track is what lets it shrink. */}
       <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16">
         <div className="flex min-w-0 flex-col gap-6">
-          {/* The headline names the COMPOUND JOB, not the two features.
-              "Track hours. Create invoices." described two nouns without
-              connecting them — and the connection is the entire product.
-              A visitor read it as "a tracker and an invoice tool, bundled",
-              which describes a dozen other tools.
+          {/* The headline names the COMPOUND JOB, not the two features:
+              what differentiates Stint is that it knows the rates, so the
+              hours are already money, and that belongs in the first sentence.
 
-              What differentiates Stint is that it knows the rates, so the
-              hours are already money. That belongs in the first sentence
-              rather than three sections down.
-
-              The refusal list ("no project boards…") moved to its own
-              section further down. Four lines of struck-through grey in the
-              middle of the first screen was the least legible element on the
-              page occupying the most valuable space, and absence is not a
-              benefit to someone who has not yet been told what they get. */}
+              The refusal list ("no project boards…") has its own section
+              further down — absence is not a benefit to someone who has not
+              yet been told what they get. */}
           <h1 className="type-hero text-balance text-strong">
             Start the timer, and the invoice takes care of itself.
           </h1>
@@ -152,11 +144,6 @@ function Hero() {
           </div>
         </div>
 
-        {/* The price used to sit under the timer here, and there was a whole
-            section about it further down as well — two of six sections spent
-            on "free", which is a check-the-box for a free product, not a
-            pillar. It is now one line under the CTA plus the "why it's free"
-            band, and the timer has the column to itself. */}
         <DemoTimer />
       </div>
     </Container>
@@ -230,9 +217,8 @@ function Unbilled() {
   return (
     <SplitSection
       recessed
-      /* The old headline ("You don't need a project management suite…")
-         argued with a competitor's roadmap, which is an argument the visitor
-         is not in. This asks the question they already ask themselves. */
+      /* Asks the question the visitor already asks themselves, rather than
+         arguing with a competitor's roadmap. */
       title="How much work is sitting there, unbilled?"
       lede={
         <>
@@ -312,8 +298,6 @@ function Invoice() {
     <section>
       <Container className="py-20 sm:py-28">
         <div className="mx-auto max-w-xl text-center">
-          {/* "One click" is the pitch — the old headline was passive about
-              the thing that costs the user nothing. */}
           <h2 className="type-display text-balance text-strong">
             One click, and this is what your client gets.
           </h2>
@@ -327,25 +311,18 @@ function Invoice() {
           <InvoicePreview />
         </div>
 
-        {/* Two decisions that were invisible or buried.
-
-            The no-email one MUST be stated: a visitor who discovers after
-            signing up that Stint does not mail the invoice reads it as a
-            missing feature. Said here, it is a reason to trust the product.
-
-            The fraud line was an 11px grey centred footnote under the
-            artifact — the only benefit on this page that protects the
-            CLIENT rather than the user, and no competitor markets it. */}
+        {/* The no-email decision MUST be stated here: a visitor who discovers
+            it after signing up reads it as a missing feature, where said up
+            front it is a reason to trust the product. */}
         <div className="mt-10 grid gap-8 sm:grid-cols-2">
           <Aside title="You send it, from your address.">
             Stint gives you the PDF and stays out of the way. Sent by you, it
             carries your own domain&rsquo;s reputation &mdash; not a shared app
             domain&rsquo;s spam score.
           </Aside>
-          {/* This was about invoice fraud, which arrived out of nowhere for a
-              reader who had not been thinking about it. Same fact, framed as
-              the thing the section is actually about: what your client sees,
-              and why it makes paying you easy. */}
+          {/* Framed as what the client sees rather than as invoice fraud,
+              which arrives out of nowhere for a reader not thinking about
+              it. */}
           <Aside title="Your bank details, already on it.">
             ACH routing and account number, rendered the same way every month
             &mdash; so your client can pay it without emailing you to ask how.
@@ -512,13 +489,8 @@ function Platforms() {
 }
 
 /**
- * The price and the promises, as a centred statement with three short
- * pillars beneath it.
- *
- * It was a split section like everything around it, and at 154 words it was
- * the second-biggest wall of prose on the page. Five of eight sections shared
- * one shape, which is what made the page tiring to scan — this one breaks the
- * rhythm, and the cut forced every line to earn its place.
+ * The price and the promises: a centred statement with three short pillars,
+ * one of the two shapes that break the page's split-section rhythm.
  */
 function Free() {
   return (
@@ -536,11 +508,6 @@ function Free() {
         </div>
 
         <dl className="mt-12 grid gap-8 sm:grid-cols-3 sm:gap-10">
-          {/* A fourth pillar used to head this list — "overlapping entries
-              are impossible, enforced by a database index" — and it was cut:
-              a solo contractor with one timer has never produced an
-              overlapping entry, so it reassured them about a bug they have
-              never had, in the vocabulary of our implementation. */}
           <Pillar term="Nothing is gated.">
             Every feature, every export. Nothing that affects whether you get
             paid will sit behind a payment.
@@ -585,9 +552,8 @@ function Pillar({
  * anyone asked it.
  */
 function Questions() {
-  /* Answers are one or two sentences. They were three or four, which made
-     this the biggest block of prose on the page and meant nobody would read
-     the one that matters ("what if Stint goes away"). */
+  /* Answers are one or two sentences, so the one that matters ("what if Stint
+     goes away") is read. */
   const qs: { q: string; a: React.ReactNode }[] = [
     {
       q: 'Does it email the invoice for me?',
@@ -622,10 +588,8 @@ function Questions() {
     },
   ];
 
-  /* A single column of rules rather than a two-column grid: five stacked
-     cells read as a form to fill in, where a rule-separated list reads as a
-     conversation. It also makes the section narrow, which is a shape nothing
-     else on the page has. */
+  /* A single column of rules rather than a grid: stacked cells read as a form
+     to fill in, where a rule-separated list reads as a conversation. */
   return (
     <section className="bg-surface-recessed">
       <Container className="py-20 sm:py-28">
@@ -656,10 +620,8 @@ function Closing() {
   return (
     <section>
       <Container className="py-24 text-center sm:py-32">
-        {/* The hero took this section's old line ("Start the timer…"), which
-            was the better headline of the two. The close now asks for the
-            decision instead of restating the pitch — the last line before a
-            CTA should lower the cost of clicking. */}
+        {/* The close asks for the decision rather than restating the pitch —
+            the last line before a CTA lowers the cost of clicking. */}
         <h2 className="type-hero text-balance text-strong">
           Your next invoice could build itself.
         </h2>

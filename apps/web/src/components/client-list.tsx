@@ -94,10 +94,8 @@ function Row({ client }: { client: ClientWithScale }) {
                  hover:bg-surface-hover"
       style={{ borderLeftColor: client.color ?? undefined }}
     >
-      {/* Name above, secondary detail below. The email used to have its own
-          column; with a second line on the left it competed for width and
-          truncated to nothing, so it joins the detail line instead of
-          silently disappearing. */}
+      {/* Name above, secondary detail below. The email joins the detail line
+          rather than taking a column that truncates to nothing. */}
       <span className="min-w-0 flex-1">
         <span className="block truncate type-control text-primary">
           {client.name}

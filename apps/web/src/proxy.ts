@@ -8,13 +8,10 @@ import type { NextRequest } from 'next/server';
  *   app.trackwithstint.com  -> the product
  *
  * The app lives at the root of its own origin, so its URLs carry no segment:
- * `app.trackwithstint.com/invoices/…`, not `…/app/invoices/…`. That is the
- * whole reason for the split — a `/app` path segment under a `.app` TLD read
- * as a stutter, and the subdomain removes it rather than renaming it.
+ * `app.trackwithstint.com/invoices/…`, not `…/app/invoices/…`.
  *
- * Only `/` needs deciding. Every other path belongs to the app and is left
- * alone: the landing page is a single route, and a marketing site that grows
- * (`/privacy`, `/terms`) adds its paths to `LANDING_PATHS` below.
+ * Only `/` needs deciding. Every other path belongs to the app; a marketing
+ * page that is not `/` adds its path to `MARKETING_PATHS` below.
  *
  * `rewrite`, not `redirect`: the visitor keeps the apex URL in the address
  * bar while `app/landing/page.tsx` renders. A redirect would expose the

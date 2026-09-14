@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-/** Mirrors ErrorCode in @stint/schema. Kept as a literal union so this
- *  module has no runtime dependency on the schema package. */
+/** Mirrors ErrorCode in @stint/schema. */
 export type Code =
   | 'TIMER_ALREADY_RUNNING'
   | 'NO_TIMER_RUNNING'
@@ -94,8 +93,8 @@ export function isBilledLock(
 
 // ── drift guard ────────────────────────────────────────────────────
 // The union above is hand-written so this module carries no runtime
-// dependency on the schema package. These assertions fail to compile if
-// it ever diverges from ErrorCode in @stint/schema.
+// dependency on the schema package. These assertions fail to compile if it
+// diverges from ErrorCode.
 import type { z } from 'zod';
 import type { ErrorCode } from '@stint/schema';
 

@@ -506,9 +506,8 @@ test('a patch naming no known field is rejected, not a silent no-op', async () =
   assert.equal(res.status, 422);
 });
 
-/* Which payment profile a client's invoices carry. The column and the
-   converter always had it; only the route's own schema did not, so it was
-   accepted, stripped and lost. */
+/* Which payment profile a client's invoices carry: a field the route's schema
+   must name, or Zod strips it and the write is silently lost. */
 test('a client can be pointed at a payment profile, on create and on patch', async () => {
   const { POST: createProfile } = await import(
     '../src/app/api/v1/payment-profiles/route.ts'
@@ -703,9 +702,8 @@ test('settings update, and nextInvoiceNumber cannot be moved by a client', async
 });
 
 /* Every field the converter maps must survive a PATCH. Zod strips what its
-   schema does not name, so a missing field is a 200 that discards the value —
-   which is how the strange-duration thresholds became unreachable while the
-   inbox went on reading them. */
+   schema does not name, so a missing field is a 200 that discards the
+   value. */
 test('every settable field round-trips, rather than being silently dropped', async () => {
   const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
 

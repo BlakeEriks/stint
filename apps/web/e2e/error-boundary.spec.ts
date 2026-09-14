@@ -2,22 +2,11 @@ import { test, expect } from '@playwright/test';
 import { signIn } from './mailpit';
 
 /**
- * A screen fails; the app does not.
+ * A screen fails; the app does not — and the running timer keeps counting.
  *
- * This is the one property of the error boundary that matters and the one
- * that cannot be checked in jsdom: it belongs to Next's routing, not to the
- * component. `test/ui/error-boundary.test.tsx` covers what the boundary
- * *renders*; this covers where it renders and what survives around it.
- *
- * The stake is specific to this app. The timer is billable work in progress,
- * and an error screen that unmounts the frame takes the running timer with
- * it — so the user watches the app lose track of time it was trusted to keep,
- * at the exact moment it is already visibly broken.
- *
- * `/throw` is a development-only route that exists for this (see its own
- * file). Nothing else in the app can be made to fail from the outside:
- * every real failure is already handled, which is the app being correct and
- * is exactly what leaves this code unreachable.
+ * Where the boundary renders belongs to Next's routing rather than the
+ * component, so jsdom cannot check it; `test/ui/error-boundary.test.tsx`
+ * covers what the boundary renders.
  */
 test.beforeEach(async ({ page }) => {
   await signIn(page);

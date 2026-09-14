@@ -9,16 +9,10 @@
  * `@utility` classes by the token build, so a role is a single class that
  * carries family, size, weight, tracking, case and tabular-nums together.
  *
- * Why this has to be enforced rather than documented: the scale was already
- * documented in `docs/design/brand.html` and the app still accumulated
- * twelve arbitrary font sizes across twenty-five components — including two
- * that differed by 0.5px for no reason, and a nav that used the label
- * tracking at 0.14em while the scale said 0.16em. Nothing failed, because
- * Tailwind emits `text-[13.5px]` happily.
- *
- * The same silence applies to a typo'd role: `type-lable` produces no CSS,
- * no warning, and exit 0 — verified against Tailwind 4.3.3. So this also
- * checks every `type-*` against the generated scale.
+ * Enforced rather than documented because the failure is silent: Tailwind
+ * emits `text-[13.5px]` happily, and a typo'd role (`type-lable`) produces no
+ * CSS, no warning and exit 0 — verified against 4.3.3. So this also checks
+ * every `type-*` against the generated scale.
  *
  * `src/components/ui/**` is exempt: it is vendored shadcn, policed by
  * shadcn-detox.mjs instead.

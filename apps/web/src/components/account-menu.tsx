@@ -12,13 +12,9 @@ import { useAccount } from '@/lib/client/use-account';
 /**
  * The account, in the header.
  *
- * **Not a Profile page**, and now barely a menu: the email *is* the account —
- * there is no name, avatar or organisation — so the one thing left to do with
- * it is leave. Settings is a section in the rail, and the theme is a field
- * inside it.
- *
- * This is where sign-out lives. The app previously had none at all, anywhere:
- * you could get in and not out.
+ * **Not a Profile page.** The email *is* the account — no name, avatar or
+ * organisation — so the one thing to do with it is leave, and this is where
+ * sign-out lives. Settings is a section in the rail.
  */
 export function AccountMenu() {
   const { email, signOut } = useAccount();
@@ -27,9 +23,8 @@ export function AccountMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Account"
-        /* Sizes to its content, not its container: this sat at `w-full` when
-           it lived at the foot of the rail, and in the header that stretched
-           it across the row and pushed the address under the avatar. */
+        /* Sizes to its content, not its container: `w-full` here stretches it
+           across the header row and pushes the address under the avatar. */
         className="flex min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 type-meta
                    text-subtle outline-none hover:bg-surface-hover hover:text-muted
                    focus-visible:ring-2 focus-visible:ring-edge-focus sm:px-3"

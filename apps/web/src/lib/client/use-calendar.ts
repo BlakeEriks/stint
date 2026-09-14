@@ -30,27 +30,15 @@ export interface PositionedEntry {
  * given.
  */
 /**
- * @param byDay Step one DAY at a time instead of one week.
+ * @param byDay Step one DAY at a time instead of one week, as a phone does.
  *
- *   A phone shows a single day — at 375px a week gives each day 42px, so a
- *   block is one letter wide and an overlapping one is 20px, which is a block
- *   you cannot read and therefore cannot check. The grid is the same component
- *   either way; only how many columns it renders and what the arrows mean
- *   change.
- *
- *   The FETCH stays weekly regardless. Stepping day by day inside a week then
- *   costs no request, and switching between the two views (rotating a phone,
- *   resizing a window) needs no refetch — the day view is a lens over week
+ *   The FETCH stays weekly regardless, so stepping inside a week and switching
+ *   between the two views cost no request — the day view is a lens over week
  *   data, not a second data path.
  */
 export function useCalendar(weekStartsOn = 1, byDay = false) {
-  /* ONE offset, counted in days from today, for both views.
-
-     Two offsets (weeks and days) would drift apart the moment you crossed a
-     breakpoint. Counting days and deriving the week from the selected day
-     keeps them in lockstep: paging a week on desktop moves the cursor seven
-     days, and rotating to a phone shows a day inside the week you were
-     looking at. */
+  /* ONE offset, counted in days from today, for both views: two offsets would
+     drift apart the moment you crossed the breakpoint. */
   const [cursorDays, setCursorDays] = useState(0);
 
   // Negative `daysBack` steps forward. Going through the core helper rather
@@ -93,29 +81,22 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
         totalSeconds: 0,
         entries: [],
       };
-      /* Each day carries its OWN exclusive end. The component used to read it
-         from the next column, which breaks the moment the list is filtered to
-         one day — the fallback was the week's end, days away, and the
-         fraction→instant maths a drag depends on would have been wrong by
-         that much. A DST day is 23 or 25 hours, so this has to be the real
-         next midnight rather than +24h. */
+      /* Each day carries its OWN exclusive end, so a list filtered to one day
+         still has it. A DST day is 23 or 25 hours, so this is the real next
+         midnight rather than +24h — the fraction→instant maths a drag depends
+         on is wrong by an hour otherwise. */
       const next = startOfLocalDayOffset(weekStart, tz, -(i + 1));
 
-      /* The hours the column actually draws.
-
-         On a phone this crops to the worked range: a full day at a fixed
-         height means scrolling past an empty midnight-to-six every time, and
-         on a typical day a quarter of the grid is scroll spent on nothing.
-         The week view keeps all 24, because cropping one column would have to
-         crop all seven to the busiest day's range. */
+      /* The hours the column draws. A phone crops to the worked range; the
+         week view keeps all 24, since cropping one column would have to crop
+         all seven to the busiest day's range. */
       const [from, to] = byDay ? workedWindow(day, at, next) : [at, next];
 
       return {
         at,
         end: next,
         /* What the column spans. Positions are fractions OF THIS, and so is
-           the inverse maths a drag uses — `instantAt` already takes arbitrary
-           instants, so cropping needs no change to `grid.ts`. */
+           the inverse maths a drag uses. */
         from,
         to,
         ...day,
@@ -126,9 +107,8 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
 
   const weekSeconds = days.reduce((sum, d) => sum + d.totalSeconds, 0);
 
-  /* The day view renders exactly one of the week's columns. Same objects, so
-     positioning, laning and dragging are the code that already works — the
-     view is a filter, not a second implementation. */
+  /* The day view renders exactly one of the week's columns — a filter over the
+     same objects, not a second implementation. */
   const cursorKey = localDateKey(cursor, tz);
   const visible = byDay ? days.filter((d) => d.date === cursorKey) : days;
 
@@ -155,10 +135,8 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
     byDay,
     isLoading,
     isError,
-    /* Whether the period on screen contains today, which is what the
-       "Today" / "This week" button reflects. Derived by comparing dates
-       rather than by tracking a counter: on a phone only the cursor day
-       counts, while on a desktop any day of this week does. */
+    /* Whether the period on screen contains today, which is what the "Today" /
+       "This week" button reflects. */
     isCurrent: byDay
       ? cursorKey === localDateKey(startOfLocalDay(new Date(), tz), tz)
       : localDateKey(weekStart, tz) ===
@@ -184,16 +162,13 @@ const EMPTY_WINDOW = [7, 19] as const;
  * Returns `[from, to]` as instants, snapped to whole hours so the gridlines
  * and their labels stay on the hour.
  *
- * **Derived from the entries, padded, floored.** Cropping tight to the work
- * would put a block flush against the top edge with nowhere to drag it
- * earlier, so an hour of margin either side is part of the gesture working
- * rather than decoration. The floor stops a single 30-minute entry rendering
- * as a two-hour sliver.
+ * **Derived from the entries, padded, floored.** The padding is room to drag a
+ * block earlier or later; the floor stops a single 30-minute entry rendering
+ * as a sliver.
  *
  * **It never crops past midnight in either direction**, so the window is
- * always a real subrange of the day the column represents — which is what lets
- * `instantAt` keep mapping a fraction of the column to an instant with no
- * special case.
+ * always a real subrange of the column's day and `instantAt` needs no special
+ * case.
  *
  * A running entry counts up to now, matching how `position` draws it.
  */

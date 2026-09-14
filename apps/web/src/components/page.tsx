@@ -2,23 +2,8 @@ import Link from 'next/link';
 import { ApiError } from '@/lib/client/api';
 
 /**
- * The content column.
- *
- * Every screen had its own copy of `mx-auto max-w-3xl px-4 py-8 sm:px-6
- * sm:py-10`, which is how the calendar ended up silently different (`max-w-5xl`)
- * and how a padding change would have meant editing seven files.
- *
- * `wide` is for screens that are a grid rather than a column — the calendar's
- * seven days need the room, and capping them at prose width wastes the space
- * the rail was meant to free up.
- *
- * **The top padding is smaller on a phone**, because the nav is a different
- * object there. At `sm` and up the rail is *beside* the content, so the column
- * opens against the top of the frame and wants the full inset. Below `sm` the
- * nav is a horizontal strip directly above, and the same 32px stopped reading
- * as margin and started reading as a gap between two things that should feel
- * stacked. Only the top changes: the bottom still needs its clearance above
- * the docked timer bar, and the sides are unrelated to either.
+ * The content column. No screen sets its own width; `wide` is for screens that
+ * are a grid rather than a column.
  */
 export function Page({
   wide = false,
@@ -30,11 +15,8 @@ export function Page({
   return (
     <main
       /* The top inset follows the NAV's breakpoint (`lg`), not the page's own
-         (`sm`). Where the nav is a horizontal strip directly above, 40px stops
-         reading as margin and starts reading as a gap; where the rail is
-         beside the content, the column opens against the top of the frame and
-         wants the full inset. The horizontal padding is a separate question
-         and still steps at `sm`. */
+         (`sm`): where the nav is a horizontal strip directly above, the full
+         inset reads as a gap rather than as margin. */
       className={`mx-auto px-4 pt-4 pb-8 sm:px-8 sm:pb-10 lg:pt-10 ${
         wide ? 'max-w-6xl' : 'max-w-3xl'
       }`}
@@ -45,17 +27,8 @@ export function Page({
 }
 
 /**
- * A detail screen: a back link, then the content.
- *
- * `client-detail`, `invoice-detail` and `invoice-new` each had their own copy,
- * two of them byte-identical and the third inlined without a wrapper at all.
- *
- * **`back` is where this record sits, not where you came from.** The arrow
- * and the position promise "back" while the hardcoded href means "up", so
- * arriving from the home inbox and clicking it lands on a list you were never
- * on. `tasks.md` carries the fix — a `from` param, resolved at render time —
- * and it is one change here rather than three once it happens, which is the
- * argument for this component existing at all.
+ * A detail screen: a back link, then the content. `back` is where this record
+ * sits, not where you came from.
  */
 export function DetailPage({
   back,
@@ -81,15 +54,9 @@ export function DetailPage({
 /**
  * A card that holds rows, or one message where rows would be.
  *
- * `edge` draws the client's colour down the whole left edge — the panel is
- * that client's work, so the edge says so for every row at once.
- *
- * **`edge` is opt-in, and a null colour still reserves the rail.** A group of
- * panels has to align whether or not each client has a colour, and "No
- * client" is a grouping rather than a record, so it gets the space and no
- * colour — the same rule the headings follow. A panel that is not part of
- * such a group (a loading or empty message) omits `edge` entirely and has no
- * rail to align with.
+ * `edge` draws the client's colour down the left edge. It is opt-in and a null
+ * colour still reserves the rail, so a group of panels aligns whether or not
+ * each client has a colour.
  */
 export function Panel({
   edge = false,
@@ -137,14 +104,9 @@ export function Empty({
 }
 
 /**
- * A query's three non-answers, then its data.
- *
- * **The error state is why this exists.** Ten screens wrote the loading and
- * empty branches by hand and none of them wrote a failed one, so a query that
- * errored said "Loading…" for as long as the screen was open.
- *
- * Neutral, never red: a list that could not load is a condition rather than a
- * destructive act, and the answer is to try again.
+ * A query's three non-answers, then its data. The failure message is neutral,
+ * never red: a list that could not load is a condition, and the answer is to
+ * try again.
  *
  * `empty` is the message for data that arrived and holds nothing — omit it
  * where the record is a single object, which is never empty, only missing.

@@ -21,22 +21,10 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   /**
-   * **No retries, in CI either.**
-   *
-   * A flaky suite gets ignored, which is worse than not having one, so a
-   * retry has always been a signal to investigate rather than a fix — this
-   * just stops CI pretending otherwise.
-   *
-   * It is also most of the runtime when something breaks. A genuine failure
-   * is a 30s timeout, and retrying turns two of those into four: the run that
-   * prompted this took 4m40s against a healthy 2m33s, and every one of those
-   * extra seconds was spent re-confirming a real regression. The failure it
-   * was hiding — a strict-mode violation from the dock's Inbox — was
-   * deterministic and reproduced first try locally.
-   *
-   * The trade is that a genuinely flaky test now goes red instead of
-   * self-healing. That is the intent: the suite is ten tests and ~31s of
-   * work, so re-running it by hand costs less than never being told.
+   * **No retries, in CI either.** A genuine failure is a 30s timeout, so
+   * retrying doubles the time before a real regression is reported. At ten
+   * tests and ~31s of work, a flaky test going red is the intent — re-running
+   * by hand costs less than never being told.
    */
   retries: 0,
   reporter: process.env.CI ? 'github' : 'list',
@@ -55,19 +43,15 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        /* NO `channel` here, deliberately. Playwright already launches the
-         * headless SHELL by default (195MB, faster to start); `channel:
-         * 'chromium'` is what would force the full 359MB browser instead.
-         * Verified by reading the launched process path, not
-         * `executablePath()` — that reports the default install regardless of
-         * the channel passed, which reads as a confident wrong answer.
+        /* NO `channel` here, deliberately: Playwright launches the headless
+         * SHELL by default (195MB), and `channel: 'chromium'` forces the full
+         * 359MB browser. Nothing here needs it — no video, no headed mode, no
+         * extensions, and the PDF comes from `@react-pdf/renderer` in a route
+         * handler rather than Chrome's print engine. Hence CI's
+         * `--only-shell`.
          *
-         * This is why CI installs `--only-shell`: the full browser was being
-         * downloaded on every run and never launched. Nothing here needs it —
-         * no `video` (the shell cannot record), no headed mode, no
-         * extensions. The PDF comes from `@react-pdf/renderer` in a route
-         * handler, NOT Chrome's print engine, and `test/invoices.test.ts`
-         * asserts its bytes and `%PDF-` magic directly. */
+         * Check which launched by reading the process path: `executablePath()`
+         * reports the default install regardless of the channel passed. */
         /* Taller than the 720px default. The account menu sits at the FOOT
            of the rail, so its dropdown opens against the bottom edge — on a
            CI runner Radix's popper placed it outside the viewport and the

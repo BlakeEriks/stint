@@ -94,14 +94,11 @@ async function request<T>(
 
 // ── shapes the UI consumes ─────────────────────────────────────────
 /*
- * These DERIVE from `@stint/schema`. They used to be hand-written copies of
- * it, which drifted in both directions: removing `color` from the schema's
- * Project produced no error here and a component went on reading the dead
- * field, while `paymentProfileId` existed in the database, `rows.ts` and this
- * file but had never been added to the schema at all.
+ * These DERIVE from `@stint/schema` rather than copying it, so a field added
+ * or removed there is a compile error here.
  *
- * `Response<T>` is why a plain `z.infer` is not enough. A schema marks a
- * field `.optional()` to say a REQUEST may omit it, so `z.infer` yields
+ * `Response<T>` is why a plain `z.infer` is not enough. A schema marks a field
+ * `.optional()` to say a REQUEST may omit it, so `z.infer` yields
  * `field?: T | undefined`. Every converter in `rows.ts` sets every field
  * unconditionally — absent values arrive as `null`, never missing — so a
  * response has no optional fields, and typing them as optional would push a

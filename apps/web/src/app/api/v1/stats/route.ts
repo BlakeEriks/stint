@@ -94,11 +94,9 @@ export const GET = handle(async (req: Request) => {
       )
       .in('status', ['sent', 'draft']),
 
-    // Unbilled work with no project cannot resolve a rate beyond the user
-    // default, and usually means the timer was started in a hurry.
-    /* Oldest first, because the inbox row opens the oldest one: it is the
-       closest to being invoiced without a rate, and it matches the overdue
-       and stale rows, which both lead with the most urgent. */
+    /* Unbilled work with no project cannot resolve a rate beyond the user
+       default. Oldest first: the inbox opens the oldest, which is the closest
+       to being invoiced without a rate. */
     db
       .from('time_entries')
       .select('id, task_name, started_at, duration_seconds')

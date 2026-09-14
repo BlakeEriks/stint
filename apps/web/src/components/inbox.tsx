@@ -39,23 +39,11 @@ type InboxRow =
 /**
  * The dock's inbox: everything that wants a decision, in one fixed place.
  *
- * **It is always here, including when it is empty**, and that is a reversal.
- * The card this replaces rendered only when it had rows, on the argument that
- * a permanent "all clear" says nothing — the `SaveIndicator` rule. That rule
- * does not transfer. A save indicator is transient and sits inline with a
- * form, so always-present really does mean always-ignored; **a dock region is
- * furniture**, and furniture staying put is the entire point of a dock. A
- * user wondering where a section went is a real cost, and "Nothing needs you"
- * is information rather than noise.
+ * **It is always here, including when it is empty.** An inbox is a place, and
+ * a dock region is furniture — "Nothing needs you" is information.
  *
- * It is also why the name changed. "Needs attention" is a predicate, which
- * suited a card that appeared only when the predicate was true. An inbox is a
- * place, and this is now a place.
- *
- * **Not a card.** In a 280px dock, the dock's own padding plus a card's
- * border and padding spent roughly 50px of 280 on nesting before any content.
- * These are rows on the dock's surface, separated by rules — the dock is
- * already the container, so a second one inside it is wasted width.
+ * **Not a card.** The dock is already the container; a second one inside it
+ * spends the column's width on nesting.
  */
 export function Inbox({ stats }: { stats: Stats }) {
   const { overdueInvoices, staleDrafts, unprojected, strangeDurations } =
@@ -64,24 +52,15 @@ export function Inbox({ stats }: { stats: Stats }) {
 
   const runaway = useRunaway();
 
-  /* The ENTRY being edited, not its id, and which field opened it.
-
-     Holding the entry rather than the id is what keeps the dialog and its
-     subject one piece of state. Keyed on the id, saving emptied the query
-     that supplied the entry — the entry now has a project, so it leaves that
-     result — while the id still said "open", and the editor reopened as a
-     blank "Add entry". */
+  /* The ENTRY being edited, not its id: saving moves the entry out of the
+     query that supplied it, so an id would still say "open" over nothing and
+     the editor would reopen as a blank "Add entry". */
   const [assigning, setAssigning] = useState<TimeEntry | undefined>();
   const [focusField, setFocusField] = useState<'task' | 'project'>('task');
 
-  /* The stats rows carry enough to render, but `EntryDialog` edits a whole
-     entry — so opening one fetches it. Keyed by id rather than filter: a
-     strange-duration entry usually HAS a project, so `projectId=none` would
-     not find it.
-
-     The row says which field it is about: an unprojected row exists BECAUSE
-     the project is missing, so the cursor belongs there rather than on a task
-     name that is already right. */
+  /* `EntryDialog` edits a whole entry, which the stats rows do not carry, so
+     opening one fetches it by id. The row says which field it is about, and
+     the cursor opens there. */
   const { mutate: openEntry } = useMutation({
     mutationFn: ({ id }: { id: string; focus: 'task' | 'project' }) =>
       api.entry(id),
@@ -98,8 +77,8 @@ export function Inbox({ stats }: { stats: Stats }) {
     onSuccess: () => invalidateEntryData(queryClient),
   });
 
-  /* React Query dedupes this against Home's identical query, so on the one
-     screen that renders both there is no second request. */
+  /* Deduped against Home's identical query, so the one screen rendering both
+     makes no second request. */
   const { data: projects = [] } = useQuery({
     queryKey: keys.projects(),
     queryFn: () => api.projects(),
@@ -147,9 +126,6 @@ export function Inbox({ stats }: { stats: Stats }) {
     <section aria-label="Inbox">
       <header className="flex items-center justify-between gap-2 px-1 pb-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          {/* `aria-hidden`, so the accessible name stays "Inbox" rather than
-              "inbox Inbox". Neutral: the section is a place, and the rows
-              inside it carry their own tone. */}
           <InboxIcon
             aria-hidden
             strokeWidth={1.75}
@@ -157,8 +133,7 @@ export function Inbox({ stats }: { stats: Stats }) {
           />
           <h2 className="type-label truncate text-subtle">Inbox</h2>
         </div>
-        {/* The count is the whole status. No badge colour: a number that is
-            sometimes zero says more than a dot that is sometimes lit. */}
+        {/* The count is the whole status — no badge colour. */}
         <span className="type-meta text-subtle">{count || 'clear'}</span>
       </header>
 
@@ -166,10 +141,7 @@ export function Inbox({ stats }: { stats: Stats }) {
         <p className="px-1 py-3 type-support text-subtle">Nothing needs you.</p>
       ) : (
         <ul className="flex flex-col">
-          {/* The runaway timer sorts above the invoices: it is the only row
-              about time being recorded WRONGLY RIGHT NOW, where an overdue
-              invoice is about money that is already late and will still be
-              late in an hour. It is also the only row whose subject is still
+          {/* The runaway sorts first: it is the only row whose subject is still
               changing while you read it. */}
           {runaway.showing ? <RunawayItem runaway={runaway} /> : null}
 
@@ -187,10 +159,8 @@ export function Inbox({ stats }: { stats: Stats }) {
         </ul>
       )}
 
-      {/* The inbox renders its own, rather than reaching for the timer bar's.
-          Each surface opens the dialog on its own subject and they never open
-          together, so a second instance is cheaper than a shared store that
-          would have to carry two unrelated flows. */}
+      {/* Its own instance: this and the timer bar open the dialog on different
+          subjects and never open together. */}
       <EntryDialog
         open={assigning !== undefined}
         onOpenChange={(o) => {
@@ -233,9 +203,8 @@ function Row({
         tone="danger"
         actions={
           <>
-            {/* The money usually arrived and was never recorded, so this is
-                the action nine times in ten. A currency glyph, not a check:
-                the check belongs to "It's correct". */}
+            {/* A currency glyph, not a check: the check belongs to "It's
+                correct". */}
             <Action
               label="Mark paid"
               ariaLabel={`Mark ${i.invoiceNumber} paid`}
@@ -308,8 +277,7 @@ function Row({
     );
   }
 
-  /* A record already written, where the runaway row is a timer still running.
-     The qualifier names which threshold it tripped, because colour alone never
+  /* The qualifier names which threshold it tripped, because colour alone never
      says which way. */
   const e = r.row;
   return (
@@ -350,20 +318,9 @@ function Row({
 }
 
 /**
- * The runaway timer's row: surfaced here, decided here.
- *
- * **Not an `Item`.** That row is a link to a record that already exists, with
- * icon-only actions — and neither fits. There is nowhere to navigate (the
- * entry is still running, so it has no detail page), and Keep / Adjust /
- * Discard cannot be icons: they are three different judgements about billable
- * work, and an icon that means "discard 52 hours" is not one a user should
- * have to decode.
- *
- * It moved out of the timer bar because the notice GREW the bar — chrome
- * reflowing at the moment a problem appears, which is the same failure the
- * inbox was built to fix when it was a card that vanished on success. The bar
- * is a fixed readout; this is something that wants a decision, and the inbox
- * is where those live.
+ * The runaway timer's row: surfaced here, decided here. Keep / Adjust /
+ * Discard stay labelled — three judgements about billable work, and an icon
+ * meaning "discard 52 hours" is not one to decode.
  */
 function RunawayItem({ runaway }: { runaway: ReturnType<typeof useRunaway> }) {
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
@@ -394,12 +351,8 @@ function RunawayItem({ runaway }: { runaway: ReturnType<typeof useRunaway> }) {
           </>
         ) : (
           <>
-            {/* Keep is first and plainest: the timer being long is often
-                correct, and the app must not imply otherwise. A clock, not a
-                check — the check belongs to "It's correct". */}
-            {/* No aria-label: there is exactly one runaway row, so the
-                visible word is already unambiguous. An aria-label here would
-                only make the accessible name differ from what is read. */}
+            {/* Keep is first and plainest: a long timer is often correct, and
+                the app must not imply otherwise. */}
             <Action
               label="Keep"
               icon={<Clock aria-hidden className="size-3.5" />}
@@ -427,12 +380,7 @@ function RunawayItem({ runaway }: { runaway: ReturnType<typeof useRunaway> }) {
   );
 }
 
-/**
- * The entry's own day, in the user's zone.
- *
- * A date rather than a time: these rows are about work already recorded, and
- * which day it landed on is what identifies it in a list.
- */
+/** The entry's own day, in the user's zone. */
 function dayLabel(iso: string, tz: string) {
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -442,16 +390,11 @@ function dayLabel(iso: string, tz: string) {
 }
 
 /**
- * One inbox row.
+ * One inbox row: title and figure, the qualifier, then an action slot.
  *
- * Two lines then an action slot: title and figure on the first, the qualifier
- * on the second. A title, a figure and three buttons do not share one line at
- * any dock width worth having.
- *
- * **Severity is the left rule, never a per-row icon.** Six small coloured
- * glyphs are six focal points; six aligned rules are one texture, and the
- * danger one in it is conspicuous. Colour never carries the meaning alone —
- * the qualifier states it in words.
+ * **Severity is the left rule, never a per-row icon** — aligned rules are one
+ * texture, and the danger one in it is conspicuous. Colour never carries the
+ * meaning alone; the qualifier states it in words.
  */
 function Item({
   href,
@@ -531,18 +474,11 @@ function Item({
 /**
  * The row's actions, revealed on hover.
  *
- * **The slot is always in flow; only its contents fade.** `display:none` would
- * drop it out of flow and the row would grow the moment a pointer crossed it —
- * six rows reflowing under the cursor is worse than the buttons ever were.
+ * **The slot is always in flow; only its contents fade.** `display:none` drops
+ * it out of flow and the row grows the moment a pointer crosses it.
  *
- * `reveal-on-hover` (globals.css) keeps the buttons visible on a touch device,
- * where there is no hover to reveal them.
- *
- * **No negative margin.** Pulling the slot left by the button's own padding
- * aligns the LABEL with the title above it, but puts the button's hover
- * background 8px further left than anything else in the row — hard against
- * the severity rule. The box is the thing the eye sees, so the box is what
- * lines up.
+ * `reveal-on-hover` (globals.css) keeps the buttons visible on touch, where
+ * there is no hover.
  */
 function ActionSlot({ children }: { children: React.ReactNode }) {
   return (
@@ -553,14 +489,11 @@ function ActionSlot({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * An inline action: a label, and an icon that does not repeat another one.
+ * An inline action: a label, and an icon no other action uses — the check mark
+ * belongs to "It's correct".
  *
- * The check mark belongs to "It's correct" — the one action meaning "this is
- * already right" — so nothing else uses it. A single glyph on both `Keep` and
- * `Mark paid` would mean "change nothing" and "record a payment" at once.
- *
- * `aria-label` still names the invoice where the visible text is generic, so a
- * column of `Download`s stays distinguishable to a screen reader.
+ * `aria-label` names the invoice where the visible text is generic, so a column
+ * of `Download`s stays distinguishable to a screen reader.
  */
 function Action({
   label,

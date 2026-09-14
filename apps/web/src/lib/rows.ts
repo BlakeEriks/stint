@@ -12,9 +12,9 @@ import type { z } from 'zod';
  * contract (camelCase). Nothing else in the codebase should know both
  * spellings — if a field is renamed, it is renamed here.
  *
- * Each converter takes a row interface, and `columns()` ties that interface
- * to the select list that fills it. A converter reading a column nobody
- * selected used to type-check clean and return `undefined` at runtime.
+ * Each converter takes a row interface, and `columns()` ties that interface to
+ * the select list that fills it — without which a converter reading a column
+ * nobody selected type-checks clean and returns `undefined` at runtime.
  */
 
 type Trim<S extends string> = S extends ` ${infer R}`

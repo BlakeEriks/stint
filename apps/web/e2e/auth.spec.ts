@@ -8,11 +8,8 @@ import {
 } from './mailpit';
 
 /**
- * Sign-in and sign-out, in a real browser.
- *
- * Every assertion here corresponds to something that actually broke and was
- * caught by hand, or to a guard added because of it. The unit suites cannot
- * reach any of it: jsdom has no cookies, no navigation and no second tab.
+ * Sign-in and sign-out, in a real browser — jsdom has no cookies, no
+ * navigation and no second tab.
  */
 test.describe('authentication', () => {
   test('signs in through the emailed link', async ({ page }) => {
@@ -52,9 +49,8 @@ test.describe('authentication', () => {
   test('a signed-in visitor to /signin is sent home', async ({ page }) => {
     await signIn(page);
 
-    /* Rendering the form to a signed-in user is what let two sign-ins
-       compete for one PKCE verifier — the bug behind an afternoon of
-       "invalid" magic links. */
+    /* Rendering the form to a signed-in user lets two sign-ins compete for one
+       PKCE verifier, which makes valid magic links read as invalid. */
     await page.goto('/signin');
     await page.waitForURL('**/');
     await expect(
@@ -81,16 +77,12 @@ test.describe('authentication', () => {
     const secondLink = await magicLink(second);
     expect(secondLink).not.toBe(firstLink);
 
-    /* The superseded link must FAIL VISIBLY rather than silently landing on
-       a signed-out app. The callback redirects with a reason and the page
-       renders it — without that, every failure read as "broken link" and
-       there was nothing to act on.
+    /* The superseded link must FAIL VISIBLY rather than silently landing on a
+       signed-out app: the callback redirects with a reason and the page says
+       what to do next.
 
        Scoped to `main`: Next renders an always-present empty route-announcer
-       with role=alert, so an unscoped query is ambiguous. And the reason is
-       `missing_code` rather than `invalid_link` — a superseded PKCE link
-       arrives carrying no code at all, so "incomplete" is the accurate
-       word. What matters is that it says what to do next. */
+       with role=alert, so an unscoped query is ambiguous. */
     await page.goto(firstLink);
     await expect(page.locator('main [role="alert"]')).toContainText(
       /Request a new one/,

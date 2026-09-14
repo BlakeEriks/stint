@@ -32,12 +32,8 @@ test.beforeEach(async ({ page }) => {
  *
  * The dock's Inbox is present on every route and links to invoices by number,
  * so an unscoped `getByRole('link', { name: /STINT-0002/ })` matches both the
- * list row and the inbox's Download — a strict-mode violation that failed CI
- * the moment the dock stopped being Home-only.
- *
- * That is the test working: these assertions are about the invoice LIST, and
- * a query that reaches the whole frame was never saying so. Scoping to `main`
- * is what they always meant.
+ * list row and the inbox's Download — a strict-mode violation. These
+ * assertions are about the invoice LIST, so they scope to `main`.
  */
 const list = (page: import('@playwright/test').Page) => page.locator('main');
 

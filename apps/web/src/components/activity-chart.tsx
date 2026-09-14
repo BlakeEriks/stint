@@ -13,31 +13,21 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import { keys } from '@/lib/client/query-keys';
 
 /**
- * Hours per day, stacked by client.
+ * Hours per day, stacked by client: when the work happened, and whose it was.
  *
- * It answers *when did the work happen, and whose was it?*
+ * **Every share shows, not just the largest** — the 2h on a 6h/2h day is what
+ * gets argued about in a scope conversation — and **every bar carries its
+ * number**.
  *
- * **Every share shows, not just the largest.** A day split 6h Northwind / 2h
- * Byrne renders both — the 2h is exactly what gets argued about in a scope
- * conversation.
+ * **Hue is the client**, resolved as everywhere else, and never the accent.
+ * Internal work keeps a neutral that reads as worked rather than as rest.
  *
- * **Magnitude shows.** A bar carries the number: "was Tuesday a three-hour
- * day or a nine-hour day?" is answerable at a glance.
- *
- * **Hue is still the client**, resolved exactly as everywhere else. No new
- * colour meaning is introduced — and never the accent, which belongs to the
- * running timer. Internal work keeps a neutral that still reads as worked
- * rather than as rest.
- *
- * **Gaps stay real.** Every day in the range gets a column, so a blank one is
- * a weekend or a dry spell rather than missing data.
+ * **Gaps stay real**: every day in the range gets a column, so a blank one is
+ * a weekend rather than missing data.
  */
 
-/* 90 days is deliberately absent. At day granularity it is 90 bars in a
-   ~660px card — a ~4px bar. It needs week bucketing (`granularity: 'week'`,
-   server-side for the same DST reason day bucketing already lives there),
-   which is a route change with its own correctness tests rather than an
-   option to add here. */
+/* No 90-day range: at day granularity it is 90 bars in a ~660px card. It needs
+   week bucketing server-side, which `docs/tasks.md` carries. */
 const RANGES = [
   { days: 14, label: '14d' },
   { days: 30, label: '30d' },
@@ -126,20 +116,13 @@ export function ActivityChart() {
           />
           <h2 className="type-heading truncate text-strong">Activity</h2>
         </div>
-        {/* REAL radio inputs, not buttons wearing `role="radio"`.
+        {/* REAL radio inputs, not buttons wearing `role="radio"`: a native
+            radio group is one tab stop and moves with the arrow keys, which
+            the role alone does not give.
 
-            These are one setting with two values, so a screen reader should
-            hear the current one — which the roles alone did convey. What they
-            could not is the keyboard behaviour: a native radio group is one
-            tab stop and moves between options with the arrow keys, and
-            hand-rolling that is exactly the work `components/ui` uses Radix to
-            avoid. The browser gives it away free here.
-
-            `sr-only` hides the input itself, not the control: the `<label>`
-            wraps it, so clicking the pill activates the input, and
-            `peer-checked:` styles the pill from the input's real state rather
-            than from React's. `peer-focus-visible:` puts the focus ring on the
-            visible pill, since the input has no box of its own. */}
+            `sr-only` hides the input, not the control — the `<label>` wraps
+            it, so `peer-checked:` styles the pill from the input's real state
+            and `peer-focus-visible:` puts the ring on the visible pill. */}
         <fieldset className="flex flex-none gap-0.5 rounded-md bg-surface-primary p-0.5">
           <legend className="sr-only">Period</legend>
           {RANGES.map((r) => (

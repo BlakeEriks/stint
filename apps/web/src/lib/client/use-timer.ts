@@ -10,15 +10,11 @@ import { keys, invalidateEntryData } from './query-keys';
  * The zone this render is happening in. "Today" is a local question the
  * server cannot infer.
  *
- * Read once at module load rather than per component: it cannot change while
- * the page is open, so a hook was paying re-derivation for a constant.
+ * Read once at module load: it cannot change while the page is open.
  *
- * Resolved the same way on both sides deliberately. Timestamps reach the
- * markup formatted in this zone, so a server that answered `UTC` while the
- * client answered `America/Denver` would hydrate a different clock time onto
- * every one of them. The prerender is in the deploy region's zone and the
- * browser corrects it on hydration, which is the same trade every other
- * timestamp on the page already makes.
+ * Resolved the same way on both sides deliberately — timestamps reach the
+ * markup formatted in this zone, so the prerender is in the deploy region's
+ * zone and the browser corrects it on hydration.
  */
 export const timeZone =
   Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';

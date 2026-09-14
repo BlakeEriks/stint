@@ -37,10 +37,9 @@ export function makeDb(pool, userId) {
       cols: '*',
       wheres: [],
       params: [],
-      // A list, because PostgREST APPENDS each .order() — chaining two of
-      // them is how a route says "default first, then by name". Holding one
-      // string here let the second call silently drop the first, so the
-      // shim sorted by the last key alone and a test could not see it.
+      // A list, because PostgREST APPENDS each .order() — chaining two of them
+      // is how a route says "default first, then by name". One string here
+      // sorts by the last key alone, silently.
       order: [],
       lim: null,
       op: 'select',
