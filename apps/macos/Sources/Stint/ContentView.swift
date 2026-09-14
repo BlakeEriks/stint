@@ -626,54 +626,64 @@ private struct ProjectField: View {
         return model.projectColors[selection]
     }
 
+    /* **The dot and the caret are drawn OUTSIDE the Menu.** A `Menu` label on
+       macOS renders `Text` reliably and silently drops shapes and images —
+       the same restriction that forced the status item through `markImage`.
+       Everything visual therefore sits in this HStack, and the Menu carries
+       only its text. */
     var body: some View {
-        Menu {
-            // "No project" is a real choice, not an absent one: `client_id`
-            // null is how unbillable work is tracked, and the web app is
-            // careful never to call it "internal" because it cannot know.
-            Button("No project") { Task { await model.assign(projectID: nil) } }
-            if !model.projects.isEmpty { Divider() }
-            ForEach(model.projects) { project in
-                Button(project.name) { Task { await model.assign(projectID: project.id) } }
+        HStack(spacing: 6) {
+            /* The client's colour, which answers *whose work is this?* — the
+               same question it answers on the calendar and in the entry list.
+               A project with no client shows the folder instead: internal work
+               is a real state, not a colour that failed to load, so it takes
+               no dot rather than a grey one. */
+            if let hex = colorHex {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(Color(hex: hex))
+                    .frame(width: 8, height: 8)
+            } else {
+                Image(systemName: "folder")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Tokens.Dark.textSubtle)
             }
-        } label: {
-            HStack(spacing: 6) {
-                /* The client's colour, which answers *whose work is this?* —
-                   the same question it answers on the calendar and in the
-                   entry list. A project with no client shows the folder
-                   instead: internal work is a real state, not a colour that
-                   failed to load, so it takes no dot rather than a grey one. */
-                if let hex = colorHex {
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(Color(hex: hex))
-                        .frame(width: 8, height: 8)
-                } else {
-                    Image(systemName: "folder")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Tokens.Dark.textSubtle)
+
+            Menu {
+                // "No project" is a real choice, not an absent one:
+                // `client_id` null is how unbillable work is tracked, and the
+                // web app is careful never to call it "internal" because it
+                // cannot know.
+                Button("No project") { Task { await model.assign(projectID: nil) } }
+                if !model.projects.isEmpty { Divider() }
+                ForEach(model.projects) { project in
+                    Button(project.name) { Task { await model.assign(projectID: project.id) } }
                 }
+            } label: {
                 Text(name(of: selection))
                     .font(.system(size: 12))
                     .foregroundStyle(
                         chosen ? Tokens.Dark.textPrimary : Tokens.Dark.textSubtle
                     )
                     .lineLimit(1)
-                Spacer(minLength: 0)
-                /* The caret is what says "this opens". Unset it is always
-                   there; chosen it waits for the pointer, so the resting
-                   state is the answer and not the control. */
-                if !chosen || hovering {
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 9))
-                        .foregroundStyle(Tokens.Dark.textSubtle)
-                }
+            }
+            .menuStyle(.borderlessButton)
+            /* The style draws its own indicator, which sat beside ours — two
+               carets, and only one of them knew about hover. */
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .keyboardReachable()
+
+            Spacer(minLength: 0)
+
+            /* The caret is what says "this opens". Unset it is always there;
+               chosen it waits for the pointer, so the resting state is the
+               answer and not the control. */
+            if !chosen || hovering {
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 9))
+                    .foregroundStyle(Tokens.Dark.textSubtle)
             }
         }
-        .menuStyle(.borderlessButton)
-        /* The style draws its own indicator, which sat beside the one in the
-           label — two carets, and only one of them knew about hover. */
-        .menuIndicator(.hidden)
-        .keyboardReachable()
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(background)
