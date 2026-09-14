@@ -90,6 +90,7 @@ export const POST = handle(async (req: Request) => {
     clientId: body.clientId,
     periodStart: body.periodStart,
     periodEnd: body.periodEnd,
+    tz: body.tz,
     userDefaultRate: settings.defaultHourlyRate,
     clientRate,
   });

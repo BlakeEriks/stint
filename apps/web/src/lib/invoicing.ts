@@ -1,12 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ApiError } from './errors';
 import { PAYMENT_PROFILE_COLUMNS, toPaymentProfile } from './rows';
-import { resolvePaymentProfile } from '@stint/core';
+import { resolvePaymentProfile, startOfLocalDate } from '@stint/core';
 import type { BillableEntry } from '@stint/core';
 
 /** numeric columns arrive from PostgREST as strings. */
 const num = (v: string | number | null | undefined): number | null =>
   v == null ? null : typeof v === 'number' ? v : Number(v);
+
+/** The day after `date`, stepped on the calendar rather than in milliseconds. */
+function nextDate(date: string): string {
+  const [y = 0, m = 1, d = 1] = date.split('-').map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + 1));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
+}
 
 export interface ClientRow {
   id: string;
@@ -40,6 +47,13 @@ export async function loadClient(
  * Unbilled, completed entries for a client in a period, carrying every rate
  * level so the line-item builder can resolve without further queries.
  *
+ * **The period is local dates, so the window is resolved in `tz`.** A user
+ * picks "September" on a wall calendar, and `buildLineItems` groups the result
+ * by local day — so a UTC window disagrees with its own grouping. West of
+ * Greenwich that drops an evening of work at the end of the period and pulls
+ * in the evening before it started, in both the preview and the invoice, with
+ * nothing to show it happened.
+ *
  * Deliberately excludes:
  *  - running entries (`ended_at IS NULL`) — you cannot bill time still accruing
  *  - entries already attached to an invoice
@@ -50,6 +64,7 @@ export async function loadBillableEntries(
     clientId: string;
     periodStart: string;
     periodEnd: string;
+    tz: string;
     userDefaultRate: number | null;
     clientRate: number | null;
   },
@@ -64,9 +79,11 @@ export async function loadBillableEntries(
 
   const byId = new Map(projects.map((p) => [p.id as string, p]));
 
-  // periodEnd is an inclusive date, so extend to the end of that day.
-  const endExclusive = new Date(`${opts.periodEnd}T00:00:00.000Z`);
-  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+  /* periodEnd is an inclusive date, so the window ends where the NEXT local
+     day begins. Stepping the date on the calendar rather than adding 24h:
+     a day containing a DST transition is 23 or 25 hours long. */
+  const startInstant = startOfLocalDate(opts.periodStart, opts.tz);
+  const endExclusive = startOfLocalDate(nextDate(opts.periodEnd), opts.tz);
 
   const { data, error } = await db
     .from('time_entries')
@@ -76,7 +93,7 @@ export async function loadBillableEntries(
     .in('project_id', [...byId.keys()])
     .is('invoice_id', null)
     .not('ended_at', 'is', null)
-    .gte('started_at', `${opts.periodStart}T00:00:00.000Z`)
+    .gte('started_at', startInstant.toISOString())
     .lt('started_at', endExclusive.toISOString())
     .order('started_at', { ascending: true });
 

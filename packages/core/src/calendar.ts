@@ -151,6 +151,28 @@ export function localDateKey(at: Date, tz: string): string {
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+/**
+ * The instant at which a local calendar date begins — the inverse of
+ * `localDateKey`.
+ *
+ * A period is chosen as dates on a wall calendar ("September"), but entries
+ * are stored as instants, so the boundary has to be resolved in the zone the
+ * user meant. Treating `2026-09-01` as UTC puts the boundary in the middle of
+ * the previous local evening for anyone west of Greenwich, which silently
+ * moves work across it.
+ *
+ * Resolved by guessing UTC and correcting by the offset the guess lands in, so
+ * the correction is computed *at* the target instant rather than assumed from
+ * today — the same reason the rest of this file re-checks its offset.
+ */
+export function startOfLocalDate(date: string, tz: string): Date {
+  const [y = 0, m = 1, d = 1] = date.split('-').map(Number);
+  const wall = Date.UTC(y, m - 1, d);
+  let guess = new Date(wall - tzOffset(new Date(wall), tz));
+  guess = new Date(wall - tzOffset(guess, tz));
+  return guess;
+}
+
 /** Rejects a bad IANA zone before it reaches a query. */
 export function isValidTimeZone(tz: string): boolean {
   try {

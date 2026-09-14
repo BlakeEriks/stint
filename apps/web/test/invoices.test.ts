@@ -132,6 +132,41 @@ test('preview resolves rates and has no side effects', async () => {
   assert.equal(seq[0].n, 1, 'no number was consumed');
 });
 
+/* The period is local dates, and the entries are instants. With a UTC window
+   these two sit outside a September period for a New York user even though
+   both were worked in September on the clock the user read — the late one
+   is 2026-10-01T00:00Z, the early one 2026-08-31T23:00Z.
+
+   The failure was silent: the entry stayed unbilled, the preview agreed with
+   the invoice, and nothing said an hour had gone missing. */
+test('the period window is resolved in the caller timezone, not UTC', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  // 20:00 on the last day of the period, New York.
+  await seedEntry({ id: E(1), task: 'Late', start: '2026-10-01T00:00:00Z' });
+  // 19:00 the evening BEFORE the period starts, New York — must stay out.
+  await seedEntry({ id: E(2), task: 'Early', start: '2026-08-31T23:00:00Z' });
+
+  const res = await json(
+    await preview(
+      req('/invoices/preview', {
+        clientId: CLIENT,
+        ...PERIOD,
+        tz: 'America/New_York',
+        groupingMode: 'entry',
+      }),
+    ),
+  );
+
+  assert.equal(res.status, 200);
+  const tasks = res.body.lineItems.map(
+    (li: { description: string }) => li.description,
+  );
+  assert.deepEqual(tasks, ['Late'], 'includes the local-September entry only');
+  assert.equal(res.body.entryCount, 1);
+});
+
 test('preview reports unrated entries instead of billing them at zero', async () => {
   const { POST: preview } = await import(
     '../src/app/api/v1/invoices/preview/route.ts'
