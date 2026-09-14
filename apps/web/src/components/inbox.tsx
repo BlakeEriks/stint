@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatCompact } from '@stint/core';
 import {
@@ -21,7 +21,6 @@ import {
   type Stats,
   type TimeEntry,
 } from '@/lib/client/api';
-import { useLeaving } from '@/lib/client/use-leaving';
 import { useRunaway } from '@/lib/client/use-runaway';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
@@ -36,9 +35,6 @@ type InboxRow =
   | { id: string; kind: 'draft'; row: Attention['staleDrafts'][number] }
   | { id: string; kind: 'unprojected'; row: Attention['unprojected'][number] }
   | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] };
-
-/** An `InboxRow` plus the id it followed, so a departing row holds its place. */
-type PlacedRow = InboxRow & { after: string | null };
 
 /**
  * The dock's inbox: everything that wants a decision, in one fixed place.
@@ -66,17 +62,7 @@ export function Inbox({ stats }: { stats: Stats }) {
     stats.attention;
   const queryClient = useQueryClient();
 
-  /* The runaway row is not in `rows` — it comes from the timer, not `/stats`,
-     so it has no id to track. Every one of its actions removes it in the same
-     commit that decides it: Keep flips local state, and Adjust and Discard
-     stop the timer, so `showing` goes false on the refetch. Either way there
-     is nothing left to animate, and this holds the row rendered until the
-     collapse has run.
-
-     The decision itself always happens first — Keep on the click, the other
-     two on their mutation's success. This flag only defers the unmount. */
-  const [retiringRunaway, setRetiringRunaway] = useState(false);
-  const runaway = useRunaway(() => setRetiringRunaway(true));
+  const runaway = useRunaway();
 
   /* The ENTRY being edited, not its id, and which field opened it.
 
@@ -87,12 +73,6 @@ export function Inbox({ stats }: { stats: Stats }) {
      blank "Add entry". */
   const [assigning, setAssigning] = useState<TimeEntry | undefined>();
   const [focusField, setFocusField] = useState<'task' | 'project'>('task');
-  const { keeping, leaving, leave, hold, release, settle } = useLeaving();
-
-  /* Every row this inbox has rendered, by id. A row being animated out is
-     one the query no longer returns, so its last-seen copy is what supplies
-     the label and figure for the 260ms it is still on screen. */
-  const seen = useRef(new Map<string, PlacedRow>());
 
   /* The stats rows carry enough to render, but `EntryDialog` edits a whole
      entry — so opening one fetches it. Keyed by id rather than filter: a
@@ -115,10 +95,7 @@ export function Inbox({ stats }: { stats: Stats }) {
      times. A trigger clears the answer if they change later. */
   const confirmLength = useMutation({
     mutationFn: (id: string) => api.updateEntry(id, { durationOk: true }),
-    onSuccess: (_r, id) => {
-      leave(id);
-      invalidateEntryData(queryClient);
-    },
+    onSuccess: () => invalidateEntryData(queryClient),
   });
 
   /* React Query dedupes this against Home's identical query, so on the one
@@ -132,75 +109,39 @@ export function Inbox({ stats }: { stats: Stats }) {
   const setStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
       api.updateInvoiceStatus(id, { status }),
-    onSuccess: (_r, { id }) => {
-      leave(id);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.invoices() });
       invalidateEntryData(queryClient);
     },
   });
 
-  /* The rows the refetch has already dropped, still on screen playing their
-     exit. Rendering them needs the row's data after the query stopped
-     returning it, so the last-seen copy is kept alongside the id. */
-  const rows = useMemo(() => {
-    /* The order is this concatenation. Overdue sorts first among the invoices
-       and carries danger; everything else is a warning. Never the accent —
-       that belongs to the running timer. */
-    const live = [
-      ...overdueInvoices.map((i) => ({
-        id: i.invoiceId,
-        kind: 'overdue' as const,
-        row: i,
-      })),
-      ...staleDrafts.map((d) => ({
-        id: d.invoiceId,
-        kind: 'draft' as const,
-        row: d,
-      })),
-      ...unprojected.map((u) => ({
-        id: u.entryId,
-        kind: 'unprojected' as const,
-        row: u,
-      })),
-      ...strangeDurations.map((e) => ({
-        id: e.entryId,
-        kind: 'strange' as const,
-        row: e,
-      })),
-    ];
-    /* A row remembers the id it followed, not its index. An index shifts as
-       rows leave — a departing row keeps the number it had while the survivors
-       renumber underneath it, so it loses the tie and jumps down the list. The
-       row above it does not move, so that is what the position is pinned to. */
-    live.forEach((r, i) => {
-      seen.current.set(r.id, { ...r, after: live[i - 1]?.id ?? null });
-    });
+  /* The order is this concatenation. Overdue sorts first among the invoices
+     and carries danger; everything else is a warning. Never the accent —
+     that belongs to the running timer. */
+  const rows: InboxRow[] = [
+    ...overdueInvoices.map((i) => ({
+      id: i.invoiceId,
+      kind: 'overdue' as const,
+      row: i,
+    })),
+    ...staleDrafts.map((d) => ({
+      id: d.invoiceId,
+      kind: 'draft' as const,
+      row: d,
+    })),
+    ...unprojected.map((u) => ({
+      id: u.entryId,
+      kind: 'unprojected' as const,
+      row: u,
+    })),
+    ...strangeDurations.map((e) => ({
+      id: e.entryId,
+      kind: 'strange' as const,
+      row: e,
+    })),
+  ];
 
-    const liveIds = new Set(live.map((r) => r.id));
-    const departing = [...keeping]
-      .filter((id) => !liveIds.has(id))
-      .map((id) => seen.current.get(id))
-      .filter((r) => r !== undefined);
-
-    /* Put each one back directly after the row it used to follow, so it
-       collapses where it already is. A row whose predecessor has itself left
-       falls back to the top, which is where it was. */
-    const out: PlacedRow[] = live.map((r) => ({ ...r, after: null }));
-    for (const d of departing) {
-      const at = d.after ? out.findIndex((r) => r.id === d.after) + 1 : 0;
-      out.splice(at, 0, d);
-    }
-    return out;
-  }, [overdueInvoices, staleDrafts, unprojected, strangeDurations, keeping]);
-
-  /* The count is what still wants a decision, so a row on its way out is
-     already not counted — the number drops on the click, not 260ms later. */
-  const count =
-    overdueInvoices.length +
-    staleDrafts.length +
-    unprojected.length +
-    strangeDurations.length +
-    (runaway.showing ? 1 : 0);
+  const count = rows.length + (runaway.showing ? 1 : 0);
 
   return (
     <section aria-label="Inbox">
@@ -221,12 +162,7 @@ export function Inbox({ stats }: { stats: Stats }) {
         <span className="type-meta text-subtle">{count || 'clear'}</span>
       </header>
 
-      {/* The empty state waits for the last row to finish leaving: swapping it
-          in while a row is still collapsing would put "Nothing needs you"
-          above the thing it is denying — and replacing the list outright tears
-          a collapsing row out of the DOM mid-animation. `retiringRunaway`
-          counts here because that row is the one not in `rows`. */}
-      {count === 0 && rows.length === 0 && !retiringRunaway ? (
+      {count === 0 ? (
         <p className="px-1 py-3 type-support text-subtle">Nothing needs you.</p>
       ) : (
         <ul className="flex flex-col">
@@ -235,21 +171,12 @@ export function Inbox({ stats }: { stats: Stats }) {
               invoice is about money that is already late and will still be
               late in an hour. It is also the only row whose subject is still
               changing while you read it. */}
-          {runaway.showing || retiringRunaway ? (
-            <RunawayItem
-              runaway={runaway}
-              retiring={retiringRunaway}
-              onRetire={() => setRetiringRunaway(true)}
-              onRetired={() => setRetiringRunaway(false)}
-            />
-          ) : null}
+          {runaway.showing ? <RunawayItem runaway={runaway} /> : null}
 
           {rows.map((r) => (
             <Row
               key={r.id}
               entry={r}
-              leaving={leaving.has(r.id)}
-              onLeft={() => settle(r.id)}
               busy={setStatus.isPending}
               confirming={confirmLength.isPending}
               onStatus={setStatus.mutate}
@@ -271,15 +198,6 @@ export function Inbox({ stats }: { stats: Stats }) {
         }}
         existing={assigning}
         focus={focusField}
-        /* Two beats. `onSaved` fires as the save lands and claims the row
-           before the refetch can drop it; `onClosed` fires once the overlay is
-           gone and starts the collapse in a cleared field.
-
-           Either way the id is a hint, not an instruction: if the entry still
-           belongs in the inbox — renamed but still an odd length — `/stats`
-           returns it and `rows` keeps it. */
-        onSaved={hold}
-        onClosed={release}
         projects={projects}
       />
     </section>
@@ -289,8 +207,6 @@ export function Inbox({ stats }: { stats: Stats }) {
 /** Which `Item` a row becomes — the one place the four kinds differ. */
 function Row({
   entry,
-  leaving,
-  onLeft,
   busy,
   confirming,
   onStatus,
@@ -298,22 +214,18 @@ function Row({
   onConfirm,
 }: {
   entry: InboxRow;
-  leaving: boolean;
-  onLeft: () => void;
   busy: boolean;
   confirming: boolean;
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
   onConfirm: (id: string) => void;
 }) {
-  const common = { leaving, onLeft };
   const r = entry;
 
   if (r.kind === 'overdue') {
     const i = r.row;
     return (
       <Item
-        {...common}
         href={`/invoices/${i.invoiceId}`}
         label={i.clientName ?? i.invoiceNumber}
         detail={`${i.daysLate} ${i.daysLate === 1 ? 'day' : 'days'} late`}
@@ -347,7 +259,6 @@ function Row({
     const d = r.row;
     return (
       <Item
-        {...common}
         href={`/invoices/${d.invoiceId}`}
         label={d.clientName ?? d.invoiceNumber}
         detail={`Draft, ${d.ageDays}d old`}
@@ -380,7 +291,6 @@ function Row({
     const u = r.row;
     return (
       <Item
-        {...common}
         onSelect={() => onOpen({ id: u.entryId, focus: 'project' })}
         label={u.taskName || 'Untitled entry'}
         detail={`No project · ${dayLabel(u.startedAt, tz)}`}
@@ -404,7 +314,6 @@ function Row({
   const e = r.row;
   return (
     <Item
-      {...common}
       onSelect={() => onOpen({ id: e.entryId, focus: 'task' })}
       label={e.taskName || 'Untitled entry'}
       detail={[
@@ -456,25 +365,11 @@ function Row({
  * is a fixed readout; this is something that wants a decision, and the inbox
  * is where those live.
  */
-function RunawayItem({
-  runaway,
-  retiring,
-  onRetire,
-  onRetired,
-}: {
-  runaway: ReturnType<typeof useRunaway>;
-  /** Decided, and collapsing. */
-  retiring: boolean;
-  /** Keep's own claim — Adjust and Discard claim from their mutation. */
-  onRetire: () => void;
-  onRetired: () => void;
-}) {
+function RunawayItem({ runaway }: { runaway: ReturnType<typeof useRunaway> }) {
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
 
   return (
     <Item
-      leaving={retiring}
-      onLeft={onRetired}
       label="Timer still running"
       detail={`${runaway.hours} hours so far`}
       value={`${runaway.hours}h`}
@@ -508,12 +403,7 @@ function RunawayItem({
             <Action
               label="Keep"
               icon={<Clock aria-hidden className="size-3.5" />}
-              onClick={() => {
-                /* Dismiss now, animate after. The decision must not depend on
-                   an `animationend` that may never fire. */
-                runaway.keep();
-                onRetire();
-              }}
+              onClick={runaway.keep}
             />
             <Action
               label="Adjust"
@@ -572,8 +462,6 @@ function Item({
   valueTone,
   tone,
   actions,
-  leaving,
-  onLeft,
 }: {
   /** A record with a page of its own. Omit it and pass `onSelect` instead. */
   href?: string;
@@ -586,42 +474,15 @@ function Item({
   valueTone?: 'warning';
   tone: 'danger' | 'warning';
   actions?: React.ReactNode;
-  /** Dealt with: play the exit, then call `onLeft`. */
-  leaving?: boolean;
-  onLeft?: () => void;
 }) {
   const titleClass =
     'truncate text-left rounded-sm type-control text-strong hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
 
-  /* The exit animates height to zero, and keyframes cannot interpolate from
-     `auto` — so the row's measured height is written onto it as the class
-     lands, in a ref callback rather than an effect. An effect runs after
-     paint, which is one frame too late: the animation would already have
-     started from `auto` and snapped shut. */
-  const pinHeight = (el: HTMLLIElement | null) => {
-    if (el && leaving && !el.style.height) {
-      el.style.height = `${el.getBoundingClientRect().height}px`;
-    }
-  };
-
-  /* `animationend` is the normal signal, but it is not guaranteed: an
-     environment with no animation engine (jsdom) never fires one, and neither
-     does a row whose animation is interrupted. Without this the caller's flag
-     would stay set and the row would sit there forever — so the exit is always
-     bounded, whether or not anything animated. */
-  useEffect(() => {
-    if (!leaving || !onLeft) return;
-    const bail = setTimeout(onLeft, 400);
-    return () => clearTimeout(bail);
-  }, [leaving, onLeft]);
-
   return (
     <li
-      ref={pinHeight}
-      onAnimationEnd={onLeft}
       className={`group rounded-r-md border-l-2 py-2.5 pr-2.5 pl-3 transition-colors hover:bg-surface-primary ${
-        leaving ? 'leaving' : ''
-      } ${tone === 'danger' ? 'border-danger' : 'border-timer-warning'}`}
+        tone === 'danger' ? 'border-danger' : 'border-timer-warning'
+      }`}
     >
       <div className="flex items-baseline gap-2.5">
         {href ? (

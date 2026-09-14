@@ -52,6 +52,11 @@ const BANNED = [
   ],
   [/\bfont-(mono|sans)\b/g, 'a bare font family', 'the role sets the family'],
   [
+    /\bfont-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black)\b/g,
+    'a bare font weight',
+    'the role sets the weight',
+  ],
+  [
     /\btext-(xs|sm|base|lg|xl|[2-9]xl)\b/g,
     "Tailwind's font scale",
     'use a type-* role',

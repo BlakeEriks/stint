@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -30,6 +29,25 @@ const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   { value: 'day', label: 'By day', hint: 'One line per day worked.' },
 ];
 
+interface Draft {
+  clientId: string;
+  periodStart: string;
+  periodEnd: string;
+  groupingMode: GroupingMode;
+  notes: string;
+  dueDate: string;
+}
+
+/** Computed on mount, not at import: the default period is "last month". */
+const empty = (): Draft => ({
+  clientId: '',
+  periodStart: defaultStart(),
+  periodEnd: defaultEnd(),
+  groupingMode: 'entry',
+  notes: '',
+  dueDate: '',
+});
+
 /**
  * Preview, then generate.
  *
@@ -41,12 +59,7 @@ export function NewInvoice() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const [clientId, setClientId] = useState('');
-  const [periodStart, setPeriodStart] = useState(defaultStart);
-  const [periodEnd, setPeriodEnd] = useState(defaultEnd);
-  const [groupingMode, setGroupingMode] = useState<GroupingMode>('entry');
-  const [notes, setNotes] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [draft, setDraft] = useState<Draft>(empty);
   const [preview, setPreview] = useState<InvoicePreview | null>(null);
 
   const { data: clientData } = useQuery({
@@ -58,10 +71,10 @@ export function NewInvoice() {
   const runPreview = useMutation({
     mutationFn: () =>
       api.previewInvoice({
-        clientId,
-        periodStart,
-        periodEnd,
-        groupingMode,
+        clientId: draft.clientId,
+        periodStart: draft.periodStart,
+        periodEnd: draft.periodEnd,
+        groupingMode: draft.groupingMode,
         tz,
       }),
     onSuccess: setPreview,
@@ -70,13 +83,13 @@ export function NewInvoice() {
   const generate = useMutation({
     mutationFn: () =>
       api.createInvoice({
-        clientId,
-        periodStart,
-        periodEnd,
-        groupingMode,
+        clientId: draft.clientId,
+        periodStart: draft.periodStart,
+        periodEnd: draft.periodEnd,
+        groupingMode: draft.groupingMode,
         tz,
-        notes: notes.trim() || undefined,
-        dueDate: dueDate || undefined,
+        notes: draft.notes.trim() || undefined,
+        dueDate: draft.dueDate || undefined,
       }),
     onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: keys.invoices() });
@@ -86,16 +99,19 @@ export function NewInvoice() {
     },
   });
 
-  // Any change to what would be billed invalidates the approved preview.
-  const reset =
-    <T,>(set: (v: T) => void) =>
-    (v: T) => {
-      set(v);
-      setPreview(null);
-    };
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
+
+  /* Any change to WHAT WOULD BE BILLED invalidates the approved preview.
+     The due date and the notes do not: they decorate the document rather
+     than decide its lines. */
+  const setBilled = <K extends keyof Draft>(key: K, value: Draft[K]) => {
+    set(key, value);
+    setPreview(null);
+  };
 
   const blocked = (preview?.unratedEntryIds.length ?? 0) > 0;
-  const empty = preview !== null && preview.lineItems.length === 0;
+  const nothingToBill = preview !== null && preview.lineItems.length === 0;
 
   return (
     <DetailPage back="/invoices" label="Invoices">
@@ -106,8 +122,8 @@ export function NewInvoice() {
           <Field label="Client" htmlFor="inv-client" required>
             <select
               id="inv-client"
-              value={clientId}
-              onChange={(e) => reset(setClientId)(e.target.value)}
+              value={draft.clientId}
+              onChange={(e) => setBilled('clientId', e.target.value)}
               className={inputClass}
             >
               <option value="">Choose a client…</option>
@@ -124,16 +140,16 @@ export function NewInvoice() {
               <Input
                 id="inv-from"
                 type="date"
-                value={periodStart}
-                onChange={(e) => reset(setPeriodStart)(e.target.value)}
+                value={draft.periodStart}
+                onChange={(e) => setBilled('periodStart', e.target.value)}
               />
             </Field>
             <Field label="To" htmlFor="inv-to" className="flex-1 basis-40">
               <Input
                 id="inv-to"
                 type="date"
-                value={periodEnd}
-                onChange={(e) => reset(setPeriodEnd)(e.target.value)}
+                value={draft.periodEnd}
+                onChange={(e) => setBilled('periodEnd', e.target.value)}
               />
             </Field>
           </div>
@@ -141,13 +157,13 @@ export function NewInvoice() {
           <Field
             label="Group lines"
             htmlFor="inv-group"
-            hint={GROUPINGS.find((g) => g.value === groupingMode)?.hint}
+            hint={GROUPINGS.find((g) => g.value === draft.groupingMode)?.hint}
           >
             <select
               id="inv-group"
-              value={groupingMode}
+              value={draft.groupingMode}
               onChange={(e) =>
-                reset(setGroupingMode)(e.target.value as GroupingMode)
+                setBilled('groupingMode', e.target.value as GroupingMode)
               }
               className={inputClass}
             >
@@ -164,7 +180,7 @@ export function NewInvoice() {
               type="button"
               variant="secondary"
               onClick={() => runPreview.mutate()}
-              disabled={!clientId || runPreview.isPending}
+              disabled={!draft.clientId || runPreview.isPending}
             >
               {runPreview.isPending ? 'Checking…' : 'Preview'}
             </Button>
@@ -192,8 +208,8 @@ export function NewInvoice() {
                 <Input
                   id="inv-due"
                   type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
+                  value={draft.dueDate}
+                  onChange={(e) => set('dueDate', e.target.value)}
                 />
               </Field>
 
@@ -205,8 +221,8 @@ export function NewInvoice() {
                 <textarea
                   id="inv-notes"
                   rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  value={draft.notes}
+                  onChange={(e) => set('notes', e.target.value)}
                   className={textareaClass}
                 />
               </Field>
@@ -233,7 +249,7 @@ export function NewInvoice() {
               <Button
                 type="button"
                 onClick={() => generate.mutate()}
-                disabled={generate.isPending || blocked || empty}
+                disabled={generate.isPending || blocked || nothingToBill}
               >
                 {generate.isPending ? 'Generating…' : 'Generate invoice'}
               </Button>

@@ -6,23 +6,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, ApiError } from '@/lib/client/api';
-import { DetailPage } from './page';
+import { DetailPage, Listing } from './page';
 import { ClientProjects } from './client-projects';
 import { formatCurrency } from '@stint/core';
 import { keys } from '@/lib/client/query-keys';
-
-/** Named once, because loading, not-found and the client itself all use it. */
-const Shell = ({ children }: { children: React.ReactNode }) => (
-  <DetailPage back="/clients" label="Clients">
-    {children}
-  </DetailPage>
-);
 
 export function ClientDetail({ id }: { id: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { data: client, isLoading } = useQuery({
+  const query = useQuery({
     queryKey: keys.client(id),
     queryFn: () => api.client(id),
   });
@@ -36,100 +29,93 @@ export function ClientDetail({ id }: { id: string }) {
     },
   });
 
-  if (isLoading) {
-    return (
-      <Shell>
-        <p className="type-support text-subtle">Loading…</p>
-      </Shell>
-    );
-  }
-  if (!client) {
-    return (
-      <Shell>
-        <p className="type-support text-subtle">Not found.</p>
-      </Shell>
-    );
-  }
-
   return (
-    <Shell>
-      <header className="flex items-start justify-between gap-3 pb-6">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span
-            aria-hidden
-            className="size-3 flex-none rounded-[3px]"
-            style={{ background: client.color ?? 'var(--text-subtle)' }}
-          />
-          <h1 className="truncate type-title text-strong">{client.name}</h1>
-        </div>
+    <DetailPage back="/clients" label="Clients">
+      <Listing query={query} missing="That client no longer exists.">
+        {(client) => (
+          <>
+            <header className="flex items-start justify-between gap-3 pb-6">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span
+                  aria-hidden
+                  className="size-3 flex-none rounded-[3px]"
+                  style={{ background: client.color ?? 'var(--text-subtle)' }}
+                />
+                <h1 className="truncate type-title text-strong">
+                  {client.name}
+                </h1>
+              </div>
 
-        <div className="flex flex-none gap-2">
-          <Button asChild variant="secondary">
-            <Link href={`/clients/${id}/edit`}>
-              <Pencil aria-hidden strokeWidth={1.75} />
-              Edit
-            </Link>
-          </Button>
-          {!client.archivedAt ? (
-            <Button
-              variant="ghost"
-              onClick={() => archive.mutate()}
-              disabled={archive.isPending}
+              <div className="flex flex-none gap-2">
+                <Button asChild variant="secondary">
+                  <Link href={`/clients/${id}/edit`}>
+                    <Pencil aria-hidden strokeWidth={1.75} />
+                    Edit
+                  </Link>
+                </Button>
+                {!client.archivedAt ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => archive.mutate()}
+                    disabled={archive.isPending}
+                  >
+                    <Archive aria-hidden strokeWidth={1.75} />
+                    Archive
+                  </Button>
+                ) : null}
+              </div>
+            </header>
+
+            {/* A rejected archive leaves the button live and the client unchanged,
+                which reads as the click not registering. The likely refusals are
+                worth reading — an archive can be blocked by what references the
+                client. */}
+            {archive.error ? (
+              <p role="alert" className="pb-4 type-support text-danger">
+                {archive.error instanceof ApiError
+                  ? archive.error.message
+                  : 'Could not archive this client.'}
+              </p>
+            ) : null}
+
+            <dl
+              className="grid gap-x-6 gap-y-4 rounded-xl border border-edge-subtle
+                           bg-surface-elevated p-5 shadow-card sm:grid-cols-2"
             >
-              <Archive aria-hidden strokeWidth={1.75} />
-              Archive
-            </Button>
-          ) : null}
-        </div>
-      </header>
+              <Detail label="Email" value={client.email} />
+              <Detail
+                label="Hourly rate"
+                value={
+                  client.hourlyRate != null
+                    ? `${formatCurrency(client.hourlyRate, client.currency ?? undefined)}/h`
+                    : null
+                }
+                hint="Defaults to your standard rate."
+                mono
+              />
+              <Detail
+                label="Tax rate"
+                /* `!= null`, not truthiness: 0% is a real answer a US contractor
+                   sets deliberately, and rendering it as "Not set" is wrong about
+                   tax. The rate field above already does this correctly. */
+                value={client.taxRate != null ? `${client.taxRate}%` : null}
+                hint="US services usually owe none."
+                mono
+              />
+              <Detail label="Address" value={client.address} multiline />
+            </dl>
 
-      {/* A rejected archive leaves the button live and the client unchanged,
-          which reads as the click not registering. The likely refusals are
-          worth reading — an archive can be blocked by what references the
-          client. */}
-      {archive.error ? (
-        <p role="alert" className="pb-4 type-support text-danger">
-          {archive.error instanceof ApiError
-            ? archive.error.message
-            : 'Could not archive this client.'}
-        </p>
-      ) : null}
+            {client.archivedAt ? (
+              <p className="mt-4 type-support text-muted">
+                Archived. Past invoices still reference this client.
+              </p>
+            ) : null}
 
-      <dl
-        className="grid gap-x-6 gap-y-4 rounded-xl border border-edge-subtle
-                     bg-surface-elevated p-5 shadow-card sm:grid-cols-2"
-      >
-        <Detail label="Email" value={client.email} />
-        <Detail
-          label="Hourly rate"
-          value={
-            client.hourlyRate != null
-              ? `${formatCurrency(client.hourlyRate, client.currency ?? undefined)}/h`
-              : null
-          }
-          hint="Defaults to your standard rate."
-          mono
-        />
-        <Detail
-          label="Tax rate"
-          /* `!= null`, not truthiness: 0% is a real answer a US contractor
-             sets deliberately, and rendering it as "Not set" is wrong about
-             tax. The rate field above already does this correctly. */
-          value={client.taxRate != null ? `${client.taxRate}%` : null}
-          hint="US services usually owe none."
-          mono
-        />
-        <Detail label="Address" value={client.address} multiline />
-      </dl>
-
-      {client.archivedAt ? (
-        <p className="mt-4 type-support text-muted">
-          Archived. Past invoices still reference this client.
-        </p>
-      ) : null}
-
-      <ClientProjects client={client} />
-    </Shell>
+            <ClientProjects client={client} />
+          </>
+        )}
+      </Listing>
+    </DetailPage>
   );
 }
 

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -8,14 +7,14 @@ import { Section } from './field';
 import { StatusBadge, formatCurrency, shortDate } from './invoice-bits';
 import { formatHours } from '@stint/core';
 import { api, ApiError, type InvoiceStatus } from '@/lib/client/api';
-import { DetailPage } from './page';
+import { DetailPage, Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const query = useQuery({
     queryKey: keys.invoice(id),
     queryFn: () => api.invoice(id),
   });
@@ -41,25 +40,43 @@ export function InvoiceDetail({ id }: { id: string }) {
     },
   });
 
-  if (isLoading)
-    return (
-      <Shell>
-        <p className="type-support text-subtle">Loading…</p>
-      </Shell>
-    );
-  if (!data)
-    return (
-      <Shell>
-        <p className="type-support text-subtle">Not found.</p>
-      </Shell>
-    );
+  return (
+    <DetailPage back="/invoices" label="Invoices">
+      <Listing query={query} missing="That invoice no longer exists.">
+        {(data) => (
+          <Loaded
+            data={data}
+            setStatus={setStatus}
+            remove={remove}
+            error={remove.error ?? setStatus.error}
+          />
+        )}
+      </Listing>
+    </DetailPage>
+  );
+}
 
+/** The invoice itself, once it has arrived. */
+function Loaded({
+  data,
+  setStatus,
+  remove,
+  error,
+}: {
+  data: Awaited<ReturnType<typeof api.invoice>>;
+  setStatus: { mutate: (s: InvoiceStatus) => void; isPending: boolean };
+  remove: { mutate: () => void; isPending: boolean };
+  /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
+     for the message could type-check a stale error while printing a different
+     one — React Query holds the last error until the next success. */
+  error: unknown;
+}) {
   const { lineItems, client, ...invoice } = data;
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
 
   return (
-    <Shell>
+    <>
       <header className="flex flex-wrap items-start justify-between gap-3 pb-6">
         <div className="min-w-0">
           <div className="flex items-center gap-2.5">
@@ -201,16 +218,10 @@ export function InvoiceDetail({ id }: { id: string }) {
             ) : null}
           </div>
 
-          {/* Pick the error ONCE. The previous form re-evaluated
-              `setStatus.error ?? remove.error` for the check and again for
-              the message, so a stale error from an earlier failed action
-              could be type-checked while a different one was printed —
-              and `??` does not clear on retry, since React Query holds the
-              last error until the next success. */}
-          <ActionError error={remove.error ?? setStatus.error} />
+          <ActionError error={error} />
         </Section>
       </div>
-    </Shell>
+    </>
   );
 }
 
@@ -231,15 +242,6 @@ function ActionError({ error }: { error: unknown }) {
     <p role="alert" className="type-support text-danger">
       {error instanceof ApiError ? error.message : 'That change was rejected.'}
     </p>
-  );
-}
-
-/** Named once, because loading, not-found and the invoice itself all use it. */
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <DetailPage back="/invoices" label="Invoices">
-      {children}
-    </DetailPage>
   );
 }
 

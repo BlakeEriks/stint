@@ -73,7 +73,7 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
     [weekStart],
   );
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: keys.calendar(weekStart.toISOString(), tz),
     queryFn: () =>
       api.calendar({
@@ -154,6 +154,7 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
     cursor,
     byDay,
     isLoading,
+    isError,
     /* Whether the period on screen contains today, which is what the
        "Today" / "This week" button reflects. Derived by comparing dates
        rather than by tracking a counter: on a phone only the cursor day

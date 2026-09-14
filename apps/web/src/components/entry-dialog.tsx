@@ -26,6 +26,25 @@ import { timeZone } from '@/lib/client/use-timer';
 
 const LABEL = 'type-label text-subtle';
 
+/** The form, as local wall-clock strings. `save` converts to instants. */
+interface Draft {
+  taskName: string;
+  projectId: string | null;
+  date: string;
+  start: string;
+  end: string;
+  billable: boolean;
+}
+
+const EMPTY: Draft = {
+  taskName: '',
+  projectId: null,
+  date: '',
+  start: '',
+  end: '',
+  billable: true,
+};
+
 /**
  * Create, edit or delete a completed time entry.
  *
@@ -44,8 +63,6 @@ export function EntryDialog({
   existing,
   seed,
   focus = 'task',
-  onSaved,
-  onClosed,
   projects,
   tz = timeZone,
 }: {
@@ -66,33 +83,13 @@ export function EntryDialog({
    * missing project is the entire reason the row exists.
    */
   focus?: 'task' | 'project';
-  /**
-   * The entry a save or delete just settled, for a caller that is showing a
-   * row about it — fired immediately, before the refetch that would drop it.
-   *
-   * It says which entry changed, never that the row should go: the dialog
-   * cannot know why the entry was listed. Renaming a strange-duration entry
-   * without fixing its length leaves it strange, and `/stats` returns it
-   * again — the caller reconciles.
-   */
-  onSaved?: (id: string) => void;
-  /**
-   * The same entry, once this dialog is off the screen. A caller animating
-   * that row away starts it here, so the motion is not hidden by the overlay.
-   */
-  onClosed?: (id: string) => void;
   projects: Project[];
   /** Overridable so a test can pin a zone; production always uses the real one. */
   tz?: string;
 }) {
   const queryClient = useQueryClient();
 
-  const [taskName, setTaskName] = useState('');
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const [date, setDate] = useState('');
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
-  const [billable, setBillable] = useState(true);
+  const [draft, setDraft] = useState<Draft>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
@@ -101,75 +98,32 @@ export function EntryDialog({
     if (!open) return;
     setError(null);
     setConfirmingDelete(false);
-    setTaskName(existing?.taskName ?? '');
-    setProjectId(existing?.projectId ?? null);
 
     const opened = existing ?? seed;
     const from = opened ? new Date(opened.startedAt) : new Date();
-    setDate(localDateKey(from, tz));
-    setStart(localTime(from, tz));
-    setEnd(opened?.endedAt ? localTime(new Date(opened.endedAt), tz) : '');
-    setBillable(existing?.isBillable ?? true);
+    setDraft({
+      taskName: existing?.taskName ?? '',
+      projectId: existing?.projectId ?? null,
+      date: localDateKey(from, tz),
+      start: localTime(from, tz),
+      end: opened?.endedAt ? localTime(new Date(opened.endedAt), tz) : '',
+      billable: existing?.isBillable ?? true,
+    });
   }, [open, existing, seed, tz]);
 
-  /* Claim, close, then refetch and hand over once this dialog is off screen.
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
 
-     A caller animating a row away needs two different moments, and using one
-     for both is what made this invisible twice over:
-
-     **`onSaved` fires immediately**, before `invalidate`. The refetch is what
-     drops the row from the caller's list, so refetching first leaves nothing
-     to claim and the row blinks out.
-
-     **`onClosed` waits for the overlay to leave the DOM.** A collapse that runs
-     underneath it is a movement nobody sees. Waited for, not timed: a fixed
-     delay has to guess Radix's exit plus the save's own latency, and measuring
-     gave ~510ms where the content's `duration-200` suggested 200.
-
-     `onOpenChange` is synchronous, so the dialog still closes immediately.
-
-     **The watch outlives this component on purpose.** Closing is what unmounts
-     it — the caller drops the entry it was editing — so tearing the observer
-     down on unmount would cancel the very thing it waits for, every time. A
-     timeout bounds it in case the overlay never goes. */
-  const settle = (id: string) => {
-    onSaved?.(id);
+  const settle = () => {
     onOpenChange(false);
-
-    const done = () => {
-      invalidate();
-      onClosed?.(id);
-    };
-
-    const overlay = document.querySelector('[data-slot="dialog-overlay"]');
-    if (!overlay?.isConnected) {
-      done();
-      return;
-    }
-
-    let fired = false;
-    const finish = () => {
-      if (fired) return;
-      fired = true;
-      observer.disconnect();
-      clearTimeout(bail);
-      done();
-    };
-    const observer = new MutationObserver(() => {
-      if (!overlay.isConnected) finish();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    const bail = setTimeout(finish, 1000);
+    /* `stats` is in there too: editing an entry changes the unbilled total,
+       and giving a loose entry a project is what clears its inbox row. */
+    invalidateEntryData(queryClient);
   };
-
-  /* `stats` is in there too: editing an entry changes the unbilled total, and
-     giving a loose entry a project is what clears its inbox row. Without it
-     the row that opened this dialog still reports the old count afterwards,
-     which reads as the save having failed. */
-  const invalidate = () => invalidateEntryData(queryClient);
 
   const save = useMutation({
     mutationFn: async () => {
+      const { date, start, end } = draft;
       const startedAt = localDateTimeToInstant(date, start, tz);
       const endedAt = localDateTimeToInstant(date, end, tz);
 
@@ -182,18 +136,18 @@ export function EntryDialog({
           : endedAt;
 
       const body = {
-        taskName: taskName.trim(),
-        projectId,
+        taskName: draft.taskName.trim(),
+        projectId: draft.projectId,
         startedAt: startedAt.toISOString(),
         endedAt: ended.toISOString(),
-        isBillable: billable,
+        isBillable: draft.billable,
       };
 
       return existing
         ? api.updateEntry(existing.id, body)
         : api.createEntry({ id: uuidv7(), ...body });
     },
-    onSuccess: (entry) => settle(entry.id),
+    onSuccess: settle,
     onError: (e) =>
       setError(
         e instanceof ApiError ? e.message : 'Could not save this entry.',
@@ -202,7 +156,7 @@ export function EntryDialog({
 
   const remove = useMutation({
     mutationFn: () => api.deleteEntry(existing!.id),
-    onSuccess: () => settle(existing!.id),
+    onSuccess: settle,
     onError: (e) =>
       setError(
         e instanceof ApiError ? e.message : 'Could not delete this entry.',
@@ -263,8 +217,8 @@ export function EntryDialog({
               id="entry-task"
               autoFocus={focus === 'task'}
               disabled={locked}
-              value={taskName}
-              onChange={(e) => setTaskName(e.target.value)}
+              value={draft.taskName}
+              onChange={(e) => set('taskName', e.target.value)}
               placeholder="What did you work on?"
             />
           </div>
@@ -282,8 +236,8 @@ export function EntryDialog({
                  the field they came for. */
               autoFocus={focus === 'project'}
               disabled={locked}
-              value={projectId ?? ''}
-              onChange={(e) => setProjectId(e.target.value || null)}
+              value={draft.projectId ?? ''}
+              onChange={(e) => set('projectId', e.target.value || null)}
               /* `focus:` as well as `focus-visible:`. A field focused
                  PROGRAMMATICALLY — as the inbox's unprojected row does on
                  open — is never `:focus-visible`, which the browser reserves
@@ -324,8 +278,8 @@ export function EntryDialog({
                 type="date"
                 required
                 disabled={locked}
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                value={draft.date}
+                onChange={(e) => set('date', e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -337,8 +291,8 @@ export function EntryDialog({
                 type="time"
                 required
                 disabled={locked}
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
+                value={draft.start}
+                onChange={(e) => set('start', e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -350,8 +304,8 @@ export function EntryDialog({
                 type="time"
                 required
                 disabled={locked}
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
+                value={draft.end}
+                onChange={(e) => set('end', e.target.value)}
               />
             </div>
           </div>
@@ -360,8 +314,8 @@ export function EntryDialog({
             <input
               type="checkbox"
               disabled={locked}
-              checked={billable}
-              onChange={(e) => setBillable(e.target.checked)}
+              checked={draft.billable}
+              onChange={(e) => set('billable', e.target.checked)}
               className="size-4 accent-[var(--text-muted)]"
             />
             Billable

@@ -174,4 +174,30 @@ describe('ClientList', () => {
     );
     expect(screen.getByText('Quill')).toBeInTheDocument();
   });
+
+  it('says a failed query failed, rather than loading forever', async () => {
+    search.value = new URLSearchParams();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ code: 'INTERNAL', message: 'boom' }), {
+            status: 500,
+          }),
+      ),
+    );
+    render(<ClientList />, { wrapper });
+
+    /* The regression this exists for: every screen hand-rolled loading and
+       empty and none wrote a failure, so an errored query said "Loading…"
+       for as long as the tab stayed open. */
+    await waitFor(() =>
+      expect(screen.getByText(/could not load/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
+
+    /* Neutral, never red: a list that could not load is a condition, not a
+       rejected action. */
+    expect(screen.getByText(/could not load/i).className).not.toMatch(/danger/);
+  });
 });

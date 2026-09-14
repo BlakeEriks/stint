@@ -423,7 +423,7 @@
       <tr>
         <td><code>motion-settle</code> <span class="num">260ms</span></td>
         <td><div class="mo" style="--d:var(--motion-settle)"><i></i></div></td>
-        <td>Layout moving — a row leaving the inbox and the rows below closing the gap</td>
+        <td>Layout moving — a dialog arriving, a section opening</td>
       </tr>
     </table>
 
@@ -460,10 +460,8 @@
       layout moves at <code>motion-settle</code> or not at all.
     </p>
     <p>
-      Every duration honours <code>prefers-reduced-motion</code>. A transition
-      may drop to nothing; an animation whose <code>animationend</code> removes
-      an element runs at 1ms instead, because a zero-duration animation never
-      fires and the element would stay forever.
+      Every duration honours <code>prefers-reduced-motion</code>, and may drop
+      to nothing.
     </p>
   </section>
 

@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { api, type ClientWithScale } from '@/lib/client/api';
-import { Empty, Page, Panel } from './page';
+import { FilterTabs, Listing, Page } from './page';
 import { Plus } from 'lucide-react';
 import { formatCurrency } from '@stint/core';
 import { keys } from '@/lib/client/query-keys';
@@ -18,16 +18,15 @@ export function ClientList() {
   const status = params.get('status');
   const wantArchived = status === 'archived' || status === 'all';
 
-  const { data, isLoading } = useQuery({
+  const query = useQuery({
     queryKey: keys.clients({ archived: wantArchived, scale: true }),
     queryFn: () =>
       api.clients({ includeArchived: wantArchived, withScale: true }),
+    /* The API includes archived rather than returning only them, so
+       "Archived" narrows what came back. */
+    select: (r) =>
+      status === 'archived' ? r.clients.filter((c) => c.archivedAt) : r.clients,
   });
-
-  /* The API includes archived rather than returning only them, so
-     "Archived" narrows what came back. */
-  const all = data?.clients ?? [];
-  const clients = status === 'archived' ? all.filter((c) => c.archivedAt) : all;
 
   return (
     <Page>
@@ -41,56 +40,43 @@ export function ClientList() {
         </Button>
       </header>
 
-      <nav aria-label="Filter" className="flex gap-1 pb-2">
-        {[
-          { key: null, label: 'Active' },
-          { key: 'archived', label: 'Archived' },
-          { key: 'all', label: 'All' },
-        ].map(({ key, label }) => {
-          const active = key === null ? !status : status === key;
-          return (
-            <Link
-              key={label}
-              href={key ? `/clients?status=${key}` : '/clients'}
-              aria-current={active ? 'page' : undefined}
-              className={`rounded-md px-2 py-1 type-label ${
-                active
-                  ? 'bg-surface-elevated text-strong'
-                  : 'text-subtle hover:text-muted'
-              }`}
-            >
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
+      <div className="pb-2">
+        <FilterTabs
+          base="/clients"
+          active={status}
+          tabs={[
+            { key: null, label: 'Active' },
+            { key: 'archived', label: 'Archived' },
+            { key: 'all', label: 'All' },
+          ]}
+        />
+      </div>
 
-      {isLoading ? (
-        <Panel>
-          <Empty>Loading…</Empty>
-        </Panel>
-      ) : clients.length === 0 ? (
-        <Panel>
-          <Empty>
-            {status === 'archived'
-              ? 'No archived clients.'
-              : status === 'all'
-                ? 'No clients yet.'
-                : 'No clients yet. Add one to set a rate and bill against it.'}
-          </Empty>
-        </Panel>
-      ) : (
-        /* Each row is its own card so the client's colour reads as that row's
-           left edge. Inside one panel the edges would butt together into a
-           single striped bar that belongs to no row in particular. */
-        <ul className="flex flex-col gap-2">
-          {clients.map((client) => (
-            <li key={client.id}>
-              <Row client={client} />
-            </li>
-          ))}
-        </ul>
-      )}
+      {/* Each row is its own card so the client's colour reads as that row's
+          left edge. Inside one panel the edges would butt together into a
+          single striped bar that belongs to no row in particular — hence
+          `panel`, which puts one around the message alone. */}
+      <Listing
+        query={query}
+        panel
+        empty={
+          status === 'archived'
+            ? 'No archived clients.'
+            : status === 'all'
+              ? 'No clients yet.'
+              : 'No clients yet. Add one to set a rate and bill against it.'
+        }
+      >
+        {(clients) => (
+          <ul className="flex flex-col gap-2">
+            {clients.map((client) => (
+              <li key={client.id}>
+                <Row client={client} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Listing>
     </Page>
   );
 }

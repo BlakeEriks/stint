@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Field, inputClass, Section, textareaClass } from './field';
@@ -8,6 +8,7 @@ import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
 import { api, type Settings, type SettingsInput } from '@/lib/client/api';
 import { type Theme, useTheme } from '@/lib/client/use-theme';
+import { Listing } from './page';
 import { keys } from '@/lib/client/query-keys';
 
 /**
@@ -22,22 +23,36 @@ import { keys } from '@/lib/client/query-keys';
  * user is actually looking at.
  */
 export function SettingsForm() {
-  const queryClient = useQueryClient();
-  const { theme, setTheme } = useTheme();
-  const { data, isLoading } = useQuery({
+  const query = useQuery({
     queryKey: keys.settings(),
     queryFn: api.settings,
   });
 
-  const [form, setForm] = useState<Settings | null>(null);
+  return (
+    <Listing query={query}>{(loaded) => <Cards loaded={loaded} />}</Listing>
+  );
+}
+
+/**
+ * The cards, seeded from the server's answer once.
+ *
+ * Seeded rather than controlled by the query: an autosave invalidates
+ * `settings`, and a form that followed every refetch would overwrite what the
+ * user is typing with what it last sent.
+ */
+function Cards({ loaded }: { loaded: Settings }) {
+  const queryClient = useQueryClient();
+  const { theme, setTheme } = useTheme();
+  const { data: server } = useQuery({
+    queryKey: keys.settings(),
+    queryFn: api.settings,
+  });
+
+  const [form, setForm] = useState<Settings>(loaded);
   /** What the unit select shows, which outlives an empty target. */
-  const [goalUnit, setGoalUnit] = useState<'hours' | 'revenue'>('hours');
-  useEffect(() => {
-    if (data && form === null) {
-      setForm(data);
-      if (data.monthlyTargetUnit) setGoalUnit(data.monthlyTargetUnit);
-    }
-  }, [data, form]);
+  const [goalUnit, setGoalUnit] = useState<'hours' | 'revenue'>(
+    loaded.monthlyTargetUnit ?? 'hours',
+  );
 
   /**
    * `nextInvoiceNumber` is server-owned — gapless numbering depends on
@@ -59,15 +74,11 @@ export function SettingsForm() {
   const numbering = useAutosave(persist);
   const goal = useAutosave(persist);
 
-  if (isLoading || !form) {
-    return <p className="type-support text-subtle">Loading…</p>;
-  }
-
   /** Update local state, then schedule that card's save with the new value. */
   const edit =
     (card: ReturnType<typeof useAutosave<SettingsInput>>) =>
     <K extends keyof Settings>(key: K, value: Settings[K]) => {
-      setForm((f) => (f ? { ...f, [key]: value } : f));
+      setForm((f) => ({ ...f, [key]: value }));
       card.schedule({ [key]: value } as SettingsInput);
     };
 
@@ -87,9 +98,11 @@ export function SettingsForm() {
   const setGoal = (target: number | null, unit: 'hours' | 'revenue') => {
     setGoalUnit(unit);
     const paired = target === null ? null : unit;
-    setForm((f) =>
-      f ? { ...f, monthlyTarget: target, monthlyTargetUnit: paired } : f,
-    );
+    setForm((f) => ({
+      ...f,
+      monthlyTarget: target,
+      monthlyTargetUnit: paired,
+    }));
     goal.schedule({ monthlyTarget: target, monthlyTargetUnit: paired });
   };
 
@@ -309,8 +322,10 @@ export function SettingsForm() {
             hint="Set by the system so numbering stays gapless."
             className="flex-1 basis-40"
           >
+            {/* The server's value, never the seeded form's: this one is
+                allocated under a row lock and the form never writes it. */}
             <p className="flex h-9 items-center type-duration text-muted">
-              {data?.nextInvoiceNumber ?? '—'}
+              {server?.nextInvoiceNumber ?? '—'}
             </p>
           </Field>
         </div>

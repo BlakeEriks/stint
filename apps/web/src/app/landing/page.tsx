@@ -379,6 +379,12 @@ function Aside({
  * Deliberately rendered on white with near-black figures. The real PDF sets
  * its total in the light-theme accent, which is correct on paper but would
  * put a second green meaning on this page beside the CTA.
+ *
+ * Hardcoded hexes, for the same reason `invoice-pdf.tsx` has them: this is
+ * ink on paper, not app chrome, so the dark-theme utilities do not apply.
+ * Each is the LIGHT value of a token — `#1A1C21` text-primary, `#626875`
+ * text-muted, `#848B98` text-subtle, `#D1D5DD` border-default, `#E4E6EC`
+ * border-subtle, `#F2F3F6` bg-primary.
  */
 function InvoicePreview() {
   const lines = [

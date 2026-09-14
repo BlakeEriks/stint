@@ -167,9 +167,9 @@
 
     <ul class="rule">
       <li><strong>A list filter lives in the URL.</strong>
-        <code>nav aria-label="Filter"</code> of <code>Link</code> pills above
-        the list, <code>aria-current="page"</code> on the active one, and the
-        default view has no query at all. The view is then linkable and Back
+        <code>FilterTabs</code> draws the pills, marks the active one
+        <code>aria-current="page"</code>, and gives the default view no query
+        at all. The view is then linkable and Back
         returns to it — <code>/invoices</code> and <code>/clients</code> both
         do this, and a component reading <code>useSearchParams</code> needs a
         <code>Suspense</code> boundary in its <code>page.tsx</code> or
@@ -195,19 +195,25 @@
 
   <!-- ═══════════════ the shared three ═══════════════ -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Panel, Empty, DetailPage</span></div>
+    <div class="sec-head"><span class="eyebrow">Panel, Listing, Empty, FilterTabs, DetailPage</span></div>
 
     <p>
-      All three live in <code>page.tsx</code> beside <code>Page</code>, because
+      All of them live in <code>page.tsx</code> beside <code>Page</code>, because
       they are the column's furniture rather than any one screen's.
     </p>
 
-<pre><span class="c">// A list, and the message standing in for one.</span>
+<pre><span class="c">// A list, and the three messages standing in for one.</span>
 &lt;<span class="k">Panel</span>&gt;
-  {isLoading ? &lt;<span class="k">Empty</span>&gt;Loading…&lt;/<span class="k">Empty</span>&gt;
-   : rows.length === 0 ? &lt;<span class="k">Empty</span>&gt;Nothing yet. Add one to…&lt;/<span class="k">Empty</span>&gt;
-   : &lt;ul&gt;…&lt;/ul&gt;}
+  &lt;<span class="k">Listing</span> query={q} empty="Nothing yet. Add one to…"&gt;
+    {(rows) =&gt; &lt;ul&gt;…&lt;/ul&gt;}
+  &lt;/<span class="k">Listing</span>&gt;
 &lt;/<span class="k">Panel</span>&gt;
+
+<span class="c">// A screen about ONE record says so when it is gone.</span>
+&lt;<span class="k">Listing</span> query={q} missing="That client no longer exists."&gt;…&lt;/<span class="k">Listing</span>&gt;
+
+<span class="c">// The filter above a list, in the URL rather than in state.</span>
+&lt;<span class="k">FilterTabs</span> base="/clients" active={status} tabs={[…]} /&gt;
 
 <span class="c">// A group of panels, aligned whether or not each has a colour.</span>
 &lt;<span class="k">Panel</span> edge color={client?.color}&gt;…&lt;/<span class="k">Panel</span>&gt;
@@ -221,6 +227,16 @@
         client has a colour — "No client" is a grouping rather than a record,
         so it gets the space and no colour. A standalone panel omits
         <code>edge</code> and has nothing to align with.</li>
+      <li><strong><code>Listing</code> renders loading, failure and empty</strong>,
+        so no screen writes those branches. Before it, ten screens wrote two of
+        the three and none wrote the third — a query that errored said
+        "Loading…" for as long as the screen stayed open.</li>
+      <li><strong>A failed load is neutral, never red.</strong> It is a
+        condition rather than a rejected action, and the answer is to try
+        again. Red stays on the danger channel.</li>
+      <li><strong><code>panel</code> wraps the MESSAGE alone</strong>, for a
+        list whose rows are cards of their own — a panel around those would
+        nest a card inside a card.</li>
       <li><strong><code>Empty</code> takes <code>tight</code></strong> for the
         in-page variant: today's entries sit under a heading that already has
         space above it, where a list filling its own panel does not.</li>

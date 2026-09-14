@@ -9,7 +9,7 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import { useProjectColors } from '@/lib/client/use-project-colors';
 import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
-import { Empty, Panel } from './page';
+import { Listing, Panel } from './page';
 import { keys } from '@/lib/client/query-keys';
 
 /**
@@ -25,13 +25,13 @@ export function EntryList({
 }) {
   const from = startOfLocalDay(new Date(), tz).toISOString();
 
-  const { data, isLoading } = useQuery({
+  const query = useQuery({
     queryKey: keys.entries({ from }),
     queryFn: () => api.entries({ from }),
+    // A running entry is shown in the timer bar, not duplicated here.
+    select: (r) => r.entries.filter((e) => e.endedAt !== null),
   });
 
-  // A running entry is shown in the timer bar, not duplicated here.
-  const entries = (data?.entries ?? []).filter((e) => e.endedAt !== null);
   const byId = new Map(projects.map((p) => [p.id, p]));
   const colors = useProjectColors();
 
@@ -64,24 +64,26 @@ export function EntryList({
       </header>
 
       <Panel>
-        {isLoading ? (
-          <Empty tight>Loading…</Empty>
-        ) : entries.length === 0 ? (
-          <Empty tight>Nothing logged yet today. Start a timer above.</Empty>
-        ) : (
-          <ul>
-            {entries.map((entry) => (
-              <li key={entry.id}>
-                <Row
-                  entry={entry}
-                  project={byId.get(entry.projectId ?? '')}
-                  color={colors.get(entry.projectId ?? '')}
-                  onEdit={() => openFor(entry)}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
+        <Listing
+          query={query}
+          tight
+          empty="Nothing logged yet today. Start a timer above."
+        >
+          {(entries) => (
+            <ul>
+              {entries.map((entry) => (
+                <li key={entry.id}>
+                  <Row
+                    entry={entry}
+                    project={byId.get(entry.projectId ?? '')}
+                    color={colors.get(entry.projectId ?? '')}
+                    onEdit={() => openFor(entry)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Listing>
       </Panel>
 
       <EntryDialog

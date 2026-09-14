@@ -12,9 +12,9 @@ import { useEffect } from 'react';
  * imported by the layout that is not rendering.
  *
  * So the styles here are inline and hardcoded, which is the one place in the
- * app that is allowed. They are the token VALUES (`bg-recessed`, `text-strong`,
- * `text-muted`) rather than invented greys, so it still looks like Stint —
- * but they cannot be `var(--color-…)`, because nothing defined those.
+ * app that is allowed. Every hex is a copy of a token's dark value rather
+ * than an invented grey, so it still looks like Stint — but none of them can
+ * be `var(--color-…)`, because nothing defined those.
  *
  * Dark, unconditionally. The palette is dark-first and light applies only
  * under an explicit `[data-theme="light"]` that nothing is here to set.
@@ -44,8 +44,8 @@ export default function GlobalError({
           alignItems: 'center',
           justifyContent: 'center',
           padding: '24px',
-          background: '#0A0B0E',
-          color: '#F9FAFD',
+          background: '#0A0B0E', // bg-recessed
+          color: '#F9FAFD', // text-strong
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
         }}
@@ -73,7 +73,7 @@ export default function GlobalError({
             style={{
               fontSize: '15px',
               lineHeight: 1.5,
-              color: '#9299A6',
+              color: '#9299A6', // text-muted
               margin: '0 0 20px',
             }}
           >
@@ -90,9 +90,9 @@ export default function GlobalError({
               fontWeight: 500,
               padding: '10px 16px',
               borderRadius: '8px',
-              border: '1px solid #393E48',
-              background: '#202328',
-              color: '#F9FAFD',
+              border: '1px solid #393E48', // border-default
+              background: '#202328', // bg-elevated
+              color: '#F9FAFD', // text-strong
               cursor: 'pointer',
             }}
           >
@@ -105,7 +105,7 @@ export default function GlobalError({
                 fontFamily:
                   'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
                 fontSize: '11.5px',
-                color: '#838A97',
+                color: '#838A97', // text-subtle
                 margin: '20px 0 0',
               }}
             >

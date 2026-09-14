@@ -557,6 +557,11 @@ not move it to the root; `e2e/error-boundary.spec.ts` fails if you do.
 primitive to reach for, the conventions that repeat across screens, and the
 shapes already duplicated. Read it before adding a component.
 
+**A query renders through `Listing`**, which owns loading, failure and empty,
+so no screen writes those branches. Hand-rolling them is how ten screens each
+had two of the three and none had the third — a failed query said "Loading…"
+until the tab was closed.
+
 `components/ui/` is **vendored shadcn**, rewritten to our tokens at install by
 `apps/web/scripts/shadcn-detox.mjs`. shadcn's palette names are not defined in
 `@theme`: two collide with ours and mean the opposite — its `bg-primary` is

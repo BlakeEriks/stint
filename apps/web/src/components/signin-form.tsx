@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { browserClient } from '@/lib/client/supabase';
 
 /**
@@ -93,15 +94,11 @@ export function SignInForm({ error }: { error?: string }) {
             />
           </label>
 
-          <button
-            type="submit"
-            disabled={state === 'sending'}
-            className="rounded-md bg-accent-default px-3 py-2 type-control font-medium
-                       text-on-accent transition-colors hover:bg-accent-hover
-                       disabled:opacity-60"
-          >
+          {/* The one screen with no timer in view, so the accent is free to
+              mark its single action. */}
+          <Button type="submit" variant="accent" disabled={state === 'sending'}>
             {state === 'sending' ? 'Sending…' : 'Email me a sign-in link'}
-          </button>
+          </Button>
 
           {state === 'error' ? (
             /* role=alert so a failed request is announced rather than only

@@ -58,7 +58,7 @@ export function useAdjustingEntry(): [
  * `dismissed` resets when the overrun ends, so Keep silences THIS overrun
  * rather than the feature.
  */
-export function useRunaway(onRetired?: () => void) {
+export function useRunaway() {
   const timer = useTimer();
   const exceeded = timer.exceedsThreshold;
   const queryClient = useQueryClient();
@@ -74,17 +74,9 @@ export function useRunaway(onRetired?: () => void) {
   /* Stop first, then edit. A running entry has no end yet, so there is
      nothing to adjust until it is stopped — and stopping is what the user
      meant by "I left it going". */
-  /* Both remove the row by CHANGING SERVER STATE — the timer stops, so
-     `exceeded` goes false on the refetch and the row unmounts in the same
-     commit. `onRetired` fires first so a caller animating that row can claim
-     it while it is still rendered.
-
-     On success rather than on click: discard is two requests, and collapsing a
-     row whose deletion might still fail would mean bringing it back. */
   const adjust = useMutation({
     mutationFn: () => api.stopTimer(),
     onSuccess: (entry) => {
-      onRetired?.();
       invalidateAll();
       setAdjusting(entry);
     },
@@ -95,10 +87,7 @@ export function useRunaway(onRetired?: () => void) {
       const entry = await api.stopTimer();
       await api.deleteEntry(entry.id);
     },
-    onSuccess: () => {
-      onRetired?.();
-      invalidateAll();
-    },
+    onSuccess: invalidateAll,
   });
 
   return {

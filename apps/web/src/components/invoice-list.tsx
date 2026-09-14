@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { StatusBadge, formatCurrency, shortDate } from './invoice-bits';
 import { api, type Invoice, type InvoiceStatus } from '@/lib/client/api';
-import { Empty, Page, Panel } from './page';
+import { FilterTabs, Listing, Page, Panel } from './page';
 import { Check, Plus } from 'lucide-react';
 import { keys } from '@/lib/client/query-keys';
 
@@ -34,16 +34,17 @@ export function InvoiceList() {
   const status = params.get('status');
   const showAll = status === 'all';
 
-  const { data, isLoading } = useQuery({
+  const query = useQuery({
     queryKey: keys.invoices(),
     queryFn: () => api.invoices(),
+    select: (r) => r.invoices,
   });
   const { data: clientData } = useQuery({
     queryKey: keys.clients(),
     queryFn: () => api.clients({ includeArchived: true }),
   });
 
-  const all = data?.invoices ?? [];
+  const all = query.data ?? [];
   const names = new Map((clientData?.clients ?? []).map((c) => [c.id, c.name]));
 
   const invoices = showAll
@@ -79,29 +80,15 @@ export function InvoiceList() {
       </header>
 
       <div className="flex items-baseline justify-between gap-3 pb-2">
-        <nav aria-label="Filter" className="flex gap-1">
-          {[
+        <FilterTabs
+          base="/invoices"
+          active={status}
+          tabs={[
             { key: null, label: 'Open' },
             { key: 'paid', label: 'Paid' },
             { key: 'all', label: 'All' },
-          ].map(({ key, label }) => {
-            const active = key === null ? !status : status === key;
-            return (
-              <Link
-                key={label}
-                href={key ? `/invoices?status=${key}` : '/invoices'}
-                aria-current={active ? 'page' : undefined}
-                className={`rounded-md px-2 py-1 type-label ${
-                  active
-                    ? 'bg-surface-elevated text-strong'
-                    : 'text-subtle hover:text-muted'
-                }`}
-              >
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
+          ]}
+        />
 
         {outstanding > 0 ? (
           <span className="type-support text-subtle">
@@ -114,32 +101,35 @@ export function InvoiceList() {
       </div>
 
       <Panel>
-        {isLoading ? (
-          <Empty>Loading…</Empty>
-        ) : invoices.length === 0 ? (
-          <Empty>
-            {all.length === 0
+        {/* The filtered list is what the screen shows, so it decides the
+            empty state; `all` only chooses which message. */}
+        <Listing
+          query={{ ...query, data: query.data ? invoices : undefined }}
+          empty={
+            all.length === 0
               ? 'No invoices yet. Preview a period to see what it would bill.'
-              : 'Nothing open. Everything issued has been paid.'}
-          </Empty>
-        ) : (
-          <ul>
-            {invoices.map((invoice) => (
-              <li key={invoice.id}>
-                <Row
-                  invoice={invoice}
-                  clientName={names.get(invoice.clientId)}
-                  onMarkPaid={
-                    invoice.status === 'sent'
-                      ? () => markPaid.mutate(invoice.id)
-                      : undefined
-                  }
-                  busy={markPaid.isPending}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
+              : 'Nothing open. Everything issued has been paid.'
+          }
+        >
+          {(rows) => (
+            <ul>
+              {rows.map((invoice) => (
+                <li key={invoice.id}>
+                  <Row
+                    invoice={invoice}
+                    clientName={names.get(invoice.clientId)}
+                    onMarkPaid={
+                      invoice.status === 'sent'
+                        ? () => markPaid.mutate(invoice.id)
+                        : undefined
+                    }
+                    busy={markPaid.isPending}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Listing>
       </Panel>
     </Page>
   );

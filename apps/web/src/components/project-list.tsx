@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, type Client, type Project } from '@/lib/client/api';
-import { Page, Panel } from './page';
+import { Listing, Page, Panel } from './page';
 import { ProjectDialog } from './project-dialog';
 import { ProjectRate } from './project-rate';
 import { formatCurrency } from '@stint/core';
@@ -36,7 +36,7 @@ export function ProjectList() {
   const [editing, setEditing] = useState<Project | undefined>();
   const [showArchived, setShowArchived] = useState(false);
 
-  const { data: projectData, isLoading } = useQuery({
+  const projectQuery = useQuery({
     queryKey: keys.projects({ archived: showArchived }),
     queryFn: () => api.projects({ includeArchived: showArchived }),
   });
@@ -52,8 +52,8 @@ export function ProjectList() {
   });
 
   const groups = useMemo(
-    () => group(projectData?.projects ?? [], clientData?.clients ?? []),
-    [projectData, clientData],
+    () => group(projectQuery.data?.projects ?? [], clientData?.clients ?? []),
+    [projectQuery.data, clientData],
   );
 
   return (
@@ -66,40 +66,39 @@ export function ProjectList() {
         </Button>
       </header>
 
-      {isLoading ? (
-        <Panel>
-          <p className="px-4 py-6 type-support text-subtle">Loading…</p>
-        </Panel>
-      ) : groups.length === 0 ? (
-        <Panel>
-          <p className="px-4 py-6 type-support text-subtle">
-            No projects yet. A project groups time entries and sets the rate
-            they bill at.
-          </p>
-        </Panel>
-      ) : (
-        <div className="flex flex-col gap-5">
-          {groups.map((g) => (
-            <section key={g.client?.id ?? '__none__'}>
-              <GroupHeading client={g.client} count={g.projects.length} />
-              <Panel edge color={g.client?.color}>
-                <ul>
-                  {g.projects.map((project) => (
-                    <li key={project.id}>
-                      <Row
-                        project={project}
-                        client={g.client}
-                        userDefaultRate={settings?.defaultHourlyRate ?? null}
-                        onEdit={() => setEditing(project)}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </Panel>
-            </section>
-          ))}
-        </div>
-      )}
+      {/* Each group is its own panel, so the message gets one of its own. */}
+      <Listing
+        query={{
+          ...projectQuery,
+          data: projectQuery.data ? groups : undefined,
+        }}
+        panel
+        empty="No projects yet. A project groups time entries and sets the rate they bill at."
+      >
+        {(shown) => (
+          <div className="flex flex-col gap-5">
+            {shown.map((g) => (
+              <section key={g.client?.id ?? '__none__'}>
+                <GroupHeading client={g.client} count={g.projects.length} />
+                <Panel edge color={g.client?.color}>
+                  <ul>
+                    {g.projects.map((project) => (
+                      <li key={project.id}>
+                        <Row
+                          project={project}
+                          client={g.client}
+                          userDefaultRate={settings?.defaultHourlyRate ?? null}
+                          onEdit={() => setEditing(project)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </Panel>
+              </section>
+            ))}
+          </div>
+        )}
+      </Listing>
 
       <button
         type="button"

@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, ApiError, type Client, type Project } from '@/lib/client/api';
-import { Panel } from './page';
+import { Listing, Panel } from './page';
 import { ProjectDialog } from './project-dialog';
 import { ProjectRate } from './project-rate';
 import { keys } from '@/lib/client/query-keys';
@@ -26,11 +26,11 @@ export function ClientProjects({ client }: { client: Client }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Project | undefined>();
 
-  const { data, isLoading } = useQuery({
+  const query = useQuery({
     queryKey: keys.projects({ clientId: client.id }),
     queryFn: () => api.projects({ clientId: client.id }),
+    select: (r) => r.projects,
   });
-  const projects = data?.projects ?? [];
 
   // The user default is the last link in the chain, so the row cannot say
   // where a rate came from without it.
@@ -55,31 +55,35 @@ export function ClientProjects({ client }: { client: Client }) {
       </header>
 
       <Panel>
-        {isLoading ? (
-          <p className="px-4 py-6 type-support text-subtle">Loading…</p>
-        ) : projects.length === 0 ? (
-          <p className="px-4 py-6 type-support text-subtle">
-            {client.archivedAt
+        <Listing
+          query={query}
+          tight
+          empty={
+            client.archivedAt
               ? 'No projects.'
-              : 'No projects yet. Time can be tracked against the client directly, but a project is how work gets grouped on an invoice.'}
-          </p>
-        ) : (
-          <ul>
-            {projects.map((project) => (
-              <li key={project.id}>
-                <Row
-                  project={project}
-                  client={client}
-                  userDefaultRate={settings?.defaultHourlyRate ?? null}
-                  onEdit={() => setEditing(project)}
-                  onArchived={() =>
-                    queryClient.invalidateQueries({ queryKey: keys.projects() })
-                  }
-                />
-              </li>
-            ))}
-          </ul>
-        )}
+              : 'No projects yet. Time can be tracked against the client directly, but a project is how work gets grouped on an invoice.'
+          }
+        >
+          {(projects) => (
+            <ul>
+              {projects.map((project) => (
+                <li key={project.id}>
+                  <Row
+                    project={project}
+                    client={client}
+                    userDefaultRate={settings?.defaultHourlyRate ?? null}
+                    onEdit={() => setEditing(project)}
+                    onArchived={() =>
+                      queryClient.invalidateQueries({
+                        queryKey: keys.projects(),
+                      })
+                    }
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Listing>
       </Panel>
 
       <ProjectDialog

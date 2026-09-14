@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ApiError } from '@/lib/client/api';
 
 /**
  * The content column.
@@ -132,5 +133,101 @@ export function Empty({
     >
       {children}
     </p>
+  );
+}
+
+/**
+ * A query's three non-answers, then its data.
+ *
+ * **The error state is why this exists.** Ten screens wrote the loading and
+ * empty branches by hand and none of them wrote a failed one, so a query that
+ * errored said "Loading…" for as long as the screen was open.
+ *
+ * Neutral, never red: a list that could not load is a condition rather than a
+ * destructive act, and the answer is to try again.
+ *
+ * `empty` is the message for data that arrived and holds nothing — omit it
+ * where the record is a single object, which is never empty, only missing.
+ */
+export function Listing<T>({
+  query,
+  empty,
+  missing,
+  tight = false,
+  panel = false,
+  children,
+}: {
+  query: { data: T | undefined; error: unknown; isLoading: boolean };
+  empty?: React.ReactNode;
+  /** What a 404 says, where the screen is about one record. */
+  missing?: React.ReactNode;
+  tight?: boolean;
+  /**
+   * Wrap the MESSAGE in a panel, for a list whose rows are cards of their
+   * own — a panel around those would nest a card inside a card.
+   */
+  panel?: boolean;
+  children: (data: T) => React.ReactNode;
+}) {
+  const message = (text: React.ReactNode) => {
+    const p = <Empty tight={tight}>{text}</Empty>;
+    return panel ? <Panel>{p}</Panel> : p;
+  };
+
+  if (query.isLoading) return message('Loading…');
+  if (query.error || query.data === undefined) {
+    const gone =
+      missing !== undefined &&
+      query.error instanceof ApiError &&
+      query.error.status === 404;
+    return message(gone ? missing : 'Could not load this. Try again.');
+  }
+  if (empty !== undefined && isEmpty(query.data)) return message(empty);
+  return <>{children(query.data)}</>;
+}
+
+/** An empty array is the only "nothing" a `Listing` decides on its own. */
+function isEmpty(data: unknown) {
+  return Array.isArray(data) && data.length === 0;
+}
+
+/**
+ * The filter above a list, as links.
+ *
+ * The filter lives in the URL rather than in local state, so the view is
+ * linkable and Back returns to it. `null` is the default view, which carries
+ * no query at all.
+ */
+export function FilterTabs({
+  base,
+  active,
+  tabs,
+}: {
+  /** The list's own path, e.g. `/clients`. */
+  base: string;
+  /** The current `status` param, or null for the default view. */
+  active: string | null;
+  tabs: { key: string | null; label: string }[];
+}) {
+  return (
+    <nav aria-label="Filter" className="flex gap-1">
+      {tabs.map(({ key, label }) => {
+        const on = key === active;
+        return (
+          <Link
+            key={label}
+            href={key ? `${base}?status=${key}` : base}
+            aria-current={on ? 'page' : undefined}
+            className={`rounded-md px-2 py-1 type-label ${
+              on
+                ? 'bg-surface-elevated text-strong'
+                : 'text-subtle hover:text-muted'
+            }`}
+          >
+            {label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }

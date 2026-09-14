@@ -296,6 +296,12 @@ export function Calendar() {
         </p>
       ) : cal.isLoading ? (
         <p className="mt-3 type-support text-subtle">Loading…</p>
+      ) : cal.isError ? (
+        /* Neutral: the grid is still drawn and correct, it just has nothing
+           in it — a failed fetch is a condition, not a rejected action. */
+        <p className="mt-3 type-support text-subtle">
+          Could not load these entries. Try again.
+        </p>
       ) : cal.visibleSeconds === 0 ? (
         /* Says what is actually empty. "Nothing logged this week" over a
            single day's grid would be wrong whenever the rest of the week has
@@ -455,8 +461,12 @@ function DayHeading({
       {nameless ? null : (
         <>
           <div className="type-label text-subtle">{weekday}</div>
+          {/* Today takes the heavier role as well as the stronger ink: one
+              column out of seven has to be findable without reading. */}
           <div
-            className={`type-body ${today ? 'font-semibold text-strong' : 'text-primary'}`}
+            className={
+              today ? 'type-heading text-strong' : 'type-body text-primary'
+            }
           >
             {dayNum}
           </div>
