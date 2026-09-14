@@ -209,26 +209,44 @@ private struct TimerPanel: View {
     /// Neutral, because the accent is spent on the running clock — and when
     /// nothing runs there is nothing live to mark.
     ///
-    /// `menubar.html` pairs it with an Unbilled figure. `/summary` does not
-    /// carry one yet; `tasks.md` has the entry.
+    /// Unbilled comes from `/stats`, which the web home screen already reads.
+    /// It is work DONE and not yet invoiced — never summed with money already
+    /// asked for, which would double-count the same hours.
     private var stats: some View {
         HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Today")
-                    .font(.system(size: 10, weight: .medium))
-                    .textCase(.uppercase)
-                    .tracking(1.6)
-                    .foregroundStyle(Tokens.Dark.textSubtle)
-                Text(format(model.todaySeconds))
-                    .font(.system(size: 15, design: .monospaced))
-                    .monospacedDigit()
-                    .foregroundStyle(Tokens.Dark.textStrong)
-                    .contentTransition(.numericText())
+            statistic("Today", value: format(model.todaySeconds))
+            Spacer(minLength: 12)
+            // Absent until the first fetch: a zero here would read as
+            // "nothing owed", which is a different claim from "not known yet".
+            if let unbilled = model.stats {
+                statistic(
+                    "Unbilled",
+                    value: money(unbilled.unbilled.total, code: unbilled.currency),
+                    trailing: true
+                )
             }
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
+    }
+
+    private func statistic(
+        _ label: String,
+        value: String,
+        trailing: Bool = false
+    ) -> some View {
+        VStack(alignment: trailing ? .trailing : .leading, spacing: 2) {
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .textCase(.uppercase)
+                .tracking(1.6)
+                .foregroundStyle(Tokens.Dark.textSubtle)
+            Text(value)
+                .font(.system(size: 15, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(Tokens.Dark.textStrong)
+                .contentTransition(.numericText())
+        }
     }
 
     private func commit() {

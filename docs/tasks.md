@@ -37,17 +37,6 @@ later.
       Home renders for weeks after it stopped being true. Either delete them
       with their tests, or record the condition that would bring them back.
 
-- [ ] **The menu bar panel's stats row is half of what the spec draws.**
-      `menubar.html` pairs Today with an **Unbilled** total, and `/summary`
-      carries no such figure — it returns `running`, `todaySeconds`,
-      `weekSeconds` and the threshold. The web home screen gets its number
-      from the `unbilled_by_client` rollup, so the work is adding it to
-      `/summary` rather than a new endpoint.
-
-      Note the coalesce chain in that view has to stay identical to
-      `resolve_entry_rate`, which `CLAUDE.md` already records as written three
-      times with nothing checking it.
-
 - [ ] **The menu bar panel shows no client colour.** `menubar.html` draws a
       dot beside the project name in both states, which is the same thing the
       calendar and entry list use to answer *whose work is this?*. Swift's
@@ -59,8 +48,12 @@ later.
 - [ ] **The menu bar panel has no entry list.** `menubar.html` draws today's
       entries under the stats row in both states ("Earlier today" while
       running), which is what makes the panel worth opening rather than
-      glancing at. Needs `/entries?from=` in `API.swift` and a row view; the
-      web `entry-list.tsx` is the reference for what a row carries.
+      glancing at.
+
+      **No API work:** `/entries?from=` already takes a start instant, the
+      same call `entry-list.tsx` makes. It needs a `TimeEntry` fetch in
+      `API.swift` and a row view — name on the left, duration right in mono.
+      The running entry is excluded, since it is the readout above.
 
 - [ ] **`Start` is a labelled rectangle** where the app's transport is a
       round button with a single glyph. The running state is already the

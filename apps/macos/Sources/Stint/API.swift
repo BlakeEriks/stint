@@ -29,6 +29,23 @@ private struct ProjectList: Codable {
     let projects: [Project]
 }
 
+/// `GET /stats`, narrowed to what the panel draws.
+///
+/// The route carries the whole home screen — pace, billable ratio, overdue
+/// invoices. Decoding two fields keeps this app from acquiring an opinion
+/// about numbers it does not show, and `Codable` ignores the rest.
+///
+/// **Unbilled is work DONE and not yet invoiced.** Never summed with
+/// `awaitingPayment`, which is money already asked for — adding them
+/// double-counts the same hours.
+struct Stats: Codable, Equatable {
+    struct Unbilled: Codable, Equatable {
+        let total: Double
+    }
+    let currency: String
+    let unbilled: Unbilled
+}
+
 /// `GET /summary` — the one call this app is built around.
 ///
 /// It carries the running entry AND the day total precisely so the menu bar
@@ -114,6 +131,20 @@ actor API {
         try await request(
             "GET",
             "/summary?tz=\(timeZone.identifier)",
+            body: Optional<Never>.none
+        )
+    }
+
+    /// `GET /stats` — for the panel's Unbilled figure alone.
+    ///
+    /// The route returns the whole home screen's worth: pace, billable ratio,
+    /// overdue invoices, stale drafts. `Stats` here decodes the two fields the
+    /// panel shows and `Codable` drops the rest, so this app never grows an
+    /// opinion about numbers it does not display.
+    func stats(timeZone: TimeZone = .current) async throws -> Stats {
+        try await request(
+            "GET",
+            "/stats?tz=\(timeZone.identifier)",
             body: Optional<Never>.none
         )
     }

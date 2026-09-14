@@ -15,6 +15,10 @@ final class TimerModel {
     // MARK: Presented state
 
     private(set) var summary: Summary?
+    /// Only the Unbilled figure is read from this. Nil until the first fetch,
+    /// and the row simply omits the number rather than showing a zero that
+    /// would read as "nothing owed".
+    private(set) var stats: Stats?
     private(set) var projects: [Project] = []
     private(set) var email: String?
     private(set) var isSignedIn = false
@@ -177,6 +181,11 @@ final class TimerModel {
             self.summary = summary
             self.errorMessage = nil
             if projects.isEmpty { projects = (try? await api.projects()) ?? [] }
+            /* `try?`, deliberately. Unbilled is a figure beside the clock, and
+               the clock is what this app is for — a failing /stats hides one
+               number rather than surfacing an error over a working timer. The
+               stale value stays up until the next poll replaces it. */
+            if let fetched = try? await api.stats() { stats = fetched }
         } catch let error as APIError where error.isUnauthorized {
             // The session is gone; saying "signed out" is the useful message,
             // not "401".
@@ -265,6 +274,9 @@ final class TimerModel {
     func signOut() async {
         await tokens.signOut()
         summary = nil
+        // Money especially: the next account's panel must not open showing
+        // the last one's unbilled total.
+        stats = nil
         projects = []
     }
 }
@@ -276,4 +288,18 @@ final class TimerModel {
 func format(_ seconds: Int) -> String {
     let s = max(0, seconds)
     return String(format: "%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
+}
+
+/// `$1,462.50`, matching `money()` in the web app.
+///
+/// **`en_US` regardless of the device's locale**, because the web formatter is
+/// pinned to `en-US` and the same figure must not read as `1.462,50 $` in one
+/// app and `$1,462.50` in the other. The product is US-first; the currency
+/// CODE varies, its presentation does not.
+func money(_ amount: Double, code: String) -> String {
+    let f = NumberFormatter()
+    f.numberStyle = .currency
+    f.locale = Locale(identifier: "en_US")
+    f.currencyCode = code
+    return f.string(from: NSNumber(value: amount)) ?? "\(amount)"
 }
