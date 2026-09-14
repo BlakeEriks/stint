@@ -185,6 +185,21 @@ ${elevationTheme()}
    fiction — which is what these replace. Adding a size means adding a role
    here, with a reason, not an arbitrary value at the call site. */
 ${typeUtilities()}
+
+/* The bound that makes |Stint| a mark rather than a word. A drawn rule, not
+   a \`|\` glyph: the pipe carries its own side bearings and sits on the text
+   baseline, so it renders short of the cap height and too far from the
+   letters. Sized in em off the mark's own font-size, and \`currentColor\` so
+   one mark works on any ground. */
+@utility mark-bound {
+  display: inline-block;
+  flex: none;
+  width: var(--mark-bound-width);
+  height: var(--mark-bound-height);
+  margin-inline: var(--mark-bound-gap);
+  border-radius: var(--mark-bound-radius);
+  background: currentColor;
+}
 `;
 writeFileSync(join(out, 'tokens.css'), css);
 

@@ -33,6 +33,14 @@ struct StintApp: App {
 
     }
 
+    /// Amber outranks green: a runaway is still running, and the whole point
+    /// of surfacing it on the bar is that it reaches someone whose panel is
+    /// shut.
+    private var pipFill: Color {
+        guard model.isRunning else { return Tokens.Dark.timerIdle }
+        return model.exceedsThreshold ? Tokens.Dark.warning : Tokens.Dark.accentDefault
+    }
+
     var body: some Scene {
         MenuBarExtra {
             ContentView(model: model)
@@ -46,24 +54,20 @@ struct StintApp: App {
             // total when none does — the toggle `/summary` exists to serve,
             // answered from one request rather than two.
             //
-            // The mark goes through `markImage` rather than the SwiftUI
-            // `Mark` view: this label is rasterised into a status item and
-            // only renders Text and Image reliably, so the shapes that draw
-            // the bounds were dropped and the mark appeared as a bare `S`.
-            //
-            // Monochrome it ships as a TEMPLATE image, which is what makes
-            // AppKit tint it for a light or dark bar. The running state opts
-            // out, because a template is a mask and would discard the accent.
+            // The pip carries the state and the readout carries the number.
+            // `menubar.html` is the spec; the fills are its three.
             //
             // The accent here is the DARK value. On a light menu bar #52FC43
             // is ~1.6:1, which is why the light palette drops it to #1F7E17 —
-            // if the mark ever looks washed out on a light bar, that swap is
+            // if the pip ever looks washed out on a light bar, that swap is
             // the fix, not a brighter green.
-            /* 7pt, not 4. The mark's own right edge is a vertical bar and
-               the clock beside it is mono, so at 4pt `|S|` and `3:55:00` read
-               as one string — the icon looks like a prefix rather than an
-               icon. The gap is what separates them while the timer is
-               stopped and everything is the same colour. */
+            //
+            // `timerIdle` stopped rather than a template image: a template is
+            // a mask that takes the bar's own foreground, so the stopped pip
+            // would be as loud as a running one.
+            /* 7pt, not 4. The clock beside it is mono and the pip is small,
+               so a tight gap reads as a prefix on the number rather than an
+               icon of its own. */
             /* `task` on the LABEL, not on the panel's content.
                `MenuBarExtra` does not build its content until the panel is
                first opened, so starting there left the menu bar stale until
@@ -76,11 +80,7 @@ struct StintApp: App {
                App before the run loop is ready. It failed silently, with zero
                network connections, which is exactly how it was found. */
             HStack(spacing: 7) {
-                Image(nsImage: markImage(
-                    accent: model.isRunning
-                        ? NSColor(Tokens.Dark.accentDefault)
-                        : nil
-                ))
+                Image(nsImage: pipImage(fill: NSColor(pipFill)))
                 /* Right-aligned in a fixed slot, so the MARK never moves.
                    `MenuBarExtra` centres its whole label, so a clock that
                    grows from 9:59:59 to 10:00:00 re-centres everything and

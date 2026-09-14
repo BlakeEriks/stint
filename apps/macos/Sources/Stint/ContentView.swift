@@ -580,7 +580,7 @@ private struct SignInPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Lockup(expanded: true, size: 17)
+            Lockup(size: 17)
                 .padding(.bottom, 2)
 
             Text("We'll email you a six-digit code.")
