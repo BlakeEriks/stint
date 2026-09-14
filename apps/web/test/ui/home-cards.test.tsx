@@ -46,7 +46,7 @@ function wrapper({ children }: { children: ReactNode }) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('HomeCards', () => {
-  it('hides the pace card entirely when no target is set', async () => {
+  it('keeps the pace card with no target, offering a way to set one', async () => {
     /* Give it something to render, so "nothing rendered at all" cannot make
        this pass vacuously — the first version of this test asserted only the
        ABSENCE of text and survived a mutation that rendered an empty card. */
@@ -76,10 +76,10 @@ describe('HomeCards', () => {
       expect(screen.getByText('Unbilled')).toBeInTheDocument(),
     );
 
-    /* An empty progress bar asking to be configured is a chore the app
-       assigned itself, so the whole SECTION must be gone — not merely its
-       text. Counting sections would be fragile (the Activity strip is one
-       too), so this asserts on the card's own heading. */
+    /* The card stays, carrying the month and a way in: hiding it made the
+       feature invisible to the only account that had never set a target.
+       What must NOT appear is a bar or a projection — that is the "no empty
+       progress bar" rule, and it is about the bar, not the card. */
     const headings = [...container.querySelectorAll('h2')].map((h) =>
       h.textContent?.trim(),
     );
@@ -92,8 +92,15 @@ describe('HomeCards', () => {
             h,
           ),
       ),
-    ).toBe(false);
+    ).toBe(true);
+
     expect(screen.queryByText(/business days/)).toBeNull();
+    expect(screen.queryByRole('img', { name: /hours/ })).toBeNull();
+
+    // And the way in, which is the entire point of keeping the card.
+    expect(
+      screen.getByRole('link', { name: 'Edit monthly goal' }),
+    ).toHaveAttribute('href', '/settings#goal');
   });
 
   it('keeps awaiting-payment separate from the unbilled total', async () => {
@@ -336,9 +343,10 @@ describe('the wide layout survives its own empty states', () => {
   });
 
   it('does not split when the left column would be empty', async () => {
-    /* Nothing wrong and nothing unbilled: the left column has no card at
-       all. Splitting here would put Pace and Activity in a narrow right
-       column beside 660px of nothing. */
+    /* Nothing unbilled: the left column has no card at all, and splitting
+       would put Pace in a narrow right column beside 660px of nothing. This
+       is now the ONLY arrangement that does not split, since Pace renders
+       whether or not a target is set. */
     serve(stats({ pace: target }));
     const { container } = render(<HomeCards />, { wrapper });
 
@@ -349,17 +357,16 @@ describe('the wide layout survives its own empty states', () => {
     expect(splitGrid(container)).toBeNull();
   });
 
-  it('does not split when the right column would be empty', async () => {
-    /* Pace is the whole right column — Activity spans the full width below
-       it — so with no monthly target there is nothing to put beside the money
-       cards and the split is not worth making. */
+  it('still splits with no target, because Pace fills the column', async () => {
+    /* Pace is the whole right column and now always renders — with no target
+       it carries the line that says what a goal is for — so there is no
+       longer an arrangement where the right column is empty. */
     serve(stats({ unbilled: oneClient, pace: null }));
     const { container } = render(<HomeCards />, { wrapper });
 
     await waitFor(() =>
       expect(screen.getByText('Unbilled')).toBeInTheDocument(),
     );
-    expect(screen.queryByText('September')).toBeNull();
-    expect(splitGrid(container)).toBeNull();
+    expect(splitGrid(container)).not.toBeNull();
   });
 });

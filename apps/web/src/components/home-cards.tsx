@@ -3,7 +3,14 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { formatCompact } from '@stint/core';
-import { ArrowRight, BarChart3, type LucideIcon, Wallet } from 'lucide-react';
+import {
+  ArrowRight,
+  BarChart3,
+  type LucideIcon,
+  Pencil,
+  Wallet,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { api, type Stats } from '@/lib/client/api';
 import { useTimeZone } from '@/lib/client/use-timer';
 import { money } from './invoice-bits';
@@ -52,9 +59,10 @@ export function HomeCards() {
      briefly carried a copy below `xl`, which meant the same content appeared
      under two names with two empty-state behaviours and renamed itself as you
      resized across 1280px. */
+  /* Pace always renders now — with no target it carries the line that says
+     what a goal is for — so the split turns only on Unbilled having rows. */
   const hasUnbilled = data.unbilled.byClient.length > 0;
-  const hasPace = data.pace != null;
-  const splitColumns = hasUnbilled && hasPace;
+  const splitColumns = hasUnbilled;
 
   /* No top margin: `Page` owns the inset above the first card, and a margin
      here stacked on top of it. `EntryList` carries its own `mt-6` for the gap
@@ -79,10 +87,7 @@ export function HomeCards() {
           </div>
         </div>
       ) : (
-        <>
-          {hasUnbilled ? <Unbilled stats={data} /> : null}
-          {hasPace ? <Pace stats={data} /> : null}
-        </>
+        <Pace stats={data} />
       )}
 
       {/* Full width, below the money and above Today.
@@ -168,12 +173,30 @@ function Unbilled({ stats }: { stats: Stats }) {
 /**
  * Month to date against the target.
  *
- * The whole card hides when no target is set: an empty progress bar asking to
- * be configured is a chore the app assigned itself.
+ * With no target the card does NOT hide. It used to, which made the feature
+ * invisible to exactly the account that had never set one: nothing on Home
+ * pointed at it, so the only way in was knowing the field existed. A single
+ * line naming what the card does, with a link to the field, is the empty
+ * state `/clients` already uses.
+ *
+ * That is not the "no empty progress bar" rule being overturned — that rule
+ * objects to a bar rendered at zero with nothing to say, so the empty state
+ * renders no bar at all.
  */
 function Pace({ stats }: { stats: Stats }) {
   const p = stats.pace;
-  if (!p) return null;
+
+  if (!p) {
+    return (
+      <Card title={monthName()} icon={BarChart3} action={<EditGoal />}>
+        <div className="px-4 pt-3.5 pb-3">
+          <p className="type-support text-subtle">
+            Set a monthly goal to track hours or revenue against it.
+          </p>
+        </div>
+      </Card>
+    );
+  }
 
   const ratio =
     p.actual != null && p.target > 0 ? Math.min(1, p.actual / p.target) : 0;
@@ -188,7 +211,7 @@ function Pace({ stats }: { stats: Stats }) {
      demoting its title above an empty space. */
   if (p.actual == null) {
     return (
-      <Card title={monthName()} icon={BarChart3}>
+      <Card title={monthName()} icon={BarChart3} action={<EditGoal />}>
         <div className="px-4 pt-3.5 pb-3">
           <p className="type-support text-subtle">
             A {p.unit} target is set, but pace in {p.unit} is not computed yet.
@@ -208,6 +231,7 @@ function Pace({ stats }: { stats: Stats }) {
     <Card
       title={monthName()}
       icon={BarChart3}
+      action={<EditGoal />}
       value={
         /* `items-baseline` with a wrap: a money target is several times wider
            than "120h", and inline it broke after the slash and stranded it at
@@ -258,18 +282,33 @@ function Pace({ stats }: { stats: Stats }) {
           ) : null}
         </div>
       </div>
-
-      {/* The card reads; Settings owns the field. A link rather than a dialog
-          for the same reason: there is one canonical editor, and a second one
-          here would be a second place to look when the number is wrong.
-          `#goal` lands on the card itself. */}
-      <Link
-        href="/settings#goal"
-        className="block border-t border-edge-subtle px-4 py-2 type-support text-subtle hover:bg-surface-hover hover:text-muted focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
-      >
-        Edit goal
-      </Link>
     </Card>
+  );
+}
+
+/**
+ * Into the goal field in Settings.
+ *
+ * A link, not a dialog: Settings owns the field, and a second editor here
+ * would be a second place to look when the number is wrong. `#goal` scrolls
+ * the card itself into view.
+ *
+ * The app's existing edit affordance — a ghost `Button` with `Pencil`, as on
+ * a client and a project — at `icon-sm`, because a card header has no room
+ * for the word and the label lives in `aria-label` instead.
+ */
+function EditGoal() {
+  return (
+    <Button
+      asChild
+      variant="ghost"
+      size="icon-sm"
+      className="-my-1 text-subtle hover:text-strong"
+    >
+      <Link href="/settings#goal" aria-label="Edit monthly goal">
+        <Pencil aria-hidden strokeWidth={1.75} />
+      </Link>
+    </Button>
   );
 }
 
@@ -295,6 +334,7 @@ function Card({
   icon: Icon,
   iconTone,
   value,
+  action,
   children,
 }: {
   title: string;
@@ -307,26 +347,33 @@ function Card({
   iconTone?: 'warning';
   /** The card's subject. Supplying it demotes the title — see above. */
   value?: React.ReactNode;
+  /** A single quiet control, top-right against the title. */
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   if (value !== undefined) {
     return (
       <section className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
         <header className="px-4 pt-3 pb-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <Icon
-              aria-hidden
-              strokeWidth={1.75}
-              className={`size-3.5 flex-none ${
-                iconTone === 'warning' ? 'text-warning' : 'text-subtle'
-              }`}
-            />
-            {/* The title is the label on the number, so it is set as one:
-                small, uppercase, wide-tracked mono. `text-subtle` is legal
-                here because `type-label` is a non-text UI label rather than
-                reading copy — the same pairing every other label in the app
-                uses. */}
-            <h2 className="type-label truncate text-subtle">{title}</h2>
+          {/* The action sits against the title rather than the figure, so it
+              never crowds the number the card exists to show. */}
+          <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <Icon
+                aria-hidden
+                strokeWidth={1.75}
+                className={`size-3.5 flex-none ${
+                  iconTone === 'warning' ? 'text-warning' : 'text-subtle'
+                }`}
+              />
+              {/* The title is the label on the number, so it is set as one:
+                  small, uppercase, wide-tracked mono. `text-subtle` is legal
+                  here because `type-label` is a non-text UI label rather than
+                  reading copy — the same pairing every other label in the app
+                  uses. */}
+              <h2 className="type-label truncate text-subtle">{title}</h2>
+            </div>
+            {action ? <div className="flex-none">{action}</div> : null}
           </div>
           {/* The subject of the card, and much larger than the rows beneath
               it. Uniform type is what made the screen read as strata; this is
@@ -369,7 +416,8 @@ function Card({
             The icon is `aria-hidden`, so the accessible name stays the
             heading text alone — a screen reader should not announce
             "triangle alert Needs attention". */}
-        <h2 className="type-heading truncate text-strong">{title}</h2>
+        <h2 className="type-heading flex-1 truncate text-strong">{title}</h2>
+        {action ? <div className="flex-none">{action}</div> : null}
       </header>
       <div className="mx-4 border-t border-edge-subtle" />
       {children}

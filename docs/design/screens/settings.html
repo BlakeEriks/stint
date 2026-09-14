@@ -270,8 +270,13 @@
         a device preference and applies on click, so there is no request to
         report — an indicator would imply it syncs.</li>
       <li><strong>An empty goal is a valid answer, not an unfinished
-        one.</strong> The Pace card stays away rather than nagging for a
-        number the user does not work to.</li>
+        one.</strong> The Pace card renders either way; with no target it
+        carries one line saying what a goal is for, and no progress bar.</li>
+      <li><strong>The goal card is <code>#goal</code>, and Pace links to
+        it.</strong> This section is the only editor — the card is a way in,
+        not a second one. The anchor scrolls itself into view, because the
+        content column scrolls inside itself and a native hash jump does not
+        reach it.</li>
       <li><strong>The target and its unit travel together.</strong> Scheduling
         one key replaces the queued payload rather than merging into it, so
         sending the target alone would drop the unit mid-debounce — and the
