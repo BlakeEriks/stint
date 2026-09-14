@@ -48,6 +48,14 @@ later.
       `resolve_entry_rate`, which `CLAUDE.md` already records as written three
       times with nothing checking it.
 
+- [ ] **The menu bar panel shows no client colour.** `menubar.html` draws a
+      dot beside the project name in both states, which is the same thing the
+      calendar and entry list use to answer *whose work is this?*. Swift's
+      `Project` carries `clientId` and nothing else — the app never fetches
+      clients — so the colour has no source. Either `/projects` returns the
+      client's colour, or the app gains a clients fetch; the first is smaller
+      and matches how the web reads it through `useProjectColors()`.
+
 - [ ] **The menu bar panel has no entry list.** `menubar.html` draws today's
       entries under the stats row in both states ("Earlier today" while
       running), which is what makes the panel worth opening rather than

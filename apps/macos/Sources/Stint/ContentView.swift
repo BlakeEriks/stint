@@ -103,59 +103,65 @@ private struct TimerPanel: View {
         }
     }
 
+    /* Running and idle are two arrangements, not one layout with things
+       hidden — the same split the web app makes, and they want different
+       rhythm. Running is a READOUT: the task and project hang 8pt under the
+       clock as facts about it. Idle is COMPOSING: the field is the subject
+       and its controls sit 10pt apart as peers. One uniform spacing made the
+       running state read as three loose rows rather than one block. */
     private var composer: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            /* Only while running. A stopped clock reading 0:00:00 was the
-               biggest element on screen saying nothing is happening — the
-               composing row takes that space instead, because starting is
-               the only thing you came here to do. Today's total still shows,
-               in the stats row below. */
-            if model.isRunning {
-                readout
-            }
+        model.isRunning ? AnyView(runningBlock) : AnyView(idleBlock)
+    }
+
+    private var runningBlock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            readout
 
             if model.exceedsThreshold {
                 RunawayNotice()
             }
 
-            /* Running and idle are two arrangements, not one layout with
-               things hidden — the same split the web app makes, and for the
-               same reason. Idle is a COMPOSING row: the field is the subject
-               and you type into it. Running is a READOUT: the task already
-               has a name, so showing an empty "What are you working on?"
-               beneath a counting clock asks a question that has been
-               answered. */
-            if model.isRunning {
-                RunningRow(
-                    model: model,
-                    name: $taskDraft,
-                    focused: $taskFocused,
-                    onCommit: commit
-                )
-            } else {
-                TextField("What are you working on?", text: $taskDraft)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Tokens.Dark.textStrong)
-                    .focused($taskFocused)
-                    .fieldStyle(focused: taskFocused)
-                    .onSubmit { commit() }
-                    // Committing on blur as well: typing a name and clicking
-                    // straight to Start should not lose what was typed.
-                    .onChange(of: taskFocused) { _, focused in
-                        if !focused { commit() }
-                    }
+            RunningRow(
+                model: model,
+                name: $taskDraft,
+                focused: $taskFocused,
+                onCommit: commit
+            )
+
+            ProjectField(model: model)
+                // Aligned to the readout's text, not its dot, so the eye
+                // reads time → what → whose down one edge.
+                .padding(.leading, 19)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var idleBlock: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if model.exceedsThreshold {
+                RunawayNotice()
             }
 
+            TextField("What are you working on?", text: $taskDraft)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .foregroundStyle(Tokens.Dark.textStrong)
+                .focused($taskFocused)
+                .fieldStyle(focused: taskFocused)
+                .onSubmit { commit() }
+                // Committing on blur as well: typing a name and clicking
+                // straight to Start should not lose what was typed.
+                .onChange(of: taskFocused) { _, focused in
+                    if !focused { commit() }
+                }
+
             /* Picker and Start on one row, which saves a full row of height
-               against a full-width dropdown above a button. Stopping lives
-               beside the clock, so this row carries Start alone. */
+               against a full-width dropdown above a button. */
             HStack(spacing: 8) {
                 ProjectField(model: model)
-                if !model.isRunning {
-                    Spacer(minLength: 0)
-                    StartStopButton(model: model)
-                }
+                Spacer(minLength: 0)
+                StartStopButton(model: model)
             }
 
             if let error = model.errorMessage {
@@ -408,6 +414,7 @@ private struct RunningRow: View {
     var onCommit: () -> Void
 
     @State private var editing = false
+    @State private var hovering = false
 
     var body: some View {
         HStack(spacing: 6) {
@@ -439,6 +446,10 @@ private struct RunningRow: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
 
+                /* On hover only. At rest the task is a fact under the clock,
+                   and a permanent pencil beside it made the panel look like a
+                   form. It is still keyboard-reachable while hidden, so Tab
+                   reaches the rename without a pointer. */
                 Button {
                     editing = true
                     // Focus follows the mode change rather than the click, so
@@ -448,6 +459,7 @@ private struct RunningRow: View {
                     Image(systemName: "pencil")
                         .font(.system(size: 10))
                         .foregroundStyle(Tokens.Dark.textSubtle)
+                        .opacity(hovering ? 1 : 0)
                 }
                 .buttonStyle(.plain)
                 .keyboardReachable()
@@ -461,10 +473,15 @@ private struct RunningRow: View {
            into one; `fieldStyle` then draws the border, so the box appears
            exactly when there is something to type into.
 
+           Opacity rather than removal for the pencil, so the row does not
+           reflow under the pointer as it arrives.
+
            Indented to the readout's TEXT rather than its dot, so the eye
            reads time → what → whose down one edge. */
         .padding(.leading, 19)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
     }
 }
 
@@ -489,13 +506,30 @@ private struct RunawayNotice: View {
     }
 }
 
+/// The project, as a picker until one is chosen and a line of text after.
+///
+/// **A chosen project is a fact, not a field.** Left as a bordered control it
+/// kept asking a question that had been answered, and it was the heaviest
+/// object in a panel whose subject is the clock. Once set it reads as the
+/// answer — and hovering brings the control back, so it is still obviously
+/// changeable without carrying a box the whole time.
+///
+/// Unset it stays a picker, because then there IS a question.
+///
+/// `menubar.html` draws a client colour dot beside the name. `Project` carries
+/// only `clientId`, and the app never fetches clients, so that is API work
+/// rather than a value to invent — `tasks.md` has it.
 private struct ProjectField: View {
     @Bindable var model: TimerModel
+
+    @State private var hovering = false
 
     /// The running entry's project when there is one, otherwise the draft.
     private var selection: String? {
         model.isRunning ? model.running?.projectId : model.draftProjectID
     }
+
+    private var chosen: Bool { selection != nil }
 
     var body: some View {
         Menu {
@@ -515,20 +549,37 @@ private struct ProjectField: View {
                 Text(name(of: selection))
                     .font(.system(size: 12))
                     .foregroundStyle(
-                        selection == nil ? Tokens.Dark.textSubtle : Tokens.Dark.textPrimary
+                        chosen ? Tokens.Dark.textPrimary : Tokens.Dark.textSubtle
                     )
-                Spacer()
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 9))
-                    .foregroundStyle(Tokens.Dark.textSubtle)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                /* The caret is what says "this opens". Unset it is always
+                   there; chosen it waits for the pointer, so the resting
+                   state is the answer and not the control. */
+                if !chosen || hovering {
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 9))
+                        .foregroundStyle(Tokens.Dark.textSubtle)
+                }
             }
         }
         .menuStyle(.borderlessButton)
         .keyboardReachable()
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Tokens.Dark.bgElevated)
+        .background(background)
         .clipShape(RoundedRectangle(cornerRadius: 6))
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+    }
+
+    /* Chosen and at rest it carries no fill, so it sits with the task name as
+       one block of facts under the clock. Hover restores the control's own
+       surface rather than a highlight, which is what makes it read as the
+       same object coming back. */
+    private var background: Color {
+        if !chosen { return Tokens.Dark.bgElevated }
+        return hovering ? Tokens.Dark.bgElevated : .clear
     }
 
     private func name(of id: String?) -> String {
@@ -615,7 +666,7 @@ private struct OpenAppButton: View {
                into Swift. The names match what the web uses for the same
                action, so the two apps do not diverge on meaning. */
             Image(systemName: "arrow.up.forward.app")
-                .font(.system(size: 12))
+                .font(.system(size: 12, weight: .light))
                 .foregroundStyle(Tokens.Dark.textSubtle)
                 .frame(width: 24, height: 24)
         }
@@ -645,8 +696,12 @@ private struct AccountMenu: View {
             Divider()
             Button("Quit Stint") { NSApplication.shared.terminate(nil) }
         } label: {
+            /* Same size, weight and shade as the arrow beside it. `gearshape`
+               at the default weight reads heavier than `arrow.up.forward.app`
+               at the same point size — two chrome glyphs on one bar have to
+               look like one set. */
             Image(systemName: "gearshape")
-                .font(.system(size: 12))
+                .font(.system(size: 12, weight: .light))
                 .foregroundStyle(Tokens.Dark.textSubtle)
                 .frame(width: 24, height: 24)
         }
