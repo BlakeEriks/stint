@@ -106,7 +106,6 @@ end $$;
 
 -- ── rate resolution ────────────────────────────────────────────────
 -- entry override -> project -> client -> user default.
--- Lives in the DB so invoicing and previews cannot disagree.
 create or replace function resolve_entry_rate(p_entry_id uuid)
 returns numeric
 language sql stable as $$
@@ -152,15 +151,11 @@ create policy own_line_items on invoice_line_items
   );
 
 -- ── settings bootstrap ─────────────────────────────────────────────
--- SECURITY DEFINER runs as the owner (postgres), but the table NAME is still
--- resolved with the caller's search_path — and the caller here is Supabase's
--- `supabase_auth_admin`, whose path does not include `public`. Without the
--- pinned search_path below the insert fails, the whole signup transaction
--- rolls back, and the client sees only "Database error saving new user".
---
--- Pinning it is also the standard hardening for a definer function: it stops
--- a caller shadowing `user_settings` with their own table on a path they
--- control.
+-- SECURITY DEFINER runs as the owner, but the table NAME still resolves with
+-- the caller's search_path — and the caller is `supabase_auth_admin`, whose
+-- path excludes `public`. Without the pinned path the insert fails, the whole
+-- signup transaction rolls back, and the client sees only "Database error
+-- saving new user". Pinning also stops a caller shadowing `user_settings`.
 create or replace function create_default_settings() returns trigger
 language plpgsql security definer
 set search_path = public, pg_temp

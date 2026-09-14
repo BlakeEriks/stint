@@ -36,13 +36,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       # Next's build cache. `restore-keys` IS wanted here, unlike the Supabase
-      # images: a previous build's cache is a genuine head start (Next
-      # revalidates what changed), where a previous version's image tarball
-      # would be loaded and then ignored.
+      # images: a previous build's cache is a genuine head start, since Next
+      # revalidates what changed.
       #
       # Keyed on the source it compiles, so an unchanged tree restores exactly
-      # and a changed one falls back to the newest prefix match rather than
-      # starting cold.
+      # and a changed one falls back to the newest prefix match.
       - uses: actions/cache@v4
         with:
           path: apps/web/.next/cache
@@ -61,9 +59,8 @@ jobs:
           pnpm tokens
           git diff --exit-code packages/design-tokens/dist
 
-      # Guards the white-on-accent regression (1.37:1) and the AA floors, and
-      # re-derives both neutral ramps so a hand-edited hex fails naming its
-      # step.
+      # Guards white-on-accent (1.37:1) and the AA floors, and re-derives both
+      # neutral ramps so a hand-edited hex fails naming its step.
       - name: Contrast contract
         run: pnpm tokens:validate
 
@@ -74,11 +71,8 @@ jobs:
       - name: shadcn components use our tokens
         run: pnpm --filter @stint/web detox
 
-      # Typography comes from the scale, never assembled at the call site.
       # Same silence as above: `text-[13.5px]` compiles happily and a typo'd
-      # `type-lable` compiles to nothing at all, so neither shows up as a
-      # build failure. The app had accumulated twelve arbitrary font sizes
-      # before this existed.
+      # `type-lable` compiles to nothing at all, so neither fails the build.
       - name: Typography uses the scale
         run: pnpm --filter @stint/web check:type
 
@@ -102,8 +96,7 @@ jobs:
         run: pnpm --filter @stint/web build
 
   # Applies the real migrations, then runs the real route handlers against
-  # them — so the timer index and immutability triggers are genuinely
-  # exercised, not mocked.
+  # them, so the timer index and immutability triggers are genuinely exercised.
   database:
     runs-on: ubuntu-latest
 
@@ -141,9 +134,9 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tt
         run: pnpm --filter @stint/web test
 
-      # A SEPARATE database, because the route tests above disable RLS on
-      # theirs. Here RLS stays on and the caller is a non-superuser role, so
-      # auth.uid() resolves and the policies actually run.
+      # A SEPARATE database: the route tests above disable RLS on theirs. Here
+      # RLS stays on and the caller is a non-superuser role, so auth.uid()
+      # resolves and the policies actually run.
       - name: The RLS database
         run: bash scripts/ci-db.sh tt_rls --rls
 
@@ -153,16 +146,15 @@ jobs:
           RLS_DATABASE_URL: postgresql://authenticated:test@localhost:5432/tt_rls
         run: pnpm --filter @stint/web test:rls
 
-      # The same assertions that gate a production release, run here against
-      # the RLS database — the one where RLS is still ON. Catches a migration
-      # that creates a table without RLS, or with RLS but no policy, before
-      # it can reach a real project.
+      # Run against the RLS database, the one where RLS is still ON. Catches a
+      # migration creating a table without RLS, or with RLS but no policy,
+      # before it reaches a real project.
       - name: Schema is sound
         run: pnpm verify:schema --url postgresql://postgres:postgres@localhost:5432/tt_rls
 
-  # The menu bar app, and the only check it has. Billed at 10x a Linux
-  # minute, which buys a compile error surfacing here rather than in the
-  # terminal of whoever next runs `bundle.sh`.
+  # The menu bar app, and the only check it has. Billed at 10x a Linux minute,
+  # which buys a compile error surfacing here rather than in the terminal of
+  # whoever next runs `bundle.sh`.
   macos:
     runs-on: macos-latest
     steps:
@@ -171,17 +163,13 @@ jobs:
         run: cd apps/macos && swift build
 
   # The browser suite, in its own job because it needs the whole Supabase
-  # stack — GoTrue to issue magic links and Mailpit to catch them — not the
-  # bare Postgres service container the database job uses. It is also the
-  # slowest, and keeping it separate means a lint or type failure reports in
-  # seconds rather than waiting behind a Docker pull.
+  # stack — GoTrue to issue magic links, Mailpit to catch them — and because
+  # it is the slowest, so a lint or type failure reports without waiting
+  # behind a Docker pull.
   #
-  # This is the only suite that exercises the browser: cookies, navigation,
-  # redirects and server components. It was added after a bug where every
-  # invoice detail page threw — the route returned the invoice flat while the
-  # client expected it nested — which the other three suites structurally
-  # could not catch, because route tests never render and jsdom's fetch is a
-  # stub that agreed with the component.
+  # The only suite that exercises the browser: cookies, navigation, redirects
+  # and server components. Route tests never render, and jsdom's fetch is a
+  # stub that agrees with the component.
   e2e:
     runs-on: ubuntu-latest
     steps:
@@ -209,23 +197,19 @@ jobs:
       # retrying, the fix is a registry mirror or an authenticated pull, not a
       # tarball in the Actions cache.
       #
-      # WITHOUT Studio or postgres-meta. Studio is the local dashboard and
-      # postgres-meta is its backend; the browser suite drives the app, never
-      # the dashboard, so CI was pulling 2.25GB it does not use — over half the
-      # total image weight. This took the e2e job from 198s to ~150s and is
-      # where the actual saving came from.
+      # WITHOUT Studio or postgres-meta: the browser suite drives the app,
+      # never the dashboard, and they are 2.25GB of the 4.4GB of images. Took
+      # the e2e job from 198s to ~150s.
       - name: Start Supabase
         run: npx supabase start -x studio,postgres-meta
 
       # The Playwright version alone is the key: browser builds are pinned to
-      # it, so a lockfile bump is the only thing that invalidates them. Read
-      # from the installed package rather than hashing a file — hashing the
-      # lockfile would throw away a still-valid browser on every unrelated
-      # dependency change, the same trap the Supabase image key had.
+      # it. Read from the installed package rather than hashing the lockfile,
+      # which would throw away a still-valid browser on every unrelated
+      # dependency change.
       #
-      # Unlike the Supabase images, this one is worth caching: it restores a
-      # plain directory. That cache lost to a pull because `docker load`
-      # decodes a tarball serially; there is no decode step here.
+      # Worth caching where the Supabase images are not: this restores a plain
+      # directory, with no `docker load` decode step.
       - name: Playwright version
         id: pw
         run: echo "v=$(node -p "require('./apps/web/node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
@@ -238,20 +222,18 @@ jobs:
 
       # `--only-shell`: the suite runs headless, and the shell is 195MB
       # against full Chrome's 359MB. See the `channel` note in
-      # playwright.config.ts for what this gives up (nothing we use).
+      # playwright.config.ts for what it gives up.
       #
-      # NO `--with-deps`: it apt-gets system libraries that `ubuntu-latest`
-      # already carries, and unlike the browsers those land in /usr/lib where
-      # the cache cannot reach — so it was the whole cost of this step on a
-      # cache hit. The runner image is what makes this safe, which means it is
-      # also what could silently take it away.
+      # NO `--with-deps`: it apt-gets libraries `ubuntu-latest` already
+      # carries, into /usr/lib where the cache cannot reach — the whole cost
+      # of this step on a cache hit. The runner image is what makes that safe,
+      # and what could silently take it away.
       - name: Install Chromium
         run: cd apps/web && npx playwright install --only-shell chromium
 
-      # So a missing system library fails HERE, naming itself, instead of
-      # surfacing as ten opaque timeouts inside the suite. This is the guard
-      # that makes dropping `--with-deps` diagnosable: if the runner image ever
-      # stops shipping a dependency, this line says which one.
+      # A missing system library fails HERE, naming itself, rather than as ten
+      # opaque timeouts inside the suite. This is what makes dropping
+      # `--with-deps` diagnosable.
       - name: The browser launches
         run: cd apps/web && node -e "require('@playwright/test').chromium.launch().then(b=>b.close())"
 
@@ -283,8 +265,7 @@ jobs:
       - name: End-to-end tests
         run: cd apps/web && pnpm test:e2e
 
-      # The trace and screenshots are what make a CI-only failure
-      # diagnosable; without them a red run is just a name.
+      # The trace and screenshots are what make a CI-only failure diagnosable.
       - uses: actions/upload-artifact@v5
         if: failure()
         with:

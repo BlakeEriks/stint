@@ -13,17 +13,10 @@
 -- Voided invoices are excluded and their entries are released back to
 -- unbilled, so voiding never inflates or strands a month.
 --
--- The coalesce chain is IDENTICAL to resolve_entry_rate's and
--- unbilled_by_client's — entry override, then project, then client, then the
--- user default. If one changes, all three must; nothing checks that they
--- agree. See `docs/data-model.md`.
---
--- The rate is NOT read off `invoice_line_items`: a line groups several entries
--- (by task, project or day) and carries no entry reference, so a line's
--- rounded amount cannot be split back across the entries that made it. This
--- resolves per entry the way the unbilled rollup does, which keeps one rule
--- for the whole figure. An issued invoice's own total remains authoritative
--- for what is owed; this is a month indicator, not a billing document.
+-- The rate is resolved per entry, not read off `invoice_line_items`: a line
+-- groups several entries and carries no entry reference, so its rounded
+-- amount cannot be split back across them. An issued invoice's own total
+-- remains authoritative for what is owed; this is a month indicator.
 create or replace function month_revenue(
   p_user_id uuid,
   p_from    timestamptz,

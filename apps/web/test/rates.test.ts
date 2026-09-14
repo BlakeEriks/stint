@@ -1,14 +1,8 @@
 /**
- * Rate resolution parity: the TypeScript chain and the SQL chain must agree.
- *
- * `resolveRate()` bills invoices; `resolve_entry_rate()` and the two rollups
- * that call it feed the home screen. Nothing in the type system connects them,
- * so this is what stops the Unbilled card and an invoice preview reporting
- * different money for the same work.
- *
- * The matrix is every combination of the four levels being unset, zero, or a
- * distinct non-zero rate — `0` is a real rate and must not fall through, which
- * a truthiness bug at any level would break in exactly one cell.
+ * Rate resolution parity: `resolveRate()` bills invoices, `resolve_rate()` and
+ * the rollups that call it feed the home screen, and nothing in the type
+ * system connects them. This is what stops the Unbilled card and an invoice
+ * preview reporting different money for the same work.
  *
  * Requires DATABASE_URL pointing at a migrated database.
  */
@@ -20,7 +14,10 @@ import type { BillableEntry } from '@stint/core';
 
 const USER = '11111111-1111-1111-1111-111111111111';
 
-/** Unset, zero, and a level-distinct rate, so a wrong level is visible. */
+/**
+ * Unset, zero, and a level-distinct rate, so a wrong level is visible and a
+ * truthiness bug on the zero shows up in exactly one cell.
+ */
 const LEVELS = {
   entry: [null, 0, 11],
   project: [null, 0, 23],
@@ -60,9 +57,9 @@ after(async () => {
 });
 
 /**
- * One client per (clientRate, projectRate) pair and TWO projects under each,
- * so the rollup's group-by is exercised with several projects per client and
- * with two clients that differ only in their rate.
+ * One client per clientRate and two projects per projectRate under it, so the
+ * rollup's group-by sees several projects per client and two clients that
+ * differ only in their rate.
  */
 async function seed(defaultRate: number | null): Promise<void> {
   userDefaultRate = defaultRate;
@@ -92,8 +89,7 @@ async function seed(defaultRate: number | null): Promise<void> {
     );
 
     for (const projectRate of LEVELS.project) {
-      // Two projects at the same rate: the rollup must fold them into one
-      // (client, rate) bucket rather than reporting them separately.
+      // The rollup must fold these into one (client, rate) bucket.
       for (const suffix of ['a', 'b']) {
         const projectId = uuidv7();
         await pool.query(
@@ -111,8 +107,8 @@ async function seed(defaultRate: number | null): Promise<void> {
         for (const rateOverride of LEVELS.entry) {
           for (const isBillable of [true, false]) {
             const id = uuidv7();
-            // Durations that do not divide evenly into an hour, so rounding
-            // per entry rather than per line would show up as a mismatch.
+            // Not an even fraction of an hour: rounding per entry rather
+            // than per line shows up as a mismatch.
             const durationSeconds = 1200 + (minute % 7) * 60;
             const startedAt = new Date(
               Date.parse(FROM) + minute * 3_600_000,
@@ -154,8 +150,8 @@ async function seed(defaultRate: number | null): Promise<void> {
     }
   }
 
-  // An entry with no project at all: the chain skips project AND client,
-  // because the rollups reach the client only through the project.
+  // No project: the chain skips project AND client, since the rollups reach
+  // the client only through the project.
   const orphan = uuidv7();
   await pool.query(
     `insert into time_entries
@@ -250,7 +246,6 @@ function tsUnbilledByClient(): Map<string | null, number> {
         userDefaultRate,
       }));
 
-    // Grouping by rate alone is what the rollup's (client, rate) bucket does.
     const { lineItems } = buildLineItems(entries, { groupingMode: 'project' });
     totals.set(
       clientId,
@@ -325,8 +320,8 @@ test('non-billable entries reach neither rollup', async () => {
 
   const before = await totals();
 
-  // Flipping every non-billable entry to billable must move both figures; if
-  // the filter were missing they would already be counted and nothing changes.
+  // If the filter were missing these would already be counted, and flipping
+  // them would move nothing.
   await pool.query(
     'update time_entries set is_billable = true where not is_billable',
   );

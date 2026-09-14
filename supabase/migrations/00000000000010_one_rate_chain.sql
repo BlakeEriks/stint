@@ -1,20 +1,9 @@
 -- One rate chain in SQL, called by everything that resolves a rate.
 --
--- The chain was written three times in SQL — resolve_entry_rate and an inline
--- coalesce in each of the two rollups — and nothing compared them, so the home
--- screen and an invoice preview could quietly report different money for the
--- same work.
---
--- `resolve_rate` is the chain itself, over the four columns. It takes values
--- rather than an entry id so the rollups can call it once per row in a join
--- instead of re-querying per entry: `immutable` + `language sql` lets Postgres
--- inline it, so the plan is the same COALESCE the rollups had written out.
---
--- No `set search_path` here, deliberately: it references no table, so there is
--- nothing for a caller to shadow — and a SET clause blocks inlining, which
--- would put a function call back on every row of the rollups.
---
--- `0` is a valid rate, so this coalesces rather than testing truthiness.
+-- It takes values rather than an entry id so the rollups can call it once per
+-- row in a join. `immutable` + `language sql` lets Postgres inline it, and a
+-- `set search_path` clause would block that — safe to omit here because the
+-- function references no table for a caller to shadow.
 create or replace function resolve_rate(
   p_rate_override numeric,
   p_project_rate  numeric,
@@ -29,9 +18,8 @@ as $$
   select coalesce(p_rate_override, p_project_rate, p_client_rate, p_default_rate)
 $$;
 
--- The per-entry form, now a lookup wrapped around the chain above. The client
--- is reached THROUGH the project, so an entry with no project resolves past
--- both levels to the user default.
+-- The client is reached THROUGH the project, so an entry with no project
+-- resolves past both levels to the user default.
 create or replace function resolve_entry_rate(p_entry_id uuid)
 returns numeric
 language sql stable as $$
@@ -73,14 +61,11 @@ as $$
       and e.ended_at     is not null  -- a running timer is not billable yet
       and e.is_billable
   ),
-  -- Group by (client, RATE) first. The rate is part of the grouping key for
-  -- the same reason it is on an invoice line: one client can have entries at
-  -- several rates — a project override, or two projects priced differently —
-  -- and collapsing them to a single rate misstates what is owed.
-  --
-  -- Rounding happens once per (client, rate) bucket, from summed seconds.
-  -- Rounding per entry and then adding drifts — 3 x 20min at 100/h gives
-  -- 99.99 rather than 100.00.
+  -- The rate is part of the grouping key for the same reason it is on an
+  -- invoice line: one client can have work at several rates, and collapsing
+  -- them to one misstates what is owed. Rounding is once per bucket, from
+  -- summed seconds — per entry then added drifts (3 x 20min at 100/h gives
+  -- 99.99).
   per_rate as (
     select
       r.client_id,
@@ -98,8 +83,8 @@ as $$
     cl.name,
     coalesce(cl.currency, st.currency),
     sum(b.seconds)::bigint,
-    -- NULL-rated seconds contribute no amount, and `unrated_count` is what
-    -- tells the card the total is incomplete rather than simply low.
+    -- NULL-rated seconds contribute no amount; `unrated_count` tells the card
+    -- the total is incomplete rather than simply low.
     coalesce(sum(b.amount), 0),
     sum(b.unrated)::bigint,
     min(b.oldest_at)
@@ -140,10 +125,8 @@ as $$
       -- unless the invoice was voided.
       and (e.invoice_id is null or i.status <> 'void')
   ),
-  -- Grouped by rate before multiplying: work at 150 and work at 195 are
-  -- different money, and summing the seconds first would apply one rate to
-  -- both. Rounded once per bucket, from summed seconds, because rounding per
-  -- entry and then adding drifts.
+  -- Grouped by rate before multiplying: summing the seconds first would apply
+  -- one rate to work billed at several. Rounded once per bucket.
   per_rate as (
     select round(sum(duration_seconds) / 3600.0 * rate, 2) as amount
     from resolved

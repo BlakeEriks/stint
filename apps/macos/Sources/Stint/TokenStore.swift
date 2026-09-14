@@ -125,17 +125,14 @@ actor TokenStore {
 /// **Every call shells out to `/usr/bin/security`. Do not replace this with
 /// `SecItemCopyMatching`.** A grant is checked against a partition list as
 /// well as an ACL, and macOS pins that list to the calling binary's `cdhash`
-/// whenever the app has no team identifier — which a self-signed certificate
-/// cannot carry. The hash changes with the code, so an in-process read is a
-/// new caller on every build and prompts for the login password, "Always
-/// Allow" included. Signing and an explicit `SecAccess` both leave that
-/// untouched. `/usr/bin/security` has a fixed identity, so one grant holds
-/// across rebuilds.
+/// whenever the app has no team identifier. The hash changes with the code, so
+/// an in-process read is a new caller on every build and prompts for the login
+/// password, "Always Allow" included. `/usr/bin/security` has a fixed
+/// identity, so one grant holds across rebuilds.
 ///
-/// The trade: anything running as this user can invoke `security` too, so
-/// the item rests on the login keychain's lock rather than on app identity.
-/// A Developer ID would earn a `teamid:` partition and make the in-process
-/// API viable — see `docs/tasks.md`.
+/// The trade: anything running as this user can invoke `security` too, so the
+/// item rests on the login keychain's lock rather than on app identity. A
+/// Developer ID would earn a `teamid:` partition — see `docs/tasks.md`.
 private enum Keychain {
     private static let service = "dev.stint.session"
     private static let account = "supabase"

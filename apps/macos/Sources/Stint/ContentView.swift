@@ -291,15 +291,11 @@ private struct ProjectPicker: View {
 
 /// One finished entry, and the way to pick that work back up.
 ///
-/// **The whole row is the control**, which is what the hover highlight was
-/// already promising — the row is the thing you mean to act on, and a play
-/// glyph in its corner would be a small target in a list this narrow. The
-/// glyph appears under the pointer to say what the click does, not to be
-/// aimed at.
+/// **The whole row is the control.** The glyph appears under the pointer to
+/// say what the click does, not to be aimed at.
 ///
 /// Resuming starts NEW work carrying this entry's name, project and billable
-/// answer. It never reopens the original row: a finished entry is a record,
-/// and editing one needs a date and two times the panel has no room for.
+/// answer. It never reopens the original row: a finished entry is a record.
 private struct EntryRow: View {
     let entry: TimeEntry
     var resume: () -> Void
@@ -508,9 +504,8 @@ private struct Hovering<Content: View>: View {
 /// position rather than the control's focus, so it never turns on. A
 /// modifier that declares the state and attaches `.focused()` does.
 ///
-/// `focusEffectDisabled` is local for the same reason it is not global:
-/// applied at the root it suppresses the effect for every descendant, which
-/// is what left these controls with no indicator at all.
+/// `focusEffectDisabled` is local: applied at the root it suppresses the
+/// effect for every descendant.
 private struct PanelFocus<S: Shape>: ViewModifier {
     let shape: S
     /// How far the ring sits outside the control. Pulled in where a control
@@ -651,7 +646,7 @@ enum TypeRole {
 
     var uppercase: Bool { self == .label }
 
-    // The spec's faces are IBM Plex; these two lines are where that lands
+    // The spec's faces are IBM Plex; these two lines are where they land
     // once the fonts ship with the app.
     private static func sans(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
         .system(size: size, weight: weight)

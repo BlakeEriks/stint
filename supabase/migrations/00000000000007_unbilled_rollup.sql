@@ -1,18 +1,11 @@
 -- Unbilled work per client, with the resolved rate applied in SQL.
 --
--- `resolve_entry_rate(uuid)` is per-entry and correct, but the Unbilled card
--- sums across potentially hundreds of entries and must not call it N times.
--- This is the set-returning shape `docs/design/home.md` calls for.
+-- Set-returning rather than per-entry: the Unbilled card sums across hundreds
+-- of entries and must not call `resolve_entry_rate` N times.
 --
--- The coalesce chain is IDENTICAL to resolve_entry_rate's — entry override,
--- then project, then client, then the user default. If one changes the other
--- must, or the home screen and an invoice preview will report different money
--- for the same work, and `data-model.md` makes the SQL authoritative.
---
--- `0` is a valid rate, so this coalesces rather than testing truthiness; an
--- entry that resolves to NULL has no rate at all and is counted separately so
--- the card can say the total is incomplete rather than quietly understating
--- it.
+-- `0` is a valid rate, so this coalesces rather than testing truthiness. An
+-- entry resolving to NULL is counted separately, so the card can say the
+-- total is incomplete rather than quietly understating it.
 create or replace function unbilled_by_client(p_user_id uuid)
 returns table (
   client_id     uuid,
@@ -51,9 +44,7 @@ as $$
   -- Group by (client, RATE) first. The rate is part of the grouping key for
   -- the same reason it is on an invoice line: one client can have entries at
   -- several rates — a project override, or two projects priced differently —
-  -- and collapsing them to a single rate misstates what is owed. Verified
-  -- against the seed, where Northwind has work at both 150 and 195: taking
-  -- one rate for the client reported $1755.00 instead of $1462.50.
+  -- and collapsing them to a single rate misstates what is owed.
   --
   -- Rounding happens once per (client, rate) bucket, from summed seconds.
   -- Rounding per entry and then adding drifts — 3 x 20min at 100/h gives
