@@ -26,20 +26,23 @@ the domain until required checks pass, so the migration runs while the
   typography scale, typecheck, the UI suite, core logic, then a build.
   Needs no database, so an obvious slip fails in seconds.
 - **`database`** — the route and RLS suites against a real Postgres service
-  container, then `verify:schema`. Both databases are built by
-  `scripts/ci-db.sh`, which applies migrations through `pnpm migrate` so the
-  real migration script is what runs.
+  container. `scripts/ci-db.sh` builds both databases, applying migrations
+  through `pnpm migrate` so the real migration script is what runs: `tt` with
+  RLS off for the route tests, `tt_rls` with it on and reached as a
+  non-superuser. `verify:schema` runs against `tt_rls`, the one where RLS is
+  still on.
 - **`macos`** — `swift build` on the menu bar app, its only check.
 - **`e2e`** — Playwright against a real local Supabase stack. Its own job
   because it needs GoTrue and Mailpit, not the bare Postgres the others use,
   and because keeping it separate means a type error reports without waiting
   behind a Docker pull.
 
-Two narrowings pay for themselves and are easy to undo by accident:
+Two narrowings in `e2e` pay for themselves and are easy to undo by accident:
 `supabase start -x studio,postgres-meta` skips 2.25GB of images the browser
 suite never touches, and `playwright install --only-shell` skips the full
-Chrome build that Playwright never launches. `pnpm dev:up:studio` brings
-Studio up locally when the dashboard is what you want.
+Chrome build that Playwright never launches. Local `dev:up` excludes more
+again; `pnpm dev:up:studio` brings Studio up when the dashboard is what you
+want.
 
 **The Supabase images are pulled, not cached, and that was measured.** A cache
 cost 7s to restore plus 38s for `docker load` against an 18s pull — `docker
@@ -88,6 +91,9 @@ Still set in the dashboard:
 - Environment variables (Production and Preview):
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+  - `NEXT_PUBLIC_APP_ORIGIN` — `https://app.trackwithstint.com`. The code
+    falls back to `''`, so an unset one costs a redirect hop on every landing
+    CTA rather than failing the build.
 
 `SUPABASE_DB_URL` does **not** belong here. The app never uses it; only the
 migration scripts do, and they run in Actions.
@@ -148,19 +154,25 @@ before changing that file:
 
 ## 3a. Deployment protection, and which URL you are testing
 
-A Vercel project has two kinds of URL, and they behave differently:
+**One deployment serves two sites, split by hostname** in `apps/web/src/proxy.ts`:
 
-- The **production domain** (`stint-gamma.vercel.app`) — public. This is the
-  app.
-- Per-deployment URLs (`stint-<hash>-<scope>.vercel.app`) — fronted by SSO
-  on a private project, so an unauthenticated request 302s to
-  `vercel.com/sso-api`.
+| Hostname | Serves |
+|---|---|
+| `trackwithstint.com` | the landing page, rewritten from `/landing` |
+| `app.trackwithstint.com` | the product |
 
-That 302 is protection on the *deployment* URL, not a broken app. Test the
-production domain; a redirect on a hashed URL means nothing is wrong.
+Both domains point at the same project, so there is one build and one set of
+environment variables. `isAppHost()` also treats bare `localhost` and any
+`*.vercel.app` as the app, which is why a preview deployment lands on the
+product rather than the pitch. `CLAUDE.md` carries the rules this puts on code.
 
-The app's own redirect looks similar but is not the same thing: `/` returns
-307 to `/signin` when signed out, which is correct.
+Per-deployment URLs (`stint-<hash>-<scope>.vercel.app`) are fronted by SSO on
+a private project, so an unauthenticated request 302s to `vercel.com/sso-api`.
+That is protection on the *deployment* URL, not a broken app — test a real
+domain instead.
+
+The app's own redirect looks similar but is not the same thing: on the app
+host, `/` returns 307 to `/signin` when signed out.
 
 ## 4. Auth redirect URLs
 
@@ -190,6 +202,3 @@ schema models bank details and invoicing.
 - **No automatic rollback.** Migrations are forward-only and additive by
   rule — see `CLAUDE.md`. Reverting a deploy is a Vercel redeploy of the
   previous build; reverting a *migration* means writing a new additive one.
-- **No linter.** Typecheck, the contrast contract, and the shadcn detox check
-  cover the failure modes that actually bite here. This is a choice, not an
-  oversight.

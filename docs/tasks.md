@@ -31,10 +31,15 @@ later.
       `RenameRow`. Cheap, but it is another line in a 320pt panel — worth
       confirming it earns the height before adding it.
 
-- [ ] **The menu bar app sets type in the system font.** `menubar.md` asks
+- [ ] **The menu bar app sets type in the system font.** `menubar.html` asks
       for IBM Plex, shipped with the app. `TypeRole` in `ContentView.swift`
       has the two lines where the family lands; the fonts need vendoring as a
       SwiftPM resource and registering at launch.
+
+- [ ] **Emit the type scale into `Tokens.swift`.** The scale in
+      `ContentView.swift` is mirrored from `tokens.json` by hand until
+      `pnpm tokens` writes it, the way it already writes the colours and the
+      mark.
 
 - [ ] **Settings as a pushed view in the menu bar panel.** `menubar.html`
       specifies it — runaway threshold, shortcut, show time in bar, launch at
@@ -83,21 +88,6 @@ later.
       current hardcoded path as the fallback — so the label says where it
       goes, a direct visit still gets a sensible link, and the destination is
       knowable at render time.
-
-- [ ] **Pace is unreachable until you already know it exists.** `Pace` returns
-      `null` when `stats.pace` is null, so an account with no target sees
-      nothing on Home, and the only route to one is knowing to open Settings
-      and scroll to a field nothing points at.
-
-      Settings owns the field and should keep owning it — the gap is a way in
-      from the screen the card would appear on.
-
-      **This is not the "no empty progress bar" rule being overturned.** That
-      rule objects to a bar rendered at zero with nothing to say; a single
-      line that names what the card does and links to the field is the
-      empty-state pattern `/clients` already uses. What it must not become is
-      a second target editor, or a dismissible banner — a card you keep
-      closing is worse than one that hides.
 
 - [ ] **Record a reminder on a sent invoice.** `last_reminded_at`, so an
       overdue row can read "12 days late · chased 3d ago" rather than either
@@ -221,33 +211,6 @@ later.
       Clients is done and is the pattern: `Check`/`Loader2` on a submit,
       `Pencil` on edit, `Archive` on archive, every glyph `aria-hidden` so
       the accessible name stays the label, and Cancel deliberately bare.
-- [ ] **Light mode.** The palette already exists: `tokens.css` emits the full
-      light ramp under `[data-theme="light"]`, the mirrored curve
-      (`L = 0.985 - 0.840 * t^1.55`) is derived, and `docs/design/deriving-colour.md`
-      records the one forced concession — the accent drops 35 lightness points
-      to `#1F7E17` (4.96:1), because neon green's luminance is intrinsically
-      near white's and cannot carry text contrast on a light ground at any
-      chroma. In light mode the ground provides the energy.
-
-      So what is missing is not colour work: it is a **toggle**, persistence,
-      and verification.
-
-      - The app is **dark-first on purpose**: `prefers-color-scheme: light`
-        only applies under an explicit `[data-theme="light"]`, so an
-        un-stamped viewer gets the theme the palette was derived for. Keep
-        that — a system-following default would flip the app for anyone whose
-        OS is light, which is not what the palette assumes.
-      - Three states, not two: dark / light / follow-system. Store the choice
-        per-device in `localStorage` (a layout preference, not account state),
-        and stamp `data-theme` before first paint or the page flashes dark.
-      - `validate.js` asserts contrast on the dark palette. It must cover
-        **both** — `--text-on-accent` inverts between themes, and the
-        `text-on-danger` token exists precisely because near-black is 5.39:1
-        on dark danger but 3.25:1 on light.
-      - The shadows differ too (`docs/design/deriving-colour.md`: light uses
-        `rgba(16,18,26,0.06-0.10)`), and "content floats, chrome recedes"
-        has to survive the inversion — cards must not read as holes.
-
 - [ ] **Extend the end-to-end suite.** Sign-in, sign-out and the invoice
       lifecycle are covered (`pnpm test:e2e`). The flows still verified only
       by hand: the runaway-timer choice end to end, entry editing
@@ -359,11 +322,25 @@ moves up — do not start one by guessing the answer.
       route-level check would need repeating in three places and would be a
       race besides. `rls.test.ts` is where the assertion goes.
 
-- [ ] **Two snake↔camel converters.** `invoicing.ts` has its own `toInvoice`,
-      `toLineItem` and `ClientRow` alongside `rows.ts`, and `toLineItem`
-      takes `Record<string, any>` so nothing type-checks it. That is where
-      `rateSource` drifted. Consolidating them removes the seam; until then a
-      field change means editing both.
+- [ ] **Drop `projects.color`.** Nothing selects or writes it, and a project
+      takes its colour from its client — the column is the only thing in the
+      repo claiming otherwise. It has shipped, so this is the second release
+      of a two-release retirement: a migration of its own that drops the
+      column and touches no code.
+
+- [ ] **A settings patch can break the target pairing and return 500.**
+      `UpdateSettings`'s refine only fires when `monthlyTarget` and
+      `monthlyTargetUnit` are both in the same body, so setting one against an
+      existing other passes Zod and hits the database check constraint, which
+      `errors.ts` does not map — the caller sees `INTERNAL` where it should see
+      a 422. Either widen the refine to read the stored row, or map the check
+      violation the way `isBilledLock` is mapped.
+
+- [ ] **A 90-day activity range needs week bucketing.**
+      `granularity: 'week'`, server-side for the same DST reason day bucketing
+      already lives there — a route change with its own correctness tests, not
+      an option added in `activity-chart.tsx`. At day granularity, 90 bars in a
+      ~660px card is a ~4px bar.
 
 - [ ] **`POST /invoices` and `/preview` leak `entryIds` per line item**, and
       `POST /invoices` returns `lineItems` + `entryCount` while `api.ts`
@@ -382,16 +359,6 @@ moves up — do not start one by guessing the answer.
       in the seeded week — "Untitled" is clipped by the block above it.
 - [ ] **Calendar header weight mismatch.** `type-title` at 24px/600 sits next
       to a mono readout and the pairing reads unbalanced.
-- [ ] **Route handlers validate against a second copy of the schema.** Every
-      handler under `api/v1/` defines its own local Zod schemas and none
-      imports `@stint/schema` — `invoices/preview/route.ts` has a
-      `PreviewRequest` duplicating the schema's `InvoicePreviewRequest`, and
-      `invoices/route.ts` a `CreateInvoice` duplicating its `CreateInvoice`.
-
-      The browser half is already done: `lib/client/api.ts` derives its
-      response types from `@stint/schema` rather than copying them. Requests
-      are the remaining direction.
-
 ## Deferred
 
 - **Branch protection** — needs GitHub Pro on a private repo. CI runs without

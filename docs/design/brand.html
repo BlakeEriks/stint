@@ -91,7 +91,7 @@
   .chip .hex { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle); }
 
   /* A motion specimen: the swatch IS the measurement, so the page shows what
-     90ms and 260ms actually feel like rather than only naming them. */
+     90ms and 160ms actually feel like rather than only naming them. */
   .mo {
     width: 116px; height: 22px; border-radius: 5px;
     background: var(--bg-elevated); border: 1px solid var(--border-subtle);
@@ -404,7 +404,7 @@
     <div class="sec-head"><span class="eyebrow">Motion</span></div>
 
     <p>
-      Three durations and three curves, and a component picks from them the way
+      Two durations and three curves, and a component picks from them the way
       it picks a type role. Hover a swatch to run it.
     </p>
 
@@ -420,28 +420,23 @@
         <td><div class="mo" style="--d:var(--motion-quick)"><i></i></div></td>
         <td>Something small changing on its own — a row's background, a dot becoming a check</td>
       </tr>
-      <tr>
-        <td><code>motion-settle</code> <span class="num">260ms</span></td>
-        <td><div class="mo" style="--d:var(--motion-settle)"><i></i></div></td>
-        <td>Layout moving — a dialog arriving, a section opening</td>
-      </tr>
     </table>
 
     <table style="margin-top:1.25rem">
       <tr><th>Curve</th><th></th><th>For</th></tr>
       <tr>
         <td><code>ease-standard</code></td>
-        <td><div class="mo" style="--d:var(--motion-settle); --e:var(--ease-standard)"><i></i></div></td>
+        <td><div class="mo" style="--d:var(--motion-quick); --e:var(--ease-standard)"><i></i></div></td>
         <td>Anything that starts and ends on screen. The default</td>
       </tr>
       <tr>
         <td><code>ease-decelerate</code></td>
-        <td><div class="mo" style="--d:var(--motion-settle); --e:var(--ease-decelerate)"><i></i></div></td>
+        <td><div class="mo" style="--d:var(--motion-quick); --e:var(--ease-decelerate)"><i></i></div></td>
         <td>Arriving — a dialog, a row appearing. Fast in, settling</td>
       </tr>
       <tr>
         <td><code>ease-accelerate</code></td>
-        <td><div class="mo" style="--d:var(--motion-settle); --e:var(--ease-accelerate)"><i></i></div></td>
+        <td><div class="mo" style="--d:var(--motion-quick); --e:var(--ease-accelerate)"><i></i></div></td>
         <td>Leaving for good. Never for something the user must watch finish</td>
       </tr>
     </table>
@@ -457,7 +452,8 @@
     <p>
       <code>motion-rise</code> (3px) is the whole vocabulary of travel. A
       thing that needs to move further than that is changing layout, and
-      layout moves at <code>motion-settle</code> or not at all.
+      layout changes without animating: it is already where it belongs by the
+      time the screen is read.
     </p>
     <p>
       Every duration honours <code>prefers-reduced-motion</code>, and may drop

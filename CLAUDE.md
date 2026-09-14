@@ -50,8 +50,8 @@ changing `deriving-colour.md`'s generators, never a hex.
 - Colors come from **semantic** tokens only. Primitives stay in the token
   package. Never hardcode a hex in a component.
 - **Only clients have a colour**, resolved through `useProjectColors()`;
-  internal work gets none. `projects.color` is a dead column — nothing reads
-  or writes it.
+  internal work gets none. `projects.color` is a dead column awaiting its drop
+  migration — nothing selects or writes it.
 - Design tokens are **generated** — edit `packages/design-tokens/tokens.json`,
   then `pnpm tokens`. Never edit files in `dist/`.
 - Both neutral ramps are **derived**: change a parameter in
@@ -79,7 +79,7 @@ in development — while `pnpm migrate` and `pnpm verify:schema` read
 
 `pnpm dev:reset` rebuilds from migrations plus `supabase/seed.sql`. Sign in as
 `dev@localhost.test` and click the link in Mailpit (`:54324`); mail is captured
-locally, never sent. Studio is on `:54323`.
+locally, never sent.
 
 **One sign-in at a time per browser.** PKCE keeps its code verifier in
 localStorage under one key per origin, so two tabs share it and the second
@@ -96,17 +96,15 @@ Use `localhost` throughout, not `127.0.0.1`: they are different hosts to a
 browser, so a session cookie set on one is invisible to the app served from
 the other.
 
-`realtime`, `storage`, `edge_runtime` and `analytics` are off — the app's
-Supabase surface is `.from()`, one `.rpc()`, and auth. The subset runs in
-~540MB where the full stack wants ~7GB.
-
-**Studio is off, and `config.toml` does not say so** — `[studio] enabled` is
-`true` while the container is simply not started, so `:54323` refuses the
-connection. `pnpm dev:up:studio` brings it up; `psql` against `:54322` needs
-no containers at all.
+**`dev:up` excludes nine services on the command line, not in `config.toml`.**
+The app's Supabase surface is `.from()`, one `.rpc()`, and auth, so the subset
+runs in ~540MB where the full stack wants ~7GB. Studio is among the nine and
+`[studio] enabled` is still `true`, so `:54323` refuses the connection rather
+than explaining itself; `pnpm dev:up:studio` keeps it, and `psql` against
+`:54322` needs no containers at all.
 
 `-x` must be passed at START — on an already-running stack it is accepted and
-does nothing, hence the `stop &&` in that script. Plain `stop` keeps the data
+does nothing, hence the `stop &&` in those scripts. Plain `stop` keeps the data
 volumes; only `--no-backup` deletes them.
 
 ## Migrations
@@ -123,8 +121,9 @@ user's rows, and nothing else in the stack notices.
 
 `pnpm verify:schema` asserts seven tables with **RLS on**, at least one policy
 each (RLS with no policies denies everything), the partial unique index for
-the timer invariant, and the signup trigger. Exits non-zero, so it belongs in
-CI once a staging database exists. It reads `SUPABASE_DB_URL` from
+the timer invariant, and the signup trigger. CI runs it in the `database` job
+against the RLS database, so a migration creating a table without RLS fails
+before it reaches a real project. It reads `SUPABASE_DB_URL` from
 `apps/web/.env.local` — a secret that bypasses RLS and is never used by the
 app itself.
 
@@ -256,6 +255,12 @@ Postgres with the real migrations. `requireSession` has a `__TEST_DB__` seam;
 `test/shim.mjs` is a supabase-js-shaped builder over node-postgres, and
 `test/loader.mjs` resolves `next/*` and the `@/` alias for `node --test`.
 
+**CI splits by what a check needs**: `static` for everything that needs no
+database, `database` for the route and RLS suites over a Postgres service
+container built by `scripts/ci-db.sh`, `macos` for `swift build`, and `e2e`
+for the browser. Root `pnpm test` is `pnpm -r test`, so it runs the core
+package's suite too — filter to `@stint/web` for the route suite alone.
+
 Node's `--experimental-strip-types` rejects **TypeScript parameter
 properties** — write constructor fields explicitly in any code the tests load.
 
@@ -272,9 +277,9 @@ code. Routes in `apps/web/src/app/api/v1/invoices/`; shared loaders in
 everything else. `formatCurrency` and `formatHours` are in core for the same
 reason: the preview and the PDF render one number one way.
 
-**`tz` is rejected rather than defaulted here.** The period is local dates, so
-the zone decides which entries are billed; the read endpoints fall back to UTC,
-these two return 422.
+**An invalid `tz` is rejected rather than swallowed here.** The period is local
+dates, so the zone decides which entries are billed; the read endpoints fall
+back to UTC, these two return 422. An omitted one still defaults to UTC.
 
 ### Rules that must not regress
 
@@ -360,8 +365,9 @@ payers to challenge.
 runs with the Command Line Tools alone (`swift build`), which is what makes it
 verifiable from a terminal. `./bundle.sh` wraps the binary in a `.app` with
 `LSUIElement`, because AppKit honours "menu bar only, no Dock icon" from a
-bundle's Info.plist and not from a bare executable. Unsigned: distribution
-needs a Developer ID and notarisation.
+bundle's Info.plist and not from a bare executable. It self-signs with a local
+identity when one exists, which buys a stable designated requirement rather
+than an ad-hoc one; distribution still needs a Developer ID and notarisation.
 
 **It is the timer and nothing else** — start, stop, task name, project.
 `menubar.html` is the spec.
@@ -557,11 +563,6 @@ not move it to the root; `e2e/error-boundary.spec.ts` fails if you do.
 primitive to reach for, the conventions that repeat across screens, and the
 shapes already duplicated. Read it before adding a component.
 
-**A query renders through `Listing`**, which owns loading, failure and empty,
-so no screen writes those branches. Hand-rolling them is how ten screens each
-had two of the three and none had the third — a failed query said "Loading…"
-until the tab was closed.
-
 `components/ui/` is **vendored shadcn**, rewritten to our tokens at install by
 `apps/web/scripts/shadcn-detox.mjs`. shadcn's palette names are not defined in
 `@theme`: two collide with ours and mean the opposite — its `bg-primary` is
@@ -589,41 +590,19 @@ rule matched its own output.
 Radix supplies dialog/dropdown/popover behaviour: arrow keys, typeahead,
 roving tabindex and focus-return.
 
-### Projects
+### Time is local wall-clock; the API is UTC
 
-`screens/projects.html` covers `/projects`, the Projects section on a client,
-and the entry dialog.
+**Never step days or weeks with `+ 86_400_000`.** Use `startOfLocalDayOffset`:
+a week containing a DST transition is 167 or 169 hours, so fixed-millisecond
+arithmetic mis-buckets the entries at its edges. The inverse maths is
+`packages/core/src/grid.ts`, and every function takes the column's real span
+rather than 24 hours.
 
-**`isBillableDefault` is the user's own answer**; infer nothing from
-`client_id = null`, which covers genuinely internal, not-yet-assigned and
-speculative work alike.
+The same rule governs the entry dialog, whose inputs are local wall-clock:
+`toInstant` corrects by the offset the guess lands in, so it is DST-correct at
+the target instant.
 
-### The home screen
-
-`screens/home.html` specifies the cards; `screens/inbox.html` the dock's inbox.
-
-**`unbilled_by_client` groups by (client, rate)** and resolves through
-`resolve_rate()`, so the home screen and an invoice preview cannot disagree
-about the same work. The seed reproduces a client billing at two rates
-deliberately.
-
-### Invoices
-
-`screens/invoices.html` specifies the list and the preview-then-generate flow.
-
-**Preview and generation must agree.** Any change to what would be billed
-clears the approved preview and hides Generate. Tested, and the test was
-verified to fail when the invalidation is removed.
-
-**A draft is deleted; an issued invoice is voided** — that is what keeps
-numbering gapless.
-
-### The timer bar
-
-`screens/timer-bar.html` specifies its four states.
-
-`useTimer` counts locally from `startedAt` and reconciles with `/summary`
-every 60s and on focus; `serverTime` corrects a skewed device clock.
+### Queries
 
 **Cache keys come from `lib/client/query-keys.ts`, never written inline**, so
 one shape per query is what an invalidation can match. Anything that changes a
@@ -631,44 +610,17 @@ time entry calls `invalidateEntryData()` — summary, entries, stats, calendar
 and activity all read those rows, and refreshing a subset makes two screens
 disagree about the same work.
 
-### Editing an entry
+**A query renders through `Listing`**, which owns loading, failure and empty,
+so no screen writes those branches.
 
-`entry-dialog.tsx` is the only place a logged entry is created, corrected or
-deleted; `screens/projects.html` specifies it.
+### Invoices
 
-**The inputs are local wall-clock; the API is UTC.** `toInstant` corrects by
-the offset the guess lands in, so it is DST-correct at the target instant.
-Never do fixed-millisecond arithmetic here.
+**Preview and generation must agree.** Any change to what would be billed
+clears the approved preview and hides Generate. Tested, and the test was
+verified to fail when the invalidation is removed.
 
 **An issued invoice locks an entry; a draft does not** — `guard_billed_entry`
 returns early on a draft.
-
-### The calendar
-
-`screens/calendar.html` specifies the grid and its gestures.
-
-**Never step days or weeks with `+ 86_400_000`.** Use
-`startOfLocalDayOffset`: a week containing a DST transition is 167 or 169
-hours, so fixed-millisecond arithmetic mis-buckets the entries at its edges.
-The inverse maths is `packages/core/src/grid.ts`, and every function takes the
-column's real span rather than 24 hours.
-
-### Forms save themselves
-
-Settings has **no save button**: `useAutosave` debounces to the server and
-each card carries a `SaveIndicator` (dot at rest → spinner → check). A check
-that is always present says nothing, so it appears only after a save the user
-caused.
-
-Two invariants the tests pin down: `pending` is set on the *edit*, not on the
-request, so a field is never shown as saved while it holds unsent text; and
-an edit during an in-flight request is **queued, not raced**, or a slow first
-response can land after a newer one and the server keeps the older value.
-
-`alive.current` is set on mount, not only cleared on unmount — StrictMode
-double-mounts in dev, and a ref that is only ever cleared leaves every save
-completing silently with the spinner stuck forever.
-
 ### The pre-commit hook
 
 Husky runs `lint-staged`, which runs `biome check --write` over the **staged
@@ -692,8 +644,9 @@ is reported — a genuine failure is a 30s timeout, so two failures become four.
 At ten tests and ~31s of work, a flaky test going red is the intent.
 
 **CI starts the stack with `-x studio,postgres-meta`** — 2.25GB of the 4.4GB
-of images, for a dashboard the browser suite never drives. `pnpm dev:up` keeps
-them; this is a CI-only narrowing.
+of images, for a dashboard the browser suite never drives. `pnpm dev:up`
+excludes those two and seven more; `pnpm dev:up:studio` is the one that keeps
+them.
 
 The images are pulled rather than cached. `ci.yml` carries the measurements
 and the warning against reintroducing a cache, at the step where someone would

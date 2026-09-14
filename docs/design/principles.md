@@ -77,6 +77,43 @@ that nothing needs dismissing.
 **No per-project colours.** Colour answers *whose work is this?*; a project is
 a subdivision of a client already identified by it. See `brand.html`.
 
+**No "System" theme.** The palette is dark-first and its light block is keyed
+to an explicit `[data-theme="light"]`, so a System option would resolve to
+dark for everyone — a control that appears to do something and does nothing.
+Following the OS honestly means changing the generator first.
+
+**No warm neutral ground.** Rotating the hue is free in OKLCH so it is cheap
+to propose, but a warm ground reads as brown or red, and the obvious choices
+collapse the accent separation from 122° to 67–82°.
+
+**No fourth motion duration.** A fourth is always a tweak of one of the two
+that remain.
+
+**No week or quarter targets, and never two units at once.** Three progress
+bars competing for the same glance; a contractor thinks in months because
+invoicing is monthly.
+
+**Revenue is work done, not money collected, and it is bucketed by the entry's
+date rather than the invoice's.** A bar that drops when a client pays late
+reports someone else's behaviour as your own, and invoicing March's work on
+April 1st is ordinary — booking it into April reports when paperwork happened.
+
+**No editing a finished entry from the menu bar panel.** It needs a date and
+two times the panel has no room for; resuming starts new work instead.
+
+**The dock holds the inbox and nothing else**, and the inbox is never also
+copied onto Home at narrow widths. Pace is a monthly reading and thirty bars
+in a 280px column is a ~4px bar; the inbox has one home and changes axis, not
+identity, across the breakpoint.
+
+**Awaiting-payment stays one line on Unbilled, never a row per invoice.** Rows
+would put ordinary invoices back on Home and undo the overdue grace period;
+reconciling several belongs on `/invoices`.
+
+**"Overlapping entries are impossible" is not a landing-page pillar.** A solo
+contractor with one timer has never produced one, so it reassures about a bug
+they have never had, in the vocabulary of our implementation.
+
 ## Platform scope
 
 The web app is where features are built. The native apps exist for the things

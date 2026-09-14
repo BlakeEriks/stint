@@ -149,6 +149,7 @@ no orphaned second account.
 
 ## Deploying
 
-Vercel: import the repo, set the same two env vars, and add the deployed
-origin to **Site URL** and **Redirect URLs**. The build needs no database
-access — route handlers are all `force-dynamic`.
+Vercel: import the repo, set those two env vars plus `NEXT_PUBLIC_APP_ORIGIN`,
+and add the deployed origin to **Site URL** and **Redirect URLs**. The build
+needs no database access — route handlers are all `force-dynamic`.
+`docs/deploying.md` covers the hostname split the origin belongs to.

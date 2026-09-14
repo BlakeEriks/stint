@@ -1,8 +1,9 @@
 # Local development
 
-**Local dev never points at production.** `pnpm dev:up` runs the whole
-Supabase stack on this machine — Postgres, Auth, PostgREST — and `pnpm dev`
-talks to it. The hosted project is for deploys; see `docs/setup.md`.
+**Local dev never points at production.** `pnpm dev:up` runs the Supabase
+stack this app actually uses — Postgres, Auth, PostgREST — on this machine,
+and `pnpm dev` talks to it. The hosted project is for deploys; see
+`docs/setup.md`.
 
 Verified end to end: seeded, signed in through the real magic-link flow, and
 `pnpm verify:schema` passes against the local database.
@@ -36,6 +37,9 @@ pnpm dev:up        # start the stack (first run pulls images)
 pnpm dev           # in apps/web
 ```
 
+`dev:up` stops the stack before starting it, because `-x` is only read at
+start — on an already-running stack it is accepted and does nothing.
+
 `pnpm dev:reset` rebuilds the database from migrations plus `seed.sql` —
 the fastest way back to a known state. `pnpm dev:down` stops it;
 `pnpm dev:status` prints the URLs.
@@ -43,7 +47,7 @@ the fastest way back to a known state. `pnpm dev:down` stops it;
 | What | Where |
 |---|---|
 | App | http://localhost:3100 |
-| Studio (browse tables) | http://127.0.0.1:54323 |
+| Studio, after `pnpm dev:up:studio` | http://127.0.0.1:54323 |
 | Mailpit (every sent email) | http://127.0.0.1:54324 |
 | Postgres | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
 
@@ -215,14 +219,16 @@ the query.
 
 ## What is not running
 
-`realtime`, `storage`, `edge_runtime` and `analytics` are disabled in
-`config.toml`. The app touches none of them — its Supabase surface is
-`.from()`, one `.rpc()`, and auth. That matters in practice: the full stack
-wants ~7GB of RAM, and this subset runs in about **540MB** across seven
-containers.
+`dev:up` passes `-x` a list of nine services — realtime, storage, imgproxy,
+edge runtime, logflare, vector, supavisor, Studio and postgres-meta. The app
+touches none of them: its Supabase surface is `.from()`, one `.rpc()`, and
+auth. That matters in practice: the full stack wants ~7GB of RAM, and this
+subset runs in about **540MB**.
 
-Enable one by flipping `enabled = true` in `supabase/config.toml` if a feature
-ever needs it.
+**Studio is excluded by that list, not by `config.toml`** — `[studio] enabled`
+is `true` while the container is simply never started, so `:54323` refuses the
+connection. `pnpm dev:up:studio` keeps Studio and postgres-meta and excludes
+the other seven. To add a service back for good, take it off `dev:up`'s list.
 
 ## Keeping local and production honest
 
@@ -246,7 +252,12 @@ you upgrade one, upgrade the other.
 and the local stack is real Postgres with the real migrations:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres pnpm test
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres \
+  pnpm --filter @stint/web test
+```
+
+Filtered, because the root `pnpm test` is `pnpm -r test` and runs the core
+package's suite as well.
 
 **That truncates the seed**, so a `pnpm dev:reset` (and a fresh sign-in) is
 needed afterwards. To keep the seed, point the suite at a throwaway database
@@ -268,11 +279,6 @@ DATABASE_URL="…/stint_routes_test" pnpm --filter @stint/web test
 `sslmode=disable` is required for `pnpm migrate` against the local stack; it
 assumes SSL otherwise and fails with "The server does not support SSL
 connections".
-```
-
-Verified: 45 tests pass. This replaces the throwaway-instance procedure that
-CLAUDE.md describes for migration work — that is still the right tool for
-testing a migration in isolation, but not for running the suite.
 
 Note the tests **truncate tables in `beforeEach`**, so running them wipes the
 seed. `pnpm dev:reset` puts it back.

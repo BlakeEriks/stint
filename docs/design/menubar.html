@@ -282,10 +282,21 @@
     button as the docked timer bar. Rendered at 320px, a real popover width.
   </p>
   <p class="standfirst" style="color:var(--text-primary);">
-    <strong style="font-weight:500;">This is the visual reference.</strong>
-    The implementation spec is <code>docs/design/menubar.md</code> beside this
-    file — sizes in points, token names, API calls, and the decisions that do
-    not survive being drawn in HTML. Where the two disagree, the markdown wins.
+    <strong style="font-weight:500;">This is the spec.</strong>
+    The panel is <strong style="font-weight:500;">320pt wide</strong>;
+    heights follow content — running ≈ 370, stopped ≈ 340, runaway ≈ 260.
+    An <code>NSPopover</code> with <code>.transient</code> behaviour, or a
+    borderless <code>NSWindow</code> if the arrow proves fussy — there is no
+    arrow here.
+  </p>
+  <p class="standfirst">
+    <strong style="color:var(--text-primary);font-weight:500;">Catching a
+    runaway is why this app is worth building.</strong> Stopping and starting
+    a timer are what it does more often, but a timer forgotten at 5pm is the
+    most common way a tracker produces a wrong invoice, and the menu bar is
+    the only surface that can say so without the user opening anything. It is
+    not a port of the web app: no calendar, no invoicing, no client
+    management, and no settings beyond the four rows below.
   </p>
 
   <!-- ================= the strip ================= -->
@@ -682,53 +693,140 @@
     </div>
   </section>
 
-  <!-- ================= decisions ================= -->
+  <!-- ================= implementation ================= -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Decisions still open</span></div>
+    <div class="sec-head"><span class="eyebrow">Tokens, type and controls</span></div>
+
+    <p>
+      <strong style="color:var(--text-primary);font-weight:500;">Use the
+      generated tokens; never type a hex.</strong>
+      <code>Tokens.swift</code> is written into the app's own sources by
+      <code>pnpm tokens</code>, because SwiftPM cannot read the gitignored
+      <code>dist/</code>. The app is <strong style="font-weight:500;">dark-only</strong>,
+      so use <code>Tokens.Dark</code> — light mode needs the same explicit
+      choice the web app makes, not an <code>@Environment(\.colorScheme)</code>
+      read.
+    </p>
 
     <div class="table-wrap">
       <table>
-        <thead>
-          <tr><th>Question</th><th>Options</th><th>My read</th></tr>
-        </thead>
+        <thead><tr><th>Role</th><th>Token</th><th>Used for</th></tr></thead>
         <tbody>
-          <tr>
-            <td><strong>Strip: show the time at all?</strong></td>
-            <td>Dot + elapsed · dot only</td>
-            <td><span class="rec">Show it</span> — the whole point is a glance that costs no click. A dot-only mode is worth offering as a preference for people with crowded menu bars.</td>
-          </tr>
-          <tr>
-            <td><strong>Stop button placement</strong></td>
-            <td>Beside the readout · top-right corner</td>
-            <td><span class="rec">Beside</span> — the timer and its stop are one fact. The corner is where window chrome lives, and it separates the control from the thing it acts on.</td>
-          </tr>
-          <tr>
-            <td><strong>Entry list length</strong></td>
-            <td>3 · 5 · scrollable</td>
-            <td><span class="rec">3, then "Open Stint"</span> — a scrollable list inside a popover is fiddly, and the full day is one click away.</td>
-          </tr>
-          <tr>
-            <td><strong>Can you rename a running entry here?</strong></td>
-            <td>Yes, inline · no, only in the app</td>
-            <td><span class="rec">Yes</span> — "what was I doing" gets answered late more often than on start, and a menu bar that can only stop is half a tool. Costs a pencil affordance on the task line.</td>
-          </tr>
-          <tr>
-            <td><strong>Does Unbilled belong here?</strong></td>
-            <td>Yes · Today only</td>
-            <td><span class="rec">Yes</span> — it is the number no other tracker can show, and it is the difference between a timer widget and <em>Stint</em> in the menu bar.</td>
-          </tr>
-          <tr>
-            <td><strong>Sign-out / account</strong></td>
-            <td>Header menu · only in the app</td>
-            <td><span class="rec">Header menu</span> — behind the gear, with Preferences and Quit. The current design spends a whole row on an email address; you know who you are.</td>
-          </tr>
-          <tr>
-            <td><strong>Global shortcut to start/stop</strong></td>
-            <td>Ship it · later</td>
-            <td><span class="rec">Ship it</span> — the fastest possible start is never opening the popover at all, and it is the one thing a menu bar app can do that the web app cannot.</td>
-          </tr>
+          <tr><td>Popover ground</td><td><code>bgBase</code></td><td>The popover's own background</td></tr>
+          <tr><td>Header ground</td><td><code>bgRecessed</code></td><td>The header strip and the account block</td></tr>
+          <tr><td>Input / picker fill</td><td><code>bgPrimary</code></td><td>Task field, project picker</td></tr>
+          <tr><td>Stop button fill</td><td><code>bgElevated</code></td><td>The round stop button</td></tr>
+          <tr><td>Hover</td><td><code>bgHover</code></td><td>Entry rows under the pointer</td></tr>
+          <tr><td>Running readout, pip, start button</td><td><code>accentDefault</code></td><td><strong>Only these</strong></td></tr>
+          <tr><td>Text on the start button</td><td><code>textOnAccent</code></td><td>Never white — 1.37:1</td></tr>
+          <tr><td>Stopped readout and pip</td><td><code>timerIdle</code></td><td>Never the accent</td></tr>
+          <tr><td>Runaway readout, pip, strip</td><td><code>timerWarning</code></td><td>Amber</td></tr>
+          <tr><td>Dividers</td><td><code>borderSubtle</code></td><td></td></tr>
+          <tr><td>Input border</td><td><code>borderDefault</code></td><td><code>borderFocus</code> at 2pt when focused</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <p style="margin-top:1.75rem">
+      Green means <strong style="color:var(--text-primary);font-weight:500;">time
+      is accruing</strong>, and may appear as many times as that one idea
+      occurs: the pip and the readout while running, or the start button while
+      stopped. Never both — a stopped timer with a green readout is the
+      regression to watch for. Never on the stop button, a divider, anything in
+      the header, or a focus ring.
+    </p>
+
+    <div class="table-wrap" style="margin-top:1.75rem">
+      <table>
+        <thead><tr><th>Type role</th><th>Family</th><th>Size</th><th>Weight</th></tr></thead>
+        <tbody>
+          <tr><td>Readout</td><td>Mono</td><td>26pt</td><td>Medium, tracking −0.02em</td></tr>
+          <tr><td>Task name</td><td>Sans</td><td>14pt</td><td>Regular, tail ellipsis</td></tr>
+          <tr><td>Entry row</td><td>Sans</td><td>13pt</td><td>Regular</td></tr>
+          <tr><td>Stat value</td><td>Mono</td><td>15pt</td><td>Regular</td></tr>
+          <tr><td>Client / meta</td><td>Mono</td><td>11pt</td><td>Regular</td></tr>
+          <tr><td>Section label</td><td>Mono</td><td>10pt</td><td>Medium, uppercase, 0.16em</td></tr>
+          <tr><td>Header wordmark</td><td>Mono</td><td>12pt</td><td>Semibold, uppercase, 0.12em</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="notes" style="margin-top:1.5rem;">
+      <ul>
+        <li><strong>Every number is mono with <code>.monospacedDigit()</code>.</strong>
+          A readout that reflows as its digits change is the exact thing the
+          rule exists to prevent.</li>
+        <li><strong>The scale is mirrored from <code>tokens.json</code> by
+          hand</strong>, and the faces fall back to the system's. Both are
+          <code>tasks.md</code> lines: emitting the scale into
+          <code>Tokens.swift</code>, and shipping Plex with the app.</li>
+        <li><strong>Text fields:</strong> <code>bgPrimary</code> fill, 8pt
+          radius, 34pt high, 14pt sans. <strong>Buttons:</strong> same radius
+          and height, 14pt sans medium. Hit targets 28pt minimum — a menu bar
+          panel is used in a hurry.</li>
+        <li><strong>Focus is a ring change, never a fill change.</strong> A
+          field that changes background on focus reads as a different control.
+          AppKit draws its own blue ring unless the field is
+          <code>.textFieldStyle(.plain)</code> with an explicit overlay.</li>
+        <li><strong>Something is always focused when the panel opens</strong>
+          — the task field when stopped, the email or code field in sign-in. A
+          panel you must click into wastes the interaction it exists to
+          shorten.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ================= the server ================= -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Talking to the server</span></div>
+
+    <p>
+      Everything goes through <code>/api/v1/*</code> with a bearer token from
+      the Keychain. There is no Swift-specific endpoint and there should not
+      be one — the API is the shared contract.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Endpoint</th><th>For</th></tr></thead>
+        <tbody>
+          <tr><td><code>GET /timer/current</code></td><td>The running entry, plus <code>exceedsThreshold</code></td></tr>
+          <tr><td><code>POST /timer/start</code></td><td><strong>409 when one is already running</strong></td></tr>
+          <tr><td><code>POST /timer/stop</code></td><td></td></tr>
+          <tr><td><code>GET /summary</code></td><td>Today's total, <code>exceedsThreshold</code>, <code>serverTime</code></td></tr>
+          <tr><td><code>GET /stats?tz=…</code></td><td>The unbilled total</td></tr>
+          <tr><td><code>GET /entries?from=…</code></td><td>Today's rows</td></tr>
+          <tr><td><code>PATCH /entries/:id</code></td><td>Rename</td></tr>
+          <tr><td><code>GET /projects</code>, <code>GET /clients</code></td><td>The picker and client colours</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="notes" style="margin-top:1.5rem;">
+      <ul>
+        <li><strong>Never pre-check the running timer.</strong> Attempt the
+          insert and translate the conflict — a pre-check is a race, the index
+          is not. A 409 refreshes rather than reports: another device won and
+          the invariant held, so showing what <em>is</em> running is more use
+          than the error.</li>
+        <li><strong>Tick locally, reconcile at 60s</strong> and on open,
+          skew-corrected from <code>serverTime</code>. A Mac with a wrong clock
+          would otherwise show a wrong elapsed time, which in this app is a
+          wrong number on an invoice.</li>
+        <li><strong>Today's total adds live seconds from the fetch</strong>,
+          not from <code>startedAt</code> — the route already folded the
+          running entry in, and adding it again counts it twice.</li>
+        <li><strong>The task field follows the server only when unfocused</strong>,
+          so it never overwrites itself mid-type.</li>
+        <li><strong>Unbilled is never labelled "earned" or "revenue".</strong>
+          It is work done and not yet invoiced — money the user might still
+          never see. Show <code>unbilled.total</code> alone; the per-client
+          breakdown is a web surface. When <code>unratedCount &gt; 0</code> the
+          total is incomplete, and saying so beats a confidently wrong number.</li>
+        <li><strong>The API models are hand-written and nothing type-checks
+          them</strong> against <code>packages/schema</code>, so a renamed
+          field fails at runtime in Swift and nowhere else.</li>
+      </ul>
     </div>
   </section>
 

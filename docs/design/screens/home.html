@@ -426,9 +426,9 @@
         surfaces it because none of them know the rate.</li>
       <li><strong>Totals come from <code>unbilled_by_client</code>, grouped by
         (client, rate).</strong> One client can have work at several rates, and
-        collapsing them misstates the money. Its coalesce chain must stay
-        identical to <code>resolve_entry_rate</code>, or this card and an
-        invoice preview will disagree about the same work.</li>
+        collapsing them misstates the money. It resolves through
+        <code>resolve_rate()</code>, the same chain an invoice preview uses, so
+        the two cannot disagree about the same work.</li>
       <li><strong>Each client row links to invoice generation</strong> for that
         client, pre-filled with the period covering its unbilled entries. That
         is what makes the card an action rather than a readout.</li>

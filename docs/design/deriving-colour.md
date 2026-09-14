@@ -35,6 +35,25 @@ Toggl's pink/magenta territory.
 discontinuity at 265 (Cmax at L0.22 jumps 0.0898 → 0.1510). 264 sits just
 below it, so the ramp stays smooth instead of kinking mid-scale.
 
+Rotating the hue is free in OKLCH — lightness is held, so every contract
+assertion still passes — which makes a warm ground cheap to try. It reads as
+brown or red long before it reads as inviting, and a neutral with an opinion
+of its own stops receding behind the content. The floor is
+`$meta.hueSeparation`: the obvious warm choices (60–75) collapse 122° to
+67–82° and put the ground in the accent's own family.
+
+**Chroma is held nearly flat across the planes** — dark runs 0.0060 → 0.0140
+across the six, interpolated linearly rather than tracking lightness. Chroma
+climbing with L washed the blue-grey cast out exactly where the ladder jumps
+hardest, and the middle of the app read as a different palette from its frame.
+Light carries about a third of dark's at the same nominal cast: the same
+chroma is a larger share of the remaining distance to white, so a tint that
+reads as a considered neutral at L 0.25 reads as a colour at L 0.95.
+
+**Hover and active are surfaces, not ink.** They are painted on top of a card,
+so they sit at the card's end of the surface scale; on the ink curve they
+landed *below* the card they were hovering.
+
 ## Two scales, because one curve cannot serve both
 
 The two halves of a neutral ramp want opposite things:
@@ -69,7 +88,27 @@ Without it, `500` and `600` landed 0.0087 apart: two names for one grey.
 **Lowering `FLOOR` is wrong.** It drags the entire eased curve down, taking the
 text steps with it: muted falls to 4.40 (under AA) and the border to 2.63. Two
 contract assertions broken to solve a problem that lives in the surfaces. Give
-the surfaces their own scale; leave the curve alone.
+the surfaces their own scale; leave the curve alone. `FLOOR` is 0.215 while the
+darkest painted plane is 0.150 — the surfaces no longer pass through the ink
+curve, which is what lets the floor stay where the contrast maths wants it.
+
+### What each ink step owes
+
+| step | owes | against |
+|---|---|---|
+| `400` | 3:1 | `border-control`, taken off 500 |
+| `500` | 4.5 (AA text) | the card — it is body copy in over a hundred places |
+| `600` | 5.5 | the card |
+| `700` | 3:1, and clear of 600 | the focus ring |
+
+`600` owes **5.5**, not 4.5: held to the same ratio as 500 against the same
+card, both are pushed to the same place and the curve's own separation is lost
+— they came out ΔL 0.0087 apart, two names for one grey. The hierarchy is
+strong > primary > muted > subtle, so muted owes more than subtle.
+
+`400` exists because one primitive cannot owe two ratios: 500 had been
+carrying `text-subtle`, `border-control` and `timer-idle` at once, which is
+why that step could not be derived for any of them.
 
 ## Judge adjacent surfaces by ΔL, not WCAG
 
@@ -101,7 +140,14 @@ Hue rotation cannot fix this. Two consequences are baked into the system:
 
 The frame rises toward the card in both themes — the nearest plane is the
 lightest either way. Only the **ink** inverts, darkening to gain contrast where
-dark ink brightens. `L = 0.985 − 0.840 · t^1.55`.
+dark ink brightens. `L = 0.985 − 0.840 · t^1.55`. `liftFor` and `dropFor` are
+two functions rather than one with a sign flag, for that reason.
+
+**The planes descend from a ceiling.** The card is the anchor in light where
+the bars are the anchor in dark: there is headroom below white and none above
+it. `ceiling` is 0.995, not 1.0 — pure white leaves nothing above the content
+column. The light steps are 0.022 where dark's are 0.035, because perceptual
+distance compresses toward white.
 
 The light accent drops to `#1F7E17`: `#52FC43` is ~1.6:1 on white and unusable
 as anything but a fill.

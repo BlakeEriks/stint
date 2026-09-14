@@ -1,7 +1,6 @@
 # Writing the docs
 
-Applies to everything under `docs/`, and to `CLAUDE.md` — which grew from 50
-to 1,489 lines in three days by exactly the habits below.
+Applies to everything under `docs/`, and to `CLAUDE.md`.
 
 ## Format follows content
 
