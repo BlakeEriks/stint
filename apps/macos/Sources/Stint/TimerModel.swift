@@ -24,6 +24,30 @@ final class TimerModel {
     /// it is the readout at the top of the panel, and listing it twice would
     /// make the same work look like two records.
     private(set) var today: [TimeEntry] = []
+
+    private(set) var clients: [Client] = []
+
+    /// Project id → its client's colour, the same resolution
+    /// `useProjectColors()` does on the web.
+    ///
+    /// **Here rather than in the view**, so one place decides what a colour
+    /// means. A project with no client has none — internal work is a real
+    /// state, not a missing one, and it renders with no dot rather than a
+    /// grey stand-in.
+    var projectColors: [String: String] {
+        let byClient = Dictionary(
+            clients.compactMap { c in c.color.map { (c.id, $0) } },
+            uniquingKeysWith: { a, _ in a }
+        )
+        return Dictionary(
+            projects.compactMap { p in
+                guard let clientID = p.clientId, let hex = byClient[clientID]
+                else { return nil }
+                return (p.id, hex)
+            },
+            uniquingKeysWith: { a, _ in a }
+        )
+    }
     private(set) var projects: [Project] = []
     private(set) var email: String?
     private(set) var isSignedIn = false
@@ -186,6 +210,9 @@ final class TimerModel {
             self.summary = summary
             self.errorMessage = nil
             if projects.isEmpty { projects = (try? await api.projects()) ?? [] }
+            // Colours change about as often as projects do, so they load on
+            // the same terms rather than on every poll.
+            if clients.isEmpty { clients = (try? await api.clients()) ?? [] }
             /* `try?`, deliberately. Unbilled and the entry list sit beside the
                clock, and the clock is what this app is for — a failure hides
                one number rather than surfacing an error over a working timer.
@@ -295,6 +322,7 @@ final class TimerModel {
         stats = nil
         today = []
         projects = []
+        clients = []
     }
 }
 

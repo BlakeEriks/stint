@@ -143,12 +143,17 @@ private struct TimerPanel: View {
         model.isRunning ? AnyView(runningBlock) : AnyView(idleBlock)
     }
 
+    /* Spacing is NOT uniform here, per menubar.html: 8pt from the clock to
+       the task, then 4pt from the task to the project. The task and project
+       are one pair of facts about the timer, so they sit tighter to each
+       other than the pair does to the number it describes. */
     private var runningBlock: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             readout
 
             if model.exceedsThreshold {
                 RunawayNotice()
+                    .padding(.top, 8)
             }
 
             RunningRow(
@@ -157,11 +162,10 @@ private struct TimerPanel: View {
                 focused: $taskFocused,
                 onCommit: commit
             )
+            .padding(.top, 8)
 
             ProjectField(model: model)
-                // Aligned to the readout's text, not its dot, so the eye
-                // reads time → what → whose down one edge.
-                .padding(.leading, 19)
+                .padding(.top, 4)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -579,6 +583,11 @@ private struct ProjectField: View {
 
     private var chosen: Bool { selection != nil }
 
+    private var colorHex: String? {
+        guard let selection else { return nil }
+        return model.projectColors[selection]
+    }
+
     var body: some View {
         Menu {
             // "No project" is a real choice, not an absent one: `client_id`
@@ -591,9 +600,20 @@ private struct ProjectField: View {
             }
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: "folder")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Tokens.Dark.textSubtle)
+                /* The client's colour, which answers *whose work is this?* —
+                   the same question it answers on the calendar and in the
+                   entry list. A project with no client shows the folder
+                   instead: internal work is a real state, not a colour that
+                   failed to load, so it takes no dot rather than a grey one. */
+                if let hex = colorHex {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(Color(hex: hex))
+                        .frame(width: 8, height: 8)
+                } else {
+                    Image(systemName: "folder")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Tokens.Dark.textSubtle)
+                }
                 Text(name(of: selection))
                     .font(.system(size: 12))
                     .foregroundStyle(
@@ -617,6 +637,12 @@ private struct ProjectField: View {
         .padding(.vertical, 6)
         .background(background)
         .clipShape(RoundedRectangle(cornerRadius: 6))
+        /* Chosen, its TEXT lines up with the task name above at 19pt — the
+           two are one pair of facts and a 9pt step between them read as a
+           mistake. The control's own 10pt inset is pulled back out, so the
+           hover surface still extends past the text the way a control should
+           and only the glyph moves. Unset it stays where a field belongs. */
+        .padding(.leading, chosen ? 9 : 0)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
     }

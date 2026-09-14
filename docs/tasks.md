@@ -37,18 +37,12 @@ later.
       Home renders for weeks after it stopped being true. Either delete them
       with their tests, or record the condition that would bring them back.
 
-- [ ] **The menu bar panel shows no client colour.** `menubar.html` draws a
-      dot beside the project name, which is what answers *whose work is this?*
-      everywhere else in the product.
-
-      **No API work:** `/clients` already returns `color`, so the app needs a
-      clients fetch and a project → client → colour map. That is exactly what
-      `useProjectColors()` does on the web, and the map belongs in
-      `TimerModel` rather than the view, for the same reason.
-
-      `/projects` deliberately does NOT carry it — `rows.ts` says colour
-      identifies a client, not a project, and `projects.color` is a dead
-      column. Do not revive it to save a request.
+- [ ] **The menu bar panel names no client.** `menubar.html` draws the client
+      NAME under the task while a timer runs ("Northwind Trading" beside its
+      dot), where the panel now shows the project alone. The colour is
+      resolved; the name needs `Client.name` decoding and a second line in
+      `RunningRow`. Cheap, but it is another line in a 320pt panel — worth
+      confirming it earns the height before adding it.
 
 - [ ] **`Start` is a labelled rectangle** where the app's transport is a
       round button with a single glyph. The running state is already the

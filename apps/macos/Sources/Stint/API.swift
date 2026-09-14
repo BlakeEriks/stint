@@ -33,6 +33,21 @@ private struct EntryList: Codable {
     let entries: [TimeEntry]
 }
 
+/// A client, narrowed to what the panel draws.
+///
+/// **Colour identifies a CLIENT, not a project** — `rows.ts` says so, and
+/// `projects.color` is a dead column nothing reads. So a project's colour is
+/// its client's, which is why this fetch exists rather than `/projects`
+/// carrying one.
+struct Client: Codable, Identifiable, Equatable {
+    let id: String
+    let color: String?
+}
+
+private struct ClientList: Codable {
+    let clients: [Client]
+}
+
 /// `GET /stats`, narrowed to what the panel draws.
 ///
 /// The route carries the whole home screen — pace, billable ratio, overdue
@@ -151,6 +166,20 @@ actor API {
             "/stats?tz=\(timeZone.identifier)",
             body: Optional<Never>.none
         )
+    }
+
+    /// `GET /clients` — for their colours alone.
+    ///
+    /// Archived included: a finished engagement still owns the colour on
+    /// today's entries and on a project the picker still lists, and dropping
+    /// it would leave those grey for no reason a user could see.
+    func clients() async throws -> [Client] {
+        let list: ClientList = try await request(
+            "GET",
+            "/clients?includeArchived=true",
+            body: Optional<Never>.none
+        )
+        return list.clients
     }
 
     /// `GET /entries?from=` — today's, newest first.
