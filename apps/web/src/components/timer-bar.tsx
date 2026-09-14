@@ -12,28 +12,14 @@ import type { Project } from '@/lib/client/api';
 /**
  * The timer, docked to the bottom of the app frame on every screen.
  *
- * It used to be a card on Home *and* a readout in the nav rail — two
- * identical green clocks in view at once. `nav-timer.tsx` argued that was
- * fine because "both marks are the same fact, so they reinforce", which was a
- * rationalisation written before anyone looked at it on a wide screen. One
- * timer, in the frame, is the honest version of that rule.
+ * One timer, in the frame, so it can be started from any screen without a
+ * page load. A running timer is the only place the accent appears, which is
+ * what makes green read as a signal rather than a brand colour.
  *
- * Docking it buys three things beyond tidiness:
- *
- * - **A timer can be started from anywhere.** It previously required
- *   navigating to Home first, which put the app's most common action behind a
- *   page load.
- * - **Home gets its best band back.** The hero occupied 87px at the top of
- *   the page and, on a wide screen, held content only in its right ~230px.
- * A running timer is still the only place the accent appears, which is what
- * makes green read as a signal rather than a brand colour.
- *
- * **The bar is a fixed readout and never grows.** The runaway notice used to
- * render above these controls, which pushed the whole frame down at the exact
- * moment something needed attention — chrome reflowing when a problem
- * appears, the same failure the inbox was built to fix as a card that
- * vanished on success. Keep / Adjust / Discard is an inbox row now; what
- * stays here is the `EntryDialog` that Adjust opens on the stopped entry.
+ * **The bar is a fixed readout and never grows** — chrome must not reflow at
+ * the moment something needs attention. Keep / Adjust / Discard is an inbox
+ * row; what stays here is the `EntryDialog` that Adjust opens on the stopped
+ * entry.
  */
 export function TimerBar({ projects }: { projects: Project[] }) {
   const timer = useTimer();

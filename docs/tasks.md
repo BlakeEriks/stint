@@ -24,19 +24,6 @@ later.
 
 ## Ready
 
-- [ ] **Delete the two parked components, or say why they stay.**
-      `activity-strip.tsx` (the twelve-week heatmap `ActivityChart` replaced)
-      and `nav-timer.tsx` (the rail readout the docked bar replaced) are both
-      unimported and both were kept "for one release". That release has
-      passed. `activity-strip` still carries a passing test
-      (`test/ui/activity-strip.test.tsx`); `nav-timer` has none, so deleting
-      it costs nothing and proves nothing either.
-
-      The cost is not the file, it is that a reader cannot tell a parked
-      component from a current one — CLAUDE.md described the strip as what
-      Home renders for weeks after it stopped being true. Either delete them
-      with their tests, or record the condition that would bring them back.
-
 - [ ] **The menu bar panel names no client.** `menubar.html` draws the client
       NAME under the task while a timer runs ("Northwind Trading" beside its
       dot), where the panel now shows the project alone. The colour is

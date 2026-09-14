@@ -10,18 +10,14 @@ import { useTimeZone } from '@/lib/client/use-timer';
 /**
  * Hours per day, stacked by client.
  *
- * This replaces the twelve-week heatmap (`activity-strip.tsx`, still in the
- * tree) and answers the same question — *when did the work happen, and whose
- * was it?* — with two things the strip could not do:
+ * It answers *when did the work happen, and whose was it?*
  *
- * **It shows every share, not just the largest.** The endpoint has always
- * returned `byClient` per day and the strip discarded all but the dominant
- * hue, so a day split 6h Northwind / 2h Byrne rendered as a solid Northwind
- * cell. The 2h is exactly what gets argued about in a scope conversation.
+ * **Every share shows, not just the largest.** A day split 6h Northwind / 2h
+ * Byrne renders both — the 2h is exactly what gets argued about in a scope
+ * conversation.
  *
- * **It shows magnitude.** An intensity ramp carries about four distinguishable
- * steps; a bar carries the number. "Was Tuesday a three-hour day or a nine-hour
- * day?" is unanswerable on a heatmap.
+ * **Magnitude shows.** A bar carries the number: "was Tuesday a three-hour
+ * day or a nine-hour day?" is answerable at a glance.
  *
  * **Hue is still the client**, resolved exactly as everywhere else. No new
  * colour meaning is introduced — and never the accent, which belongs to the
@@ -29,15 +25,14 @@ import { useTimeZone } from '@/lib/client/use-timer';
  * rather than as rest.
  *
  * **Gaps stay real.** Every day in the range gets a column, so a blank one is
- * a weekend or a dry spell rather than missing data — the same reason the
- * strip rendered all 84 cells.
+ * a weekend or a dry spell rather than missing data.
  */
 
 /* 90 days is deliberately absent. At day granularity it is 90 bars in a
-   ~660px card — a ~4px bar, which is worse than the heatmap was at the same
-   job. It needs week bucketing (`granularity: 'week'`, server-side for the
-   same DST reason day bucketing already lives there), and that is a route
-   change with its own correctness tests rather than an option to add here. */
+   ~660px card — a ~4px bar. It needs week bucketing (`granularity: 'week'`,
+   server-side for the same DST reason day bucketing already lives there),
+   which is a route change with its own correctness tests rather than an
+   option to add here. */
 const RANGES = [
   { days: 14, label: '14d' },
   { days: 30, label: '30d' },

@@ -14,10 +14,6 @@ import { Button } from '@/components/ui/button';
 import { api, type Stats } from '@/lib/client/api';
 import { useTimeZone } from '@/lib/client/use-timer';
 import { money } from './invoice-bits';
-/* `activity-strip.tsx` — the twelve-week heatmap this replaced — is still in
-   the tree and still tested. It is left there on purpose: the chart answers
-   the same question and should prove itself over a week of real use before
-   the strip is deleted. Deleting it is one line later; rebuilding it is not. */
 import { ActivityChart } from './activity-chart';
 
 /**

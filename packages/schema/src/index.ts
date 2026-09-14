@@ -12,7 +12,7 @@ export const uuid = z.uuid();
 export const iso = z.iso.datetime({ offset: true });
 export const money = z.number().nonnegative().multipleOf(0.01);
 export const currency = z.string().length(3);
-export const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
+const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
 
 // ── client ─────────────────────────────────────────────────────────
 export const Client = z.object({
@@ -143,15 +143,6 @@ export const StopTimer = z.object({
   endedAt: iso.optional(), // defaults to server now()
 });
 
-/** GET /timer/current */
-export const CurrentTimer = z.object({
-  entry: TimeEntry.nullable(),
-  /** Server-computed against user_settings.max_timer_hours. */
-  exceedsThreshold: z.boolean(),
-  maxTimerHours: z.number().positive(),
-  serverTime: iso, // lets clients correct for clock skew
-});
-
 // ── summary (the menu bar endpoint) ────────────────────────────────
 export const Summary = z.object({
   running: TimeEntry.nullable(),
@@ -274,7 +265,7 @@ export const CreateInvoice = InvoicePreviewRequest.extend({
 });
 
 /** The frozen snapshot stored on an invoice. */
-export const PaymentDetailsSnapshot = z.object({
+const PaymentDetailsSnapshot = z.object({
   title: z.string().nullable(),
   fields: z.array(z.object({ label: z.string(), value: z.string() })),
   intermediary: z.array(z.object({ label: z.string(), value: z.string() })),
@@ -503,10 +494,6 @@ export const ErrorCode = z.enum([
   'VALIDATION_FAILED',
 ]);
 
-/** What `handle()` emits for an unhandled error. Separate from ErrorCode
- *  because it is never something a client can act on. */
-export const INTERNAL_ERROR_CODE = 'INTERNAL' as const;
-
 export const ApiError = z.object({
   code: ErrorCode,
   message: z.string(),
@@ -516,7 +503,6 @@ export const ApiError = z.object({
 export type Client = z.infer<typeof Client>;
 export type Project = z.infer<typeof Project>;
 export type TimeEntry = z.infer<typeof TimeEntry>;
-export type CurrentTimer = z.infer<typeof CurrentTimer>;
 export type Summary = z.infer<typeof Summary>;
 export type Settings = z.infer<typeof Settings>;
 export type InvoicePreview = z.infer<typeof InvoicePreview>;
@@ -528,5 +514,4 @@ export type ClientWithScale = z.infer<typeof ClientWithScale>;
 export type Invoice = z.infer<typeof Invoice>;
 export type CalendarDay = z.infer<typeof CalendarDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
-export type PaymentDetailsSnapshot = z.infer<typeof PaymentDetailsSnapshot>;
 export type ApiError = z.infer<typeof ApiError>;

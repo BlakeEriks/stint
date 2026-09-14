@@ -588,9 +588,6 @@ stay identical to `resolve_entry_rate`, or the home screen and an invoice
 preview disagree about the same work. The seed reproduces the case
 deliberately.
 
-`activity-strip.tsx` and `nav-timer.tsx` are **parked** — unimported, kept for
-one release. `tasks.md` carries their removal.
-
 ### Invoices
 
 `screens/invoices.html` specifies the list and the preview-then-generate flow.

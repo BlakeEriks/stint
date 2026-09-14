@@ -50,7 +50,7 @@ function stored(): Theme {
  * the dark palette, but stamping keeps the DOM saying what the user chose,
  * which is what the menu's checkmark reads back.
  */
-export function applyTheme(theme: Theme) {
+function applyTheme(theme: Theme) {
   const root = document.documentElement;
   root.setAttribute('data-theme', theme);
   root.style.colorScheme = theme;

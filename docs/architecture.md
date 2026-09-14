@@ -188,7 +188,6 @@ packages/core           duration, rates, timer, uuid, calendar, grid
                         (drag-to-edit geometry), invoice (line items),
                         payment (details)
 packages/design-tokens  tokens.json -> CSS + TS + Swift (generated into dist/)
-packages/api-client     Typed fetch wrapper for web + Expo
 apps/web                Next.js — API routes and the web UI
 supabase/migrations     Schema, triggers, RLS
 docs/design/samples     Committed renderer output

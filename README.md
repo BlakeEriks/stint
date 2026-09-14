@@ -25,7 +25,6 @@ packages/
   core/          duration, rates, timer, uuid, calendar,
                  invoice, payment
   design-tokens/ tokens.json -> CSS + TS + Swift (generated into dist/)
-  api-client/    typed fetch wrapper
 apps/
   web/           Next.js — the API layer
   macos/         Swift menu bar app — the timer only

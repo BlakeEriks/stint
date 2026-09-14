@@ -143,22 +143,10 @@ narrative, not litter — there is essentially no commented-out code and **zero*
 changelog-in-comments.
 
 **The dominant pattern.** One migration — the timer moving out of the nav into
-a docked bar — is retold in at least five files: `nav-timer.tsx`,
-`timer-bar.tsx`, `dock.tsx`, `home.tsx`, `home-cards.tsx`. `timer-bar.tsx`
-quotes an argument from `nav-timer.tsx` in order to rebut it. This is a
-`docs/design/principles.md` entry that got scattered across the components it
-was about, and it will be retold a sixth time unless it lands somewhere.
-
-**Essays on dead code.** Two of the worst offenders are unreachable:
-
-- `nav-timer.tsx` — 16-line header, zero references. The comment preserves a
-  rebuttal to itself ("it was wrong in an instructive way").
-- `activity-strip.tsx` — 23-line header, unreferenced. Kept alive by a comment
-  in `home-cards.tsx:18-41` arguing for its retention, so two files carry prose
-  for code nothing calls.
-
-`tasks.md` already carries their removal. Deleting them deletes ~40 lines of
-comment for free and removes two tellings of the story above.
+a docked bar — is retold across `timer-bar.tsx`, `dock.tsx`, `home.tsx` and
+`home-cards.tsx`. This is a `docs/design/principles.md` entry that got
+scattered across the components it was about, and it will be retold again
+unless it lands somewhere.
 
 **Worst ratios on live code:**
 
@@ -213,10 +201,10 @@ the PDF that issues format numbers through different code.
 construction; formatting never got the same treatment.
 
 **The DST logic has the same disease as the rates.** `localDateKey` is exported
-from core and used correctly in two places — while **five** files hand-roll the
+from core and used correctly in two places — while **four** files hand-roll the
 same `Intl.DateTimeFormat('en-CA')`: `stats/route.ts:482`,
-`entry-dialog.tsx:451`, `activity-chart.tsx:271`, `calendar.tsx:447`,
-`activity-strip.tsx:155`. Separately, `toInstant` (`entry-dialog.tsx:444-503`)
+`entry-dialog.tsx:451`, `activity-chart.tsx:271` and `calendar.tsx:447`.
+Separately, `toInstant` (`entry-dialog.tsx:444-503`)
 and `startOfLocalDate` (`core/calendar.ts`) are the same "guess UTC, correct by
 the offset the guess lands in" algorithm written twice with near-identical
 comments, and `nextDate` (`invoicing.ts:12`) duplicates `addDays`
@@ -241,22 +229,6 @@ data, and `['stats']` vs `['stats', tz]` coexist. 31 hand-written
 A key factory plus one `invalidateEntryData()` removes the drift and fixes the
 `use-timer` bug as a side effect.
 
-## 10. `packages/api-client` is a 166-line package with zero consumers
-
-Nothing imports `@stint/api-client`. `apps/web/src/lib/client/api.ts` (375
-lines) independently re-implements `request()`, an error class and
-`isTimerConflict`. The two have **divergent designs** — the package is
-bearer-authed and returns `unknown` from most methods; the live one is
-cookie-authed, fully typed through `Response<T>`, and carries the 401→`/signin`
-redirect the package lacks.
-
-So three API clients exist (this, `lib/client/api.ts`, Swift's `API.swift`),
-each with its own error type. When Expo arrives, whoever picks up the package
-inherits the untyped, redirect-less one. Decide: promote it to the real shared
-client, or delete it.
-
----
-
 ## Suggested sequencing
 
 **1b → 2 → 6** are one program: make `packages/schema` load-bearing for route
@@ -272,8 +244,7 @@ and self-contained — good first cuts.
 **3** is the biggest single deletion and needs a product decision first: is the
 exit animation worth keeping at all? Answer that before planning it.
 
-**5** and **9** are decide-and-delete. Removing the two dead components takes
-~40 lines of comment with them.
+**5** and **9** are decide-and-delete.
 
 ---
 
@@ -287,6 +258,4 @@ So a review pass does not "fix" them:
   Hand-edits get overwritten.
 - **`calendar.tsx`** is 720 lines but only ~6 stateful hooks — length is
   render, not tangle. Lower priority than its size suggests.
-- **`activity-strip.tsx`, `nav-timer.tsx`** are parked deliberately;
-  `tasks.md` carries their removal.
 - **DST arithmetic** in `grid.ts` / `calendar.ts` is load-bearing.
