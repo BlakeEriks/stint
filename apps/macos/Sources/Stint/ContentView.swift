@@ -234,8 +234,11 @@ private struct TimerPanel: View {
            ring — which is how focus landed on the stop button and then had
            nowhere to go, since Tab had no next element to move to. */
         .focusSection()
-        // Escape leaves the field without committing a stray keystroke to a
-        // billable record; the blur handler still saves what was typed.
+        /* Escape leaves the TEXT FIELD, whose focus this view owns; every
+           other control drops its own ring in `Focusable`, because a
+           `@FocusState` is only reachable from the view that declares it.
+           The blur handler still saves what was typed, so leaving never
+           costs a keystroke. */
         .onExitCommand { taskFocused = false }
         /* The caret goes to the task field on every open.
            `MenuBarExtra` rebuilds its content each time the panel opens, so
@@ -465,6 +468,15 @@ private struct Focusable<S: InsettableShape>: ViewModifier {
             .focused($focused)
             .onKeyPress(.space) { fire() }
             .onKeyPress(.return) { fire() }
+            /* Escape drops the ring. Each of these owns its own FocusState, so
+               a panel-level handler cannot reach the one that happens to hold
+               the keyboard — the control has to let go of itself. Without it
+               the ring could land on a Menu and never leave. */
+            .onKeyPress(.escape) {
+                guard focused else { return .ignored }
+                focused = false
+                return .handled
+            }
             /* AppKit's own ring is a blue rounded rectangle that ignores the
                control's shape — on the round stop button it drew a square
                around a circle, in a blue that appears nowhere else in the
@@ -704,6 +716,13 @@ private struct ProjectField: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .keyboardReachable()
+            /* Arrow keys CHANGE the project rather than opening the menu.
+               SwiftUI cannot open a `Menu` programmatically, so a focused
+               picker had no keyboard at all — and stepping the value is the
+               better answer regardless: the list is short, the choice is
+               visible as it changes, and it needs no popup to dismiss. */
+            .onKeyPress(.upArrow) { step(-1) }
+            .onKeyPress(.downArrow) { step(1) }
 
             Spacer(minLength: 0)
 
@@ -737,6 +756,19 @@ private struct ProjectField: View {
     private var background: Color {
         if !chosen { return Tokens.Dark.bgElevated }
         return hovering ? Tokens.Dark.bgElevated : .clear
+    }
+
+    /* One step through [No project, ...projects], clamped at both ends.
+       Clamped rather than wrapping: the list has a top and a bottom, and
+       arriving back at "No project" after the last project would read as the
+       key having done nothing. */
+    private func step(_ delta: Int) -> KeyPress.Result {
+        let ids: [String?] = [nil] + model.projects.map { $0.id }
+        guard let current = ids.firstIndex(of: selection) else { return .ignored }
+        let next = current + delta
+        guard ids.indices.contains(next) else { return .handled }
+        Task { await model.assign(projectID: ids[next]) }
+        return .handled
     }
 
     private func name(of id: String?) -> String {
