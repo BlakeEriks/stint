@@ -28,7 +28,12 @@ struct ContentView: View {
            seeding itself, conditional rows appearing); `fixedSize` makes the
            view state its own height up front instead of growing into it. */
         .fixedSize(horizontal: false, vertical: true)
-        .background(Tokens.Dark.bgPrimary)
+        /* `bgBase`, per menubar.html — one plane deeper than the web app's
+           content column. The panel floats over whatever is behind it, so it
+           reads as the ground everything here sits on rather than as a card,
+           and the elevated surfaces inside it (the stop button, a hovered
+           row) have somewhere to rise from. */
+        .background(Tokens.Dark.bgBase)
     }
 }
 
@@ -69,6 +74,9 @@ private struct PanelHeader: View {
         .padding(.trailing, 8)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
+        // Its own section, so Tab moves through these two and then on into
+        // the panel rather than treating the whole window as one flat ring.
+        .focusSection()
         .background(Tokens.Dark.bgRecessed)
         .overlay(alignment: .bottom) {
             Rectangle()
@@ -531,31 +539,42 @@ private struct RunningRow: View {
                         }
                     }
             } else {
-                Text(name.isEmpty ? "Untitled" : name)
-                    .font(.system(size: 13))
-                    .foregroundStyle(
-                        name.isEmpty ? Tokens.Dark.textSubtle : Tokens.Dark.textStrong
-                    )
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                /* On hover only. At rest the task is a fact under the clock,
-                   and a permanent pencil beside it made the panel look like a
-                   form. It is still keyboard-reachable while hidden, so Tab
-                   reaches the rename without a pointer. */
+                /* The WHOLE row is the target, like the project picker below
+                   it. A 10pt pencil is a small thing to hit, and the row it
+                   sits in is the object you mean to act on — the same reason
+                   `entry-list.tsx` makes its whole row the button. */
                 Button(action: beginEditing) {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Tokens.Dark.textSubtle)
-                        // Visible while focused as well as hovered: a control
-                        // Tab has reached has to be findable without a mouse.
-                        .opacity(hovering ? 1 : 0)
+                    HStack(spacing: 6) {
+                        Text(name.isEmpty ? "Untitled" : name)
+                            .font(.system(size: 13))
+                            .foregroundStyle(
+                                name.isEmpty
+                                    ? Tokens.Dark.textSubtle
+                                    : Tokens.Dark.textStrong
+                            )
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+
+                        // Opacity rather than removal, so the row does not
+                        // reflow under the pointer as it arrives.
+                        Image(systemName: "pencil")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Tokens.Dark.textSubtle)
+                            .opacity(hovering ? 1 : 0)
+
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    // The hittable area is the padded row, not just its text.
+                    .contentShape(RoundedRectangle(cornerRadius: 6))
+                    .background(hovering ? Tokens.Dark.bgElevated : .clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
                 .keyboardReachable(activate: beginEditing)
                 .accessibilityLabel("Rename task")
-
-                Spacer(minLength: 0)
             }
         }
         /* No box. A running task already has a name — it is a fact hanging
@@ -563,12 +582,12 @@ private struct RunningRow: View {
            into one; `fieldStyle` then draws the border, so the box appears
            exactly when there is something to type into.
 
-           Opacity rather than removal for the pencil, so the row does not
-           reflow under the pointer as it arrives.
-
            Indented to the readout's TEXT rather than its dot, so the eye
-           reads time → what → whose down one edge. */
-        .padding(.leading, 19)
+           reads time → what → whose down one edge. 9pt here plus the row's
+           own 10pt inset lands the text at 19, and the highlight extends
+           past it the way a control should — the same arithmetic the project
+           picker below uses, so the two hover surfaces line up. */
+        .padding(.leading, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
@@ -759,46 +778,41 @@ private struct StartStopButton: View {
         Button {
             Task { await model.toggle() }
         } label: {
-            if model.isRunning {
-                /* Neutral, per menubar.html. The accent is already on the
-                   readout and the dot — the same fact shown twice, which the
-                   rule permits — and a green stop would be a third object
-                   competing with the number it belongs to. Round, because the
-                   transport is one glyph in a circle whether it starts or
-                   stops. */
-                Image(systemName: "stop.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Tokens.Dark.textPrimary)
-                    .frame(width: 32, height: 32)
-                    .background(Tokens.Dark.bgElevated)
-                    .clipShape(Circle())
-            } else {
-                HStack(spacing: 5) {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 10))
-                    Text("Start")
-                        .font(.system(size: 12, weight: .medium))
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                // Never white on the accent — 1.37:1. `textOnAccent` is the
-                // near-black the token package exists to enforce, and CI
-                // guards this exact pairing on the web.
-                .foregroundStyle(Tokens.Dark.textOnAccent)
-                .background(Tokens.Dark.accentDefault)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
+            /* One shape for both states: a 38pt circle with a single glyph,
+               per menubar.html. Start was a labelled pill, which made the two
+               halves of one control look like different objects — and the
+               label said what the glyph already says.
+
+               Stopping is NEUTRAL and starting is the ACCENT, which is the
+               scarcity rule doing its job: idle, the primary action is the
+               only live thing on the panel; running, the accent is already on
+               the clock and the dot, so a green stop would be a third object
+               competing with the number it belongs to. */
+            Image(systemName: model.isRunning ? "stop.fill" : "play.fill")
+                .font(.system(size: 13))
+                .foregroundStyle(
+                    model.isRunning
+                        ? Tokens.Dark.textPrimary
+                        // Never white on the accent — 1.37:1. `textOnAccent`
+                        // is the near-black the token package exists to
+                        // enforce, and CI guards this pairing on the web.
+                        : Tokens.Dark.textOnAccent
+                )
+                // The play triangle's own side bearings sit it left of centre
+                // in a circle; the square does not need correcting.
+                .padding(.leading, model.isRunning ? 0 : 2)
+                .frame(width: 38, height: 38)
+                .background(
+                    model.isRunning
+                        ? Tokens.Dark.bgElevated
+                        : Tokens.Dark.accentDefault
+                )
+                .clipShape(Circle())
         }
         .buttonStyle(.plain)
-        /* The ring follows the button: a circle while running, a rounded
-           rectangle around the Start pill. One shape for both would be wrong
-           half the time. */
+        // One shape now that both states are a circle.
         .keyboardReachable(
-            shape: AnyInsettableShape(
-                model.isRunning
-                    ? AnyInsettableShape(Circle())
-                    : AnyInsettableShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            ),
+            shape: AnyInsettableShape(Circle()),
             // Guarded, so a key cannot fire a second request while one is out.
             activate: { if !model.isBusy { Task { await model.toggle() } } }
         )
@@ -879,6 +893,11 @@ private struct AccountMenu: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
+        /* Tab skipped this entirely: a `Menu` is not a focus target on its
+           own, so the ring — and the stop it implies — has to be asked for.
+           No `activate`, because the menu opens on its own keys once it has
+           the focus. */
+        .keyboardReachable()
         .accessibilityLabel("Account")
     }
 }

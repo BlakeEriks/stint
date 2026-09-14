@@ -44,10 +44,6 @@ later.
       `RunningRow`. Cheap, but it is another line in a 320pt panel — worth
       confirming it earns the height before adding it.
 
-- [ ] **`Start` is a labelled rectangle** where the app's transport is a
-      round button with a single glyph. The running state is already the
-      round glyph, so this is the two halves disagreeing.
-
 - [ ] **The web sign-in sets the word instead of drawing the mark.**
       `signin-form.tsx` has `<h1 className="type-title">Stint</h1>`, so it
       renders in the sans title role with no bounds. `brand.html`'s placement
