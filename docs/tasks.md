@@ -222,6 +222,14 @@ later.
 - [ ] **Icons on the remaining buttons.** Nav and the additive actions have
       them; the lifecycle buttons on an invoice (send, mark paid, void,
       download) and the settings forms do not.
+
+      On clients specifically, `screens/clients.html` now specifies them and
+      the code does not match: `client-detail.tsx` has a bare Edit and
+      Archive, and `client-form.tsx`'s submit has no icon and no spinner —
+      it only swaps its label. `entry-dialog.tsx` is the pattern to copy
+      (`Check`, or `Loader2` while pending). Archive has no glyph anywhere in
+      the app yet; lucide's `Archive` is the obvious one. Cancel stays bare
+      on purpose.
 - [ ] **Light mode.** The palette already exists: `tokens.css` emits the full
       light ramp under `[data-theme="light"]`, the mirrored curve
       (`L = 0.985 - 0.840 * t^1.55`) is derived, and `docs/design/deriving-colour.md`
