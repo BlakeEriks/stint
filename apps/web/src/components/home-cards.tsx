@@ -199,21 +199,27 @@ function Pace({ stats }: { stats: Stats }) {
   }
 
   const actual = p.actual;
+  const isRevenue = p.unit === 'revenue';
+  /** Money in the unit the target is in; hours keep one decimal and an `h`. */
+  const fmt = (n: number) =>
+    isRevenue ? money(n, stats.currency) : `${n.toFixed(1)}h`;
 
   return (
     <Card
       title={monthName()}
       icon={BarChart3}
       value={
-        <>
-          {actual.toFixed(1)}h
+        /* `items-baseline` with a wrap: a money target is several times wider
+           than "120h", and inline it broke after the slash and stranded it at
+           the end of the figure's line. */
+        <span className="flex flex-wrap items-baseline gap-x-1.5">
+          {fmt(actual)}
           {/* The target is context for the figure, not part of it, so it is
               set at row scale rather than carried along at 30px. */}
-          <span className="type-duration text-subtle">
-            {' / '}
-            {p.target}h
+          <span className="type-duration whitespace-nowrap text-subtle">
+            / {fmt(p.target)}
           </span>
-        </>
+        </span>
       }
     >
       <div className="flex flex-col gap-2 px-4 pt-3.5 pb-3">
@@ -236,16 +242,33 @@ function Pace({ stats }: { stats: Stats }) {
               ? ` · ${Math.round(stats.billableRatio * 100)}% billable`
               : null}
           </p>
-          <span
-            className={`flex-none type-meta ${ahead ? 'text-muted' : 'text-warning'}`}
-          >
-            {ahead ? 'on pace' : 'behind'}{' '}
-            {p.delta != null
-              ? `${p.delta >= 0 ? '+' : ''}${p.delta.toFixed(1)}h`
-              : null}
-          </span>
+          {/* Revenue reports no delta — it arrives in steps rather than
+              accruing evenly, so a business-day projection would be
+              arithmetic dressed as a finding. The figure above is the whole
+              answer. */}
+          {p.delta != null ? (
+            <span
+              className={`flex-none type-meta ${ahead ? 'text-muted' : 'text-warning'}`}
+            >
+              {/* Only hours reach here — revenue sends no delta — and hours
+                  carry their own sign through `toFixed`. */}
+              {ahead ? 'on pace' : 'behind'} {p.delta >= 0 ? '+' : ''}
+              {fmt(p.delta)}
+            </span>
+          ) : null}
         </div>
       </div>
+
+      {/* The card reads; Settings owns the field. A link rather than a dialog
+          for the same reason: there is one canonical editor, and a second one
+          here would be a second place to look when the number is wrong.
+          `#goal` lands on the card itself. */}
+      <Link
+        href="/settings#goal"
+        className="block border-t border-edge-subtle px-4 py-2 type-support text-subtle hover:bg-surface-hover hover:text-muted focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+      >
+        Edit goal
+      </Link>
     </Card>
   );
 }

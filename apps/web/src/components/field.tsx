@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { Label } from '@/components/ui/label';
 
 const LABEL = 'type-label text-subtle';
@@ -40,18 +41,40 @@ export function Field({
  * than to the page.
  */
 export function Section({
+  id,
   title,
   description,
   status,
   children,
 }: {
+  /** Anchor target, so another screen can link straight to this card. */
+  id?: string;
   title: string;
   description?: string;
   status?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const ref = useRef<HTMLElement>(null);
+
+  /* The content column scrolls inside itself rather than the page scrolling,
+     and a native anchor jump does not reach an element inside a nested scroll
+     container on a client-side navigation — `/settings#goal` arrived with the
+     card still below the fold. Scrolling it in explicitly is what makes the
+     link land. */
+  useEffect(() => {
+    if (!id || typeof window === 'undefined') return;
+    if (window.location.hash !== `#${id}`) return;
+    ref.current?.scrollIntoView({ block: 'start' });
+  }, [id]);
+
   return (
-    <section className="rounded-xl border border-edge-subtle bg-surface-elevated p-5 shadow-card">
+    <section
+      id={id}
+      ref={ref}
+      /* `scroll-mt` keeps a little air above the card when it is jumped to,
+         so it does not sit flush against the top of the column. */
+      className="scroll-mt-4 rounded-xl border border-edge-subtle bg-surface-elevated p-5 shadow-card"
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="type-heading text-strong">{title}</h2>

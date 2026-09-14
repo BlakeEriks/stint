@@ -174,6 +174,7 @@ export function SettingsForm() {
           target empty is a valid answer, not an unfinished one: the card stays
           away rather than nagging for a number the user does not work to. */}
       <Section
+        id="goal"
         title="Monthly goal"
         description="Drives the Pace card on Home. Leave it empty for no goal."
         status={<SaveIndicator state={goal.state} />}

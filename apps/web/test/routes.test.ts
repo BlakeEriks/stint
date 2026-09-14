@@ -577,6 +577,36 @@ async function entryFor(opts: {
 const S = (n: number) =>
   `018f0000-0000-7000-8000-0000000000${String(n).padStart(2, '0')}`;
 
+/**
+ * An ended, billable entry inside the CURRENT month.
+ *
+ * `entryFor` anchors to a fixed date, which is right for the aging assertions
+ * that need a known number of days. Anything measured against `/stats`'s month
+ * window cannot: the route derives that window from `new Date()`, so a fixed
+ * date silently falls out of range once the real clock leaves that month and
+ * the figure reads 0 while the test still describes real money.
+ *
+ * The 2nd at noon UTC, so the entry stays inside the month in every timezone
+ * the suite runs `tz` as, and clear of a DST boundary at either end.
+ */
+async function entryThisMonth(opts: {
+  id: string;
+  hours: number;
+  rateOverride?: number | null;
+}) {
+  const now = new Date();
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 2, 12, 0, 0),
+  );
+  const end = new Date(start.getTime() + opts.hours * 3_600_000);
+  await pool.query(
+    `insert into time_entries
+       (id,user_id,task_name,started_at,ended_at,is_billable,rate_override)
+     values ($1,$2,'work',$3,$4,true,$5)`,
+    [opts.id, USER, start.toISOString(), end.toISOString(), opts.rateOverride],
+  );
+}
+
 test('unbilled groups by (client, RATE), not by client alone', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
@@ -788,25 +818,79 @@ test('pace measures against BUSINESS days, and hides with no target', async () =
   assert.equal(pace.delta, pace.actual - pace.expected);
 });
 
-test('a revenue target reports no figure rather than hours in dollars', async () => {
+test('a revenue target reports money, and never hours in dollars', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   await pool.query(
     `update user_settings set monthly_target=10000, monthly_target_unit='revenue'
      where user_id=$1`,
     [USER],
   );
+  // 4h at an explicit 150/h, inside whatever month the clock says it is.
+  await entryThisMonth({ id: S(70), hours: 4, rateOverride: 150 });
 
-  /* Revenue is invoiced plus unbilled-at-resolved-rate — a different query.
-     Showing hours against a money target is a category error, so the card is
-     told the figure is unavailable instead of being given a wrong bar. */
   const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.pace.unit, 'revenue');
-  assert.equal(res.body.pace.target, 10000);
-  assert.equal(res.body.pace.actual, null);
-  assert.equal(res.body.pace.expected, null);
-  assert.equal(res.body.pace.delta, null);
-  // The denominators still come back, so the card can say WHY it is empty.
-  assert.ok(res.body.pace.businessDaysTotal > 0);
+  const pace = res.body.pace;
+
+  assert.equal(pace.unit, 'revenue');
+  assert.equal(pace.target, 10000);
+  // The figure is MONEY at the resolved rate, not the 4 hours behind it.
+  assert.equal(pace.actual, 600);
+
+  /* Revenue lands in steps as work is done at different rates, where hours
+     accrue evenly enough for business days elapsed to predict them. So the
+     card reports the money and withholds the projection: "behind $2,400" on
+     the 3rd would be arithmetic dressed as a finding. */
+  assert.equal(pace.expected, null);
+  assert.equal(pace.delta, null);
+  // The denominators still come back, so the card can still say where it is.
+  assert.ok(pace.businessDaysTotal > 0);
+});
+
+test('revenue counts invoiced work, and drops it when the invoice is voided', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  await pool.query(
+    `update user_settings set monthly_target=10000, monthly_target_unit='revenue'
+     where user_id=$1`,
+    [USER],
+  );
+  await entryThisMonth({ id: S(71), hours: 2, rateOverride: 100 });
+
+  const before = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(before.body.pace.actual, 200, 'unbilled work is still earned');
+
+  /* Invoicing does not change what was earned: the figure is work DONE, so
+     it must not move when the paperwork happens. */
+  const client = '018f0000-0000-7000-8000-0000000009c1';
+  const invoice = '018f0000-0000-7000-8000-0000000009a1';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Voidable')`,
+    [client, USER],
+  );
+  /* Dated from the clock, like the entry: the figure is bucketed by the
+     ENTRY's date, so these only have to be self-consistent — but a fixed year
+     here would still read as a claim about September forever. */
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,
+                           issue_date,period_start,period_end,subtotal,tax_rate,
+                           tax_amount,total,currency)
+     values ($1,$2,$3,'INV-9001',9001,'sent',
+             current_date, date_trunc('month', current_date),
+             date_trunc('month', current_date) + interval '1 month' - interval '1 day',
+             200,0,0,200,'USD')`,
+    [invoice, USER, client],
+  );
+  await pool.query(`update time_entries set invoice_id=$1 where id=$2`, [
+    invoice,
+    S(71),
+  ]);
+  const sent = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(sent.body.pace.actual, 200, 'invoicing it changes nothing');
+
+  /* Voiding releases the entries, so the work stops counting — otherwise a
+     voided invoice would leave revenue claiming money nobody owes. */
+  await pool.query(`update invoices set status='void' where id=$1`, [invoice]);
+  const voided = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(voided.body.pace.actual, 0, 'a voided invoice earns nothing');
 });
 
 test('an invoice is overdue only after the grace period', async () => {

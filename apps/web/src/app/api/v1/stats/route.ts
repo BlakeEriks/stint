@@ -42,6 +42,22 @@ function buildUnprojected(
   };
 }
 
+/**
+ * A scalar-returning `rpc` result as a number.
+ *
+ * PostgREST unwraps a scalar function to the value itself, while a plain
+ * `select * from fn()` — which the route tests' shim runs — yields a one-row,
+ * one-column set. Both shapes reach this route, and `Number([{...}])` is
+ * `NaN`, so the figure is normalised here rather than at the call site.
+ *
+ * Numerics arrive as strings either way.
+ */
+function scalar(data: unknown): number {
+  const v = Array.isArray(data) ? Object.values(data[0] ?? {})[0] : data;
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
 /** A draft left this long is usually forgotten, not deliberate. */
 const STALE_DRAFT_DAYS = 7;
 
@@ -81,48 +97,66 @@ export const GET = handle(async (req: Request) => {
   const monthStart = startOfLocalMonth(now, tz);
   const monthEnd = startOfNextLocalMonth(now, tz);
 
-  const [unbilled, settings, month, invoices, unprojected] = await Promise.all([
-    // The rollup resolves rates in SQL, grouped by (client, rate) — one
-    // client can have work at several rates, and collapsing them to one rate
-    // misstates the money. See the function's own comments.
-    db.rpc('unbilled_by_client', { p_user_id: userId }),
+  const [unbilled, monthRevenue, settings, month, invoices, unprojected] =
+    await Promise.all([
+      // The rollup resolves rates in SQL, grouped by (client, rate) — one
+      // client can have work at several rates, and collapsing them to one rate
+      // misstates the money. See the function's own comments.
+      db.rpc('unbilled_by_client', { p_user_id: userId }),
 
-    db
-      .from('user_settings')
-      .select('monthly_target, monthly_target_unit, currency')
-      .maybeSingle(),
+      /* Revenue for the month, for a money target. Work DONE — invoiced at its
+       resolved rate plus unbilled at the same — never money collected, and
+       bucketed by the entry's own date rather than the invoice's issue date.
+       The function's comments carry why. */
+      db.rpc('month_revenue', {
+        p_user_id: userId,
+        p_from: monthStart.toISOString(),
+        p_to: monthEnd.toISOString(),
+      }),
 
-    // Month-to-date, for Pace and the billable ratio.
-    db
-      .from('time_entries')
-      .select('duration_seconds, is_billable')
-      .gte('started_at', monthStart.toISOString())
-      .lt('started_at', monthEnd.toISOString())
-      .not('ended_at', 'is', null),
+      db
+        .from('user_settings')
+        .select('monthly_target, monthly_target_unit, currency')
+        .maybeSingle(),
 
-    db
-      .from('invoices')
-      .select(
-        'id, invoice_number, client_id, status, due_date, total, currency, issue_date',
-      )
-      .in('status', ['sent', 'draft']),
+      // Month-to-date, for Pace and the billable ratio.
+      db
+        .from('time_entries')
+        .select('duration_seconds, is_billable')
+        .gte('started_at', monthStart.toISOString())
+        .lt('started_at', monthEnd.toISOString())
+        .not('ended_at', 'is', null),
 
-    // Unbilled work with no project cannot resolve a rate beyond the user
-    // default, and usually means the timer was started in a hurry.
-    /* Oldest first, because the inbox row opens the oldest one: it is the
+      db
+        .from('invoices')
+        .select(
+          'id, invoice_number, client_id, status, due_date, total, currency, issue_date',
+        )
+        .in('status', ['sent', 'draft']),
+
+      // Unbilled work with no project cannot resolve a rate beyond the user
+      // default, and usually means the timer was started in a hurry.
+      /* Oldest first, because the inbox row opens the oldest one: it is the
        closest to being invoiced without a rate, and it matches the overdue
        and stale rows, which both lead with the most urgent. */
-    db
-      .from('time_entries')
-      .select('id, duration_seconds')
-      .is('project_id', null)
-      .is('invoice_id', null)
-      .not('ended_at', 'is', null)
-      .eq('is_billable', true)
-      .order('started_at', { ascending: true }),
-  ]);
+      db
+        .from('time_entries')
+        .select('id, duration_seconds')
+        .is('project_id', null)
+        .is('invoice_id', null)
+        .not('ended_at', 'is', null)
+        .eq('is_billable', true)
+        .order('started_at', { ascending: true }),
+    ]);
 
-  for (const r of [unbilled, settings, month, invoices, unprojected]) {
+  for (const r of [
+    unbilled,
+    monthRevenue,
+    settings,
+    month,
+    invoices,
+    unprojected,
+  ]) {
     if (r.error) throw r.error;
   }
 
@@ -250,6 +284,7 @@ export const GET = handle(async (req: Request) => {
       target: settings.data?.monthly_target,
       unit: settings.data?.monthly_target_unit,
       monthSeconds,
+      monthRevenue: scalar(monthRevenue.data),
       now,
       tz,
     }),
@@ -270,12 +305,14 @@ function buildPace({
   target,
   unit,
   monthSeconds,
+  monthRevenue,
   now,
   tz,
 }: {
   target: string | number | null | undefined;
   unit: string | null | undefined;
   monthSeconds: number;
+  monthRevenue: number;
   now: Date;
   tz: string;
 }) {
@@ -288,15 +325,20 @@ function buildPace({
   // day. Dividing by it would report any target as infinitely behind.
   const expected = total === 0 ? 0 : goal * (Math.max(elapsed, 1) / total);
 
-  /* Only `hours` is computable from time entries alone. Revenue pace needs
-     invoiced totals plus unbilled-at-resolved-rate — a different query — and
-     reporting hours against a money target would be a category error, so the
-     card is told the figure is unavailable rather than shown a wrong bar. */
-  if (unit !== 'hours') {
+  const actual = unit === 'revenue' ? monthRevenue : monthSeconds / 3600;
+
+  /* Revenue reports a figure but NOT a pace.
+
+     Hours accrue evenly enough that business days elapsed predicts them.
+     Revenue does not: it lands in steps as work is done at different rates,
+     so "behind by $2,400" on the 3rd is arithmetic rather than a finding. The
+     card shows the money against the target and withholds the delta, which is
+     the honest half of the same figure. */
+  if (unit === 'revenue') {
     return {
       unit,
       target: goal,
-      actual: null,
+      actual,
       expected: null,
       delta: null,
       businessDaysElapsed: elapsed,
@@ -304,7 +346,6 @@ function buildPace({
     };
   }
 
-  const actual = monthSeconds / 3600;
   return {
     unit,
     target: goal,
