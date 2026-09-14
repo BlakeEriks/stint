@@ -38,22 +38,17 @@ later.
       with their tests, or record the condition that would bring them back.
 
 - [ ] **The menu bar panel shows no client colour.** `menubar.html` draws a
-      dot beside the project name in both states, which is the same thing the
-      calendar and entry list use to answer *whose work is this?*. Swift's
-      `Project` carries `clientId` and nothing else — the app never fetches
-      clients — so the colour has no source. Either `/projects` returns the
-      client's colour, or the app gains a clients fetch; the first is smaller
-      and matches how the web reads it through `useProjectColors()`.
+      dot beside the project name, which is what answers *whose work is this?*
+      everywhere else in the product.
 
-- [ ] **The menu bar panel has no entry list.** `menubar.html` draws today's
-      entries under the stats row in both states ("Earlier today" while
-      running), which is what makes the panel worth opening rather than
-      glancing at.
+      **No API work:** `/clients` already returns `color`, so the app needs a
+      clients fetch and a project → client → colour map. That is exactly what
+      `useProjectColors()` does on the web, and the map belongs in
+      `TimerModel` rather than the view, for the same reason.
 
-      **No API work:** `/entries?from=` already takes a start instant, the
-      same call `entry-list.tsx` makes. It needs a `TimeEntry` fetch in
-      `API.swift` and a row view — name on the left, duration right in mono.
-      The running entry is excluded, since it is the readout above.
+      `/projects` deliberately does NOT carry it — `rows.ts` says colour
+      identifies a client, not a project, and `projects.color` is a dead
+      column. Do not revive it to save a request.
 
 - [ ] **`Start` is a labelled rectangle** where the app's transport is a
       round button with a single glyph. The running state is already the

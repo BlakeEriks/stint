@@ -29,6 +29,10 @@ private struct ProjectList: Codable {
     let projects: [Project]
 }
 
+private struct EntryList: Codable {
+    let entries: [TimeEntry]
+}
+
 /// `GET /stats`, narrowed to what the panel draws.
 ///
 /// The route carries the whole home screen — pace, billable ratio, overdue
@@ -147,6 +151,25 @@ actor API {
             "/stats?tz=\(timeZone.identifier)",
             body: Optional<Never>.none
         )
+    }
+
+    /// `GET /entries?from=` — today's, newest first.
+    ///
+    /// "Today" is a local-calendar question, so the caller passes the instant
+    /// its own day started rather than the server guessing from a zone.
+    func entries(from: Date) async throws -> [TimeEntry] {
+        /* Percent-encoded: an ISO instant carries `+` and `:`, and a bare `+`
+           in a query string decodes as a space on the server. */
+        let stamp = Self.iso8601Fractional.string(from: from)
+        let escaped = stamp.addingPercentEncoding(
+            withAllowedCharacters: CharacterSet.alphanumerics
+        ) ?? stamp
+        let list: EntryList = try await request(
+            "GET",
+            "/entries?from=\(escaped)",
+            body: Optional<Never>.none
+        )
+        return list.entries
     }
 
     func projects() async throws -> [Project] {

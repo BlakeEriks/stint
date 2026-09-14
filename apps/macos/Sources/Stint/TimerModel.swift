@@ -19,6 +19,11 @@ final class TimerModel {
     /// and the row simply omits the number rather than showing a zero that
     /// would read as "nothing owed".
     private(set) var stats: Stats?
+
+    /// Today's finished entries, newest first. The running one is excluded —
+    /// it is the readout at the top of the panel, and listing it twice would
+    /// make the same work look like two records.
+    private(set) var today: [TimeEntry] = []
     private(set) var projects: [Project] = []
     private(set) var email: String?
     private(set) var isSignedIn = false
@@ -181,11 +186,22 @@ final class TimerModel {
             self.summary = summary
             self.errorMessage = nil
             if projects.isEmpty { projects = (try? await api.projects()) ?? [] }
-            /* `try?`, deliberately. Unbilled is a figure beside the clock, and
-               the clock is what this app is for — a failing /stats hides one
-               number rather than surfacing an error over a working timer. The
-               stale value stays up until the next poll replaces it. */
+            /* `try?`, deliberately. Unbilled and the entry list sit beside the
+               clock, and the clock is what this app is for — a failure hides
+               one number rather than surfacing an error over a working timer.
+               Stale values stay up until the next poll replaces them. */
             if let fetched = try? await api.stats() { stats = fetched }
+
+            /* `Calendar.startOfDay` rather than subtracting 86,400: a day
+                containing a DST transition is 23 or 25 hours, and fixed
+                arithmetic would drop or double-count entries at its edge —
+                the same trap `startOfLocalDayOffset` exists for on the web. */
+            let dayStart = Calendar.current.startOfDay(for: Date())
+            if let fetched = try? await api.entries(from: dayStart) {
+                // The running entry is the readout above; listing it here as
+                // well would show one piece of work as two records.
+                today = fetched.filter { $0.endedAt != nil }
+            }
         } catch let error as APIError where error.isUnauthorized {
             // The session is gone; saying "signed out" is the useful message,
             // not "401".
@@ -275,8 +291,9 @@ final class TimerModel {
         await tokens.signOut()
         summary = nil
         // Money especially: the next account's panel must not open showing
-        // the last one's unbilled total.
+        // the last one's unbilled total, or its work.
         stats = nil
+        today = []
         projects = []
     }
 }

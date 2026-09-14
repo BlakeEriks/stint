@@ -100,7 +100,37 @@ private struct TimerPanel: View {
             composer
             Divider().overlay(Tokens.Dark.borderSubtle)
             stats
+            if !model.today.isEmpty {
+                Divider().overlay(Tokens.Dark.borderSubtle)
+                entries
+            }
         }
+    }
+
+    /// Today's finished work.
+    ///
+    /// **"Earlier today" while a timer runs**, because then this list is
+    /// explicitly not the thing happening now — the readout above is. Stopped,
+    /// it is simply "Today".
+    ///
+    /// Absent entirely when there is nothing: an empty list under a heading is
+    /// a row of furniture saying nothing, and this panel is 320pt wide.
+    private var entries: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(model.isRunning ? "Earlier today" : "Today")
+                .font(.system(size: 10, weight: .medium))
+                .textCase(.uppercase)
+                .tracking(1.6)
+                .foregroundStyle(Tokens.Dark.textSubtle)
+                .padding(.horizontal, 14)
+                .padding(.top, 10)
+                .padding(.bottom, 6)
+
+            ForEach(model.today) { entry in
+                EntryRow(entry: entry)
+            }
+        }
+        .padding(.bottom, 6)
     }
 
     /* Running and idle are two arrangements, not one layout with things
@@ -603,6 +633,45 @@ private struct ProjectField: View {
     private func name(of id: String?) -> String {
         guard let id else { return "No project" }
         return model.projects.first { $0.id == id }?.name ?? "No project"
+    }
+}
+
+/// One finished entry: what, and how long.
+///
+/// No project, no time range, no edit. The panel is 320pt wide and this is a
+/// glance at what the day held — editing an entry needs a date and two times,
+/// which is the form `principles.md` keeps out of the menu bar. The web app is
+/// one click away in the header.
+private struct EntryRow: View {
+    let entry: TimeEntry
+
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(entry.taskName.isEmpty ? "Untitled" : entry.taskName)
+                .font(.system(size: 13))
+                .foregroundStyle(
+                    entry.taskName.isEmpty
+                        ? Tokens.Dark.textSubtle
+                        : Tokens.Dark.textPrimary
+                )
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer(minLength: 8)
+
+            Text(format(entry.durationSeconds ?? 0))
+                .font(.system(size: 12, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(Tokens.Dark.textMuted)
+                .layoutPriority(1)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(hovering ? Tokens.Dark.bgHover : .clear)
+        .onHover { hovering = $0 }
     }
 }
 
