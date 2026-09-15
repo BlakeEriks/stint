@@ -32,3 +32,5 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITLEAKS_CONFIG: .gitleaks.toml
+          # Scanning a pull request reads its commit range through the API.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
