@@ -94,13 +94,15 @@ actor API {
         return d
     }()
 
-    private static let iso8601Fractional: ISO8601DateFormatter = {
+    /// `nonisolated(unsafe)`: configured here and never mutated again, and
+    /// Foundation documents parsing and formatting as thread-safe.
+    private nonisolated(unsafe) static let iso8601Fractional: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
     }()
 
-    private static let iso8601Plain = ISO8601DateFormatter()
+    private nonisolated(unsafe) static let iso8601Plain = ISO8601DateFormatter()
 
     private static let encoder: JSONEncoder = {
         let e = JSONEncoder()
