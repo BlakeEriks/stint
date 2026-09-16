@@ -105,8 +105,8 @@ The spec names:
   surface's ceiling.
 - **Out of scope**, explicitly.
 - **The verification command for every phase.** Not "tests" — the command.
-  Four of them are workspace-scoped and do not exist at the root:
-  `pnpm --filter @stint/web test:ui`, `test:rls`, `check:type`, `detox`.
+  `pnpm verify:static` is everything needing no database; `pnpm verify:db`
+  is the rest and wants the local stack up. Both mirror a CI job.
 - **Doc changes**, including deleting the `tasks.md` line. A finished task is
   deleted, not ticked.
 
@@ -206,7 +206,8 @@ Fix what they find, with a test each.
 
 ## 7. Land it
 
-Run the full harness green before reporting. Delete the `tasks.md` line and
+Run `pnpm verify:static` and `pnpm verify:db` green before reporting, plus
+`pnpm test:e2e` if a screen changed and `swift build` if the Mac app did. Delete the `tasks.md` line and
 the scratch spec in the final commit — git holds the history, and the mockup
 stays as the screen doc.
 

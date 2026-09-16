@@ -22,7 +22,15 @@
     "verify:schema": "node scripts/verify-schema.mjs",
     "test": "pnpm -r test",
     "test:e2e": "pnpm --filter @stint/web test:e2e",
-    "prepare": "husky"
+    "test:ui": "pnpm --filter @stint/web test:ui",
+    "test:rls": "pnpm --filter @stint/web test:rls",
+    "check:type": "pnpm --filter @stint/web check:type",
+    "detox": "pnpm --filter @stint/web detox",
+    "typecheck": "npx tsc --noEmit -p tsconfig.json && pnpm --filter @stint/web typecheck",
+    "verify:static": "pnpm lint && pnpm tokens:validate && pnpm detox && pnpm check:type && pnpm typecheck && pnpm test:ui && pnpm core:test",
+    "verify:db": "pnpm --filter @stint/web test && pnpm --filter @stint/web test:rls && pnpm verify:schema",
+    "prepare": "husky",
+    "core:test": "node --test --experimental-strip-types packages/core/test/*.test.ts"
   },
   "lint-staged": {
     "*.{js,mjs,ts,tsx,json,jsonc,css}": "biome check --write --no-errors-on-unmatched"
