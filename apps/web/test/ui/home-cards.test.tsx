@@ -185,9 +185,6 @@ describe('HomeCards', () => {
     );
     render(<HomeCards />, { wrapper });
 
-    /* A 120-hour target is six hours a WORKING day. Reading "behind" on a
-       Monday because the weekend passed would be noise pretending to be
-       signal, so the denominator is business days. */
     await waitFor(() =>
       expect(
         screen.getByText('9 of 22 business days', { exact: false }),

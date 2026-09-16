@@ -80,19 +80,9 @@ export const ListClientsQuery = z.object({
 
 // ── project ────────────────────────────────────────────────────────
 /**
- * No `color`. Colour identifies a CLIENT, and a project is a subdivision of
- * one that is already identified — its name does that work. Two surfaces had
- * already drifted apart on this (the calendar keyed blocks to the project
- * colour while the home-screen spec keyed the heatmap to the client's), which
- * is one visual channel carrying two meanings.
- *
- * Derived per-project variants were considered and rejected: project colours
- * are pinned to L 0.70 / C 0.11 so a chip can never out-bright the accent, and
- * varying hue within a client's own hue lands under the dichromacy
- * discrimination threshold documented in `docs/design/deriving-colour.md`.
- *
- * The column still exists in the database — retiring one is two releases, and
- * this is the release that stops writing it.
+ * No `color` — colour identifies a client. The database column still exists:
+ * retiring one is two releases, and this is the release that stops writing
+ * it.
  */
 export const Project = z.object({
   id: uuid,
@@ -235,12 +225,10 @@ export const Settings = z.object({
 
   /**
    * Thresholds for the inbox's strange-duration row. Null switches off that
-   * side; null on both retires the row, which is the default — nobody gets a
-   * new inbox row without asking for it.
+   * side; null on both retires the row, which is the default.
    *
    * Seconds on the short side, not minutes: an entry under a minute was
-   * started and stopped without work between it, where a twenty-minute call
-   * is ordinary billable work.
+   * started and stopped without work between it.
    */
   minEntrySeconds: z.number().int().positive().nullable(),
   maxEntryHours: z.number().positive().max(24).nullable(),
@@ -256,14 +244,8 @@ export const Settings = z.object({
   paymentNotice: z.string().max(500).nullable(),
 
   /**
-   * Monthly target for the Pace card. Both null means no target, and the card
-   * hides rather than rendering an empty bar that asks to be configured.
-   *
-   * `revenue` means work DONE — invoiced plus unbilled at its resolved rate —
-   * never money collected. A bar at 40% because a client has not paid yet is
-   * noise about someone else's behaviour.
-   *
-   * The database enforces that these are both set or both null.
+   * Monthly target for the Pace card. Both null means no target and the card
+   * hides; the database enforces that they are both set or both null.
    */
   /** Positive, matching the database check — `0` is not a target, and
    *  sending it would 500 rather than fail validation. */
@@ -490,13 +472,8 @@ export const Stats = z.object({
     byClient: z.array(UnbilledClient),
     moreClients: z.number().int().nonnegative(),
   }),
-  /**
-   * Invoiced and not yet collected.
-   *
-   * NOT part of `unbilled` and never summed with it: unbilled is work not
-   * yet invoiced, this is money already asked for, and adding them
-   * double-counts the same hours.
-   */
+  /** Invoiced and not yet collected. Never summed with `unbilled` — that
+   *  would double-count the same hours. */
   awaitingPayment: money,
   /** Null when no monthly target is set; the card hides rather than nagging. */
   pace: Pace.nullable(),
@@ -525,13 +502,7 @@ export const Stats = z.object({
         ageDays: z.number().int(),
       }),
     ),
-    /**
-     * One row per entry, oldest first — not a rollup.
-     *
-     * The work is done one entry at a time: open it, assign a project, move
-     * to the next. A row naming a count is a row the user then has to go and
-     * find. Empty array, never null: an empty list renders nothing already.
-     */
+    /** One row per entry, oldest first. Empty array, never null. */
     unprojected: z.array(
       z.object({
         entryId: uuid,
@@ -543,9 +514,6 @@ export const Stats = z.object({
     /**
      * Entries whose length is implausible — under `minEntrySeconds` or over
      * `maxEntryHours`, and not yet answered with `durationOk`.
-     *
-     * One row per entry in both directions. `kind` is what the row's
-     * qualifier states in words, because colour alone never carries meaning.
      */
     strangeDurations: z.array(
       z.object({
@@ -562,7 +530,6 @@ export const Stats = z.object({
 });
 
 // ── payment profiles ───────────────────────────────────────────────
-// Bank details render on the invoice PDF, never in an email body.
 // US-first: account + ACH routing is the default path, everything else
 // is additive and renders only when populated.
 export const PaymentProfile = z.object({

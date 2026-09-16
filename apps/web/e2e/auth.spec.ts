@@ -7,10 +7,7 @@ import {
   SEED_EMAIL,
 } from './mailpit';
 
-/**
- * Sign-in and sign-out, in a real browser — jsdom has no cookies, no
- * navigation and no second tab.
- */
+/** Sign-in and sign-out, in a real browser. */
 test.describe('authentication', () => {
   test('signs in through the emailed link', async ({ page }) => {
     await signIn(page);
@@ -24,11 +21,8 @@ test.describe('authentication', () => {
   }) => {
     await signIn(page);
 
-    /* Driven by the KEYBOARD, not a click. The dropdown animates open, and
-       on a slower runner Playwright found the item "not stable" and then
-       "outside of the viewport" — a click retried for 30s and timed out.
-       Radix gives the menu real roving focus, so Enter is both more robust
-       and closer to how a keyboard user signs out. */
+    /* Driven by the KEYBOARD: the dropdown animates open, and on a slower
+       runner a click on the item times out as "not stable". */
     await page.getByRole('button', { name: /Account/ }).click();
     const signOut = page.getByRole('menuitem', { name: 'Sign out' });
     await expect(signOut).toBeVisible();
@@ -36,10 +30,6 @@ test.describe('authentication', () => {
     await page.keyboard.press('Enter');
     await page.waitForURL('**/signin');
 
-    /* The reason `router.refresh()` follows `router.replace()`: the server
-       components were rendered for a signed-in user, so without it a Back
-       navigation shows cached authenticated markup — the app looking signed
-       in while the session is gone. */
     await page.goBack();
     await expect(
       page.getByRole('navigation', { name: 'Sections' }),

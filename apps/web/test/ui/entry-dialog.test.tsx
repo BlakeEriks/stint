@@ -161,17 +161,8 @@ describe('EntryDialog', () => {
     expect(new Set(actions)).toEqual(new Set(['Close']));
   });
 
-  /**
-   * A DRAFT is not a lock, and the database says so: `guard_billed_entry`
-   * returns early when the invoice status is `draft`, because a draft holds
-   * no number and has not been sent — nothing has been told to a client yet.
-   *
-   * The UI used to disable on any `invoiceId`, refusing an edit the server
-   * would have accepted. That is the more expensive direction to be wrong in:
-   * the fix for a wrong draft is to correct the entry and preview again, and
-   * the old behaviour made that impossible without voiding something that was
-   * never issued.
-   */
+  /* `guard_billed_entry` returns early on a draft, so the UI must not
+     disable an edit the server would accept. */
   it('still allows editing an entry on a DRAFT invoice', async () => {
     serve('draft');
     open(entry({ invoiceId: 'inv1' }));

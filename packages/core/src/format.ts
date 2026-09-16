@@ -3,13 +3,11 @@
  *
  * The preview a user approves and the PDF that issues must read identically —
  * `invoice.ts` exists so both are *built* by one function, and formatting is
- * the other half of that promise. A separate formatter on the PDF side
- * rendered `US$` where the preview said `$`, which is the same number
- * described two ways on two documents about one job.
+ * the other half of that promise. A second formatter anywhere renders `US$`
+ * against the preview's `$`.
  *
- * `narrowSymbol` is the chosen display: an invoice names its currency in its
- * own right, so `$1,200.00` is unambiguous on the page and `US$1,200.00` only
- * spends width.
+ * `narrowSymbol`: an invoice names its currency in its own right, so
+ * `$1,200.00` is unambiguous on the page.
  */
 
 /** `$1,200.00`. Currency is an argument because the data carries one. */

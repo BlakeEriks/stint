@@ -27,8 +27,6 @@ describe('AccountMenu', () => {
   it('shows the signed-in email, which is the account', async () => {
     render(<AccountMenu />);
 
-    /* There is no name, avatar or organisation in a single-user app — the
-       email IS the identity, which is why this is not a Profile page. */
     await waitFor(() =>
       expect(screen.getByText('dev@localhost.test')).toBeInTheDocument(),
     );
@@ -71,8 +69,6 @@ describe('AccountMenu', () => {
     const user = userEvent.setup();
     render(<AccountMenu />);
 
-    /* A missing email is not worth surfacing as an error: the label falls
-       back and signing out — the thing that matters — still works. */
     await waitFor(() =>
       expect(
         screen.getByRole('button', { name: 'Account' }),

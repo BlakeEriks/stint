@@ -158,11 +158,6 @@ describe('Inbox', () => {
 /**
  * The runaway timer's row.
  *
- * These moved here from `timer-bar.test.tsx` with the control itself. The
- * notice used to render inside the timer bar and GREW it, pushing the frame
- * down at the moment a problem appeared; the inbox is where things wanting a
- * decision live, and it does not reflow.
- *
  * `principles.md`: the app SURFACES the problem and never modifies the entry
  * itself. All three of keep / adjust / discard are the user's.
  */
@@ -364,9 +359,6 @@ describe('entries with no project', () => {
     serve();
     render(<Inbox stats={withRow()} />, { wrapper });
 
-    /* It used to be a Link to `/`, which is the screen you are already on —
-       the inbox's whole premise failing quietly, since the row looked
-       actionable and did nothing. */
     expect(screen.getByText('Client call').tagName).toBe('BUTTON');
     expect(screen.queryByRole('link', { name: /Client call/ })).toBeNull();
   });

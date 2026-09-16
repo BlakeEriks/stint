@@ -27,7 +27,6 @@ struct Project: Codable, Identifiable, Equatable {
     let archivedAt: Date?
 }
 
-/// Colour belongs to the client; a project's colour is its client's.
 struct Client: Codable, Identifiable, Equatable {
     let id: String
     let name: String

@@ -137,8 +137,10 @@ export function buildLineItems(
     }
   }
 
-  // Amounts come from the SUMMED seconds, not per-entry, so rounding happens
-  // once per line rather than accumulating across entries.
+  /* Amounts come from the SUMMED seconds, so rounding happens once per line
+     rather than accumulating: rounding per entry and adding drifts — 3 x
+     20min at 100/h gives 99.99 rather than 100.00. Every rollup that reports
+     the same money rounds once per bucket for this reason. */
   const lineItems = [...groups.values()].map((li) => ({
     ...li,
     quantityHours: toHours(li.quantitySeconds),

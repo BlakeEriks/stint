@@ -1,13 +1,9 @@
 /**
- * The marketing shell: no nav rail, no Query provider, no timer context.
+ * The marketing shell, for a page that is static and signed-out.
  *
- * The landing page is static and signed-out — none of the app's plumbing
- * applies to it, and the rail in particular would contradict the page's own
- * argument by putting five sections of chrome around a pitch for restraint.
- *
- * It is a nested layout under the single root, so moving between here and
- * `/app` is a client navigation rather than the full reload that separate
- * root layouts would force.
+ * A nested layout under the single root, so moving between here and the app
+ * is a client navigation rather than the full reload separate root layouts
+ * would force.
  */
 export default function MarketingLayout({
   children,

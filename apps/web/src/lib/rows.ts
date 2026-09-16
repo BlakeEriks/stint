@@ -122,8 +122,7 @@ export function toClient(r: ClientRow) {
 }
 
 // ── projects ───────────────────────────────────────────────────────
-/* No `color`: colour identifies a client, not a project. The column still
-   exists — retiring one is two releases — but nothing reads or writes it. */
+/* No `color`: the column still exists, but nothing reads or writes it. */
 export interface ProjectRow {
   id: string;
   client_id: string | null;

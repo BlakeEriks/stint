@@ -32,18 +32,13 @@ const NEW_CLIENT = '__new_client__';
  * mid-flow — from the picker while starting a timer — so leaving the screen
  * would lose what the user was doing.
  *
- * It can also create the client, and that is not a convenience. On a new
- * account the select offered only "No client" and nothing else, so the first
- * project could never be attached to anything: the only way to get a client
- * was to leave for `/clients`, abandoning whatever had been typed into the
- * timer. That was the one genuine dead end in the onboarding flow.
+ * It can also create the client, so a new account can attach its first
+ * project to something without leaving for `/clients`.
  *
  * The client form REPLACES this dialog's content rather than opening a second
- * dialog on top of it. Stacked dialogs mean two overlays and two focus traps
- * competing, and the nested one is the shallower surface — swapping in place
- * keeps one overlay, one trap, and an obvious way back. The project fields
- * live in component state, so they survive the detour and are still there on
- * return.
+ * dialog on top of it: stacked dialogs mean two overlays and two focus traps
+ * competing. The project fields live in component state, so they survive the
+ * detour and are still there on return.
  */
 export function ProjectDialog({
   open,

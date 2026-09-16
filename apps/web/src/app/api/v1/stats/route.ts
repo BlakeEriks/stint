@@ -57,15 +57,8 @@ export const GET = handle(async (req: Request) => {
     durationCandidates,
     projectRows,
   ] = await Promise.all([
-    // The rollup resolves rates in SQL, grouped by (client, rate) — one
-    // client can have work at several rates, and collapsing them to one rate
-    // misstates the money. See the function's own comments.
     db.rpc('unbilled_by_client', { p_user_id: userId }),
 
-    /* Revenue for the month, for a money target. Work DONE — invoiced at its
-       resolved rate plus unbilled at the same — never money collected, and
-       bucketed by the entry's own date rather than the invoice's issue date.
-       The function's comments carry why. */
     db.rpc('month_revenue', {
       p_user_id: userId,
       p_from: monthStart.toISOString(),

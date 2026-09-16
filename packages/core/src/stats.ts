@@ -1,11 +1,9 @@
 /**
  * The home screen's figures, built from loaded rows.
  *
- * Pure: the route parses the query, loads, and hands the rows here. Money,
- * not hours, wherever a figure can be money — this app resolves rates and
- * owns the invoice table, so it can answer the question a contractor
- * actually asks. Unbillable work has no rate by definition and reports hours
- * alone.
+ * Pure: the route parses the query, loads, and hands the rows here. Money
+ * wherever a figure can be money; unbillable work has no rate by definition
+ * and reports hours alone.
  */
 
 import { businessDaysInLocalMonth } from './calendar.ts';
@@ -16,14 +14,10 @@ export const STALE_DRAFT_DAYS = 7;
 /**
  * Days past the due date before an invoice is "overdue" here.
  *
- * Firing the moment `due_date` passes is technically accurate and practically
- * noise: Net 30 terms and a client who pays on day 32 is ordinary, and a card
- * that flags it trains the user to clear the list without reading it — which
- * is how the one genuinely late invoice gets dismissed with the rest.
- *
- * Seven days is when a polite person starts wondering. The invoice detail
- * page still shows the true due date; this only governs when the card speaks
- * up.
+ * Firing the moment `due_date` passes is noise — Net 30 with a client who
+ * pays on day 32 is ordinary — and a card that flags it trains the user to
+ * clear the list without reading it. The invoice detail page still shows the
+ * true due date; this only governs when the card speaks up.
  */
 export const OVERDUE_GRACE_DAYS = 7;
 

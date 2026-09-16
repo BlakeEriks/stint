@@ -54,8 +54,6 @@ test.describe('invoices', () => {
   test('offers no destructive action from the list', async ({ page }) => {
     await page.goto('/invoices');
 
-    /* Voiding stays on the invoice itself, where the whole document is in
-       view. A stray click in a list must not destroy a financial record. */
     for (const forbidden of [/void/i, /delete/i]) {
       await expect(
         list(page).getByRole('button', { name: forbidden }),
@@ -72,9 +70,6 @@ test.describe('invoices', () => {
       .click();
     await page.waitForURL(/\/invoices\/[0-9a-f-]+$/);
 
-    /* A draft holds no number yet, so deleting it costs nothing. Once issued
-       the number is on record and only voiding is offered — that is what
-       keeps numbering gapless. The UI shows one and never the other. */
     await expect(page.getByRole('button', { name: /Delete/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Void/ })).toHaveCount(0);
   });

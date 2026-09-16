@@ -127,8 +127,6 @@ test('uuidv7 is time-ordered and well-formed', () => {
   assert.ok(a < b, 'later timestamp must sort after earlier');
 });
 
-/* One formatter, so the preview a user approves and the PDF that issues
-   describe the same number the same way. */
 test('formatCurrency renders a narrow symbol, defaulting to USD', () => {
   assert.equal(formatCurrency(1200), '$1,200.00');
   assert.equal(formatCurrency(1200, 'USD'), '$1,200.00');

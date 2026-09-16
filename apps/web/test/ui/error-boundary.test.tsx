@@ -29,8 +29,6 @@ describe('the screen-level error boundary', () => {
   it('offers recovery before anything else', () => {
     render(<AppError error={boom()} reset={vi.fn()} />);
 
-    /* Most of what reaches here is transient — a failed fetch, a route
-       rendered mid-deploy — so the first thing offered is the cheap fix. */
     expect(
       screen.getByRole('button', { name: /try again/i }),
     ).toBeInTheDocument();

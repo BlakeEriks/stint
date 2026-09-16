@@ -1003,9 +1003,7 @@ test('the last profile cannot be un-defaulted into silence', async () => {
     await PATCH(req('/pp', { isDefault: false }, 'PATCH'), ctx(only.body.id)),
   );
 
-  /* `POST` guarantees the first profile is the default so that "a user who
-     never ticks the box" still gets payment details. PATCH could take that
-     away again, which made the guarantee only true until the first edit. */
+  /* PATCH must not take away the guarantee `POST` makes. */
   const { rows } = await pool.query(
     'select count(*)::int n from payment_profiles where is_default and archived_at is null',
   );

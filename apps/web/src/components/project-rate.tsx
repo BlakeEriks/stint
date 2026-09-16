@@ -5,25 +5,14 @@ import type { Client, Project } from '@/lib/client/api';
 import { formatCurrency } from '@stint/core';
 
 /**
- * The rate a project actually bills at, and WHERE IT CAME FROM.
+ * The resolved rate a project bills at — the figure alone, not its source.
  *
- * Most projects store no rate of their own, so printing the column would show
- * nothing for the common case — the opposite of the truth, since the project
- * does bill at a rate, just not one stored on it. Resolution is otherwise
- * invisible until an invoice preview, which is late.
- *
- * **The figure alone, not where it came from.** Naming the source on every
- * row ("from Northwind Trading", "overrides Northwind Trading's $150.00") put
- * a sentence under each project and read as clutter — and on `/projects` it
- * restated the client heading directly above it. The number is what gets
- * checked; the hierarchy is visible in the grouping and in the dialog that
- * sets it.
+ * Most projects store no rate of their own, so printing `project.rate` would
+ * show nothing for the common case, the opposite of the truth. Resolution is
+ * otherwise invisible until an invoice preview, which is late.
  *
  * `resolveRate` comes from `@stint/core` — the same function that bills, kept
  * in step with SQL's `resolve_entry_rate()` by `apps/web/test/rates.test.ts`.
- * A second implementation here is another thing to drift, which is also why
- * this component is shared by the client's own projects section and the
- * grouped `/projects` list rather than copied into both.
  *
  * `client` is null for work with no client, where the chain simply skips that
  * level. Do not read a missing client as "internal": null covers genuinely

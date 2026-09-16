@@ -7,19 +7,15 @@ import type { NextRequest } from 'next/server';
  *   trackwithstint.com      -> the landing page
  *   app.trackwithstint.com  -> the product
  *
- * The app lives at the root of its own origin, so its URLs carry no segment:
- * `app.trackwithstint.com/invoices/…`, not `…/app/invoices/…`.
- *
  * Only `/` needs deciding. Every other path belongs to the app; a marketing
  * page that is not `/` adds its path to `MARKETING_PATHS` below.
  *
  * `rewrite`, not `redirect`: the visitor keeps the apex URL in the address
- * bar while `app/landing/page.tsx` renders. A redirect would expose the
- * internal path and cost a round trip on the page most likely to be someone's
- * first impression.
+ * bar while `app/landing/page.tsx` renders, so the first impression costs no
+ * extra round trip.
  *
- * NOTE: this file is `proxy.ts`, not `middleware.ts` — the middleware
- * convention is deprecated in Next 16 and renamed. Same semantics.
+ * `proxy.ts`, not `middleware.ts` — the middleware convention is deprecated
+ * in Next 16 and renamed. Same semantics.
  */
 
 /** Public marketing pages that live on the apex alongside `/`. */
@@ -71,10 +67,8 @@ export function proxy(request: NextRequest) {
     return NextResponse.rewrite(new URL('/landing', request.url));
   }
 
-  /* The marketing site's other public pages. They are linked from the
-     landing footer, so they must resolve on the apex rather than bouncing to
-     the app subdomain — a privacy policy that redirects into a signed-out app
-     screen is worse than no link at all. */
+  /* Linked from the landing footer, so they must resolve on the apex rather
+     than bouncing a reader into a signed-out app screen. */
   if (MARKETING_PATHS.has(pathname)) return NextResponse.next();
 
   /* Anything else on the apex belongs to the app. Send it to the subdomain

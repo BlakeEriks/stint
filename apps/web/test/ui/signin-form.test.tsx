@@ -30,10 +30,8 @@ describe('SignInForm', () => {
     await user.type(screen.getByLabelText('Email'), 'dev@localhost.test');
     await user.click(screen.getByRole('button', { name: /Email me/ }));
 
-    /* Order is the whole point. The PKCE verifier lives under one key per
-       origin, so a session left in another tab shares the slot: requesting a
-       link without clearing first overwrites the verifier and the eventual
-       code exchange fails against the wrong one. */
+    /* The PKCE verifier lives under one key per origin, so requesting a link
+       without clearing first overwrites another tab's verifier. */
     await waitFor(() => expect(calls).toEqual(['signOut', 'signInWithOtp']));
   });
 
@@ -53,9 +51,6 @@ describe('SignInForm', () => {
   it('says why the last link failed rather than looking like a dead link', async () => {
     render(<SignInForm error="invalid_link" />);
 
-    /* The callback already redirected here with a reason and nothing
-       rendered it, so every failure read as "broken link" — which is how an
-       exchange failure went undiagnosed for an hour. */
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toMatch(/another tab started a different/i);
   });

@@ -10,13 +10,9 @@ export { formatCurrency } from '@stint/core';
 /**
  * Invoice dates are plain `YYYY-MM-DD`, so they carry no zone to convert.
  *
- * Renders an em-dash rather than throwing on a missing or malformed date.
- * The schema marks these required and `POST /invoices` always sets them, so
- * a null here means data the API could not have produced — but a date is
- * *decoration* on a page whose subject is money, and taking the whole invoice
- * down to report one is the wrong trade. A dash is visibly wrong in the one
- * place that is wrong; a thrown error hides the totals, the line items and
- * every action on the document.
+ * Renders an em-dash rather than throwing on a missing or malformed date: a
+ * date is decoration on a page whose subject is money, and a thrown error
+ * would hide the totals, the line items and every action on the document.
  */
 export function shortDate(date: string | null | undefined): string {
   if (!date) return '—';

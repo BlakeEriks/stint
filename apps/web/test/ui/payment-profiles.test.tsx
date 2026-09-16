@@ -94,12 +94,8 @@ describe('PaymentProfiles', () => {
     ).toBeInTheDocument();
   });
 
-  /**
-   * A refused "make default" used to change nothing and say nothing, which
-   * reads as the click not registering. This one decides which bank details
-   * print on an invoice, so a silent refusal means the next invoice carries
-   * the wrong account and nobody finds out until a client pays the wrong one.
-   */
+  /* A silent refusal here means the next invoice carries the wrong account
+     and nobody finds out until a client pays it. */
   it('reports a refused "make default" against the profile it failed on', async () => {
     vi.stubGlobal(
       'fetch',

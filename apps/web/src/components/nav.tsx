@@ -22,27 +22,22 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/clients', label: 'Clients', icon: Users },
   { href: '/projects', label: 'Projects', icon: FolderOpen },
   { href: '/invoices', label: 'Invoices', icon: FileText },
-  /* Settings is a place, and it is the only one the account menu used to
-     hide. It sorts last: the sections above are the work, this is the setup
-     behind it. */
+  /* Last: the sections above are the work, this is the setup behind it. */
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 /**
- * A vertical rail: sections, and nothing else.
+ * A vertical rail of sections.
  *
- * Deliberately plain — the accent belongs to the running timer, so the current
- * section is marked with weight and a raised surface rather than colour.
+ * The accent belongs to the running timer, so the current section is marked
+ * with weight and a raised surface rather than colour.
  *
- * Two chrome levels, not one. The header and timer bar bound the whole app on
- * `bg-surface-recessed`; the rail and dock bound the content, one step above.
- * The active pill is `bg-surface-primary`, the content surface, so it reads as
- * raised against the rail. In light mode the order inverts and means the same.
+ * The active pill is `bg-surface-primary`, the content surface, so it reads
+ * as raised against the rail.
  *
- * **Below `lg` it is a horizontal strip under the header**, where the content
- * is a single column and a fixed 208px is width spent rather than used. The
- * strip scrolls horizontally rather than wrapping, which keeps the row one row
- * tall however many sections it holds.
+ * **Below `lg` it is a horizontal strip under the header**, scrolling
+ * horizontally rather than wrapping, which keeps the row one row tall however
+ * many sections it holds.
  */
 export function Nav() {
   const pathname = usePathname();

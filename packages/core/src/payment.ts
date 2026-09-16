@@ -1,11 +1,10 @@
 /**
  * Payment details as they appear on an invoice.
  *
- * Bank details belong on the invoice document, never in an email body —
- * that is the convention every major invoicing tool follows, and it is the
- * safer posture: details that render identically on every invoice create a
- * baseline, so a *change* becomes visible and questionable, which is what
- * fraud-prevention guidance tells payers to challenge.
+ * Bank details belong on the invoice document, never in an email body:
+ * details that render identically on every invoice create a baseline, so a
+ * *change* becomes visible and questionable, which is what fraud-prevention
+ * guidance tells payers to challenge.
  *
  * US-first. ACH (routing + account number) is the default path; the
  * international fields are additive.

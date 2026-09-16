@@ -51,10 +51,8 @@ as $$
       -- unless the invoice was voided.
       and (e.invoice_id is null or i.status <> 'void')
   ),
-  -- Grouped by rate before multiplying: work at 150 and work at 195 are
-  -- different money, and summing the seconds first would apply one rate to
-  -- both. Rounded once per bucket, from summed seconds, because rounding per
-  -- entry and then adding drifts.
+  -- Grouped by rate before multiplying: summing the seconds first would
+  -- apply one rate to work billed at several. Rounded once per bucket.
   per_rate as (
     select round(sum(duration_seconds) / 3600.0 * rate, 2) as amount
     from resolved

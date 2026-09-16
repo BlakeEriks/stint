@@ -1,11 +1,8 @@
 -- ═══════════════════════════════════════════════════════════════════
 -- Payment profiles.
 --
--- Bank details belong on the invoice PDF, never in the email body. That
--- is the universal convention among invoicing tools, and it is the safer
--- posture: details that appear identically on every invoice create a
--- baseline, so a CHANGE becomes visible and questionable — which is
--- exactly what fraud-prevention guidance tells payers to challenge.
+-- A named bundle of fields rendered on the invoice PDF; `packages/core`'s
+-- `payment.ts` carries why they go there and nowhere else.
 --
 -- US-first. ACH (routing + account) is the default path; international
 -- fields exist but are additive, not the baseline.

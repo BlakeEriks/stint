@@ -7,10 +7,6 @@ import { keys } from './query-keys';
 /**
  * Resolves each project to its CLIENT's colour.
  *
- * Colour identifies a client. A project is a subdivision of one that is
- * already identified — its name does that work — so projects have no colour
- * of their own, and every project under a client shares the client's hue.
- *
  * Internal work (`clientId === null`) resolves to `null` rather than a shared
  * grey: a grey shared by everything unbilled would read as a client of its
  * own.
@@ -21,19 +17,15 @@ export function useProjectColors(): Map<string, string | null> {
 }
 
 /**
- * The same resolution, plus the client each project belongs to.
- *
- * A legend groups by CLIENT — colour identifies a client, so two projects for
- * one client are one entry with one swatch, not two identical rows. That needs
- * the client id and name, which `useProjectColors` deliberately throws away.
- *
- * Both come out of the same two queries, so this is one hook rather than a
- * second set of fetches that could disagree with the colours already painted.
+ * The same resolution, plus the client each project belongs to, for a legend
+ * that groups by client: two projects for one client are one entry with one
+ * swatch. Both come out of the same two queries, so this is one hook rather
+ * than a second set of fetches that could disagree with the colours already
+ * painted.
  *
  * **Archived clients are included.** Work billed to a finished engagement is
  * still in the history, and dropping its colour would silently move those
- * hours into the unnamed band — the same reason `activity-chart.tsx` asks for
- * them.
+ * hours into the unnamed band.
  */
 export function useProjectClients(): {
   colorByProject: Map<string, string | null>;

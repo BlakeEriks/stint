@@ -1,14 +1,12 @@
 -- Entries of implausible length, surfaced in the inbox.
 --
--- Two thresholds, because the two ends are different mistakes. An entry under
--- a minute was started and stopped without work between it; an entry over
--- eight hours is a timer left running overnight and billed as work. A
--- twenty-minute call is ordinary and must never be questioned, which is why
--- the short threshold is seconds rather than minutes.
+-- Two thresholds, because the two ends are different mistakes: an entry under
+-- a minute was started and stopped without work between it; one over eight
+-- hours is a timer left running overnight. Seconds on the short side, since a
+-- twenty-minute call is ordinary.
 --
 -- Both nullable and NOT defaulted: null retires that side of the row, and a
--- default would switch a new inbox row on for every existing account without
--- being asked. The settings UI offers 60 and 8; the column offers nothing.
+-- default would switch a new inbox row on for every existing account.
 alter table user_settings
   add column min_entry_seconds integer
     check (min_entry_seconds is null or min_entry_seconds > 0),
@@ -19,20 +17,16 @@ alter table user_settings
 --
 -- Every other inbox row clears because its condition stops holding. This one
 -- cannot: a nine-hour entry stays nine hours forever, so without a recorded
--- answer the row would return every day. `docs/design/screens/inbox.html`
--- carries the reasoning and the contrast with a snooze.
+-- answer the row would return every day.
 --
 -- `not null default false` rather than nullable: unanswered and "not correct"
--- are the same state, and a third one would mean nothing.
+-- are the same state.
 alter table time_entries
   add column duration_ok boolean not null default false;
 
--- Changing an entry's times asks the question again.
---
--- An entry confirmed at 9h and later edited to 14h is a new question, and a
--- stale "yes" would silence it forever. In a trigger rather than the route
--- because the answer must not outlive the length it was given about, and
--- `/entries/:id` is not the only thing that can write these columns.
+-- Changing an entry's times asks the question again: an entry confirmed at 9h
+-- and edited to 14h is a new question. In a trigger rather than the route,
+-- because `/entries/:id` is not the only thing that can write these columns.
 --
 -- Named to sort AFTER t_entries_guard_billed: Postgres fires triggers in name
 -- order, so the guard rejects a billed entry before this one touches it.

@@ -175,11 +175,6 @@ describe('Calendar', () => {
     expect(await screen.findByText('Untitled')).toBeInTheDocument();
   });
 
-  /**
-   * Overlapping entries must sit side by side. Stacking them would hide one
-   * completely, and in a billing tool a block you cannot see is a block you
-   * cannot check.
-   */
   it('gives overlapping entries their own lanes so neither is hidden', async () => {
     serve([
       {
@@ -355,14 +350,7 @@ describe('the calendar legend', () => {
   });
 });
 
-/**
- * One day at a time on a phone.
- *
- * At 375px a week gives each day 42px: a block is one letter wide, an
- * overlapping one is 20px, and the drag target is below the ~44px a finger
- * needs. A block you cannot read is a block you cannot check, which is the
- * same principle the laning rule protects. A single day gets ~295px.
- */
+/** One day at a time on a phone: at 375px a week gives each day 42px. */
 describe('the calendar on a narrow viewport', () => {
   const week = (): CalendarDay[] => [
     {

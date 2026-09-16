@@ -4,14 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { browserClient } from './supabase';
 
-/**
- * Who is signed in, and how to leave.
- *
- * The email is read from the JWT's claims rather than fetched: `getClaims()`
- * verifies the signature locally against a cached JWKS, so identity costs no
- * network round-trip. `getUser()` would call the Auth server on every render
- * of whichever screen shows the account menu.
- */
+/** Who is signed in, and how to leave. */
 export function useAccount() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
@@ -23,8 +16,7 @@ export function useAccount() {
       .then(({ data }) => {
         if (alive) setEmail((data?.claims?.email as string) ?? null);
       })
-      // A missing email is not worth surfacing: the menu falls back to a
-      // generic label and sign-out still works.
+      // The menu falls back to a generic label; sign-out still works.
       .catch(() => {});
     return () => {
       alive = false;

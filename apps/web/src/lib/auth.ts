@@ -38,25 +38,20 @@ export async function requireSession(req: Request): Promise<Session> {
 /**
  * Establish who the caller is, from the JWT's own signature.
  *
- * `getClaims()` rather than `getUser()`: with asymmetric signing keys (the
- * default for new projects) it verifies the ES256 signature locally against
- * a cached JWKS, so identity costs no network round-trip. `getUser()` calls
- * the Auth server on *every* request — and this runs before every route, on
- * a timer that reconciles each minute across three clients.
+ * `getClaims()` verifies the ES256 signature locally against a cached JWKS,
+ * so identity costs no round-trip; `getUser()` calls the Auth server on
+ * *every* request, and this runs before every route. On a project still
+ * using a symmetric secret it falls back to that same server call.
  *
- * It is never worse: on a project still using a symmetric secret it falls
- * back to a server call, exactly what `getUser()` would have done.
- *
- * `getSession()` would be wrong here. It reads the cookie without
- * revalidating, and a cookie is forgeable — it must never gate authorization
- * on the server.
+ * `getSession()` would be wrong: it reads the cookie without revalidating,
+ * and a cookie is forgeable.
  *
  * `token` MUST be passed for the bearer path. `getClaims()` reads the stored
  * session, not the `Authorization` header that `bearerClient` sets via
  * `global.headers` — with no stored session it returns `{ data: null, error:
- * null }`, so the call *succeeds* while yielding no claims and every
- * bearer request 401s. No error is raised, which is why this was invisible:
- * the route tests inject `__TEST_DB__` and never take this path at all.
+ * null }`, so the call *succeeds* while yielding no claims and every bearer
+ * request 401s. Nothing raises, and the route tests inject `__TEST_DB__` and
+ * never take this path.
  */
 async function verify(
   db: SupabaseClient,

@@ -20,12 +20,8 @@ import { keys } from '@/lib/client/query-keys';
 /**
  * The home screen's card set: money waiting, money coming, then texture.
  *
- * **Nothing here writes.** Every card reads, and every action is a link to the
- * surface that owns the mutation, because a dashboard that edits data turns a
- * stray click into a changed invoice.
- *
- * No card carries the accent — on this screen it is spent on the running timer
- * in the bar below.
+ * **Nothing here writes.** Every action is a link to the surface that owns
+ * the mutation, so a stray click cannot change an invoice.
  */
 export function HomeCards() {
   const { data } = useQuery({

@@ -9,14 +9,12 @@
  *   bg-primary  — shadcn: the main action colour. Ours: neutral grey #CDD1DA.
  *   bg-accent   — shadcn: hover grey. Ours: the neon green.
  *
- * So shadcn's names are never defined in our @theme. That is deliberate: an
- * alias pointing at the wrong colour is invisible, while an undefined
- * utility renders unstyled and is caught by eye.
+ * So shadcn's names are never defined in our @theme: an alias pointing at the
+ * wrong colour is invisible, while an undefined utility renders unstyled.
  *
- * But it is only caught by eye — Tailwind 4 drops an unknown utility with no
- * warning and exit 0 (verified against 4.3.3). This script is therefore the
- * enforcement, not a convenience: `--check` fails the build if any shadcn
- * name survives in a vendored component.
+ * But Tailwind 4 drops an unknown utility with no warning and exit 0
+ * (verified against 4.3.3), so this script is the enforcement: `--check`
+ * fails the build if any shadcn name survives in a vendored component.
  *
  *   node scripts/shadcn-detox.mjs src/components/ui/button.tsx   # rewrite
  *   node scripts/shadcn-detox.mjs --check 'src/components/ui/*'  # verify

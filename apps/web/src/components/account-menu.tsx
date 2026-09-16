@@ -10,11 +10,8 @@ import {
 import { useAccount } from '@/lib/client/use-account';
 
 /**
- * The account, in the header.
- *
- * **Not a Profile page.** The email *is* the account — no name, avatar or
- * organisation — so the one thing to do with it is leave, and this is where
- * sign-out lives. Settings is a section in the rail.
+ * The account, in the header. The email *is* the account, so the one thing to
+ * do with it is leave, and this is where sign-out lives.
  */
 export function AccountMenu() {
   const { email, signOut } = useAccount();

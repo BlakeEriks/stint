@@ -12,15 +12,9 @@ import { Listing } from './page';
 import { keys } from '@/lib/client/query-keys';
 
 /**
- * Settings.
- *
- * No save button: edits persist on their own after a pause, and each card
- * reports its own state. Settings are a pile of independent preferences, not
- * a transaction — there is nothing to review before committing, so a button
- * would only be a step between deciding and having it apply.
- *
- * Each card owns its own autosave so the indicator refers to the fields the
- * user is actually looking at.
+ * Settings. No save button: edits persist on their own after a pause, and
+ * each card owns its own autosave so the indicator refers to the fields the
+ * user is looking at.
  */
 export function SettingsForm() {
   const query = useQuery({
@@ -222,9 +216,6 @@ function Cards({ loaded }: { loaded: Settings }) {
           <Field
             label="Measured in"
             htmlFor="goal-unit"
-            /* Revenue is work DONE — invoiced plus unbilled at its resolved
-               rate — never money collected, so a slow-paying client never
-               makes the month look worse than it was. */
             hint="Revenue counts work done, not money collected."
             className="flex-1 basis-44"
           >

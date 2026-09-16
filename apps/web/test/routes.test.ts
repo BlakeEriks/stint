@@ -335,8 +335,6 @@ test('summary folds the live timer into today and week totals', async () => {
   const res = await json(await summary(req('/summary?tz=UTC')));
   assert.equal(res.status, 200);
   assert.ok(res.body.running, 'menu bar gets the running entry');
-  // Completed hour + the live timer, in ONE request — the menu bar toggles
-  // between modes without a second call.
   const expected = completedSeconds + liveSeconds;
   assert.ok(
     res.body.todaySeconds >= expected - 10 &&
@@ -1038,8 +1036,7 @@ test('unbilled rounds once per (client, rate), not per entry', async () => {
     [p, USER, c],
   );
 
-  // 3 x 20 minutes at 100/h. Rounding per entry gives 33.33 x 3 = 99.99;
-  // rounding once from the summed seconds gives 100.00.
+  // 3 x 20 minutes at 100/h.
   for (const n of [3, 4, 5]) {
     await entryFor({ id: S(n), projectId: p, hours: 1 / 3 });
   }
@@ -1181,9 +1178,6 @@ test('pace measures against BUSINESS days, and hides with no target', async () =
   const res = await json(await stats(req('/stats?tz=UTC')));
   const pace = res.body.pace;
 
-  /* A 120-hour target is six hours a WORKING day. Reading "behind" on a
-     Monday because the weekend passed would be noise pretending to be
-     signal, so the denominator is business days, not calendar days. */
   assert.equal(pace.unit, 'hours');
   assert.equal(pace.target, 120);
   assert.ok(
@@ -1213,10 +1207,6 @@ test('a revenue target reports money, and never hours in dollars', async () => {
   // The figure is MONEY at the resolved rate, not the 4 hours behind it.
   assert.equal(pace.actual, 600);
 
-  /* Revenue lands in steps as work is done at different rates, where hours
-     accrue evenly enough for business days elapsed to predict them. So the
-     card reports the money and withholds the projection: "behind $2,400" on
-     the 3rd would be arithmetic dressed as a finding. */
   assert.equal(pace.expected, null);
   assert.equal(pace.delta, null);
   // The denominators still come back, so the card can still say where it is.
@@ -1282,9 +1272,6 @@ test('an invoice is overdue only after the grace period', async () => {
   const dayKey = (offset: number) =>
     new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
-  // Net 30 with a client who pays on day 32 is ordinary. Firing the moment
-  // due_date passes trains the user to clear the list without reading it,
-  // which is how the one genuinely late invoice gets dismissed with the rest.
   const mk = (id: string, num: string, due: string) =>
     pool.query(
       `insert into invoices
@@ -1435,10 +1422,8 @@ test('a stale draft carries the money and the client it belongs to', async () =>
     `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
     [p, USER, c],
   );
-  /* The rollup only returns clients with UNBILLED work, so the name map is
-     built from it — a client whose work is entirely invoiced is absent and
-     the row falls back to null. This entry keeps it present, which is the
-     path the inbox actually renders. */
+  /* Keeps the client present in the rollup, which is what supplies the
+     name map. */
   await entryFor({ id: S(40), projectId: p, hours: 1 });
 
   await pool.query(
@@ -1490,8 +1475,6 @@ test('unprojected is one row per entry, carrying what the row renders', async ()
   await entryFor({ id: S(42), projectId: null, hours: 2 });
   await entryFor({ id: S(43), projectId: null, hours: 1 });
 
-  /* One row each rather than a count: the work is done an entry at a time,
-     and a row naming a number is a row the user then has to go and find. */
   const rows = (await json(await stats(req('/stats?tz=UTC')))).body.attention
     .unprojected;
   assert.equal(rows.length, 2);
@@ -1680,8 +1663,6 @@ test('editing the times asks the question again', async () => {
     S(71),
   ]);
 
-  /* A trigger clears the answer whenever the times change, so a "yes" given
-     about nine hours cannot silence a later edit to fourteen. */
   await pool.query(
     `update time_entries set ended_at = started_at + interval '20 hours' where id=$1`,
     [S(71)],
@@ -1697,9 +1678,6 @@ test('an unprojected entry is one row, not two', async () => {
   // No project AND implausibly long: both facts hold of the same record.
   await entryFor({ id: S(73), projectId: null, hours: 14 });
 
-  /* One entry is one decision. Unprojected wins because it blocks invoicing
-     outright — an entry with no project cannot resolve a rate at all, where
-     an implausible length still bills. */
   const res = await json(await stats(req('/stats?tz=UTC')));
   assert.equal(res.body.attention.unprojected.length, 1);
   assert.deepEqual(

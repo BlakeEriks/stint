@@ -41,14 +41,9 @@ as $$
       and e.ended_at     is not null  -- a running timer is not billable yet
       and e.is_billable
   ),
-  -- Group by (client, RATE) first. The rate is part of the grouping key for
-  -- the same reason it is on an invoice line: one client can have entries at
-  -- several rates — a project override, or two projects priced differently —
-  -- and collapsing them to a single rate misstates what is owed.
-  --
-  -- Rounding happens once per (client, rate) bucket, from summed seconds.
-  -- Rounding per entry and then adding drifts — 3 x 20min at 100/h gives
-  -- 99.99 rather than 100.00.
+  -- Group by (client, RATE) first: one client can have entries at several
+  -- rates, and collapsing them to a single rate misstates what is owed.
+  -- Rounding is once per bucket, from summed seconds — see `invoice.ts`.
   per_rate as (
     select
       r.client_id,

@@ -122,9 +122,6 @@ describe('opening an entry from the calendar', () => {
     expect(screen.getByLabelText('Task')).toHaveValue('Design review');
   });
 
-  /* The block's visible text is a truncated name and a duration, so without
-     the times in the accessible name two blocks are indistinguishable to a
-     screen reader. */
   it('names a block with its time range, not just its task', async () => {
     serve([
       {
@@ -307,11 +304,7 @@ describe('adjusting an entry by dragging', () => {
     expect(screen.queryByText('Edit entry')).not.toBeInTheDocument();
   });
 
-  /**
-   * A billed entry is frozen by a database trigger, so a drag would 409 after
-   * the fact — and the block would spring back with no explanation. Refusing
-   * the gesture is the honest version; the editor still opens and says why.
-   */
+  /* Frozen by a database trigger, so a drag would 409 after the fact. */
   it('refuses to drag an entry billed on an issued invoice', async () => {
     const srv = serve([
       {
@@ -363,8 +356,6 @@ describe('adjusting an entry by dragging', () => {
     expect(srv.writes()).toEqual([]);
   });
 
-  /* A rejected drag springs the block back to where the server says it is.
-     Without a message that reads as the gesture not registering. */
   it('reports a rejected drag instead of silently reverting', async () => {
     vi.stubGlobal(
       'fetch',

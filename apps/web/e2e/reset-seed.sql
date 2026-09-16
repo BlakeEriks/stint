@@ -1,17 +1,13 @@
--- Restore the seeded account, and nothing else.
+-- Restore the seeded account, without the whole-database rebuild `supabase
+-- db reset` performs: that takes every other account with it, including one
+-- someone is tracking real time against on the local stack.
 --
--- `supabase db reset` rebuilds the whole database, which takes every other
--- account with it — including one someone is using to track real time against
--- the local stack. The suite only ever writes as the seeded user, so wiping
--- everyone to undo that is far too blunt an instrument.
---
--- This deletes exactly that user's rows and lets `seed.sql` put them back.
--- Order matters: invoices reference clients and projects, and time entries
+-- Deletes exactly that user's rows and lets `seed.sql` put them back. Order
+-- matters: invoices reference clients and projects, and time entries
 -- reference invoices, so the children go first.
 --
--- `auth.users` is deliberately NOT touched. Removing the row would cascade
--- into `user_settings` via the signup trigger's relationship and invalidate
--- any session, and the account itself is not what the tests dirty.
+-- `auth.users` is NOT touched. Removing the row would cascade into
+-- `user_settings` via the signup trigger and invalidate any session.
 
 begin;
 

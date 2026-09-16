@@ -3,25 +3,14 @@
 import { useEffect } from 'react';
 
 /**
- * The last resort: the root layout itself failed.
+ * The last resort: the root layout itself failed, so this renders its own
+ * `<html>` and `<body>`.
  *
- * This replaces the entire document — `global-error.tsx` renders its own
- * `<html>` and `<body>`, because the layout that would normally provide them
- * is the thing that broke. Nothing from the app is available: not the frame,
- * not the timer, and **not the design tokens**, since the stylesheet is
- * imported by the layout that is not rendering.
- *
- * So the styles here are inline and hardcoded, which is the one place in the
- * app that is allowed. Every hex is a copy of a token's dark value rather
- * than an invented grey, so it still looks like Stint — but none of them can
- * be `var(--color-…)`, because nothing defined those.
- *
- * Dark, unconditionally. The palette is dark-first and light applies only
- * under an explicit `[data-theme="light"]` that nothing is here to set.
- *
- * In practice this should never render: `(app)/error.tsx` catches anything a
- * screen throws while keeping the frame. Reaching here means the layout, the
- * providers, or the root itself failed.
+ * **The design tokens are not loaded** — the stylesheet is imported by the
+ * layout that is not rendering. So the styles here are inline and hardcoded,
+ * the one place in the app where that is allowed; each hex is a copy of a
+ * token's dark value. Dark unconditionally, since nothing here stamps
+ * `[data-theme]`.
  */
 export default function GlobalError({
   error,

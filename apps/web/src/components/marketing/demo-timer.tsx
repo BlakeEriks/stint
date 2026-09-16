@@ -38,9 +38,8 @@ export function DemoTimer() {
 
   return (
     /* A fragment of the real timer screen rather than a lone card: the
-       running entry sits above the day's list, which is what makes it read as
-       a product and not a widget. The rows are examples and say so by being
-       plainly ordinary — no client would read them as their own data. */
+       running entry sits above the day's list, so it reads as a product and
+       not a widget. */
     <div className="w-full rounded-xl bg-surface-primary p-6 shadow-float sm:p-7">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">

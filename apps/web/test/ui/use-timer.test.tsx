@@ -150,11 +150,6 @@ describe('useTimer', () => {
     expect(result.current.seconds).toBe(1500);
   });
 
-  /**
-   * Stopping a timer changes what every entry-derived view reports. It used to
-   * refresh only `summary` and `entries`, so the dock's stats and the calendar
-   * kept showing pre-stop figures until something else happened to refetch.
-   */
   it('refreshes every entry-derived view when the timer stops', async () => {
     serve(summary({ running: entry() }));
 

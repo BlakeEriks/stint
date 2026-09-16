@@ -64,8 +64,7 @@ as $$
   -- The rate is part of the grouping key for the same reason it is on an
   -- invoice line: one client can have work at several rates, and collapsing
   -- them to one misstates what is owed. Rounding is once per bucket, from
-  -- summed seconds — per entry then added drifts (3 x 20min at 100/h gives
-  -- 99.99).
+  -- summed seconds — see `invoice.ts`.
   per_rate as (
     select
       r.client_id,
