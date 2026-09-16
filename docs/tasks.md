@@ -262,6 +262,32 @@ later.
       it is a per-device layout choice, not account state, and a round-trip
       would make the rail flicker on load.
 
+- [ ] **The menu bar pip shifts with the width of the clock.** It should sit
+      still: it is the one thing in the bar that is always in the same place,
+      and a dot that moves as the digits change is motion with no meaning
+      behind it.
+
+      **The obvious fix is already in place and is not enough.**
+      `StintApp.swift` gives the text a 57pt `.frame(alignment: .trailing)`
+      and `.monospacedDigit()` precisely so 9:59:59 → 10:00:00 cannot slide
+      the pip. So the movement is not the text moving inside its slot — it is
+      the status item's own width changing and the system re-laying out from
+      the right edge, which moves everything left of it. Diagnose before
+      changing the number: confirm whether the item's width is actually
+      constant, since a `MenuBarExtra` label sizes to its content and 57pt is
+      a guess that may not match what the font renders at every digit count.
+
+      Candidates, cheapest first: trailing-align the whole label rather than
+      the text alone; measure the true widest string in the rendered font
+      instead of hardcoding 57; or pad the clock to a fixed character count so
+      the string length never changes at all. The last is the only one that
+      does not depend on layout behaviour we do not control — but it must pad
+      with a figure space or a leading zero, never by rewriting what the clock
+      says.
+
+      **Remember this is a `.app` rebuild to see**, not `swift build` alone —
+      the running copy is the bundle in `~/Applications`. `docs/macos.md`.
+
 - [ ] **Review every loading state under a real network.** Starting and
       stopping the timer is noticeably clunky in production and smooth
       locally, which means the states were only ever seen at localhost
