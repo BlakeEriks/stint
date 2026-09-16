@@ -53,12 +53,19 @@ export function useAdjustingEntry(): [
 }
 
 /**
+ * The runaway row's id for `useExit`. It is derived from the timer and has no
+ * entry id of its own, and there is only ever one — so a constant gives it the
+ * same exit as every other row rather than a path of its own.
+ */
+export const RUNAWAY_ROW_ID = 'runaway-timer';
+
+/**
  * Whether a runaway timer wants a decision, and the three ways to give one.
  *
  * `dismissed` resets when the overrun ends, so Keep silences THIS overrun
  * rather than the feature.
  */
-export function useRunaway() {
+export function useRunaway(mark: (id: string) => Promise<void>) {
   const timer = useTimer();
   const exceeded = timer.exceedsThreshold;
   const queryClient = useQueryClient();
@@ -69,17 +76,24 @@ export function useRunaway() {
     if (!exceeded) setDismissed(false);
   }, [exceeded]);
 
-  const invalidateAll = () => invalidateEntryData(queryClient);
+  /* The row plays out before anything removes it — whether that is the
+     refetch or `dismissed`. Keep is local state, so it goes through the same
+     `mark` rather than a second way for this row to disappear. */
+  const leave = async (then: () => void) => {
+    await mark(RUNAWAY_ROW_ID);
+    then();
+  };
 
   /* Stop first, then edit. A running entry has no end yet, so there is
      nothing to adjust until it is stopped — and stopping is what the user
      meant by "I left it going". */
   const adjust = useMutation({
     mutationFn: () => api.stopTimer(),
-    onSuccess: (entry) => {
-      invalidateAll();
-      setAdjusting(entry);
-    },
+    onSuccess: (entry) =>
+      leave(() => {
+        invalidateEntryData(queryClient);
+        setAdjusting(entry);
+      }),
   });
 
   const discard = useMutation({
@@ -87,7 +101,7 @@ export function useRunaway() {
       const entry = await api.stopTimer();
       await api.deleteEntry(entry.id);
     },
-    onSuccess: invalidateAll,
+    onSuccess: () => leave(() => invalidateEntryData(queryClient)),
   });
 
   return {
@@ -96,7 +110,7 @@ export function useRunaway() {
     showing: exceeded && !dismissed,
     hours: Math.floor(timer.seconds / 3600),
     busy: adjust.isPending || discard.isPending,
-    keep: () => setDismissed(true),
+    keep: () => leave(() => setDismissed(true)),
     adjust: () => adjust.mutate(),
     discard: () => discard.mutate(),
   };

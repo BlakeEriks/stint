@@ -456,6 +456,13 @@
       time the screen is read.
     </p>
     <p>
+      Height, width and margin never animate — with one exception, a list row
+      leaving, where the gap closing behind it is the point. It collapses a
+      wrapper's <code>grid-template-rows</code> from <code>1fr</code> to
+      <code>0fr</code>, which interpolates without measuring anything.
+      <code>screens/inbox.html</code> specifies it.
+    </p>
+    <p>
       Every duration honours <code>prefers-reduced-motion</code>, and may drop
       to nothing.
     </p>

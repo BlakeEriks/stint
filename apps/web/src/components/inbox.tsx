@@ -21,7 +21,8 @@ import {
   type Stats,
   type TimeEntry,
 } from '@/lib/client/api';
-import { useRunaway } from '@/lib/client/use-runaway';
+import { useExit } from '@/lib/client/use-exit';
+import { RUNAWAY_ROW_ID, useRunaway } from '@/lib/client/use-runaway';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
 import { formatCurrency } from './invoice-bits';
@@ -50,7 +51,8 @@ export function Inbox({ stats }: { stats: Stats }) {
     stats.attention;
   const queryClient = useQueryClient();
 
-  const runaway = useRunaway();
+  const exit = useExit();
+  const runaway = useRunaway(exit.mark);
 
   /* The ENTRY being edited, not its id: saving moves the entry out of the
      query that supplied it, so an id would still say "open" over nothing and
@@ -74,7 +76,12 @@ export function Inbox({ stats }: { stats: Stats }) {
      times. A trigger clears the answer if they change later. */
   const confirmLength = useMutation({
     mutationFn: (id: string) => api.updateEntry(id, { durationOk: true }),
-    onSuccess: () => invalidateEntryData(queryClient),
+    /* The row plays out BEFORE the refetch drops it. Invalidating first would
+       remove it instantly and leave the exit nothing to animate. */
+    onSuccess: async (_r, id) => {
+      await exit.mark(id);
+      invalidateEntryData(queryClient);
+    },
   });
 
   /* Deduped against Home's identical query, so the one screen rendering both
@@ -88,7 +95,8 @@ export function Inbox({ stats }: { stats: Stats }) {
   const setStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
       api.updateInvoiceStatus(id, { status }),
-    onSuccess: () => {
+    onSuccess: async (_r, { id }) => {
+      await exit.mark(id);
       queryClient.invalidateQueries({ queryKey: keys.invoices() });
       invalidateEntryData(queryClient);
     },
@@ -143,7 +151,13 @@ export function Inbox({ stats }: { stats: Stats }) {
         <ul className="flex flex-col">
           {/* The runaway sorts first: it is the only row whose subject is still
               changing while you read it. */}
-          {runaway.showing ? <RunawayItem runaway={runaway} /> : null}
+          {runaway.showing ? (
+            <RunawayItem
+              runaway={runaway}
+              exiting={exit.exiting.has(RUNAWAY_ROW_ID)}
+              ref={exit.register(RUNAWAY_ROW_ID)}
+            />
+          ) : null}
 
           {rows.map((r) => (
             <Row
@@ -154,6 +168,8 @@ export function Inbox({ stats }: { stats: Stats }) {
               onStatus={setStatus.mutate}
               onOpen={openEntry}
               onConfirm={confirmLength.mutate}
+              exiting={exit.exiting.has(r.id)}
+              ref={exit.register(r.id)}
             />
           ))}
         </ul>
@@ -182,6 +198,7 @@ function Row({
   onStatus,
   onOpen,
   onConfirm,
+  ...leaving
 }: {
   entry: InboxRow;
   busy: boolean;
@@ -189,6 +206,8 @@ function Row({
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
   onConfirm: (id: string) => void;
+  exiting: boolean;
+  ref: React.Ref<HTMLLIElement>;
 }) {
   const r = entry;
 
@@ -196,6 +215,7 @@ function Row({
     const i = r.row;
     return (
       <Item
+        {...leaving}
         href={`/invoices/${i.invoiceId}`}
         label={i.clientName ?? i.invoiceNumber}
         detail={`${i.daysLate} ${i.daysLate === 1 ? 'day' : 'days'} late`}
@@ -228,6 +248,7 @@ function Row({
     const d = r.row;
     return (
       <Item
+        {...leaving}
         href={`/invoices/${d.invoiceId}`}
         label={d.clientName ?? d.invoiceNumber}
         detail={`Draft, ${d.ageDays}d old`}
@@ -260,6 +281,7 @@ function Row({
     const u = r.row;
     return (
       <Item
+        {...leaving}
         onSelect={() => onOpen({ id: u.entryId, focus: 'project' })}
         label={u.taskName || 'Untitled entry'}
         detail={`No project · ${dayLabel(u.startedAt, tz)}`}
@@ -282,6 +304,7 @@ function Row({
   const e = r.row;
   return (
     <Item
+      {...leaving}
       onSelect={() => onOpen({ id: e.entryId, focus: 'task' })}
       label={e.taskName || 'Untitled entry'}
       detail={[
@@ -322,11 +345,19 @@ function Row({
  * Discard stay labelled — three judgements about billable work, and an icon
  * meaning "discard 52 hours" is not one to decode.
  */
-function RunawayItem({ runaway }: { runaway: ReturnType<typeof useRunaway> }) {
+function RunawayItem({
+  runaway,
+  ...leaving
+}: {
+  runaway: ReturnType<typeof useRunaway>;
+  exiting: boolean;
+  ref: React.Ref<HTMLLIElement>;
+}) {
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
 
   return (
     <Item
+      {...leaving}
       label="Timer still running"
       detail={`${runaway.hours} hours so far`}
       value={`${runaway.hours}h`}
@@ -405,6 +436,8 @@ function Item({
   valueTone,
   tone,
   actions,
+  exiting,
+  ref,
 }: {
   /** A record with a page of its own. Omit it and pass `onSelect` instead. */
   href?: string;
@@ -417,56 +450,68 @@ function Item({
   valueTone?: 'warning';
   tone: 'danger' | 'warning';
   actions?: React.ReactNode;
+  /** From `useExit` — the row collapses while its exit plays. */
+  exiting?: boolean;
+  ref?: React.Ref<HTMLLIElement>;
 }) {
   const titleClass =
     'truncate text-left rounded-sm type-control text-strong hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
 
   return (
+    /* The collapsing wrapper is the `li` itself and the padded box is inside
+       it: padding on a `0fr` grid row still occupies space, so the gap would
+       never fully close. */
     <li
-      className={`group rounded-r-md border-l-2 py-2.5 pr-2.5 pl-3 transition-colors hover:bg-surface-primary ${
-        tone === 'danger' ? 'border-danger' : 'border-timer-warning'
-      }`}
+      ref={ref}
+      className="exit-collapse"
+      data-exiting={exiting ? '' : undefined}
     >
-      <div className="flex items-baseline gap-2.5">
-        {href ? (
-          <Link href={href} className={`flex-1 ${titleClass}`}>
-            {label}
-          </Link>
-        ) : onSelect ? (
-          <button
-            type="button"
-            onClick={onSelect}
-            className={`flex-1 ${titleClass}`}
-          >
-            {label}
-          </button>
-        ) : (
-          /* Plain text where there is nothing to open — a running timer has
+      <div
+        className={`group rounded-r-md border-l-2 py-2.5 pr-2.5 pl-3 transition-colors hover:bg-surface-primary ${
+          tone === 'danger' ? 'border-danger' : 'border-timer-warning'
+        }`}
+      >
+        <div className="flex items-baseline gap-2.5">
+          {href ? (
+            <Link href={href} className={`flex-1 ${titleClass}`}>
+              {label}
+            </Link>
+          ) : onSelect ? (
+            <button
+              type="button"
+              onClick={onSelect}
+              className={`flex-1 ${titleClass}`}
+            >
+              {label}
+            </button>
+          ) : (
+            /* Plain text where there is nothing to open — a running timer has
              no record yet. */
-          <span className={`flex-1 ${titleClass} hover:no-underline`}>
-            {label}
+            <span className={`flex-1 ${titleClass} hover:no-underline`}>
+              {label}
+            </span>
+          )}
+          <span
+            className={`flex-none ${
+              valueTone === 'warning' ? 'text-warning' : 'text-primary'
+            } ${value.startsWith('$') ? 'type-amount' : 'type-duration'}`}
+          >
+            {value}
           </span>
-        )}
-        <span
-          className={`flex-none ${
-            valueTone === 'warning' ? 'text-warning' : 'text-primary'
-          } ${value.startsWith('$') ? 'type-amount' : 'type-duration'}`}
-        >
-          {value}
-        </span>
-      </div>
+        </div>
 
-      <div className="mt-px">
-        <span
-          className={`truncate type-support ${
-            tone === 'danger' ? 'text-danger' : 'text-warning'
-          }`}
-        >
-          {detail}
-        </span>
-      </div>
+        <div className="mt-px">
+          <span
+            className={`truncate type-support ${
+              tone === 'danger' ? 'text-danger' : 'text-warning'
+            }`}
+          >
+            {detail}
+          </span>
+        </div>
 
-      {actions ? <ActionSlot>{actions}</ActionSlot> : null}
+        {actions ? <ActionSlot>{actions}</ActionSlot> : null}
+      </div>
     </li>
   );
 }

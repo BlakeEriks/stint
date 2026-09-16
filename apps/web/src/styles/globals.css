@@ -68,3 +68,39 @@
     }
   }
 }
+
+/* ── A row leaving a list ──────────────────────────────────────────
+   The row fades, then the gap closes behind it. `grid-template-rows`
+   interpolates `1fr` → `0fr` on its own, so nothing measures a height and
+   no keyframe needs a pixel value — which is why this is the one place the
+   motion rule permits animating a box's size.
+
+   The fade finishes first so the text is gone before the box closes;
+   reversing that reads as the row being crushed.
+
+   `useExit` waits on `getAnimations()`, so the refetch that removes the row
+   from the data lands after this has played. */
+@layer utilities {
+  .exit-collapse {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition:
+      grid-template-rows var(--motion-quick) var(--ease-accelerate),
+      opacity var(--motion-instant) var(--ease-accelerate);
+  }
+  /* The row's own box clips as the track shrinks; the wrapper must not, or
+     the outline of a focused control inside it would be cut off at rest. */
+  .exit-collapse > * {
+    overflow: hidden;
+  }
+  .exit-collapse[data-exiting] {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    pointer-events: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .exit-collapse {
+      transition: none;
+    }
+  }
+}

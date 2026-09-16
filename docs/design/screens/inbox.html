@@ -335,6 +335,41 @@
     </ul>
   </section>
 
+  <!-- ───────────────────────── leaving ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">A row leaving</span></div>
+
+    <p>
+      An answered row fades, then the gap closes behind it. This is the one
+      place in the app that animates a box's size, and the gap closing is why:
+      a row that vanishes leaving a hole reads as a rendering fault, and the
+      rows below arriving instantly gives no account of where the answered one
+      went.
+    </p>
+
+    <ul class="rule">
+      <li><strong>The refetch waits for the exit.</strong> The row stays in the
+        query data until its animation has finished, so nothing has to be
+        reconstructed once it goes. Refreshing first drops the row instantly
+        and leaves the exit playing over a gap.</li>
+      <li><strong>The gap collapses by
+        <code>grid-template-rows: 1fr → 0fr</code></strong> on a wrapper, which
+        interpolates without measuring a height. Nothing pins a pixel value and
+        nothing reads the rows below.</li>
+      <li><strong><code>--motion-quick</code> with
+        <code>--ease-accelerate</code></strong> — an object leaving speeds up
+        as it goes. The fade is <code>--motion-instant</code>, so the text is
+        gone before the box closes; the other order reads as the row being
+        crushed.</li>
+      <li><strong>The runaway row leaves the same way</strong>, on a synthetic
+        id, because it comes from the timer and has no record of its own.
+        <code>Keep</code> is local state and still plays the exit — one way for
+        a row to go, not two.</li>
+      <li><strong><code>prefers-reduced-motion</code> removes the
+        animation</strong>, and the row goes at once.</li>
+    </ul>
+  </section>
+
   <!-- ───────────────────────── behaviour ───────────────────────── -->
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">What each row may do</span></div>
