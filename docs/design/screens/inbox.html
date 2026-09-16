@@ -364,10 +364,16 @@
         as it goes. The fade is <code>--motion-instant</code>, so the text is
         gone before the box closes; the other order reads as the row being
         crushed.</li>
-      <li><strong>The runaway row leaves the same way</strong>, on a synthetic
-        id, because it comes from the timer and has no record of its own.
-        <code>Keep</code> is local state and still plays the exit — one way for
-        a row to go, not two.</li>
+      <li><strong>Every kind leaves the same way.</strong> An inline write
+        (<code>Mark paid</code>, <code>Mark sent</code>,
+        <code>It's correct</code>), a save or a delete in the entry editor, and
+        the runaway's <code>Keep</code> all play the one exit — one way for a
+        row to go, not five. The editor holds its refetch until the row has
+        finished, so an entry given a project collapses rather than blinking
+        out from under the closing dialog.</li>
+      <li><strong>The runaway row rides a synthetic id</strong>, because it
+        comes from the timer and has no record of its own. <code>Keep</code> is
+        local state and still plays the exit.</li>
       <li><strong><code>prefers-reduced-motion</code> removes the
         animation</strong>, and the row goes at once.</li>
     </ul>

@@ -232,4 +232,55 @@ describe('EntryDialog', () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
   });
+
+  /**
+   * The inbox passes `useExit`'s `mark` here, and its row is only still in the
+   * query data until the invalidation runs — so a refetch that starts before
+   * `onSaved` settles tears the row out mid-animation. Ordering is the whole
+   * contract; that the callback is merely CALLED proves nothing.
+   */
+  it('awaits onSaved before invalidating', async () => {
+    serve();
+    const user = userEvent.setup();
+    const order: string[] = [];
+
+    let release!: () => void;
+    const saved = new Promise<void>((r) => {
+      release = r;
+    });
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    client.invalidateQueries = (async () => {
+      order.push('invalidate');
+    }) as typeof client.invalidateQueries;
+
+    render(
+      <QueryClientProvider client={client}>
+        <EntryDialog
+          open
+          onOpenChange={() => {}}
+          existing={entry()}
+          projects={PROJECTS}
+          tz={TZ}
+          onSaved={(id) => {
+            order.push(`saved:${id}`);
+            return saved;
+          }}
+        />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => screen.getByLabelText('End'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(order).toContain('saved:e1'));
+    // Held open: nothing may refetch while the row is still animating.
+    expect(order).toEqual(['saved:e1']);
+
+    release();
+    await waitFor(() => expect(order).toContain('invalidate'));
+    expect(order[0]).toBe('saved:e1');
+  });
 });

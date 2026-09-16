@@ -185,6 +185,9 @@ export function Inbox({ stats }: { stats: Stats }) {
         existing={assigning}
         focus={focusField}
         projects={projects}
+        /* The row's id IS the entry id for both kinds that open this dialog,
+           so the mark lands on the row the user just answered. */
+        onSaved={exit.mark}
       />
     </section>
   );

@@ -64,6 +64,7 @@ export function EntryDialog({
   seed,
   focus = 'task',
   projects,
+  onSaved,
   tz = timeZone,
 }: {
   open: boolean;
@@ -84,6 +85,12 @@ export function EntryDialog({
    */
   focus?: 'task' | 'project';
   projects: Project[];
+  /**
+   * Awaited after the dialog closes and before the refetch, so a caller whose
+   * list still holds this entry can play it out first. The inbox passes
+   * `useExit`'s `mark`; without it the refetch drops the row mid-animation.
+   */
+  onSaved?: (id: string) => Promise<void> | void;
   /** Overridable so a test can pin a zone; production always uses the real one. */
   tz?: string;
 }) {
@@ -114,8 +121,12 @@ export function EntryDialog({
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
-  const settle = () => {
+  /* The close, then the caller, then the refetch — in that order. A list that
+     animates this entry out needs it still in the query data while it plays,
+     which is only true before the invalidation. */
+  const settle = async () => {
     onOpenChange(false);
+    if (existing) await onSaved?.(existing.id);
     /* `stats` is in there too: editing an entry changes the unbilled total,
        and giving a loose entry a project is what clears its inbox row. */
     invalidateEntryData(queryClient);
