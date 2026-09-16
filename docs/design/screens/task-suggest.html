@@ -115,6 +115,33 @@
     color: var(--text-subtle); font-size: 12.5px;
   }
 
+  /* The keycap shows on the highlighted row only, where it is the one true
+     instruction; a list footer would state it permanently and be ignored. */
+  .kbd {
+    flex: none; margin-left: 2px;
+    display: inline-grid; place-items: center;
+    min-width: 18px; height: 18px; padding: 0 5px;
+    border: 1px solid var(--border-default);
+    border-radius: 4px;
+    background: var(--bg-base);
+    color: var(--text-muted);
+    font-family: var(--font-mono); font-size: 11px; line-height: 1;
+  }
+  /* The project stays on the highlighted row: hiding the label while keeping
+     its colour dot leaves a swatch labelling nothing. The keycap follows it
+     and the project truncates first if the row is tight. */
+  .opt.on .proj { max-width: 22ch; }
+
+  /* A drawing of something deliberately not built. The page must say so
+     where the drawing is, or it reads as a spec for shipped code. */
+  .nb {
+    display: inline-block; margin-right: 6px;
+    padding: 1px 6px; border-radius: 3px;
+    border: 1px solid var(--border-default);
+    color: var(--text-muted); background: var(--bg-base);
+    font-weight: 500; letter-spacing: .08em;
+  }
+
   .hint {
     padding: 6px 10px 4px;
     color: var(--text-subtle);
@@ -201,6 +228,7 @@
               <span class="txt"><b>in</b>voice reconciliation</span>
               <span class="sw" style="background:var(--proj-6)"></span>
               <span class="proj">Northwind · Ledger</span>
+              <kbd class="kbd">↵</kbd>
             </div>
             <div class="opt">
               <span class="txt">Onboard<b>in</b>g call</span>
@@ -232,11 +260,19 @@
       <li><strong>The match is highlighted, not the row.</strong> Weight marks
         the substring that matched; the accent is the running timer’s and does
         not appear here.</li>
-      <li><strong>The project rides along and is never applied.</strong> It
-        says which client this name was last used for — the disambiguator when
-        the same name exists under two of them — and choosing the row sets the
-        name alone. The project field is a separate decision, and changing it
-        silently is the same wrong invoice line.</li>
+      <li><strong>The project fills an empty field and never overwrites a
+        chosen one.</strong> The label says which client this name was last
+        used for — the disambiguator when the same name exists under two of
+        them. Choosing the row sets the name always, and the project only when
+        none is selected: a fill is a convenience, an overwrite would re-bill
+        work to another client without the project control being touched.</li>
+      <li><strong>The key to press is shown, not assumed.</strong> A keycap
+        on the highlighted row says <code>↵</code> accepts it. It rides the
+        highlight — appearing on arrow or hover, gone when nothing is
+        selected — so it is only ever on screen while it is true. One hint:
+        the arrows are found by pressing them and Escape is universal, but a
+        list that fills a field on a key nobody guessed is a feature nobody
+        finds.</li>
       <li><strong>Four rows, then stop.</strong> The list is a shortcut past
         typing, not a browsable history; a scrolling panel over the content
         column costs more attention than the keystrokes it saves.</li>
@@ -307,6 +343,7 @@
                 <span class="txt"><b>Sch</b>ema migrations</span>
                 <span class="sw" style="background:var(--proj-2)"></span>
                 <span class="proj">Bellweather · API</span>
+                <kbd class="kbd">↵</kbd>
               </div>
               <div class="opt">
                 <span class="txt"><b>Sch</b>eduling review</span>
@@ -336,6 +373,7 @@
                 <span class="txt"><b>Inv</b>oice reconciliation</span>
                 <span class="sw" style="background:var(--proj-6)"></span>
                 <span class="proj">Ledger</span>
+                <kbd class="kbd">↵</kbd>
               </div>
               <div class="opt">
                 <span class="txt"><b>Inv</b>entory audit</span>
@@ -354,13 +392,16 @@
             <button class="transport"><span class="tri"></span></button>
           </div>
         </div>
-        <span class="caption">Menu bar panel · the client name drops, the panel is 320pt</span>
+        <span class="caption"><b class="nb">Not built</b> Menu bar panel · the client name drops, the panel is 320pt</span>
       </div>
 
     <ul class="rule">
-      <li><strong>The panel earns this most.</strong> It exists to start a
-        timer without reaching for the keyboard, and three characters plus
-        Return is the closest that gets.</li>
+      <li><strong>The panel is drawn and not built.</strong> It already
+        reuses a name a shorter way: the recent-entries list restarts one in a
+        single click, keyboard-free, which is the panel's whole premise. A
+        second mechanism for the same job costs height in a fixed 320pt, and
+        the panel's scope is the timer and nothing else. This drawing is what
+        the work would start from if that changes.</li>
       <li><strong>The panel shows the project, not the client.</strong> Two
         names in a 320pt row truncate both.</li>
       <li><strong>The dialog’s list overlays the fields under it.</strong> A
@@ -374,8 +415,8 @@
     <div class="sec-head"><span class="eyebrow">Keyboard</span></div>
     <table>
       <tr><th>Key</th><th>Result</th></tr>
-      <tr><td>↓ / ↑</td><td>Moves the highlight. Down from the field enters the list; up past the first row leaves it, restoring what was typed.</td></tr>
-      <tr><td>Enter, a row highlighted</td><td>Fills the field with that name. Does not start the timer or save the entry.</td></tr>
+      <tr><td>↓ / ↑</td><td>Moves the highlight, and with it the <code>↵</code> keycap. Down from the field enters the list; up past the first row leaves it, restoring what was typed.</td></tr>
+      <tr><td>Enter, a row highlighted</td><td>Fills the field with that name, and the project if none is chosen. Does not start the timer or save the entry.</td></tr>
       <tr><td>Enter, nothing highlighted</td><td>The field’s own action — starts the timer, saves the entry.</td></tr>
       <tr><td>Escape</td><td>Closes the list, keeps what was typed. A second Escape reaches the dialog.</td></tr>
       <tr><td>Tab</td><td>Closes the list and moves on. Tab never chooses.</td></tr>
