@@ -98,6 +98,13 @@
     opacity: 0;
     pointer-events: none;
   }
+  /* A `0fr` track still floors at the content's min-content height, and the
+     row's own vertical padding is part of that — without this the gap stops
+     closing 20px short. The padding runs on the same curve as the track. */
+  .exit-collapse[data-exiting] > * {
+    padding-block: 0;
+    transition: padding-block var(--motion-quick) var(--ease-accelerate);
+  }
   @media (prefers-reduced-motion: reduce) {
     .exit-collapse {
       transition: none;

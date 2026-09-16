@@ -355,7 +355,10 @@
       <li><strong>The gap collapses by
         <code>grid-template-rows: 1fr → 0fr</code></strong> on a wrapper, which
         interpolates without measuring a height. Nothing pins a pixel value and
-        nothing reads the rows below.</li>
+        nothing reads the rows below. The row's own vertical padding goes to
+        zero on the same curve — a <code>0fr</code> track still floors at its
+        content's min-content height, so without that the gap stops closing
+        short.</li>
       <li><strong><code>--motion-quick</code> with
         <code>--ease-accelerate</code></strong> — an object leaving speeds up
         as it goes. The fade is <code>--motion-instant</code>, so the text is

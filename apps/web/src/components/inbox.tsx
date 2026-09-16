@@ -458,9 +458,9 @@ function Item({
     'truncate text-left rounded-sm type-control text-strong hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
 
   return (
-    /* The collapsing wrapper is the `li` itself and the padded box is inside
-       it: padding on a `0fr` grid row still occupies space, so the gap would
-       never fully close. */
+    /* The collapsing wrapper is the `li` and the padded box is inside it, so
+       the grid track has something to shrink. `exit-collapse` zeroes that
+       box's padding too — a `0fr` track still floors at min-content. */
     <li
       ref={ref}
       className="exit-collapse"

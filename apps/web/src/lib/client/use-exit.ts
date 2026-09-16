@@ -38,7 +38,6 @@ export function useExit() {
         return;
       }
       nodes.current.delete(id);
-      refs.current.delete(id);
       setExiting((prev) => {
         if (!prev.has(id)) return prev;
         const next = new Set(prev);
@@ -67,9 +66,15 @@ async function finished(nodes: Map<string, HTMLElement>, id: string) {
     return;
   }
 
-  /* A frame first: the attribute has to land and style has to resolve before
-     the element has any animation to report. */
-  await new Promise(requestAnimationFrame);
+  /* TWO frames, and the second is the one that matters. React commits the
+     attribute during the first, but a rAF callback runs BEFORE style recalc,
+     so at that point the transition does not exist yet and `getAnimations()`
+     returns nothing — the wait resolves instantly, the refetch drops the row,
+     and the exit never plays. Measured: one frame gives 0 animations, two
+     give 2. */
+  await new Promise((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(resolve)),
+  );
 
   const el = nodes.get(id);
   if (!el?.isConnected) return;

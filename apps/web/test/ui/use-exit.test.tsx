@@ -102,6 +102,44 @@ describe('useExit', () => {
     await waitFor(() => expect(done).toHaveBeenCalled());
   });
 
+  it('lets style resolve before it looks for animations', async () => {
+    /* The bug this pins down: a `requestAnimationFrame` callback runs BEFORE
+       style recalc, so one frame after setting the attribute the transition
+       does not exist yet. `getAnimations()` returned nothing, the wait
+       resolved at once, the refetch dropped the row, and the exit never
+       played — measured in Chrome as 0 animations at one frame and 2 at two.
+
+       Here the animation only becomes visible on the SECOND frame, so a hook
+       that looks too early sees an empty list and resolves early. */
+    let frame = 0;
+    const raf = globalThis.requestAnimationFrame;
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      frame += 1;
+      return raf(cb);
+    });
+
+    let settle = () => {};
+    const finished = new Promise<void>((r) => {
+      settle = r;
+    });
+    (Element.prototype as Partial<Element>).getAnimations = (() =>
+      frame >= 2 ? [{ finished }] : []) as never;
+
+    const done = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness onDone={done} />);
+
+    await user.click(screen.getByRole('button', { name: 'Act' }));
+    await waitFor(() => expect(frame).toBeGreaterThanOrEqual(2));
+
+    // It found the animation, so it is still waiting on it.
+    expect(done).not.toHaveBeenCalled();
+    await act(async () => {
+      settle();
+    });
+    await waitFor(() => expect(done).toHaveBeenCalled());
+  });
+
   it('short-circuits under prefers-reduced-motion', async () => {
     const animation = animating();
     vi.stubGlobal(
