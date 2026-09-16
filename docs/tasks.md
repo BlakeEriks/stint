@@ -290,6 +290,50 @@ later.
       it is a per-device layout choice, not account state, and a round-trip
       would make the rail flicker on load.
 
+- [ ] **Review the app for keyboard operation, then make it teach itself.**
+      The audience is other contractors who write software, and for them a
+      tracker that needs the mouse is a tracker they resent — the whole point
+      is that logging time should cost nothing. Two halves, in order: what
+      can be done from the keyboard at all, then whether anything on screen
+      ever says so.
+
+      **The second half is the one that is missing entirely.** There is no
+      shortcut anywhere in the web app — `onKeyDown` appears twice, both
+      Enter-in-a-field — and nothing renders a keystroke. A shortcut nobody
+      can discover is a shortcut nobody uses, so the review is worthless
+      unless what follows it puts the keys on screen: in menu rows beside the
+      item they trigger, in tooltips, next to the primary action in a dialog.
+      `DropdownMenuShortcut` is already vendored in `dropdown-menu.tsx` and
+      used nowhere, which is the slot for the menu half.
+
+      Review first, and write down what is found — the actions worth a
+      binding, what is already reachable by Tab, and what is silently not.
+      Radix gives arrow keys, typeahead, Escape and focus return inside menus
+      and dialogs for free, so the gaps will be in our own code: the timer
+      toggle, the inbox rows, the entry list, the filter pills, anything
+      built as a `div` with a click handler.
+
+      Three things to decide during the review rather than after:
+
+      - **What earns a binding.** Start/stop is obvious. Beyond that the bar
+        is the same one the nav has — a shortcut that exists because it could
+        is a key the user must now avoid pressing by accident.
+      - **Whether a shortcut overlay belongs here** (`?` listing everything),
+        which is the discoverable answer for the bindings that have no
+        natural home on screen. It is also a surface that goes stale
+        silently, so it only works if it reads from wherever the bindings are
+        defined rather than being a hand-kept list.
+      - **What a binding must not break.** Nothing may fire while a text
+        field has focus — the task name field is where the user spends their
+        typing — and none of it may collide with the browser's own keys.
+
+      **Focus rings stay neutral, never the accent** (`brand.html`), which
+      constrains how this is shown before it is designed.
+
+      This is the web app. The menu bar app's own global hotkey is in
+      Deferred, and judging Tab reachability there needs macOS keyboard
+      navigation turned on first.
+
 - [ ] **The empty inbox says it twice.** The header renders
       `{count || 'clear'}` where the count goes, so an empty inbox reads
       "clear" in the corner with "Nothing needs you." directly beneath it —
