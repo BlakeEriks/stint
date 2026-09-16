@@ -336,6 +336,17 @@ later.
       and confirmation must not claim green for a timer that is not running
       yet.
 
+      **The menu bar app has the same fault and is covered by this task.**
+      `TimerModel.toggle()` awaits the mutation and then `await refresh()`,
+      the same two sequential round trips, and `isBusy` only dims the control
+      to 0.6 — so the panel shows the old state throughout. It needs walking
+      under the same forced delay: toggle, the project picker, resume, the
+      rename commit, and sign-in, which is the slowest thing the app does and
+      the first thing a new user sees. The bar itself is the harder half: it
+      is a pip and a clock with no room for a spinner, so a press that takes a
+      second has to be legible in two objects that are already saying
+      something else.
+
       A delay long enough to see is also what makes the states *testable* —
       several of them have probably never rendered on this machine at all.
 
