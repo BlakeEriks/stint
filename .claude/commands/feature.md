@@ -192,13 +192,27 @@ over many iterations, not as a cleanup pass on code written an hour ago.
 
 ## 6. Review with two agents that did not write it
 
-In parallel, both against the merge base:
-
 - **Correctness** — `/code-review`, or a subagent hunting only regressions: a
   field a route used to accept, a default that leaked, a state a screen used
   to render.
 - **The spec** — every requirement implemented, every listed edge case tested,
   nothing outside scope changed.
+
+Ask both to prove a finding by breaking the rule and watching a test go red.
+That is what separates a review worth reading from a list of suspicions — and
+it is why **only one reviewer may mutate the tree at a time.**
+
+Two reviewers editing one worktree in parallel read each other's half-applied
+mutations as the code under review. It reported two billing bugs that did not
+exist, and the working tree was clean by the time anyone looked. Either:
+
+- **run them in sequence** — one mutates, restores, reports; then the next, or
+- **run them in parallel read-only**, each copying to `/tmp` to experiment,
+  with mutation saved for a second pass by whichever found something.
+
+Sequence is the cheaper default: a second worktree wants its own
+`node_modules`. Whichever you pick, tell each agent which it is, and have any
+agent that mutates verify `git status` is clean before it reports.
 
 Tell both to flag only what affects correctness or a stated requirement. A
 reviewer asked for gaps will find them; chasing all of them buys abstraction
