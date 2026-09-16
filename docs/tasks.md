@@ -262,6 +262,34 @@ later.
       it is a per-device layout choice, not account state, and a round-trip
       would make the rail flicker on load.
 
+- [ ] **Review every loading state under a real network.** Starting and
+      stopping the timer is noticeably clunky in production and smooth
+      locally, which means the states were only ever seen at localhost
+      latency — where a round trip finishes before a spinner can render. The
+      method is to force a delay (~1s, and a slow case around 3s) and walk the
+      app: every mutation, every `Listing`, every screen transition, watching
+      for an unannounced freeze, a spinner that flashes for 80ms, and layout
+      that jumps when the real data lands.
+
+      **The timer bar is the specific case and the reason this is Ready.**
+      `useTimer`'s `start` and `stop` have no `onMutate` — nothing in the app
+      does — so the bar shows the old state for the whole round trip *plus*
+      the `invalidateEntryData()` refetch that follows, and `busy` only
+      disables the button. Pressing start does nothing visible for two
+      sequential requests. The two candidate fixes are an optimistic
+      `onMutate` on the timer cache, and returning the new state from the
+      mutation so the second round trip is not on the critical path.
+
+      Two rules constrain the fix. **The server owns timer truth**, so an
+      optimistic start is a local render that a 409 or a failure must be able
+      to take back — never a local timer that outlives the server's answer.
+      And the accent marks the running timer: whatever renders between press
+      and confirmation must not claim green for a timer that is not running
+      yet.
+
+      A delay long enough to see is also what makes the states *testable* —
+      several of them have probably never rendered on this machine at all.
+
 - [ ] **Suggest a task name from prior ones.** Typing the same task name a
       fifth time is the most repeated keystroke in the app, and the names
       already exist — a distinct list of recent `task_name` values is one
