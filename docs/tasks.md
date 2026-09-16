@@ -339,28 +339,6 @@ later.
       A delay long enough to see is also what makes the states *testable* —
       several of them have probably never rendered on this machine at all.
 
-- [ ] **Suggest a task name from prior ones.** Typing the same task name a
-      fifth time is the most repeated keystroke in the app, and the names
-      already exist — a distinct list of recent `task_name` values is one
-      query. Toggl does this and it is the one thing it does that is not
-      scope: the alternative is not a simpler app, it is retyping.
-
-      A **suggestion, never an autofill.** The field keeps what is typed and
-      offers matches below it; nothing is written until one is chosen. The
-      app does not silently modify user data, and a name that completes itself
-      to the wrong client's task is a wrong invoice line.
-
-      Scope it to what makes the suggestion good rather than merely present:
-      rank by recency, and prefer names used with the currently selected
-      project — the same task name under two clients is common, and the
-      project is the disambiguator already on screen.
-
-      Needs an endpoint (distinct names, optionally filtered by project),
-      and it belongs on all three entry points that take a name: the web
-      timer bar, the entry dialog, and the macOS panel — which is where it
-      is worth the most, since that panel exists to avoid reaching for the
-      keyboard at all.
-
 - [ ] **Today's entries wrap on narrow screens.** The row is one line —
       task, project, badge, time range, duration — and on a phone the middle
       fields are already hidden behind `sm:`/`md:` breakpoints to make it fit,
@@ -393,6 +371,16 @@ moves up — do not start one by guessing the answer.
       unbillable time clusters between 9 and 11am", which is actionable. If
       admin turns out to be scattered evenly through the day, the card has
       nothing to say and should not ship. Check before building.
+
+- [ ] **Task name suggestions in the menu bar panel.** *Question: does a
+      second way to reuse a name earn its height beside the restart list?*
+      The web half ships — `GET /entries/task-names` is live and every client
+      inherits it. But `EntryRow` already restarts a prior entry in one click,
+      keyboard-free, which is the panel's whole premise, and a 320pt panel
+      has no room for two mechanisms doing one job. The panel is drawn and
+      badged **Not built** in `docs/design/screens/task-suggest.html`, which
+      is what the work would start from. `menubar.html:791-803` needs an
+      endpoint row before it lands.
 
 - [ ] **Realtime cross-device updates.** *Question: is the 60s reconcile
       actually annoying in practice?* `architecture.md` notes Supabase

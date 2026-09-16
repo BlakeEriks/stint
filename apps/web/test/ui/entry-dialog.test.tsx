@@ -1,13 +1,14 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { EntryDialog } from '@/components/entry-dialog';
-import type { Project, TimeEntry } from '@/lib/client/api';
+import type { Project, TaskNameSuggestion, TimeEntry } from '@/lib/client/api';
 
 const PROJECTS = [
   { id: 'p1', name: 'Acme Redesign', clientId: 'c1' },
+  { id: 'p2', name: 'Bluebird API', clientId: 'c2' },
 ] as unknown as Project[];
 
 const TZ = 'America/New_York';
@@ -36,7 +37,10 @@ function entry(over: Partial<TimeEntry> = {}): TimeEntry {
  * the status undefined, so the locked assertion passed without ever
  * exercising the rule it claims to test.
  */
-function serve(invoiceStatus: string = 'sent') {
+function serve(
+  invoiceStatus: string = 'sent',
+  taskNames: TaskNameSuggestion[] = [],
+) {
   const calls: Array<{ method: string; path: string; body: unknown }> = [];
   vi.stubGlobal(
     'fetch',
@@ -51,6 +55,10 @@ function serve(invoiceStatus: string = 'sent') {
         return new Response(JSON.stringify({ status: invoiceStatus }), {
           status: 200,
         });
+      }
+      // Empty by default, so every test that predates the list sees none.
+      if (path.startsWith('/entries/task-names')) {
+        return new Response(JSON.stringify({ taskNames }), { status: 200 });
       }
       return new Response(JSON.stringify(entry()), { status: 200 });
     }),
@@ -184,6 +192,77 @@ describe('EntryDialog', () => {
     expect(
       await screen.findByText(/draft invoice.*preview it again/i),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * The wiring, not the list — `task-suggest.test.tsx` owns its behaviour.
+   * What matters here is what a chosen row is allowed to write into a form
+   * that bills.
+   */
+  describe('task suggestions', () => {
+    const SUGGESTIONS: TaskNameSuggestion[] = [
+      { taskName: 'Invoice reconciliation', projectId: 'p1', lastUsedAt: '1' },
+    ];
+
+    /* Scoped to the list: the project `<select>` fills the page with options
+       of its own, and an unscoped query would be ambiguous. */
+    const suggestions = () =>
+      screen.findByRole('listbox', { name: 'Task name suggestions' });
+
+    /* Typed, not merely clicked: the field opens holding the entry's own
+       name, which filters every other name out of the list. */
+    const chooseFirst = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.clear(screen.getByLabelText('Task'));
+      await user.type(screen.getByLabelText('Task'), 'Invoice');
+      await user.click(within(await suggestions()).getByRole('option'));
+    };
+
+    it('fills the task and the empty project from a chosen row', async () => {
+      serve('sent', SUGGESTIONS);
+      const user = userEvent.setup();
+      open(entry({ projectId: null }));
+
+      await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
+      await chooseFirst(user);
+
+      expect(screen.getByLabelText('Task')).toHaveValue(
+        'Invoice reconciliation',
+      );
+      expect(screen.getByLabelText('Project')).toHaveValue('p1');
+    });
+
+    /* A project already on the entry is what this work is billed to. A row
+       last used under another one must not move it. */
+    it('leaves an already-chosen project alone', async () => {
+      // The row's project is p1; the entry's is p2. They must not converge.
+      serve('sent', SUGGESTIONS);
+      const user = userEvent.setup();
+      open(entry({ projectId: 'p2' }));
+
+      await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
+      await chooseFirst(user);
+
+      expect(screen.getByLabelText('Task')).toHaveValue(
+        'Invoice reconciliation',
+      );
+      expect(screen.getByLabelText('Project')).toHaveValue('p2');
+    });
+
+    /* Billed to an issued invoice: the field is read-only, so there is
+       nothing to accelerate and a list over it offers an edit that 409s.
+       Asserted as the REQUEST, not the rendered list — a disabled input
+       cannot be focused, so "no listbox" would hold whether or not the
+       suggestion machinery was suppressed. */
+    it('asks for no suggestions on an entry locked by an issued invoice', async () => {
+      const calls = serve('sent', SUGGESTIONS);
+      open(entry({ invoiceId: 'inv1' }));
+
+      await waitFor(() => expect(screen.getByLabelText('Task')).toBeDisabled());
+
+      expect(calls.some((c) => c.path.startsWith('/entries/task-names'))).toBe(
+        false,
+      );
+    });
   });
 
   it('does not delete until the confirmation is clicked', async () => {
