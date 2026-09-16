@@ -28,9 +28,19 @@ let tenant: pg.Pool; // the `authenticated` role: RLS applies
 
 before(async () => {
   const url = process.env.RLS_DATABASE_URL;
-  if (!url) throw new Error('RLS_DATABASE_URL is not set');
+  const adminUrl = process.env.DATABASE_URL;
+  // Both, or neither. Falling back to the tenant URL gave `admin` the
+  // `authenticated` role, which cannot seed auth.users — surfacing as
+  // "permission denied for table users", which reads like a broken policy.
+  if (!url || !adminUrl) {
+    throw new Error(
+      'RLS tests need RLS_DATABASE_URL (the `authenticated` role) and ' +
+        'DATABASE_URL (a superuser on the same database). Run `pnpm verify:db`, ' +
+        'which supplies both.',
+    );
+  }
 
-  admin = new pg.Pool({ connectionString: process.env.DATABASE_URL ?? url });
+  admin = new pg.Pool({ connectionString: adminUrl });
   tenant = new pg.Pool({ connectionString: url });
 
   // Fail loudly rather than passing vacuously: a superuser or a
