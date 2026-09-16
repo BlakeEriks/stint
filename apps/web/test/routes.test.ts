@@ -1842,3 +1842,146 @@ test('attention rows are scoped to their own user', async () => {
   assert.deepEqual(res.body.attention.staleDrafts, []);
   assert.deepEqual(res.body.attention.unprojected, []);
 });
+
+// ── task name suggestions ──────────────────────────────────────────
+const TASK_NAMES = '../src/app/api/v1/entries/task-names/route.ts';
+
+/** An ended entry carrying a specific name; `daysAgo` sets the recency rank. */
+async function namedEntry(opts: {
+  id: string;
+  name: string;
+  projectId?: string | null;
+  daysAgo: number;
+  userId?: string;
+}) {
+  const start = new Date(Date.UTC(2026, 8, 10) - opts.daysAgo * 86_400_000);
+  await pool.query(
+    `insert into time_entries
+       (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+     values ($1,$2,$3,$4,$5,$6,true)`,
+    [
+      opts.id,
+      opts.userId ?? USER,
+      opts.projectId ?? null,
+      opts.name,
+      start.toISOString(),
+      new Date(start.getTime() + 3_600_000).toISOString(),
+    ],
+  );
+}
+
+const names = (body: { taskNames: { taskName: string }[] }) =>
+  body.taskNames.map((s) => s.taskName);
+
+test('task names dedupe by case, keeping the most recent spelling', async () => {
+  const { GET: taskNames } = await import(TASK_NAMES);
+
+  await namedEntry({ id: S(80), name: 'standup', daysAgo: 5 });
+  await namedEntry({ id: S(81), name: 'Standup', daysAgo: 1 });
+
+  /* Offering both spellings is offering the user their own typo, and the
+     newer one is the one they have settled on. */
+  const res = await json(await taskNames(req('/entries/task-names')));
+  assert.deepEqual(names(res.body), ['Standup']);
+});
+
+test('task names exclude the empty name', async () => {
+  const { GET: taskNames } = await import(TASK_NAMES);
+
+  // A timer started in a hurry has `''`, which is not a suggestion.
+  await namedEntry({ id: S(82), name: '', daysAgo: 1 });
+  await namedEntry({ id: S(83), name: 'Real work', daysAgo: 2 });
+
+  const res = await json(await taskNames(req('/entries/task-names')));
+  assert.deepEqual(names(res.body), ['Real work']);
+});
+
+test('task names exclude another user’s rows', async () => {
+  const { GET: taskNames } = await import(TASK_NAMES);
+
+  await namedEntry({ id: S(84), name: 'Theirs', daysAgo: 1, userId: OTHER });
+  await namedEntry({ id: S(85), name: 'Mine', daysAgo: 2 });
+
+  const res = await json(await taskNames(req('/entries/task-names')));
+  assert.deepEqual(names(res.body), ['Mine']);
+});
+
+test('the project preference ranks its own names first', async () => {
+  const { GET: taskNames } = await import(TASK_NAMES);
+
+  const c = '33333333-0000-4000-8000-0000000000f0';
+  const p = '33333333-0000-4000-8000-0000000000f1';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Acme')`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Website')`,
+    [p, USER, c],
+  );
+
+  // The project's name is OLDER, so recency alone would rank it last.
+  await namedEntry({
+    id: S(86),
+    name: 'Project work',
+    projectId: p,
+    daysAgo: 9,
+  });
+  await namedEntry({ id: S(87), name: 'Newer internal', daysAgo: 1 });
+  // No project at all: the comparison is NULL, which sorts FIRST under DESC
+  // unless the function coalesces it.
+  await namedEntry({ id: S(88), name: 'Unprojected', daysAgo: 2 });
+
+  const preferred = await json(
+    await taskNames(req(`/entries/task-names?projectId=${p}`)),
+  );
+  assert.equal(
+    names(preferred.body)[0],
+    'Project work',
+    'the selected project outranks more recent work elsewhere',
+  );
+  assert.deepEqual(
+    names(preferred.body).slice(1),
+    ['Newer internal', 'Unprojected'],
+    'everything else still follows, by recency — a preference is not a filter',
+  );
+
+  // Without the preference it is pure recency.
+  const plain = await json(await taskNames(req('/entries/task-names')));
+  assert.deepEqual(names(plain.body), [
+    'Newer internal',
+    'Unprojected',
+    'Project work',
+  ]);
+});
+
+test('task names honour limit', async () => {
+  const { GET: taskNames } = await import(TASK_NAMES);
+
+  for (let i = 0; i < 5; i++) {
+    await namedEntry({ id: S(90 + i), name: `Task ${i}`, daysAgo: i + 1 });
+  }
+
+  const res = await json(await taskNames(req('/entries/task-names?limit=2')));
+  assert.deepEqual(names(res.body), ['Task 0', 'Task 1']);
+});
+
+test('task names reject a limit outside the range', async () => {
+  const { GET: taskNames } = await import(TASK_NAMES);
+
+  const res = await json(await taskNames(req('/entries/task-names?limit=99')));
+  assert.equal(res.status, 422);
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
+});
+
+test('task names reject a non-uuid projectId', async () => {
+  const { GET: taskNames } = await import(TASK_NAMES);
+
+  /* No `none` literal here: unlike `/entries`, the argument ranks rather
+     than filters, so "no project" and "no preference" are one request. */
+  const res = await json(
+    await taskNames(req('/entries/task-names?projectId=none')),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
+});
