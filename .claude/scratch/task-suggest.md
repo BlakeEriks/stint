@@ -78,11 +78,14 @@ Verify: `pnpm verify:db`
 
 ### 2. Schema — `packages/schema/src/index.ts`
 
-Beside `ListEntriesQuery` (`:157`), copying its `projectId` union:
+Beside `ListEntriesQuery` (`:157`). It does **not** copy that schema's
+`'none'` literal: there the argument filters, here it ranks, so "no project"
+and "no preference" are one request and a second spelling would only invite a
+difference nobody intended.
 
 ```ts
 export const TaskNamesQuery = z.object({
-  projectId: z.union([uuid, z.literal('none')]).optional(),
+  projectId: uuid.optional(),   // a ranking preference, not a filter
   limit: z.coerce.number().int().min(1).max(20).default(8),
 });
 export const TaskNameSuggestion = z.object({
@@ -108,7 +111,7 @@ only snake↔camel boundary).
 
 Test in `apps/web/test/routes.test.ts`: dedupes by case, excludes the empty
 name, excludes another user's rows, project preference ranks first,
-`projectId=none`, `limit` honoured, 422 on a bad `limit`. `shim.mjs:178`
+`limit` honoured, 422 on a bad `limit`, 422 on a non-uuid `projectId`. `shim.mjs:178`
 already supports `.rpc` positionally.
 
 Verify: `pnpm verify:db`

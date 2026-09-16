@@ -167,8 +167,10 @@ export const ListEntriesQuery = z.object({
 });
 
 export const TaskNamesQuery = z.object({
-  /* `none` as above: names from entries with no project at all. */
-  projectId: z.union([uuid, z.literal('none')]).optional(),
+  /* A preference, not a filter: names used with this project rank first and
+     every other name still follows. Omitting it ranks by recency alone, which
+     is also what the picker's "No project" state wants. */
+  projectId: uuid.optional(),
   limit: z.coerce.number().int().min(1).max(20).default(8),
 });
 
