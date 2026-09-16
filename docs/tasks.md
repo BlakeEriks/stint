@@ -285,6 +285,19 @@ later.
       it is a per-device layout choice, not account state, and a round-trip
       would make the rail flicker on load.
 
+- [ ] **The empty inbox says it twice.** The header renders
+      `{count || 'clear'}` where the count goes, so an empty inbox reads
+      "clear" in the corner with "Nothing needs you." directly beneath it —
+      two statements of the same fact, a few pixels apart.
+
+      "clear" is also the weaker half. It sits exactly where a count sits, in
+      the same muted meta role, so it reads as a value rather than a state;
+      and the word looks like the action *clear* before it resolves to the
+      adjective. Drop it and let the slot be empty — the count is a count, and
+      the sentence below already covers the empty case.
+
+      `inbox.tsx:143`.
+
 - [ ] **The entry dialog's project field is a native `<select>`.** It is the
       one project control in the web app the browser draws: system font,
       system metrics, a system checkmark, on a dark panel that is ours
