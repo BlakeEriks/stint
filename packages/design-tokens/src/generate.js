@@ -443,6 +443,57 @@ const mockupDoc = join(
 );
 if (existsSync(dirname(mockupDoc))) writeFileSync(mockupDoc, mockup);
 
+// ── Favicon (the mark, cropped to its first letter) ────────────────
+/* `|S|` — the wordmark's bounds in the accent, the S in text-strong, on the
+ * app's deepest ground. Written into apps/web/src/app/ because Next resolves
+ * icon.svg by file convention and cannot read an ignored dist/, the same
+ * reason Tokens.swift is written into apps/macos.
+ *
+ * The bounds and the colours are tokens. The S is a traced outline of IBM
+ * Plex Mono Semibold rather than a <text> element: a favicon is rasterised
+ * by the browser with no webfont loaded, so `font-family` there would fall
+ * back to whatever monospace the OS has and the mark would differ per
+ * machine. A path is the same drawing everywhere.
+ *
+ * Geometry is solved for a 32 viewBox so every edge is a whole pixel at 16,
+ * which is the size that decides a favicon: the bounds are 2 units wide and
+ * inset 4, landing on 1px at 16px instead of blurring across two. The S is
+ * scaled so the space each side of it is `boundGap` of its own size, which
+ * is what keeps this the same lockup as `mark-bound`.
+ *
+ * Fixed to the dark ground in both themes. A favicon sits on browser chrome,
+ * not on the app's surface, so it cannot follow `prefers-color-scheme`
+ * without going invisible against half the tab strips it lands in. */
+const MARK_S_PATH =
+  'M15.97 24.23Q13.91 24.23 12.47 23.53Q11.02 22.82 10.1 21.66L11.91 19.79Q12.8 20.81 13.83 21.3Q14.87 21.79 16.06 21.79Q17.43 21.79 18.16 21.18Q18.88 20.56 18.88 19.4Q18.88 18.44 18.34 17.95Q17.79 17.46 16.49 17.25L14.8 16.98Q12.59 16.59 11.66 15.37Q10.72 14.15 10.72 12.49Q10.72 10.21 12.2 8.99Q13.69 7.77 16.31 7.77Q18.18 7.77 19.53 8.36Q20.89 8.95 21.71 9.98L19.96 11.85Q19.32 11.1 18.43 10.65Q17.54 10.21 16.33 10.21Q13.73 10.21 13.73 12.35Q13.73 13.26 14.28 13.74Q14.83 14.22 16.15 14.45L17.81 14.75Q19.89 15.13 20.89 16.27Q21.9 17.41 21.9 19.19Q21.9 20.31 21.51 21.23Q21.12 22.16 20.37 22.83Q19.61 23.5 18.51 23.87Q17.4 24.23 15.97 24.23Z';
+
+/* Snapped to even units so each edge halves onto a whole pixel at 16. The S
+ * path above was traced against these values, so a mark ratio changed far
+ * enough to move them leaves the letter at its old size — re-trace it from
+ * the font rather than nudging the numbers here. */
+const FAVICON_BOX = 32;
+const boundW = 2;
+const boundH = Math.round((tokens.brand.mark.boundHeight / 1.05) * 22);
+const boundInset = 4;
+const boundY = (FAVICON_BOX - boundH) / 2;
+
+const bound = (x) =>
+  `<rect x="${x}" y="${boundY}" width="${boundW}" height="${boundH}" rx="${boundW / 2}" fill="${resolve(tokens.semantic.dark['accent-default'])}"/>`;
+
+const favicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FAVICON_BOX} ${FAVICON_BOX}">
+  <rect width="${FAVICON_BOX}" height="${FAVICON_BOX}" rx="${tokens.radius.xl - 3}" fill="${resolve(tokens.semantic.dark['bg-recessed'])}"/>
+  ${bound(boundInset)}
+  ${bound(FAVICON_BOX - boundInset - boundW)}
+  <path d="${MARK_S_PATH}" fill="${resolve(tokens.semantic.dark['text-strong'])}"/>
+</svg>
+`;
+
+const faviconOut = join(
+  import.meta.dirname,
+  '../../../apps/web/src/app/icon.svg',
+);
+if (existsSync(dirname(faviconOut))) writeFileSync(faviconOut, favicon);
+
 console.log(
-  'generated: tokens.css, tokens.ts, Tokens.swift, swatches.html, mockup.css',
+  'generated: tokens.css, tokens.ts, Tokens.swift, swatches.html, mockup.css, icon.svg',
 );
