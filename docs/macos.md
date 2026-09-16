@@ -40,6 +40,10 @@ file also holds `SUPABASE_DB_URL` — a superuser string that must never reach a
 bundle. `NEXT_PUBLIC_APP_ORIGIN` names the app origin; `STINT_APP_URL`
 overrides it for one build.
 
+It reads `.env.local` directly, so it is unaffected by
+`.env.development.local`, which blanks that origin to keep the landing page's
+links same-origin under `pnpm dev`.
+
 **The origin is never guessed, and it is resolved before bundling.** A
 hostname that does not exist reaches the panel as "a server with the specified
 hostname could not be found" — which reads as a network fault, not as a build
