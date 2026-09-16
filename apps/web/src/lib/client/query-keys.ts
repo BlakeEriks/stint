@@ -27,6 +27,8 @@ export const keys = {
   client: (id: string) => ['clients', id] as const,
   projects: (opts?: { archived?: boolean; clientId?: string }) =>
     opts ? (['projects', opts] as const) : (['projects'] as const),
+  taskNames: (opts?: { projectId?: string | null }) =>
+    opts ? (['task-names', opts] as const) : (['task-names'] as const),
   invoices: () => ['invoices'] as const,
   invoice: (id: string | null | undefined) => ['invoices', id] as const,
   settings: () => ['settings'] as const,
@@ -46,4 +48,7 @@ export function invalidateEntryData(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: keys.stats() });
   queryClient.invalidateQueries({ queryKey: keys.calendar() });
   queryClient.invalidateQueries({ queryKey: keys.activity() });
+  /* Starting a timer or saving an entry mints a task name, so a list held
+     from before it is one suggestion short of what the user just typed. */
+  queryClient.invalidateQueries({ queryKey: keys.taskNames() });
 }
