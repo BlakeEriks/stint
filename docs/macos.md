@@ -66,6 +66,11 @@ unmarshal string into Go struct field OtpParams.create_user of type bool".
 
 `supabase-swift` is not a dependency; two POSTs do not need an SDK.
 
+**Against a hosted project the email has no code in it** — the template is a
+local file path and editing the hosted one needs custom SMTP, so GoTrue sends
+its default. `apps/macos/signin.sh` takes the link instead, verifying the
+token it carries: the same OTP the digits encode. `docs/setup.md` §4a.
+
 **The session lives in the Keychain**, not `UserDefaults` — a refresh token is
 a long-lived credential and a plist in the container is readable by anything
 running as the user. `jwt_expiry` is an hour with rotation on, so refresh is

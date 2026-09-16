@@ -126,6 +126,32 @@ The default email provider is rate-limited (a few per hour) and adequate for
 one developer. It is only for sign-in links — **the app never emails
 invoices**, by design.
 
+## 4a. Signing the menu bar app in
+
+`config.toml` points GoTrue at `supabase/templates/magic_link.html` by **local
+file path**, which a hosted project cannot read. It falls back to the built-in
+default, which renders only the link — so the panel has no six-digit code to
+type.
+
+**Editing the template needs custom SMTP**, which the dashboard enforces: the
+default provider is a shared sender, so its mail cannot be customised. Until
+there is an SMTP provider, use the link:
+
+```bash
+./apps/macos/signin.sh     # paste the link when it asks
+```
+
+The `token` in that link and the six digits are the **same OTP** in two
+shapes. The script posts the token to `/auth/v1/verify` and writes the session
+into the Keychain under the backend's host, which is where the app looks.
+
+With SMTP configured, paste the template at **Authentication → Emails → Magic
+Link**, subject `Sign in to Stint`, and the panel takes codes directly. Keep
+`{{ .ConfirmationURL }}` and both `{{ slice .Token }}` calls — GoTrue mints a
+code for every magic link whether a template shows it or not, and those two
+calls are what put it in front of the user. That copy does not track the file;
+editing it changes local only.
+
 ## 5. Sign in
 
 ```bash

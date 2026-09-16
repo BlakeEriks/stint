@@ -7,6 +7,11 @@
   generates both for every magic link whether a template shows them or not —
   the default one shows only the link, which is why this file exists.
 
+  `config.toml` points at this path, so it applies to the LOCAL stack only —
+  a hosted project cannot read it, and pasting it into the dashboard needs
+  custom SMTP. Until then `apps/macos/signin.sh` verifies the link's token
+  instead; `docs/setup.md` §4a has both paths.
+
   **Neither is the footnote.** This was written for the desktop case first: the
   code was a 32px hero and the web link a small "Signing in on the web
   instead?" line below a divider. Most sign-ins are on the web, so that buried
