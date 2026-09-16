@@ -560,10 +560,11 @@ separately because they ship separately, but the layout question is settled
 once, here.
 
 **The card set, top to bottom:** Unbilled, then Month (a cumulative line, no
-longer a single figure), then Velocity, then Today's entries. Activity is
-deleted. Today also renders in the dock's lower half. Past four cards the
-screen scrolls, which is accepted — `home_cards` visibility is the answer to a
-long screen, not fewer cards.
+longer a single figure), then Velocity, then the heatmap, then Today's
+entries. Activity is deleted. Today also renders in the dock's lower half.
+Past four cards the screen scrolls, which is accepted — `home_cards`
+visibility is the answer to a long screen, not fewer cards, and every card
+here is hideable.
 
 - [ ] **A stop is the product's best moment and passes without a mark.**
       Stopping a timer changes Unbilled, and the change is invisible: the
@@ -580,15 +581,23 @@ long screen, not fewer cards.
 
       **The same beat on the menu bar panel**, which is where a stop usually
       happens. Without it the richer feedback lives on the surface the user is
-      not looking at.
+      not looking at, and the menu bar is the one that needs it most — it is
+      the surface a stop is made from.
+
+      **Both surfaces, and the web app pays it again on return.** A stop on the
+      menu bar animates there; opening the web app afterwards animates the same
+      gain a second time rather than showing an already-settled figure. The
+      work happened away from the browser and arriving to a number that simply
+      *is* higher loses it. That is the task below, and this is its first
+      case.
 
       **Unbillable work must not be an anticlimax.** It resolves to no money,
       so a stop that moves nothing teaches the user to mark work billable to
       make the app react — a UI nudging at the data's honesty. The unbillable
       stop moves the billable ratio and the hours instead, and says so.
 
-      It never congratulates. It reports what just happened, which is the line
-      between this and the streaks `principles.md` refuses.
+      It reports what just happened rather than praising it — the figure is
+      the feedback, and a stop that earns nothing says so plainly.
 
 - [ ] **Marking an invoice paid reads as a loss.** Unbilled ticks down and
       nothing ticks up, so the screen's largest number shrinks at the moment
@@ -600,6 +609,28 @@ long screen, not fewer cards.
       **success cyan** on this screen — `screens/home.html` notes success
       appears nowhere because nothing there is an outcome. A payment landing is
       that exception and the reason the rule was worth stating strictly.
+
+- [ ] **Arriving at the dashboard should show what moved.** Opening the web app
+      after working elsewhere — a stop on the menu bar, an invoice marked paid
+      on the phone — shows figures that are silently already correct. The
+      change happened, and the one surface built to show it missed it.
+
+      **Animate from the last seen value, not from zero**, and carry a line
+      naming the period: *since yesterday, +$450 unbilled · 1 invoice paid*.
+      The figures roll from what this browser last displayed to what the
+      server now says, which is the same count-up a live stop uses, replayed
+      for work done away from the screen.
+
+      **Last-seen lives in `localStorage`**, one key per origin, like the
+      rail's collapse state: a per-device display detail, not account state.
+      Two devices disagreeing is correct — each animates what *it* has not
+      shown you. A column on `user_settings` would make every dashboard load a
+      write, to make two browsers agree about something neither needs the
+      other to know.
+
+      **Never animate on a first load** with no stored value: everything would
+      count up from zero, which reports the whole history as though it just
+      happened. No stored value means render settled and store it.
 
 - [ ] **Velocity — what a month is actually worth.** A trailing figure of
       money per month, with a per-client table beneath it. The question
@@ -613,22 +644,25 @@ long screen, not fewer cards.
       everywhere else — and the split between invoiced and unbilled is carried,
       since one total hides whether any of it has been paid for.
 
-      *Configurable against effective hourly rate:* the two answer the same
-      question in different units and the useful one depends on the reader.
-      One card, one setting, never both at once.
+      **Its own card, not a unit toggle on another.** Effective hourly was
+      going to share this slot behind a setting; they are different cards that
+      happen to be about money, and `home_cards` already hides what a given
+      user does not want.
 
-- [ ] **Effective hourly rate, and why it is gated.** Money divided by *all*
-      hours including unbillable. Bill $150 and absorb 20% admin and the real
-      rate is $120 — uncomputable in the head, and the number that makes
-      unbillable time visibly expensive, which is a better argument for
-      tracking admin than any prompt.
+- [ ] **Effective hourly rate — not on Home, and not in the first cut.**
+      Money divided by *all* hours including unbillable. Bill $150, absorb 20%
+      admin, and the real rate is $120: uncomputable in the head, and the
+      number that makes unbillable time visibly expensive.
 
-      **It only ships gated.** With one client, all work billable, it sits
-      exactly on the headline rate and never moves — a card that fails the
-      change test and the original bar at once. Render it only when it
-      genuinely differs from the resolved headline rate. The flat case is not a
-      reason to hide the finding; it is the finding, and it is what makes
-      logging admin pay the user back.
+      **It needs a denominator that grows, and most users will not give it
+      one.** Unbillable work against a client is the only thing that moves it,
+      and someone who does not log admin at all sees their headline rate
+      forever — a figure that fails the change test on every check, for the
+      accounts most likely to see it.
+
+      It belongs in `/reports`, where a figure is looked up deliberately rather
+      than glanced at fifty times a day, and where a flat number is a finding
+      rather than dead space.
 
 - [ ] **Month becomes a cumulative line against its goal.** Pace reports a
       single delta. A line of accumulated hours (or money, following the goal's
@@ -657,12 +691,39 @@ long screen, not fewer cards.
       add `granularity: 'week'` so a third range would not render ~4px bars,
       and a range control on a deleted chart is not work.
 
-      **A GitHub-style heatmap is not its replacement.** It is beloved because
-      it rewards consistency, and rewarding daily logging is what the streaks
-      refusal already rules out — a heatmap is that with the number filed off.
-      It also changes almost nothing between checks. If it ships it belongs in
-      a later *all-time* view, where looking back is the purpose rather than an
-      interruption of the screen opened fifty times a day.
+      **The heatmap below replaces it**, and answers a different question
+      rather than the same one redrawn: stacked bars per day report how this
+      week went, which the user sat through; a year of cells reports a shape
+      no memory holds.
+
+- [ ] **The heatmap, coloured by client, with a streak.** A cell per day over a
+      configurable window, its colour the client worked that day and its
+      density the hours. It replaces Activity and answers what Activity could
+      not: a year of work has a shape, and no one holds it in memory.
+
+      **Colour is the client**, resolved through `useProjectColors()` like
+      everywhere else, so a year of cells reads as *who* has been paying the
+      bills — the question a stacked bar answered one week at a time. A day
+      split across clients takes the one with the most hours; a cell is 11px
+      and cannot carry a stack. Internal work keeps the neutral that reads as
+      worked rather than as rest, and a blank day stays blank.
+
+      **The streak is the figure**, and it is what makes the card worth a
+      second look on a day when one cell changed. It is deliberately
+      **forgiving: it survives one missed day and breaks on two in a row.** A
+      contractor taking Saturday off has not failed at anything, and a counter
+      that resets every weekend would be telling them they had — this one
+      keeps a five-on-two-off rhythm intact and still notices a week that got
+      away. That is the rule that makes it honest enough to keep.
+
+      **Hideable like every card here.** The user who finds a streak
+      motivating and the one who finds it pressure are both real, and
+      `home_cards` is already the answer to that.
+
+      Windows are the range control Activity had, which is the one
+      customization this screen allows. **Day bucketing stays server-side** —
+      the DST-correct grouping `GET /calendar?granularity=day` already does,
+      and the reason not to build a second one.
 
 - [ ] **Today in the dock's lower half.** The entry list renders wide and
       mostly empty in the content column, and it is wanted while working on
@@ -686,12 +747,22 @@ long screen, not fewer cards.
       a control that already exists, and the whole correctness of the metric
       below.
 
-      **Prompt once, when the answer is likely to have changed** — the client's
-      typical payment date once there is history, the due date before that.
-      **Not daily.** A sent invoice is always "not yet paid", so a daily row is
-      permanently true and permanently unactionable: the row that trains the
-      user to clear the inbox without reading it, which is what the grace
-      period and the no-snooze refusal both exist to prevent.
+      **The row carries how long ago it was sent** — "sent 34 days ago" is
+      what makes it worth reading rather than merely present, and it is the
+      same aging insight Unbilled already leans on.
+
+      **It snoozes, defaulting to daily, with a dropdown for longer.** Checking
+      a bank balance is a real errand and a daily nudge is wanted; what the row
+      must not do is sit there permanently true with no way to say *not yet*.
+
+      **Snooze belongs to this row and rows like it**, and the distinction is
+      not a matter of taste: every other inbox row names something the user can
+      resolve themselves — assign the project, fix the runaway entry, send the
+      draft — and hiding one of those is hiding a problem from the person who
+      can fix it. Whether a client has paid is outside their control entirely.
+      They can only go and look, and a row asking them to look every day is a
+      reminder rather than an unattended mess. A snooze on the other rows
+      would be the reflexive dismissal `principles.md` warns about.
 
 - [ ] **Days-to-payment, once there is history.** `sent_at` to `paid_at`,
       trailing, per client. "Northwind pays in 12 days" is unknowable from
@@ -703,6 +774,35 @@ long screen, not fewer cards.
       `seed.sql` has none, so this cannot be rendered against seeded data.
       Needs a stated minimum sample before it speaks — one invoice is not an
       average — and it says nothing rather than guessing below it.
+
+### Rules this changes
+
+Three standing rules do not survive this section as written. They are listed
+here so the edit is deliberate and the reasoning is not rediscovered later.
+
+**`principles.md`'s *no snooze on the inbox* narrows rather than goes.** Its
+warning is sound for every row that names something the user can fix, and
+those rows keep no snooze. It gains an exception for rows whose resolution is
+outside the user's control — today, *has this invoice been paid* and nothing
+else. The refusal's own reasoning is what draws that line: a row you cannot
+act on is not an unattended mess, it is a reminder to go and look, and the
+user is the only one who knows the answer.
+
+**`screens/home.html`'s *streaks and gamification* rejection is removed** —
+already done, along with its reference in `principles.md`'s neighbourhood.
+Logging a little every day is a thing some users genuinely want to hold
+themselves to, and a passion project is as legitimate a reason to open this
+app as an invoice is. What replaces the blanket refusal is the constraint in
+the heatmap task: the streak forgives a missed day and breaks on two, so it
+never tells someone that an ordinary weekend was a failure.
+
+**The dock holds the inbox and nothing else** gains Today beneath it, per that
+task. The refusal's stated reason — thirty bars in a 280px column — governs
+Pace and Activity and was never about short rows; amend it to what it actually
+defends.
+
+Each of these is edited in the doc that owns it **when the work ships**, not
+now. `principles.md` and `screens/home.html` describe what is built.
 
 ## Needs a decision first
 
