@@ -1,0 +1,419 @@
+<meta charset="utf-8">
+<title>Stint Task Suggestions</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_mockup.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg-primary); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 88ch; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  .standfirst { margin: 0 0 1rem; color: var(--text-muted); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
+  .caption {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-subtle);
+    display: block; margin-top: .7rem;
+  }
+  table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+  th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  th {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle); font-weight: 500;
+  }
+  td { font-size: 14px; }
+  code { font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); }
+  .rule { list-style: none; margin: 1rem 0 0; padding: 0; }
+  .rule li { position: relative; padding-left: 1.5rem; margin-bottom: .85rem; }
+  .rule li::before {
+    content: ''; position: absolute; left: 0; top: .55em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--border-control);
+  }
+  .rule strong { color: var(--text-strong); font-weight: 600; }
+
+  /* ── the surfaces the list opens over ─────────────────────────── */
+  .frame {
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    margin-top: 1.25rem;
+    padding: 0 0 210px;            /* room for the list, which overlays */
+    background: var(--bg-primary);
+  }
+  .bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px;
+    background: var(--bg-recessed);
+    border-radius: 11px 11px 0 0;
+  }
+  .anchor { position: relative; flex: 1; min-width: 0; }
+
+  .field {
+    width: 100%;
+    padding: 9px 12px;
+    background: var(--bg-base);
+    border: 1px solid var(--border-focus);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 14px;
+  }
+  .field::placeholder { color: var(--text-subtle); }
+
+  .tag {
+    display: inline-flex; align-items: center; gap: 6px; flex: none;
+    padding: 4px 10px;
+    border: 1px solid var(--border-default);
+    border-radius: 999px;
+    font-size: 12.5px; color: var(--text-primary);
+    background: transparent;
+  }
+  .tag .sw { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+  .transport {
+    display: grid; place-items: center; flex: none;
+    width: 36px; height: 36px; border-radius: 999px;
+    border: 0; background: var(--accent-default); color: var(--text-on-accent);
+  }
+  .tri { display: block; width: 0; height: 0; margin-left: 2px;
+         border-top: 7px solid transparent; border-bottom: 7px solid transparent;
+         border-left: 11px solid currentColor; }
+
+  /* ── the suggestion list ──────────────────────────────────────── */
+  .list {
+    position: absolute; z-index: 5;
+    top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 8px;
+    box-shadow: var(--shadow-float);
+    padding: 4px;
+    overflow: hidden;
+  }
+  .list.above { top: auto; bottom: calc(100% + 4px); }
+
+  .opt {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: 6px;
+    cursor: pointer; min-width: 0;
+  }
+  /* The name takes the room and truncates last; the project yields first.
+     The name is what is being chosen — a row reading "i…" chooses nothing. */
+  .opt .txt { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .opt .txt b { font-weight: 600; color: var(--text-strong); }
+  .opt.on { background: var(--bg-hover); }
+  .opt .sw { width: 8px; height: 8px; border-radius: 50%; flex: none; margin-left: auto; }
+  .opt .proj {
+    flex: 0 1 auto; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text-subtle); font-size: 12.5px;
+  }
+
+  .hint {
+    padding: 6px 10px 4px;
+    color: var(--text-subtle);
+    font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: .06em; text-transform: uppercase;
+  }
+
+  /* ── the dialog surface ───────────────────────────────────────── */
+  .dialog {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 12px;
+    box-shadow: var(--shadow-float);
+    padding: 18px;
+    width: 420px;
+  }
+  .dialog h4 { margin: 0 0 14px; font-size: 16px; font-weight: 600; color: var(--text-strong); }
+  .lab {
+    display: block; margin-bottom: 6px;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-subtle);
+  }
+  .dialog .field { background: var(--bg-primary); }
+  .dialog .row { margin-bottom: 14px; }
+  /* The list overlays the rows under it rather than displacing them, so the
+     Project field and Save stay where they were being aimed at. */
+  .dialog .row.open { position: relative; z-index: 5; }
+  .acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+  .btn {
+    padding: 7px 14px; border-radius: 6px;
+    border: 1px solid var(--border-default);
+    background: transparent; color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 13.5px;
+  }
+  .btn.primary { border-color: transparent; background: var(--bg-hover); color: var(--text-strong); }
+
+  /* ── the panel surface ────────────────────────────────────────── */
+  .panel {
+    width: 320px;
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .panel .field { background: var(--bg-primary); }
+  .panel .foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .panel .foot .transport { width: 32px; height: 32px; }
+  /* The panel is a fixed 320pt and cannot grow, so the list is drawn as its
+     own layer below the field — an AppKit popover, which is free to extend
+     past the panel's own edge. */
+  .panel { position: relative; }
+  .panel .anchor { position: static; }
+  .panel .list { top: auto; bottom: -4px; left: 14px; right: 14px; transform: translateY(100%); }
+
+  /* The two surfaces stack: side by side they want 780px and the content
+     column is 88ch. */
+  .col + .col { margin-top: 2.5rem; }
+  /* Only the panel's list escapes its surface — the dialog's opens inside
+     its own box — so the panel's caption is the only one that has to clear
+     a list. Each caption otherwise stays with the thing it captions. */
+  .col:has(.panel) > .caption { margin-top: 135px; }
+</style>
+
+<div class="page">
+
+  <span class="eyebrow">Stint · Screens</span>
+  <h1>Task name suggestions</h1>
+  <p class="standfirst">
+    A name already typed once is offered back rather than retyped. One list,
+    opened under whichever field takes a task name — the timer bar, the entry
+    dialog, and the menu bar panel. <code>task-suggest.tsx</code>.
+  </p>
+
+  <!-- ───────────────────────── the list ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The list, under the timer bar</span></div>
+
+    <div class="frame">
+      <div class="bar">
+        <div class="anchor">
+          <input class="field" value="in" aria-label="Task name">
+          <div class="list">
+            <div class="opt on">
+              <span class="txt"><b>in</b>voice reconciliation</span>
+              <span class="sw" style="background:var(--proj-6)"></span>
+              <span class="proj">Northwind · Ledger</span>
+            </div>
+            <div class="opt">
+              <span class="txt">Onboard<b>in</b>g call</span>
+              <span class="sw" style="background:var(--proj-6)"></span>
+              <span class="proj">Northwind · Ledger</span>
+            </div>
+            <div class="opt">
+              <span class="txt">Bill<b>in</b>g review</span>
+              <span class="sw" style="background:var(--proj-2)"></span>
+              <span class="proj">Bellweather · API</span>
+            </div>
+            <div class="opt">
+              <span class="txt">Spr<b>in</b>t planning</span>
+              <span class="proj">Internal</span>
+            </div>
+          </div>
+        </div>
+        <span class="tag"><span class="sw" style="background:var(--proj-6)"></span>Ledger</span>
+        <button class="transport"><span class="tri"></span></button>
+      </div>
+    </div>
+    <span class="caption">Typed “in” · matches ranked by recency, Ledger’s own first</span>
+
+    <ul class="rule">
+      <li><strong>A suggestion, never an autofill.</strong> The field keeps
+        exactly what was typed; choosing a row is the only thing that writes
+        it. A name that completed itself to the wrong client’s task is a wrong
+        invoice line.</li>
+      <li><strong>The match is highlighted, not the row.</strong> Weight marks
+        the substring that matched; the accent is the running timer’s and does
+        not appear here.</li>
+      <li><strong>The project rides along and is never applied.</strong> It
+        says which client this name was last used for — the disambiguator when
+        the same name exists under two of them — and choosing the row sets the
+        name alone. The project field is a separate decision, and changing it
+        silently is the same wrong invoice line.</li>
+      <li><strong>Four rows, then stop.</strong> The list is a shortcut past
+        typing, not a browsable history; a scrolling panel over the content
+        column costs more attention than the keystrokes it saves.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── empty field ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Empty field — the recent list</span></div>
+
+    <div class="frame">
+      <div class="bar">
+        <div class="anchor">
+          <input class="field" placeholder="What are you working on?" aria-label="Task name">
+          <div class="list">
+            <div class="hint">Recent</div>
+            <div class="opt">
+              <span class="txt">Invoice reconciliation</span>
+              <span class="sw" style="background:var(--proj-6)"></span>
+              <span class="proj">Northwind · Ledger</span>
+            </div>
+            <div class="opt">
+              <span class="txt">Schema migrations</span>
+              <span class="sw" style="background:var(--proj-2)"></span>
+              <span class="proj">Bellweather · API</span>
+            </div>
+            <div class="opt">
+              <span class="txt">Standup</span>
+              <span class="sw" style="background:var(--proj-6)"></span>
+              <span class="proj">Northwind · Ledger</span>
+            </div>
+            <div class="opt">
+              <span class="txt">Write-up</span>
+              <span class="proj">Internal</span>
+            </div>
+          </div>
+        </div>
+        <span class="tag"><span class="sw" style="background:var(--proj-6)"></span>Ledger</span>
+        <button class="transport"><span class="tri"></span></button>
+      </div>
+    </div>
+    <span class="caption">Focused, nothing typed · the four most recent</span>
+
+    <ul class="rule">
+      <li><strong>Focus alone opens it.</strong> The most common start is the
+        one just stopped, and requiring a keystroke to reach it means typing
+        the name that was about to be offered.</li>
+      <li><strong>Recent is labelled; matches are not.</strong> A filtered list
+        explains itself by what is in the field. An unfiltered one has to say
+        what ordered it, or the top row reads as a default.</li>
+      <li><strong>No names yet, no list.</strong> A first-run empty state
+        teaches nothing — the field already says what to type.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── the other two surfaces ───────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The same list, two other fields</span></div>
+
+      <div class="col">
+        <div class="dialog">
+          <h4>Edit entry</h4>
+          <div class="row open">
+            <span class="lab">Task</span>
+            <input class="field" value="Sch" aria-label="Task">
+            <div class="list">
+              <div class="opt on">
+                <span class="txt"><b>Sch</b>ema migrations</span>
+                <span class="sw" style="background:var(--proj-2)"></span>
+                <span class="proj">Bellweather · API</span>
+              </div>
+              <div class="opt">
+                <span class="txt"><b>Sch</b>eduling review</span>
+                <span class="sw" style="background:var(--proj-6)"></span>
+                <span class="proj">Northwind · Ledger</span>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <span class="lab">Project</span>
+            <input class="field" value="Bellweather · API" aria-label="Project">
+          </div>
+          <div class="acts">
+            <button class="btn">Cancel</button>
+            <button class="btn primary">Save</button>
+          </div>
+        </div>
+        <span class="caption">Entry dialog · opens over the fields below it</span>
+      </div>
+
+      <div class="col">
+        <div class="panel">
+          <div class="anchor">
+            <input class="field" value="Inv" aria-label="Task name">
+            <div class="list">
+              <div class="opt on">
+                <span class="txt"><b>Inv</b>oice reconciliation</span>
+                <span class="sw" style="background:var(--proj-6)"></span>
+                <span class="proj">Ledger</span>
+              </div>
+              <div class="opt">
+                <span class="txt"><b>Inv</b>entory audit</span>
+                <span class="sw" style="background:var(--proj-2)"></span>
+                <span class="proj">API</span>
+              </div>
+              <div class="opt">
+                <span class="txt"><b>Inv</b>estor update</span>
+                <span class="proj">Internal</span>
+              </div>
+            </div>
+          </div>
+          <div class="foot">
+            <span class="tag"><span class="sw" style="background:var(--proj-6)"></span>Ledger</span>
+            <span style="flex:1"></span>
+            <button class="transport"><span class="tri"></span></button>
+          </div>
+        </div>
+        <span class="caption">Menu bar panel · the client name drops, the panel is 320pt</span>
+      </div>
+
+    <ul class="rule">
+      <li><strong>The panel earns this most.</strong> It exists to start a
+        timer without reaching for the keyboard, and three characters plus
+        Return is the closest that gets.</li>
+      <li><strong>The panel shows the project, not the client.</strong> Two
+        names in a 320pt row truncate both.</li>
+      <li><strong>The dialog’s list overlays the fields under it.</strong> A
+        list that pushed the form down would move the Save button while
+        someone is aiming at it.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── keyboard ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Keyboard</span></div>
+    <table>
+      <tr><th>Key</th><th>Result</th></tr>
+      <tr><td>↓ / ↑</td><td>Moves the highlight. Down from the field enters the list; up past the first row leaves it, restoring what was typed.</td></tr>
+      <tr><td>Enter, a row highlighted</td><td>Fills the field with that name. Does not start the timer or save the entry.</td></tr>
+      <tr><td>Enter, nothing highlighted</td><td>The field’s own action — starts the timer, saves the entry.</td></tr>
+      <tr><td>Escape</td><td>Closes the list, keeps what was typed. A second Escape reaches the dialog.</td></tr>
+      <tr><td>Tab</td><td>Closes the list and moves on. Tab never chooses.</td></tr>
+    </table>
+    <p style="margin-top:1.25rem">
+      Nothing is highlighted when the list opens, so Enter means what it meant
+      before the list existed — a timer started by typing and pressing Return
+      never takes a name its typist did not finish.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── rules ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">What the rendering cannot show</span></div>
+
+    <ul class="rule">
+      <li><strong>Matching and ranking are the server’s.</strong> The endpoint
+        returns names already ordered; the client filters the list it holds as
+        characters arrive but never re-ranks. Two orderings of the same names
+        is the bug where a row moves under the cursor.</li>
+      <li><strong>The field owns its value; the list is told.</strong>
+        <code>TaskSuggest</code> takes <code>value</code> and
+        <code>onChange</code> and renders the caller’s own input, so the timer
+        bar keeps its two-row phone layout and the dialog keeps
+        <code>Input</code>. A component that owned the input would have to
+        reproduce both.</li>
+      <li><strong>The list is <code>role="listbox"</code> on a combobox
+        field</strong>, with <code>aria-activedescendant</code> naming the
+        highlighted row. The input keeps focus throughout, which is what makes
+        typing and arrowing the same gesture.</li>
+      <li><strong>Not a Radix popover.</strong> A popover moves focus to
+        itself and traps it; every keystroke here belongs to the input. An
+        absolutely positioned list under a relative wrapper is the whole
+        mechanism.</li>
+      <li><strong>The rename field has no list.</strong> Renaming a running
+        timer is a correction to one entry, and a list of other names is an
+        invitation to retarget billable work that is already counting.</li>
+    </ul>
+  </section>
+
+</div>
