@@ -285,6 +285,45 @@ later.
       it is a per-device layout choice, not account state, and a round-trip
       would make the rail flicker on load.
 
+- [ ] **The entry dialog's project field is a native `<select>`.** It is the
+      one project control in the web app the browser draws: system font,
+      system metrics, a system checkmark, on a dark panel that is ours
+      everywhere else. `ProjectPicker` is the same choice built on Radix with
+      a client swatch on every row — so the app already contains the control
+      this field should be, and the dialog is where the difference shows most,
+      because the picker is visible in the timer bar a few pixels away.
+
+      The comment at the top of `project-picker.tsx` is the whole argument,
+      already written: *a native `select` cannot show the colour swatch, and
+      the swatch is how work is recognised at a glance everywhere else.*
+
+      **Also wanted: name the client, muted, beside the project.** Project
+      names alone are ambiguous across clients — "Warehouse dashboard" says
+      nothing about who is paying for it — and the picker is where that
+      matters, since picking wrong bills the wrong client. `useProjectClients()`
+      already returns `clientByProject` with the name and the colour, from the
+      same two queries the swatch uses, so this needs no new fetch. Set the
+      client in a muted role so the project stays the thing being chosen and
+      the client is context, and leave internal work (`clientId === null`)
+      with no client text at all rather than a placeholder — the absent client
+      IS the meaning, the same reason its swatch resolves to `null` instead of
+      a shared grey.
+
+      Do this by making `ProjectPicker` serve both places rather than
+      theming a `select` or writing a second menu. The trigger differs — a
+      tag in the bar, a full-width field in the dialog — so that is a
+      variant, and the row content (swatch, name, client) is written once.
+
+      Two behaviours the dialog's field has that must survive: `autoFocus`
+      when the inbox opens it on an unprojected entry, and the `focus:` styling
+      that exists because programmatic focus is never `:focus-visible` — the
+      comments there say why, and both are easy to lose in a port.
+
+      **Scope is the project field.** The other native selects — settings,
+      payment profiles, invoice-new — are lists of plain strings with no
+      swatch and no second line, which is what a `select` is genuinely good
+      at. Converting those is a separate argument and not this one.
+
 - [ ] **The menu bar app's two dropdowns are system-drawn.** The project
       picker and the account gear are SwiftUI `Menu`s, so their labels carry
       our tokens and type while the list that pops open is AppKit's — system
