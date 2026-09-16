@@ -319,10 +319,40 @@ later.
       that exists because programmatic focus is never `:focus-visible` — the
       comments there say why, and both are easy to lose in a port.
 
-      **Scope is the project field.** The other native selects — settings,
-      payment profiles, invoice-new — are lists of plain strings with no
-      swatch and no second line, which is what a `select` is genuinely good
-      at. Converting those is a separate argument and not this one.
+      **Then the other native selects, which are not all alike.** There are
+      seven in the app and they split by whether the control has anything to
+      say beyond the words:
+
+      - **`project-dialog`'s Client, and `invoice-new`'s Client.** Same case
+        as above, one level up: clients are the thing that HAS a colour, so
+        both want the swatch. `project-dialog`'s also carries
+        `+ Add a client…` as a trailing `<option>` — an action disguised as a
+        choice, which is precisely what `ProjectPicker` already does properly
+        with a separator and a real item. A client picker built once serves
+        both, the same way the project one serves the bar and the dialog.
+      - **`invoice-new`'s Group lines.** Each mode has a `hint`, and it
+        currently renders outside the control — so the explanation of an
+        option is only readable once you have already chosen it. A menu row
+        can carry the hint under the label, which is the whole reason to
+        convert this one.
+      - **Theme, goal unit, account type, fee allocation.** Two to four fixed
+        strings, no colour, no hint, no action. Nothing is *gained* here
+        beyond matching — but matching is the point: a native select is the
+        only control in the app the OS draws, and four of them scattered
+        through settings and the payment dialog is the inconsistency
+        arriving somewhere else. Convert them last, and only once a
+        `Select` primitive exists that makes each one a few lines.
+
+      So this is one job in two halves: the pickers that carry data the
+      browser cannot render, then the plain ones for consistency. Shared
+      `inputClass` styling across most of them means the trigger can keep
+      looking exactly as it does — what changes is the popped-open list.
+
+      **Check `components.html` first**, which is what a screen is assembled
+      from: a select is a shape that now repeats seven times, so the
+      primitive belongs there rather than being invented per-dialog, and
+      shadcn has one (`pnpm dlx shadcn@latest add select`, then
+      `shadcn-detox.mjs` — never hand-edited).
 
 - [ ] **The menu bar app's two dropdowns are system-drawn.** The project
       picker and the account gear are SwiftUI `Menu`s, so their labels carry
