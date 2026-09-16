@@ -44,6 +44,29 @@ later.
 - [ ] **Settings as a pushed view in the menu bar panel.** `menubar.html`
       specifies it — runaway threshold, shortcut, show time in bar, launch at
       login, with the account block beneath. The gear opens a `Menu` today.
+      Building it is also what makes any further config cheap, so it comes
+      before the row below rather than alongside it.
+
+      **Wanted, and it is the fifth row the spec warns about: choose what the
+      bar shows — the running timer, or today's running total.**
+      `menuBarTitle` already switches between the two on `isRunning`, so the
+      setting picks which one is shown rather than adding a number; the work
+      is the preference and the row, not the readout.
+
+      It clears the spec's bar on its own terms. The bar is glanceable and
+      nothing else, so what occupies it is the whole product on that surface
+      — and the two answer different questions ("how long on this?" versus
+      "have I done enough today?") with no way to want both at once in 57pt.
+      It is a per-device display choice like the web rail's collapse, so it
+      belongs in `UserDefaults`, not `user_settings` — a laptop and a desktop
+      can reasonably differ, and a round trip would make the bar flicker at
+      launch.
+
+      Two things it must not become. Not a third option that shows both,
+      which is how a fixed-width slot starts sliding again. And **when the
+      setting says today's total, a running timer must still be legible as
+      running** — the pip is already the thing that says so, which is the
+      argument for it staying a pip rather than being folded into the text.
 
 - [ ] **The web sign-in sets the word instead of drawing the mark.**
       `signin-form.tsx` has `<h1 className="type-title">Stint</h1>`, so it
