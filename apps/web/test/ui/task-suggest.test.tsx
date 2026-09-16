@@ -202,4 +202,32 @@ describe('TaskSuggest', () => {
     await user.keyboard('zzzz');
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
+
+  it('leaves Enter to the caller when the highlight came from hover', async () => {
+    stubFetch();
+    const onSubmit = vi.fn();
+    render(<Host onSubmit={onSubmit} />, { wrapper });
+    const user = await focusField();
+
+    await user.keyboard('Invoice');
+    // The list opens over the pointer, so a row lands under a motionless
+    // cursor. Hovering is not choosing.
+    await user.hover(screen.getAllByRole('option')[0] as HTMLElement);
+    await user.keyboard('{Enter}');
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Task name')).toHaveValue('Invoice');
+  });
+
+  it('does not call a row from an archived project internal', async () => {
+    stubFetch();
+    render(<Host />, { wrapper });
+    const user = await focusField();
+
+    await user.keyboard('Billing');
+    // `p2` is absent from /projects, which excludes archived ones. The row
+    // still carries a client whose rate bills it.
+    const row = screen.getAllByRole('option')[0] as HTMLElement;
+    expect(row).not.toHaveTextContent('Internal');
+  });
 });

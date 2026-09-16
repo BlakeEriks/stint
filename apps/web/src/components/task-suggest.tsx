@@ -57,6 +57,10 @@ export function TaskSuggest({
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<number | null>(null);
+  /* Enter accepts only a highlight the keyboard made. The list opens over the
+     pointer, so hovering is not a choice — a row lands under a motionless
+     cursor, and Enter would take a name the typist never selected. */
+  const [byKey, setByKey] = useState(false);
 
   const { data } = useQuery({
     queryKey: keys.taskNames({ projectId }),
@@ -96,6 +100,7 @@ export function TaskSuggest({
   function close() {
     setOpen(false);
     setActive(null);
+    setByKey(false);
   }
 
   function choose(i: number) {
@@ -126,6 +131,7 @@ export function TaskSuggest({
         e.preventDefault();
         setOpen(true);
         setActive(0);
+        setByKey(true);
       }
       return;
     }
@@ -133,6 +139,7 @@ export function TaskSuggest({
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setActive(active === null ? 0 : Math.min(active + 1, rows.length - 1));
+      setByKey(true);
       return;
     }
 
@@ -141,10 +148,11 @@ export function TaskSuggest({
       // Up past the first row leaves the list, restoring what was typed —
       // which is still in the field, because nothing was ever written to it.
       setActive(active === null || active === 0 ? null : active - 1);
+      setByKey(true);
       return;
     }
 
-    if (e.key === 'Enter' && active !== null) {
+    if (e.key === 'Enter' && active !== null && byKey) {
       /* Intercepted ONLY with a row highlighted, and nothing is highlighted
          when the list opens: a timer started by typing and pressing Return
          must never take a name its typist did not finish. */
@@ -161,6 +169,7 @@ export function TaskSuggest({
       // Typing invalidates the highlight rather than moving it: the row under
       // it is not the row that was there a character ago.
       setActive(null);
+      setByKey(false);
     },
     onFocus: () => setOpen(true),
     onBlur: close,
@@ -203,11 +212,15 @@ export function TaskSuggest({
               ? projectsById.get(row.projectId)
               : undefined;
             /* The client is the disambiguator — the same task name under two
-               of them is the case the label exists for. Internal work has no
-               client, and says so rather than showing a bare project. */
-            const label = client
-              ? `${client.name} · ${project ?? ''}`.replace(/ · $/, '')
-              : 'Internal';
+               of them is the case the label exists for. Only a row with no
+               project at all is internal: a project the lookup cannot see is
+               archived, not unbilled, and saying "Internal" would promise the
+               opposite of the rate it carries. */
+            const label = !row.projectId
+              ? 'Internal'
+              : client
+                ? `${client.name} · ${project ?? ''}`.replace(/ · $/, '')
+                : (project ?? 'Archived project');
             const colour = row.projectId
               ? colorByProject.get(row.projectId)
               : null;
@@ -226,7 +239,10 @@ export function TaskSuggest({
                 // Without this, mousedown blurs the input and the list closes
                 // before the click can land on anything.
                 onMouseDown={(e) => e.preventDefault()}
-                onMouseEnter={() => setActive(i)}
+                onMouseEnter={() => {
+                  setActive(i);
+                  setByKey(false);
+                }}
                 onClick={() => choose(i)}
                 className={`flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5
                             ${i === active ? 'bg-surface-hover' : ''}`}
