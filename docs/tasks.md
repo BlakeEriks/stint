@@ -133,6 +133,11 @@ later.
       unbilled-at-resolved-rate and that is a different query from summing
       time entries. The card currently says the figure is unavailable rather
       than showing hours against a money target.
+
+      The cumulative line inherits this: it follows the goal's unit, so a
+      revenue target plots nothing until this is built. `month_revenue` is
+      month-total only and a line needs it per day — the same figure bucketed,
+      not a second definition of revenue.
 - [ ] **`home_cards` JSONB on `user_settings`** — card order and visibility.
       Validated by Zod at the API boundary rather than a check constraint, so
       adding a card is not a migration. Decided; the one place in that table
@@ -496,6 +501,165 @@ later.
       where hiding billing-relevant fields is worse than wrapping and the list
       is short enough that density is not the constraint.
 
+## Re-imagining the home cards
+
+The home screen is read fifty times a day, and almost nothing on it changes
+between two reads an hour apart. That is the defect this section addresses.
+The existing bar — *a number the user cannot compute in their head, or a row
+they can click to act on* — was written against static readouts and still
+holds. These add a second test alongside it: **does it differ from the last
+time the screen was opened?** A figure that is identical on every check is
+decoration however hard it was to compute.
+
+The pieces below are one design and share an API call. They are listed
+separately because they ship separately, but the layout question is settled
+once, here.
+
+**The card set, top to bottom:** Unbilled, then Month (a cumulative line, no
+longer a single figure), then Velocity, then Today's entries. Activity is
+deleted. Today also renders in the dock's lower half. Past four cards the
+screen scrolls, which is accepted — `home_cards` visibility is the answer to a
+long screen, not fewer cards.
+
+- [ ] **A stop is the product's best moment and passes without a mark.**
+      Stopping a timer changes Unbilled, and the change is invisible: the
+      figure is simply different on the next fetch, so the link between the
+      work and the money is inferred rather than seen. The satisfaction of
+      tracking time at all lives in this transition and the app currently
+      spends it.
+
+      **Count the figure to its new value** — a tabular-num roll from the
+      previous value, one motion duration, and **`+$112.50` beside it, fading
+      after a beat**. Both apply to the *resolved* amount, which is a four-level
+      lookup and the definition of a number that cannot be computed in the
+      head.
+
+      **The same beat on the menu bar panel**, which is where a stop usually
+      happens. Without it the richer feedback lives on the surface the user is
+      not looking at.
+
+      **Unbillable work must not be an anticlimax.** It resolves to no money,
+      so a stop that moves nothing teaches the user to mark work billable to
+      make the app react — a UI nudging at the data's honesty. The unbillable
+      stop moves the billable ratio and the hours instead, and says so.
+
+      It never congratulates. It reports what just happened, which is the line
+      between this and the streaks `principles.md` refuses.
+
+- [ ] **Marking an invoice paid reads as a loss.** Unbilled ticks down and
+      nothing ticks up, so the screen's largest number shrinks at the moment
+      the user got paid. Same treatment as a stop, in both directions: Unbilled
+      counts down, **Velocity counts up**, and the two animate together so the
+      money is visibly moving rather than leaving.
+
+      This is the one outcome in the app, and the only legitimate home for
+      **success cyan** on this screen — `screens/home.html` notes success
+      appears nowhere because nothing there is an outcome. A payment landing is
+      that exception and the reason the rule was worth stating strictly.
+
+- [ ] **Velocity — what a month is actually worth.** A trailing figure of
+      money per month, with a per-client table beneath it. The question
+      inconsistent hours raise is *what am I making a month*, and it is
+      unanswerable from memory when the hours are lumpy and the rates differ.
+
+      It is the destination for a payment's tick-up, and it moves on ordinary
+      work too, so it changes between checks.
+
+      **Gross earned, never "earned" as a word** — same constraint as
+      everywhere else — and the split between invoiced and unbilled is carried,
+      since one total hides whether any of it has been paid for.
+
+      *Configurable against effective hourly rate:* the two answer the same
+      question in different units and the useful one depends on the reader.
+      One card, one setting, never both at once.
+
+- [ ] **Effective hourly rate, and why it is gated.** Money divided by *all*
+      hours including unbillable. Bill $150 and absorb 20% admin and the real
+      rate is $120 — uncomputable in the head, and the number that makes
+      unbillable time visibly expensive, which is a better argument for
+      tracking admin than any prompt.
+
+      **It only ships gated.** With one client, all work billable, it sits
+      exactly on the headline rate and never moves — a card that fails the
+      change test and the original bar at once. Render it only when it
+      genuinely differs from the resolved headline rate. The flat case is not a
+      reason to hide the finding; it is the finding, and it is what makes
+      logging admin pay the user back.
+
+- [ ] **Month becomes a cumulative line against its goal.** Pace reports a
+      single delta. A line of accumulated hours (or money, following the goal's
+      unit) against a goal ray says the same thing and also says *which days it
+      was lost*, which the figure cannot. The gap between the lines is the
+      delta, rendered as a distance.
+
+      **The goal ray steps on business days, not calendar days** — the rule
+      Pace already applies. A ray sloping through the weekend shows the user
+      falling behind every Saturday and recovering every Monday, which is the
+      noise the business-day rule exists to kill. A flat weekend on the actual
+      line is then legible as a plateau rather than a shortfall.
+
+      It changes daily, works with one client, and needs no colour it is not
+      already allowed.
+
+- [ ] **Delete the Activity chart.** Hours per day stacked by client answers
+      *how did I spend my time*, which `principles.md` names as the wrong
+      question — the user was there. With one client it is monochrome bars of
+      varying height with no weekday labels, which reads as texture rather than
+      information, and it barely differs between two checks a day apart.
+
+      The cumulative Month line absorbs the honest part of what it showed.
+
+      This deletes the wanted 90-day range with it: that task existed only to
+      add `granularity: 'week'` so a third range would not render ~4px bars,
+      and a range control on a deleted chart is not work.
+
+      **A GitHub-style heatmap is not its replacement.** It is beloved because
+      it rewards consistency, and rewarding daily logging is what the streaks
+      refusal already rules out — a heatmap is that with the number filed off.
+      It also changes almost nothing between checks. If it ships it belongs in
+      a later *all-time* view, where looking back is the purpose rather than an
+      interruption of the screen opened fifty times a day.
+
+- [ ] **Today in the dock's lower half.** The entry list renders wide and
+      mostly empty in the content column, and it is wanted while working on
+      `/invoices` and `/clients` — "have I done enough today" should not need
+      navigation. Short rows survive 280px better than they survive 1500px.
+
+      It sits **below the inbox and visually subordinate to it**. The inbox's
+      premise is that a row is there to be acted on, and a passive list
+      competing for the same attention is how an inbox stops being read.
+
+      This revises `principles.md`'s *the dock holds the inbox and nothing
+      else*. That refusal's stated reason is thirty bars in a 280px column, and
+      it governs Pace and Activity, not a list of short rows. Amend the refusal
+      to what it actually defends rather than deleting it.
+
+- [ ] **`paid_at` records when the user clicked, not when the money arrived.**
+      Nothing asks, so the timestamp is whenever they next visited
+      `/invoices`. Any average built on it measures the user's habits.
+
+      **Ask for the date when marking paid, defaulting to today.** One field on
+      a control that already exists, and the whole correctness of the metric
+      below.
+
+      **Prompt once, when the answer is likely to have changed** — the client's
+      typical payment date once there is history, the due date before that.
+      **Not daily.** A sent invoice is always "not yet paid", so a daily row is
+      permanently true and permanently unactionable: the row that trains the
+      user to clear the inbox without reading it, which is what the grace
+      period and the no-snooze refusal both exist to prevent.
+
+- [ ] **Days-to-payment, once there is history.** `sent_at` to `paid_at`,
+      trailing, per client. "Northwind pays in 12 days" is unknowable from
+      memory and turns the awaiting-payment line from a fact into a forecast —
+      *$1,905 out, typically back by the 28th* — which is cash-flow
+      information rather than decoration.
+
+      **Blocked on the task above**, and on real paid invoices existing:
+      `seed.sql` has none, so this cannot be rendered against seeded data.
+      Needs a stated minimum sample before it speaks — one invoice is not an
+      average — and it says nothing rather than guessing below it.
+
 ## Needs a decision first
 
 Each of these names the question blocking it. Answer the question, then it
@@ -507,7 +671,8 @@ moves up — do not start one by guessing the answer.
       weeks trains you to ignore the one week it is real. Compared against a
       **4-week median** and suppressed below a threshold it could mean
       something — but the threshold is empirical and needs real data. If it
-      ships it is a line inside Pace, not a card.
+      ships it is a line inside Velocity, not a card — that is where a
+      month-over-month reading now lives.
 
 - [ ] **Time-of-day heatmap.** *Question: does the billable/unbillable split
       actually vary by hour enough to see, on a real dataset?* Plain volume by
@@ -549,12 +714,6 @@ moves up — do not start one by guessing the answer.
       repo claiming otherwise. It has shipped, so this is the second release
       of a two-release retirement: a migration of its own that drops the
       column and touches no code.
-
-- [ ] **A 90-day activity range needs week bucketing.**
-      `granularity: 'week'`, server-side for the same DST reason day bucketing
-      already lives there — a route change with its own correctness tests, not
-      an option added in `activity-chart.tsx`. At day granularity, 90 bars in a
-      ~660px card is a ~4px bar.
 
 - [ ] **`POST /invoices` and `/preview` leak `entryIds` per line item**, and
       `POST /invoices` returns `lineItems` + `entryCount` while `api.ts`
