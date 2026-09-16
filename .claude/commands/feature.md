@@ -106,7 +106,9 @@ The spec names:
 - **Out of scope**, explicitly.
 - **The verification command for every phase.** Not "tests" — the command.
   `pnpm verify:static` is everything needing no database; `pnpm verify:db`
-  is the rest and wants the local stack up. Both mirror a CI job.
+  is the rest and wants the local stack up. Both mirror a CI job and take no
+  arguments — `pnpm db:setup` first if a migration landed, since the test
+  databases are built from migrations and do not pick up a new one.
 - **Doc changes**, including deleting the `tasks.md` line. A finished task is
   deleted, not ticked.
 
