@@ -198,21 +198,14 @@ over many iterations, not as a cleanup pass on code written an hour ago.
 - **The spec** — every requirement implemented, every listed edge case tested,
   nothing outside scope changed.
 
-Ask both to prove a finding by breaking the rule and watching a test go red.
-That is what separates a review worth reading from a list of suspicions — and
-it is why **only one reviewer may mutate the tree at a time.**
+**Run them one after the other, never in parallel.** Each proves a finding by
+breaking the rule and watching a test go red, which is what separates a review
+worth reading from a list of suspicions — and two agents doing that to one
+worktree at once read each other's half-applied edits as the code under
+review. That reported two billing bugs which did not exist, against a tree
+that was clean by the time anyone looked.
 
-Two reviewers editing one worktree in parallel read each other's half-applied
-mutations as the code under review. It reported two billing bugs that did not
-exist, and the working tree was clean by the time anyone looked. Either:
-
-- **run them in sequence** — one mutates, restores, reports; then the next, or
-- **run them in parallel read-only**, each copying to `/tmp` to experiment,
-  with mutation saved for a second pass by whichever found something.
-
-Sequence is the cheaper default: a second worktree wants its own
-`node_modules`. Whichever you pick, tell each agent which it is, and have any
-agent that mutates verify `git status` is clean before it reports.
+Wait for the first to report before starting the second.
 
 Tell both to flag only what affects correctness or a stated requirement. A
 reviewer asked for gaps will find them; chasing all of them buys abstraction
