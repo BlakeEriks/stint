@@ -37,10 +37,25 @@ else
     ANON_KEY=$(value_of NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) \
         || { echo "error: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY missing from $ENV_FILE" >&2; exit 1; }
     # `.env.example` says to leave NEXT_PUBLIC_APP_ORIGIN empty locally — it
-    # is set in the deployment — so this falls back to the app subdomain and
-    # takes an override from the environment.
+    # is set in the deployment — so an override is usually how this is
+    # supplied. Never guess a hostname: one that does not resolve reaches the
+    # panel as "a server with the specified hostname could not be found",
+    # which reads as a network fault rather than as a build that was told
+    # where to point.
     APP_URL="${STINT_APP_URL:-$(value_of NEXT_PUBLIC_APP_ORIGIN || true)}"
-    APP_URL="${APP_URL:-https://app.trackwithstint.com}"
+    if [ -z "$APP_URL" ]; then
+        echo "error: no app origin. Add NEXT_PUBLIC_APP_ORIGIN to $ENV_FILE," >&2
+        echo "       or pass it: STINT_APP_URL=https://<host> $0 $CONFIG $TARGET" >&2
+        exit 1
+    fi
+
+    # Resolve it now rather than at the first request.
+    APP_HOST="${APP_URL#*://}"; APP_HOST="${APP_HOST%%/*}"
+    if ! host "$APP_HOST" >/dev/null 2>&1; then
+        echo "error: $APP_HOST does not resolve — the panel would report it as" >&2
+        echo "       a missing server. Check the origin before bundling." >&2
+        exit 1
+    fi
 
     case "$SUPABASE_URL" in
         *localhost*|*127.0.0.1*)
