@@ -164,7 +164,8 @@ before changing that file:
 Both domains point at the same project, so there is one build and one set of
 environment variables. `isAppHost()` also treats bare `localhost` and any
 `*.vercel.app` as the app, which is why a preview deployment lands on the
-product rather than the pitch. `CLAUDE.md` carries the rules this puts on code.
+product rather than the pitch. `.claude/rules/routing.md` carries the rules
+this puts on code.
 
 Per-deployment URLs (`stint-<hash>-<scope>.vercel.app`) are fronted by SSO on
 a private project, so an unauthenticated request 302s to `vercel.com/sso-api`.
@@ -200,5 +201,6 @@ schema models bank details and invoicing.
 ## What is deliberately absent
 
 - **No automatic rollback.** Migrations are forward-only and additive by
-  rule — see `CLAUDE.md`. Reverting a deploy is a Vercel redeploy of the
-  previous build; reverting a *migration* means writing a new additive one.
+  rule — see `.claude/rules/migrations.md`. Reverting a deploy is a Vercel
+  redeploy of the previous build; reverting a *migration* means writing a new
+  additive one.
