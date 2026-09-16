@@ -246,6 +246,38 @@ missing `search_path`. Local reproduces that code path faithfully.
 `major_version = 17` in `config.toml` matches the hosted project (17.6). If
 you upgrade one, upgrade the other.
 
+## Running the browser tests
+
+`pnpm test:e2e` needs the local stack and the app already running — `pnpm
+dev:up` plus `pnpm dev`. CI starts the stack with `-x studio,postgres-meta`,
+2.25GB of the 4.4GB of images, for a dashboard the suite never drives. The
+images are pulled rather than cached; `ci.yml` carries the measurements and
+the warning against reintroducing a cache, at the step where someone would
+add one.
+
+They sign in for real, through Mailpit. `e2e/mailpit.ts` reads the **text**
+part of the email for the reason above — the HTML `href` escapes its
+separators as `&amp;`.
+
+Three things that will bite again:
+
+- **`auth.email.max_frequency` is `1s` and is already its minimum**, so two
+  sign-ins inside the same second collide with "you can only request this
+  after 0 seconds". `requestLink()` retries around it. The hourly `email_sent`
+  cap is raised to 100 locally — the default 2 exhausts within one test run,
+  and every further sign-in then fails in a way that reads as a broken link.
+- **Next renders an always-present empty `role="alert"`** (the route
+  announcer), so an unscoped `getByRole('alert')` is ambiguous. Scope to
+  `main` or to the form.
+- **A test that writes must restore the seed.** `resetSeed()` runs
+  `supabase db reset` in `beforeAll`. Ordering within a file matters: the
+  mutating test goes last.
+
+`pnpm test:ui` needs no stack: Vitest in jsdom. jsdom lacks the APIs Radix's
+popper needs, so `test/ui/setup.ts` shims `ResizeObserver`, `DOMRect` and the
+pointer-capture methods — without them every DropdownMenu test throws on open.
+`userEvent.setup()` returns the instance synchronously; it is not a promise.
+
 ## The route tests can use it too
 
 `apps/web/test/routes.test.ts` runs the real handlers against real Postgres,

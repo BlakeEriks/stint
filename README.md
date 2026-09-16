@@ -43,7 +43,7 @@ pnpm --filter @stint/web dev
 pnpm --filter @stint/web typecheck
 pnpm --filter @stint/web sample:invoice   # regenerate docs/design/samples/
 
-cd apps/macos && ./bundle.sh            # build Stint.app, then `open .build/Stint.app`
+./apps/macos/bundle.sh                    # build and install ~/Applications/Stint.app
 ```
 
 Run `pnpm tokens` first on a clean checkout: `@stint/design-tokens` resolves
@@ -84,6 +84,7 @@ navigation, redirects and server components — see `docs/local-dev.md`.
 - [docs/architecture.md](docs/architecture.md) — the shape and why
 - [docs/data-model.md](docs/data-model.md) — schema and integrity rules
 - [docs/api.md](docs/api.md) — endpoint contract
+- [docs/macos.md](docs/macos.md) — the menu bar app: building it, and which backend it talks to
 - [docs/design/principles.md](docs/design/principles.md) — what this app refuses to do
 - [docs/tasks.md](docs/tasks.md) — wanted but not built
 

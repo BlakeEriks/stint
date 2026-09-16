@@ -10,7 +10,7 @@ spec doubles as the visual reference: `design/brand.html`,
 
 **Anything architectural or procedural is Markdown**: `api.md`,
 `data-model.md`, `architecture.md`, `deploying.md`, `local-dev.md`,
-`tasks.md`, `design/principles.md`, `design/deriving-colour.md`.
+`macos.md`, `tasks.md`, `design/principles.md`, `design/deriving-colour.md`.
 
 `pnpm design` serves them at `localhost:8778`. Start a screen doc by copying
 `design/screens/_shell.html`; the index and nav are built by reading the

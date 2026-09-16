@@ -6,9 +6,21 @@ is the comparison point and it does too much.
 Read `docs/` before changing anything structural — `docs/CLAUDE.md` says how
 those are written.
 
-**This file holds what constrains code anywhere in the repo.** A rule about
-one screen belongs in that screen's doc; a rule the build enforces belongs in
-the build. Say what a thing is, not what it was instead of.
+**This file holds what constrains code anywhere in the repo.** Before adding
+to it, name the doc that owns the claim:
+
+| The claim is | It goes to |
+| --- | --- |
+| How to run, build or deploy something | `docs/local-dev.md`, `docs/deploying.md`, `docs/setup.md` |
+| About one screen or one app | that screen's doc, `docs/macos.md`, `docs/design/landing.html` |
+| A shape a screen is assembled from | `docs/design/screens/components.html` |
+| Enforced by a check or a config | that script or config, in a comment at the line someone edits |
+| Unbuilt work, or something decided against | `docs/tasks.md`, `docs/design/principles.md` |
+
+Only a claim no doc above owns belongs here, and then as one paragraph.
+Proximity is not ownership: a related section already in this file is the
+reason it keeps growing, not a precedent. Say what a thing is, not what it
+was instead of.
 
 ## Non-negotiables
 
@@ -109,10 +121,28 @@ volumes; only `--no-backup` deletes them.
 
 ## Migrations
 
-`pnpm migrate` applies `supabase/migrations/` over a plain Postgres
-connection. Each file runs in its own transaction and applied versions are
-recorded in `schema_migrations`, so re-running is a no-op and a new migration
-applies alone. `--dry-run` shows the plan; `--url` overrides the connection.
+`pnpm migrate` applies `supabase/migrations/`; `docs/setup.md` has the
+connection and the flags.
+
+**They are additive and forward-only.** Each file runs in its own
+transaction, so one that *fails* rolls back clean. There is no down path for
+one that *succeeds and is wrong* — and for a billing system that is the right
+trade: a rollback that drops a column takes issued invoices with it. So write
+migrations that cannot need reverting:
+
+- **Add, never destroy.** New columns are nullable or defaulted. Do not drop
+  or rename a column that has shipped, and do not narrow a type.
+- **Retiring a column is two releases.** Stop writing it, ship, confirm
+  nothing reads it, then drop it in a later migration — never in the same one
+  that changes the code.
+- **A destructive change to unreleased schema is fine.** Before anything is
+  live, fold the correction into the original file rather than stacking a
+  fix-up on top.
+- Backfills belong in their own migration, separate from the DDL, so a slow
+  one cannot hold a lock on the change that needs to land.
+
+`verify:schema` checks the shape is correct, not that getting there was safe.
+This one is a review rule.
 
 **The publishable key is public by design** — it ships in the browser bundle,
 so RLS is the only thing protecting the data. That makes `verify:schema` the
@@ -155,29 +185,6 @@ runtime you are not running is a silent trap.
 
 **Dependabot ignores majors on purpose**; a toolchain major is a decision.
 `dependabot.yml` says why.
-
-## Migrations are additive, and forward-only
-
-`migrate.mjs` records versions and wraps each file in a transaction, so a
-migration that **fails** rolls back clean. There is no down path for one that
-**succeeds and is wrong** — and for a billing system that is the right trade:
-a rollback that drops a column takes issued invoices with it.
-
-So the rule is to write migrations that cannot need reverting:
-
-- **Add, never destroy.** New columns are nullable or defaulted. Do not drop
-  or rename a column that has shipped, and do not narrow a type.
-- **Retiring a column is two releases.** Stop writing it, ship, confirm
-  nothing reads it, then drop it in a later migration — never in the same one
-  that changes the code.
-- **A destructive change to unreleased schema is fine.** Before anything is
-  live, fold the correction into the original file rather than stacking a
-  fix-up on top.
-- Backfills belong in their own migration, separate from the DDL, so a slow
-  one cannot hold a lock on the change that needs to land.
-
-CI cannot enforce this — `verify:schema` checks the shape is correct, not
-that getting there was safe. It is a review rule.
 
 ## Triggers on `auth.users`
 
@@ -359,76 +366,10 @@ payers to challenge.
   the account numbers overleaf is the one page break that actually harms the
   reader.
 
-## The macOS menu bar app
-
-`apps/macos` is a **SwiftPM executable, not an Xcode project** — it builds and
-runs with the Command Line Tools alone (`swift build`), which is what makes it
-verifiable from a terminal. `./bundle.sh` wraps the binary in a `.app` with
-`LSUIElement`, because AppKit honours "menu bar only, no Dock icon" from a
-bundle's Info.plist and not from a bare executable. It self-signs with a local
-identity when one exists, which buys a stable designated requirement rather
-than an ad-hoc one; distribution still needs a Developer ID and notarisation.
-
-**It is the timer and nothing else** — start, stop, task name, project.
-`menubar.html` is the spec.
-
-**Changing its Swift means rebuilding and relaunching it**, because the
-running copy is the `.app` in `~/Applications` rather than the build product,
-so `swift build` alone leaves the menu bar on the old binary:
-
-    pkill -f 'Stint.app/Contents/MacOS/Stint'; ./apps/macos/bundle.sh && open ~/Applications/Stint.app
-
-Quit first — `bundle.sh` always overwrites the installed copy.
-
-### Sign-in
-
-**An emailed six-digit code, typed into the panel**, verified in-process
-against GoTrue's `/verify` with `type: "email"` and the digits in the `token`
-field — `"magiclink"` is the type for the hashed token in a link and rejects a
-typed code. The request sends no `redirect_to`.
-
-GoTrue generates a code for every magic link whether the email shows it or
-not; `supabase/templates/magic_link.html` puts it in front of the user via
-`{{ .Token }}`.
-
-`create_user` must be a real bool in an `Encodable` struct — a
-`[String: String]` literal sends it quoted and GoTrue answers "cannot
-unmarshal string into Go struct field OtpParams.create_user of type bool".
-
-`supabase-swift` is not a dependency; two POSTs do not need an SDK.
-
-**The session lives in the Keychain**, not `UserDefaults` — a refresh token is
-a long-lived credential and a plist in the container is readable by anything
-running as the user. `jwt_expiry` is an hour with rotation on, so refresh is
-mandatory. One in-flight refresh is shared: two pollers racing would each
-spend a rotating token and one would lose.
-
-### The panel
-
-- **Local tick, reconcile at 60s**, skew-corrected from `serverTime`. Today's
-  total adds live seconds **from the fetch**, not from `startedAt` — the route
-  already folded the running entry in.
-- **A 409 from `/timer/start` refreshes rather than reports.** Another device
-  won the race and the invariant held, so showing what *is* running is more
-  use than the error.
-- **The task field follows the server only when unfocused**, so it never
-  overwrites itself mid-type.
-- **Colours come from `Tokens.swift`, written by `pnpm tokens`** into the
-  app's own sources, because SwiftPM cannot read the gitignored `dist/`. The
-  Swift names keep the raw prefixes — `borderSubtle`, not `edgeSubtle`.
-- **The runaway notice surfaces and stops there.** Adjusting needs a date and
-  two times, which this panel has no room for.
-
-**The API models are hand-written and nothing type-checks them against
-`packages/schema`**, so a renamed field fails at runtime in Swift and nowhere
-else. `architecture.md` wants an OpenAPI spec from the Zod schemas for exactly
-this.
-
 ## Docs
 
 `docs/CLAUDE.md` says how docs are written and `/trim <path>` measures one
-against it. The rule that matters most: a sentence earns its place only if the
-page cannot show it and CI cannot enforce it.
+against it.
 
 **`docs/tasks.md` is the only list of unbuilt work.** A finished task is
 deleted, not ticked; something decided against moves to
@@ -440,12 +381,6 @@ none right now. Keep that honest.
 **The app is online-only.** There is no outbox and no `POST /sync`;
 `docs/architecture.md` records why a sync engine would not be the answer if
 offline ever comes back.
-
-**`screens/_mockup.css` is generated by `pnpm tokens` and committed**, for the
-same reason `Tokens.swift` is: a browser opening a file from disk cannot reach
-the gitignored `dist/`. `tokens:validate` rejects a hex literal in a doc's
-stylesheet; `not-app-chrome:` plus a reason exempts a block that genuinely is
-not app chrome, like the invoice PDF on white paper.
 
 **The mark's geometry is a token.** `brand.mark` in `tokens.json` generates
 `--mark-bound-*` and `Tokens.Mark`, so `|Stint|` is one drawing across both
@@ -631,58 +566,24 @@ the repo.
 It is a convenience, not the gate: `pnpm lint` in CI is, since a hook can be
 skipped with `--no-verify` and does not exist on a fresh clone until
 `pnpm install` runs `prepare`.
-
 ### End-to-end tests
 
-`pnpm test:e2e` — Playwright against the **local Supabase stack**, which must
-already be running (`pnpm dev:up` plus `pnpm dev`). Deliberately outside
+`pnpm test:e2e` — Playwright against the local stack, and deliberately outside
 `pnpm test`: a browser download must not become a prerequisite for the unit
-suites.
+suites. `docs/local-dev.md` has how to run them and the traps.
 
 **No retries, in CI either.** A retry doubles the time before a real failure
 is reported — a genuine failure is a 30s timeout, so two failures become four.
 At ten tests and ~31s of work, a flaky test going red is the intent.
 
-**CI starts the stack with `-x studio,postgres-meta`** — 2.25GB of the 4.4GB
-of images, for a dashboard the browser suite never drives. `pnpm dev:up`
-excludes those two and seven more; `pnpm dev:up:studio` is the one that keeps
-them.
-
-The images are pulled rather than cached. `ci.yml` carries the measurements
-and the warning against reintroducing a cache, at the step where someone would
-add one.
-
 **They sign in for real**, through Mailpit, because sign-in is the flow most
-worth covering and stubbing it would test the stub. `e2e/mailpit.ts` reads the
-**text** part of the email — the HTML `href` escapes its separators as
-`&amp;`, and following that string literally makes GoTrue read `amp;type`
-instead of `type`, a 400 that looks exactly like an expired link.
-
-Three things that will bite again:
-
-- **`auth.email.max_frequency` is `1s` and is already its minimum**, so two
-  sign-ins inside the same second collide with "you can only request this
-  after 0 seconds". `requestLink()` retries around it. The hourly `email_sent`
-  cap is raised to 100 locally — the default 2 exhausts within one test run,
-  and every further sign-in then fails in a way that reads as a broken link.
-- **Next renders an always-present empty `role="alert"`** (the route
-  announcer), so an unscoped `getByRole('alert')` is ambiguous. Scope to
-  `main` or to the form.
-- **A test that writes must restore the seed.** `resetSeed()` runs
-  `supabase db reset` in `beforeAll`. Ordering within a file matters: the
-  mutating test goes last.
+worth covering and stubbing it would test the stub.
 
 ### UI tests
 
 `pnpm test:ui` — Vitest + Testing Library in jsdom, `test/ui/*.test.tsx`.
 Separate from `pnpm test` (route handlers against real Postgres under
 `node --test`); the Vitest config never picks those up.
-
-jsdom lacks the APIs Radix's popper needs, so `test/ui/setup.ts` shims
-`ResizeObserver`, `DOMRect` and the pointer-capture methods. Without them
-every DropdownMenu test throws on open.
-
-`userEvent.setup()` returns the instance synchronously — it is not a promise.
 
 `test/ui/appearance.test.tsx` covers the design rules that fail **silently**:
 white-on-accent, the accent on a stopped or runaway timer, an accent focus
