@@ -76,8 +76,6 @@ export function Inbox({ stats }: { stats: Stats }) {
      times. A trigger clears the answer if they change later. */
   const confirmLength = useMutation({
     mutationFn: (id: string) => api.updateEntry(id, { durationOk: true }),
-    /* The row plays out BEFORE the refetch drops it. Invalidating first would
-       remove it instantly and leave the exit nothing to animate. */
     onSuccess: async (_r, id) => {
       await exit.mark(id);
       invalidateEntryData(queryClient);
