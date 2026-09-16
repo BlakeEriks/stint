@@ -26,3 +26,6 @@ supabase/.temp/
 # Playwright
 test-results/
 playwright-report/
+
+# Feature worktrees (/feature)
+.claude/worktrees/
