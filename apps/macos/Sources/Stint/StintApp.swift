@@ -9,6 +9,13 @@ enum Config {
     static let anonKey = ProcessInfo.processInfo.environment["STINT_SUPABASE_ANON_KEY"]
         ?? "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
 
+    /// What the panel calls this backend. Nil for local, which needs no
+    /// marking: it is the default, and a local timer bills nobody.
+    static let environmentName: String? = {
+        guard let host = supabaseURL.host(), host != "localhost" else { return nil }
+        return ProcessInfo.processInfo.environment["STINT_ENV"] ?? "prod"
+    }()
+
     private static func url(_ key: String, default fallback: String) -> URL {
         URL(string: ProcessInfo.processInfo.environment[key] ?? fallback)!
     }

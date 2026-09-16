@@ -52,10 +52,17 @@ actor TokenStore {
     private var refreshTask: Task<Session, Error>?
     private var onChange: (@Sendable (Session?) -> Void)?
 
+    /// The account is namespaced by backend host, so a local session and a
+    /// production one coexist. One slot would mean every environment switch
+    /// hands the new backend a token it must reject — a dead panel that reads
+    /// as a bug rather than as a sign-out.
+    private let account: String
+
     init(supabaseURL: URL, anonKey: String) {
         self.supabaseURL = supabaseURL
         self.anonKey = anonKey
-        self.session = Keychain.read()
+        self.account = "supabase@" + (supabaseURL.host() ?? "unknown")
+        self.session = Keychain.read(account: account)
     }
 
     func setOnChange(_ handler: @escaping @Sendable (Session?) -> Void) {
@@ -67,7 +74,7 @@ actor TokenStore {
 
     func store(_ session: Session) {
         self.session = session
-        Keychain.write(session)
+        Keychain.write(session, account: account)
         onChange?(session)
     }
 
@@ -75,7 +82,7 @@ actor TokenStore {
         session = nil
         refreshTask?.cancel()
         refreshTask = nil
-        Keychain.clear()
+        Keychain.clear(account: account)
         onChange?(nil)
     }
 
@@ -119,7 +126,7 @@ actor TokenStore {
     }
 }
 
-/// The login Keychain, holding one session under a fixed account. Not
+/// The login Keychain, holding one session per backend host. Not
 /// `UserDefaults`: a refresh token is a long-lived credential.
 ///
 /// **Every call shells out to `/usr/bin/security`. Do not replace this with
@@ -135,9 +142,8 @@ actor TokenStore {
 /// Developer ID would earn a `teamid:` partition — see `docs/tasks.md`.
 private enum Keychain {
     private static let service = "dev.stint.session"
-    private static let account = "supabase"
 
-    static func read() -> Session? {
+    static func read(account: String) -> Session? {
         guard let out = run(["find-generic-password", "-s", service, "-a", account, "-w"]),
               let data = out.data(using: .utf8)
         else { return nil }
@@ -148,14 +154,14 @@ private enum Keychain {
     /// already trusts it, and `-T` with `-U` appends to the ACL — the one
     /// write still guarded by the owner's password, which would then be
     /// asked for at every hourly refresh.
-    static func write(_ session: Session) {
+    static func write(_ session: Session, account: String) {
         guard let data = try? JSONEncoder().encode(session),
               let json = String(data: data, encoding: .utf8)
         else { return }
         _ = run(["add-generic-password", "-U", "-s", service, "-a", account, "-w", json])
     }
 
-    static func clear() {
+    static func clear(account: String) {
         _ = run(["delete-generic-password", "-s", service, "-a", account])
     }
 

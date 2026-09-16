@@ -30,6 +30,14 @@ private struct PanelHeader: View {
     var body: some View {
         HStack(spacing: 2) {
             Lockup(size: 17, color: Tokens.Dark.textMuted)
+            // Which backend this build talks to, when it is not the local
+            // one. Muted, never the accent: the accent is the running timer.
+            if let environment = Config.environmentName {
+                Text(environment)
+                    .role(.label)
+                    .foregroundStyle(Tokens.Dark.textMuted)
+                    .padding(.leading, 8)
+            }
             Spacer()
             if model.isSignedIn {
                 Button {

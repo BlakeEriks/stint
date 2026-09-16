@@ -9,6 +9,53 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 CONFIG="${1:-release}"
+TARGET="${2:-local}"
+
+# Where this bundle points. An LSUIElement app launched by `open` inherits
+# Finder's environment, not a shell's, so exporting STINT_* before `open` is
+# silently ignored — the values have to be baked into Info.plist.
+#
+# Local is the default and needs no keys: Config.swift already falls back to
+# the local stack.
+if [ "$TARGET" = "local" ]; then
+    LS_ENVIRONMENT=""
+else
+    ENV_FILE="../web/.env.local"
+    [ -f "$ENV_FILE" ] || { echo "error: $ENV_FILE not found" >&2; exit 1; }
+
+    # Read straight out of the file rather than sourcing it: `.env.local`
+    # also holds SUPABASE_DB_URL, a secret this bundle must never carry, and
+    # sourcing would run whatever the file contains.
+    value_of() {
+        local line
+        line=$(grep -m1 "^$1=" "$ENV_FILE") || return 1
+        printf '%s' "${line#*=}" | tr -d '"'"'"'\r'
+    }
+
+    SUPABASE_URL=$(value_of NEXT_PUBLIC_SUPABASE_URL) \
+        || { echo "error: NEXT_PUBLIC_SUPABASE_URL missing from $ENV_FILE" >&2; exit 1; }
+    ANON_KEY=$(value_of NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) \
+        || { echo "error: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY missing from $ENV_FILE" >&2; exit 1; }
+    # `.env.example` says to leave NEXT_PUBLIC_APP_ORIGIN empty locally — it
+    # is set in the deployment — so this falls back to the app subdomain and
+    # takes an override from the environment.
+    APP_URL="${STINT_APP_URL:-$(value_of NEXT_PUBLIC_APP_ORIGIN || true)}"
+    APP_URL="${APP_URL:-https://app.trackwithstint.com}"
+
+    case "$SUPABASE_URL" in
+        *localhost*|*127.0.0.1*)
+            echo "error: $ENV_FILE points at localhost — nothing to target" >&2; exit 1 ;;
+    esac
+
+    LS_ENVIRONMENT="    <key>LSEnvironment</key>
+    <dict>
+        <key>STINT_APP_URL</key><string>$APP_URL</string>
+        <key>STINT_SUPABASE_URL</key><string>$SUPABASE_URL</string>
+        <key>STINT_SUPABASE_ANON_KEY</key><string>$ANON_KEY</string>
+        <key>STINT_ENV</key><string>$TARGET</string>
+    </dict>"
+fi
+
 swift build -c "$CONFIG"
 
 APP=".build/Stint.app"
@@ -29,6 +76,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <!-- The whole point: menu bar only, no Dock icon. -->
     <key>LSUIElement</key><true/>
+${LS_ENVIRONMENT:+$LS_ENVIRONMENT}
 </dict>
 </plist>
 PLIST
@@ -39,7 +87,7 @@ PLIST
 # `./dev-certificate.sh` creates one.
 #
 # It does NOT stop the Keychain password prompts — see `TokenStore.swift`.
-echo "built $APP"
+echo "built $APP ($TARGET)"
 
 # Install, because a URL scheme only resolves from a real Applications folder.
 #
@@ -70,3 +118,4 @@ fi
 
 echo "installed $INSTALLED"
 echo "run it with: open \"$INSTALLED\""
+echo "pointing at: $TARGET"
