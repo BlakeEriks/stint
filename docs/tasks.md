@@ -285,6 +285,36 @@ later.
       it is a per-device layout choice, not account state, and a round-trip
       would make the rail flicker on load.
 
+- [ ] **The menu bar app's two dropdowns are system-drawn.** The project
+      picker and the account gear are SwiftUI `Menu`s, so their labels carry
+      our tokens and type while the list that pops open is AppKit's — system
+      font, system colours, system metrics, beside a panel that is ours to
+      the pixel. The web's equivalents (`project-picker.tsx`,
+      `account-menu.tsx`) are the same two controls built on Radix and themed,
+      which is what makes the gap visible.
+
+      **Read `menubar.html`'s settings section before starting: there is a
+      documented reason, and it is a real one.** The panel is `.transient`,
+      so anything that takes focus dismisses the panel out from under
+      itself — the argument that made Settings a pushed view rather than a
+      menu. A SwiftUI `Menu` survives this because AppKit owns both halves and
+      coordinates them. A hand-built popup does not get that for free, and a
+      picker that dismisses the panel when opened is worse than one with the
+      wrong font. Verify the failure mode first, at `menuBarExtraStyle(.window)`
+      as it is actually configured, rather than assuming either outcome.
+
+      **Radix is not available here** — it is a web library, and `apps/macos`
+      takes no dependencies beyond the standard library on purpose. So this
+      is "matches our theme", built in SwiftUI against `Tokens.swift`: an
+      overlay inside the panel's own window, which is also what keeps focus
+      where it is. Reach for the tokens the spec's table already assigns
+      (`bgBase` for the popover ground, `bgPrimary` for the picker fill).
+
+      What must survive: keyboard selection, typeahead, Escape to close and
+      focus returning to the label — everything the system menu gives free and
+      a hand-rolled list silently drops. If it cannot keep those, the system
+      menu is the better control and this stays as it is.
+
 - [ ] **The menu bar pip shifts with the width of the clock.** It should sit
       still: it is the one thing in the bar that is always in the same place,
       and a dot that moves as the digits change is motion with no meaning
