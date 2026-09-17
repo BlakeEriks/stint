@@ -45,15 +45,18 @@ function wrapper({ children }: { children: ReactNode }) {
 function Host({
   onChosen,
   onSubmit,
+  above,
 }: {
   onChosen?: (name: string, projectId: string | null) => void;
   onSubmit?: () => void;
+  above?: boolean;
 }) {
   const [value, setValue] = useState('');
   return (
     <TaskSuggest
       value={value}
       projectId="p1"
+      above={above}
       onChange={(name, projectId) => {
         setValue(name);
         onChosen?.(name, projectId);
@@ -201,6 +204,26 @@ describe('TaskSuggest', () => {
 
     await user.keyboard('zzzz');
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('is entered with Up when it opens above the field', async () => {
+    stubFetch();
+    render(<Host above />, { wrapper });
+    const user = await focusField();
+    const field = screen.getByLabelText('Task name');
+
+    // The list is drawn above, so Up points at it and lands on the row
+    // adjacent to the field — the last one, not the first.
+    await user.keyboard('{ArrowUp}');
+    const options = screen.getAllByRole('option');
+    expect(field).toHaveAttribute(
+      'aria-activedescendant',
+      (options[options.length - 1] as HTMLElement).id,
+    );
+
+    // Down walks back toward the field and out of the list.
+    await user.keyboard('{ArrowDown}');
+    expect(field).not.toHaveAttribute('aria-activedescendant');
   });
 
   it('leaves Enter to the caller when the highlight came from hover', async () => {

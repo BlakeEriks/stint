@@ -126,28 +126,41 @@ export function TaskSuggest({
       return;
     }
 
+    /* The arrows follow the pixels, not the array. A list drawn above the
+       field is entered with Up at the row adjacent to it — the key points at
+       the movement the eye sees. Rows render best-first either way; only
+       which end is "nearest" changes. */
+    const enter = above ? 'ArrowUp' : 'ArrowDown';
+    const leave = above ? 'ArrowDown' : 'ArrowUp';
+    const nearest = above ? rows.length - 1 : 0;
+    const step = above ? -1 : 1;
+
     if (!shown) {
-      if (e.key === 'ArrowDown' && rows.length > 0) {
+      if (e.key === enter && rows.length > 0) {
         e.preventDefault();
         setOpen(true);
-        setActive(0);
+        setActive(nearest);
         setByKey(true);
       }
       return;
     }
 
-    if (e.key === 'ArrowDown') {
+    if (e.key === enter) {
       e.preventDefault();
-      setActive(active === null ? 0 : Math.min(active + 1, rows.length - 1));
+      setActive(
+        active === null
+          ? nearest
+          : Math.max(0, Math.min(active + step, rows.length - 1)),
+      );
       setByKey(true);
       return;
     }
 
-    if (e.key === 'ArrowUp') {
+    if (e.key === leave) {
       e.preventDefault();
-      // Up past the first row leaves the list, restoring what was typed —
-      // which is still in the field, because nothing was ever written to it.
-      setActive(active === null || active === 0 ? null : active - 1);
+      // Stepping back past the nearest row leaves the list, restoring what was
+      // typed — which is still in the field, because nothing was written.
+      setActive(active === null || active === nearest ? null : active - step);
       setByKey(true);
       return;
     }
