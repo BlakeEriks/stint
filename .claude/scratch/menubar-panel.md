@@ -40,6 +40,7 @@ Tokens.swift <- pnpm tokens now also emits Tokens.Type
 | Client name | **Ships.** Two-hop lookup, not a decode change |
 | Type scale | **Absorbed.** `pnpm tokens` emits it, then Plex vendors on top |
 | `.transient` | Premise was stale — spec corrected, conclusion kept |
+| Settings header | **Plain text, no mark bounds.** `|Stint|` is the brand; a view title is not |
 
 ## Phase 3 table — measured, not estimated
 
@@ -68,6 +69,7 @@ Every row read with `getBoundingClientRect()` / `getComputedStyle` off
 | Account link | mono 10.5, 0.84px tracking, `#838A97`, uppercase | `.acct-link` |
 | Divider | 1px `border-subtle` | `.divider` |
 | Header | 43 tall, `8px 12px 8px 14px` | `.head` |
+| Settings title | mono 17, w600, .12em, `text-muted`, **no `\|` bounds** | `.head-title`, not `.wordmark` |
 
 The panel grows **67pt**. That is the whole height budget this task is about,
 and it is spent: nothing else gets added without taking a row back.
@@ -232,6 +234,10 @@ was sent*.
 - **No silent writes.** Escape cancelling must send no request at all — not a
   PATCH of the unchanged value. This is the billing rule (`CLAUDE.md`).
 - **One running timer.** Nothing here touches start/stop arbitration.
+- **The mark is only ever the mark.** The Settings header is `.head-title` —
+  the wordmark's type without `--mark-bound-*`. Nothing but `|Stint|` draws
+  those bounds; `CLAUDE.md` makes the geometry a token so the mark is one
+  drawing, not a decoration to reuse on a title.
 - **The accent stays on the pip and the readout only.** The Settings toggle is
   `bg-active` / `border-control`, never accent. Focus rings stay neutral.
 - **The list still drops during a runaway** (`ContentView.swift:104-107`).
