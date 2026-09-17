@@ -787,6 +787,56 @@ now. `principles.md` and `screens/home.html` describe what is built.
 Each of these names the question blocking it. Answer the question, then it
 moves up — do not start one by guessing the answer.
 
+- [ ] **The quarter as a first-class period.** *Question: does the app report
+      cash received, when every number in it today reports work done?* A US
+      contractor pays estimated tax four times a year on **money actually
+      collected in that quarter**, and that is the one figure the app cannot
+      currently produce. Answer this before building anything below it.
+
+      It is a real hole in "track time and get paid": paying the tax is part
+      of getting paid, four deadlines a year, and the number is sitting in
+      this database already. Toggl is no argument against it either — this is
+      not project management, it is the contractor's own year.
+
+      **The conflict is a principle, not a schema gap.** `principles.md`:
+      *revenue is work done, not money collected, and it is bucketed by the
+      entry's date rather than the invoice's* — written so a bar does not
+      drop when a client pays late. Tax is the exact inverse: the IRS wants
+      the date the money arrived, so a quarterly figure must bucket by
+      `paidAt`, which no view does. Both are correct for their own question,
+      which is why this needs deciding rather than assuming — and if it ships,
+      the two numbers must be labelled so precisely that nobody reads one as
+      the other. That framing is also the guard against scope: this reports
+      what happened, it does not compute what is owed.
+
+      **Not tax advice, and not a tax product.** No rates, no estimates, no
+      safe-harbour maths, no filing. The app puts the contractor's own numbers
+      in the shape their accountant or their 1040-ES asks for, and stops. That
+      line is what keeps this from becoming the thing the thesis refuses.
+
+      Candidates, if the answer is yes:
+
+      - **A date filter on `/invoices`.** The list filters by status alone
+        today, so "what did I invoice last quarter" is unanswerable without
+        scrolling. Quarter presets plus a range, in query params so the link
+        is shareable. Cheapest, useful even if nothing else here ships.
+      - **Collected-per-quarter**, summing `total` over invoices with `paidAt`
+        in the quarter. The estimated-tax number, and the one that needs the
+        naming care above.
+      - **Quarter over quarter**, once four quarters exist. The comparison a
+        contractor actually makes, and one a month cannot show.
+      - **An export for the accountant** — invoices with issue date, paid
+        date, client and total, as CSV. Probably the highest value per line of
+        code here, since it ends with someone else doing the work.
+
+      Note the refusal that stands regardless: **no quarter *targets*** — a
+      contractor thinks in months because invoicing is monthly. Reporting a
+      quarter and setting a goal against one are different things, and only
+      the first is in question.
+
+      Where it lives is `/reports`, which does not exist yet. That is the
+      other reason this is a decision and not a Ready task.
+
 - [ ] **Week-over-week deltas.** *Question: what threshold makes it fire
       rarely enough to be worth reading?* On lumpy contract work a 40% drop
       usually means a client's sprint ended, and a delta that is noise most
