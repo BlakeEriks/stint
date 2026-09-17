@@ -239,6 +239,15 @@
         <td>Below it the dock scrolls with the page it summarises and the bar
           runs full width across the bottom</td>
       </tr>
+      <tr>
+        <td class="num">2xl</td>
+        <td>The app becomes a bounded card on <code>bg-recessed</code> —
+          1440&times;900, centred horizontally, top-aligned, 24px inset</td>
+        <td>The measure caps content at 1152, so past this width the panel
+          grows around content that has stopped. The surplus becomes ground
+          instead. Top-aligned because the header and rail are reached by
+          muscle memory, and centring moves them with every resize</td>
+      </tr>
     </table>
 
     <p style="margin-top:1.5rem">
@@ -254,7 +263,7 @@
     <div class="sec-head"><span class="eyebrow">Four planes</span></div>
 
     <div class="planes">
-      <div class="plane"><div class="fill" style="background:var(--bg-recessed)"></div><span class="n">bg-recessed</span><span class="w">unused by the frame</span></div>
+      <div class="plane"><div class="fill" style="background:var(--bg-recessed)"></div><span class="n">bg-recessed</span><span class="w">the plane behind the card, at 2xl</span></div>
       <div class="plane"><div class="fill" style="background:var(--bg-base)"></div><span class="n">bg-base</span><span class="w">the ground — window, header, rail, dock</span></div>
       <div class="plane"><div class="fill" style="background:var(--bg-primary)"></div><span class="n">bg-primary</span><span class="w">the panel, and the timer bar at 55%</span></div>
       <div class="plane"><div class="fill" style="background:var(--bg-elevated); box-shadow:var(--shadow-card)"></div><span class="n">bg-elevated</span><span class="w">inbox rows at 70%, active rail pill at 55%</span></div>
@@ -274,7 +283,15 @@
       <tr><td>Region separation</td><td class="num">inset 1px border-subtle, 18px above and below</td></tr>
       <tr><td>Inbox row</td><td class="num">7px radius</td></tr>
       <tr><td>Rail marker</td><td class="num">2px × 14px, border-control, fully rounded</td></tr>
+      <tr><td>Card, 2xl</td><td class="num">1440 × 900 max, 16px radius, 1px border-subtle, shadow-float</td></tr>
     </table>
+
+    <p style="margin-top:1.5rem">
+      The rail's marker is drawn 1px past the item's own left edge, so the
+      scroller around it carries 4px of side padding — a scroll container
+      cannot let one axis overflow while the other scrolls, and without the
+      room the pill is clipped to a flat edge.
+    </p>
 
     <p style="margin-top:1.5rem">
       The inset layer is a LIT top edge in dark and a SHADED one in light: a
@@ -290,6 +307,9 @@
         be acted on, and an object you act on is an object.</li>
       <li><strong>The active rail item is a filled pill with a marker at its
         left edge.</strong> It marks which section you are in.</li>
+      <li><strong>The wordmark sits a step above the rail beneath it</strong> —
+        <code>type-wordmark-small</code> over the rail's
+        <code>type-label</code>. The way home is not a seventh section.</li>
     </ul>
   </section>
 
