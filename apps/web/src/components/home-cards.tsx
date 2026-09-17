@@ -397,17 +397,20 @@ function ByClient({ stats }: { stats: Stats }) {
               />
             }
             label={c.clientName}
+            /* Bare, because the column says what it is: the age sits against
+               the amount it is ageing, where "oldest" spent width the client
+               name wanted. Unrated work still says so — it is the reason a
+               figure is lower than it should be. */
             detail={
               c.unratedCount > 0
-                ? `oldest ${c.oldestDays}d · ${c.unratedCount} unrated`
-                : `oldest ${c.oldestDays}d`
+                ? `${c.oldestDays}d · ${c.unratedCount} unrated`
+                : `${c.oldestDays}d`
             }
             value={
               /* Unbillable work has no rate by definition; an em-dash is
                  honest where a zero would look like a real figure. */
               c.amount > 0 ? formatCurrency(c.amount, c.currency) : '—'
             }
-            secondary={formatCompact(c.seconds)}
           />
         ))}
       </ul>
@@ -1152,7 +1155,6 @@ function Row({
   label,
   detail,
   value,
-  secondary,
   tone,
   actions,
 }: {
@@ -1161,7 +1163,6 @@ function Row({
   label: string;
   detail: string;
   value: string;
-  secondary?: string;
   tone?: 'danger' | 'warning';
   actions?: React.ReactNode;
 }) {
@@ -1176,33 +1177,28 @@ function Row({
       <div className="flex items-center gap-2.5 px-5 py-2">
         {icon}
 
-        {/* Detail wraps under the label when the panel is narrow rather than
-            hiding: "12 days late" IS the row. */}
+        {/* One line: the name, then the age against the money it is ageing.
+            Stacked under the name the age read as part of the client rather
+            than as a property of the amount, and cost the row a second line
+            it did not need. */}
         <Link
           href={href}
-          className="flex min-w-0 flex-1 flex-col rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none @md:flex-row @md:items-baseline @md:gap-2.5"
+          className="min-w-0 flex-1 truncate rounded-sm type-control text-primary hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
         >
-          <span className="truncate type-control text-primary">{label}</span>
-          <span
-            className={`truncate type-meta ${
-              tone === 'danger'
-                ? 'text-danger'
-                : tone === 'warning'
-                  ? 'text-warning'
-                  : 'text-subtle'
-            }`}
-          >
-            {detail}
-          </span>
+          {label}
         </Link>
 
-        {/* Hours are supporting detail, and the first thing to go: the amount
-            is what the row is for. */}
-        {secondary ? (
-          <span className="hidden w-16 flex-none text-right type-meta text-subtle @md:inline">
-            {secondary}
-          </span>
-        ) : null}
+        <span
+          className={`flex-none truncate type-meta ${
+            tone === 'danger'
+              ? 'text-danger'
+              : tone === 'warning'
+                ? 'text-warning'
+                : 'text-subtle'
+          }`}
+        >
+          {detail}
+        </span>
         {/* The fixed `w-24` makes the amounts a column where there is room;
             auto-width in a narrow panel. */}
         <span className="flex-none text-right type-duration text-primary @md:w-24">

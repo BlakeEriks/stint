@@ -19,7 +19,7 @@ export function AppHeader() {
         aria-label="Stint — home"
         className="flex-none rounded-md px-2 py-1 hover:bg-surface-hover"
       >
-        <Wordmark />
+        <Wordmark size="small" />
       </Link>
 
       {/* `min-w-0` on a shrinkable wrapper, not `flex-none`: the trigger

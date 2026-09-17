@@ -7,11 +7,22 @@
  */
 export function Wordmark({
   className = 'text-strong',
+  size = 'default',
 }: {
   className?: string;
+  /**
+   * `small` for the app frame, where the mark is a way home rather than the
+   * page's subject; `default` for the landing page, where it is. The bounds
+   * are sized in `em`, so both draw the same mark at different scales.
+   */
+  size?: 'default' | 'small';
 }) {
   return (
-    <span className={`type-wordmark flex items-center ${className}`}>
+    <span
+      className={`${
+        size === 'small' ? 'type-nav normal-case' : 'type-wordmark'
+      } flex items-center ${className}`}
+    >
       <span aria-hidden className="mark-bound" />
       <span>Stint</span>
       <span aria-hidden className="mark-bound" />

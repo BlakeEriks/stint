@@ -90,6 +90,13 @@ export function Nav() {
           );
         })}
       </div>
+
+      {/* Bottom-left, and only where the rail is a column: on a phone the nav
+          is a scrolling strip with no bottom to sit at. It names the build
+          being looked at, which is what makes a bug report actionable. */}
+      <span className="mt-auto hidden px-3 pb-1 type-meta text-subtle lg:block">
+        v{process.env.NEXT_PUBLIC_APP_VERSION}
+      </span>
     </nav>
   );
 }
