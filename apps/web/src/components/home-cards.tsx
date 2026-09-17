@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   formatCompact,
@@ -21,6 +22,7 @@ import { api, type Pace, type Stats } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { formatCurrency } from './invoice-bits';
 import { keys } from '@/lib/client/query-keys';
+import { useCountUp, useSinceLastSeen } from '@/lib/client/use-count-up';
 
 /**
  * The home screen's four regions: money waiting, the month, the trailing
@@ -52,6 +54,128 @@ export function HomeCards() {
 }
 
 /**
+ * Why the figures moved, read off the figures themselves.
+ *
+ * The beats are reactions to mutations that happen on other screens — the
+ * timer bar, the inbox, an invoice — and a region that subscribed to each of
+ * them would be a region that knows about all of them. `/stats` is already
+ * invalidated by every one, so the refetch carries the news.
+ *
+ * Marking an invoice paid moves unbilled work into `awaitingPayment` and
+ * leaves velocity's total alone; a stop only ever adds. Nothing else on this
+ * screen can lower unbilled.
+ */
+function cause(prev: Stats | null, next: Stats): 'stop' | 'paid' | null {
+  if (!prev) return null;
+  const moved = next.unbilled.total - prev.unbilled.total;
+  if (moved < 0) return 'paid';
+  if (moved > 0 || next.unbilled.seconds > prev.unbilled.seconds) return 'stop';
+  return null;
+}
+
+type Beat = { kind: 'stop' | 'paid'; amount: number; seconds: number } | null;
+
+/** How long the delta stays beside the figure once the tween has landed. */
+const BEAT_MS = 2600;
+
+/**
+ * The last thing that happened, for as long as it is worth saying.
+ *
+ * Retires itself on a timer: the delta answers "what just changed", and a
+ * chip still sitting there minutes later is answering a question the user has
+ * stopped asking — and would be read as part of the figure.
+ */
+function useBeat(stats: Stats): Beat {
+  const prev = useRef<Stats | null>(null);
+  const [beat, setBeat] = useState<Beat>(null);
+
+  useEffect(() => {
+    const kind = cause(prev.current, stats);
+    const before = prev.current;
+    prev.current = stats;
+    if (!kind || !before) return;
+
+    setBeat({
+      kind,
+      amount: stats.unbilled.total - before.unbilled.total,
+      seconds: stats.unbilled.seconds - before.unbilled.seconds,
+    });
+    const t = setTimeout(() => setBeat(null), BEAT_MS);
+    return () => clearTimeout(t);
+  }, [stats]);
+
+  return beat;
+}
+
+/**
+ * What the last change was worth, beside the figure it changed.
+ *
+ * **Neutral, never the accent.** The accent is the running timer, and a stop
+ * has just ended one — borrowing it here would mark as live the one thing
+ * that stopped being live.
+ *
+ * An unbillable stop resolves to no money, so it reports the hours and lets
+ * the ratio carry it. A stop that moves nothing at all would teach the user
+ * that marking work billable is what makes the app respond, which is the UI
+ * arguing with the data.
+ */
+function Delta({ beat, currency }: { beat: Beat; currency: string }) {
+  if (!beat) return null;
+
+  const money = beat.kind === 'paid' ? -beat.amount : beat.amount;
+  const billable = Math.abs(beat.amount) > 0;
+
+  /* Reports, never praises: "invoiced" is what happened, and a stop that
+     earned nothing says the hours it did earn instead. */
+  const text = billable
+    ? `${money >= 0 ? '+' : '−'}${formatCurrency(Math.abs(money), currency)}`
+    : `+${formatCompact(beat.seconds)} unbillable`;
+
+  return (
+    <span
+      className={`type-meta tabular-nums motion-safe:animate-in motion-safe:fade-in ${
+        beat.kind === 'paid' ? 'text-success' : 'text-subtle'
+      }`}
+      data-beat={beat.kind}
+    >
+      {text}
+      {beat.kind === 'paid' ? ' invoiced' : null}
+    </span>
+  );
+}
+
+/** One key per origin — a display detail of THIS browser, never account state. */
+const SEEN_UNBILLED = 'stint.seen.unbilled';
+
+/**
+ * What changed since this browser last looked.
+ *
+ * Absent on a first load, where `delta` is null: with nothing stored there is
+ * no period to name, and "since yesterday" over the user's whole history is a
+ * sentence that is simply untrue.
+ */
+function SinceLine({
+  delta,
+  currency,
+}: {
+  delta: number | null;
+  currency: string;
+}) {
+  if (delta == null || delta === 0) return null;
+
+  return (
+    <p className="px-4 py-2 type-support text-subtle">
+      Since you last looked,{' '}
+      <span className="type-meta tabular-nums text-muted">
+        {delta > 0 ? '+' : '−'}
+        {formatCurrency(Math.abs(delta), currency)}
+      </span>{' '}
+      {delta > 0 ? 'unbilled' : 'invoiced'}
+    </p>
+  );
+}
+
+/**
  * The rule between two regions.
  *
  * Inset to the regions' own `px-4`, never a `border-b` on a header: full-bleed
@@ -73,6 +197,9 @@ function Rule() {
  */
 function Unbilled({ stats }: { stats: Stats }) {
   const { total, byClient, moreClients } = stats.unbilled;
+  const beat = useBeat(stats);
+  const arrival = useSinceLastSeen(SEEN_UNBILLED, total);
+
   if (byClient.length === 0) return null;
 
   return (
@@ -80,7 +207,14 @@ function Unbilled({ stats }: { stats: Stats }) {
       <Region
         title="Unbilled"
         icon={Wallet}
-        value={formatCurrency(total, stats.currency)}
+        value={
+          <span className="flex flex-wrap items-baseline gap-x-2">
+            <span className="tabular-nums">
+              {formatCurrency(arrival.value, stats.currency)}
+            </span>
+            <Delta beat={beat} currency={stats.currency} />
+          </span>
+        }
       >
         <ul className="flex flex-col">
           {byClient.map((c) => (
@@ -113,6 +247,8 @@ function Unbilled({ stats }: { stats: Stats }) {
             +{moreClients} more
           </p>
         ) : null}
+
+        <SinceLine delta={arrival.delta} currency={stats.currency} />
 
         {/* Never added to the total above: that is work not yet invoiced, this
             is money already asked for, and summing them double-counts. */}
@@ -362,16 +498,27 @@ function EditGoal() {
  */
 function Velocity({ stats }: { stats: Stats }) {
   const v = stats.velocity;
+  const beat = useBeat(stats);
+  /* Invoiced, not the total: a payment moves money across the split without
+     changing the gross, so the total is the one figure that does NOT move on
+     the beat this region exists to show. */
+  const invoiced = useCountUp(v.invoiced);
+
   if (v.byClient.length === 0) return null;
 
   const share = v.total > 0 ? v.invoiced / v.total : 0;
+  const paid = beat?.kind === 'paid';
 
   return (
     <>
       <Region
         title={`Gross earned · last ${v.months} months`}
         icon={TrendingUp}
-        value={formatCurrency(v.total, stats.currency)}
+        value={
+          <span className="tabular-nums">
+            {formatCurrency(v.total, stats.currency)}
+          </span>
+        }
       >
         <div className="flex flex-col gap-2 px-4 pt-1 pb-3">
           <div
@@ -386,8 +533,16 @@ function Velocity({ stats }: { stats: Stats }) {
           </div>
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 type-support text-subtle">
             <span>
-              <span className="type-meta text-muted">
-                {formatCurrency(v.invoiced, stats.currency)}
+              {/* The one outcome on this screen, and the only cyan on it:
+                  money that arrived. It rides the tween and leaves with it,
+                  so the colour marks the event, not a standing state. */}
+              <span
+                className={`type-meta tabular-nums ${
+                  paid ? 'text-success' : 'text-muted'
+                }`}
+                data-beat={paid ? 'paid' : undefined}
+              >
+                {formatCurrency(invoiced.value, stats.currency)}
               </span>{' '}
               invoiced
             </span>
