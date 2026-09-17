@@ -87,6 +87,16 @@ describe('Inbox', () => {
     expect(screen.getByText(/nothing needs you/i)).toBeInTheDocument();
   });
 
+  /**
+   * The count slot and the sentence below it stated the same fact a few pixels
+   * apart. "clear" also reads as a verb before it resolves to an adjective.
+   */
+  it('leaves the count empty rather than saying "clear" beside "Nothing needs you"', () => {
+    render(<Inbox stats={stats()} />, { wrapper });
+
+    expect(screen.queryByText(/^clear$/i)).not.toBeInTheDocument();
+  });
+
   it('says how many things want a decision', () => {
     render(
       <Inbox

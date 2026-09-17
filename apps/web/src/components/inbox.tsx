@@ -139,8 +139,10 @@ export function Inbox({ stats }: { stats: Stats }) {
           />
           <h2 className="type-label truncate text-subtle">Inbox</h2>
         </div>
-        {/* The count is the whole status — no badge colour. */}
-        <span className="type-meta text-subtle">{count || 'clear'}</span>
+        {/* The count is the whole status — no badge colour. At zero the slot
+            is empty: "Nothing needs you" below already says it, and the count
+            is a count. */}
+        <span className="type-meta text-subtle">{count || null}</span>
       </header>
 
       {count === 0 ? (

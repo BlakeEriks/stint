@@ -101,10 +101,13 @@ April 1st is ordinary — booking it into April reports when paperwork happened.
 **No editing a finished entry from the menu bar panel.** It needs a date and
 two times the panel has no room for; resuming starts new work instead.
 
-**The dock holds the inbox and nothing else**, and the inbox is never also
-copied onto Home at narrow widths. Pace is a monthly reading and thirty bars
-in a 280px column is a ~4px bar; the inbox has one home and changes axis, not
-identity, across the breakpoint.
+**The dock holds what you act on: the inbox, then Today beneath it.** A chart
+is not among them — Pace is a monthly reading and thirty bars in a 280px
+column is a ~4px bar. Rows survive the width because they are short and can
+wrap; a figure per pixel-column cannot.
+
+**The inbox is never also copied onto Home at narrow widths.** It has one home
+and changes axis, not identity, across the breakpoint.
 
 **Awaiting-payment stays one line on Unbilled, never a row per invoice.** Rows
 would put ordinary invoices back on Home and undo the overdue grace period;

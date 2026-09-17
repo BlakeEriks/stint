@@ -41,6 +41,18 @@ const renderList = (todaySeconds = 3600) =>
     wrapper,
   });
 
+/**
+ * The start–end span. Matched by its en dash rather than by the clock, which
+ * is formatted in whoever's zone is running the test.
+ */
+const timeRange = () =>
+  screen.getByText(
+    (_, el) =>
+      el?.tagName === 'SPAN' &&
+      el.children.length === 0 &&
+      el.textContent?.includes(' – ') === true,
+  );
+
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(new Date('2026-09-11T12:00:00.000Z'));
@@ -123,5 +135,59 @@ describe('EntryList', () => {
     expect(
       await screen.findByText(/Nothing logged yet today/),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * The list renders in a 372px dock, where a `sm:` VIEWPORT breakpoint is
+   * true on a 1440px window and lays the row out as though there were room.
+   *
+   * Asserting the fields are present would pass against the viewport code
+   * too — jsdom builds `hidden sm:flex` into the DOM either way, and applies
+   * no media queries. So this reads the mechanism: the row must OPT IN to
+   * container queries, and neither field may carry `hidden` or a `sm:` class.
+   */
+  it('sizes the row by its container, never the viewport', async () => {
+    serve([entry({ projectId: 'p1' })]);
+    renderList();
+
+    const row = await screen.findByRole('button', { name: /Edit Writing/ });
+    expect(row.className).toContain('@container');
+
+    const project = screen.getByText('Acme Redesign');
+    const range = timeRange();
+
+    for (const field of [project, range]) {
+      expect(field.className).not.toMatch(/(^|\s)hidden(\s|$)/);
+      expect(field.className).not.toMatch(/(^|\s)sm:/);
+      expect(field.className).toMatch(/@md:/);
+    }
+  });
+
+  /**
+   * Hiding a billing-relevant field is worse than wrapping it. The second
+   * line is what `order` buys, and `flex-wrap` is what lets it exist.
+   */
+  it('wraps the project and the time range rather than hiding them', async () => {
+    serve([entry({ projectId: 'p1' })]);
+    renderList();
+
+    const row = await screen.findByRole('button', { name: /Edit Writing/ });
+    expect(row.className).toContain('flex-wrap');
+
+    expect(screen.getByText('Acme Redesign').className).toMatch(/order-\d/);
+    expect(timeRange().className).toMatch(/order-\d/);
+  });
+
+  /**
+   * The dock carries no surface, and Today is subordinate to the inbox above
+   * it: a hairline, and no panel of its own.
+   */
+  it('renders without a panel of its own', async () => {
+    serve([entry()]);
+    const { container } = renderList();
+
+    await screen.findByText('Writing');
+    expect(container.querySelector('.bg-surface-elevated')).toBeNull();
+    expect(container.querySelector('.shadow-card')).toBeNull();
   });
 });

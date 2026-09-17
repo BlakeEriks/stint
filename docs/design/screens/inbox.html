@@ -479,6 +479,33 @@
       predicate. Every row is shown — the grace periods keep the list short
       enough that the count is the summary.
     </p>
+    <p>
+      At zero the count slot is <strong>empty</strong> and
+      &ldquo;Nothing needs you.&rdquo; carries the state alone. The count is a
+      count.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── today ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Today, beneath it</span></div>
+
+    <p>
+      The dock holds the inbox, then today&rsquo;s entries under a hairline.
+      Today is <strong>subordinate</strong>: a <code>type-label</code> heading,
+      no surface, and no row fills. An inbox row is there to be acted on, and a
+      passive list drawing the same attention is how the inbox stops being
+      read.
+    </p>
+    <p>
+      The rows size by <strong>container</strong>, never viewport. The dock is
+      372px wide because the inbox&rsquo;s labelled actions need 263px of row,
+      so a <code>sm:</code> breakpoint is true here at 1440px and would lay a
+      row out as though there were room. The project tag and the time range
+      <strong>wrap to a second line</strong> rather than hide — both are
+      billing-relevant, and in a one-day list density is not the constraint. At
+      <code>@md</code> they rejoin the first line.
+    </p>
   </section>
 
   <!-- ───────────────────────── never ───────────────────────── -->
@@ -500,8 +527,9 @@
       <li><strong>Nothing here is green</strong>, including the runaway row,
         whose subject <em>is</em> the running timer.
         <code>test/ui/inbox.test.tsx</code> asserts it.</li>
-      <li><strong>No card on the dock.</strong> An elevated row competes with
-        the real cards in the column beside it.</li>
+      <li><strong>No card on the dock.</strong> The dock is painted on the
+        ground and carries no surface; only inbox rows have a fill, because a
+        row you act on is an object and the column holding them is not.</li>
     </ul>
   </section>
 
