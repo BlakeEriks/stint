@@ -89,6 +89,27 @@ Then **verify the rendering, not the markup**:
 
 A mockup whose stylesheet did not load looks like a broken page, not an error.
 
+**Then read the numbers out of it into a table**, because the spec is what
+crosses into phase 5 and the mockup does not. One row per measurement a
+builder would otherwise invent: every pane width, every gap, the grid's
+columns and which regions pair in them, the type role of each figure, the
+padding of anything with a header.
+
+    | What | Value | Where |
+    | --- | --- | --- |
+    | Dock | 286px | the column at `xl` |
+    | Rail | 190px → `w-48` | nearest on-scale value |
+    | Panel grid | `1.15fr 1fr`, 26px gap | Unbilled+ByClient, Month+Velocity |
+
+Name the Tailwind utility where the mockup's raw value is off-scale, and say
+which one wins. A spec that says `190px` gets `w-[190px]`; a spec that says
+`190px → w-48` gets the scale.
+
+**This table is the deliverable of phase 3.** A mockup that renders perfectly
+and is never transcribed is a mockup that gets ignored: the spec was written
+from `tasks.md`, said "region order, top to bottom", and the two-column
+pairing was simply never built — three of six corrections from one omission.
+
 ## 4. Write the spec, then wait
 
 Write to `docs/tasks.md`'s sibling scratch — `.claude/scratch/<feature>.md`.
@@ -136,6 +157,26 @@ block and targets whatever already serves `localhost:3100`, so a suite run
 from anywhere else silently passes against the code in this directory rather
 than the code under test. **Look at the running app between phases** — the
 defects that survive a green suite are the ones only a browser shows.
+
+**After the phase that builds a surface, diff it against the mockup — by
+measurement, never by eye.** Serve the mockup, open both, and read the same
+box off each:
+
+    // in each page, then compare the two objects
+    const R = (sel) => {
+      const e = document.querySelector(sel);
+      const r = e.getBoundingClientRect();
+      return { w: Math.round(r.width), x: Math.round(r.x) };
+    };
+
+Walk the phase-3 table row by row. Report every row as **matches** or
+**mockup N / built M**, and treat each mismatch as a defect with a cause,
+not a preference to be settled later.
+
+"Looks about right" is how a 372px dock, a 208px rail and a 20px gap where
+the mockup had 8 all survived being looked at repeatedly. Two screenshots at
+different zooms cannot be compared by eye at all — the figure that looked too
+small was already correct, and two that looked identical were 86px apart.
 
 Then one agent per phase, in dependency order, each with fresh context:
 schema and migrations → shared packages → API → web client data layer → web
@@ -227,8 +268,15 @@ Run `pnpm verify:static` and `pnpm verify:db` green before reporting, plus
 the scratch spec in the final commit — git holds the history, and the mockup
 stays as the screen doc.
 
-Report: the verification table, behaviour a user would notice, what was left
-undone and why. A phase skipped is the user's call, not yours to bury.
+**A surface does not land until its phase-3 table is reconciled**, row by
+row, against the built screen. Report it as a table of three columns — what,
+mockup, built — with every row either matching or carrying a one-line reason
+it deliberately differs. An unexplained mismatch is unfinished work, and a
+row quietly dropped is the mockup being ignored a second time.
+
+Report: the verification table, the reconciliation table, behaviour a user
+would notice, what was left undone and why. A phase skipped is the user's
+call, not yours to bury.
 
 **Leave the branch checked out.** It is where the work is, and the next thing
 anyone does with it — run it, review it, push it — happens here.
