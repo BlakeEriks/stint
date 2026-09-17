@@ -1,5 +1,5 @@
 ---
-description: Interview, spec and mock a feature, then build it in a worktree with fresh-context agents
+description: Interview, spec and mock a feature, then build it on a branch with fresh-context agents
 ---
 
 Build `$ARGUMENTS` — a line from `docs/tasks.md`, or a description. If none
@@ -116,19 +116,26 @@ Then present **decisions with consequences** separately from work you will
 just do. A decision earns that list when it changes what a user sees, alters
 the schema, costs money, or removes a capability. Recommend one option each.
 
-Wait for sign-off. Nothing is built, and no worktree exists, before it.
+Wait for sign-off. Nothing is built, and no branch exists, before it.
 
-## 5. Build in a worktree, fresh context per phase
+## 5. Build on a branch, fresh context per phase
 
-Hand the worktree to the first agent, with the branch point named: **branch
-from local `HEAD`, not from `origin`.** The default is `origin/<default-branch>`,
-which would strand uncommitted work and any local commit not yet pushed — the
-mockup from phase 3 among them.
+Work in the repository you are already in, on a branch off local `HEAD` —
+not off `origin`, which would strand uncommitted work and any local commit
+not yet pushed, the mockup from phase 3 among them.
 
-    git worktree add .claude/worktrees/<feature> -b <feature> HEAD
+    git checkout -b <feature> HEAD
 
 Commit the spec and the mockup as the first commit. A spec only in a working
 tree is one checkout from gone.
+
+**The working directory is the one that can run the app**, and that is the
+whole reason to stay in it. `.env` files are gitignored, so a fresh checkout
+elsewhere cannot reach Supabase; `playwright.config.ts` has no `webServer`
+block and targets whatever already serves `localhost:3100`, so a suite run
+from anywhere else silently passes against the code in this directory rather
+than the code under test. **Look at the running app between phases** — the
+defects that survive a green suite are the ones only a browser shows.
 
 Then one agent per phase, in dependency order, each with fresh context:
 schema and migrations → shared packages → API → web client data layer → web
@@ -201,7 +208,7 @@ over many iterations, not as a cleanup pass on code written an hour ago.
 **Run them one after the other, never in parallel.** Each proves a finding by
 breaking the rule and watching a test go red, which is what separates a review
 worth reading from a list of suspicions — and two agents doing that to one
-worktree at once read each other's half-applied edits as the code under
+checkout at once read each other's half-applied edits as the code under
 review. That reported two billing bugs which did not exist, against a tree
 that was clean by the time anyone looked.
 
@@ -223,8 +230,5 @@ stays as the screen doc.
 Report: the verification table, behaviour a user would notice, what was left
 undone and why. A phase skipped is the user's call, not yours to bury.
 
-**Then remove the worktree** — `git worktree remove` once the branch is
-pushed, which keeps the branch and frees it to be checked out normally. Git
-binds a branch to one directory, so leaving the worktree in place makes
-`git checkout <branch>` fail in the main tree; and the worktree cannot run the
-app anyway, since `.env` files are gitignored and never came along.
+**Leave the branch checked out.** It is where the work is, and the next thing
+anyone does with it — run it, review it, push it — happens here.
