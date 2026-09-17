@@ -796,7 +796,7 @@
           <tr><td><code>POST /timer/stop</code></td><td></td></tr>
           <tr><td><code>GET /summary</code></td><td>Today's total, <code>exceedsThreshold</code>, <code>serverTime</code></td></tr>
           <tr><td><code>GET /stats?tz=…</code></td><td>The unbilled total</td></tr>
-          <tr><td><code>GET /entries?from=…</code></td><td>Today's rows</td></tr>
+          <tr><td><code>GET /entries?from=&amp;to=&amp;limit=</code></td><td>Recent rows &mdash; a two-week window, deduped by task name client-side and capped at five</td></tr>
           <tr><td><code>PATCH /entries/:id</code></td><td>Rename</td></tr>
           <tr><td><code>GET /projects</code>, <code>GET /clients</code></td><td>The picker and client colours</td></tr>
         </tbody>
