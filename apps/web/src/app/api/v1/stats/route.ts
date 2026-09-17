@@ -12,13 +12,17 @@ import {
   buildStrangeDurations,
   buildUnbilled,
   buildUnprojected,
+  buildVelocity,
+  buildHoursByDay,
   clientNamesFrom,
+  type DayRow,
   type DurationRow,
   type InvoiceRow,
   type MonthRow,
   localDateKey,
   OVERDUE_GRACE_DAYS,
   projectNamesFrom,
+  revenueByDay,
   scalar,
   STALE_DRAFT_DAYS,
   startOfLocalDayOffset,
@@ -26,6 +30,8 @@ import {
   startOfNextLocalMonth,
   type UnbilledRow,
   type UnprojectedRow,
+  type VelocityRow,
+  VELOCITY_MONTHS,
 } from '@stint/core';
 import { StatsQuery } from '@stint/schema';
 
@@ -47,9 +53,26 @@ export const GET = handle(async (req: Request) => {
   const monthStart = startOfLocalMonth(now, tz);
   const monthEnd = startOfNextLocalMonth(now, tz);
 
+  /* Walked back a month at a time from this month's start rather than by a
+     fixed number of days: months are 28-31 days long, so subtracting 90 would
+     land mid-month and the window would stop being a period with a name.
+
+     Each step lands well inside the previous month rather than one second
+     before the boundary, so a DST shift cannot put it back on the 1st and
+     stall the walk. */
+  let velocityStart = monthStart;
+  for (let i = 1; i < VELOCITY_MONTHS; i += 1) {
+    velocityStart = startOfLocalMonth(
+      new Date(velocityStart.getTime() - 12 * 3_600_000),
+      tz,
+    );
+  }
+
   const [
     unbilled,
     monthRevenue,
+    velocity,
+    revenueDays,
     settings,
     month,
     invoices,
@@ -65,6 +88,21 @@ export const GET = handle(async (req: Request) => {
       p_to: monthEnd.toISOString(),
     }),
 
+    db.rpc('revenue_by_client', {
+      p_user_id: userId,
+      p_from: velocityStart.toISOString(),
+      p_to: monthEnd.toISOString(),
+    }),
+
+    /* The month's money one day at a time. `month_revenue` answers the month
+       as a single number, which cannot be summed into a cumulative line. */
+    db.rpc('revenue_by_day', {
+      p_user_id: userId,
+      p_from: monthStart.toISOString(),
+      p_to: monthEnd.toISOString(),
+      p_tz: tz,
+    }),
+
     db
       .from('user_settings')
       .select(
@@ -72,10 +110,11 @@ export const GET = handle(async (req: Request) => {
       )
       .maybeSingle(),
 
-    // Month-to-date, for Pace and the billable ratio.
+    // Month-to-date, for Pace and the billable ratio. `started_at` buckets an
+    // hours target's cumulative line by local day.
     db
       .from('time_entries')
-      .select('duration_seconds, is_billable')
+      .select('duration_seconds, is_billable, started_at')
       .gte('started_at', monthStart.toISOString())
       .lt('started_at', monthEnd.toISOString())
       .not('ended_at', 'is', null),
@@ -124,6 +163,8 @@ export const GET = handle(async (req: Request) => {
   for (const r of [
     unbilled,
     monthRevenue,
+    velocity,
+    revenueDays,
     settings,
     month,
     invoices,
@@ -141,19 +182,31 @@ export const GET = handle(async (req: Request) => {
   const clientNames = clientNamesFrom(unbilledRows);
 
   const todayKey = localDateKey(now, tz);
-  const { monthSeconds, billableSeconds } = buildMonthTotals(
-    (month.data ?? []) as MonthRow[],
-  );
+  const monthRows = (month.data ?? []) as MonthRow[];
+  const { monthSeconds, billableSeconds } = buildMonthTotals(monthRows);
+
+  const unit = settings.data?.monthly_target_unit;
 
   return NextResponse.json({
     currency,
     unbilled: buildUnbilled(unbilledRows, currency, now),
+    velocity: buildVelocity(
+      (velocity.data ?? []) as VelocityRow[],
+      currency,
+      VELOCITY_MONTHS,
+    ),
     awaitingPayment: buildAwaitingPayment(invoiceRows),
     pace: buildPace({
       target: settings.data?.monthly_target,
-      unit: settings.data?.monthly_target_unit,
+      unit,
       monthSeconds,
       monthRevenue: scalar(monthRevenue.data),
+      // The cumulative line is in the target's own unit, so only that unit's
+      // series is built — the other would be a second shape nothing reads.
+      byDay:
+        unit === 'revenue'
+          ? revenueByDay((revenueDays.data ?? []) as DayRow[])
+          : buildHoursByDay(monthRows, tz),
       now,
       tz,
     }),

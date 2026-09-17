@@ -6,7 +6,7 @@
  * and reports hours alone.
  */
 
-import { businessDaysInLocalMonth } from './calendar.ts';
+import { businessDaysInLocalMonth, localDateKey } from './calendar.ts';
 
 /** A draft left this long is usually forgotten, not deliberate. */
 export const STALE_DRAFT_DAYS = 7;
@@ -23,6 +23,15 @@ export const OVERDUE_GRACE_DAYS = 7;
 
 /** Beyond this the card stops being a prompt and becomes a list. */
 export const MAX_UNBILLED_ROWS = 5;
+
+/**
+ * Months of trailing work the Velocity figure covers.
+ *
+ * Whole months including the current one, so the window is a period the user
+ * can name. A trailing 90 days would cut a month in half and make the figure
+ * disagree with anything they compare it against.
+ */
+export const VELOCITY_MONTHS = 3;
 
 export interface UnprojectedRow {
   id: string;
@@ -45,6 +54,23 @@ export interface UnbilledRow {
   oldest_at: string;
 }
 
+/** A `revenue_by_client` row. Numerics arrive from PostgREST as strings. */
+export interface VelocityRow {
+  client_id: string | null;
+  client_name: string | null;
+  currency: string | null;
+  seconds: string | number;
+  invoiced: string | number;
+  unbilled: string | number;
+  unrated_count: string | number;
+}
+
+/** A `revenue_by_day` row, keyed by local date. */
+export interface DayRow {
+  day: string;
+  amount: string | number;
+}
+
 export interface InvoiceRow {
   id: string;
   invoice_number: string;
@@ -59,6 +85,7 @@ export interface InvoiceRow {
 export interface MonthRow {
   duration_seconds: number | null;
   is_billable: boolean;
+  started_at: string;
 }
 
 /** Project id -> its name and its client's, for the qualifier line. */
@@ -135,6 +162,48 @@ export function buildUnbilled(
       // The aging figure is the insight: a total is a fact, a total with
       // "oldest 22 days" is a prompt.
       oldestDays: daysSince(r.oldest_at, now),
+    })),
+    moreClients: Math.max(0, rows.length - MAX_UNBILLED_ROWS),
+  };
+}
+
+/**
+ * Trailing-window gross, split invoiced vs not yet invoiced, per client.
+ *
+ * Gross work DONE over the window, on the same terms as `month_revenue`: a
+ * client paying late says nothing about the quarter you worked. The split is
+ * where the work stands now, so it moves as invoices are raised while the
+ * total does not.
+ *
+ * DELIBERATELY not comparable with `awaitingPayment`, which is money already
+ * asked for across every period, not this window's.
+ *
+ * Each row is already rounded once per (client, rate, invoiced) bucket in SQL,
+ * so the totals round once more — adding rounded lines lands fractions of a
+ * cent below the last place and the response would not be `money`.
+ */
+export function buildVelocity(
+  rows: VelocityRow[],
+  fallbackCurrency: string,
+  months: number,
+) {
+  const invoiced = roundMoney(rows.reduce((a, r) => a + Number(r.invoiced), 0));
+  const unbilled = roundMoney(rows.reduce((a, r) => a + Number(r.unbilled), 0));
+  return {
+    months,
+    total: roundMoney(invoiced + unbilled),
+    invoiced,
+    unbilled,
+    seconds: rows.reduce((a, r) => a + Number(r.seconds), 0),
+    byClient: rows.slice(0, MAX_UNBILLED_ROWS).map((r) => ({
+      clientId: r.client_id,
+      // Work with no client is internal; the UI must not render a blank name.
+      clientName: r.client_name ?? 'No client',
+      currency: r.currency ?? fallbackCurrency,
+      seconds: Number(r.seconds),
+      invoiced: Number(r.invoiced),
+      unbilled: Number(r.unbilled),
+      unratedCount: Number(r.unrated_count),
     })),
     moreClients: Math.max(0, rows.length - MAX_UNBILLED_ROWS),
   };
@@ -285,6 +354,47 @@ export function buildMonthTotals(rows: MonthRow[]) {
   };
 }
 
+/**
+ * Month-to-date hours per local calendar day, for the cumulative line.
+ *
+ * Bucketed by the entry's own `started_at` in the user's zone, matching how
+ * `revenue_by_day` keys the money — the two series have to agree on where a
+ * day begins or the hours and revenue months would disagree about the same
+ * evening's work.
+ */
+export function buildHoursByDay(
+  rows: MonthRow[],
+  tz: string,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of rows) {
+    const key = localDateKey(new Date(r.started_at), tz);
+    out.set(key, (out.get(key) ?? 0) + (r.duration_seconds ?? 0) / 3600);
+  }
+  return out;
+}
+
+/**
+ * `revenue_by_day` rows as the map `buildPace` walks.
+ *
+ * A `date` column reaches PostgREST as `YYYY-MM-DD` but the `pg` driver the
+ * route tests run through parses it into a local `Date`, whose ISO form is the
+ * previous day west of Greenwich. Taking the date parts off the local value
+ * keeps both paths on the key SQL actually grouped by.
+ */
+export function revenueByDay(rows: DayRow[]): Map<string, number> {
+  return new Map(
+    rows.map((r) => {
+      const d = r.day as unknown;
+      const key =
+        d instanceof Date
+          ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+          : String(d);
+      return [key, Number(r.amount)];
+    }),
+  );
+}
+
 /** Null when nothing was tracked this month — 0/0 is not 0%. */
 export function buildBillableRatio(
   monthSeconds: number,
@@ -294,14 +404,56 @@ export function buildBillableRatio(
 }
 
 /**
+ * The local month's business days, in order, as `YYYY-MM-DD` keys.
+ *
+ * The ray steps on these and no others. A ray that advanced on calendar days
+ * would slope through the weekend, showing the user falling behind every
+ * Saturday and recovering every Monday — exactly the noise the business-day
+ * rule exists to kill.
+ *
+ * Must select the same days as `businessDaysInLocalMonth`'s `total`, which
+ * counts what this lists: the card reads `series.length` against that figure,
+ * so the two loops diverging would misreport the month's length.
+ */
+export function businessDayKeysInLocalMonth(now: Date, tz: string): string[] {
+  const [y, m] = localDateKey(now, tz).split('-').map(Number) as [
+    number,
+    number,
+  ];
+  // Day 0 of the next month is the last day of this one.
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+
+  const keys: string[] = [];
+  for (let d = 1; d <= daysInMonth; d += 1) {
+    // getUTCDay on a UTC-midnight date gives that calendar date's weekday.
+    const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+    if (dow === 0 || dow === 6) continue;
+    keys.push(
+      `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+    );
+  }
+  return keys;
+}
+
+/**
  * Pace against the monthly target, or null when none is set — the card hides
  * entirely rather than rendering an empty bar that asks to be configured.
+ *
+ * `byDay` is that unit's own per-day figure — hours for an hours target, money
+ * for a revenue one — keyed by local date. Days absent from it contributed
+ * nothing, which is not the same as a gap: the cumulative line holds flat.
+ *
+ * A revenue target reports `expected` and `delta` on the same terms as an
+ * hours one. A bare "behind by $2,400" on the 3rd is arithmetic rather than a
+ * finding; read against the cumulative line, the same projection is a shape,
+ * which is what makes it worth stating.
  */
 export function buildPace({
   target,
   unit,
   monthSeconds,
   monthRevenue,
+  byDay,
   now,
   tz,
 }: {
@@ -309,6 +461,7 @@ export function buildPace({
   unit: string | null | undefined;
   monthSeconds: number;
   monthRevenue: number;
+  byDay?: ReadonlyMap<string, number>;
   now: Date;
   tz: string;
 }) {
@@ -323,25 +476,6 @@ export function buildPace({
 
   const actual = unit === 'revenue' ? monthRevenue : monthSeconds / 3600;
 
-  /* Revenue reports a figure but NOT a pace.
-
-     Hours accrue evenly enough that business days elapsed predicts them.
-     Revenue does not: it lands in steps as work is done at different rates,
-     so "behind by $2,400" on the 3rd is arithmetic rather than a finding. The
-     card shows the money against the target and withholds the delta, which is
-     the honest half of the same figure. */
-  if (unit === 'revenue') {
-    return {
-      unit,
-      target: goal,
-      actual,
-      expected: null,
-      delta: null,
-      businessDaysElapsed: elapsed,
-      businessDaysTotal: total,
-    };
-  }
-
   return {
     unit,
     target: goal,
@@ -351,7 +485,64 @@ export function buildPace({
     delta: actual - expected,
     businessDaysElapsed: elapsed,
     businessDaysTotal: total,
+    series: buildPaceSeries({ goal, byDay, total, now, tz }),
   };
+}
+
+/**
+ * The month's cumulative line against its goal ray, one point per business day.
+ *
+ * `actual` stops at today and is null beyond it: a line drawn flat to the 31st
+ * would read as a month that stopped working, not a month still in progress.
+ * The ray runs the full month, because where the target lands is the point of
+ * drawing it.
+ *
+ * Weekend work is not discarded — it is carried onto the next business day's
+ * point, so the cumulative total always equals the month's actual.
+ */
+function buildPaceSeries({
+  goal,
+  byDay,
+  total,
+  now,
+  tz,
+}: {
+  goal: number;
+  byDay: ReadonlyMap<string, number> | undefined;
+  total: number;
+  now: Date;
+  tz: string;
+}) {
+  const keys = businessDayKeysInLocalMonth(now, tz);
+  const todayKey = localDateKey(now, tz);
+  const step = total === 0 ? 0 : goal / total;
+
+  // Sorted once, then walked in step with the business days, so a weekend's
+  // work lands on the next business day's point rather than vanishing.
+  const days = byDay
+    ? [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b))
+    : [];
+
+  let cursor = 0;
+  let running = 0;
+
+  return keys.map((key, i) => {
+    while (
+      cursor < days.length &&
+      (days[cursor] as [string, number])[0] <= key
+    ) {
+      running += (days[cursor] as [string, number])[1];
+      cursor += 1;
+    }
+    return {
+      date: key,
+      /** Null beyond today — the month has not happened yet, and a line drawn
+       *  flat to the 31st would read as a month that stopped working. */
+      actual: key <= todayKey ? running : null,
+      /** The ray steps once per business day, never through the weekend. */
+      expected: step * (i + 1),
+    };
+  });
 }
 
 /**

@@ -466,6 +466,17 @@ export const UnbilledClient = z.object({
   oldestDays: z.number().int().nonnegative(),
 });
 
+export const PacePoint = z.object({
+  /** A business day, `YYYY-MM-DD` in the caller's zone. */
+  date: z.string(),
+  /** Cumulative to this day, in the target's unit. Null beyond today. */
+  actual: z.number().nullable(),
+  /** The goal ray. It steps on business days ONLY — a ray sloping through
+   *  the weekend shows the user behind every Saturday and recovered every
+   *  Monday, which is the noise the business-day rule exists to kill. */
+  expected: z.number(),
+});
+
 export const Pace = z.object({
   unit: z.enum(['hours', 'revenue']),
   target: money,
@@ -476,6 +487,20 @@ export const Pace = z.object({
   delta: z.number().nullable(),
   businessDaysElapsed: z.number().int().nonnegative(),
   businessDaysTotal: z.number().int().nonnegative(),
+  /** One point per business day of the month, for the cumulative line. */
+  series: z.array(PacePoint),
+});
+
+export const VelocityClient = z.object({
+  /** Null for internal work — a project with no client. */
+  clientId: uuid.nullable(),
+  clientName: z.string(),
+  currency,
+  seconds: z.number().int().nonnegative(),
+  invoiced: money,
+  unbilled: money,
+  /** Entries with no resolvable rate: the total is incomplete, not low. */
+  unratedCount: z.number().int().nonnegative(),
 });
 
 export const Stats = z.object({
@@ -485,6 +510,22 @@ export const Stats = z.object({
     total: money,
     seconds: z.number().int().nonnegative(),
     byClient: z.array(UnbilledClient),
+    moreClients: z.number().int().nonnegative(),
+  }),
+  /**
+   * Trailing-window gross, split by where the work stands now.
+   *
+   * Work DONE over the window, not money collected. `invoiced + unbilled`
+   * is `total`; the split moves as invoices are raised while the total does
+   * not. NOT comparable with `awaitingPayment`, which spans every period.
+   */
+  velocity: z.object({
+    months: z.number().int().positive(),
+    total: money,
+    invoiced: money,
+    unbilled: money,
+    seconds: z.number().int().nonnegative(),
+    byClient: z.array(VelocityClient),
     moreClients: z.number().int().nonnegative(),
   }),
   /** Invoiced and not yet collected. Never summed with `unbilled` — that

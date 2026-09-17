@@ -11,6 +11,15 @@ function stats(over: Partial<Stats> = {}): Stats {
   return {
     currency: 'USD',
     unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
+    velocity: {
+      months: 3,
+      total: 0,
+      invoiced: 0,
+      unbilled: 0,
+      seconds: 0,
+      byClient: [],
+      moreClients: 0,
+    },
     pace: null,
     billableRatio: null,
     awaitingPayment: 0,
@@ -150,6 +159,7 @@ describe('HomeCards', () => {
           delta: 10,
           businessDaysElapsed: 10,
           businessDaysTotal: 22,
+          series: [],
         },
       }),
     );
@@ -180,6 +190,7 @@ describe('HomeCards', () => {
           delta: -29,
           businessDaysElapsed: 9,
           businessDaysTotal: 22,
+          series: [],
         },
       }),
     );
@@ -252,6 +263,7 @@ describe('card header icons', () => {
           delta: 10,
           businessDaysElapsed: 10,
           businessDaysTotal: 22,
+          series: [],
         },
       }),
     );
@@ -314,6 +326,7 @@ describe('the wide layout survives its own empty states', () => {
     delta: -27.7,
     businessDaysElapsed: 9,
     businessDaysTotal: 22,
+    series: [],
   };
 
   /** The grid element the split produces, if it produced one. */

@@ -12,6 +12,15 @@ function stats(attention: Partial<Stats['attention']> = {}): Stats {
   return {
     currency: 'USD',
     unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
+    velocity: {
+      months: 3,
+      total: 0,
+      invoiced: 0,
+      unbilled: 0,
+      seconds: 0,
+      byClient: [],
+      moreClients: 0,
+    },
     pace: null,
     billableRatio: null,
     awaitingPayment: 0,

@@ -967,6 +967,7 @@ const S = (n: number) =>
 async function entryThisMonth(opts: {
   id: string;
   hours: number;
+  projectId?: string | null;
   rateOverride?: number | null;
 }) {
   const now = new Date();
@@ -976,9 +977,16 @@ async function entryThisMonth(opts: {
   const end = new Date(start.getTime() + opts.hours * 3_600_000);
   await pool.query(
     `insert into time_entries
-       (id,user_id,task_name,started_at,ended_at,is_billable,rate_override)
-     values ($1,$2,'work',$3,$4,true,$5)`,
-    [opts.id, USER, start.toISOString(), end.toISOString(), opts.rateOverride],
+       (id,user_id,project_id,task_name,started_at,ended_at,is_billable,rate_override)
+     values ($1,$2,$3,'work',$4,$5,true,$6)`,
+    [
+      opts.id,
+      USER,
+      opts.projectId ?? null,
+      start.toISOString(),
+      end.toISOString(),
+      opts.rateOverride ?? null,
+    ],
   );
 }
 
@@ -1206,10 +1214,10 @@ test('a revenue target reports money, and never hours in dollars', async () => {
   assert.equal(pace.target, 10000);
   // The figure is MONEY at the resolved rate, not the 4 hours behind it.
   assert.equal(pace.actual, 600);
+  assert.notEqual(pace.actual, 4, 'nor the hours themselves');
 
-  assert.equal(pace.expected, null);
-  assert.equal(pace.delta, null);
-  // The denominators still come back, so the card can still say where it is.
+  // The ray is drawn against the money, so the projection is in dollars too.
+  assert.equal(pace.delta, pace.actual - pace.expected);
   assert.ok(pace.businessDaysTotal > 0);
 });
 
@@ -1357,6 +1365,210 @@ test('stats sees only its own user’s work', async () => {
   const res = await json(await stats(req('/stats?tz=UTC')));
   assert.equal(res.body.unbilled.total, 200, 'eight of their hours are absent');
   assert.equal(res.body.unbilled.byClient.length, 1);
+});
+
+// ── velocity ───────────────────────────────────────────────────────
+//
+// A FOURTH rollup over the same rate chain. Its whole job is to agree with
+// Unbilled, which sits directly above it on the same screen, so these check
+// the agreement rather than the arithmetic in isolation.
+
+test('velocity splits invoiced from unbilled without double-counting', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '44444444-0000-4000-8000-000000000001';
+  const p = '44444444-0000-4000-8000-0000000000a1';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Velo',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+
+  await entryThisMonth({ id: S(40), hours: 3, projectId: p }); // 300 unbilled
+  await entryThisMonth({ id: S(41), hours: 2, projectId: p }); // 200, invoiced
+
+  const inv = '44444444-0000-4000-8000-0000000000b1';
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,status,invoice_number,sequence_no)
+     values ($1,$2,$3,'sent','INV-V1',9001)`,
+    [inv, USER, c],
+  );
+  await pool.query(`update time_entries set invoice_id = $1 where id = $2`, [
+    inv,
+    S(41),
+  ]);
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.velocity.invoiced, 200);
+  assert.equal(res.body.velocity.unbilled, 300);
+  assert.equal(res.body.velocity.total, 500, 'the split IS the total');
+  assert.equal(res.body.velocity.seconds, 5 * 3600);
+
+  // Unbilled is the same work by the same chain; a divergence here is two
+  // figures disagreeing on one screen.
+  assert.equal(res.body.unbilled.total, res.body.velocity.unbilled);
+});
+
+test('velocity groups by (client, RATE), like every other rollup', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '44444444-0000-4000-8000-000000000002';
+  const pBase = '44444444-0000-4000-8000-0000000000a2';
+  const pRush = '44444444-0000-4000-8000-0000000000a3';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'TwoRates',150)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Base')`,
+    [pBase, USER, c],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name,hourly_rate)
+     values ($1,$2,$3,'Rush',195)`,
+    [pRush, USER, c],
+  );
+
+  await entryThisMonth({ id: S(42), hours: 6, projectId: pBase }); // 900
+  await entryThisMonth({ id: S(43), hours: 3, projectId: pRush }); // 585
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.velocity.total, 1485);
+  assert.notEqual(res.body.velocity.total, 1755, 'must not take the top rate');
+  assert.notEqual(res.body.velocity.total, 1350, 'nor the bottom one');
+  assert.equal(res.body.velocity.byClient.length, 1, 'one ROW per client');
+});
+
+test('a rate of exactly 0 is a rate, and never counted as unrated', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '44444444-0000-4000-8000-000000000003';
+  const p = '44444444-0000-4000-8000-0000000000a4';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Pro Bono',0)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await entryThisMonth({ id: S(44), hours: 5, projectId: p });
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const row = res.body.velocity.byClient.find(
+    (r: { clientName: string }) => r.clientName === 'Pro Bono',
+  );
+  assert.ok(row, 'a zero-rate client is still a row, not a dropped one');
+  assert.equal(row.seconds, 5 * 3600);
+  assert.equal(row.unbilled, 0);
+  assert.equal(row.unratedCount, 0, '0 is a rate; only NULL is unrated');
+});
+
+test('velocity sees only its own user’s work', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const theirs = '44444444-0000-4000-8000-000000000004';
+  const pt = '44444444-0000-4000-8000-0000000000a5';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Theirs',900)`,
+    [theirs, OTHER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [pt, OTHER, theirs],
+  );
+  const now = new Date();
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 2, 12, 0, 0),
+  );
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+     values ($1,$2,$3,'theirs',$4,$5,true)`,
+    [
+      S(45),
+      OTHER,
+      pt,
+      start.toISOString(),
+      new Date(start.getTime() + 10 * 3_600_000).toISOString(),
+    ],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.velocity.total, 0, 'nine thousand of theirs is absent');
+  assert.deepEqual(res.body.velocity.byClient, []);
+});
+
+// ── the month's cumulative series ──────────────────────────────────
+
+test('the pace series steps on business days and its ray reaches the target', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  await pool.query(
+    `insert into user_settings (user_id, monthly_target, monthly_target_unit)
+     values ($1,120,'hours')
+     on conflict (user_id) do update
+       set monthly_target = 120, monthly_target_unit = 'hours'`,
+    [USER],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const series = res.body.pace.series as {
+    date: string;
+    actual: number | null;
+    expected: number;
+  }[];
+
+  assert.equal(series.length, res.body.pace.businessDaysTotal);
+  for (const point of series) {
+    const dow = new Date(`${point.date}T00:00:00Z`).getUTCDay();
+    assert.ok(dow !== 0 && dow !== 6, `${point.date} is a weekend`);
+  }
+  assert.ok(
+    Math.abs(series[series.length - 1]!.expected - 120) < 1e-9,
+    'the ray lands on the target, not short of or past it',
+  );
+});
+
+test('a revenue target gets a ray, not a withheld one', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '44444444-0000-4000-8000-000000000005';
+  const p = '44444444-0000-4000-8000-0000000000a6';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Rev',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await entryThisMonth({ id: S(46), hours: 4, projectId: p }); // 400
+
+  await pool.query(
+    `insert into user_settings (user_id, monthly_target, monthly_target_unit)
+     values ($1,5000,'revenue')
+     on conflict (user_id) do update
+       set monthly_target = 5000, monthly_target_unit = 'revenue'`,
+    [USER],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.pace.unit, 'revenue');
+  assert.equal(res.body.pace.actual, 400);
+  assert.notEqual(res.body.pace.expected, null, 'revenue projects too');
+  assert.notEqual(res.body.pace.delta, null);
+
+  const series = res.body.pace.series as { actual: number | null }[];
+  // The money reached the line, so the series is the month's revenue and not
+  // an hours series wearing a money label.
+  assert.equal(
+    series.filter((s) => s.actual !== null).at(-1)?.actual,
+    400,
+    'the cumulative line carries the money, not the hours',
+  );
 });
 
 // ── stale drafts ───────────────────────────────────────────────────
