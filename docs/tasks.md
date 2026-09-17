@@ -71,6 +71,39 @@ later.
       invisible until that setting is on. Turn it on before judging the
       result.
 
+- [ ] **The panel's list stops at midnight, so yesterday's work cannot be
+      resumed.** `TimerModel` fetches `entries(from: dayStart)`, so at 9am the
+      list is empty and the one thing the panel is for — clicking a task to
+      pick it back up — is unavailable until you have already started
+      something by typing it. Picking up yesterday's work is the single most
+      likely first action of the day.
+
+      Fetch the **last N entries regardless of date**, with a cutoff (two
+      weeks reads about right) so the list cannot become an archive. The API
+      already supports this: `ListEntriesQuery` takes `from`, `to` and
+      `limit`, so `entries(from:)` in `API.swift` grows a limit and a further
+      back date, and nothing server-side changes.
+
+      **This edits `menubar.html`, which currently says "Earlier today".** The
+      spec commits to that heading and to `GET /entries?from=…` returning
+      "Today's rows", so both change with the code — and the heading is the
+      real design question, not the query. Options worth weighing: drop the
+      time word entirely ("Recent"), or keep a day break in the list. Prefer
+      whichever makes a row from three days ago unambiguous, because resuming
+      the wrong task is a wrong invoice line and the panel has no undo.
+
+      Two constraints the panel already has and this must not break. **The
+      list is deduplicated work, not history** — several entries with one task
+      name should not fill the panel with the same row, which matters far more
+      across two weeks than across one day, so decide whether N counts rows or
+      distinct tasks. And the panel is 320pt with the timer above it: N is
+      bounded by what fits without turning the list into its own scroller.
+
+      It also overlaps the task-name suggestions question in "Needs a decision
+      first" — both answer "start this again". If the list is good enough, the
+      suggestions may not be needed at all, which is an argument for doing
+      this one first.
+
 - [ ] **Settings as a pushed view in the menu bar panel.** `menubar.html`
       specifies it — runaway threshold, shortcut, show time in bar, launch at
       login, with the account block beneath. The gear opens a `Menu` today.
