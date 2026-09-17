@@ -61,16 +61,22 @@ export function HomeCards() {
  * them would be a region that knows about all of them. `/stats` is already
  * invalidated by every one, so the refetch carries the news.
  *
- * Marking an invoice paid moves unbilled work into `awaitingPayment` and
- * leaves velocity's total alone; a stop only ever adds. Nothing else on this
- * screen can lower unbilled.
+ * Two axes, because one refetch can carry two events and a single net figure
+ * cannot tell them apart. Hours are the only evidence a timer stopped: money
+ * alone also moves when a rate is edited elsewhere. `awaitingPayment` is the
+ * only evidence an invoice was raised, and it moves independently of
+ * `unbilled` rather than being netted against it.
+ *
+ * Both at once resolves to null. The delta each would report is the other's
+ * movement mixed in, and a figure that is the net of two unrelated events is
+ * money the app would be inventing.
  */
 function cause(prev: Stats | null, next: Stats): 'stop' | 'paid' | null {
   if (!prev) return null;
-  const moved = next.unbilled.total - prev.unbilled.total;
-  if (moved < 0) return 'paid';
-  if (moved > 0 || next.unbilled.seconds > prev.unbilled.seconds) return 'stop';
-  return null;
+  const stopped = next.unbilled.seconds > prev.unbilled.seconds;
+  const raised = next.awaitingPayment > prev.awaitingPayment;
+  if (stopped === raised) return null;
+  return stopped ? 'stop' : 'paid';
 }
 
 type Beat = { kind: 'stop' | 'paid'; amount: number; seconds: number } | null;
@@ -95,9 +101,15 @@ function useBeat(stats: Stats): Beat {
     prev.current = stats;
     if (!kind || !before) return;
 
+    /* Each kind takes its amount from the axis its own event moves: a raised
+       invoice is what landed in `awaitingPayment`, never the net of unbilled,
+       which a concurrent stop would have already mixed into. */
     setBeat({
       kind,
-      amount: stats.unbilled.total - before.unbilled.total,
+      amount:
+        kind === 'paid'
+          ? stats.awaitingPayment - before.awaitingPayment
+          : stats.unbilled.total - before.unbilled.total,
       seconds: stats.unbilled.seconds - before.unbilled.seconds,
     });
     const t = setTimeout(() => setBeat(null), BEAT_MS);
@@ -122,8 +134,13 @@ function useBeat(stats: Stats): Beat {
 function Delta({ beat, currency }: { beat: Beat; currency: string }) {
   if (!beat) return null;
 
+  /* `paid` counts Unbilled DOWN: the money left work-not-yet-invoiced. Its
+     amount arrives positive, as the rise in what is awaiting payment. */
   const money = beat.kind === 'paid' ? -beat.amount : beat.amount;
-  const billable = Math.abs(beat.amount) > 0;
+  /* Only a stop can be unbillable. A raised invoice always carries a figure,
+     so it is never routed to the hours branch — that is how paid, billable
+     money came to be labelled unbillable. */
+  const billable = beat.kind === 'paid' || Math.abs(beat.amount) > 0;
 
   /* Reports, never praises: "invoiced" is what happened, and a stop that
      earned nothing says the hours it did earn instead. */

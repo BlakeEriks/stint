@@ -246,7 +246,9 @@ describe('count-up', () => {
     render(<HomeCards />, { wrapper });
     await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
 
-    current = stats({ unbilled: unbilled(212.5) });
+    // The hours move too: a stop is what adds them, and money alone also
+    // moves when a rate is edited elsewhere.
+    current = stats({ unbilled: unbilled(212.5, 7200) });
     await act(async () => {
       await client.refetchQueries();
     });

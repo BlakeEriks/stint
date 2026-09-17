@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { HomeCards } from '@/components/home-cards';
@@ -455,5 +455,190 @@ describe('the heatmap', () => {
       expect(styles).toContain('rgb(2, 2, 2)');
       expect(styles).not.toContain('rgb(1, 1, 1)');
     });
+  });
+});
+
+/* ── the beat's narration ──────────────────────────────────────────── */
+
+/**
+ * Two events can land in one refetch, so the beat is classified on two axes.
+ *
+ * These serve a mutable figure and refetch, which the suite above has no need
+ * for — it renders one payload and reads it.
+ */
+describe('the beat says only what it can tell', () => {
+  let client: QueryClient;
+
+  function unbilledAt(total: number, seconds = 3600) {
+    return {
+      total,
+      seconds,
+      byClient: [
+        {
+          clientId: 'c1',
+          clientName: 'Northwind',
+          currency: 'USD',
+          seconds,
+          amount: total,
+          unratedCount: 0,
+          oldestDays: 2,
+        },
+      ],
+      moreClients: 0,
+    };
+  }
+
+  function serveMoving(get: () => Stats) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const path = String(url);
+        if (path.includes('/calendar')) {
+          return new Response(JSON.stringify({ days: [] }), { status: 200 });
+        }
+        if (path.includes('/clients')) {
+          return new Response(JSON.stringify({ clients: [] }), { status: 200 });
+        }
+        return new Response(JSON.stringify(get()), { status: 200 });
+      }),
+    );
+  }
+
+  function movingWrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+  }
+
+  /** Every beat chip on screen, whichever region carried it. */
+  function beats(container: HTMLElement) {
+    return [...container.querySelectorAll('[data-beat]')].map((el) => ({
+      kind: el.getAttribute('data-beat'),
+      text: el.textContent ?? '',
+    }));
+  }
+
+  beforeEach(() => {
+    client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    localStorage.clear();
+  });
+
+  it('never nets an invoice against a stop into one figure', async () => {
+    /* A $500 invoice is raised and a $200 stop lands in the same refetch.
+       The net move in unbilled is −$300 — a figure nothing was invoiced for
+       and nobody earned. Reporting it would invent money. */
+    let current = stats({
+      unbilled: unbilledAt(1000),
+      awaitingPayment: 0,
+    });
+    serveMoving(() => current);
+
+    const { container } = render(<HomeCards />, { wrapper: movingWrapper });
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+
+    /* Raised: $500 leaves unbilled for awaitingPayment. Stopped: $200 and an
+       hour arrive. Unbilled nets to 700, which is −300. */
+    current = stats({
+      unbilled: unbilledAt(700, 7200),
+      awaitingPayment: 500,
+    });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+    // The net is never spoken, whatever else the beat decides to say.
+    expect(screen.queryByText(/\$300\.00/)).toBeNull();
+    for (const b of beats(container)) {
+      expect(b.text).not.toMatch(/\$300\.00/);
+    }
+  });
+
+  it('never calls invoiced money unbillable work', async () => {
+    /* A $200 invoice is raised and a $200 stop lands in the same refetch, so
+       unbilled nets to exactly zero. That zero fell through to the seconds
+       branch and labelled genuinely billable, genuinely invoiced money
+       "unbillable" — the app misreporting money to the user. */
+    let current = stats({
+      unbilled: unbilledAt(1000),
+      awaitingPayment: 0,
+    });
+    serveMoving(() => current);
+
+    const { container } = render(<HomeCards />, { wrapper: movingWrapper });
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+
+    current = stats({
+      unbilled: unbilledAt(1000, 7200),
+      awaitingPayment: 200,
+    });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/unbillable/)).toBeNull();
+    for (const b of beats(container)) {
+      expect(b.text).not.toMatch(/unbillable/);
+    }
+  });
+
+  it('still counts a plain billable stop up with its delta', async () => {
+    /* The behaviour that was already right: hours and money both arrive, so
+       the beat is a stop and the delta is what the stop earned. Neutral, not
+       the accent — the accent is the running timer, which just ended. */
+    let current = stats({ unbilled: unbilledAt(100, 3600) });
+    serveMoving(() => current);
+
+    const { container } = render(<HomeCards />, { wrapper: movingWrapper });
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+
+    current = stats({ unbilled: unbilledAt(212.5, 7200) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+
+    const chip = await screen.findByText('+$112.50');
+    expect(chip.getAttribute('data-beat')).toBe('stop');
+    expect(chip.className).not.toMatch(/accent/);
+    expect(chip.className).not.toMatch(/text-success/);
+    expect(beats(container).length).toBeGreaterThan(0);
+  });
+
+  it('does not fire a stop when a rate was corrected elsewhere', async () => {
+    /* The seconds are untouched: nobody stopped a timer. A rate edit lifted
+       what the same hours are worth, and a stop beat here narrates an event
+       that did not happen. */
+    let current = stats({ unbilled: unbilledAt(1000, 3600) });
+    serveMoving(() => current);
+
+    const { container } = render(<HomeCards />, { wrapper: movingWrapper });
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+
+    // Same hours, more money.
+    current = stats({ unbilled: unbilledAt(1500, 3600) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+    expect(beats(container).some((b) => b.kind === 'stop')).toBe(false);
+    expect(screen.queryByText(/\+\$500\.00/)).toBeNull();
   });
 });
