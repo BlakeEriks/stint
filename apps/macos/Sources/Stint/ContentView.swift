@@ -1,19 +1,39 @@
+import ServiceManagement
 import SwiftUI
 
 /// The panel: start, stop, name the task, pick the project. Everything else
 /// is behind Open Stint. `docs/design/menubar.html` is the spec.
 struct ContentView: View {
     @Bindable var model: TimerModel
+    /// Settings is somewhere you visit, not a state the panel remembers, so
+    /// this resets on dismiss rather than persisting.
+    @State private var showingSettings = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            PanelHeader(model: model)
+            PanelHeader(model: model, showingSettings: $showingSettings)
             if model.isSignedIn {
-                TimerPanel(model: model)
+                if showingSettings {
+                    SettingsPanel(model: model, showingSettings: $showingSettings)
+                } else {
+                    TimerPanel(model: model)
+                }
             } else {
                 SignInPanel(model: model)
             }
         }
+        // Only reached when nothing inside claimed the key: a focused field
+        // or Settings handles its own Escape first, so this never closes the
+        // panel out from under someone who only wanted out of a field.
+        .onExitCommand { dismiss() }
+        // Settings is somewhere you visit, not a state the panel remembers.
+        // Both edges, because whether `.window` tears the content down between
+        // openings is undocumented: on a rebuild only `onAppear` runs, on a
+        // survivor only `onDisappear` does, and one of them is always the one
+        // that fires.
+        .onAppear { showingSettings = false }
+        .onDisappear { showingSettings = false }
         .frame(width: 320)
         // Sized before first paint: the panel hangs from the bar, so a height
         // that settles later moves the whole window.
@@ -24,22 +44,39 @@ struct ContentView: View {
 
 private struct PanelHeader: View {
     @Bindable var model: TimerModel
+    @Binding var showingSettings: Bool
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         HStack(spacing: 2) {
-            Lockup(size: 17, color: Tokens.Dark.textMuted)
-            // Which backend this build talks to, when it is not the local
-            // one. Muted, never the accent: the accent is the running timer.
-            if let environment = Config.environmentName {
-                Text(environment)
-                    .role(.label)
+            if showingSettings {
+                Button { showingSettings = false } label: {
+                    IconGlyph("arrow.left")
+                }
+                .buttonStyle(.panel)
+                .panelFocus(RoundedRectangle(cornerRadius: 6), inset: 1)
+                .accessibilityLabel("Back")
+                // A view title, not the mark: the bracket bounds are
+                // `|Stint|`'s alone.
+                Text("Settings")
+                    .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                    .tracking(17 * 0.12)
                     .foregroundStyle(Tokens.Dark.textMuted)
-                    .padding(.leading, 8)
+                    .padding(.leading, 6)
+            } else {
+                Lockup(size: 17, color: Tokens.Dark.textMuted)
+                // Which backend this build talks to, when it is not the local
+                // one. Muted, never the accent: the accent is the running timer.
+                if let environment = Config.environmentName {
+                    Text(environment)
+                        .role(.label)
+                        .foregroundStyle(Tokens.Dark.textMuted)
+                        .padding(.leading, 8)
+                }
             }
             Spacer()
-            if model.isSignedIn {
+            if model.isSignedIn, !showingSettings {
                 Button {
                     openURL(Config.appURL)
                     dismiss()
@@ -53,20 +90,12 @@ private struct PanelHeader: View {
                 .panelFocus(RoundedRectangle(cornerRadius: 6), inset: 1)
                 .accessibilityLabel("Open Stint")
 
-                Menu {
-                    if let email = model.email { Text(email) }
-                    Button("Sign out") { Task { await model.signOut() } }
-                    Divider()
-                    Button("Quit Stint") { NSApp.terminate(nil) }
-                } label: {
+                Button { showingSettings = true } label: {
                     IconGlyph("gearshape")
                 }
-                .menuStyle(.button)
                 .buttonStyle(.panel)
-                .menuIndicator(.hidden)
-                .fixedSize()
                 .panelFocus(RoundedRectangle(cornerRadius: 6), inset: 1)
-                .accessibilityLabel("Account")
+                .accessibilityLabel("Settings")
             }
         }
         .padding(.leading, 14)
@@ -74,6 +103,153 @@ private struct PanelHeader: View {
         .padding(.vertical, 6)
         .background(Tokens.Dark.bgRecessed)
         .overlay(alignment: .bottom) { rule }
+    }
+}
+
+/// Two settings and the way out. Nothing unimplemented is drawn: an inert
+/// control is a promise the panel cannot keep.
+private struct SettingsPanel: View {
+    @Bindable var model: TimerModel
+    @Binding var showingSettings: Bool
+    @State private var prefs = Prefs.shared
+
+    private var rows: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsRow("Show in menu bar") {
+                Picker("", selection: $prefs.barReadout) {
+                    ForEach(BarReadout.allCases, id: \.self) { readout in
+                        Text(readout.label).tag(readout)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .menuIndicator(.hidden)
+                .buttonStyle(.plain)
+                .font(TypeRole.body.font)
+                .foregroundStyle(Tokens.Dark.textPrimary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .frame(height: 28)
+                .background(Tokens.Dark.bgPrimary)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7)
+                        .strokeBorder(Tokens.Dark.borderSubtle, lineWidth: 1)
+                )
+                .fixedSize()
+                .panelFocus(RoundedRectangle(cornerRadius: 7))
+            }
+            SettingsRow("Launch at login") {
+                LaunchAtLoginToggle()
+            }
+        }
+        .padding(.vertical, 4)
+        .background(Tokens.Dark.bgBase)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            rows
+            account
+        }
+        .onExitCommand { showingSettings = false }
+    }
+
+    private var account: some View {
+        HStack(spacing: 10) {
+            if let email = model.email {
+                Text(email)
+                    .role(.meta)
+                    .foregroundStyle(Tokens.Dark.textMuted)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            accountLink("Sign out") { Task { await model.signOut() } }
+            accountLink("Quit") { NSApp.terminate(nil) }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(height: 38)
+        .frame(maxWidth: .infinity)
+        .background(Tokens.Dark.bgRecessed)
+        .overlay(alignment: .top) { rule }
+    }
+
+    private func accountLink(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Hovering { on in
+                Text(title)
+                    .font(.system(size: 10.5, weight: .regular, design: .monospaced))
+                    .tracking(0.84)
+                    .textCase(.uppercase)
+                    .foregroundStyle(on ? Tokens.Dark.textPrimary : Tokens.Dark.textSubtle)
+                    .contentShape(Rectangle())
+            }
+        }
+        .buttonStyle(.panel)
+        .panelFocus(RoundedRectangle(cornerRadius: 4))
+    }
+}
+
+/// A 46pt settings row: label left, control right.
+private struct SettingsRow<Control: View>: View {
+    let title: String
+    @ViewBuilder let control: () -> Control
+
+    init(_ title: String, @ViewBuilder control: @escaping () -> Control) {
+        self.title = title
+        self.control = control
+    }
+
+    var body: some View {
+        Hovering { on in
+            HStack(spacing: 12) {
+                Text(title)
+                    .font(TypeRole.body.font)
+                    .foregroundStyle(Tokens.Dark.textPrimary)
+                Spacer(minLength: 0)
+                control()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .frame(height: 46)
+            .background(on ? Tokens.Dark.bgHover : .clear)
+        }
+    }
+}
+
+/// The login item's state belongs to the system, so it is read back from
+/// `SMAppService` rather than mirrored into `Prefs`, where the two copies
+/// could disagree after a change made in System Settings.
+private struct LaunchAtLoginToggle: View {
+    @State private var enabled = SMAppService.mainApp.status == .enabled
+
+    var body: some View {
+        Button {
+            do {
+                if enabled { try SMAppService.mainApp.unregister() }
+                else { try SMAppService.mainApp.register() }
+            } catch {}
+            enabled = SMAppService.mainApp.status == .enabled
+        } label: {
+            // Neutral off and on: a settings toggle is not the live primary
+            // thing on the screen, so it never wears the accent.
+            Capsule()
+                .fill(enabled ? Tokens.Dark.borderControl : Tokens.Dark.bgActive)
+                .frame(width: 30, height: 18)
+                .overlay(alignment: enabled ? .trailing : .leading) {
+                    Circle()
+                        .fill(enabled ? Tokens.Dark.textStrong : Tokens.Dark.textSubtle)
+                        .frame(width: 12, height: 12)
+                        .padding(.horizontal, 3)
+                }
+        }
+        .buttonStyle(PanelButtonStyle(shape: Capsule()))
+        .panelFocus(Capsule())
+        .animation(.easeOut(duration: 0.12), value: enabled)
+        .accessibilityLabel("Launch at login")
+        .accessibilityValue(enabled ? "On" : "Off")
+        .onAppear { enabled = SMAppService.mainApp.status == .enabled }
     }
 }
 
@@ -102,12 +278,11 @@ private struct TimerPanel: View {
             stats
             // The list drops in a runaway: when something needs deciding the
             // panel is not also a dashboard.
-            if !model.today.isEmpty, !model.exceedsThreshold {
+            if !model.recent.isEmpty, !model.exceedsThreshold {
                 rule
                 entries
             }
         }
-        .defaultFocus($taskFocused, true)
     }
 
     private var idle: some View {
@@ -143,6 +318,22 @@ private struct TimerPanel: View {
             RenameRow(model: model)
                 .padding(.top, 8)
                 .padding(.leading, 19)
+            // Absent entirely for internal work: an empty row would read as a
+            // client whose name failed to load.
+            if let client = model.projectID.flatMap({ model.clientNames[$0] }) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(model.projectID.flatMap { model.projectColors[$0] }
+                            .map { Color(hex: $0) } ?? Tokens.Dark.textSubtle)
+                        .frame(width: 8, height: 8)
+                    Text(client)
+                        .role(.meta)
+                        .foregroundStyle(Tokens.Dark.textMuted)
+                        .lineLimit(1)
+                }
+                .padding(.top, 4)
+                .padding(.leading, 19)
+            }
             ProjectPicker(model: model)
                 .padding(.top, 4)
                 .padding(.leading, 11)
@@ -179,13 +370,13 @@ private struct TimerPanel: View {
 
     private var entries: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(model.isRunning ? "Earlier today" : "Today")
+            Text("Recent")
                 .role(.label)
                 .foregroundStyle(Tokens.Dark.textSubtle)
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
                 .padding(.bottom, 6)
-            ForEach(model.today) { entry in
+            ForEach(model.recent) { entry in
                 EntryRow(entry: entry) { Task { await model.resume(entry) } }
             }
         }
@@ -198,6 +389,7 @@ private struct RenameRow: View {
     @Bindable var model: TimerModel
     @State private var editing = false
     @State private var name = ""
+    @State private var cancelled = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -208,10 +400,18 @@ private struct RenameRow: View {
                 .field(focused: focused)
                 .onAppear { focused = true }
                 .onSubmit(finish)
-                .onChange(of: focused) { _, has in if !has { finish() } }
+                // Escape reaches the blur handler as an ordinary loss of
+                // focus, which would commit the edit it was pressed to
+                // abandon. The flag is what tells the two apart — without it
+                // cancelling is a silent write.
+                .onExitCommand { cancelled = true; focused = false }
+                .onChange(of: focused) { _, has in
+                    if !has { cancelled ? reset() : finish() }
+                }
         } else {
             Button {
                 name = model.running?.taskName ?? ""
+                cancelled = false
                 editing = true
             } label: {
                 Hovering { on in
@@ -239,6 +439,15 @@ private struct RenameRow: View {
         guard editing else { return }
         editing = false
         Task { await model.rename(to: name) }
+    }
+
+    /// No request, not even a PATCH of the unchanged value: an abandoned edit
+    /// must leave no trace in a billing record.
+    private func reset() {
+        guard editing else { return }
+        editing = false
+        cancelled = false
+        name = model.running?.taskName ?? ""
     }
 }
 
@@ -624,44 +833,37 @@ private extension View {
 
 // MARK: - Type
 
-/// The type scale, mirrored from `tokens.json` until `pnpm tokens` emits it.
-/// A view names a role; it never assembles one.
+/// The type scale as the panel uses it. A view names a role; it never
+/// assembles one.
+///
+/// Three cases are a generated role verbatim. The other six are that role
+/// resampled at a panel size: 320pt of menu bar is a denser context than a
+/// web page, so `readout` is 26 where `type.timer` is 24 and `label` is 10
+/// where `type.label` is 11. Tracking is re-derived from the token's own em
+/// ratio rather than restated, so a tracking change in `tokens.json` still
+/// reaches here — only the size is local.
 enum TypeRole {
     case readout, text, body, stat, meta, duration, label, button, code
 
-    var font: Font {
+    var token: Typography.Role {
         switch self {
-        case .readout: Self.mono(26, .medium)
-        case .text: Self.sans(14)
-        case .body: Self.sans(13)
-        case .stat: Self.mono(15)
-        case .meta: Self.mono(11)
-        case .duration: Self.mono(12)
-        case .label: Self.mono(10, .medium)
-        case .button: Self.sans(14, .medium)
-        case .code: Self.mono(17, .medium)
+        case .readout: Typography.timer.at(26)
+        case .text: Typography.control
+        case .body: Typography.support
+        case .stat: Typography.amount
+        case .meta: Typography.meta.at(11)
+        case .duration: Typography.duration.at(12)
+        case .label: Typography.label.at(10)
+        case .button: Typography.control.at(14, weight: .medium)
+        // The six-digit field sets digits apart to be read back aloud, which
+        // is wider than any role on the scale.
+        case .code: Typography.wordmark.at(17, tracking: 0.218)
         }
     }
 
-    var tracking: CGFloat {
-        switch self {
-        case .readout: -0.5
-        case .label: 1.6
-        case .code: 3.7
-        default: 0
-        }
-    }
-
-    var uppercase: Bool { self == .label }
-
-    // The spec's faces are IBM Plex; these two lines are where they land
-    // once the fonts ship with the app.
-    private static func sans(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight)
-    }
-    private static func mono(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: .monospaced)
-    }
+    var font: Font { token.font }
+    var tracking: CGFloat { token.tracking }
+    var uppercase: Bool { token.uppercase }
 }
 
 extension Text {
