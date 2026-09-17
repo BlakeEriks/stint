@@ -41,6 +41,36 @@ later.
       `pnpm tokens` writes it, the way it already writes the colours and the
       mark.
 
+- [ ] **The menu bar panel keeps its focus between openings, and Escape does
+      nothing.** Two faults with one cause — nothing in `ContentView.swift`
+      handles `onExitCommand`, and nothing clears focus when the panel
+      dismisses, so reopening it lands on whatever was focused last. The panel
+      should open the same way every time: nothing focused, ready for the
+      pointer or for Tab.
+
+      Escape should then do the two-step every panel does — **clear focus if
+      something has it, close the panel if nothing does.** That ordering is
+      what makes the key safe to press: it never closes the window out from
+      under someone who only wanted out of a field.
+
+      **The trap is `RenameRow`**, which commits on focus loss:
+      `onChange(of: focused) { if !has { finish() } }`. Escape clearing focus
+      would therefore SAVE a rename the user was pressing Escape to abandon —
+      a silent write, which this app does not do. Escape out of that field
+      must cancel, so `finish()` needs to know which way it was left. Check
+      the same question for the task field on the idle panel before wiring
+      anything.
+
+      Also worth settling here: the panel is `.menuBarExtraStyle(.window)`,
+      so confirm whether it genuinely stays alive between openings or is
+      rebuilt — that decides whether clearing focus belongs on dismiss or on
+      appear, and it is a two-line experiment rather than a guess.
+
+      Reachability caveat from the last round: with macOS **Keyboard
+      navigation** off, Tab reaches only text fields, so most of this is
+      invisible until that setting is on. Turn it on before judging the
+      result.
+
 - [ ] **Settings as a pushed view in the menu bar panel.** `menubar.html`
       specifies it — runaway threshold, shortcut, show time in bar, launch at
       login, with the account block beneath. The gear opens a `Menu` today.
