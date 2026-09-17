@@ -44,11 +44,12 @@ test.describe('invoices', () => {
     await page.goto('/invoices');
 
     /* A draft has not been asked for and a paid one has arrived, so neither
-       is outstanding. Only `sent` counts — $900.00 of the seed's $1,300.00
-       across both open invoices. */
+       is outstanding. Only `sent` counts: STINT-0001 at $900.00 and the
+       history's own STINT-0101 at $9,742.50, while the eight paid invoices
+       beside them and the draft contribute nothing. */
     await expect(list(page).getByText('STINT-0001')).toBeVisible();
     await expect(list(page).getByText('STINT-0002')).toBeVisible();
-    await expect(list(page).getByText('$900.00 outstanding')).toBeVisible();
+    await expect(list(page).getByText('$10,642.50 outstanding')).toBeVisible();
   });
 
   test('offers no destructive action from the list', async ({ page }) => {

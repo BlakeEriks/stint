@@ -2,9 +2,15 @@
 -- db reset` performs: that takes every other account with it, including one
 -- someone is tracking real time against on the local stack.
 --
--- Deletes exactly that user's rows and lets `seed.sql` put them back. Order
--- matters: invoices reference clients and projects, and time entries
--- reference invoices, so the children go first.
+-- Deletes exactly that user's rows and lets `seed.sql` put them back.
+--
+-- **Invoices go before time entries.** `guard_billed_entry_delete` raises on
+-- an entry billed to a non-draft invoice, so deleting entries first fails
+-- the moment the seed contains any invoiced work — which it does, 118 rows
+-- of it. Deleting the invoice releases its entries by the same FK rule
+-- (`on delete set null`) that voiding uses in the app, and the entry delete
+-- below then succeeds. `scripts/seed-account.mjs` orders it the same way and
+-- says so for the same reason.
 --
 -- `auth.users` is NOT touched. Removing the row would cascade into
 -- `user_settings` via the signup trigger and invalidate any session.
@@ -17,10 +23,10 @@ delete from invoice_line_items
     where user_id = '00000000-0000-4000-8000-000000000001'
  );
 
-delete from time_entries
+delete from invoices
  where user_id = '00000000-0000-4000-8000-000000000001';
 
-delete from invoices
+delete from time_entries
  where user_id = '00000000-0000-4000-8000-000000000001';
 
 delete from projects

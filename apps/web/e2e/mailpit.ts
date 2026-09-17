@@ -115,10 +115,12 @@ export async function signIn(page: Page, email = SEED_EMAIL): Promise<void> {
  */
 
 /**
- * Does the database still hold exactly what `seed.sql` put there?
+ * Does the database still hold what `seed.sql` put there?
  *
- * Only the invoice statuses, because they are the only thing the suite writes.
- * A broader fingerprint would start failing for reasons unrelated to it.
+ * Only the two invoices the suite WRITES to, never the seed's whole shape.
+ * Counting every invoice made this return false the moment the seed grew a
+ * year of history — 11 rows where it expected 2 — so the reset ran on every
+ * CI job, which is the one case it exists to skip.
  *
  * Reads over `pg` rather than PostgREST: the seeded rows are behind RLS, so an
  * anonymous REST read is a 42501 rather than an answer.
@@ -136,7 +138,9 @@ async function seedIsPristine(): Promise<boolean> {
   try {
     await client.connect();
     const { rows } = await client.query(
-      'select invoice_number, status from invoices order by invoice_number',
+      `select invoice_number, status from invoices
+        where invoice_number in ('STINT-0001', 'STINT-0002')
+        order by invoice_number`,
     );
     return (
       rows.length === 2 &&
