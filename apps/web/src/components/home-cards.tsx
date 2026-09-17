@@ -362,8 +362,18 @@ function Unbilled({ stats }: { stats: Stats }) {
  */
 function ByClient({ stats }: { stats: Stats }) {
   const { byClient, moreClients } = stats.unbilled;
+  /* Archived clients included: a finished engagement keeps its hue, and
+     dropping it would silently reassign those hours to the neutral. */
+  const { data: clientData } = useQuery({
+    queryKey: keys.clients({ archived: true }),
+    queryFn: () => api.clients({ includeArchived: true }),
+  });
 
   if (byClient.length === 0) return null;
+
+  const colours = new Map(
+    (clientData?.clients ?? []).map((c) => [c.id, c.color]),
+  );
 
   return (
     <section className="py-1">
@@ -378,6 +388,13 @@ function ByClient({ stats }: { stats: Stats }) {
               c.clientId
                 ? `/invoices/new?clientId=${c.clientId}`
                 : '/invoices/new'
+            }
+            icon={
+              <Pip
+                colour={
+                  (c.clientId ? colours.get(c.clientId) : null) ?? NEUTRAL
+                }
+              />
             }
             label={c.clientName}
             detail={
@@ -926,6 +943,23 @@ function Heatmap() {
         </div>
       </div>
     </Region>
+  );
+}
+
+/**
+ * The client's colour, in a row that already names them.
+ *
+ * `aria-hidden` because the name is right there: a screen reader announcing
+ * a colour before every client is noise, not information. Internal work
+ * takes the neutral, which reads as worked rather than as unassigned.
+ */
+function Pip({ colour }: { colour: string }) {
+  return (
+    <span
+      aria-hidden
+      className="size-2 flex-none rounded-[2px]"
+      style={{ backgroundColor: colour }}
+    />
   );
 }
 

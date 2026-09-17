@@ -274,6 +274,44 @@ describe('HomeCards', () => {
   });
 });
 
+describe('By client', () => {
+  /* Colour belongs to the client, and one client is one colour across the
+     screen: the pip here, the Velocity key and the heatmap all resolve from
+     the same source, so a row cannot disagree with the chart beside it. */
+  it('marks each client with its colour, and internal work with neither', async () => {
+    serve(
+      stats({
+        unbilled: {
+          ...oneClient,
+          byClient: [
+            ...oneClient.byClient,
+            /* No client: internal work, which takes the neutral rather than
+               borrowing a hue that belongs to someone who is paying. */
+            {
+              clientId: null,
+              clientName: 'No client',
+              currency: 'USD',
+              seconds: 1800,
+              amount: 0,
+              unratedCount: 0,
+              oldestDays: 1,
+            },
+          ],
+        },
+      }),
+    );
+    render(<HomeCards />, { wrapper });
+
+    const heading = await screen.findByRole('heading', { name: /by client/i });
+    const rows = [...(heading.parentElement?.querySelectorAll('li') ?? [])];
+    expect(rows.length).toBeGreaterThan(0);
+
+    for (const row of rows) {
+      expect(row.querySelector('span[aria-hidden]')).not.toBeNull();
+    }
+  });
+});
+
 describe('the panel header', () => {
   /* The date answers "is this figure current?" — the question a dashboard
      that mostly does not change invites. */
