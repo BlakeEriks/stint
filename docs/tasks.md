@@ -320,6 +320,48 @@ later.
       Deferred, and judging Tab reachability there needs macOS keyboard
       navigation turned on first.
 
+- [ ] **The inbox carries more colour than it earns.**
+      `screens/floating-frame.html` is the target: a title, a muted subtitle,
+      quiet actions, and colour only on the one figure that is actually
+      wrong. The rows now draw a 2px coloured left border each — danger or
+      warning — plus a toned value and a toned subtitle, so a three-row inbox
+      shows three coloured edges and the eye has nowhere to land first.
+
+      The principle it fails is the accent's own: a signal that marks
+      everything marks nothing. Danger should be reserved for the row that
+      genuinely is one (an overdue invoice), with the rest reading as neutral
+      objects that happen to need an action — which is what the spec draws.
+
+      Keep what the tone currently encodes rather than dropping it: an overdue
+      invoice is not the same as an unprojected entry, and the distinction
+      should survive in the copy and in which single figure is coloured. This
+      is about how much surface the colour occupies, not about whether the app
+      still says which rows are worse.
+
+- [ ] **Today in the dock shows a full entry list.** It renders `EntryList`,
+      the same component the wide page uses — so each row carries the task
+      name, the project, a billing badge, the time range and the duration,
+      wrapping to two lines in a 286px column. `floating-frame.html` draws
+      three fields: **client swatch, task name, duration.**
+
+      That is not only less, it is the right less. Today is a glance at what
+      the day has held, subordinate to the inbox by a hairline and no row
+      surfaces — the spec says so explicitly. The time range and the badge
+      answer questions you go to the entry list or the calendar to ask.
+
+      Two consequences to settle rather than discover:
+
+      - **`EntryList` stays as it is** — it is correct on the wide page. This
+        is a dock row, so either a variant or a separate component, decided by
+        how much the two still share once the row is three fields.
+      - **The row still opens the editor.** Clicking an entry is how it gets
+        corrected, and the dock is a primary route to it. The spec draws
+        static rows because it is a still image, not because the behaviour
+        goes away.
+
+      The swatch is the client's colour through `useProjectColors()`, and
+      internal work gets none — resolving to `null`, never a shared grey.
+
 - [ ] **Adjusting a runaway focuses the task name, not the end time.** The
       `EntryDialog` at `timer-bar.tsx:171` passes no `focus`, so it falls to
       the default `'task'` — which is right when the dialog is opened to edit
