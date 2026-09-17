@@ -274,6 +274,63 @@ describe('HomeCards', () => {
   });
 });
 
+describe('the month plot', () => {
+  const paceAt = (actual: number, expected: number) => ({
+    unit: 'hours' as const,
+    target: 120,
+    actual,
+    expected,
+    delta: actual - expected,
+    businessDaysElapsed: 13,
+    businessDaysTotal: 22,
+    series: series(22),
+  });
+
+  /* The gap says which way the month is running, so the shape and the figure
+     below it agree rather than making the reader check both. */
+  it('fills the gap with warning when behind and info when ahead', async () => {
+    serve(stats({ unbilled: oneClient, pace: paceAt(40, 70) }));
+    const { unmount } = render(<HomeCards />, { wrapper });
+
+    const behind = await screen.findByRole('img', { name: /of 120/ });
+    expect(behind.querySelector('path')?.getAttribute('fill')).toBe(
+      'var(--color-warning)',
+    );
+    unmount();
+
+    serve(stats({ unbilled: oneClient, pace: paceAt(90, 70) }));
+    render(<HomeCards />, { wrapper });
+
+    const ahead = await screen.findByRole('img', { name: /of 120/ });
+    expect(ahead.querySelector('path')?.getAttribute('fill')).toBe(
+      'var(--color-info)',
+    );
+  });
+
+  /* Cyan is reserved for an outcome. A month ahead on the 13th can be behind
+     on the 14th, which is a state rather than a result. */
+  it('never spends success cyan on being ahead', async () => {
+    serve(stats({ unbilled: oneClient, pace: paceAt(90, 70) }));
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await screen.findByRole('img', { name: /of 120/ });
+    expect(container.innerHTML).not.toContain('--color-success');
+  });
+
+  /* The region's subject is the line, not a total: the fraction is context
+     and sits with the controls. */
+  it('carries the fraction beside the title, not as a figure', async () => {
+    serve(stats({ unbilled: oneClient, pace: paceAt(40, 70) }));
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await screen.findByRole('img', { name: /of 120/ });
+    expect(container.querySelector('.type-figure')?.textContent).not.toMatch(
+      /120/,
+    );
+    expect(container.textContent).toContain('40.0h / 120.0h');
+  });
+});
+
 describe('By client', () => {
   /* Colour belongs to the client, and one client is one colour across the
      screen: the pip here, the Velocity key and the heatmap all resolve from

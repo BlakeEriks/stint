@@ -471,21 +471,20 @@ function Month({ stats }: { stats: Stats }) {
   const ahead = p.delta != null && p.delta >= 0;
 
   return (
+    /* The only region with no figure, and deliberately: its answer is the
+       SHAPE of the month against its goal, and a 30px total above the plot
+       restates the fraction top-right while pulling the eye off the line
+       that is doing the work. */
     <Region
       title={monthName()}
       icon={CalendarDays}
-      action={<EditGoal />}
-      value={
-        /* `items-baseline` with a wrap: a money target is several times wider
-           than "120h", and inline it broke after the slash and stranded it at
-           the end of the figure's line. */
-        <span className="flex flex-wrap items-baseline gap-x-1.5">
-          {fmt(actual)}
-          {/* The target is context for the figure, not part of it, so it is
-              set at row scale rather than carried along at 30px. */}
-          <span className="type-duration whitespace-nowrap text-subtle">
-            / {fmt(p.target)}
+      labelled
+      action={
+        <span className="flex items-center gap-1">
+          <span className="type-meta whitespace-nowrap text-subtle">
+            {fmt(actual)} / {fmt(p.target)}
           </span>
+          <EditGoal />
         </span>
       }
     >
@@ -493,6 +492,7 @@ function Month({ stats }: { stats: Stats }) {
         <PaceLine
           series={p.series}
           target={p.target}
+          ahead={ahead}
           label={`${fmt(actual)} of ${fmt(p.target)}`}
         />
 
@@ -519,7 +519,7 @@ function Month({ stats }: { stats: Stats }) {
 
 /** Viewport of the pace plot, in its own units — the path is scaled by SVG. */
 const PLOT_W = 300;
-const PLOT_H = 64;
+const PLOT_H = 104;
 
 /**
  * The cumulative line against the goal ray, the gap between them shaded.
@@ -535,10 +535,13 @@ function PaceLine({
   series,
   target,
   label,
+  ahead,
 }: {
   series: Pace['series'];
   target: number;
   label: string;
+  /** Which side of the ray the line is on, which is what colours the gap. */
+  ahead: boolean;
 }) {
   if (series.length < 2) return null;
 
@@ -555,6 +558,7 @@ function PaceLine({
   const y = (v: number) => PLOT_H - (v / peak) * PLOT_H;
 
   const done = series.filter((p) => p.actual != null);
+  const last = done.at(-1) ?? null;
   const actualPath = done
     .map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.actual ?? 0)}`)
     .join(' ');
@@ -578,11 +582,25 @@ function PaceLine({
     <svg
       viewBox={`0 0 ${PLOT_W} ${PLOT_H}`}
       preserveAspectRatio="none"
-      className="h-16 w-full"
+      className="h-26 w-full"
       role="img"
       aria-label={label}
     >
-      {gap ? <path d={gap} fill="var(--color-subtle)" opacity="0.12" /> : null}
+      {/* The gap says which way it runs. Warning matches the "behind" figure
+          below it, so the shape and the number agree. Ahead takes `info`, not
+          `success`: cyan is reserved for an outcome, and a month that is ahead
+          on the 13th can be behind on the 14th. */}
+      {gap ? (
+        /* Two opacities, not one: `info` is a muted blue and `warning` a
+           bright amber, so the same alpha puts the blue 30% weaker against
+           the panel (OKLCH ΔL 0.076 vs 0.109). These land both near 0.11, so
+           the gap carries the same weight whichever way the month is going. */
+        <path
+          d={gap}
+          fill={ahead ? 'var(--color-info)' : 'var(--color-warning)'}
+          opacity={ahead ? '0.26' : '0.18'}
+        />
+      ) : null}
       {/* The ray is the reference, so it recedes: dashed and quiet. */}
       <path
         d={rayPath}
@@ -592,16 +610,32 @@ function PaceLine({
         strokeDasharray="3 3"
         vectorEffect="non-scaling-stroke"
       />
-      {/* Neutral, never the accent: the accent is the running timer. */}
+      {/* The subject of the region, so it carries the weight the figure used
+          to. Neutral, never the accent: the accent is the running timer. */}
       <path
         d={actualPath}
         fill="none"
-        stroke="var(--color-primary)"
-        strokeWidth="1.5"
+        stroke="var(--color-strong)"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
       />
+      {/* Today. Without it the line reads as having run out of data rather
+          than as having reached the present. */}
+      {last ? (
+        /* A zero-length round-capped stroke, not a <circle>: the plot sets
+           `preserveAspectRatio="none"`, so x and y scale by different factors
+           and a circle renders as a squashed ellipse. A cap is drawn in stroke
+           space, which `vectorEffect` keeps round. */
+        <path
+          d={`M${x(done.length - 1)},${y(last.actual ?? 0)} l0,0`}
+          stroke="var(--color-strong)"
+          strokeWidth="6"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
     </svg>
   );
 }
@@ -1047,6 +1081,7 @@ function Region({
   icon: Icon,
   iconTone,
   value,
+  labelled = false,
   action,
   children,
 }: {
@@ -1057,11 +1092,17 @@ function Region({
   iconTone?: 'warning';
   /** The region's subject. Supplying it demotes the title — see above. */
   value?: React.ReactNode;
+  /**
+   * Demote the title without a figure, for a region whose subject is a
+   * picture. Month is the one: its answer is the shape of the line against
+   * the ray, and a heading would announce it louder than the thing it names.
+   */
+  labelled?: boolean;
   /** A single quiet control, top-right against the title. */
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  if (value !== undefined) {
+  if (value !== undefined || labelled) {
     return (
       <section className="py-1">
         <header className="px-5 pt-3 pb-2">
@@ -1078,7 +1119,9 @@ function Region({
             </div>
             {action ? <div className="flex-none">{action}</div> : null}
           </div>
-          <div className="mt-1.5 type-figure text-strong">{value}</div>
+          {value !== undefined ? (
+            <div className="mt-1.5 type-figure text-strong">{value}</div>
+          ) : null}
         </header>
         {children}
       </section>
