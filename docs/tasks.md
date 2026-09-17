@@ -133,6 +133,11 @@ later.
       unbilled-at-resolved-rate and that is a different query from summing
       time entries. The card currently says the figure is unavailable rather
       than showing hours against a money target.
+
+      The cumulative line inherits this: it follows the goal's unit, so a
+      revenue target plots nothing until this is built. `month_revenue` is
+      month-total only and a line needs it per day — the same figure bucketed,
+      not a second definition of revenue.
 - [ ] **`home_cards` JSONB on `user_settings`** — card order and visibility.
       Validated by Zod at the API boundary rather than a check constraint, so
       adding a card is not a migration. Decided; the one place in that table
@@ -285,6 +290,162 @@ later.
       it is a per-device layout choice, not account state, and a round-trip
       would make the rail flicker on load.
 
+- [ ] **Review the app for keyboard operation, then make it teach itself.**
+      The audience is other contractors who write software, and for them a
+      tracker that needs the mouse is a tracker they resent — the whole point
+      is that logging time should cost nothing. Two halves, in order: what
+      can be done from the keyboard at all, then whether anything on screen
+      ever says so.
+
+      **The second half is the one that is missing entirely.** There is no
+      shortcut anywhere in the web app — `onKeyDown` appears twice, both
+      Enter-in-a-field — and nothing renders a keystroke. A shortcut nobody
+      can discover is a shortcut nobody uses, so the review is worthless
+      unless what follows it puts the keys on screen: in menu rows beside the
+      item they trigger, in tooltips, next to the primary action in a dialog.
+      `DropdownMenuShortcut` is already vendored in `dropdown-menu.tsx` and
+      used nowhere, which is the slot for the menu half.
+
+      Review first, and write down what is found — the actions worth a
+      binding, what is already reachable by Tab, and what is silently not.
+      Radix gives arrow keys, typeahead, Escape and focus return inside menus
+      and dialogs for free, so the gaps will be in our own code: the timer
+      toggle, the inbox rows, the entry list, the filter pills, anything
+      built as a `div` with a click handler.
+
+      Three things to decide during the review rather than after:
+
+      - **What earns a binding.** Start/stop is obvious. Beyond that the bar
+        is the same one the nav has — a shortcut that exists because it could
+        is a key the user must now avoid pressing by accident.
+      - **Whether a shortcut overlay belongs here** (`?` listing everything),
+        which is the discoverable answer for the bindings that have no
+        natural home on screen. It is also a surface that goes stale
+        silently, so it only works if it reads from wherever the bindings are
+        defined rather than being a hand-kept list.
+      - **What a binding must not break.** Nothing may fire while a text
+        field has focus — the task name field is where the user spends their
+        typing — and none of it may collide with the browser's own keys.
+
+      **Focus rings stay neutral, never the accent** (`brand.html`), which
+      constrains how this is shown before it is designed.
+
+      This is the web app. The menu bar app's own global hotkey is in
+      Deferred, and judging Tab reachability there needs macOS keyboard
+      navigation turned on first.
+
+- [ ] **The empty inbox says it twice.** The header renders
+      `{count || 'clear'}` where the count goes, so an empty inbox reads
+      "clear" in the corner with "Nothing needs you." directly beneath it —
+      two statements of the same fact, a few pixels apart.
+
+      "clear" is also the weaker half. It sits exactly where a count sits, in
+      the same muted meta role, so it reads as a value rather than a state;
+      and the word looks like the action *clear* before it resolves to the
+      adjective. Drop it and let the slot be empty — the count is a count, and
+      the sentence below already covers the empty case.
+
+      `inbox.tsx:143`.
+
+- [ ] **The entry dialog's project field is a native `<select>`.** It is the
+      one project control in the web app the browser draws: system font,
+      system metrics, a system checkmark, on a dark panel that is ours
+      everywhere else. `ProjectPicker` is the same choice built on Radix with
+      a client swatch on every row — so the app already contains the control
+      this field should be, and the dialog is where the difference shows most,
+      because the picker is visible in the timer bar a few pixels away.
+
+      The comment at the top of `project-picker.tsx` is the whole argument,
+      already written: *a native `select` cannot show the colour swatch, and
+      the swatch is how work is recognised at a glance everywhere else.*
+
+      **Also wanted: name the client, muted, beside the project.** Project
+      names alone are ambiguous across clients — "Warehouse dashboard" says
+      nothing about who is paying for it — and the picker is where that
+      matters, since picking wrong bills the wrong client. `useProjectClients()`
+      already returns `clientByProject` with the name and the colour, from the
+      same two queries the swatch uses, so this needs no new fetch. Set the
+      client in a muted role so the project stays the thing being chosen and
+      the client is context, and leave internal work (`clientId === null`)
+      with no client text at all rather than a placeholder — the absent client
+      IS the meaning, the same reason its swatch resolves to `null` instead of
+      a shared grey.
+
+      Do this by making `ProjectPicker` serve both places rather than
+      theming a `select` or writing a second menu. The trigger differs — a
+      tag in the bar, a full-width field in the dialog — so that is a
+      variant, and the row content (swatch, name, client) is written once.
+
+      Two behaviours the dialog's field has that must survive: `autoFocus`
+      when the inbox opens it on an unprojected entry, and the `focus:` styling
+      that exists because programmatic focus is never `:focus-visible` — the
+      comments there say why, and both are easy to lose in a port.
+
+      **Then the other native selects, which are not all alike.** There are
+      seven in the app and they split by whether the control has anything to
+      say beyond the words:
+
+      - **`project-dialog`'s Client, and `invoice-new`'s Client.** Same case
+        as above, one level up: clients are the thing that HAS a colour, so
+        both want the swatch. `project-dialog`'s also carries
+        `+ Add a client…` as a trailing `<option>` — an action disguised as a
+        choice, which is precisely what `ProjectPicker` already does properly
+        with a separator and a real item. A client picker built once serves
+        both, the same way the project one serves the bar and the dialog.
+      - **`invoice-new`'s Group lines.** Each mode has a `hint`, and it
+        currently renders outside the control — so the explanation of an
+        option is only readable once you have already chosen it. A menu row
+        can carry the hint under the label, which is the whole reason to
+        convert this one.
+      - **Theme, goal unit, account type, fee allocation.** Two to four fixed
+        strings, no colour, no hint, no action. Nothing is *gained* here
+        beyond matching — but matching is the point: a native select is the
+        only control in the app the OS draws, and four of them scattered
+        through settings and the payment dialog is the inconsistency
+        arriving somewhere else. Convert them last, and only once a
+        `Select` primitive exists that makes each one a few lines.
+
+      So this is one job in two halves: the pickers that carry data the
+      browser cannot render, then the plain ones for consistency. Shared
+      `inputClass` styling across most of them means the trigger can keep
+      looking exactly as it does — what changes is the popped-open list.
+
+      **Check `components.html` first**, which is what a screen is assembled
+      from: a select is a shape that now repeats seven times, so the
+      primitive belongs there rather than being invented per-dialog, and
+      shadcn has one (`pnpm dlx shadcn@latest add select`, then
+      `shadcn-detox.mjs` — never hand-edited).
+
+- [ ] **The menu bar app's two dropdowns are system-drawn.** The project
+      picker and the account gear are SwiftUI `Menu`s, so their labels carry
+      our tokens and type while the list that pops open is AppKit's — system
+      font, system colours, system metrics, beside a panel that is ours to
+      the pixel. The web's equivalents (`project-picker.tsx`,
+      `account-menu.tsx`) are the same two controls built on Radix and themed,
+      which is what makes the gap visible.
+
+      **Read `menubar.html`'s settings section before starting: there is a
+      documented reason, and it is a real one.** The panel is `.transient`,
+      so anything that takes focus dismisses the panel out from under
+      itself — the argument that made Settings a pushed view rather than a
+      menu. A SwiftUI `Menu` survives this because AppKit owns both halves and
+      coordinates them. A hand-built popup does not get that for free, and a
+      picker that dismisses the panel when opened is worse than one with the
+      wrong font. Verify the failure mode first, at `menuBarExtraStyle(.window)`
+      as it is actually configured, rather than assuming either outcome.
+
+      **Radix is not available here** — it is a web library, and `apps/macos`
+      takes no dependencies beyond the standard library on purpose. So this
+      is "matches our theme", built in SwiftUI against `Tokens.swift`: an
+      overlay inside the panel's own window, which is also what keeps focus
+      where it is. Reach for the tokens the spec's table already assigns
+      (`bgBase` for the popover ground, `bgPrimary` for the picker fill).
+
+      What must survive: keyboard selection, typeahead, Escape to close and
+      focus returning to the label — everything the system menu gives free and
+      a hand-rolled list silently drops. If it cannot keep those, the system
+      menu is the better control and this stays as it is.
+
 - [ ] **The menu bar pip shifts with the width of the clock.** It should sit
       still: it is the one thing in the bar that is always in the same place,
       and a dot that moves as the digits change is motion with no meaning
@@ -336,6 +497,17 @@ later.
       and confirmation must not claim green for a timer that is not running
       yet.
 
+      **The menu bar app has the same fault and is covered by this task.**
+      `TimerModel.toggle()` awaits the mutation and then `await refresh()`,
+      the same two sequential round trips, and `isBusy` only dims the control
+      to 0.6 — so the panel shows the old state throughout. It needs walking
+      under the same forced delay: toggle, the project picker, resume, the
+      rename commit, and sign-in, which is the slowest thing the app does and
+      the first thing a new user sees. The bar itself is the harder half: it
+      is a pip and a clock with no room for a spinner, so a press that takes a
+      second has to be legible in two objects that are already saying
+      something else.
+
       A delay long enough to see is also what makes the states *testable* —
       several of them have probably never rendered on this machine at all.
 
@@ -351,6 +523,265 @@ later.
       where hiding billing-relevant fields is worse than wrapping and the list
       is short enough that density is not the constraint.
 
+## Re-imagining the home cards
+
+The home screen is read fifty times a day, and almost nothing on it changes
+between two reads an hour apart. That is the defect this section addresses.
+The existing bar — *a number the user cannot compute in their head, or a row
+they can click to act on* — was written against static readouts and still
+holds. These add a second test alongside it: **does it differ from the last
+time the screen was opened?** A figure that is identical on every check is
+decoration however hard it was to compute.
+
+The pieces below are one design and share an API call. They are listed
+separately because they ship separately, but the layout question is settled
+once, here.
+
+**The card set, top to bottom:** Unbilled, then Month (a cumulative line, no
+longer a single figure), then Velocity, then the heatmap, then Today's
+entries. Activity is deleted. Today also renders in the dock's lower half.
+Past four cards the screen scrolls, which is accepted — `home_cards`
+visibility is the answer to a long screen, not fewer cards, and every card
+here is hideable.
+
+- [ ] **A stop is the product's best moment and passes without a mark.**
+      Stopping a timer changes Unbilled, and the change is invisible: the
+      figure is simply different on the next fetch, so the link between the
+      work and the money is inferred rather than seen. The satisfaction of
+      tracking time at all lives in this transition and the app currently
+      spends it.
+
+      **Count the figure to its new value** — a tabular-num roll from the
+      previous value, one motion duration, and **`+$112.50` beside it, fading
+      after a beat**. Both apply to the *resolved* amount, which is a four-level
+      lookup and the definition of a number that cannot be computed in the
+      head.
+
+      **The same beat on the menu bar panel**, which is where a stop usually
+      happens. Without it the richer feedback lives on the surface the user is
+      not looking at, and the menu bar is the one that needs it most — it is
+      the surface a stop is made from.
+
+      **Both surfaces, and the web app pays it again on return.** A stop on the
+      menu bar animates there; opening the web app afterwards animates the same
+      gain a second time rather than showing an already-settled figure. The
+      work happened away from the browser and arriving to a number that simply
+      *is* higher loses it. That is the task below, and this is its first
+      case.
+
+      **Unbillable work must not be an anticlimax.** It resolves to no money,
+      so a stop that moves nothing teaches the user to mark work billable to
+      make the app react — a UI nudging at the data's honesty. The unbillable
+      stop moves the billable ratio and the hours instead, and says so.
+
+      It reports what just happened rather than praising it — the figure is
+      the feedback, and a stop that earns nothing says so plainly.
+
+- [ ] **Marking an invoice paid reads as a loss.** Unbilled ticks down and
+      nothing ticks up, so the screen's largest number shrinks at the moment
+      the user got paid. Same treatment as a stop, in both directions: Unbilled
+      counts down, **Velocity counts up**, and the two animate together so the
+      money is visibly moving rather than leaving.
+
+      This is the one outcome in the app, and the only legitimate home for
+      **success cyan** on this screen — `screens/home.html` notes success
+      appears nowhere because nothing there is an outcome. A payment landing is
+      that exception and the reason the rule was worth stating strictly.
+
+- [ ] **Arriving at the dashboard should show what moved.** Opening the web app
+      after working elsewhere — a stop on the menu bar, an invoice marked paid
+      on the phone — shows figures that are silently already correct. The
+      change happened, and the one surface built to show it missed it.
+
+      **Animate from the last seen value, not from zero**, and carry a line
+      naming the period: *since yesterday, +$450 unbilled · 1 invoice paid*.
+      The figures roll from what this browser last displayed to what the
+      server now says, which is the same count-up a live stop uses, replayed
+      for work done away from the screen.
+
+      **Last-seen lives in `localStorage`**, one key per origin, like the
+      rail's collapse state: a per-device display detail, not account state.
+      Two devices disagreeing is correct — each animates what *it* has not
+      shown you. A column on `user_settings` would make every dashboard load a
+      write, to make two browsers agree about something neither needs the
+      other to know.
+
+      **Never animate on a first load** with no stored value: everything would
+      count up from zero, which reports the whole history as though it just
+      happened. No stored value means render settled and store it.
+
+- [ ] **Velocity — what a month is actually worth.** A trailing figure of
+      money per month, with a per-client table beneath it. The question
+      inconsistent hours raise is *what am I making a month*, and it is
+      unanswerable from memory when the hours are lumpy and the rates differ.
+
+      It is the destination for a payment's tick-up, and it moves on ordinary
+      work too, so it changes between checks.
+
+      **Gross earned, never "earned" as a word** — same constraint as
+      everywhere else — and the split between invoiced and unbilled is carried,
+      since one total hides whether any of it has been paid for.
+
+      **Its own card, not a unit toggle on another.** Effective hourly was
+      going to share this slot behind a setting; they are different cards that
+      happen to be about money, and `home_cards` already hides what a given
+      user does not want.
+
+- [ ] **Effective hourly rate — not on Home, and not in the first cut.**
+      Money divided by *all* hours including unbillable. Bill $150, absorb 20%
+      admin, and the real rate is $120: uncomputable in the head, and the
+      number that makes unbillable time visibly expensive.
+
+      **It needs a denominator that grows, and most users will not give it
+      one.** Unbillable work against a client is the only thing that moves it,
+      and someone who does not log admin at all sees their headline rate
+      forever — a figure that fails the change test on every check, for the
+      accounts most likely to see it.
+
+      It belongs in `/reports`, where a figure is looked up deliberately rather
+      than glanced at fifty times a day, and where a flat number is a finding
+      rather than dead space.
+
+- [ ] **Month becomes a cumulative line against its goal.** Pace reports a
+      single delta. A line of accumulated hours (or money, following the goal's
+      unit) against a goal ray says the same thing and also says *which days it
+      was lost*, which the figure cannot. The gap between the lines is the
+      delta, rendered as a distance.
+
+      **The goal ray steps on business days, not calendar days** — the rule
+      Pace already applies. A ray sloping through the weekend shows the user
+      falling behind every Saturday and recovering every Monday, which is the
+      noise the business-day rule exists to kill. A flat weekend on the actual
+      line is then legible as a plateau rather than a shortfall.
+
+      It changes daily, works with one client, and needs no colour it is not
+      already allowed.
+
+- [ ] **Delete the Activity chart.** Hours per day stacked by client answers
+      *how did I spend my time*, which `principles.md` names as the wrong
+      question — the user was there. With one client it is monochrome bars of
+      varying height with no weekday labels, which reads as texture rather than
+      information, and it barely differs between two checks a day apart.
+
+      The cumulative Month line absorbs the honest part of what it showed.
+
+      This deletes the wanted 90-day range with it: that task existed only to
+      add `granularity: 'week'` so a third range would not render ~4px bars,
+      and a range control on a deleted chart is not work.
+
+      **The heatmap below replaces it**, and answers a different question
+      rather than the same one redrawn: stacked bars per day report how this
+      week went, which the user sat through; a year of cells reports a shape
+      no memory holds.
+
+- [ ] **The heatmap, coloured by client, with a streak.** A cell per day over a
+      configurable window, its colour the client worked that day and its
+      density the hours. It replaces Activity and answers what Activity could
+      not: a year of work has a shape, and no one holds it in memory.
+
+      **Colour is the client**, resolved through `useProjectColors()` like
+      everywhere else, so a year of cells reads as *who* has been paying the
+      bills — the question a stacked bar answered one week at a time. A day
+      split across clients takes the one with the most hours; a cell is 11px
+      and cannot carry a stack. Internal work keeps the neutral that reads as
+      worked rather than as rest, and a blank day stays blank.
+
+      **The streak is the figure**, and it is what makes the card worth a
+      second look on a day when one cell changed. It is deliberately
+      **forgiving: it survives one missed day and breaks on two in a row.** A
+      contractor taking Saturday off has not failed at anything, and a counter
+      that resets every weekend would be telling them they had — this one
+      keeps a five-on-two-off rhythm intact and still notices a week that got
+      away. That is the rule that makes it honest enough to keep.
+
+      **Hideable like every card here.** The user who finds a streak
+      motivating and the one who finds it pressure are both real, and
+      `home_cards` is already the answer to that.
+
+      Windows are the range control Activity had, which is the one
+      customization this screen allows. **Day bucketing stays server-side** —
+      the DST-correct grouping `GET /calendar?granularity=day` already does,
+      and the reason not to build a second one.
+
+- [ ] **Today in the dock's lower half.** The entry list renders wide and
+      mostly empty in the content column, and it is wanted while working on
+      `/invoices` and `/clients` — "have I done enough today" should not need
+      navigation. Short rows survive 280px better than they survive 1500px.
+
+      It sits **below the inbox and visually subordinate to it**. The inbox's
+      premise is that a row is there to be acted on, and a passive list
+      competing for the same attention is how an inbox stops being read.
+
+      This revises `principles.md`'s *the dock holds the inbox and nothing
+      else*. That refusal's stated reason is thirty bars in a 280px column, and
+      it governs Pace and Activity, not a list of short rows. Amend the refusal
+      to what it actually defends rather than deleting it.
+
+- [ ] **`paid_at` records when the user clicked, not when the money arrived.**
+      Nothing asks, so the timestamp is whenever they next visited
+      `/invoices`. Any average built on it measures the user's habits.
+
+      **Ask for the date when marking paid, defaulting to today.** One field on
+      a control that already exists, and the whole correctness of the metric
+      below.
+
+      **The row carries how long ago it was sent** — "sent 34 days ago" is
+      what makes it worth reading rather than merely present, and it is the
+      same aging insight Unbilled already leans on.
+
+      **It snoozes, defaulting to daily, with a dropdown for longer.** Checking
+      a bank balance is a real errand and a daily nudge is wanted; what the row
+      must not do is sit there permanently true with no way to say *not yet*.
+
+      **Snooze belongs to this row and rows like it**, and the distinction is
+      not a matter of taste: every other inbox row names something the user can
+      resolve themselves — assign the project, fix the runaway entry, send the
+      draft — and hiding one of those is hiding a problem from the person who
+      can fix it. Whether a client has paid is outside their control entirely.
+      They can only go and look, and a row asking them to look every day is a
+      reminder rather than an unattended mess. A snooze on the other rows
+      would be the reflexive dismissal `principles.md` warns about.
+
+- [ ] **Days-to-payment, once there is history.** `sent_at` to `paid_at`,
+      trailing, per client. "Northwind pays in 12 days" is unknowable from
+      memory and turns the awaiting-payment line from a fact into a forecast —
+      *$1,905 out, typically back by the 28th* — which is cash-flow
+      information rather than decoration.
+
+      **Blocked on the task above**, and on real paid invoices existing:
+      `seed.sql` has none, so this cannot be rendered against seeded data.
+      Needs a stated minimum sample before it speaks — one invoice is not an
+      average — and it says nothing rather than guessing below it.
+
+### Rules this changes
+
+Three standing rules do not survive this section as written. They are listed
+here so the edit is deliberate and the reasoning is not rediscovered later.
+
+**`principles.md`'s *no snooze on the inbox* narrows rather than goes.** Its
+warning is sound for every row that names something the user can fix, and
+those rows keep no snooze. It gains an exception for rows whose resolution is
+outside the user's control — today, *has this invoice been paid* and nothing
+else. The refusal's own reasoning is what draws that line: a row you cannot
+act on is not an unattended mess, it is a reminder to go and look, and the
+user is the only one who knows the answer.
+
+**`screens/home.html`'s *streaks and gamification* rejection is removed** —
+already done, along with its reference in `principles.md`'s neighbourhood.
+Logging a little every day is a thing some users genuinely want to hold
+themselves to, and a passion project is as legitimate a reason to open this
+app as an invoice is. What replaces the blanket refusal is the constraint in
+the heatmap task: the streak forgives a missed day and breaks on two, so it
+never tells someone that an ordinary weekend was a failure.
+
+**The dock holds the inbox and nothing else** gains Today beneath it, per that
+task. The refusal's stated reason — thirty bars in a 280px column — governs
+Pace and Activity and was never about short rows; amend it to what it actually
+defends.
+
+Each of these is edited in the doc that owns it **when the work ships**, not
+now. `principles.md` and `screens/home.html` describe what is built.
+
 ## Needs a decision first
 
 Each of these names the question blocking it. Answer the question, then it
@@ -362,7 +793,8 @@ moves up — do not start one by guessing the answer.
       weeks trains you to ignore the one week it is real. Compared against a
       **4-week median** and suppressed below a threshold it could mean
       something — but the threshold is empirical and needs real data. If it
-      ships it is a line inside Pace, not a card.
+      ships it is a line inside Velocity, not a card — that is where a
+      month-over-month reading now lives.
 
 - [ ] **Time-of-day heatmap.** *Question: does the billable/unbillable split
       actually vary by hour enough to see, on a real dataset?* Plain volume by
@@ -432,12 +864,6 @@ moves up — do not start one by guessing the answer.
       repo claiming otherwise. It has shipped, so this is the second release
       of a two-release retirement: a migration of its own that drops the
       column and touches no code.
-
-- [ ] **A 90-day activity range needs week bucketing.**
-      `granularity: 'week'`, server-side for the same DST reason day bucketing
-      already lives there — a route change with its own correctness tests, not
-      an option added in `activity-chart.tsx`. At day granularity, 90 bars in a
-      ~660px card is a ~4px bar.
 
 - [ ] **`POST /invoices` and `/preview` leak `entryIds` per line item**, and
       `POST /invoices` returns `lineItems` + `entryCount` while `api.ts`

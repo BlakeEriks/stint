@@ -222,3 +222,9 @@ stays as the screen doc.
 
 Report: the verification table, behaviour a user would notice, what was left
 undone and why. A phase skipped is the user's call, not yours to bury.
+
+**Then remove the worktree** — `git worktree remove` once the branch is
+pushed, which keeps the branch and frees it to be checked out normally. Git
+binds a branch to one directory, so leaving the worktree in place makes
+`git checkout <branch>` fail in the main tree; and the worktree cannot run the
+app anyway, since `.env` files are gitignored and never came along.
