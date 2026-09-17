@@ -213,6 +213,59 @@ describe('focus rings are neutral', () => {
   });
 });
 
+describe('the frame is a flat ground with one panel on it', () => {
+  it('paints the rail onto the ground rather than giving it a surface', () => {
+    serve(summary());
+    const { container } = render(<Nav />, { wrapper });
+    const rail = container.querySelector('nav')!;
+
+    /* The rail, the header and the dock are painted straight onto
+       `bg-surface-base`, so the only edge in the frame belongs to the panel.
+       A surface here would put a second plane under the pill and the marker,
+       which are what the active section is read by now. */
+    expect(rail.className).not.toMatch(/\bbg-surface-/);
+    /* And no rule beside or beneath it: the border is what the pill replaced,
+       and re-adding one puts the old gridline back without the old fill. */
+    expect(rail.className).not.toMatch(/\bborder/);
+  });
+
+  it('marks the active section with a pill and a marker, not a raised card', () => {
+    serve(summary());
+    render(<Nav />, { wrapper });
+    // `usePathname` is stubbed to /calendar, so this is the active one.
+    const active = screen.getByRole('link', { name: 'Calendar' });
+
+    expect(active).toHaveAttribute('aria-current', 'page');
+    /* Translucent, so the ground reads through it — at full opacity it would
+       be a second opaque plane in a frame that has one. */
+    expect(active.className).toContain('bg-surface-elevated/55');
+    /* The marker is a `::before`, which jsdom will not compute; its presence
+       as a utility is what is checkable here, and it is the half of the
+       treatment that survives a translucent fill on a busy ground. */
+    expect(active.className).toContain('before:bg-edge-control');
+    /* No shadow: on a flat ground a raised pill would be the second floating
+       object, and the panel is the only one. */
+    expect(active.className).not.toContain('shadow');
+  });
+
+  it('gives the timer bar a quiet fill, no shadow and no border', async () => {
+    serve(summary({ running: null }));
+    const { container } = render(<TimerBar projects={PROJECTS} />, { wrapper });
+    await screen.findByRole('button', { name: /start timer/i });
+    const bar = container.querySelector('section[aria-label="Timer"]')!;
+
+    /* At `xl` the bar sits under the panel at the panel's width. Opaque it
+       would read as a second panel competing with the one being read, and a
+       shadow or a border would give the frame a second edge. */
+    expect(bar.className).toContain('bg-surface-primary/55');
+    expect(bar.className).not.toContain('shadow');
+    expect(bar.className).not.toMatch(/\bborder/);
+    /* `bg-surface-recessed` is the plane the bar used to sit on, and it has
+       left the frame entirely — nothing in it is deeper than the ground. */
+    expect(bar.className).not.toContain('recessed');
+  });
+});
+
 describe('typography comes from the scale', () => {
   it('sets the timer readout with the timer role, not ad-hoc sizing', async () => {
     serve(summary({ running: entry() }));

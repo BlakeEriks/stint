@@ -30,10 +30,12 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
  * A vertical rail of sections.
  *
  * The accent belongs to the running timer, so the current section is marked
- * with weight and a raised surface rather than colour.
+ * with fill and a marker rather than colour.
  *
- * The active pill is `bg-surface-primary`, the content surface, so it reads
- * as raised against the rail.
+ * The rail is painted straight onto the ground: no surface of its own and no
+ * rule beside it. The active item is therefore read as a selected OBJECT —
+ * a translucent pill with a bar at its left edge — rather than by a shared
+ * edge with anything.
  *
  * **Below `lg` it is a horizontal strip under the header**, scrolling
  * horizontally rather than wrapping, which keeps the row one row tall however
@@ -52,8 +54,7 @@ export function Nav() {
          docked beneath, so the rail fills its own row rather than the
          viewport — at `h-dvh` it would run under the bar by the bar's own
          height. */
-      className="flex flex-none flex-col gap-1 border-b border-edge-subtle bg-surface-base px-3 py-2
-                 lg:h-full lg:w-52 lg:border-r lg:border-b-0 lg:py-4"
+      className="flex flex-none flex-col gap-1 lg:col-start-1 lg:row-start-1 lg:h-full lg:w-52"
     >
       {/* Only this scrolls: horizontally on a phone, vertically in the rail if
           the list ever outgrows a short window. */}
@@ -66,9 +67,16 @@ export function Nav() {
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
-              className={`type-nav flex flex-none items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors lg:px-3 ${
+              /* The active item is a translucent pill with a 2px marker at
+                 its left edge, drawn as `::before` — no shadow, because on a
+                 flat ground a raised pill would be the second floating thing
+                 in the frame and the panel is the first. */
+              className={`type-nav relative flex flex-none items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors lg:px-3 ${
                 active
-                  ? 'bg-surface-primary text-strong shadow-card'
+                  ? `bg-surface-elevated/55 text-strong
+                     before:absolute before:top-1/2 before:left-0 before:h-3.5 before:w-0.5
+                     before:-translate-x-px before:-translate-y-1/2 before:rounded-full
+                     before:bg-edge-control before:content-['']`
                   : 'text-muted hover:text-strong hover:bg-surface-hover'
               }`}
             >

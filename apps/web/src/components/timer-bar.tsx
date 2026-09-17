@@ -63,9 +63,11 @@ export function TimerBar({ projects }: { projects: Project[] }) {
 
   return (
     <section
-      /* The header's surface: this strip and the header bound the app, so they
-         sit on the deepest plane. */
-      className="flex flex-none flex-col border-t border-edge-subtle bg-surface-recessed"
+      /* A quiet fill rather than a plane of its own: at `xl` the bar sits
+         under the panel at the panel's width, and at full opacity it would
+         read as a second panel competing with the one being read. No shadow
+         and no border for the same reason — the frame has one edge. */
+      className="flex flex-none flex-col rounded-xl bg-surface-primary/55"
       aria-label="Timer"
     >
       {/* Running and idle are two arrangements, not one layout with things
