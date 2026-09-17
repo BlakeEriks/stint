@@ -5,6 +5,13 @@
 -- with nothing in them — the bugs appear when there is real content of
 -- varying length sitting in them.
 --
+-- Two halves. The hand-written rows below name the awkward cases a layout has
+-- to survive, one row each, and are meant to be read. The generated year at
+-- the foot is volume: the heatmap, the streak and Velocity's trailing quarter
+-- read a year at a time and cannot be judged from a handful of days. It is
+-- generated because a year hand-written is a file nobody will correct, and
+-- deterministically so a screenshot diff between two runs means something.
+--
 -- LOCAL ONLY. `supabase/config.toml` sets db.seed.sql_paths, and the CLI runs
 -- this against the local stack; nothing here ever reaches a real project.
 --
@@ -47,10 +54,12 @@ update user_settings set
   business_email        = 'dev@localhost.test',
   tax_id                = '00-0000000',
   invoice_number_prefix = 'STINT-',
-  -- A target, so the Pace card has something to render. Hours rather than
-  -- revenue because it is the easier one to sanity-check by eye against the
-  -- seeded entries.
-  monthly_target        = 120,
+  -- Hours rather than revenue because it is the easier one to sanity-check by
+  -- eye against the seeded entries. Sized just under the generated year's
+  -- monthly average (74-125h): a target the seed clears every month puts the
+  -- goal ray on the floor and the month plot stops showing a gap at all, which
+  -- is the one thing that region is for.
+  monthly_target        = 110,
   monthly_target_unit   = 'hours'
 where user_id = '00000000-0000-4000-8000-000000000001';
 
@@ -195,3 +204,161 @@ values
    date_trunc('day', now()) - interval '3 days' + interval '15 hours 30 minutes',
    true)
 on conflict (id) do nothing;
+
+-- ── a year of history, generated ───────────────────────────────────
+-- The regions above this line need a handful of rows; the heatmap, the streak
+-- and Velocity's trailing quarter need a year of them, and a year hand-written
+-- is a file nobody will ever re-read or correct.
+--
+-- Deterministic on purpose: the pick of client, start hour and length comes
+-- from mixing the day's offset, never `random()`, so two `dev:reset` runs
+-- produce byte-identical rows and a screenshot diff means something.
+--
+-- Offsets are relative to now() like everything else here, so the window stays
+-- under the heatmap's trailing 364 days however long after writing it runs.
+--
+-- The shape it produces, and what each part is for:
+--
+--   * five-on-two-off for most of the year, so the heatmap shows a working
+--     rhythm rather than a wash — weekends are blank, and blank is information
+--   * two dry spells (a fortnight off around day 250, a week around day 120),
+--     because a year with no gap in it never shows what a gap looks like
+--   * a one-day gap 6 days back that the streak FORGIVES, and a two-day gap
+--     at 19-20 that BREAKS it — that forgiveness rule is the card's whole
+--     claim to honesty and unexercised data never shows it working
+--   * a different client mix in each of the last three months, so Velocity's
+--     split bar has three distinguishable months to describe
+with days as (
+  select
+    d                                             as offset_days,
+    date_trunc('day', now()) - (d || ' days')::interval as day_start,
+    -- Three coprime multipliers so the three picks below do not move together.
+    (d * 7  + 3) % 11 as pick_client,
+    (d * 13 + 5) % 7  as pick_hour,
+    (d * 17 + 2) % 9  as pick_len
+  -- From 4, not from 0: offsets 0-3 are the hand-written week above, and a
+  -- generated row on those days would bury the overlap and the long/blank
+  -- task names that week exists to demonstrate.
+  from generate_series(4, 430) as d
+),
+worked as (
+  select * from days
+  -- The streak counts CALENDAR days, so a weekend breaks it: a year of pure
+  -- five-on-two-off can never read higher than 5 and the forgiveness rule
+  -- never fires. The recent stretch is therefore worked through its weekends —
+  -- a contractor pushing to a deadline — and the two gaps below are weekdays,
+  -- which is the only way the streak reaches a figure worth showing.
+  where (offset_days <= 40 or extract(isodow from day_start) < 6)
+    and offset_days not between 244 and 258       -- a fortnight away
+    and offset_days not between 118 and 124       -- a week off
+    and offset_days <> 6                          -- the gap the streak forgives
+    and offset_days not between 19 and 20         -- the gap that breaks it
+)
+insert into time_entries (
+  id, user_id, project_id, task_name, started_at, ended_at, is_billable
+)
+select
+  -- UUIDv7-shaped and derived from the offset, so a re-run overwrites rather
+  -- than duplicating, and `on conflict do nothing` stays meaningful.
+  ('00000000-0000-7000-8000-1' || lpad(offset_days::text, 11, '0'))::uuid,
+  '00000000-0000-4000-8000-000000000001',
+  case
+    -- The mix shifts by month: Northwind carried the oldest work, Byrne the
+    -- middle, and the current quarter is split three ways.
+    when offset_days > 120 then
+      case when pick_client < 7 then '00000000-0000-4000-8000-00000000a001'
+           when pick_client < 9 then '00000000-0000-4000-8000-00000000a002'
+           else                      '00000000-0000-4000-8000-00000000a004' end
+    when offset_days > 60 then
+      case when pick_client < 6 then '00000000-0000-4000-8000-00000000a003'
+           when pick_client < 9 then '00000000-0000-4000-8000-00000000a001'
+           else                      '00000000-0000-4000-8000-00000000a004' end
+    else
+      case when pick_client < 4 then '00000000-0000-4000-8000-00000000a001'
+           when pick_client < 7 then '00000000-0000-4000-8000-00000000a003'
+           when pick_client < 9 then '00000000-0000-4000-8000-00000000a002'
+           else                      '00000000-0000-4000-8000-00000000a004' end
+  end::uuid,
+  (array[
+    'Ticket triage', 'Integration fixes', 'Client call and follow-up',
+    'Schema migration', 'Design review', 'Reporting queries',
+    'Performance pass'
+  ])[pick_hour + 1],
+  day_start + ((8 + pick_hour) || ' hours')::interval,
+  day_start + ((8 + pick_hour) || ' hours')::interval
+            + ((90 + pick_len * 45) || ' minutes')::interval,
+  -- Internal work is the one unbillable project; everything else bills.
+  pick_client < 9
+from worked
+on conflict (id) do nothing;
+
+-- ── invoices over the history ──────────────────────────────────────
+-- Without these every hour ever logged is unbilled, and Velocity's
+-- `invoiced · unbilled` split renders as one bar with nothing to compare —
+-- the case where the region says least about itself.
+--
+-- Older work is invoiced and the recent quarter is not, which is what a
+-- contractor's ledger actually looks like mid-month.
+insert into invoices (
+  id, user_id, client_id, invoice_number, sequence_no, status,
+  issue_date, due_date, period_start, period_end,
+  subtotal, tax_rate, tax_amount, total, currency, grouping_mode,
+  sent_at, paid_at
+)
+select
+  ('00000000-0000-4000-8000-2' || lpad(n::text, 11, '0'))::uuid,
+  '00000000-0000-4000-8000-000000000001',
+  '00000000-0000-4000-8000-0000000000c1',
+  'STINT-' || lpad((100 + n)::text, 4, '0'), 100 + n,
+  -- The newest of these is still out; the rest were paid.
+  case when n = 1 then 'sent' else 'paid' end,
+  (date_trunc('day', now()) - ((n * 30 + 2) || ' days')::interval)::date,
+  (date_trunc('day', now()) - ((n * 30 - 28) || ' days')::interval)::date,
+  (date_trunc('day', now()) - ((n * 30 + 32) || ' days')::interval)::date,
+  (date_trunc('day', now()) - ((n * 30 + 3)  || ' days')::interval)::date,
+  0, 0, 0, 0, 'USD', 'task',
+  now() - ((n * 30 + 2) || ' days')::interval,
+  case when n = 1 then null else now() - ((n * 30 - 20) || ' days')::interval end
+from generate_series(1, 9) as n
+on conflict (id) do nothing;
+
+-- Attaching entries is what makes them invoiced; the totals are then summed
+-- back off the attached rows so the frozen figure and the line items agree.
+update time_entries e
+   set invoice_id = ('00000000-0000-4000-8000-2' || lpad(n::text, 11, '0'))::uuid
+  from generate_series(1, 9) as n
+ where e.user_id = '00000000-0000-4000-8000-000000000001'
+   and e.invoice_id is null
+   and e.is_billable
+   and e.ended_at is not null
+   and e.started_at >= date_trunc('day', now()) - ((n * 30 + 32) || ' days')::interval
+   and e.started_at <  date_trunc('day', now()) - ((n * 30 + 2)  || ' days')::interval;
+
+-- One line per (task, resolved rate), which is `grouping_mode = 'task'` and the
+-- same key `buildLineItems` groups on — the rate belongs in the key because two
+-- rates for one task name are two lines, not an average.
+insert into invoice_line_items (
+  invoice_id, description, quantity_seconds, resolved_rate, amount, sort_order
+)
+select
+  e.invoice_id,
+  coalesce(nullif(e.task_name, ''), 'Untitled'),
+  sum(e.duration_seconds)::int,
+  resolve_rate(e.rate_override, p.hourly_rate, c.hourly_rate, s.default_hourly_rate),
+  round(sum(e.duration_seconds) / 3600.0
+        * resolve_rate(e.rate_override, p.hourly_rate, c.hourly_rate, s.default_hourly_rate), 2),
+  row_number() over (partition by e.invoice_id order by coalesce(nullif(e.task_name, ''), 'Untitled'))
+from time_entries e
+left join projects      p on p.id = e.project_id
+left join clients       c on c.id = p.client_id
+left join user_settings s on s.user_id = e.user_id
+join invoices i on i.id = e.invoice_id
+where i.sequence_no >= 101
+group by e.invoice_id, coalesce(nullif(e.task_name, ''), 'Untitled'),
+         e.rate_override, p.hourly_rate, c.hourly_rate, s.default_hourly_rate;
+
+update invoices i
+   set subtotal = t.total, total = t.total
+  from (select invoice_id, sum(amount) as total
+          from invoice_line_items group by invoice_id) as t
+ where t.invoice_id = i.id and i.sequence_no >= 101;
