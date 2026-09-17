@@ -162,9 +162,15 @@ worked.
 restores, so do not track real time in it. For a second account:
 
 ```
-pnpm seed you@example.com            # sign in through the app once first
-pnpm seed you@example.com --clear    # remove it again
+pnpm seed you@example.com            # creates the account if it is new
+pnpm seed you@example.com --clear    # remove the data, keep the account
 ```
+
+**The account is created if it does not exist**, inserted into `auth.users`
+the same way `seed.sql` does it — so this works before you have ever signed
+in. Sign in afterwards at `/signin` and click the link in Mailpit
+(`:54324`). `--clear` never creates: clearing an account that does not exist
+is a typo, not a request.
 
 **It creates one of every inbox row**, which is the part that cannot be
 produced by using the app for ten minutes: a runaway timer needs 8 hours to

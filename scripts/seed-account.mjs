@@ -11,6 +11,10 @@
  *   pnpm seed you@example.com
  *   pnpm seed you@example.com --clear     # remove it again
  *
+ * **The account is created if it does not exist**, so this works before you
+ * have ever signed in. Sign in afterwards with a magic link and pick it up
+ * from Mailpit on `:54324` — mail is captured locally, never sent.
+ *
  * **Every inbox scenario is represented**, because the inbox is the hardest
  * surface to exercise by hand: each row needs a condition that takes days to
  * arrive naturally. See `SCENARIOS` below for the four and what each requires.
@@ -28,10 +32,16 @@ import pg from 'pg';
 
 const DEFAULT_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
+/* Local stack only — this script reaches a database on 127.0.0.1 by default
+   and has no business anywhere else. Matches `seed.sql`'s dev account. */
+const LOCAL_PASSWORD = 'devpassword123';
+
+/** Whether this run had to create the account, for the closing report. */
+let created = false;
+
 const email = process.argv[2];
 if (!email) {
   console.error('Usage: node scripts/seed-account.mjs <email> [--clear]');
-  console.error('\nThe account must already exist — sign in once first.');
   process.exit(1);
 }
 
@@ -123,24 +133,81 @@ const INVOICES = [
   },
 ];
 
+/**
+ * The account, created if this is the first time you have asked for it.
+ *
+ * Inserted directly rather than through the signup endpoint, exactly as
+ * `supabase/seed.sql` does it: signup sends a confirmation email and the
+ * point of this script is that you have not signed in yet.
+ * `create_default_settings` fires on the insert, so `user_settings` appears
+ * the same way it would for a real signup.
+ *
+ * **The four token columns must be empty strings, never NULL.** GoTrue scans
+ * them into non-nullable Go strings, so a NULL fails every later lookup with
+ * "Database error finding user" and a 500 — which looks like a broken magic
+ * link, not like a bad row. Only hand-written inserts hit this; the
+ * dashboard's own do the same thing.
+ *
+ * `email_confirmed_at` is set because nothing here can click a confirmation
+ * link. The password is set too, so the account is reachable either way, but
+ * the app signs in by magic link — the link lands in Mailpit on :54324.
+ */
+async function findUser(address) {
+  const { rows } = await db.query(
+    'select id from auth.users where email = $1',
+    [address],
+  );
+  return rows[0]?.id ?? null;
+}
+
+async function findOrCreateUser(address) {
+  const existing = await findUser(address);
+  if (existing != null) return existing;
+
+  const {
+    rows: [{ id }],
+  } = await db.query(
+    `insert into auth.users (
+       id, instance_id, aud, role, email, encrypted_password,
+       email_confirmed_at, created_at, updated_at,
+       raw_app_meta_data, raw_user_meta_data,
+       confirmation_token, recovery_token, email_change_token_new, email_change
+     )
+     values (
+       gen_random_uuid(),
+       '00000000-0000-0000-0000-000000000000',
+       'authenticated', 'authenticated',
+       $1, crypt($2, gen_salt('bf')),
+       now(), now(), now(),
+       '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb,
+       '', '', '', ''
+     )
+     returning id`,
+    [address, LOCAL_PASSWORD],
+  );
+  created = true;
+  return id;
+}
+
 const db = new pg.Client({
   connectionString: process.env.SEED_DATABASE_URL ?? DEFAULT_URL,
 });
 await db.connect();
 
 try {
-  const { rows } = await db.query(
-    'select id from auth.users where email = $1',
-    [email],
-  );
-  if (rows.length === 0) {
-    console.error(`No account for ${email}.`);
-    console.error('Sign in through the app once, then run this again.');
+  await db.query('begin');
+
+  /* `--clear` never creates: asking to remove data from an account that does
+     not exist is a typo, and answering it by creating the account is the
+     opposite of what was asked. */
+  const userId = clearOnly
+    ? await findUser(email)
+    : await findOrCreateUser(email);
+  if (userId == null) {
+    console.error(`No account for ${email} — nothing to clear.`);
+    await db.query('rollback');
     process.exit(1);
   }
-  const userId = rows[0].id;
-
-  await db.query('begin');
 
   /* Remove a previous run before writing a new one. Scoped to the client
      names above and to the internal project, so anything you logged yourself
@@ -437,7 +504,7 @@ try {
   );
 
   await db.query('commit');
-  console.log(`Seeded ${email}:`);
+  console.log(`Seeded ${email}${created ? ' (new account)' : ''}:`);
   console.log(
     `  ${CLIENTS.length} clients, ${projectIds.length + 1} projects, ${entries} entries`,
   );
@@ -449,6 +516,11 @@ try {
   console.log('    overdue invoice    yes');
   console.log('    stale draft        yes');
   console.log(`    unprojected work   yes (${unprojected.length} entries)`);
+  if (created) {
+    console.log(
+      `\n  Sign in at /signin and click the link in Mailpit (:54324).`,
+    );
+  }
 } catch (error) {
   await db.query('rollback').catch(() => {});
   throw error;
