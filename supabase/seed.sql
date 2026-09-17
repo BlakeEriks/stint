@@ -324,6 +324,10 @@ on conflict (id) do nothing;
 
 -- Attaching entries is what makes them invoiced; the totals are then summed
 -- back off the attached rows so the frozen figure and the line items agree.
+-- Scoped to the invoice's OWN client. Every invoice above is raised against
+-- c1, so without this the date window sweeps up whatever else ran that month
+-- and three invoices bill one client for another's work — which makes the
+-- by-client and Velocity splits report money to the wrong name.
 update time_entries e
    set invoice_id = ('00000000-0000-4000-8000-2' || lpad(n::text, 11, '0'))::uuid
   from generate_series(1, 9) as n
@@ -331,6 +335,10 @@ update time_entries e
    and e.invoice_id is null
    and e.is_billable
    and e.ended_at is not null
+   and e.project_id in (
+     select p.id from projects p
+      where p.client_id = '00000000-0000-4000-8000-0000000000c1'
+   )
    and e.started_at >= date_trunc('day', now()) - ((n * 30 + 32) || ' days')::interval
    and e.started_at <  date_trunc('day', now()) - ((n * 30 + 2)  || ' days')::interval;
 

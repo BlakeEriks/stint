@@ -961,4 +961,48 @@ describe('the beat says only what it can tell', () => {
     expect(beats(container).some((b) => b.kind === 'stop')).toBe(false);
     expect(screen.queryByText(/\+\$500\.00/)).toBeNull();
   });
+
+  /* The beat retires on a timer, and an unrelated refetch must not cancel
+     that timer. React Query hands back a new object whenever ANY field
+     changes — an age ticking over, a task renamed — so an effect keyed on
+     the object re-runs, clears the pending timeout in its cleanup, then
+     returns at the `no cause` guard without arming a replacement.
+
+     The chip is then stranded beside the figure indefinitely, which is the
+     failure `useBeat`'s own doc warns about: read as part of the figure. It
+     also suppresses today's earnings, since `Earned` yields to a paid beat. */
+  it('retires the beat even when an unrelated refetch lands first', async () => {
+    let current = stats({ unbilled: unbilledAt(1000), awaitingPayment: 0 });
+    serveMoving(() => current);
+
+    const { container } = render(<HomeCards />, { wrapper: movingWrapper });
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+
+    // An invoice is raised: the paid beat appears and starts its timer.
+    current = stats({ unbilled: unbilledAt(600), awaitingPayment: 400 });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+    await waitFor(() => expect(beats(container).length).toBeGreaterThan(0));
+
+    /* A refetch carrying NO classified event — neither axis moves. Some
+       other field changed, which is all React Query needs to hand back a new
+       object and re-run an effect keyed on one. */
+    current = stats({
+      unbilled: { ...unbilledAt(600), moreClients: 1 },
+      awaitingPayment: 400,
+    });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+
+    // Past the retirement beat, the chip must be gone.
+    await act(async () => {
+      // `BEAT_MS` is 2600 in home-cards.tsx, plus headroom for a loaded runner.
+      await new Promise((r) => setTimeout(r, 3200));
+    });
+    expect(beats(container)).toEqual([]);
+  });
 });

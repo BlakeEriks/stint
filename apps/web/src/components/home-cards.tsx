@@ -23,7 +23,7 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import { formatCurrency } from './invoice-bits';
 import { keys } from '@/lib/client/query-keys';
 import { useCountUp, useSinceLastSeen } from '@/lib/client/use-count-up';
-import { cause, useDayState } from '@/lib/client/use-day-state';
+import { cause, type Figures, useDayState } from '@/lib/client/use-day-state';
 
 /**
  * The home screen's regions, in three rows: money waiting beside who owes it,
@@ -157,13 +157,26 @@ const BEAT_MS = 2600;
  * stopped asking — and would be read as part of the figure.
  */
 function useBeat(stats: Stats): Beat {
-  const prev = useRef<Stats | null>(null);
+  const prev = useRef<Figures | null>(null);
   const [beat, setBeat] = useState<Beat>(null);
 
+  /* The three figures a beat is read from, captured as scalars so the effect
+     below depends on THEM and not on the `stats` object.
+
+     React Query returns a new object whenever any field changes — a client's
+     age ticking over, a task renamed. An effect keyed on the object re-runs
+     for those, and its cleanup clears the pending retirement timeout before
+     the `no cause` guard returns without arming a replacement: the chip is
+     stranded beside the figure, which is the exact failure the timer exists
+     to prevent. `useDayState` keys on its figure for the same reason. */
+  const { total, seconds } = stats.unbilled;
+  const { awaitingPayment } = stats;
+
   useEffect(() => {
-    const kind = cause(prev.current, stats);
+    const next = { total, seconds, awaitingPayment };
     const before = prev.current;
-    prev.current = stats;
+    prev.current = next;
+    const kind = cause(before, next);
     if (!kind || !before) return;
 
     /* Each kind takes its amount from the axis its own event moves: a raised
@@ -173,13 +186,13 @@ function useBeat(stats: Stats): Beat {
       kind,
       amount:
         kind === 'paid'
-          ? stats.awaitingPayment - before.awaitingPayment
-          : stats.unbilled.total - before.unbilled.total,
-      seconds: stats.unbilled.seconds - before.unbilled.seconds,
+          ? awaitingPayment - before.awaitingPayment
+          : total - before.total,
+      seconds: seconds - before.seconds,
     });
     const t = setTimeout(() => setBeat(null), BEAT_MS);
     return () => clearTimeout(t);
-  }, [stats]);
+  }, [total, seconds, awaitingPayment]);
 
   return beat;
 }

@@ -35,9 +35,31 @@ import type { Stats } from '@/lib/client/api';
  * movement mixed in, and a figure that is the net of two unrelated events is
  * money the app would be inventing.
  */
-export function cause(prev: Stats | null, next: Stats): 'stop' | 'paid' | null {
+/**
+ * The three figures a classification is read from.
+ *
+ * Scalars rather than the `Stats` object: React Query returns a new object
+ * whenever ANY field changes, so a caller holding the object in a ref or a
+ * dependency list reacts to changes that carry no event.
+ */
+export type Figures = {
+  total: number;
+  seconds: number;
+  awaitingPayment: number;
+};
+
+export const figuresOf = (s: Stats): Figures => ({
+  total: s.unbilled.total,
+  seconds: s.unbilled.seconds,
+  awaitingPayment: s.awaitingPayment,
+});
+
+export function cause(
+  prev: Figures | null,
+  next: Figures,
+): 'stop' | 'paid' | null {
   if (!prev) return null;
-  const stopped = next.unbilled.seconds > prev.unbilled.seconds;
+  const stopped = next.seconds > prev.seconds;
   const raised = next.awaitingPayment > prev.awaitingPayment;
   if (stopped === raised) return null;
   return stopped ? 'stop' : 'paid';
@@ -180,7 +202,7 @@ export function useDayState(stats: Stats | null | undefined) {
      that advanced it would leave the effect comparing a snapshot against
      itself, which resolves as "nothing happened" and silently drops the stop
      that had just been folded in. */
-  const last = useRef<Stats | null>(null);
+  const last = useRef<Figures | null>(null);
 
   if (opened.current === undefined && ready) {
     opened.current = read();
@@ -188,8 +210,9 @@ export function useDayState(stats: Stats | null | undefined) {
 
   useEffect(() => {
     if (!ready) return;
-    const why = cause(last.current, stats);
-    last.current = stats;
+    const now = figuresOf(stats);
+    const why = cause(last.current, now);
+    last.current = now;
 
     setState((current) => {
       const next = fold(
