@@ -8,6 +8,7 @@ import { ApiError } from '@/lib/client/api';
 export function Page({
   wide = false,
   flush = false,
+  fills = false,
   children,
 }: {
   wide?: boolean;
@@ -19,6 +20,17 @@ export function Page({
    * whatever inset the regions already carry. The panel owns its own.
    */
   flush?: boolean;
+  /**
+   * For a screen that owns a scroll of its own: the column takes the panel's
+   * height instead of its content's, so a child measuring `flex-1` measures
+   * against the panel. Opt-in, because a screen that reads as a column wants
+   * the frame's single scroll and nothing else.
+   *
+   * It starts at `xl`, where the panel becomes a bounded scroller; below it
+   * the panel is sized by its content inside a scrolling column, so a
+   * full-height column here would resolve against nothing.
+   */
+  fills?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -28,7 +40,9 @@ export function Page({
          inset reads as a gap rather than as margin. */
       className={`mx-auto ${
         flush ? '' : 'px-4 pt-4 pb-8 sm:px-8 sm:pb-10 lg:pt-10 '
-      }${wide ? 'max-w-6xl' : 'max-w-3xl'}`}
+      }${wide ? 'max-w-6xl' : 'max-w-3xl'}${
+        fills ? ' xl:flex xl:h-full xl:min-h-0 xl:flex-col' : ''
+      }`}
     >
       {children}
     </main>

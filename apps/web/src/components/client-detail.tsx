@@ -10,6 +10,7 @@ import { DetailPage, Listing } from './page';
 import { ClientProjects } from './client-projects';
 import { formatCurrency } from '@stint/core';
 import { keys } from '@/lib/client/query-keys';
+import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 
 export function ClientDetail({ id }: { id: string }) {
   const router = useRouter();
@@ -39,7 +40,7 @@ export function ClientDetail({ id }: { id: string }) {
                 <span
                   aria-hidden
                   className="size-3 flex-none rounded-[3px]"
-                  style={{ background: client.color ?? 'var(--text-subtle)' }}
+                  style={{ background: client.color ?? INTERNAL_SWATCH }}
                 />
                 <h1 className="truncate type-title text-strong">
                   {client.name}

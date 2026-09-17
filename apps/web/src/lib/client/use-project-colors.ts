@@ -5,11 +5,21 @@ import { api } from './api';
 import { keys } from './query-keys';
 
 /**
+ * The swatch for internal work, which has no CLIENT and therefore no colour.
+ *
+ * Grey is not a client's colour and never becomes one — it is what a swatch
+ * draws when there is no colour to draw, so internal work stays legible in a
+ * row or a graph beside the clients rather than vanishing from it. One
+ * constant, because the same grey in three components diverges the moment one
+ * of them is edited.
+ */
+export const INTERNAL_SWATCH = 'var(--color-subtle)';
+
+/**
  * Resolves each project to its CLIENT's colour.
  *
- * Internal work (`clientId === null`) resolves to `null` rather than a shared
- * grey: a grey shared by everything unbilled would read as a client of its
- * own.
+ * Internal work (`clientId === null`) resolves to `null`: the absence is the
+ * answer, and `INTERNAL_SWATCH` is what renders it.
  */
 export function useProjectColors(): Map<string, string | null> {
   const { colorByProject } = useProjectClients();

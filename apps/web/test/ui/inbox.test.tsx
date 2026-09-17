@@ -172,6 +172,58 @@ describe('Inbox', () => {
     );
     expect(classes.filter((c) => c.includes('accent'))).toEqual([]);
   });
+
+  /**
+   * `inbox.html`: the left rule is neutral, and `danger` on the overdue
+   * invoice alone. Every other row is an object that needs an action, not a
+   * fault — a column of coloured rules has nothing to pick out of it.
+   *
+   * Asserted over a FULL inbox, because the rule is about the column: one
+   * coloured rule among neutral ones, not one row read in isolation.
+   */
+  it('colours the left rule on the overdue invoice and no other row', () => {
+    const { container } = render(
+      <Inbox
+        stats={stats({
+          overdueInvoices: [overdue],
+          staleDrafts: [
+            {
+              invoiceId: 'd1',
+              invoiceNumber: 'STINT-0019',
+              clientId: 'c1',
+              clientName: 'Byrne Studio',
+              amount: 780,
+              currency: 'USD',
+              ageDays: 13,
+            },
+          ],
+          unprojected: [unprojectedEntry],
+          strangeDurations: [longEntry],
+        })}
+      />,
+      { wrapper },
+    );
+
+    const rules = Array.from(
+      container.querySelectorAll<HTMLElement>('.border-l-2'),
+    );
+    expect(rules).toHaveLength(4);
+
+    const coloured = rules.filter((el) =>
+      el.className.includes('border-danger'),
+    );
+    expect(coloured).toHaveLength(1);
+
+    const overdueRow = coloured[0];
+    if (!overdueRow) throw new Error('unreachable');
+    /* And it is the invoice's row, not merely some row. */
+    expect(overdueRow.textContent).toContain('Northwind');
+
+    for (const el of rules.filter((r) => r !== overdueRow)) {
+      expect(el.className).toContain('border-edge-subtle');
+      expect(el.className).not.toMatch(/border-(danger|timer-warning)/);
+    }
+  });
 });
 
 /**

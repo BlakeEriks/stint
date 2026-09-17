@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { EntryList } from '@/components/entry-list';
 import type { Project, TimeEntry } from '@/lib/client/api';
+import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 
 const PROJECTS = [{ id: 'p1', name: 'Acme Redesign' }] as unknown as Project[];
 
@@ -205,5 +206,27 @@ describe('EntryList', () => {
     await screen.findByText('Writing');
     expect(container.querySelector('.bg-surface-elevated')).toBeNull();
     expect(container.querySelector('.shadow-card')).toBeNull();
+  });
+
+  /**
+   * Internal work has no CLIENT and therefore no colour, but it keeps a
+   * swatch: the grey is what a swatch draws when there is no colour to draw,
+   * so internal hours stay legible in a row or a graph beside the clients.
+   *
+   * It must be the SEMANTIC token. `--text-subtle` is a primitive that the
+   * token package owns and `tokens.css` is free to rename; `--color-subtle`
+   * is what it emits for components to reach for.
+   */
+  it('draws internal work with the semantic neutral, not a primitive', async () => {
+    serve([entry({ projectId: 'p1' })]);
+    renderList();
+
+    const row = await screen.findByRole('button', { name: /Edit Writing/ });
+    const swatch = row.querySelector<HTMLElement>('[aria-hidden]');
+
+    expect(swatch).not.toBeNull();
+    expect(swatch?.getAttribute('style')).toContain(INTERNAL_SWATCH);
+    expect(INTERNAL_SWATCH).toBe('var(--color-subtle)');
+    expect(swatch?.getAttribute('style')).not.toContain('--text-subtle');
   });
 });

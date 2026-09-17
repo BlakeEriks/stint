@@ -38,6 +38,7 @@ export function Dock() {
       {/* Today has its own `/entries` query, so it waits on stats for nothing. */}
       {data ? <Inbox stats={data} /> : null}
       <EntryList
+        compact
         projects={projects?.projects ?? []}
         todaySeconds={timer.todaySeconds}
       />
