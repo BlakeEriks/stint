@@ -334,6 +334,29 @@ later.
       Deferred, and judging Tab reachability there needs macOS keyboard
       navigation turned on first.
 
+- [ ] **Adjusting a runaway focuses the task name, not the end time.** The
+      `EntryDialog` at `timer-bar.tsx:171` passes no `focus`, so it falls to
+      the default `'task'` — which is right when the dialog is opened to edit
+      an entry, and wrong on this path. A runaway is a timer left running: the
+      task name is the one field already correct, and the end time is the only
+      reason the dialog opened. `focus` takes `'task' | 'project'` today, so
+      this adds `'end'` and passes it from the runaway path alone.
+
+      Two things the existing `focus === 'project'` case has already solved,
+      and this must copy rather than rediscover. The `noAutofocus` lint rule
+      needs the same `biome-ignore` with the same reasoning — the rule guards
+      against stealing focus on page load, and this is a modal the user just
+      opened where something must take focus anyway. And the `focus:` styles
+      must be there alongside `focus-visible:`: programmatic focus is never
+      `:focus-visible`, so without it the cursor is genuinely in the field
+      with nothing on screen saying so. `Input` is shared, so check whether it
+      carries those already before adding them at the call site.
+
+      Worth deciding while in there: whether the time is also **selected**,
+      not merely focused. The field exists to be replaced rather than edited,
+      and a `type="time"` input focuses its first segment — which is the hour,
+      the segment most likely to be the one that needs changing.
+
 - [ ] **The empty inbox says it twice.** The header renders
       `{count || 'clear'}` where the count goes, so an empty inbox reads
       "clear" in the corner with "Nothing needs you." directly beneath it —
