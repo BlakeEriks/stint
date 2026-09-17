@@ -387,7 +387,7 @@ function Unbilled({
       {stats.awaitingPayment > 0 ? (
         <Link
           href="/invoices?status=sent"
-          className="mx-5 my-1 inline-flex items-baseline gap-1.5 rounded-sm type-support text-subtle hover:text-muted hover:underline hover:decoration-edge-subtle hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+          className="mx-5 mt-1 mb-1 inline-flex items-baseline gap-1.5 rounded-sm type-support text-subtle hover:text-muted hover:underline hover:decoration-edge-subtle hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
         >
           <span className="type-meta text-muted">
             {formatCurrency(stats.awaitingPayment, stats.currency)}
@@ -427,7 +427,10 @@ function ByClient({ stats }: { stats: Stats }) {
   return (
     <section className="py-1">
       <h2 className="px-5 pt-3 pb-1 type-label text-subtle">By client</h2>
-      <ul className="flex flex-col">
+      {/* A hairline BETWEEN rows, never above the first — the section head
+          already separates it from what is above. `mx-5` rather than padding
+          on the row, so the rule starts where the content does. */}
+      <ul className="mx-5 flex flex-col [&>li+li]:border-t [&>li+li]:border-edge-subtle/60">
         {byClient.map((c) => (
           <Row
             key={c.clientId ?? 'none'}
@@ -1171,8 +1174,13 @@ function Region({
             </div>
             {action ? <div className="flex-none">{action}</div> : null}
           </div>
+          {/* `leading-none`: no type role sets a line-height, so the inherited
+              1.5 leaves ~7px of empty leading under a 30px figure and the line
+              beneath it reads as drifting. */}
           {value !== undefined ? (
-            <div className="mt-1.5 type-figure text-strong">{value}</div>
+            <div className="mt-1.5 type-figure leading-none text-strong">
+              {value}
+            </div>
           ) : null}
         </header>
         {children}
@@ -1223,7 +1231,7 @@ function Row({
      and lays the row out as though there were room. */
   return (
     <li className="@container">
-      <div className="flex items-center gap-2.5 px-5 py-2">
+      <div className="flex items-center gap-2.5 py-2">
         {icon}
 
         {/* One line: the name, then the age against the money it is ageing.

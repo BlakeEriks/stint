@@ -17,7 +17,10 @@ export function AppHeader() {
       <Link
         href="/"
         aria-label="Stint — home"
-        className="flex-none rounded-md px-2 py-1 hover:bg-surface-hover"
+        /* `-ml-2` cancels the link's own `px-2` at the left edge only: the
+           padding is the hover target, but it should not also inset the
+           mark, which sits further left than the rail beneath it. */
+        className="-ml-2 flex-none rounded-md px-2 py-1 hover:bg-surface-hover"
       >
         <Wordmark size="small" />
       </Link>

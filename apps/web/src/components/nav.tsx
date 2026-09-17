@@ -54,11 +54,18 @@ export function Nav() {
          docked beneath, so the rail fills its own row rather than the
          viewport — at `h-dvh` it would run under the bar by the bar's own
          height. The version sits below, in the bar's row — see `Version`. */
-      className="flex flex-none flex-col gap-1 lg:col-start-1 lg:row-start-1 lg:h-full lg:w-48"
+      className="flex flex-none flex-col gap-1 lg:col-start-1 lg:row-start-1 lg:h-full lg:w-48 lg:pt-4"
     >
       {/* Only this scrolls: horizontally on a phone, vertically in the rail if
-          the list ever outgrows a short window. */}
-      <div className="flex gap-1 overflow-x-auto lg:min-h-0 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
+          the list ever outgrows a short window.
+
+          `px-1` is not decoration — the active item's marker is drawn at its
+          left edge and translated 1px PAST it, so with the scroller flush to
+          the items half the pill fell outside and was clipped to a flat edge.
+          A scroll container cannot let one axis overflow while the other
+          scrolls (`overflow-x: visible` computes to `auto` beside
+          `overflow-y: auto`), so the room has to be real. */}
+      <div className="flex gap-1 overflow-x-auto px-1 lg:min-h-0 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
         {LINKS.map(({ href, label, icon: Icon }) => {
           const active =
             href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -71,7 +78,7 @@ export function Nav() {
                  its left edge, drawn as `::before` — no shadow, because on a
                  flat ground a raised pill would be the second floating thing
                  in the frame and the panel is the first. */
-              className={`type-nav relative flex flex-none items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors lg:px-3 ${
+              className={`type-label relative flex flex-none items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors lg:px-3 ${
                 active
                   ? `bg-surface-elevated/55 text-strong
                      before:absolute before:top-1/2 before:left-0 before:h-3.5 before:w-0.5

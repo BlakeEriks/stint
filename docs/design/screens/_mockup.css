@@ -221,6 +221,13 @@
     letter-spacing: 0.12em;
 }
 
+.type-wordmark-small {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
 .type-nav {
     font-family: var(--font-mono);
     font-size: 13px;

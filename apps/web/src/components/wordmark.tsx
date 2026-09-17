@@ -14,13 +14,16 @@ export function Wordmark({
    * `small` for the app frame, where the mark is a way home rather than the
    * page's subject; `default` for the landing page, where it is. The bounds
    * are sized in `em`, so both draw the same mark at different scales.
+   *
+   * Both are the mark's own roles: `small` sits a step above the rail's
+   * `type-nav` beneath it, because the way home is not a section in the list.
    */
   size?: 'default' | 'small';
 }) {
   return (
     <span
       className={`${
-        size === 'small' ? 'type-nav normal-case' : 'type-wordmark'
+        size === 'small' ? 'type-wordmark-small' : 'type-wordmark'
       } flex items-center ${className}`}
     >
       <span aria-hidden className="mark-bound" />

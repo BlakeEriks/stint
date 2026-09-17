@@ -28,9 +28,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           `bg-surface-base` is the GROUND and runs unbroken behind everything:
           the header, the rail and the dock are painted straight onto it, so
           the only edge in the frame belongs to the panel. */}
-      <div className="flex min-h-dvh flex-col bg-surface-base sm:h-dvh sm:min-h-0 sm:overflow-hidden">
-        <AppHeader />
-        {/* The rail and the dock change axis at different widths, so they are
+      {/* At `2xl` the app becomes a bounded card on `bg-surface-recessed` —
+          the plane the frame otherwise leaves unused, since the ground inside
+          the card is `bg-surface-base`. Below it the app fills the window. */}
+      <div className="flex min-h-dvh flex-col bg-surface-base sm:h-dvh sm:min-h-0 sm:overflow-hidden 2xl:items-center 2xl:bg-surface-recessed 2xl:p-6">
+        <div className="flex min-h-dvh w-full flex-col bg-surface-base sm:h-full sm:min-h-0 sm:overflow-hidden 2xl:mx-auto 2xl:max-h-[900px] 2xl:max-w-[1440px] 2xl:rounded-2xl 2xl:border 2xl:border-edge-subtle 2xl:shadow-float">
+          <AppHeader />
+          {/* The rail and the dock change axis at different widths, so they are
             not siblings in one row: the rail moves beside the content at
             `lg`, the dock becomes a third column at `xl`. Below `xl` the
             scroller is the wrapper around content + dock, so the dock scrolls
@@ -49,37 +53,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             Below `lg` this is a plain flex column and the bar is last in it,
             which is where it has always rendered: after the scroller, never
             inside it, so `sticky` still pins it to a phone viewport. */}
-        <div
-          className="flex min-h-0 flex-1 flex-col gap-4 px-3 pb-3 sm:px-4 sm:pb-4
+          <div
+            className="flex min-h-0 flex-1 flex-col gap-4 px-3 pb-3 sm:px-4 sm:pb-4
                      lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)_auto]
                      xl:grid-cols-[12rem_minmax(0,1fr)_286px]"
-        >
-          <Nav />
-          {/* Row 2, column 1 — the timer bar's own row, which is where the
-              frame's bottom-left corner is. In the rail it would float a
-              bar's height above it. */}
-          <Version />
-          {/* Below `xl` this is the scroller holding the panel and the dock,
-              so the dock scrolls with the page it summarises. At `xl` it is
-              the content column alone: `xl:contents` dissolves it so the
-              panel and the dock become grid items in their own tracks, and
-              the panel takes over its own scrolling. */}
-          <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto lg:col-start-2 lg:row-start-1 xl:contents">
-            {/* THE PANEL. One borderless surface, separated from the ground by
+          >
+            <Nav />
+            <Version />
+            <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto lg:col-start-2 lg:row-start-1 xl:contents">
+              {/* THE PANEL. One borderless surface, separated from the ground by
                 shadow alone — a step above the rail and dock that flank it,
                 because depth increases toward what is being read. */}
-            <div className="min-w-0 flex-1 rounded-xl bg-surface-primary shadow-panel xl:col-start-2 xl:row-start-1 xl:overflow-y-auto">
-              {children}
+              <div className="min-w-0 flex-1 rounded-xl bg-surface-primary shadow-panel xl:col-start-2 xl:row-start-1 xl:overflow-y-auto">
+                {children}
+              </div>
+              <Dock />
             </div>
-            <Dock />
-          </div>
-          {/* Full width across the bottom below `xl`, `sticky` to a phone
+            {/* Full width across the bottom below `xl`, `sticky` to a phone
               viewport — it sits after the scroller rather than inside it,
               which is what makes `sticky` pin rather than scroll away. The
               negative margin lets the fill reach the window's edges there,
               and `xl` drops it to take the content column's own width. */}
-          <div className="sticky bottom-0 z-20 -mx-3 px-3 sm:static sm:-mx-4 sm:px-4 lg:col-span-full lg:row-start-2 xl:col-span-1 xl:col-start-2 xl:mx-0 xl:px-0">
-            <TimerDock />
+            <div className="sticky bottom-0 z-20 -mx-3 px-3 sm:static sm:-mx-4 sm:px-4 lg:col-span-full lg:row-start-2 xl:col-span-1 xl:col-start-2 xl:mx-0 xl:px-0">
+              <TimerDock />
+            </div>
           </div>
         </div>
       </div>
