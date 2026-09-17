@@ -651,9 +651,18 @@
     </p>
 
     <ul class="rule">
-      <li><strong>On stop, Unbilled counts to its new value</strong>, with the
-        delta beside it for a beat. Both are the <em>resolved</em> amount,
+      <li><strong>On stop, Unbilled counts to its new value</strong>, with
+        the day's earnings beside it. Both are the <em>resolved</em> amount,
         which is the number the user cannot arrive at alone.</li>
+      <li><strong>That chip is today's running total, not the last
+        stop.</strong> Three stops at $40, $30 and $80 read
+        <code>+$150 today</code>. It survives a refresh and resets at local
+        midnight, because it is a fact about the day rather than a flash
+        about a fetch.</li>
+      <li><strong>Raising an invoice never subtracts from it.</strong> The
+        money leaves Unbilled without any work being undone, and a day's
+        earnings that fall when the user invoices them is the screen
+        disagreeing with what happened.</li>
       <li><strong>The stop beat is neutral, never green.</strong> The accent
         is the running timer, and a stop has just ended one — borrowing it
         marks as live the one thing that stopped being live.</li>
@@ -670,7 +679,9 @@
         here</strong>, and it leaves with the tween. It is the only outcome on
         the screen; nothing else earns the colour.</li>
       <li><strong>On arrival, the figure animates from what this browser last
-        displayed</strong>, carrying a line naming the period.</li>
+        displayed.</strong> The line beneath the day names a different period:
+        it measures against a baseline taken once per local day, so it says
+        the same thing however often the app is opened.</li>
       <li><strong>Last-seen is per-device</strong>, in <code>localStorage</code>
         under one key per origin — a display detail, never account state. Two
         devices disagreeing is correct: each animates what <em>it</em> has not

@@ -23,6 +23,7 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import { formatCurrency } from './invoice-bits';
 import { keys } from '@/lib/client/query-keys';
 import { useCountUp, useSinceLastSeen } from '@/lib/client/use-count-up';
+import { cause, useDayState } from '@/lib/client/use-day-state';
 
 /**
  * The home screen's regions, in three rows: money waiting beside who owes it,
@@ -59,8 +60,11 @@ function PanelHead({
     month: 'short',
   }).format(now);
 
+  /* No bottom padding: the first region's own `pt-3` follows it, and adding
+     to that left 20px under the day name where the mockup has 8. The head
+     carries the since-line's space only when the line is there to need it. */
   return (
-    <div className="flex items-baseline justify-between gap-3 px-5 pt-3 pb-1">
+    <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
       <div className="min-w-0">
         <h2 className="type-heading text-strong">{day}</h2>
         <SinceLine delta={delta} currency={currency} />
@@ -86,7 +90,7 @@ export function HomeCards() {
  * cannot run above the `!data` guard that makes `stats` defined.
  */
 function Panel({ stats }: { stats: Stats }) {
-  const arrival = useSinceLastSeen(SEEN_UNBILLED, stats.unbilled.total);
+  const day = useDayState(stats);
   const data = stats;
 
   /* `@container` on the panel, and every pairing below sizes off it. The
@@ -99,9 +103,9 @@ function Panel({ stats }: { stats: Stats }) {
        would land inside this surface, not around it. `pb-4` closes the
        bottom, which the regions' own padding does not reach. */
     <div className="@container flex flex-col pb-4">
-      <PanelHead delta={arrival.delta} currency={data.currency} />
+      <PanelHead delta={day.sinceOpen} currency={data.currency} />
       <Pair
-        left={<Unbilled stats={data} />}
+        left={<Unbilled stats={data} earnedToday={day.earnedToday} />}
         right={<ByClient stats={data} />}
       />
       <Rule />
@@ -138,32 +142,6 @@ function Pair({
       {right}
     </div>
   );
-}
-
-/**
- * Why the figures moved, read off the figures themselves.
- *
- * The beats are reactions to mutations that happen on other screens — the
- * timer bar, the inbox, an invoice — and a region that subscribed to each of
- * them would be a region that knows about all of them. `/stats` is already
- * invalidated by every one, so the refetch carries the news.
- *
- * Two axes, because one refetch can carry two events and a single net figure
- * cannot tell them apart. Hours are the only evidence a timer stopped: money
- * alone also moves when a rate is edited elsewhere. `awaitingPayment` is the
- * only evidence an invoice was raised, and it moves independently of
- * `unbilled` rather than being netted against it.
- *
- * Both at once resolves to null. The delta each would report is the other's
- * movement mixed in, and a figure that is the net of two unrelated events is
- * money the app would be inventing.
- */
-function cause(prev: Stats | null, next: Stats): 'stop' | 'paid' | null {
-  if (!prev) return null;
-  const stopped = next.unbilled.seconds > prev.unbilled.seconds;
-  const raised = next.awaitingPayment > prev.awaitingPayment;
-  if (stopped === raised) return null;
-  return stopped ? 'stop' : 'paid';
 }
 
 type Beat = { kind: 'stop' | 'paid'; amount: number; seconds: number } | null;
@@ -248,11 +226,57 @@ function Delta({ beat, currency }: { beat: Beat; currency: string }) {
   );
 }
 
+/**
+ * What today has earned, beside the figure it added to.
+ *
+ * A fact about the day rather than a flash about a fetch, so it does not
+ * retire on a timer and it survives a refresh. **Neutral, never the accent** —
+ * the accent is the running timer, and a stop has just ended one.
+ *
+ * A transient beat still outranks it for the one thing the running total
+ * cannot say: an unbillable stop earned no money, and reporting `+$0.00`
+ * would teach the user that only billable work makes the app respond. The
+ * beat says the hours instead, and the total resumes when it retires.
+ */
+function Earned({
+  amount,
+  beat,
+  currency,
+}: {
+  amount: number | null;
+  beat: Beat;
+  currency: string;
+}) {
+  const unbillable = beat && beat.kind === 'stop' && beat.amount === 0;
+  if (unbillable || beat?.kind === 'paid') {
+    return <Delta beat={beat} currency={currency} />;
+  }
+
+  /* Absent at zero, which includes "nothing stopped yet today". An empty
+     slot is quieter than a chip reporting no movement. `0` is a valid
+     amount, so this is a value check and never truthiness. */
+  if (amount == null || amount === 0) return null;
+
+  return (
+    <span
+      className="type-meta tabular-nums text-subtle motion-safe:animate-in motion-safe:fade-in"
+      data-earned="today"
+    >
+      {amount > 0 ? '+' : '−'}
+      {formatCurrency(Math.abs(amount), currency)} today
+    </span>
+  );
+}
+
 /** One key per origin — a display detail of THIS browser, never account state. */
 const SEEN_UNBILLED = 'stint.seen.unbilled';
 
 /**
- * What changed since this browser last looked.
+ * What has moved since yesterday closed.
+ *
+ * Measured against a baseline taken once per local day, so it says the same
+ * thing however often the app is opened — the previous mechanism overwrote
+ * itself on every load, which made it "since you last had this tab open".
  *
  * Absent on a first load, where `delta` is null: with nothing stored there is
  * no period to name, and "since yesterday" over the user's whole history is a
@@ -269,7 +293,7 @@ function SinceLine({
 
   return (
     <p className="type-support text-subtle">
-      Since you last looked,{' '}
+      Since yesterday,{' '}
       <span className="type-meta tabular-nums text-muted">
         {delta > 0 ? '+' : '−'}
         {formatCurrency(Math.abs(delta), currency)}
@@ -311,11 +335,19 @@ function Rule() {
  * money the user might still never see. Overstating it in a billing tool is
  * the same trust failure as silently editing an entry.
  */
-function Unbilled({ stats }: { stats: Stats }) {
+function Unbilled({
+  stats,
+  earnedToday,
+}: {
+  stats: Stats;
+  earnedToday: number | null;
+}) {
   const { total, byClient } = stats.unbilled;
   const beat = useBeat(stats);
-  /* The figure still animates from what this browser last showed; the line
-     naming that change is in the panel header, which speaks for the screen. */
+  /* Travel only. This still animates from what this browser last DISPLAYED,
+     which is a fact about the screen; the two figures that describe a period
+     — today's earnings and the day-over-day line — come from `useDayState`
+     and are measured against the day, not against the last paint. */
   const arrival = useSinceLastSeen(SEEN_UNBILLED, total);
 
   if (byClient.length === 0) return null;
@@ -329,7 +361,7 @@ function Unbilled({ stats }: { stats: Stats }) {
           <span className="tabular-nums">
             {formatCurrency(arrival.value, stats.currency)}
           </span>
-          <Delta beat={beat} currency={stats.currency} />
+          <Earned amount={earnedToday} beat={beat} currency={stats.currency} />
         </span>
       }
     >

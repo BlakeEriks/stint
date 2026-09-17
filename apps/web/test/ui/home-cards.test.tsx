@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { HomeCards } from '@/components/home-cards';
 import type { Stats } from '@/lib/client/api';
+import { localDateKey } from '@stint/core';
+import { timeZone as tz } from '@/lib/client/use-timer';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
 
@@ -398,11 +400,19 @@ describe('the panel header', () => {
   /* The since-line describes the SCREEN, not Unbilled: the money moved and
      so did the invoice it was raised against. */
   it('carries the since-line, which Unbilled does not', async () => {
-    window.localStorage.setItem('stint.seen.unbilled', '3000');
+    window.localStorage.setItem(
+      'stint.day',
+      JSON.stringify({
+        date: localDateKey(new Date(), tz),
+        openedUnbilled: 3000,
+        earnedToday: 0,
+        lastUnbilled: 3000,
+      }),
+    );
     serve(stats({ unbilled: oneClient }));
     render(<HomeCards />, { wrapper });
 
-    const since = await screen.findByText(/Since you last looked/);
+    const since = await screen.findByText(/Since yesterday/);
 
     const heading = screen.getByRole('heading', {
       name: new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(
@@ -916,11 +926,15 @@ describe('the beat says only what it can tell', () => {
       await client.refetchQueries();
     });
 
-    const chip = await screen.findByText('+$112.50');
-    expect(chip.getAttribute('data-beat')).toBe('stop');
+    const chip = await screen.findByText(/\+\$112\.50 today/);
+    expect(chip.getAttribute('data-earned')).toBe('today');
     expect(chip.className).not.toMatch(/accent/);
     expect(chip.className).not.toMatch(/text-success/);
-    expect(beats(container).length).toBeGreaterThan(0);
+    /* No transient beat: a plain billable stop is fully described by the
+       running total, and a second chip saying the same figure would read as
+       two events. The beat is reserved for what the total cannot say — an
+       unbillable stop, and a raised invoice. */
+    expect(beats(container).length).toBe(0);
   });
 
   it('does not fire a stop when a rate was corrected elsewhere', async () => {

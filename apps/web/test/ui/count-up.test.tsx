@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { HomeCards } from '@/components/home-cards';
 import type { Stats } from '@/lib/client/api';
+import { localDateKey } from '@stint/core';
+import { timeZone as tz } from '@/lib/client/use-timer';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
 
@@ -173,7 +175,7 @@ describe('count-up', () => {
     // Settled on the first paint the figure appears in — no travel from 0.
     expect(figure()).toBe('$4,200.00');
     // And no period line, because there is no period to name.
-    expect(screen.queryByText(/Since you last looked/)).toBeNull();
+    expect(screen.queryByText(/Since yesterday/)).toBeNull();
   });
 
   it('stores what it displayed, so the next arrival has a from', async () => {
@@ -185,14 +187,26 @@ describe('count-up', () => {
     );
   });
 
-  it('names the period when the browser has seen a smaller figure', async () => {
+  /* The figure's travel and the line naming it now come from different
+     state: the tween still animates from what this browser last DISPLAYED,
+     while the line measures against the day's opening baseline. */
+  it('names the period when the day opened at a smaller figure', async () => {
     localStorage.setItem('stint.seen.unbilled', '3750');
+    localStorage.setItem(
+      'stint.day',
+      JSON.stringify({
+        date: localDateKey(new Date(), tz),
+        openedUnbilled: 3750,
+        earnedToday: 0,
+        lastUnbilled: 3750,
+      }),
+    );
     serve(() => stats({ unbilled: unbilled(4200) }));
 
     render(<HomeCards />, { wrapper });
 
     await waitFor(() =>
-      expect(screen.getByText(/Since you last looked/)).toBeVisible(),
+      expect(screen.getByText(/Since yesterday/)).toBeVisible(),
     );
     expect(screen.getByText('+$450.00')).toBeVisible();
     // Settles on the server's figure once the tween lands.
@@ -253,13 +267,15 @@ describe('count-up', () => {
       await client.refetchQueries();
     });
 
-    const chip = await screen.findByText('+$112.50');
+    /* The stop is now reported by the day's running total, which persists
+       rather than retiring on a timer. The tone rule is unchanged. */
+    const chip = await screen.findByText(/\+\$112\.50 today/);
     expect(chip).toBeVisible();
     // Classes, not inline style: the tone is a utility, so reading `style`
     // alone would pass against an accent-coloured chip.
     expect(chip.className).not.toMatch(/accent/);
     expect(chip.className).not.toMatch(/text-success/);
-    expect(chip.getAttribute('data-beat')).toBe('stop');
+    expect(chip.getAttribute('data-earned')).toBe('today');
   });
 
   it('spends cyan on the paid beat and nowhere else', async () => {

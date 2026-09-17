@@ -142,7 +142,7 @@ export function useSinceLastSeen(key: string, to: number | null | undefined) {
   const ready = to != null;
 
   /* Captured once, before the first write below lands: after that the stored
-     value IS this figure, and re-reading would give a delta of zero. */
+     value IS this figure, so re-reading would leave nothing to travel from. */
   const seen = useRef<number | null | undefined>(undefined);
   if (seen.current === undefined && ready) {
     seen.current = read(key);
@@ -155,10 +155,5 @@ export function useSinceLastSeen(key: string, to: number | null | undefined) {
     if (ready) write(key, settled);
   }, [key, settled, ready]);
 
-  return {
-    value,
-    running,
-    /** Null on a first load, which is what suppresses the "since" line. */
-    delta: previous == null ? null : settled - previous,
-  };
+  return { value, running };
 }
