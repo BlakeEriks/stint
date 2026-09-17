@@ -114,6 +114,13 @@ disagree about the same work.
 **A query renders through `Listing`**, which owns loading, failure and empty,
 so no screen writes those branches.
 
+**`TaskSuggest` is the exception, deliberately** — its query renders nothing
+while loading and nothing on failure. A suggestion is an accelerator nobody
+asked for, so a spinner or a failure panel flashing over the timer bar reports
+a problem the user was not waiting on, in front of the field they are typing
+into. Absent, the list is simply not offered and the field still works. Do not
+"fix" it back to `Listing`.
+
 ### Invoices
 
 **Preview and generation must agree.** Any change to what would be billed

@@ -7,6 +7,7 @@ import { useTimer } from '@/lib/client/use-timer';
 import { useAdjustingEntry } from '@/lib/client/use-runaway';
 import { ProjectPicker } from './project-picker';
 import { EntryDialog } from './entry-dialog';
+import { TaskSuggest } from './task-suggest';
 import type { Project } from '@/lib/client/api';
 
 /**
@@ -45,7 +46,9 @@ export function TimerBar({ projects }: { projects: Project[] }) {
     if (isRunning) {
       timer.stop.mutate();
     } else {
-      timer.start.mutate({ taskName: draft, projectId: draftProject });
+      /* Trimmed, as the entry dialog trims: a chosen suggestion has to match
+         the stored name exactly or the next list offers it a second time. */
+      timer.start.mutate({ taskName: draft.trim(), projectId: draftProject });
       setDraft('');
     }
   };
@@ -113,19 +116,37 @@ export function TimerBar({ projects }: { projects: Project[] }) {
 
                 `order-last basis-full` below `sm` puts the field on its own row
                 beneath the dot, tag and clock, which read as one strip. */}
-            <input
+            <TaskSuggest
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') toggle();
+              onChange={(name, rowProject) => {
+                setDraft(name);
+                /* A fill, never an overwrite: a project already chosen is the
+                   user's answer to which client this is billed to, and a row
+                   used under another one must not move the work there. */
+                if (rowProject && !draftProject) setDraftProject(rowProject);
               }}
-              placeholder="What are you working on?"
-              aria-label="Task name"
-              className="order-last min-w-0 flex-1 basis-full rounded-lg border border-edge-default
-                         bg-surface-base px-3 py-2 type-body text-strong
-                         placeholder:text-subtle focus:border-edge-focus focus:outline-none
-                         sm:order-none sm:max-w-md sm:basis-auto"
-            />
+              projectId={draftProject}
+              /* The bar is docked to the bottom of the viewport. */
+              above
+              className="order-last min-w-0 flex-1 basis-full sm:order-none sm:max-w-md sm:basis-auto"
+            >
+              {(suggest) => (
+                <input
+                  {...suggest}
+                  onKeyDown={(e) => {
+                    suggest.onKeyDown(e);
+                    // Enter belongs to the list while a row is highlighted;
+                    // otherwise it still starts the timer, as it always did.
+                    if (e.key === 'Enter' && !e.defaultPrevented) toggle();
+                  }}
+                  placeholder="What are you working on?"
+                  aria-label="Task name"
+                  className="w-full rounded-lg border border-edge-default
+                             bg-surface-base px-3 py-2 type-body text-strong
+                             placeholder:text-subtle focus:border-edge-focus focus:outline-none"
+                />
+              )}
+            </TaskSuggest>
             <ProjectPicker
               projects={projects}
               value={draftProject}

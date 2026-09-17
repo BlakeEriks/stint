@@ -106,7 +106,9 @@ The spec names:
 - **Out of scope**, explicitly.
 - **The verification command for every phase.** Not "tests" — the command.
   `pnpm verify:static` is everything needing no database; `pnpm verify:db`
-  is the rest and wants the local stack up. Both mirror a CI job.
+  is the rest and wants the local stack up. Both mirror a CI job and take no
+  arguments — `pnpm db:setup` first if a migration landed, since the test
+  databases are built from migrations and do not pick up a new one.
 - **Doc changes**, including deleting the `tasks.md` line. A finished task is
   deleted, not ticked.
 
@@ -190,13 +192,20 @@ over many iterations, not as a cleanup pass on code written an hour ago.
 
 ## 6. Review with two agents that did not write it
 
-In parallel, both against the merge base:
-
 - **Correctness** — `/code-review`, or a subagent hunting only regressions: a
   field a route used to accept, a default that leaked, a state a screen used
   to render.
 - **The spec** — every requirement implemented, every listed edge case tested,
   nothing outside scope changed.
+
+**Run them one after the other, never in parallel.** Each proves a finding by
+breaking the rule and watching a test go red, which is what separates a review
+worth reading from a list of suspicions — and two agents doing that to one
+worktree at once read each other's half-applied edits as the code under
+review. That reported two billing bugs which did not exist, against a tree
+that was clean by the time anyone looked.
+
+Wait for the first to report before starting the second.
 
 Tell both to flag only what affects correctness or a stated requirement. A
 reviewer asked for gaps will find them; chasing all of them buys abstraction

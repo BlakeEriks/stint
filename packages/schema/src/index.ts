@@ -166,6 +166,21 @@ export const ListEntriesQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(200),
 });
 
+export const TaskNamesQuery = z.object({
+  /* A preference, not a filter: names used with this project rank first and
+     every other name still follows. Omitting it ranks by recency alone, which
+     is also what the picker's "No project" state wants. */
+  projectId: uuid.optional(),
+  limit: z.coerce.number().int().min(1).max(20).default(8),
+});
+
+/** One row of `recent_task_names`; ranked by the server and never re-sorted. */
+export const TaskNameSuggestion = z.object({
+  taskName: z.string(),
+  projectId: z.uuid().nullable(),
+  lastUsedAt: z.iso.datetime(),
+});
+
 // ── timer ──────────────────────────────────────────────────────────
 export const StartTimer = z.object({
   id: uuid.optional(),
@@ -608,6 +623,7 @@ export type Client = z.infer<typeof Client>;
 export type Project = z.infer<typeof Project>;
 export type TimeEntry = z.infer<typeof TimeEntry>;
 export type Summary = z.infer<typeof Summary>;
+export type TaskNameSuggestion = z.infer<typeof TaskNameSuggestion>;
 export type Settings = z.infer<typeof Settings>;
 export type InvoicePreview = z.infer<typeof InvoicePreview>;
 export type PaymentProfile = z.infer<typeof PaymentProfile>;

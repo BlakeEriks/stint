@@ -6,11 +6,16 @@
 #
 # Migrations go through `pnpm migrate --url`, so the real migration script —
 # schema_migrations, one transaction per file — is what CI exercises.
+#
+# PGPORT defaults to CI's own 5432. A local Supabase stack listens on 54322,
+# so `PGPORT=54322 ci-db.sh tt` is how a developer reaches the same databases
+# the CI job builds.
 set -euo pipefail
 
 DB=$1
 RLS=${2:-}
-PSQL="psql -h localhost -U postgres -v ON_ERROR_STOP=1"
+PORT=${PGPORT:-5432}
+PSQL="psql -h localhost -p $PORT -U postgres -v ON_ERROR_STOP=1"
 export PGPASSWORD=postgres
 
 $PSQL -c "create database $DB" 2>/dev/null || true
@@ -37,11 +42,21 @@ SQL
 # `authenticated` mirrors the role PostgREST uses for a signed-in caller, so
 # it logs in here — NOT a superuser and NOT BYPASSRLS, or every RLS assertion
 # passes vacuously.
+#
+# On a Supabase stack `authenticated` is reserved and owned by supabase_admin,
+# so the stub `postgres` superuser CI creates cannot alter it. Connect as the
+# owner where that role exists; CI has only `postgres` and uses it.
 if [ "$RLS" = "--rls" ]; then
-  $PSQL -d "$DB" -c "alter role authenticated login password 'test'"
+  OWNER=postgres
+  if $PSQL -d "$DB" -tAc \
+      "select 1 from pg_roles where rolname = 'supabase_admin'" | grep -q 1; then
+    OWNER=supabase_admin
+  fi
+  psql -h localhost -p "$PORT" -U "$OWNER" -d "$DB" -v ON_ERROR_STOP=1 \
+    -c "alter role authenticated login password 'test'"
 fi
 
-pnpm migrate --url "postgresql://postgres:postgres@localhost:5432/$DB"
+pnpm migrate --url "postgresql://postgres:postgres@localhost:$PORT/$DB"
 
 if [ "$RLS" = "--rls" ]; then
   # Table privileges come from the grants migration, not from here: granting

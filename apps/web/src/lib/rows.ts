@@ -88,6 +88,22 @@ export function toEntry(r: EntryRow) {
   };
 }
 
+/* `recent_task_names` returns a computed shape rather than a table, so there
+   is no select list for `columns()` to tie this interface to. */
+export interface TaskNameRow {
+  task_name: string;
+  project_id: string | null;
+  last_used_at: string;
+}
+
+export function toTaskNameSuggestion(r: TaskNameRow) {
+  return {
+    taskName: r.task_name,
+    projectId: r.project_id,
+    lastUsedAt: r.last_used_at,
+  };
+}
+
 // ── clients ────────────────────────────────────────────────────────
 export interface ClientRow {
   id: string;

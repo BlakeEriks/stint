@@ -114,6 +114,7 @@ export type Settings = Response<schema.Settings>;
 export type PaymentProfile = Response<schema.PaymentProfile>;
 export type InvoicePreview = Response<schema.InvoicePreview>;
 export type Invoice = Response<schema.Invoice>;
+export type TaskNameSuggestion = Response<schema.TaskNameSuggestion>;
 
 /* Nested objects keep their own optionality, so `Response` is applied only at
    the top level here — every nested field is already required. */
@@ -219,6 +220,22 @@ export const api = {
   ) => request<TimeEntry>('PATCH', `/entries/${id}`, body),
 
   deleteEntry: (id: string) => request<void>('DELETE', `/entries/${id}`),
+
+  /**
+   * Recently used task names, ranked by the server and never re-sorted.
+   * `projectId` is a preference rather than a filter: its names rank first
+   * and the rest still follow, so omitting it ranks by recency alone.
+   */
+  taskNames: (opts: { projectId?: string | null; limit?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.projectId) q.set('projectId', opts.projectId);
+    if (opts.limit) q.set('limit', String(opts.limit));
+    const query = q.size > 0 ? `?${q}` : '';
+    return request<{ taskNames: TaskNameSuggestion[] }>(
+      'GET',
+      `/entries/task-names${query}`,
+    );
+  },
 
   projects: (opts: { includeArchived?: boolean; clientId?: string } = {}) => {
     const q = new URLSearchParams();

@@ -4,7 +4,12 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { TimerBar } from '@/components/timer-bar';
-import type { Project, Summary, TimeEntry } from '@/lib/client/api';
+import type {
+  Project,
+  Summary,
+  TaskNameSuggestion,
+  TimeEntry,
+} from '@/lib/client/api';
 
 const START = '2026-09-11T09:00:00.000Z';
 const NOW = '2026-09-11T09:25:00.000Z';
@@ -44,7 +49,7 @@ function summary(over: Partial<Summary> = {}): Summary {
  * server was asked to do — the part a user would feel — rather than about
  * internal state.
  */
-function serve(data: Summary) {
+function serve(data: Summary, taskNames: TaskNameSuggestion[] = []) {
   const calls: Array<{ method: string; path: string; body: unknown }> = [];
 
   vi.stubGlobal(
@@ -59,6 +64,12 @@ function serve(data: Summary) {
           body: init?.body ? JSON.parse(String(init.body)) : undefined,
         });
         return new Response(JSON.stringify(entry()), { status: 200 });
+      }
+      /* Its own envelope, and empty by default: every test that does not ask
+         for suggestions gets none, so the bar it asserts on is the one it
+         asserted on before the list existed. */
+      if (path.startsWith('/entries/task-names')) {
+        return new Response(JSON.stringify({ taskNames }), { status: 200 });
       }
       return new Response(JSON.stringify(data), { status: 200 });
     }),
@@ -143,6 +154,25 @@ describe('TimerBar — idle', () => {
     );
   });
 
+  /** Trimmed at the source: the name the list offers next must be this one. */
+  it('trims the typed task before starting', async () => {
+    const calls = serve(summary());
+    const user = userEvent.setup();
+    renderBar();
+
+    await screen.findByRole('button', { name: 'Start timer' });
+    await user.type(taskInput(), '  Invoicing  ');
+    await user.click(screen.getByRole('button', { name: 'Start timer' }));
+
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: 'POST',
+        path: '/timer/start',
+        body: { taskName: 'Invoicing', projectId: null },
+      }),
+    );
+  });
+
   /** Picking a project while idle is local state, not a write. */
   it('does not patch anything when a project is picked while idle', async () => {
     const calls = serve(summary());
@@ -154,6 +184,111 @@ describe('TimerBar — idle', () => {
     await user.click(screen.getByRole('menuitemradio', { name: /Bluebird/ }));
 
     expect(calls).toHaveLength(0);
+  });
+});
+
+/**
+ * The list is wired here, not owned here — `task-suggest.test.tsx` covers its
+ * keyboard and filtering. What these assert is the bar's half of the deal:
+ * which of its two fields offers the list, and what a chosen row is allowed
+ * to write.
+ */
+describe('TimerBar — task suggestions', () => {
+  const SUGGESTIONS: TaskNameSuggestion[] = [
+    { taskName: 'Invoice reconciliation', projectId: 'p1', lastUsedAt: '1' },
+  ];
+
+  const chooseFirst = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(taskInput());
+    await user.click(await screen.findByRole('option'));
+  };
+
+  it('fills the field with a chosen name', async () => {
+    serve(summary(), SUGGESTIONS);
+    const user = userEvent.setup();
+    renderBar();
+
+    await screen.findByRole('button', { name: 'Start timer' });
+    await chooseFirst(user);
+
+    expect(taskInput()).toHaveValue('Invoice reconciliation');
+  });
+
+  it("takes the row's project when none is chosen", async () => {
+    const calls = serve(summary(), SUGGESTIONS);
+    const user = userEvent.setup();
+    renderBar();
+
+    await screen.findByRole('button', { name: 'Start timer' });
+    await chooseFirst(user);
+    await user.click(screen.getByRole('button', { name: 'Start timer' }));
+
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: 'POST',
+        path: '/timer/start',
+        body: { taskName: 'Invoice reconciliation', projectId: 'p1' },
+      }),
+    );
+  });
+
+  /**
+   * The rule the whole feature turns on. A project already picked is the
+   * user's answer to which client this is billed to; a row last used under
+   * another one must not silently re-bill the work.
+   */
+  it('leaves an already-chosen project alone', async () => {
+    const calls = serve(summary(), SUGGESTIONS);
+    const user = userEvent.setup();
+    renderBar();
+
+    await screen.findByRole('button', { name: 'Start timer' });
+    await user.click(screen.getByRole('button', { name: 'Project' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /Bluebird/ }));
+    await chooseFirst(user);
+    await user.click(screen.getByRole('button', { name: 'Start timer' }));
+
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: 'POST',
+        path: '/timer/start',
+        // p2, the one that was picked — not the row's p1.
+        body: { taskName: 'Invoice reconciliation', projectId: 'p2' },
+      }),
+    );
+  });
+
+  /** Enter meant "start" before the list existed and still does. */
+  it('starts the timer on Enter with nothing highlighted', async () => {
+    const calls = serve(summary(), SUGGESTIONS);
+    const user = userEvent.setup();
+    renderBar();
+
+    await screen.findByRole('button', { name: 'Start timer' });
+    await user.type(taskInput(), 'Invoice{Enter}');
+
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: 'POST',
+        path: '/timer/start',
+        // The typed name, not the row the list is showing underneath it.
+        body: { taskName: 'Invoice', projectId: null },
+      }),
+    );
+  });
+
+  /** Renaming a running timer is a correction to one entry, not a re-pick. */
+  it('offers no list while renaming a running timer', async () => {
+    serve(summary({ running: entry(), todaySeconds: 1500 }), SUGGESTIONS);
+    const user = userEvent.setup();
+    renderBar();
+
+    await screen.findByRole('button', { name: 'Stop timer' });
+    const field = await startRename(user);
+    await user.click(field);
+
+    expect(field).not.toHaveAttribute('role', 'combobox');
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
 });
 

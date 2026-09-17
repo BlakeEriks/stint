@@ -20,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { TaskSuggest } from '@/components/task-suggest';
 import { api, ApiError, type Project, type TimeEntry } from '@/lib/client/api';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 import { timeZone } from '@/lib/client/use-timer';
@@ -224,14 +225,34 @@ export function EntryDialog({
             <Label htmlFor="entry-task" className={LABEL}>
               Task
             </Label>
-            <Input
-              id="entry-task"
-              autoFocus={focus === 'task'}
-              disabled={locked}
+            <TaskSuggest
               value={draft.taskName}
-              onChange={(e) => set('taskName', e.target.value)}
-              placeholder="What did you work on?"
-            />
+              onChange={(name, rowProject) => {
+                setDraft((d) => ({
+                  ...d,
+                  taskName: name,
+                  /* A fill, never an overwrite: a project already chosen is
+                     the user's answer to which client this is billed to, and
+                     a row used under another one must not move the work
+                     there. */
+                  projectId:
+                    rowProject && !d.projectId ? rowProject : d.projectId,
+                }));
+              }}
+              projectId={draft.projectId}
+              // A billed entry is read-only, so there is nothing to accelerate.
+              disabled={locked}
+            >
+              {(suggest) => (
+                <Input
+                  id="entry-task"
+                  {...suggest}
+                  autoFocus={focus === 'task'}
+                  disabled={locked}
+                  placeholder="What did you work on?"
+                />
+              )}
+            </TaskSuggest>
           </div>
 
           <div className="flex flex-col gap-1.5">

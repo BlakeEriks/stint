@@ -9,6 +9,21 @@ paths:
 
 # Tests
 
+## Running them
+
+    pnpm verify:static     # no database
+    pnpm db:setup          # after a new migration
+    pnpm verify:db         # route tests, RLS tests, verify:schema
+
+Both take no arguments. **Run `db:setup` whenever a migration lands** — the
+test databases are built from migrations and a new one is otherwise simply
+absent from them, so the suite tests a schema that no longer exists.
+
+Invoking a suite directly means supplying its connection variables yourself,
+and the RLS suite reads two: without `DATABASE_URL` its admin pool falls back
+to the tenant URL, cannot seed `auth.users`, and fails as "permission denied
+for table users" — which reads like a broken policy. Prefer the scripts.
+
 ## Route and RLS tests
 
 `apps/web/test/routes.test.ts` runs the **real** handlers against a **real**
