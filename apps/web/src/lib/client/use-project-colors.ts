@@ -12,6 +12,11 @@ import { keys } from './query-keys';
  * row or a graph beside the clients rather than vanishing from it. One
  * constant, because the same grey in three components diverges the moment one
  * of them is edited.
+ *
+ * `--color-subtle`, not `--color-text-subtle`: the generator strips the
+ * `text-` Tailwind reads as a utility prefix, so the variable the token file
+ * calls `text.subtle` is emitted bare. An undefined `var()` here paints
+ * nothing and reports nothing.
  */
 export const INTERNAL_SWATCH = 'var(--color-subtle)';
 
@@ -46,12 +51,7 @@ export function useProjectClients(): {
     queryKey: keys.projects(),
     queryFn: () => api.projects(),
   });
-  const clients = useQuery({
-    queryKey: keys.clients({ archived: true }),
-    queryFn: () => api.clients({ includeArchived: true }),
-  });
-
-  const byId = new Map((clients.data?.clients ?? []).map((c) => [c.id, c]));
+  const byId = useClients();
 
   const colorByProject = new Map<string, string | null>();
   const clientByProject = new Map<
@@ -72,4 +72,29 @@ export function useProjectClients(): {
   }
 
   return { colorByProject, clientByProject };
+}
+
+/**
+ * Every client by id, for a surface whose figures already come keyed by
+ * client rather than by project — the home screen's rollups do.
+ *
+ * The same query as the project resolution above, so one component asking for
+ * both gets one fetch and one set of hues. Archived included, for the reason
+ * given there.
+ */
+export function useClients(): Map<
+  string,
+  { id: string; name: string; color: string | null }
+> {
+  const clients = useQuery({
+    queryKey: keys.clients({ archived: true }),
+    queryFn: () => api.clients({ includeArchived: true }),
+  });
+
+  return new Map(
+    (clients.data?.clients ?? []).map((c) => [
+      c.id,
+      { id: c.id, name: c.name, color: c.color },
+    ]),
+  );
 }

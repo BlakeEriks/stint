@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   formatCompact,
+  formatCurrency,
   localDateKey,
   startOfLocalDayOffset,
 } from '@stint/core';
@@ -19,7 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { api, type Pace, type Stats } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import { formatCurrency } from './invoice-bits';
+import { INTERNAL_SWATCH, useClients } from '@/lib/client/use-project-colors';
 import { keys } from '@/lib/client/query-keys';
 import { useCountUp, useSinceLastSeen } from '@/lib/client/use-count-up';
 import { type Beat, useDayState } from '@/lib/client/use-day-state';
@@ -39,7 +41,9 @@ function PanelHead({
   delta: number | null;
   currency: string;
 }) {
-  const now = new Date();
+  /* Taken once. Read in render it was a new Date on every beat and every
+     refetch, so the heading depended on when React happened to re-run. */
+  const now = useMemo(() => new Date(), []);
   const day = new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(
     now,
   );
@@ -91,6 +95,12 @@ function Panel({ stats }: { stats: Stats }) {
   const day = useDayState(stats);
   const data = stats;
 
+  /* Resolved ONCE for the whole panel and handed down. By-client, Velocity
+     and the heatmap each used to run this query themselves, which is three
+     subscriptions to one answer — and three places for the hues to disagree
+     the moment one of them stops asking for archived clients. */
+  const clients = useClients();
+
   /* `@container` on the panel, and every pairing below sizes off it. The
      panel is NOT the window: the rail and the dock flank it and claim their
      space at `lg` and `xl`, so the panel is 780px at a 1100px window and
@@ -110,18 +120,26 @@ function Panel({ stats }: { stats: Stats }) {
             beat={day.beat}
           />
         }
-        right={<ByClient stats={data} />}
+        right={<ByClient stats={data} clients={clients} />}
       />
       <Rule />
       <Pair
         left={<Month stats={data} />}
-        right={<Velocity stats={data} beat={day.beat} />}
+        right={<Velocity stats={data} beat={day.beat} clients={clients} />}
       />
       <Rule />
-      <Heatmap />
+      <Heatmap clients={clients} />
     </div>
   );
 }
+
+/**
+ * Every client by id — resolved once in `Panel` and passed down.
+ *
+ * `color` is nullable because the column is: a client without one takes
+ * `INTERNAL_SWATCH`, same as work with no client at all.
+ */
+type Clients = Map<string, { id: string; name: string; color: string | null }>;
 
 /**
  * Two regions side by side, stacked while the panel is narrow.
@@ -280,16 +298,6 @@ function SinceLine({
 }
 
 /**
- * Work with no client to take a hue from: named in a legend, still not rest.
- *
- * `--color-subtle`, not `--color-text-subtle`: the generator strips the
- * `text-` Tailwind reads as a utility prefix, so the variable the token file
- * calls `text.subtle` is emitted bare. An undefined `var()` here paints
- * nothing and reports nothing.
- */
-const NEUTRAL = 'var(--color-subtle)';
-
-/**
  * The rule between two regions.
  *
  * Inset to the regions' own `px-5`, never a `border-b` on a header: full-bleed
@@ -379,20 +387,10 @@ function Unbilled({
  * No icon and no figure of its own — it is the second half of one subject,
  * and a heading at region weight would announce it as a third.
  */
-function ByClient({ stats }: { stats: Stats }) {
+function ByClient({ stats, clients }: { stats: Stats; clients: Clients }) {
   const { byClient, moreClients } = stats.unbilled;
-  /* Archived clients included: a finished engagement keeps its hue, and
-     dropping it would silently reassign those hours to the neutral. */
-  const { data: clientData } = useQuery({
-    queryKey: keys.clients({ archived: true }),
-    queryFn: () => api.clients({ includeArchived: true }),
-  });
 
   if (byClient.length === 0) return null;
-
-  const colours = new Map(
-    (clientData?.clients ?? []).map((c) => [c.id, c.color]),
-  );
 
   return (
     <section className="py-1">
@@ -414,7 +412,8 @@ function ByClient({ stats }: { stats: Stats }) {
             icon={
               <Pip
                 colour={
-                  (c.clientId ? colours.get(c.clientId) : null) ?? NEUTRAL
+                  (c.clientId ? clients.get(c.clientId)?.color : null) ??
+                  INTERNAL_SWATCH
                 }
               />
             }
@@ -700,26 +699,23 @@ function EditGoal() {
  * book the same order of magnitude — reads at a glance as the first one
  * printed twice. The mix is a bar and a key instead: a shape, not a table.
  */
-function Velocity({ stats, beat }: { stats: Stats; beat: Beat }) {
+function Velocity({
+  stats,
+  beat,
+  clients,
+}: {
+  stats: Stats;
+  beat: Beat;
+  clients: Clients;
+}) {
   const v = stats.velocity;
   /* Invoiced, not the total: a payment moves money across the split without
      changing the gross, so the total is the one figure that does NOT move on
      the beat this region exists to show. */
   const invoiced = useCountUp(v.invoiced);
 
-  /* The same query the heatmap runs, so the hues agree and React Query serves
-     one fetch to both. Archived included: a finished engagement is still part
-     of the trailing window. */
-  const { data: clientData } = useQuery({
-    queryKey: keys.clients({ archived: true }),
-    queryFn: () => api.clients({ includeArchived: true }),
-  });
-
   if (v.byClient.length === 0) return null;
 
-  const colours = new Map(
-    (clientData?.clients ?? []).map((c) => [c.id, c.color]),
-  );
   /* `0` is a valid figure: a client whose whole window is still unbilled
      grosses its unbilled amount, not nothing. */
   const gross = (c: (typeof v.byClient)[number]) => c.invoiced + c.unbilled;
@@ -748,7 +744,7 @@ function Velocity({ stats, beat }: { stats: Stats; beat: Beat }) {
       }
     >
       <div className="flex flex-col gap-2 px-5 pt-1 pb-3">
-        <Mix clients={v.byClient} colours={colours} gross={gross} />
+        <Mix rows={v.byClient} clients={clients} gross={gross} />
 
         {/* Inline, with a swatch — never rows. A name and its share is all
             the bar needs to be read; an aging column and an amount column
@@ -764,7 +760,8 @@ function Velocity({ stats, beat }: { stats: Stats; beat: Beat }) {
                 className="size-2 flex-none rounded-[2px]"
                 style={{
                   backgroundColor:
-                    (c.clientId ? colours.get(c.clientId) : null) ?? NEUTRAL,
+                    (c.clientId ? clients.get(c.clientId)?.color : null) ??
+                    INTERNAL_SWATCH,
                   opacity: MIX_OPACITY,
                 }}
               />
@@ -821,33 +818,34 @@ const MIX_OPACITY = 0.62;
  * would invite the invoiced/unbilled reading the line below already owns.
  */
 function Mix({
+  rows,
   clients,
-  colours,
   gross,
 }: {
-  clients: Stats['velocity']['byClient'];
-  colours: Map<string, string | null>;
+  rows: Stats['velocity']['byClient'];
+  clients: Clients;
   gross: (c: Stats['velocity']['byClient'][number]) => number;
 }) {
-  const total = clients.reduce((sum, c) => sum + gross(c), 0);
+  const total = rows.reduce((sum, c) => sum + gross(c), 0);
   if (total <= 0) return null;
 
   return (
     <div
       className="flex h-1.5 gap-0.5 overflow-hidden rounded-full"
       role="img"
-      aria-label={clients
+      aria-label={rows
         .map((c) => `${c.clientName} ${formatCurrency(gross(c), c.currency)}`)
         .join(', ')}
     >
-      {clients.map((c) => (
+      {rows.map((c) => (
         <div
           key={c.clientId ?? 'none'}
           className="h-full rounded-full"
           style={{
             width: `${(gross(c) / total) * 100}%`,
             backgroundColor:
-              (c.clientId ? colours.get(c.clientId) : null) ?? NEUTRAL,
+              (c.clientId ? clients.get(c.clientId)?.color : null) ??
+              INTERNAL_SWATCH,
             opacity: MIX_OPACITY,
           }}
         />
@@ -876,9 +874,12 @@ const DAYS = WEEKS * 7;
  * ~11px and cannot carry a stack; the alternative is a smear of colour that
  * names nobody.
  */
-function Heatmap() {
-  const now = new Date();
-  const from = startOfLocalDayOffset(now, tz, DAYS - 1);
+function Heatmap({ clients }: { clients: Clients }) {
+  /* Taken once, so `from` and `to` are the same instants on every render.
+     Read inline they drifted by milliseconds while `keys.heatmap(tz)` stayed
+     fixed — a stable cache key over a moving request. */
+  const now = useMemo(() => new Date(), []);
+  const from = useMemo(() => startOfLocalDayOffset(now, tz, DAYS - 1), [now]);
 
   const { data } = useQuery({
     queryKey: keys.heatmap(tz),
@@ -886,52 +887,55 @@ function Heatmap() {
       api.activity({ from: from.toISOString(), to: now.toISOString(), tz }),
   });
 
-  /* Archived clients included: work billed to a finished engagement still
-     belongs in the history, and dropping its colour would silently reassign
-     those hours to the neutral band. */
-  const { data: clientData } = useQuery({
-    queryKey: keys.clients({ archived: true }),
-    queryFn: () => api.clients({ includeArchived: true }),
-  });
+  /* A year of cells and the legend behind them, derived once per response.
+     Unmemoised this ran ~364 date conversions plus four passes over them on
+     every beat, every tick and every refetch of anything on the panel. */
+  const view = useMemo(() => {
+    if (!data) return null;
 
-  if (!data) return null;
+    const byDate = new Map(data.days.map((d) => [d.date, d]));
 
-  const clients = new Map((clientData?.clients ?? []).map((c) => [c.id, c]));
-  const byDate = new Map(data.days.map((d) => [d.date, d]));
+    /* Every day in the range gets a cell, present in the response or not, so
+       a gap is a day nobody worked rather than a column that quietly closed
+       up. */
+    const cells = Array.from({ length: DAYS }, (_, i) => {
+      const at = startOfLocalDayOffset(now, tz, DAYS - 1 - i);
+      const key = localDateKey(at, tz);
+      return { key, day: byDate.get(key) };
+    });
 
-  /* Every day in the range gets a cell, present in the response or not, so a
-     gap is a day nobody worked rather than a column that quietly closed up. */
-  const cells = Array.from({ length: DAYS }, (_, i) => {
-    const at = startOfLocalDayOffset(now, tz, DAYS - 1 - i);
-    const key = localDateKey(at, tz);
-    return { key, day: byDate.get(key) };
-  });
+    /* The busiest day sets the density scale. A fixed ceiling would flatten a
+       quiet year into nothing. */
+    const peak = Math.max(...cells.map((c) => c.day?.totalSeconds ?? 0), 1);
+    const yearSeconds = cells.reduce(
+      (sum, c) => sum + (c.day?.totalSeconds ?? 0),
+      0,
+    );
 
-  /* The busiest day sets the density scale. A fixed ceiling would flatten a
-     quiet year into nothing. */
-  const peak = Math.max(...cells.map((c) => c.day?.totalSeconds ?? 0), 1);
-  const yearSeconds = cells.reduce(
-    (sum, c) => sum + (c.day?.totalSeconds ?? 0),
-    0,
-  );
-
-  /* Ranked over the whole year, not per week, so the legend names the clients
-     the year was actually spent on. */
-  const totals = new Map<string, number>();
-  for (const { day } of cells) {
-    for (const [id, seconds] of Object.entries(day?.byClient ?? {})) {
-      totals.set(id, (totals.get(id) ?? 0) + seconds);
+    /* Ranked over the whole year, not per week, so the legend names the
+       clients the year was actually spent on. */
+    const totals = new Map<string, number>();
+    for (const { day } of cells) {
+      for (const [id, seconds] of Object.entries(day?.byClient ?? {})) {
+        totals.set(id, (totals.get(id) ?? 0) + seconds);
+      }
     }
-  }
-  const named = [...totals.entries()]
-    .filter(([id, seconds]) => id !== INTERNAL && seconds > 0)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([id]) => id);
-  const inLegend = new Set(named);
-  const hasOther = [...totals.entries()].some(
-    ([id, seconds]) => seconds > 0 && !inLegend.has(id),
-  );
+    const named = [...totals.entries()]
+      .filter(([id, seconds]) => id !== INTERNAL && seconds > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([id]) => id);
+    const inLegend = new Set(named);
+    const hasOther = [...totals.entries()].some(
+      ([id, seconds]) => seconds > 0 && !inLegend.has(id),
+    );
+
+    return { cells, peak, yearSeconds, named, inLegend, hasOther };
+  }, [data, now]);
+
+  if (!view) return null;
+
+  const { cells, peak, yearSeconds, named, inLegend, hasOther } = view;
 
   return (
     <Region
@@ -962,7 +966,7 @@ function Heatmap() {
                 ? null
                 : ((id === INTERNAL || !inLegend.has(id)
                     ? null
-                    : clients.get(id)?.color) ?? NEUTRAL);
+                    : clients.get(id)?.color) ?? INTERNAL_SWATCH);
 
             return (
               <div
@@ -991,11 +995,11 @@ function Heatmap() {
           {named.map((id) => (
             <Swatch
               key={id}
-              colour={clients.get(id)?.color ?? NEUTRAL}
+              colour={clients.get(id)?.color ?? INTERNAL_SWATCH}
               label={clients.get(id)?.name ?? 'Unknown client'}
             />
           ))}
-          {hasOther ? <Swatch colour={NEUTRAL} label="Other" /> : null}
+          {hasOther ? <Swatch colour={INTERNAL_SWATCH} label="Other" /> : null}
           <span className="ml-auto type-meta text-subtle">
             {formatCompact(yearSeconds)}
           </span>
@@ -1215,6 +1219,11 @@ function Row({
   );
 }
 
+/* Browser locale, like the day and date in `PanelHead` and the dates in the
+   entry list: a heading that says "September" beside a date that says
+   "17 sept." is the app disagreeing with itself. */
 function monthName() {
-  return new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date());
+  return new Intl.DateTimeFormat(undefined, { month: 'long' }).format(
+    new Date(),
+  );
 }

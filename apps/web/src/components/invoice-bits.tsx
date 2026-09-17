@@ -2,11 +2,6 @@
 
 import type { InvoiceStatus } from '@/lib/client/api';
 
-/* Re-exported because the invoicing components already import it from this
-   module; the definition is in `@stint/core` so the PDF renders through the
-   same function. */
-export { formatCurrency } from '@stint/core';
-
 /**
  * Invoice dates are plain `YYYY-MM-DD`, so they carry no zone to convert.
  *

@@ -112,6 +112,15 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
+/** The same wrapper, over a client the test can then inspect. */
+function wrapperFor(client: QueryClient) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+  };
+}
+
 /* A pinned clock and an empty store, for the same reason: both the heatmap's
    dates and `stint.day` are read off state that outlives one test. The store
    is cleared here rather than in the one describe that writes it — a leaked
@@ -395,6 +404,66 @@ describe('By client', () => {
     for (const row of rows) {
       expect(row.querySelector('span[aria-hidden]')).not.toBeNull();
     }
+  });
+});
+
+describe('the panel resolves its colours once', () => {
+  /* By-client, Velocity and the heatmap all paint client hues, and each used
+     to run the clients query itself. React Query dedupes the FETCH, so a
+     request count cannot see the difference — the cost is three observers on
+     one key, and three call sites that can drift apart on whether archived
+     clients are asked for. Counting observers is what fails when they come
+     back: with the three inline queries restored this reads 3. */
+  it('subscribes to the clients query exactly once', async () => {
+    const velocity = {
+      months: 3,
+      total: 9000,
+      perMonth: 3000,
+      invoiced: 6000,
+      unbilled: 3000,
+      seconds: 360000,
+      byClient: [
+        {
+          clientId: 'c1',
+          clientName: 'Northwind',
+          currency: 'USD',
+          seconds: 360000,
+          invoiced: 6000,
+          unbilled: 3000,
+          unratedCount: 0,
+        },
+      ],
+      moreClients: 0,
+    };
+
+    serve(
+      stats({ unbilled: oneClient, velocity }),
+      [{ date: '2026-09-16', totalSeconds: 7200, byClient: { c1: 7200 } }],
+      [{ id: 'c1', name: 'Northwind', color: 'rgb(10, 20, 30)' }],
+    );
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    render(<HomeCards />, { wrapper: wrapperFor(client) });
+
+    // All three colour-painting regions on screen, so all three would have
+    // subscribed had they kept their own query.
+    await waitFor(() => {
+      expect(screen.getByText('Velocity')).toBeInTheDocument();
+      expect(screen.getByText('Year')).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: /by client/i }),
+      ).toBeInTheDocument();
+    });
+
+    const cached = client
+      .getQueryCache()
+      .getAll()
+      .filter((q) => q.queryKey[0] === 'clients');
+
+    expect(cached).toHaveLength(1);
+    expect(cached[0]?.observers.length).toBe(1);
   });
 });
 

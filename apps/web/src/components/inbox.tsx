@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatCompact } from '@stint/core';
+import { formatCompact, formatCurrency } from '@stint/core';
 import {
   Check,
   Clock,
@@ -25,7 +25,6 @@ import { useExit } from '@/lib/client/use-exit';
 import { RUNAWAY_ROW_ID, useRunaway } from '@/lib/client/use-runaway';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
-import { formatCurrency } from './invoice-bits';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 type Attention = Stats['attention'];
