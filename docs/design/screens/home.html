@@ -81,7 +81,26 @@
      reads as two stacked cards. */
   .region-rule { height: 1px; margin: 4px 16px; background: var(--border-subtle); }
 
+  /* The pairing. Sized by CONTAINER, not viewport: the panel is not the
+     window — the rail and dock claim their space at `lg` and `xl`, so the
+     panel is wider at a 1100px window than at 1440. The mockup below fakes
+     the query with a fixed two-column grid; the app writes `@2xl:`. */
+  .pair { display: grid; grid-template-columns: 1.15fr 1fr; gap: 0 24px; align-items: start; }
+  @media (max-width: 640px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+
   .region-head { padding: 12px 16px 8px; }
+  /* The right half of a pairing is the second half of one subject, so it
+     takes a quiet label rather than a heading that would announce a third. */
+  .sublabel { padding: 12px 16px 4px; display: block; }
+
+  /* Velocity's mix: one segment per client, muted. At full strength the hues
+     pull harder than the running timer, the one thing allowed to shout. */
+  .mix { display: flex; height: 6px; gap: 2px; margin-top: 4px; }
+  .mix i { display: block; height: 100%; border-radius: 999px; opacity: .62; }
+  /* Inline key, never rows: a name and its share is all the bar needs. */
+  .keyline { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; }
+  .keyline .k { display: inline-flex; align-items: center; gap: 6px; }
+  .keyline .sw { width: 8px; height: 8px; border-radius: 2px; flex: none; opacity: .62; }
   .region-title { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
   .region-title .ico { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
   .ico.pencil { margin-left: auto; }
@@ -166,107 +185,122 @@
 
   <!-- ───────────────────────── one surface ───────────────────────── -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">One surface, four regions</span></div>
+    <div class="sec-head"><span class="eyebrow">One surface, three rows</span></div>
 
     <p>
-      The content column is a single borderless panel on the ground. The four
+      The content column is a single borderless panel on the ground. The
       regions are parts of it, not cards on it: <strong>nothing inside the
       panel carries a border, a background or a shadow of its own.</strong>
-      Regions separate by an inset rule with equal space above and below.
+      Rows of regions separate by an inset rule with equal space above and
+      below.
     </p>
+
+    <p>
+      The panel is wide enough for two columns, and the regions pair by
+      subject: <strong>a figure beside the breakdown that explains it.</strong>
+      Unbilled sits beside who owes it; the month sits beside the quarter.
+      The year spans both, because a 52-week heatmap at half width is a
+      texture nobody can read.
+    </p>
+
+    <table>
+      <tr><th>Row</th><th>Left</th><th>Right</th></tr>
+      <tr><td>1</td><td>Unbilled — the figure, the beat, the awaiting-payment line</td><td>By client — the per-client rows</td></tr>
+      <tr><td>2</td><td>The month — the cumulative plot against the goal ray</td><td>Gross earned — the figure, the mix, the split</td></tr>
+      <tr><td>3</td><td colspan="2">The year — the heatmap, across both columns</td></tr>
+    </table>
 
     <div class="mock">
       <div class="panel">
 
-        <div class="region">
-          <div class="region-head">
-            <span class="region-title">
-              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M19 7V4H5a2 2 0 0 0 0 4h15v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M18 12h.01"/></svg>
-              <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
-            </span>
-            <div class="region-figure type-figure" style="color:var(--text-strong)">$3,022.50</div>
+        <div class="pair">
+          <div class="region">
+            <div class="region-head">
+              <span class="region-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M19 7V4H5a2 2 0 0 0 0 4h15v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M18 12h.01"/></svg>
+                <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
+              </span>
+              <div class="region-figure type-figure" style="color:var(--text-strong)">$3,022.50</div>
+            </div>
+            <div class="foot">
+              <span class="type-meta" style="color:var(--text-muted)">$3,465.00</span>
+              <span class="type-support" style="color:var(--text-subtle)">sent, awaiting payment</span>
+            </div>
           </div>
-          <div class="erow">
-            <span class="left"><span class="type-control">Northwind Trading</span>
-              <span class="type-meta" style="color:var(--text-subtle)">oldest 10d</span></span>
-            <span class="hours type-meta" style="color:var(--text-subtle)">9h</span>
-            <span class="amt type-duration">$1,650.00</span>
-            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </div>
-          <div class="erow">
-            <span class="left"><span class="type-control">Byrne Studio</span>
-              <span class="type-meta" style="color:var(--text-subtle)">oldest 4d</span></span>
-            <span class="hours type-meta" style="color:var(--text-subtle)">10h 30m</span>
-            <span class="amt type-duration">$1,372.50</span>
-            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </div>
-          <div class="foot">
-            <span class="type-meta" style="color:var(--text-muted)">$3,465.00</span>
-            <span class="type-support" style="color:var(--text-subtle)">sent, awaiting payment</span>
-          </div>
-        </div>
 
-        <div class="region-rule"></div>
-
-        <div class="region">
-          <div class="region-head">
-            <span class="region-title">
-              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-              <span class="type-label" style="color:var(--text-subtle)">September</span>
-              <svg class="ico pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-            </span>
-            <div class="region-figure type-figure" style="color:var(--text-strong)">21.4h<span class="type-duration" style="color:var(--text-subtle)"> / 120h</span></div>
-          </div>
-          <div class="region-body">
-            <svg class="plot" viewBox="0 0 300 64" preserveAspectRatio="none" aria-hidden="true">
-              <path d="M0,58.5 L27.3,53 L54.5,47.5 L81.8,42 L109,36.5 L136.4,31 L163.6,25.5 L190.9,20 L218.2,14.5
-                       L218.2,52.5 L190.9,53.5 L163.6,55 L136.4,56.5 L109,58 L81.8,59.5 L54.5,61 L27.3,62 L0,63 Z"
-                    fill="var(--text-subtle)" opacity=".12"/>
-              <path d="M0,58.5 L27.3,53 L54.5,47.5 L81.8,42 L109,36.5 L136.4,31 L163.6,25.5 L190.9,20 L218.2,14.5 L245.5,9 L272.7,3.5 L300,0"
-                    fill="none" stroke="var(--text-subtle)" stroke-width="1" stroke-dasharray="3 3"/>
-              <path d="M0,63 L27.3,62 L54.5,61 L81.8,59.5 L109,58 L136.4,56.5 L163.6,55 L190.9,53.5 L218.2,52.5"
-                    fill="none" stroke="var(--text-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <div class="paceline">
-              <span class="type-support" style="color:var(--text-subtle)">10 of 22 business days · 98% billable</span>
-              <span class="type-meta" style="color:var(--warning)">behind −33.1h</span>
+          <div class="region">
+            <span class="sublabel type-label" style="color:var(--text-subtle)">By client</span>
+            <div class="erow">
+              <span class="left"><span class="type-control">Northwind Trading</span>
+                <span class="type-meta" style="color:var(--text-subtle)">oldest 10d</span></span>
+              <span class="hours type-meta" style="color:var(--text-subtle)">9h</span>
+              <span class="amt type-duration">$1,650.00</span>
+              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </div>
+            <div class="erow">
+              <span class="left"><span class="type-control">Byrne Studio</span>
+                <span class="type-meta" style="color:var(--text-subtle)">oldest 4d</span></span>
+              <span class="hours type-meta" style="color:var(--text-subtle)">10h 30m</span>
+              <span class="amt type-duration">$1,372.50</span>
+              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             </div>
           </div>
         </div>
 
         <div class="region-rule"></div>
 
-        <div class="region">
-          <div class="region-head">
-            <span class="region-title">
-              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
-              <span class="type-label" style="color:var(--text-subtle)">Gross earned · last 3 months</span>
-            </span>
-            <div class="region-figure type-figure" style="color:var(--text-strong)">$28,410.00</div>
-          </div>
-          <div class="region-body">
-            <div class="bar"><span style="width:73%"></span></div>
-            <div class="splitline">
-              <span><span class="type-meta" style="color:var(--text-muted)">$20,739.30</span>
-                <span class="type-support" style="color:var(--text-subtle)">invoiced</span></span>
-              <span><span class="type-meta" style="color:var(--text-muted)">$7,670.70</span>
-                <span class="type-support" style="color:var(--text-subtle)">unbilled</span></span>
-              <span class="type-meta" style="color:var(--text-subtle); margin-left:auto">214h 20m</span>
+        <div class="pair">
+          <div class="region">
+            <div class="region-head">
+              <span class="region-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                <span class="type-label" style="color:var(--text-subtle)">September</span>
+                <svg class="ico pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              </span>
+              <div class="region-figure type-figure" style="color:var(--text-strong)">21.4h<span class="type-duration" style="color:var(--text-subtle)"> / 120h</span></div>
+            </div>
+            <div class="region-body">
+              <svg class="plot" viewBox="0 0 300 64" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M0,58.5 L27.3,53 L54.5,47.5 L81.8,42 L109,36.5 L136.4,31 L163.6,25.5 L190.9,20 L218.2,14.5
+                         L218.2,52.5 L190.9,53.5 L163.6,55 L136.4,56.5 L109,58 L81.8,59.5 L54.5,61 L27.3,62 L0,63 Z"
+                      fill="var(--text-subtle)" opacity=".12"/>
+                <path d="M0,58.5 L27.3,53 L54.5,47.5 L81.8,42 L109,36.5 L136.4,31 L163.6,25.5 L190.9,20 L218.2,14.5 L245.5,9 L272.7,3.5 L300,0"
+                      fill="none" stroke="var(--text-subtle)" stroke-width="1" stroke-dasharray="3 3"/>
+                <path d="M0,63 L27.3,62 L54.5,61 L81.8,59.5 L109,58 L136.4,56.5 L163.6,55 L190.9,53.5 L218.2,52.5"
+                      fill="none" stroke="var(--text-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <div class="paceline">
+                <span class="type-support" style="color:var(--text-subtle)">10 of 22 business days · 98% billable</span>
+                <span class="type-meta" style="color:var(--warning)">behind −33.1h</span>
+              </div>
             </div>
           </div>
-          <div class="erow">
-            <span class="left"><span class="type-control">Northwind Trading</span>
-              <span class="type-meta" style="color:var(--text-subtle)">$1,650.00 unbilled</span></span>
-            <span class="hours type-meta" style="color:var(--text-subtle)">128h</span>
-            <span class="amt type-duration">$17,600.00</span>
-            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </div>
-          <div class="erow">
-            <span class="left"><span class="type-control">Byrne Studio</span>
-              <span class="type-meta" style="color:var(--text-subtle)">$1,372.50 unbilled</span></span>
-            <span class="hours type-meta" style="color:var(--text-subtle)">86h 20m</span>
-            <span class="amt type-duration">$10,810.00</span>
-            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+
+          <div class="region">
+            <div class="region-head">
+              <span class="region-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
+                <span class="type-label" style="color:var(--text-subtle)">Gross earned · last 3 months</span>
+              </span>
+              <div class="region-figure type-figure" style="color:var(--text-strong)">$9,470.00<span class="type-duration" style="color:var(--text-subtle)"> /mo gross</span></div>
+            </div>
+            <div class="region-body">
+              <div class="mix" role="img" aria-label="Northwind Trading $17,600.00, Byrne Studio $10,810.00">
+                <i style="width:62%;background:var(--proj-6)"></i>
+                <i style="width:38%;background:var(--proj-2)"></i>
+              </div>
+              <div class="keyline">
+                <span class="k type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-6)"></span>Northwind <span class="type-meta">$17,600.00</span></span>
+                <span class="k type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-2)"></span>Byrne <span class="type-meta">$10,810.00</span></span>
+              </div>
+              <div class="splitline">
+                <span><span class="type-meta" style="color:var(--text-muted)">$20,739.30</span>
+                  <span class="type-support" style="color:var(--text-subtle)">invoiced</span></span>
+                <span><span class="type-meta" style="color:var(--text-muted)">$7,670.70</span>
+                  <span class="type-support" style="color:var(--text-subtle)">unbilled</span></span>
+                <span class="type-meta" style="color:var(--text-subtle); margin-left:auto">214h 20m</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -292,7 +326,7 @@
         </div>
 
       </div>
-      <span class="caption">One panel. The rules are inset; nothing inside has an edge of its own</span>
+      <span class="caption">Three rows. The rules are inset and horizontal; nothing inside has an edge of its own</span>
     </div>
 
     <script>
@@ -313,19 +347,42 @@
     </script>
 
     <ul class="rule">
-      <li><strong>Region order is fixed:</strong> Unbilled, the month, the
-        trailing quarter, the year. Money waiting, then whether the month is
-        working, then what the work has been worth, then where it went.</li>
-      <li><strong>Unbilled hides itself with nothing outstanding</strong> and
-        takes its rule with it. A region with no rows is a heading over a
+      <li><strong>Row order is fixed:</strong> money waiting, then whether the
+        month is working, then where the year went. No hiding a region, no
+        reordering them.</li>
+      <li><strong>The columns size by <code>@container</code>, not
+        viewport.</strong> The panel is not the window: the rail and the dock
+        claim their space at <code>lg</code> and <code>xl</code>, so the panel
+        is 780px at a 1100px window and 732px at 1440 — wider at the narrower
+        window. A viewport breakpoint would collapse the wide one and split
+        the narrow one.</li>
+      <li><strong>Below the threshold the pairs stack</strong>, in the order
+        they read: Unbilled, By client, the month, Gross earned, the year.</li>
+      <li><strong>The left column is the wider</strong>, at
+        <code>1.15fr</code> to <code>1fr</code>. It carries the figures, and an
+        equal split leaves client names truncating while the money column has
+        room to spare.</li>
+      <li><strong>Unbilled hides itself with nothing outstanding</strong>, and
+        By-client goes with it. A region with no rows is a heading over a
         gap.</li>
-      <li><strong>The rule is inset to the rows' own 16px</strong>, never a
-        border on a header. Full-bleed it cuts the panel in two and reads as
-        two stacked cards, which is the shape this screen stopped using.</li>
-      <li><strong>Rows size by <code>@container</code>, not viewport.</strong>
-        The same row renders in this panel and in the narrow dock, where a
+      <li><strong>Rows size by <code>@container</code> too.</strong> The same
+        row renders in this panel and in the narrow dock, where a
         <code>sm:</code> breakpoint is true at 1600px and lays out as though
         there were room.</li>
+    </ul>
+
+    <p>
+      Separation is <strong>space and an inset horizontal rule</strong>,
+      nothing else.
+    </p>
+
+    <ul class="rule never">
+      <li><strong>Never a vertical rule between the columns.</strong> It
+        rebuilds the gridlines this panel exists without, and reads the pair
+        back as two cards.</li>
+      <li><strong>Never a full-bleed horizontal rule.</strong> Inset to the
+        rows' own 16px; edge to edge it cuts the panel in two and reads as two
+        stacked cards.</li>
     </ul>
   </section>
 
@@ -390,13 +447,20 @@
 
     <p>
       The headline number, and the reason this screen exists. Work done and not
-      yet invoiced — money the user might still never see.
+      yet invoiced — money the user might still never see. The figure is the
+      left half of the first row; <strong>By client</strong> is the right.
     </p>
 
     <ul class="rule">
       <li><strong>Never labelled "earned" or "revenue".</strong> Overstating it
         in a billing tool is the same trust failure as silently editing an
         entry.</li>
+      <li><strong>By-client is its own region, beside the figure.</strong>
+        Paired, the total and its breakdown are read together; stacked, they
+        push every other region a screenful down.</li>
+      <li><strong>It takes a quiet label, not a heading.</strong> It is the
+        second half of one subject, and a heading at region weight announces
+        it as a third.</li>
       <li><strong>Each row links to invoice generation for that client</strong>,
         which is what makes the region an action rather than a readout.</li>
       <li><strong>Work with no resolvable rate shows an em-dash, not
@@ -505,24 +569,38 @@
     <div class="sec-head"><span class="eyebrow">Velocity</span></div>
 
     <p>
-      Gross over the trailing three months, split by where the work stands now,
-      then broken down by client.
+      Gross over the trailing three months, per month, and the mix that made
+      it up. It sits beside the month plot, and it is <strong>a different
+      object from Unbilled</strong>: a figure, a bar, and a key.
     </p>
 
     <ul class="rule">
+      <li><strong>The mix is a bar, never a row list.</strong> Unbilled is a
+        figure over per-client rows. A second region in that shape — same
+        columns, same trailing arrow, and with a full book the same order of
+        magnitude — is read at a glance as the first one printed twice.</li>
+      <li><strong>The bar is the region's picture</strong>, one segment per
+        client, sized by that client's share of the gross.</li>
+      <li><strong>The segments are muted.</strong> At full strength the client
+        hues across the panel's width pull harder than the running timer,
+        which is the one thing on screen allowed to shout.</li>
+      <li><strong>The key is inline text with a swatch</strong> — a name and a
+        figure. No aging column, no amount column, no arrow: those are the
+        row shape this region exists not to be.</li>
+      <li><strong>The figure is per month</strong>, with <code>/mo gross</code>
+        beside it. The window total carries no rate, so two windows of
+        different lengths cannot be compared by it.</li>
       <li><strong>"Gross earned", never "earned" alone.</strong> It is work done
         over the window, not money collected, and the invoiced/unbilled split
         is what says so.</li>
-      <li><strong><code>invoiced + unbilled</code> is the total.</strong> The
-        split moves as invoices are raised while the total does not — the bar
-        shows one number in two parts, never two numbers to add.</li>
+      <li><strong><code>invoiced + unbilled</code> is the gross.</strong> The
+        split moves as invoices are raised while the gross does not — one
+        number in two parts, never two numbers to add.</li>
       <li><strong>Not comparable with awaiting payment</strong>, which spans
         every period rather than this window.</li>
-      <li><strong>Each client row is the client's gross</strong>, with its
-        unbilled share as the detail. A client whose whole window is still
-        unbilled grosses its unbilled amount, not nothing.</li>
-      <li><strong>Rows link to the client</strong>, which is where rates and
-        projects are changed.</li>
+      <li><strong>A client's share is its gross</strong>, invoiced plus
+        unbilled. A client whose whole window is still unbilled grosses its
+        unbilled amount, not nothing.</li>
     </ul>
   </section>
 

@@ -25,8 +25,8 @@ import { keys } from '@/lib/client/query-keys';
 import { useCountUp, useSinceLastSeen } from '@/lib/client/use-count-up';
 
 /**
- * The home screen's four regions: money waiting, the month, the trailing
- * quarter, then a year of texture.
+ * The home screen's regions, in three rows: money waiting beside who owes it,
+ * the month beside the trailing quarter, then a year of texture across both.
  *
  * **Nothing here writes.** Every action is a link to the surface that owns
  * the mutation, so a stray click cannot change an invoice.
@@ -43,12 +43,49 @@ export function HomeCards() {
 
   if (!data) return null;
 
+  /* `@container` on the panel, and every pairing below sizes off it. The
+     panel is NOT the window: the rail and the dock flank it and claim their
+     space at `lg` and `xl`, so the panel is 780px at a 1100px window and
+     732px at 1440 — wider at the narrower window. A viewport breakpoint
+     would collapse the wide one and split the narrow one. */
   return (
-    <div className="flex flex-col">
-      <Unbilled stats={data} />
-      <Month stats={data} />
-      <Velocity stats={data} />
+    <div className="@container flex flex-col">
+      <Pair
+        left={<Unbilled stats={data} />}
+        right={<ByClient stats={data} />}
+      />
+      <Rule />
+      <Pair left={<Month stats={data} />} right={<Velocity stats={data} />} />
+      <Rule />
       <Heatmap />
+    </div>
+  );
+}
+
+/**
+ * Two regions side by side, stacked while the panel is narrow.
+ *
+ * `items-start` so the shorter half does not stretch to the taller one's
+ * height and hang its content in the middle of empty space.
+ *
+ * The left half is the wider: it carries the figures, and an equal split
+ * leaves the by-client names truncating while the money column has room to
+ * spare.
+ */
+function Pair({
+  left,
+  right,
+}: {
+  left: React.ReactNode;
+  right: React.ReactNode;
+}) {
+  /* No vertical divider between the columns, ever. The rules on this screen
+     are horizontal and inset; a vertical one rebuilds the gridlines the
+     panel removed and reads the pair as two cards again. */
+  return (
+    <div className="grid items-start gap-x-6 @2xl:grid-cols-[1.15fr_1fr]">
+      {left}
+      {right}
     </div>
   );
 }
@@ -193,6 +230,16 @@ function SinceLine({
 }
 
 /**
+ * Work with no client to take a hue from: named in a legend, still not rest.
+ *
+ * `--color-subtle`, not `--color-text-subtle`: the generator strips the
+ * `text-` Tailwind reads as a utility prefix, so the variable the token file
+ * calls `text.subtle` is emitted bare. An undefined `var()` here paints
+ * nothing and reports nothing.
+ */
+const NEUTRAL = 'var(--color-subtle)';
+
+/**
  * The rule between two regions.
  *
  * Inset to the regions' own `px-4`, never a `border-b` on a header: full-bleed
@@ -213,76 +260,94 @@ function Rule() {
  * the same trust failure as silently editing an entry.
  */
 function Unbilled({ stats }: { stats: Stats }) {
-  const { total, byClient, moreClients } = stats.unbilled;
+  const { total, byClient } = stats.unbilled;
   const beat = useBeat(stats);
   const arrival = useSinceLastSeen(SEEN_UNBILLED, total);
 
   if (byClient.length === 0) return null;
 
   return (
-    <>
-      <Region
-        title="Unbilled"
-        icon={Wallet}
-        value={
-          <span className="flex flex-wrap items-baseline gap-x-2">
-            <span className="tabular-nums">
-              {formatCurrency(arrival.value, stats.currency)}
-            </span>
-            <Delta beat={beat} currency={stats.currency} />
+    <Region
+      title="Unbilled"
+      icon={Wallet}
+      value={
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span className="tabular-nums">
+            {formatCurrency(arrival.value, stats.currency)}
           </span>
-        }
-      >
-        <ul className="flex flex-col">
-          {byClient.map((c) => (
-            <Row
-              key={c.clientId ?? 'none'}
-              // Links to generation for this client, which is what makes the
-              // region an action rather than a readout.
-              href={
-                c.clientId
-                  ? `/invoices/new?clientId=${c.clientId}`
-                  : '/invoices/new'
-              }
-              label={c.clientName}
-              detail={
-                c.unratedCount > 0
-                  ? `oldest ${c.oldestDays}d · ${c.unratedCount} unrated`
-                  : `oldest ${c.oldestDays}d`
-              }
-              value={
-                /* Unbillable work has no rate by definition; an em-dash is
-                   honest where a zero would look like a real figure. */
-                c.amount > 0 ? formatCurrency(c.amount, c.currency) : '—'
-              }
-              secondary={formatCompact(c.seconds)}
-            />
-          ))}
-        </ul>
-        {moreClients > 0 ? (
-          <p className="px-4 py-2 type-support text-subtle">
-            +{moreClients} more
-          </p>
-        ) : null}
+          <Delta beat={beat} currency={stats.currency} />
+        </span>
+      }
+    >
+      <SinceLine delta={arrival.delta} currency={stats.currency} />
 
-        <SinceLine delta={arrival.delta} currency={stats.currency} />
+      {/* Never added to the total above: that is work not yet invoiced, this
+          is money already asked for, and summing them double-counts. */}
+      {stats.awaitingPayment > 0 ? (
+        <Link
+          href="/invoices?status=sent"
+          className="flex items-baseline gap-1.5 px-4 py-2 type-support text-subtle hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+        >
+          <span className="type-meta text-muted">
+            {formatCurrency(stats.awaitingPayment, stats.currency)}
+          </span>
+          sent, awaiting payment
+        </Link>
+      ) : null}
+    </Region>
+  );
+}
 
-        {/* Never added to the total above: that is work not yet invoiced, this
-            is money already asked for, and summing them double-counts. */}
-        {stats.awaitingPayment > 0 ? (
-          <Link
-            href="/invoices?status=sent"
-            className="flex items-baseline gap-1.5 px-4 py-2 type-support text-subtle hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
-          >
-            <span className="type-meta text-muted">
-              {formatCurrency(stats.awaitingPayment, stats.currency)}
-            </span>
-            sent, awaiting payment
-          </Link>
-        ) : null}
-      </Region>
-      <Rule />
-    </>
+/**
+ * Who the unbilled money is owed by, beside the figure it sums to.
+ *
+ * Its own region rather than a list under the figure: paired, the total and
+ * its breakdown are read together, and stacked they put every other region a
+ * screenful further down.
+ *
+ * No icon and no figure of its own — it is the second half of one subject,
+ * and a heading at region weight would announce it as a third.
+ */
+function ByClient({ stats }: { stats: Stats }) {
+  const { byClient, moreClients } = stats.unbilled;
+
+  if (byClient.length === 0) return null;
+
+  return (
+    <section className="py-1">
+      <h2 className="px-4 pt-3 pb-1 type-label text-subtle">By client</h2>
+      <ul className="flex flex-col">
+        {byClient.map((c) => (
+          <Row
+            key={c.clientId ?? 'none'}
+            // Links to generation for this client, which is what makes the
+            // region an action rather than a readout.
+            href={
+              c.clientId
+                ? `/invoices/new?clientId=${c.clientId}`
+                : '/invoices/new'
+            }
+            label={c.clientName}
+            detail={
+              c.unratedCount > 0
+                ? `oldest ${c.oldestDays}d · ${c.unratedCount} unrated`
+                : `oldest ${c.oldestDays}d`
+            }
+            value={
+              /* Unbillable work has no rate by definition; an em-dash is
+                 honest where a zero would look like a real figure. */
+              c.amount > 0 ? formatCurrency(c.amount, c.currency) : '—'
+            }
+            secondary={formatCompact(c.seconds)}
+          />
+        ))}
+      </ul>
+      {moreClients > 0 ? (
+        <p className="px-4 py-2 type-support text-subtle">
+          +{moreClients} more
+        </p>
+      ) : null}
+    </section>
   );
 }
 
@@ -300,16 +365,13 @@ function Month({ stats }: { stats: Stats }) {
 
   if (!p) {
     return (
-      <>
-        <Region title={monthName()} icon={CalendarDays} action={<EditGoal />}>
-          <div className="px-4 pt-1 pb-3">
-            <p className="type-support text-subtle">
-              Set a monthly goal to track hours or revenue against it.
-            </p>
-          </div>
-        </Region>
-        <Rule />
-      </>
+      <Region title={monthName()} icon={CalendarDays} action={<EditGoal />}>
+        <div className="px-4 pt-1 pb-3">
+          <p className="type-support text-subtle">
+            Set a monthly goal to track hours or revenue against it.
+          </p>
+        </div>
+      </Region>
     );
   }
 
@@ -317,17 +379,13 @@ function Month({ stats }: { stats: Stats }) {
      demoting its title above an empty space. */
   if (p.actual == null) {
     return (
-      <>
-        <Region title={monthName()} icon={CalendarDays} action={<EditGoal />}>
-          <div className="px-4 pt-1 pb-3">
-            <p className="type-support text-subtle">
-              A {p.unit} target is set, but pace in {p.unit} is not computed
-              yet.
-            </p>
-          </div>
-        </Region>
-        <Rule />
-      </>
+      <Region title={monthName()} icon={CalendarDays} action={<EditGoal />}>
+        <div className="px-4 pt-1 pb-3">
+          <p className="type-support text-subtle">
+            A {p.unit} target is set, but pace in {p.unit} is not computed yet.
+          </p>
+        </div>
+      </Region>
     );
   }
 
@@ -344,52 +402,49 @@ function Month({ stats }: { stats: Stats }) {
   const ahead = p.delta != null && p.delta >= 0;
 
   return (
-    <>
-      <Region
-        title={monthName()}
-        icon={CalendarDays}
-        action={<EditGoal />}
-        value={
-          /* `items-baseline` with a wrap: a money target is several times wider
-             than "120h", and inline it broke after the slash and stranded it at
-             the end of the figure's line. */
-          <span className="flex flex-wrap items-baseline gap-x-1.5">
-            {fmt(actual)}
-            {/* The target is context for the figure, not part of it, so it is
-                set at row scale rather than carried along at 30px. */}
-            <span className="type-duration whitespace-nowrap text-subtle">
-              / {fmt(p.target)}
-            </span>
+    <Region
+      title={monthName()}
+      icon={CalendarDays}
+      action={<EditGoal />}
+      value={
+        /* `items-baseline` with a wrap: a money target is several times wider
+           than "120h", and inline it broke after the slash and stranded it at
+           the end of the figure's line. */
+        <span className="flex flex-wrap items-baseline gap-x-1.5">
+          {fmt(actual)}
+          {/* The target is context for the figure, not part of it, so it is
+              set at row scale rather than carried along at 30px. */}
+          <span className="type-duration whitespace-nowrap text-subtle">
+            / {fmt(p.target)}
           </span>
-        }
-      >
-        <div className="flex flex-col gap-2 px-4 pt-1 pb-3">
-          <PaceLine
-            series={p.series}
-            target={p.target}
-            label={`${fmt(actual)} of ${fmt(p.target)}`}
-          />
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-2 px-4 pt-1 pb-3">
+        <PaceLine
+          series={p.series}
+          target={p.target}
+          label={`${fmt(actual)} of ${fmt(p.target)}`}
+        />
 
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="type-support text-subtle">
-              {p.businessDaysElapsed} of {p.businessDaysTotal} business days
-              {stats.billableRatio != null
-                ? ` · ${Math.round(stats.billableRatio * 100)}% billable`
-                : null}
-            </p>
-            {p.delta != null ? (
-              <span
-                className={`flex-none type-meta ${ahead ? 'text-muted' : 'text-warning'}`}
-              >
-                {ahead ? 'on pace' : 'behind'} {p.delta >= 0 ? '+' : ''}
-                {fmt(p.delta)}
-              </span>
-            ) : null}
-          </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="type-support text-subtle">
+            {p.businessDaysElapsed} of {p.businessDaysTotal} business days
+            {stats.billableRatio != null
+              ? ` · ${Math.round(stats.billableRatio * 100)}% billable`
+              : null}
+          </p>
+          {p.delta != null ? (
+            <span
+              className={`flex-none type-meta ${ahead ? 'text-muted' : 'text-warning'}`}
+            >
+              {ahead ? 'on pace' : 'behind'} {p.delta >= 0 ? '+' : ''}
+              {fmt(p.delta)}
+            </span>
+          ) : null}
         </div>
-      </Region>
-      <Rule />
-    </>
+      </div>
+    </Region>
   );
 }
 
@@ -458,14 +513,12 @@ function PaceLine({
       role="img"
       aria-label={label}
     >
-      {gap ? (
-        <path d={gap} fill="var(--color-text-subtle)" opacity="0.12" />
-      ) : null}
+      {gap ? <path d={gap} fill="var(--color-subtle)" opacity="0.12" /> : null}
       {/* The ray is the reference, so it recedes: dashed and quiet. */}
       <path
         d={rayPath}
         fill="none"
-        stroke="var(--color-text-subtle)"
+        stroke="var(--color-subtle)"
         strokeWidth="1"
         strokeDasharray="3 3"
         vectorEffect="non-scaling-stroke"
@@ -474,7 +527,7 @@ function PaceLine({
       <path
         d={actualPath}
         fill="none"
-        stroke="var(--color-text-primary)"
+        stroke="var(--color-primary)"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -507,11 +560,16 @@ function EditGoal() {
 /* ── Velocity ──────────────────────────────────────────────────────── */
 
 /**
- * The trailing quarter's gross, and where it stands.
+ * The trailing quarter's gross, and how it was made up.
  *
  * **"Gross earned", never "earned" alone** — it is work done over the window,
  * not money collected, and the invoiced/unbilled split is what says so. Not
  * comparable with `awaitingPayment`, which spans every period.
+ *
+ * **Not a row list.** Unbilled is a figure over per-client rows, and a second
+ * region in that shape — same columns, same trailing arrow, and with a full
+ * book the same order of magnitude — reads at a glance as the first one
+ * printed twice. The mix is a bar and a key instead: a shape, not a table.
  */
 function Velocity({ stats }: { stats: Stats }) {
   const v = stats.velocity;
@@ -521,89 +579,146 @@ function Velocity({ stats }: { stats: Stats }) {
      the beat this region exists to show. */
   const invoiced = useCountUp(v.invoiced);
 
+  /* The same query the heatmap runs, so the hues agree and React Query serves
+     one fetch to both. Archived included: a finished engagement is still part
+     of the trailing window. */
+  const { data: clientData } = useQuery({
+    queryKey: keys.clients({ archived: true }),
+    queryFn: () => api.clients({ includeArchived: true }),
+  });
+
   if (v.byClient.length === 0) return null;
 
-  const share = v.total > 0 ? v.invoiced / v.total : 0;
+  const colours = new Map(
+    (clientData?.clients ?? []).map((c) => [c.id, c.color]),
+  );
+  /* `0` is a valid figure: a client whose whole window is still unbilled
+     grosses its unbilled amount, not nothing. */
+  const gross = (c: (typeof v.byClient)[number]) => c.invoiced + c.unbilled;
   const paid = beat?.kind === 'paid';
 
-  return (
-    <>
-      <Region
-        title={`Gross earned · last ${v.months} months`}
-        icon={TrendingUp}
-        value={
-          <span className="tabular-nums">
-            {formatCurrency(v.total, stats.currency)}
-          </span>
-        }
-      >
-        <div className="flex flex-col gap-2 px-4 pt-1 pb-3">
-          <div
-            className="flex h-1.5 overflow-hidden rounded-full bg-surface-hover"
-            role="img"
-            aria-label={`${formatCurrency(v.invoiced, stats.currency)} invoiced, ${formatCurrency(v.unbilled, stats.currency)} unbilled`}
-          >
-            <div
-              className="h-full bg-text-muted"
-              style={{ width: `${share * 100}%` }}
-            />
-          </div>
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 type-support text-subtle">
-            <span>
-              {/* The one outcome on this screen, and the only cyan on it:
-                  money that arrived. It rides the tween and leaves with it,
-                  so the colour marks the event, not a standing state. */}
-              <span
-                className={`type-meta tabular-nums ${
-                  paid ? 'text-success' : 'text-muted'
-                }`}
-                data-beat={paid ? 'paid' : undefined}
-              >
-                {formatCurrency(invoiced.value, stats.currency)}
-              </span>{' '}
-              invoiced
-            </span>
-            <span>
-              <span className="type-meta text-muted">
-                {formatCurrency(v.unbilled, stats.currency)}
-              </span>{' '}
-              unbilled
-            </span>
-            <span className="ml-auto type-meta">
-              {formatCompact(v.seconds)}
-            </span>
-          </div>
-        </div>
+  /** Per month, which is what makes two windows comparable. */
+  const perMonth = v.total / v.months;
 
-        <ul className="flex flex-col">
+  return (
+    <Region
+      title={`Gross earned · last ${v.months} months`}
+      icon={TrendingUp}
+      value={
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span className="tabular-nums">
+            {formatCurrency(perMonth, stats.currency)}
+          </span>
+          <span className="type-duration text-subtle">/mo gross</span>
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-2 px-4 pt-1 pb-3">
+        <Mix clients={v.byClient} colours={colours} gross={gross} />
+
+        {/* Inline, with a swatch — never rows. A name and its share is all
+            the bar needs to be read; an aging column and an amount column
+            rebuild the shape this region exists not to be. */}
+        <p className="flex flex-wrap gap-x-4 gap-y-1 type-support text-subtle">
           {v.byClient.map((c) => (
-            <Row
+            <span
               key={c.clientId ?? 'none'}
-              href={c.clientId ? `/clients/${c.clientId}` : '/projects'}
-              label={c.clientName}
-              detail={
-                c.unratedCount > 0
-                  ? `${formatCurrency(c.unbilled, c.currency)} unbilled · ${c.unratedCount} unrated`
-                  : `${formatCurrency(c.unbilled, c.currency)} unbilled`
-              }
-              value={formatCurrency(
-                /* `0` is a valid figure here: a client whose whole window is
-                   still unbilled grosses its unbilled amount, not nothing. */
-                c.invoiced + c.unbilled,
-                c.currency,
-              )}
-              secondary={formatCompact(c.seconds)}
-            />
+              className="flex items-center gap-1.5"
+            >
+              <span
+                aria-hidden
+                className="size-2 flex-none rounded-[2px]"
+                style={{
+                  backgroundColor:
+                    (c.clientId ? colours.get(c.clientId) : null) ?? NEUTRAL,
+                  opacity: MIX_OPACITY,
+                }}
+              />
+              <span className="truncate text-muted">{c.clientName}</span>
+              <span className="type-meta tabular-nums">
+                {formatCurrency(gross(c), c.currency)}
+              </span>
+            </span>
           ))}
-        </ul>
-        {v.moreClients > 0 ? (
-          <p className="px-4 py-2 type-support text-subtle">
-            +{v.moreClients} more
-          </p>
-        ) : null}
-      </Region>
-      <Rule />
-    </>
+          {v.moreClients > 0 ? <span>+{v.moreClients} more</span> : null}
+        </p>
+
+        <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1 type-support text-subtle">
+          <span>
+            {/* The one outcome on this screen, and the only cyan on it:
+                money that arrived. It rides the tween and leaves with it,
+                so the colour marks the event, not a standing state. */}
+            <span
+              className={`type-meta tabular-nums ${
+                paid ? 'text-success' : 'text-muted'
+              }`}
+              data-beat={paid ? 'paid' : undefined}
+            >
+              {formatCurrency(invoiced.value, stats.currency)}
+            </span>{' '}
+            invoiced
+          </span>
+          <span>
+            <span className="type-meta tabular-nums text-muted">
+              {formatCurrency(v.unbilled, stats.currency)}
+            </span>{' '}
+            unbilled
+          </span>
+          <span className="ml-auto type-meta tabular-nums">
+            {formatCompact(v.seconds)}
+          </span>
+        </p>
+      </div>
+    </Region>
+  );
+}
+
+/**
+ * Muted, because the hues at full strength across the panel's width pull
+ * harder than the running timer, which is the one thing allowed to shout.
+ */
+const MIX_OPACITY = 0.62;
+
+/**
+ * The window's mix, one segment per client — the region's picture.
+ *
+ * Shares of the gross, so the bar always fills: it answers "who was this
+ * quarter" rather than progress toward anything, and a bar with a gap in it
+ * would invite the invoiced/unbilled reading the line below already owns.
+ */
+function Mix({
+  clients,
+  colours,
+  gross,
+}: {
+  clients: Stats['velocity']['byClient'];
+  colours: Map<string, string | null>;
+  gross: (c: Stats['velocity']['byClient'][number]) => number;
+}) {
+  const total = clients.reduce((sum, c) => sum + gross(c), 0);
+  if (total <= 0) return null;
+
+  return (
+    <div
+      className="flex h-1.5 gap-0.5 overflow-hidden rounded-full"
+      role="img"
+      aria-label={clients
+        .map((c) => `${c.clientName} ${formatCurrency(gross(c), c.currency)}`)
+        .join(', ')}
+    >
+      {clients.map((c) => (
+        <div
+          key={c.clientId ?? 'none'}
+          className="h-full rounded-full"
+          style={{
+            width: `${(gross(c) / total) * 100}%`,
+            backgroundColor:
+              (c.clientId ? colours.get(c.clientId) : null) ?? NEUTRAL,
+            opacity: MIX_OPACITY,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -611,7 +726,6 @@ function Velocity({ stats }: { stats: Stats }) {
 
 /** Internal work: no client, so no hue — but not rest either. */
 const INTERNAL = '';
-const NEUTRAL = 'var(--color-text-subtle)';
 
 /** A full year of columns, which is what makes a seasonal shape visible. */
 const WEEKS = 52;

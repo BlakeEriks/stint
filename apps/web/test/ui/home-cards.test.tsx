@@ -368,13 +368,176 @@ describe('Velocity', () => {
     await waitFor(() =>
       expect(screen.getByText(/invoiced/)).toBeInTheDocument(),
     );
-    /* `invoiced + unbilled` IS the total; the split moves as invoices are
-       raised while the total does not. */
-    expect(screen.getAllByText('$9,000.00').length).toBeGreaterThan(0);
+    /* `invoiced + unbilled` IS the window's gross; the split moves as
+       invoices are raised while the gross does not. */
     expect(screen.getByText('$6,000.00')).toBeInTheDocument();
     expect(screen.getAllByText('$3,000.00').length).toBeGreaterThan(0);
-    // The two halves summed on top of the total would be $15,000.
+    // The two halves summed on top of the gross would be $15,000.
     expect(screen.queryByText('$15,000.00')).toBeNull();
+  });
+
+  it('reports the figure per month, so two windows are comparable', async () => {
+    serve(stats({ velocity }));
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('/mo gross')).toBeInTheDocument(),
+    );
+    /* $9,000 over three months. The window total carries no rate, so two
+       users on different windows cannot compare it. */
+    const figure = container.querySelector('.type-figure');
+    expect(figure?.textContent).toContain('$3,000.00');
+  });
+
+  /* THE point of the region's shape. Unbilled is a figure over per-client
+     rows; a second region built the same way — same columns, same trailing
+     arrow, and with a full book the same order of magnitude — is read as the
+     first one printed twice. This goes red if it is rebuilt as a row list. */
+  it('draws its mix as a bar and an inline key, never as rows', async () => {
+    serve(stats({ unbilled: oneClient, velocity }));
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('/mo gross')).toBeInTheDocument(),
+    );
+
+    const heading = screen.getByRole('heading', { name: /gross earned/i });
+    const region = heading.closest('section');
+    expect(region).not.toBeNull();
+
+    // The bar IS the picture: one segment per client, and it must exist.
+    const bar = region?.querySelector('[role="img"]');
+    expect(bar?.getAttribute('aria-label')).toContain('Northwind');
+    expect(bar?.children.length).toBe(velocity.byClient.length);
+
+    /* A row list is what it must not be: no <ul>, and none of the trailing
+       arrows every Row renders. Unbilled's rows still exist elsewhere in the
+       panel, so this is scoped to the region. */
+    expect(region?.querySelector('ul')).toBeNull();
+    expect(region?.querySelector('svg.lucide-arrow-right')).toBeNull();
+    expect(container.querySelectorAll('ul').length).toBeGreaterThan(0);
+  });
+
+  /* The hues at full strength across the panel's width pull harder than the
+     running timer, which is the one thing on screen allowed to shout. */
+  it('mutes the mix so it never out-shouts the running timer', async () => {
+    serve(stats({ velocity }));
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('/mo gross')).toBeInTheDocument(),
+    );
+
+    const heading = screen.getByRole('heading', { name: /gross earned/i });
+    const segments = [
+      ...(heading
+        .closest('section')
+        ?.querySelectorAll<HTMLElement>('[role="img"] > div') ?? []),
+    ];
+    expect(segments.length).toBeGreaterThan(0);
+    for (const seg of segments) {
+      const opacity = Number(seg.style.opacity);
+      expect(opacity).toBeGreaterThan(0);
+      expect(opacity).toBeLessThan(1);
+    }
+    expect(container.querySelectorAll('.bg-accent').length).toBe(0);
+  });
+});
+
+describe('the panel pairs its regions', () => {
+  const velocity = {
+    months: 3,
+    total: 9000,
+    invoiced: 6000,
+    unbilled: 3000,
+    seconds: 360000,
+    byClient: [
+      {
+        clientId: 'c1',
+        clientName: 'Northwind',
+        currency: 'USD',
+        seconds: 360000,
+        invoiced: 6000,
+        unbilled: 3000,
+        unratedCount: 0,
+      },
+    ],
+    moreClients: 0,
+  };
+
+  /* jsdom applies NEITHER media nor container queries, so asserting that two
+     regions are side by side proves nothing — it would pass against either
+     mechanism, and against neither. The class IS the mechanism, so that is
+     what is asserted. */
+  it('sizes the columns by the CONTAINER, never the viewport', async () => {
+    serve(stats({ unbilled: oneClient, velocity }));
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+
+    /* The panel is not the window: the rail and the dock claim their space at
+       `lg` and `xl`, so it is WIDER at a 1100px window than at 1440. A
+       viewport breakpoint would collapse the wide one and split the narrow. */
+    const panel = container.firstElementChild;
+    expect([...(panel?.classList ?? [])]).toContain('@container');
+
+    const pairs = [...container.querySelectorAll('div.grid')].filter((d) =>
+      [...d.classList].some((c) => c.includes('grid-cols-')),
+    );
+    expect(pairs.length).toBe(2);
+
+    for (const pair of pairs) {
+      const classes = [...pair.classList];
+      // Every column class is container-scoped (`@2xl:`), never bare `md:`.
+      const cols = classes.filter((c) => c.includes('grid-cols-'));
+      expect(cols.length).toBeGreaterThan(0);
+      for (const c of cols) expect(c).toMatch(/^@[a-z0-9]+:/);
+      expect(classes.filter((c) => /^(sm|md|lg|xl|2xl):/.test(c))).toEqual([]);
+    }
+  });
+
+  it('pairs Unbilled with By-client and the month with Velocity', async () => {
+    serve(stats({ unbilled: oneClient, velocity }));
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('By client')).toBeInTheDocument(),
+    );
+
+    /* The pairing is the layout. By-client is its own region rather than a
+       list under the figure, which is what leaves room for the pairing at
+       all — and half of why the two money regions stopped looking alike. */
+    const pairs = [...container.querySelectorAll('div.grid')].filter((d) =>
+      [...d.classList].some((c) => c.includes('grid-cols-')),
+    );
+    const headings = pairs.map((p) =>
+      [...p.querySelectorAll('h2')].map((h) => h.textContent?.trim()),
+    );
+    expect(headings[0]).toEqual(['Unbilled', 'By client']);
+    expect(headings[1]?.[1]).toMatch(/gross earned/i);
+  });
+
+  /* A vertical rule between the columns rebuilds the gridlines this whole
+     feature removed. Every separator on this screen is horizontal and inset. */
+  it('never draws a vertical divider between the columns', async () => {
+    serve(stats({ unbilled: oneClient, velocity }));
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('By client')).toBeInTheDocument(),
+    );
+
+    for (const el of container.querySelectorAll('*')) {
+      const classes = [...el.classList];
+      expect(
+        classes.filter((c) => /^(@\S+:)?border-[lrxs]($|-)/.test(c)),
+      ).toEqual([]);
+      expect(classes.filter((c) => /^(@\S+:)?divide-x($|-)/.test(c))).toEqual(
+        [],
+      );
+    }
   });
 });
 
