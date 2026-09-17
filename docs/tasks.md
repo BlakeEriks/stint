@@ -87,8 +87,8 @@ later.
       nothing else, so what occupies it is the whole product on that surface
       — and the two answer different questions ("how long on this?" versus
       "have I done enough today?") with no way to want both at once in 57pt.
-      It is a per-device display choice like the web rail's collapse, so it
-      belongs in `UserDefaults`, not `user_settings` — a laptop and a desktop
+      It is a per-device display choice, so it belongs in `UserDefaults`,
+      not `user_settings` — a laptop and a desktop
       can reasonably differ, and a round trip would make the bar flicker at
       launch.
 
@@ -168,10 +168,6 @@ later.
       revenue target plots nothing until this is built. `month_revenue` is
       month-total only and a line needs it per day — the same figure bucketed,
       not a second definition of revenue.
-- [ ] **`home_cards` JSONB on `user_settings`** — card order and visibility.
-      Validated by Zod at the API boundary rather than a check constraint, so
-      adding a card is not a migration. Decided; the one place in that table
-      where a typed column does not fit.
 
 - [ ] **Hours invested per project — blocked on `/reports` existing.** The app
       can report hours per client (the unbilled rollup) and per day (the
@@ -279,46 +275,6 @@ later.
       Add them one at a time and only where breakage would be silent —
       a suite that fails randomly gets ignored, which is worse than not
       having one.
-
-- [ ] **Collapse the nav on narrow widths instead of scrolling it.** At 375px
-      the last sections sit past the right edge, so reaching Invoices means a
-      horizontal swipe on a strip that does not look scrollable. Nothing is unreachable and the running timer is unaffected
-      (it lives in the identity row, deliberately separate from the scrolling
-      strip), but a section you cannot see is a section you will not visit —
-      and the answer is not to stop adding sections.
-
-      Collapse rather than scroll. Options, in rough order of preference:
-
-      - **Icons only** below the breakpoint where labels stop fitting. The
-        five current sections fit 375px comfortably as icons, with room to
-        grow. This is the one case where icon-only nav
-        is defensible on a phone — the alternative is a label you cannot
-        reach — but each needs a real `aria-label`, and the current-section
-        marking has to survive losing its text.
-      - **A menu behind a single control**, which scales past six items but
-        costs a tap on every navigation and hides where you are.
-
-      Prefer the first; it keeps the sections visible, which is the property
-      being defended. Note this is the same breakpoint question as the
-      collapsible rail below, and the two should share a decision about what
-      collapsed nav looks like rather than inventing two answers.
-
-- [ ] **Collapsible rail.** Icon-only at ~3.5rem, full at 13rem, toggled by
-      the user and remembered. The calendar is the screen that wants it: seven
-      day columns plus a 13rem rail is tight on a laptop, and the rail is
-      pure chrome once you know where things are.
-
-      Collapsed shows icons alone, which is the one case where that is
-      defensible — the labels were visible when you chose to collapse it, and
-      expanding is one click. Every icon needs a real `aria-label` and a
-      tooltip, since the label is no longer on screen. The running timer must
-      survive the collapse in some form: dropping it would break "visible from
-      every screen", so collapsed probably keeps the pulsing dot and the
-      elapsed time without the task name.
-
-      Store the preference per-viewer in `localStorage`, not on the server —
-      it is a per-device layout choice, not account state, and a round-trip
-      would make the rail flicker on load.
 
 - [ ] **Review the app for keyboard operation, then make it teach itself.**
       The audience is other contractors who write software, and for them a
@@ -746,18 +702,15 @@ introduces. A shadow stack pasted into a component is the defect
 - **The two shadow stacks** → `elevation.dark` and `elevation.light`, a third
   entry beside `shadow-card` and `shadow-float`. They are theme-aware for the
   reason `$elevation` already gives.
-- **Panel, bar and pill radii** → `radius`, which stops at `xl: 10`. 12 and 14
-  extend the scale rather than sitting inline.
-- **Gutter, window inset and the panel's paddings** → `space`, which has no
-  10, 14 or 18.
 - **Rail and dock widths** → layout constants rather than spacing; they belong
   wherever the breakpoint values already live.
 
-**Snap to the scale before extending it.** The mockup's numbers were chosen by
-eye against each other, not against the token scales, so several are one off a
-step that already exists. A value that survives being snapped was never
-load-bearing; one that visibly breaks has earned its new step, and the reason
-goes in `tokens.json` beside it.
+**Radii and spacing stay on Tailwind's scale**, which is what the app already
+uses everywhere. `--radius-*` and `--space-*` are emitted into `:root` but
+never registered in `@theme`, so `rounded-xl` is Tailwind's 12px rather than
+the token's 10px and nothing in `apps/web` reads `var(--radius-*)`. Closing
+that divergence is its own task; doing it here would silently change every
+corner in the app.
 
 **The `color-mix` percentages are the exception**, and stay inline. They are
 relationships between two tokens rather than values — the point of writing
@@ -812,9 +765,9 @@ dock makes possible.
 **The card set, top to bottom:** Unbilled, then Month (a cumulative line, no
 longer a single figure), then Velocity, then the heatmap, then Today's
 entries. Activity is deleted. Today also renders in the dock's lower half.
-Past four cards the screen scrolls, which is accepted — `home_cards`
-visibility is the answer to a long screen, not fewer cards, and every card
-here is hideable.
+Past four cards the screen scrolls, which is accepted. There is **one view
+and no configuration** — the answer to a long screen is a card that earns its
+place, not a switch that hides it.
 
 - [ ] **A stop is the product's best moment and passes without a mark.**
       Stopping a timer changes Unbilled, and the change is invisible: the
@@ -871,8 +824,8 @@ here is hideable.
       server now says, which is the same count-up a live stop uses, replayed
       for work done away from the screen.
 
-      **Last-seen lives in `localStorage`**, one key per origin, like the
-      rail's collapse state: a per-device display detail, not account state.
+      **Last-seen lives in `localStorage`**, one key per origin — a
+      per-device display detail, not account state.
       Two devices disagreeing is correct — each animates what *it* has not
       shown you. A column on `user_settings` would make every dashboard load a
       write, to make two browsers agree about something neither needs the
@@ -896,8 +849,8 @@ here is hideable.
 
       **Its own card, not a unit toggle on another.** Effective hourly was
       going to share this slot behind a setting; they are different cards that
-      happen to be about money, and `home_cards` already hides what a given
-      user does not want.
+      happen to be about money, and a toggle between them would make one
+      permanently invisible to a user who set it once.
 
 - [ ] **Effective hourly rate — not on Home, and not in the first cut.**
       Money divided by *all* hours including unbillable. Bill $150, absorb 20%
@@ -966,9 +919,11 @@ here is hideable.
       keeps a five-on-two-off rhythm intact and still notices a week that got
       away. That is the rule that makes it honest enough to keep.
 
-      **Hideable like every card here.** The user who finds a streak
-      motivating and the one who finds it pressure are both real, and
-      `home_cards` is already the answer to that.
+      **The forgiving rule is what keeps it honest**, since there is no
+      setting to hide it behind. A streak that broke every weekend would be
+      telling a contractor that an ordinary Saturday was a failure; one that
+      survives a missed day and breaks on two notices a week that got away
+      without inventing a problem.
 
       Windows are the range control Activity had, which is the one
       customization this screen allows. **Day bucketing stays server-side** —

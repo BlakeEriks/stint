@@ -40,30 +40,28 @@
   }
   .rule strong { color: var(--text-strong); font-weight: 600; }
 
-  /* ── miniature frames ─────────────────────────────────────────── */
+  /* ── miniature frames ───────────────────────────────────────────
+     The frame as it renders: a flat ground, the rail and dock painted on
+     it, and one panel floating in the middle. */
   .mini {
-    border: 1px solid var(--border-subtle);
     border-radius: 10px; overflow: hidden;
     display: flex; flex-direction: column;
-    background: var(--bg-recessed);
+    background: var(--bg-base);
+    padding: 8px;
     margin-top: 1.25rem;
   }
   .mini .hd {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 6px 10px; border-bottom: 1px solid var(--border-subtle);
+    padding: 2px 4px 8px;
     font-size: 11px;
   }
-  .mini .mid { display: flex; flex: 1; min-height: 0; }
+  .mini .mid { display: flex; flex: 1; min-height: 0; gap: 8px; }
   .mini .rail {
     flex: none; width: 104px;
-    background: var(--bg-base);
-    border-right: 1px solid var(--border-subtle);
-    padding: 8px 6px; display: flex; flex-direction: column; gap: 3px;
+    display: flex; flex-direction: column; gap: 3px;
   }
   .mini .strip {
-    background: var(--bg-base);
-    border-bottom: 1px solid var(--border-subtle);
-    padding: 6px; display: flex; gap: 4px; overflow-x: auto;
+    display: flex; gap: 4px; overflow-x: auto; padding-bottom: 8px;
   }
   /* Icon AND label, the way the rail actually renders: the icon is a fast
      second channel for a destination you already know, the label is what
@@ -75,26 +73,49 @@
     padding: 4px 6px; border-radius: 4px; white-space: nowrap; flex: none;
   }
   .mini .navitem svg { width: 9px; height: 9px; flex: none; }
-  .mini .navitem.on { background: var(--bg-primary); color: var(--text-strong); box-shadow: var(--shadow-card); }
-  .mini .content { flex: 1; min-width: 0; background: var(--bg-primary); padding: 10px; }
-  .mini .card {
-    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
-    border-radius: 6px; box-shadow: var(--shadow-card);
-    height: 34px; margin-bottom: 6px;
+  .mini .navitem.on {
+    position: relative;
+    background: color-mix(in oklab, var(--bg-elevated) 55%, transparent);
+    color: var(--text-strong);
   }
-  .mini .dock {
-    flex: none; width: 92px; background: var(--bg-base);
-    border-left: 1px solid var(--border-subtle); padding: 8px;
+  .mini .navitem.on::before {
+    content: ''; position: absolute; left: 0; top: 50%; translate: -1px -50%;
+    width: 2px; height: 10px; border-radius: 999px;
+    background: var(--border-control);
   }
-  .mini .dockband {
-    background: var(--bg-base); border-top: 1px solid var(--border-subtle);
-    padding: 8px 10px;
+  /* The panel: borderless, separated from the ground by shadow alone. */
+  .mini .content {
+    flex: 1; min-width: 0; padding: 10px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, var(--bg-hover) 75%, transparent),
+      0 1px 2px rgb(0 0 0 / .4),
+      0 10px 28px -12px rgb(0 0 0 / .6);
   }
-  .mini .bar {
+  /* Regions inside the panel, separated by an inset rule and space. */
+  .mini .region { height: 26px; }
+  .mini .region + .region {
+    margin-top: 9px; padding-top: 9px;
     border-top: 1px solid var(--border-subtle);
+  }
+  .mini .dock { flex: none; width: 92px; }
+  .mini .dockband { padding: 8px 2px 0; }
+  .mini .irow {
+    background: color-mix(in oklab, var(--bg-elevated) 70%, transparent);
+    border-radius: 7px; height: 22px; margin-top: 5px;
+  }
+  /* The bar: quiet fill, no shadow, no border. */
+  .mini .bar {
+    margin-top: 8px;
     padding: 8px 10px; display: flex; align-items: center; gap: 8px;
+    border-radius: 9px;
+    background: color-mix(in oklab, var(--bg-primary) 55%, transparent);
     font-family: var(--font-mono); font-size: 10px;
   }
+  /* At xl the bar is the panel's width, so it lives in the centre column. */
+  .mini .centre { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+  .mini .centre .content { flex: 1; }
   .mini .pip { width: 6px; height: 6px; border-radius: 50%; background: var(--timer-idle); flex: none; }
   .mini .lbl {
     font-family: var(--font-mono); font-size: 8px; letter-spacing: .1em;
@@ -147,12 +168,14 @@
           <span class="navitem"><svg><use href="#i-invoices"/></svg>Invoices</span>
           <span class="navitem"><svg><use href="#i-settings"/></svg>Settings</span>
         </div>
-        <div class="content"><div class="card"></div><div class="card"></div></div>
-        <div class="dock"><span class="lbl">Inbox</span></div>
+        <div class="centre">
+          <div class="content"><div class="region"></div><div class="region"></div></div>
+          <div class="bar"><span class="pip"></span><span style="color:var(--text-subtle)">What are you working on?</span><span style="margin-left:auto;color:var(--timer-idle)">0:00:00</span></div>
+        </div>
+        <div class="dock"><span class="lbl">Inbox</span><div class="irow"></div><div class="irow"></div></div>
       </div>
-      <div class="bar"><span class="pip"></span><span style="color:var(--text-subtle)">What are you working on?</span><span style="margin-left:auto;color:var(--timer-idle)">0:00:00</span></div>
     </div>
-    <span class="caption">xl and up — rail beside content, dock its own column</span>
+    <span class="caption">xl and up — dock its own column, the bar at the panel's width</span>
 
     <div class="mini w-md">
       <div class="hd"><span class="mark" style="font-size:13px;color:var(--text-strong)">Stint</span><span class="lbl">you@…</span></div>
@@ -165,9 +188,9 @@
           <span class="navitem"><svg><use href="#i-invoices"/></svg>Invoices</span>
           <span class="navitem"><svg><use href="#i-settings"/></svg>Settings</span>
         </div>
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column">
-          <div class="content" style="flex:1"><div class="card"></div></div>
-          <div class="dockband"><span class="lbl">Inbox</span></div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
+          <div class="content" style="flex:1"><div class="region"></div></div>
+          <div class="dockband"><span class="lbl">Inbox</span><div class="irow"></div></div>
         </div>
       </div>
       <div class="bar"><span class="pip"></span><span style="color:var(--text-subtle)">What are you working on?</span><span style="margin-left:auto;color:var(--timer-idle)">0:00:00</span></div>
@@ -184,9 +207,9 @@
         <span class="navitem"><svg><use href="#i-invoices"/></svg>Invoices</span>
         <span class="navitem"><svg><use href="#i-settings"/></svg>Settings</span>
       </div>
-      <div class="mid" style="flex-direction:column">
-        <div class="content" style="flex:1"><div class="card"></div></div>
-        <div class="dockband"><span class="lbl">Inbox</span></div>
+      <div class="mid" style="flex-direction:column;gap:0">
+        <div class="content" style="flex:1"><div class="region"></div></div>
+        <div class="dockband"><span class="lbl">Inbox</span><div class="irow"></div></div>
       </div>
       <div class="bar"><span class="pip"></span><span style="color:var(--text-subtle)">Task…</span><span style="margin-left:auto;color:var(--timer-idle)">0:00:00</span></div>
     </div>
@@ -206,8 +229,10 @@
       </tr>
       <tr>
         <td class="num">xl</td>
-        <td>The dock becomes its own scrolling column</td>
-        <td>Below it the dock scrolls with the page it summarises</td>
+        <td>The dock becomes its own scrolling column, and the timer bar moves
+          under the panel at the panel's width</td>
+        <td>Below it the dock scrolls with the page it summarises and the bar
+          runs full width across the bottom</td>
       </tr>
     </table>
 
@@ -224,18 +249,43 @@
     <div class="sec-head"><span class="eyebrow">Four planes</span></div>
 
     <div class="planes">
-      <div class="plane"><div class="fill" style="background:var(--bg-recessed)"></div><span class="n">bg-recessed</span><span class="w">header, timer bar</span></div>
-      <div class="plane"><div class="fill" style="background:var(--bg-base)"></div><span class="n">bg-base</span><span class="w">rail, dock</span></div>
-      <div class="plane"><div class="fill" style="background:var(--bg-primary)"></div><span class="n">bg-primary</span><span class="w">content column</span></div>
-      <div class="plane"><div class="fill" style="background:var(--bg-elevated); box-shadow:var(--shadow-card)"></div><span class="n">bg-elevated</span><span class="w">cards</span></div>
+      <div class="plane"><div class="fill" style="background:var(--bg-recessed)"></div><span class="n">bg-recessed</span><span class="w">unused by the frame</span></div>
+      <div class="plane"><div class="fill" style="background:var(--bg-base)"></div><span class="n">bg-base</span><span class="w">the ground — window, header, rail, dock</span></div>
+      <div class="plane"><div class="fill" style="background:var(--bg-primary)"></div><span class="n">bg-primary</span><span class="w">the panel, and the timer bar at 55%</span></div>
+      <div class="plane"><div class="fill" style="background:var(--bg-elevated); box-shadow:var(--shadow-card)"></div><span class="n">bg-elevated</span><span class="w">inbox rows at 70%, active rail pill at 55%</span></div>
     </div>
 
     <p style="margin-top:1.5rem">
-      Depth increases toward what is being read. The active rail item lifts to
-      the content plane and takes the card shadow, which is what makes the
-      rail read as a tab strip into the column beside it.
-      <code>brand.html</code> carries the ramp.
+      Depth increases toward what is being read, and the ground is flat: the
+      rail and dock are painted straight onto it, so the only edge in the
+      frame belongs to the panel. <code>brand.html</code> carries the ramp.
     </p>
+
+    <table>
+      <tr><th>Layer</th><th>Value</th></tr>
+      <tr><td>Panel radius</td><td class="num">12px</td></tr>
+      <tr><td>Panel edge, dark</td><td class="num">inset 0 1px 0 bg-hover 75%, 0 1px 2px, 0 10px 28px -12px</td></tr>
+      <tr><td>Panel edge, light</td><td class="num">inset 0 1px 0 bg-active 55%, 0 1px 2px, 0 10px 28px -12px</td></tr>
+      <tr><td>Region separation</td><td class="num">inset 1px border-subtle, 18px above and below</td></tr>
+      <tr><td>Inbox row</td><td class="num">7px radius</td></tr>
+      <tr><td>Rail marker</td><td class="num">2px × 14px, border-control, fully rounded</td></tr>
+    </table>
+
+    <p style="margin-top:1.5rem">
+      The inset layer is a LIT top edge in dark and a SHADED one in light: a
+      shadow needs headroom below the ground and dark has it, while light has
+      headroom nowhere above <code>bg-base</code>, so the edge inverts.
+    </p>
+
+    <ul class="rule">
+      <li><strong>Nothing inside the panel is a card.</strong> A region is
+        marked by an inset rule and the space around it, so the whole column
+        reads as one surface.</li>
+      <li><strong>An inbox row keeps a small surface</strong> — it is there to
+        be acted on, and an object you act on is an object.</li>
+      <li><strong>The active rail item is a filled pill with a marker at its
+        left edge.</strong> It marks which section you are in.</li>
+    </ul>
   </section>
 
   <!-- ───────────────────────── the column ───────────────────────── -->
@@ -261,10 +311,10 @@
     </p>
 
     <ul class="rule">
-      <li><strong>A card's header rule is inset</strong> — a <code>mx-4
+      <li><strong>A region's rule is inset</strong> — a <code>mx-4
         border-t</code> div holding the same padding as the rows below it. A
-        <code>border-b</code> on the header runs edge to edge and cuts the
-        panel in two, which reads as two stacked cards.</li>
+        rule running edge to edge cuts the panel in two, which reads as two
+        stacked surfaces.</li>
       <li><strong>The default <code>Button</code> is neutral</strong>; the
         accent is opt-in, because the running timer already holds it.</li>
       <li><strong>Buttons and nav carry icons, and an additive action carries

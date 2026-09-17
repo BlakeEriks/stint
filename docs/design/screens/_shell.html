@@ -13,19 +13,23 @@
      Every colour, size and the mark come from _mockup.css, which
      `pnpm tokens` generates. Nothing here hardcodes a hex.
 
-     The frame is four planes, depth increasing toward what is being read:
-       header + timer bar   bg-recessed   (furthest)
-       rail + dock          bg-base
-       content column       bg-primary
-       cards                bg-elevated + shadow-card   (nearest)
-     Never invert this — a card darker than its surface reads as a hole.
+     The frame is a flat ground with one panel floating on it:
+       ground (the window)   bg-base, flat
+       rail + dock           painted on the ground — no surface, no border
+       content column        ONE panel, bg-primary, radius 12, shadow alone
+       inbox rows            bg-elevated at 70% — a row you act on is an object
+     Depth increases toward what is being read; never invert it, because a
+     surface darker than the one under it reads as a hole.
+
+     Nothing inside the panel is a card. Regions are separated by an inset
+     rule with 18px above and below.
      ═══════════════════════════════════════════════════════════════════ */
 
   *, *::before, *::after { box-sizing: border-box; }
 
   body {
     margin: 0;
-    background: var(--bg-recessed);
+    background: var(--bg-base);
     color: var(--text-primary);
     font-family: var(--font-sans);
     font-size: 15px;
@@ -44,14 +48,13 @@
     overflow: hidden;
   }
 
-  /* ── Header (plane 1) ───────────────────────────────────────────
-     The wordmark is a link to Home; the account menu sits opposite. */
+  /* ── Header ─────────────────────────────────────────────────────
+     Painted on the ground. The wordmark is a link to Home; the account
+     menu sits opposite. Space separates it from the body, not a rule. */
   .header {
     flex: none;
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 8px 16px;
-    background: var(--bg-recessed);
-    border-bottom: 1px solid var(--border-subtle);
+    padding: 14px 16px 0;
   }
   .header .mark { font-size: 24px; color: var(--text-strong); padding: 4px 8px; }
 
@@ -70,18 +73,16 @@
   /* ── The middle row: rail | content | dock ──────────────────────
      The rail is a vertical rail at lg and up, a horizontal strip below.
      This file shows the lg+ arrangement; a phone doc overrides `.rail`. */
-  .middle { display: flex; flex: 1; min-height: 0; }
+  .middle { display: flex; flex: 1; min-height: 0; gap: 16px; padding: 14px 16px 16px; }
 
-  /* ── Rail (plane 2) ─────────────────────────────────────────────
-     Sections and nothing else — the wordmark is in the header, the timer
-     in the dock. 208px fixed. Settings is deliberately absent: the rail is
-     places you go, and configuration lives in the account menu. */
+  /* ── Rail ───────────────────────────────────────────────────────
+     Painted on the ground. Sections and nothing else — the wordmark is in
+     the header, the timer in the bar. 208px fixed. Settings is deliberately
+     absent: the rail is places you go, and configuration lives in the
+     account menu. */
   .rail {
     flex: none; width: 208px;
     display: flex; flex-direction: column; gap: 4px;
-    padding: 16px 12px;
-    background: var(--bg-base);
-    border-right: 1px solid var(--border-subtle);
   }
   .rail a {
     display: flex; align-items: center; gap: 10px;
@@ -90,68 +91,106 @@
     color: var(--text-muted);
   }
   .rail a .ico { width: 16px; height: 16px; flex: none; opacity: .85; }
-  /* The active section lifts to the CONTENT plane and takes the card
-     shadow, so the rail reads as a tab strip into the column beside it. */
+  /* The active section is a filled pill with a marker at its left edge —
+     a selected object on the ground, read by fill and bar rather than by a
+     shared edge with anything. */
   .rail a[aria-current="page"] {
-    background: var(--bg-primary);
+    position: relative;
+    background: color-mix(in oklab, var(--bg-elevated) 55%, transparent);
     color: var(--text-strong);
-    box-shadow: var(--shadow-card);
+  }
+  .rail a[aria-current="page"]::before {
+    content: ''; position: absolute; left: 0; top: 50%; translate: -1px -50%;
+    width: 2px; height: 14px; border-radius: 999px;
+    background: var(--border-control);
   }
 
-  /* ── Content column (plane 3) ───────────────────────────────────
-     The only thing that scrolls. `Page` owns the measure: max-width 48rem
+  /* ── Content column ─────────────────────────────────────────────
+     ONE borderless panel, separated from the ground by shadow alone. The
+     only thing that scrolls. `Page` owns the measure: max-width 48rem
      normally, 72rem for a screen that is a grid rather than a column. */
   /* Below xl the dock is a BAND BENEATH the content and the two scroll
      together, so the dock scrolls with the page it summarises. At xl there
      is finally room for a third column and it becomes one, scrolling on its
      own. Mirror of the real frame — do not make the dock a column at every
      width, which starves the measure at 1024. */
+  /* Below xl: one scrolling column holding panel then dock, with the bar
+     pinned beneath at full width. At xl: panel and dock become two columns,
+     the panel scrolls inside itself, and the bar sits under the panel at the
+     panel's width. */
   .scroller {
-    flex: 1; min-width: 0;
-    display: flex; flex-direction: column;
-    overflow-y: auto;
+    flex: 1; min-width: 0; min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    gap: 16px;
   }
+  .content  { grid-column: 1; grid-row: 1; min-height: 0; }
+  .dock     { grid-column: 1; grid-row: 2; min-height: 0; }
+  .barwrap  { grid-column: 1; grid-row: 3; min-height: 0; }
+  @media (width >= 80rem) {
+    .scroller {
+      grid-template-columns: minmax(0, 1fr) 372px;
+      grid-template-rows: minmax(0, 1fr) auto;
+    }
+    .dock { grid-column: 2; grid-row: 1 / 3; }
+    .barwrap { grid-row: 2; }
+  }
+  /* The inset layer is a LIT top edge in dark and a SHADED one in light: a
+     shadow needs headroom below the ground and dark has it, while light has
+     headroom nowhere above bg-base, so the edge inverts. */
   .content {
     flex: 1; min-width: 0;
     background: var(--bg-primary);
+    border: 0;
+    border-radius: 12px;
+    overflow-y: auto;
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, var(--bg-hover) 75%, transparent),
+      0 1px 2px rgb(0 0 0 / .4),
+      0 10px 28px -12px rgb(0 0 0 / .6);
+  }
+  [data-theme="light"] .content {
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, var(--bg-active) 55%, transparent),
+      0 1px 2px rgb(16 18 26 / .07),
+      0 10px 28px -12px rgb(16 18 26 / .16);
   }
   .measure { max-width: 48rem; margin: 0 auto; padding: 40px 32px 40px; }
   .measure.wide { max-width: 72rem; }
 
   @media (width >= 80rem) {
-    .scroller { flex-direction: row; overflow: hidden; }
-    .content { overflow-y: auto; }
+    .scroller { flex-direction: row; min-height: 0; gap: 16px; }
   }
 
-  /* ── Dock (plane 2, beside the content) ─────────────────────────
-     The inbox lives here and is ALWAYS present — it is furniture, so
-     "Nothing needs you" is information rather than noise. A region that
-     appears and vanishes reflows the page at the moment you fix something. */
-  .dock {
-    flex: none;
-    padding: 16px;
-    background: var(--bg-base);
-    border-top: 1px solid var(--border-subtle);
-  }
+  /* ── Dock ───────────────────────────────────────────────────────
+     Painted on the ground beside the panel. The inbox lives here and is
+     ALWAYS present — it is furniture, so "Nothing needs you" is information
+     rather than noise. A region that appears and vanishes reflows the page
+     at the moment you fix something. */
   @media (width >= 80rem) {
-    .dock {
-      width: 372px;
-      border-top: 0;
-      border-left: 1px solid var(--border-subtle);
-      overflow-y: auto;
-    }
+    .dock { overflow-y: auto; }
+  }
+  /* An inbox row is there to be acted on, so it keeps a small surface. */
+  .irow {
+    padding: 9px 10px;
+    border-radius: 7px;
+    background: color-mix(in oklab, var(--bg-elevated) 70%, transparent);
+    margin-bottom: 6px;
   }
 
-  /* ── Timer bar (plane 1) ────────────────────────────────────────
+  /* ── Timer bar ──────────────────────────────────────────────────
+     At xl it sits below the panel at the panel's width, on a quiet fill.
+     Below xl it runs full width across the bottom.
      Two arrangements, not one layout with pieces hidden: idle is a
      composing row where the field takes the space; running is a centred
      readout of four small objects. */
   .timerbar {
-    flex: none;
     display: flex; align-items: center; gap: 12px;
-    padding: 14px 16px;
-    background: var(--bg-recessed);
-    border-top: 1px solid var(--border-subtle);
+    padding: 12px 14px;
+    border: 0;
+    border-radius: 14px;
+    background: color-mix(in oklab, var(--bg-primary) 55%, transparent);
   }
   .timerbar.running { justify-content: center; }
 
@@ -204,22 +243,19 @@
   }
   .btn.quiet { background: transparent; color: var(--text-muted); }
 
-  /* ── Cards (plane 4) ────────────────────────────────────────────
-     The header rule is INSET (mx-4), never a full-width border — edge to
-     edge it cuts the panel in two and reads as two stacked cards. */
-  .card {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: 10px;
-    box-shadow: var(--shadow-card);
-    margin-bottom: 16px;
+  /* ── Regions inside the panel ───────────────────────────────────
+     Nothing in here is a card. A region is separated by an INSET rule with
+     18px of space above and below — edge to edge it cuts the panel in two
+     and reads as two stacked surfaces. */
+  .region + .region {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border-subtle);
   }
-  .card-head {
+  .region-head {
     display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-    padding: 14px 16px 10px;
+    margin-bottom: 10px;
   }
-  .card-rule { height: 1px; margin: 0 16px; background: var(--border-subtle); }
-  .card-body { padding: 12px 16px 16px; }
 
   .row {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -232,7 +268,7 @@
   .note {
     margin: 0 0 20px; padding: 12px 14px;
     border-left: 2px solid var(--border-control);
-    background: var(--bg-elevated);
+    background: color-mix(in oklab, var(--bg-elevated) 55%, transparent);
     border-radius: 0 8px 8px 0;
     color: var(--text-muted); font-size: 13.5px;
     max-width: 60ch;
@@ -277,7 +313,7 @@
       </a>
     </nav>
 
-    <!-- ═══ CONTENT + DOCK ═════════════════════════════════════ -->
+    <!-- ═══ CONTENT + DOCK + TIMER BAR ═════════════════════════ -->
     <div class="scroller">
 
       <main class="content">
@@ -286,32 +322,34 @@
           <p class="note">
             <strong>This is the shell.</strong> Copy this file, keep everything
             outside <code>.content</code>, and replace what is in here. The
-            card below is the reference — inset header rule, elevated surface,
-            neutral buttons.
+            regions below are the reference — an inset rule between them, and
+            no card anywhere inside the panel.
           </p>
 
-          <div class="card">
-            <div class="card-head">
+          <div class="region">
+            <div class="region-head">
               <span class="type-heading" style="color:var(--text-strong)">Unbilled</span>
               <span class="type-amount-hero" style="color:var(--text-strong)">$1,462.50</span>
             </div>
-            <div class="card-rule"></div>
-            <div class="card-body">
-              <div class="row">
-                <span class="type-body">Northwind Trading</span>
-                <span class="type-amount" style="color:var(--text-strong)">$975.00</span>
-              </div>
-              <div class="row">
-                <span class="type-body">Acme Corp</span>
-                <span class="type-amount" style="color:var(--text-strong)">$487.50</span>
-              </div>
+            <div class="row">
+              <span class="type-body">Northwind Trading</span>
+              <span class="type-amount" style="color:var(--text-strong)">$975.00</span>
+            </div>
+            <div class="row">
+              <span class="type-body">Acme Corp</span>
+              <span class="type-amount" style="color:var(--text-strong)">$487.50</span>
             </div>
           </div>
 
-          <div style="display:flex; gap:10px; margin-top:20px">
-            <button class="btn">Secondary</button>
-            <button class="btn accent">Accent — opt in only</button>
-            <button class="btn quiet">Quiet</button>
+          <div class="region">
+            <div class="region-head">
+              <span class="type-heading" style="color:var(--text-strong)">Buttons</span>
+            </div>
+            <div style="display:flex; gap:10px">
+              <button class="btn">Secondary</button>
+              <button class="btn accent">Accent — opt in only</button>
+              <button class="btn quiet">Quiet</button>
+            </div>
           </div>
 
         </div>
@@ -320,25 +358,24 @@
       <!-- The inbox is always present. "Nothing needs you" is information. -->
       <aside class="dock" aria-label="Inbox">
         <div class="type-label" style="color:var(--text-subtle); margin-bottom:12px">Inbox</div>
-        <div class="card" style="box-shadow:none">
-          <div class="card-body">
-            <div class="type-body" style="color:var(--text-muted)">Nothing needs you.</div>
-          </div>
+        <div class="irow">
+          <div class="type-body" style="color:var(--text-muted)">Nothing needs you.</div>
         </div>
       </aside>
 
-    </div>
-  </div>
+      <!-- Idle: a composing row, the field takes the space.
+           Swap for `.timerbar.running` to show the centred readout. -->
+      <div class="barwrap">
+        <div class="timerbar">
+          <span class="tdot idle"></span>
+          <input class="task-field" placeholder="What are you working on?">
+          <button class="tag empty">No project <span aria-hidden="true">⌄</span></button>
+          <span class="type-timer" style="color:var(--timer-idle)">0:00:00</span>
+          <button class="btn accent">Start</button>
+        </div>
+      </div>
 
-  <!-- ═══ TIMER BAR ════════════════════════════════════════════
-       Idle: a composing row, the field takes the space.
-       Swap for `.timerbar.running` to show the centred readout. -->
-  <div class="timerbar">
-    <span class="tdot idle"></span>
-    <input class="task-field" placeholder="What are you working on?">
-    <button class="tag empty">No project <span aria-hidden="true">⌄</span></button>
-    <span class="type-timer" style="color:var(--timer-idle)">0:00:00</span>
-    <button class="btn accent">Start</button>
+    </div>
   </div>
 
 </div>
