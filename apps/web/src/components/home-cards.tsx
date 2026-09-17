@@ -366,11 +366,15 @@ function Unbilled({
       }
     >
       {/* Never added to the total above: that is work not yet invoiced, this
-          is money already asked for, and summing them double-counts. */}
+          is money already asked for, and summing them double-counts.
+
+          A text link, not a row: `inline-flex` keeps the hover and the focus
+          ring around the words. At `flex` it filled the region's width, so
+          the hover fill reached the panel's edges and read as a button. */}
       {stats.awaitingPayment > 0 ? (
         <Link
           href="/invoices?status=sent"
-          className="flex items-baseline gap-1.5 px-5 py-2 type-support text-subtle hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+          className="mx-5 my-1 inline-flex items-baseline gap-1.5 rounded-sm type-support text-subtle hover:text-muted hover:underline hover:decoration-edge-subtle hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
         >
           <span className="type-meta text-muted">
             {formatCurrency(stats.awaitingPayment, stats.currency)}
