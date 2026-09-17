@@ -677,6 +677,93 @@ it is not contained by it.
       this is an edit to what the planes mean, not to `deriving-colour.md`'s
       generators.
 
+### The values
+
+These are what the mockups settled on and what an implementation should start
+from — the reasoning above says *why* each one, and these say *what*. Do not
+re-derive them from scratch: several look arbitrary and are not, and the
+shadow stacks in particular took four passes to find. What to do when one
+disagrees with a token scale is the section below.
+
+**Shadow stacks.** One declaration per theme, on the panel:
+
+```css
+/* dark — lit top edge */
+inset 0 1px 0 color-mix(in oklab, var(--bg-hover) 75%, transparent),
+0 1px 2px rgb(0 0 0 / .4),
+0 10px 28px -12px rgb(0 0 0 / .6)
+
+/* light — shaded top edge */
+inset 0 1px 0 color-mix(in oklab, var(--bg-active) 55%, transparent),
+0 1px 2px rgb(16 18 26 / .07),
+0 10px 28px -12px rgb(16 18 26 / .16)
+```
+
+The inset layer is the lit (dark) or shaded (light) top edge; the other two
+are the drop and the fall. The light stack's `16 18 26` is a blue-black rather
+than neutral — a pure-black shadow on a light neutral reads grey and dead.
+
+**Geometry.** One scale, so the frame's parts agree:
+
+| | Value | Notes |
+| --- | --- | --- |
+| Panel radius | `12px` | |
+| Gutter between parts | `10px` | Rail↔panel, panel↔dock, panel↔bar |
+| Window inset | `14px` | Ground visible at all four edges |
+| Rail width | `190px` | Down from 208px; the pill needs less than a full-bleed row |
+| Dock width | `286px` | |
+| Nav item radius | `7px` | `radius - 5px`, so a pill inside a panel reads as nested |
+| Timer bar radius | `14px` | `radius + 2px`, so the shorter object does not look tighter |
+| Timer bar height | `50px` | |
+
+**Inside the panel.** The regions are separated by rule and space, and those
+two numbers are the whole grammar:
+
+| | Value |
+| --- | --- |
+| Panel header padding | `16px 20px 12px` |
+| Panel body padding | `0 20px 18px` |
+| Between regions | `18px` above and below a `1px solid var(--border-subtle)` rule |
+| Region head to content | `10px` |
+
+**The painted parts.** Rail and dock have no surface, so what lifts inside
+them has to come off the ground rather than off a card:
+
+- **Active nav item** — `bg-elevated` at 55%, no shadow. The marker beside
+  it is `2px × 14px`, fully rounded, `border-control`, at the left edge.
+- **Inbox row** — `bg-elevated` at 70%, `7px` radius.
+- **Timer bar fill** — `bg-primary` at 55%, no shadow, no border.
+
+Each is a `color-mix(in oklab, …, transparent)` against the *panel* colour
+rather than a fixed token, so the parts stay in step if the ground moves.
+
+**These are tokens, not literals.** Every value in this section is generated
+from `packages/design-tokens/tokens.json` and consumed as a variable — the
+same rule colour already follows, extended to the things this change
+introduces. A shadow stack pasted into a component is the defect
+`tokens:validate` exists to catch, one level up from a hardcoded hex.
+
+- **The two shadow stacks** → `elevation.dark` and `elevation.light`, a third
+  entry beside `shadow-card` and `shadow-float`. They are theme-aware for the
+  reason `$elevation` already gives.
+- **Panel, bar and pill radii** → `radius`, which stops at `xl: 10`. 12 and 14
+  extend the scale rather than sitting inline.
+- **Gutter, window inset and the panel's paddings** → `space`, which has no
+  10, 14 or 18.
+- **Rail and dock widths** → layout constants rather than spacing; they belong
+  wherever the breakpoint values already live.
+
+**Snap to the scale before extending it.** The mockup's numbers were chosen by
+eye against each other, not against the token scales, so several are one off a
+step that already exists. A value that survives being snapped was never
+load-bearing; one that visibly breaks has earned its new step, and the reason
+goes in `tokens.json` beside it.
+
+**The `color-mix` percentages are the exception**, and stay inline. They are
+relationships between two tokens rather than values — the point of writing
+them against `--panel` is that they follow when the ground moves, which a
+frozen token would not do.
+
 ### Rules this changes
 
 Two standing rules in `frame.html` do not survive, and both are edited there
