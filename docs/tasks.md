@@ -24,24 +24,46 @@ later.
 
 ## Ready
 
-- [ ] **The menu bar panel names no client.** `menubar.html` draws the client
-      NAME under the task while a timer runs ("Northwind Trading" beside its
-      dot), where the panel now shows the project alone. The colour is
-      resolved; the name needs `Client.name` decoding and a second line under
-      `RenameRow`. Cheap, but it is another line in a 320pt panel — worth
-      confirming it earns the height before adding it.
+- [ ] **The menu bar panel, in one pass.** Five faults that all land in
+      `ContentView.swift` and `menubar.html`, competing for the same 320pt.
+      They are one task because the height budget is shared: adding the client
+      line, the Settings row and a longer list are each cheap alone and
+      collectively the thing that breaks the panel. Decide what the panel
+      shows once, then build it.
 
-- [ ] **The menu bar app sets type in the system font.** `menubar.html` asks
-      for IBM Plex, shipped with the app. `TypeRole` in `ContentView.swift`
-      has the two lines where the family lands; the fonts need vendoring as a
-      SwiftPM resource and registering at launch.
+      **1. The list stops at midnight, so yesterday's work cannot be
+      resumed.** `TimerModel` fetches `entries(from: dayStart)`, so at 9am the
+      list is empty and the one thing the panel is for — clicking a task to
+      pick it back up — is unavailable until you have already started
+      something by typing it. Picking up yesterday's work is the single most
+      likely first action of the day.
 
-- [ ] **Emit the type scale into `Tokens.swift`.** The scale in
-      `ContentView.swift` is mirrored from `tokens.json` by hand until
-      `pnpm tokens` writes it, the way it already writes the colours and the
-      mark.
+      Fetch the **last N entries regardless of date**, with a cutoff (two
+      weeks reads about right) so the list cannot become an archive. The API
+      already supports this: `ListEntriesQuery` takes `from`, `to` and
+      `limit`, so `entries(from:)` in `API.swift` grows a limit and a further
+      back date, and nothing server-side changes.
 
-- [ ] **The menu bar panel keeps its focus between openings, and Escape does
+      **This edits `menubar.html`, which currently says "Earlier today".** The
+      spec commits to that heading and to `GET /entries?from=…` returning
+      "Today's rows", so both change with the code — and the heading is the
+      real design question, not the query. Options worth weighing: drop the
+      time word entirely ("Recent"), or keep a day break in the list. Prefer
+      whichever makes a row from three days ago unambiguous, because resuming
+      the wrong task is a wrong invoice line and the panel has no undo.
+
+      Two constraints the panel already has and this must not break. **The
+      list is deduplicated work, not history** — several entries with one task
+      name should not fill the panel with the same row, which matters far more
+      across two weeks than across one day, so decide whether N counts rows or
+      distinct tasks. And the panel is 320pt with the timer above it: N is
+      bounded by what fits without turning the list into its own scroller.
+
+      Do this one first. It also overlaps the task-name suggestions question
+      in "Needs a decision first" — both answer "start this again" — and if
+      the list is good enough, the suggestions may not be needed at all.
+
+      **2. The panel keeps its focus between openings, and Escape does
       nothing.** Two faults with one cause — nothing in `ContentView.swift`
       handles `onExitCommand`, and nothing clears focus when the panel
       dismisses, so reopening it lands on whatever was focused last. The panel
@@ -71,44 +93,11 @@ later.
       invisible until that setting is on. Turn it on before judging the
       result.
 
-- [ ] **The panel's list stops at midnight, so yesterday's work cannot be
-      resumed.** `TimerModel` fetches `entries(from: dayStart)`, so at 9am the
-      list is empty and the one thing the panel is for — clicking a task to
-      pick it back up — is unavailable until you have already started
-      something by typing it. Picking up yesterday's work is the single most
-      likely first action of the day.
-
-      Fetch the **last N entries regardless of date**, with a cutoff (two
-      weeks reads about right) so the list cannot become an archive. The API
-      already supports this: `ListEntriesQuery` takes `from`, `to` and
-      `limit`, so `entries(from:)` in `API.swift` grows a limit and a further
-      back date, and nothing server-side changes.
-
-      **This edits `menubar.html`, which currently says "Earlier today".** The
-      spec commits to that heading and to `GET /entries?from=…` returning
-      "Today's rows", so both change with the code — and the heading is the
-      real design question, not the query. Options worth weighing: drop the
-      time word entirely ("Recent"), or keep a day break in the list. Prefer
-      whichever makes a row from three days ago unambiguous, because resuming
-      the wrong task is a wrong invoice line and the panel has no undo.
-
-      Two constraints the panel already has and this must not break. **The
-      list is deduplicated work, not history** — several entries with one task
-      name should not fill the panel with the same row, which matters far more
-      across two weeks than across one day, so decide whether N counts rows or
-      distinct tasks. And the panel is 320pt with the timer above it: N is
-      bounded by what fits without turning the list into its own scroller.
-
-      It also overlaps the task-name suggestions question in "Needs a decision
-      first" — both answer "start this again". If the list is good enough, the
-      suggestions may not be needed at all, which is an argument for doing
-      this one first.
-
-- [ ] **Settings as a pushed view in the menu bar panel.** `menubar.html`
-      specifies it — runaway threshold, shortcut, show time in bar, launch at
-      login, with the account block beneath. The gear opens a `Menu` today.
-      Building it is also what makes any further config cheap, so it comes
-      before the row below rather than alongside it.
+      **3. Settings as a pushed view.** `menubar.html` specifies it — runaway
+      threshold, shortcut, show time in bar, launch at login, with the account
+      block beneath. The gear opens a `Menu` today. Building it is what makes
+      any further config cheap, so it comes before the readout row rather than
+      alongside it.
 
       **Wanted, and it is the fifth row the spec warns about: choose what the
       bar shows — the running timer, or today's running total.**
@@ -121,15 +110,37 @@ later.
       — and the two answer different questions ("how long on this?" versus
       "have I done enough today?") with no way to want both at once in 57pt.
       It is a per-device display choice, so it belongs in `UserDefaults`,
-      not `user_settings` — a laptop and a desktop
-      can reasonably differ, and a round trip would make the bar flicker at
-      launch.
+      not `user_settings` — a laptop and a desktop can reasonably differ, and
+      a round trip would make the bar flicker at launch.
 
       Two things it must not become. Not a third option that shows both,
       which is how a fixed-width slot starts sliding again. And **when the
       setting says today's total, a running timer must still be legible as
       running** — the pip is already the thing that says so, which is the
       argument for it staying a pip rather than being folded into the text.
+
+      **4. The panel names no client.** `menubar.html` draws the client NAME
+      under the task while a timer runs ("Northwind Trading" beside its dot),
+      where the panel now shows the project alone. The colour is resolved; the
+      name needs `Client.name` decoding and a second line under `RenameRow`.
+      Cheap, but it is another line in a 320pt panel — and with the list and
+      Settings both competing for the same height, this is the one to cut if
+      the budget does not hold. Confirm it earns the height before adding it.
+
+      **5. The app sets type in the system font.** `menubar.html` asks for IBM
+      Plex, shipped with the app. `TypeRole` in `ContentView.swift` has the
+      two lines where the family lands; the fonts need vendoring as a SwiftPM
+      resource and registering at launch. **Blocked on the type scale landing
+      in `Tokens.swift`** — the row below — since hand-mirrored sizes plus a
+      new family is two things to get wrong at once.
+
+      **Remember this is a `.app` rebuild to see**, not `swift build` alone —
+      the running copy is the bundle in `~/Applications`. `docs/macos.md`.
+
+- [ ] **Emit the type scale into `Tokens.swift`.** The scale in
+      `ContentView.swift` is mirrored from `tokens.json` by hand until
+      `pnpm tokens` writes it, the way it already writes the colours and the
+      mark.
 
 - [ ] **The web sign-in sets the word instead of drawing the mark.**
       `signin-form.tsx` has `<h1 className="type-title">Stint</h1>`, so it
