@@ -136,7 +136,6 @@
     font-size: 30px;
     font-weight: 500;
     letter-spacing: -0.02em;
-    @media (width >= 40rem) { font-size: 36px; }
     font-variant-numeric: tabular-nums;
 }
 

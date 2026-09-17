@@ -6,7 +6,7 @@ import { Page } from './page';
 /** The panel and its regions. Today lives in the dock. */
 export function Home() {
   return (
-    <Page wide>
+    <Page wide flush>
       <HomeCards />
     </Page>
   );

@@ -364,11 +364,12 @@ describe('the panel is one surface', () => {
     );
 
     /* A full-bleed rule cuts the panel in two and reads as two stacked cards.
-       Every separator carries the rows' own `mx-4`. */
+       Every separator is inset to the rows' own edge, whatever that
+       measure is — the property is that it stops short of the panel. */
     const rules = [...container.querySelectorAll('div.border-t')];
     expect(rules.length).toBeGreaterThan(0);
     for (const r of rules) {
-      expect([...r.classList]).toContain('mx-4');
+      expect([...r.classList].some((c) => /^mx-\d/.test(c))).toBe(true);
     }
   });
 });
@@ -394,15 +395,18 @@ describe('Velocity', () => {
     moreClients: 0,
   };
 
-  it('says "gross earned", never "earned" alone', async () => {
+  it('never says "earned", and the unit says the figure is gross', async () => {
     serve(stats({ velocity }));
-    render(<HomeCards />, { wrapper });
+    const { container } = render(<HomeCards />, { wrapper });
 
-    /* "Earned" alone claims money collected. This window is work DONE, part
-       of it not yet invoiced and none of it necessarily paid — the same
-       overstatement the Unbilled card refuses. */
-    const heading = await screen.findByRole('heading', { name: /earned/i });
-    expect(heading.textContent?.toLowerCase()).toContain('gross earned');
+    await screen.findByRole('heading', { name: /velocity/i });
+
+    /* "Earned" claims money collected. This window is work DONE, part of it
+       not yet invoiced and none of it necessarily paid — the same
+       overstatement the Unbilled region refuses. The qualifier lives on the
+       unit instead, where it travels with the figure. */
+    expect(container.textContent).not.toMatch(/earned/i);
+    expect(container.textContent).toContain('/mo gross');
   });
 
   it('splits the window into invoiced and unbilled without double-counting', async () => {
@@ -445,7 +449,7 @@ describe('Velocity', () => {
       expect(screen.getByText('/mo gross')).toBeInTheDocument(),
     );
 
-    const heading = screen.getByRole('heading', { name: /gross earned/i });
+    const heading = screen.getByRole('heading', { name: /velocity/i });
     const region = heading.closest('section');
     expect(region).not.toBeNull();
 
@@ -472,7 +476,7 @@ describe('Velocity', () => {
       expect(screen.getByText('/mo gross')).toBeInTheDocument(),
     );
 
-    const heading = screen.getByRole('heading', { name: /gross earned/i });
+    const heading = screen.getByRole('heading', { name: /velocity/i });
     const segments = [
       ...(heading
         .closest('section')
@@ -560,7 +564,7 @@ describe('the panel pairs its regions', () => {
       [...p.querySelectorAll('h2')].map((h) => h.textContent?.trim()),
     );
     expect(headings[0]).toEqual(['Unbilled', 'By client']);
-    expect(headings[1]?.[1]).toMatch(/gross earned/i);
+    expect(headings[1]?.[1]).toMatch(/velocity/i);
   });
 
   /* A vertical rule between the columns rebuilds the gridlines this whole

@@ -60,7 +60,7 @@ function PanelHead({
   }).format(now);
 
   return (
-    <div className="flex items-baseline justify-between gap-3 px-4 pt-3 pb-1">
+    <div className="flex items-baseline justify-between gap-3 px-5 pt-3 pb-1">
       <div className="min-w-0">
         <h2 className="type-heading text-strong">{day}</h2>
         <SinceLine delta={delta} currency={currency} />
@@ -95,7 +95,10 @@ function Panel({ stats }: { stats: Stats }) {
      732px at 1440 — wider at the narrower window. A viewport breakpoint
      would collapse the wide one and split the narrow one. */
   return (
-    <div className="@container flex flex-col">
+    /* The panel owns its inset: `Page` is `flush` here because its padding
+       would land inside this surface, not around it. `pb-4` closes the
+       bottom, which the regions' own padding does not reach. */
+    <div className="@container flex flex-col pb-4">
       <PanelHead delta={arrival.delta} currency={data.currency} />
       <Pair
         left={<Unbilled stats={data} />}
@@ -289,12 +292,14 @@ const NEUTRAL = 'var(--color-subtle)';
 /**
  * The rule between two regions.
  *
- * Inset to the regions' own `px-4`, never a `border-b` on a header: full-bleed
+ * Inset to the regions' own `px-5`, never a `border-b` on a header: full-bleed
  * it cuts the panel in two and reads as two stacked cards, which is the shape
  * this screen stopped using.
  */
 function Rule() {
-  return <div className="mx-4 my-1 border-t border-edge-subtle" />;
+  /* 18px each side, which is the panel's rhythm: at `my-1` the regions read
+     as a list of rows rather than as four things sharing one surface. */
+  return <div className="mx-5 my-[18px] border-t border-edge-subtle" />;
 }
 
 /* ── Unbilled ──────────────────────────────────────────────────────── */
@@ -333,7 +338,7 @@ function Unbilled({ stats }: { stats: Stats }) {
       {stats.awaitingPayment > 0 ? (
         <Link
           href="/invoices?status=sent"
-          className="flex items-baseline gap-1.5 px-4 py-2 type-support text-subtle hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+          className="flex items-baseline gap-1.5 px-5 py-2 type-support text-subtle hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
         >
           <span className="type-meta text-muted">
             {formatCurrency(stats.awaitingPayment, stats.currency)}
@@ -362,7 +367,7 @@ function ByClient({ stats }: { stats: Stats }) {
 
   return (
     <section className="py-1">
-      <h2 className="px-4 pt-3 pb-1 type-label text-subtle">By client</h2>
+      <h2 className="px-5 pt-3 pb-1 type-label text-subtle">By client</h2>
       <ul className="flex flex-col">
         {byClient.map((c) => (
           <Row
@@ -390,7 +395,7 @@ function ByClient({ stats }: { stats: Stats }) {
         ))}
       </ul>
       {moreClients > 0 ? (
-        <p className="px-4 py-2 type-support text-subtle">
+        <p className="px-5 py-2 type-support text-subtle">
           +{moreClients} more
         </p>
       ) : null}
@@ -413,7 +418,7 @@ function Month({ stats }: { stats: Stats }) {
   if (!p) {
     return (
       <Region title={monthName()} icon={CalendarDays} action={<EditGoal />}>
-        <div className="px-4 pt-1 pb-3">
+        <div className="px-5 pt-1 pb-3">
           <p className="type-support text-subtle">
             Set a monthly goal to track hours or revenue against it.
           </p>
@@ -427,7 +432,7 @@ function Month({ stats }: { stats: Stats }) {
   if (p.actual == null) {
     return (
       <Region title={monthName()} icon={CalendarDays} action={<EditGoal />}>
-        <div className="px-4 pt-1 pb-3">
+        <div className="px-5 pt-1 pb-3">
           <p className="type-support text-subtle">
             A {p.unit} target is set, but pace in {p.unit} is not computed yet.
           </p>
@@ -467,7 +472,7 @@ function Month({ stats }: { stats: Stats }) {
         </span>
       }
     >
-      <div className="flex flex-col gap-2 px-4 pt-1 pb-3">
+      <div className="flex flex-col gap-2 px-5 pt-1 pb-3">
         <PaceLine
           series={p.series}
           target={p.target}
@@ -609,7 +614,8 @@ function EditGoal() {
 /**
  * The trailing quarter's gross, and how it was made up.
  *
- * **"Gross earned", never "earned" alone** — it is work done over the window,
+ * **The figure is gross, and the unit says so** — it is work done over the
+ * window,
  * not money collected, and the invoiced/unbilled split is what says so. Not
  * comparable with `awaitingPayment`, which spans every period.
  *
@@ -649,7 +655,12 @@ function Velocity({ stats }: { stats: Stats }) {
 
   return (
     <Region
-      title={`Gross earned · last ${v.months} months`}
+      title="Velocity"
+      /* The window is the region's caveat, not its subject: a figure per
+         month means nothing without the span it averages over. */
+      action={
+        <span className="type-meta text-subtle">trailing {v.months}mo</span>
+      }
       icon={TrendingUp}
       value={
         <span className="flex flex-wrap items-baseline gap-x-2">
@@ -660,7 +671,7 @@ function Velocity({ stats }: { stats: Stats }) {
         </span>
       }
     >
-      <div className="flex flex-col gap-2 px-4 pt-1 pb-3">
+      <div className="flex flex-col gap-2 px-5 pt-1 pb-3">
         <Mix clients={v.byClient} colours={colours} gross={gross} />
 
         {/* Inline, with a swatch — never rows. A name and its share is all
@@ -859,7 +870,7 @@ function Heatmap() {
         </span>
       }
     >
-      <div className="px-4 pt-1 pb-3">
+      <div className="px-5 pt-1 pb-3">
         {/* Columns are weeks, rows are weekdays — the layout every calendar
             heatmap uses, so the shape is readable without a key. `grid-flow-col`
             fills down each week before moving right. */}
@@ -1019,7 +1030,7 @@ function Region({
   if (value !== undefined) {
     return (
       <section className="py-1">
-        <header className="px-4 pt-3 pb-2">
+        <header className="px-5 pt-3 pb-2">
           <div className="flex items-center gap-2">
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <Icon
@@ -1042,7 +1053,7 @@ function Region({
 
   return (
     <section className="py-1">
-      <header className="flex items-center gap-2 px-4 pt-3 pb-2.5">
+      <header className="flex items-center gap-2 px-5 pt-3 pb-2.5">
         <Icon
           aria-hidden
           strokeWidth={1.75}
@@ -1085,7 +1096,7 @@ function Row({
      and lays the row out as though there were room. */
   return (
     <li className="@container">
-      <div className="flex items-center gap-2.5 px-4 py-2">
+      <div className="flex items-center gap-2.5 px-5 py-2">
         {icon}
 
         {/* Detail wraps under the label when the panel is narrow rather than

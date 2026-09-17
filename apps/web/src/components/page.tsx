@@ -7,9 +7,18 @@ import { ApiError } from '@/lib/client/api';
  */
 export function Page({
   wide = false,
+  flush = false,
   children,
 }: {
   wide?: boolean;
+  /**
+   * For a screen whose content IS the panel rather than sitting on it.
+   *
+   * This padding is inset from the frame, and the panel is the frame's
+   * surface — so on such a screen it lands INSIDE the panel and doubles
+   * whatever inset the regions already carry. The panel owns its own.
+   */
+  flush?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -17,9 +26,9 @@ export function Page({
       /* The top inset follows the NAV's breakpoint (`lg`), not the page's own
          (`sm`): where the nav is a horizontal strip directly above, the full
          inset reads as a gap rather than as margin. */
-      className={`mx-auto px-4 pt-4 pb-8 sm:px-8 sm:pb-10 lg:pt-10 ${
-        wide ? 'max-w-6xl' : 'max-w-3xl'
-      }`}
+      className={`mx-auto ${
+        flush ? '' : 'px-4 pt-4 pb-8 sm:px-8 sm:pb-10 lg:pt-10 '
+      }${wide ? 'max-w-6xl' : 'max-w-3xl'}`}
     >
       {children}
     </main>
