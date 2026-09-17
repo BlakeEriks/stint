@@ -34,6 +34,10 @@ struct ContentView: View {
         // that fires.
         .onAppear { showingSettings = false }
         .onDisappear { showingSettings = false }
+        // Sign out is a Settings row, and signing out does not dismiss the
+        // panel — without this, signing back in lands in Settings with the
+        // timer hidden behind it.
+        .onChange(of: model.isSignedIn) { _, _ in showingSettings = false }
         .frame(width: 320)
         // Sized before first paint: the panel hangs from the bar, so a height
         // that settles later moves the whole window.
