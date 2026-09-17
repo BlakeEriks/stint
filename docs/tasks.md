@@ -320,6 +320,36 @@ later.
       Deferred, and judging Tab reachability there needs macOS keyboard
       navigation turned on first.
 
+- [ ] **The calendar scrolls inside a scroller.** The day grid has its own
+      `sm:max-h-[62vh] sm:overflow-y-auto` (`calendar.tsx:216`), and the frame
+      already makes the content panel `xl:overflow-y-auto`
+      (`(app)/layout.tsx:67`), with a third `overflow-y-auto` on the column
+      above it at line 63. So the calendar renders two scroll wheels — an
+      inner one for the hours and an outer one for the card holding it — and
+      a wheel gesture over the grid moves whichever the pointer happens to be
+      inside.
+
+      **`62vh` is the specific fault.** It is viewport-relative inside a
+      container whose height is already bounded by the frame, so the two
+      cannot agree by construction: the frame decides how tall the panel is,
+      and the calendar then asks for a fraction of the *window*. At
+      `2xl` the frame is a fixed card (`max-h-[900px]`), which is where the
+      disagreement is widest.
+
+      The inner scroller does earn its place — the comment at that line says
+      why, and it is right: one container keeps the hour gutter locked to the
+      grid, and the phone case deliberately has no inner scroller so the page
+      owns the single gesture. So the fix is which element bounds its height,
+      not deleting the scroller. Either the calendar fills the panel the frame
+      gives it (and the panel stops scrolling on that route), or it keeps its
+      own scroll and is measured against its container rather than the
+      viewport.
+
+      Check the header and the day labels while in there: a grid that scrolls
+      under a sticky header is the reason to own the scroll at all, and it is
+      worth confirming that still holds once the height stops coming from
+      `vh`.
+
 - [ ] **The inbox carries more colour than it earns.**
       `screens/floating-frame.html` is the target: a title, a muted subtitle,
       quiet actions, and colour only on the one figure that is actually
