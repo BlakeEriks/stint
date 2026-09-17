@@ -117,7 +117,7 @@ export async function signIn(page: Page, email = SEED_EMAIL): Promise<void> {
 /**
  * Does the database still hold what `seed.sql` put there?
  *
- * Only the two invoices the suite WRITES to, never the seed's whole shape.
+ * Only the invoices the suite WRITES to, never the seed's whole shape.
  * Counting every invoice made this return false the moment the seed grew a
  * year of history — 11 rows where it expected 2 — so the reset ran on every
  * CI job, which is the one case it exists to skip.
@@ -139,15 +139,20 @@ async function seedIsPristine(): Promise<boolean> {
     await client.connect();
     const { rows } = await client.query(
       `select invoice_number, status from invoices
-        where invoice_number in ('STINT-0001', 'STINT-0002')
+        where invoice_number in ('STINT-0001', 'STINT-0002', 'STINT-0101')
         order by invoice_number`,
     );
     return (
-      rows.length === 2 &&
+      rows.length === 3 &&
       rows[0].invoice_number === 'STINT-0001' &&
       rows[0].status === 'sent' &&
       rows[1].invoice_number === 'STINT-0002' &&
-      rows[1].status === 'draft'
+      rows[1].status === 'draft' &&
+      /* The history's newest invoice, and the only other one still `sent`.
+         The suite marks invoices paid, so a run that left this one paid is a
+         dirty seed the first two rows alone cannot see. */
+      rows[2].invoice_number === 'STINT-0101' &&
+      rows[2].status === 'sent'
     );
   } catch {
     return false;

@@ -26,17 +26,6 @@ import { useCountUp, useSinceLastSeen } from '@/lib/client/use-count-up';
 import { cause, type Figures, useDayState } from '@/lib/client/use-day-state';
 
 /**
- * The home screen's regions, in three rows: money waiting beside who owes it,
- * the month beside the trailing quarter, then a year of texture across both.
- *
- * **Nothing here writes.** Every action is a link to the surface that owns
- * the mutation, so a stray click cannot change an invoice.
- *
- * The content column is itself the panel, so no region draws a border, a
- * background or a shadow — a bordered card inside a bordered panel is the
- * disjointedness the frame removed. Regions separate by an inset rule.
- */
-/**
  * The day, and what moved while you were away.
  *
  * The date is the answer to "is this figure current?", which is the question
@@ -86,6 +75,16 @@ export function HomeCards() {
 }
 
 /**
+ * The home screen's regions, in three rows: money waiting beside who owes it,
+ * the month beside the trailing quarter, then a year of texture across both.
+ *
+ * **Nothing here writes.** Every action is a link to the surface that owns
+ * the mutation, so a stray click cannot change an invoice.
+ *
+ * The content column is itself the panel, so no region draws a border, a
+ * background or a shadow — a bordered card inside a bordered panel is the
+ * disjointedness the frame removed. Regions separate by an inset rule.
+ *
  * Split from `HomeCards` because the since-line is read here, and a hook
  * cannot run above the `!data` guard that makes `stats` defined.
  */
@@ -146,8 +145,13 @@ function Pair({
 
 type Beat = { kind: 'stop' | 'paid'; amount: number; seconds: number } | null;
 
-/** How long the delta stays beside the figure once the tween has landed. */
-const BEAT_MS = 2600;
+/**
+ * How long the delta stays beside the figure once the tween has landed.
+ *
+ * Exported for the retirement test, which advances a fake clock past it: a
+ * test holding its own copy of the number passes against a changed one.
+ */
+export const BEAT_MS = 2600;
 
 /**
  * The last thing that happened, for as long as it is worth saying.
@@ -1134,7 +1138,6 @@ function streakLabel(cells: { day?: { totalSeconds: number } }[]): string {
 function Region({
   title,
   icon: Icon,
-  iconTone,
   value,
   labelled = false,
   action,
@@ -1142,9 +1145,6 @@ function Region({
 }: {
   title: string;
   icon: LucideIcon;
-  /* Neutral unless the region is *about* something being wrong. Never the
-     accent, which belongs to the running timer. */
-  iconTone?: 'warning';
   /** The region's subject. Supplying it demotes the title — see above. */
   value?: React.ReactNode;
   /**
@@ -1166,9 +1166,7 @@ function Region({
               <Icon
                 aria-hidden
                 strokeWidth={1.75}
-                className={`size-3.5 flex-none ${
-                  iconTone === 'warning' ? 'text-warning' : 'text-subtle'
-                }`}
+                className="size-3.5 flex-none text-subtle"
               />
               <h2 className="type-label truncate text-subtle">{title}</h2>
             </div>
@@ -1194,9 +1192,7 @@ function Region({
         <Icon
           aria-hidden
           strokeWidth={1.75}
-          className={`size-4 flex-none ${
-            iconTone === 'warning' ? 'text-warning' : 'text-muted'
-          }`}
+          className="size-4 flex-none text-muted"
         />
         <h2 className="type-heading flex-1 truncate text-strong">{title}</h2>
         {action ? <div className="flex-none">{action}</div> : null}
@@ -1212,21 +1208,14 @@ function Row({
   label,
   detail,
   value,
-  tone,
-  actions,
 }: {
   href: string;
   icon?: React.ReactNode;
   label: string;
   detail: string;
   value: string;
-  tone?: 'danger' | 'warning';
-  actions?: React.ReactNode;
 }) {
-  /* The label is the link and the actions sit beside it, never inside: an <a>
-     containing a <button> is invalid HTML and Tab would land inside the link.
-
-     Sized by CONTAINER, not viewport — the same row renders in Home's wide
+  /* Sized by CONTAINER, not viewport — the same row renders in Home's wide
      panel and in the narrow dock, where a `sm:` breakpoint is true at 1600px
      and lays the row out as though there were room. */
   return (
@@ -1245,15 +1234,7 @@ function Row({
           {label}
         </Link>
 
-        <span
-          className={`flex-none truncate type-meta ${
-            tone === 'danger'
-              ? 'text-danger'
-              : tone === 'warning'
-                ? 'text-warning'
-                : 'text-subtle'
-          }`}
-        >
+        <span className="flex-none truncate type-meta text-subtle">
           {detail}
         </span>
         {/* The fixed `w-24` makes the amounts a column where there is room;
@@ -1262,11 +1243,7 @@ function Row({
           {value}
         </span>
 
-        {actions ? (
-          <span className="flex flex-none items-center gap-1">{actions}</span>
-        ) : (
-          <ArrowRight aria-hidden className="size-3.5 flex-none text-subtle" />
-        )}
+        <ArrowRight aria-hidden className="size-3.5 flex-none text-subtle" />
       </div>
     </li>
   );
