@@ -54,7 +54,7 @@ export function Nav() {
          docked beneath, so the rail fills its own row rather than the
          viewport — at `h-dvh` it would run under the bar by the bar's own
          height. The version sits below, in the bar's row — see `Version`. */
-      className="flex flex-none flex-col gap-1 lg:col-start-1 lg:row-start-1 lg:h-full lg:w-52"
+      className="flex flex-none flex-col gap-1 lg:col-start-1 lg:row-start-1 lg:h-full lg:w-48"
     >
       {/* Only this scrolls: horizontally on a phone, vertically in the rail if
           the list ever outgrows a short window. */}

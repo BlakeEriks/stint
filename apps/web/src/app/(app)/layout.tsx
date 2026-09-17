@@ -51,8 +51,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             inside it, so `sticky` still pins it to a phone viewport. */}
         <div
           className="flex min-h-0 flex-1 flex-col gap-4 px-3 pb-3 sm:px-4 sm:pb-4
-                     lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)_auto]
-                     xl:grid-cols-[13rem_minmax(0,1fr)_372px]"
+                     lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)_auto]
+                     xl:grid-cols-[12rem_minmax(0,1fr)_286px]"
         >
           <Nav />
           {/* Row 2, column 1 — the timer bar's own row, which is where the

@@ -138,7 +138,7 @@ describe('EntryList', () => {
   });
 
   /**
-   * The list renders in a 372px dock, where a `sm:` VIEWPORT breakpoint is
+   * The list renders in a 286px dock, where a `sm:` VIEWPORT breakpoint is
    * true on a 1440px window and lays the row out as though there were room.
    *
    * Asserting the fields are present would pass against the viewport code
@@ -165,7 +165,7 @@ describe('EntryList', () => {
 
   /**
    * The name is the subject of the row. Sharing the first line with the
-   * badge, the range and the duration left it 15px of a 372px dock — a task
+   * badge, the range and the duration left it a few pixels of a 286px dock — a task
    * truncated to one character, which is not a name.
    */
   it('gives the task name the whole first line while the row is narrow', async () => {

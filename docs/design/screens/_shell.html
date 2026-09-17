@@ -77,11 +77,11 @@
 
   /* ── Rail ───────────────────────────────────────────────────────
      Painted on the ground. Sections and nothing else — the wordmark is in
-     the header, the timer in the bar. 208px fixed. Settings is deliberately
+     the header, the timer in the bar. 192px fixed. Settings is deliberately
      absent: the rail is places you go, and configuration lives in the
      account menu. */
   .rail {
-    flex: none; width: 208px;
+    flex: none; width: 192px;
     display: flex; flex-direction: column; gap: 4px;
   }
   .rail a {
@@ -130,7 +130,7 @@
   .barwrap  { grid-column: 1; grid-row: 3; min-height: 0; }
   @media (width >= 80rem) {
     .scroller {
-      grid-template-columns: minmax(0, 1fr) 372px;
+      grid-template-columns: minmax(0, 1fr) 286px;
       grid-template-rows: minmax(0, 1fr) auto;
     }
     .dock { grid-column: 2; grid-row: 1 / 3; }

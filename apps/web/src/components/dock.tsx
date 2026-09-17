@@ -30,10 +30,10 @@ export function Dock() {
   return (
     <aside
       aria-label="At a glance"
-      /* 372px, because the inbox's actions are labelled: `Mark STINT-0014
-         paid` beside `Download` needs 263px of row. Today adapts to this
-         width, never the reverse. */
-      className="flex-none xl:col-start-3 xl:row-start-1 xl:w-[372px] xl:overflow-y-auto"
+      /* 286px, the mockup's width. The widest action strip is `Mark paid`
+         beside `Download` at 190px, so this clears the only hard floor with
+         room to spare. Today adapts to this width, never the reverse. */
+      className="flex-none xl:col-start-3 xl:row-start-1 xl:w-[286px] xl:overflow-y-auto"
     >
       {/* Today has its own `/entries` query, so it waits on stats for nothing. */}
       {data ? <Inbox stats={data} /> : null}

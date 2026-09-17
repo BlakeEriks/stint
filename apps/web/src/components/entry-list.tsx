@@ -126,7 +126,7 @@ function Row({
      click. A billed entry still opens: it shows WHY it cannot be changed,
      which a disabled row would not.
 
-     Sized by CONTAINER, not viewport: in a 372px dock on a 1440px window a
+     Sized by CONTAINER, not viewport: in a 286px dock on a 1440px window a
      `sm:` breakpoint is true and lays the row out as though there were room.
 
      The project and the time range WRAP to a second line rather than hide —
@@ -142,7 +142,8 @@ function Row({
     >
       {/* `basis-full` claims the whole first line below `@md`, so the name is
           not squeezed to a few characters by the figures beside it — in a
-          372px dock `flex-1` left it 15px. At `@md` it shares the line. */}
+          286px dock `flex-1` left it a few characters. At `@md` it shares
+          the line. */}
       <span className="min-w-0 flex-1 basis-full truncate type-control text-primary @md:basis-auto">
         {entry.taskName || <span className="text-subtle">Untitled</span>}
       </span>

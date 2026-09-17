@@ -67,7 +67,7 @@
     background: var(--bg-base);
     border-radius: 10px;
     padding: 8px 14px 12px;
-    max-width: 372px;
+    max-width: 286px;
   }
   .dock-head {
     display: flex; align-items: center; justify-content: space-between;
@@ -499,7 +499,8 @@
     </p>
     <p>
       The rows size by <strong>container</strong>, never viewport. The dock is
-      372px wide because the inbox&rsquo;s labelled actions need 263px of row,
+      286px wide and its widest action strip is <code>Mark paid</code> beside
+      <code>Download</code> at 190px,
       so a <code>sm:</code> breakpoint is true here at 1440px and would lay a
       row out as though there were room. The project tag and the time range
       <strong>wrap to a second line</strong> rather than hide — both are
