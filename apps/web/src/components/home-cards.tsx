@@ -28,8 +28,8 @@ function PanelHead({
   delta: number | null;
   currency: string;
 }) {
-  /* Taken once. Read in render it was a new Date on every beat and every
-     refetch, so the heading depended on when React happened to re-run. */
+  /* Taken once: read in render, the heading would depend on when React
+     happened to re-run — every beat and every refetch. */
   const now = useMemo(() => new Date(), []);
   const day = new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(
     now,
@@ -72,20 +72,20 @@ export function HomeCards() {
  * the mutation, so a stray click cannot change an invoice.
  *
  * The content column is itself the panel, so no region draws a border, a
- * background or a shadow — a bordered card inside a bordered panel is the
- * disjointedness the frame removed. Regions separate by an inset rule.
+ * background or a shadow — a bordered card inside a bordered panel reads as
+ * a card in a card. Regions separate by an inset rule.
  *
- * Split from `HomeCards` because the since-line is read here, and a hook
- * cannot run above the `!data` guard that makes `stats` defined.
+ * Separate from `HomeCards` so its hooks run below the `!data` guard that
+ * makes `stats` defined.
  */
 function Panel({ stats }: { stats: Stats }) {
   const day = useDayState(stats);
   const data = stats;
 
   /* Resolved ONCE for the whole panel and handed down. By-client, Velocity
-     and the heatmap each used to run this query themselves, which is three
-     subscriptions to one answer — and three places for the hues to disagree
-     the moment one of them stops asking for archived clients. */
+     and the heatmap all need it, and three subscriptions to one answer is
+     three places for the hues to disagree the moment one of them stops
+     asking for archived clients. */
   const clients = useClients();
 
   /* `@container` on the panel, and every pairing below sizes off it. The
@@ -152,8 +152,8 @@ function Pair({
  * What has moved since yesterday closed.
  *
  * Measured against a baseline taken once per local day, so it says the same
- * thing however often the app is opened — the previous mechanism overwrote
- * itself on every load, which made it "since you last had this tab open".
+ * thing however often the app is opened. A baseline rewritten on every load
+ * would make it "since you last had this tab open" instead.
  *
  * Absent on a first load, where `delta` is null: with nothing stored there is
  * no period to name, and "since yesterday" over the user's whole history is a
@@ -184,8 +184,7 @@ function SinceLine({
  * The rule between two regions.
  *
  * Inset to the regions' own `px-5`, never a `border-b` on a header: full-bleed
- * it cuts the panel in two and reads as two stacked cards, which is the shape
- * this screen stopped using.
+ * it cuts the panel in two and reads as two stacked cards.
  */
 function Rule() {
   /* 18px each side, which is the panel's rhythm: at `my-1` the regions read

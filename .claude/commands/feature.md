@@ -99,16 +99,16 @@ padding of anything with a header.
     | --- | --- | --- |
     | Dock | 286px | the column at `xl` |
     | Rail | 190px → `w-48` | nearest on-scale value |
-    | Panel grid | `1.15fr 1fr`, 26px gap | Unbilled+ByClient, Month+Velocity |
+    | Panel grid | `1.15fr 1fr`, 24px gap | Unbilled+ByClient, Month+Velocity |
 
 Name the Tailwind utility where the mockup's raw value is off-scale, and say
 which one wins. A spec that says `190px` gets `w-[190px]`; a spec that says
 `190px → w-48` gets the scale.
 
 **This table is the deliverable of phase 3.** A mockup that renders perfectly
-and is never transcribed is a mockup that gets ignored: the spec was written
-from `tasks.md`, said "region order, top to bottom", and the two-column
-pairing was simply never built — three of six corrections from one omission.
+and is never transcribed is a mockup that gets ignored. A spec that says only
+"region order, top to bottom" leaves the two-column pairing unbuilt, and one
+omission here becomes several corrections later.
 
 ## 4. Write the spec, then wait
 
@@ -173,10 +173,9 @@ Walk the phase-3 table row by row. Report every row as **matches** or
 **mockup N / built M**, and treat each mismatch as a defect with a cause,
 not a preference to be settled later.
 
-"Looks about right" is how a 372px dock, a 208px rail and a 20px gap where
-the mockup had 8 all survived being looked at repeatedly. Two screenshots at
-different zooms cannot be compared by eye at all — the figure that looked too
-small was already correct, and two that looked identical were 86px apart.
+"Looks about right" is how a pane tens of pixels off its spec survives being
+looked at repeatedly. Measure every row; two screenshots at different zooms
+cannot be compared by eye at all.
 
 Then one agent per phase, in dependency order, each with fresh context:
 schema and migrations → shared packages → API → web client data layer → web

@@ -99,9 +99,9 @@ export function Inbox({ stats }: { stats: Stats }) {
     },
   });
 
-  /* The order is this concatenation. Overdue sorts first among the invoices
-     and carries danger; everything else is a warning. Never the accent —
-     that belongs to the running timer. */
+  /* The order is this concatenation. Overdue sorts first and carries danger;
+     every other row is neutral. Never the accent — that belongs to the
+     running timer. */
   const rows: InboxRow[] = [
     ...overdueInvoices.map((i) => ({
       id: i.invoiceId,
@@ -456,7 +456,7 @@ function Item({
    * not a fault, and a column of coloured rules has nothing to pick out of it.
    * Severity survives in the copy and in `valueTone`.
    */
-  tone: 'danger' | 'warning' | 'neutral';
+  tone: 'danger' | 'neutral';
   actions?: React.ReactNode;
   /** From `useExit` — the row collapses while its exit plays. */
   exiting?: boolean;
@@ -478,11 +478,7 @@ function Item({
         /* The rule is an alignment edge first: it is the same 2px on every
            row, so the one that is coloured is the one that stands out. */
         className={`group rounded-r-md border-l-2 py-2.5 pr-2.5 pl-3 transition-colors hover:bg-surface-primary ${
-          tone === 'danger'
-            ? 'border-danger'
-            : tone === 'warning'
-              ? 'border-timer-warning'
-              : 'border-edge-subtle'
+          tone === 'danger' ? 'border-danger' : 'border-edge-subtle'
         }`}
       >
         <div className="flex items-baseline gap-2.5">
@@ -517,11 +513,7 @@ function Item({
         <div className="mt-px">
           <span
             className={`truncate type-support ${
-              tone === 'danger'
-                ? 'text-danger'
-                : tone === 'warning'
-                  ? 'text-warning'
-                  : 'text-muted'
+              tone === 'danger' ? 'text-danger' : 'text-muted'
             }`}
           >
             {detail}

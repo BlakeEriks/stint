@@ -68,9 +68,10 @@ changing `deriving-colour.md`'s generators, never a hex.
   through `/api/v1/*` route handlers.
 - Colors come from **semantic** tokens only. Primitives stay in the token
   package. Never hardcode a hex in a component.
-- **Only clients have a colour**, resolved through `useProjectColors()`;
-  internal work gets none. `projects.color` is a dead column awaiting its drop
-  migration — nothing selects or writes it.
+- **Only clients have a colour**, resolved through `useProjectColors()`.
+  Internal work has no client, so it takes the neutral `INTERNAL_SWATCH` and
+  stays legible beside the hues in a row or a graph. `projects.color` is a
+  dead column awaiting its drop migration — nothing selects or writes it.
 - Design tokens are **generated** — edit `packages/design-tokens/tokens.json`,
   then `pnpm tokens`. Never edit files in `dist/`.
 - Both neutral ramps are **derived**: change a parameter in

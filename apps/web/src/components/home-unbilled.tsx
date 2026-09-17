@@ -127,11 +127,11 @@ export function Unbilled({
   const arrival = useSinceLastSeen(SEEN_UNBILLED, total);
 
   /* The awaiting-payment link lives inside this region, so hiding on an empty
-     `byClient` alone took money already asked for down with it: the rollup's
-     `having sum(seconds) > 0` empties `byClient` the moment everything is
-     invoiced, which is exactly when `awaitingPayment` is the only figure left
-     to show. `0` is a valid amount, so this coalesces rather than testing
-     truthiness. */
+     `byClient` alone would take money already asked for down with it: the
+     rollup's `having sum(seconds) > 0` empties `byClient` the moment
+     everything is invoiced, which is exactly when `awaitingPayment` is the
+     only figure left to show. `0` is a valid amount, so this coalesces rather
+     than testing truthiness. */
   if (byClient.length === 0 && (stats.awaitingPayment ?? 0) <= 0) return null;
 
   return (

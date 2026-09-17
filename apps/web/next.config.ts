@@ -26,9 +26,8 @@ const config: NextConfig = {
   /* Read at BUILD time, so the rail can show it from a client component
      without shipping anything else to the browser. A version baked into the
      bundle is also the honest one: it names the build being looked at, which
-     is the question a version in the corner is there to answer — and a commit
-     SHA answers it, where package.json's number was 0.0.0 on every build
-     this app has ever shipped. */
+     is the question a version in the corner is there to answer. A commit SHA
+     answers it; `package.json`'s number does not move between releases. */
   env: { NEXT_PUBLIC_APP_VERSION: buildVersion() },
 };
 

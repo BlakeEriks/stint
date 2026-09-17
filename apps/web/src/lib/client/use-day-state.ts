@@ -242,10 +242,10 @@ function billabilityOf(
  * chip still sitting there minutes later is answering a question the user has
  * stopped asking — and would be read as part of the figure.
  *
- * Lives here, and is called ONCE, because two callers each held their own ref
- * and their own timeout: the chip beside Unbilled and the cyan highlight in
+ * Called ONCE for the whole panel. A second caller would hold its own ref and
+ * its own timeout, so the chip beside Unbilled and the cyan highlight in
  * Velocity could fire and retire independently, and a region mounting late
- * missed the transition the other had already consumed.
+ * would miss a transition the other had already consumed.
  */
 function useBeat(
   total: number,
