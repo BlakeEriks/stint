@@ -140,7 +140,10 @@ function Row({
       aria-label={`Edit ${entry.taskName || 'untitled entry'}`}
       className="@container flex w-full flex-wrap items-center gap-x-3 gap-y-1 border-t border-edge-subtle px-1 py-2.5 text-left first:border-t-0 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none @md:flex-nowrap"
     >
-      <span className="min-w-0 flex-1 truncate type-control text-primary">
+      {/* `basis-full` claims the whole first line below `@md`, so the name is
+          not squeezed to a few characters by the figures beside it — in a
+          372px dock `flex-1` left it 15px. At `@md` it shares the line. */}
+      <span className="min-w-0 flex-1 basis-full truncate type-control text-primary @md:basis-auto">
         {entry.taskName || <span className="text-subtle">Untitled</span>}
       </span>
 

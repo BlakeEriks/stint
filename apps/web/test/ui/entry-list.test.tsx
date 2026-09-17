@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { EntryList } from '@/components/entry-list';
@@ -161,6 +161,22 @@ describe('EntryList', () => {
       expect(field.className).not.toMatch(/(^|\s)sm:/);
       expect(field.className).toMatch(/@md:/);
     }
+  });
+
+  /**
+   * The name is the subject of the row. Sharing the first line with the
+   * badge, the range and the duration left it 15px of a 372px dock — a task
+   * truncated to one character, which is not a name.
+   */
+  it('gives the task name the whole first line while the row is narrow', async () => {
+    serve([entry({ projectId: 'p1' })]);
+    renderList();
+
+    const row = await screen.findByRole('button', { name: /Edit Writing/ });
+    const name = within(row).getByText('Writing');
+
+    expect(name.className).toContain('basis-full');
+    expect(name.className).toMatch(/@md:basis-auto/);
   });
 
   /**
