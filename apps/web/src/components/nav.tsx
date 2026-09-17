@@ -53,7 +53,7 @@ export function Nav() {
       /* `h-full`, not `h-dvh`: the frame is now a column with the timer
          docked beneath, so the rail fills its own row rather than the
          viewport — at `h-dvh` it would run under the bar by the bar's own
-         height. */
+         height. The version sits below, in the bar's row — see `Version`. */
       className="flex flex-none flex-col gap-1 lg:col-start-1 lg:row-start-1 lg:h-full lg:w-52"
     >
       {/* Only this scrolls: horizontally on a phone, vertically in the rail if
@@ -91,12 +91,37 @@ export function Nav() {
         })}
       </div>
 
-      {/* Bottom-left, and only where the rail is a column: on a phone the nav
-          is a scrolling strip with no bottom to sit at. It names the build
-          being looked at, which is what makes a bug report actionable. */}
-      <span className="mt-auto hidden px-3 pb-1 type-meta text-subtle lg:block">
+      {/* Only between `lg` and `xl`. There the bar spans row 2 edge to edge,
+          so the frame has no free bottom-left corner and the rail's own floor
+          is the nearest thing to one. At `xl` the corner exists and
+          `Version` takes over — two would render it twice. */}
+      <span className="mt-auto hidden px-3 pb-1 type-meta text-subtle lg:block xl:hidden">
         v{process.env.NEXT_PUBLIC_APP_VERSION}
       </span>
     </nav>
+  );
+}
+
+/**
+ * The build being looked at, in the frame's bottom-left corner.
+ *
+ * Its own grid item rather than the last child of the rail: the rail occupies
+ * row 1, whose floor is the top of the timer bar, so `mt-auto` inside it
+ * bottoms out a bar's height above the window. This sits in row 2 — the bar's
+ * own row — where the corner actually is.
+ *
+ * **`xl` only**, which is where the corner exists. Between `lg` and `xl` the
+ * bar is `col-span-full` and fills row 2 edge to edge, so this would land on
+ * top of it; the rail carries the version there instead. Below `lg` the nav
+ * is a horizontal strip and there is no rail at all.
+ */
+export function Version() {
+  const pathname = usePathname();
+  if (pathname === '/signin' || pathname.startsWith('/auth')) return null;
+
+  return (
+    <span className="hidden items-end px-3 pb-1 type-meta text-subtle xl:col-start-1 xl:row-start-2 xl:flex">
+      v{process.env.NEXT_PUBLIC_APP_VERSION}
+    </span>
   );
 }

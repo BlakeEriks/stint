@@ -1,6 +1,6 @@
 import { Providers } from '@/components/providers';
 import { AppHeader } from '@/components/app-header';
-import { Nav } from '@/components/nav';
+import { Nav, Version } from '@/components/nav';
 import { Dock } from '@/components/dock';
 import { TimerDock } from '@/components/timer-dock';
 
@@ -55,6 +55,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                      xl:grid-cols-[13rem_minmax(0,1fr)_372px]"
         >
           <Nav />
+          {/* Row 2, column 1 — the timer bar's own row, which is where the
+              frame's bottom-left corner is. In the rail it would float a
+              bar's height above it. */}
+          <Version />
           {/* Below `xl` this is the scroller holding the panel and the dock,
               so the dock scrolls with the page it summarises. At `xl` it is
               the content column alone: `xl:contents` dissolves it so the
