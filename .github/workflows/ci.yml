@@ -52,12 +52,23 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      # Generated token files must match tokens.json. A hand-edit to dist/
-      # fails here rather than drifting silently across three clients.
+      # Generated token files must match tokens.json. A hand-edit to one of
+      # them fails here rather than drifting silently across three clients.
+      #
+      # The diff names the three generated files that are COMMITTED. Most of
+      # the generator's output lands in packages/design-tokens/dist/, which is
+      # gitignored — diffing that path can only ever report nothing, so the
+      # check that pointed there passed on a tampered file. These three are
+      # written outside dist/ precisely because their consumers (SwiftPM,
+      # Next's icon convention, a docs page opened from disk) cannot read an
+      # ignored directory; being tracked is what makes them checkable.
       - name: Design tokens are up to date
         run: |
           pnpm tokens
-          git diff --exit-code packages/design-tokens/dist
+          git diff --exit-code \
+            apps/macos/Sources/Stint/Tokens.swift \
+            apps/web/src/app/icon.svg \
+            docs/design/screens/_mockup.css
 
       # Guards white-on-accent (1.37:1) and the AA floors, and re-derives both
       # neutral ramps so a hand-edited hex fails naming its step.
@@ -107,7 +118,13 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: tt
-        ports: ['5432:5432']
+        # 5432 is what every step below connects on. 54322 is the SAME
+        # container on a second host port, for `seed-account.mjs` alone: that
+        # script refuses any connection that is not the local Supabase stack's
+        # `localhost:54322`, and the guard is the point of it — a seeder that
+        # can be pointed at production is a seeder that eventually is. Mapping
+        # a second port is cheaper than teaching the guard about CI.
+        ports: ['5432:5432', '54322:5432']
         # `--health-interval 1s`, not the usual 10s. The runner polls on its
         # own backoff (2s, 3s, 7s) and only stops at the first probe that
         # reports healthy, so a slow interval is spent waiting on a Postgres
@@ -134,6 +151,34 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tt
         run: pnpm --filter @stint/web test
 
+      # The seeder runs in no other job, so a rename in a migration breaks it
+      # silently and the next developer to run `pnpm seed` finds it. Both
+      # halves run: `--clear` is the half that only executes once there is
+      # something to remove, and it is the half that deletes, so it is the
+      # half worth exercising. The email is a throwaway — the script creates
+      # the account, and this database is destroyed with the runner.
+      #
+      # `localhost:54322`, not the `:5432` above: same container, and the
+      # script accepts no other address. `tt` is the route-test database,
+      # already migrated, and the seeder only ever touches rows it tagged.
+      # The account is created HERE, not by the seeder. `ci-db.sh` stubs
+      # auth.users with the two columns the grants migration needs, while the
+      # seeder's own create path writes the dozen a real GoTrue table has
+      # (instance_id, encrypted_password, the token columns) and fails on the
+      # stub. Pre-inserting the row sends it down its find-existing path, which
+      # is the path a developer with an account takes anyway — and leaves the
+      # scenario building, the rollups and `--clear` as what this exercises.
+      - name: The account seeder still runs
+        env:
+          PGPASSWORD: postgres
+          SEED_DATABASE_URL: postgresql://postgres:postgres@localhost:54322/tt
+        run: |
+          psql -h localhost -p 5432 -U postgres -d tt -v ON_ERROR_STOP=1 \
+            -c "insert into auth.users (id, email)
+                values (gen_random_uuid(), 'ci-seed-check@localhost.test')"
+          pnpm seed ci-seed-check@localhost.test
+          pnpm seed ci-seed-check@localhost.test --clear
+
       # A SEPARATE database: the route tests above disable RLS on theirs. Here
       # RLS stays on and the caller is a non-superuser role, so auth.uid()
       # resolves and the policies actually run.
@@ -159,6 +204,19 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with: { node-version: '24', cache: 'pnpm' }
+
+      - run: pnpm install --frozen-lockfile
+
+      # Tokens.swift is generated. Building the committed copy compiles
+      # whatever was last pasted in, so a tokens.json change that emits Swift
+      # this compiler rejects passes here and fails on the next developer's
+      # `bundle.sh`. Regenerating first makes this job the check it claims to
+      # be. The `static` job catches the drift; this one catches the emit.
+      - run: pnpm tokens
+
       - name: Build the menu bar app
         run: cd apps/macos && swift build
 

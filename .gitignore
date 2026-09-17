@@ -1,5 +1,12 @@
 node_modules/
 .next/
+
+# Next rewrites this on every dev and build, and the two disagree: `next dev`
+# points it at .next/dev/types/, `next build` at .next/types/. Tracked, it
+# flips back and forth in the diff of anyone who ran the other command last.
+# Next regenerates it, so nothing is lost by ignoring it.
+apps/web/next-env.d.ts
+
 dist/
 build/
 .DS_Store
