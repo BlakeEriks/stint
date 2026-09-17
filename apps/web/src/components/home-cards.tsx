@@ -35,6 +35,41 @@ import { useCountUp, useSinceLastSeen } from '@/lib/client/use-count-up';
  * background or a shadow — a bordered card inside a bordered panel is the
  * disjointedness the frame removed. Regions separate by an inset rule.
  */
+/**
+ * The day, and what moved while you were away.
+ *
+ * The date is the answer to "is this figure current?", which is the question
+ * a dashboard that mostly does not change invites. The since-line belongs
+ * here rather than on Unbilled because it describes the screen: the money
+ * moved, and so did the invoice it was raised against.
+ */
+function PanelHead({
+  delta,
+  currency,
+}: {
+  delta: number | null;
+  currency: string;
+}) {
+  const now = new Date();
+  const day = new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(
+    now,
+  );
+  const date = new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+  }).format(now);
+
+  return (
+    <div className="flex items-baseline justify-between gap-3 px-4 pt-3 pb-1">
+      <div className="min-w-0">
+        <h2 className="type-heading text-strong">{day}</h2>
+        <SinceLine delta={delta} currency={currency} />
+      </div>
+      <span className="flex-none type-label text-subtle">{date}</span>
+    </div>
+  );
+}
+
 export function HomeCards() {
   const { data } = useQuery({
     queryKey: keys.stats(tz),
@@ -43,6 +78,17 @@ export function HomeCards() {
 
   if (!data) return null;
 
+  return <Panel stats={data} />;
+}
+
+/**
+ * Split from `HomeCards` because the since-line is read here, and a hook
+ * cannot run above the `!data` guard that makes `stats` defined.
+ */
+function Panel({ stats }: { stats: Stats }) {
+  const arrival = useSinceLastSeen(SEEN_UNBILLED, stats.unbilled.total);
+  const data = stats;
+
   /* `@container` on the panel, and every pairing below sizes off it. The
      panel is NOT the window: the rail and the dock flank it and claim their
      space at `lg` and `xl`, so the panel is 780px at a 1100px window and
@@ -50,6 +96,7 @@ export function HomeCards() {
      would collapse the wide one and split the narrow one. */
   return (
     <div className="@container flex flex-col">
+      <PanelHead delta={arrival.delta} currency={data.currency} />
       <Pair
         left={<Unbilled stats={data} />}
         right={<ByClient stats={data} />}
@@ -218,7 +265,7 @@ function SinceLine({
   if (delta == null || delta === 0) return null;
 
   return (
-    <p className="px-4 py-2 type-support text-subtle">
+    <p className="type-support text-subtle">
       Since you last looked,{' '}
       <span className="type-meta tabular-nums text-muted">
         {delta > 0 ? '+' : '−'}
@@ -262,6 +309,8 @@ function Rule() {
 function Unbilled({ stats }: { stats: Stats }) {
   const { total, byClient } = stats.unbilled;
   const beat = useBeat(stats);
+  /* The figure still animates from what this browser last showed; the line
+     naming that change is in the panel header, which speaks for the screen. */
   const arrival = useSinceLastSeen(SEEN_UNBILLED, total);
 
   if (byClient.length === 0) return null;
@@ -279,8 +328,6 @@ function Unbilled({ stats }: { stats: Stats }) {
         </span>
       }
     >
-      <SinceLine delta={arrival.delta} currency={stats.currency} />
-
       {/* Never added to the total above: that is work not yet invoiced, this
           is money already asked for, and summing them double-counts. */}
       {stats.awaitingPayment > 0 ? (

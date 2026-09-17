@@ -274,6 +274,50 @@ describe('HomeCards', () => {
   });
 });
 
+describe('the panel header', () => {
+  /* The date answers "is this figure current?" — the question a dashboard
+     that mostly does not change invites. */
+  it('names the day on the left and the date on the right', async () => {
+    serve(stats({ unbilled: oneClient }));
+    render(<HomeCards />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+
+    const now = new Date();
+    const day = new Intl.DateTimeFormat(undefined, {
+      weekday: 'long',
+    }).format(now);
+    const date = new Intl.DateTimeFormat(undefined, {
+      day: 'numeric',
+      month: 'short',
+    }).format(now);
+
+    const heading = screen.getByRole('heading', { name: day });
+    const head = heading.closest('div')?.parentElement;
+    expect(head).not.toBeNull();
+    expect(head?.textContent).toContain(date);
+  });
+
+  /* The since-line describes the SCREEN, not Unbilled: the money moved and
+     so did the invoice it was raised against. */
+  it('carries the since-line, which Unbilled does not', async () => {
+    window.localStorage.setItem('stint.seen.unbilled', '3000');
+    serve(stats({ unbilled: oneClient }));
+    render(<HomeCards />, { wrapper });
+
+    const since = await screen.findByText(/Since you last looked/);
+
+    const heading = screen.getByRole('heading', {
+      name: new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(
+        new Date(),
+      ),
+    });
+    expect(heading.closest('div')).toContainElement(since);
+  });
+});
+
 describe('the panel is one surface', () => {
   /* The content column IS the panel. A region that draws its own border,
      background or shadow puts a card inside a card, which is the exact
