@@ -630,6 +630,43 @@ later.
       Needs a stated minimum sample before it speaks — one invoice is not an
       average — and it says nothing rather than guessing below it.
 
+- [ ] **Home: hours or revenue by PROJECT, beside the heatmap.** The panel is
+      entirely client-shaped — Velocity splits by client, By-client ranks
+      them, the heatmap colours by them — and `stats.ts` reads `project_id`
+      only to resolve which client a row belongs to. So "which project ate
+      the month" is a question the screen cannot answer, and it is the one
+      where the answer is regularly a surprise. That gap is the reason to
+      build it.
+
+      **Grouped by project, never by client.** A by-client bar chart would
+      draw Velocity's data a second time, and one question answered twice in
+      one panel is the disjointedness the frame removed.
+
+      **One control: hours or revenue.** A genuine either/or — hours answer
+      where the time went, revenue what it was worth, and a project can rank
+      high on one and low on the other, which is the insight. Same shape as
+      Velocity's figure-and-keyline, so it reads as a sibling.
+
+      **No timeframe picker; inherit Velocity's trailing window.** Two
+      regions side by side on different windows invite a comparison that is
+      not valid. A picker also multiplies the states this screen has to be
+      designed for, which is the refusal `principles.md` records as *Home is
+      one view*.
+
+      **This needs API work**, unlike most of the home cards: a SQL aggregate
+      grouping by project through `resolve_rate()`, a `byProject` shape in
+      `@stint/schema` and `buildVelocity`'s neighbour in `stats.ts`. A new
+      aggregate is proved against a real Postgres before anything is built on
+      it — a project with no client, a NULL rate at every level, and two
+      projects sharing a name under different clients are the rows that will
+      find the bugs.
+
+      **It takes half a row, and the heatmap gives up the other half.** The
+      heatmap is full-width today because nothing else was ready to sit
+      beside it, not because it needs the width. At `@2xl` the pair is
+      `1.15fr 1fr`; the chart takes the wider half, since bars with project
+      names need more room than a year of 9px cells.
+
 ## Needs a decision first
 
 Each of these names the question blocking it. Answer the question, then it

@@ -109,6 +109,16 @@ wrap; a figure per pixel-column cannot.
 **The inbox is never also copied onto Home at narrow widths.** It has one home
 and changes axis, not identity, across the breakpoint.
 
+**Home is one view. No configurable card set, no reordering, no hiding.** A
+`home_cards` preference was specced and cut before it was built: each toggle
+multiplies the arrangements the screen has to be designed for, and every
+later card then has to look right in all of them. The cost is not the
+setting, it is that nobody can say what Home looks like any more. A card
+worth showing is worth showing to everyone; one that is not earns deletion
+rather than a checkbox. The same argument retires per-region timeframe
+pickers — two regions side by side on different windows invite a comparison
+that is not valid.
+
 **Awaiting-payment stays one line on Unbilled, never a row per invoice.** Rows
 would put ordinary invoices back on Home and undo the overdue grace period;
 reconciling several belongs on `/invoices`.
