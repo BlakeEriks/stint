@@ -390,6 +390,24 @@ moves up — do not start one by guessing the answer.
 
 ## Rough edges
 
+- [ ] **The local database drifts behind the migrations.** `pnpm migrate`
+      reads `.env.local` and reaches the hosted project; the Supabase CLI owns
+      the local one. Nothing routinely applies a new migration to local except
+      `pnpm dev:reset`, which rebuilds from `seed.sql` and takes the local
+      data with it — so the working answer is "lose your data" and the drift
+      accumulates instead.
+
+      It reached four migrations behind before a 500 surfaced it, and one of
+      those had been applied by hand without being recorded, so the CLI's
+      tracking table disagreed with the schema in both directions.
+
+      Wanted: something that applies what is missing to local, additively.
+      `scripts/migrate.mjs` already takes `--url` and tracks `schema_migrations`
+      itself, so the shape may be a `dev:migrate` that points it at
+      `:54322` — but the CLI keeps its own `supabase_migrations.schema_migrations`,
+      and two tables tracking one database is how this got confusing. Decide
+      which one is authoritative before writing it.
+
 - [ ] **A write accepts another user's `project_id`.** `POST /timer/start`
       with a project belonging to a different account returns 201 and stores
       the reference — verified against the local stack with a real bearer
