@@ -28,17 +28,58 @@ function stats(over: Partial<Stats> = {}): Stats {
   } as Stats;
 }
 
-function serve(data: Stats) {
+const oneClient = {
+  total: 100,
+  seconds: 3600,
+  byClient: [
+    {
+      clientId: 'c1',
+      clientName: 'Northwind',
+      currency: 'USD',
+      seconds: 3600,
+      amount: 100,
+      unratedCount: 0,
+      oldestDays: 2,
+    },
+  ],
+  moreClients: 0,
+};
+
+/** A month's worth of business days, cumulative actual against the ray. */
+function series(points: number) {
+  return Array.from({ length: points }, (_, i) => ({
+    date: `2026-09-${String(i + 1).padStart(2, '0')}`,
+    actual: i < 9 ? (i + 1) * 2.4 : null,
+    expected: (i + 1) * 5.45,
+  }));
+}
+
+/** `days` for the heatmap's /calendar call, keyed by date. */
+function serve(
+  data: Stats,
+  days: {
+    date: string;
+    totalSeconds: number;
+    byClient: Record<string, number>;
+  }[] = [],
+  clients: { id: string; name: string; color: string }[] = [],
+) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
-      // The Activity strip fetches its own range and the client list.
       const path = String(url);
+      // The heatmap fetches a year of days and the client list.
       if (path.includes('/calendar')) {
-        return new Response(JSON.stringify({ days: [] }), { status: 200 });
+        return new Response(JSON.stringify({ days }), { status: 200 });
       }
       if (path.includes('/clients')) {
-        return new Response(JSON.stringify({ clients: [] }), { status: 200 });
+        /* The real route hides archived clients unless asked, so the fake does
+           too — otherwise a caller that stopped asking still gets them back
+           and the archived-colour test passes against the bug. */
+        const asked = path.includes('includeArchived=true');
+        return new Response(JSON.stringify({ clients: asked ? clients : [] }), {
+          status: 200,
+        });
       }
       return new Response(JSON.stringify(data), { status: 200 });
     }),
@@ -55,40 +96,20 @@ function wrapper({ children }: { children: ReactNode }) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('HomeCards', () => {
-  it('keeps the pace card with no target, offering a way to set one', async () => {
+  it('keeps the month region with no target, offering a way to set one', async () => {
     /* Give it something to render, so "nothing rendered at all" cannot make
        this pass vacuously — the first version of this test asserted only the
        ABSENCE of text and survived a mutation that rendered an empty card. */
-    serve(
-      stats({
-        unbilled: {
-          total: 100,
-          seconds: 3600,
-          byClient: [
-            {
-              clientId: 'c1',
-              clientName: 'Northwind',
-              currency: 'USD',
-              seconds: 3600,
-              amount: 100,
-              unratedCount: 0,
-              oldestDays: 2,
-            },
-          ],
-          moreClients: 0,
-        },
-      }),
-    );
+    serve(stats({ unbilled: oneClient }));
     const { container } = render(<HomeCards />, { wrapper });
 
     await waitFor(() =>
       expect(screen.getByText('Unbilled')).toBeInTheDocument(),
     );
 
-    /* The card stays, carrying the month and a way in: hiding it made the
+    /* The region stays, carrying the month and a way in: hiding it made the
        feature invisible to the only account that had never set a target.
-       What must NOT appear is a bar or a projection — that is the "no empty
-       progress bar" rule, and it is about the bar, not the card. */
+       What must NOT appear is a plot or a projection. */
     const headings = [...container.querySelectorAll('h2')].map((h) =>
       h.textContent?.trim(),
     );
@@ -104,9 +125,9 @@ describe('HomeCards', () => {
     ).toBe(true);
 
     expect(screen.queryByText(/business days/)).toBeNull();
-    expect(screen.queryByRole('img', { name: /hours/ })).toBeNull();
+    expect(screen.queryByRole('img', { name: /of / })).toBeNull();
 
-    // And the way in, which is the entire point of keeping the card.
+    // And the way in, which is the entire point of keeping the region.
     expect(
       screen.getByRole('link', { name: 'Edit monthly goal' }),
     ).toHaveAttribute('href', '/settings#goal');
@@ -116,20 +137,9 @@ describe('HomeCards', () => {
     serve(
       stats({
         unbilled: {
+          ...oneClient,
           total: 3000,
-          seconds: 3600,
-          byClient: [
-            {
-              clientId: 'c1',
-              clientName: 'Northwind',
-              currency: 'USD',
-              seconds: 3600,
-              amount: 3000,
-              unratedCount: 0,
-              oldestDays: 2,
-            },
-          ],
-          moreClients: 0,
+          byClient: [{ ...oneClient.byClient[0], amount: 3000 }],
         },
         awaitingPayment: 900,
       } as never),
@@ -142,41 +152,70 @@ describe('HomeCards', () => {
     const line = await screen.findByText(/awaiting payment/);
     expect(line.textContent).toContain('$900.00');
 
-    // The unbilled headline stays its own figure.
     expect(screen.getAllByText('$3,000.00').length).toBeGreaterThan(0);
-    // The sum of the two must appear nowhere.
     expect(screen.queryByText('$3,900.00')).toBeNull();
   });
 
-  it('never spends the accent on a card', async () => {
+  it('never spends the accent on a region', async () => {
     serve(
       stats({
+        unbilled: oneClient,
         pace: {
           unit: 'hours',
           target: 120,
-          actual: 60,
-          expected: 50,
-          delta: 10,
-          businessDaysElapsed: 10,
+          actual: 21.6,
+          expected: 49.1,
+          delta: -27.5,
+          businessDaysElapsed: 9,
           businessDaysTotal: 22,
-          series: [],
+          series: series(22),
+        },
+        velocity: {
+          months: 3,
+          total: 9000,
+          invoiced: 6000,
+          unbilled: 3000,
+          seconds: 360000,
+          byClient: [
+            {
+              clientId: 'c1',
+              clientName: 'Northwind',
+              currency: 'USD',
+              seconds: 360000,
+              invoiced: 6000,
+              unbilled: 3000,
+              unratedCount: 0,
+            },
+          ],
+          moreClients: 0,
         },
       }),
     );
     const { container } = render(<HomeCards />, { wrapper });
 
     /* The accent is spent on the running timer, in the bar below this screen.
-       A green progress bar here would put a second accent meaning in view.
+       A green line or a green cell would put a second accent meaning in view.
 
-       Waits on the Pace card specifically, so an empty render cannot make it
-       pass vacuously. */
+       Waits on the month region specifically, so an empty render cannot make
+       this pass vacuously. */
     await waitFor(() =>
       expect(screen.getByText(/business days/)).toBeInTheDocument(),
     );
-    const classes = [container, ...container.querySelectorAll('*')].flatMap(
-      (el) => Array.from((el as HTMLElement).classList ?? []),
+    const els = [container, ...container.querySelectorAll('*')];
+    const classes = els.flatMap((el) =>
+      Array.from((el as HTMLElement).classList ?? []),
     );
     expect(classes.filter((c) => c.includes('accent'))).toEqual([]);
+
+    /* Every attribute, not just `style` and `class`: the plot paints through
+       SVG's `stroke` and `fill`, so a scan of inline styles alone passed
+       against an accent-stroked line. Success cyan belongs to the paid beat
+       and appears nowhere in this set either. */
+    const painted = els
+      .flatMap((el) => [...((el as Element).attributes ?? [])])
+      .map((a) => a.value)
+      .join(' ');
+    expect(painted).not.toMatch(/accent|success/);
   });
 
   it('reports being behind against BUSINESS days, not calendar days', async () => {
@@ -190,7 +229,7 @@ describe('HomeCards', () => {
           delta: -29,
           businessDaysElapsed: 9,
           businessDaysTotal: 22,
-          series: [],
+          series: series(22),
         },
       }),
     );
@@ -235,148 +274,186 @@ describe('HomeCards', () => {
   });
 });
 
-describe('card header icons', () => {
-  it('leaves the accessible name as the heading text alone', async () => {
+describe('the panel is one surface', () => {
+  /* The content column IS the panel. A region that draws its own border,
+     background or shadow puts a card inside a card, which is the exact
+     disjointedness the floating frame removed. */
+  it('gives no region a border, background or shadow of its own', async () => {
     serve(
       stats({
-        unbilled: {
-          total: 100,
-          seconds: 3600,
-          byClient: [
-            {
-              clientId: 'c1',
-              clientName: 'Northwind',
-              currency: 'USD',
-              seconds: 3600,
-              amount: 100,
-              unratedCount: 0,
-              oldestDays: 2,
-            },
-          ],
-          moreClients: 0,
-        },
+        unbilled: oneClient,
         pace: {
           unit: 'hours',
           target: 120,
-          actual: 60,
-          expected: 50,
-          delta: 10,
-          businessDaysElapsed: 10,
+          actual: 21.6,
+          expected: 49.1,
+          delta: -27.5,
+          businessDaysElapsed: 9,
           businessDaysTotal: 22,
-          series: [],
+          series: series(22),
         },
       }),
     );
-    render(<HomeCards />, { wrapper });
+    const { container } = render(<HomeCards />, { wrapper });
 
-    /* The icon is a second channel for a card you are scanning, not part of
-       its name. Without `aria-hidden` a screen reader announces "wallet
-       Unbilled", and lucide's glyphs carry titles that would leak in.
-       Queried by exact accessible name, so an icon that starts contributing
-       to it fails here. */
     await waitFor(() =>
-      expect(
-        screen.getByRole('heading', { name: 'Unbilled' }),
-      ).toBeInTheDocument(),
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
     );
-    /* Its own `waitFor`: the chart resolves a separate query, so asserting
-       synchronously here races its first render. */
+
+    const sections = [...container.querySelectorAll('section')];
+    expect(sections.length).toBeGreaterThan(0);
+    for (const s of sections) {
+      const classes = [...s.classList];
+      expect(classes.filter((c) => c.startsWith('bg-'))).toEqual([]);
+      expect(classes.filter((c) => c.startsWith('shadow-'))).toEqual([]);
+      expect(classes.filter((c) => /^border(-|$)/.test(c))).toEqual([]);
+      expect(classes.filter((c) => c.startsWith('rounded-'))).toEqual([]);
+    }
+  });
+
+  it('separates regions with an INSET rule, never a full-bleed one', async () => {
+    serve(stats({ unbilled: oneClient }));
+    const { container } = render(<HomeCards />, { wrapper });
+
     await waitFor(() =>
-      expect(
-        screen.getByRole('heading', { name: 'Activity' }),
-      ).toBeInTheDocument(),
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
     );
+
+    /* A full-bleed rule cuts the panel in two and reads as two stacked cards.
+       Every separator carries the rows' own `mx-4`. */
+    const rules = [...container.querySelectorAll('div.border-t')];
+    expect(rules.length).toBeGreaterThan(0);
+    for (const r of rules) {
+      expect([...r.classList]).toContain('mx-4');
+    }
   });
 });
 
-describe('the wide layout survives its own empty states', () => {
-  /* The cards split into two columns at `lg`. Two of the four hide
-     themselves — Needs attention is usually absent thanks to the 7-day grace
-     period, and Pace hides when no target is set — so a fixed `grid-cols-2`
-     would leave a visible hole on an ordinary day, which is worse than the
-     single column it replaced.
-
-     These pin the collapse rules. They assert structure rather than class
-     strings: what must hold is that a column never renders empty and that a
-     lone card is not left in a narrow one. */
-  const oneClient = {
-    total: 100,
-    seconds: 3600,
+describe('Velocity', () => {
+  const velocity = {
+    months: 3,
+    total: 9000,
+    invoiced: 6000,
+    unbilled: 3000,
+    seconds: 360000,
     byClient: [
       {
         clientId: 'c1',
         clientName: 'Northwind',
         currency: 'USD',
-        seconds: 3600,
-        amount: 100,
+        seconds: 360000,
+        invoiced: 6000,
+        unbilled: 3000,
         unratedCount: 0,
-        oldestDays: 2,
       },
     ],
     moreClients: 0,
   };
-  const target = {
-    unit: 'hours' as const,
-    target: 120,
-    actual: 21.4,
-    /* 120 * 9/22. `delta` is `actual - expected`, so the two have to agree —
-       a fixture that contradicts itself would let a card render a bar from
-       one number and a caption from the other and still pass. */
-    expected: 49.1,
-    delta: -27.7,
-    businessDaysElapsed: 9,
-    businessDaysTotal: 22,
-    series: [],
-  };
 
-  /** The grid element the split produces, if it produced one. */
-  const splitGrid = (c: HTMLElement) =>
-    c.querySelector('.grid.lg\\:grid-cols-\\[1\\.6fr_1fr\\]');
+  it('says "gross earned", never "earned" alone', async () => {
+    serve(stats({ velocity }));
+    render(<HomeCards />, { wrapper });
 
-  it('splits into two columns when both sides have a card', async () => {
-    serve(stats({ unbilled: oneClient, pace: target }));
-    const { container } = render(<HomeCards />, { wrapper });
-
-    await waitFor(() =>
-      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
-    );
-
-    const grid = splitGrid(container);
-    expect(grid).not.toBeNull();
-    /* Exactly two columns, and neither is empty — an empty column div is the
-       hole this whole arrangement exists to avoid. */
-    const columns = [...(grid?.children ?? [])];
-    expect(columns).toHaveLength(2);
-    for (const col of columns) {
-      expect(col.querySelector('section')).not.toBeNull();
-    }
+    /* "Earned" alone claims money collected. This window is work DONE, part
+       of it not yet invoiced and none of it necessarily paid — the same
+       overstatement the Unbilled card refuses. */
+    const heading = await screen.findByRole('heading', { name: /earned/i });
+    expect(heading.textContent?.toLowerCase()).toContain('gross earned');
   });
 
-  it('does not split when the left column would be empty', async () => {
-    /* Nothing unbilled: the left column has no card at all, and splitting
-       would put Pace in a narrow right column beside 660px of nothing. This
-       is now the ONLY arrangement that does not split, since Pace renders
-       whether or not a target is set. */
-    serve(stats({ pace: target }));
+  it('splits the window into invoiced and unbilled without double-counting', async () => {
+    serve(stats({ velocity }));
+    render(<HomeCards />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText(/invoiced/)).toBeInTheDocument(),
+    );
+    /* `invoiced + unbilled` IS the total; the split moves as invoices are
+       raised while the total does not. */
+    expect(screen.getAllByText('$9,000.00').length).toBeGreaterThan(0);
+    expect(screen.getByText('$6,000.00')).toBeInTheDocument();
+    expect(screen.getAllByText('$3,000.00').length).toBeGreaterThan(0);
+    // The two halves summed on top of the total would be $15,000.
+    expect(screen.queryByText('$15,000.00')).toBeNull();
+  });
+});
+
+describe('the heatmap', () => {
+  /** A worked day `ago` days before today, in the browser's zone. */
+  function dayAgo(ago: number, byClient: Record<string, number>) {
+    const at = new Date();
+    at.setDate(at.getDate() - ago);
+    const date = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
+    const totalSeconds = Object.values(byClient).reduce((a, b) => a + b, 0);
+    return { date, totalSeconds, byClient };
+  }
+
+  it('keeps an archived client’s colour rather than reassigning its hours', async () => {
+    serve(
+      stats({ unbilled: oneClient }),
+      [dayAgo(1, { c1: 7200 })],
+      // Archived, and still the only source of this colour.
+      [{ id: 'c1', name: 'Northwind', color: 'rgb(10, 20, 30)' }],
+    );
     const { container } = render(<HomeCards />, { wrapper });
 
     await waitFor(() =>
-      expect(screen.getByText('Activity')).toBeInTheDocument(),
+      expect(screen.getByText('Northwind')).toBeInTheDocument(),
     );
-    expect(screen.queryByText('Unbilled')).toBeNull();
-    expect(splitGrid(container)).toBeNull();
+
+    /* Dropping an archived client's hue would silently move its hours into
+       the neutral band — the year would misreport whose work it was. */
+    await waitFor(() => {
+      const painted = [...container.querySelectorAll('[style]')].some((el) =>
+        (el.getAttribute('style') ?? '').includes('rgb(10, 20, 30)'),
+      );
+      expect(painted).toBe(true);
+    });
   });
 
-  it('still splits with no target, because Pace fills the column', async () => {
-    /* Pace is the whole right column and now always renders — with no target
-       it carries the line that says what a goal is for — so there is no
-       longer an arrangement where the right column is empty. */
-    serve(stats({ unbilled: oneClient, pace: null }));
+  it('survives one missed day and breaks on two', async () => {
+    /* The streak is the figure in the header. Breaking on a single missed day
+       punishes one appointment and stops being a number anyone trusts; two
+       is a stop. Days 1,2 worked, day 3 missed, day 4 worked — a 3-day
+       streak across the gap. Days 5 and 6 are both missed, so nothing before
+       them counts. */
+    serve(stats({ unbilled: oneClient }), [
+      dayAgo(1, { c1: 3600 }),
+      dayAgo(2, { c1: 3600 }),
+      dayAgo(4, { c1: 3600 }),
+      dayAgo(7, { c1: 3600 }),
+      dayAgo(8, { c1: 3600 }),
+    ]);
+    render(<HomeCards />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('3 day streak')).toBeInTheDocument(),
+    );
+  });
+
+  it('gives a split day the client with the most hours', async () => {
+    /* A cell is ~11px and cannot carry a stack, so the majority takes it.
+       `c2` has more of this day and must be the hue that lands. */
+    serve(
+      stats({ unbilled: oneClient }),
+      [dayAgo(1, { c1: 1800, c2: 7200 })],
+      [
+        { id: 'c1', name: 'Northwind', color: 'rgb(1, 1, 1)' },
+        { id: 'c2', name: 'Contoso', color: 'rgb(2, 2, 2)' },
+      ],
+    );
     const { container } = render(<HomeCards />, { wrapper });
 
     await waitFor(() =>
-      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+      expect(screen.getByText('Contoso')).toBeInTheDocument(),
     );
-    expect(splitGrid(container)).not.toBeNull();
+
+    await waitFor(() => {
+      const styles = [...container.querySelectorAll('.aspect-square[style]')]
+        .map((el) => el.getAttribute('style') ?? '')
+        .join(' ');
+      expect(styles).toContain('rgb(2, 2, 2)');
+      expect(styles).not.toContain('rgb(1, 1, 1)');
+    });
   });
 });

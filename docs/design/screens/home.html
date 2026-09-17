@@ -8,7 +8,7 @@
   *, *::before, *::after { box-sizing: border-box; }
 
   body {
-    margin: 0; background: var(--bg-primary); color: var(--text-primary);
+    margin: 0; background: var(--bg-base); color: var(--text-primary);
     font-family: var(--font-sans); font-size: 15px; line-height: 1.5;
     -webkit-font-smoothing: antialiased;
   }
@@ -49,9 +49,10 @@
   .never li::before { background: var(--danger); }
 
   /* ── The mockup surface ──────────────────────────────────────── */
+  /* The ground the panel floats on, so the shadow has something to fall on —
+     a panel mocked on its own colour looks like a rectangle of nothing. */
   .mock {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-subtle);
+    background: var(--bg-base);
     border-radius: 12px;
     padding: 24px;
     margin-top: 1.5rem;
@@ -61,75 +62,62 @@
     text-transform: uppercase; color: var(--text-subtle);
     display: block; margin-top: .7rem;
   }
-  /* States sit side by side so the difference between them is visible in one
-     glance rather than by scrolling between two mockups. `.states.stack` is
-     for a card that is wide in the app — halving it here would make its rows
-     wrap and misreport the layout. */
   .states { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
   .states.stack { grid-template-columns: minmax(0, 1fr); gap: 20px; }
   .state > .caption { margin-top: .55rem; }
 
-  /* ── Cards, as the app builds them ───────────────────────────── */
-  .card {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
+  /* ── The panel, as the app builds it ─────────────────────────── */
+  .panel {
+    background: var(--bg-primary);
     border-radius: 12px;
-    box-shadow: var(--shadow-card);
+    box-shadow: var(--shadow-panel);
     overflow: hidden;
+    padding: 4px 0;
   }
-  /* Figure mode: icon + demoted label, then the figure the eye lands on. */
-  .card-head { padding: 12px 16px; }
-  .card-title { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
-  .card-title .ico { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
-  /* The edit affordance, pushed to the card's right edge. */
-  .ico.pencil { margin-left: auto; }
-  .card-head.listmode .ico.pencil { width: 14px; height: 14px; color: var(--text-subtle); }
-  .card-figure { margin-top: 6px; }
-  /* List mode: the heading is the entry point, so it stays a heading. */
-  .card-head.listmode { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px 10px; }
-  .card-head.listmode .ico { width: 16px; height: 16px; color: var(--text-muted); }
-  .card-rule { height: 1px; margin: 0 16px; background: var(--border-subtle); }
-  .card-body { padding: 14px 16px; }
+  /* A region carries no border, no background and no shadow: the panel has
+     all three, and a second set inside it reads as a card in a card. */
+  .region { padding: 4px 0; }
+  /* Inset to the rows' own 16px. Full-bleed it cuts the panel in two and
+     reads as two stacked cards. */
+  .region-rule { height: 1px; margin: 4px 16px; background: var(--border-subtle); }
 
-  /* A row: label + aging on the left, hours and amount right-aligned. */
-  .erow {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 16px;
-    border-top: 1px solid var(--border-subtle);
-  }
+  .region-head { padding: 12px 16px 8px; }
+  .region-title { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
+  .region-title .ico { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
+  .ico.pencil { margin-left: auto; }
+  .region-figure { margin-top: 6px; }
+  /* List mode: the heading is the entry point, so it stays a heading. */
+  .region-head.listmode { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px 10px; }
+  .region-head.listmode .ico { width: 16px; height: 16px; color: var(--text-muted); }
+  /* The streak keeps its line: `.region-title` claims the full width, and a
+     two-line streak reads as a figure that outgrew its slot. */
+  .region-head.listmode .region-title { width: auto; }
+  .region-head.listmode > .type-meta { flex: none; white-space: nowrap; }
+  .region-body { padding: 4px 16px 12px; }
+
+  /* A row: label + detail on the left, hours and amount right-aligned. */
+  .erow { display: flex; align-items: center; gap: 10px; padding: 8px 16px; }
   .erow .left { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1; }
   .erow .hours { width: 64px; text-align: right; flex: none; }
   .erow .amt { width: 96px; text-align: right; flex: none; }
   .erow .arrow { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
-  .foot {
-    display: flex; align-items: baseline; gap: 6px;
-    padding: 8px 16px; border-top: 1px solid var(--border-subtle);
-  }
+  .foot { display: flex; align-items: baseline; gap: 6px; padding: 8px 16px; }
 
-  .bar {
-    height: 6px; border-radius: 999px; background: var(--bg-hover);
-    overflow: hidden; margin-bottom: 8px;
-  }
-  .bar span { display: block; height: 100%; background: var(--text-subtle); border-radius: 999px; }
-  .paceline { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  /* The invoiced/unbilled split: one bar, two parts of one total. */
+  .bar { height: 6px; border-radius: 999px; background: var(--bg-hover); overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--text-muted); border-radius: 999px; }
+  .splitline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin-top: 8px; }
+  .paceline { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 8px; }
 
-  /* Range pills, as the card renders them. */
-  .pills { display: inline-flex; gap: 2px; padding: 2px; border-radius: 6px; background: var(--bg-primary); }
-  .pill { padding: 4px 8px; border-radius: 4px; color: var(--text-muted); }
-  .pill.on { background: var(--bg-elevated); color: var(--text-strong); }
+  /* The month plot: a cumulative line against the goal ray. */
+  .plot { display: block; width: 100%; height: 64px; }
 
-  /* activity chart */
-  .chart { display: grid; align-items: end; gap: 3px; height: 92px; }
-  .col { display: flex; flex-direction: column; justify-content: flex-end; gap: 1px; min-width: 0; height: 100%; }
-  .col i { display: block; border-radius: 1.5px; }
-  .col i:first-child { border-radius: 3px 3px 1.5px 1.5px; }
-  .ends { display: flex; justify-content: space-between; margin-top: 8px; }
-  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 10px 16px; border-top: 1px solid var(--border-subtle); }
+  /* The year: 52 columns of 7 days. */
+  .heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); grid-template-columns: repeat(52, minmax(0, 1fr)); gap: 2px; }
+  .heat i { display: block; aspect-ratio: 1; border-radius: 2px; background: var(--bg-hover); }
+  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-top: 10px; }
   .lg { display: inline-flex; align-items: center; gap: 6px; }
   .lg .sw { width: 8px; height: 8px; border-radius: 2px; flex: none; }
-
-  .grid2 { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); gap: 16px; align-items: start; }
-  @media (width < 60rem) { .grid2 { grid-template-columns: minmax(0,1fr); } }
 </style>
 
 <div class="page">
@@ -137,13 +125,14 @@
   <span class="eyebrow">Stint · Screens</span>
   <h1>Home</h1>
   <p class="standfirst">
-    The screen opened fifty times a day. It answers two questions a contractor
-    cannot answer from memory: how much money is sitting unbilled, and am I on
-    pace.
+    The screen opened fifty times a day. It answers what a contractor cannot
+    answer from memory: how much money is sitting unbilled, whether the month
+    is on pace, what the last quarter actually grossed, and where the work
+    went.
   </p>
   <p class="standfirst">
     The frame — header, rail, dock, timer bar — is <code>_shell.html</code>.
-    This page specifies the content column.
+    This page specifies the content column, which <em>is</em> the panel.
   </p>
 
   <!-- ───────────────────────── what earns a place ───────────────────────── -->
@@ -157,45 +146,51 @@
     </p>
 
     <ul class="rule">
-      <li><strong>A card ships only if it carries a number the user cannot
+      <li><strong>A region ships only if it carries a number the user cannot
         compute in their head, or a row they can click to act on.</strong>
         Preferably both. "Interesting" is not the bar.</li>
       <li><strong>Stats are denominated in money.</strong> Hours are the raw
         material; dollars are what the user thinks in. Unbillable work has no
         rate by definition, so those rows show hours and an em-dash.</li>
-      <li><strong><code>GET /stats</code> is one call.</strong> The cards
+      <li><strong><code>GET /stats</code> is one call.</strong> The regions
         render together, and a set that pops in piecemeal reads as broken.</li>
-      <li><strong>No card writes.</strong> Every card reads, and every action on
-        one is a link to the surface that owns the mutation — a dashboard that
-        edits data turns a stray click into a changed invoice.</li>
+      <li><strong>Nothing here writes.</strong> Every region reads, and every
+        action on one is a link to the surface that owns the mutation — a
+        dashboard that edits data turns a stray click into a changed
+        invoice.</li>
+      <li><strong>There is one view.</strong> No hiding a region, no reordering
+        them. "Pick your own dashboard" is the most natural path by which a
+        restraint-first product becomes the thing it was built against.</li>
     </ul>
   </section>
 
-  <!-- ───────────────────────── layout ───────────────────────── -->
+  <!-- ───────────────────────── one surface ───────────────────────── -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Layout</span></div>
+    <div class="sec-head"><span class="eyebrow">One surface, four regions</span></div>
 
     <p>
-      Money waiting, then coming, then texture. Everything above the entry list
-      should be readable in about three seconds.
+      The content column is a single borderless panel on the ground. The four
+      regions are parts of it, not cards on it: <strong>nothing inside the
+      panel carries a border, a background or a shadow of its own.</strong>
+      Regions separate by an inset rule with equal space above and below.
     </p>
 
     <div class="mock">
-      <div class="grid2">
-        <div class="card">
-          <div class="card-head">
-            <span class="card-title">
+      <div class="panel">
+
+        <div class="region">
+          <div class="region-head">
+            <span class="region-title">
               <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M19 7V4H5a2 2 0 0 0 0 4h15v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M18 12h.01"/></svg>
               <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
             </span>
-            <div class="card-figure type-figure" style="color:var(--text-strong)">$3,022.50</div>
+            <div class="region-figure type-figure" style="color:var(--text-strong)">$3,022.50</div>
           </div>
-          <div class="card-rule"></div>
-          <div class="erow" style="border-top:0">
+          <div class="erow">
             <span class="left"><span class="type-control">Northwind Trading</span>
               <span class="type-meta" style="color:var(--text-subtle)">oldest 10d</span></span>
             <span class="hours type-meta" style="color:var(--text-subtle)">9h</span>
-            <span class="amt type-duration">$1,462.50</span>
+            <span class="amt type-duration">$1,650.00</span>
             <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </div>
           <div class="erow">
@@ -211,131 +206,181 @@
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-head">
-            <span class="card-title">
-              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
+        <div class="region-rule"></div>
+
+        <div class="region">
+          <div class="region-head">
+            <span class="region-title">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
               <span class="type-label" style="color:var(--text-subtle)">September</span>
+              <svg class="ico pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             </span>
-            <div class="card-figure type-figure" style="color:var(--text-strong)">21.4h<span class="type-duration" style="color:var(--text-subtle)"> / 120h</span></div>
+            <div class="region-figure type-figure" style="color:var(--text-strong)">21.4h<span class="type-duration" style="color:var(--text-subtle)"> / 120h</span></div>
           </div>
-          <div class="card-rule"></div>
-          <div class="card-body">
-            <div class="bar"><span style="width:18%"></span></div>
+          <div class="region-body">
+            <svg class="plot" viewBox="0 0 300 64" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M0,58.5 L27.3,53 L54.5,47.5 L81.8,42 L109,36.5 L136.4,31 L163.6,25.5 L190.9,20 L218.2,14.5
+                       L218.2,52.5 L190.9,53.5 L163.6,55 L136.4,56.5 L109,58 L81.8,59.5 L54.5,61 L27.3,62 L0,63 Z"
+                    fill="var(--text-subtle)" opacity=".12"/>
+              <path d="M0,58.5 L27.3,53 L54.5,47.5 L81.8,42 L109,36.5 L136.4,31 L163.6,25.5 L190.9,20 L218.2,14.5 L245.5,9 L272.7,3.5 L300,0"
+                    fill="none" stroke="var(--text-subtle)" stroke-width="1" stroke-dasharray="3 3"/>
+              <path d="M0,63 L27.3,62 L54.5,61 L81.8,59.5 L109,58 L136.4,56.5 L163.6,55 L190.9,53.5 L218.2,52.5"
+                    fill="none" stroke="var(--text-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
             <div class="paceline">
               <span class="type-support" style="color:var(--text-subtle)">10 of 22 business days · 98% billable</span>
-              <span class="type-meta" style="color:var(--text-warning)">behind −33.1h</span>
+              <span class="type-meta" style="color:var(--warning)">behind −33.1h</span>
             </div>
           </div>
         </div>
+
+        <div class="region-rule"></div>
+
+        <div class="region">
+          <div class="region-head">
+            <span class="region-title">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
+              <span class="type-label" style="color:var(--text-subtle)">Gross earned · last 3 months</span>
+            </span>
+            <div class="region-figure type-figure" style="color:var(--text-strong)">$28,410.00</div>
+          </div>
+          <div class="region-body">
+            <div class="bar"><span style="width:73%"></span></div>
+            <div class="splitline">
+              <span><span class="type-meta" style="color:var(--text-muted)">$20,739.30</span>
+                <span class="type-support" style="color:var(--text-subtle)">invoiced</span></span>
+              <span><span class="type-meta" style="color:var(--text-muted)">$7,670.70</span>
+                <span class="type-support" style="color:var(--text-subtle)">unbilled</span></span>
+              <span class="type-meta" style="color:var(--text-subtle); margin-left:auto">214h 20m</span>
+            </div>
+          </div>
+          <div class="erow">
+            <span class="left"><span class="type-control">Northwind Trading</span>
+              <span class="type-meta" style="color:var(--text-subtle)">$1,650.00 unbilled</span></span>
+            <span class="hours type-meta" style="color:var(--text-subtle)">128h</span>
+            <span class="amt type-duration">$17,600.00</span>
+            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </div>
+          <div class="erow">
+            <span class="left"><span class="type-control">Byrne Studio</span>
+              <span class="type-meta" style="color:var(--text-subtle)">$1,372.50 unbilled</span></span>
+            <span class="hours type-meta" style="color:var(--text-subtle)">86h 20m</span>
+            <span class="amt type-duration">$10,810.00</span>
+            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </div>
+        </div>
+
+        <div class="region-rule"></div>
+
+        <div class="region">
+          <div class="region-head listmode">
+            <span class="region-title">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
+              <span class="type-heading" style="color:var(--text-strong)">Year</span>
+            </span>
+            <span class="type-meta" style="color:var(--text-subtle)">34 day streak</span>
+          </div>
+          <div class="region-body">
+            <div class="heat" id="heat"></div>
+            <div class="legend">
+              <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-6)"></span>Northwind Trading</span>
+              <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-2)"></span>Byrne Studio</span>
+              <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--text-subtle)"></span>Other</span>
+              <span class="type-meta" style="color:var(--text-subtle); margin-left:auto">861h 40m</span>
+            </div>
+          </div>
+        </div>
+
       </div>
-      <span class="caption">Unbilled · Pace, then Activity, then today's entries</span>
+      <span class="caption">One panel. The rules are inset; nothing inside has an edge of its own</span>
     </div>
 
-    <p style="margin-top:1.5rem">
-      Unbilled and Pace share a row at <code>lg</code> on a
-      <code>1.6fr / 1fr</code> grid: Unbilled carries a list that truncates when
-      starved, Pace one figure and a bar that does not improve with more room.
-      <code>items-start</code>, so a short right column does not stretch to
-      match a tall left one.
-    </p>
-    <p>
-      The grid is conditional — both cards hide when they have nothing, and a
-      fixed two-column track would leave a visible hole on an ordinary day.
-    </p>
-    <p>
-      <strong style="color:var(--text-strong)">No card carries the
-      accent.</strong> On this screen it is spent on the running timer in the
-      bar below.
-    </p>
+    <script>
+      /* 364 cells, generated rather than typed: a year of hand-written divs
+         would be unreadable as a spec and nobody would keep it current. */
+      const heat = document.getElementById('heat');
+      const hues = ['var(--proj-6)', 'var(--proj-2)', 'var(--text-subtle)'];
+      for (let i = 0; i < 364; i++) {
+        const cell = document.createElement('i');
+        const weekday = i % 7;
+        const worked = weekday < 5 && Math.random() > 0.18;
+        if (worked) {
+          cell.style.background = hues[Math.random() < 0.55 ? 0 : Math.random() < 0.7 ? 1 : 2];
+          cell.style.opacity = (0.25 + 0.75 * Math.random()).toFixed(2);
+        }
+        heat.appendChild(cell);
+      }
+    </script>
 
-    <h3>The inset above the first card belongs to <code>Page</code></h3>
-    <p>
-      The content column owns its top padding and the card set adds none, or
-      the two stack.
-    </p>
-    <table>
-      <tr><th>Owner</th><th>Spacing</th><th>Between</th></tr>
-      <tr><td><code>Page</code></td><td><code>pt-4</code> → <code>lg:pt-10</code></td><td>Frame and the first card</td></tr>
-      <tr><td>Card set</td><td><code>gap-4</code></td><td>Card and card</td></tr>
-      <tr><td><code>EntryList</code></td><td><code>mt-6</code></td><td>Cards and Today</td></tr>
-    </table>
+    <ul class="rule">
+      <li><strong>Region order is fixed:</strong> Unbilled, the month, the
+        trailing quarter, the year. Money waiting, then whether the month is
+        working, then what the work has been worth, then where it went.</li>
+      <li><strong>Unbilled hides itself with nothing outstanding</strong> and
+        takes its rule with it. A region with no rows is a heading over a
+        gap.</li>
+      <li><strong>The rule is inset to the rows' own 16px</strong>, never a
+        border on a header. Full-bleed it cuts the panel in two and reads as
+        two stacked cards, which is the shape this screen stopped using.</li>
+      <li><strong>Rows size by <code>@container</code>, not viewport.</strong>
+        The same row renders in this panel and in the narrow dock, where a
+        <code>sm:</code> breakpoint is true at 1600px and lays out as though
+        there were room.</li>
+    </ul>
   </section>
 
-  <!-- ───────────────────────── the card header ───────────────────────── -->
+  <!-- ───────────────────────── the header, in two modes ───────────────────────── -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">The card header, in two modes</span></div>
+    <div class="sec-head"><span class="eyebrow">The region header, in two modes</span></div>
 
     <p>
-      Supplying a value selects figure mode. Which shape a card gets follows
-      from whether it has a single figure as its subject; it is not a choice
-      per card.
+      A region whose point is <em>one figure</em> demotes its title to a quiet
+      label above it — the figure is what the eye should land on. A region
+      whose point is a <em>list</em> keeps its heading, having no figure to be
+      subordinate to.
     </p>
 
     <div class="mock">
       <div class="states">
         <div class="state">
-          <div class="card">
-            <div class="card-head">
-              <span class="card-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M19 7V4H5a2 2 0 0 0 0 4h15v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M18 12h.01"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
-              </span>
-              <div class="card-figure type-figure" style="color:var(--text-strong)">$3,022.50</div>
-            </div>
-            <div class="card-rule"></div>
-            <div class="erow" style="border-top:0">
-              <span class="left"><span class="type-control">Northwind Trading</span></span>
-              <span class="amt type-duration">$1,462.50</span>
-            </div>
-          </div>
-          <span class="caption">Figure mode — the word says which number</span>
-        </div>
-
-        <div class="state">
-          <div class="card">
-            <div class="card-head listmode">
-              <span class="card-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-                <span class="type-heading" style="color:var(--text-strong)">Activity</span>
-              </span>
-              <span class="pills"><span class="pill type-badge">14d</span><span class="pill on type-badge">30d</span></span>
-            </div>
-            <div class="card-rule"></div>
-            <div class="card-body">
-              <div class="chart" style="height:44px; grid-template-columns:repeat(12,minmax(0,1fr))">
-                <div class="col"><i style="height:50%;background:var(--proj-6)"></i></div>
-                <div class="col"><i style="height:72%;background:var(--proj-6)"></i></div>
-                <div class="col"><i style="height:36%;background:var(--proj-2)"></i></div>
-                <div class="col"></div>
-                <div class="col"></div>
-                <div class="col"><i style="height:64%;background:var(--proj-6)"></i></div>
-                <div class="col"><i style="height:44%;background:var(--proj-2)"></i></div>
-                <div class="col"><i style="height:80%;background:var(--proj-6)"></i></div>
-                <div class="col"><i style="height:30%;background:var(--proj-2)"></i></div>
-                <div class="col"></div>
-                <div class="col"></div>
-                <div class="col"><i style="height:58%;background:var(--proj-6)"></i></div>
+          <div class="panel">
+            <div class="region">
+              <div class="region-head">
+                <span class="region-title">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M19 7V4H5a2 2 0 0 0 0 4h15v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M18 12h.01"/></svg>
+                  <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
+                </span>
+                <div class="region-figure type-figure" style="color:var(--text-strong)">$3,022.50</div>
               </div>
             </div>
           </div>
-          <span class="caption">List mode — the heading is the entry point</span>
+          <span class="caption">Figure mode</span>
+        </div>
+        <div class="state">
+          <div class="panel">
+            <div class="region">
+              <div class="region-head listmode">
+                <span class="region-title">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
+                  <span class="type-heading" style="color:var(--text-strong)">Year</span>
+                </span>
+                <span class="type-meta" style="color:var(--text-subtle)">34 day streak</span>
+              </div>
+            </div>
+          </div>
+          <span class="caption">List mode</span>
         </div>
       </div>
     </div>
 
     <ul class="rule">
-      <li><strong>A figure card demotes its title</strong> to a
-        <code>type-label</code>: the word only says <em>which</em> number. A
-        list card keeps a <code>type-heading</code>, having no figure to be
-        subordinate to.</li>
-      <li><strong>The icon is <code>aria-hidden</code></strong>, so the
-        accessible name stays the heading text — never "wallet Unbilled".</li>
-      <li><strong>The rule under the header is inset to the rows'
-        own <code>px-4</code></strong>. Edge to edge it cuts the panel in two
-        and reads as two stacked cards.</li>
-      <li><strong>The icon carries a tone only on a card that is
-        <em>about</em> something being wrong</strong>, and never the accent.</li>
+      <li><strong>The icon is <code>aria-hidden</code></strong>. It is a second
+        channel for a region you are scanning, not part of its name — without
+        it a screen reader announces "wallet Unbilled".</li>
+      <li><strong>The icon is neutral unless the region is <em>about</em>
+        something being wrong</strong>, and never the accent.</li>
+      <li><strong>At most one quiet control</strong>, top-right against the
+        title. The month's pencil is the only one.</li>
     </ul>
   </section>
 
@@ -344,364 +389,176 @@
     <div class="sec-head"><span class="eyebrow">Unbilled</span></div>
 
     <p>
-      The headline number, and the reason this screen exists. Sources
-      <code>time_entries</code> where <code>invoice_id is null</code>,
-      <code>is_billable</code>, and <code>ended_at is not null</code> —
-      running timers never count, matching the invoicing rule that you cannot
-      bill time still accruing.
+      The headline number, and the reason this screen exists. Work done and not
+      yet invoiced — money the user might still never see.
+    </p>
+
+    <ul class="rule">
+      <li><strong>Never labelled "earned" or "revenue".</strong> Overstating it
+        in a billing tool is the same trust failure as silently editing an
+        entry.</li>
+      <li><strong>Each row links to invoice generation for that client</strong>,
+        which is what makes the region an action rather than a readout.</li>
+      <li><strong>Work with no resolvable rate shows an em-dash, not
+        $0.00.</strong> A zero looks like a real figure and understates the
+        total; <code>unratedCount</code> says the total is incomplete rather
+        than low.</li>
+      <li><strong>Awaiting payment is never added to the total.</strong> That is
+        work not yet invoiced; this is money already asked for, and summing
+        them double-counts the same hours.</li>
+      <li><strong>Past five clients the remainder is a count</strong>, the same
+        shape the year's legend uses.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── month ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The month</span></div>
+
+    <p>
+      A cumulative line of accumulated hours — or money, following the goal's
+      unit — against the goal ray. <strong>The gap between the two lines is the
+      delta</strong>, rendered as a distance rather than a percentage to
+      decode.
     </p>
 
     <div class="mock">
       <div class="states stack">
         <div class="state">
-          <div class="card">
-            <div class="card-head">
-              <span class="card-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M19 7V4H5a2 2 0 0 0 0 4h15v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M18 12h.01"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
-              </span>
-              <div class="card-figure type-figure" style="color:var(--text-strong)">$3,022.50</div>
-            </div>
-            <div class="card-rule"></div>
-            <div class="erow" style="border-top:0">
-              <span class="left"><span class="type-control">Northwind Trading</span>
-                <span class="type-meta" style="color:var(--text-subtle)">oldest 10d</span></span>
-              <span class="hours type-meta" style="color:var(--text-subtle)">9h</span>
-              <span class="amt type-duration">$1,462.50</span>
-              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            </div>
-            <div class="erow">
-              <span class="left"><span class="type-control">Byrne Studio</span>
-                <span class="type-meta" style="color:var(--text-subtle)">oldest 4d · 2 unrated</span></span>
-              <span class="hours type-meta" style="color:var(--text-subtle)">10h 30m</span>
-              <span class="amt type-duration">$1,372.50</span>
-              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            </div>
-            <div class="erow">
-              <span class="left"><span class="type-control" style="color:var(--text-muted)">No client</span>
-                <span class="type-meta" style="color:var(--text-subtle)">oldest 4d</span></span>
-              <span class="hours type-meta" style="color:var(--text-subtle)">1h 30m</span>
-              <span class="amt type-duration" style="color:var(--text-subtle)">—</span>
-              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            </div>
-            <div class="foot">
-              <span class="type-support" style="color:var(--text-subtle)">+3 more</span>
-            </div>
-            <div class="foot">
-              <span class="type-meta" style="color:var(--text-muted)">$3,465.00</span>
-              <span class="type-support" style="color:var(--text-subtle)">sent, awaiting payment</span>
-            </div>
-          </div>
-          <span class="caption">Aging, unrated work, an unbillable row, the cap, and the foot</span>
-        </div>
-
-        <div class="state">
-          <div class="card">
-            <div class="card-head">
-              <span class="card-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M19 7V4H5a2 2 0 0 0 0 4h15v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M18 12h.01"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
-              </span>
-              <div class="card-figure type-figure" style="color:var(--text-strong)">$281.25</div>
-            </div>
-            <div class="card-rule"></div>
-            <div class="erow" style="border-top:0">
-              <span class="left"><span class="type-control" style="color:var(--text-muted)">No client</span>
-                <span class="type-meta" style="color:var(--text-subtle)">oldest 9d</span></span>
-              <span class="hours type-meta" style="color:var(--text-subtle)">2h 15m</span>
-              <span class="amt type-duration">$281.25</span>
-              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            </div>
-          </div>
-          <span class="caption">One client, nothing sent — no cap line, no foot</span>
-        </div>
-      </div>
-      <span class="caption">Nothing outstanding: the card is absent, and the grid becomes one column</span>
-    </div>
-
-    <ul class="rule">
-      <li><strong>The aging figure is the insight.</strong> A total is a fact;
-        a total with "oldest 22 days" is a prompt. Work aging past a month is
-        the most common way a solo contractor loses money, and no competitor
-        surfaces it because none of them know the rate.</li>
-      <li><strong>Totals come from <code>unbilled_by_client</code>, grouped by
-        (client, rate).</strong> One client can have work at several rates, and
-        collapsing them misstates the money. It resolves through
-        <code>resolve_rate()</code>, the same chain an invoice preview uses, so
-        the two cannot disagree about the same work.</li>
-      <li><strong>Each client row links to invoice generation</strong> for that
-        client, pre-filled with the period covering its unbilled entries. That
-        is what makes the card an action rather than a readout.</li>
-      <li><strong>Unrated work contributes hours but no money</strong>, so the
-        row carries its count and the amount is an em-dash, never
-        <code>$0.00</code> — otherwise the figure reads as low rather than as
-        incomplete.</li>
-      <li><strong>The five-row cap is server-side</strong> —
-        <code>/stats</code> returns at most five plus a
-        <code>moreClients</code> count. The total still covers every client.</li>
-      <li><strong>The row is a grid, not a link wrapping buttons.</strong> The
-        label is the link; an <code>&lt;a&gt;</code> containing a
-        <code>&lt;button&gt;</code> is invalid and puts Tab inside the link.</li>
-      <li><strong>The row sizes by container, not viewport</strong>, because
-        the same card renders in this wide column and in the 280px dock.</li>
-    </ul>
-
-    <ul class="rule never" style="margin-top:1.75rem">
-      <li><strong>Never labelled "earned" or "revenue".</strong> It is work
-        done and not yet invoiced — money the user might still never see.
-        Overstating it in a billing tool is the same trust failure as silently
-        editing an entry.</li>
-      <li><strong><code>awaitingPayment</code> is never added to the
-        total.</strong> Unbilled is work not yet invoiced; awaiting payment is
-        money already asked for. Summing them double-counts the same hours. It
-        is one line at the foot — a row per invoice would put ordinary,
-        nothing-is-wrong invoices back on the home screen.</li>
-    </ul>
-  </section>
-
-  <!-- ───────────────────────── pace ───────────────────────── -->
-  <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Pace</span></div>
-
-    <p>
-      Month-to-date against a target, with the ahead/behind figure spelled out.
-      <strong style="color:var(--text-strong)">"On pace" is derived from
-      business days elapsed</strong>, not calendar days — a 120-hour target is
-      six hours a business day, and reading "behind" on a Monday because the
-      weekend passed is noise pretending to be signal. Holidays are not
-      modelled, deliberately.
-    </p>
-
-    <div class="mock">
-      <div class="states">
-        <div class="state">
-          <div class="card">
-            <div class="card-head">
-              <span class="card-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">September</span>
-              </span>
-              <div class="card-figure type-figure" style="color:var(--text-strong)">96.0h<span class="type-duration" style="color:var(--text-subtle)"> / 120h</span></div>
-            </div>
-            <div class="card-rule"></div>
-            <div class="card-body">
-              <div class="bar"><span style="width:80%"></span></div>
-              <div class="paceline">
-                <span class="type-support" style="color:var(--text-subtle)">18 of 22 business days · 82% billable</span>
-                <span class="type-meta" style="color:var(--text-muted)">on pace +2.0h</span>
+          <div class="panel">
+            <div class="region">
+              <div class="region-head">
+                <span class="region-title">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                  <span class="type-label" style="color:var(--text-subtle)">September</span>
+                  <svg class="ico pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                </span>
+                <div class="region-figure type-figure" style="color:var(--text-strong)">$9,240.00<span class="type-duration" style="color:var(--text-subtle)"> / $12,000.00</span></div>
+              </div>
+              <div class="region-body">
+                <svg class="plot" viewBox="0 0 300 64" preserveAspectRatio="none" aria-hidden="true">
+                  <path d="M0,58.5 L27.3,53 L54.5,47.5 L81.8,42 L109,36.5 L136.4,31 L163.6,25.5 L190.9,20 L218.2,14.5
+                           L218.2,15.5 L190.9,22 L163.6,29 L136.4,33 L109,39 L81.8,44 L54.5,49 L27.3,55 L0,60 Z"
+                        fill="var(--text-subtle)" opacity=".12"/>
+                  <path d="M0,58.5 L27.3,53 L54.5,47.5 L81.8,42 L109,36.5 L136.4,31 L163.6,25.5 L190.9,20 L218.2,14.5 L245.5,9 L272.7,3.5 L300,0"
+                        fill="none" stroke="var(--text-subtle)" stroke-width="1" stroke-dasharray="3 3"/>
+                  <path d="M0,60 L27.3,55 L54.5,49 L81.8,44 L109,39 L136.4,33 L163.6,29 L190.9,22 L218.2,15.5"
+                        fill="none" stroke="var(--text-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <div class="paceline">
+                  <span class="type-support" style="color:var(--text-subtle)">18 of 22 business days · 94% billable</span>
+                  <span class="type-meta" style="color:var(--text-muted)">on pace +$420.00</span>
+                </div>
               </div>
             </div>
           </div>
-          <span class="caption">Ahead — neutral</span>
+          <span class="caption">On pace — the line rides the ray, and the gap closes</span>
         </div>
 
         <div class="state">
-          <div class="card">
-            <div class="card-head">
-              <span class="card-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">September</span>
-              </span>
-              <div class="card-figure type-figure" style="color:var(--text-strong)">21.4h<span class="type-duration" style="color:var(--text-subtle)"> / 120h</span></div>
-            </div>
-            <div class="card-rule"></div>
-            <div class="card-body">
-              <div class="bar"><span style="width:18%"></span></div>
-              <div class="paceline">
-                <span class="type-support" style="color:var(--text-subtle)">10 of 22 business days · 98% billable</span>
-                <span class="type-meta" style="color:var(--text-warning)">behind −33.1h</span>
+          <div class="panel">
+            <div class="region">
+              <div class="region-head">
+                <span class="region-title">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                  <span class="type-label" style="color:var(--text-subtle)">September</span>
+                  <svg class="ico pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                </span>
+              </div>
+              <div class="region-body">
+                <span class="type-support" style="color:var(--text-subtle)">Set a monthly goal to track hours or revenue against it.</span>
               </div>
             </div>
           </div>
-          <span class="caption">Behind — warning on the delta only</span>
+          <span class="caption">No target — the region stays, carrying the way in</span>
         </div>
-
-        <div class="state">
-          <div class="card">
-            <div class="card-head">
-              <span class="card-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">September</span>
-                <svg class="ico pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-              </span>
-              <div class="card-figure type-figure" style="color:var(--text-strong)">$3,022.50<span class="type-duration" style="color:var(--text-subtle)"> / $10,000.00</span></div>
-            </div>
-            <div class="card-rule"></div>
-            <div class="card-body">
-              <div class="bar"><span style="width:30%"></span></div>
-              <div class="paceline">
-                <span class="type-support" style="color:var(--text-subtle)">10 of 22 business days · 98% billable</span>
-              </div>
-            </div>
-          </div>
-          <span class="caption">Revenue — the figure, and no delta</span>
-        </div>
-
-        <div class="state">
-          <div class="card">
-            <div class="card-head listmode">
-              <span class="card-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-                <span class="type-heading" style="color:var(--text-strong)">September</span>
-              </span>
-              <svg class="ico pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-            </div>
-            <div class="card-rule"></div>
-            <div class="card-body">
-              <span class="type-support" style="color:var(--text-subtle)">
-                Set a monthly goal to track hours or revenue against it.
-              </span>
-            </div>
-          </div>
-          <span class="caption">No target — the way in, and no bar</span>
-        </div>
-
       </div>
     </div>
 
     <ul class="rule">
-      <li><strong>Only the delta takes the warning tone.</strong> Being behind
-        on the 14th is ordinary; colouring the whole card would read as an
-        alarm.</li>
-      <li><strong>Billable ratio rides the business-day line.</strong>
-        Contractors consistently underestimate how much unbillable admin they
-        absorb, and one percentage is the entire finding — it does not deserve
-        a card or a chart.</li>
-      <li><strong>Revenue reports a figure but no delta.</strong> Hours accrue
-        evenly enough that business days elapsed predicts them; revenue lands
-        in steps as work is done at different rates, so "behind $2,400" on the
-        3rd would be arithmetic dressed as a finding.</li>
-      <li><strong>Revenue is work DONE</strong> — invoiced plus unbilled at its
-        resolved rate — bucketed by the <strong>entry's</strong> date, never
-        the invoice's <code>issue_date</code>. Those are independent, so
-        invoicing March's work in April would otherwise book March's money into
-        April. A voided invoice releases its entries and stops counting.</li>
-      <li><strong>The card renders with no target</strong>, carrying one line
-        and the edit affordance. Hiding it made the feature invisible to the
-        only account that had never set one. The empty state renders
-        <em>no bar</em> — that is what "no empty progress bar" governs.</li>
-      <li><strong>The pencil links to the field in Settings</strong>, which
-        owns it. A dialog here would be a second editor, and a second place to
-        look when the number is wrong.</li>
-      <li><strong>The bar is capped at the target.</strong> A fill running past
-        its own track reports nothing.</li>
+      <li><strong>The ray steps on business days only.</strong> A ray sloping
+        through the weekend shows the user behind every Saturday and recovered
+        every Monday, which is the noise the business-day rule exists to
+        kill.</li>
+      <li><strong>The actual line stops at today</strong> and is null beyond
+        it. A line drawn flat to the 31st reads as a month that stopped
+        working, not a month still in progress.</li>
+      <li><strong>Weekend work is carried onto the next business day's
+        point</strong>, never discarded, so the cumulative total always equals
+        the month's actual.</li>
+      <li><strong>The target is context, not part of the figure</strong> — set
+        at row scale beside it rather than carried along at 30px.</li>
+      <li><strong>With no target the region stays</strong>, carrying a line that
+        names what a goal is for and a link to the field. Hiding it made the
+        feature invisible to the only account that had never set one.</li>
+      <li><strong>The scale is the target</strong>, unless the month ran past
+        it — a line that leaves the top of the box would misreport a month that
+        beat its goal.</li>
+      <li><strong>Settings owns the goal field.</strong> The pencil is a link,
+        never a dialog: a second editor here is a second place to look when the
+        number is wrong.</li>
     </ul>
   </section>
 
-  <!-- ───────────────────────── activity ───────────────────────── -->
+  <!-- ───────────────────────── velocity ───────────────────────── -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Activity</span></div>
+    <div class="sec-head"><span class="eyebrow">Velocity</span></div>
 
     <p>
-      Hours per day, stacked by client. Ranges are 14 and 30 days; 30 is the
-      default. A bar carries the number, which is what answers "was Tuesday a
-      three-hour day or a nine-hour day?"
+      Gross over the trailing three months, split by where the work stands now,
+      then broken down by client.
     </p>
 
-    <div class="mock">
-      <div class="card">
-        <div class="card-head listmode">
-          <span class="card-title">
-            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-            <span class="type-heading" style="color:var(--text-strong)">Activity</span>
-          </span>
-          <span class="pills"><span class="pill type-badge">14d</span><span class="pill on type-badge">30d</span></span>
-        </div>
-        <div class="card-rule"></div>
-        <div class="card-body">
-          <div class="chart" style="grid-template-columns:repeat(30,minmax(0,1fr))">
-            <div class="col"><i style="height:38%;background:var(--proj-6)"></i><i style="height:14%;background:var(--proj-2)"></i></div>
-            <div class="col"><i style="height:52%;background:var(--proj-6)"></i></div>
-            <div class="col"><i style="height:22%;background:var(--proj-6)"></i><i style="height:30%;background:var(--proj-2)"></i></div>
-            <div class="col"><i style="height:66%;background:var(--proj-6)"></i><i style="height:9%;background:var(--text-subtle)"></i></div>
-            <div class="col"><i style="height:44%;background:var(--proj-2)"></i></div>
-            <div class="col"></div>
-            <div class="col"></div>
-            <div class="col"><i style="height:58%;background:var(--proj-6)"></i><i style="height:18%;background:var(--proj-2)"></i></div>
-            <div class="col"><i style="height:76%;background:var(--proj-6)"></i></div>
-            <div class="col"><i style="height:30%;background:var(--proj-2)"></i><i style="height:15%;background:var(--text-subtle)"></i></div>
-            <div class="col"><i style="height:70%;background:var(--proj-6)"></i></div>
-            <div class="col"><i style="height:46%;background:var(--proj-2)"></i></div>
-            <div class="col"></div>
-            <div class="col"></div>
-            <div class="col"><i style="height:62%;background:var(--proj-6)"></i><i style="height:24%;background:var(--proj-2)"></i></div>
-            <div class="col"><i style="height:40%;background:var(--proj-6)"></i></div>
-            <div class="col"><i style="height:80%;background:var(--proj-2)"></i></div>
-            <div class="col"><i style="height:28%;background:var(--proj-6)"></i></div>
-            <div class="col"><i style="height:55%;background:var(--proj-6)"></i><i style="height:12%;background:var(--text-subtle)"></i></div>
-            <div class="col"></div>
-            <div class="col"></div>
-            <div class="col"><i style="height:48%;background:var(--proj-6)"></i></div>
-            <div class="col"><i style="height:64%;background:var(--proj-6)"></i><i style="height:20%;background:var(--proj-2)"></i></div>
-            <div class="col"><i style="height:36%;background:var(--proj-2)"></i></div>
-            <div class="col"><i style="height:90%;background:var(--proj-6)"></i></div>
-            <div class="col"><i style="height:42%;background:var(--proj-6)"></i><i style="height:16%;background:var(--text-subtle)"></i></div>
-            <div class="col"></div>
-            <div class="col"></div>
-            <div class="col"><i style="height:54%;background:var(--proj-6)"></i></div>
-            <div class="col"><i style="height:33%;background:var(--proj-2)"></i><i style="height:26%;background:var(--proj-2)"></i></div>
-          </div>
-          <div class="ends">
-            <span class="type-meta" style="color:var(--text-subtle)">Aug 16</span>
-            <span class="type-meta" style="color:var(--text-subtle)">Sep 14</span>
-          </div>
-        </div>
-        <div class="legend">
-          <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-6)"></span>Northwind Trading</span>
-          <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-2)"></span>Byrne Studio</span>
-          <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--text-subtle)"></span>Other</span>
-          <span class="type-meta" style="color:var(--text-subtle); margin-left:auto">21h 25m · 30 days</span>
-        </div>
-      </div>
-      <span class="caption">Gaps are weekends, and the tallest day sets the scale</span>
-    </div>
+    <ul class="rule">
+      <li><strong>"Gross earned", never "earned" alone.</strong> It is work done
+        over the window, not money collected, and the invoiced/unbilled split
+        is what says so.</li>
+      <li><strong><code>invoiced + unbilled</code> is the total.</strong> The
+        split moves as invoices are raised while the total does not — the bar
+        shows one number in two parts, never two numbers to add.</li>
+      <li><strong>Not comparable with awaiting payment</strong>, which spans
+        every period rather than this window.</li>
+      <li><strong>Each client row is the client's gross</strong>, with its
+        unbilled share as the detail. A client whose whole window is still
+        unbilled grosses its unbilled amount, not nothing.</li>
+      <li><strong>Rows link to the client</strong>, which is where rates and
+        projects are changed.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── the year ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The year</span></div>
+
+    <p>
+      Fifty-two weeks, one cell per day. Colour is the client, density is the
+      hours. A year is the window where a seasonal shape — a quiet August, a
+      client that ended in March — becomes visible at all.
+    </p>
 
     <ul class="rule">
       <li><strong>Hue is the client</strong>, resolved as everywhere else, and
         <strong>never the accent</strong> — that belongs to the running timer.
         Internal work keeps a neutral that reads as worked rather than as
         rest.</li>
-      <li><strong>Every day in the range gets a column</strong>, so a blank one
-        is a weekend or a dry spell rather than missing data. A clean
-        five-on-two-off rhythm versus a ragged one says something no total
-        does.</li>
-      <li><strong>The tallest day sets the scale</strong>, so the shape stays
-        readable at any workload.</li>
-      <li><strong>Clients rank over the whole window, not per day</strong>, so a
-        band keeps its stacking position across columns. Order that jumps
-        between days cannot be followed by eye.</li>
-      <li><strong>Past five clients the remainder collapses into one neutral
-        band.</strong> Those hours are still counted, so the column stays the
-        day's real height.</li>
+      <li><strong>A blank day stays blank.</strong> Every day in the year gets a
+        cell, so a gap is a weekend or a dry spell rather than missing
+        data.</li>
+      <li><strong>A day split across clients takes the one with the most
+        hours.</strong> A cell is about 11px and cannot carry a stack; the
+        alternative is a smear of colour that names nobody.</li>
       <li><strong>Archived clients keep their colour.</strong> Work billed to a
         finished engagement belongs in the history, and dropping the hue would
         silently reassign those hours to the neutral band.</li>
-      <li><strong>The range control is a real radio group</strong>, so one tab
-        stop and the arrow keys come from the browser.</li>
-      <li><strong>Only the ends are labelled</strong>; each column's own date is
-        in its tooltip.</li>
-      <li><strong>90 days needs week bucketing server-side</strong>, for the
-        same DST reason day bucketing already lives there. At day granularity
-        it is a ~4px bar.</li>
+      <li><strong>The busiest day sets the density scale</strong>, floored so
+        the lightest worked day is still visibly a day worked.</li>
+      <li><strong>The streak sits in the header at row scale.</strong> It
+        survives one missed day and breaks on two — a streak that breaks on a
+        single missed day punishes one appointment and stops being a figure
+        anyone trusts. Today not yet worked does not break it.</li>
+      <li><strong>Each cell's date and hours are in its tooltip.</strong> There
+        is no axis; at 52 columns every label is noise.</li>
     </ul>
-  </section>
-
-  <!-- ───────────────────────── customization ───────────────────────── -->
-  <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Customization</span></div>
-
-    <p>
-      The Activity range control is the only customization that exists.
-      Reordering and hiding cards are not built; if they ever are, they may
-      <strong style="color:var(--text-strong)">not</strong> compose new
-      metrics, choose chart types, or add a second copy of a card. "Pick your
-      own dashboard" is the most natural path by which a restraint-first
-      product becomes the thing it was built against.
-    </p>
-    <p>
-      The timer bar and the entry list are not cards and are not
-      customizable.
-    </p>
   </section>
 
   <!-- ───────────────────────── constraints ───────────────────────── -->
@@ -709,18 +566,20 @@
     <div class="sec-head"><span class="eyebrow">Constraints this screen inherits</span></div>
 
     <ul class="rule">
-      <li><strong>Warning is the alert channel</strong>, and Pace's delta is
-        the only thing on this screen that uses it. Success cyan appears
-        nowhere — nothing here is an outcome.</li>
       <li><strong>Nothing here is green.</strong> The accent is spent on the
         running timer in the bar below.</li>
+      <li><strong>Warning is the only alert channel</strong>, and the month's
+        delta is the only thing on this screen that uses it. Success cyan
+        appears nowhere — nothing here is an outcome.</li>
       <li><strong>Durations and currency are mono and tabular</strong>, without
         exception. An unbilled column that reflows as digits change is the same
         defect as a timer that does.</li>
       <li><strong>Aggregate rate resolution belongs in SQL.</strong>
-        <code>resolve_entry_rate(uuid)</code> is per-entry; the Unbilled card
-        sums across hundreds of entries and must not call it N times. A
+        <code>resolve_entry_rate(uuid)</code> is per-entry; Unbilled and
+        Velocity sum across hundreds of entries and must not call it N times. A
         set-returning rollup is the correct shape.</li>
+      <li><strong><code>0</code> is a valid rate.</strong> Null-coalescing, never
+        truthiness.</li>
     </ul>
   </section>
 
@@ -729,9 +588,17 @@
     <div class="sec-head"><span class="eyebrow">Rejected — each will look appealing again</span></div>
 
     <ul class="rule never">
+      <li><strong>Hiding or reordering regions.</strong> There is one view. A
+        dashboard the user assembles is a dashboard nobody can specify, and it
+        is the path by which this becomes the product it was built
+        against.</li>
+      <li><strong>A range control on the year.</strong> The window is fixed at
+        52 weeks. A picker turns one honest shape into four that disagree, and
+        each switch refetches a year.</li>
+      <li><strong>Stacking a split day's clients in one cell.</strong> At 11px
+        a stack is a smear. The majority takes the cell.</li>
       <li><strong>Top projects this week.</strong> With one to three clients, a
-        ranked table ranks one thing. If the distribution is worth showing at
-        all it is a single horizontal stacked bar.</li>
+        ranked table ranks one thing.</li>
       <li><strong>Pie charts.</strong> A solo contractor's time splits two to
         four ways. A bar does that in less space and stays readable when one
         slice is 4%.</li>
@@ -748,25 +615,33 @@
       <tr><th>Call</th><th>Feeds</th><th>Note</th></tr>
       <tr>
         <td><code>GET /stats</code></td>
-        <td>every card</td>
-        <td>Unbilled by client with aging, month-to-date against target, and
-            the billable ratio. One request, because they render together.</td>
+        <td>Unbilled, the month, Velocity</td>
+        <td>Unbilled by client with aging, the month's cumulative series
+            against its ray, trailing-quarter gross by client, and the billable
+            ratio. One request, because they render together.</td>
       </tr>
       <tr>
         <td><code>GET /calendar?granularity=day</code></td>
-        <td>Activity</td>
-        <td>Already groups by local day server-side, which is the DST-correct
-            bucketing this needs and the reason not to build a second one.
-            Returns <code>{ date, totalSeconds, byClient }</code> and nothing
-            else.</td>
+        <td>the year</td>
+        <td>One call over a one-year range. Already groups by local day
+            server-side, which is the DST-correct bucketing this needs and the
+            reason not to build a second one. Returns
+            <code>{ date, totalSeconds, byClient }</code> and nothing else.</td>
       </tr>
       <tr>
         <td><code>GET /clients?includeArchived</code></td>
-        <td>Activity's hues and legend</td>
+        <td>the year's hues and legend</td>
         <td>Archived clients included, so a finished engagement keeps its
             colour instead of falling into the neutral band.</td>
       </tr>
     </table>
+
+    <p style="margin-top:1.25rem">
+      The year's cache key is its own, not a variant of the activity key: the
+      range is fixed, so sharing one with a range the user picks would refetch
+      365 days on every change. It joins <code>invalidateEntryData()</code>,
+      or the region goes stale on every timer stop.
+    </p>
 
     <p style="margin-top:1.25rem">
       The target lives on <code>user_settings</code> as

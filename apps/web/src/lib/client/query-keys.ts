@@ -18,6 +18,11 @@ export const keys = {
     tz ? (['stats', tz] as const) : (['stats'] as const),
   activity: (tz?: string, days?: number) =>
     tz ? (['activity', tz, days] as const) : (['activity'] as const),
+  /* Its own key, not a variant of `activity`: the heatmap's range is a fixed
+     year, so sharing a key with a range the user picks would refetch 365 days
+     every time that picker moved. */
+  heatmap: (tz?: string) =>
+    tz ? (['heatmap', tz] as const) : (['heatmap'] as const),
   calendar: (weekStart?: string, tz?: string) =>
     weekStart
       ? (['calendar', weekStart, tz] as const)
@@ -48,6 +53,7 @@ export function invalidateEntryData(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: keys.stats() });
   queryClient.invalidateQueries({ queryKey: keys.calendar() });
   queryClient.invalidateQueries({ queryKey: keys.activity() });
+  queryClient.invalidateQueries({ queryKey: keys.heatmap() });
   /* Starting a timer or saving an entry mints a task name, so a list held
      from before it is one suggestion short of what the user just typed. */
   queryClient.invalidateQueries({ queryKey: keys.taskNames() });
