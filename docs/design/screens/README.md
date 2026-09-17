@@ -3,6 +3,10 @@
 One HTML doc per route, named after the route. `home.html` is `/`,
 `calendar.html` is `/calendar`.
 
+Two are not routes: `frame.html` is what every screen renders inside, and
+`floating-frame.html` renders that frame in both themes with the
+measurements a build is checked against.
+
 **States live inside the screen's doc, not beside it.** A drag-in-progress
 mockup is a section of `calendar.html`, never `calendar-drag.html`. One file
 per route is what stops this becoming a drawer of near-duplicate variants that
