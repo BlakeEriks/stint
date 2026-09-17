@@ -576,6 +576,136 @@ later.
       where hiding billing-relevant fields is worse than wrapping and the list
       is short enough that density is not the constraint.
 
+## Re-imagining the frame
+
+The app is a grid of boxes: header, rail, content, dock and timer bar, each
+separated from its neighbour by a 1px line, and the content column itself a
+set of cards with their own borders inside that. Nothing floats; everything
+abuts. The content reads as assembled rather than composed, and the gridlines
+are what make the assembly visible.
+
+**This is a frame change, not a home-screen one.** Every screen renders inside
+`frame.html`, so the treatment below is one treatment for the whole app. It is
+motivated by the home card set in the section that follows — once Today moves
+to the dock and Activity is deleted, the content column holds four stat
+regions and no long list, which is the shape that can become one surface — but
+it is not contained by it.
+
+- [ ] **The content column becomes one borderless panel.** The cards merge:
+      one surface, one radius, one shadow, with the regions inside separated
+      by an inset rule and space. A bordered card inside a bordered panel is
+      the disjointedness this removes, so nothing inside the panel carries a
+      border of its own.
+
+      **Nothing draws a 1px edge against a neighbour.** The header, the rail
+      and the dock lose their borders, and the ground runs unbroken behind
+      everything.
+
+- [ ] **The rail and the dock are painted onto the ground.** No surface, no
+      border, no shadow. One thing on the screen is a card and it is the thing
+      being read — which is the four-plane rule stated visually rather than a
+      new idea layered on top. The inbox's rows keep their own small surfaces,
+      because a row that is there to be acted on is an object; without them the
+      right column reads as loose text.
+
+      **The active rail item stops being a tab.** `frame.html`'s reasoning —
+      it lifts to the content plane and takes the card shadow, which is what
+      makes the rail read as a tab strip into the column beside it — depends
+      on a shared edge that no longer exists. It becomes a filled pill with a
+      short leading marker: a selected object rather than a continuous
+      surface. This is a real loss of meaning and the honest cost of removing
+      the line.
+
+- [ ] **The timer bar is the panel's width, not the window's.** It holds four
+      small objects and a clock, and spanning 1272px of window to do it leaves
+      700px of nothing. Shortened to the panel's width and placed beneath it,
+      it becomes a sibling of the panel rather than a floor under the frame —
+      which is the right relationship, because a timer is the work rather than
+      the chrome.
+
+      **The rail and the dock then run the full height** and reclaim the 60px,
+      which is two more inbox rows or four more Today rows.
+
+      **It carries a quiet fill**: a wash a little above the ground, no shadow,
+      no border. Fully surfaceless is the cleanest thing on the screen while a
+      timer runs and nearly invisible when one is not — and idle is the state
+      where the control most needs to be findable. The quiet fill is what
+      survives both states.
+
+- [ ] **The panel's edge is shadow and a lit hairline, and the mechanism
+      inverts between themes.** This is the part that is easy to get wrong, and
+      the reasoning is worth keeping because the wrong version renders
+      perfectly and simply looks flat.
+
+      **A shadow is darkening, so it needs headroom below the ground.** In
+      dark, `bg-recessed` sits at OKLCH L 0.150 with almost nothing left
+      before it clips to black, which is why a panel on it reads as a rounded
+      rectangle rather than a floating one. Raising the ground one step to
+      `bg-base` (L 0.186) buys 24% more room and the panel lifts visibly.
+
+      **A lit edge is not a shadow.** It adds lightness at the top rather than
+      darkness underneath, so it does not need that headroom — and it is what
+      distinguishes a raised pane from a drawn rectangle, because a real pane
+      catches the light above it. One `inset 0 1px 0` layer.
+
+      **In light the two swap.** There is almost no headroom above `bg-base`
+      (0.049 total, and the panel spends 0.022 of it), so a lit edge is
+      invisible — while shadow, which had nowhere to go in dark, now has the
+      whole range. The light panel is shaded from above instead: the same
+      single inset layer, drawn from `bg-active` rather than `bg-hover`.
+
+      | | Dark | Light |
+      | --- | --- | --- |
+      | Ground | `bg-base` | `bg-base` |
+      | Panel | `bg-primary` | `bg-primary` |
+      | Inset edge | lit, from `bg-hover` | shaded, from `bg-active` |
+
+      **The ground stays flat** — no wash, no vignette. Any gradient that
+      changes brightness under the panel changes how much of the ladder is
+      left at its edge, so the edge stops being uniform on all four sides.
+      An earlier attempt at a centre wash cancelled a full ladder step at
+      exactly the place the edge needed it.
+
+      **No new tokens.** Every value above already exists on both ramps.
+
+- [ ] **The four planes get new assignments.** `frame.html` currently puts
+      header and timer bar on `bg-recessed`, rail and dock on `bg-base`,
+      content on `bg-primary` and cards on `bg-elevated`. After this,
+      `bg-recessed` is unused in the frame and `bg-elevated` is no longer the
+      content plane's card layer, because there are no cards in the content
+      plane. **The ladder is unchanged; what sits on each rung is not** — so
+      this is an edit to what the planes mean, not to `deriving-colour.md`'s
+      generators.
+
+### Rules this changes
+
+Two standing rules in `frame.html` do not survive, and both are edited there
+**when the work ships**, not now — that doc describes what is built.
+
+**The four planes keep their ladder and lose their assignments**, per the task
+above. `brand.html` carries the ramp and is unaffected.
+
+**The active rail item is no longer a tab into the column beside it.** The
+sentence explaining the lift and the card shadow goes with it; what replaces
+it is the pill and marker, and the reason the old effect was worth having is
+worth keeping in a line, because it is the thing being given up.
+
+### What this rules out
+
+**Borderless needs two ladder steps.** One step of separation (ΔL 0.035)
+cannot carry an edge without a border at any ground, which is why the panel
+keeps a full step above its ground and why a hairline remains the fallback if
+the shadow work does not survive contact with the real app.
+
+**A fifth, darker ground plane is not the answer**, and was tried first. Going
+below `bg-recessed` removes the last of the shadow's headroom rather than
+adding separation — the direction that helps is up.
+
+**A gradient border is not the answer either.** It says the light is above,
+which the inset layer already says in one flat declaration, and it introduces
+a second vocabulary for describing an edge that every other surface in the app
+then has to match or contradict.
+
 ## Re-imagining the home cards
 
 The home screen is read fifty times a day, and almost nothing on it changes
@@ -588,7 +718,9 @@ decoration however hard it was to compute.
 
 The pieces below are one design and share an API call. They are listed
 separately because they ship separately, but the layout question is settled
-once, here.
+once, here. **How the cards are mounted is the section above** — they become
+regions of one panel rather than four cards, which is what moving Today to the
+dock makes possible.
 
 **The card set, top to bottom:** Unbilled, then Month (a cumulative line, no
 longer a single figure), then Velocity, then the heatmap, then Today's
