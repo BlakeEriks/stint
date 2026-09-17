@@ -65,6 +65,25 @@ export function cause(
   return stopped ? 'stop' : 'paid';
 }
 
+export type Beat = {
+  kind: 'stop' | 'paid';
+  amount: number;
+  seconds: number;
+  /** Whether the stopped work carries a rate at all, read off the money axis
+   *  at the moment of the stop rather than re-derived from the net amount.
+   *  `null` when the arrival cannot say — the label is suppressed rather
+   *  than guessed. */
+  billable: boolean | null;
+} | null;
+
+/**
+ * How long the delta stays beside the figure once the tween has landed.
+ *
+ * Exported for the retirement test, which advances a fake clock past it: a
+ * test holding its own copy of the number passes against a changed one.
+ */
+export const BEAT_MS = 2600;
+
 /** One key per origin, holding both deltas' state as one object. */
 const KEY = 'stint.day';
 
@@ -80,8 +99,8 @@ export type DayState = {
 };
 
 /** The local date, which is when these figures reset. */
-export function today(): string {
-  return localDateKey(new Date(), tz);
+export function today(zone: string = tz): string {
+  return localDateKey(new Date(), zone);
 }
 
 function read(): DayState | null {
@@ -188,7 +207,102 @@ export function fold(
  * is no period to name, and reporting the user's whole history as today's
  * earnings is the kind of invented figure this screen must never show.
  */
-export function useDayState(stats: Stats | null | undefined) {
+/**
+ * Whether a stop's work was rated, judged on the money axis at the stop.
+ *
+ * A stop that moves `total` up earned money, so it was billable.
+ *
+ * A net of zero has two causes, and the standing figure tells them apart. If
+ * there was no rated work before the stop and none after — `total` is zero on
+ * both sides — then nothing on this screen has a rate and the stop is
+ * genuinely unbillable. If there IS rated work and the total did not move,
+ * something offset it: a rate edited elsewhere in the same refetch. That is
+ * evidence about the rate, not about this work, so it resolves to `null` and
+ * the label is dropped rather than guessed. Calling money the user is about
+ * to invoice "unbillable" is the app misreporting a fact about billing.
+ *
+ * A net BELOW zero is the same offsetting case, more plainly.
+ */
+function billabilityOf(
+  kind: 'stop' | 'paid',
+  amount: number,
+  before: number,
+  after: number,
+): boolean | null {
+  if (kind === 'paid') return true;
+  if (amount > 0) return true;
+  if (amount === 0 && before === 0 && after === 0) return false;
+  return null;
+}
+
+/**
+ * The last thing that happened, for as long as it is worth saying.
+ *
+ * Retires itself on a timer: the delta answers "what just changed", and a
+ * chip still sitting there minutes later is answering a question the user has
+ * stopped asking — and would be read as part of the figure.
+ *
+ * Lives here, and is called ONCE, because two callers each held their own ref
+ * and their own timeout: the chip beside Unbilled and the cyan highlight in
+ * Velocity could fire and retire independently, and a region mounting late
+ * missed the transition the other had already consumed.
+ */
+function useBeat(
+  total: number,
+  seconds: number,
+  awaitingPayment: number,
+  epoch: string,
+): Beat {
+  const prev = useRef<Figures | null>(null);
+  const era = useRef(epoch);
+  const [beat, setBeat] = useState<Beat>(null);
+
+  useEffect(() => {
+    const next = { total, seconds, awaitingPayment };
+    /* A new timezone is a new query key, so React Query refetches and the
+       figures that arrive describe a different day boundary. Comparing them
+       against the old zone's snapshot reports the difference between two
+       timezones as money earned. The snapshot is dropped instead, and the
+       first arrival under the new zone becomes the baseline. */
+    const crossed = era.current !== epoch;
+    era.current = epoch;
+    const before = crossed ? null : prev.current;
+    prev.current = next;
+    const kind = cause(before, next);
+    if (!kind || !before) return;
+
+    /* Each kind takes its amount from the axis its own event moves: a raised
+       invoice is what landed in `awaitingPayment`, never the net of unbilled,
+       which a concurrent stop would have already mixed into. */
+    const amount =
+      kind === 'paid'
+        ? awaitingPayment - before.awaitingPayment
+        : total - before.total;
+    setBeat({
+      kind,
+      amount,
+      seconds: seconds - before.seconds,
+      billable: billabilityOf(kind, amount, before.total, total),
+    });
+    const t = setTimeout(() => setBeat(null), BEAT_MS);
+    return () => clearTimeout(t);
+  }, [total, seconds, awaitingPayment, epoch]);
+
+  return beat;
+}
+
+/**
+ * @param zone The timezone the `/stats` query is keyed by. It is part of the
+ *   cache key, so a change refetches as a NEW query whose figures describe a
+ *   different day boundary — the refs that hold the previous arrival must be
+ *   dropped with it, or the difference between two timezones is folded into
+ *   today's earnings as work nobody did. Defaults to this browser's zone,
+ *   which is what the app passes.
+ */
+export function useDayState(
+  stats: Stats | null | undefined,
+  zone: string = tz,
+) {
   const ready = stats != null;
   const settled = stats?.unbilled.total ?? 0;
 
@@ -203,30 +317,52 @@ export function useDayState(stats: Stats | null | undefined) {
      itself, which resolves as "nothing happened" and silently drops the stop
      that had just been folded in. */
   const last = useRef<Figures | null>(null);
+  const era = useRef(zone);
 
   if (opened.current === undefined && ready) {
     opened.current = read();
   }
 
+  /* The three scalars the effect actually reads, lifted out of `stats` so the
+     dependency list below can name them — exactly as `useBeat` does, and for
+     the same reason its own comment gives. */
+  const seconds = stats?.unbilled.seconds ?? 0;
+  const awaiting = stats?.awaitingPayment ?? 0;
+
   useEffect(() => {
     if (!ready) return;
-    const now = figuresOf(stats);
+    const now: Figures = {
+      total: settled,
+      seconds,
+      awaitingPayment: awaiting,
+    };
+    /* A timezone change refetches under a new query key, and the arriving
+       figures describe a different day boundary. Diffing them against the old
+       zone's snapshot would fold a cross-timezone difference into
+       `earnedToday` as work that never happened. */
+    if (era.current !== zone) {
+      era.current = zone;
+      last.current = null;
+    }
     const why = cause(last.current, now);
     last.current = now;
 
     setState((current) => {
       const next = fold(
         current ?? opened.current ?? null,
-        { date: today(), unbilled: settled },
+        { date: today(zone), unbilled: settled },
         why,
       );
       write(next);
       return next;
     });
-    /* Keyed to the figure: an effect keyed to `stats` would re-run on every
-       refetch that changed nothing, fold a null cause and advance the
-       baseline for no reason. */
-  }, [ready, settled, stats]);
+    /* Keyed to the figures, never to `stats`: an effect keyed to the object
+       would re-run on every refetch that changed nothing, fold a null cause
+       and advance the baseline for no reason — which drops the next real
+       stop, because it is then measured from a snapshot of itself. */
+  }, [ready, settled, seconds, awaiting, zone]);
+
+  const beat = useBeat(settled, seconds, awaiting, zone);
 
   /* A first-ever load has no stored yesterday, so there is no period to name
      and "since yesterday" over the user's whole history would be untrue.
@@ -241,5 +377,8 @@ export function useDayState(stats: Stats | null | undefined) {
     earnedToday: state ? state.earnedToday : null,
     /** Unbilled's movement since yesterday closed, or null on a first load. */
     sinceOpen: state && !first ? settled - state.openedUnbilled : null,
+    /** The last classified event, retiring on its own timer. One per panel:
+     *  two callers each held their own timer and could disagree. */
+    beat,
   };
 }

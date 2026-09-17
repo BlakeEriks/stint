@@ -2,7 +2,8 @@ import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { BEAT_MS, HomeCards } from '@/components/home-cards';
+import { HomeCards } from '@/components/home-cards';
+import { BEAT_MS } from '@/lib/client/use-day-state';
 import type { Stats } from '@/lib/client/api';
 import { localDateKey } from '@stint/core';
 import { timeZone as tz } from '@/lib/client/use-timer';
@@ -26,6 +27,7 @@ function stats(over: Partial<Stats> = {}): Stats {
     velocity: {
       months: 3,
       total: 0,
+      perMonth: 0,
       invoiced: 0,
       unbilled: 0,
       seconds: 0,
@@ -203,6 +205,7 @@ describe('HomeCards', () => {
         velocity: {
           months: 3,
           total: 9000,
+          perMonth: 3000,
           invoiced: 6000,
           unbilled: 3000,
           seconds: 360000,
@@ -484,6 +487,7 @@ describe('Velocity', () => {
   const velocity = {
     months: 3,
     total: 9000,
+    perMonth: 3000,
     invoiced: 6000,
     unbilled: 3000,
     seconds: 360000,
@@ -601,6 +605,7 @@ describe('the panel pairs its regions', () => {
   const velocity = {
     months: 3,
     total: 9000,
+    perMonth: 3000,
     invoiced: 6000,
     unbilled: 3000,
     seconds: 360000,
@@ -908,6 +913,42 @@ describe('the beat says only what it can tell', () => {
     }
   });
 
+  /* A stop and an offsetting rate edit land in one refetch: hours moved, so
+     it is a stop, but the money nets to exactly zero. That zero is not
+     evidence the work was unrated — it is evidence about the rate — and the
+     old test `Math.abs(amount) > 0` read it as unbillable and said so beside
+     rated work the user is about to invoice. The word is dropped rather than
+     guessed; the hours are true either way. */
+  it('will not call a stop unbillable when a rate edit offsets it', async () => {
+    let current = stats({ unbilled: unbilledAt(1000, 3600) });
+    serveMoving(() => current);
+
+    const { container } = render(<HomeCards />, { wrapper: movingWrapper });
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+
+    /* An hour of rated work stops (+$150) while a rate cut elsewhere takes
+       $150 off what was already there. Seconds move; the total does not. */
+    current = stats({ unbilled: unbilledAt(1000, 7200) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+
+    /* The chip is what this test is about, so wait for IT rather than for
+       the region around it — the beat lands an effect later than the figure
+       and a snapshot taken too early shows neither label and passes. */
+    await waitFor(() => expect(beats(container).length).toBeGreaterThan(0));
+
+    // An hour is reported; the word the app cannot justify is not.
+    expect(beats(container).some((b) => b.kind === 'stop')).toBe(true);
+    expect(screen.queryByText(/unbillable/)).toBeNull();
+    for (const b of beats(container)) {
+      expect(b.text).not.toMatch(/unbillable/);
+      expect(b.text).toMatch(/1h/);
+    }
+  });
+
   it('still counts a plain billable stop up with its delta', async () => {
     /* The behaviour that was already right: hours and money both arrive, so
        the beat is a stop and the delta is what the stop earned. Neutral, not
@@ -1005,5 +1046,121 @@ describe('the beat says only what it can tell', () => {
       await vi.advanceTimersByTimeAsync(BEAT_MS + 100);
     });
     expect(beats(container)).toEqual([]);
+  });
+});
+
+/**
+ * Money already asked for outlives the work it came from.
+ *
+ * The unbilled rollup's `having sum(seconds) > 0` empties `byClient` the
+ * moment everything is invoiced — which is exactly when `awaitingPayment` is
+ * the only figure on the screen. A region that hid on the empty list alone
+ * took it down with it, and money the user is owed read as nothing at all.
+ */
+describe('awaiting payment survives a fully-invoiced book', () => {
+  it('renders the link when every client has been invoiced', async () => {
+    serve(
+      stats({
+        // Invoiced to the last hour: the rollup returns no rows at all.
+        unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
+        awaitingPayment: 4250,
+      }),
+    );
+
+    render(<HomeCards />, { wrapper });
+
+    const link = await screen.findByRole('link', {
+      name: /sent, awaiting payment/,
+    });
+    expect(link).toHaveAttribute('href', '/invoices?status=sent');
+    expect(screen.getByText('$4,250.00')).toBeInTheDocument();
+  });
+
+  /* The other half of the guard: with nothing unbilled AND nothing awaiting
+     payment there is genuinely nothing to say, and an empty region is worse
+     than none. `0` is a valid amount, so this is the boundary the coalesce
+     has to get right rather than a truthiness test. */
+  it('still hides when there is no money on either axis', async () => {
+    serve(
+      stats({
+        unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
+        awaitingPayment: 0,
+      }),
+    );
+
+    render(<HomeCards />, { wrapper });
+    /* The panel itself is what arrives — Velocity hides on an empty book
+       too, so the day name is the anchor that says the fetch landed. */
+    await waitFor(() =>
+      expect(screen.getByText('Thursday')).toBeInTheDocument(),
+    );
+
+    expect(screen.queryByText('Unbilled')).toBeNull();
+    expect(screen.queryByText(/awaiting payment/)).toBeNull();
+  });
+});
+
+/**
+ * The headline and the split beneath it are one statement.
+ *
+ * `/mo` is the gross divided by the window, and it is printed directly above
+ * the invoiced and unbilled figures that make it up. Divided at the render,
+ * `Intl` rounded the quotient for display and `× months` no longer equalled
+ * what was printed underneath — a billing screen contradicting itself by
+ * cents. The division happens in `buildVelocity` now, so what is shown is
+ * what was computed.
+ */
+describe('the velocity figures reconcile', () => {
+  it('multiplies back to the split printed beneath it', async () => {
+    /* 3 months of $1,000.01 — a total that does NOT divide evenly, which is
+       the whole case: 3000.03 / 3 is 1000.01 exactly, while an unrounded
+       quotient off a total like 3000.02 renders as a figure that does not
+       multiply back. */
+    const invoiced = 2000.02;
+    const unbilled = 1000.01;
+    serve(
+      stats({
+        unbilled: { ...oneClient },
+        velocity: {
+          months: 3,
+          total: 3000.03,
+          perMonth: 1000.01,
+          invoiced,
+          unbilled,
+          seconds: 36000,
+          byClient: [
+            {
+              clientId: 'c1',
+              clientName: 'Northwind',
+              currency: 'USD',
+              seconds: 36000,
+              invoiced,
+              unbilled,
+              unratedCount: 0,
+            },
+          ],
+          moreClients: 0,
+        },
+      }),
+    );
+
+    render(<HomeCards />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getByText('Velocity')).toBeInTheDocument(),
+    );
+
+    /* Read the headline off the screen and multiply it back, rather than
+       asserting a string: the test is the reconciliation, not the format.
+       Found via the `/mo gross` unit beside it, because the same amount also
+       appears in the per-client legend below. */
+    const unit = await screen.findByText('/mo gross');
+    const headline = unit.previousElementSibling;
+    const perMonth = Number(
+      (headline?.textContent ?? '').replace(/[^0-9.]/g, ''),
+    );
+    expect(perMonth).toBeGreaterThan(0);
+    expect(Math.round(perMonth * 3 * 100) / 100).toBe(
+      Math.round((invoiced + unbilled) * 100) / 100,
+    );
   });
 });

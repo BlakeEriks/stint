@@ -120,13 +120,14 @@ describe('a new day starts over', () => {
 describe('a corrupt store earns nothing rather than NaN', () => {
   const NOON = new Date(2026, 8, 17, 12, 0, 0);
 
-  function statsAt(total: number): Stats {
+  function statsAt(total: number, seconds = 3600): Stats {
     return {
       currency: 'USD',
-      unbilled: { total, seconds: 3600, byClient: [], moreClients: 0 },
+      unbilled: { total, seconds, byClient: [], moreClients: 0 },
       velocity: {
         months: 3,
         total: 0,
+        perMonth: 0,
         invoiced: 0,
         unbilled: 0,
         seconds: 0,
@@ -234,5 +235,130 @@ describe('a corrupt store earns nothing rather than NaN', () => {
        the since-line reads 120 and nothing carries over as earnings. */
     await waitFor(() => expect(result.current.sinceOpen).toBe(120));
     expect(result.current.earnedToday).toBe(0);
+  });
+});
+
+/**
+ * What the hook compares each arrival against, and when it must forget it.
+ *
+ * Both rules here are about the REFS rather than the fold: a snapshot kept
+ * when it should have been dropped, or advanced when nothing happened, turns
+ * the next honest stop into a figure nobody earned. Neither is reachable
+ * through `fold` alone — they only exist across arrivals.
+ */
+describe('the baseline is kept only while it means something', () => {
+  const NOON = new Date(2026, 8, 17, 12, 0, 0);
+
+  function arrival(total: number, seconds: number, awaiting = 0): Stats {
+    return {
+      currency: 'USD',
+      unbilled: { total, seconds, byClient: [], moreClients: 0 },
+      velocity: {
+        months: 3,
+        total: 0,
+        perMonth: 0,
+        invoiced: 0,
+        unbilled: 0,
+        seconds: 0,
+        byClient: [],
+        moreClients: 0,
+      },
+      pace: null,
+      billableRatio: null,
+      awaitingPayment: awaiting,
+      attention: {
+        overdueInvoices: [],
+        staleDrafts: [],
+        unprojected: [],
+        strangeDurations: [],
+      },
+    };
+  }
+
+  /** A stored day, so neither test is measuring a first-ever load. */
+  function storeDay(unbilled: number) {
+    localStorage.setItem(
+      'stint.day',
+      JSON.stringify({
+        date: '2026-09-17',
+        openedUnbilled: unbilled,
+        earnedToday: 0,
+        lastUnbilled: unbilled,
+      }),
+    );
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(NOON);
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    localStorage.clear();
+  });
+
+  /* `keys.stats(tz)` carries the timezone, so a change refetches as a NEW
+     query whose figures describe a different day boundary. Diffed against
+     the previous zone's snapshot, the difference between two timezones is
+     folded in as work — the app inventing earnings out of a clock change. */
+  it('forgets the previous zone rather than earning the difference', async () => {
+    storeDay(1000);
+
+    const before = arrival(1000, 3600);
+    const after = arrival(1600, 9000);
+    /* Two US zones that share a local DATE at this hour, deliberately: a
+       zone whose date differs sends `fold` down its new-day branch, which
+       zeroes the figure for an unrelated reason and hides the bug. Here only
+       the day BOUNDARY moves, which is the case the refs get wrong. */
+    const { result, rerender } = renderHook(
+      ({ a, zone }: { a: Stats; zone: string }) => useDayState(a, zone),
+      { initialProps: { a: before, zone: 'America/New_York' } },
+    );
+
+    await waitFor(() => expect(result.current.earnedToday).toBe(0));
+
+    /* The zone moves and the figures move with it — more hours fall inside
+       the new zone's day. Nothing was worked; the window moved. */
+    rerender({ a: after, zone: 'America/Los_Angeles' });
+
+    /* Without the reset, `cause` reads a stop and the fold adds the $600
+       difference between two timezones as money earned. The new zone's
+       first arrival is a baseline, not a delta. */
+    await waitFor(() => expect(result.current.sinceOpen).toBe(600));
+    expect(result.current.earnedToday).toBe(0);
+  });
+
+  /* The effect's own comment forbids keying on `stats`, and it keyed on it
+     anyway. The figures are what it reads, so the figures are what it
+     depends on — and the retirement timer is where object identity does
+     observable harm (`home-cards.test.tsx` pins that). What is pinned here
+     is the fold: any number of identity-only arrivals must leave the
+     baseline where it was, so the stop after them earns its full amount. */
+  it('ignores object identity and still earns the stop after it', async () => {
+    storeDay(1000);
+
+    const { result, rerender } = renderHook(
+      ({ a }: { a: Stats }) => useDayState(a),
+      { initialProps: { a: arrival(1000, 3600) } },
+    );
+
+    await waitFor(() => expect(result.current.earnedToday).toBe(0));
+
+    /* The same three figures behind two more object identities, which is
+       what a refetch stream looks like when nothing the day cares about has
+       moved. */
+    rerender({ a: arrival(1000, 3600) });
+    await waitFor(() => expect(result.current.earnedToday).toBe(0));
+    rerender({ a: arrival(1000, 3600) });
+    await waitFor(() => expect(result.current.earnedToday).toBe(0));
+
+    /* None of those was an event, so none moved the baseline: the stop is
+       measured from $1,000 and earns its full $150. */
+    rerender({ a: arrival(1150, 7200) });
+    await waitFor(() => expect(result.current.earnedToday).toBe(150));
+    expect(result.current.beat?.kind).toBe('stop');
+    expect(result.current.beat?.amount).toBe(150);
   });
 });

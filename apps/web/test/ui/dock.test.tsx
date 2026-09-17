@@ -78,6 +78,7 @@ function serveFullRow() {
             velocity: {
               months: 3,
               total: 0,
+              perMonth: 0,
               invoiced: 0,
               unbilled: 0,
               seconds: 0,

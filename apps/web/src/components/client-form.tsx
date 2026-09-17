@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ColorPicker } from './color-picker';
 import { Field } from './field';
 import { api, ApiError, type Client, type ClientInput } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
+import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 /**
  * Create and edit are the same form — the only difference is which request
@@ -53,8 +53,11 @@ export function ClientForm({
       existing ? api.updateClient(existing.id, body) : api.createClient(body),
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: keys.clients() });
-      // The client's rate is what unbilled work is valued at.
-      queryClient.invalidateQueries({ queryKey: keys.stats() });
+      /* The client's rate is what unbilled work is valued at — and every
+         other rollup reads the same entries through the same rate chain, so
+         refreshing `stats` alone leaves the heatmap and the activity list
+         disagreeing with the figure above them. */
+      invalidateEntryData(queryClient);
       if (onSaved) onSaved(saved);
       else router.push(`/clients/${saved.id}`);
     },

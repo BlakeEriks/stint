@@ -522,6 +522,9 @@ export const Stats = z.object({
   velocity: z.object({
     months: z.number().int().positive(),
     total: money,
+    /** `total / months`, rounded to cents here so the figure the screen
+     *  leads with reconciles with the split printed beneath it. */
+    perMonth: money,
     invoiced: money,
     unbilled: money,
     seconds: z.number().int().nonnegative(),

@@ -15,6 +15,7 @@ function stats(attention: Partial<Stats['attention']> = {}): Stats {
     velocity: {
       months: 3,
       total: 0,
+      perMonth: 0,
       invoiced: 0,
       unbilled: 0,
       seconds: 0,

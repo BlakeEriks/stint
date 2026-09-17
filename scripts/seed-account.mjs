@@ -92,7 +92,15 @@ const OVERDUE_DAYS = 19; // 12 past a 7-day grace
 const STALE_DRAFT_DAYS = 12; // 5 past the 7-day threshold
 const RUNAWAY_HOURS = 11; // 3 past the 8-hour default
 
-/** Invoices the seed writes, so the inbox has something to be about. */
+/**
+ * Invoices the seed writes, so the inbox has something to be about.
+ *
+ * **Hours, never a total.** The total is `seconds × the resolved rate`, in
+ * that direction: a seeded total with the rate back-derived from it produces
+ * a line item whose `resolved_rate` is a number `resolve_rate()` would never
+ * return for the client it is billed to, and rate resolution is the one thing
+ * this data exists to let you see working.
+ */
 const INVOICES = [
   {
     status: 'sent',
@@ -101,7 +109,7 @@ const INVOICES = [
        than merely unpaid. */
     issuedDaysAgo: OVERDUE_DAYS + 30,
     dueDaysAgo: OVERDUE_DAYS,
-    total: 2340,
+    hours: 15.6,
     description: 'Warehouse dashboard — October',
   },
   {
@@ -110,7 +118,7 @@ const INVOICES = [
        row does not — the two are different money and must never be summed. */
     issuedDaysAgo: 6,
     dueDaysAgo: -24,
-    total: 1125,
+    hours: 7.5,
     description: 'Peak season fixes — November',
   },
   {
@@ -119,7 +127,7 @@ const INVOICES = [
     status: 'draft',
     issuedDaysAgo: STALE_DRAFT_DAYS,
     dueDaysAgo: STALE_DRAFT_DAYS - 30,
-    total: 780,
+    hours: 5.2,
     description: 'Data pipeline audit — partial',
   },
   {
@@ -128,7 +136,7 @@ const INVOICES = [
     status: 'paid',
     issuedDaysAgo: 45,
     dueDaysAgo: 15,
-    total: 3200,
+    hours: 21.3,
     description: 'Warehouse dashboard — September',
   },
 ];
@@ -189,9 +197,26 @@ async function findOrCreateUser(address) {
   return id;
 }
 
-const db = new pg.Client({
-  connectionString: process.env.SEED_DATABASE_URL ?? DEFAULT_URL,
-});
+/**
+ * Local stack only, checked before anything connects.
+ *
+ * This script inserts a confirmed `auth.users` row with a fixed, published
+ * password. Against a hosted database that is an account anyone who has read
+ * this file can sign in as, so the override is refused rather than trusted:
+ * the only addresses it accepts are the local Postgres the dev stack runs.
+ */
+const connectionString = process.env.SEED_DATABASE_URL ?? DEFAULT_URL;
+{
+  const { hostname, port } = new URL(connectionString);
+  if (!['localhost', '127.0.0.1'].includes(hostname) || port !== '54322') {
+    console.error(
+      `Refusing to seed ${hostname}:${port || '(default)'} — this script writes a known password and runs only against localhost:54322.`,
+    );
+    process.exit(1);
+  }
+}
+
+const db = new pg.Client({ connectionString });
 await db.connect();
 
 try {
@@ -438,7 +463,36 @@ try {
   const prefix = settingsRows[0]?.invoice_number_prefix ?? 'INV-';
   const nextNumber = settingsRows[0]?.next_invoice_number ?? 1;
 
+  /* The rate these lines bill at, resolved off the chain the app bills on —
+     read back from the rows just inserted rather than assumed, so a change to
+     `CLIENTS` or to the default above cannot leave the seeded rate behind.
+     Mirrors `resolveRate()` in `@stint/core` and `resolve_rate()` in SQL: no
+     project on these lines, so it is the client's rate, else the user's
+     default. `0` is a valid rate throughout, hence `??` and never `||`. */
+  const { rows: rateRows } = await db.query(
+    `select c.hourly_rate as client_rate, s.default_hourly_rate as user_rate
+       from clients c
+       join user_settings s on s.user_id = c.user_id
+      where c.id = $1`,
+    [firstClientId],
+  );
+  const resolvedRate =
+    rateRows[0]?.client_rate ?? rateRows[0]?.user_rate ?? null;
+  if (resolvedRate == null) {
+    throw new Error(
+      'No rate resolves for the seeded client — an invoice line needs one.',
+    );
+  }
+  /** Cents, once, at the end — as `lineAmount()` does. */
+  const lineAmount = (seconds) =>
+    Math.round((seconds / 3600) * Number(resolvedRate) * 100) / 100;
+
   for (const inv of INVOICES) {
+    /* Seconds first, then money: the line's amount is what those seconds are
+       worth at the resolved rate, which is the direction the app computes in
+       and the only one that leaves `resolved_rate` truthful. */
+    const seconds = Math.round(inv.hours * 3600);
+    const total = lineAmount(seconds);
     const issued = new Date();
     issued.setDate(issued.getDate() - inv.issuedDaysAgo);
     const due = new Date();
@@ -475,7 +529,7 @@ try {
         due.toISOString().slice(0, 10),
         periodStart.toISOString().slice(0, 10),
         periodEnd.toISOString().slice(0, 10),
-        inv.total,
+        total,
         inv.status === 'draft' ? null : issued.toISOString(),
         inv.status === 'paid' ? due.toISOString() : null,
       ],
@@ -484,13 +538,7 @@ try {
       `insert into invoice_line_items
          (invoice_id, description, quantity_seconds, resolved_rate, amount, sort_order)
        values ($1, $2, $3, $4, $5, 0)`,
-      [
-        invoiceId,
-        inv.description,
-        Math.round((inv.total / 150) * 3600),
-        150,
-        inv.total,
-      ],
+      [invoiceId, inv.description, seconds, resolvedRate, total],
     );
     invoiceNo += 1;
   }

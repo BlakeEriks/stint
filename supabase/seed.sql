@@ -365,8 +365,17 @@ where i.sequence_no >= 101
 group by e.invoice_id, coalesce(nullif(e.task_name, ''), 'Untitled'),
          e.rate_override, p.hourly_rate, c.hourly_rate, s.default_hourly_rate;
 
+-- Scoped to this user on BOTH sides. The subquery summed every account's
+-- line items, and `sequence_no >= 101` is a per-user sequence — so on a
+-- database holding a second account the seed rewrote that account's invoice
+-- totals. A seed touches only what it seeded.
 update invoices i
    set subtotal = t.total, total = t.total
-  from (select invoice_id, sum(amount) as total
-          from invoice_line_items group by invoice_id) as t
- where t.invoice_id = i.id and i.sequence_no >= 101;
+  from (select li.invoice_id, sum(li.amount) as total
+          from invoice_line_items li
+          join invoices i2 on i2.id = li.invoice_id
+         where i2.user_id = '00000000-0000-4000-8000-000000000001'
+         group by li.invoice_id) as t
+ where t.invoice_id = i.id
+   and i.user_id = '00000000-0000-4000-8000-000000000001'
+   and i.sequence_no >= 101;

@@ -9,7 +9,7 @@ import { useAutosave } from '@/lib/client/use-autosave';
 import { api, type Settings, type SettingsInput } from '@/lib/client/api';
 import { type Theme, useTheme } from '@/lib/client/use-theme';
 import { Listing } from './page';
-import { keys } from '@/lib/client/query-keys';
+import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 /**
  * Settings. No save button: edits persist on their own after a pause, and
@@ -59,8 +59,10 @@ function Cards({ loaded }: { loaded: Settings }) {
     await api.updateSettings(rest);
     queryClient.invalidateQueries({ queryKey: keys.settings() });
     /* The default rate and the monthly target are both inputs to the home
-       cards, so a settings edit that leaves them stale contradicts itself. */
-    queryClient.invalidateQueries({ queryKey: keys.stats() });
+       cards, so a settings edit that leaves them stale contradicts itself —
+       and the default rate is the last link of the chain every rollup bills
+       through, so they all go. */
+    invalidateEntryData(queryClient);
   };
 
   const billing = useAutosave(persist);

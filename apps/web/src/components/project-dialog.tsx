@@ -21,7 +21,7 @@ import {
   type ProjectInput,
 } from '@/lib/client/api';
 import { ClientForm } from './client-form';
-import { keys } from '@/lib/client/query-keys';
+import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 /** The select's "create one" escape hatch. Not a client id, so it cannot
     collide with one. */
@@ -88,8 +88,8 @@ export function ProjectDialog({
       existing ? api.updateProject(existing.id, body) : api.createProject(body),
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: keys.projects() });
-      // A project's rate is what its unbilled work is valued at.
-      queryClient.invalidateQueries({ queryKey: keys.stats() });
+      // A project's rate is what its unbilled work is valued at, in every rollup.
+      invalidateEntryData(queryClient);
       onSaved?.(saved);
       onOpenChange(false);
     },

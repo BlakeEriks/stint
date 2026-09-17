@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   formatCompact,
@@ -23,7 +22,7 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import { formatCurrency } from './invoice-bits';
 import { keys } from '@/lib/client/query-keys';
 import { useCountUp, useSinceLastSeen } from '@/lib/client/use-count-up';
-import { cause, type Figures, useDayState } from '@/lib/client/use-day-state';
+import { type Beat, useDayState } from '@/lib/client/use-day-state';
 
 /**
  * The day, and what moved while you were away.
@@ -104,11 +103,20 @@ function Panel({ stats }: { stats: Stats }) {
     <div className="@container flex flex-col pb-4">
       <PanelHead delta={day.sinceOpen} currency={data.currency} />
       <Pair
-        left={<Unbilled stats={data} earnedToday={day.earnedToday} />}
+        left={
+          <Unbilled
+            stats={data}
+            earnedToday={day.earnedToday}
+            beat={day.beat}
+          />
+        }
         right={<ByClient stats={data} />}
       />
       <Rule />
-      <Pair left={<Month stats={data} />} right={<Velocity stats={data} />} />
+      <Pair
+        left={<Month stats={data} />}
+        right={<Velocity stats={data} beat={day.beat} />}
+      />
       <Rule />
       <Heatmap />
     </div>
@@ -143,64 +151,6 @@ function Pair({
   );
 }
 
-type Beat = { kind: 'stop' | 'paid'; amount: number; seconds: number } | null;
-
-/**
- * How long the delta stays beside the figure once the tween has landed.
- *
- * Exported for the retirement test, which advances a fake clock past it: a
- * test holding its own copy of the number passes against a changed one.
- */
-export const BEAT_MS = 2600;
-
-/**
- * The last thing that happened, for as long as it is worth saying.
- *
- * Retires itself on a timer: the delta answers "what just changed", and a
- * chip still sitting there minutes later is answering a question the user has
- * stopped asking — and would be read as part of the figure.
- */
-function useBeat(stats: Stats): Beat {
-  const prev = useRef<Figures | null>(null);
-  const [beat, setBeat] = useState<Beat>(null);
-
-  /* The three figures a beat is read from, captured as scalars so the effect
-     below depends on THEM and not on the `stats` object.
-
-     React Query returns a new object whenever any field changes — a client's
-     age ticking over, a task renamed. An effect keyed on the object re-runs
-     for those, and its cleanup clears the pending retirement timeout before
-     the `no cause` guard returns without arming a replacement: the chip is
-     stranded beside the figure, which is the exact failure the timer exists
-     to prevent. `useDayState` keys on its figure for the same reason. */
-  const { total, seconds } = stats.unbilled;
-  const { awaitingPayment } = stats;
-
-  useEffect(() => {
-    const next = { total, seconds, awaitingPayment };
-    const before = prev.current;
-    prev.current = next;
-    const kind = cause(before, next);
-    if (!kind || !before) return;
-
-    /* Each kind takes its amount from the axis its own event moves: a raised
-       invoice is what landed in `awaitingPayment`, never the net of unbilled,
-       which a concurrent stop would have already mixed into. */
-    setBeat({
-      kind,
-      amount:
-        kind === 'paid'
-          ? awaitingPayment - before.awaitingPayment
-          : total - before.total,
-      seconds: seconds - before.seconds,
-    });
-    const t = setTimeout(() => setBeat(null), BEAT_MS);
-    return () => clearTimeout(t);
-  }, [total, seconds, awaitingPayment]);
-
-  return beat;
-}
-
 /**
  * What the last change was worth, beside the figure it changed.
  *
@@ -219,16 +169,22 @@ function Delta({ beat, currency }: { beat: Beat; currency: string }) {
   /* `paid` counts Unbilled DOWN: the money left work-not-yet-invoiced. Its
      amount arrives positive, as the rise in what is awaiting payment. */
   const money = beat.kind === 'paid' ? -beat.amount : beat.amount;
-  /* Only a stop can be unbillable. A raised invoice always carries a figure,
-     so it is never routed to the hours branch — that is how paid, billable
-     money came to be labelled unbillable. */
-  const billable = beat.kind === 'paid' || Math.abs(beat.amount) > 0;
 
   /* Reports, never praises: "invoiced" is what happened, and a stop that
-     earned nothing says the hours it did earn instead. */
-  const text = billable
-    ? `${money >= 0 ? '+' : '−'}${formatCurrency(Math.abs(money), currency)}`
-    : `+${formatCompact(beat.seconds)} unbillable`;
+     earned nothing says the hours it did earn instead.
+
+     `billable` is carried on the beat, decided where the arrival was — never
+     re-derived from `amount` here. A net of zero has two causes that look
+     identical at this point: genuinely unrated work, and a billable stop that
+     a rate edit in the same refetch exactly offset. Reading it as the first
+     printed "unbillable" beside work the user is about to invoice. Unknown
+     drops the word and reports the hours alone, which is true either way. */
+  const text =
+    beat.billable === true
+      ? `${money >= 0 ? '+' : '−'}${formatCurrency(Math.abs(money), currency)}`
+      : beat.billable === false
+        ? `+${formatCompact(beat.seconds)} unbillable`
+        : `+${formatCompact(beat.seconds)}`;
 
   return (
     <span
@@ -264,7 +220,10 @@ function Earned({
   beat: Beat;
   currency: string;
 }) {
-  const unbillable = beat && beat.kind === 'stop' && beat.amount === 0;
+  /* Yields to any stop the beat could not price — unrated work, and the
+     net-zero case it will not guess at. Both render hours rather than money,
+     and `+$0.00` beside them would contradict the chip. */
+  const unbillable = beat && beat.kind === 'stop' && beat.billable !== true;
   if (unbillable || beat?.kind === 'paid') {
     return <Delta beat={beat} currency={currency} />;
   }
@@ -355,19 +314,26 @@ function Rule() {
 function Unbilled({
   stats,
   earnedToday,
+  beat,
 }: {
   stats: Stats;
   earnedToday: number | null;
+  beat: Beat;
 }) {
   const { total, byClient } = stats.unbilled;
-  const beat = useBeat(stats);
   /* Travel only. This still animates from what this browser last DISPLAYED,
      which is a fact about the screen; the two figures that describe a period
      — today's earnings and the day-over-day line — come from `useDayState`
      and are measured against the day, not against the last paint. */
   const arrival = useSinceLastSeen(SEEN_UNBILLED, total);
 
-  if (byClient.length === 0) return null;
+  /* The awaiting-payment link lives inside this region, so hiding on an empty
+     `byClient` alone took money already asked for down with it: the rollup's
+     `having sum(seconds) > 0` empties `byClient` the moment everything is
+     invoiced, which is exactly when `awaitingPayment` is the only figure left
+     to show. `0` is a valid amount, so this coalesces rather than testing
+     truthiness. */
+  if (byClient.length === 0 && (stats.awaitingPayment ?? 0) <= 0) return null;
 
   return (
     <Region
@@ -734,9 +700,8 @@ function EditGoal() {
  * book the same order of magnitude — reads at a glance as the first one
  * printed twice. The mix is a bar and a key instead: a shape, not a table.
  */
-function Velocity({ stats }: { stats: Stats }) {
+function Velocity({ stats, beat }: { stats: Stats; beat: Beat }) {
   const v = stats.velocity;
-  const beat = useBeat(stats);
   /* Invoiced, not the total: a payment moves money across the split without
      changing the gross, so the total is the one figure that does NOT move on
      the beat this region exists to show. */
@@ -760,8 +725,9 @@ function Velocity({ stats }: { stats: Stats }) {
   const gross = (c: (typeof v.byClient)[number]) => c.invoiced + c.unbilled;
   const paid = beat?.kind === 'paid';
 
-  /** Per month, which is what makes two windows comparable. */
-  const perMonth = v.total / v.months;
+  /* Per month, which is what makes two windows comparable. Rounded by
+     `buildVelocity`, never divided here: the client does not compute money. */
+  const perMonth = v.perMonth;
 
   return (
     <Region
