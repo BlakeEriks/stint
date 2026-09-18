@@ -579,6 +579,43 @@ later.
       `1.15fr 1fr`; the chart takes the wider half, since bars with project
       names need more room than a year of 9px cells.
 
+- [ ] **Stopping the timer moves Unbilled on the stop response.** In the menu
+      bar panel, `toggle()` discards what `stopTimer()` returns and waits on a
+      full `refresh()` — `/summary`, then `/stats`, then `/entries`, issued
+      serially (`TimerModel.swift:206`, `:155-184`). Unbilled therefore sits
+      still for two sequential round trips after the press. Return the new
+      unbilled total from `POST /timer/stop` alongside the entry, and the
+      panel has the number it needs from the call it already made.
+
+      **The rate chain stays server-side, which is the point.** Unbilled is
+      `unbilled_by_client` resolving `rate_override → project → client → user
+      default` and rounding per (client, rate) bucket. A client predicting its
+      own delta would be a third implementation of a chain `CLAUDE.md` already
+      requires two copies of to agree, and Swift has only `Project.hourlyRate`
+      locally — no client or user-default fallback. Computing it in the stop
+      route reuses `buildUnbilled`.
+
+      Animating it is one line. `statistic()` already carries
+      `.contentTransition(.numericText())` (`ContentView.swift:383`) and it is
+      inert, because nothing wraps the assignment in an animated transaction —
+      `withAnimation` around the state change is the whole fix. That is a digit
+      roll, not the web's 160ms sweep through the intervening amounts; the roll
+      is the more native of the two on macOS and needs no ticker. The running
+      readout is still never animated (`tokens.json:669`).
+
+      `stats` is `private(set)` and `refresh()` replaces it wholesale, so the
+      figure from the stop response wants folding in rather than written over
+      the old object — the next refresh lands seconds later and would otherwise
+      fight it. `refresh()` is also unguarded against the 60s poller running
+      concurrently, so reconcile against the refresh that was started here, not
+      whichever one finishes last.
+
+      Web gets it free and does not need it: `useCountUp` already tweens on any
+      change of the target, and its two round trips are the same two. Doing the
+      panel first keeps the change to one client.
+
+      `docs/api.md:25` is the contract that moves.
+
 ## Needs a decision first
 
 Each of these names the question blocking it. Answer the question, then it
