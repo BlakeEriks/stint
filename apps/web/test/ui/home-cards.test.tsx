@@ -588,19 +588,20 @@ describe('Velocity', () => {
     expect(container.textContent).toContain('/mo gross');
   });
 
-  it('splits the window into invoiced and unbilled without double-counting', async () => {
+  it('prints the per-month gross, never the invoiced/unbilled split', async () => {
     serve(stats({ velocity }));
     render(<HomeCards />, { wrapper });
 
-    await waitFor(() =>
-      expect(screen.getByText(/invoiced/)).toBeInTheDocument(),
-    );
-    /* `invoiced + unbilled` IS the window's gross; the split moves as
-       invoices are raised while the gross does not. */
-    expect(screen.getByText('$6,000.00')).toBeInTheDocument();
-    expect(screen.getAllByText('$3,000.00').length).toBeGreaterThan(0);
-    // The two halves summed on top of the gross would be $15,000.
-    expect(screen.queryByText('$15,000.00')).toBeNull();
+    await waitFor(() => expect(screen.getByText('$3,000.00')).toBeVisible());
+
+    /* The split's figures are window totals against a per-month headline, so
+       they cannot reconcile with it; the unbilled half also restates the
+       Unbilled region. */
+    expect(screen.queryByText(/invoiced/)).toBeNull();
+    expect(screen.queryByText(/unbilled$/)).toBeNull();
+    expect(screen.queryByText('$6,000.00')).toBeNull();
+    // The hours are what sits under the bar instead.
+    expect(screen.getByText('100h')).toBeVisible();
   });
 
   it('reports the figure per month, so two windows are comparable', async () => {

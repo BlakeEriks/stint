@@ -311,20 +311,17 @@ describe('count-up', () => {
     );
 
     /* BOTH halves of the beat carry it: the delta beside Unbilled and
-       Velocity's invoiced figure. Asserting only "some cyan exists" passed
-       while Velocity's half compared a Beat object to a string and was
-       permanently false — the money appeared to leave rather than move. */
+       Velocity's headline. Asserting only "some cyan exists" passed while
+       Velocity's half compared a Beat object to a string and was permanently
+       false — the money appeared to leave rather than move. */
     const cyan = () => [...container.querySelectorAll('.text-success')];
     expect(cyan().length).toBeGreaterThanOrEqual(2);
     expect(cyan().some((el) => el.textContent?.includes('$600.00'))).toBe(true);
 
-    // Velocity's invoiced share, once its own tween has landed.
-    await waitFor(
-      () =>
-        expect(cyan().some((el) => el.textContent?.includes('$4,600.00'))).toBe(
-          true,
-        ),
-      SETTLE,
+    /* Velocity's headline, which does not move when an invoice is paid — the
+       work was already done, so the colour alone carries the event. */
+    expect(cyan().some((el) => el.textContent?.includes('$1,666.67'))).toBe(
+      true,
     );
 
     // And every cyan node on the screen is one of the beat's own.

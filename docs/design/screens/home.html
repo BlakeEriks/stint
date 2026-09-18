@@ -122,10 +122,9 @@
   .erow .arrow { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
   .foot { display: flex; align-items: baseline; gap: 6px; padding: 8px 16px; }
 
-  /* The invoiced/unbilled split: one bar, two parts of one total. */
   .bar { height: 6px; border-radius: 999px; background: var(--bg-hover); overflow: hidden; }
   .bar span { display: block; height: 100%; background: var(--text-muted); border-radius: 999px; }
-  .splitline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin-top: 8px; }
+  .hoursline { text-align: right; margin-top: 8px; }
   .paceline { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 8px; }
 
   /* The month plot: a cumulative line against the goal ray. */
@@ -293,12 +292,8 @@
                 <span class="k type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-6)"></span>Northwind <span class="type-meta">$17,600.00</span></span>
                 <span class="k type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-2)"></span>Byrne <span class="type-meta">$10,810.00</span></span>
               </div>
-              <div class="splitline">
-                <span><span class="type-meta" style="color:var(--text-muted)">$20,739.30</span>
-                  <span class="type-support" style="color:var(--text-subtle)">invoiced</span></span>
-                <span><span class="type-meta" style="color:var(--text-muted)">$7,670.70</span>
-                  <span class="type-support" style="color:var(--text-subtle)">unbilled</span></span>
-                <span class="type-meta" style="color:var(--text-subtle); margin-left:auto">214h 20m</span>
+              <div class="hoursline">
+                <span class="type-meta" style="color:var(--text-subtle)">214h 20m</span>
               </div>
             </div>
           </div>
@@ -591,13 +586,22 @@
         beside it. The window total carries no rate, so two windows of
         different lengths cannot be compared by it.</li>
       <li><strong>"Gross earned", never "earned" alone.</strong> It is work done
-        over the window, not money collected, and the invoiced/unbilled split
-        is what says so.</li>
-      <li><strong><code>invoiced + unbilled</code> is the gross.</strong> The
-        split moves as invoices are raised while the gross does not — one
-        number in two parts, never two numbers to add.</li>
+        over the window, not money collected, and <code>/mo gross</code> is
+        what says so.</li>
+      <li><strong>The invoiced/unbilled split is not printed.</strong> Its
+        figures are window totals while the headline is per month, so they do
+        not reconcile with the number above them, and the unbilled half
+        restates what the Unbilled region already says. The gap still reads
+        when it matters: Unbilled's own total exceeding this window's gross is
+        the signal.</li>
+      <li><strong>The headline takes the paid beat</strong>, alone. A payment
+        moves money across the split without changing the gross, so the figure
+        does not move — the colour marks the event, and it leaves with the
+        tween.</li>
       <li><strong>Not comparable with awaiting payment</strong>, which spans
         every period rather than this window.</li>
+      <li><strong>The hours sit alone under the bar</strong>, right-aligned.
+        The one figure in the region that is not money.</li>
       <li><strong>A client's share is its gross</strong>, invoiced plus
         unbilled. A client whose whole window is still unbilled grosses its
         unbilled amount, not nothing.</li>
@@ -672,9 +676,10 @@
         arguing with the data's honesty. It reports what happened rather than
         praising it.</li>
       <li><strong>On marking an invoice paid, Unbilled counts down while
-        Velocity's invoiced share counts up</strong>, together. Without the
-        pairing the screen's largest number shrinks at the moment the user got
-        paid, which reads as a loss.</li>
+        Velocity's headline flashes</strong>, together. Without the pairing the
+        screen's largest number shrinks at the moment the user got paid, which
+        reads as a loss. The gross itself does not move — the work was already
+        done — so here the colour alone carries the event.</li>
       <li><strong>That beat is the one legitimate use of success cyan
         here</strong>, and it leaves with the tween. It is the only outcome on
         the screen; nothing else earns the colour.</li>
