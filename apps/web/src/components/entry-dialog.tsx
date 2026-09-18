@@ -273,6 +273,10 @@ export function EntryDialog({
               selected={projects.find((p) => p.id === draft.projectId)}
               disabled={locked}
               autoFocus={focus === 'project'}
+              /* This is already a dialog, and Radix mounts no dialog inside
+                 one — the item would set its state and nothing would appear.
+                 Projects are created from the timer bar or `/projects`. */
+              canCreate={false}
             />
           </div>
 

@@ -199,6 +199,24 @@ describe('EntryDialog', () => {
     ).toBeInTheDocument();
   });
 
+  /* Radix mounts no dialog inside another, so the item would set its state
+     and nothing would reach the DOM — a control that looks live and does
+     nothing. Projects are created from the timer bar or `/projects`. */
+  it('offers no New project inside the dialog', async () => {
+    serve();
+    const user = userEvent.setup();
+    open(entry());
+
+    await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
+    await user.click(screen.getByLabelText('Project'));
+
+    // The menu is open and lists the projects, but not the create action.
+    expect(
+      await screen.findByRole('menuitemradio', { name: /Acme Redesign/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /New project/ })).toBeNull();
+  });
+
   /**
    * The wiring, not the list — `task-suggest.test.tsx` owns its behaviour.
    * What matters here is what a chosen row is allowed to write into a form

@@ -53,6 +53,7 @@ export function ProjectPicker({
   onChange,
   selected,
   trigger = 'tag',
+  canCreate = true,
   id,
   disabled,
   autoFocus,
@@ -67,6 +68,16 @@ export function ProjectPicker({
    * inputs a dialog stacks it among.
    */
   trigger?: 'tag' | 'field';
+  /**
+   * Whether the menu offers `New project`.
+   *
+   * **False inside a dialog.** `ProjectDialog` is itself a dialog, and Radix
+   * will not mount one inside another — the item sets its state and nothing
+   * reaches the DOM, so it reads as a dead control rather than a refusal.
+   * `project-dialog.tsx` records the same constraint from the other side: it
+   * swaps its own content for the client form rather than stacking.
+   */
+  canCreate?: boolean;
   id?: string;
   disabled?: boolean;
   autoFocus?: boolean;
@@ -202,11 +213,15 @@ export function ProjectPicker({
             ))}
           </DropdownMenuRadioGroup>
 
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setCreating(true)}>
-            <Plus aria-hidden className="size-3.5" strokeWidth={2.25} />
-            New project
-          </DropdownMenuItem>
+          {canCreate ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setCreating(true)}>
+                <Plus aria-hidden className="size-3.5" strokeWidth={2.25} />
+                New project
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
 
