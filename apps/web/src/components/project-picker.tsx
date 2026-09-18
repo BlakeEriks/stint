@@ -11,9 +11,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ProjectDialog } from './project-dialog';
+import { inputClass } from './field';
 import type { Project } from '@/lib/client/api';
 import {
   INTERNAL_SWATCH,
+  useClients,
   useProjectColors,
 } from '@/lib/client/use-project-colors';
 import { ChevronDown, Plus } from 'lucide-react';
@@ -38,14 +40,32 @@ export function ProjectPicker({
   value,
   onChange,
   selected,
+  trigger = 'tag',
+  id,
+  disabled,
+  autoFocus,
 }: {
   projects: Project[];
   value: string | null;
   onChange: (id: string | null) => void;
   selected?: Project;
+  /**
+   * `tag` is the pill the timer bar wears beside the running task. `field` is
+   * a form control on `inputClass`'s metrics, so it sits level with the
+   * inputs a dialog stacks it among.
+   */
+  trigger?: 'tag' | 'field';
+  id?: string;
+  disabled?: boolean;
+  autoFocus?: boolean;
 }) {
   const [creating, setCreating] = useState(false);
   const colors = useProjectColors();
+  /* The same two queries the swatch already resolves through, so naming the
+     client costs no fetch. Keyed by client rather than by project because
+     `clientByProject` drops a client that has no colour, and that project is
+     billed work whose client still has a name. */
+  const clients = useClients();
 
   return (
     <>
@@ -65,9 +85,10 @@ export function ProjectPicker({
             the label surviving intact while the thing it labels disappeared.
             It gives way first now; the timer bar's own two-row phone layout
             is what actually buys both of them room. */}
-        <DropdownMenuTrigger
-          aria-label="Project"
-          className={`flex min-w-0 max-w-[11rem] shrink items-center gap-1.5 rounded-full border
+        {trigger === 'tag' ? (
+          <DropdownMenuTrigger
+            aria-label="Project"
+            className={`flex min-w-0 max-w-[11rem] shrink items-center gap-1.5 rounded-full border
                       px-2.5 py-1 type-meta outline-none transition-colors
                       hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus
                       ${
@@ -75,28 +96,64 @@ export function ProjectPicker({
                           ? 'border-edge-default text-muted'
                           : 'border-edge-default border-dashed text-subtle hover:text-muted'
                       }`}
-        >
-          {selected ? (
-            <>
-              <Swatch color={colors.get(selected.id)} />
-              <span className="truncate">{selected.name}</span>
-            </>
-          ) : (
-            <>
-              <Plus
-                aria-hidden
-                className="size-3 flex-none"
-                strokeWidth={2.5}
+          >
+            {selected ? (
+              <>
+                <Swatch color={colors.get(selected.id)} />
+                <span className="truncate">{selected.name}</span>
+              </>
+            ) : (
+              <>
+                <Plus
+                  aria-hidden
+                  className="size-3 flex-none"
+                  strokeWidth={2.5}
+                />
+                <span>Project</span>
+              </>
+            )}
+            <ChevronDown
+              aria-hidden
+              className="size-3 flex-none opacity-60"
+              strokeWidth={2.5}
+            />
+          </DropdownMenuTrigger>
+        ) : (
+          <DropdownMenuTrigger
+            id={id}
+            aria-label="Project"
+            disabled={disabled}
+            /* biome-ignore lint/a11y/noAutofocus: the rule guards against
+               stealing focus on PAGE load. This is a modal the user just
+               opened, where something must take focus — and when the row
+               they clicked exists because the project is missing, this is
+               the field they came for. */
+            autoFocus={autoFocus}
+            /* `focus:` as well as `focus-visible:`. A control focused
+               PROGRAMMATICALLY — as the inbox's unprojected row does on open
+               — is never `:focus-visible`, which the browser reserves for
+               keyboard-driven focus. Without this the cursor is really there
+               and arrow keys work, but nothing on screen says so. */
+            className={`${inputClass} flex items-center justify-between gap-2 text-left
+                        disabled:opacity-60
+                        focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
+          >
+            {selected ? (
+              <Row
+                project={selected}
+                color={colors.get(selected.id)}
+                clients={clients}
               />
-              <span>Project</span>
-            </>
-          )}
-          <ChevronDown
-            aria-hidden
-            className="size-3 flex-none opacity-60"
-            strokeWidth={2.5}
-          />
-        </DropdownMenuTrigger>
+            ) : (
+              <span className="truncate text-subtle">No project</span>
+            )}
+            <ChevronDown
+              aria-hidden
+              className="size-4 flex-none text-muted opacity-60"
+              strokeWidth={2}
+            />
+          </DropdownMenuTrigger>
+        )}
 
         <DropdownMenuContent
           align="end"
@@ -118,8 +175,7 @@ export function ProjectPicker({
 
             {projects.map((p) => (
               <DropdownMenuRadioItem key={p.id} value={p.id} className="pl-8">
-                <Swatch color={colors.get(p.id)} />
-                <span className="truncate">{p.name}</span>
+                <Row project={p} color={colors.get(p.id)} clients={clients} />
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
@@ -139,6 +195,39 @@ export function ProjectPicker({
         onOpenChange={setCreating}
         onSaved={(project) => onChange(project.id)}
       />
+    </>
+  );
+}
+
+/**
+ * One project, however it is being shown — a menu row or the field trigger's
+ * current value.
+ *
+ * The client is muted so the project stays the thing being chosen; it answers
+ * "whose work?" for two projects that read alike apart from their client.
+ *
+ * **Internal work gets no client text at all.** The absence IS the answer, the
+ * same reason its swatch resolves to `INTERNAL_SWATCH` rather than a shared
+ * grey — a placeholder there would name something that does not exist.
+ */
+function Row({
+  project,
+  color,
+  clients,
+}: {
+  project: Project;
+  color?: string | null;
+  clients: Map<string, { name: string }>;
+}) {
+  const client = project.clientId ? clients.get(project.clientId) : undefined;
+
+  return (
+    <>
+      <Swatch color={color} />
+      <span className="truncate">{project.name}</span>
+      {client ? (
+        <span className="truncate type-support text-subtle">{client.name}</span>
+      ) : null}
     </>
   );
 }

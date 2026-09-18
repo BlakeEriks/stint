@@ -161,9 +161,14 @@ describe('EntryDialog', () => {
     expect(screen.queryByRole('button', { name: /delete/i })).toBeNull();
     /* The footer button and the dialog's own X both read "Close". The point
        is not how many there are — it is that EVERY remaining action is a
-       dismiss, so there is no way to attempt a write. */
+       dismiss, so there is no way to attempt a write.
+
+       Disabled buttons are not remaining actions, and the project picker's
+       trigger is one: it is a button rather than a `<select>`, and line 158
+       is what proves it cannot be operated. */
     const actions = screen
       .getAllByRole('button')
+      .filter((b) => !(b as HTMLButtonElement).disabled)
       .map((b) => b.textContent?.trim() || 'Close');
     expect(actions.length).toBeGreaterThan(0);
     expect(new Set(actions)).toEqual(new Set(['Close']));
@@ -228,7 +233,11 @@ describe('EntryDialog', () => {
       expect(screen.getByLabelText('Task')).toHaveValue(
         'Invoice reconciliation',
       );
-      expect(screen.getByLabelText('Project')).toHaveValue('p1');
+      // The picker is a button showing its choice, not a `<select>` holding a
+      // value, so the project is read off the trigger's text.
+      expect(screen.getByLabelText('Project')).toHaveTextContent(
+        'Acme Redesign',
+      );
     });
 
     /* A project already on the entry is what this work is billed to. A row
@@ -245,7 +254,9 @@ describe('EntryDialog', () => {
       expect(screen.getByLabelText('Task')).toHaveValue(
         'Invoice reconciliation',
       );
-      expect(screen.getByLabelText('Project')).toHaveValue('p2');
+      expect(screen.getByLabelText('Project')).toHaveTextContent(
+        'Bluebird API',
+      );
     });
 
     /* Billed to an issued invoice: the field is read-only, so there is
