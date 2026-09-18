@@ -118,9 +118,10 @@ later.
       and clicking back lands on `/invoices` — a list you were not on, with
       the row you were reading now one of many.
 
-      All three callers (`invoice-detail`, `client-detail`, `invoice-new`)
-      now go through one component, so this is a single change rather than
-      three.
+      All five callers go through one component, so this is a single change
+      rather than five: `invoice-detail:44`, `client-detail:35`,
+      `invoice-new:116`, `clients/new/page:6`, and `edit-client:20` — the
+      last already builds its path, so it is the shape the others take.
 
       The link is doing two jobs and only one is honest. As **"up"** it is
       correct: an invoice does sit under `/invoices`. As **"back"** — which is
