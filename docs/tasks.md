@@ -90,12 +90,21 @@ later.
       when it is fixed, and use `<Wordmark />`.
 
 - [ ] **An inbox invoice row does not open.** Clicking the label on an overdue
-      or stale-draft row in the dock's inbox goes nowhere. The `href` is
-      `/invoices/${invoiceId}` and the detail page exists, so the fault is in
-      between — diagnose before writing the fix; candidates are the link losing
-      the click to the row's own handling, the id on the `/stats` row not being
-      the invoice's real id, or the detail page erroring and swallowing the
-      navigation. See `apps/web/src/components/inbox.tsx`.
+      or stale-draft row in the dock's inbox goes nowhere. **It reproduces
+      against a running stack only**, and a static read has cleared everything
+      on the path, so start by reproducing rather than re-reading these:
+
+      | Ruled out | Evidence |
+      | --- | --- |
+      | A competing handler on the row | `inbox.tsx:477` is styling alone; the `li` at `:472` carries no handler, and `href`/`onSelect` are exclusive branches (`:484`) |
+      | A malformed `href` | `:221` and `:254` pass `/invoices/${invoiceId}` |
+      | The wrong id from `/stats` | `buildOverdueInvoices`/`buildStaleDrafts` map `invoiceId: i.id` (`stats.ts:247,269`) |
+      | The route or page shape | `[id]/page.tsx` awaits `params` and renders `InvoiceDetail`; `Listing` has a `missing` branch |
+
+      What that leaves is runtime: the client fetch 404ing or erroring behind
+      `Listing`, a navigation that starts and is unmounted by the dock's exit
+      animation, or an overlay taking the click. Check the network tab and the
+      console first — the fault is something only the running app shows.
 
       This is the inbox's whole premise failing: a row is there to be acted on,
       and every one of them names a record whose page is where the decision
@@ -143,17 +152,6 @@ later.
       It was in `screens/home.html`'s row table for a long time without being built,
       which made the spec claim a row the app did not have. The design lives
       here now and moves into that table when it ships.
-- [ ] **Revenue pace.** A revenue target is accepted and stored but pace
-      reports `actual: null` for it, because revenue means invoiced plus
-      unbilled-at-resolved-rate and that is a different query from summing
-      time entries. The card currently says the figure is unavailable rather
-      than showing hours against a money target.
-
-      The cumulative line inherits this: it follows the goal's unit, so a
-      revenue target plots nothing until this is built. `month_revenue` is
-      month-total only and a line needs it per day — the same figure bucketed,
-      not a second definition of revenue.
-
 - [ ] **Hours invested per project — blocked on `/reports` existing.** The app
       can report hours per client (the unbilled rollup) and per day (the
       calendar) but not per project, which is the number behind the questions
@@ -363,7 +361,7 @@ later.
       comments there say why, and both are easy to lose in a port.
 
       **Then the other native selects, which are not all alike.** There are
-      seven in the app and they split by whether the control has anything to
+      eight in the app and they split by whether the control has anything to
       say beyond the words:
 
       - **`project-dialog`'s Client, and `invoice-new`'s Client.** Same case
@@ -392,7 +390,7 @@ later.
       looking exactly as it does — what changes is the popped-open list.
 
       **Check `components.html` first**, which is what a screen is assembled
-      from: a select is a shape that now repeats seven times, so the
+      from: a select is a shape that now repeats eight times, so the
       primitive belongs there rather than being invented per-dialog, and
       shadcn has one (`pnpm dlx shadcn@latest add select`, then
       `shadcn-detox.mjs` — never hand-edited).
@@ -521,15 +519,8 @@ later.
       **It snoozes, defaulting to daily, with a dropdown for longer.** Checking
       a bank balance is a real errand and a daily nudge is wanted; what the row
       must not do is sit there permanently true with no way to say *not yet*.
-
-      **Snooze belongs to this row and rows like it**, and the distinction is
-      not a matter of taste: every other inbox row names something the user can
-      resolve themselves — assign the project, fix the runaway entry, send the
-      draft — and hiding one of those is hiding a problem from the person who
-      can fix it. Whether a client has paid is outside their control entirely.
-      They can only go and look, and a row asking them to look every day is a
-      reminder rather than an unattended mess. A snooze on the other rows
-      would be the reflexive dismissal `principles.md` warns about.
+      This is the one row that snoozes — `principles.md` carries the
+      distinction and the reason.
 
 - [ ] **Days-to-payment, once there is history.** `sent_at` to `paid_at`,
       trailing, per client. "Northwind pays in 12 days" is unknowable from

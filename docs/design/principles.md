@@ -69,10 +69,17 @@ maintaining, breaks whenever the UI moves, and is scope of exactly the kind the
 thesis refuses. Contextual empty states do the same work and cannot drift out
 of sync with the screen they describe, because they *are* the screen.
 
-**No snooze on the inbox.** Hiding a row that is still true makes the inbox
-something dismissed reflexively rather than read, and the user most likely to
-snooze everything is the one it exists for. Grace periods keep it quiet enough
-that nothing needs dismissing.
+**No snooze on a row the user can resolve.** Assign the project, fix the
+runaway entry, send the draft — hiding one of those hides a problem from the
+person who can fix it, and the user most likely to snooze everything is the one
+the inbox exists for. Grace periods keep it quiet enough that nothing needs
+dismissing.
+
+**Awaiting payment is the exception, because looking is the only action.**
+Whether a client has paid is outside the contractor's control: they can check a
+bank balance and nothing more, so a row that sits permanently true with no way
+to say *not yet* is a reminder with no off switch rather than an unattended
+mess. It snoozes, defaulting to daily. Nothing else does.
 
 **No per-project colours.** Colour answers *whose work is this?*; a project is
 a subdivision of a client already identified by it. See `brand.html`.
