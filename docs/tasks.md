@@ -61,112 +61,27 @@ later.
       clickable element in the macOS panel — which has its own `Hovering`
       wrapper and the same question to answer.
 
-- [ ] **The menu bar panel names no client.** `menubar.html` draws the client
-      NAME under the task while a timer runs ("Northwind Trading" beside its
-      dot), where the panel now shows the project alone. The colour is
-      resolved; the name needs `Client.name` decoding and a second line under
-      `RenameRow`. Cheap, but it is another line in a 320pt panel — worth
-      confirming it earns the height before adding it.
+- [ ] **The menu bar panel keeps its focus between openings.** Open the panel,
+      click into the task field, close it, reopen: the field is still focused,
+      so the panel never opens in a default state. Escape closes the panel
+      correctly — that part works and should stay.
 
-- [ ] **The menu bar app sets type in the system font.** `menubar.html` asks
-      for IBM Plex, shipped with the app. `TypeRole` in `ContentView.swift`
-      has the two lines where the family lands; the fonts need vendoring as a
-      SwiftPM resource and registering at launch.
+      **`@FocusState` is not the lever, and this is the finding worth keeping.**
+      Instrumenting `TimerPanel` and driving the panel with real keystrokes
+      logged `onAppear focused=false` / `onDisappear focused=false` while the
+      field was visibly focused. The AppKit field editor holds first responder
+      and the SwiftUI binding never sees it, so setting `taskFocused = false`
+      on dismiss clears something that is already false. The lifecycle hooks
+      themselves do fire — `.window` keeps the view alive between openings and
+      `onDisappear` runs as a visibility toggle.
 
-- [ ] **Emit the type scale into `Tokens.swift`.** The scale in
-      `ContentView.swift` is mirrored from `tokens.json` by hand until
-      `pnpm tokens` writes it, the way it already writes the colours and the
-      mark.
-
-- [ ] **The menu bar panel keeps its focus between openings, and Escape does
-      nothing.** Two faults with one cause — nothing in `ContentView.swift`
-      handles `onExitCommand`, and nothing clears focus when the panel
-      dismisses, so reopening it lands on whatever was focused last. The panel
-      should open the same way every time: nothing focused, ready for the
-      pointer or for Tab.
-
-      Escape should then do the two-step every panel does — **clear focus if
-      something has it, close the panel if nothing does.** That ordering is
-      what makes the key safe to press: it never closes the window out from
-      under someone who only wanted out of a field.
-
-      **The trap is `RenameRow`**, which commits on focus loss:
-      `onChange(of: focused) { if !has { finish() } }`. Escape clearing focus
-      would therefore SAVE a rename the user was pressing Escape to abandon —
-      a silent write, which this app does not do. Escape out of that field
-      must cancel, so `finish()` needs to know which way it was left. Check
-      the same question for the task field on the idle panel before wiring
-      anything.
-
-      Also worth settling here: the panel is `.menuBarExtraStyle(.window)`,
-      so confirm whether it genuinely stays alive between openings or is
-      rebuilt — that decides whether clearing focus belongs on dismiss or on
-      appear, and it is a two-line experiment rather than a guess.
-
-      Reachability caveat from the last round: with macOS **Keyboard
-      navigation** off, Tab reaches only text fields, so most of this is
-      invisible until that setting is on. Turn it on before judging the
-      result.
-
-- [ ] **The panel's list stops at midnight, so yesterday's work cannot be
-      resumed.** `TimerModel` fetches `entries(from: dayStart)`, so at 9am the
-      list is empty and the one thing the panel is for — clicking a task to
-      pick it back up — is unavailable until you have already started
-      something by typing it. Picking up yesterday's work is the single most
-      likely first action of the day.
-
-      Fetch the **last N entries regardless of date**, with a cutoff (two
-      weeks reads about right) so the list cannot become an archive. The API
-      already supports this: `ListEntriesQuery` takes `from`, `to` and
-      `limit`, so `entries(from:)` in `API.swift` grows a limit and a further
-      back date, and nothing server-side changes.
-
-      **This edits `menubar.html`, which currently says "Earlier today".** The
-      spec commits to that heading and to `GET /entries?from=…` returning
-      "Today's rows", so both change with the code — and the heading is the
-      real design question, not the query. Options worth weighing: drop the
-      time word entirely ("Recent"), or keep a day break in the list. Prefer
-      whichever makes a row from three days ago unambiguous, because resuming
-      the wrong task is a wrong invoice line and the panel has no undo.
-
-      Two constraints the panel already has and this must not break. **The
-      list is deduplicated work, not history** — several entries with one task
-      name should not fill the panel with the same row, which matters far more
-      across two weeks than across one day, so decide whether N counts rows or
-      distinct tasks. And the panel is 320pt with the timer above it: N is
-      bounded by what fits without turning the list into its own scroller.
-
-      It also overlaps the task-name suggestions question in "Needs a decision
-      first" — both answer "start this again". If the list is good enough, the
-      suggestions may not be needed at all, which is an argument for doing
-      this one first.
-
-- [ ] **Settings as a pushed view in the menu bar panel.** `menubar.html`
-      specifies it — runaway threshold, shortcut, show time in bar, launch at
-      login, with the account block beneath. The gear opens a `Menu` today.
-      Building it is also what makes any further config cheap, so it comes
-      before the row below rather than alongside it.
-
-      **Wanted, and it is the fifth row the spec warns about: choose what the
-      bar shows — the running timer, or today's running total.**
-      `menuBarTitle` already switches between the two on `isRunning`, so the
-      setting picks which one is shown rather than adding a number; the work
-      is the preference and the row, not the readout.
-
-      It clears the spec's bar on its own terms. The bar is glanceable and
-      nothing else, so what occupies it is the whole product on that surface
-      — and the two answer different questions ("how long on this?" versus
-      "have I done enough today?") with no way to want both at once in 57pt.
-      It is a per-device display choice, so it belongs in `UserDefaults`,
-      not `user_settings` — a laptop and a desktop
-      can reasonably differ, and a round trip would make the bar flicker at
-      launch.
-
-      Two things it must not become. Not a third option that shows both,
-      which is how a fixed-width slot starts sliding again. And **when the
-      setting says today's total, a running timer must still be legible as
-      running** — the pip is already the thing that says so, which is the
-      argument for it staying a pip rather than being folded into the text.
+      `NSApp.keyWindow?.makeFirstResponder(nil)` in `onDisappear` is in the
+      code now and does not fix it either — probably because the panel is no
+      longer key by the time it runs, which is the next thing to test.
+      Candidates after that: hold the panel's `NSWindow` and clear its
+      responder before dismissal, or a `MenuBarExtraAccess`-style lookup of
+      `NSApp.windows` for `MenuBarExtraWindow`. Three attempts have gone into
+      this; it wants fresh eyes rather than a fourth variation.
 
 - [ ] **The web sign-in sets the word instead of drawing the mark.**
       `signin-form.tsx` has `<h1 className="type-title">Stint</h1>`, so it
@@ -490,15 +405,14 @@ later.
       `account-menu.tsx`) are the same two controls built on Radix and themed,
       which is what makes the gap visible.
 
-      **Read `menubar.html`'s settings section before starting: there is a
-      documented reason, and it is a real one.** The panel is `.transient`,
-      so anything that takes focus dismisses the panel out from under
-      itself — the argument that made Settings a pushed view rather than a
-      menu. A SwiftUI `Menu` survives this because AppKit owns both halves and
-      coordinates them. A hand-built popup does not get that for free, and a
-      picker that dismisses the panel when opened is worse than one with the
-      wrong font. Verify the failure mode first, at `menuBarExtraStyle(.window)`
-      as it is actually configured, rather than assuming either outcome.
+      **The `.transient` argument that used to sit here was wrong and has
+      been removed from `menubar.html`.** It described an `NSPopover`; the app
+      is a `MenuBarExtra` in `.menuBarExtraStyle(.window)` and always has
+      been, and the two system `Menu`s open today without dismissing the
+      panel. So there is no known failure mode to inherit — but a hand-built
+      popup still has to earn what AppKit gives free, and a picker that
+      dismisses the panel when opened is worse than one with the wrong font.
+      Verify against the real configuration before building either way.
 
       **Radix is not available here** — it is a web library, and `apps/macos`
       takes no dependencies beyond the standard library on purpose. So this

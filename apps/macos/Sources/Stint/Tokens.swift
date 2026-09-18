@@ -98,4 +98,128 @@ public enum Tokens {
         public static let boundGap: CGFloat = 0.18
         public static let boundRadius: CGFloat = 999
     }
+
+    /// The type scale. A view names a role; it never assembles one.
+    public enum `Type` {
+        public struct Role: Sendable {
+            public let size: CGFloat
+            public let weight: Font.Weight
+            /// Points, not em: tokens.json states tracking in em because CSS
+            /// letter-spacing does, and SwiftUI's .tracking() takes points.
+            /// Pre-multiplied here so no caller has to know that.
+            public let tracking: CGFloat
+            public let uppercase: Bool
+            public let tabular: Bool
+            public let mono: Bool
+
+            public var font: Font {
+                mono
+                    ? .system(size: size, weight: weight, design: .monospaced)
+                    : .system(size: size, weight: weight)
+            }
+
+            /// The same role at another size. Tracking rescales with it,
+            /// since the token states it as a ratio of the size.
+            public func at(
+                _ newSize: CGFloat,
+                weight newWeight: Font.Weight? = nil,
+                tracking em: CGFloat? = nil
+            ) -> Role {
+                Role(
+                    size: newSize,
+                    weight: newWeight ?? weight,
+                    tracking: (em ?? (size == 0 ? 0 : tracking / size)) * newSize,
+                    uppercase: uppercase,
+                    tabular: tabular,
+                    mono: mono
+                )
+            }
+        }
+
+        public static let timer = Role(
+            size: 24, weight: .medium, tracking: -0.48,
+            uppercase: false, tabular: true, mono: true
+        )
+        public static let title = Role(
+            size: 24, weight: .semibold, tracking: -0.6,
+            uppercase: false, tabular: false, mono: false
+        )
+        public static let hero = Role(
+            size: 30, weight: .semibold, tracking: -0.9,
+            uppercase: false, tabular: false, mono: false
+        )
+        public static let figure = Role(
+            size: 30, weight: .medium, tracking: -0.6,
+            uppercase: false, tabular: true, mono: true
+        )
+        public static let lede = Role(
+            size: 15, weight: .regular, tracking: 0,
+            uppercase: false, tabular: false, mono: false
+        )
+        public static let display = Role(
+            size: 22, weight: .medium, tracking: -0.44,
+            uppercase: false, tabular: false, mono: false
+        )
+        public static let section = Role(
+            size: 18, weight: .medium, tracking: 0,
+            uppercase: false, tabular: false, mono: false
+        )
+        public static let heading = Role(
+            size: 16.5, weight: .semibold, tracking: -0.165,
+            uppercase: false, tabular: false, mono: false
+        )
+        public static let body = Role(
+            size: 15, weight: .regular, tracking: 0,
+            uppercase: false, tabular: false, mono: false
+        )
+        public static let control = Role(
+            size: 14, weight: .regular, tracking: 0,
+            uppercase: false, tabular: false, mono: false
+        )
+        public static let support = Role(
+            size: 13, weight: .regular, tracking: 0,
+            uppercase: false, tabular: false, mono: false
+        )
+        public static let amount = Role(
+            size: 15, weight: .regular, tracking: 0,
+            uppercase: false, tabular: true, mono: true
+        )
+        public static let amountHero = Role(
+            size: 24, weight: .medium, tracking: -0.48,
+            uppercase: false, tabular: true, mono: true
+        )
+        public static let duration = Role(
+            size: 14, weight: .regular, tracking: 0,
+            uppercase: false, tabular: true, mono: true
+        )
+        public static let meta = Role(
+            size: 11.5, weight: .regular, tracking: 0,
+            uppercase: false, tabular: true, mono: true
+        )
+        public static let wordmark = Role(
+            size: 24, weight: .semibold, tracking: 2.88,
+            uppercase: false, tabular: false, mono: true
+        )
+        public static let wordmarkSmall = Role(
+            size: 14, weight: .semibold, tracking: 1.68,
+            uppercase: false, tabular: false, mono: true
+        )
+        public static let nav = Role(
+            size: 13, weight: .medium, tracking: 1.04,
+            uppercase: true, tabular: false, mono: true
+        )
+        public static let label = Role(
+            size: 11, weight: .medium, tracking: 1.76,
+            uppercase: true, tabular: false, mono: true
+        )
+        public static let badge = Role(
+            size: 9.5, weight: .regular, tracking: 0.76,
+            uppercase: true, tabular: false, mono: true
+        )
+    }
 }
+
+/* Tokens.Type is unwritable in an expression: Swift reads any x.Type as the
+ * metatype of x, and backticks do not escape it there. This is the name
+ * call sites use. */
+public typealias Typography = Tokens.`Type`

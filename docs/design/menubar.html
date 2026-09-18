@@ -216,6 +216,11 @@
     margin: 0 var(--mark-bound-gap); border-radius: var(--mark-bound-radius);
     background: currentColor;
   }
+  .head-title {
+    font-family: var(--font-mono); font-size: 17px; font-weight: 600;
+    letter-spacing: .12em; color: var(--text-muted);
+    display: inline-flex; align-items: center;
+  }
   .head-acts { display: flex; gap: 2px; }
   .icon {
     width: 24px; height: 24px; display: grid; place-items: center;
@@ -284,10 +289,9 @@
   <p class="standfirst" style="color:var(--text-primary);">
     <strong style="font-weight:500;">This is the spec.</strong>
     The panel is <strong style="font-weight:500;">320pt wide</strong>;
-    heights follow content — running ≈ 370, stopped ≈ 340, runaway ≈ 260.
-    An <code>NSPopover</code> with <code>.transient</code> behaviour, or a
-    borderless <code>NSWindow</code> if the arrow proves fussy — there is no
-    arrow here.
+    heights follow content — running ≈ 428, stopped ≈ 425, runaway ≈ 276.
+    A <code>MenuBarExtra</code> in <code>.menuBarExtraStyle(.window)</code>,
+    which is a plain panel hanging from the bar — there is no arrow here.
   </p>
   <p class="standfirst">
     <strong style="color:var(--text-primary);font-weight:500;">Catching a
@@ -371,7 +375,7 @@
             <div class="truncate task" style="margin-top:8px;padding-left:19px;">API integration</div>
             <div class="row" style="gap:6px;margin-top:4px;padding-left:19px;">
               <span class="chip" style="background:var(--cat-1)"></span>
-              <span class="meta">Northwind Trading</span>
+              <span class="meta">Platform rebuild</span>
             </div>
           </div>
 
@@ -386,16 +390,18 @@
 
           <div style="padding:10px 0 6px;">
             <div class="row between" style="padding:0 14px 6px;">
-              <span class="label">Earlier today</span>
+              <span class="label">Recent</span>
             </div>
             <div class="entry"><span class="nm">Checkout validation fixes</span><span class="tm">2:15:00</span></div>
             <div class="entry"><span class="nm">Design review</span><span class="tm">1:30:00</span></div>
             <div class="entry"><span class="nm">Q4 retainer scoping call</span><span class="tm">0:39:32</span></div>
+            <div class="entry"><span class="nm">Invoice chase</span><span class="tm">0:12:04</span></div>
+            <div class="entry"><span class="nm">Staging deploy</span><span class="tm">0:48:11</span></div>
           </div>
 
           
         </div>
-        <span class="caption">Running · ~370px tall</span>
+        <span class="caption">Running · ~428px tall</span>
       </div>
 
       <div class="notes" style="flex:1;min-width:20rem;">
@@ -405,9 +411,14 @@
             they belong on one line. Top-right puts a destructive-ish control
             in the corner where window chrome lives, and separates it from the
             thing it acts on.</li>
-          <li><strong>Task and client hang under the readout</strong>, indented
+          <li><strong>Task and project hang under the readout</strong>, indented
             to the text rather than the dot, so the eye reads
-            time → what → whose without crossing back.</li>
+            time → what → where without crossing back. The dot carries the
+            client, so one row answers whose work and which work.</li>
+          <li><strong>No project picker while running.</strong> Changing it
+            mid-entry reassigns time already tracked against the old project,
+            which is a billing edit wearing a dropdown. Stop the timer to move
+            the work.</li>
           <li><strong>Today and Unbilled are the two numbers</strong> you
             cannot compute in your head. Same pair the web app leads with.</li>
           <li>The accent appears exactly twice: the pip and the readout. Same
@@ -454,16 +465,18 @@
 
           <div style="padding:10px 0 6px;">
             <div class="row between" style="padding:0 14px 6px;">
-              <span class="label">Today</span>
+              <span class="label">Recent</span>
             </div>
             <div class="entry"><span class="nm">Checkout validation fixes</span><span class="tm">2:15:00</span></div>
             <div class="entry"><span class="nm">Design review</span><span class="tm">1:30:00</span></div>
             <div class="entry"><span class="nm">Q4 retainer scoping call</span><span class="tm">0:39:32</span></div>
+            <div class="entry"><span class="nm">Invoice chase</span><span class="tm">0:12:04</span></div>
+            <div class="entry"><span class="nm">Staging deploy</span><span class="tm">0:48:11</span></div>
           </div>
 
           
         </div>
-        <span class="caption">Stopped · ~340px tall</span>
+        <span class="caption">Stopped · ~425px tall</span>
       </div>
 
       <div class="notes" style="flex:1;min-width:20rem;">
@@ -508,7 +521,7 @@
             <div class="truncate task" style="margin-top:8px;padding-left:19px;">API integration</div>
             <div class="row" style="gap:6px;margin-top:4px;padding-left:19px;">
               <span class="chip" style="background:var(--cat-1)"></span>
-              <span class="meta">Northwind Trading</span>
+              <span class="meta">Platform rebuild</span>
             </div>
           </div>
 
@@ -560,22 +573,14 @@
           <div class="head">
             <span class="row" style="gap:8px;">
               <button class="icon" aria-label="Back">&larr;</button>
-              <span class="wordmark">Settings</span>
+              <span class="head-title">Settings</span>
             </span>
           </div>
 
           <div class="pad" style="display:flex;flex-direction:column;gap:0;padding:4px 0;">
             <div class="setrow">
-              <span>Runaway after</span>
-              <button class="picker" style="flex:none;">8 hours <span class="caret">&#9662;</span></button>
-            </div>
-            <div class="setrow">
-              <span>Start / stop shortcut</span>
-              <kbd class="kbd">&#8997;&#8984;T</kbd>
-            </div>
-            <div class="setrow">
-              <span>Show time in menu bar</span>
-              <span class="toggle on" aria-hidden></span>
+              <span>Show in menu bar</span>
+              <button class="picker" style="flex:none;">Running timer <span class="caret">&#9662;</span></button>
             </div>
             <div class="setrow">
               <span>Launch at login</span>
@@ -596,22 +601,23 @@
 
       <div class="notes" style="flex:1;min-width:22rem;">
         <ul>
-          <li><strong>Not a menu, not a second popover, not a window.</strong>
-            The panel is <code>.transient</code>, so an <code>NSMenu</code>
-            takes focus and the panel dismisses underneath it — leaving a menu
-            anchored to a view that no longer exists. A second popover has the
-            same problem, and two stacked shadows at 320pt read as a mistake.
-            A separate Settings window needs a Dock icon to be recoverable,
-            which <code>LSUIElement</code> exists to avoid.</li>
+          <li><strong>Not a second popover, not a window.</strong> Two
+            stacked shadows at 320pt read as a mistake, and a separate
+            Settings window needs a Dock icon to be recoverable — which
+            <code>LSUIElement</code> exists to avoid. A pushed view needs
+            neither.</li>
           <li><strong>The header swaps to a back affordance.</strong> One way
             in, one way out. Escape also returns.</li>
           <li><strong>Reopening the panel returns to the timer</strong>, never
             to settings. Settings is somewhere you visit, not a state the
             panel remembers.</li>
-          <li><strong>Four rows, and the bar for a fifth is high.</strong>
+          <li><strong>Two rows, and the bar for a third is high.</strong>
             Rates, clients, invoice identity and payment profiles are business
             configuration and live in the web app — the same argument that
-            keeps Settings out of the web app's nav rail.</li>
+            keeps Settings out of the web app's nav rail. The runaway
+            threshold is the server's (<code>/summary</code> decides
+            <code>exceedsThreshold</code>) and the global shortcut is unbuilt;
+            neither is drawn here until it can do something.</li>
         </ul>
       </div>
     </div>
@@ -795,7 +801,7 @@
           <tr><td><code>POST /timer/stop</code></td><td></td></tr>
           <tr><td><code>GET /summary</code></td><td>Today's total, <code>exceedsThreshold</code>, <code>serverTime</code></td></tr>
           <tr><td><code>GET /stats?tz=…</code></td><td>The unbilled total</td></tr>
-          <tr><td><code>GET /entries?from=…</code></td><td>Today's rows</td></tr>
+          <tr><td><code>GET /entries?from=&amp;to=&amp;limit=</code></td><td>Recent rows &mdash; a two-week window, deduped by task name client-side and capped at five</td></tr>
           <tr><td><code>PATCH /entries/:id</code></td><td>Rename</td></tr>
           <tr><td><code>GET /projects</code>, <code>GET /clients</code></td><td>The picker and client colours</td></tr>
         </tbody>

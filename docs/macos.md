@@ -101,6 +101,12 @@ spend a rotating token and one would lose.
   Swift names keep the raw prefixes — `borderSubtle`, not `edgeSubtle`.
 - **The runaway notice surfaces and stops there.** Adjusting needs a date and
   two times, which this panel has no room for.
+- **`Prefs` is the per-device store, `UserDefaults` not the Keychain** — it
+  holds display choices, not credentials. What the menu bar shows is per
+  device because a laptop and a desktop can reasonably differ, and reading it
+  from `user_settings` would make the bar flicker at launch. Launch-at-login
+  is read back from `SMAppService`, which owns that state; keeping a second
+  copy is how the two disagree.
 
 **The API models are hand-written and nothing type-checks them against
 `packages/schema`**, so a renamed field fails at runtime in Swift and nowhere

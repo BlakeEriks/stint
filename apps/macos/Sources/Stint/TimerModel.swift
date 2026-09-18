@@ -12,9 +12,9 @@ final class TimerModel {
     /// Nil until the first fetch; the row omits the number rather than
     /// showing a zero that would read as "nothing owed".
     private(set) var stats: Stats?
-    /// Today's finished entries, newest first. The running one is the
-    /// readout, not a row.
-    private(set) var today: [TimeEntry] = []
+    /// The last five distinct things worked on, newest first. The running
+    /// one is the readout, not a row.
+    private(set) var recent: [TimeEntry] = []
     private(set) var clients: [Client] = []
     private(set) var projects: [Project] = []
     private(set) var email: String?
@@ -65,8 +65,13 @@ final class TimerModel {
         return summary.todaySeconds + sinceFetch
     }
 
+    /// Text only. Whether a timer is running is the pip's to say, in both
+    /// modes, which is why running-ness is not folded in here.
     var menuBarTitle: String {
-        isRunning ? format(elapsedSeconds) : format(todaySeconds)
+        switch Prefs.shared.barReadout {
+        case .runningTimer: isRunning ? format(elapsedSeconds) : format(todaySeconds)
+        case .todaysTotal: format(todaySeconds)
+        }
     }
 
     /// The running entry's project, or the draft's. Setting it reassigns the
@@ -160,10 +165,11 @@ final class TimerModel {
             // `try?`: a failure here hides one number rather than surfacing an
             // error over a working timer.
             if let fetched = try? await api.stats() { stats = fetched }
-            // `startOfDay`, never minus 86,400: a DST day is 23 or 25 hours.
-            let dayStart = Calendar.current.startOfDay(for: Date())
-            if let fetched = try? await api.entries(from: dayStart) {
-                today = fetched.filter { $0.endedAt != nil }
+            // Two weeks back so Monday still offers Friday's work; a window
+            // this wide does not care where a DST boundary falls.
+            let windowStart = Date(timeIntervalSinceNow: -14 * 86_400)
+            if let fetched = try? await api.entries(from: windowStart, limit: 200) {
+                recent = Self.distinctTasks(in: fetched.filter { $0.endedAt != nil }, limit: 5)
             }
         } catch let error as APIError where error.isUnauthorized {
             await tokens.signOut()
@@ -175,6 +181,18 @@ final class TimerModel {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// One row per task name. The server orders newest first, so the
+    /// occurrence that survives is the most recent one.
+    private static func distinctTasks(in entries: [TimeEntry], limit: Int) -> [TimeEntry] {
+        var seen = Set<String>()
+        var kept: [TimeEntry] = []
+        for entry in entries where seen.insert(entry.taskName).inserted {
+            kept.append(entry)
+            if kept.count == limit { break }
+        }
+        return kept
     }
 
     // MARK: Actions
@@ -265,7 +283,7 @@ final class TimerModel {
         await tokens.signOut()
         summary = nil
         stats = nil
-        today = []
+        recent = []
         projects = []
         clients = []
     }

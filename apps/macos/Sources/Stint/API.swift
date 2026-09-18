@@ -128,12 +128,18 @@ actor API {
         return list.clients
     }
 
-    func entries(from: Date) async throws -> [TimeEntry] {
-        // A bare `+` in a query string decodes as a space on the server.
-        let stamp = Self.iso8601Fractional.string(from: from)
-        let escaped = stamp.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? stamp
-        let list: EntryList = try await request("GET", "/entries?from=\(escaped)")
+    func entries(from: Date, to: Date? = nil, limit: Int? = nil) async throws -> [TimeEntry] {
+        var query = ["from=\(Self.stamp(from))"]
+        if let to { query.append("to=\(Self.stamp(to))") }
+        if let limit { query.append("limit=\(limit)") }
+        let list: EntryList = try await request("GET", "/entries?\(query.joined(separator: "&"))")
         return list.entries
+    }
+
+    /// A bare `+` in a query string decodes as a space on the server.
+    private static func stamp(_ date: Date) -> String {
+        let text = iso8601Fractional.string(from: date)
+        return text.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? text
     }
 
     func projects() async throws -> [Project] {

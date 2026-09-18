@@ -263,6 +263,18 @@ writeFileSync(join(out, 'tokens.ts'), ts);
 
 // ── Swift (macOS menu bar) ─────────────────────────────────────────
 const camel = (s) => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+const swiftWeights = {
+  300: '.light',
+  400: '.regular',
+  500: '.medium',
+  600: '.semibold',
+  700: '.bold',
+};
+const swiftWeight = (w) => {
+  const name = swiftWeights[w];
+  if (!name) throw new Error(`No Font.Weight for numeric weight ${w}`);
+  return name;
+};
 const swiftTheme = (theme) =>
   Object.entries(tokens.semantic[theme])
     .map(
@@ -309,7 +321,63 @@ ${Object.entries(tokens.brand.mark)
   .map(([k, v]) => `        public static let ${k}: CGFloat = ${v}`)
   .join('\n')}
     }
+
+    /// The type scale. A view names a role; it never assembles one.
+    public enum \`Type\` {
+        public struct Role: Sendable {
+            public let size: CGFloat
+            public let weight: Font.Weight
+            /// Points, not em: tokens.json states tracking in em because CSS
+            /// letter-spacing does, and SwiftUI's .tracking() takes points.
+            /// Pre-multiplied here so no caller has to know that.
+            public let tracking: CGFloat
+            public let uppercase: Bool
+            public let tabular: Bool
+            public let mono: Bool
+
+            public var font: Font {
+                mono
+                    ? .system(size: size, weight: weight, design: .monospaced)
+                    : .system(size: size, weight: weight)
+            }
+
+            /// The same role at another size. Tracking rescales with it,
+            /// since the token states it as a ratio of the size.
+            public func at(
+                _ newSize: CGFloat,
+                weight newWeight: Font.Weight? = nil,
+                tracking em: CGFloat? = nil
+            ) -> Role {
+                Role(
+                    size: newSize,
+                    weight: newWeight ?? weight,
+                    tracking: (em ?? (size == 0 ? 0 : tracking / size)) * newSize,
+                    uppercase: uppercase,
+                    tabular: tabular,
+                    mono: mono
+                )
+            }
+        }
+
+${Object.entries(tokens.type.scale)
+  .map(([name, t]) => {
+    const em = t.tracking ? Number.parseFloat(t.tracking) : 0;
+    const tracking = Number((em * t.size).toFixed(4));
+    return (
+      `        public static let ${camel(name)} = Role(\n` +
+      `            size: ${t.size}, weight: ${swiftWeight(t.weight)}, tracking: ${tracking},\n` +
+      `            uppercase: ${!!t.uppercase}, tabular: ${!!t.tabular}, mono: ${t.family === 'mono'}\n` +
+      `        )`
+    );
+  })
+  .join('\n')}
+    }
 }
+
+/* Tokens.Type is unwritable in an expression: Swift reads any x.Type as the
+ * metatype of x, and backticks do not escape it there. This is the name
+ * call sites use. */
+public typealias Typography = Tokens.\`Type\`
 `;
 writeFileSync(join(out, 'Tokens.swift'), swift);
 
