@@ -147,151 +147,165 @@ export function Calendar() {
   };
 
   return (
-    <Page wide>
-      <header className="flex flex-wrap items-center justify-between gap-3 pb-4">
-        <div className="flex items-baseline gap-3">
-          <h1 className="type-title text-strong">{label}</h1>
-          {/* The total matches the grid: this day on a phone, the week
+    <Page wide fills>
+      {/* The screen is a column the height of the panel: the heading takes
+          what it needs and the grid takes the rest. `min-h-0` at every link
+          is what lets the grid shrink rather than push the column taller than
+          the panel and hand the scroll back to the frame.
+
+          It binds at `xl` for the same reason `fills` does — below it the
+          column above owns the one gesture. */}
+      <div className="flex min-h-0 flex-col xl:flex-1">
+        <header className="flex flex-none flex-wrap items-center justify-between gap-3 pb-4">
+          <div className="flex items-baseline gap-3">
+            <h1 className="type-title text-strong">{label}</h1>
+            {/* The total matches the grid: this day on a phone, the week
               otherwise. */}
-          <span className="type-duration text-muted">
-            {formatClock(cal.visibleSeconds)}
-          </span>
-        </div>
+            <span className="type-duration text-muted">
+              {formatClock(cal.visibleSeconds)}
+            </span>
+          </div>
 
-        <div className="flex items-center gap-1">
-          {/* The arrows step whatever unit is on screen, so "back" always
+          <div className="flex items-center gap-1">
+            {/* The arrows step whatever unit is on screen, so "back" always
               means "the previous one of these". The labels say which. */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={cal.prev}
-            aria-label={byDay ? 'Previous day' : 'Previous week'}
-          >
-            ←
-          </Button>
-          <Button
-            variant={cal.isCurrent ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={cal.today}
-          >
-            {byDay ? 'Today' : 'This week'}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={cal.next}
-            aria-label={byDay ? 'Next day' : 'Next week'}
-          >
-            →
-          </Button>
-        </div>
-      </header>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={cal.prev}
+              aria-label={byDay ? 'Previous day' : 'Previous week'}
+            >
+              ←
+            </Button>
+            <Button
+              variant={cal.isCurrent ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={cal.today}
+            >
+              {byDay ? 'Today' : 'This week'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={cal.next}
+              aria-label={byDay ? 'Next day' : 'Next week'}
+            >
+              →
+            </Button>
+          </div>
+        </header>
 
-      <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
-        <div className="flex border-b border-edge-subtle">
-          <div className="w-12 flex-none sm:w-14" />
-          {cal.days.map((day) => (
-            <DayHeading
-              key={day.date}
-              date={day.date}
-              at={day.at}
-              seconds={day.totalSeconds}
-              nameless={byDay}
-              /* 09:00, because a day added from the heading has no clicked
+        {/* The card is a column that can shrink, so the grid inside it measures
+          against the panel the frame gives this route rather than the window.
+          The day headings are the column's first child and the scroller its
+          second, which is what keeps the headings in place while the hours
+          move under them. */}
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
+          <div className="flex flex-none border-b border-edge-subtle">
+            <div className="w-12 flex-none sm:w-14" />
+            {cal.days.map((day) => (
+              <DayHeading
+                key={day.date}
+                date={day.date}
+                at={day.at}
+                seconds={day.totalSeconds}
+                nameless={byDay}
+                /* 09:00, because a day added from the heading has no clicked
                  position to take a time from and the start of a working day is
                  the likeliest intent. */
-              onAdd={() => {
-                const start = new Date(day.at.getTime() + 9 * 3_600_000);
-                create(start, new Date(start.getTime() + 3_600_000));
-              }}
-            />
-          ))}
-        </div>
+                onAdd={() => {
+                  const start = new Date(day.at.getTime() + 9 * 3_600_000);
+                  create(start, new Date(start.getTime() + 3_600_000));
+                }}
+              />
+            ))}
+          </div>
 
-        {/* One scroll container so the hour gutter cannot drift from the grid.
+          {/* One scroll container so the hour gutter cannot drift from the grid.
 
             **On a phone there is no inner scroller at all** — the page owns
             the scroll, so there is one gesture however tall the chrome around
             it is. The cropped window is what keeps that honest. */}
-        <div className="sm:max-h-[62vh] sm:overflow-y-auto">
-          <div
-            className="flex"
-            /* The gesture is owned here rather than on each block: a drag
+          <div className="sm:min-h-0 sm:flex-1 sm:overflow-y-auto">
+            <div
+              className="flex"
+              /* The gesture is owned here rather than on each block: a drag
                continues past the block's own edges, and pointer capture sends
                the events to whatever element started it. */
-            onPointerMove={drag.move}
-            onPointerUp={drag.end}
-            onPointerCancel={drag.cancel}
-          >
-            <div
-              className="relative w-12 flex-none sm:w-14"
-              style={{ height: gridHeight }}
+              onPointerMove={drag.move}
+              onPointerUp={drag.end}
+              onPointerCancel={drag.cancel}
             >
-              {marks.map(({ hour, pct }) => (
-                <span
-                  key={pct}
-                  /* The label is a zero-height row anchored at the gridline,
+              <div
+                className="relative w-12 flex-none sm:w-14"
+                style={{ height: gridHeight }}
+              >
+                {marks.map(({ hour, pct }) => (
+                  <span
+                    key={pct}
+                    /* The label is a zero-height row anchored at the gridline,
                      so digits sit on the line at every position. The first
                      mark hangs below its line instead of above it, or the
                      container clips it. */
-                  className={`absolute right-2 flex h-0 items-center type-meta leading-none text-subtle ${
-                    pct === 0 ? 'translate-y-1.5' : ''
-                  }`}
-                  style={{ top: `${pct}%` }}
-                >
-                  {String(hour).padStart(2, '0')}
-                </span>
-              ))}
-            </div>
+                    className={`absolute right-2 flex h-0 items-center type-meta leading-none text-subtle ${
+                      pct === 0 ? 'translate-y-1.5' : ''
+                    }`}
+                    style={{ top: `${pct}%` }}
+                  >
+                    {String(hour).padStart(2, '0')}
+                  </span>
+                ))}
+              </div>
 
-            {cal.days.map((day) => (
-              <DayColumn
-                key={day.date}
-                positioned={day.positioned}
-                colors={colorByProject}
-                /* The window the column DRAWS, which a cropped day view makes
+              {cal.days.map((day) => (
+                <DayColumn
+                  key={day.date}
+                  positioned={day.positioned}
+                  colors={colorByProject}
+                  /* The window the column DRAWS, which a cropped day view makes
                    narrower than the day itself. Positions are fractions of
                    this, so the inverse maths a click or drag uses has to take
                    the same pair — passing the full day here would put every
                    new entry at the wrong time. */
-                dayStart={day.from}
-                dayEnd={day.to}
-                marks={marks}
-                height={gridHeight}
-                drag={drag}
-                onEdit={edit}
-                onCreate={create}
-              />
-            ))}
+                  dayStart={day.from}
+                  dayEnd={day.to}
+                  marks={marks}
+                  height={gridHeight}
+                  drag={drag}
+                  onEdit={edit}
+                  onCreate={create}
+                />
+              ))}
+            </div>
           </div>
+
+          {/* Keyed to what is on screen — the day in day view, the week
+            otherwise — so it never names a colour that is not showing. */}
+          <Legend days={cal.days} clientByProject={clientByProject} />
         </div>
 
-        {/* Keyed to what is on screen — the day in day view, the week
-            otherwise — so it never names a colour that is not showing. */}
-        <Legend days={cal.days} clientByProject={clientByProject} />
-      </div>
-
-      {error ? (
-        <p role="alert" className="mt-3 type-support text-danger">
-          {error}
-        </p>
-      ) : cal.isLoading ? (
-        <p className="mt-3 type-support text-subtle">Loading…</p>
-      ) : cal.isError ? (
-        /* Neutral: the grid is still drawn and correct, it just has nothing
+        {error ? (
+          <p role="alert" className="mt-3 type-support text-danger">
+            {error}
+          </p>
+        ) : cal.isLoading ? (
+          <p className="mt-3 type-support text-subtle">Loading…</p>
+        ) : cal.isError ? (
+          /* Neutral: the grid is still drawn and correct, it just has nothing
            in it — a failed fetch is a condition, not a rejected action. */
-        <p className="mt-3 type-support text-subtle">
-          Could not load these entries. Try again.
-        </p>
-      ) : cal.visibleSeconds === 0 ? (
-        /* Says what is actually empty. "Nothing logged this week" over a
+          <p className="mt-3 type-support text-subtle">
+            Could not load these entries. Try again.
+          </p>
+        ) : cal.visibleSeconds === 0 ? (
+          /* Says what is actually empty. "Nothing logged this week" over a
            single day's grid would be wrong whenever the rest of the week has
            hours in it. */
-        <p className="mt-3 type-support text-subtle">
-          Nothing logged {byDay ? 'this day' : 'this week'}. Click a time to add
-          an entry.
-        </p>
-      ) : null}
+          <p className="mt-3 type-support text-subtle">
+            Nothing logged {byDay ? 'this day' : 'this week'}. Click a time to
+            add an entry.
+          </p>
+        ) : null}
+      </div>
 
       <EntryDialog
         open={open}

@@ -3,6 +3,7 @@ paths:
   - "apps/web/src/app/api/v1/invoices/**"
   - "apps/web/src/lib/invoicing.ts"
   - "packages/core/src/invoice.ts"
+  - "packages/core/src/payment.ts"
   - "apps/web/src/lib/invoice-pdf.tsx"
 ---
 
@@ -40,6 +41,24 @@ back to UTC, these two return 422. An omitted one still defaults to UTC.
 **The app sends no mail.** Invoices are downloaded and sent by the user from
 their own address; `PATCH /invoices/:id/status` records that it went out.
 `principles.md` says why, and it is not a gap to fill.
+
+### Payment details
+
+**Bank details render on the invoice PDF, never in an email body**, and the
+placement is not a user preference. Rendering identically on every invoice is
+what makes a *change* visible, which is what fraud-prevention guidance tells
+payers to challenge.
+
+`docs/data-model.md` has the `payment_profiles` shape, the US-first field
+order and the resolution chain.
+
+- **Invoices freeze the rendered snapshot** into `payment_details` (JSONB) at
+  generation, like rates. Editing a profile never alters an issued invoice.
+- `buildPaymentDetails` in `packages/core/src/payment.ts` drops unset fields
+  entirely — never render an empty label, and never an empty section header.
+- The PDF payment block is `wrap={false}`: a stranded "Payment" header with
+  the account numbers overleaf is the one page break that actually harms the
+  reader.
 
 ### PDF and the test runner
 

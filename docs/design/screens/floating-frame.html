@@ -286,10 +286,9 @@
     padding: 8px 10px; border-radius: calc(var(--r) - 5px); white-space: nowrap;
   }
   .navitem svg { width: 13px; height: 13px; flex: none; }
-  /* THE PROBLEM frame.html flagged: with no shared edge the active item
-     can no longer read as a tab cut into the column beside it. It gets a
-     filled pill and a leading marker instead — a selected object rather
-     than a continuous surface. */
+  /* With no edge shared with the panel, the active item cannot read as a tab
+     cut into the column beside it. It is a filled pill with a leading marker
+     — a selected object rather than a continuous surface. */
   .navitem.on {
     background: var(--bg-elevated); color: var(--text-strong);
     box-shadow: var(--shadow-card);
@@ -335,7 +334,7 @@
   }
   .region-title { display: flex; align-items: center; gap: 7px; color: var(--text-subtle); }
   .region-title svg { width: 13px; height: 13px; }
-  .split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 26px; }
+  .split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 24px; }
 
   /* ── Unbilled ─────────────────────────────────────────────────── */
   .fig { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 500; letter-spacing: -.02em; color: var(--text-strong); line-height: 1.1; }
@@ -530,12 +529,11 @@
   </p>
   <p class="prose">
     <strong>This is the visual reference the implementation answers to.</strong>
-    Its numbers are the ones a build is measured against &mdash; pane widths,
-    gaps, the grid&rsquo;s columns and which regions pair in them. Read them
-    out of here before changing the frame, and diff the built screen against
-    them afterwards with <code>getBoundingClientRect()</code> rather than by
-    eye: a 372px dock beside a 286px one, and a 20px gap where this has 8,
-    both survived being looked at repeatedly.
+    Its numbers are the ones a build is measured against &mdash; the frame&rsquo;s
+    pane widths and the gaps between them. Read them out of here before
+    changing the frame, and diff the built screen against them afterwards with
+    <code>getBoundingClientRect()</code> rather than by eye: a pane a few pixels
+    off reads as correct every time it is looked at.
   </p>
   <p class="prose">
     The exploration that produced it &mdash; the rejected grounds, the
@@ -1173,35 +1171,6 @@
       <tr><td>Timer bar</td><td>Panel width, quiet fill, below the panel</td></tr>
       <tr><td>New tokens</td><td>None</td></tr>
     </table>
-
-    <p style="margin-top:1.25rem">
-      Two rules from the existing docs changed with it, and both are now
-      recorded in the doc that owns them:
-    </p>
-
-    <ul class="rule">
-      <li><strong>The four planes get new assignments.</strong>
-        <code>frame.html</code> has header and timer bar on
-        <code>bg-recessed</code>, rail and dock on <code>bg-base</code>,
-        content on <code>bg-primary</code>, cards on
-        <code>bg-elevated</code>. Here <code>bg-recessed</code> goes unused
-        in the frame, and <code>bg-elevated</code> is no longer the content
-        plane's card layer because there are no cards in it. The ladder is
-        unchanged; what sits on each rung is not.</li>
-      <li><strong>The active rail item stops being a tab.</strong>
-        <code>frame.html</code>'s reasoning &mdash; it lifts to the content
-        plane and takes the card shadow, which is what makes the rail read as
-        a tab strip into the column beside it &mdash; depends on a shared
-        edge that no longer exists. It is a filled pill with a leading marker
-        instead.</li>
-    </ul>
-
-    <p style="margin-top:1.5rem">
-      <strong style="color:var(--text-strong)">Scope: this is a frame
-      change.</strong> Every screen renders inside it, so it belongs in
-      <code>frame.html</code> rather than <code>home.html</code>, and the home
-      card set is what motivated it rather than what contains it.
-    </p>
   </section>
 
 </div>

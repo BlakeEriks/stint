@@ -6,7 +6,10 @@ import { formatClock, formatCompact, startOfLocalDay } from '@stint/core';
 import { Lock, Plus } from 'lucide-react';
 import { api, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import { useProjectColors } from '@/lib/client/use-project-colors';
+import {
+  INTERNAL_SWATCH,
+  useProjectColors,
+} from '@/lib/client/use-project-colors';
 import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
 import { Listing } from './page';
@@ -21,9 +24,16 @@ import { keys } from '@/lib/client/query-keys';
 export function EntryList({
   projects,
   todaySeconds,
+  compact = false,
 }: {
   projects: Project[];
   todaySeconds: number;
+  /**
+   * Three fields to a row — swatch, task, duration — for the 286px dock,
+   * where six of them wrapped to three lines and made a glance a read. The
+   * row still opens the editor, which is where the rest of an entry lives.
+   */
+  compact?: boolean;
 }) {
   const from = startOfLocalDay(new Date(), tz).toISOString();
 
@@ -81,6 +91,7 @@ export function EntryList({
                   entry={entry}
                   project={byId.get(entry.projectId ?? '')}
                   color={colors.get(entry.projectId ?? '')}
+                  compact={compact}
                   onEdit={() => openFor(entry)}
                 />
               </li>
@@ -103,12 +114,14 @@ function Row({
   entry,
   project,
   color,
+  compact = false,
   onEdit,
 }: {
   entry: TimeEntry;
   project?: Project;
   /** The project's client's colour; absent for internal work. */
   color?: string | null;
+  compact?: boolean;
   onEdit: () => void;
 }) {
   const time = (iso: string) =>
@@ -133,6 +146,37 @@ function Row({
      both are billing-relevant, and in a list this short density is not the
      constraint. At `@md` they rejoin the first line, because one line per
      entry is what makes a wide list scannable. */
+  const swatch = (
+    <span
+      aria-hidden
+      className="size-1.5 flex-none rounded-[2px]"
+      style={{ background: color ?? INTERNAL_SWATCH }}
+    />
+  );
+
+  /* Three fields, one line, and the swatch LEADS: in a column this narrow the
+     colour is what the eye sorts by, so it is the first thing on the row
+     rather than a marker hanging off the project name. The project name, the
+     badge, the lock and the range are all in the editor a click away. */
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-label={`Edit ${entry.taskName || 'untitled entry'}`}
+        className="flex w-full items-center gap-2 border-t border-edge-subtle px-1 py-2.5 text-left first:border-t-0 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+      >
+        {swatch}
+        <span className="min-w-0 flex-1 truncate type-control text-primary">
+          {entry.taskName || <span className="text-subtle">Untitled</span>}
+        </span>
+        <span className="flex-none text-right type-duration text-primary">
+          {formatCompact(entry.durationSeconds ?? 0)}
+        </span>
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -152,11 +196,7 @@ function Row({
           line of their own; at `@md` the source order is the line. */}
       {project ? (
         <span className="order-2 flex flex-none items-center gap-1.5 type-meta text-muted @md:order-none">
-          <span
-            aria-hidden
-            className="size-1.5 rounded-[2px]"
-            style={{ background: color ?? 'var(--text-subtle)' }}
-          />
+          {swatch}
           {project.name}
         </span>
       ) : null}

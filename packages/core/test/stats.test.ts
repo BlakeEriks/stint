@@ -115,6 +115,25 @@ test('velocity totals the split and rounds once, so the sum is money', () => {
   assert.equal(v.months, 3);
 });
 
+test('velocity divides per month here, so the screen reconciles', () => {
+  /* A total that does not divide evenly is the whole case. Divided at the
+     render instead, `Intl` rounded the quotient for display and the headline
+     multiplied back to a figure other than the split printed beneath it — a
+     billing screen disagreeing with itself by cents. */
+  const v = buildVelocity(
+    [velocityRow({ invoiced: '2000.00', unbilled: '1000.01' })],
+    'USD',
+    3,
+  );
+  assert.equal(v.total, 3000.01);
+  assert.equal(v.perMonth, 1000, 'rounded to cents, like every other money');
+  assert.equal(
+    Math.round(v.perMonth * 100) / 100,
+    v.perMonth,
+    'already money: nothing downstream needs to round it again',
+  );
+});
+
 test('velocity names internal work rather than rendering a blank', () => {
   const [row] = buildVelocity(
     [velocityRow({ client_id: null, client_name: null, currency: null })],

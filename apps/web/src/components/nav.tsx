@@ -103,7 +103,7 @@ export function Nav() {
           is the nearest thing to one. At `xl` the corner exists and
           `Version` takes over — two would render it twice. */}
       <span className="mt-auto hidden px-3 pb-1 type-meta text-subtle lg:block xl:hidden">
-        v{process.env.NEXT_PUBLIC_APP_VERSION}
+        {process.env.NEXT_PUBLIC_APP_VERSION}
       </span>
     </nav>
   );
@@ -128,7 +128,7 @@ export function Version() {
 
   return (
     <span className="hidden items-end px-3 pb-1 type-meta text-subtle xl:col-start-1 xl:row-start-2 xl:flex">
-      v{process.env.NEXT_PUBLIC_APP_VERSION}
+      {process.env.NEXT_PUBLIC_APP_VERSION}
     </span>
   );
 }

@@ -16,6 +16,7 @@ function stats(over: Partial<Stats> = {}): Stats {
     velocity: {
       months: 3,
       total: 0,
+      perMonth: 0,
       invoiced: 0,
       unbilled: 0,
       seconds: 0,
@@ -59,6 +60,7 @@ function velocity(total: number, invoiced: number) {
   return {
     months: 3,
     total,
+    perMonth: Math.round((total / 3) * 100) / 100,
     invoiced,
     unbilled: total - invoiced,
     seconds: 7200,

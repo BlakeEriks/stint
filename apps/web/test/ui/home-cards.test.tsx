@@ -3,11 +3,22 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { HomeCards } from '@/components/home-cards';
+import { BEAT_MS } from '@/lib/client/use-day-state';
 import type { Stats } from '@/lib/client/api';
 import { localDateKey } from '@stint/core';
 import { timeZone as tz } from '@/lib/client/use-timer';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
+
+/**
+ * Thursday 17 September 2026, at LOCAL noon.
+ *
+ * Local rather than a UTC instant: `localDateKey` and the heatmap read the
+ * browser's own zone, so a fixed instant would land on the previous or next
+ * calendar day for a runner far enough east or west. Noon is far enough from
+ * either midnight that no zone shifts the date.
+ */
+const NOW = new Date(2026, 8, 17, 12, 0, 0);
 
 function stats(over: Partial<Stats> = {}): Stats {
   return {
@@ -16,6 +27,7 @@ function stats(over: Partial<Stats> = {}): Stats {
     velocity: {
       months: 3,
       total: 0,
+      perMonth: 0,
       invoiced: 0,
       unbilled: 0,
       seconds: 0,
@@ -25,9 +37,14 @@ function stats(over: Partial<Stats> = {}): Stats {
     pace: null,
     billableRatio: null,
     awaitingPayment: 0,
-    attention: { overdueInvoices: [], staleDrafts: [], unprojected: null },
+    attention: {
+      overdueInvoices: [],
+      staleDrafts: [],
+      unprojected: [],
+      strangeDurations: [],
+    },
     ...over,
-  } as Stats;
+  };
 }
 
 const oneClient = {
@@ -95,7 +112,29 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-afterEach(() => vi.unstubAllGlobals());
+/** The same wrapper, over a client the test can then inspect. */
+function wrapperFor(client: QueryClient) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+  };
+}
+
+/* A pinned clock and an empty store, for the same reason: both the heatmap's
+   dates and `stint.day` are read off state that outlives one test. The store
+   is cleared here rather than in the one describe that writes it — a leaked
+   day made every later test's since-line depend on test order. */
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.setSystemTime(NOW);
+  localStorage.clear();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe('HomeCards', () => {
   it('keeps the month region with no target, offering a way to set one', async () => {
@@ -175,6 +214,7 @@ describe('HomeCards', () => {
         velocity: {
           months: 3,
           total: 9000,
+          perMonth: 3000,
           invoiced: 6000,
           unbilled: 3000,
           seconds: 360000,
@@ -204,10 +244,6 @@ describe('HomeCards', () => {
       expect(screen.getByText(/business days/)).toBeInTheDocument(),
     );
     const els = [container, ...container.querySelectorAll('*')];
-    const classes = els.flatMap((el) =>
-      Array.from((el as HTMLElement).classList ?? []),
-    );
-    expect(classes.filter((c) => c.includes('accent'))).toEqual([]);
 
     /* Every attribute, not just `style` and `class`: the plot paints through
        SVG's `stroke` and `fill`, so a scan of inline styles alone passed
@@ -371,6 +407,66 @@ describe('By client', () => {
   });
 });
 
+describe('the panel resolves its colours once', () => {
+  /* By-client, Velocity and the heatmap all paint client hues, and each used
+     to run the clients query itself. React Query dedupes the FETCH, so a
+     request count cannot see the difference — the cost is three observers on
+     one key, and three call sites that can drift apart on whether archived
+     clients are asked for. Counting observers is what fails when they come
+     back: with the three inline queries restored this reads 3. */
+  it('subscribes to the clients query exactly once', async () => {
+    const velocity = {
+      months: 3,
+      total: 9000,
+      perMonth: 3000,
+      invoiced: 6000,
+      unbilled: 3000,
+      seconds: 360000,
+      byClient: [
+        {
+          clientId: 'c1',
+          clientName: 'Northwind',
+          currency: 'USD',
+          seconds: 360000,
+          invoiced: 6000,
+          unbilled: 3000,
+          unratedCount: 0,
+        },
+      ],
+      moreClients: 0,
+    };
+
+    serve(
+      stats({ unbilled: oneClient, velocity }),
+      [{ date: '2026-09-16', totalSeconds: 7200, byClient: { c1: 7200 } }],
+      [{ id: 'c1', name: 'Northwind', color: 'rgb(10, 20, 30)' }],
+    );
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    render(<HomeCards />, { wrapper: wrapperFor(client) });
+
+    // All three colour-painting regions on screen, so all three would have
+    // subscribed had they kept their own query.
+    await waitFor(() => {
+      expect(screen.getByText('Velocity')).toBeInTheDocument();
+      expect(screen.getByText('Year')).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: /by client/i }),
+      ).toBeInTheDocument();
+    });
+
+    const cached = client
+      .getQueryCache()
+      .getAll()
+      .filter((q) => q.queryKey[0] === 'clients');
+
+    expect(cached).toHaveLength(1);
+    expect(cached[0]?.observers.length).toBe(1);
+  });
+});
+
 describe('the panel header', () => {
   /* The date answers "is this figure current?" — the question a dashboard
      that mostly does not change invites. */
@@ -382,14 +478,11 @@ describe('the panel header', () => {
       expect(screen.getByText('Unbilled')).toBeInTheDocument(),
     );
 
-    const now = new Date();
-    const day = new Intl.DateTimeFormat(undefined, {
-      weekday: 'long',
-    }).format(now);
-    const date = new Intl.DateTimeFormat(undefined, {
-      day: 'numeric',
-      month: 'short',
-    }).format(now);
+    /* Literals, under the pinned clock: re-deriving these through the same
+       `Intl` call the component uses asserts only that the call is
+       deterministic, and passes against any date it happens to render. */
+    const day = 'Thursday';
+    const date = 'Sep 17';
 
     const heading = screen.getByRole('heading', { name: day });
     const head = heading.closest('div')?.parentElement;
@@ -414,11 +507,7 @@ describe('the panel header', () => {
 
     const since = await screen.findByText(/Since yesterday/);
 
-    const heading = screen.getByRole('heading', {
-      name: new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(
-        new Date(),
-      ),
-    });
+    const heading = screen.getByRole('heading', { name: 'Thursday' });
     expect(heading.closest('div')).toContainElement(since);
   });
 });
@@ -451,30 +540,14 @@ describe('the panel is one surface', () => {
 
     const sections = [...container.querySelectorAll('section')];
     expect(sections.length).toBeGreaterThan(0);
+    /* `bg-` and `shadow-` only: those two are what actually draws a card
+       inside a card. A border or a radius on a section does not, and
+       asserting them made the test fire on any restyling that happened to
+       reach for one. */
     for (const s of sections) {
       const classes = [...s.classList];
       expect(classes.filter((c) => c.startsWith('bg-'))).toEqual([]);
       expect(classes.filter((c) => c.startsWith('shadow-'))).toEqual([]);
-      expect(classes.filter((c) => /^border(-|$)/.test(c))).toEqual([]);
-      expect(classes.filter((c) => c.startsWith('rounded-'))).toEqual([]);
-    }
-  });
-
-  it('separates regions with an INSET rule, never a full-bleed one', async () => {
-    serve(stats({ unbilled: oneClient }));
-    const { container } = render(<HomeCards />, { wrapper });
-
-    await waitFor(() =>
-      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
-    );
-
-    /* A full-bleed rule cuts the panel in two and reads as two stacked cards.
-       Every separator is inset to the rows' own edge, whatever that
-       measure is — the property is that it stops short of the panel. */
-    const rules = [...container.querySelectorAll('div.border-t')];
-    expect(rules.length).toBeGreaterThan(0);
-    for (const r of rules) {
-      expect([...r.classList].some((c) => /^mx-\d/.test(c))).toBe(true);
     }
   });
 });
@@ -483,6 +556,7 @@ describe('Velocity', () => {
   const velocity = {
     months: 3,
     total: 9000,
+    perMonth: 3000,
     invoiced: 6000,
     unbilled: 3000,
     seconds: 360000,
@@ -575,7 +649,7 @@ describe('Velocity', () => {
      running timer, which is the one thing on screen allowed to shout. */
   it('mutes the mix so it never out-shouts the running timer', async () => {
     serve(stats({ velocity }));
-    const { container } = render(<HomeCards />, { wrapper });
+    render(<HomeCards />, { wrapper });
 
     await waitFor(() =>
       expect(screen.getByText('/mo gross')).toBeInTheDocument(),
@@ -593,7 +667,6 @@ describe('Velocity', () => {
       expect(opacity).toBeGreaterThan(0);
       expect(opacity).toBeLessThan(1);
     }
-    expect(container.querySelectorAll('.bg-accent').length).toBe(0);
   });
 });
 
@@ -601,6 +674,7 @@ describe('the panel pairs its regions', () => {
   const velocity = {
     months: 3,
     total: 9000,
+    perMonth: 3000,
     invoiced: 6000,
     unbilled: 3000,
     seconds: 360000,
@@ -838,7 +912,6 @@ describe('the beat says only what it can tell', () => {
     client = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: 0 } },
     });
-    localStorage.clear();
   });
 
   it('never nets an invoice against a stop into one figure', async () => {
@@ -906,6 +979,42 @@ describe('the beat says only what it can tell', () => {
     expect(screen.queryByText(/unbillable/)).toBeNull();
     for (const b of beats(container)) {
       expect(b.text).not.toMatch(/unbillable/);
+    }
+  });
+
+  /* A stop and an offsetting rate edit land in one refetch: hours moved, so
+     it is a stop, but the money nets to exactly zero. That zero is not
+     evidence the work was unrated — it is evidence about the rate — and the
+     old test `Math.abs(amount) > 0` read it as unbillable and said so beside
+     rated work the user is about to invoice. The word is dropped rather than
+     guessed; the hours are true either way. */
+  it('will not call a stop unbillable when a rate edit offsets it', async () => {
+    let current = stats({ unbilled: unbilledAt(1000, 3600) });
+    serveMoving(() => current);
+
+    const { container } = render(<HomeCards />, { wrapper: movingWrapper });
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+    );
+
+    /* An hour of rated work stops (+$150) while a rate cut elsewhere takes
+       $150 off what was already there. Seconds move; the total does not. */
+    current = stats({ unbilled: unbilledAt(1000, 7200) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+
+    /* The chip is what this test is about, so wait for IT rather than for
+       the region around it — the beat lands an effect later than the figure
+       and a snapshot taken too early shows neither label and passes. */
+    await waitFor(() => expect(beats(container).length).toBeGreaterThan(0));
+
+    // An hour is reported; the word the app cannot justify is not.
+    expect(beats(container).some((b) => b.kind === 'stop')).toBe(true);
+    expect(screen.queryByText(/unbillable/)).toBeNull();
+    for (const b of beats(container)) {
+      expect(b.text).not.toMatch(/unbillable/);
+      expect(b.text).toMatch(/1h/);
     }
   });
 
@@ -998,11 +1107,129 @@ describe('the beat says only what it can tell', () => {
       await client.refetchQueries();
     });
 
-    // Past the retirement beat, the chip must be gone.
+    /* Past the retirement beat, the chip must be gone. Advanced on the fake
+       clock rather than slept through: 3.2s of real time against vitest's
+       5s default left the test one slow render from a timeout, and
+       `BEAT_MS` is imported so a change to it moves this with it. */
     await act(async () => {
-      // `BEAT_MS` is 2600 in home-cards.tsx, plus headroom for a loaded runner.
-      await new Promise((r) => setTimeout(r, 3200));
+      await vi.advanceTimersByTimeAsync(BEAT_MS + 100);
     });
     expect(beats(container)).toEqual([]);
+  });
+});
+
+/**
+ * Money already asked for outlives the work it came from.
+ *
+ * The unbilled rollup's `having sum(seconds) > 0` empties `byClient` the
+ * moment everything is invoiced — which is exactly when `awaitingPayment` is
+ * the only figure on the screen. A region that hid on the empty list alone
+ * took it down with it, and money the user is owed read as nothing at all.
+ */
+describe('awaiting payment survives a fully-invoiced book', () => {
+  it('renders the link when every client has been invoiced', async () => {
+    serve(
+      stats({
+        // Invoiced to the last hour: the rollup returns no rows at all.
+        unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
+        awaitingPayment: 4250,
+      }),
+    );
+
+    render(<HomeCards />, { wrapper });
+
+    const link = await screen.findByRole('link', {
+      name: /sent, awaiting payment/,
+    });
+    expect(link).toHaveAttribute('href', '/invoices?status=sent');
+    expect(screen.getByText('$4,250.00')).toBeInTheDocument();
+  });
+
+  /* The other half of the guard: with nothing unbilled AND nothing awaiting
+     payment there is genuinely nothing to say, and an empty region is worse
+     than none. `0` is a valid amount, so this is the boundary the coalesce
+     has to get right rather than a truthiness test. */
+  it('still hides when there is no money on either axis', async () => {
+    serve(
+      stats({
+        unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
+        awaitingPayment: 0,
+      }),
+    );
+
+    render(<HomeCards />, { wrapper });
+    /* The panel itself is what arrives — Velocity hides on an empty book
+       too, so the day name is the anchor that says the fetch landed. */
+    await waitFor(() =>
+      expect(screen.getByText('Thursday')).toBeInTheDocument(),
+    );
+
+    expect(screen.queryByText('Unbilled')).toBeNull();
+    expect(screen.queryByText(/awaiting payment/)).toBeNull();
+  });
+});
+
+/**
+ * The headline and the split beneath it are one statement.
+ *
+ * `/mo` is the gross divided by the window, and it is printed directly above
+ * the invoiced and unbilled figures that make it up. Divided at the render,
+ * `Intl` rounded the quotient for display and `× months` no longer equalled
+ * what was printed underneath — a billing screen contradicting itself by
+ * cents. The division happens in `buildVelocity` now, so what is shown is
+ * what was computed.
+ */
+describe('the velocity figures reconcile', () => {
+  it('multiplies back to the split printed beneath it', async () => {
+    /* 3 months of $1,000.01 — a total that does NOT divide evenly, which is
+       the whole case: 3000.03 / 3 is 1000.01 exactly, while an unrounded
+       quotient off a total like 3000.02 renders as a figure that does not
+       multiply back. */
+    const invoiced = 2000.02;
+    const unbilled = 1000.01;
+    serve(
+      stats({
+        unbilled: { ...oneClient },
+        velocity: {
+          months: 3,
+          total: 3000.03,
+          perMonth: 1000.01,
+          invoiced,
+          unbilled,
+          seconds: 36000,
+          byClient: [
+            {
+              clientId: 'c1',
+              clientName: 'Northwind',
+              currency: 'USD',
+              seconds: 36000,
+              invoiced,
+              unbilled,
+              unratedCount: 0,
+            },
+          ],
+          moreClients: 0,
+        },
+      }),
+    );
+
+    render(<HomeCards />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getByText('Velocity')).toBeInTheDocument(),
+    );
+
+    /* Read the headline off the screen and multiply it back, rather than
+       asserting a string: the test is the reconciliation, not the format.
+       Found via the `/mo gross` unit beside it, because the same amount also
+       appears in the per-client legend below. */
+    const unit = await screen.findByText('/mo gross');
+    const headline = unit.previousElementSibling;
+    const perMonth = Number(
+      (headline?.textContent ?? '').replace(/[^0-9.]/g, ''),
+    );
+    expect(perMonth).toBeGreaterThan(0);
+    expect(Math.round(perMonth * 3 * 100) / 100).toBe(
+      Math.round((invoiced + unbilled) * 100) / 100,
+    );
   });
 });

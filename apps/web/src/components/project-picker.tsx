@@ -12,7 +12,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ProjectDialog } from './project-dialog';
 import type { Project } from '@/lib/client/api';
-import { useProjectColors } from '@/lib/client/use-project-colors';
+import {
+  INTERNAL_SWATCH,
+  useProjectColors,
+} from '@/lib/client/use-project-colors';
 import { ChevronDown, Plus } from 'lucide-react';
 
 /** "No project" is a real choice, not an absent one, so it needs a value. */
@@ -146,7 +149,7 @@ function Swatch({ color }: { color?: string | null }) {
     <span
       aria-hidden
       className="size-2 flex-none rounded-[2px]"
-      style={{ background: color ?? 'var(--text-subtle)' }}
+      style={{ background: color ?? INTERNAL_SWATCH }}
     />
   );
 }

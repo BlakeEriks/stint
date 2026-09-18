@@ -43,6 +43,18 @@ before it reaches a real project. It reads `SUPABASE_DB_URL` from
 `apps/web/.env.local` — a secret that bypasses RLS and is never used by the
 app itself.
 
+### Triggers on `auth.users`
+
+`create_default_settings` fires inside Supabase's **signup transaction**.
+Anything it raises rolls the whole signup back, and the Auth service swallows
+the useful error: the client sees only `unexpected_failure` / "Database error
+saving new user" with a 500, which names nothing.
+
+Any future `security definer` function needs `set search_path = public,
+pg_temp` for the reason the trigger carries it — see the comment above
+`create_default_settings` in `00000000000002_integrity.sql`. It is also the
+standard hardening against a caller shadowing a table name.
+
 To test a migration locally without touching a real project, start a
 throwaway Postgres (`/opt/homebrew/opt/postgresql@14/bin`) on a spare port
 over TCP — the socket path in the scratchpad exceeds the 103-byte limit —

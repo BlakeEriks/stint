@@ -75,17 +75,16 @@
   }
   .count { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
 
-  /* Severity is a 2px left rule, not an icon per row. Six small coloured
-     glyphs are six focal points; six aligned rules are one texture, and the
-     danger one in it is conspicuous. */
+  /* The left rule is a 2px alignment edge, neutral on every row but the
+     overdue invoice. One coloured rule in a column of neutral ones is
+     conspicuous; six are a texture with nothing to pick out of it. */
   .irow {
-    border-left: 2px solid var(--border-default);
+    border-left: 2px solid var(--border-subtle);
     padding: 9px 10px 9px 12px;
     border-radius: 0 6px 6px 0;
     transition: background var(--motion-quick) var(--ease-standard);
   }
   .irow + .irow { margin-top: 2px; }
-  .irow.warn { border-left-color: var(--timer-warning); }
   .irow.danger { border-left-color: var(--danger); }
   .irow:hover { background: var(--bg-primary); }
 
@@ -154,7 +153,7 @@
           <span class="count">7</span>
         </div>
 
-        <div class="irow warn">
+        <div class="irow">
           <div class="itop">
             <span class="type-control ittl">Timer still running</span>
             <span class="type-duration tone-warn">31h 04m</span>
@@ -179,41 +178,41 @@
           </div>
         </div>
 
-        <div class="irow warn">
+        <div class="irow">
           <div class="itop">
             <span class="type-control ittl">STINT-0019 · Northwind</span>
             <span class="type-amount" style="color:var(--text-strong)">$780.00</span>
           </div>
-          <div class="isub"><span class="type-support tone-warn">Draft, 13 days old</span></div>
+          <div class="isub"><span class="type-support" style="color:var(--text-muted)">Draft, 13 days old</span></div>
           <div class="iact">
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Mark sent</button>
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download</button>
           </div>
         </div>
 
-        <div class="irow warn">
+        <div class="irow">
           <div class="itop">
             <span class="type-control ittl">Client call</span>
             <span class="type-duration" style="color:var(--text-muted)">1h 30m</span>
           </div>
-          <div class="isub"><span class="type-support tone-warn">No project · 11 Sep</span></div>
+          <div class="isub"><span class="type-support" style="color:var(--text-muted)">No project · 11 Sep</span></div>
           <div class="iact">
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v10H3Z"/></svg>Assign project</button>
           </div>
         </div>
 
-        <div class="irow warn">
+        <div class="irow">
           <div class="itop">
             <span class="type-control ittl">Spec review</span>
             <span class="type-duration" style="color:var(--text-muted)">45m</span>
           </div>
-          <div class="isub"><span class="type-support tone-warn">No project · 9 Sep</span></div>
+          <div class="isub"><span class="type-support" style="color:var(--text-muted)">No project · 9 Sep</span></div>
           <div class="iact">
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v10H3Z"/></svg>Assign project</button>
           </div>
         </div>
 
-        <div class="irow warn">
+        <div class="irow">
           <div class="itop">
             <span class="type-control ittl">Migration</span>
             <span class="type-duration tone-warn">11h 40m</span>
@@ -225,7 +224,7 @@
           </div>
         </div>
 
-        <div class="irow warn">
+        <div class="irow">
           <div class="itop">
             <span class="type-control ittl">Standup</span>
             <span class="type-duration tone-warn">12s</span>
@@ -291,10 +290,18 @@
       <li><strong>Two lines, then the action slot.</strong> A title, a figure
         and three buttons do not share one line at any dock width worth
         having.</li>
-      <li><strong>Severity is a 2px left rule</strong> — <code>danger</code> for
-        an overdue invoice, <code>timer-warning</code> for everything else.
-        Colour alone never carries the meaning: the qualifier line states it in
-        words.</li>
+      <li><strong>The left rule is neutral, and <code>danger</code> on the
+        overdue invoice alone.</strong> Every other row is an object that needs
+        an action, not a fault — a row is here <em>because</em> it wants a
+        decision, so colouring all of them says only what the inbox already
+        says by holding them. An unpaid invoice is the one row where money is
+        already late, and one coloured rule among neutral ones is what makes it
+        findable.</li>
+      <li><strong>Severity lives in the copy and in one figure.</strong> The
+        qualifier line names it in words — <code>20 days late</code>,
+        <code>over 8h</code> — and <code>valueTone</code> warms the figure on
+        the rows where the figure <em>is</em> the problem. Colour never carries
+        a meaning the words do not.</li>
       <li><strong>The title is always <code>text-strong</code>.</strong> A
         column of coloured headlines reads as an outage.</li>
       <li><strong>Actions are text buttons with an icon</strong>, each carrying

@@ -24,6 +24,43 @@ later.
 
 ## Ready
 
+- [ ] **Standardise how a clickable thing looks.** `components.html` names
+      the primitives but says nothing about what a hover, a press or a
+      selected row looks like, so each was decided where it was written and
+      they have drifted. The Today rows are where it shows worst: the
+      highlight is a full-bleed band with **sharp corners and no horizontal
+      padding**, so the surface runs edge to edge inside a card that is
+      rounded and inset everywhere else.
+
+      What is there now, for the same gesture — click a row, open the thing:
+
+      | Where | Shape |
+      | --- | --- |
+      | `entry-list.tsx:167,185` | no rounding, `px-1` — the full-bleed band |
+      | `inbox.tsx:480` | `rounded-r-md`, no left rounding (a colour rail) |
+      | `app-header.tsx:23` | `rounded-md px-2 py-1` |
+      | `nav.tsx:87` | its own rounding and padding |
+      | `client-list.tsx:94` | neither |
+
+      Decide the shape once, write it into `components.html` as a convention,
+      then apply it. The likely answer is an inset radius with real horizontal
+      padding, so a highlight reads as a row lifting off the card rather than
+      a stripe painted across it — but the point is that it is decided once
+      and recorded, not that it is that particular value.
+
+      Cover the states together, since a row that only hovers is half a
+      control: hover, active/pressed, keyboard focus (**neutral ring, never
+      the accent**), selected where it applies, and disabled. Focus is the one
+      already constrained and the one already broken —
+      `focus-visible:ring-edge-focus` is on some of these and not others,
+      which is a bug rather than a style drift.
+
+      **This list is not finished.** Add rows as they turn up; the above is
+      what a sweep of `hover:bg-surface-*` found, so it misses anything
+      hovering by colour alone, anything using `group-hover`, and every
+      clickable element in the macOS panel — which has its own `Hovering`
+      wrapper and the same question to answer.
+
 - [ ] **The menu bar panel names no client.** `menubar.html` draws the client
       NAME under the task while a timer runs ("Northwind Trading" beside its
       dot), where the panel now shows the project alone. The colour is
@@ -353,78 +390,6 @@ later.
       Deferred, and judging Tab reachability there needs macOS keyboard
       navigation turned on first.
 
-- [ ] **The calendar scrolls inside a scroller.** The day grid has its own
-      `sm:max-h-[62vh] sm:overflow-y-auto` (`calendar.tsx:216`), and the frame
-      already makes the content panel `xl:overflow-y-auto`
-      (`(app)/layout.tsx:67`), with a third `overflow-y-auto` on the column
-      above it at line 63. So the calendar renders two scroll wheels — an
-      inner one for the hours and an outer one for the card holding it — and
-      a wheel gesture over the grid moves whichever the pointer happens to be
-      inside.
-
-      **`62vh` is the specific fault.** It is viewport-relative inside a
-      container whose height is already bounded by the frame, so the two
-      cannot agree by construction: the frame decides how tall the panel is,
-      and the calendar then asks for a fraction of the *window*. At
-      `2xl` the frame is a fixed card (`max-h-[900px]`), which is where the
-      disagreement is widest.
-
-      The inner scroller does earn its place — the comment at that line says
-      why, and it is right: one container keeps the hour gutter locked to the
-      grid, and the phone case deliberately has no inner scroller so the page
-      owns the single gesture. So the fix is which element bounds its height,
-      not deleting the scroller. Either the calendar fills the panel the frame
-      gives it (and the panel stops scrolling on that route), or it keeps its
-      own scroll and is measured against its container rather than the
-      viewport.
-
-      Check the header and the day labels while in there: a grid that scrolls
-      under a sticky header is the reason to own the scroll at all, and it is
-      worth confirming that still holds once the height stops coming from
-      `vh`.
-
-- [ ] **The inbox carries more colour than it earns.**
-      `screens/floating-frame.html` is the target: a title, a muted subtitle,
-      quiet actions, and colour only on the one figure that is actually
-      wrong. The rows now draw a 2px coloured left border each — danger or
-      warning — plus a toned value and a toned subtitle, so a three-row inbox
-      shows three coloured edges and the eye has nowhere to land first.
-
-      The principle it fails is the accent's own: a signal that marks
-      everything marks nothing. Danger should be reserved for the row that
-      genuinely is one (an overdue invoice), with the rest reading as neutral
-      objects that happen to need an action — which is what the spec draws.
-
-      Keep what the tone currently encodes rather than dropping it: an overdue
-      invoice is not the same as an unprojected entry, and the distinction
-      should survive in the copy and in which single figure is coloured. This
-      is about how much surface the colour occupies, not about whether the app
-      still says which rows are worse.
-
-- [ ] **Today in the dock shows a full entry list.** It renders `EntryList`,
-      the same component the wide page uses — so each row carries the task
-      name, the project, a billing badge, the time range and the duration,
-      wrapping to two lines in a 286px column. `floating-frame.html` draws
-      three fields: **client swatch, task name, duration.**
-
-      That is not only less, it is the right less. Today is a glance at what
-      the day has held, subordinate to the inbox by a hairline and no row
-      surfaces — the spec says so explicitly. The time range and the badge
-      answer questions you go to the entry list or the calendar to ask.
-
-      Two consequences to settle rather than discover:
-
-      - **`EntryList` stays as it is** — it is correct on the wide page. This
-        is a dock row, so either a variant or a separate component, decided by
-        how much the two still share once the row is three fields.
-      - **The row still opens the editor.** Clicking an entry is how it gets
-        corrected, and the dock is a primary route to it. The spec draws
-        static rows because it is a still image, not because the behaviour
-        goes away.
-
-      The swatch is the client's colour through `useProjectColors()`, and
-      internal work gets none — resolving to `null`, never a shared grey.
-
 - [ ] **Adjusting a runaway focuses the task name, not the end time.** The
       `EntryDialog` at `timer-bar.tsx:171` passes no `focus`, so it falls to
       the default `'task'` — which is right when the dialog is opened to edit
@@ -705,6 +670,58 @@ later.
 Each of these names the question blocking it. Answer the question, then it
 moves up — do not start one by guessing the answer.
 
+
+- [ ] **Import selected calendar events as time entries.** *Question: is this
+      worth a stored OAuth credential and a third-party dependency — and if
+      not, is there a shape that avoids both?* A contractor's meetings are
+      billable work that never gets tracked, because starting a timer for a
+      30-minute call is the thing nobody remembers to do. The calendar already
+      knows it happened.
+
+      It passes the thesis on its face: a meeting you attended and did not
+      bill is money lost, so this helps a solo contractor get paid. What it
+      costs is the open question.
+
+      **Selected, never automatic — that is the whole design.** A calendar
+      holds dentist appointments, holidays and meetings that were cancelled
+      and not deleted. Anything that imports on a schedule writes billable
+      records the user did not approve, which is the same rule that stops
+      runaway timers being auto-trimmed. The user picks events and they become
+      entries; nothing lands unreviewed. That also means the imported entry is
+      an ordinary `time_entries` row, editable and deletable like any other —
+      no link back to the source event, no re-sync, no reconciliation.
+
+      **The cost is what the Toggl import deliberately dodged.** That one is a
+      file upload precisely to avoid an OAuth app and a stored third-party
+      credential, and calendars are worse: the token is long-lived, it reads
+      the user's entire schedule, and it is the first thing in this app that
+      would need protecting beyond RLS. So decide the shape before the
+      feature:
+
+      - **An `.ics` file or URL.** Every calendar exports one and most publish
+        a secret subscription URL. No OAuth app, no token, no provider SDK —
+        the same argument that made the Toggl import a file. Weakest on
+        convenience, strongest on everything else, and it works for Google,
+        Apple and Outlook at once rather than one at a time.
+      - **Read-only OAuth against one provider.** Better to use, and the thing
+        being decided.
+
+      Whichever wins, the mapping is small: event title → `task_name`, start
+      and end → the entry's times parsed to an absolute instant (never
+      fixed-millisecond arithmetic — an all-day or DST-spanning event is the
+      trap), project and billability chosen at import, defaulting to
+      unassigned rather than guessed. An all-day event has no duration worth
+      billing and should be excluded rather than imported as 24 hours.
+
+      **The timer invariant applies.** An imported event overlapping a real
+      tracked entry is the common case — you tracked the call AND the calendar
+      has it. Surface the overlap and let the user choose, exactly as the
+      Toggl import does; never silently adjust either side.
+
+      And it must not turn the calendar screen into a scheduler. That screen
+      *visualises what was tracked and does not schedule* — showing unimported
+      events on it would make it a planner, so the import is a deliberate
+      action somewhere else, not a second layer on the week.
 - [ ] **The quarter as a first-class period.** *Question: does the app report
       cash received, when every number in it today reports work done?* A US
       contractor pays estimated tax four times a year on **money actually

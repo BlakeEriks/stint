@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatCompact } from '@stint/core';
+import { formatCompact, formatCurrency } from '@stint/core';
 import {
   Check,
   Clock,
@@ -25,7 +25,6 @@ import { useExit } from '@/lib/client/use-exit';
 import { RUNAWAY_ROW_ID, useRunaway } from '@/lib/client/use-runaway';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
-import { formatCurrency } from './invoice-bits';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 type Attention = Stats['attention'];
@@ -100,9 +99,9 @@ export function Inbox({ stats }: { stats: Stats }) {
     },
   });
 
-  /* The order is this concatenation. Overdue sorts first among the invoices
-     and carries danger; everything else is a warning. Never the accent —
-     that belongs to the running timer. */
+  /* The order is this concatenation. Overdue sorts first and carries danger;
+     every other row is neutral. Never the accent — that belongs to the
+     running timer. */
   const rows: InboxRow[] = [
     ...overdueInvoices.map((i) => ({
       id: i.invoiceId,
@@ -256,7 +255,7 @@ function Row({
         label={d.clientName ?? d.invoiceNumber}
         detail={`Draft, ${d.ageDays}d old`}
         value={formatCurrency(d.amount, d.currency)}
-        tone="warning"
+        tone="neutral"
         actions={
           <>
             <Action
@@ -289,7 +288,7 @@ function Row({
         label={u.taskName || 'Untitled entry'}
         detail={`No project · ${dayLabel(u.startedAt, tz)}`}
         value={formatCompact(u.seconds)}
-        tone="warning"
+        tone="neutral"
         actions={
           <Action
             label="Assign project"
@@ -319,7 +318,7 @@ function Row({
         .join(' · ')}
       value={formatCompact(e.seconds)}
       valueTone="warning"
-      tone="warning"
+      tone="neutral"
       actions={
         <>
           <Action
@@ -365,7 +364,7 @@ function RunawayItem({
       detail={`${runaway.hours} hours so far`}
       value={`${runaway.hours}h`}
       valueTone="warning"
-      tone="warning"
+      tone="neutral"
       actions={
         confirmingDiscard ? (
           <>
@@ -451,7 +450,13 @@ function Item({
   value: string;
   /** Warning only where the figure IS the problem — a runaway or a length. */
   valueTone?: 'warning';
-  tone: 'danger' | 'warning';
+  /**
+   * The left rule, and the qualifier line with it. `danger` belongs to the
+   * overdue invoice alone — every other row is an object that needs an action,
+   * not a fault, and a column of coloured rules has nothing to pick out of it.
+   * Severity survives in the copy and in `valueTone`.
+   */
+  tone: 'danger' | 'neutral';
   actions?: React.ReactNode;
   /** From `useExit` — the row collapses while its exit plays. */
   exiting?: boolean;
@@ -470,8 +475,10 @@ function Item({
       data-exiting={exiting ? '' : undefined}
     >
       <div
+        /* The rule is an alignment edge first: it is the same 2px on every
+           row, so the one that is coloured is the one that stands out. */
         className={`group rounded-r-md border-l-2 py-2.5 pr-2.5 pl-3 transition-colors hover:bg-surface-primary ${
-          tone === 'danger' ? 'border-danger' : 'border-timer-warning'
+          tone === 'danger' ? 'border-danger' : 'border-edge-subtle'
         }`}
       >
         <div className="flex items-baseline gap-2.5">
@@ -506,7 +513,7 @@ function Item({
         <div className="mt-px">
           <span
             className={`truncate type-support ${
-              tone === 'danger' ? 'text-danger' : 'text-warning'
+              tone === 'danger' ? 'text-danger' : 'text-muted'
             }`}
           >
             {detail}

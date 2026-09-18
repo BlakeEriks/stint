@@ -189,9 +189,15 @@ export function buildVelocity(
 ) {
   const invoiced = roundMoney(rows.reduce((a, r) => a + Number(r.invoiced), 0));
   const unbilled = roundMoney(rows.reduce((a, r) => a + Number(r.unbilled), 0));
+  const total = roundMoney(invoiced + unbilled);
   return {
     months,
-    total: roundMoney(invoiced + unbilled),
+    total,
+    /* Rounded here, not at the render: `Intl` rounds an unrounded quotient to
+       two places for display, so the headline the user reads multiplied by
+       `months` did not equal the split printed beneath it. The client does
+       not compute money. */
+    perMonth: roundMoney(total / months),
     invoiced,
     unbilled,
     seconds: rows.reduce((a, r) => a + Number(r.seconds), 0),

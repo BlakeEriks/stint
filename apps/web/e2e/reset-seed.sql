@@ -41,8 +41,14 @@ delete from payment_profiles
 -- Numbering is allocated from here, so a restored account that kept a high
 -- `next_invoice_number` would issue STINT-0003 where the suite expects
 -- STINT-0001 to be the first thing it sees.
+-- The goal too: `seed.sql` sets 110 hours, and a settings row left at
+-- whatever a previous run or a manual edit put there makes the Pace region
+-- plot against a target the seed did not choose — or hides it entirely, when
+-- the target is null.
 update user_settings
-   set next_invoice_number = 1
+   set next_invoice_number = 1,
+       monthly_target      = 110,
+       monthly_target_unit = 'hours'
  where user_id = '00000000-0000-4000-8000-000000000001';
 
 commit;

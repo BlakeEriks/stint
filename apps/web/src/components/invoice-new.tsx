@@ -6,8 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, Section, inputClass, textareaClass } from './field';
-import { formatCurrency } from './invoice-bits';
-import { formatHours } from '@stint/core';
+import { formatCurrency, formatHours } from '@stint/core';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   api,

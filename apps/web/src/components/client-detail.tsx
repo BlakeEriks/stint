@@ -9,7 +9,8 @@ import { api, ApiError } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
 import { ClientProjects } from './client-projects';
 import { formatCurrency } from '@stint/core';
-import { keys } from '@/lib/client/query-keys';
+import { keys, invalidateEntryData } from '@/lib/client/query-keys';
+import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 
 export function ClientDetail({ id }: { id: string }) {
   const router = useRouter();
@@ -24,7 +25,8 @@ export function ClientDetail({ id }: { id: string }) {
     mutationFn: () => api.archiveClient(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.clients() });
-      queryClient.invalidateQueries({ queryKey: keys.stats() });
+      // Archiving withdraws the client's rate from every rollup, not just stats.
+      invalidateEntryData(queryClient);
       router.push('/clients');
     },
   });
@@ -39,7 +41,7 @@ export function ClientDetail({ id }: { id: string }) {
                 <span
                   aria-hidden
                   className="size-3 flex-none rounded-[3px]"
-                  style={{ background: client.color ?? 'var(--text-subtle)' }}
+                  style={{ background: client.color ?? INTERNAL_SWATCH }}
                 />
                 <h1 className="truncate type-title text-strong">
                   {client.name}
