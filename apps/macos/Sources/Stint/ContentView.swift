@@ -8,7 +8,6 @@ struct ContentView: View {
     /// Settings is somewhere you visit, not a state the panel remembers, so
     /// this resets on dismiss rather than persisting.
     @State private var showingSettings = false
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -23,10 +22,9 @@ struct ContentView: View {
                 SignInPanel(model: model)
             }
         }
-        // Only reached when nothing inside claimed the key: a focused field
-        // or Settings handles its own Escape first, so this never closes the
-        // panel out from under someone who only wanted out of a field.
-        .onExitCommand { dismiss() }
+        // No Escape handler here on purpose: the panel is the only responder
+        // implementing `cancelOperation:`, so an Escape nothing else claims
+        // already closes it. A field or Settings claims its own first.
         // Settings is somewhere you visit, not a state the panel remembers.
         // Both edges, because whether `.window` tears the content down between
         // openings is undocumented: on a rebuild only `onAppear` runs, on a
@@ -156,7 +154,9 @@ private struct SettingsPanel: View {
             rows
             account
         }
-        .onExitCommand { showingSettings = false }
+        // Not `.onExitCommand`: it does not claim the key, so Escape reached
+        // the panel and closed it instead of returning to the timer.
+        .onKeyPress(.escape) { showingSettings = false; return .handled }
     }
 
     private var account: some View {
@@ -287,6 +287,9 @@ private struct TimerPanel: View {
                 entries
             }
         }
+        // `.window` keeps this view alive between openings, so focus survives
+        // a dismissal unless it is cleared here.
+        .onDisappear { taskFocused = false }
     }
 
     private var idle: some View {
@@ -296,6 +299,10 @@ private struct TimerPanel: View {
                 .focused($taskFocused)
                 .field(focused: taskFocused)
                 .onSubmit { Task { await model.toggle() } }
+                // `.handled` is the whole point: the panel is the only
+                // responder implementing `cancelOperation:`, so an unclaimed
+                // Escape walks past every SwiftUI view and dismisses it.
+                .onKeyPress(.escape) { taskFocused = false; return .handled }
             HStack(spacing: 8) {
                 ProjectPicker(model: model)
                 Spacer(minLength: 0)
@@ -408,7 +415,15 @@ private struct RenameRow: View {
                 // focus, which would commit the edit it was pressed to
                 // abandon. The flag is what tells the two apart — without it
                 // cancelling is a silent write.
-                .onExitCommand { cancelled = true; focused = false }
+                //
+                // `.handled` stops it there: the panel is the only responder
+                // implementing `cancelOperation:`, so an unclaimed Escape
+                // dismisses the whole panel instead of leaving the field.
+                .onKeyPress(.escape) {
+                    cancelled = true
+                    focused = false
+                    return .handled
+                }
                 .onChange(of: focused) { _, has in
                     if !has { cancelled ? reset() : finish() }
                 }
@@ -652,6 +667,8 @@ private struct SignInPanel: View {
         }
         .padding(14)
         .defaultFocus($focus, sent ? .code : .email)
+        .onKeyPress(.escape) { focus = nil; return .handled }
+        .onDisappear { focus = nil }
         .onChange(of: sent) { _, isSent in focus = isSent ? .code : .email }
     }
 
