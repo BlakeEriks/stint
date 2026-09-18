@@ -194,7 +194,10 @@ export function Calendar() {
             rather than inheriting a second one from `Page`. */}
         <header className="flex flex-none flex-wrap items-center justify-between gap-3 px-4 pt-4 pb-3 sm:px-6">
           <div className="flex items-baseline gap-3">
-            <h1 className="type-title text-strong">{label}</h1>
+            {/* `type-heading`, not `type-title`: the mono readout beside it is
+              14px, and 24px over it reads as two unrelated sizes rather than
+              a heading and its total. */}
+            <h1 className="type-heading text-strong">{label}</h1>
             {/* The total matches the grid: this day on a phone, the week
               otherwise. */}
             <span className="type-duration text-muted">

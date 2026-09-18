@@ -40,9 +40,11 @@
   .rule strong { color: var(--text-strong); font-weight: 600; }
 
   /* ── the grid ─────────────────────────────────────────────────── */
+  /* The grid IS the panel. Nothing inside the panel is a card, so the regions
+     are separated by rules that run edge to edge, not by a border around the
+     whole thing. */
   .cal {
-    border: 1px solid var(--border-subtle);
-    border-radius: 12px;
+    border-top: 1px solid var(--border-subtle);
     overflow: hidden;
     background: var(--bg-primary);
     margin-top: 1.25rem;
@@ -50,7 +52,6 @@
   .cal-head {
     display: flex; align-items: center; gap: 12px;
     padding: 12px 16px;
-    background: var(--bg-base);
     border-bottom: 1px solid var(--border-subtle);
   }
   .arrows { display: flex; gap: 4px; }
@@ -211,11 +212,12 @@
       needs. A block you cannot read is a block you cannot check.
     </p>
     <p>
-      <strong style="color:var(--text-strong)">The page owns the scroll —
-      one gesture at any inbox size.</strong> A viewport-relative grid height
-      cannot work here, because the inbox beneath it is variable. Cropping is
-      what keeps a single scroller honest: an uncropped 24h column would move
-      the same excess into the page.
+      <strong style="color:var(--text-strong)">On a phone the page owns the
+      scroll — one gesture at any inbox size.</strong> A viewport-relative
+      grid height cannot work here, because the inbox beneath it is variable.
+      Cropping is what keeps a single scroller honest: an uncropped 24h
+      column would move the same excess into the page. From <code>sm</code>
+      up the panel scrolls instead, and the week keeps all 24 hours.
     </p>
 
     <table>
@@ -223,12 +225,16 @@
       <tr><td><code>workedWindow()</code></td><td>The entries' range, padded an hour either side so a block is never flush against an edge with nowhere to drag it earlier</td></tr>
       <tr><td>Floor</td><td class="num">10 hours</td></tr>
       <tr><td>Nothing tracked</td><td class="num">07:00 – 19:00</td></tr>
-      <tr><td>Height</td><td class="num">44px/hour, capped at 620px</td></tr>
+      <tr><td>Height</td><td class="num">44px/hour in both views; the day view caps at 620px, where the page scrolls</td></tr>
     </table>
 
     <p style="margin-top:1.5rem">
-      The week view keeps all 24 hours: seven columns share one window, and
-      cropping would crop them all to the busiest day's range.
+      The week view keeps all 24 hours at the same 44px, and the panel scrolls
+      to the first entry of the week, an hour above it. Seven columns share
+      one window, so cropping would crop them all to the busiest day's range:
+      one 03:00 entry costs every column five empty hours, and work spanning
+      midnight forces the full 24 back and gains nothing. A week is also a
+      bill, and an hour that is hard to find is an hour that goes unbilled.
     </p>
   </section>
 
