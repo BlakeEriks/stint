@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Wordmark } from '@/components/wordmark';
 import { browserClient } from '@/lib/client/supabase';
 
 /**
@@ -52,7 +53,9 @@ export function SignInForm({ error }: { error?: string }) {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6">
-      <h1 className="type-title text-strong">Stint</h1>
+      <h1>
+        <Wordmark />
+      </h1>
       <p className="mt-1.5 type-control text-muted">
         Time tracking for solo contractors.
       </p>
