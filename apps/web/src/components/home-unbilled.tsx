@@ -195,7 +195,7 @@ export function ByClient({
       {/* A hairline BETWEEN rows, never above the first — the section head
           already separates it from what is above. `mx-5` rather than padding
           on the row, so the rule starts where the content does. */}
-      <ul className="mx-5 flex flex-col [&>li+li]:border-t [&>li+li]:border-edge-subtle/60">
+      <ul className="mx-5 flex flex-col [&>li+li]:border-t [&>li+li]:border-edge-grid">
         {byClient.map((c) => (
           <Row
             key={c.clientId ?? 'none'}

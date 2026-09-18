@@ -583,7 +583,7 @@ function DayColumn({
         <div
           key={pct}
           aria-hidden
-          className="absolute inset-x-0 border-t border-edge-subtle/60"
+          className="absolute inset-x-0 border-t border-edge-grid"
           style={{ top: `${pct}%` }}
         />
       ))}

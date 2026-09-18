@@ -18,6 +18,7 @@
     --text-on-accent: #111316;
     --text-on-danger: #111316;
     --overlay: #05060899;
+    --border-grid: #272A30;
     --border-subtle: #2F333A;
     --border-default: #393E48;
     --border-control: #666D79;
@@ -82,6 +83,7 @@
     --text-on-accent: #FFFFFF;
     --text-on-danger: #FFFFFF;
     --overlay: #1B1E2799;
+    --border-grid: #DADCDF;
     --border-subtle: #CBCDD1;
     --border-default: #BFC3CB;
     --border-control: #8F949C;

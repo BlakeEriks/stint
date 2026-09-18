@@ -806,14 +806,6 @@ moves up — do not start one by guessing the answer.
       Worth a test that hits a real server with a real token before the Expo
       or macOS app depends on it.
 
-- [ ] **A hairline divider is `border-edge-subtle/60` in two places.**
-      `calendar.tsx`'s gridlines and `home-unbilled.tsx`'s row rules both mix
-      the tint at the call site, which `.claude/rules/web-ui.md` forbids: it
-      has no light-mode counterpart and no one auditing the palette can find
-      it. The value lands on `neutral.100`, an existing ramp step, so this is
-      a `border-grid` token in `tokens.json` and two call sites — not a
-      generator change.
-
 ## Deferred
 
 - **Branch protection** — needs GitHub Pro on a private repo. CI runs without

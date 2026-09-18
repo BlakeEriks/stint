@@ -80,7 +80,10 @@
     color: var(--text-subtle); text-transform: uppercase; letter-spacing: .08em;
   }
   .slots { position: relative; height: 264px; }
-  .slots i { position: absolute; left: 0; right: 0; height: 44px; border-bottom: 1px solid var(--border-subtle); opacity: .5; }
+  /* `--border-grid` is the hairline: a gridline reads UNDER the column rules
+     rather than beside them, and a token does that in both themes where an
+     opacity only works over the one surface behind it. */
+  .slots i { position: absolute; left: 0; right: 0; height: 44px; border-bottom: 1px solid var(--border-grid); }
 
   .block {
     position: absolute; left: 3px; right: 3px;
