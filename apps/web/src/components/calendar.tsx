@@ -147,7 +147,7 @@ export function Calendar() {
   };
 
   return (
-    <Page wide fills>
+    <Page wide flush fills>
       {/* The screen is a column the height of the panel: the heading takes
           what it needs and the grid takes the rest. `min-h-0` at every link
           is what lets the grid shrink rather than push the column taller than
@@ -156,7 +156,9 @@ export function Calendar() {
           It binds at `xl` for the same reason `fills` does — below it the
           column above owns the one gesture. */}
       <div className="flex min-h-0 flex-col xl:flex-1">
-        <header className="flex flex-none flex-wrap items-center justify-between gap-3 pb-4">
+        {/* `flush`, so the regions below carry the panel's inset themselves
+            rather than inheriting a second one from `Page`. */}
+        <header className="flex flex-none flex-wrap items-center justify-between gap-3 px-4 pt-4 pb-3 sm:px-6">
           <div className="flex items-baseline gap-3">
             <h1 className="type-title text-strong">{label}</h1>
             {/* The total matches the grid: this day on a phone, the week
@@ -195,12 +197,16 @@ export function Calendar() {
           </div>
         </header>
 
-        {/* The card is a column that can shrink, so the grid inside it measures
-          against the panel the frame gives this route rather than the window.
-          The day headings are the column's first child and the scroller its
-          second, which is what keeps the headings in place while the hours
-          move under them. */}
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
+        {/* The grid IS the panel, not a card on it — nothing inside the panel
+          is a card. It is a column that can shrink, so it measures against
+          the panel the frame gives this route rather than the window. The day
+          headings are the column's first child and the scroller its second,
+          which is what keeps the headings in place while the hours move under
+          them.
+
+          The rules above and below are region separators: edge to edge, they
+          cut the panel into heading, grid and legend. */}
+        <div className="flex min-h-0 flex-col overflow-hidden border-t border-edge-subtle">
           <div className="flex flex-none border-b border-edge-subtle">
             <div className="w-12 flex-none sm:w-14" />
             {cal.days.map((day) => (
@@ -285,22 +291,25 @@ export function Calendar() {
         </div>
 
         {error ? (
-          <p role="alert" className="mt-3 type-support text-danger">
+          <p
+            role="alert"
+            className="px-4 pt-3 type-support text-danger sm:px-6"
+          >
             {error}
           </p>
         ) : cal.isLoading ? (
-          <p className="mt-3 type-support text-subtle">Loading…</p>
+          <p className="px-4 pt-3 type-support text-subtle sm:px-6">Loading…</p>
         ) : cal.isError ? (
           /* Neutral: the grid is still drawn and correct, it just has nothing
            in it — a failed fetch is a condition, not a rejected action. */
-          <p className="mt-3 type-support text-subtle">
+          <p className="px-4 pt-3 type-support text-subtle sm:px-6">
             Could not load these entries. Try again.
           </p>
         ) : cal.visibleSeconds === 0 ? (
           /* Says what is actually empty. "Nothing logged this week" over a
            single day's grid would be wrong whenever the rest of the week has
            hours in it. */
-          <p className="mt-3 type-support text-subtle">
+          <p className="px-4 pt-3 type-support text-subtle sm:px-6">
             Nothing logged {byDay ? 'this day' : 'this week'}. Click a time to
             add an entry.
           </p>
