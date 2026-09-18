@@ -33,11 +33,24 @@ entry names truncate to "Pairi…".
 — no configurable card set, no hiding". A per-tab collapse cuts against
 both. The width comes from phases 1–3 instead.
 
-**A fixed window that expands.** 07:00–19:00 by default, widened only when
-entries fall outside it. A union crop is tighter but re-scales week to week,
-so the grid moves under you as you page. Fixed is stable; expansion keeps it
-honest. `EMPTY_WINDOW` is already `[7, 19]`, so this generalises a constant
-that exists.
+**The week keeps all 24 hours.** Cropping was the plan and it was wrong.
+Simulated against the real algorithm, a fixed 07:00–19:00 window widened to
+cover the week's entries gives an ordinary week 12 hours of grid — and:
+
+| Worked | Window | Of 24h |
+| --- | --- | --- |
+| 09:00–17:00 | 07:00–19:00 | 12h |
+| One 03:00 entry, rest ordinary | 02:00–19:00 | 17h |
+| 06:00–09:00 and 21:00–23:00 | 05:00–24:00 | 19h |
+| 22:00–02:00 | 00:00–24:00 | 24h |
+
+Nothing is ever hidden — the window only widens, so a 03:00 entry forces
+03:00 into view, which a billing system requires. But one outlier costs
+every column five empty hours all week, and someone working across midnight
+is pushed to the full 24 and gets nothing at all. The unusual hours are
+where the win evaporates, and the grid rescales as you page between weeks.
+
+So the vertical fix is hour height, not hour count.
 
 **No second layer on the grid**, per `tasks.md:617`: the screen visualises
 what was tracked and does not schedule.
@@ -61,42 +74,34 @@ Resolves the plane disagreement on the way: the mockup's `.cal` is
 `bg-primary` while the app ships `bg-surface-elevated`. Neither survives —
 the grid sits on the panel.
 
-## Phase 2 — a fixed week window that expands
+## Phase 2 — an hour is a real height, and the grid opens on the work
 
-`workedWindow()` (`use-calendar.ts:176`) already crops, for day view only.
-`use-calendar.ts:93` keeps all 24 hours in week view, and
-`calendar.test.tsx:557` asserts it:
+`GRID_HEIGHT = 720` goes. The week draws all 24 hours at `PX_PER_HOUR`, the
+constant day view already uses, so an hour is one size everywhere and a
+30-minute entry keeps the touch target 44px was chosen for. The scroller
+`fills` gave the panel in `9ef6229` is what makes this affordable: the grid
+is taller than the panel and the panel scrolls it, which is what a fixed 720
+was avoiding by crushing 24 hours into a space for 16.
 
-> Seven columns share one window, so cropping would crop them all to the
-> busiest day's range — and the week's columns are short enough to read
-> whole anyway.
+On open, the scroller goes to the first entry of the visible week, an hour
+above it. That is what cropping was really for — landing on the work rather
+than on midnight — and it costs nothing when the day is empty, where 07:00
+is the sensible resting place (`EMPTY_WINDOW` already says so).
 
-The first clause is the real objection and the fix answers it: one window
-for all seven columns, so they stay aligned. The second clause is what no
-longer holds — 30px hours are not "short enough to read whole".
+The scroll position is set when the visible week changes, not on every
+render: a drag must not yank the grid, and neither should a refetch.
 
-The window is `[7, 19]`, widened to cover any entry outside it, floored to
-whole hours and padded by `WINDOW_PAD_HOURS`. A week inside working hours
-always draws the same window; a 06:00 start widens the top only.
+`calendar.test.tsx:557` keeps asserting 24 hours and its comment's first
+clause stands. The second — "short enough to read whole" — is retired by
+this phase, so the comment needs rewriting even though the assertion holds.
 
-Both branches of `byDay` then take a window, so `[at, next]` at line 93 goes
-away and positions stay fractions of the drawn window — the existing
-invariant.
+## Phase 3 — folded into 2
 
-Rewrite `calendar.test.tsx:557` to assert the new contract: a default week
-draws 07–19, an out-of-hours entry widens it, and all seven columns report
-the same window.
-
-## Phase 3 — the grid takes the height it has
-
-`GRID_HEIGHT = 720` goes. The grid measures `flex-1` against the panel that
-`fills` already provides, so an hour is as tall as the window allows rather
-than a constant that disagrees with `2xl:max-h-[900px]`.
-
-Entry blocks are positioned in percentages (`top`, `height`, `left`,
-`width`), so they rescale with no arithmetic change. One coupling to check:
-the `height > 0.045` gate at `calendar.tsx:651` decides whether a block
-shows its second line, and a taller grid changes which entries clear it.
+Phases 2 and 3 were one change once cropping was dropped. Entry blocks are
+positioned in percentages (`top`, `height`, `left`, `width`), so they
+rescale with no arithmetic change — the one coupling is the `height > 0.045`
+gate at `calendar.tsx:651`, which decides whether a block shows its second
+line, and a taller grid changes which entries clear it.
 
 ## Folded in
 

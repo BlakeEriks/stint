@@ -555,8 +555,10 @@ describe('the mobile day grid crops to the hours in use', () => {
 
     await screen.findByText('September 2026');
     /* Seven columns share one window, so cropping would crop them all to the
-       busiest day's range — and the week's columns are short enough to read
-       whole anyway. */
+       busiest day's range: one 03:00 entry costs every column five empty
+       hours, and work spanning midnight forces the full 24 back regardless.
+       An hour keeps its height and the grid is scrolled to the first entry
+       instead — nothing is hidden from a week that is also a bill. */
     expect(hourLabels()).toContain('00');
     expect(hourLabels()).toContain('21');
   });

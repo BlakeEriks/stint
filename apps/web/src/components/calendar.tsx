@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   formatCompact,
@@ -28,9 +28,14 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 const HOUR_STEP = 3;
 
 /**
- * Pixels per hour in the cropped day view, and the ceiling it obeys. 44px
- * keeps a 30-minute entry at the touch target; the cap is what keeps a long
- * window from rendering taller than the uncropped day it crops.
+ * Pixels per hour, in both views — an hour is one size everywhere, and the
+ * window decides how tall the grid is rather than how tall an hour is. 44px
+ * keeps a 30-minute entry at the touch target.
+ *
+ * The cap is the day view's alone: there the PAGE scrolls, and a long window
+ * would otherwise render taller than the uncropped day it crops. A week is
+ * 24 hours and overflows the panel on purpose, which is the panel's scroll
+ * to carry.
  */
 const PX_PER_HOUR = 44;
 const DAY_MAX_HEIGHT = 620;
@@ -102,15 +107,44 @@ export function Calendar() {
   const to = cal.days[0]?.to ?? cal.weekEnd;
   const marks = hourMarks(from, to);
 
-  /* Fixed height in week view, so an hour is the same size on every screen. In
-     day view the height follows the window and the page scrolls, so a shorter
-     day is a shorter page. */
+  /* An hour is the same height in both views: the window sets how tall the
+     grid is, never how tall an hour is. A week is 24 of them and taller than
+     the panel, so the scroller the panel already owns carries the difference
+     — which is what a fixed height could not do without crushing the hours
+     into it. The day view keeps its cap, where the PAGE scrolls and a long
+     window would otherwise run past the end of a cropped day. */
+  const windowHours = (to.getTime() - from.getTime()) / 3_600_000;
   const gridHeight = byDay
-    ? Math.min(
-        DAY_MAX_HEIGHT,
-        Math.round(((to.getTime() - from.getTime()) / 3_600_000) * PX_PER_HOUR),
-      )
-    : GRID_HEIGHT;
+    ? Math.min(DAY_MAX_HEIGHT, Math.round(windowHours * PX_PER_HOUR))
+    : Math.round(windowHours * PX_PER_HOUR);
+
+  /* The earliest entry on screen, as a fraction of the window. A week of
+     ordinary days opens on the morning rather than on midnight, which is
+     what makes 24 hours affordable: the empty small hours are above the
+     fold instead of squeezing the worked ones. */
+  const firstTop = Math.min(
+    ...cal.days.flatMap((d) => d.positioned.map((p) => p.top)),
+  );
+
+  /* Keyed to the period on screen, not to the data: a refetch must not yank
+     the grid back, and neither must a drag. It changes only when the arrows
+     move — the day in day view, the week otherwise, matching what the
+     columns redraw. */
+  const period = byDay
+    ? localDateKey(cal.cursor, tz)
+    : localDateKey(cal.weekStart, tz);
+  const scroller = useRef<HTMLDivElement>(null);
+  const landed = useRef<string>('');
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || landed.current === period) return;
+    /* Nothing logged: the window's own start is already the right place. */
+    if (!Number.isFinite(firstTop)) return;
+    landed.current = period;
+    /* An hour above the first entry, so it does not sit against the top
+       edge and the hour before it stays reachable without scrolling up. */
+    el.scrollTop = Math.max(0, firstTop * gridHeight - PX_PER_HOUR);
+  }, [period, firstTop, gridHeight]);
 
   /* The heading names what is on screen, down to the day in day view. */
   const label = byDay
@@ -232,7 +266,10 @@ export function Calendar() {
             **On a phone there is no inner scroller at all** — the page owns
             the scroll, so there is one gesture however tall the chrome around
             it is. The cropped window is what keeps that honest. */}
-          <div className="sm:min-h-0 sm:flex-1 sm:overflow-y-auto">
+          <div
+            ref={scroller}
+            className="sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
+          >
             <div
               className="flex"
               /* The gesture is owned here rather than on each block: a drag
@@ -326,9 +363,6 @@ export function Calendar() {
     </Page>
   );
 }
-
-/** Fixed pixel height so an hour is the same size on every screen. */
-const GRID_HEIGHT = 720;
 
 /**
  * Which client each colour on the grid belongs to.
