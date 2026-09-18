@@ -12,10 +12,22 @@ import {
 import { inputClass } from './field';
 import type { Client } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
-import { ChevronDown, Plus } from 'lucide-react';
+import { Check, ChevronDown, Plus } from 'lucide-react';
 
 /** "No client" is a real choice, not an absent one, so it needs a value. */
 const NONE = '__none__';
+
+/* `pl-2`, not the primitive's `pl-8`: that gutter exists for the radio dot,
+   which is suppressed here. A dot the size of the swatch, eight pixels from
+   it, reads as a second swatch rather than as "this one is selected". */
+const ROW = 'gap-2 pl-2 [&>span:first-child]:hidden';
+
+/** The selected mark, where a swatch cannot be mistaken for it. */
+function Tick({ on }: { on: boolean }) {
+  return on ? (
+    <Check aria-hidden className="size-3.5 flex-none text-muted" />
+  ) : null;
+}
 
 /**
  * Client assignment.
@@ -77,21 +89,25 @@ export function ClientPicker({
         />
       </DropdownMenuTrigger>
 
+      {/* The menu is the field's own width: it drops out of a full-width
+          control, so a narrower list reads as a different thing. */}
       <DropdownMenuContent
         align="start"
-        className="max-h-72 w-56 overflow-y-auto"
+        className="max-h-72 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
       >
         <DropdownMenuRadioGroup
           value={value ?? NONE}
           onValueChange={(v) => onChange(v === NONE ? null : v)}
         >
-          <DropdownMenuRadioItem value={NONE} className="pl-8 text-subtle">
-            {placeholder}
+          <DropdownMenuRadioItem value={NONE} className={ROW}>
+            <span className="flex-1 text-subtle">{placeholder}</span>
+            <Tick on={value === null} />
           </DropdownMenuRadioItem>
 
           {clients.map((c) => (
-            <DropdownMenuRadioItem key={c.id} value={c.id} className="pl-8">
+            <DropdownMenuRadioItem key={c.id} value={c.id} className={ROW}>
               <Row client={c} />
+              <Tick on={value === c.id} />
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
@@ -118,7 +134,7 @@ function Row({ client }: { client: Client }) {
   return (
     <>
       <Swatch color={client.color} />
-      <span className="truncate">{client.name}</span>
+      <span className="min-w-0 flex-1 truncate">{client.name}</span>
     </>
   );
 }

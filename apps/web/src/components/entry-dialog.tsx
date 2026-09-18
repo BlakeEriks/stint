@@ -241,8 +241,12 @@ export function EntryDialog({
                 }));
               }}
               projectId={draft.projectId}
-              // A billed entry is read-only, so there is nothing to accelerate.
-              disabled={locked}
+              /* Naming work is what suggestions accelerate, and an entry that
+                 exists is already named — the overlay would cover the field
+                 the moment it takes focus, over a value the user came to
+                 adjust rather than replace. A billed entry is read-only, so
+                 there is nothing to accelerate there either. */
+              disabled={locked || existing !== undefined}
             >
               {(suggest) => (
                 <Input

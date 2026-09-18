@@ -18,10 +18,22 @@ import {
   useClients,
   useProjectColors,
 } from '@/lib/client/use-project-colors';
-import { ChevronDown, Plus } from 'lucide-react';
+import { Check, ChevronDown, Plus } from 'lucide-react';
 
 /** "No project" is a real choice, not an absent one, so it needs a value. */
 const NONE = '__none__';
+
+/* `pl-2`, not the primitive's `pl-8`: that gutter exists for the radio dot,
+   which is suppressed here. A dot the size of the swatch, eight pixels from
+   it, reads as a second swatch rather than as "this one is selected". */
+const ROW = 'gap-2 pl-2 [&>span:first-child]:hidden';
+
+/** The selected mark, where a swatch cannot be mistaken for it. */
+function Tick({ on }: { on: boolean }) {
+  return on ? (
+    <Check aria-hidden className="size-3.5 flex-none text-muted" />
+  ) : null;
+}
 
 /**
  * Project assignment.
@@ -156,8 +168,16 @@ export function ProjectPicker({
         )}
 
         <DropdownMenuContent
-          align="end"
-          className="max-h-72 w-56 overflow-y-auto"
+          align={trigger === 'field' ? 'start' : 'end'}
+          /* A field's menu is the field's own width — it drops out of a
+             full-width control, so a narrower list reads as a different
+             thing. The tag has no width worth matching, so that one is sized
+             to its content and hangs off the trigger's end. */
+          className={
+            trigger === 'field'
+              ? 'max-h-72 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto'
+              : 'max-h-72 w-64 overflow-y-auto'
+          }
         >
           {projects.length === 0 ? (
             <p className="px-3 py-2 type-support text-subtle">
@@ -169,13 +189,15 @@ export function ProjectPicker({
             value={value ?? NONE}
             onValueChange={(v) => onChange(v === NONE ? null : v)}
           >
-            <DropdownMenuRadioItem value={NONE} className="pl-8 text-subtle">
-              No project
+            <DropdownMenuRadioItem value={NONE} className={ROW}>
+              <span className="flex-1 text-subtle">No project</span>
+              <Tick on={value === null} />
             </DropdownMenuRadioItem>
 
             {projects.map((p) => (
-              <DropdownMenuRadioItem key={p.id} value={p.id} className="pl-8">
+              <DropdownMenuRadioItem key={p.id} value={p.id} className={ROW}>
                 <Row project={p} color={colors.get(p.id)} clients={clients} />
+                <Tick on={value === p.id} />
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
@@ -224,9 +246,15 @@ function Row({
   return (
     <>
       <Swatch color={color} />
-      <span className="truncate">{project.name}</span>
+      {/* The name is what is being picked, so it takes the room and is the
+          last thing to truncate; the client is context and gives way first.
+          Two `truncate` siblings with no basis split the row evenly, which
+          clips a short client name and a long project name equally. */}
+      <span className="min-w-0 flex-1 truncate">{project.name}</span>
       {client ? (
-        <span className="truncate type-support text-subtle">{client.name}</span>
+        <span className="min-w-0 shrink type-support text-subtle">
+          {client.name}
+        </span>
       ) : null}
     </>
   );

@@ -214,48 +214,22 @@ describe('EntryDialog', () => {
     const suggestions = () =>
       screen.findByRole('listbox', { name: 'Task name suggestions' });
 
-    /* Typed, not merely clicked: the field opens holding the entry's own
-       name, which filters every other name out of the list. */
-    const chooseFirst = async (user: ReturnType<typeof userEvent.setup>) => {
-      await user.clear(screen.getByLabelText('Task'));
-      await user.type(screen.getByLabelText('Task'), 'Invoice');
-      await user.click(within(await suggestions()).getByRole('option'));
-    };
+    /* An entry that exists is already named, so there is nothing to
+       accelerate and the overlay would drop over the field the moment it
+       takes focus. Asserted as the REQUEST rather than the absent list: the
+       list is also absent when nothing has been typed, so "no listbox" would
+       pass whether or not the machinery was actually suppressed.
 
-    it('fills the task and the empty project from a chosen row', async () => {
-      serve('sent', SUGGESTIONS);
-      const user = userEvent.setup();
+       `timer-bar.test.tsx` owns what a chosen row may write — that is where
+       suggestions live now. */
+    it('asks for no suggestions when editing an entry that exists', async () => {
+      const calls = serve('sent', SUGGESTIONS);
       open(entry({ projectId: null }));
 
       await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
-      await chooseFirst(user);
 
-      expect(screen.getByLabelText('Task')).toHaveValue(
-        'Invoice reconciliation',
-      );
-      // The picker is a button showing its choice, not a `<select>` holding a
-      // value, so the project is read off the trigger's text.
-      expect(screen.getByLabelText('Project')).toHaveTextContent(
-        'Acme Redesign',
-      );
-    });
-
-    /* A project already on the entry is what this work is billed to. A row
-       last used under another one must not move it. */
-    it('leaves an already-chosen project alone', async () => {
-      // The row's project is p1; the entry's is p2. They must not converge.
-      serve('sent', SUGGESTIONS);
-      const user = userEvent.setup();
-      open(entry({ projectId: 'p2' }));
-
-      await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
-      await chooseFirst(user);
-
-      expect(screen.getByLabelText('Task')).toHaveValue(
-        'Invoice reconciliation',
-      );
-      expect(screen.getByLabelText('Project')).toHaveTextContent(
-        'Bluebird API',
+      expect(calls.some((c) => c.path.startsWith('/entries/task-names'))).toBe(
+        false,
       );
     });
 
