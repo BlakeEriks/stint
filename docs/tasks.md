@@ -670,6 +670,58 @@ later.
 Each of these names the question blocking it. Answer the question, then it
 moves up — do not start one by guessing the answer.
 
+
+- [ ] **Import selected calendar events as time entries.** *Question: is this
+      worth a stored OAuth credential and a third-party dependency — and if
+      not, is there a shape that avoids both?* A contractor's meetings are
+      billable work that never gets tracked, because starting a timer for a
+      30-minute call is the thing nobody remembers to do. The calendar already
+      knows it happened.
+
+      It passes the thesis on its face: a meeting you attended and did not
+      bill is money lost, so this helps a solo contractor get paid. What it
+      costs is the open question.
+
+      **Selected, never automatic — that is the whole design.** A calendar
+      holds dentist appointments, holidays and meetings that were cancelled
+      and not deleted. Anything that imports on a schedule writes billable
+      records the user did not approve, which is the same rule that stops
+      runaway timers being auto-trimmed. The user picks events and they become
+      entries; nothing lands unreviewed. That also means the imported entry is
+      an ordinary `time_entries` row, editable and deletable like any other —
+      no link back to the source event, no re-sync, no reconciliation.
+
+      **The cost is what the Toggl import deliberately dodged.** That one is a
+      file upload precisely to avoid an OAuth app and a stored third-party
+      credential, and calendars are worse: the token is long-lived, it reads
+      the user's entire schedule, and it is the first thing in this app that
+      would need protecting beyond RLS. So decide the shape before the
+      feature:
+
+      - **An `.ics` file or URL.** Every calendar exports one and most publish
+        a secret subscription URL. No OAuth app, no token, no provider SDK —
+        the same argument that made the Toggl import a file. Weakest on
+        convenience, strongest on everything else, and it works for Google,
+        Apple and Outlook at once rather than one at a time.
+      - **Read-only OAuth against one provider.** Better to use, and the thing
+        being decided.
+
+      Whichever wins, the mapping is small: event title → `task_name`, start
+      and end → the entry's times parsed to an absolute instant (never
+      fixed-millisecond arithmetic — an all-day or DST-spanning event is the
+      trap), project and billability chosen at import, defaulting to
+      unassigned rather than guessed. An all-day event has no duration worth
+      billing and should be excluded rather than imported as 24 hours.
+
+      **The timer invariant applies.** An imported event overlapping a real
+      tracked entry is the common case — you tracked the call AND the calendar
+      has it. Surface the overlap and let the user choose, exactly as the
+      Toggl import does; never silently adjust either side.
+
+      And it must not turn the calendar screen into a scheduler. That screen
+      *visualises what was tracked and does not schedule* — showing unimported
+      events on it would make it a planner, so the import is a deliberate
+      action somewhere else, not a second layer on the week.
 - [ ] **The quarter as a first-class period.** *Question: does the app report
       cash received, when every number in it today reports work done?* A US
       contractor pays estimated tax four times a year on **money actually
