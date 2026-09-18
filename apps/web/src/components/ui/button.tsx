@@ -24,12 +24,10 @@ const buttonVariants = cva(
         // only where no running timer is in view. See the accent rule in
         // CLAUDE.md.
         accent: "bg-accent-default text-on-accent hover:bg-accent-hover",
+        // The second step of a destructive pair. The first step is a quiet
+        // ghost icon — see the action-button tables in components.html.
         destructive:
           "bg-danger text-on-danger hover:bg-danger focus-visible:ring-danger",
-        outline:
-          "border bg-surface-base shadow-xs hover:bg-surface-hover hover:text-strong",
-        secondary:
-          "bg-surface-elevated text-primary hover:bg-surface-active",
         ghost:
           "hover:bg-surface-hover hover:text-strong",
         link: "text-accent-default underline-offset-4 hover:underline",

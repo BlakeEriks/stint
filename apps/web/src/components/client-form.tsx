@@ -168,7 +168,11 @@ export function ClientForm({
       ) : null}
 
       <div className="flex items-center gap-2">
-        <Button type="submit" disabled={save.isPending || name.trim() === ''}>
+        <Button
+          type="submit"
+          variant="accent"
+          disabled={save.isPending || name.trim() === ''}
+        >
           {save.isPending ? (
             <Loader2 aria-hidden className="animate-spin" />
           ) : (

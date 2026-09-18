@@ -8,7 +8,7 @@ import { formatCurrency } from '@stint/core';
 import { StatusBadge, shortDate } from './invoice-bits';
 import { api, type Invoice, type InvoiceStatus } from '@/lib/client/api';
 import { FilterTabs, Listing, Page, Panel } from './page';
-import { Check, Plus } from 'lucide-react';
+import { DollarSign, Plus } from 'lucide-react';
 import { keys } from '@/lib/client/query-keys';
 
 /**
@@ -184,7 +184,8 @@ function Row({
           disabled={busy}
           onClick={onMarkPaid}
         >
-          <Check aria-hidden />
+          {/* A currency glyph, not a check: the check commits a form. */}
+          <DollarSign aria-hidden />
           <span className="hidden sm:inline">Paid</span>
         </Button>
       ) : (

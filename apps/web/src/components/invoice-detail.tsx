@@ -97,7 +97,7 @@ function Loaded({
           <Button asChild>
             <a href={api.invoicePdfUrl(invoice.id, true)}>Download PDF</a>
           </Button>
-          <Button asChild variant="secondary">
+          <Button asChild variant="default">
             <a
               href={api.invoicePdfUrl(invoice.id)}
               target="_blank"
@@ -179,7 +179,7 @@ function Loaded({
           <div className="flex flex-wrap items-center gap-2">
             {invoice.status === 'draft' ? (
               <Button
-                variant="secondary"
+                variant="default"
                 onClick={() => setStatus.mutate('sent')}
                 disabled={setStatus.isPending}
               >
@@ -189,7 +189,7 @@ function Loaded({
 
             {invoice.status === 'sent' ? (
               <Button
-                variant="secondary"
+                variant="default"
                 onClick={() => setStatus.mutate('paid')}
                 disabled={setStatus.isPending}
               >

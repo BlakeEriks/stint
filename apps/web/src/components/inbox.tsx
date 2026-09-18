@@ -378,7 +378,6 @@ function RunawayItem({
             />
             <Action
               label="Cancel"
-              icon={<Clock aria-hidden className="size-3.5" />}
               onClick={() => setConfirmingDiscard(false)}
             />
           </>
@@ -561,7 +560,8 @@ function Action({
 }: {
   label: string;
   ariaLabel?: string;
-  icon: React.ReactNode;
+  /** Omitted by Cancel, which undoes an intent rather than performing one. */
+  icon?: React.ReactNode;
   onClick?: () => void;
   href?: string;
   disabled?: boolean;

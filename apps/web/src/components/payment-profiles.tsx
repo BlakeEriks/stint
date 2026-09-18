@@ -86,7 +86,7 @@ export function PaymentProfiles() {
 
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={() => setEditing(profile)}
                 >
@@ -109,7 +109,7 @@ export function PaymentProfiles() {
       <div>
         <Button
           type="button"
-          variant="secondary"
+          variant="default"
           onClick={() => setCreating(true)}
         >
           Add payment details

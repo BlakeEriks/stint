@@ -45,6 +45,7 @@ public enum Tokens {
         static let success = Color(hex: "#2CCCEB")
         static let warning = Color(hex: "#DBA929")
         static let danger = Color(hex: "#E9504D")
+        static let dangerMuted = Color(hex: "#47201E")
         static let info = Color(hex: "#6D7FAE")
     }
     public enum Light {
@@ -76,6 +77,7 @@ public enum Tokens {
         static let success = Color(hex: "#0E7490")
         static let warning = Color(hex: "#A66A00")
         static let danger = Color(hex: "#C21725")
+        static let dangerMuted = Color(hex: "#FFEBE8")
         static let info = Color(hex: "#4A5A85")
     }
     public static let projectColors: [Color] = [

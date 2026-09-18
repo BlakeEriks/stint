@@ -178,7 +178,7 @@ export function Calendar() {
               ←
             </Button>
             <Button
-              variant={cal.isCurrent ? 'secondary' : 'ghost'}
+              variant={cal.isCurrent ? 'default' : 'ghost'}
               size="sm"
               onClick={cal.today}
             >

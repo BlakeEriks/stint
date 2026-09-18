@@ -12,6 +12,16 @@ generator, so `bg-surface-base`, `text-muted`, `border-edge-subtle`,
 `text-on-accent` are real utilities and a hardcoded hex has nothing to hide
 behind.
 
+**A colour a component needs is a token, never mixed at the call site.** No
+hex, and no alpha modifier on a semantic token — `bg-danger/12` is a
+one-off that exists in one file, has no light-mode counterpart, and cannot be
+found by anyone auditing the palette. Need a tint? Add it to `tokens.json` and
+run `pnpm tokens`. `accent-muted` and `danger-muted` are the tinted-surface
+pair, both at OKLCH L 0.299 / C 0.060 dark and L 0.960 / C 0.030 light on
+their own hue; a third follows the same numbers. Opacity is for *elevation* —
+overlays, scrims, a disabled control — not for deriving a colour that should
+have a name.
+
 **Two things that bite here:**
 
 1. **Tailwind parses `text-`/`bg-`/`border-` as the utility prefix**, so a

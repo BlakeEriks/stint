@@ -49,7 +49,7 @@ export function ClientDetail({ id }: { id: string }) {
               </div>
 
               <div className="flex flex-none gap-2">
-                <Button asChild variant="secondary">
+                <Button asChild variant="default">
                   <Link href={`/clients/${id}/edit`}>
                     <Pencil aria-hidden strokeWidth={1.75} />
                     Edit

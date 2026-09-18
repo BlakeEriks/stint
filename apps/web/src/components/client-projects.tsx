@@ -47,7 +47,7 @@ export function ClientProjects({ client }: { client: Client }) {
             to add work to. The header drops its Archive button the same way
             once archived. */}
         {!client.archivedAt ? (
-          <Button variant="secondary" onClick={() => setCreating(true)}>
+          <Button variant="ghost" onClick={() => setCreating(true)}>
             <Plus aria-hidden strokeWidth={2.25} />
             Add project
           </Button>

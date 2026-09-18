@@ -365,6 +365,7 @@ export function PaymentProfileDialog({
                 alone. */}
             <Button
               type="submit"
+              variant="accent"
               disabled={save.isPending || draft.name.trim() === ''}
             >
               {save.isPending ? (

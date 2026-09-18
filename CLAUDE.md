@@ -40,11 +40,12 @@ system — silent correction destroys trust in every number it reports.
 
 **Server owns timer truth; clients own responsiveness.**
 
-**The accent (green `#52FC43`) marks the live, primary thing on a screen** —
-in the app, the running timer. Green never means success; success is cyan
-`#2CCCEB`. Never white text on the accent — use `--text-on-accent`.
-`docs/design/brand.html` is the test for both, and for focus rings (neutral,
-never the accent).
+**The accent (green `#52FC43`) marks the running timer and the primary
+confirm action** — the one action a screen or dialog exists to complete. Two
+uses, and a screen gets one of the second kind at most. Green never means
+success; success is cyan `#2CCCEB`. Never white text on the accent — use
+`--text-on-accent`. `docs/design/brand.html` is the test for both, and for
+focus rings (neutral, never the accent).
 
 **Content floats, chrome recedes — in four planes**, deepest to nearest:
 `bg-surface-recessed`, `bg-surface-base`, `bg-surface-primary`,

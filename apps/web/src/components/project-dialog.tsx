@@ -235,6 +235,7 @@ export function ProjectDialog({
                 alone. */}
             <Button
               type="submit"
+              variant="accent"
               disabled={save.isPending || name.trim() === ''}
             >
               {save.isPending ? (

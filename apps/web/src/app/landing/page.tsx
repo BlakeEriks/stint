@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ArrowRight, Laptop, Monitor, Smartphone } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { DemoTimer } from '@/components/marketing/demo-timer';
 import { Wordmark } from '@/components/wordmark';
 
@@ -152,16 +153,16 @@ function Hero() {
 
 function CallToAction() {
   return (
-    <a
-      href={SIGN_IN_URL}
-      /* `text-on-accent`, never white: white on the accent is 1.37:1 and CI
-         guards this exact pairing. */
-      className="type-nav inline-flex items-center gap-2 rounded-lg bg-accent-default
-                 px-5 py-3 text-on-accent hover:bg-accent-hover"
-    >
-      Start tracking — free
-      <ArrowRight aria-hidden className="size-3.5" />
-    </a>
+    /* Through `Button`, not hand-rolled accent classes: a fill written out
+       here does not follow `buttonVariants` when the variant changes, and
+       `text-on-accent` — never white, 1.37:1, CI guards the pairing — comes
+       with it. */
+    <Button asChild variant="accent" size="lg" className="type-nav">
+      <a href={SIGN_IN_URL}>
+        Start tracking — free
+        <ArrowRight aria-hidden className="size-3.5" />
+      </a>
+    </Button>
   );
 }
 

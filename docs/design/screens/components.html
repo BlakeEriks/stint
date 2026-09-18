@@ -125,8 +125,8 @@
       </tr>
       <tr>
         <td>Any action</td>
-        <td><code>Button</code> + a lucide icon</td>
-        <td>A styled <code>button</code></td>
+        <td><code>Button</code>, sized and varied by the tables below</td>
+        <td>A styled <code>button</code>, or hand-rolled accent classes</td>
       </tr>
       <tr>
         <td>Autosave state</td>
@@ -179,14 +179,31 @@
         do this, and a component reading <code>useSearchParams</code> needs a
         <code>Suspense</code> boundary in its <code>page.tsx</code> or
         <code>next build</code> fails while <code>next dev</code> passes.</li>
-      <li><strong>Every action is icon plus label.</strong> Text, colour and
-        glyph together beat any one channel. The glyph is
-        <code>aria-hidden</code>, so the accessible name stays the label.
-        Cancel is the exception: it undoes an intent rather than performing
+      <li><strong>Every action carries a visible label.</strong> Two
+        exceptions, both requiring <code>aria-label</code>: a destructive
+        first step, and a dense repeating row where the label would not fit
+        (the dock, a calendar cell). A glyph is always
+        <code>aria-hidden</code>, so the accessible name stays the label.</li>
+      <li><strong>An icon joins the label only for a verb the user
+        scans for</strong> — the table below is the whole vocabulary. A label
+        that names something unique to one screen takes no icon: "Mark sent",
+        "Generate invoice", "Download PDF" are already the shortest thing they
+        could be, and a glyph invented for them is one more shape to learn.
+        Cancel takes none either; it undoes an intent rather than performing
         one.</li>
-      <li><strong>Buttons are neutral unless the screen has one true primary
-        action and no timer in view.</strong> The accent marks the running
-        timer; <code>variant="accent"</code> is opt-in per screen.</li>
+      <li><strong>The primary confirm action is
+        <code>variant="accent"</code></strong> — a form's submit, a dialog's
+        Save. One per screen; everything else is neutral or
+        <code>ghost</code>. A running timer in view is not a reason to demote
+        it: the timer is green because it is live, the button because it is
+        what finishes the screen, and a dialog over the timer bar is still
+        allowed its Save.</li>
+      <li><strong>A destructive action is quiet until it is the confirm.</strong>
+        First step is a <code>ghost</code> trash icon in
+        <code>text-danger</code>, pushed away from the confirm with
+        <code>mr-auto</code> so a mis-slip cannot land on it;
+        <code>variant="destructive"</code> is spent on the second step, which
+        spells the consequence out in words.</li>
       <li><strong>A failure renders beside the thing that failed.</strong>
         One mutation serving many rows means a message at the foot of the
         card cannot say which row was refused.</li>
@@ -196,6 +213,69 @@
       <li><strong>Archive, never delete</strong>, wherever invoices or entries
         reference the record.</li>
     </ul>
+  </section>
+
+  <!-- ═══════════════ action buttons ═══════════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Action buttons</span></div>
+
+    <p>
+      Three tables decide a button. Nothing here is a judgement call: the
+      container sets the size, the role sets the variant, and the verb sets
+      the icon.
+    </p>
+
+    <table>
+      <tr><th>Container</th><th>Size</th></tr>
+      <tr><td>Dialog footer, page-level form</td><td><code>default</code></td></tr>
+      <tr><td>Row action, section header</td><td><code>sm</code></td></tr>
+      <tr><td>Dense repeating row — dock, calendar cell</td><td><code>xs</code></td></tr>
+      <tr><td>Icon-only, at any of the above</td><td>the matching <code>icon-*</code></td></tr>
+    </table>
+
+    <table>
+      <tr><th>Role</th><th>Variant</th></tr>
+      <tr><td>The one action the screen exists to complete</td><td><code>accent</code></td></tr>
+      <tr><td>&#8195;…except where the frame's timer is the point</td><td><code>default</code></td></tr>
+      <tr><td>Anything else that performs something</td><td><code>default</code></td></tr>
+      <tr><td>Beside a confirm, or any row action</td><td><code>ghost</code></td></tr>
+      <tr><td>The second step of a destructive pair</td><td><code>destructive</code></td></tr>
+    </table>
+
+    <p>
+      <code>secondary</code> and <code>outline</code> are not in that table.
+      <code>secondary</code> differs from <code>default</code> by a border
+      nobody can name at a glance, which is why the same "Add project" landed
+      in both; <code>outline</code> only ever drew the dialog's opt-in Close.
+      A screen wanting a third weight has one already — <code>ghost</code>.
+    </p>
+
+    <table>
+      <tr><th>Verb</th><th>Icon</th><th>Means, everywhere</th></tr>
+      <tr><td>Create</td><td><code>Plus</code></td><td>Opens a form for a new record</td></tr>
+      <tr><td>Edit</td><td><code>Pencil</code></td><td>Opens an existing record to change it</td></tr>
+      <tr><td>Save</td><td><code>Check</code></td><td>Commits the form it sits in — and nothing else</td></tr>
+      <tr><td>Delete</td><td><code>Trash2</code></td><td>Removes the record for good</td></tr>
+      <tr><td>Archive</td><td><code>Archive</code></td><td>Hides it, keeping every reference intact</td></tr>
+      <tr><td>Retry</td><td><code>RotateCw</code></td><td>Runs the failed thing again</td></tr>
+      <tr><td>Working</td><td><code>Loader2</code></td><td>Replaces the verb's own icon while a mutation is in flight</td></tr>
+    </table>
+
+    <p>
+      The one exception to the accent row is the screen-level error boundary,
+      which replaces the content column while the timer bar keeps running
+      underneath: its "Try again" stays neutral so green still means the
+      timer on the one screen where that reassurance matters most.
+      <code>error-boundary.test.tsx</code> enforces it.
+    </p>
+
+    <p>
+      <strong>One icon, one meaning</strong> — the third column is the test. A
+      <code>Check</code> that marks an invoice paid is reporting an outcome,
+      not committing a form, so it takes the money glyph the inbox already
+      uses. A creating form's submit is still <code>Check</code>: it commits,
+      and <code>Plus</code> is what <em>opened</em> it.
+    </p>
   </section>
 
   <!-- ═══════════════ the shared three ═══════════════ -->

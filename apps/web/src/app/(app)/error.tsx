@@ -49,8 +49,11 @@ export default function AppError({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Ghost, not accent: the accent is the running timer, and a
-              recovery action is not the liveliest thing on the screen. */}
+          {/* Not accent, though it is the one action here: this boundary
+              replaces the content column while the timer bar keeps running
+              below it, so green would mean two things on the one screen where
+              "your time is safe" matters most. `error-boundary.test.tsx`
+              holds the line. */}
           <Button type="button" onClick={reset}>
             <RotateCw aria-hidden className="size-3.5" />
             Try again

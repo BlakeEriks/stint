@@ -177,7 +177,7 @@ export function NewInvoice() {
           <div>
             <Button
               type="button"
-              variant="secondary"
+              variant="default"
               onClick={() => runPreview.mutate()}
               disabled={!draft.clientId || runPreview.isPending}
             >
@@ -245,8 +245,10 @@ export function NewInvoice() {
             ) : null}
 
             <div className="flex flex-wrap items-center gap-3">
+              {/* What this screen exists to do. */}
               <Button
                 type="button"
+                variant="accent"
                 onClick={() => generate.mutate()}
                 disabled={generate.isPending || blocked || nothingToBill}
               >

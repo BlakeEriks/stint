@@ -371,14 +371,19 @@ export function EntryDialog({
             // footer on a phone, which read as two unrelated controls rather
             // than one group.
             <DialogFooter>
-              {/* Deleting is destructive and irreversible, so it asks once. */}
+              {/* Deleting is destructive and irreversible, so it asks once.
+                  The first step only opens that question, so it is a quiet
+                  icon: filled red belongs on the step that actually destroys
+                  something, and spending it here trains the user past the
+                  one that matters. Weight tracks frequency — Save is taken
+                  on nearly every open of this dialog, Delete on almost
+                  none. */}
               {existing ? (
                 confirmingDelete ? (
                   <span className="flex items-center gap-2">
                     <Button
                       type="button"
                       variant="destructive"
-                      size="sm"
                       disabled={busy}
                       onClick={() => remove.mutate()}
                     >
@@ -387,7 +392,6 @@ export function EntryDialog({
                     <Button
                       type="button"
                       variant="ghost"
-                      size="sm"
                       onClick={() => setConfirmingDelete(false)}
                     >
                       Keep
@@ -396,27 +400,38 @@ export function EntryDialog({
                 ) : (
                   <Button
                     type="button"
-                    /* Destructive, not ghost. This removes a billing record
-                       irreversibly, and a borderless button gave it the same
-                       visual weight as Cancel — the channel should match the
-                       consequence. It still asks once before anything
-                       happens. */
-                    variant="destructive"
-                    size="sm"
+                    variant="ghost"
+                    size="icon"
+                    /* The one action in the app with no label. Its accessible
+                       name is the tooltip-less `aria-label` below, and the
+                       confirm step that follows spells out the consequence in
+                       words before anything is removed. */
+                    aria-label="Delete entry"
+                    className="mr-auto text-danger hover:bg-danger-muted hover:text-danger"
                     disabled={busy}
                     onClick={() => setConfirmingDelete(true)}
                   >
                     <Trash2 aria-hidden />
-                    Delete
                   </Button>
                 )
               ) : null}
+
+              {/* No icon: Cancel undoes the intent rather than performing one,
+                  and a glyph would give a dismissal the same weight as the
+                  save it sits beside. */}
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
 
               {/* Icon plus label, like every other action in the app: text +
                   colour + icon is more legible than any single channel. The
                   glyph is `aria-hidden`, so the accessible name stays the
                   label alone. */}
-              <Button type="submit" size="sm" disabled={busy}>
+              <Button type="submit" variant="accent" disabled={busy}>
                 {save.isPending ? (
                   <Loader2 aria-hidden className="animate-spin" />
                 ) : (
