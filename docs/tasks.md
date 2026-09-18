@@ -83,12 +83,6 @@ later.
       `NSApp.windows` for `MenuBarExtraWindow`. Three attempts have gone into
       this; it wants fresh eyes rather than a fourth variation.
 
-- [ ] **The web sign-in sets the word instead of drawing the mark.**
-      `signin-form.tsx` has `<h1 className="type-title">Stint</h1>`, so it
-      renders in the sans title role with no bounds. `brand.html`'s placement
-      table has no row for it, which is the reason it was missed — add one
-      when it is fixed, and use `<Wordmark />`.
-
 - [ ] **An inbox invoice row does not open.** Clicking the label on an overdue
       or stale-draft row in the dock's inbox goes nowhere. **It reproduces
       against a running stack only**, and a static read has cleared everything
@@ -112,30 +106,6 @@ later.
       not the route — void and delete deliberately live on the invoice itself,
       so a dead link means those are unreachable from the place that surfaced
       the problem.
-
-- [ ] **A detail page's back link ignores where you came from.**
-      `DetailPage` takes a hardcoded `back`, so arriving from the home inbox
-      and clicking back lands on `/invoices` — a list you were not on, with
-      the row you were reading now one of many.
-
-      All five callers go through one component, so this is a single change
-      rather than five: `invoice-detail:44`, `client-detail:35`,
-      `invoice-new:116`, `clients/new/page:6`, and `edit-client:20` — the
-      last already builds its path, so it is the shape the others take.
-
-      The link is doing two jobs and only one is honest. As **"up"** it is
-      correct: an invoice does sit under `/invoices`. As **"back"** — which is
-      what the arrow and the position promise — it is wrong whenever the
-      referrer was the home screen, and the inbox is a primary entry point to
-      exactly these pages.
-
-      Do not reach for `router.back()`: it inherits whatever is on the stack,
-      including an external referrer or a page that has since 404'd, and it
-      leaves the link with no text to render until it knows. Prefer naming the
-      origin explicitly — a `from` query param on the inbox's links, with the
-      current hardcoded path as the fallback — so the label says where it
-      goes, a direct visit still gets a sensible link, and the destination is
-      knowable at render time.
 
 - [ ] **Record a reminder on a sent invoice.** `last_reminded_at`, so an
       overdue row can read "12 days late · chased 3d ago" rather than either
@@ -224,31 +194,6 @@ later.
         says "Add one to set a rate and bill against it" — that is the
         pattern. A multi-step walkthrough is a surface that needs maintaining
         and breaks whenever the UI moves.
-- [ ] **A showcase in `screens/components.html`** — every button variant,
-      filter, badge and card rendered side by side, so choosing one is
-      looking rather than grepping. The page currently names the primitives
-      and the conventions but shows almost none of them, which is the
-      show-don't-tell gap it was written to close.
-
-      **It belongs there, not in `brand.html`.** The two answer different
-      questions: `brand.html` is what the system *is* (the mark, the scale,
-      what green means) and is read once when deciding; `components.html` is
-      what to reach for, and is read every time a screen gets built. The test
-      is which file adding a component would edit — a `variant="ghost"`
-      button is an assembly choice, where a type role is the brand itself.
-
-      Cover the six `Button` variants at their four sizes, the filter pill in
-      both states, `StatusBadge`'s five statuses, `SaveIndicator`'s four, and
-      `Panel` with and without an edge. Name the token each uses, since the
-      point is picking one rather than admiring it.
-
-- [ ] **Icons on the remaining buttons.** Nav and the additive actions have
-      them; the lifecycle buttons on an invoice (send, mark paid, void,
-      download) and the settings forms do not.
-
-      Clients is done and is the pattern: `Check`/`Loader2` on a submit,
-      `Pencil` on edit, `Archive` on archive, every glyph `aria-hidden` so
-      the accessible name stays the label, and Cancel deliberately bare.
 - [ ] **Extend the end-to-end suite.** Sign-in, sign-out and the invoice
       lifecycle are covered (`pnpm test:e2e`). The flows still verified only
       by hand: the runaway-timer choice end to end, entry editing
@@ -326,75 +271,6 @@ later.
       not merely focused. The field exists to be replaced rather than edited,
       and a `type="time"` input focuses its first segment — which is the hour,
       the segment most likely to be the one that needs changing.
-
-- [ ] **The entry dialog's project field is a native `<select>`.** It is the
-      one project control in the web app the browser draws: system font,
-      system metrics, a system checkmark, on a dark panel that is ours
-      everywhere else. `ProjectPicker` is the same choice built on Radix with
-      a client swatch on every row — so the app already contains the control
-      this field should be, and the dialog is where the difference shows most,
-      because the picker is visible in the timer bar a few pixels away.
-
-      The comment at the top of `project-picker.tsx` is the whole argument,
-      already written: *a native `select` cannot show the colour swatch, and
-      the swatch is how work is recognised at a glance everywhere else.*
-
-      **Also wanted: name the client, muted, beside the project.** Project
-      names alone are ambiguous across clients — "Warehouse dashboard" says
-      nothing about who is paying for it — and the picker is where that
-      matters, since picking wrong bills the wrong client. `useProjectClients()`
-      already returns `clientByProject` with the name and the colour, from the
-      same two queries the swatch uses, so this needs no new fetch. Set the
-      client in a muted role so the project stays the thing being chosen and
-      the client is context, and leave internal work (`clientId === null`)
-      with no client text at all rather than a placeholder — the absent client
-      IS the meaning, the same reason its swatch resolves to `null` instead of
-      a shared grey.
-
-      Do this by making `ProjectPicker` serve both places rather than
-      theming a `select` or writing a second menu. The trigger differs — a
-      tag in the bar, a full-width field in the dialog — so that is a
-      variant, and the row content (swatch, name, client) is written once.
-
-      Two behaviours the dialog's field has that must survive: `autoFocus`
-      when the inbox opens it on an unprojected entry, and the `focus:` styling
-      that exists because programmatic focus is never `:focus-visible` — the
-      comments there say why, and both are easy to lose in a port.
-
-      **Then the other native selects, which are not all alike.** There are
-      eight in the app and they split by whether the control has anything to
-      say beyond the words:
-
-      - **`project-dialog`'s Client, and `invoice-new`'s Client.** Same case
-        as above, one level up: clients are the thing that HAS a colour, so
-        both want the swatch. `project-dialog`'s also carries
-        `+ Add a client…` as a trailing `<option>` — an action disguised as a
-        choice, which is precisely what `ProjectPicker` already does properly
-        with a separator and a real item. A client picker built once serves
-        both, the same way the project one serves the bar and the dialog.
-      - **`invoice-new`'s Group lines.** Each mode has a `hint`, and it
-        currently renders outside the control — so the explanation of an
-        option is only readable once you have already chosen it. A menu row
-        can carry the hint under the label, which is the whole reason to
-        convert this one.
-      - **Theme, goal unit, account type, fee allocation.** Two to four fixed
-        strings, no colour, no hint, no action. Nothing is *gained* here
-        beyond matching — but matching is the point: a native select is the
-        only control in the app the OS draws, and four of them scattered
-        through settings and the payment dialog is the inconsistency
-        arriving somewhere else. Convert them last, and only once a
-        `Select` primitive exists that makes each one a few lines.
-
-      So this is one job in two halves: the pickers that carry data the
-      browser cannot render, then the plain ones for consistency. Shared
-      `inputClass` styling across most of them means the trigger can keep
-      looking exactly as it does — what changes is the popped-open list.
-
-      **Check `components.html` first**, which is what a screen is assembled
-      from: a select is a shape that now repeats eight times, so the
-      primitive belongs there rather than being invented per-dialog, and
-      shadcn has one (`pnpm dlx shadcn@latest add select`, then
-      `shadcn-detox.mjs` — never hand-edited).
 
 - [ ] **The menu bar app's two dropdowns are system-drawn.** The project
       picker and the account gear are SwiftUI `Menu`s, so their labels carry
