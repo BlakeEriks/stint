@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Ban, DollarSign, Download, Eye, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { StatusBadge, shortDate } from './invoice-bits';
@@ -95,7 +96,10 @@ function Loaded({
           {/* Downloading is how an invoice reaches a client: the app sends no
               mail, so this is the primary action on the screen. */}
           <Button asChild>
-            <a href={api.invoicePdfUrl(invoice.id, true)}>Download PDF</a>
+            <a href={api.invoicePdfUrl(invoice.id, true)}>
+              <Download aria-hidden strokeWidth={1.75} />
+              Download PDF
+            </a>
           </Button>
           <Button asChild variant="default">
             <a
@@ -103,6 +107,7 @@ function Loaded({
               target="_blank"
               rel="noreferrer"
             >
+              <Eye aria-hidden strokeWidth={1.75} />
               Preview
             </a>
           </Button>
@@ -183,6 +188,7 @@ function Loaded({
                 onClick={() => setStatus.mutate('sent')}
                 disabled={setStatus.isPending}
               >
+                <Send aria-hidden strokeWidth={1.75} />
                 Mark sent
               </Button>
             ) : null}
@@ -193,6 +199,8 @@ function Loaded({
                 onClick={() => setStatus.mutate('paid')}
                 disabled={setStatus.isPending}
               >
+                {/* A currency glyph, not a check: the check commits a form. */}
+                <DollarSign aria-hidden strokeWidth={1.75} />
                 Mark paid
               </Button>
             ) : null}
@@ -203,6 +211,7 @@ function Loaded({
                 onClick={() => setStatus.mutate('void')}
                 disabled={setStatus.isPending}
               >
+                <Ban aria-hidden strokeWidth={1.75} />
                 Void
               </Button>
             ) : null}
@@ -213,6 +222,7 @@ function Loaded({
                 onClick={() => remove.mutate()}
                 disabled={remove.isPending}
               >
+                <Trash2 aria-hidden strokeWidth={1.75} />
                 Delete draft
               </Button>
             ) : null}
