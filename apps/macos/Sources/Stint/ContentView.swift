@@ -8,6 +8,7 @@ struct ContentView: View {
     /// Settings is somewhere you visit, not a state the panel remembers, so
     /// this resets on dismiss rather than persisting.
     @State private var showingSettings = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -22,9 +23,9 @@ struct ContentView: View {
                 SignInPanel(model: model)
             }
         }
-        // No Escape handler here on purpose: the panel is the only responder
-        // implementing `cancelOperation:`, so an Escape nothing else claims
-        // already closes it. A field or Settings claims its own first.
+        // This is what closes the panel on Escape — the panel does not do it
+        // by itself. Removing it only produced a beep.
+        .onExitCommand { dismiss() }
         // Settings is somewhere you visit, not a state the panel remembers.
         // Both edges, because whether `.window` tears the content down between
         // openings is undocumented: on a rebuild only `onAppear` runs, on a
@@ -154,9 +155,7 @@ private struct SettingsPanel: View {
             rows
             account
         }
-        // Not `.onExitCommand`: it does not claim the key, so Escape reached
-        // the panel and closed it instead of returning to the timer.
-        .onKeyPress(.escape) { showingSettings = false; return .handled }
+
     }
 
     private var account: some View {
@@ -288,8 +287,14 @@ private struct TimerPanel: View {
             }
         }
         // `.window` keeps this view alive between openings, so focus survives
-        // a dismissal unless it is cleared here.
-        .onDisappear { taskFocused = false }
+        // a dismissal unless it is cleared here. It has to go through the
+        // responder: the field editor is what actually holds focus, and
+        // `@FocusState` reads false throughout, so clearing the binding alone
+        // does nothing.
+        .onDisappear {
+            taskFocused = false
+            NSApp.keyWindow?.makeFirstResponder(nil)
+        }
     }
 
     private var idle: some View {
@@ -299,10 +304,6 @@ private struct TimerPanel: View {
                 .focused($taskFocused)
                 .field(focused: taskFocused)
                 .onSubmit { Task { await model.toggle() } }
-                // `.handled` is the whole point: the panel is the only
-                // responder implementing `cancelOperation:`, so an unclaimed
-                // Escape walks past every SwiftUI view and dismisses it.
-                .onKeyPress(.escape) { taskFocused = false; return .handled }
             HStack(spacing: 8) {
                 ProjectPicker(model: model)
                 Spacer(minLength: 0)
@@ -329,15 +330,22 @@ private struct TimerPanel: View {
             RenameRow(model: model)
                 .padding(.top, 8)
                 .padding(.leading, 19)
-            // Absent entirely for internal work: an empty row would read as a
-            // client whose name failed to load.
-            if let client = model.projectID.flatMap({ model.clientNames[$0] }) {
+            // The dot carries the client, the text carries the project: one
+            // row saying whose work and which work. Absent entirely for
+            // internal work rather than drawn empty.
+            //
+            // Not a picker while running — changing a project mid-entry
+            // reassigns time already tracked against the old one, which is a
+            // billing edit disguised as a dropdown. Stop the timer to move it.
+            if let project = model.projectID.flatMap({ id in
+                model.projects.first(where: { $0.id == id })?.name
+            }) {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(model.projectID.flatMap { model.projectColors[$0] }
                             .map { Color(hex: $0) } ?? Tokens.Dark.textSubtle)
                         .frame(width: 8, height: 8)
-                    Text(client)
+                    Text(project)
                         .role(.meta)
                         .foregroundStyle(Tokens.Dark.textMuted)
                         .lineLimit(1)
@@ -345,9 +353,6 @@ private struct TimerPanel: View {
                 .padding(.top, 4)
                 .padding(.leading, 19)
             }
-            ProjectPicker(model: model)
-                .padding(.top, 4)
-                .padding(.leading, 11)
         }
         .padding(14)
     }
@@ -411,19 +416,12 @@ private struct RenameRow: View {
                 .field(focused: focused)
                 .onAppear { focused = true }
                 .onSubmit(finish)
-                // Escape reaches the blur handler as an ordinary loss of
-                // focus, which would commit the edit it was pressed to
-                // abandon. The flag is what tells the two apart — without it
-                // cancelling is a silent write.
-                //
-                // `.handled` stops it there: the panel is the only responder
-                // implementing `cancelOperation:`, so an unclaimed Escape
-                // dismisses the whole panel instead of leaving the field.
-                .onKeyPress(.escape) {
-                    cancelled = true
-                    focused = false
-                    return .handled
-                }
+                // Escape dismisses the whole panel, and the blur that follows
+                // would commit the edit it was pressed to abandon. Closing the
+                // panel is not confirmation, so a rename left this way is
+                // discarded rather than written — the flag is what tells the
+                // two apart, and `onDisappear` is what sets it.
+                .onDisappear { cancelled = true }
                 .onChange(of: focused) { _, has in
                     if !has { cancelled ? reset() : finish() }
                 }
@@ -667,8 +665,10 @@ private struct SignInPanel: View {
         }
         .padding(14)
         .defaultFocus($focus, sent ? .code : .email)
-        .onKeyPress(.escape) { focus = nil; return .handled }
-        .onDisappear { focus = nil }
+        .onDisappear {
+            focus = nil
+            NSApp.keyWindow?.makeFirstResponder(nil)
+        }
         .onChange(of: sent) { _, isSent in focus = isSent ? .code : .email }
     }
 

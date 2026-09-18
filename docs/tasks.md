@@ -24,6 +24,28 @@ later.
 
 ## Ready
 
+- [ ] **The menu bar panel keeps its focus between openings.** Open the panel,
+      click into the task field, close it, reopen: the field is still focused,
+      so the panel never opens in a default state. Escape closes the panel
+      correctly — that part works and should stay.
+
+      **`@FocusState` is not the lever, and this is the finding worth keeping.**
+      Instrumenting `TimerPanel` and driving the panel with real keystrokes
+      logged `onAppear focused=false` / `onDisappear focused=false` while the
+      field was visibly focused. The AppKit field editor holds first responder
+      and the SwiftUI binding never sees it, so setting `taskFocused = false`
+      on dismiss clears something that is already false. The lifecycle hooks
+      themselves do fire — `.window` keeps the view alive between openings and
+      `onDisappear` runs as a visibility toggle.
+
+      `NSApp.keyWindow?.makeFirstResponder(nil)` in `onDisappear` is in the
+      code now and does not fix it either — probably because the panel is no
+      longer key by the time it runs, which is the next thing to test.
+      Candidates after that: hold the panel's `NSWindow` and clear its
+      responder before dismissal, or a `MenuBarExtraAccess`-style lookup of
+      `NSApp.windows` for `MenuBarExtraWindow`. Three attempts have gone into
+      this; it wants fresh eyes rather than a fourth variation.
+
 - [ ] **The web sign-in sets the word instead of drawing the mark.**
       `signin-form.tsx` has `<h1 className="type-title">Stint</h1>`, so it
       renders in the sans title role with no bounds. `brand.html`'s placement
