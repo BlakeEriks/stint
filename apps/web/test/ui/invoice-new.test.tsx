@@ -103,8 +103,10 @@ function watched() {
 }
 
 const chooseClient = async (user: ReturnType<typeof userEvent.setup>) => {
-  await screen.findByRole('option', { name: 'Acme Corp' });
-  await user.selectOptions(screen.getByLabelText(/Client/), 'c1');
+  await user.click(screen.getByRole('button', { name: 'Client' }));
+  await user.click(
+    await screen.findByRole('menuitemradio', { name: 'Acme Corp' }),
+  );
 };
 
 beforeEach(() => vi.clearAllMocks());
@@ -175,7 +177,10 @@ describe('NewInvoice', () => {
     await user.click(screen.getByRole('button', { name: 'Preview' }));
     await screen.findByText('Design review');
 
-    await user.selectOptions(screen.getByLabelText(/Group lines/), 'task');
+    await user.click(screen.getByRole('button', { name: 'Group lines' }));
+    await user.click(
+      await screen.findByRole('menuitemradio', { name: /By task name/ }),
+    );
 
     expect(
       screen.queryByRole('button', { name: /Generate/ }),

@@ -245,9 +245,8 @@ describe('ClientProjects', () => {
 
     // Pre-selected: adding from the client's own page should not ask again
     // which client it belongs to.
-    const select = (await screen.findByLabelText(
-      'Client',
-    )) as HTMLSelectElement;
-    expect(select.value).toBe('c1');
+    expect(
+      await screen.findByRole('button', { name: 'Client' }),
+    ).toHaveTextContent('Northwind');
   });
 });

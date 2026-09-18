@@ -56,15 +56,20 @@ describe('ProjectDialog', () => {
        anything without leaving the screen — abandoning whatever had been
        typed into the timer. */
     serve([]);
+    const user = userEvent.setup();
     render(<ProjectDialog open onOpenChange={() => {}} />, { wrapper });
 
-    const select = await screen.findByLabelText('Client');
-    const labels = [...select.querySelectorAll('option')].map((o) =>
-      o.textContent?.trim(),
-    );
-    expect(labels).toContain('+ Add a client…');
+    await user.click(await screen.findByRole('button', { name: 'Client' }));
+
+    /* "Add a client…", not "+ Add a client…": the plus is an aria-hidden
+       icon, so it is not part of the accessible name. */
+    expect(
+      screen.getByRole('menuitem', { name: 'Add a client…' }),
+    ).toBeInTheDocument();
     // And the internal-work path is still the first choice, not displaced.
-    expect(labels[0]).toBe('No client — internal work');
+    expect(screen.getAllByRole('menuitemradio')[0]).toHaveTextContent(
+      'No client — internal work',
+    );
   });
 
   it('creates a client inline and selects it for the project', async () => {
@@ -73,7 +78,8 @@ describe('ProjectDialog', () => {
     render(<ProjectDialog open onOpenChange={() => {}} />, { wrapper });
 
     await user.type(await screen.findByLabelText('Name'), 'Website redesign');
-    await user.selectOptions(screen.getByLabelText('Client'), '__new_client__');
+    await user.click(screen.getByRole('button', { name: 'Client' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Add a client…' }));
 
     // The client form replaces the project form — one dialog, not two
     // overlays and two focus traps competing.
@@ -86,8 +92,8 @@ describe('ProjectDialog', () => {
        selection. Polling for it with waitFor would also pass if the select
        were briefly blank — which is exactly the bug: a user returning to an
        empty Client field having just created one. */
-    const back = await screen.findByLabelText('Client');
-    expect((back as HTMLSelectElement).value).toBe('new-id');
+    const back = await screen.findByRole('button', { name: 'Client' });
+    expect(back).toHaveTextContent('Northwind');
 
     expect(calls[0]).toMatchObject({
       method: 'POST',
@@ -98,8 +104,8 @@ describe('ProjectDialog', () => {
     /* Back on the project form with the new client chosen — the whole point
        of creating one from here. Having to reopen a menu and find it would
        make this no better than leaving for /clients. */
-    expect((screen.getByLabelText('Client') as HTMLSelectElement).value).toBe(
-      'new-id',
+    expect(screen.getByRole('button', { name: 'Client' })).toHaveTextContent(
+      'Northwind',
     );
 
     // And the project fields survived the detour.
@@ -112,7 +118,8 @@ describe('ProjectDialog', () => {
     render(<ProjectDialog open onOpenChange={() => {}} />, { wrapper });
 
     await user.type(await screen.findByLabelText('Name'), 'Internal tooling');
-    await user.selectOptions(screen.getByLabelText('Client'), '__new_client__');
+    await user.click(screen.getByRole('button', { name: 'Client' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Add a client…' }));
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
 
     /* Cancelling the detour must abandon only the client. Closing the whole
@@ -122,8 +129,8 @@ describe('ProjectDialog', () => {
       expect(screen.getByLabelText('Name')).toHaveValue('Internal tooling'),
     );
     expect(calls).toEqual([]);
-    expect((screen.getByLabelText('Client') as HTMLSelectElement).value).toBe(
-      '',
+    expect(screen.getByRole('button', { name: 'Client' })).toHaveTextContent(
+      'No client — internal work',
     );
   });
 });
