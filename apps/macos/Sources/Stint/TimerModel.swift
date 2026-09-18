@@ -109,22 +109,6 @@ final class TimerModel {
         )
     }
 
-    /// Project id → its client's name, the same two hops `projectColors`
-    /// makes. A project with no client has none.
-    var clientNames: [String: String] {
-        let byClient = Dictionary(
-            clients.map { ($0.id, $0.name) },
-            uniquingKeysWith: { a, _ in a }
-        )
-        return Dictionary(
-            projects.compactMap { p in
-                guard let clientID = p.clientId, let name = byClient[clientID] else { return nil }
-                return (p.id, name)
-            },
-            uniquingKeysWith: { a, _ in a }
-        )
-    }
-
     // MARK: Lifecycle
 
     /// Idempotent: the panel's content is rebuilt on every open, so a second
