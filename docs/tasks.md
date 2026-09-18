@@ -24,6 +24,43 @@ later.
 
 ## Ready
 
+- [ ] **Standardise how a clickable thing looks.** `components.html` names
+      the primitives but says nothing about what a hover, a press or a
+      selected row looks like, so each was decided where it was written and
+      they have drifted. The Today rows are where it shows worst: the
+      highlight is a full-bleed band with **sharp corners and no horizontal
+      padding**, so the surface runs edge to edge inside a card that is
+      rounded and inset everywhere else.
+
+      What is there now, for the same gesture — click a row, open the thing:
+
+      | Where | Shape |
+      | --- | --- |
+      | `entry-list.tsx:167,185` | no rounding, `px-1` — the full-bleed band |
+      | `inbox.tsx:480` | `rounded-r-md`, no left rounding (a colour rail) |
+      | `app-header.tsx:23` | `rounded-md px-2 py-1` |
+      | `nav.tsx:87` | its own rounding and padding |
+      | `client-list.tsx:94` | neither |
+
+      Decide the shape once, write it into `components.html` as a convention,
+      then apply it. The likely answer is an inset radius with real horizontal
+      padding, so a highlight reads as a row lifting off the card rather than
+      a stripe painted across it — but the point is that it is decided once
+      and recorded, not that it is that particular value.
+
+      Cover the states together, since a row that only hovers is half a
+      control: hover, active/pressed, keyboard focus (**neutral ring, never
+      the accent**), selected where it applies, and disabled. Focus is the one
+      already constrained and the one already broken —
+      `focus-visible:ring-edge-focus` is on some of these and not others,
+      which is a bug rather than a style drift.
+
+      **This list is not finished.** Add rows as they turn up; the above is
+      what a sweep of `hover:bg-surface-*` found, so it misses anything
+      hovering by colour alone, anything using `group-hover`, and every
+      clickable element in the macOS panel — which has its own `Hovering`
+      wrapper and the same question to answer.
+
 - [ ] **The menu bar panel names no client.** `menubar.html` draws the client
       NAME under the task while a timer runs ("Northwind Trading" beside its
       dot), where the panel now shows the project alone. The colour is
