@@ -73,6 +73,19 @@ async function goalFields() {
   return { target, unit };
 }
 
+/**
+ * The unit is a Radix Select, so its options exist only while the listbox is
+ * open — there is no `selectOptions` to reach them with.
+ */
+async function chooseUnit(
+  user: ReturnType<typeof userEvent.setup>,
+  unit: HTMLElement,
+  label: string,
+) {
+  await user.click(unit);
+  await user.click(await screen.findByRole('option', { name: label }));
+}
+
 describe('the monthly goal writes its target and unit together', () => {
   it('sends both fields when the target is typed', async () => {
     const user = userEvent.setup();
@@ -123,9 +136,9 @@ describe('the monthly goal writes its target and unit together', () => {
     render(<SettingsForm />, { wrapper });
 
     const { unit } = await goalFields();
-    await user.selectOptions(unit, 'revenue');
+    await chooseUnit(user, unit, 'Revenue');
 
-    expect((unit as HTMLSelectElement).value).toBe('revenue');
+    expect(unit).toHaveTextContent('Revenue');
     // Nothing persistable yet: a unit alone violates the constraint.
     for (const p of patches) {
       expect(p.monthlyTargetUnit).toBeNull();
@@ -141,7 +154,7 @@ describe('the monthly goal writes its target and unit together', () => {
     render(<SettingsForm />, { wrapper });
 
     const { target, unit } = await goalFields();
-    await user.selectOptions(unit, 'revenue');
+    await chooseUnit(user, unit, 'Revenue');
     await user.type(target, '10000');
 
     await waitFor(() => expect(patches.length).toBeGreaterThan(0));

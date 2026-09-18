@@ -13,6 +13,13 @@ import {
 import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Field, inputClass, textareaClass } from './field';
 import {
   api,
@@ -25,6 +32,13 @@ import { keys } from '@/lib/client/query-keys';
 type Draft = Partial<PaymentProfile> & { name: string };
 
 const EMPTY: Draft = { name: '', accountType: 'checking' };
+
+/**
+ * Radix reserves the empty string on a SelectItem — it is how a Select is
+ * cleared — so the "Not specified" row of a nullable column needs a value of
+ * its own, mapped back to null on the way into the draft.
+ */
+const UNSET = 'unset';
 
 /**
  * Bank details.
@@ -157,21 +171,24 @@ export function PaymentProfileDialog({
           </div>
 
           <Field label="Account type" htmlFor="pp-type">
-            <select
-              id="pp-type"
-              value={draft.accountType ?? ''}
-              onChange={(e) =>
+            <Select
+              value={draft.accountType ?? UNSET}
+              onValueChange={(v) =>
                 set(
                   'accountType',
-                  (e.target.value || null) as PaymentProfile['accountType'],
+                  (v === UNSET ? null : v) as PaymentProfile['accountType'],
                 )
               }
-              className={inputClass}
             >
-              <option value="">Not specified</option>
-              <option value="checking">Checking</option>
-              <option value="savings">Savings</option>
-            </select>
+              <SelectTrigger id="pp-type" className={inputClass}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={UNSET}>Not specified</SelectItem>
+                <SelectItem value="checking">Checking</SelectItem>
+                <SelectItem value="savings">Savings</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
 
           <div className="flex flex-wrap gap-4">
@@ -323,23 +340,29 @@ export function PaymentProfileDialog({
                 htmlFor="pp-fees"
                 hint="Who pays the wire fees."
               >
-                <select
-                  id="pp-fees"
-                  value={draft.feeAllocation ?? ''}
-                  onChange={(e) =>
+                <Select
+                  value={draft.feeAllocation ?? UNSET}
+                  onValueChange={(v) =>
                     set(
                       'feeAllocation',
-                      (e.target.value ||
-                        null) as PaymentProfile['feeAllocation'],
+                      (v === UNSET
+                        ? null
+                        : v) as PaymentProfile['feeAllocation'],
                     )
                   }
-                  className={inputClass}
                 >
-                  <option value="">Not specified</option>
-                  <option value="OUR">OUR — you pay all fees</option>
-                  <option value="SHA">SHA — shared</option>
-                  <option value="BEN">BEN — client pays all fees</option>
-                </select>
+                  <SelectTrigger id="pp-fees" className={inputClass}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={UNSET}>Not specified</SelectItem>
+                    <SelectItem value="OUR">OUR — you pay all fees</SelectItem>
+                    <SelectItem value="SHA">SHA — shared</SelectItem>
+                    <SelectItem value="BEN">
+                      BEN — client pays all fees
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </Field>
             </div>
           ) : null}

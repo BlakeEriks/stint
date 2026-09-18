@@ -3,6 +3,13 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Field, inputClass, Section, textareaClass } from './field';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
@@ -109,15 +116,15 @@ function Cards({ loaded }: { loaded: Settings }) {
           request to report. An indicator here would imply it syncs. */}
       <Section title="Appearance" description="This device only.">
         <Field label="Theme" htmlFor="theme">
-          <select
-            id="theme"
-            value={theme}
-            onChange={(e) => setTheme(e.target.value as Theme)}
-            className={inputClass}
-          >
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-          </select>
+          <Select value={theme} onValueChange={(v) => setTheme(v as Theme)}>
+            <SelectTrigger id="theme" className={inputClass}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="dark">Dark</SelectItem>
+              <SelectItem value="light">Light</SelectItem>
+            </SelectContent>
+          </Select>
         </Field>
       </Section>
 
@@ -221,20 +228,20 @@ function Cards({ loaded }: { loaded: Settings }) {
             hint="Revenue counts work done, not money collected."
             className="flex-1 basis-44"
           >
-            <select
-              id="goal-unit"
+            <Select
               value={goalUnit}
-              onChange={(e) =>
-                setGoal(
-                  form.monthlyTarget,
-                  e.target.value as 'hours' | 'revenue',
-                )
+              onValueChange={(v) =>
+                setGoal(form.monthlyTarget, v as 'hours' | 'revenue')
               }
-              className={inputClass}
             >
-              <option value="hours">Hours</option>
-              <option value="revenue">Revenue</option>
-            </select>
+              <SelectTrigger id="goal-unit" className={inputClass}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hours">Hours</SelectItem>
+                <SelectItem value="revenue">Revenue</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
         </div>
       </Section>
