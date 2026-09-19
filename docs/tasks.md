@@ -25,8 +25,23 @@ later.
 
 ## Ready
 
+- [ ] **Home's Money region — the server half.** `docs/design/screens/money.html`
+      is the spec, `Stats` carries the shape, and `cause()` already classifies
+      the three events. `GET /api/v1/stats` still has to fill them:
+      `collected.trailing12`, `.thisMonth`, `.daysSincePaid`, `.byMonth` (six
+      rows, oldest first, a month with no payments present at `0`), and
+      `openInvoiceCount`.
 
+      All of it reads `invoices.paid_at`, which is written on every payment
+      and read by nothing today. A `collected_by_month(p_user_id, p_tz)`
+      rollup alongside `month_revenue` is the shape; bucket by `paid_at` in
+      the caller's zone and exclude voided invoices, as `month_revenue` does.
 
+      **`paid_at` is nullable on a paid invoice** for rows migrated before the
+      status route wrote it. Those are collected money with no date to bucket
+      them under, so they belong in `trailing12` only if a fallback is chosen
+      deliberately — `updated_at` is the closest, and silently treating them as
+      unpaid is the one option that misreports the figure.
 
 - [ ] **The running timer and the primary action are the same green.** The
       accent carries two meanings — it marks the live timer and it marks the
