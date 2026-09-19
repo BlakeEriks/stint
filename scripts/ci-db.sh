@@ -59,12 +59,15 @@ fi
 pnpm migrate --url "postgresql://postgres:postgres@localhost:$PORT/$DB"
 
 if [ "$RLS" = "--rls" ]; then
-  # Table privileges come from the grants migration, not from here: granting
-  # them ad-hoc would hide a broken grants migration.
+  # Table privileges come from the grants migration, not from here, and
+  # neither does execute on a `public` function: a blanket grant here would
+  # make every migration's own grant untested, so a rollup that never granted
+  # execute would work in CI and 42501 in production. `auth` is the stub this
+  # script builds itself, so its grants belong here.
   $PSQL -d "$DB" <<'SQL'
 grant usage on schema public, auth to authenticated;
 grant select on auth.users to authenticated;
-grant execute on all functions in schema public, auth to authenticated;
+grant execute on all functions in schema auth to authenticated;
 SQL
 else
   $PSQL -d "$DB" -c "

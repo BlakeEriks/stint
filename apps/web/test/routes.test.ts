@@ -1402,6 +1402,50 @@ test('collected sums payments by when they were paid', async () => {
   );
 });
 
+test('collected counts only the user’s own currency', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-00000000006e';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Mixed',100)`,
+    [c, USER],
+  );
+
+  /* Both paid on the same day, in two currencies. Money is not addable
+     across them and the response carries ONE currency, so a euro summed in
+     here is a euro reported as a dollar on the figure Home leads with. */
+  // Noon UTC today, so both land in this month's bucket whatever hour the
+  // suite runs at.
+  const paidToday = `${new Date().toISOString().slice(0, 10)}T12:00:00Z`;
+  const mk = (id: string, num: string, total: number, currency: string) =>
+    pool.query(
+      `insert into invoices
+         (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+          subtotal,tax_rate,tax_amount,total,currency,grouping_mode,paid_at)
+       values ($1,$2,$3,$4,$5,'paid','2026-09-01',$6,0,0,$6,$7,'entry',$8)`,
+      [id, USER, c, num, Number(num.slice(-2)), total, currency, paidToday],
+    );
+
+  await mk('44444444-0000-4000-8000-000000000020', 'INV-0020', 500, 'USD');
+  await mk('44444444-0000-4000-8000-000000000021', 'INV-0021', 1000, 'EUR');
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const { collected } = res.body;
+
+  assert.equal(
+    res.body.currency,
+    'USD',
+    'the settings currency is the figure’s',
+  );
+  assert.equal(collected.trailing12, 500, 'the euro invoice is not added in');
+  assert.equal(collected.thisMonth, 500);
+  assert.equal(
+    collected.byMonth[collected.byMonth.length - 1]?.amount,
+    500,
+    'nor does it reach the plot',
+  );
+});
+
 test('a paid invoice cannot exist without its payment date', async () => {
   const c = '33333333-0000-4000-8000-00000000006d';
   await pool.query(

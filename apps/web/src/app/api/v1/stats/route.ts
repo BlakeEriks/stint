@@ -261,6 +261,7 @@ export const GET = handle(async (req: Request) => {
       (collectedRows.data ?? []) as CollectedRow[],
       collectedMonths,
       lastPaid.data?.paid_at ? daysSince(lastPaid.data.paid_at, now) : null,
+      currency,
     ),
     pace: buildPace({
       target: settings.data?.monthly_target,

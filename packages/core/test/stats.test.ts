@@ -4,6 +4,7 @@ import {
   buildAwaitingPayment,
   buildBillableRatio,
   buildByProject,
+  buildCollected,
   buildHoursByDay,
   buildMonthTotals,
   buildOverdueInvoices,
@@ -15,6 +16,7 @@ import {
   buildVelocity,
   type ByProjectRow,
   clientNamesFrom,
+  type CollectedRow,
   type DurationRow,
   type InvoiceRow,
   projectNamesFrom,
@@ -623,6 +625,34 @@ test('the cumulative line stops at today rather than running flat', () => {
   );
   // The ray still runs the whole month — where the target lands is the point.
   assert.ok(p?.series.every((s) => s.expected > 0));
+});
+
+// ── collected ───────────────────────────────────────────────────────
+
+const collectedRow = (o: Partial<CollectedRow> = {}): CollectedRow => ({
+  month: '2026-03',
+  currency: 'USD',
+  amount: '500.00',
+  ...o,
+});
+
+/* The rollup returns one row per (month, currency). The response carries ONE
+   currency and the screen prints it beside the figure, so a euro added in is
+   a euro reported as a dollar. */
+test('collected counts only rows in the response’s currency', () => {
+  const c = buildCollected(
+    [
+      collectedRow({ month: '2026-03', currency: 'USD', amount: '500.00' }),
+      collectedRow({ month: '2026-03', currency: 'EUR', amount: '1000.00' }),
+    ],
+    ['2026-02', '2026-03'],
+    null,
+    'USD',
+  );
+
+  assert.equal(c.trailing12, 500);
+  assert.equal(c.thisMonth, 500);
+  assert.equal(c.byMonth.at(-1)?.amount, 500, 'nor does it reach the plot');
 });
 
 // ── scalar ──────────────────────────────────────────────────────────
