@@ -37,11 +37,17 @@ later.
       rollup alongside `month_revenue` is the shape; bucket by `paid_at` in
       the caller's zone and exclude voided invoices, as `month_revenue` does.
 
-      **`paid_at` is nullable on a paid invoice** for rows migrated before the
-      status route wrote it. Those are collected money with no date to bucket
-      them under, so they belong in `trailing12` only if a fallback is chosen
-      deliberately — `updated_at` is the closest, and silently treating them as
-      unpaid is the one option that misreports the figure.
+- [ ] **A paid invoice has a payment date, enforced by the database.** The
+      column stays nullable — a draft has no `paid_at` — so the invariant is
+      the pair, as a CHECK: `status <> 'paid' or paid_at is not null`, and the
+      same for `sent_at`, since paid implies sent.
+
+      Nothing produces the bad state today: the status route is the only
+      writer of `status = 'paid'` and sets `paid_at` in the same statement.
+      The constraint matters because **`collected` is the first thing that
+      reads the column.** While it was write-only a null cost nothing; once
+      Home's leading figure is derived from it, a null quietly drops a real
+      payment out of the money-arrived number.
 
 - [ ] **The running timer and the primary action are the same green.** The
       accent carries two meanings — it marks the live timer and it marks the
