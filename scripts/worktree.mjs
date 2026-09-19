@@ -80,4 +80,6 @@ run('pnpm', ['install'], dest);
 console.log('\nbuilding design tokens…\n');
 run('pnpm', ['--filter', '@stint/design-tokens', 'build'], dest);
 
-console.log(`\nready:\n  cd ${dest}\n  pnpm dev --port 3101\n`);
+/* `dev` lives in apps/web and reads PORT, so a --port flag at the root has
+   no script to reach. :3100 is likely taken by the checkout this ran from. */
+console.log(`\nready:\n  cd ${dest}/apps/web && PORT=3101 pnpm dev\n`);

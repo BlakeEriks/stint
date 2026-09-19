@@ -67,10 +67,12 @@ file.
 It copies **only** `.env.development.local`. `.env.local` reaches the hosted
 project, and a worktree is where you try things.
 
-Two worktrees cannot both have `:3100`. Run the second one somewhere else:
+Two worktrees cannot both have `:3100`. Run the second one somewhere else.
+`dev` lives in `apps/web`, so the port goes through `PORT` — a `--port` flag
+passed at the root has no script to reach:
 
 ```bash
-cd ../stint-<branch> && pnpm dev --port 3101
+cd ../stint-<branch>/apps/web && PORT=3101 pnpm dev
 ```
 
 A magic link carries the port it was requested from, so sign in from the
