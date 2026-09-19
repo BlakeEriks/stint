@@ -141,6 +141,13 @@ that must not be cut: it names the subject, where the qualifier beneath it
 already says which kind of problem this is, in words. Five shapes to learn buy
 less than the sentence that was there anyway.
 
+**A figure's count-up is not a CSS animation.** A keyframe animates a style,
+and what has to move on a money figure is the rendered text of a number —
+`$3,022.50` to `$3,135.00` is sixty distinct strings, which no interpolation
+of a property produces. A pulse or a slide on change was the alternative, and
+it says only that something changed; the travel says what it climbed to.
+
+
 ## Platform scope
 
 The web app is where features are built. The native apps exist for the things
