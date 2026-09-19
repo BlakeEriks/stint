@@ -513,6 +513,18 @@ export const Stats = z.object({
     moreClients: z.number().int().nonnegative(),
   }),
   /**
+   * What today's work is worth, bucketed by the entry's own date in `tz`.
+   *
+   * A property of the data, not of this browser: it reads the same at 9am and
+   * at midnight, on a laptop and a phone, on a first visit and a fiftieth.
+   * Unrated work earns nothing it can name, so the figure can understate a
+   * day whose rate chain resolves to null.
+   *
+   * Nonnegative by construction — it sums today's entries, so removing one
+   * lowers it toward zero and never past it.
+   */
+  earnedToday: money,
+  /**
    * Trailing-window gross, split by where the work stands now.
    *
    * Work DONE over the window, not money collected. `invoiced + unbilled`

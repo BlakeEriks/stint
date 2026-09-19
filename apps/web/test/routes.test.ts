@@ -1412,6 +1412,65 @@ test('velocity splits invoiced from unbilled without double-counting', async () 
   assert.equal(res.body.unbilled.total, res.body.velocity.unbilled);
 });
 
+test("today's earnings are today's work, bucketed in the caller's zone", async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '55555555-0000-4000-8000-000000000001';
+  const p = '55555555-0000-4000-8000-0000000000b1';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Today',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+
+  /* Anchored to the RUNNING clock, not the fixture's fixed date: the figure
+     is "today" as the server sees it, so a hardcoded day passes only on the
+     day it was written. 09:00 and 11:00 local sit far enough from either
+     midnight that no zone moves them onto another date. */
+  const at = (hour: number, hours: number) => {
+    const now = new Date();
+    const start = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      hour,
+    );
+    return {
+      start: start.toISOString(),
+      end: new Date(start.getTime() + hours * 3_600_000).toISOString(),
+    };
+  };
+
+  const todayA = at(9, 1); //  1h at 100 = 100
+  const todayB = at(11, 0.5); // 0.5h at 100 = 50
+  for (const [id, span] of [
+    [S(60), todayA],
+    [S(61), todayB],
+  ] as const) {
+    await pool.query(
+      `insert into time_entries
+         (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+       values ($1,$2,$3,'work',$4,$5,true)`,
+      [id, USER, p, span.start, span.end],
+    );
+  }
+
+  // Yesterday's work, which the day's figure must not reach back for.
+  await entryFor({ id: S(62), projectId: p, hours: 4, daysAgo: 1 });
+
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const res = await json(await stats(req(`/stats?tz=${zone}`)));
+
+  assert.equal(res.body.earnedToday, 150, "only today's two entries");
+  assert.ok(
+    res.body.unbilled.total > res.body.earnedToday,
+    'the running total still carries every unbilled day',
+  );
+});
+
 test('velocity groups by (client, RATE), like every other rollup', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 

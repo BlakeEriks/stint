@@ -25,6 +25,7 @@ function stats(attention: Partial<Stats['attention']> = {}): Stats {
     pace: null,
     billableRatio: null,
     awaitingPayment: 0,
+    earnedToday: 0,
     attention: {
       overdueInvoices: [],
       staleDrafts: [],

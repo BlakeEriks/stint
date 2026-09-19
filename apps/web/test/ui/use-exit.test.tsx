@@ -200,6 +200,7 @@ describe('an inbox row leaving', () => {
       pace: null,
       billableRatio: null,
       awaitingPayment: 0,
+      earnedToday: 0,
       attention: {
         overdueInvoices: [],
         staleDrafts: [],

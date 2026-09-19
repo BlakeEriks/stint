@@ -3,7 +3,7 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { HomeCards } from '@/components/home-cards';
-import { BEAT_MS } from '@/lib/client/use-day-state';
+import { BEAT_MS } from '@/lib/client/use-beat';
 import type { Stats } from '@/lib/client/api';
 import { localDateKey } from '@stint/core';
 import { timeZone as tz } from '@/lib/client/use-timer';
@@ -24,6 +24,7 @@ function stats(over: Partial<Stats> = {}): Stats {
   return {
     currency: 'USD',
     unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
+    earnedToday: 0,
     velocity: {
       months: 3,
       total: 0,
@@ -490,25 +491,17 @@ describe('the panel header', () => {
     expect(head?.textContent).toContain(date);
   });
 
-  /* The since-line describes the SCREEN, not Unbilled: the money moved and
-     so did the invoice it was raised against. */
-  it('carries the since-line, which Unbilled does not', async () => {
-    window.localStorage.setItem(
-      'stint.day',
-      JSON.stringify({
-        date: localDateKey(new Date(), tz),
-        openedUnbilled: 3000,
-        earnedToday: 0,
-        lastUnbilled: 3000,
-      }),
-    );
-    serve(stats({ unbilled: oneClient }));
+  /* Today's earnings are reported beside the figure they moved, so the head
+     is the day and the date and nothing else. */
+  it('carries no figure of its own', async () => {
+    serve(stats({ unbilled: oneClient, earnedToday: 112.5 }));
     render(<HomeCards />, { wrapper });
 
-    const since = await screen.findByText(/Since yesterday/);
+    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
 
     const heading = screen.getByRole('heading', { name: 'Thursday' });
-    expect(heading.closest('div')).toContainElement(since);
+    const head = heading.parentElement;
+    expect(head?.textContent).not.toMatch(/\$/);
   });
 });
 
@@ -1031,13 +1024,18 @@ describe('the beat says only what it can tell', () => {
       expect(screen.getByText('Unbilled')).toBeInTheDocument(),
     );
 
-    current = stats({ unbilled: unbilledAt(212.5, 7200) });
+    current = stats({ unbilled: unbilledAt(212.5, 7200), earnedToday: 112.5 });
     await act(async () => {
       await client.refetchQueries();
     });
 
-    const chip = await screen.findByText(/\+\$112\.50 today/);
-    expect(chip.getAttribute('data-earned')).toBe('today');
+    const chip = await waitFor(() => {
+      const el = container.querySelector('[data-earned="today"]');
+      if (!el) throw new Error('no earned-today figure');
+      return el as HTMLElement;
+    });
+    expect(chip.textContent).toMatch(/Today/);
+    await waitFor(() => expect(chip.textContent).toMatch(/\+\$112\.50/));
     expect(chip.className).not.toMatch(/accent/);
     expect(chip.className).not.toMatch(/text-success/);
     /* No transient beat: a plain billable stop is fully described by the

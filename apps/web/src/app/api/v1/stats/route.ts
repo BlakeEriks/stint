@@ -187,9 +187,17 @@ export const GET = handle(async (req: Request) => {
 
   const unit = settings.data?.monthly_target_unit;
 
+  /* Today's earnings come out of the month's own by-day series, which is
+     already loaded and already grouped on the local date. A second query for
+     one of its rows would be a second definition of the same amount. */
+  const byDay = revenueByDay((revenueDays.data ?? []) as DayRow[]);
+
   return NextResponse.json({
     currency,
     unbilled: buildUnbilled(unbilledRows, currency, now),
+    /* Work done today at its resolved rate, which is what `revenue_by_day`
+       already computes. Absent from the map until the day earns something. */
+    earnedToday: byDay.get(todayKey) ?? 0,
     velocity: buildVelocity(
       (velocity.data ?? []) as VelocityRow[],
       currency,
@@ -203,10 +211,7 @@ export const GET = handle(async (req: Request) => {
       monthRevenue: scalar(monthRevenue.data),
       // The cumulative line is in the target's own unit, so only that unit's
       // series is built — the other would be a second shape nothing reads.
-      byDay:
-        unit === 'revenue'
-          ? revenueByDay((revenueDays.data ?? []) as DayRow[])
-          : buildHoursByDay(monthRows, tz),
+      byDay: unit === 'revenue' ? byDay : buildHoursByDay(monthRows, tz),
       now,
       tz,
     }),

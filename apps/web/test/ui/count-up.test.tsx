@@ -26,6 +26,7 @@ function stats(over: Partial<Stats> = {}): Stats {
     pace: null,
     billableRatio: null,
     awaitingPayment: 0,
+    earnedToday: 0,
     attention: {
       overdueInvoices: [],
       staleDrafts: [],
@@ -139,7 +140,6 @@ beforeEach(() => {
   client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
-  localStorage.clear();
   reducedMotion(false);
 });
 
@@ -154,21 +154,26 @@ describe('count-up', () => {
        answer on screen. A hook that only skipped the tween would leave the
        seeded origin — here, the stored 500 — showing indefinitely. */
     reducedMotion(true);
-    localStorage.setItem('stint.seen.unbilled', '500');
-    serve(() => stats({ unbilled: unbilled(2000) }));
+    let current = stats({ unbilled: unbilled(500) });
+    serve(() => current);
 
     render(<HomeCards />, { wrapper });
+    await waitFor(() => expect(figure()).toBe('$500.00'));
 
-    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
-    // Immediately the server's figure, never the stored one and never zero.
-    expect(figure()).toBe('$2,000.00');
+    current = stats({ unbilled: unbilled(2000) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+
+    // Immediately the server's figure, never the previous one and never zero.
+    await waitFor(() => expect(figure()).toBe('$2,000.00'));
     expect(figure()).not.toBe('$500.00');
   });
 
-  it('does not animate a first load with no stored value', async () => {
-    /* Nothing stored means no "since", so counting up from zero would report
-       the user's whole history as though it had just happened. */
-    expect(localStorage.getItem('stint.seen.unbilled')).toBeNull();
+  it('does not animate a first load', async () => {
+    /* There is nothing on screen yet to travel from, so counting up on
+       arrival would report the user's whole history as though it had just
+       happened. */
     serve(() => stats({ unbilled: unbilled(4200) }));
 
     render(<HomeCards />, { wrapper });
@@ -176,43 +181,6 @@ describe('count-up', () => {
     await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
     // Settled on the first paint the figure appears in — no travel from 0.
     expect(figure()).toBe('$4,200.00');
-    // And no period line, because there is no period to name.
-    expect(screen.queryByText(/Since yesterday/)).toBeNull();
-  });
-
-  it('stores what it displayed, so the next arrival has a from', async () => {
-    serve(() => stats({ unbilled: unbilled(4200) }));
-    render(<HomeCards />, { wrapper });
-
-    await waitFor(() =>
-      expect(localStorage.getItem('stint.seen.unbilled')).toBe('4200'),
-    );
-  });
-
-  /* The figure's travel and the line naming it now come from different
-     state: the tween still animates from what this browser last DISPLAYED,
-     while the line measures against the day's opening baseline. */
-  it('names the period when the day opened at a smaller figure', async () => {
-    localStorage.setItem('stint.seen.unbilled', '3750');
-    localStorage.setItem(
-      'stint.day',
-      JSON.stringify({
-        date: localDateKey(new Date(), tz),
-        openedUnbilled: 3750,
-        earnedToday: 0,
-        lastUnbilled: 3750,
-      }),
-    );
-    serve(() => stats({ unbilled: unbilled(4200) }));
-
-    render(<HomeCards />, { wrapper });
-
-    await waitFor(() =>
-      expect(screen.getByText(/Since yesterday/)).toBeVisible(),
-    );
-    expect(screen.getByText('+$450.00')).toBeVisible();
-    // Settles on the server's figure once the tween lands.
-    await waitFor(() => expect(figure()).toBe('$4,200.00'), SETTLE);
   });
 
   it('settles on exactly the server value after the tween', async () => {
@@ -223,12 +191,55 @@ describe('count-up', () => {
        VISIBLE at two decimals: settling a thousandth short of 98,765.43 reads
        as 98,667.66, while a target like 1,234.56 from a nearby origin would
        round back onto itself and hide the drift. */
-    localStorage.setItem('stint.seen.unbilled', '1');
-    serve(() => stats({ unbilled: unbilled(98765.43) }));
+    let current = stats({ unbilled: unbilled(1) });
+    serve(() => current);
 
     render(<HomeCards />, { wrapper });
+    await waitFor(() => expect(figure()).toBe('$1.00'));
+
+    current = stats({ unbilled: unbilled(98765.43) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
 
     await waitFor(() => expect(figure()).toBe('$98,765.43'), SETTLE);
+  });
+
+  /* Every other test here asserts where the figure LANDS, which a hook that
+     cut straight to the new value would also satisfy — the animation was
+     removable with the whole suite still green. This one pins the travel
+     itself: at least one frame between the two figures, and none outside
+     them. */
+  it('travels through intermediate values rather than cutting', async () => {
+    let current = stats({ unbilled: unbilled(1000) });
+    serve(() => current);
+
+    render(<HomeCards />, { wrapper });
+    await waitFor(() => expect(figure()).toBe('$1,000.00'));
+
+    const seen = new Set<string>();
+    const sample = setInterval(() => seen.add(figure() ?? ''), 8);
+
+    current = stats({ unbilled: unbilled(9000) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+    await waitFor(() => expect(figure()).toBe('$9,000.00'), SETTLE);
+    clearInterval(sample);
+
+    const money = (t: string) => Number(t.replace(/[$,]/g, ''));
+    const between = [...seen]
+      .filter((t) => /^\$[\d,]+\.\d\d$/.test(t))
+      .map(money)
+      .filter((n) => n > 1000 && n < 9000);
+
+    expect(between.length).toBeGreaterThan(0);
+    // And it never overshoots either end of the journey.
+    for (const t of seen) {
+      if (!/^\$[\d,]+\.\d\d$/.test(t)) continue;
+      expect(money(t)).toBeGreaterThanOrEqual(1000);
+      expect(money(t)).toBeLessThanOrEqual(9000);
+    }
   });
 
   it('moves hours, not money, on an unbillable stop', async () => {
@@ -264,20 +275,25 @@ describe('count-up', () => {
 
     // The hours move too: a stop is what adds them, and money alone also
     // moves when a rate is edited elsewhere.
-    current = stats({ unbilled: unbilled(212.5, 7200) });
+    current = stats({ unbilled: unbilled(212.5, 7200), earnedToday: 112.5 });
     await act(async () => {
       await client.refetchQueries();
     });
 
-    /* The stop is now reported by the day's running total, which persists
+    /* The stop is reported by the server's figure for the day, which persists
        rather than retiring on a timer. The tone rule is unchanged. */
-    const chip = await screen.findByText(/\+\$112\.50 today/);
+    const chip = await waitFor(() => {
+      const el = document.querySelector('[data-earned="today"]');
+      if (!el) throw new Error('no earned-today figure');
+      return el as HTMLElement;
+    });
     expect(chip).toBeVisible();
+    expect(chip.textContent).toMatch(/Today/);
+    await waitFor(() => expect(chip.textContent).toMatch(/\+\$112\.50/));
     // Classes, not inline style: the tone is a utility, so reading `style`
     // alone would pass against an accent-coloured chip.
     expect(chip.className).not.toMatch(/accent/);
     expect(chip.className).not.toMatch(/text-success/);
-    expect(chip.getAttribute('data-earned')).toBe('today');
   });
 
   it('spends the success colour on the paid beat and nowhere else', async () => {
@@ -331,26 +347,5 @@ describe('count-up', () => {
 
     // Unbilled counted DOWN to the server's figure.
     await waitFor(() => expect(figure()).toBe('$400.00'), SETTLE);
-  });
-
-  it('survives a localStorage that throws', async () => {
-    /* A private window refuses both halves. The figure still has to render. */
-    const getItem = Storage.prototype.getItem;
-    const setItem = Storage.prototype.setItem;
-    Storage.prototype.getItem = () => {
-      throw new Error('denied');
-    };
-    Storage.prototype.setItem = () => {
-      throw new Error('denied');
-    };
-
-    try {
-      serve(() => stats({ unbilled: unbilled(900) }));
-      render(<HomeCards />, { wrapper });
-      await waitFor(() => expect(figure()).toBe('$900.00'), SETTLE);
-    } finally {
-      Storage.prototype.getItem = getItem;
-      Storage.prototype.setItem = setItem;
-    }
   });
 });

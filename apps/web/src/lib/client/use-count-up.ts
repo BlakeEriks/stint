@@ -39,18 +39,18 @@ export type CountUp = { value: number; running: boolean };
 /**
  * Tween `to` from wherever the figure already was.
  *
- * `from` seeds the very first render: pass the last value this browser
- * displayed to animate an arrival, or omit it to start settled. Every later
- * change tweens from whatever was on screen, so an interrupted tween picks up
- * at its current position rather than snapping back.
+ * The origin is always what is on screen, so an interrupted tween picks up at
+ * its current position rather than snapping back. The first render starts
+ * settled: there is nothing on screen yet to travel from, and counting up on
+ * arrival would report the whole figure as though it had just happened.
  */
-export function useCountUp(to: number, from?: number | null): CountUp {
+export function useCountUp(to: number): CountUp {
   /* Reduced motion renders the SETTLED figure, not a skipped render and not a
      zero: the number is the content, so suppressing the animation must leave
      the answer on screen. Everything below is bypassed, never merely sped up. */
   const reduced = prefersReducedMotion();
 
-  const [value, setValue] = useState(() => (reduced ? to : (from ?? to)));
+  const [value, setValue] = useState(to);
   const [running, setRunning] = useState(false);
 
   /* The figure currently on screen, read by the next tween as its origin.
@@ -96,64 +96,6 @@ export function useCountUp(to: number, from?: number | null): CountUp {
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
   }, [to, reduced]);
-
-  return { value, running };
-}
-
-/**
- * What this browser last displayed, so an arrival can animate the difference.
- *
- * Per **device**, never account state: two machines disagreeing is correct,
- * because each one animates what it has not shown you. Same guard as
- * `use-theme.ts` — a private window throws on both halves.
- */
-function read(key: string): number | null {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw == null) return null;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : null;
-  } catch {
-    return null;
-  }
-}
-
-function write(key: string, value: number) {
-  try {
-    localStorage.setItem(key, String(value));
-  } catch {
-    // A private window can refuse writes. The figure still renders; the next
-    // arrival just has nothing to animate from.
-  }
-}
-
-/**
- * The arrival beat: tween from the figure this browser last showed.
- *
- * **A first load must not animate.** With nothing stored there is no "since",
- * so counting up from zero would report the user's entire history as though
- * it had just happened. No stored value renders settled and stores it.
- */
-export function useSinceLastSeen(key: string, to: number | null | undefined) {
-  /* `0` is a valid amount, so the absent case is null-ish and nothing else —
-     a falsy check here would treat a genuine zero as "no figure yet" and
-     re-animate from the stale stored value on every visit. */
-  const settled = to ?? 0;
-  const ready = to != null;
-
-  /* Captured once, before the first write below lands: after that the stored
-     value IS this figure, so re-reading would leave nothing to travel from. */
-  const seen = useRef<number | null | undefined>(undefined);
-  if (seen.current === undefined && ready) {
-    seen.current = read(key);
-  }
-
-  const previous = seen.current ?? null;
-  const { value, running } = useCountUp(settled, ready ? previous : null);
-
-  useEffect(() => {
-    if (ready) write(key, settled);
-  }, [key, settled, ready]);
 
   return { value, running };
 }

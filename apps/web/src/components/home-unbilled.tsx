@@ -3,8 +3,8 @@ import { formatCompact, formatCurrency } from '@stint/core';
 import { Wallet } from 'lucide-react';
 import type { Stats } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
-import { useSinceLastSeen } from '@/lib/client/use-count-up';
-import type { Beat } from '@/lib/client/use-day-state';
+import { useCountUp } from '@/lib/client/use-count-up';
+import type { Beat } from '@/lib/client/use-beat';
 import { type Clients, Region, Row } from './home-shell';
 
 /**
@@ -58,21 +58,25 @@ function Delta({ beat, currency }: { beat: Beat; currency: string }) {
 /**
  * What today has earned, beside the figure it added to.
  *
- * A fact about the day rather than a flash about a fetch, so it does not
- * retire on a timer and it survives a refresh. **Neutral, never the accent** —
- * the accent is the running timer, and a stop has just ended one.
+ * A property of the data, not of this browser: the server buckets work by the
+ * entry's own date, so it reads the same on a laptop and a phone and does not
+ * reset when the tab is closed. **Neutral, never the accent** — the accent is
+ * the running timer, and a stop has just ended one.
  *
  * A transient beat still outranks it for the one thing the running total
  * cannot say: an unbillable stop earned no money, and reporting `+$0.00`
  * would teach the user that only billable work makes the app respond. The
  * beat says the hours instead, and the total resumes when it retires.
+ *
+ * A named quantity rather than an annotation, so it takes the same label as
+ * the by-client list and aligns on its own value's baseline.
  */
 function Earned({
   amount,
   beat,
   currency,
 }: {
-  amount: number | null;
+  amount: number;
   beat: Beat;
   currency: string;
 }) {
@@ -87,21 +91,25 @@ function Earned({
   /* Absent at zero, which includes "nothing stopped yet today". An empty
      slot is quieter than a chip reporting no movement. `0` is a valid
      amount, so this is a value check and never truthiness. */
-  if (amount == null || amount === 0) return null;
+  if (amount === 0) return null;
 
   return (
-    <span
-      className="type-meta tabular-nums text-subtle motion-safe:animate-in motion-safe:fade-in"
-      data-earned="today"
-    >
-      {amount > 0 ? '+' : '−'}
-      {formatCurrency(Math.abs(amount), currency)} today
+    <span className="flex flex-col gap-px self-baseline" data-earned="today">
+      <span className="type-label text-subtle">Today</span>
+      <Rolling amount={amount} currency={currency} />
     </span>
   );
 }
 
-/** One key per origin — a display detail of THIS browser, never account state. */
-const SEEN_UNBILLED = 'stint.seen.unbilled';
+/** A figure that travels to its new value rather than cutting to it. */
+function Rolling({ amount, currency }: { amount: number; currency: string }) {
+  const { value } = useCountUp(amount);
+  return (
+    <span className="type-meta tabular-nums text-primary">
+      +{formatCurrency(value, currency)}
+    </span>
+  );
+}
 
 /**
  * Money waiting — the headline number, and the reason this screen exists.
@@ -110,21 +118,12 @@ const SEEN_UNBILLED = 'stint.seen.unbilled';
  * money the user might still never see. Overstating it in a billing tool is
  * the same trust failure as silently editing an entry.
  */
-export function Unbilled({
-  stats,
-  earnedToday,
-  beat,
-}: {
-  stats: Stats;
-  earnedToday: number | null;
-  beat: Beat;
-}) {
+export function Unbilled({ stats, beat }: { stats: Stats; beat: Beat }) {
   const { total, byClient } = stats.unbilled;
-  /* Travel only. This still animates from what this browser last DISPLAYED,
-     which is a fact about the screen; the two figures that describe a period
-     — today's earnings and the day-over-day line — come from `useDayState`
-     and are measured against the day, not against the last paint. */
-  const arrival = useSinceLastSeen(SEEN_UNBILLED, total);
+  /* Travel only, from whatever this screen last showed. The figure itself is
+     the server's; the movement just keeps a number that changed from looking
+     like a number that was wrong before. */
+  const arrival = useCountUp(total);
 
   /* The awaiting-payment link lives inside this region, so hiding on an empty
      `byClient` alone would take money already asked for down with it: the
@@ -143,7 +142,11 @@ export function Unbilled({
           <span className="tabular-nums">
             {formatCurrency(arrival.value, stats.currency)}
           </span>
-          <Earned amount={earnedToday} beat={beat} currency={stats.currency} />
+          <Earned
+            amount={stats.earnedToday}
+            beat={beat}
+            currency={stats.currency}
+          />
         </span>
       }
     >

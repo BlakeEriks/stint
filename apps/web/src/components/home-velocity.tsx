@@ -2,7 +2,7 @@ import { formatCompact, formatCurrency } from '@stint/core';
 import { TrendingUp } from 'lucide-react';
 import type { Stats } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
-import type { Beat } from '@/lib/client/use-day-state';
+import type { Beat } from '@/lib/client/use-beat';
 import { type Clients, Region } from './home-shell';
 
 /**

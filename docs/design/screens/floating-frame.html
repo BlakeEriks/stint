@@ -1190,8 +1190,9 @@
 
 <script>
   /* The count-up, so the spec shows the behaviour rather than describing it.
-     The app animates from what this browser last saw (`useSinceLastSeen`);
-     here the start values are fixed, because a spec page has no last visit. */
+     The app animates from the figure already on screen, so a change travels
+     to its new value; here the start values are fixed, because a spec page
+     has no previous arrival to move from. */
   const money = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   function roll(el) {
