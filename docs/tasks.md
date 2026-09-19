@@ -83,30 +83,6 @@ later.
       `NSApp.windows` for `MenuBarExtraWindow`. Three attempts have gone into
       this; it wants fresh eyes rather than a fourth variation.
 
-- [ ] **An inbox invoice row does not open.** Clicking the label on an overdue
-      or stale-draft row in the dock's inbox goes nowhere. **It reproduces
-      against a running stack only**, and a static read has cleared everything
-      on the path, so start by reproducing rather than re-reading these:
-
-      | Ruled out | Evidence |
-      | --- | --- |
-      | A competing handler on the row | `inbox.tsx:477` is styling alone; the `li` at `:472` carries no handler, and `href`/`onSelect` are exclusive branches (`:484`) |
-      | A malformed `href` | `:221` and `:254` pass `/invoices/${invoiceId}` |
-      | The wrong id from `/stats` | `buildOverdueInvoices`/`buildStaleDrafts` map `invoiceId: i.id` (`stats.ts:247,269`) |
-      | The route or page shape | `[id]/page.tsx` awaits `params` and renders `InvoiceDetail`; `Listing` has a `missing` branch |
-
-      What that leaves is runtime: the client fetch 404ing or erroring behind
-      `Listing`, a navigation that starts and is unmounted by the dock's exit
-      animation, or an overlay taking the click. Check the network tab and the
-      console first — the fault is something only the running app shows.
-
-      This is the inbox's whole premise failing: a row is there to be acted on,
-      and every one of them names a record whose page is where the decision
-      gets made. The inline actions (mark paid, download) are the exception,
-      not the route — void and delete deliberately live on the invoice itself,
-      so a dead link means those are unreachable from the place that surfaced
-      the problem.
-
 - [ ] **Record a reminder on a sent invoice.** `last_reminded_at`, so an
       overdue row can read "12 days late · chased 3d ago" rather than either
       nagging unchanged or disappearing. This is the honest alternative to a
