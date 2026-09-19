@@ -25,29 +25,19 @@ later.
 
 ## Ready
 
-- [ ] **Home's Money region — the server half.** `docs/design/screens/money.html`
-      is the spec, `Stats` carries the shape, and `cause()` already classifies
-      the three events. `GET /api/v1/stats` still has to fill them:
-      `collected.trailing12`, `.thisMonth`, `.daysSincePaid`, `.byMonth` (six
-      rows, oldest first, a month with no payments present at `0`), and
-      `openInvoiceCount`.
+- [ ] **Home's Money region — the screen.** `docs/design/screens/money.html`
+      is the spec and `/stats` already carries every figure it needs. What is
+      left is the region itself: the pairing, the six-month plot, the two
+      owed figures with their count and age lines, and the client list named
+      `Unbilled by client`.
 
-      All of it reads `invoices.paid_at`, which is written on every payment
-      and read by nothing today. A `collected_by_month(p_user_id, p_tz)`
-      rollup alongside `month_revenue` is the shape; bucket by `paid_at` in
-      the caller's zone and exclude voided invoices, as `month_revenue` does.
+      Replaces the Unbilled region rather than sitting beside it — the two
+      figures it leads with are Unbilled's own, and `home.html` still
+      describes the old arrangement.
 
-- [ ] **A paid invoice has a payment date, enforced by the database.** The
-      column stays nullable — a draft has no `paid_at` — so the invariant is
-      the pair, as a CHECK: `status <> 'paid' or paid_at is not null`, and the
-      same for `sent_at`, since paid implies sent.
-
-      Nothing produces the bad state today: the status route is the only
-      writer of `status = 'paid'` and sets `paid_at` in the same statement.
-      The constraint matters because **`collected` is the first thing that
-      reads the column.** While it was write-only a null cost nothing; once
-      Home's leading figure is derived from it, a null quietly drops a real
-      payment out of the money-arrived number.
+      The `sent` beat has no home yet. `cause()` classifies it and `Delta`
+      renders it, but only Unbilled and Velocity mount a beat today, so an
+      invoice going out still moves figures nothing reports.
 
 - [ ] **The running timer and the primary action are the same green.** The
       accent carries two meanings — it marks the live timer and it marks the
