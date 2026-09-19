@@ -22,12 +22,15 @@ import { type Clients, Region, Row } from './home-shell';
 function Delta({ beat, currency }: { beat: Beat; currency: string }) {
   if (!beat) return null;
 
-  /* `paid` counts Unbilled DOWN: the money left work-not-yet-invoiced. Its
-     amount arrives positive, as the rise in what is awaiting payment. */
-  const money = beat.kind === 'paid' ? -beat.amount : beat.amount;
+  /* `sent` counts Unbilled DOWN: the money left work-not-yet-invoiced. Its
+     amount arrives positive, as the rise in what is awaiting payment.
 
-  /* Reports, never praises: "invoiced" is what happened, and a stop that
-     earned nothing says the hours it did earn instead.
+     `paid` moves neither figure this region leads with — the work was
+     invoiced already — so it reports the arrival itself, which is positive. */
+  const money = beat.kind === 'sent' ? -beat.amount : beat.amount;
+
+  /* Reports, never praises: "invoiced" and "collected" are what happened, and
+     a stop that earned nothing says the hours it did earn instead.
 
      `billable` is carried on the beat, decided where the arrival was — never
      re-derived from `amount` here. A net of zero has two causes that look
@@ -50,7 +53,8 @@ function Delta({ beat, currency }: { beat: Beat; currency: string }) {
       data-beat={beat.kind}
     >
       {text}
-      {beat.kind === 'paid' ? ' invoiced' : null}
+      {beat.kind === 'sent' ? ' invoiced' : null}
+      {beat.kind === 'paid' ? ' collected' : null}
     </span>
   );
 }
@@ -84,7 +88,9 @@ function Earned({
      net-zero case it will not guess at. Both render hours rather than money,
      and `+$0.00` beside them would contradict the chip. */
   const unbillable = beat && beat.kind === 'stop' && beat.billable !== true;
-  if (unbillable || beat?.kind === 'paid') {
+  /* An invoice event outranks the day's total whichever way it went: neither
+     changes what today earned, and both are the news. */
+  if (unbillable || (beat && beat.kind !== 'stop')) {
     return <Delta beat={beat} currency={currency} />;
   }
 

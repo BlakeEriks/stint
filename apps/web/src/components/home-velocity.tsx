@@ -25,7 +25,12 @@ export function Velocity({
   if (v.byClient.length === 0) return null;
 
   const gross = (c: (typeof v.byClient)[number]) => c.invoiced + c.unbilled;
-  const paid = beat?.kind === 'paid';
+  /* The SEND, not the payment. Raising an invoice is what counts Unbilled
+     down, so it is the event whose pairing this half completes — without it,
+     invoicing looks only like the screen's largest number shrinking. A
+     payment moves neither figure here: the work was done and invoiced
+     already, and its own region reports it. */
+  const sent = beat?.kind === 'sent';
 
   /* Rounded by `buildVelocity`, never divided here: the client does not
      compute money. */
@@ -40,14 +45,15 @@ export function Velocity({
       icon={TrendingUp}
       value={
         <span className="flex flex-wrap items-baseline gap-x-2">
-          {/* Fires with Unbilled's countdown, in another region — without the
-              pairing, getting paid looks only like the screen's largest
-              number shrinking. */}
-          <span data-beat={paid ? 'paid' : undefined}>
+          {/* Fires with Unbilled's countdown, in another region. Neutral:
+              the accent's step down marks an outcome, and raising an invoice
+              is something the user just did rather than something that
+              happened to them. */}
+          <span data-beat={sent ? 'sent' : undefined}>
             <Money
               amount={perMonth}
               currency={stats.currency}
-              className={`tabular-nums ${paid ? 'text-success' : ''}`}
+              className="tabular-nums"
             />
           </span>
           <span className="type-duration text-subtle">/mo gross</span>

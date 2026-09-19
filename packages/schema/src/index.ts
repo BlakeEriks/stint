@@ -546,6 +546,59 @@ export const Stats = z.object({
   /** Invoiced and not yet collected. Never summed with `unbilled` — that
    *  would double-count the same hours. */
   awaitingPayment: money,
+  /**
+   * How many invoices make up `awaitingPayment`.
+   *
+   * The count rather than a description of the worst of them: naming one
+   * invoice says nothing about the others, and at two or more it drops them
+   * silently. Which invoice is late is the inbox's subject, where it arrives
+   * with the action that answers it.
+   */
+  openInvoiceCount: z.number().int().nonnegative(),
+  /**
+   * Money that has arrived — `sum(total)` over paid invoices, bucketed by
+   * `paid_at`.
+   *
+   * The only finished figure on the screen: the work is done, the invoice is
+   * settled, and nothing downstream revises it. `unbilled` can still be
+   * discounted or written off and `awaitingPayment` can still go unpaid, so
+   * neither is ever summed with this.
+   */
+  collected: z.object({
+    /**
+     * Trailing twelve months, which is the figure Home leads with.
+     *
+     * A calendar month reads `0` for most of every month when a contractor is
+     * paid monthly, and resets the morning after a payment clears. A trailing
+     * window never reads zero and never walks backwards on the 1st.
+     */
+    trailing12: money,
+    /** The calendar month, for the line under the figure. `0` is normal. */
+    thisMonth: money,
+    /**
+     * Whole days since the most recent `paid_at`, or null when nothing has
+     * ever been paid.
+     *
+     * The cadence signal: invoiced monthly, this is how a late payment is
+     * noticed without arithmetic.
+     */
+    daysSincePaid: z.number().int().nonnegative().nullable(),
+    /**
+     * The last six months, oldest first — the plot's whole input.
+     *
+     * Six rather than twelve: at the panel's width twelve points make one
+     * month an illegible share of the picture, and eleven months back is not
+     * a horizon anyone acts on. A month with no payments is present at `0`,
+     * so a gap is a quiet month rather than missing data.
+     */
+    byMonth: z.array(
+      z.object({
+        /** `YYYY-MM`, in the request's time zone. */
+        month: z.string(),
+        amount: money,
+      }),
+    ),
+  }),
   /** Null when no monthly target is set; the card hides rather than nagging. */
   pace: Pace.nullable(),
   /** Null when nothing was tracked this month — 0/0 is not 0%. */
