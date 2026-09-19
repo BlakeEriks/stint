@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
 import { Listing } from './page';
+import { TodayGrid } from './today-grid';
 import { keys } from '@/lib/client/query-keys';
 
 /**
@@ -25,6 +26,7 @@ export function EntryList({
   projects,
   todaySeconds,
   compact = false,
+  grid = false,
 }: {
   projects: Project[];
   todaySeconds: number;
@@ -34,14 +36,23 @@ export function EntryList({
    * row still opens the editor, which is where the rest of an entry lives.
    */
   compact?: boolean;
+  /**
+   * Draw the day as a column instead of a list. Same entries, same editor —
+   * it answers "where did the day go" rather than "what have I booked".
+   */
+  grid?: boolean;
 }) {
   const from = startOfLocalDay(new Date(), tz).toISOString();
 
   const query = useQuery({
     queryKey: keys.entries({ from }),
     queryFn: () => api.entries({ from }),
-    // A running entry is shown in the timer bar, not duplicated here.
-    select: (r) => r.entries.filter((e) => e.endedAt !== null),
+    /* Everything today, running included. The two views disagree about the
+       running entry — a list of durations would duplicate the timer bar,
+       while a column without it has a hole at the one place the eye goes —
+       so the filtering happens at render. A `select` that dropped it here
+       would be one cache entry the two views fight over. */
+    select: (r) => r.entries,
   });
 
   const byId = new Map(projects.map((p) => [p.id, p]));
@@ -83,21 +94,29 @@ export function EntryList({
         tight
         empty="Nothing logged yet today. Start a timer above."
       >
-        {(entries) => (
-          <ul>
-            {entries.map((entry) => (
-              <li key={entry.id}>
-                <Row
-                  entry={entry}
-                  project={byId.get(entry.projectId ?? '')}
-                  color={colors.get(entry.projectId ?? '')}
-                  compact={compact}
-                  onEdit={() => openFor(entry)}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
+        {(entries) =>
+          grid ? (
+            <TodayGrid entries={entries} colors={colors} onEdit={openFor} />
+          ) : (
+            <ul>
+              {/* The running entry is in the timer bar already; a second
+                  duration counting up beside it is the same fact twice. */}
+              {entries
+                .filter((entry) => entry.endedAt !== null)
+                .map((entry) => (
+                  <li key={entry.id}>
+                    <Row
+                      entry={entry}
+                      project={byId.get(entry.projectId ?? '')}
+                      color={colors.get(entry.projectId ?? '')}
+                      compact={compact}
+                      onEdit={() => openFor(entry)}
+                    />
+                  </li>
+                ))}
+            </ul>
+          )
+        }
       </Listing>
 
       <EntryDialog

@@ -39,6 +39,7 @@ export function Dock() {
       {data ? <Inbox stats={data} /> : null}
       <EntryList
         compact
+        grid
         projects={projects?.projects ?? []}
         todaySeconds={timer.todaySeconds}
       />
