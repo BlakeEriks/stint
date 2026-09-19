@@ -26,7 +26,59 @@ later.
 ## Ready
 
 
+- [ ] **Today reads as a day column, not a list.** The dock's Today region
+      draws the same 44px/hour grid the calendar draws: blocks in their real
+      places, a now-line on the accent, and the day's shape visible without
+      arithmetic. The list answers "what have I booked"; the grid answers
+      "where did the day go", which is the question that catches the hour you
+      forgot to track.
 
+      **The now-line is the reason to build it.** Nothing in the app currently
+      draws one — not even `/calendar`. It is the accent's first meaning (the
+      live thing) doing work the running duration cannot: showing how much of
+      the day is behind you and where the gaps are. `use-beat.ts` is the
+      existing clock and already ticks for the timer; the line needs no second
+      one. A minute's resolution is enough, and the line is the only new green
+      on the screen — the running block terminates at it and they read as one
+      subject.
+
+      **A block opens the entry dialog and nothing else.** `EntryDialog` takes
+      `existing`, so the grid hands it the entry the block came from, exactly
+      as `EntryList`'s rows already do. No drag, no resize, no click-to-create
+      on empty grid: at 44px/hour a 15-minute entry is 11px tall, which is fine
+      to click and far too small to grab an edge of. `/calendar` keeps the
+      drag — it has the width for it — so the dock is the same component with
+      the gestures off, not a second one.
+
+      **The running entry has to come back.** `EntryList` filters it out
+      (`select` on `endedAt !== null`) because the timer bar shows it, and
+      that is right for a list of durations. A grid without it has a hole at
+      the one place the eye goes, so the grid variant keeps it and draws it up
+      to now, the way `position()` already does. It is **not clickable**:
+      `entry-dialog.tsx` refuses a running entry by design and the timer bar
+      owns retitling mid-run.
+
+      **The window maths already exists and is in the wrong place.**
+      `workedWindow()` is module-private in `use-calendar.ts:175` and the dock
+      reads a different query (`keys.entries`) than the calendar
+      (`keys.calendar`), so the dock cannot call it. Export it, or lift it to
+      `@stint/core` beside the rest of the grid maths — but do not copy it:
+      two copies of "which hours does a day draw" drift, and the one in the
+      dock would be the one nobody notices is wrong. `position()` and
+      `assignLanes()` are the same story.
+
+      The floor is 10 hours, so at 44px/hour Today is 440px against an inbox
+      that is 40px when empty. **That inverts what `inbox.html` fixes
+      deliberately** — Today is subordinate so the inbox stays read — and is
+      the one open question. Either Today scrolls inside the dock (a second
+      scroller in a column that already scrolls at `xl`, which
+      `calendar.html` argues against), or the dock's window is tighter than
+      the calendar's and the floor does not apply. Decide it on a real day
+      with four entries and an empty inbox, which is the common case.
+
+      `docs/design/screens/inbox.html` owns the Today region and moves;
+      `calendar.html` currently says the product draws no planned layer, which
+      stays true until the line below is built.
 
 - [ ] **The running timer and the primary action are the same green.** The
       accent carries two meanings — it marks the live timer and it marks the
@@ -345,6 +397,49 @@ alpha. Both keep their full working, so whichever gate lifts first, the thinking
 is already done.
 
 ### Waiting on something outside the code
+
+- **Proposed entries from a calendar subscription** — waiting on a Google
+  Cloud project and a verified OAuth consent screen. Read-only calendar scope
+  is sensitive, so the gate is Google's review, not the code.
+
+  Why it matters: the meetings a contractor bills are already on a calendar,
+  and typing them into a tracker afterwards is the transcription step that
+  makes people stop tracking. A proposal is the paste.
+
+  **Proposed blocks are drawn, never written.** They sit in the day column
+  (see Today above) as dashed outlines — an outline is the absence of a
+  record, the same argument the calendar legend already makes for "No
+  client". A proposal is not a time entry, is not in `time_entries`, and
+  never reaches an invoice. Confirming one opens the **timer bar pre-filled**
+  rather than inserting a row: a click on a feed someone else controls is far
+  too cheap a gesture to create a billable record from, which is why clicking
+  empty grid on `/calendar` opens the editor instead of writing.
+
+  **Never guess the client.** Matching an event title to a client is
+  inference, and a wrong guess on a billable entry is the app quietly
+  changing what you bill. The stripe may hint; the tag is confirmed in the
+  bar before Start, and an unmatched event gets no colour rather than a
+  plausible one.
+
+  Three parts are harder than the drawing:
+
+  - **Dismissal has to survive a refetch.** A proposal you said no to must
+    not return on the next sync, which means a row per `(feed, uid,
+    instance)` — not per event, because a recurring event is one uid and many
+    instances, and a moved instance is a new one that should come back.
+  - **Tokens expire and calendars are shared.** A refresh token that dies
+    leaves the dock quietly showing a stale day; the feed needs a visible
+    "last synced" and a reconnect that is not a support email. Declined and
+    tentative invitations are not work and should not propose.
+  - **All-day events are not hours.** An all-day event has no times to
+    propose and must be excluded, or every holiday proposes 24 billable
+    hours.
+
+  This is additive to Today's grid, which ships without it: the now-line and
+  the read-only blocks need no feed. When it lands,
+  `docs/design/screens/calendar.html` stops being true — it says the product
+  draws no planned layer and subscribes to nothing — and that sentence is the
+  decision being reversed, so it changes in the same commit.
 
 - **Toggl import** — waiting on Stint having been used for real billing for a
   few weeks. Importing two years of history into a tracker whose rough edges
