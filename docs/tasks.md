@@ -25,6 +25,50 @@ later.
 
 ## Ready
 
+
+- [ ] **One figure for today's earnings, from the server.** Home answers
+      "what has today been worth?" twice, in two places, by two mechanisms,
+      and neither answers it directly:
+
+      - **"Since yesterday, +$90.40 unbilled"** in the panel header
+        (`SinceLine` in `home-cards.tsx`), which is `sinceOpen` — the unbilled
+        total snapshotted in `localStorage` when the app was first opened
+        today, differenced against now.
+      - **The transient `+xyz` beside the unbilled number** after an edit,
+        reporting what that one change did.
+
+      Replace both with a single **server-computed amount for today**, shown
+      near the unbilled figure it describes rather than in the panel header.
+      Today is a property of the data, not of this browser: work dated today
+      at its resolved rate, the same definition `principles.md` already fixes
+      for revenue — *work done, bucketed by the entry's date*. It reads the
+      same at 9am and at midnight, on a laptop and a phone, on a first visit
+      and a fiftieth.
+
+      **This deletes `use-day-state.ts`, and that is the point.** Roughly 380
+      lines exist to make a client-side snapshot behave: folding beats,
+      classifying causes, dropping the snapshot when the timezone changes so a
+      zone difference is not reported as money earned, suppressing the line on
+      first load because there is nothing stored to compare. Every one of
+      those is a problem the snapshot creates and a server figure does not
+      have. Check `use-count-up.ts` and the `Beat` machinery in the same pass
+      — some of it exists only to animate this.
+
+      What the new number is NOT: not `sinceOpen`, which moves when you
+      invoice something (hence its "−$X invoiced" branch) and so mixes work
+      done with paperwork filed. Today's earnings do not fall when you raise
+      an invoice.
+
+      `Stats` has no field for it — `unbilled` and `velocity` are both
+      windows, not days — so this adds one, computed in the same rollup with
+      `resolve_rate()` like every other amount. `tz` decides which day, the
+      way it already does everywhere else.
+
+      **Unrated entries make it incomplete, not low.** `UnbilledClient` already
+      carries `unratedCount` for exactly this; today's figure needs the same
+      honesty rather than silently omitting work with no resolvable rate.
+
+      Wanted for alpha.
 - [ ] **The menu bar panel keeps its focus between openings.** Open the panel,
       click into the task field, close it, reopen: the field is still focused,
       so the panel never opens in a default state. Escape closes the panel
