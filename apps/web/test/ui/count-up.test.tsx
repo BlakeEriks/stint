@@ -280,7 +280,7 @@ describe('count-up', () => {
     expect(chip.getAttribute('data-earned')).toBe('today');
   });
 
-  it('spends cyan on the paid beat and nowhere else', async () => {
+  it('spends the success colour on the paid beat and nowhere else', async () => {
     let current = stats({
       unbilled: unbilled(1000),
       velocity: velocity(5000, 4000),
@@ -290,7 +290,7 @@ describe('count-up', () => {
     const { container } = render(<HomeCards />, { wrapper });
     await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
 
-    // Before the beat, nothing on the screen is cyan.
+    // Before the beat, nothing on the screen carries it.
     expect(container.querySelectorAll('.text-success')).toHaveLength(0);
 
     /* An invoice clears: unbilled work becomes invoiced. The gross is
@@ -311,21 +311,21 @@ describe('count-up', () => {
     );
 
     /* BOTH halves of the beat carry it: the delta beside Unbilled and
-       Velocity's headline. Asserting only "some cyan exists" passed while
+       Velocity's headline. Asserting only "some exists" passed while
        Velocity's half compared a Beat object to a string and was permanently
        false — the money appeared to leave rather than move. */
-    const cyan = () => [...container.querySelectorAll('.text-success')];
-    expect(cyan().length).toBeGreaterThanOrEqual(2);
-    expect(cyan().some((el) => el.textContent?.includes('$600.00'))).toBe(true);
+    const paid = () => [...container.querySelectorAll('.text-success')];
+    expect(paid().length).toBeGreaterThanOrEqual(2);
+    expect(paid().some((el) => el.textContent?.includes('$600.00'))).toBe(true);
 
     /* Velocity's headline, which does not move when an invoice is paid — the
        work was already done, so the colour alone carries the event. */
-    expect(cyan().some((el) => el.textContent?.includes('$1,666.67'))).toBe(
+    expect(paid().some((el) => el.textContent?.includes('$1,666.67'))).toBe(
       true,
     );
 
-    // And every cyan node on the screen is one of the beat's own.
-    for (const el of cyan()) {
+    // And every one on the screen is the beat's own.
+    for (const el of paid()) {
       expect(el.closest('[data-beat="paid"]')).not.toBeNull();
     }
 

@@ -195,7 +195,7 @@ function Loaded({
 
             {invoice.status === 'sent' ? (
               <Button
-                variant="default"
+                variant="accent"
                 onClick={() => setStatus.mutate('paid')}
                 disabled={setStatus.isPending}
               >

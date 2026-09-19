@@ -22,8 +22,10 @@ export function shortDate(date: string | null | undefined): string {
 
 /**
  * Status is neutral except `void`, which is the only one that means something
- * went wrong. Paid is cyan — the success channel — never green, which belongs
- * to the running timer.
+ * went wrong, and `paid`, which is the outcome the whole record exists to
+ * reach. Paid takes the success green — the accent hue a step down, so it
+ * reads as the same family as the button that set it without competing with
+ * a running timer.
  */
 const TONE: Record<InvoiceStatus, string> = {
   draft: 'border-edge-default text-subtle',
