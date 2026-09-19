@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { StrictMode, type ReactNode } from 'react';
 import { HomeCards } from '@/components/home-cards';
 import type { Stats } from '@/lib/client/api';
 import { localDateKey } from '@stint/core';
@@ -99,8 +99,17 @@ function serve(get: () => Stats) {
 
 let client: QueryClient;
 
+/* StrictMode, because the app runs under it — Next enables it whenever
+   `reactStrictMode` is unset, which `next.config.ts` leaves unset. It double-
+   invokes every effect (mount, cleanup, mount), and a tween whose effect is
+   not idempotent silently stops animating in the real app while a wrapper
+   without it stays green. That gap once shipped a change that did nothing. */
 function wrapper({ children }: { children: ReactNode }) {
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <StrictMode>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </StrictMode>
+  );
 }
 
 /** Drive `prefers-reduced-motion`, which the hook reads through matchMedia. */
@@ -170,17 +179,38 @@ describe('count-up', () => {
     expect(figure()).not.toBe('$500.00');
   });
 
-  it('does not animate a first load', async () => {
-    /* There is nothing on screen yet to travel from, so counting up on
-       arrival would report the user's whole history as though it had just
-       happened. */
+  /* A load has nothing on screen to travel from, so the origin is chosen
+     rather than remembered. It must be NEAR the figure: counting up from zero
+     would put a balance the user does not have in front of them and animate
+     their whole history as though it had just happened. */
+  it('arrives from near the figure on load, never from zero', async () => {
     serve(() => stats({ unbilled: unbilled(4200) }));
 
+    /* Sampled from the render itself. The settled figure is also the FIRST
+       paint — the arrival is applied by the effect — so waiting for that value
+       would return before a single frame had run and prove nothing. */
+    const seen = new Set<string>();
+    const sample = setInterval(() => {
+      try {
+        seen.add(figure());
+      } catch {
+        // Not mounted yet.
+      }
+    }, 8);
     render(<HomeCards />, { wrapper });
 
-    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
-    // Settled on the first paint the figure appears in — no travel from 0.
-    expect(figure()).toBe('$4,200.00');
+    // Leaves its settled value, then comes back to it.
+    await waitFor(() => expect(figure()).not.toBe('$4,200.00'), SETTLE);
+    await waitFor(() => expect(figure()).toBe('$4,200.00'), SETTLE);
+    clearInterval(sample);
+
+    const money = (t: string) => Number(t.replace(/[$,]/g, ''));
+    const amounts = [...seen]
+      .filter((t) => /^\$[\d,]+\.\d\d$/.test(t))
+      .map(money);
+
+    expect(amounts.length).toBeGreaterThan(1);
+    expect(Math.min(...amounts)).toBeGreaterThan(4200 * 0.9);
   });
 
   it('settles on exactly the server value after the tween', async () => {
@@ -363,7 +393,10 @@ describe('count-up', () => {
     });
     expect(chip).toBeVisible();
     expect(chip.textContent).toMatch(/Today/);
-    await waitFor(() => expect(chip.textContent).toMatch(/\+\$112\.50/));
+    await waitFor(
+      () => expect(chip.textContent).toMatch(/\+\$112\.50/),
+      SETTLE,
+    );
     // Classes, not inline style: the tone is a utility, so reading `style`
     // alone would pass against an accent-coloured chip.
     expect(chip.className).not.toMatch(/accent/);
@@ -410,8 +443,12 @@ describe('count-up', () => {
 
     /* Velocity's headline, which does not move when an invoice is paid — the
        work was already done, so the colour alone carries the event. */
-    expect(paid().some((el) => el.textContent?.includes('$1,666.67'))).toBe(
-      true,
+    await waitFor(
+      () =>
+        expect(paid().some((el) => el.textContent?.includes('$1,666.67'))).toBe(
+          true,
+        ),
+      SETTLE,
     );
 
     // And every one on the screen is the beat's own.

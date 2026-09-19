@@ -194,7 +194,12 @@ describe('HomeCards', () => {
     const line = await screen.findByText(/awaiting payment/);
     expect(line.textContent).toContain('$900.00');
 
-    expect(screen.getAllByText('$3,000.00').length).toBeGreaterThan(0);
+    await waitFor(
+      () => expect(screen.getAllByText('$3,000.00').length).toBeGreaterThan(0),
+      { timeout: 4000 },
+    );
+    /* The sum must never appear — not settled, not for a frame of the
+       arrival either. */
     expect(screen.queryByText('$3,900.00')).toBeNull();
   });
 
@@ -606,8 +611,15 @@ describe('Velocity', () => {
     );
     /* $9,000 over three months. The window total carries no rate, so two
        users on different windows cannot compare it. */
-    const figure = container.querySelector('.type-figure');
-    expect(figure?.textContent).toContain('$3,000.00');
+    /* Awaited: a figure arrives from just short of its value, so reading it
+       on the first paint catches the tween rather than the answer. */
+    await waitFor(
+      () =>
+        expect(container.querySelector('.type-figure')?.textContent).toContain(
+          '$3,000.00',
+        ),
+      { timeout: 4000 },
+    );
   });
 
   /* THE point of the region's shape. Unbilled is a figure over per-client
@@ -1222,13 +1234,23 @@ describe('the velocity figures reconcile', () => {
        Found via the `/mo gross` unit beside it, because the same amount also
        appears in the per-client legend below. */
     const unit = await screen.findByText('/mo gross');
-    const headline = unit.previousElementSibling;
-    const perMonth = Number(
-      (headline?.textContent ?? '').replace(/[^0-9.]/g, ''),
+    const read = () =>
+      Number(
+        (unit.previousElementSibling?.textContent ?? '').replace(
+          /[^0-9.]/g,
+          '',
+        ),
+      );
+
+    /* Awaited: a figure arrives from just short of its value, so the
+       reconciliation only holds once it has landed. */
+    await waitFor(
+      () =>
+        expect(Math.round(read() * 3 * 100) / 100).toBe(
+          Math.round((invoiced + unbilled) * 100) / 100,
+        ),
+      { timeout: 4000 },
     );
-    expect(perMonth).toBeGreaterThan(0);
-    expect(Math.round(perMonth * 3 * 100) / 100).toBe(
-      Math.round((invoiced + unbilled) * 100) / 100,
-    );
+    expect(read()).toBeGreaterThan(0);
   });
 });

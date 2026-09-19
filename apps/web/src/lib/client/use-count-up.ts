@@ -46,12 +46,28 @@ export function prefersReducedMotion() {
 export type CountUp = { value: number; running: boolean };
 
 /**
+ * How much of the journey a figure has already made when it first mounts.
+ *
+ * A load has nothing on screen to travel from, so the origin is chosen rather
+ * than remembered — and counting up from ZERO would report the whole figure as
+ * though it had just happened: on a billing screen, a frame reading $1,800
+ * against a real $4,001 is a balance the user never had. Starting most of the
+ * way there keeps the arrival visible while every frame stays too close to the
+ * figure to be misread as a different one.
+ */
+const ARRIVAL = 0.92;
+
+/**
  * Tween `to` from wherever the figure already was.
  *
  * The origin is always what is on screen, so an interrupted tween picks up at
- * its current position rather than snapping back. The first render starts
- * settled: there is nothing on screen yet to travel from, and counting up on
- * arrival would report the whole figure as though it had just happened.
+ * its current position rather than snapping back. A first mount has nothing on
+ * screen yet, so it arrives from `ARRIVAL` instead.
+ *
+ * `value` always holds the SETTLED figure, never the animation's origin: the
+ * number is the content, so a tween that never runs — a hidden tab whose rAF
+ * is suspended, reduced motion, an unmount mid-flight — must leave the answer
+ * on screen rather than a number the user does not have.
  */
 export function useCountUp(to: number): CountUp {
   /* Reduced motion renders the SETTLED figure, not a skipped render and not a
@@ -70,14 +86,21 @@ export function useCountUp(to: number): CountUp {
 
   /* `to` at the time the last tween was scheduled. Without it, any re-render
      during a tween re-enters the effect and restarts it from the current
-     position — the figure would crawl toward the target and never arrive. */
-  const target = useRef<number | null>(null);
+     position — the figure would crawl toward the target and never arrive.
+
+     Seeded to the arrival's origin rather than null, so a first mount takes
+     the ordinary "the target moved" path and needs no special case. */
+  const target = useRef(reduced ? to : to * ARRIVAL);
 
   useEffect(() => {
-    if (target.current === to) return;
+    const previous = target.current;
+    if (previous === to) return;
     target.current = to;
 
-    const start = shown.current;
+    /* Resting at the target means this is a fresh arrival, so it travels from
+       the seeded origin; anything else is a tween still in flight, which
+       retargets from where it currently sits rather than snapping back. */
+    const start = shown.current === to ? previous : shown.current;
     if (reduced || start === to) {
       setValue(to);
       setRunning(false);
@@ -108,7 +131,18 @@ export function useCountUp(to: number): CountUp {
     };
 
     frame = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame);
+
+    /* Undoes everything the effect did, which is what makes it idempotent —
+       and StrictMode double-invokes it (mount, cleanup, mount) precisely to
+       check that. Leaving `target` at `to` made the second, real invocation
+       early-return, so no tween ever ran in the app while tests without a
+       StrictMode wrapper stayed green. The figure rests on the answer. */
+    return () => {
+      cancelAnimationFrame(frame);
+      target.current = previous;
+      setValue(to);
+      setRunning(false);
+    };
   }, [to, reduced]);
 
   return { value, running };
