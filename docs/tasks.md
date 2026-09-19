@@ -55,11 +55,11 @@ later.
 
       - **Seed an `Internal` project with no client** in
         `create_default_settings`, so the picker is not empty on first open
-        and the null-client path is demonstrated rather than explained. A
-        seeded *client* named "Blake Internal" was rejected: clients go on
-        invoices and appear in the picker, the calendar legend and the
-        unbilled rollup, so a non-customer sitting in the client list is
-        exactly the confusion the null-client path exists to avoid.
+        and the null-client path is demonstrated rather than explained. It is
+        a project and never a client: clients go on invoices and appear in the
+        picker, the calendar legend and the unbilled rollup, so a non-customer
+        sitting in the client list is exactly the confusion the null-client
+        path exists to avoid.
 
         **Caution, and it is the highest-consequence write in the codebase:**
         that trigger fires inside Supabase's signup transaction, so anything
@@ -503,12 +503,11 @@ is already done.
   a suite that fails randomly gets ignored, which is worse than not
   having one.
 
-- **`/reports` — the destination those numbers point at.** Not a filter on
-  the calendar, which was the earlier framing: "which 120 hours?" is a
-  missing *destination*, and one view answers it at project, client and
-  date-range level from several entry points. Filters live in query params
-  so a link is shareable and Back works. Hours per project is its first
-  content, and the project row links to it.
+- **`/reports` — the destination those numbers point at.** "Which 120
+  hours?" is a missing *destination*, and one view answers it at project,
+  client and date-range level from several entry points. Filters live in
+  query params so a link is shareable and Back works. Hours per project is
+  its first content, and the project row links to it.
 
   **"Reports" is a word that attracts scope** — Toggl's reports tab is
   most of what made it feel bloated. The guard is the existing bar on
@@ -642,9 +641,8 @@ is already done.
   engagement is the common cause and archiving is the useful action, so
   the row links to the client.
 
-  It was in `screens/home.html`'s row table for a long time without being built,
-  which made the spec claim a row the app did not have. The design lives
-  here now and moves into that table when it ships.
+  The design lives here and moves into `screens/home.html`'s row table when
+  it ships.
 
 - **Import selected calendar events as time entries.** *Question: is this
   worth a stored OAuth credential and a third-party dependency — and if
@@ -706,14 +704,11 @@ is already done.
   `account-menu.tsx`) are the same two controls built on Radix and themed,
   which is what makes the gap visible.
 
-  **The `.transient` argument that used to sit here was wrong and has
-  been removed from `menubar.html`.** It described an `NSPopover`; the app
-  is a `MenuBarExtra` in `.menuBarExtraStyle(.window)` and always has
-  been, and the two system `Menu`s open today without dismissing the
-  panel. So there is no known failure mode to inherit — but a hand-built
-  popup still has to earn what AppKit gives free, and a picker that
-  dismisses the panel when opened is worse than one with the wrong font.
-  Verify against the real configuration before building either way.
+  **The app is a `MenuBarExtra` in `.menuBarExtraStyle(.window)`**, and the
+  two system `Menu`s open without dismissing the panel. A hand-built popup
+  has to earn what AppKit gives free, and a picker that dismisses the panel
+  when opened is worse than one with the wrong font. Verify against the real
+  configuration before building either way.
 
   **Radix is not available here** — it is a web library, and `apps/macos`
   takes no dependencies beyond the standard library on purpose. So this
