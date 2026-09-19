@@ -7,6 +7,8 @@ import {
   addDays,
   localDateKey,
   localDateTimeToInstant,
+  startOfLocalDay,
+  startOfLocalDayOffset,
 } from '@stint/core';
 import { Check, Loader2, Trash2 } from 'lucide-react';
 import {
@@ -22,6 +24,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TaskSuggest } from '@/components/task-suggest';
 import { ProjectPicker } from '@/components/project-picker';
+import { EntryScrubber } from '@/components/entry-scrubber';
+import { useProjectColors } from '@/lib/client/use-project-colors';
 import { api, ApiError, type Project, type TimeEntry } from '@/lib/client/api';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 import { timeZone } from '@/lib/client/use-timer';
@@ -200,6 +204,37 @@ export function EntryDialog({
     existing?.invoiceId != null && billedOn.data?.status !== 'draft';
   const busy = save.isPending || remove.isPending;
 
+  /* The strip draws instants, the draft holds wall-clock strings, so the two
+     are converted at this boundary rather than either side holding both. An
+     incomplete draft — a cleared time field — has nothing to draw, and `null`
+     is what hides the strip.
+
+     EDITING ONLY. Adjusting is a correction to times that already exist: the
+     gesture answers "this started at 9, not 9:30", which is a question a new
+     entry has not asked yet. On Add the fields are the whole job, and a strip
+     drawn from a default would invite dragging the times into place instead
+     of typing the two the user already knows. */
+  const colors = useProjectColors();
+  const drawn = (() => {
+    if (!existing) return null;
+    const { date, start, end } = draft;
+    if (!date || !start || !end) return null;
+    const startedAt = localDateTimeToInstant(date, start, tz);
+    const endedAt = localDateTimeToInstant(date, end, tz);
+    /* An overnight entry is the dialog's existing rule — the end rolls
+       forward a day on save — and the strip spans one day, so it cannot draw
+       one. It hides instead of drawing something false; the fields keep the
+       truth and the description already explains the rule. */
+    if (endedAt <= startedAt) return null;
+    const dayStart = startOfLocalDay(startedAt, tz);
+    return {
+      startedAt,
+      endedAt,
+      dayStart,
+      dayEnd: startOfLocalDayOffset(dayStart, tz, -1),
+    };
+  })();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -279,6 +314,33 @@ export function EntryDialog({
               canCreate={false}
             />
           </div>
+
+          {/* The strip and the two time fields below are ONE value with two
+              controls: a drag rewrites the fields on every pointer move, and
+              typing a time redraws the block. */}
+          {drawn ? (
+            <div className="flex flex-col gap-1.5">
+              <Label className={LABEL}>Adjust</Label>
+              <EntryScrubber
+                startedAt={drawn.startedAt}
+                endedAt={drawn.endedAt}
+                dayStart={drawn.dayStart}
+                dayEnd={drawn.dayEnd}
+                color={
+                  draft.projectId ? colors.get(draft.projectId) : undefined
+                }
+                disabled={locked}
+                tz={tz}
+                onChange={({ startedAt, endedAt }) =>
+                  setDraft((d) => ({
+                    ...d,
+                    start: localTime(startedAt, tz),
+                    end: localTime(endedAt, tz),
+                  }))
+                }
+              />
+            </div>
+          ) : null}
 
           {/* Not four equal columns. A `type="time"` input renders its own
               picker icon inside the box, and at 106.5px minus 24px of padding

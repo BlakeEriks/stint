@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { formatClock, formatCompact, startOfLocalDay } from '@stint/core';
-import { Lock, Plus } from 'lucide-react';
+import { formatCompact, formatCurrency, startOfLocalDay } from '@stint/core';
+import { CalendarDays, Lock, Plus } from 'lucide-react';
 import { api, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
 import { Listing } from './page';
+import { TodayGrid } from './today-grid';
 import { keys } from '@/lib/client/query-keys';
 
 /**
@@ -24,25 +25,57 @@ import { keys } from '@/lib/client/query-keys';
 export function EntryList({
   projects,
   todaySeconds,
+  earnedToday,
+  currency = 'USD',
   compact = false,
+  grid = false,
+  flush = false,
 }: {
   projects: Project[];
   todaySeconds: number;
+  /**
+   * What the day's work is worth, from `/stats`.
+   *
+   * Undefined where the caller has no stats to hand, which is what keeps the
+   * header from printing `$0.00` over a figure that is merely not loaded yet.
+   * `0` is a real answer and renders as one.
+   */
+  earnedToday?: number;
+  currency?: string;
   /**
    * Three fields to a row — swatch, task, duration — for the 286px dock,
    * where six of them wrapped to three lines and made a glance a read. The
    * row still opens the editor, which is where the rest of an entry lives.
    */
   compact?: boolean;
+  /**
+   * Draw the day as a column instead of a list. Same entries, same editor —
+   * it answers "where did the day go" rather than "what have I booked".
+   */
+  grid?: boolean;
+  /**
+   * Drop the top rule and the space above it, because something else is
+   * already drawing the divider — the dock's drag handle, which IS the rule
+   * between the two regions. Two would read as a boxed region.
+   */
+  flush?: boolean;
 }) {
   const from = startOfLocalDay(new Date(), tz).toISOString();
 
   const query = useQuery({
     queryKey: keys.entries({ from }),
     queryFn: () => api.entries({ from }),
-    // A running entry is shown in the timer bar, not duplicated here.
-    select: (r) => r.entries.filter((e) => e.endedAt !== null),
+    /* Everything today, running included. The two views disagree about the
+       running entry — a list of durations would duplicate the timer bar,
+       while a column without it has a hole at the one place the eye goes —
+       so the filtering happens at render. A `select` that dropped it here
+       would be one cache entry the two views fight over. */
+    select: (r) => r.entries,
   });
+
+  /* The foot totals outside the scroller, so it reads the day off the
+     query rather than the render prop below. */
+  const today = query.data ?? [];
 
   const byId = new Map(projects.map((p) => [p.id, p]));
   const colors = useProjectColors();
@@ -59,18 +92,44 @@ export function EntryList({
 
   return (
     <section
-      className="mt-6 border-t border-edge-subtle pt-4"
+      /* In the dock this takes half the column and scrolls inside it, the
+         inbox above taking the other half. `min-h-0` is what lets it shrink
+         below its content so the grid scrolls rather than the column growing;
+         `basis-1/2` is the floor that stops a long inbox crushing it. It
+         still grows past half when the inbox wants less. */
+      className={`${flush ? 'pt-1' : 'mt-6 border-t border-edge-subtle pt-4'} ${
+        grid ? 'flex min-h-0 flex-1 flex-col' : ''
+      }`}
       aria-label="Today's entries"
     >
-      <header className="flex items-baseline justify-between gap-3 px-1 pb-2">
-        <h2 className="type-label text-subtle">Today</h2>
-        <span className="ml-auto type-duration text-muted">
-          {formatClock(todaySeconds)}
-        </span>
+      {/* The head answers what the day was worth; the foot totals what it
+          took. A region's figure sits beside its title everywhere else on the
+          screen, and the hours belong under the column that adds up to them.
+
+          `items-center` rather than `items-baseline`, because the icon has no
+          baseline to share and hung low beside the title without it. */}
+      <header className="flex flex-none items-center gap-2 px-1 pb-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <CalendarDays
+            aria-hidden
+            strokeWidth={1.75}
+            className="size-3.5 flex-none text-subtle"
+          />
+          <h2 className="type-label truncate text-subtle">Today</h2>
+        </div>
+        {/* Undefined while stats are still in flight: a `$0.00` that resolves
+            to a real figure a moment later reports a day that earned nothing
+            and then took it back. */}
+        {earnedToday === undefined ? null : (
+          <span className="ml-auto type-duration tabular-nums text-primary">
+            {formatCurrency(earnedToday, currency)}
+          </span>
+        )}
         <Button
           type="button"
           variant="ghost"
           size="xs"
+          className={earnedToday === undefined ? 'ml-auto' : undefined}
           onClick={() => openFor()}
         >
           <Plus aria-hidden />
@@ -78,27 +137,55 @@ export function EntryList({
         </Button>
       </header>
 
-      <Listing
-        query={query}
-        tight
-        empty="Nothing logged yet today. Start a timer above."
-      >
-        {(entries) => (
-          <ul>
-            {entries.map((entry) => (
-              <li key={entry.id}>
-                <Row
-                  entry={entry}
-                  project={byId.get(entry.projectId ?? '')}
-                  color={colors.get(entry.projectId ?? '')}
-                  compact={compact}
-                  onEdit={() => openFor(entry)}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </Listing>
+      <div className={grid ? 'min-h-0 flex-1 overflow-y-auto' : undefined}>
+        <Listing
+          query={query}
+          tight
+          empty="Nothing logged yet today. Start a timer above."
+        >
+          {(entries) =>
+            grid ? (
+              <TodayGrid entries={entries} colors={colors} onEdit={openFor} />
+            ) : (
+              <ul>
+                {/* The running entry is in the timer bar already; a second
+                    duration counting up beside it is the same fact twice. */}
+                {entries
+                  .filter((entry) => entry.endedAt !== null)
+                  .map((entry) => (
+                    <li key={entry.id}>
+                      <Row
+                        entry={entry}
+                        project={byId.get(entry.projectId ?? '')}
+                        color={colors.get(entry.projectId ?? '')}
+                        compact={compact}
+                        onEdit={() => openFor(entry)}
+                      />
+                    </li>
+                  ))}
+              </ul>
+            )
+          }
+        </Listing>
+      </div>
+
+      {/* OUTSIDE the scroller, so the total stays put while the day scrolls
+          past it — a sum that scrolls away is a sum you have to go looking
+          for. `flex-none` keeps it out of the height the grid divides.
+
+          A column of hours ending in its own sum reads without a label, which
+          is what lets the header spend its one slot on the money. Both
+          variants take it: the list has the same day to total. */}
+      {today.length > 0 ? (
+        <div className="flex flex-none items-baseline gap-2 border-t border-edge-grid px-1 pt-1.5">
+          <span className="type-meta text-subtle">
+            {today.length} {today.length === 1 ? 'entry' : 'entries'}
+          </span>
+          <span className="ml-auto type-duration tabular-nums text-muted">
+            {formatCompact(todaySeconds)}
+          </span>
+        </div>
+      ) : null}
 
       <EntryDialog
         open={open}

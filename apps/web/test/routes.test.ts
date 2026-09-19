@@ -1315,12 +1315,16 @@ test('awaiting payment counts sent invoices and is never the unbilled total', as
   );
   await entryFor({ id: S(30), projectId: p, hours: 3 }); // 300 unbilled
 
+  /* A paid invoice carries its payment date, which `paid_has_paid_at`
+     enforces: collected money is bucketed by it, and a paid row without one
+     is money that arrived on no day. */
   const mk = (id: string, num: string, status: string, total: number) =>
     pool.query(
       `insert into invoices
          (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
-          subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
-       values ($1,$2,$3,$4,$5,$6,'2026-09-01',$7,0,0,$7,'USD','entry')`,
+          subtotal,tax_rate,tax_amount,total,currency,grouping_mode,paid_at)
+       values ($1,$2,$3,$4,$5,$6,'2026-09-01',$7,0,0,$7,'USD','entry',
+               case when $6 = 'paid' then now() else null end)`,
       [id, USER, c, num, Number(num.slice(-1)), status, total],
     );
   await mk('44444444-0000-4000-8000-000000000003', 'INV-0003', 'sent', 900);
@@ -1335,6 +1339,91 @@ test('awaiting payment counts sent invoices and is never the unbilled total', as
   assert.equal(res.body.unbilled.total, 300);
   assert.notEqual(res.body.awaitingPayment, 1300, 'a draft is not outstanding');
   assert.notEqual(res.body.awaitingPayment, 1600, 'nor is a paid one');
+  assert.equal(res.body.openInvoiceCount, 1, 'one invoice makes up the figure');
+});
+
+test('collected sums payments by when they were paid', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-00000000006c';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Paid',100)`,
+    [c, USER],
+  );
+
+  /* Payments placed by `paid_at`, which is the only thing `collected` reads:
+     `issue_date` is held constant, so a bucket following it rather than the
+     payment would put all three in one month.
+
+     Months back from NOW rather than from a pinned day, so the assertions
+     below hold whatever date the suite runs on. Each step lands mid-month —
+     the 1st minus a timezone offset is the previous month. */
+  const paidAt = (monthsBack: number) => {
+    const d = new Date();
+    if (monthsBack > 0) {
+      d.setUTCDate(15);
+      d.setUTCMonth(d.getUTCMonth() - monthsBack);
+    }
+    return d.toISOString();
+  };
+  const mk = (id: string, num: string, total: number, monthsBack: number) =>
+    pool.query(
+      `insert into invoices
+         (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+          subtotal,tax_rate,tax_amount,total,currency,grouping_mode,paid_at)
+       values ($1,$2,$3,$4,$5,'paid','2026-09-01',$6,0,0,$6,'USD','entry',$7)`,
+      [id, USER, c, num, Number(num.slice(-2)), total, paidAt(monthsBack)],
+    );
+
+  await mk('44444444-0000-4000-8000-000000000010', 'INV-0010', 500, 0);
+  await mk('44444444-0000-4000-8000-000000000011', 'INV-0011', 300, 2);
+  // Outside the twelve-month window, so it counts towards neither figure.
+  await mk('44444444-0000-4000-8000-000000000012', 'INV-0012', 999, 14);
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const { collected } = res.body;
+
+  assert.equal(collected.trailing12, 800, 'the window excludes the old one');
+  assert.equal(collected.thisMonth, 500, 'and the month is its own figure');
+  // Measured from the NEWEST payment, which this fixture makes `now`.
+  assert.equal(collected.daysSincePaid, 0);
+
+  /* Six buckets, oldest first, every month present. A month nobody paid in is
+     a real zero rather than a missing point, or the plot draws a hole. */
+  assert.equal(collected.byMonth.length, 6);
+  const amounts = collected.byMonth.map((m: { amount: number }) => m.amount);
+  assert.deepEqual(amounts, [0, 0, 0, 300, 0, 500]);
+  assert.deepEqual(
+    [...collected.byMonth].sort((a: { month: string }, b: { month: string }) =>
+      a.month < b.month ? -1 : 1,
+    ),
+    collected.byMonth,
+    'oldest first',
+  );
+});
+
+test('a paid invoice cannot exist without its payment date', async () => {
+  const c = '33333333-0000-4000-8000-00000000006d';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'NoDate',100)`,
+    [c, USER],
+  );
+
+  /* The figure for money collected is bucketed by `paid_at`, so a paid row
+     without one is money that arrived on no day — it would vanish from the
+     trailing figure while still reading as paid everywhere else. */
+  await assert.rejects(
+    () =>
+      pool.query(
+        `insert into invoices
+           (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+            subtotal,tax_rate,tax_amount,total,currency,grouping_mode)
+         values ('44444444-0000-4000-8000-000000000013',$1,$2,'INV-0013',13,
+                 'paid','2026-09-01',100,0,0,100,'USD','entry')`,
+        [USER, c],
+      ),
+    /paid_has_paid_at/,
+  );
 });
 
 test('stats sees only its own user’s work', async () => {
@@ -1410,6 +1499,65 @@ test('velocity splits invoiced from unbilled without double-counting', async () 
   // Unbilled is the same work by the same chain; a divergence here is two
   // figures disagreeing on one screen.
   assert.equal(res.body.unbilled.total, res.body.velocity.unbilled);
+});
+
+test("today's earnings are today's work, bucketed in the caller's zone", async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '55555555-0000-4000-8000-000000000001';
+  const p = '55555555-0000-4000-8000-0000000000b1';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Today',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+
+  /* Anchored to the RUNNING clock, not the fixture's fixed date: the figure
+     is "today" as the server sees it, so a hardcoded day passes only on the
+     day it was written. 09:00 and 11:00 local sit far enough from either
+     midnight that no zone moves them onto another date. */
+  const at = (hour: number, hours: number) => {
+    const now = new Date();
+    const start = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      hour,
+    );
+    return {
+      start: start.toISOString(),
+      end: new Date(start.getTime() + hours * 3_600_000).toISOString(),
+    };
+  };
+
+  const todayA = at(9, 1); //  1h at 100 = 100
+  const todayB = at(11, 0.5); // 0.5h at 100 = 50
+  for (const [id, span] of [
+    [S(60), todayA],
+    [S(61), todayB],
+  ] as const) {
+    await pool.query(
+      `insert into time_entries
+         (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+       values ($1,$2,$3,'work',$4,$5,true)`,
+      [id, USER, p, span.start, span.end],
+    );
+  }
+
+  // Yesterday's work, which the day's figure must not reach back for.
+  await entryFor({ id: S(62), projectId: p, hours: 4, daysAgo: 1 });
+
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const res = await json(await stats(req(`/stats?tz=${zone}`)));
+
+  assert.equal(res.body.earnedToday, 150, "only today's two entries");
+  assert.ok(
+    res.body.unbilled.total > res.body.earnedToday,
+    'the running total still carries every unbilled day',
+  );
 });
 
 test('velocity groups by (client, RATE), like every other rollup', async () => {

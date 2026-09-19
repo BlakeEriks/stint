@@ -90,7 +90,9 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
       /* The hours the column draws. A phone crops to the worked range; the
          week view keeps all 24, since cropping one column would have to crop
          all seven to the busiest day's range. */
-      const [from, to] = byDay ? workedWindow(day, at, next) : [at, next];
+      const [from, to] = byDay
+        ? workedWindow(day.entries, at, next)
+        : [at, next];
 
       return {
         at,
@@ -171,9 +173,14 @@ const EMPTY_WINDOW = [7, 19] as const;
  * case.
  *
  * A running entry counts up to now, matching how `position` draws it.
+ *
+ * Takes the ENTRIES rather than a `CalendarDay`: the dock draws the same
+ * column from `keys.entries`, which has no day wrapper, and one answer to
+ * "which hours does a day draw" is the point — two would drift, and the
+ * dock's would be the one nobody notices is wrong.
  */
-function workedWindow(
-  day: CalendarDay,
+export function workedWindow(
+  entries: TimeEntry[],
   dayStart: Date,
   dayEnd: Date,
 ): [Date, Date] {
@@ -181,8 +188,7 @@ function workedWindow(
   const at = (hours: number) =>
     new Date(Math.min(dayStart.getTime() + hours * hourMs, dayEnd.getTime()));
 
-  if (day.entries.length === 0)
-    return [at(EMPTY_WINDOW[0]), at(EMPTY_WINDOW[1])];
+  if (entries.length === 0) return [at(EMPTY_WINDOW[0]), at(EMPTY_WINDOW[1])];
 
   /* Hours from the column's own start, not wall-clock hours: a DST day is 23
      or 25 hours long, and the column is measured in elapsed time. */
@@ -191,7 +197,7 @@ function workedWindow(
 
   let first = Number.POSITIVE_INFINITY;
   let last = Number.NEGATIVE_INFINITY;
-  for (const e of day.entries) {
+  for (const e of entries) {
     first = Math.min(first, hoursFrom(e.startedAt));
     last = Math.max(
       last,
@@ -223,7 +229,7 @@ function workedWindow(
  * behind another — in a billing tool a block you cannot see is a block you
  * cannot check.
  */
-function position(
+export function position(
   entries: TimeEntry[],
   dayStart: Date,
   dayEnd: Date,

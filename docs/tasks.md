@@ -25,9 +25,6 @@ later.
 
 ## Ready
 
-
-
-
 - [ ] **The running timer and the primary action are the same green.** The
       accent carries two meanings — it marks the live timer and it marks the
       one confirm action a screen exists to complete. Dark separates them for
@@ -49,65 +46,6 @@ later.
       once, which is the whole problem.
 
       `src/derive-light-accent.mjs` holds the rungs; `brand.html` is the test.
-- [ ] **One figure for today's earnings, from the server.** Home answers
-      "what has today been worth?" twice, in two places, by two mechanisms,
-      and neither answers it directly:
-
-      - **"Since yesterday, +$90.40 unbilled"** in the panel header
-        (`SinceLine` in `home-cards.tsx`), which is `sinceOpen` — the unbilled
-        total snapshotted in `localStorage` when the app was first opened
-        today, differenced against now.
-      - **The transient `+xyz` beside the unbilled number** after an edit,
-        reporting what that one change did.
-
-      Replace both with a single **server-computed amount for today**, shown
-      near the unbilled figure it describes rather than in the panel header.
-      Today is a property of the data, not of this browser: work dated today
-      at its resolved rate, the same definition `principles.md` already fixes
-      for revenue — *work done, bucketed by the entry's date*. It reads the
-      same at 9am and at midnight, on a laptop and a phone, on a first visit
-      and a fiftieth.
-
-      **This deletes `use-day-state.ts`, and that is the point.** Roughly 380
-      lines exist to make a client-side snapshot behave: folding beats,
-      classifying causes, dropping the snapshot when the timezone changes so a
-      zone difference is not reported as money earned, suppressing the line on
-      first load because there is nothing stored to compare. Every one of
-      those is a problem the snapshot creates and a server figure does not
-      have.
-
-      **`use-count-up.ts` stays, and both figures use it.** It is a separate
-      thing from the snapshot and worth keeping: the unbilled total counts up
-      to its new value, and today's earnings counts up to its own. A figure
-      that lands without travelling reads as though the previous one was
-      wrong, which is the whole argument in that file's header.
-
-      **Both use `useSinceLastSeen`**, under their own keys — not one on it
-      and one on the plain `useCountUp`. It animates from what this browser
-      last displayed, which is honest for either figure: the money moved while
-      you were away, and the travel is what says so. Two figures side by side
-      animating on different rules would read as a bug in the one that sat
-      still.
-
-      Its first-load guard covers the morning case for free: with nothing
-      stored the figure renders settled rather than counting up from zero, so
-      the day's first visit does not replay the whole amount.
-
-      What the new number is NOT: not `sinceOpen`, which moves when you
-      invoice something (hence its "−$X invoiced" branch) and so mixes work
-      done with paperwork filed. Today's earnings do not fall when you raise
-      an invoice.
-
-      `Stats` has no field for it — `unbilled` and `velocity` are both
-      windows, not days — so this adds one, computed in the same rollup with
-      `resolve_rate()` like every other amount. `tz` decides which day, the
-      way it already does everywhere else.
-
-      **Unrated entries make it incomplete, not low.** `UnbilledClient` already
-      carries `unratedCount` for exactly this; today's figure needs the same
-      honesty rather than silently omitting work with no resolvable rate.
-
-      Wanted for alpha.
 - [ ] **The menu bar panel keeps its focus between openings.** Open the panel,
       click into the task field, close it, reopen: the field is still focused,
       so the panel never opens in a default state. Escape closes the panel
@@ -396,6 +334,18 @@ later.
       Worth a test that hits a real server with a real token before the Expo
       or macOS app depends on it.
 
+- [ ] **Clearing the last inbox row collapses the section, then bounces it
+      back open.** `exit-collapse` runs the row's track to `0fr`, `useExit`
+      waits on it, and the refetch that follows swaps the `<ul>` for
+      "Nothing needs you." — a `px-1 py-3` paragraph. The section lands at
+      zero and immediately jumps back to the paragraph's height, so the last
+      row reads as bouncing rather than leaving.
+
+      Both heights are correct; the transition between them is the gap. The
+      empty state is a different element from the list, so nothing
+      interpolates one into the other. Wanted: the paragraph occupying the
+      space the row vacates, so the section settles once.
+
 ## Deferred
 
 Two kinds of thing sit here. Some wait on something outside the code — an
@@ -405,6 +355,49 @@ alpha. Both keep their full working, so whichever gate lifts first, the thinking
 is already done.
 
 ### Waiting on something outside the code
+
+- **Proposed entries from a calendar subscription** — waiting on a Google
+  Cloud project and a verified OAuth consent screen. Read-only calendar scope
+  is sensitive, so the gate is Google's review, not the code.
+
+  Why it matters: the meetings a contractor bills are already on a calendar,
+  and typing them into a tracker afterwards is the transcription step that
+  makes people stop tracking. A proposal is the paste.
+
+  **Proposed blocks are drawn, never written.** They sit in the day column
+  (see Today above) as dashed outlines — an outline is the absence of a
+  record, the same argument the calendar legend already makes for "No
+  client". A proposal is not a time entry, is not in `time_entries`, and
+  never reaches an invoice. Confirming one opens the **timer bar pre-filled**
+  rather than inserting a row: a click on a feed someone else controls is far
+  too cheap a gesture to create a billable record from, which is why clicking
+  empty grid on `/calendar` opens the editor instead of writing.
+
+  **Never guess the client.** Matching an event title to a client is
+  inference, and a wrong guess on a billable entry is the app quietly
+  changing what you bill. The stripe may hint; the tag is confirmed in the
+  bar before Start, and an unmatched event gets no colour rather than a
+  plausible one.
+
+  Three parts are harder than the drawing:
+
+  - **Dismissal has to survive a refetch.** A proposal you said no to must
+    not return on the next sync, which means a row per `(feed, uid,
+    instance)` — not per event, because a recurring event is one uid and many
+    instances, and a moved instance is a new one that should come back.
+  - **Tokens expire and calendars are shared.** A refresh token that dies
+    leaves the dock quietly showing a stale day; the feed needs a visible
+    "last synced" and a reconnect that is not a support email. Declined and
+    tentative invitations are not work and should not propose.
+  - **All-day events are not hours.** An all-day event has no times to
+    propose and must be excluded, or every holiday proposes 24 billable
+    hours.
+
+  This is additive to Today's grid, which ships without it: the now-line and
+  the read-only blocks need no feed. When it lands,
+  `docs/design/screens/calendar.html` stops being true — it says the product
+  draws no planned layer and subscribes to nothing — and that sentence is the
+  decision being reversed, so it changes in the same commit.
 
 - **Toggl import** — waiting on Stint having been used for real billing for a
   few weeks. Importing two years of history into a tracker whose rough edges

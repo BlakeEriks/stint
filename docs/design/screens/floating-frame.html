@@ -341,14 +341,23 @@
      celebrate, and green belongs to the running timer.
      Aligned on its own value's baseline, which puts the label above the line
      the total sits on instead of dropping the number below it. */
-  .delta { display: flex; flex-direction: column; gap: 1px; align-self: last baseline; }
+  .delta {
+    display: flex; flex-direction: column; gap: 1px;
+    /* The VALUE's baseline meets the total's, so the label sits above that
+       line rather than on it. `flex-start` because a column stretches its
+       children, which centres each line in the widest one's box. */
+    align-self: last baseline; align-items: flex-start;
+  }
+  /* `type-label` over `type-amount`, which is the pair the scale already
+     has: the label is the same role the by-client list takes, and the value
+     is a money figure like every other one on the screen. */
   .delta .lab {
-    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .1em;
-    text-transform: uppercase; color: var(--text-subtle);
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
   }
   .delta .n {
     font-family: var(--font-mono); font-variant-numeric: tabular-nums;
-    font-size: 13.5px; color: var(--text-primary);
+    font-size: 15px; color: var(--text-primary);
   }
 
   /* Returning to the page resolves what landed while you were away: the total
@@ -1190,21 +1199,37 @@
 
 <script>
   /* The count-up, so the spec shows the behaviour rather than describing it.
-     The app animates from what this browser last saw (`useSinceLastSeen`);
-     here the start values are fixed, because a spec page has no last visit. */
+     The app animates from the figure already on screen, so a change travels
+     to its new value; here the start values are fixed, because a spec page
+     has no previous arrival to move from. */
   const money = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   function roll(el) {
     const to = parseFloat(el.dataset.to);
     const from = el.dataset.from ? parseFloat(el.dataset.from) : 0;
     const sign = to > 0 && !el.dataset.from ? '+' : '';
+    const settle = () => {
+      el.textContent = sign + money(to);
+      el.classList.remove('rolling');
+    };
+
+    /* A hidden tab suspends rAF, so a page opened in the background would sit
+       at its START value indefinitely — showing a figure that is simply wrong
+       rather than one mid-flight. The figure is the content: it lands first
+       and travels only when the page can actually animate. */
+    settle();
+    if (document.hidden) return;
+
+    /* `--motion-count`, the scale's one non-transition duration. */
     const dur = 900, t0 = performance.now();
     el.classList.add('rolling');
     (function step(t) {
-      const p = Math.min(1, (t - t0) / dur);
+      /* Clamped at both ends: a rAF timestamp need not share an origin with
+         `performance.now()`, and a negative p runs the ease backwards. */
+      const p = Math.min(1, Math.max(0, (t - t0) / dur));
+      if (p >= 1) return settle();
       el.textContent = sign + money(from + (to - from) * (1 - Math.pow(1 - p, 3)));
-      if (p < 1) requestAnimationFrame(step);
-      else el.classList.remove('rolling');
+      requestAnimationFrame(step);
     })(t0);
   }
 

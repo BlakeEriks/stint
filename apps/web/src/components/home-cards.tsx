@@ -2,34 +2,26 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { formatCurrency } from '@stint/core';
 import { api, type Stats } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { useClients } from '@/lib/client/use-project-colors';
 import { keys } from '@/lib/client/query-keys';
-import { useDayState } from '@/lib/client/use-day-state';
+import { useBeatOf } from '@/lib/client/use-beat';
 import { INSET, INSET_X } from './home-shell';
-import { ByClient, Unbilled } from './home-unbilled';
+import { Collected, Owed } from './home-money';
 import { Month } from './home-month';
 import { Velocity } from './home-velocity';
 import { ByProject } from './home-by-project';
 import { Heatmap } from './home-year';
 
 /**
- * The day, and what moved while you were away.
+ * The day.
  *
  * The date is the answer to "is this figure current?", which is the question
- * a dashboard that mostly does not change invites. The since-line belongs
- * here rather than on Unbilled because it describes the screen: the money
- * moved, and so did the invoice it was raised against.
+ * a dashboard that mostly does not change invites. What moved is reported
+ * beside the figure it moved — the head names the day and nothing else.
  */
-function PanelHead({
-  delta,
-  currency,
-}: {
-  delta: number | null;
-  currency: string;
-}) {
+function PanelHead() {
   /* Taken once: read in render, the heading would depend on when React
      happened to re-run — every beat and every refetch. */
   const now = useMemo(() => new Date(), []);
@@ -42,14 +34,10 @@ function PanelHead({
   }).format(now);
 
   /* No bottom padding: the first region's own `pt-3` follows it, and adding
-     to that left 20px under the day name where the mockup has 8. The head
-     carries the since-line's space only when the line is there to need it. */
+     to that left 20px under the day name where the mockup has 8. */
   return (
     <div className={`flex items-baseline justify-between gap-3 ${INSET} pt-4`}>
-      <div className="min-w-0">
-        <h2 className="type-heading text-strong">{day}</h2>
-        <SinceLine delta={delta} currency={currency} />
-      </div>
+      <h2 className="min-w-0 type-heading text-strong">{day}</h2>
       <span className="flex-none type-label text-subtle">{date}</span>
     </div>
   );
@@ -67,9 +55,9 @@ export function HomeCards() {
 }
 
 /**
- * The home screen's regions, in three rows: money waiting beside who owes it,
- * the month beside the trailing quarter, then that same quarter by project
- * beside half a year of texture.
+ * The home screen's regions, in three rows: money that arrived beside money
+ * that has not, the month beside the trailing quarter, then that quarter by
+ * project beside half a year of texture.
  *
  * **Nothing here writes.** Every action is a link to the surface that owns
  * the mutation, so a stray click cannot change an invoice.
@@ -82,7 +70,7 @@ export function HomeCards() {
  * makes `stats` defined.
  */
 function Panel({ stats }: { stats: Stats }) {
-  const day = useDayState(stats);
+  const beat = useBeatOf(stats);
   const data = stats;
 
   /* Resolved ONCE for the whole panel and handed down. By-client, Velocity,
@@ -106,21 +94,15 @@ function Panel({ stats }: { stats: Stats }) {
        would land inside this surface, not around it. `pb-4` closes the
        bottom, which the regions' own padding does not reach. */
     <div className="@container flex flex-col pb-4">
-      <PanelHead delta={day.sinceOpen} currency={data.currency} />
+      <PanelHead />
       <Pair
-        left={
-          <Unbilled
-            stats={data}
-            earnedToday={day.earnedToday}
-            beat={day.beat}
-          />
-        }
-        right={<ByClient stats={data} clients={clients} />}
+        left={<Collected stats={data} beat={beat} />}
+        right={<Owed stats={data} beat={beat} clients={clients} />}
       />
       <Rule />
       <Pair
         left={<Month stats={data} />}
-        right={<Velocity stats={data} beat={day.beat} clients={clients} />}
+        right={<Velocity stats={data} beat={beat} clients={clients} />}
       />
       <Rule />
       <Pair
@@ -161,38 +143,6 @@ function Pair({
       {left}
       {right}
     </div>
-  );
-}
-
-/**
- * What has moved since yesterday closed.
- *
- * Measured against a baseline taken once per local day, so it says the same
- * thing however often the app is opened. A baseline rewritten on every load
- * would make it "since you last had this tab open" instead.
- *
- * Absent on a first load, where `delta` is null: with nothing stored there is
- * no period to name, and "since yesterday" over the user's whole history is a
- * sentence that is simply untrue.
- */
-function SinceLine({
-  delta,
-  currency,
-}: {
-  delta: number | null;
-  currency: string;
-}) {
-  if (delta == null || delta === 0) return null;
-
-  return (
-    <p className="type-support text-subtle">
-      Since yesterday,{' '}
-      <span className="type-meta tabular-nums text-muted">
-        {delta > 0 ? '+' : '−'}
-        {formatCurrency(Math.abs(delta), currency)}
-      </span>{' '}
-      {delta > 0 ? 'unbilled' : 'invoiced'}
-    </p>
   );
 }
 

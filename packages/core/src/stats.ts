@@ -42,6 +42,25 @@ export const MAX_PROJECT_COLUMNS = 4;
  */
 export const VELOCITY_MONTHS = 3;
 
+/**
+ * Months of payments the Collected figure sums.
+ *
+ * A calendar month reads `0` for most of every month when a contractor is
+ * paid monthly, and walks backwards on the 1st. A trailing year does neither,
+ * and only stops rising when a month rolls off the far end.
+ */
+export const COLLECTED_MONTHS = 12;
+
+/**
+ * Months the Collected plot draws.
+ *
+ * Fewer than the figure sums, because the two answer different questions: the
+ * figure accumulates, the plot shows recent shape. At twelve points one month
+ * is an illegible share of the panel's width, and eleven months back is not a
+ * horizon anyone acts on.
+ */
+export const COLLECTED_PLOT_MONTHS = 6;
+
 export interface UnprojectedRow {
   id: string;
   task_name: string;
@@ -308,6 +327,52 @@ export function buildAwaitingPayment(invoices: InvoiceRow[]): number {
       .filter((i) => i.status === 'sent')
       .reduce((a, i) => a + Number(i.total), 0),
   );
+}
+
+/** How many invoices make up `awaitingPayment`. */
+export function buildOpenInvoiceCount(invoices: InvoiceRow[]): number {
+  return invoices.filter((i) => i.status === 'sent').length;
+}
+
+/** A `collected_by_month` row. Numerics arrive from PostgREST as strings. */
+export interface CollectedRow {
+  month: string;
+  amount: string | number;
+}
+
+/**
+ * Money that arrived, from payments bucketed by `paid_at`.
+ *
+ * The only finished figure on the screen. `unbilled` can still be discounted
+ * or written off and `awaitingPayment` can still go unpaid, so neither is
+ * ever summed with this — they are three stages of one pipeline.
+ *
+ * The rollup returns only months that HAVE payments. The series is built from
+ * the window instead, so a month nobody paid in is a real zero rather than a
+ * hole in the line.
+ */
+export function buildCollected(
+  rows: CollectedRow[],
+  months: string[],
+  daysSincePaid: number | null,
+) {
+  const byMonth = new Map(rows.map((r) => [r.month, Number(r.amount)]));
+  const plot = months.slice(-COLLECTED_PLOT_MONTHS);
+  const thisMonth = months[months.length - 1];
+
+  return {
+    /* Summed over the window rather than over the rows: a row outside it
+       would otherwise inflate the figure the screen leads with. */
+    trailing12: roundMoney(
+      months.reduce((a, m) => a + (byMonth.get(m) ?? 0), 0),
+    ),
+    thisMonth: roundMoney(thisMonth ? (byMonth.get(thisMonth) ?? 0) : 0),
+    daysSincePaid,
+    byMonth: plot.map((m) => ({
+      month: m,
+      amount: roundMoney(byMonth.get(m) ?? 0),
+    })),
+  };
 }
 
 /** Invoices far enough past due to be worth saying so, most overdue first. */

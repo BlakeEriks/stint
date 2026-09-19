@@ -110,6 +110,43 @@ export function startOfNextLocalMonth(now: Date, tz: string): Date {
 }
 
 /**
+ * Start of the local month `back` months before the one containing `now`.
+ *
+ * `Date.UTC` normalises a negative month index into the previous year, so a
+ * window reaching past January needs no wrapping of its own.
+ */
+export function startOfLocalMonthsBack(
+  now: Date,
+  tz: string,
+  back: number,
+): Date {
+  const { y, m } = localDate(now, tz);
+  const wall = Date.UTC(y, m - 1 - back, 1);
+  let guess = new Date(wall - tzOffset(now, tz));
+  guess = new Date(wall - tzOffset(guess, tz));
+  return guess;
+}
+
+/**
+ * `YYYY-MM` keys for `count` months, ending with the one containing `now`.
+ *
+ * The window is built rather than read off the rows: a month nobody paid in
+ * has no row to read, and it must render as a real zero in the series rather
+ * than a hole in the line.
+ */
+export function localMonthKeys(now: Date, tz: string, count: number): string[] {
+  const { y, m } = localDate(now, tz);
+  const keys: string[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(y, m - 1 - i, 1));
+    keys.push(
+      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`,
+    );
+  }
+  return keys;
+}
+
+/**
  * Business days elapsed in the local month, and the month's total.
  *
  * Pace is measured against business days, not calendar days: a 120-hour

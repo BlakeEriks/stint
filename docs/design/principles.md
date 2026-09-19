@@ -81,6 +81,14 @@ bank balance and nothing more, so a row that sits permanently true with no way
 to say *not yet* is a reminder with no off switch rather than an unattended
 mess. It snoozes, defaulting to daily. Nothing else does.
 
+**No total across collected, awaiting and unbilled.** Three stages of one
+pipeline, and any two summed double-count the same hours. The tempting one is
+awaiting plus unbilled, labelled *what I am owed*: awaiting has an invoice, a
+due date and someone who owes it, while unbilled can still be discounted,
+written off or never billed, so the sum lends the second the authority of the
+first. It reads best and means least. The honest version of *what will land*
+is awaiting, already on screen. `screens/money.html` is the region.
+
 **No per-project hues.** Colour answers *whose work is this?*, so a project
 never takes a hue of its own — it takes a step on its client's, which keeps
 the answer the same at a glance. `deriving-colour.md` has the scale, and the
@@ -151,6 +159,13 @@ costs 21px of a 286px card's title line, and the title is the one thing there
 that must not be cut: it names the subject, where the qualifier beneath it
 already says which kind of problem this is, in words. Five shapes to learn buy
 less than the sentence that was there anyway.
+
+**A figure's count-up is not a CSS animation.** A keyframe animates a style,
+and what has to move on a money figure is the rendered text of a number —
+`$3,022.50` to `$3,135.00` is sixty distinct strings, which no interpolation
+of a property produces. A pulse or a slide on change was the alternative, and
+it says only that something changed; the travel says what it climbed to.
+
 
 ## Platform scope
 

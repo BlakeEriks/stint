@@ -1,11 +1,9 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { StrictMode, type ReactNode } from 'react';
 import { HomeCards } from '@/components/home-cards';
 import type { Stats } from '@/lib/client/api';
-import { localDateKey } from '@stint/core';
-import { timeZone as tz } from '@/lib/client/use-timer';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
 
@@ -34,6 +32,14 @@ function stats(over: Partial<Stats> = {}): Stats {
     pace: null,
     billableRatio: null,
     awaitingPayment: 0,
+    openInvoiceCount: 0,
+    collected: {
+      trailing12: 0,
+      thisMonth: 0,
+      daysSincePaid: null,
+      byMonth: [],
+    },
+    earnedToday: 0,
     attention: {
       overdueInvoices: [],
       staleDrafts: [],
@@ -106,8 +112,17 @@ function serve(get: () => Stats) {
 
 let client: QueryClient;
 
+/* StrictMode, because the app runs under it — Next enables it whenever
+   `reactStrictMode` is unset, which `next.config.ts` leaves unset. It double-
+   invokes every effect (mount, cleanup, mount), and a tween whose effect is
+   not idempotent silently stops animating in the real app while a wrapper
+   without it stays green. That gap once shipped a change that did nothing. */
 function wrapper({ children }: { children: ReactNode }) {
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <StrictMode>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </StrictMode>
+  );
 }
 
 /** Drive `prefers-reduced-motion`, which the hook reads through matchMedia. */
@@ -134,20 +149,27 @@ function reducedMotion(on: boolean) {
  */
 const SETTLE = { timeout: 8000 };
 
-/** The Unbilled figure as rendered, stripped to digits for comparison. */
+/**
+ * The Unbilled figure as rendered, stripped to digits for comparison.
+ *
+ * It lives in the Owed half now rather than leading the panel — these cases
+ * are about the tween, and it is still the figure the `unbilled` fixture
+ * drives. Read off its own label, because the panel carries several money
+ * figures and they all tween.
+ */
 function figure(): string {
-  const heading = screen.getByText('Unbilled');
-  const header = heading.closest('header');
-  if (!header) throw new Error('no Unbilled header');
-  const el = header.querySelector('.type-figure .tabular-nums');
-  return el?.textContent?.trim() ?? '';
+  /* Exact, because "Unbilled by client" heads the list below it and a
+     substring match would take whichever came first. */
+  const label = screen.getByText('Unbilled', { exact: true });
+  /* label -> its swatch+label row -> the column holding the amount. */
+  const column = label.parentElement?.parentElement;
+  return column?.querySelector('.type-amount-hero')?.textContent?.trim() ?? '';
 }
 
 beforeEach(() => {
   client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
-  localStorage.clear();
   reducedMotion(false);
 });
 
@@ -162,65 +184,54 @@ describe('count-up', () => {
        answer on screen. A hook that only skipped the tween would leave the
        seeded origin — here, the stored 500 — showing indefinitely. */
     reducedMotion(true);
-    localStorage.setItem('stint.seen.unbilled', '500');
-    serve(() => stats({ unbilled: unbilled(2000) }));
+    let current = stats({ unbilled: unbilled(500) });
+    serve(() => current);
 
     render(<HomeCards />, { wrapper });
+    await waitFor(() => expect(figure()).toBe('$500.00'));
 
-    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
-    // Immediately the server's figure, never the stored one and never zero.
-    expect(figure()).toBe('$2,000.00');
+    current = stats({ unbilled: unbilled(2000) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+
+    // Immediately the server's figure, never the previous one and never zero.
+    await waitFor(() => expect(figure()).toBe('$2,000.00'));
     expect(figure()).not.toBe('$500.00');
   });
 
-  it('does not animate a first load with no stored value', async () => {
-    /* Nothing stored means no "since", so counting up from zero would report
-       the user's whole history as though it had just happened. */
-    expect(localStorage.getItem('stint.seen.unbilled')).toBeNull();
+  /* A load has nothing on screen to travel from, so the origin is chosen
+     rather than remembered. It must be NEAR the figure: counting up from zero
+     would put a balance the user does not have in front of them and animate
+     their whole history as though it had just happened. */
+  it('arrives from near the figure on load, never from zero', async () => {
     serve(() => stats({ unbilled: unbilled(4200) }));
 
+    /* Sampled from the render itself. The settled figure is also the FIRST
+       paint — the arrival is applied by the effect — so waiting for that value
+       would return before a single frame had run and prove nothing. */
+    const seen = new Set<string>();
+    const sample = setInterval(() => {
+      try {
+        seen.add(figure());
+      } catch {
+        // Not mounted yet.
+      }
+    }, 8);
     render(<HomeCards />, { wrapper });
 
-    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
-    // Settled on the first paint the figure appears in — no travel from 0.
-    expect(figure()).toBe('$4,200.00');
-    // And no period line, because there is no period to name.
-    expect(screen.queryByText(/Since yesterday/)).toBeNull();
-  });
-
-  it('stores what it displayed, so the next arrival has a from', async () => {
-    serve(() => stats({ unbilled: unbilled(4200) }));
-    render(<HomeCards />, { wrapper });
-
-    await waitFor(() =>
-      expect(localStorage.getItem('stint.seen.unbilled')).toBe('4200'),
-    );
-  });
-
-  /* The figure's travel and the line naming it now come from different
-     state: the tween still animates from what this browser last DISPLAYED,
-     while the line measures against the day's opening baseline. */
-  it('names the period when the day opened at a smaller figure', async () => {
-    localStorage.setItem('stint.seen.unbilled', '3750');
-    localStorage.setItem(
-      'stint.day',
-      JSON.stringify({
-        date: localDateKey(new Date(), tz),
-        openedUnbilled: 3750,
-        earnedToday: 0,
-        lastUnbilled: 3750,
-      }),
-    );
-    serve(() => stats({ unbilled: unbilled(4200) }));
-
-    render(<HomeCards />, { wrapper });
-
-    await waitFor(() =>
-      expect(screen.getByText(/Since yesterday/)).toBeVisible(),
-    );
-    expect(screen.getByText('+$450.00')).toBeVisible();
-    // Settles on the server's figure once the tween lands.
+    // Leaves its settled value, then comes back to it.
+    await waitFor(() => expect(figure()).not.toBe('$4,200.00'), SETTLE);
     await waitFor(() => expect(figure()).toBe('$4,200.00'), SETTLE);
+    clearInterval(sample);
+
+    const money = (t: string) => Number(t.replace(/[$,]/g, ''));
+    const amounts = [...seen]
+      .filter((t) => /^\$[\d,]+\.\d\d$/.test(t))
+      .map(money);
+
+    expect(amounts.length).toBeGreaterThan(1);
+    expect(Math.min(...amounts)).toBeGreaterThan(4200 * 0.9);
   });
 
   it('settles on exactly the server value after the tween', async () => {
@@ -231,12 +242,129 @@ describe('count-up', () => {
        VISIBLE at two decimals: settling a thousandth short of 98,765.43 reads
        as 98,667.66, while a target like 1,234.56 from a nearby origin would
        round back onto itself and hide the drift. */
-    localStorage.setItem('stint.seen.unbilled', '1');
-    serve(() => stats({ unbilled: unbilled(98765.43) }));
+    let current = stats({ unbilled: unbilled(1) });
+    serve(() => current);
 
     render(<HomeCards />, { wrapper });
+    await waitFor(() => expect(figure()).toBe('$1.00'));
+
+    current = stats({ unbilled: unbilled(98765.43) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
 
     await waitFor(() => expect(figure()).toBe('$98,765.43'), SETTLE);
+  });
+
+  /* Every other test here asserts where the figure LANDS, which a hook that
+     cut straight to the new value would also satisfy — the animation was
+     removable with the whole suite still green. This one pins the travel
+     itself: at least one frame between the two figures, and none outside
+     them. */
+  it('travels through intermediate values rather than cutting', async () => {
+    let current = stats({ unbilled: unbilled(1000) });
+    serve(() => current);
+
+    render(<HomeCards />, { wrapper });
+    await waitFor(() => expect(figure()).toBe('$1,000.00'));
+
+    const seen = new Set<string>();
+    const sample = setInterval(() => seen.add(figure() ?? ''), 8);
+
+    current = stats({ unbilled: unbilled(9000) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+    await waitFor(() => expect(figure()).toBe('$9,000.00'), SETTLE);
+    clearInterval(sample);
+
+    const money = (t: string) => Number(t.replace(/[$,]/g, ''));
+    const between = [...seen]
+      .filter((t) => /^\$[\d,]+\.\d\d$/.test(t))
+      .map(money)
+      .filter((n) => n > 1000 && n < 9000);
+
+    expect(between.length).toBeGreaterThan(0);
+    // And it never overshoots either end of the journey.
+    for (const t of seen) {
+      if (!/^\$[\d,]+\.\d\d$/.test(t)) continue;
+      expect(money(t)).toBeGreaterThanOrEqual(1000);
+      expect(money(t)).toBeLessThanOrEqual(9000);
+    }
+  });
+
+  /* The breakdown must move with the figure it breaks down. A row that sat
+     still while the headline above it travelled read as the stale one — which
+     is what "by client is not updating" actually looked like. */
+  it('travels the by-client rows, not just the headline', async () => {
+    let current = stats({ unbilled: unbilled(1000) });
+    serve(() => current);
+
+    const { container } = render(<HomeCards />, { wrapper });
+    await waitFor(() => expect(figure()).toBe('$1,000.00'));
+
+    /* The row's own amount, never the headline's: they share a value in this
+       fixture, so reading the wrong node would pass on the headline alone. */
+    const row = () => {
+      const li = container.querySelector('ul li');
+      return li?.querySelector('.type-duration')?.textContent?.trim() ?? '';
+    };
+    await waitFor(() => expect(row()).toBe('$1,000.00'));
+
+    const seen = new Set<string>();
+    const sample = setInterval(() => seen.add(row()), 8);
+
+    current = stats({ unbilled: unbilled(9000) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+    await waitFor(() => expect(row()).toBe('$9,000.00'), SETTLE);
+    clearInterval(sample);
+
+    const money = (t: string) => Number(t.replace(/[$,]/g, ''));
+    const between = [...seen]
+      .filter((t) => /^\$[\d,]+\.\d\d$/.test(t))
+      .map(money)
+      .filter((n) => n > 1000 && n < 9000);
+
+    expect(between.length).toBeGreaterThan(0);
+  });
+
+  /* Velocity's headline sits in the same figure slot as Unbilled's and moves
+     on the same edits, so it cannot be the one number that cuts. */
+  it("travels velocity's per-month figure", async () => {
+    let current = stats({ velocity: velocity(3000, 3000) });
+    serve(() => current);
+
+    const { container } = render(<HomeCards />, { wrapper });
+    const perMonth = () => {
+      const head = screen.getByText('Velocity').closest('header');
+      return (
+        head
+          ?.querySelector('.type-figure .tabular-nums')
+          ?.textContent?.trim() ?? ''
+      );
+    };
+    await waitFor(() => expect(perMonth()).toBe('$1,000.00'));
+
+    const seen = new Set<string>();
+    const sample = setInterval(() => seen.add(perMonth()), 8);
+
+    current = stats({ velocity: velocity(27000, 27000) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+    await waitFor(() => expect(perMonth()).toBe('$9,000.00'), SETTLE);
+    clearInterval(sample);
+
+    const money = (t: string) => Number(t.replace(/[$,]/g, ''));
+    const between = [...seen]
+      .filter((t) => /^\$[\d,]+\.\d\d$/.test(t))
+      .map(money)
+      .filter((n) => n > 1000 && n < 9000);
+
+    expect(between.length).toBeGreaterThan(0);
+    void container;
   });
 
   it('moves hours, not money, on an unbillable stop', async () => {
@@ -264,34 +392,39 @@ describe('count-up', () => {
 
   it('marks a billable stop neutrally, never with the accent', async () => {
     /* The accent is the running timer, and a stop has just ended one. */
-    let current = stats({ unbilled: unbilled(100) });
+    let current = stats({ unbilled: unbilled(0, 3600) });
     serve(() => current);
 
     render(<HomeCards />, { wrapper });
-    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled', { exact: true })).toBeVisible(),
+    );
 
-    // The hours move too: a stop is what adds them, and money alone also
-    // moves when a rate is edited elsewhere.
-    current = stats({ unbilled: unbilled(212.5, 7200) });
+    /* An unbillable stop: the hours move and the money does not, which is the
+       one stop the figure alone cannot report — so it is the one that renders
+       a chip. A priced stop is already described by the figure travelling. */
+    current = stats({ unbilled: unbilled(0, 7200) });
     await act(async () => {
       await client.refetchQueries();
     });
 
-    /* The stop is now reported by the day's running total, which persists
-       rather than retiring on a timer. The tone rule is unchanged. */
-    const chip = await screen.findByText(/\+\$112\.50 today/);
+    const chip = await waitFor(() => {
+      const el = document.querySelector('[data-beat="stop"]');
+      if (!el) throw new Error('no stop chip');
+      return el as HTMLElement;
+    });
     expect(chip).toBeVisible();
     // Classes, not inline style: the tone is a utility, so reading `style`
     // alone would pass against an accent-coloured chip.
     expect(chip.className).not.toMatch(/accent/);
     expect(chip.className).not.toMatch(/text-success/);
-    expect(chip.getAttribute('data-earned')).toBe('today');
   });
 
   it('spends the success colour on the paid beat and nowhere else', async () => {
     let current = stats({
-      unbilled: unbilled(1000),
-      velocity: velocity(5000, 4000),
+      unbilled: unbilled(400),
+      velocity: velocity(5000, 4600),
+      awaitingPayment: 600,
     });
     serve(() => current);
 
@@ -301,12 +434,20 @@ describe('count-up', () => {
     // Before the beat, nothing on the screen carries it.
     expect(container.querySelectorAll('.text-success')).toHaveLength(0);
 
-    /* An invoice clears: unbilled work becomes invoiced. The gross is
-       unchanged — the money moved across the split, it did not arrive. */
+    /* A cheque clears. Money LEAVES what is awaiting and lands in collected —
+       the gross is unchanged, because the work was already done. Raising an
+       invoice moves the same money the other way and is a `sent` beat, which
+       spends no colour. */
     current = stats({
       unbilled: unbilled(400),
       velocity: velocity(5000, 4600),
-      awaitingPayment: 600,
+      awaitingPayment: 0,
+      collected: {
+        trailing12: 600,
+        thisMonth: 600,
+        daysSincePaid: 0,
+        byMonth: [],
+      },
     });
     await act(async () => {
       await client.refetchQueries();
@@ -318,47 +459,30 @@ describe('count-up', () => {
       ).toBeGreaterThan(0),
     );
 
-    /* BOTH halves of the beat carry it: the delta beside Unbilled and
-       Velocity's headline. Asserting only "some exists" passed while
-       Velocity's half compared a Beat object to a string and was permanently
-       false — the money appeared to leave rather than move. */
+    /* The arrival, reported where the money landed. */
     const paid = () => [...container.querySelectorAll('.text-success')];
-    expect(paid().length).toBeGreaterThanOrEqual(2);
     expect(paid().some((el) => el.textContent?.includes('$600.00'))).toBe(true);
-
-    /* Velocity's headline, which does not move when an invoice is paid — the
-       work was already done, so the colour alone carries the event. */
-    expect(paid().some((el) => el.textContent?.includes('$1,666.67'))).toBe(
-      true,
-    );
 
     // And every one on the screen is the beat's own.
     for (const el of paid()) {
       expect(el.closest('[data-beat="paid"]')).not.toBeNull();
     }
 
-    // Unbilled counted DOWN to the server's figure.
+    /* Velocity's headline stays NEUTRAL. It reports gross earned, which a
+       payment does not move — the work was done and invoiced already. The
+       colour marks the one outcome on the screen, and spreading it over a
+       figure that did not change spends it on nothing. */
+    await waitFor(
+      () =>
+        expect(paid().some((el) => el.textContent?.includes('$1,666.67'))).toBe(
+          false,
+        ),
+      SETTLE,
+    );
+
+    /* Unbilled holds: a payment collects money that LEFT unbilled when the
+       invoice was raised, so counting it down again would subtract the same
+       work twice. */
     await waitFor(() => expect(figure()).toBe('$400.00'), SETTLE);
-  });
-
-  it('survives a localStorage that throws', async () => {
-    /* A private window refuses both halves. The figure still has to render. */
-    const getItem = Storage.prototype.getItem;
-    const setItem = Storage.prototype.setItem;
-    Storage.prototype.getItem = () => {
-      throw new Error('denied');
-    };
-    Storage.prototype.setItem = () => {
-      throw new Error('denied');
-    };
-
-    try {
-      serve(() => stats({ unbilled: unbilled(900) }));
-      render(<HomeCards />, { wrapper });
-      await waitFor(() => expect(figure()).toBe('$900.00'), SETTLE);
-    } finally {
-      Storage.prototype.getItem = getItem;
-      Storage.prototype.setItem = setItem;
-    }
   });
 });

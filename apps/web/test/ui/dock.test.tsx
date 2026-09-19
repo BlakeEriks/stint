@@ -88,6 +88,14 @@ function serveFullRow() {
             pace: null,
             billableRatio: null,
             awaitingPayment: 0,
+            openInvoiceCount: 0,
+            collected: {
+              trailing12: 0,
+              thisMonth: 0,
+              daysSincePaid: null,
+              byMonth: [],
+            },
+            earnedToday: 0,
             attention: {
               overdueInvoices: [],
               staleDrafts: [],
