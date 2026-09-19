@@ -11,8 +11,12 @@
  */
 import { contrast, hex } from './oklch.mjs';
 
-/** Held constant, exactly as dark holds it. */
-const HUE = 264;
+/**
+ * Warm, where dark's neutrals are blue-violet. Light is paper and dark is a
+ * lit screen, so the two grounds have no reason to share a hue — 82 is the
+ * folder-stock cream the planes are cut from.
+ */
+const HUE = 82;
 
 /* ── surfaces ──────────────────────────────────────────────────────────
  *
@@ -25,8 +29,9 @@ const HUE = 264;
  *                so the ladder has somewhere to stand.
  * @param steps   ΔL down from each plane to the one behind it, card-first.
  *                Five entries for six planes.
- * @param chroma  [card, bars], interpolated linearly. A third of dark's: the
- *                same chroma is a larger share of the distance left to white.
+ * @param chroma  [card, bars], interpolated linearly. Four times dark's share
+ *                of the distance left to white: at this hue chroma is what
+ *                reads as paper stock rather than as a grey with a cast.
  */
 function surfaces({ ceiling, steps, chroma: [c0, c1] }) {
   // Card first: it is the anchor, and the frame is built away from it.
@@ -44,13 +49,17 @@ function surfaces({ ceiling, steps, chroma: [c0, c1] }) {
  * which descend from the CARD because they are painted on one.
  *
  * The first three are larger than they look: perceptual distance compresses
- * toward white, so 0.022 at L 0.97 is a comparable read to dark's 0.035 at
+ * toward white, so 0.020 at L 0.975 is a comparable read to dark's 0.035 at
  * L 0.20.
+ *
+ * The ceiling is 0.975, not near-white. A card at 0.995 is a screen turned
+ * up; the 0.02 it gives back is what lets the cream read as stock the app is
+ * printed on, and every ink ratio below is judged against that card.
  */
 const SURFACE_PLAN = {
-  ceiling: 0.995,
-  steps: [0.022, 0.022, 0.022, 0.035, 0.045],
-  chroma: [0.0025, 0.0055],
+  ceiling: 0.975,
+  steps: [0.02, 0.02, 0.02, 0.032, 0.042],
+  chroma: [0.01, 0.018],
 };
 
 /* ── ink ───────────────────────────────────────────────────────────────
@@ -64,7 +73,7 @@ const SURFACE_PLAN = {
  * to the strongest ink (`FLOOR`, step 975). The exponent bunches steps toward
  * the dark end, where light-mode contrast ratios actually separate.
  */
-const TOP = 0.975;
+const TOP = 0.955;
 const FLOOR = 0.145;
 const EXPONENT = 1.4;
 

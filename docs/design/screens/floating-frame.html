@@ -159,7 +159,7 @@
   /* ── the same treatment in light ──────────────────────────────────
      The mechanism inverts. Dark: the panel is LIT from above, because the
      ground is dark and there is lightness to spare. Light: there is almost
-     no headroom above bg-base (0.049 total, and the panel spends 0.022 of
+     no headroom above bg-base (0.065 total, and the panel spends 0.020 of
      it), so a lit edge is invisible — but shadow, which had nowhere to go
      in dark, now has the whole range. So light is SHADED from above: a
      hairline of darkness at the top, and a real fall beneath. */
@@ -560,12 +560,12 @@
     <table>
       <tr><th>Mode</th><th>Ground</th><th>L</th><th>Headroom toward the edge's direction</th></tr>
       <tr><td>Dark</td><td><code>bg-base</code></td><td class="type-meta">0.186</td><td>0.814 above &mdash; <strong style="color:var(--text-strong)">lit</strong> top edge</td></tr>
-      <tr><td>Light</td><td><code>bg-base</code></td><td class="type-meta">0.951</td><td>0.049 above &mdash; nothing to lighten toward</td></tr>
+      <tr><td>Light</td><td><code>bg-base</code></td><td class="type-meta">0.935</td><td>0.065 above &mdash; nothing to lighten toward</td></tr>
     </table>
 
     <p style="margin-top:1.25rem">
       In light there is almost no room above <code>bg-base</code>, and the
-      panel at <code>bg-primary</code> already spends 0.022 of the 0.049
+      panel at <code>bg-primary</code> already spends 0.020 of the 0.065
       available. A lit top edge there is invisible. But shadow &mdash; which
       had nowhere to go in dark &mdash; now has the entire range beneath it.
     </p>

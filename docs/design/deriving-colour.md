@@ -163,14 +163,15 @@ which reproduces this document's own 0.105 figure to within 0.002):
 | danger on the card | 4.59 | 5.79 |
 | warning on the card | 6.43 | 5.38 |
 | `text-on-danger` | 5.42 | 5.88 |
-| warning vs accent, worst CVD | 0.265 | 0.219 |
-| danger vs accent, worst CVD | 0.167 | 0.077 |
-| warning vs danger, worst CVD | 0.215 | 0.168 |
+| warning vs accent, worst CVD | 0.265 | 0.449 |
+| danger vs accent, worst CVD | 0.167 | 0.108 |
+| warning vs danger, worst CVD | 0.215 | 0.380 |
 
-0.10 is the discrimination floor. **Light danger-vs-accent is 0.077 and cannot
-be fixed by choosing a different red** — `#1F7E17` is dark and desaturated, so
-everything collapses toward it under simulation. It is a property of the light
-accent, and it moves when that does.
+0.10 is the discrimination floor. **Light danger-vs-accent is 0.108, the
+tightest pair in either theme** — a forest accent and a red both sit dark and
+mid-chroma, so they converge under simulation more than the light pairs do.
+It is a property of the light accent and moves when that does: an accent
+lifted in lightness or dropped in chroma tightens it toward the floor.
 
 `danger-muted` is a tinted surface rather than ink: it keeps the L and C of the
 fill it replaced, moved to hue 16 — `#471F23` dark, `#FFEBEB` light.
@@ -184,12 +185,31 @@ two functions rather than one with a sign flag, for that reason.
 
 **The planes descend from a ceiling.** The card is the anchor in light where
 the bars are the anchor in dark: there is headroom below white and none above
-it. `ceiling` is 0.995, not 1.0 — pure white leaves nothing above the content
-column. The light steps are 0.022 where dark's are 0.035, because perceptual
+it. `ceiling` is 0.975, not 1.0 — pure white leaves nothing above the content
+column, and a card any nearer to it reads as a lit screen rather than as
+paper. The light steps are 0.020 where dark's are 0.035, because perceptual
 distance compresses toward white.
 
-The light accent drops to `#1F7E17`: `#52FC43` is ~1.6:1 on white and unusable
-as anything but a fill.
+**Light's neutrals are warm at `HUE` 82 where dark's are blue-violet at 264.**
+The two grounds share no hue: one is paper and the other is a lit screen.
+Chroma runs four times dark's share for the same reason — at this hue it is
+what reads as stock rather than as a grey with a cast.
+
+## The light accent
+
+`#52FC43` is ~1.6:1 on cream and unusable as anything but a fill, so light
+derives its own five rungs in `src/derive-light-accent.mjs`: a forest green at
+`HUE` 138, rotated off dark's 142 toward yellow so it sits with the paper
+rather than on top of it.
+
+**White is the only ink that clears AA on it.** Dark puts near-black on its
+accent; across the whole forest/olive range dark ink tops out near 3:1, so
+`accent-default` must stay dark enough to carry white. That caps the ladder —
+an olive lifted much above L 0.5 fails the assertion guarding it.
+
+`success` follows the accent hue a step down, at L 0.50 against the accent's
+0.455, so a paid badge reads green without reaching the running timer's
+weight.
 
 ## Contract assertions
 
