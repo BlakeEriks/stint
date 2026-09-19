@@ -59,9 +59,9 @@
   /* ═══════════════════════════════════════════════════════════════
      THE INBOX, as the app builds it.
 
-     The dock is `bg-base`. The inbox is not a card and never sits on
-     `bg-elevated` — an elevated row here would float above the dock
-     and compete with the real cards in the column beside it.
+     The dock is `bg-base` and carries no surface of its own. Each row is a
+     card on `bg-elevated` — an object you act on, lifted off the ground by
+     depth rather than fenced off by an edge.
      ═══════════════════════════════════════════════════════════════ */
   .dock {
     background: var(--bg-base);
@@ -73,59 +73,87 @@
     display: flex; align-items: center; justify-content: space-between;
     padding: 8px 0; color: var(--text-subtle);
   }
-  .count { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+  /* The count is a pill on the fill the cards use, so the header reads as
+     naming the set of objects below it. */
+  .count {
+    font-family: var(--font-mono); font-size: 10px;
+    min-width: 17px; height: 17px; padding: 0 5px;
+    border-radius: 999px; background: var(--bg-elevated); color: var(--text-primary);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
 
-  /* The left rule is a 2px alignment edge, neutral on every row but the
-     overdue invoice. One coloured rule in a column of neutral ones is
-     conspicuous; six are a texture with nothing to pick out of it. */
+  /* No border on any edge. The plane below is the dock's own ground, and
+     depth is what says where the card ends. */
   .irow {
-    border-left: 2px solid var(--border-subtle);
-    padding: 9px 10px 9px 12px;
-    border-radius: 0 6px 6px 0;
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    padding: 10px 11px;
+    box-shadow: var(--shadow-card);
+    position: relative; overflow: hidden;
     transition: background var(--motion-quick) var(--ease-standard);
   }
-  .irow + .irow { margin-top: 2px; }
-  .irow.danger { border-left-color: var(--danger); }
-  .irow:hover { background: var(--bg-primary); }
+  .irow + .irow { margin-top: 6px; }
+  .irow:hover { background: var(--bg-hover); }
 
-  .itop { display: flex; align-items: baseline; gap: 10px; }
+  /* Severity is a 2px edge INSIDE the card, and only on a flagged row — it
+     ranks the card rather than dividing it, which the surface already did.
+     A neutral row draws none, so the flagged ones are a signal instead of a
+     texture. */
+  .irow.flag::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+  }
+  .irow.flag.warn::before { background: var(--timer-warning); }
+  .irow.flag.danger::before { background: var(--danger); }
+
+  /* The title owns its line. It is the subject of the row, and a figure
+     sharing that line takes width from it in proportion to how much money
+     the row is about. */
   .ittl {
-    flex: 1; min-width: 0; color: var(--text-strong);
+    display: block; color: var(--text-strong);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .isub { display: flex; justify-content: space-between; gap: 10px; margin-top: 1px; }
+
+  /* Everything measurable drops here and reads as one statement of fact:
+     "$2,340.00 · 20 days late". */
+  .imeta {
+    display: flex; align-items: baseline; gap: 7px; margin-top: 3px;
+    color: var(--text-subtle);
+  }
+  .ival { flex: none; color: var(--text-primary); }
+  .isep {
+    width: 2px; height: 2px; border-radius: 50%; flex: none;
+    background: var(--border-control);
+  }
+  /* The qualifier WRAPS rather than truncating. It names the threshold that
+     was tripped, and colour only ranks — an ellipsis eating "over 8h" takes
+     the half of the signal that says which way. The title truncates because
+     a long name is still recognisable from its start; this is not. */
+  .iqual { min-width: 0; }
+  /* Only the clause that IS the fault takes colour — "over 8h", never the
+     client name beside it. */
   .tone-warn { color: var(--timer-warning); }
   .tone-danger { color: var(--danger); }
 
-  /* The action slot is ALWAYS in flow; only its contents fade. `display:none`
-     would drop it out of flow and the row would grow on hover. */
-  /* No negative margin: pulling the slot left by the button's own padding
-     aligns the label with the title, but puts the hover background hard
-     against the severity rule. The box is what the eye sees, so the box is
-     what lines up. */
-  .iact {
-    display: flex; gap: 2px; margin: 8px 0 0;
-    min-height: 26px; align-items: center;
-  }
-  .iact > * { opacity: 0; }
-  .irow:hover .iact > *, .irow:focus-within .iact > * { opacity: 1; }
+  /* Always drawn, and outlined. On a raised card a hover-only control has
+     nothing to sit against, and a touch device has no hover to reveal one
+     with. */
+  .iact { display: flex; gap: 6px; margin-top: 9px; }
 
   /* Type comes from the scale: the label is `type-support`, the role for
      secondary text. A button is not a reason to invent a size. */
   .btn-quiet {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 8px; border-radius: 6px;
-    border: 1px solid transparent; background: none;
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 5px;
+    border: 1px solid var(--border-default); background: none;
     color: var(--text-muted);
     cursor: pointer; white-space: nowrap;
-    transition: opacity var(--motion-instant) var(--ease-standard),
-                background var(--motion-quick) var(--ease-standard),
-                color var(--motion-quick) var(--ease-standard);
+    transition: background var(--motion-quick) var(--ease-standard),
+                color var(--motion-quick) var(--ease-standard),
+                border-color var(--motion-quick) var(--ease-standard);
   }
-  .btn-quiet:hover { background: var(--bg-hover); color: var(--text-strong); }
-  .btn-quiet.destructive:hover { color: var(--danger); }
+  .btn-quiet:hover { background: var(--bg-hover); color: var(--text-strong); border-color: var(--border-control); }
+  .btn-quiet.destructive:hover { color: var(--danger); border-color: var(--danger); }
   .btn-quiet:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
-  .btn-quiet svg { width: 13px; height: 13px; flex: none; }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition-duration: 1ms !important; transition-delay: 0ms !important; }
@@ -153,12 +181,13 @@
           <span class="count">7</span>
         </div>
 
-        <div class="irow">
-          <div class="itop">
-            <span class="type-control ittl">Timer still running</span>
-            <span class="type-duration tone-warn">31h 04m</span>
+        <div class="irow flag warn">
+          <span class="type-control ittl">Timer still running</span>
+          <div class="imeta">
+            <span class="type-duration ival">31h 04m</span>
+            <span class="isep"></span>
+            <span class="type-support iqual">Website redesign · Acme Corp</span>
           </div>
-          <div class="isub"><span class="type-support" style="color:var(--text-muted)">Website redesign · Acme Corp</span></div>
           <div class="iact">
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Keep</button>
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Adjust</button>
@@ -166,12 +195,13 @@
           </div>
         </div>
 
-        <div class="irow danger">
-          <div class="itop">
-            <span class="type-control ittl">STINT-0014 · Northwind</span>
-            <span class="type-amount" style="color:var(--text-strong)">$2,340.00</span>
+        <div class="irow flag danger">
+          <span class="type-control ittl">STINT-0014 · Northwind</span>
+          <div class="imeta">
+            <span class="type-amount ival">$2,340.00</span>
+            <span class="isep"></span>
+            <span class="type-support iqual tone-danger">20 days late</span>
           </div>
-          <div class="isub"><span class="type-support tone-danger">20 days late</span></div>
           <div class="iact">
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Mark paid</button>
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download</button>
@@ -179,11 +209,12 @@
         </div>
 
         <div class="irow">
-          <div class="itop">
-            <span class="type-control ittl">STINT-0019 · Northwind</span>
-            <span class="type-amount" style="color:var(--text-strong)">$780.00</span>
+          <span class="type-control ittl">STINT-0019 · Northwind</span>
+          <div class="imeta">
+            <span class="type-amount ival">$780.00</span>
+            <span class="isep"></span>
+            <span class="type-support iqual">Draft, 13 days old</span>
           </div>
-          <div class="isub"><span class="type-support" style="color:var(--text-muted)">Draft, 13 days old</span></div>
           <div class="iact">
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Mark sent</button>
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download</button>
@@ -191,52 +222,56 @@
         </div>
 
         <div class="irow">
-          <div class="itop">
-            <span class="type-control ittl">Client call</span>
-            <span class="type-duration" style="color:var(--text-muted)">1h 30m</span>
+          <span class="type-control ittl">Client call</span>
+          <div class="imeta">
+            <span class="type-duration ival">1h 30m</span>
+            <span class="isep"></span>
+            <span class="type-support iqual">No project · 11 Sep</span>
           </div>
-          <div class="isub"><span class="type-support" style="color:var(--text-muted)">No project · 11 Sep</span></div>
           <div class="iact">
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v10H3Z"/></svg>Assign project</button>
           </div>
         </div>
 
         <div class="irow">
-          <div class="itop">
-            <span class="type-control ittl">Spec review</span>
-            <span class="type-duration" style="color:var(--text-muted)">45m</span>
+          <span class="type-control ittl">Spec review</span>
+          <div class="imeta">
+            <span class="type-duration ival">45m</span>
+            <span class="isep"></span>
+            <span class="type-support iqual">No project · 9 Sep</span>
           </div>
-          <div class="isub"><span class="type-support" style="color:var(--text-muted)">No project · 9 Sep</span></div>
           <div class="iact">
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v10H3Z"/></svg>Assign project</button>
           </div>
         </div>
 
-        <div class="irow">
-          <div class="itop">
-            <span class="type-control ittl">Migration</span>
-            <span class="type-duration tone-warn">11h 40m</span>
+        <div class="irow flag warn">
+          <span class="type-control ittl">Migration</span>
+          <div class="imeta">
+            <span class="type-duration ival">11h 40m</span>
+            <span class="isep"></span>
+            <span class="type-support iqual">Acme Corp · 11 Sep · <span class="tone-warn">over 8h</span></span>
           </div>
-          <div class="isub"><span class="type-support" style="color:var(--text-muted)">Acme Corp · 11 Sep · over 8h</span></div>
           <div class="iact">
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Edit entry</button>
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>It's correct</button>
           </div>
         </div>
 
-        <div class="irow">
-          <div class="itop">
-            <span class="type-control ittl">Standup</span>
-            <span class="type-duration tone-warn">12s</span>
+        <div class="irow flag warn">
+          <span class="type-control ittl">Standup</span>
+          <div class="imeta">
+            <span class="type-duration ival">12s</span>
+            <span class="isep"></span>
+            <span class="type-support iqual">Byrne Studio · 12 Sep · <span class="tone-warn">under 1m</span></span>
           </div>
-          <div class="isub"><span class="type-support" style="color:var(--text-muted)">Byrne Studio · 12 Sep · under 1m</span></div>
           <div class="iact">
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Edit entry</button>
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>It's correct</button>
           </div>
         </div>
       </div>
-      <span class="caption">Hover a row to reveal its actions</span>
+      <span class="caption">Seven rows, two flagged</span>
     </div>
 
     <table>
@@ -287,21 +322,32 @@
     <div class="sec-head"><span class="eyebrow">How a row is built</span></div>
 
     <ul class="rule">
-      <li><strong>Two lines, then the action slot.</strong> A title, a figure
-        and three buttons do not share one line at any dock width worth
-        having.</li>
-      <li><strong>The left rule is neutral, and <code>danger</code> on the
-        overdue invoice alone.</strong> Every other row is an object that needs
-        an action, not a fault — a row is here <em>because</em> it wants a
-        decision, so colouring all of them says only what the inbox already
-        says by holding them. An unpaid invoice is the one row where money is
-        already late, and one coloured rule among neutral ones is what makes it
-        findable.</li>
-      <li><strong>Severity lives in the copy and in one figure.</strong> The
-        qualifier line names it in words — <code>20 days late</code>,
-        <code>over 8h</code> — and <code>valueTone</code> warms the figure on
-        the rows where the figure <em>is</em> the problem. Colour never carries
-        a meaning the words do not.</li>
+      <li><strong>Each row is a card.</strong> <code>bg-elevated</code>, 8px
+        radius, 10px/11px padding, a 6px gap, <code>shadow-card</code>, and no
+        border on any edge. The dock's ground is the plane below it, so depth
+        says where the card ends.</li>
+      <li><strong>The title owns its line.</strong> It is the subject — every
+        row is here because one identifiable thing wants a decision. A figure
+        sharing that line takes width from it in proportion to how much money
+        the row is about: measured at 286px, a real invoice title loses 42% to
+        a five-figure amount. Truncating the subject to fit a fact means the
+        card has to be hovered to be understood.</li>
+      <li><strong>The figure drops to the meta line.</strong> It is a fact
+        about the subject, not the subject, and beside the qualifier it reads
+        as one statement — <code>$2,340.00 · 20 days late</code> — rather than
+        two facts placed apart.</li>
+      <li><strong>Severity is one 2px edge inside the card, and half the rows
+        have none.</strong> <code>danger</code> is the overdue invoice, where
+        money is already late; <code>timer-warning</code> is a length that
+        wants a look. A stale draft and an unprojected entry are chores, so
+        they draw nothing — two flagged cards among five is a signal, five is
+        a texture.</li>
+      <li><strong>The words carry the direction; colour only ranks.</strong>
+        The same amber means "too long" on one card and "too short" on the
+        next, so the qualifier always names the threshold it tripped —
+        <code>over 8h</code>, <code>under 1m</code>, <code>20 days late</code>
+        — and only that clause takes the colour, never the client name beside
+        it.</li>
       <li><strong>The title is always <code>text-strong</code>.</strong> A
         column of coloured headlines reads as an outage.</li>
       <li><strong>Actions are text buttons with an icon</strong>, each carrying
@@ -321,24 +367,26 @@
 
   <!-- ───────────────────────── motion ───────────────────────── -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Revealing the actions</span></div>
+    <div class="sec-head"><span class="eyebrow">The actions</span></div>
 
     <p>
-      Actions appear on <code>:hover</code> and <code>:focus-within</code>, so
-      a resting row is content rather than a control panel. On a touch device
-      they are always visible — there is no hover to reveal them.
+      Always drawn, and outlined — <code>1px solid</code> at 5px radius. On a
+      raised card a hover-only control has nothing to sit against, and the
+      outline gives it its own edge instead of borrowing the card's.
     </p>
 
     <ul class="rule">
-      <li><strong>The action slot is always in flow; only its contents
-        fade.</strong> <code>display:none</code> removes the slot, so the row
-        grows the moment a pointer crosses it. The slot reserves its height
-        and the buttons animate <code>opacity</code> alone.</li>
-      <li><strong>The reveal is <code>--motion-instant</code> with
-        <code>--ease-standard</code></strong>, flat across the group — this is
-        a surface crossed fifty times a day.</li>
+      <li><strong>Nothing fades in.</strong> A slot that reserves height for
+        controls nobody can see costs the same space as drawing them, and a
+        touch device has no hover to reveal them with. Drawing them is the
+        shorter description and the one that works everywhere.</li>
+      <li><strong>Hover moves the outline, not the layout.</strong> The border
+        and the label brighten together on <code>--motion-quick</code>; no
+        box changes size, so a pointer crossing the dock never reflows
+        it.</li>
       <li><strong>Only <code>Discard</code> takes colour</strong>, on its own
-        hover. It is the one action here that destroys something.</li>
+        hover, in both its border and its label. It is the one action here
+        that destroys something.</li>
     </ul>
   </section>
 
@@ -366,6 +414,11 @@
         zero on the same curve — a <code>0fr</code> track still floors at its
         content's min-content height, so without that the gap stops closing
         short.</li>
+      <li><strong>A card's 6px margin goes with it.</strong> Padding alone was
+        enough when rows were flush bands; a card carries its own gap, and a
+        collapsed track with a live margin leaves 6px of empty dock behind
+        every departing row. <code>margin-block</code> runs on the same curve
+        as the padding and the track.</li>
       <li><strong><code>--motion-quick</code> with
         <code>--ease-accelerate</code></strong> — an object leaving speeds up
         as it goes. The fade is <code>--motion-instant</code>, so the text is
@@ -506,10 +559,9 @@
     </p>
     <p>
       The rows size by <strong>container</strong>, never viewport. The dock is
-      286px wide and its widest action strip is <code>Mark paid</code> beside
-      <code>Download</code> at 190px,
-      so a <code>sm:</code> breakpoint is true here at 1440px and would lay a
-      row out as though there were room. The project tag and the time range
+      286px wide and an inbox card's action strip runs to 236px — three
+      outlined buttons on the timer row — so a <code>sm:</code> breakpoint is
+      true here at 1440px and would lay a row out as though there were room. The project tag and the time range
       <strong>wrap to a second line</strong> rather than hide — both are
       billing-relevant, and in a one-day list density is not the constraint. At
       <code>@md</code> they rejoin the first line.
@@ -535,9 +587,10 @@
       <li><strong>Nothing here is green</strong>, including the runaway row,
         whose subject <em>is</em> the running timer.
         <code>test/ui/inbox.test.tsx</code> asserts it.</li>
-      <li><strong>No card on the dock.</strong> The dock is painted on the
-        ground and carries no surface; only inbox rows have a fill, because a
-        row you act on is an object and the column holding them is not.</li>
+      <li><strong>The dock itself is never a card.</strong> It is painted on
+        the ground and carries no surface of its own — the rows are the
+        objects, and the column holding them is not one. A container around
+        them would put a card inside a card.</li>
     </ul>
   </section>
 

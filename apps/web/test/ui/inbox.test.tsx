@@ -175,14 +175,15 @@ describe('Inbox', () => {
   });
 
   /**
-   * `inbox.html`: the left rule is neutral, and `danger` on the overdue
-   * invoice alone. Every other row is an object that needs an action, not a
-   * fault — a column of coloured rules has nothing to pick out of it.
+   * `inbox.html`: severity is one 2px edge inside the card, and half the rows
+   * have none. `danger` is the overdue invoice, where money is already late;
+   * `timer-warning` is a length that wants a look; a stale draft and an
+   * unprojected entry are chores and draw nothing.
    *
-   * Asserted over a FULL inbox, because the rule is about the column: one
-   * coloured rule among neutral ones, not one row read in isolation.
+   * Asserted over a FULL inbox, because the rule is about the column: two
+   * flagged cards among five is a signal, five is a texture.
    */
-  it('colours the left rule on the overdue invoice and no other row', () => {
+  it('flags the overdue invoice and the odd length, and nothing else', () => {
     const { container } = render(
       <Inbox
         stats={stats({
@@ -205,25 +206,47 @@ describe('Inbox', () => {
       { wrapper },
     );
 
-    const rules = Array.from(
-      container.querySelectorAll<HTMLElement>('.border-l-2'),
+    const cards = Array.from(
+      container.querySelectorAll<HTMLElement>('li > div'),
     );
-    expect(rules).toHaveLength(4);
+    expect(cards).toHaveLength(4);
 
-    const coloured = rules.filter((el) =>
-      el.className.includes('border-danger'),
+    const danger = cards.filter((el) =>
+      el.className.includes('before:bg-danger'),
     );
-    expect(coloured).toHaveLength(1);
+    const warning = cards.filter((el) =>
+      el.className.includes('before:bg-timer-warning'),
+    );
 
-    const overdueRow = coloured[0];
-    if (!overdueRow) throw new Error('unreachable');
-    /* And it is the invoice's row, not merely some row. */
-    expect(overdueRow.textContent).toContain('Northwind');
+    /* One of each, and they are the rows they claim to be. */
+    expect(danger).toHaveLength(1);
+    expect(danger[0]?.textContent).toContain('Northwind');
+    expect(warning).toHaveLength(1);
+    expect(warning[0]?.textContent).toContain('Migration');
 
-    for (const el of rules.filter((r) => r !== overdueRow)) {
-      expect(el.className).toContain('border-edge-subtle');
-      expect(el.className).not.toMatch(/border-(danger|timer-warning)/);
+    /* The other two draw no edge at all — a chore is not a fault. */
+    const flagged = new Set([...danger, ...warning]);
+    const plain = cards.filter((el) => !flagged.has(el));
+    expect(plain).toHaveLength(2);
+    for (const el of plain) {
+      expect(el.className).not.toMatch(/before:bg-/);
     }
+  });
+
+  /**
+   * The actions are drawn at rest. A hover-only control has nothing to sit
+   * against on a raised card, and a touch device has no hover to reveal one
+   * with.
+   */
+  it('draws the actions without hovering', () => {
+    render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
+      wrapper,
+    });
+
+    expect(
+      screen.getByRole('button', { name: /mark .* paid/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Mark paid')).toBeVisible();
   });
 });
 

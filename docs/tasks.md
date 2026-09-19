@@ -49,40 +49,6 @@ later.
       once, which is the whole problem.
 
       `src/derive-light-accent.mjs` holds the rungs; `brand.html` is the test.
-
-- [ ] **Inbox rows become cards, and the colour rail goes.** The rows are
-      borderless bands on the panel's own ground, separated by a 2px left rail
-      that is coloured on the overdue row. `screens/floating-frame.html` draws
-      something else entirely: each row is **its own raised surface** —
-      `bg-surface-elevated`, ~7px radius, ~9px/10px padding, a 6px gap between
-      cards — with **no border on any edge**. Convert to that.
-
-      It is the four-plane rule doing the work the rail was standing in for: a
-      card that floats off the panel is separated by depth, so it needs no
-      edge to say where it ends. The rail exists because the rows had no
-      surface to be distinguished by — remove the reason and it goes with it.
-
-      Also in the spec's drawing and not in the code:
-
-      - **The count is a pill**, not bare text — mono, ~17px round,
-        `bg-surface-elevated`. `inbox.tsx:144` renders it as plain
-        `type-meta`.
-      - **The actions are outlined**, `1px solid` at ~5px radius, rather than
-        the current bare text that only draws a surface on hover. On a raised
-        card a hover-only control has nothing to sit against.
-
-      **Danger stays, on the figure.** `tone === 'danger'` currently colours
-      the rail and the subtitle; with the rail gone it belongs on the value
-      and the copy — the spec's `.tone-danger` is a text colour, applied to
-      "20 days late", not to a container. The distinction between an overdue
-      invoice and an unprojected entry must survive the conversion.
-
-      Check the exit animation in the same pass: `exit-collapse` collapses a
-      row's height on dismiss, and a card with its own margin collapses
-      differently from a flush band — the gap has to go with it or rows jump
-      as one leaves.
-
-      Wanted for alpha.
 - [ ] **One figure for today's earnings, from the server.** Home answers
       "what has today been worth?" twice, in two places, by two mechanisms,
       and neither answers it directly:
