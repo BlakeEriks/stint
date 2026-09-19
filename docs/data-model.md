@@ -23,11 +23,17 @@ Implemented **twice**, once per language:
   that matters most. `ProjectRate` prints the same figure on `/projects`.
 - `resolve_rate(numeric, numeric, numeric, numeric)` in SQL
   (`00000000000010_one_rate_chain.sql`) — the chain over the four columns,
-  called by `resolve_entry_rate(uuid)` for a single entry and by both
-  rollups, `unbilled_by_client(uuid)` and
-  `month_revenue(uuid, timestamptz, timestamptz)`, once per row in their
-  joins. It is `immutable` and carries no `search_path`, so Postgres inlines
-  it and the rollups plan as the plain `COALESCE` they used to spell out.
+  called by `resolve_entry_rate(uuid)` for a single entry and once per row in
+  the joins of every rollup that reports money from work: `unbilled_by_client`,
+  `month_revenue`, `revenue_by_day`, `revenue_by_client` and
+  `revenue_by_project`. It is `immutable` and carries no `search_path`, so
+  Postgres inlines it and the rollups plan as the plain `COALESCE` they used
+  to spell out. `collected_by_month` is the one rollup that does not call it —
+  a payment is a fact about an issued document, so it sums the invoice's own
+  `total`, grouped by month **and by currency**, because money is not addable
+  across them and one `sum` over a mixed month reports a number of nothing.
+  Picking which currency the screen shows is the caller's, as it is for
+  `revenue_by_client` and `revenue_by_project`.
 
 **`apps/web/test/rates.test.ts` is what keeps them in step.** It builds every
 combination of the four levels being unset, `0`, or a distinct rate, and
@@ -168,14 +174,21 @@ sequence gapless under concurrency rather than merely usually correct.
   non-blank, and an invoice's period must be ordered.
 - **Paired nullability is a constraint too**: `monthly_target_needs_unit`
   asserts `(monthly_target is null) = (monthly_target_unit is null)`, so a
-  target can never exist without the unit that gives it meaning.
+  target can never exist without the unit that gives it meaning, and
+  `paid_has_paid_at` asserts `status <> 'paid' or paid_at is not null`. The
+  column stays nullable — a draft legitimately has no payment date — and
+  `void` is exempt, since an invoice can be voided from any state. Collected
+  is derived from `paid_at`, so a paid row without one drops a real payment
+  out of the figure that says what arrived.
 - `updated_at` is maintained by a `touch_updated_at` trigger on every table
   **except `invoice_line_items`**, which has no such column: a line is frozen
   at generation and never edited, so a "last modified" timestamp would be a
   field that can only ever lie.
 - Partial indexes back the hot paths: active clients, projects and profiles,
-  and unbilled entries. Entries by user and start time is a plain index —
-  every entry is a candidate there.
+  unbilled entries, and `invoices_user_paid_at_idx` on `(user_id, paid_at)`
+  where the invoice is paid — payments are read by date, not by the status
+  an existing index already covers. Entries by user and start time is a plain
+  index — every entry is a candidate there.
 - RLS on every table: `user_id = auth.uid()`; line items inherit from invoice.
   The route tests disable RLS (their subject is route logic);
   `apps/web/test/rls.test.ts` covers it against live policies.

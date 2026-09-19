@@ -3,9 +3,18 @@
 One HTML doc per route, named after the route. `home.html` is `/`,
 `calendar.html` is `/calendar`.
 
-Two are not routes: `frame.html` is what every screen renders inside, and
-`floating-frame.html` renders that frame in both themes with the
-measurements a build is checked against.
+The rest are parts rather than routes, each one subject a route's doc would
+otherwise restate:
+
+| Doc | Subject |
+|---|---|
+| `frame.html` | what every screen renders inside |
+| `floating-frame.html` | that frame in both themes, with the measurements a build is checked against |
+| `components.html` | what a screen is assembled *from* |
+| `money.html` | the money region of the home panel, both halves |
+| `inbox.html` | the dock's rows |
+| `timer-bar.html` | the bar under every screen |
+| `entry-dialog.html`, `task-suggest.html` | the two surfaces that open over one |
 
 **States live inside the screen's doc, not beside it.** A drag-in-progress
 mockup is a section of `calendar.html`, never `calendar-drag.html`. One file
