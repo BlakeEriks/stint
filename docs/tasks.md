@@ -346,6 +346,44 @@ later.
       interpolates one into the other. Wanted: the paragraph occupying the
       space the row vacates, so the section settles once.
 
+- [ ] **The menu bar panel calls `GET /entries/task-names` for its recent
+      names.** It reimplements them instead — `distinctTasks`
+      (`TimerModel.swift:165-196`) walks a two-week `api.entries()` page and
+      keeps the first five names it has not seen. The endpoint is live and
+      backed by `recent_task_names` (migration 11), so the two disagree on
+      what a name is: the RPC dedupes **case-insensitively** and keeps the
+      most recent spelling, where Swift dedupes on the raw string and offers
+      the user both halves of their own typo.
+
+      **The RPC also ranks the selected project first**, which the panel wants
+      and cannot get from a recency walk. And it costs one row per name
+      against the 200 the panel fetches every poll to keep five.
+
+      **The restart list shows a duration, and the endpoint does not return
+      one.** `recent` is `[TimeEntry]` and the only thing the two-week window
+      is fetched for, but `EntryRow` renders `entry.durationSeconds`
+      (`ContentView.swift:550`) beside the name. `{ taskName, projectId,
+      lastUsedAt }` restarts the work — `resume()` sends only those two
+      fields — and drops the figure. So this decides what the row is: a name
+      to restart, or a past entry. The panel's premise is the former.
+
+- [ ] **Every size in the macOS app comes from a Typography role.** Eight do
+      not: `ContentView.swift` sets `.font(.system(size:))` by hand at `:66`,
+      `:185`, `:441`, `:509`, `:547`, `:578` and `:717`, and `Mark.swift:17`
+      sizes the mark. `.role()` is right beside them, so these are the scale's
+      exceptions with nothing recording why.
+
+      **Nothing catches them.** `check:type` reads `src/**/*.tsx` and is the
+      web's alone, so the rule `CLAUDE.md` states for both apps is enforced in
+      one of them. The Swift half wants the same check before the drift grows.
+
+      **`Role.tabular` is generated and never read** (`Tokens.swift`,
+      emitted by `generate.js:369`). `.role()` applies `.monospacedDigit()` to
+      every role unconditionally, so a role that is not tabular gets tabular
+      figures anyway and the flag that would say so is inert. Either `.role()`
+      reads it or `generate.js` stops emitting it — a generated field nothing
+      consumes is a claim the app does not honour.
+
 ## Deferred
 
 Two kinds of thing sit here. Some wait on something outside the code — an
