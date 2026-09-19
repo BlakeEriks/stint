@@ -97,6 +97,8 @@ export function Dock() {
         grid
         projects={projects?.projects ?? []}
         todaySeconds={timer.todaySeconds}
+        earnedToday={data?.earnedToday}
+        currency={data?.currency}
         flush={wide && !!data}
       />
     </aside>
