@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TaskSuggest } from '@/components/task-suggest';
+import { ProjectPicker } from '@/components/project-picker';
 import { api, ApiError, type Project, type TimeEntry } from '@/lib/client/api';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 import { timeZone } from '@/lib/client/use-timer';
@@ -240,8 +241,12 @@ export function EntryDialog({
                 }));
               }}
               projectId={draft.projectId}
-              // A billed entry is read-only, so there is nothing to accelerate.
-              disabled={locked}
+              /* Naming work is what suggestions accelerate, and an entry that
+                 exists is already named — the overlay would cover the field
+                 the moment it takes focus, over a value the user came to
+                 adjust rather than replace. A billed entry is read-only, so
+                 there is nothing to accelerate there either. */
+              disabled={locked || existing !== undefined}
             >
               {(suggest) => (
                 <Input
@@ -259,36 +264,20 @@ export function EntryDialog({
             <Label htmlFor="entry-project" className={LABEL}>
               Project
             </Label>
-            <select
+            <ProjectPicker
+              trigger="field"
               id="entry-project"
-              /* biome-ignore lint/a11y/noAutofocus: the rule guards against
-                 stealing focus on PAGE load. This is a modal the user just
-                 opened, where something must take focus — and when the row
-                 they clicked exists because the project is missing, this is
-                 the field they came for. */
-              autoFocus={focus === 'project'}
+              projects={projects}
+              value={draft.projectId}
+              onChange={(id) => set('projectId', id)}
+              selected={projects.find((p) => p.id === draft.projectId)}
               disabled={locked}
-              value={draft.projectId ?? ''}
-              onChange={(e) => set('projectId', e.target.value || null)}
-              /* `focus:` as well as `focus-visible:`. A field focused
-                 PROGRAMMATICALLY — as the inbox's unprojected row does on
-                 open — is never `:focus-visible`, which the browser reserves
-                 for keyboard-driven focus. Without this the cursor is really
-                 there and arrow keys work, but nothing on screen says so. */
-              className="h-9 rounded-md border border-edge-default bg-transparent px-3
-                         type-control text-strong outline-none
-                         disabled:opacity-60
-                         focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus
-                         focus-visible:border-edge-focus focus-visible:ring-[3px]
-                         focus-visible:ring-edge-focus"
-            >
-              <option value="">No project</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              autoFocus={focus === 'project'}
+              /* This is already a dialog, and Radix mounts no dialog inside
+                 one — the item would set its state and nothing would appear.
+                 Projects are created from the timer bar or `/projects`. */
+              canCreate={false}
+            />
           </div>
 
           {/* Not four equal columns. A `type="time"` input renders its own

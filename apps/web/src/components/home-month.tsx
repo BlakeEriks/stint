@@ -171,8 +171,8 @@ function PaceLine({
     >
       {/* The gap says which way it runs. Warning matches the "behind" figure
           below it, so the shape and the number agree. Ahead takes `info`, not
-          `success`: cyan is reserved for an outcome, and a month that is ahead
-          on the 13th can be behind on the 14th. */}
+          `success`: success is reserved for an outcome, and a month that is
+          ahead on the 13th can be behind on the 14th. */}
       {gap ? (
         /* Two opacities, not one: `info` is a muted blue and `warning` a
            bright amber, so the same alpha puts the blue 30% weaker against

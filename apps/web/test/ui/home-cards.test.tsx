@@ -247,8 +247,8 @@ describe('HomeCards', () => {
 
     /* Every attribute, not just `style` and `class`: the plot paints through
        SVG's `stroke` and `fill`, so a scan of inline styles alone passed
-       against an accent-stroked line. Success cyan belongs to the paid beat
-       and appears nowhere in this set either. */
+       against an accent-stroked line. The success colour belongs to the paid
+       beat and appears nowhere in this set either. */
     const painted = els
       .flatMap((el) => [...((el as Element).attributes ?? [])])
       .map((a) => a.value)

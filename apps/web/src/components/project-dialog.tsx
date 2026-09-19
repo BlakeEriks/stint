@@ -21,11 +21,8 @@ import {
   type ProjectInput,
 } from '@/lib/client/api';
 import { ClientForm } from './client-form';
+import { ClientPicker } from './client-picker';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
-
-/** The select's "create one" escape hatch. Not a client id, so it cannot
-    collide with one. */
-const NEW_CLIENT = '__new_client__';
 
 /**
  * A dialog rather than a page: a project is four fields, and it is created
@@ -160,29 +157,13 @@ export function ProjectDialog({
             <Label htmlFor="project-client" className={LABEL}>
               Client
             </Label>
-            <select
+            <ClientPicker
               id="project-client"
-              value={clientId ?? ''}
-              onChange={(e) => {
-                if (e.target.value === NEW_CLIENT) setAddingClient(true);
-                else setClientId(e.target.value || null);
-              }}
-              className="h-9 rounded-md border border-edge-default bg-transparent px-3
-                         type-control text-strong outline-none
-                         focus-visible:border-edge-focus focus-visible:ring-[3px]
-                         focus-visible:ring-edge-focus"
-            >
-              <option value="">No client — internal work</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-              {/* Last, so it does not sit between real choices — and present
-                  even with no clients at all, which is the case that made the
-                  first project impossible to attach to anything. */}
-              <option value={NEW_CLIENT}>+ Add a client…</option>
-            </select>
+              clients={clients}
+              value={clientId}
+              onChange={setClientId}
+              onAdd={() => setAddingClient(true)}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">

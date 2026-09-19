@@ -57,15 +57,16 @@
   .card-rule { height: 1px; margin: 0 16px; background: var(--border-subtle); }
   .card-body { padding: 6px 16px 14px; }
 
-  .filters { display: flex; gap: 6px; margin-bottom: 14px; }
+  .filters { display: flex; gap: 4px; margin-bottom: 14px; }
+  /* FilterTabs is a row of links, not pills: no border, `rounded-md` like
+     every other control, and the active one lifted onto `bg-elevated`. */
   .chip {
-    padding: 4px 11px; border-radius: 999px;
-    border: 1px solid var(--border-default);
-    font-family: var(--font-mono); font-size: 11px;
-    letter-spacing: .06em; text-transform: uppercase;
-    color: var(--text-muted); background: transparent; cursor: pointer;
+    padding: 4px 8px; border-radius: 6px; border: none;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase;
+    color: var(--text-subtle); background: transparent; cursor: pointer;
   }
-  .chip.on { background: var(--bg-hover); color: var(--text-strong); border-color: var(--border-control); }
+  .chip.on { background: var(--bg-elevated); color: var(--text-strong); }
 
   .irow {
     display: flex; align-items: center; gap: 12px;
@@ -78,14 +79,17 @@
 
   .badge {
     font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .08em;
-    text-transform: uppercase; padding: 2px 7px; border-radius: 999px;
+    text-transform: uppercase; padding: 1px 6px; border-radius: 4px;
     flex: none; border: 1px solid currentColor;
   }
-  .badge.draft { color: var(--text-subtle); }
-  .badge.sent  { color: var(--timer-warning); }
+  .badge.draft { color: var(--text-subtle); border-color: var(--border-default); }
+  .badge.sent  { color: var(--text-muted); border-color: var(--border-control); }
   .badge.paid  { color: var(--success); }
-  .badge.void  { color: var(--text-subtle); opacity: .7; }
-  .badge.late  { color: var(--danger); }
+  .badge.void  { color: var(--text-subtle); border-color: var(--border-default); text-decoration: line-through; }
+  .date {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-subtle);
+    flex: none; width: 74px; text-align: right;
+  }
 
   .btn {
     padding: 4px 10px; border-radius: 6px;
@@ -121,16 +125,16 @@
         </div>
         <div class="card-rule"></div>
         <div class="card-body">
-          <div class="filters">
-            <button class="chip on">Open</button>
-            <button class="chip">All</button>
-            <button class="chip">Paid</button>
-            <button class="chip">Void</button>
-          </div>
+          <nav class="filters" aria-label="Filter">
+            <a class="chip on" aria-current="page">Open</a>
+            <a class="chip">Paid</a>
+            <a class="chip">All</a>
+          </nav>
           <div class="irow">
             <span class="num">STINT-0014</span>
             <span class="who type-body">Byrne Studio</span>
-            <span class="badge late">12d late</span>
+            <span class="badge sent">Sent</span>
+            <span class="date">14 Aug</span>
             <span class="amt">$1,125.00</span>
             <button class="btn">Mark STINT-0014 paid</button>
           </div>
@@ -138,6 +142,7 @@
             <span class="num">STINT-0015</span>
             <span class="who type-body">Northwind Trading</span>
             <span class="badge sent">Sent</span>
+            <span class="date">2 Sep</span>
             <span class="amt">$1,975.00</span>
             <button class="btn">Mark STINT-0015 paid</button>
           </div>
@@ -145,6 +150,7 @@
             <span class="num">STINT-0016</span>
             <span class="who type-body">Acme Corp</span>
             <span class="badge draft">Draft</span>
+            <span class="date">11 Sep</span>
             <span class="amt">$487.50</span>
           </div>
         </div>
@@ -159,8 +165,8 @@
       <li><strong>Mark paid is offered on sent rows alone</strong>, and each
         action names its invoice. A list of identical buttons is unusable with
         a screen reader.</li>
-      <li><strong>Paid renders in the success channel</strong> — cyan, never
-        green.</li>
+      <li><strong>Paid renders in the success channel</strong> — the accent
+        hue a step down, never the accent itself.</li>
       <li><strong>Nothing destructive here.</strong> Voiding stays on the
         invoice itself, where the whole document is in view.</li>
     </ul>

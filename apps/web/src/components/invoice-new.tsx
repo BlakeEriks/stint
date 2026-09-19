@@ -6,6 +6,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, Section, inputClass, textareaClass } from './field';
+import { ClientPicker } from './client-picker';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown } from 'lucide-react';
 import { formatCurrency, formatHours } from '@stint/core';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
@@ -119,19 +128,13 @@ export function NewInvoice() {
       <div className="flex flex-col gap-4">
         <Section title="What to bill">
           <Field label="Client" htmlFor="inv-client" required>
-            <select
+            <ClientPicker
               id="inv-client"
-              value={draft.clientId}
-              onChange={(e) => setBilled('clientId', e.target.value)}
-              className={inputClass}
-            >
-              <option value="">Choose a client…</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              clients={clients}
+              value={draft.clientId || null}
+              onChange={(id) => setBilled('clientId', id ?? '')}
+              placeholder="Choose a client…"
+            />
           </Field>
 
           <div className="flex flex-wrap gap-4">
@@ -153,25 +156,14 @@ export function NewInvoice() {
             </Field>
           </div>
 
-          <Field
-            label="Group lines"
-            htmlFor="inv-group"
-            hint={GROUPINGS.find((g) => g.value === draft.groupingMode)?.hint}
-          >
-            <select
-              id="inv-group"
+          {/* No `hint` on the Field: each mode's hint is in its own menu row,
+              where it describes the choice being weighed rather than the one
+              already made. */}
+          <Field label="Group lines" htmlFor="inv-group">
+            <GroupingPicker
               value={draft.groupingMode}
-              onChange={(e) =>
-                setBilled('groupingMode', e.target.value as GroupingMode)
-              }
-              className={inputClass}
-            >
-              {GROUPINGS.map((g) => (
-                <option key={g.value} value={g.value}>
-                  {g.label}
-                </option>
-              ))}
-            </select>
+              onChange={(mode) => setBilled('groupingMode', mode)}
+            />
           </Field>
 
           <div>
@@ -263,6 +255,65 @@ export function NewInvoice() {
         ) : null}
       </div>
     </DetailPage>
+  );
+}
+
+/**
+ * How the lines are rolled up.
+ *
+ * A menu rather than a `Select`: each mode is a label over its consequence,
+ * and the consequence is what the user is actually choosing between. A native
+ * option is one line of text, so the hint used to sit under the closed control
+ * describing only the mode already picked — the three it is being weighed
+ * against were invisible at the moment of choosing.
+ */
+function GroupingPicker({
+  value,
+  onChange,
+}: {
+  value: GroupingMode;
+  onChange: (mode: GroupingMode) => void;
+}) {
+  const selected = GROUPINGS.find((g) => g.value === value);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        id="inv-group"
+        aria-label="Group lines"
+        className={`${inputClass} flex items-center justify-between gap-2 text-left
+                    focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
+      >
+        <span className="truncate">{selected?.label}</span>
+        <ChevronDown
+          aria-hidden
+          className="size-4 flex-none text-muted opacity-60"
+          strokeWidth={2}
+        />
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="start" className="w-72">
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(v) => onChange(v as GroupingMode)}
+        >
+          {GROUPINGS.map((g) => (
+            <DropdownMenuRadioItem
+              key={g.value}
+              value={g.value}
+              /* `items-start` and a taller row: the check sits with the label
+                 line, not centred against two lines of text. */
+              className="items-start pl-8"
+            >
+              <span className="flex flex-col gap-0.5">
+                <span>{g.label}</span>
+                <span className="type-support text-subtle">{g.hint}</span>
+              </span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

@@ -51,6 +51,31 @@ the fastest way back to a known state. `pnpm dev:down` stops it;
 | Mailpit (every sent email) | http://127.0.0.1:54324 |
 | Postgres | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
 
+## A worktree that runs
+
+```bash
+pnpm worktree <branch>              # off main, into ../stint-<branch>
+pnpm worktree <branch> --from <ref> # off something else
+```
+
+A worktree is a fresh clone as far as the build is concerned: git carries no
+`node_modules`, no `packages/design-tokens/dist` and no
+`.env.development.local`, so `pnpm dev` there fails three ways before it
+serves a page. The script installs, generates the tokens and copies the env
+file.
+
+It copies **only** `.env.development.local`. `.env.local` reaches the hosted
+project, and a worktree is where you try things.
+
+Two worktrees cannot both have `:3100`. Run the second one somewhere else:
+
+```bash
+cd ../stint-<branch> && pnpm dev --port 3101
+```
+
+A magic link carries the port it was requested from, so sign in from the
+worktree's own URL and its link returns there.
+
 ## Signing in
 
 **Any email address works** — including your real one. Enter it on `/signin`,

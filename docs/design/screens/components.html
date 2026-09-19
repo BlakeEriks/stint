@@ -48,6 +48,187 @@
   }
   .rule strong { color: var(--text-strong); font-weight: 600; }
   .warn::before { background: var(--timer-warning) !important; }
+
+  /* ── The rendered showcase ──────────────────────────────────────
+     Everything below draws the component rather than naming it. The
+     metrics are the app's: Button's heights and paddings come straight
+     off button.tsx's cva, so a row here is measurable against it. */
+  .mock {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px; padding: 20px;
+    margin-top: 1.25rem;
+  }
+  .card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px; box-shadow: var(--shadow-card);
+    padding: 16px;
+  }
+  .card + .card { margin-top: 12px; }
+
+  /* A specimen: the thing, with its token underneath. */
+  .specimens { display: flex; flex-wrap: wrap; gap: 18px 22px; align-items: flex-end; }
+  /* A card holding an open list aligns to the TOP: baseline-aligning a 36px
+     trigger against a 150px open menu strands the closed one in mid-air. */
+  .specimens.tops { align-items: flex-start; }
+  .spec { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; min-width: 0; }
+  .spec .tok {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .04em;
+    color: var(--text-subtle); white-space: nowrap;
+  }
+  .grid-head {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle);
+  }
+  /* The matrix does not reflow — dropping a size column would lose the
+     comparison the grid exists for. Narrow, the card scrolls it sideways,
+     the same answer `pre` already uses on this page. */
+  .btn-scroll { overflow-x: auto; }
+  .btn-grid {
+    display: grid; grid-template-columns: auto repeat(3, max-content);
+    gap: 12px 18px; align-items: center; justify-items: start;
+    min-width: max-content;
+  }
+  .btn-grid .rowlab {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-subtle);
+  }
+
+  /* Button — button.tsx's cva, drawn. */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    flex: none; white-space: nowrap; cursor: pointer;
+    border: 1px solid transparent; border-radius: 6px;
+    font-family: var(--font-sans); font-size: 14px; font-weight: 500;
+    background: transparent; color: var(--text-primary);
+  }
+  .btn svg { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
+             stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .btn.default     { border-color: var(--border-default); background: var(--bg-elevated); color: var(--text-strong); }
+  .btn.accent      { background: var(--accent-default); color: var(--text-on-accent); }
+  .btn.destructive { background: var(--danger); color: var(--text-on-danger); }
+  .btn.ghost       { color: var(--text-primary); }
+  /* The focus ring is NEUTRAL — the accent is spent on the timer and the
+     one confirm, so it can never also mean "the cursor is here". */
+  .btn.focused { outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--border-focus); }
+
+  .sz-default { height: 36px; padding: 0 16px; }
+  .sz-xs      { height: 24px; padding: 0 8px;  font-size: 12px; gap: 4px; }
+  .sz-xs svg  { width: 12px; height: 12px; }
+  .sz-sm      { height: 32px; padding: 0 12px; gap: 6px; }
+  .isz-icon      { width: 36px; height: 36px; padding: 0; }
+  .isz-icon-sm   { width: 32px; height: 32px; padding: 0; }
+
+  /* FilterTabs is a link, not a pill: no border, and `rounded-md` like every
+     other control. The active one is lifted onto `bg-elevated` rather than
+     outlined — it is the row you are reading, not a toggle that is switched
+     on. */
+  .chip {
+    padding: 4px 8px; border-radius: 6px; border: none;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase;
+    color: var(--text-subtle); background: transparent; cursor: pointer;
+  }
+  .chip.on { background: var(--bg-elevated); color: var(--text-strong); }
+
+  /* StatusBadge — four stored statuses. `late` is derived, so it is not one. */
+  .badge {
+    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .08em;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 4px;
+    flex: none; border: 1px solid currentColor;
+  }
+  .badge.draft { color: var(--text-subtle); border-color: var(--border-default); }
+  .badge.sent  { color: var(--text-muted); border-color: var(--border-control); }
+  .badge.paid  { color: var(--success); }
+  .badge.void  { color: var(--text-subtle); border-color: var(--border-default); text-decoration: line-through; }
+
+  /* SaveIndicator. */
+  .save { display: inline-flex; align-items: center; gap: 6px; height: 16px;
+          font-family: var(--font-sans); font-size: 13px; }
+  .save .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--timer-idle); }
+  .save svg { width: 14px; height: 14px; flex: none; }
+  .save.pending svg .track { stroke: var(--border-default); }
+  .save.pending svg .head  { stroke: var(--text-muted); }
+  .save.saved  { color: var(--success); }
+  .save.error  { color: var(--danger); }
+
+  /* Select and the pickers — the closed trigger wears inputClass's metrics. */
+  .picker { width: 248px; }
+  .trigger {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    height: 36px; padding: 0 12px;
+    background: transparent;
+    border: 1px solid var(--border-default);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 14px; text-align: left; cursor: pointer;
+  }
+  .trigger .chev { margin-left: auto; flex: none; color: var(--text-muted); opacity: .6; }
+  .trigger.placeholder { color: var(--text-subtle); }
+  /* The name takes the room and the client yields — the row is one line at
+     any width, the same way the app truncates rather than wrapping. */
+  .trigger > .name, .trigger > .client {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  }
+  .trigger > .client { flex: 0 1 auto; }
+  /* The tag trigger — the timer bar's pill, unchanged by this feature. */
+  .tag {
+    display: inline-flex; align-items: center; gap: 6px; flex: none;
+    padding: 4px 9px;
+    border: 1px solid var(--border-default); border-radius: 999px;
+    font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted);
+    background: transparent; cursor: pointer;
+  }
+  .tag.empty { border-style: dashed; color: var(--text-subtle); }
+
+  .sw { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .sw.c1 { background: var(--proj-1); }
+  .sw.c4 { background: var(--proj-4); }
+  .sw.c6 { background: var(--proj-6); }
+  .sw.internal { background: var(--timer-idle); }
+
+  /* An open list — task-suggest.html's floating panel.
+     In the app it floats over the screen. A specimen has a caption under it,
+     so here the list is laid out IN FLOW below its trigger — same box, same
+     shadow, 4px off the trigger — and the column grows to fit it. Absolute
+     positioning would need a hand-guessed margin under every one, and a
+     guess that is 16px short covers the caption it is labelling. */
+  .list {
+    margin-top: 4px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 8px; box-shadow: var(--shadow-float);
+    padding: 4px;
+  }
+  .opt {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: 6px; min-width: 0; cursor: pointer;
+    font-size: 14px; color: var(--text-primary);
+  }
+  .opt.on { background: var(--bg-hover); color: var(--text-strong); }
+  .opt .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .opt .client { font-size: 13px; color: var(--text-subtle); overflow: hidden;
+                 text-overflow: ellipsis; white-space: nowrap; }
+  .opt .tick { margin-left: auto; flex: none; color: var(--text-muted); }
+  .opt.indent { padding-left: 28px; }
+  .list-rule { height: 1px; margin: 4px 6px; background: var(--border-subtle); }
+  .opt.action { color: var(--text-muted); }
+  .opt.action svg { width: 13px; height: 13px; stroke: currentColor; fill: none;
+                    stroke-width: 2.25; stroke-linecap: round; }
+
+  /* Panel, with and without the client's edge. */
+  .panels { display: flex; flex-wrap: wrap; gap: 14px; }
+  .panel {
+    flex: 1 1 220px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px; padding: 13px 15px;
+    box-shadow: var(--shadow-card);
+  }
+  .panel.edge { border-left: 2px solid var(--border-subtle); padding-left: 14px; }
+  .panel.edge.c4 { border-left-color: var(--proj-4); }
+  .panel .ptitle { color: var(--text-strong); }
+  .panel .pmeta { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-subtle); }
 </style>
 
 <div class="page">
@@ -250,6 +431,16 @@
       A screen wanting a third weight has one already — <code>ghost</code>.
     </p>
 
+    <p>
+      Neither is <code>link</code>, which drew a button in the accent — a
+      third claim on a colour that marks the running timer and the one
+      confirm. A link that is a link is an <code>&lt;a&gt;</code>.
+      <code>lg</code> is gone with it: it stood 4px above
+      <code>default</code>, and the one button that wanted a hero height —
+      the landing CTA — says so at its own call site rather than through a
+      step every other screen has to choose from.
+    </p>
+
     <table>
       <tr><th>Verb</th><th>Icon</th><th>Means, everywhere</th></tr>
       <tr><td>Create</td><td><code>Plus</code></td><td>Opens a form for a new record</td></tr>
@@ -257,6 +448,9 @@
       <tr><td>Save</td><td><code>Check</code></td><td>Commits the form it sits in — and nothing else</td></tr>
       <tr><td>Delete</td><td><code>Trash2</code></td><td>Removes the record for good</td></tr>
       <tr><td>Archive</td><td><code>Archive</code></td><td>Hides it, keeping every reference intact</td></tr>
+      <tr><td>Send</td><td><code>Send</code></td><td>Records that it left for the client — the app mails nothing</td></tr>
+      <tr><td>Download</td><td><code>Download</code></td><td>Puts a file on the user's machine</td></tr>
+      <tr><td>Void</td><td><code>Ban</code></td><td>Cancels a record that must stay on the books</td></tr>
       <tr><td>Retry</td><td><code>RotateCw</code></td><td>Runs the failed thing again</td></tr>
       <tr><td>Working</td><td><code>Loader2</code></td><td>Replaces the verb's own icon while a mutation is in flight</td></tr>
     </table>
@@ -275,6 +469,298 @@
       not committing a form, so it takes the money glyph the inbox already
       uses. A creating form's submit is still <code>Check</code>: it commits,
       and <code>Plus</code> is what <em>opened</em> it.
+    </p>
+  </section>
+
+  <!-- ═══════════════ the showcase ═══════════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Drawn, at size</span></div>
+
+    <p>
+      The three tables above, rendered. Each specimen carries the prop that
+      produces it, so picking one is reading rather than guessing.
+    </p>
+
+    <div class="mock">
+      <div class="card btn-scroll">
+        <div class="btn-grid">
+          <span></span>
+          <span class="grid-head">xs</span>
+          <span class="grid-head">sm</span>
+          <span class="grid-head">default</span>
+
+          <span class="rowlab">default</span>
+          <button class="btn default sz-xs">Save</button>
+          <button class="btn default sz-sm">Save</button>
+          <button class="btn default sz-default">Save</button>
+
+          <span class="rowlab">accent</span>
+          <button class="btn accent sz-xs">Save</button>
+          <button class="btn accent sz-sm">Save</button>
+          <button class="btn accent sz-default">Save</button>
+
+          <span class="rowlab">destructive</span>
+          <button class="btn destructive sz-xs">Delete client</button>
+          <button class="btn destructive sz-sm">Delete client</button>
+          <button class="btn destructive sz-default">Delete client</button>
+
+          <span class="rowlab">ghost</span>
+          <button class="btn ghost sz-xs">Cancel</button>
+          <button class="btn ghost sz-sm">Cancel</button>
+          <button class="btn ghost sz-default">Cancel</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="specimens">
+          <div class="spec">
+            <button class="btn default isz-icon" aria-label="Edit">
+              <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
+            </button>
+            <span class="tok">icon</span>
+          </div>
+          <div class="spec">
+            <button class="btn default isz-icon-sm" aria-label="Edit">
+              <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
+            </button>
+            <span class="tok">icon-sm</span>
+          </div>
+          <div class="spec">
+            <button class="btn ghost isz-icon-sm" aria-label="Delete client" style="color:var(--danger)">
+              <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+            </button>
+            <span class="tok">ghost · the destructive first step</span>
+          </div>
+          <div class="spec">
+            <button class="btn default sz-sm focused">Add client</button>
+            <span class="tok">border-focus</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p>
+      The <code>icon-*</code> pair are those same metrics in a square box, so
+      an icon button lines up with the labelled one beside it. A glyph joins a
+      label only for a verb from the table above.
+    </p>
+
+    <div class="mock">
+      <div class="card">
+        <div class="specimens">
+          <div class="spec">
+            <span style="display:flex; gap:6px">
+              <button class="chip on">Open</button>
+              <button class="chip">Paid</button>
+            </span>
+            <span class="tok">FilterTabs · aria-current="page"</span>
+          </div>
+          <div class="spec">
+            <span style="display:flex; gap:8px; align-items:center">
+              <span class="badge draft">Draft</span>
+              <span class="badge sent">Sent</span>
+              <span class="badge paid">Paid</span>
+              <span class="badge void">Void</span>
+            </span>
+            <span class="tok">StatusBadge · the four stored statuses</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="specimens">
+          <div class="spec">
+            <span class="save"><span class="dot"></span></span>
+            <span class="tok">idle · timer-idle</span>
+          </div>
+          <div class="spec">
+            <span class="save pending">
+              <svg viewBox="0 0 16 16" fill="none" stroke-width="2">
+                <circle class="track" cx="8" cy="8" r="6"/>
+                <path class="head" d="M8 2a6 6 0 016 6" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="tok">pending</span>
+          </div>
+          <div class="spec">
+            <span class="save saved">
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M2.5 7.5l3 3 6-6.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="tok">saved · success</span>
+          </div>
+          <div class="spec">
+            <span class="save error">
+              <svg viewBox="0 0 12 12" fill="currentColor" stroke="none">
+                <path d="M6 0a6 6 0 100 12A6 6 0 006 0zm.75 9h-1.5V7.5h1.5V9zm0-2.5h-1.5V3h1.5v3.5z"/>
+              </svg>
+              Not saved
+            </span>
+            <span class="tok">error · danger</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="rule">
+      <li><strong>Idle is a dot, not a check.</strong> A check that is always
+        there says nothing and stops being read; the check appears only after
+        a save the user caused, so it answers "did that land?".</li>
+      <li><strong>Paid takes the success green</strong> — the accent hue a
+        step down, so the outcome reads as the same family as the button that
+        set it without reaching a running timer's weight.</li>
+      <li><strong>Four statuses, not five.</strong> <code>late</code> is
+        derived from a due date rather than stored, so it is a condition the
+        row reports beside the badge.</li>
+    </ul>
+
+    <div class="mock">
+      <div class="card">
+        <div class="specimens tops" style="gap:26px 30px">
+          <div class="spec">
+            <div class="picker" style="width:200px">
+              <button class="trigger">
+                Dark
+                <svg class="chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+            </div>
+            <span class="tok">Select · closed</span>
+          </div>
+          <div class="spec">
+            <div class="picker" style="width:200px">
+              <button class="trigger">
+                Dark
+                <svg class="chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="list">
+                <div class="opt indent on"><span class="name">Dark</span>
+                  <svg class="tick" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                </div>
+                <div class="opt indent"><span class="name">Light</span></div>
+              </div>
+            </div>
+            <span class="tok">Select · open</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="specimens tops" style="gap:26px 30px">
+          <div class="spec">
+            <button class="tag"><span class="sw c6"></span>Ledger rewrite
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <span class="tok">ProjectPicker · trigger="tag"</span>
+          </div>
+          <div class="spec">
+            <button class="tag empty">+ Project
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <span class="tok">tag · unassigned</span>
+          </div>
+          <div class="spec">
+            <div class="picker">
+              <button class="trigger">
+                <span class="sw c6"></span><span class="name">Ledger rewrite</span>
+                <span class="client" style="font-size:13px; color:var(--text-subtle)">Northwind Trading</span>
+                <svg class="chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+            </div>
+            <span class="tok">ProjectPicker · trigger="field"</span>
+          </div>
+          <div class="spec">
+            <div class="picker">
+              <button class="trigger">
+                <span class="sw c6"></span>Ledger rewrite
+                <svg class="chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="list">
+                <div class="opt indent" style="color:var(--text-subtle)">No project</div>
+                <div class="opt on"><span class="sw c6"></span><span class="name">Ledger rewrite</span><span class="client">Northwind Trading</span></div>
+                <div class="opt"><span class="sw c1"></span><span class="name">Brand refresh</span><span class="client">Byrne Studio</span></div>
+                <div class="opt"><span class="sw internal"></span><span class="name">Admin</span></div>
+                <div class="list-rule"></div>
+                <div class="opt action">
+                  <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                  New project
+                </div>
+              </div>
+            </div>
+            <span class="tok">ProjectPicker · open</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="specimens tops" style="gap:26px 30px">
+          <div class="spec">
+            <div class="picker">
+              <button class="trigger placeholder">
+                No client — internal work
+                <svg class="chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+            </div>
+            <span class="tok">ClientPicker · closed, unset</span>
+          </div>
+          <div class="spec">
+            <div class="picker">
+              <button class="trigger">
+                <span class="sw c4"></span>Byrne Studio
+                <svg class="chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="list">
+                <div class="opt indent" style="color:var(--text-subtle)">No client — internal work</div>
+                <div class="opt on"><span class="sw c4"></span><span class="name">Byrne Studio</span></div>
+                <div class="opt"><span class="sw c1"></span><span class="name">Northwind Trading</span></div>
+                <div class="list-rule"></div>
+                <div class="opt action">
+                  <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                  Add a client…
+                </div>
+              </div>
+            </div>
+            <span class="tok">ClientPicker · open</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="rule">
+      <li><strong>A picker row is swatch, name, then the client muted.</strong>
+        The project stays the thing being chosen, and the client answers
+        "whose work?" for two projects that read alike.</li>
+      <li><strong>Internal work gets no client text and no colour of its
+        own.</strong> The absence is the answer — a placeholder there would
+        name something that does not exist.</li>
+      <li><strong><code>Select</code> is for choices that are only
+        words.</strong> A row carrying anything besides its label — a swatch,
+        a second line, a <code>+ Add…</code> item — is a
+        <code>DropdownMenu</code>.</li>
+    </ul>
+
+    <div class="mock">
+      <div class="panels">
+        <div class="panel edge c4">
+          <div class="ptitle type-body">Byrne Studio</div>
+          <div class="pmeta">3 projects · $95/hr</div>
+        </div>
+        <div class="panel edge">
+          <div class="ptitle type-body">No client</div>
+          <div class="pmeta">Internal work</div>
+        </div>
+        <div class="panel">
+          <div class="ptitle type-body">This week</div>
+          <div class="pmeta">18h 40m</div>
+        </div>
+      </div>
+    </div>
+
+    <p>
+      Two panels wearing <code>edge</code> and one without. The middle keeps
+      the rail with no colour in it, so a group stays aligned whether or not
+      each client has one; the third is standalone and has nothing to align
+      with.
     </p>
   </section>
 

@@ -58,10 +58,11 @@
   }
   .prow .amt { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-strong); }
   .prow .none { color: var(--danger); font-family: var(--font-mono); font-size: 13px; }
+  /* Archived is a word, not a badge: an archived project is still a row you
+     can read, and an outline would give it more weight than the live ones. */
   .arch {
     font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .08em;
-    text-transform: uppercase; color: var(--text-subtle);
-    border: 1px solid currentColor; border-radius: 999px; padding: 1px 6px;
+    text-transform: uppercase; color: var(--text-subtle); padding: 0 8px;
   }
 
   /* dialog */

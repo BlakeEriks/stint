@@ -156,8 +156,10 @@ function CallToAction() {
     /* Through `Button`, not hand-rolled accent classes: a fill written out
        here does not follow `buttonVariants` when the variant changes, and
        `text-on-accent` — never white, 1.37:1, CI guards the pairing — comes
-       with it. */
-    <Button asChild variant="accent" size="lg" className="type-nav">
+       with it. The height is this one button's: the hero is the only place
+       that ever wanted 40px, so it is a call-site override rather than a
+       step everyone has to choose from. */
+    <Button asChild variant="accent" className="h-10 px-4 type-nav">
       <a href={SIGN_IN_URL}>
         Start tracking — free
         <ArrowRight aria-hidden className="size-3.5" />

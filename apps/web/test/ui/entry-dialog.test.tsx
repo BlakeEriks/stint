@@ -161,9 +161,14 @@ describe('EntryDialog', () => {
     expect(screen.queryByRole('button', { name: /delete/i })).toBeNull();
     /* The footer button and the dialog's own X both read "Close". The point
        is not how many there are — it is that EVERY remaining action is a
-       dismiss, so there is no way to attempt a write. */
+       dismiss, so there is no way to attempt a write.
+
+       Disabled buttons are not remaining actions, and the project picker's
+       trigger is one: it is a button rather than a `<select>`, and line 158
+       is what proves it cannot be operated. */
     const actions = screen
       .getAllByRole('button')
+      .filter((b) => !(b as HTMLButtonElement).disabled)
       .map((b) => b.textContent?.trim() || 'Close');
     expect(actions.length).toBeGreaterThan(0);
     expect(new Set(actions)).toEqual(new Set(['Close']));
@@ -194,6 +199,24 @@ describe('EntryDialog', () => {
     ).toBeInTheDocument();
   });
 
+  /* Radix mounts no dialog inside another, so the item would set its state
+     and nothing would reach the DOM — a control that looks live and does
+     nothing. Projects are created from the timer bar or `/projects`. */
+  it('offers no New project inside the dialog', async () => {
+    serve();
+    const user = userEvent.setup();
+    open(entry());
+
+    await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
+    await user.click(screen.getByLabelText('Project'));
+
+    // The menu is open and lists the projects, but not the create action.
+    expect(
+      await screen.findByRole('menuitemradio', { name: /Acme Redesign/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /New project/ })).toBeNull();
+  });
+
   /**
    * The wiring, not the list — `task-suggest.test.tsx` owns its behaviour.
    * What matters here is what a chosen row is allowed to write into a form
@@ -209,43 +232,23 @@ describe('EntryDialog', () => {
     const suggestions = () =>
       screen.findByRole('listbox', { name: 'Task name suggestions' });
 
-    /* Typed, not merely clicked: the field opens holding the entry's own
-       name, which filters every other name out of the list. */
-    const chooseFirst = async (user: ReturnType<typeof userEvent.setup>) => {
-      await user.clear(screen.getByLabelText('Task'));
-      await user.type(screen.getByLabelText('Task'), 'Invoice');
-      await user.click(within(await suggestions()).getByRole('option'));
-    };
+    /* An entry that exists is already named, so there is nothing to
+       accelerate and the overlay would drop over the field the moment it
+       takes focus. Asserted as the REQUEST rather than the absent list: the
+       list is also absent when nothing has been typed, so "no listbox" would
+       pass whether or not the machinery was actually suppressed.
 
-    it('fills the task and the empty project from a chosen row', async () => {
-      serve('sent', SUGGESTIONS);
-      const user = userEvent.setup();
+       `timer-bar.test.tsx` owns what a chosen row may write — that is where
+       suggestions live now. */
+    it('asks for no suggestions when editing an entry that exists', async () => {
+      const calls = serve('sent', SUGGESTIONS);
       open(entry({ projectId: null }));
 
       await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
-      await chooseFirst(user);
 
-      expect(screen.getByLabelText('Task')).toHaveValue(
-        'Invoice reconciliation',
+      expect(calls.some((c) => c.path.startsWith('/entries/task-names'))).toBe(
+        false,
       );
-      expect(screen.getByLabelText('Project')).toHaveValue('p1');
-    });
-
-    /* A project already on the entry is what this work is billed to. A row
-       last used under another one must not move it. */
-    it('leaves an already-chosen project alone', async () => {
-      // The row's project is p1; the entry's is p2. They must not converge.
-      serve('sent', SUGGESTIONS);
-      const user = userEvent.setup();
-      open(entry({ projectId: 'p2' }));
-
-      await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
-      await chooseFirst(user);
-
-      expect(screen.getByLabelText('Task')).toHaveValue(
-        'Invoice reconciliation',
-      );
-      expect(screen.getByLabelText('Project')).toHaveValue('p2');
     });
 
     /* Billed to an issued invoice: the field is read-only, so there is
