@@ -69,12 +69,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
               <Dock />
             </div>
-            {/* Full width across the bottom below `xl`, `sticky` to a phone
-              viewport — it sits after the scroller rather than inside it,
-              which is what makes `sticky` pin rather than scroll away. The
-              negative margin lets the fill reach the window's edges there,
-              and `xl` drops it to take the content column's own width. */}
-            <div className="sticky bottom-0 z-20 -mx-3 px-3 sm:static sm:-mx-4 sm:px-4 lg:col-span-full lg:row-start-2 xl:col-span-1 xl:col-start-2 xl:mx-0 xl:px-0">
+            {/* Full width only while the nav is a strip along the top. From
+              `lg` the rail is a left column, and the bar starts beside it
+              rather than running underneath — the rail's footprint is the
+              rail's, and a bar crossing it reads as one band spanning two
+              things that are not related.
+
+              `sticky` to a phone viewport: it sits after the scroller rather
+              than inside it, which is what makes `sticky` pin rather than
+              scroll away, and the negative margin lets the fill reach the
+              window's edges there. */}
+            <div className="sticky bottom-0 z-20 -mx-3 px-3 sm:static sm:-mx-4 sm:px-4 lg:col-start-2 lg:row-start-2 lg:mx-0 lg:px-0 xl:col-start-2">
               <TimerDock />
             </div>
           </div>
