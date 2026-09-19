@@ -28,6 +28,7 @@ const LEVELS = {
 interface Fixture {
   id: string;
   clientId: string | null;
+  projectId: string | null;
   rateOverride: number | null;
   projectRate: number | null;
   clientRate: number | null;
@@ -138,6 +139,7 @@ async function seed(defaultRate: number | null): Promise<void> {
             fixtures.push({
               id,
               clientId,
+              projectId,
               rateOverride,
               projectRate,
               clientRate,
@@ -162,6 +164,7 @@ async function seed(defaultRate: number | null): Promise<void> {
   fixtures.push({
     id: orphan,
     clientId: null,
+    projectId: null,
     rateOverride: null,
     projectRate: null,
     clientRate: null,
@@ -271,6 +274,62 @@ test('unbilled_by_client totals match buildLineItems', async () => {
         sql.get(clientId) ?? 0,
         amount,
         `client ${clientId} at default=${defaultRate}`,
+      );
+    }
+  }
+});
+
+/** What buildLineItems would bill for these entries, per project. */
+function tsByProject(): Map<string | null, number> {
+  const totals = new Map<string | null, number>();
+  const projects = new Set(fixtures.map((f) => f.projectId));
+
+  for (const projectId of projects) {
+    const entries: BillableEntry[] = fixtures
+      .filter((f) => f.projectId === projectId)
+      .map((f) => ({
+        id: f.id,
+        taskName: 'Work',
+        projectId: null,
+        projectName: null,
+        startedAt: FROM,
+        durationSeconds: f.durationSeconds,
+        isBillable: f.isBillable,
+        rateOverride: f.rateOverride,
+        projectRate: f.projectRate,
+        clientRate: f.clientRate,
+        userDefaultRate,
+      }));
+
+    const { lineItems } = buildLineItems(entries, { groupingMode: 'project' });
+    totals.set(
+      projectId,
+      Math.round(lineItems.reduce((sum, li) => sum + li.amount, 0) * 100) / 100,
+    );
+  }
+  return totals;
+}
+
+test('revenue_by_project totals match buildLineItems', async () => {
+  for (const defaultRate of LEVELS.default) {
+    await seed(defaultRate);
+
+    const { rows } = await pool.query(
+      'select project_id, invoiced, unbilled from revenue_by_project($1,$2,$3)',
+      [USER, FROM, TO],
+    );
+    // Nothing here is invoiced, but the split is summed rather than assumed:
+    // the project tier's money is both columns, whichever side it sits on.
+    const sql = new Map(
+      rows.map((r) => [r.project_id, Number(r.invoiced) + Number(r.unbilled)]),
+    );
+    const ts = tsByProject();
+
+    for (const [projectId, amount] of ts) {
+      assert.equal(
+        sql.get(projectId) ?? 0,
+        amount,
+        `project ${projectId} at default=${defaultRate}`,
       );
     }
   }

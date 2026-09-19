@@ -1501,6 +1501,221 @@ test('velocity sees only its own user’s work', async () => {
   assert.deepEqual(res.body.velocity.byClient, []);
 });
 
+// ── by project ─────────────────────────────────────────────────────
+//
+// Velocity's window, ranked by project instead of client. Two things are
+// particular to it: hours count all worked time while money counts billable
+// work alone, and unfiled work is inside the section totals but never a
+// column. These check both, and that the footer still reconciles.
+
+/** An ended entry inside the current month, billable or not. */
+async function projectEntry(opts: {
+  id: string;
+  hours: number;
+  projectId: string | null;
+  billable?: boolean;
+  userId?: string;
+}) {
+  const now = new Date();
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 2, 12, 0, 0),
+  );
+  await pool.query(
+    `insert into time_entries
+       (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+     values ($1,$2,$3,'work',$4,$5,$6)`,
+    [
+      opts.id,
+      opts.userId ?? USER,
+      opts.projectId,
+      start.toISOString(),
+      new Date(start.getTime() + opts.hours * 3_600_000).toISOString(),
+      opts.billable ?? true,
+    ],
+  );
+}
+
+test('by project counts every hour but only billable money', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '55555555-0000-4000-8000-000000000001';
+  const p = '55555555-0000-4000-8000-0000000000a1';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Mixed',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Both')`,
+    [p, USER, c],
+  );
+
+  await projectEntry({ id: S(90), hours: 4, projectId: p });
+  await projectEntry({ id: S(91), hours: 3, projectId: p, billable: false });
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const row = res.body.byProject.byProject[0];
+  assert.equal(row.projectName, 'Both');
+  assert.equal(row.seconds, 7 * 3600, 'unbillable work is still worked time');
+  assert.equal(row.billableSeconds, 4 * 3600);
+  assert.equal(row.amount, 400, 'the three unbillable hours earn nothing');
+  assert.equal(res.body.byProject.seconds, 7 * 3600);
+  assert.equal(res.body.byProject.amount, 400);
+});
+
+test('two projects sharing a name under different clients stay two rows', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c1 = '55555555-0000-4000-8000-000000000002';
+  const c2 = '55555555-0000-4000-8000-000000000003';
+  const p1 = '55555555-0000-4000-8000-0000000000a2';
+  const p2 = '55555555-0000-4000-8000-0000000000a3';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate)
+     values ($1,$2,'Acme',100),($3,$2,'Globex',200)`,
+    [c1, USER, c2],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name)
+     values ($1,$2,$3,'Redesign'),($4,$2,$5,'Redesign')`,
+    [p1, USER, c1, p2, c2],
+  );
+
+  await projectEntry({ id: S(92), hours: 5, projectId: p1 });
+  await projectEntry({ id: S(93), hours: 2, projectId: p2 });
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const rows = res.body.byProject.byProject;
+  assert.equal(rows.length, 2, 'the name is not the grouping key');
+  assert.deepEqual(
+    rows.map((r: { clientName: string }) => r.clientName).sort(),
+    ['Acme', 'Globex'],
+    'the client is what tells them apart',
+  );
+  assert.equal(
+    rows.find((r: { clientName: string }) => r.clientName === 'Acme').amount,
+    500,
+  );
+  assert.equal(
+    rows.find((r: { clientName: string }) => r.clientName === 'Globex').amount,
+    400,
+  );
+});
+
+test('an entirely unbillable project is a row with hours and no money', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '55555555-0000-4000-8000-000000000004';
+  const p = '55555555-0000-4000-8000-0000000000a4';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Admin',150)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Overhead')`,
+    [p, USER, c],
+  );
+  await projectEntry({ id: S(94), hours: 6, projectId: p, billable: false });
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const row = res.body.byProject.byProject.find(
+    (r: { projectName: string }) => r.projectName === 'Overhead',
+  );
+  assert.ok(row, 'work with no money is still work, and still a column');
+  assert.equal(row.seconds, 6 * 3600);
+  assert.equal(row.billableSeconds, 0);
+  assert.equal(row.amount, 0);
+  assert.equal(row.unratedCount, 0, 'unbillable work is not unrated work');
+});
+
+test('by project: a rate of exactly 0 is a rate, and never counted as unrated', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '55555555-0000-4000-8000-000000000005';
+  const p = '55555555-0000-4000-8000-0000000000a5';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Pro Bono',0)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Free')`,
+    [p, USER, c],
+  );
+  await projectEntry({ id: S(95), hours: 5, projectId: p });
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const row = res.body.byProject.byProject.find(
+    (r: { projectName: string }) => r.projectName === 'Free',
+  );
+  assert.ok(row, 'a zero-rate project is still a row, not a dropped one');
+  assert.equal(row.seconds, 5 * 3600);
+  assert.equal(row.amount, 0);
+  assert.equal(row.unratedCount, 0, '0 is a rate; only NULL is unrated');
+});
+
+test('by project sees only its own user’s work', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const theirs = '55555555-0000-4000-8000-000000000006';
+  const pt = '55555555-0000-4000-8000-0000000000a6';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Theirs',900)`,
+    [theirs, OTHER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Secret')`,
+    [pt, OTHER, theirs],
+  );
+  await projectEntry({ id: S(96), hours: 10, projectId: pt, userId: OTHER });
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(res.body.byProject.byProject, []);
+  assert.equal(res.body.byProject.seconds, 0);
+  assert.equal(res.body.byProject.amount, 0);
+});
+
+test('THE DECISION: unfiled work reaches the total but never a column', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '55555555-0000-4000-8000-000000000007';
+  const p = '55555555-0000-4000-8000-0000000000a7';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Filed',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Real')`,
+    [p, USER, c],
+  );
+
+  await projectEntry({ id: S(97), hours: 2, projectId: p });
+  // More hours than any real project, so ordering alone would put it first.
+  await projectEntry({ id: S(98), hours: 40, projectId: null });
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const { byProject: columns, seconds, tailSeconds } = res.body.byProject;
+
+  assert.equal(columns.length, 1, 'only the real project is a column');
+  assert.equal(columns[0].projectName, 'Real');
+  assert.ok(
+    !columns.some((r: { projectId: string | null }) => r.projectId === null),
+    'no bar for work that is not a project, however many hours it carries',
+  );
+
+  assert.equal(tailSeconds, 40 * 3600, 'the unfiled hours land in the tail');
+  assert.equal(res.body.byProject.moreProjects, 1);
+  assert.equal(seconds, 42 * 3600, 'the footer states the window’s real total');
+
+  const columnSeconds = columns.reduce(
+    (a: number, r: { seconds: number }) => a + r.seconds,
+    0,
+  );
+  assert.equal(
+    columnSeconds + tailSeconds,
+    seconds,
+    'columns + tail === total, or the screen disagrees with itself',
+  );
+});
+
 // ── the month's cumulative series ──────────────────────────────────
 
 test('the pace series steps on business days and its ray reaches the target', async () => {

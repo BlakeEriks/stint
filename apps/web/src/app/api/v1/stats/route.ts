@@ -5,6 +5,7 @@ import { parseQuery } from '@/lib/validate';
 import {
   buildAwaitingPayment,
   buildBillableRatio,
+  buildByProject,
   buildMonthTotals,
   buildOverdueInvoices,
   buildPace,
@@ -14,6 +15,7 @@ import {
   buildUnprojected,
   buildVelocity,
   buildHoursByDay,
+  type ByProjectRow,
   clientNamesFrom,
   type DayRow,
   type DurationRow,
@@ -72,6 +74,7 @@ export const GET = handle(async (req: Request) => {
     unbilled,
     monthRevenue,
     velocity,
+    byProject,
     revenueDays,
     settings,
     month,
@@ -89,6 +92,15 @@ export const GET = handle(async (req: Request) => {
     }),
 
     db.rpc('revenue_by_client', {
+      p_user_id: userId,
+      p_from: velocityStart.toISOString(),
+      p_to: monthEnd.toISOString(),
+    }),
+
+    /* The same window as Velocity, from the same two bindings and never a
+       recomputation: the two regions sit on one screen, and a window derived
+       twice is how they come to disagree about the period they both name. */
+    db.rpc('revenue_by_project', {
       p_user_id: userId,
       p_from: velocityStart.toISOString(),
       p_to: monthEnd.toISOString(),
@@ -164,6 +176,7 @@ export const GET = handle(async (req: Request) => {
     unbilled,
     monthRevenue,
     velocity,
+    byProject,
     revenueDays,
     settings,
     month,
@@ -194,6 +207,10 @@ export const GET = handle(async (req: Request) => {
       (velocity.data ?? []) as VelocityRow[],
       currency,
       VELOCITY_MONTHS,
+    ),
+    byProject: buildByProject(
+      (byProject.data ?? []) as ByProjectRow[],
+      currency,
     ),
     awaitingPayment: buildAwaitingPayment(invoiceRows),
     pace: buildPace({
