@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { formatCurrency } from '@stint/core';
 import { CalendarDays, Pencil } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import type { Pace, Stats } from '@/lib/client/api';
 import { Region } from './home-shell';
 
@@ -63,12 +62,9 @@ export function Month({ stats }: { stats: Stats }) {
       icon={CalendarDays}
       labelled
       action={
-        <span className="flex items-center gap-1">
-          <span className="type-meta whitespace-nowrap text-subtle">
-            {fmt(actual)} / {fmt(p.target)}
-          </span>
-          <EditGoal />
-        </span>
+        <EditGoal>
+          {fmt(actual)} / {fmt(p.target)}
+        </EditGoal>
       }
     >
       <div className="flex flex-col gap-2 px-5 pt-1 pb-3">
@@ -227,19 +223,20 @@ function PaceLine({
  * Into the goal field in Settings. A link, not a dialog: Settings owns the
  * field, and a second editor here is a second place to look when the number is
  * wrong.
+ *
+ * The figure is the link once there is one, rather than a pencil beside it: a
+ * control that only edits the number next to it says nothing the number
+ * cannot, and the header is where the region's one quiet control sits.
  */
-function EditGoal() {
+function EditGoal({ children }: { children?: React.ReactNode }) {
   return (
-    <Button
-      asChild
-      variant="ghost"
-      size="icon-sm"
-      className="-my-1 text-subtle hover:text-strong"
+    <Link
+      href="/settings#goal"
+      aria-label="Edit monthly goal"
+      className="-my-1 rounded-sm type-meta whitespace-nowrap text-subtle hover:text-muted hover:underline hover:decoration-edge-subtle hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
     >
-      <Link href="/settings#goal" aria-label="Edit monthly goal">
-        <Pencil aria-hidden strokeWidth={1.75} />
-      </Link>
-    </Button>
+      {children ?? <Pencil aria-hidden strokeWidth={1.75} className="size-4" />}
+    </Link>
   );
 }
 

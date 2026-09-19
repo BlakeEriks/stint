@@ -105,7 +105,6 @@
   .keyline .sw { width: 8px; height: 8px; border-radius: 2px; flex: none; opacity: .62; }
   .region-title { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
   .region-title .ico { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
-  .ico.pencil { margin-left: auto; }
   .region-figure { margin-top: 6px; }
   /* A label header carrying one control on the right. The label and its icon
      keep the weight every other region uses; only the layout changes. */
@@ -287,9 +286,8 @@
               <span class="region-title">
                 <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                 <span class="type-label" style="color:var(--text-subtle)">September</span>
-                <svg class="ico pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
               </span>
-              <div class="region-figure type-figure" style="color:var(--text-strong)">21.4h<span class="type-duration" style="color:var(--text-subtle)"> / 120h</span></div>
+              <span class="type-meta" style="color:var(--text-subtle)">21.4h / 120h</span>
             </div>
             <div class="region-body">
               <svg class="plot" viewBox="0 0 300 64" preserveAspectRatio="none" aria-hidden="true">
@@ -522,7 +520,8 @@
       <li><strong>The icon is neutral unless the region is <em>about</em>
         something being wrong</strong>, and never the accent.</li>
       <li><strong>At most one quiet control</strong>, top-right against the
-        title. The month's pencil is the only one.</li>
+        title: the month's figure and By project's unit switch are the
+        two.</li>
     </ul>
   </section>
 
@@ -580,7 +579,6 @@
                 <span class="region-title">
                   <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                   <span class="type-label" style="color:var(--text-subtle)">September</span>
-                  <svg class="ico pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                 </span>
                 <div class="region-figure type-figure" style="color:var(--text-strong)">$9,240.00<span class="type-duration" style="color:var(--text-subtle)"> / $12,000.00</span></div>
               </div>
@@ -611,7 +609,6 @@
                 <span class="region-title">
                   <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                   <span class="type-label" style="color:var(--text-subtle)">September</span>
-                  <svg class="ico pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                 </span>
               </div>
               <div class="region-body">
@@ -643,9 +640,12 @@
       <li><strong>The scale is the target</strong>, unless the month ran past
         it — a line that leaves the top of the box would misreport a month that
         beat its goal.</li>
-      <li><strong>Settings owns the goal field.</strong> The pencil is a link,
-        never a dialog: a second editor here is a second place to look when the
-        number is wrong.</li>
+      <li><strong>Settings owns the goal field.</strong> A link, never a
+        dialog: a second editor here is a second place to look when the number
+        is wrong.</li>
+      <li><strong>The figure is the link.</strong> An icon that only edits the
+        number beside it says nothing the number cannot, and the header holds
+        one control rather than a control and a caption.</li>
     </ul>
   </section>
 
