@@ -41,7 +41,7 @@ jobs:
       #
       # Keyed on the source it compiles, so an unchanged tree restores exactly
       # and a changed one falls back to the newest prefix match.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: apps/web/.next/cache
           key: next-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/src/**', 'packages/*/src/**') }}
@@ -272,7 +272,7 @@ jobs:
         id: pw
         run: echo "v=$(node -p "require('./apps/web/node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         id: pw-cache
         with:
           path: ~/.cache/ms-playwright
@@ -324,7 +324,7 @@ jobs:
         run: cd apps/web && pnpm test:e2e
 
       # The trace and screenshots are what make a CI-only failure diagnosable.
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
