@@ -312,6 +312,16 @@ later.
       Worth a test that hits a real server with a real token before the Expo
       or macOS app depends on it.
 
+- [ ] **`main` takes a direct push on a public repo.** Nothing is configured
+      — `branches/main/protection` is a 404 — so the CI that runs on every
+      push enforces nothing, and a force-push rewrites the history the
+      released tags point at. Protection is free at this visibility.
+
+      What it turns on: the CI jobs as required checks, and no force-push or
+      deletion. A required review is a separate question on a solo repo,
+      where it means approving your own pull requests or holding an
+      admin bypass that makes the rule advisory.
+
 ## Deferred
 
 Two kinds of thing sit here. Some wait on something outside the code — an
@@ -322,10 +332,6 @@ is already done.
 
 ### Waiting on something outside the code
 
-- **Branch protection** — needs GitHub Pro on a private repo. CI runs without
-  enforcement by choice.
-- **CodeQL** — dormant until the repo is public; Advanced Security is not
-  available on private repos.
 - **Toggl import** — waiting on Stint having been used for real billing for a
   few weeks. Importing two years of history into a tracker whose rough edges
   are undiscovered means finding them with real data inside.
@@ -455,9 +461,11 @@ is already done.
   can be done from the keyboard at all, then whether anything on screen
   ever says so.
 
-  **The second half is the one that is missing entirely.** There is no
-  shortcut anywhere in the web app — `onKeyDown` appears twice, both
-  Enter-in-a-field — and nothing renders a keystroke. A shortcut nobody
+  **The second half is the one that is missing entirely.** Nothing in the
+  web app renders a keystroke. What keys exist are local to the control
+  that owns them — the task-suggest combobox takes arrows, Enter and
+  Escape, and two fields commit on Enter — so every one of them is found by
+  guessing. A shortcut nobody
   can discover is a shortcut nobody uses, so the review is worthless
   unless what follows it puts the keys on screen: in menu rows beside the
   item they trigger, in tooltips, next to the primary action in a dialog.
