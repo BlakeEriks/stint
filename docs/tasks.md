@@ -38,7 +38,7 @@ later.
       same paper, and the one thing allowed to shout stops shouting.
 
       **The ladder already has a rung for this.** `accent-subtle` sits at
-      L 0.545, a step up, and clears 4.70 on the card — enough for the timer
+      L 0.525, a step up, and clears 4.83 on the card — enough for the timer
       to sit brighter than the thing you click without a new value. Whether
       the timer takes it, or the button drops to `accent-hover` instead and
       leaves `default` to the timer, is the decision: both widen the gap, and
