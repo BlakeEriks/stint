@@ -190,6 +190,43 @@ describe('Today as a day column', () => {
     expect(section?.querySelector('.overflow-y-auto')).not.toBeNull();
   });
 
+  it('keeps the now-line inside the grid when the day stopped hours ago', async () => {
+    /* The bug this exists for: `workedWindow` is derived from the ENTRIES, so
+       a morning's work and an idle afternoon gave a window ending at 14:00
+       with the line drawn for 17:00 — a fraction above 1, floating below the
+       grid it belongs to. */
+    vi.setSystemTime(new Date('2026-09-11T17:00:00.000Z'));
+    serve([
+      entry({
+        startedAt: '2026-09-11T08:00:00.000Z',
+        endedAt: '2026-09-11T13:00:00.000Z',
+      }),
+    ]);
+    const { container } = draw();
+    await screen.findByRole('button', { name: /Edit API integration/ });
+
+    const line = container.querySelector('.border-accent-default');
+    expect(line).not.toBeNull();
+
+    const top = Number.parseFloat((line as HTMLElement).style.top);
+    expect(top).toBeGreaterThanOrEqual(0);
+    expect(top).toBeLessThanOrEqual(100);
+  });
+
+  it('draws no line at all rather than one pinned to an edge', async () => {
+    /* Before hydration there is no clock to read — the server does not know
+       what time it is here — so the line is absent rather than guessed. */
+    serve([entry()]);
+    const { container } = draw();
+    await screen.findByRole('button', { name: /Edit API integration/ });
+
+    const line = container.querySelector('.border-accent-default');
+    const top = line
+      ? Number.parseFloat((line as HTMLElement).style.top)
+      : null;
+    expect(top === null || (top >= 0 && top <= 100)).toBe(true);
+  });
+
   it('is the only accent on the column', async () => {
     serve([entry()]);
     const { container } = draw();

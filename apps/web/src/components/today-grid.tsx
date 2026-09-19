@@ -47,18 +47,33 @@ export function TodayGrid({
   /* A running block grows and the now-line moves, so both need a clock. A
      minute is the resolution the line is read at — a second's tick would
      re-render the column 60 times for a line that moves 0.7px. */
-  const minute = useMinute(entries.some((e) => e.endedAt === null));
+  const minute = useMinute();
 
-  const [from, to] = workedWindow(entries, dayStart, dayEnd);
+  /* The window the entries want, then widened to reach NOW.
+     `workedWindow` is derived from the entries alone, which is right for
+     `/calendar` — it draws any day, and most days are not today. This column
+     is always today, and a day whose grid stops before the current hour is a
+     day you cannot see the rest of: stop at 13:00 having worked the morning
+     and the now-line is drawn below the grid at 17:00, floating under it.
+
+     Rounded out to the hour, like the rest of the window, so the gridlines
+     and their labels stay on the hour. */
+  const [worked, workedTo] = workedWindow(entries, dayStart, dayEnd);
+  const [from, to] = minute
+    ? withNow(worked, workedTo, new Date(), dayStart, dayEnd)
+    : [worked, workedTo];
+
   const placed = position(entries, from, to);
 
   const hours = (to.getTime() - from.getTime()) / 3_600_000;
   const height = hours * PX_PER_HOUR;
 
-  /* Where now falls in the drawn window, as a fraction. Outside it before the
-     first entry of the day or after the window's end, in which case there is
-     no line to draw rather than one pinned to an edge pretending to be now. */
-  const nowAt = minute ? fractionOf(new Date(), from, to) : null;
+  /* Where now falls in the drawn window. The window covers it by
+     construction, but the guard stays: it is the one value read off a clock
+     rather than the data, so a zero-length window or a stale render must not
+     put a line outside the grid it belongs to. */
+  const at = minute ? fractionOf(new Date(), from, to) : null;
+  const nowAt = at !== null && at >= 0 && at <= 1 ? at : null;
 
   /* No label of its own: the section around it is already "Today's entries",
      and a second one on the column reads as a nested region with the same
@@ -197,22 +212,61 @@ function Block({
  * React reports as a hydration mismatch. Until then there is no now-line,
  * which is correct — the server does not know what time it is here.
  */
-function useMinute(running: boolean): boolean {
+function useMinute(): boolean {
   const [, force] = useState(0);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => setHydrated(true), []);
 
+  /* Unconditional: the line moves whether or not a timer is running, and the
+     window follows it. A tick gated on a running timer would freeze the line
+     on an idle afternoon, which is the afternoon you most want it. */
   useEffect(() => {
-    /* The line moves whether or not a timer runs, so this ticks either way.
-       `running` only sets the rate: a growing block is redrawn on the minute
-       too, and its own duration text comes from the server. */
-    void running;
     const id = setInterval(() => force((n) => n + 1), 60_000);
     return () => clearInterval(id);
-  }, [running]);
+  }, []);
 
   return hydrated;
+}
+
+/**
+ * Widen a window so it contains `now`, rounded out to the hour.
+ *
+ * Only this column needs it. `/calendar` draws any day and takes its window
+ * from the entries, which is correct there — the current time means nothing
+ * on a day in the past. Here the column IS today, and the now-line is the
+ * thing it exists to show.
+ *
+ * Clamped to the day, so a window can still never cross midnight and
+ * `position()`'s fractions stay inside the column.
+ */
+function withNow(
+  from: Date,
+  to: Date,
+  now: Date,
+  dayStart: Date,
+  dayEnd: Date,
+): [Date, Date] {
+  const hourMs = 3_600_000;
+  /* Elapsed hours from the column's own start, not a wall clock: a DST day is
+     23 or 25 hours long and the column is measured in elapsed time. */
+  const hoursFrom = (at: Date) => (at.getTime() - dayStart.getTime()) / hourMs;
+  const at = (hours: number) =>
+    new Date(
+      Math.min(
+        Math.max(dayStart.getTime() + hours * hourMs, dayStart.getTime()),
+        dayEnd.getTime(),
+      ),
+    );
+
+  const nowH = hoursFrom(now);
+  if (nowH >= hoursFrom(from) && nowH <= hoursFrom(to)) return [from, to];
+
+  /* An hour of air on the side it grew, so the line is never flush against
+     an edge with no room to read it. */
+  return nowH < hoursFrom(from)
+    ? [at(Math.floor(nowH) - 1), to]
+    : [from, at(Math.ceil(nowH) + 1)];
 }
 
 const fractionOf = (at: Date, from: Date, to: Date) =>
