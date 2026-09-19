@@ -388,6 +388,18 @@ later.
       Worth a test that hits a real server with a real token before the Expo
       or macOS app depends on it.
 
+- [ ] **Clearing the last inbox row collapses the section, then bounces it
+      back open.** `exit-collapse` runs the row's track to `0fr`, `useExit`
+      waits on it, and the refetch that follows swaps the `<ul>` for
+      "Nothing needs you." — a `px-1 py-3` paragraph. The section lands at
+      zero and immediately jumps back to the paragraph's height, so the last
+      row reads as bouncing rather than leaving.
+
+      Both heights are correct; the transition between them is the gap. The
+      empty state is a different element from the list, so nothing
+      interpolates one into the other. Wanted: the paragraph occupying the
+      space the row vacates, so the section settles once.
+
 ## Deferred
 
 Two kinds of thing sit here. Some wait on something outside the code — an
