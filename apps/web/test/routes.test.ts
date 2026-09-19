@@ -1355,15 +1355,20 @@ test('collected sums payments by when they were paid', async () => {
      `issue_date` is held constant, so a bucket following it rather than the
      payment would put all three in one month.
 
-     Months back from NOW rather than from a pinned day, so the assertions
-     below hold whatever date the suite runs on. Each step lands mid-month —
-     the 1st minus a timezone offset is the previous month. */
+     Months back from the CURRENT UTC month, every step pinned to noon on the
+     1st — including this one, which used to be the live instant and so could
+     land within minutes of a month boundary, leaving the run's own clock to
+     decide the bucket. Noon on the 1st is a day every month has and one the
+     run can never be earlier than, so the newest payment is in this month and
+     in the past whatever day the suite runs on. The request asks for UTC, so
+     the fixture is built in UTC and the two agree where a month begins. */
+  const anchor = new Date();
+  anchor.setUTCDate(1);
+  anchor.setUTCHours(12, 0, 0, 0);
+
   const paidAt = (monthsBack: number) => {
-    const d = new Date();
-    if (monthsBack > 0) {
-      d.setUTCDate(15);
-      d.setUTCMonth(d.getUTCMonth() - monthsBack);
-    }
+    const d = new Date(anchor);
+    d.setUTCMonth(d.getUTCMonth() - monthsBack);
     return d.toISOString();
   };
   const mk = (id: string, num: string, total: number, monthsBack: number) =>
@@ -1385,8 +1390,14 @@ test('collected sums payments by when they were paid', async () => {
 
   assert.equal(collected.trailing12, 800, 'the window excludes the old one');
   assert.equal(collected.thisMonth, 500, 'and the month is its own figure');
-  // Measured from the NEWEST payment, which this fixture makes `now`.
-  assert.equal(collected.daysSincePaid, 0);
+  /* Whole CALENDAR days from the newest payment, which the fixture pins to
+     the 1st — so the figure is today's date minus one, in the zone asked for,
+     and never the elapsed-hours floor that reads last night as today. */
+  assert.equal(
+    collected.daysSincePaid,
+    new Date().getUTCDate() - 1,
+    'calendar days back to the newest payment',
+  );
 
   /* Six buckets, oldest first, every month present. A month nobody paid in is
      a real zero rather than a missing point, or the plot draws a hole. */

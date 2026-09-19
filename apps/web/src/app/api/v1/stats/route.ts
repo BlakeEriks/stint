@@ -22,7 +22,7 @@ import {
   COLLECTED_MONTHS,
   type CollectedRow,
   type DayRow,
-  daysSince,
+  daysSincePaid,
   type DurationRow,
   type InvoiceRow,
   type MonthRow,
@@ -260,7 +260,9 @@ export const GET = handle(async (req: Request) => {
     collected: buildCollected(
       (collectedRows.data ?? []) as CollectedRow[],
       collectedMonths,
-      lastPaid.data?.paid_at ? daysSince(lastPaid.data.paid_at, now) : null,
+      lastPaid.data?.paid_at
+        ? daysSincePaid(lastPaid.data.paid_at, now, tz)
+        : null,
       currency,
     ),
     pace: buildPace({

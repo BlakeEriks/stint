@@ -179,6 +179,31 @@ export function daysSince(iso: string, now: Date): number {
 }
 
 /**
+ * Whole CALENDAR days since a payment, in the user's zone.
+ *
+ * Not elapsed 24-hour spans, which is what `daysSince` measures: a payment
+ * that cleared at 23:00 last night is ten hours old at 09:00, so it floors to
+ * 0 and the screen says "paid today" about yesterday's money. The screen's
+ * word is a calendar word, so the arithmetic has to be one too — the same
+ * local-date keys the rest of the stats route buckets on.
+ *
+ * Null when `paid_at` is in the future, on the same footing as never having
+ * been paid: the line is omitted rather than made to read "paid today" about
+ * a payment that has not happened. Clamping is what would invent that claim.
+ */
+export function daysSincePaid(
+  iso: string,
+  now: Date,
+  tz: string,
+): number | null {
+  const days = daysBetweenKeys(
+    localDateKey(new Date(iso), tz),
+    localDateKey(now, tz),
+  );
+  return days < 0 ? null : days;
+}
+
+/**
  * Unbilled work, per client and in total.
  *
  * The rollup groups by (client, rate) — one client can have work at several
