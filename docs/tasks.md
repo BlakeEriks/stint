@@ -1,8 +1,9 @@
 # Tasks
 
-Everything wanted and not yet built, in one file. The only file — there is no
-separate roadmap, because two lists means one of them is stale and you cannot
-tell which.
+Everything wanted and not yet built, in one file. The only file — two lists
+means one of them is stale and you cannot tell which. The shape is a cut: the
+sections above **Deferred** are the alpha critical path, and **Deferred** is
+everything else that is still wanted.
 
 **A finished task is DELETED, not ticked.** A file of completed work stops
 being a to-do list and becomes a changelog that nobody updates; git already
@@ -11,9 +12,9 @@ describes something we intend to do, delete it — including because we decided
 against it, in which case the refusal belongs in `docs/design/principles.md`
 where it will be read before being re-proposed.
 
-Sections are about readiness, not priority: **Ready** needs no decisions,
-**Needs a decision first** names the question blocking it, **Deferred** says
-what it is waiting on.
+Within the critical path, sections are about readiness rather than priority:
+**Ready** needs no decisions and **Rough edges** are the known faults. A line
+moves out of **Deferred** when the alpha is out or its gate lifts.
 
 Everything here has been measured against the thesis in
 `docs/design/principles.md`: *does this help a solo contractor track time and
@@ -23,43 +24,6 @@ thought about the hard part, so the decision is not re-litigated from scratch
 later.
 
 ## Ready
-
-- [ ] **Standardise how a clickable thing looks.** `components.html` names
-      the primitives but says nothing about what a hover, a press or a
-      selected row looks like, so each was decided where it was written and
-      they have drifted. The Today rows are where it shows worst: the
-      highlight is a full-bleed band with **sharp corners and no horizontal
-      padding**, so the surface runs edge to edge inside a card that is
-      rounded and inset everywhere else.
-
-      What is there now, for the same gesture — click a row, open the thing:
-
-      | Where | Shape |
-      | --- | --- |
-      | `entry-list.tsx:167,185` | no rounding, `px-1` — the full-bleed band |
-      | `inbox.tsx:480` | `rounded-r-md`, no left rounding (a colour rail) |
-      | `app-header.tsx:23` | `rounded-md px-2 py-1` |
-      | `nav.tsx:87` | its own rounding and padding |
-      | `client-list.tsx:94` | neither |
-
-      Decide the shape once, write it into `components.html` as a convention,
-      then apply it. The likely answer is an inset radius with real horizontal
-      padding, so a highlight reads as a row lifting off the card rather than
-      a stripe painted across it — but the point is that it is decided once
-      and recorded, not that it is that particular value.
-
-      Cover the states together, since a row that only hovers is half a
-      control: hover, active/pressed, keyboard focus (**neutral ring, never
-      the accent**), selected where it applies, and disabled. Focus is the one
-      already constrained and the one already broken —
-      `focus-visible:ring-edge-focus` is on some of these and not others,
-      which is a bug rather than a style drift.
-
-      **This list is not finished.** Add rows as they turn up; the above is
-      what a sweep of `hover:bg-surface-*` found, so it misses anything
-      hovering by colour alone, anything using `group-hover`, and every
-      clickable element in the macOS panel — which has its own `Hovering`
-      wrapper and the same question to answer.
 
 - [ ] **The menu bar panel keeps its focus between openings.** Open the panel,
       click into the task field, close it, reopen: the field is still focused,
@@ -82,64 +46,6 @@ later.
       responder before dismissal, or a `MenuBarExtraAccess`-style lookup of
       `NSApp.windows` for `MenuBarExtraWindow`. Three attempts have gone into
       this; it wants fresh eyes rather than a fourth variation.
-
-- [ ] **Record a reminder on a sent invoice.** `last_reminded_at`, so an
-      overdue row can read "12 days late · chased 3d ago" rather than either
-      nagging unchanged or disappearing. This is the honest alternative to a
-      snooze: it records what you did instead of hiding what is true, and
-      over time shows which clients need chasing twice. Needs a column, a
-      PATCH field, and a third inline action on the overdue row.
-- [ ] **Quiet clients in the inbox.** An active client with no entries in 30
-      days. It needs a per-client last-entry query, because the rollup only
-      returns clients with unbilled work — a quiet one is absent from it by
-      definition. Phrase it as an observation, not an alarm: a finished
-      engagement is the common cause and archiving is the useful action, so
-      the row links to the client.
-
-      It was in `screens/home.html`'s row table for a long time without being built,
-      which made the spec claim a row the app did not have. The design lives
-      here now and moves into that table when it ships.
-- [ ] **Hours invested per project — blocked on `/reports` existing.** The app
-      can report hours per client (the unbilled rollup) and per day (the
-      calendar) but not per project, which is the number behind the questions
-      that actually get asked: is this fixed-price job underwater, how long did
-      the last rebuild take, has the retainer been burned. The first is the
-      most expensive thing to learn late.
-
-      Two rules carry over from the home cards: it needs a **billed/unbilled
-      split**, since one total hides whether any of it has been paid for — the
-      rollup already groups by (client, rate) for that reason — and it is
-      **never called "earned"**, because hours logged is work done, not money
-      received.
-
-      **Deliberately held** until the drill-through exists: a row reading
-      "120h" invites "which 120 hours?", and shipping the number with no
-      answer makes it a dead end. Not a burn-down — that needs a budget field
-      which does not exist, and is its own line rather than folded into this.
-
-- [ ] **`/reports` — the destination those numbers point at.** Not a filter on
-      the calendar, which was the earlier framing: "which 120 hours?" is a
-      missing *destination*, and one view answers it at project, client and
-      date-range level from several entry points. Filters live in query params
-      so a link is shareable and Back works. Hours per project is its first
-      content, and the project row links to it.
-
-      **"Reports" is a word that attracts scope** — Toggl's reports tab is
-      most of what made it feel bloated. The guard is the existing bar on
-      content, not on the nav entry: a view ships only if it carries a number
-      the user cannot compute in their head, or rows they can act on. Hours
-      per project passes. "Time by day of week" does not.
-
-      **It is also where the two held-back cards belong.** Week-over-week
-      deltas and the time-of-day heatmap are in "Needs a decision first"
-      partly because they would clutter home; an analytical view is their
-      honest home, so it should absorb that class of question rather than let
-      the home screen grow a fourth card. That is an argument for building it.
-
-      *Open question, to answer once there is real data:* does `/reports`
-      **supersede** those two cards or merely host them? Leaning supersede — a
-      week-over-week delta is something you go and look at deliberately, not
-      something that should interrupt the screen opened fifty times a day.
 
 - [ ] **Onboarding: teach the shape, never fabricate a record.** A new
       account's timer screen has nothing on it, and the least discoverable
@@ -170,61 +76,6 @@ later.
         says "Add one to set a rate and bill against it" — that is the
         pattern. A multi-step walkthrough is a surface that needs maintaining
         and breaks whenever the UI moves.
-- [ ] **Extend the end-to-end suite.** Sign-in, sign-out and the invoice
-      lifecycle are covered (`pnpm test:e2e`). The flows still verified only
-      by hand: the runaway-timer choice end to end, entry editing
-      round-tripping local wall-clock through UTC and the overnight case,
-      responsive layout at 375px and 1280px, and the accent rule in rendered
-      pixels rather than class strings.
-
-      Add them one at a time and only where breakage would be silent —
-      a suite that fails randomly gets ignored, which is worse than not
-      having one.
-
-- [ ] **Review the app for keyboard operation, then make it teach itself.**
-      The audience is other contractors who write software, and for them a
-      tracker that needs the mouse is a tracker they resent — the whole point
-      is that logging time should cost nothing. Two halves, in order: what
-      can be done from the keyboard at all, then whether anything on screen
-      ever says so.
-
-      **The second half is the one that is missing entirely.** There is no
-      shortcut anywhere in the web app — `onKeyDown` appears twice, both
-      Enter-in-a-field — and nothing renders a keystroke. A shortcut nobody
-      can discover is a shortcut nobody uses, so the review is worthless
-      unless what follows it puts the keys on screen: in menu rows beside the
-      item they trigger, in tooltips, next to the primary action in a dialog.
-      `DropdownMenuShortcut` is already vendored in `dropdown-menu.tsx` and
-      used nowhere, which is the slot for the menu half.
-
-      Review first, and write down what is found — the actions worth a
-      binding, what is already reachable by Tab, and what is silently not.
-      Radix gives arrow keys, typeahead, Escape and focus return inside menus
-      and dialogs for free, so the gaps will be in our own code: the timer
-      toggle, the inbox rows, the entry list, the filter pills, anything
-      built as a `div` with a click handler.
-
-      Three things to decide during the review rather than after:
-
-      - **What earns a binding.** Start/stop is obvious. Beyond that the bar
-        is the same one the nav has — a shortcut that exists because it could
-        is a key the user must now avoid pressing by accident.
-      - **Whether a shortcut overlay belongs here** (`?` listing everything),
-        which is the discoverable answer for the bindings that have no
-        natural home on screen. It is also a surface that goes stale
-        silently, so it only works if it reads from wherever the bindings are
-        defined rather than being a hand-kept list.
-      - **What a binding must not break.** Nothing may fire while a text
-        field has focus — the task name field is where the user spends their
-        typing — and none of it may collide with the browser's own keys.
-
-      **Focus rings stay neutral, never the accent** (`brand.html`), which
-      constrains how this is shown before it is designed.
-
-      This is the web app. The menu bar app's own global hotkey is in
-      Deferred, and judging Tab reachability there needs macOS keyboard
-      navigation turned on first.
-
 - [ ] **Adjusting a runaway focuses the task name, not the end time.** The
       `EntryDialog` at `timer-bar.tsx:171` passes no `focus`, so it falls to
       the default `'task'` — which is right when the dialog is opened to edit
@@ -247,35 +98,6 @@ later.
       not merely focused. The field exists to be replaced rather than edited,
       and a `type="time"` input focuses its first segment — which is the hour,
       the segment most likely to be the one that needs changing.
-
-- [ ] **The menu bar app's two dropdowns are system-drawn.** The project
-      picker and the account gear are SwiftUI `Menu`s, so their labels carry
-      our tokens and type while the list that pops open is AppKit's — system
-      font, system colours, system metrics, beside a panel that is ours to
-      the pixel. The web's equivalents (`project-picker.tsx`,
-      `account-menu.tsx`) are the same two controls built on Radix and themed,
-      which is what makes the gap visible.
-
-      **The `.transient` argument that used to sit here was wrong and has
-      been removed from `menubar.html`.** It described an `NSPopover`; the app
-      is a `MenuBarExtra` in `.menuBarExtraStyle(.window)` and always has
-      been, and the two system `Menu`s open today without dismissing the
-      panel. So there is no known failure mode to inherit — but a hand-built
-      popup still has to earn what AppKit gives free, and a picker that
-      dismisses the panel when opened is worse than one with the wrong font.
-      Verify against the real configuration before building either way.
-
-      **Radix is not available here** — it is a web library, and `apps/macos`
-      takes no dependencies beyond the standard library on purpose. So this
-      is "matches our theme", built in SwiftUI against `Tokens.swift`: an
-      overlay inside the panel's own window, which is also what keeps focus
-      where it is. Reach for the tokens the spec's table already assigns
-      (`bgBase` for the popover ground, `bgPrimary` for the picker fill).
-
-      What must survive: keyboard selection, typeahead, Escape to close and
-      focus returning to the label — everything the system menu gives free and
-      a hand-rolled list silently drops. If it cannot keep those, the system
-      menu is the better control and this stays as it is.
 
 - [ ] **The menu bar pip shifts with the width of the clock.** It should sit
       still: it is the one thing in the bar that is always in the same place,
@@ -342,21 +164,6 @@ later.
       A delay long enough to see is also what makes the states *testable* —
       several of them have probably never rendered on this machine at all.
 
-- [ ] **Effective hourly rate — not on Home, and not in the first cut.**
-      Money divided by *all* hours including unbillable. Bill $150, absorb 20%
-      admin, and the real rate is $120: uncomputable in the head, and the
-      number that makes unbillable time visibly expensive.
-
-      **It needs a denominator that grows, and most users will not give it
-      one.** Unbillable work against a client is the only thing that moves it,
-      and someone who does not log admin at all sees their headline rate
-      forever — a figure that fails the change test on every check, for the
-      accounts most likely to see it.
-
-      It belongs in `/reports`, where a figure is looked up deliberately rather
-      than glanced at fifty times a day, and where a flat number is a finding
-      rather than dead space.
-
 - [ ] **`paid_at` records when the user clicked, not when the money arrived.**
       Nothing asks, so the timestamp is whenever they next visited
       `/invoices`. Any average built on it measures the user's habits.
@@ -374,17 +181,6 @@ later.
       must not do is sit there permanently true with no way to say *not yet*.
       This is the one row that snoozes — `principles.md` carries the
       distinction and the reason.
-
-- [ ] **Days-to-payment, once there is history.** `sent_at` to `paid_at`,
-      trailing, per client. "Northwind pays in 12 days" is unknowable from
-      memory and turns the awaiting-payment line from a fact into a forecast —
-      *$1,905 out, typically back by the 28th* — which is cash-flow
-      information rather than decoration.
-
-      **Blocked on the task above**, and on real paid invoices existing:
-      `seed.sql` has none, so this cannot be rendered against seeded data.
-      Needs a stated minimum sample before it speaks — one invoice is not an
-      average — and it says nothing rather than guessing below it.
 
 - [ ] **Home: hours or revenue by PROJECT, beside the heatmap.** The panel is
       entirely client-shaped — Velocity splits by client, By-client ranks
@@ -460,146 +256,6 @@ later.
 
       `docs/api.md:25` is the contract that moves.
 
-## Needs a decision first
-
-Each of these names the question blocking it. Answer the question, then it
-moves up — do not start one by guessing the answer.
-
-
-- [ ] **Import selected calendar events as time entries.** *Question: is this
-      worth a stored OAuth credential and a third-party dependency — and if
-      not, is there a shape that avoids both?* A contractor's meetings are
-      billable work that never gets tracked, because starting a timer for a
-      30-minute call is the thing nobody remembers to do. The calendar already
-      knows it happened.
-
-      It passes the thesis on its face: a meeting you attended and did not
-      bill is money lost, so this helps a solo contractor get paid. What it
-      costs is the open question.
-
-      **Selected, never automatic — that is the whole design.** A calendar
-      holds dentist appointments, holidays and meetings that were cancelled
-      and not deleted. Anything that imports on a schedule writes billable
-      records the user did not approve, which is the same rule that stops
-      runaway timers being auto-trimmed. The user picks events and they become
-      entries; nothing lands unreviewed. That also means the imported entry is
-      an ordinary `time_entries` row, editable and deletable like any other —
-      no link back to the source event, no re-sync, no reconciliation.
-
-      **The cost is what the Toggl import deliberately dodged.** That one is a
-      file upload precisely to avoid an OAuth app and a stored third-party
-      credential, and calendars are worse: the token is long-lived, it reads
-      the user's entire schedule, and it is the first thing in this app that
-      would need protecting beyond RLS. So decide the shape before the
-      feature:
-
-      - **An `.ics` file or URL.** Every calendar exports one and most publish
-        a secret subscription URL. No OAuth app, no token, no provider SDK —
-        the same argument that made the Toggl import a file. Weakest on
-        convenience, strongest on everything else, and it works for Google,
-        Apple and Outlook at once rather than one at a time.
-      - **Read-only OAuth against one provider.** Better to use, and the thing
-        being decided.
-
-      Whichever wins, the mapping is small: event title → `task_name`, start
-      and end → the entry's times parsed to an absolute instant (never
-      fixed-millisecond arithmetic — an all-day or DST-spanning event is the
-      trap), project and billability chosen at import, defaulting to
-      unassigned rather than guessed. An all-day event has no duration worth
-      billing and should be excluded rather than imported as 24 hours.
-
-      **The timer invariant applies.** An imported event overlapping a real
-      tracked entry is the common case — you tracked the call AND the calendar
-      has it. Surface the overlap and let the user choose, exactly as the
-      Toggl import does; never silently adjust either side.
-
-      And it must not turn the calendar screen into a scheduler. That screen
-      *visualises what was tracked and does not schedule* — showing unimported
-      events on it would make it a planner, so the import is a deliberate
-      action somewhere else, not a second layer on the week.
-- [ ] **The quarter as a first-class period.** *Question: does the app report
-      cash received, when every number in it today reports work done?* A US
-      contractor pays estimated tax four times a year on **money actually
-      collected in that quarter**, and that is the one figure the app cannot
-      currently produce. Answer this before building anything below it.
-
-      It is a real hole in "track time and get paid": paying the tax is part
-      of getting paid, four deadlines a year, and the number is sitting in
-      this database already. Toggl is no argument against it either — this is
-      not project management, it is the contractor's own year.
-
-      **The conflict is a principle, not a schema gap.** `principles.md`:
-      *revenue is work done, not money collected, and it is bucketed by the
-      entry's date rather than the invoice's* — written so a bar does not
-      drop when a client pays late. Tax is the exact inverse: the IRS wants
-      the date the money arrived, so a quarterly figure must bucket by
-      `paidAt`, which no view does. Both are correct for their own question,
-      which is why this needs deciding rather than assuming — and if it ships,
-      the two numbers must be labelled so precisely that nobody reads one as
-      the other. That framing is also the guard against scope: this reports
-      what happened, it does not compute what is owed.
-
-      **Not tax advice, and not a tax product.** No rates, no estimates, no
-      safe-harbour maths, no filing. The app puts the contractor's own numbers
-      in the shape their accountant or their 1040-ES asks for, and stops. That
-      line is what keeps this from becoming the thing the thesis refuses.
-
-      Candidates, if the answer is yes:
-
-      - **A date filter on `/invoices`.** The list filters by status alone
-        today, so "what did I invoice last quarter" is unanswerable without
-        scrolling. Quarter presets plus a range, in query params so the link
-        is shareable. Cheapest, useful even if nothing else here ships.
-      - **Collected-per-quarter**, summing `total` over invoices with `paidAt`
-        in the quarter. The estimated-tax number, and the one that needs the
-        naming care above.
-      - **Quarter over quarter**, once four quarters exist. The comparison a
-        contractor actually makes, and one a month cannot show.
-      - **An export for the accountant** — invoices with issue date, paid
-        date, client and total, as CSV. Probably the highest value per line of
-        code here, since it ends with someone else doing the work.
-
-      Note the refusal that stands regardless: **no quarter *targets*** — a
-      contractor thinks in months because invoicing is monthly. Reporting a
-      quarter and setting a goal against one are different things, and only
-      the first is in question.
-
-      Where it lives is `/reports`, which does not exist yet. That is the
-      other reason this is a decision and not a Ready task.
-
-- [ ] **Week-over-week deltas.** *Question: what threshold makes it fire
-      rarely enough to be worth reading?* On lumpy contract work a 40% drop
-      usually means a client's sprint ended, and a delta that is noise most
-      weeks trains you to ignore the one week it is real. Compared against a
-      **4-week median** and suppressed below a threshold it could mean
-      something — but the threshold is empirical and needs real data. If it
-      ships it is a line inside Velocity, not a card — that is where a
-      month-over-month reading now lives.
-
-- [ ] **Time-of-day heatmap.** *Question: does the billable/unbillable split
-      actually vary by hour enough to see, on a real dataset?* Plain volume by
-      hour is interesting and changes nothing — the calendar week already
-      shows that shape. Crossed with billability it might yield "your
-      unbillable time clusters between 9 and 11am", which is actionable. If
-      admin turns out to be scattered evenly through the day, the card has
-      nothing to say and should not ship. Check before building.
-
-- [ ] **Task name suggestions in the menu bar panel.** *Question: does a
-      second way to reuse a name earn its height beside the restart list?*
-      The web half ships — `GET /entries/task-names` is live and every client
-      inherits it. But `EntryRow` already restarts a prior entry in one click,
-      keyboard-free, which is the panel's whole premise, and a 320pt panel
-      has no room for two mechanisms doing one job. The panel is drawn and
-      badged **Not built** in `docs/design/screens/task-suggest.html`, which
-      is what the work would start from. `menubar.html:791-803` needs an
-      endpoint row before it lands.
-
-- [ ] **Realtime cross-device updates.** *Question: is the 60s reconcile
-      actually annoying in practice?* `architecture.md` notes Supabase
-      Realtime can drop in later with no API change. Local tick plus
-      reconcile-on-focus may well be enough; adding a persistent subscription
-      to find out costs the cheap hosting posture.
-
 ## Rough edges
 
 - [ ] **The local database drifts behind the migrations.** `pnpm migrate`
@@ -650,8 +306,6 @@ moves up — do not start one by guessing the answer.
       declares plain `Invoice`. Internal entry ids are in no documented shape.
       Decide whether they are part of the contract or should be stripped.
 
-
-
 - [ ] **No test covers the bearer-token auth path.** It shipped broken —
       `getClaims()` needs the token passed explicitly — and nothing caught it
       because the route tests inject `__TEST_DB__` and never take that path.
@@ -659,6 +313,14 @@ moves up — do not start one by guessing the answer.
       or macOS app depends on it.
 
 ## Deferred
+
+Two kinds of thing sit here. Some wait on something outside the code — an
+account to upgrade, a service to enable, history that only accrues with real
+use. The rest are wanted, designed and unblocked, and simply sit outside the
+alpha. Both keep their full working, so whichever gate lifts first, the thinking
+is already done.
+
+### Waiting on something outside the code
 
 - **Branch protection** — needs GitHub Pro on a private repo. CI runs without
   enforcement by choice.
@@ -723,6 +385,7 @@ moves up — do not start one by guessing the answer.
   corrupts the one guarantee numbering provides — historical invoices stay
   where they were issued, and entries already billed in Toggl import as
   non-billable or pre-marked so they cannot be billed twice).
+
 - **macOS: Sign in with Apple.** The app signs in with an emailed six-digit
   code today, which works but is still six digits to type.
   `signInWithIdToken` needs a paid developer account, an App ID with the
@@ -731,8 +394,356 @@ moves up — do not start one by guessing the answer.
 - **macOS: signing and notarisation.** `bundle.sh` self-signs with a local
   identity, which is fine to run yourself and not something anyone else can
   open without right-clicking past Gatekeeper.
-- **macOS: a global hotkey to start and stop.** The reason to have a menu bar
-  app at all is not reaching for the mouse, and the panel still needs a click.
-- **Expo app** — last by design; reuses the most.
 - **Runaway timer push notifications** — needs APNs/FCM, so effectively gated
   behind the native apps.
+
+- **Days-to-payment, once there is history.** `sent_at` to `paid_at`,
+  trailing, per client. "Northwind pays in 12 days" is unknowable from
+  memory and turns the awaiting-payment line from a fact into a forecast —
+  *$1,905 out, typically back by the 28th* — which is cash-flow
+  information rather than decoration.
+
+  **Blocked on `paid_at` recording when the money arrived**, and on real
+  paid invoices existing: `seed.sql` has none, so this cannot be rendered
+  against seeded data.
+  Needs a stated minimum sample before it speaks — one invoice is not an
+  average — and it says nothing rather than guessing below it.
+
+### Outside the alpha
+
+- **Standardise how a clickable thing looks.** `components.html` names
+  the primitives but says nothing about what a hover, a press or a
+  selected row looks like, so each was decided where it was written and
+  they have drifted. The Today rows are where it shows worst: the
+  highlight is a full-bleed band with **sharp corners and no horizontal
+  padding**, so the surface runs edge to edge inside a card that is
+  rounded and inset everywhere else.
+
+  What is there now, for the same gesture — click a row, open the thing:
+
+  | Where | Shape |
+  | --- | --- |
+  | `entry-list.tsx:167,185` | no rounding, `px-1` — the full-bleed band |
+  | `inbox.tsx:480` | `rounded-r-md`, no left rounding (a colour rail) |
+  | `app-header.tsx:23` | `rounded-md px-2 py-1` |
+  | `nav.tsx:87` | its own rounding and padding |
+  | `client-list.tsx:94` | neither |
+
+  Decide the shape once, write it into `components.html` as a convention,
+  then apply it. The likely answer is an inset radius with real horizontal
+  padding, so a highlight reads as a row lifting off the card rather than
+  a stripe painted across it — but the point is that it is decided once
+  and recorded, not that it is that particular value.
+
+  Cover the states together, since a row that only hovers is half a
+  control: hover, active/pressed, keyboard focus (**neutral ring, never
+  the accent**), selected where it applies, and disabled. Focus is the one
+  already constrained and the one already broken —
+  `focus-visible:ring-edge-focus` is on some of these and not others,
+  which is a bug rather than a style drift.
+
+  **This list is not finished.** Add rows as they turn up; the above is
+  what a sweep of `hover:bg-surface-*` found, so it misses anything
+  hovering by colour alone, anything using `group-hover`, and every
+  clickable element in the macOS panel — which has its own `Hovering`
+  wrapper and the same question to answer.
+
+- **Review the app for keyboard operation, then make it teach itself.**
+  The audience is other contractors who write software, and for them a
+  tracker that needs the mouse is a tracker they resent — the whole point
+  is that logging time should cost nothing. Two halves, in order: what
+  can be done from the keyboard at all, then whether anything on screen
+  ever says so.
+
+  **The second half is the one that is missing entirely.** There is no
+  shortcut anywhere in the web app — `onKeyDown` appears twice, both
+  Enter-in-a-field — and nothing renders a keystroke. A shortcut nobody
+  can discover is a shortcut nobody uses, so the review is worthless
+  unless what follows it puts the keys on screen: in menu rows beside the
+  item they trigger, in tooltips, next to the primary action in a dialog.
+  `DropdownMenuShortcut` is already vendored in `dropdown-menu.tsx` and
+  used nowhere, which is the slot for the menu half.
+
+  Review first, and write down what is found — the actions worth a
+  binding, what is already reachable by Tab, and what is silently not.
+  Radix gives arrow keys, typeahead, Escape and focus return inside menus
+  and dialogs for free, so the gaps will be in our own code: the timer
+  toggle, the inbox rows, the entry list, the filter pills, anything
+  built as a `div` with a click handler.
+
+  Three things to decide during the review rather than after:
+
+  - **What earns a binding.** Start/stop is obvious. Beyond that the bar
+    is the same one the nav has — a shortcut that exists because it could
+    is a key the user must now avoid pressing by accident.
+  - **Whether a shortcut overlay belongs here** (`?` listing everything),
+    which is the discoverable answer for the bindings that have no
+    natural home on screen. It is also a surface that goes stale
+    silently, so it only works if it reads from wherever the bindings are
+    defined rather than being a hand-kept list.
+  - **What a binding must not break.** Nothing may fire while a text
+    field has focus — the task name field is where the user spends their
+    typing — and none of it may collide with the browser's own keys.
+
+  **Focus rings stay neutral, never the accent** (`brand.html`), which
+  constrains how this is shown before it is designed.
+
+  This is the web app. The menu bar app's own global hotkey is in
+  Deferred, and judging Tab reachability there needs macOS keyboard
+  navigation turned on first.
+
+- **Extend the end-to-end suite.** Sign-in, sign-out and the invoice
+  lifecycle are covered (`pnpm test:e2e`). The flows still verified only
+  by hand: the runaway-timer choice end to end, entry editing
+  round-tripping local wall-clock through UTC and the overnight case,
+  responsive layout at 375px and 1280px, and the accent rule in rendered
+  pixels rather than class strings.
+
+  Add them one at a time and only where breakage would be silent —
+  a suite that fails randomly gets ignored, which is worse than not
+  having one.
+
+- **`/reports` — the destination those numbers point at.** Not a filter on
+  the calendar, which was the earlier framing: "which 120 hours?" is a
+  missing *destination*, and one view answers it at project, client and
+  date-range level from several entry points. Filters live in query params
+  so a link is shareable and Back works. Hours per project is its first
+  content, and the project row links to it.
+
+  **"Reports" is a word that attracts scope** — Toggl's reports tab is
+  most of what made it feel bloated. The guard is the existing bar on
+  content, not on the nav entry: a view ships only if it carries a number
+  the user cannot compute in their head, or rows they can act on. Hours
+  per project passes. "Time by day of week" does not.
+
+  **It is also where the two held-back cards belong.** Week-over-week
+  deltas and the time-of-day heatmap each still carry an open question,
+  and both were held partly because they would clutter home; an
+  analytical view is their honest home, so it should absorb that class of
+  question rather than let the home screen grow a fourth card. That is an
+  argument for building it.
+
+  *Open question, to answer once there is real data:* does `/reports`
+  **supersede** those two cards or merely host them? Leaning supersede — a
+  week-over-week delta is something you go and look at deliberately, not
+  something that should interrupt the screen opened fifty times a day.
+
+- **Hours invested per project — blocked on `/reports` existing.** The app
+  can report hours per client (the unbilled rollup) and per day (the
+  calendar) but not per project, which is the number behind the questions
+  that actually get asked: is this fixed-price job underwater, how long did
+  the last rebuild take, has the retainer been burned. The first is the
+  most expensive thing to learn late.
+
+  Two rules carry over from the home cards: it needs a **billed/unbilled
+  split**, since one total hides whether any of it has been paid for — the
+  rollup already groups by (client, rate) for that reason — and it is
+  **never called "earned"**, because hours logged is work done, not money
+  received.
+
+  **Deliberately held** until the drill-through exists: a row reading
+  "120h" invites "which 120 hours?", and shipping the number with no
+  answer makes it a dead end. Not a burn-down — that needs a budget field
+  which does not exist, and is its own line rather than folded into this.
+
+- **Effective hourly rate — not on Home, and not in the first cut.**
+  Money divided by *all* hours including unbillable. Bill $150, absorb 20%
+  admin, and the real rate is $120: uncomputable in the head, and the
+  number that makes unbillable time visibly expensive.
+
+  **It needs a denominator that grows, and most users will not give it
+  one.** Unbillable work against a client is the only thing that moves it,
+  and someone who does not log admin at all sees their headline rate
+  forever — a figure that fails the change test on every check, for the
+  accounts most likely to see it.
+
+  It belongs in `/reports`, where a figure is looked up deliberately rather
+  than glanced at fifty times a day, and where a flat number is a finding
+  rather than dead space.
+
+- **Week-over-week deltas.** *Question: what threshold makes it fire
+  rarely enough to be worth reading?* On lumpy contract work a 40% drop
+  usually means a client's sprint ended, and a delta that is noise most
+  weeks trains you to ignore the one week it is real. Compared against a
+  **4-week median** and suppressed below a threshold it could mean
+  something — but the threshold is empirical and needs real data. If it
+  ships it is a line inside Velocity, not a card — that is where a
+  month-over-month reading now lives.
+
+- **Time-of-day heatmap.** *Question: does the billable/unbillable split
+  actually vary by hour enough to see, on a real dataset?* Plain volume by
+  hour is interesting and changes nothing — the calendar week already
+  shows that shape. Crossed with billability it might yield "your
+  unbillable time clusters between 9 and 11am", which is actionable. If
+  admin turns out to be scattered evenly through the day, the card has
+  nothing to say and should not ship. Check before building.
+
+- **The quarter as a first-class period.** *Question: does the app report
+  cash received, when every number in it today reports work done?* A US
+  contractor pays estimated tax four times a year on **money actually
+  collected in that quarter**, and that is the one figure the app cannot
+  currently produce. Answer this before building anything below it.
+
+  It is a real hole in "track time and get paid": paying the tax is part
+  of getting paid, four deadlines a year, and the number is sitting in
+  this database already. Toggl is no argument against it either — this is
+  not project management, it is the contractor's own year.
+
+  **The conflict is a principle, not a schema gap.** `principles.md`:
+  *revenue is work done, not money collected, and it is bucketed by the
+  entry's date rather than the invoice's* — written so a bar does not
+  drop when a client pays late. Tax is the exact inverse: the IRS wants
+  the date the money arrived, so a quarterly figure must bucket by
+  `paidAt`, which no view does. Both are correct for their own question,
+  which is why this needs deciding rather than assuming — and if it ships,
+  the two numbers must be labelled so precisely that nobody reads one as
+  the other. That framing is also the guard against scope: this reports
+  what happened, it does not compute what is owed.
+
+  **Not tax advice, and not a tax product.** No rates, no estimates, no
+  safe-harbour maths, no filing. The app puts the contractor's own numbers
+  in the shape their accountant or their 1040-ES asks for, and stops. That
+  line is what keeps this from becoming the thing the thesis refuses.
+
+  Candidates, if the answer is yes:
+
+  - **A date filter on `/invoices`.** The list filters by status alone
+    today, so "what did I invoice last quarter" is unanswerable without
+    scrolling. Quarter presets plus a range, in query params so the link
+    is shareable. Cheapest, useful even if nothing else here ships.
+  - **Collected-per-quarter**, summing `total` over invoices with `paidAt`
+    in the quarter. The estimated-tax number, and the one that needs the
+    naming care above.
+  - **Quarter over quarter**, once four quarters exist. The comparison a
+    contractor actually makes, and one a month cannot show.
+  - **An export for the accountant** — invoices with issue date, paid
+    date, client and total, as CSV. Probably the highest value per line of
+    code here, since it ends with someone else doing the work.
+
+  Note the refusal that stands regardless: **no quarter *targets*** — a
+  contractor thinks in months because invoicing is monthly. Reporting a
+  quarter and setting a goal against one are different things, and only
+  the first is in question.
+
+  Where it lives is `/reports`, which does not exist yet. That is the
+  other reason it waits.
+
+- **Record a reminder on a sent invoice.** `last_reminded_at`, so an
+  overdue row can read "12 days late · chased 3d ago" rather than either
+  nagging unchanged or disappearing. This is the honest alternative to a
+  snooze: it records what you did instead of hiding what is true, and
+  over time shows which clients need chasing twice. Needs a column, a
+  PATCH field, and a third inline action on the overdue row.
+
+- **Quiet clients in the inbox.** An active client with no entries in 30
+  days. It needs a per-client last-entry query, because the rollup only
+  returns clients with unbilled work — a quiet one is absent from it by
+  definition. Phrase it as an observation, not an alarm: a finished
+  engagement is the common cause and archiving is the useful action, so
+  the row links to the client.
+
+  It was in `screens/home.html`'s row table for a long time without being built,
+  which made the spec claim a row the app did not have. The design lives
+  here now and moves into that table when it ships.
+
+- **Import selected calendar events as time entries.** *Question: is this
+  worth a stored OAuth credential and a third-party dependency — and if
+  not, is there a shape that avoids both?* A contractor's meetings are
+  billable work that never gets tracked, because starting a timer for a
+  30-minute call is the thing nobody remembers to do. The calendar already
+  knows it happened.
+
+  It passes the thesis on its face: a meeting you attended and did not
+  bill is money lost, so this helps a solo contractor get paid. What it
+  costs is the open question.
+
+  **Selected, never automatic — that is the whole design.** A calendar
+  holds dentist appointments, holidays and meetings that were cancelled
+  and not deleted. Anything that imports on a schedule writes billable
+  records the user did not approve, which is the same rule that stops
+  runaway timers being auto-trimmed. The user picks events and they become
+  entries; nothing lands unreviewed. That also means the imported entry is
+  an ordinary `time_entries` row, editable and deletable like any other —
+  no link back to the source event, no re-sync, no reconciliation.
+
+  **The cost is what the Toggl import deliberately dodged.** That one is a
+  file upload precisely to avoid an OAuth app and a stored third-party
+  credential, and calendars are worse: the token is long-lived, it reads
+  the user's entire schedule, and it is the first thing in this app that
+  would need protecting beyond RLS. So decide the shape before the
+  feature:
+
+  - **An `.ics` file or URL.** Every calendar exports one and most publish
+    a secret subscription URL. No OAuth app, no token, no provider SDK —
+    the same argument that made the Toggl import a file. Weakest on
+    convenience, strongest on everything else, and it works for Google,
+    Apple and Outlook at once rather than one at a time.
+  - **Read-only OAuth against one provider.** Better to use, and the thing
+    being decided.
+
+  Whichever wins, the mapping is small: event title → `task_name`, start
+  and end → the entry's times parsed to an absolute instant (never
+  fixed-millisecond arithmetic — an all-day or DST-spanning event is the
+  trap), project and billability chosen at import, defaulting to
+  unassigned rather than guessed. An all-day event has no duration worth
+  billing and should be excluded rather than imported as 24 hours.
+
+  **The timer invariant applies.** An imported event overlapping a real
+  tracked entry is the common case — you tracked the call AND the calendar
+  has it. Surface the overlap and let the user choose, exactly as the
+  Toggl import does; never silently adjust either side.
+
+  And it must not turn the calendar screen into a scheduler. That screen
+  *visualises what was tracked and does not schedule* — showing unimported
+  events on it would make it a planner, so the import is a deliberate
+  action somewhere else, not a second layer on the week.
+
+- **The menu bar app's two dropdowns are system-drawn.** The project
+  picker and the account gear are SwiftUI `Menu`s, so their labels carry
+  our tokens and type while the list that pops open is AppKit's — system
+  font, system colours, system metrics, beside a panel that is ours to
+  the pixel. The web's equivalents (`project-picker.tsx`,
+  `account-menu.tsx`) are the same two controls built on Radix and themed,
+  which is what makes the gap visible.
+
+  **The `.transient` argument that used to sit here was wrong and has
+  been removed from `menubar.html`.** It described an `NSPopover`; the app
+  is a `MenuBarExtra` in `.menuBarExtraStyle(.window)` and always has
+  been, and the two system `Menu`s open today without dismissing the
+  panel. So there is no known failure mode to inherit — but a hand-built
+  popup still has to earn what AppKit gives free, and a picker that
+  dismisses the panel when opened is worse than one with the wrong font.
+  Verify against the real configuration before building either way.
+
+  **Radix is not available here** — it is a web library, and `apps/macos`
+  takes no dependencies beyond the standard library on purpose. So this
+  is "matches our theme", built in SwiftUI against `Tokens.swift`: an
+  overlay inside the panel's own window, which is also what keeps focus
+  where it is. Reach for the tokens the spec's table already assigns
+  (`bgBase` for the popover ground, `bgPrimary` for the picker fill).
+
+  What must survive: keyboard selection, typeahead, Escape to close and
+  focus returning to the label — everything the system menu gives free and
+  a hand-rolled list silently drops. If it cannot keep those, the system
+  menu is the better control and this stays as it is.
+
+- **Task name suggestions in the menu bar panel.** *Question: does a
+  second way to reuse a name earn its height beside the restart list?*
+  The web half ships — `GET /entries/task-names` is live and every client
+  inherits it. But `EntryRow` already restarts a prior entry in one click,
+  keyboard-free, which is the panel's whole premise, and a 320pt panel
+  has no room for two mechanisms doing one job. The panel is drawn and
+  badged **Not built** in `docs/design/screens/task-suggest.html`, which
+  is what the work would start from. `menubar.html:791-803` needs an
+  endpoint row before it lands.
+
+- **macOS: a global hotkey to start and stop.** The reason to have a menu bar
+  app at all is not reaching for the mouse, and the panel still needs a click.
+
+- **Realtime cross-device updates.** *Question: is the 60s reconcile
+  actually annoying in practice?* `architecture.md` notes Supabase
+  Realtime can drop in later with no API change. Local tick plus
+  reconcile-on-focus may well be enough; adding a persistent subscription
+  to find out costs the cheap hosting posture.
+
+- **Expo app** — last by design; reuses the most.
