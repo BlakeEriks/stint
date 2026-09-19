@@ -59,14 +59,16 @@ later.
       that lands without travelling reads as though the previous one was
       wrong, which is the whole argument in that file's header.
 
-      Note the two layers there, because only one is snapshot-shaped:
-      `useCountUp(to, from)` is a pure tween over numbers and is what both
-      figures want. `useSinceLastSeen(key, to)` wraps it with a
-      `localStorage` read so an arrival animates from what this browser last
-      displayed — keep that for the unbilled total, where it is honest
-      (the figure genuinely moved while you were away), and check whether
-      today's earnings wants it or a plain `useCountUp` from zero on first
-      paint of the day.
+      **Both use `useSinceLastSeen`**, under their own keys — not one on it
+      and one on the plain `useCountUp`. It animates from what this browser
+      last displayed, which is honest for either figure: the money moved while
+      you were away, and the travel is what says so. Two figures side by side
+      animating on different rules would read as a bug in the one that sat
+      still.
+
+      Its first-load guard covers the morning case for free: with nothing
+      stored the figure renders settled rather than counting up from zero, so
+      the day's first visit does not replay the whole amount.
 
       What the new number is NOT: not `sinceOpen`, which moves when you
       invoice something (hence its "−$X invoiced" branch) and so mixes work
@@ -369,16 +371,6 @@ later.
       because the route tests inject `__TEST_DB__` and never take that path.
       Worth a test that hits a real server with a real token before the Expo
       or macOS app depends on it.
-
-- [ ] **`main` takes a direct push on a public repo.** Nothing is configured
-      — `branches/main/protection` is a 404 — so the CI that runs on every
-      push enforces nothing, and a force-push rewrites the history the
-      released tags point at. Protection is free at this visibility.
-
-      What it turns on: the CI jobs as required checks, and no force-push or
-      deletion. A required review is a separate question on a solo repo,
-      where it means approving your own pull requests or holding an
-      admin bypass that makes the rule advisory.
 
 ## Deferred
 
