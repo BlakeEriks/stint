@@ -51,8 +51,22 @@ later.
       zone difference is not reported as money earned, suppressing the line on
       first load because there is nothing stored to compare. Every one of
       those is a problem the snapshot creates and a server figure does not
-      have. Check `use-count-up.ts` and the `Beat` machinery in the same pass
-      — some of it exists only to animate this.
+      have.
+
+      **`use-count-up.ts` stays, and both figures use it.** It is a separate
+      thing from the snapshot and worth keeping: the unbilled total counts up
+      to its new value, and today's earnings counts up to its own. A figure
+      that lands without travelling reads as though the previous one was
+      wrong, which is the whole argument in that file's header.
+
+      Note the two layers there, because only one is snapshot-shaped:
+      `useCountUp(to, from)` is a pure tween over numbers and is what both
+      figures want. `useSinceLastSeen(key, to)` wraps it with a
+      `localStorage` read so an arrival animates from what this browser last
+      displayed — keep that for the unbilled total, where it is honest
+      (the figure genuinely moved while you were away), and check whether
+      today's earnings wants it or a plain `useCountUp` from zero on first
+      paint of the day.
 
       What the new number is NOT: not `sinceOpen`, which moves when you
       invoice something (hence its "−$X invoiced" branch) and so mixes work
