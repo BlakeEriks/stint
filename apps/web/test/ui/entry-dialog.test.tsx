@@ -1,5 +1,11 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  within,
+  fireEvent,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -355,5 +361,153 @@ describe('EntryDialog', () => {
     release();
     await waitFor(() => expect(order).toContain('invalidate'));
     expect(order[0]).toBe('saved:e1');
+  });
+
+  /**
+   * The strip, which jsdom gives no layout — so the box it resolves pointer
+   * positions against is stubbed, and a clientX becomes a known fraction of
+   * a known window.
+   *
+   * The entry is 09:00–10:30 on 2026-09-11, so `windowFor` pads it by two
+   * hours either side to 07:00–12:30 and rounds out to 07:00–13:00 — past
+   * the five hours that would have rounded to the half hour. Every
+   * expectation below is that six-hour window read at a fraction.
+   */
+  describe('the timeline scrubber', () => {
+    const WINDOW_START_HOUR = 7;
+    const WINDOW_HOURS = 6;
+    const BOX = { left: 0, width: 550, top: 0, height: 60 };
+
+    /** The clientX that lands on a given local hour of the window. */
+    const atHour = (hour: number) =>
+      ((hour - WINDOW_START_HOUR) / WINDOW_HOURS) * BOX.width;
+
+    /** The block itself, which carries the move gesture. */
+    const blockEl = () =>
+      screen.getByTestId('scrubber-handle-start').parentElement as HTMLElement;
+
+    function strip() {
+      const el = screen.getByTestId('entry-scrubber');
+      el.getBoundingClientRect = () => BOX as DOMRect;
+      el.setPointerCapture = () => {};
+      el.releasePointerCapture = () => {};
+      return el;
+    }
+
+    /** One complete gesture: press on `target`, move, release. */
+    function drag(target: HTMLElement, toHour: number, fromHour?: number) {
+      const el = strip();
+      fireEvent.pointerDown(target, {
+        clientX: atHour(fromHour ?? toHour),
+        pointerId: 1,
+      });
+      fireEvent.pointerMove(el, { clientX: atHour(toHour), pointerId: 1 });
+      fireEvent.pointerUp(el, { clientX: atHour(toHour), pointerId: 1 });
+    }
+
+    it('rewrites the start field when the start edge is dragged', async () => {
+      serve();
+      open(entry());
+      await waitFor(() => screen.getByLabelText('End'));
+
+      drag(screen.getByTestId('scrubber-handle-start'), 8);
+
+      expect(screen.getByLabelText('Start')).toHaveValue('08:00');
+      // The end is the edge that was NOT grabbed, so it must not move.
+      expect(screen.getByLabelText('End')).toHaveValue('10:30');
+    });
+
+    it('rewrites both fields when the block is moved, keeping its length', async () => {
+      serve();
+      open(entry());
+      await waitFor(() => screen.getByLabelText('End'));
+
+      // Grabbed at 09:00 and released at 11:00 — two hours later.
+      drag(blockEl(), 11, 9);
+
+      expect(screen.getByLabelText('Start')).toHaveValue('11:00');
+      expect(screen.getByLabelText('End')).toHaveValue('12:30');
+    });
+
+    it('clamps to the minimum rather than inverting the entry', async () => {
+      serve();
+      open(entry());
+      await waitFor(() => screen.getByLabelText('End'));
+
+      // Dragged well past the end: 09:00 start pushed to 12:00.
+      drag(screen.getByTestId('scrubber-handle-start'), 12);
+
+      expect(screen.getByLabelText('Start')).toHaveValue('10:15');
+      expect(screen.getByLabelText('End')).toHaveValue('10:30');
+    });
+
+    it('writes nothing to the server until Save', async () => {
+      const calls = serve();
+      const user = userEvent.setup();
+      open(entry());
+      await waitFor(() => screen.getByLabelText('End'));
+
+      drag(screen.getByTestId('scrubber-handle-end'), 11);
+      expect(screen.getByLabelText('End')).toHaveValue('11:00');
+
+      /* The whole difference from the calendar's drag, which PATCHes on
+         release. Here Save owns the write, so a cancelled edit leaves the
+         entry alone. */
+      expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
+
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() =>
+        expect(calls.find((c) => c.method === 'PATCH')).toBeTruthy(),
+      );
+      // 11:00 in New York is 15:00Z.
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({
+        endedAt: '2026-09-11T15:00:00.000Z',
+      });
+    });
+
+    it('redraws from the fields when a time is typed', async () => {
+      const user = userEvent.setup();
+      serve();
+      open(entry());
+      await waitFor(() => screen.getByLabelText('End'));
+
+      const before = Number.parseFloat(blockEl().style.width);
+
+      await user.clear(screen.getByLabelText('Start'));
+      await user.type(screen.getByLabelText('Start'), '08:00');
+
+      /* The strip follows the field rather than holding its own copy: an
+         extra hour of entry is a WIDER block. Width rather than position,
+         because the window is recomputed on a typed time too — an entry that
+         grew can sit further along a window that grew with it, so position
+         alone does not say the redraw happened. */
+      expect(Number.parseFloat(blockEl().style.width)).toBeGreaterThan(before);
+    });
+
+    it('offers no strip on an entry billed to an issued invoice', async () => {
+      serve('sent');
+      open(entry({ invoiceId: 'i1' }));
+      await waitFor(() => screen.getByText(/no longer be changed/i));
+
+      // Painted, but with nothing to grab.
+      expect(screen.getByTestId('entry-scrubber')).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('scrubber-handle-start'),
+      ).not.toBeInTheDocument();
+    });
+
+    it('hides the strip for an overnight entry it cannot draw', async () => {
+      const user = userEvent.setup();
+      serve();
+      open(entry());
+      await waitFor(() => screen.getByLabelText('End'));
+
+      await user.clear(screen.getByLabelText('End'));
+      await user.type(screen.getByLabelText('End'), '02:00');
+
+      /* An end before the start rolls forward a day on save, which one day
+         of strip cannot show. The fields keep the truth. */
+      expect(screen.queryByTestId('entry-scrubber')).not.toBeInTheDocument();
+    });
   });
 });
