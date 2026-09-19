@@ -341,6 +341,32 @@ later.
 
 ## Rough edges
 
+- [ ] **The light card sits exactly on its separation floor, and the test
+      fails on the rounding.** `appearance.test.tsx:398` asserts
+      `|card − base| > 0.04`. The cream ramp steps 0.020 per plane, so
+      `bg-elevated` (L 0.975) less `bg-base` (L 0.935) is 0.040 — which in
+      binary floating point is `0.039999999999999925`, and loses. One failing
+      test on `main`; the other 311 pass.
+
+      **The arithmetic is a symptom, not the bug.** An epsilon in the
+      assertion silences it and leaves the card one rounding error from its
+      own floor, which is the state the threshold exists to report. The
+      question is whether two 0.020 steps are enough separation on paper — the
+      dark ramp spends 0.105 on the same pair, and light is deliberately
+      tighter because perceptual distance compresses toward white and the card
+      shadow does the rest.
+
+      `bg-base` is two planes below the card, so the pair spans the first two
+      entries of `steps` in `src/derive-light.mjs` — widen those and
+      re-derive, or decide 0.040 is right and assert `>= 0.04` to say so
+      deliberately. `derive-light.mjs` owns the ladder, `deriving-colour.md`
+      the reasoning; judge it on `floating-frame.html`, which draws every
+      plane at once.
+
+      Introduced by the cream light theme (`8262f83`), which moved the ramp
+      onto even 0.020 steps. It predates and is unrelated to the inbox cards
+      merged over it.
+
 - [ ] **The local database drifts behind the migrations.** `pnpm migrate`
       reads `.env.local` and reaches the hosted project; the Supabase CLI owns
       the local one. Nothing routinely applies a new migration to local except
