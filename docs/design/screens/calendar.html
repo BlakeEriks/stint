@@ -215,12 +215,22 @@
       needs. A block you cannot read is a block you cannot check.
     </p>
     <p>
-      <strong style="color:var(--text-strong)">On a phone the page owns the
-      scroll — one gesture at any inbox size.</strong> A viewport-relative
-      grid height cannot work here, because the inbox beneath it is variable.
-      Cropping is what keeps a single scroller honest: an uncropped 24h
-      column would move the same excess into the page. From <code>sm</code>
-      up the panel scrolls instead, and the week keeps all 24 hours.
+      <strong style="color:var(--text-strong)">Below <code>xl</code> the page
+      owns the scroll — one gesture at any inbox size.</strong> A
+      viewport-relative grid height cannot work here, because the inbox
+      beneath it is variable. Cropping is what keeps a single scroller
+      honest: an uncropped 24h column would move the same excess into the
+      page.
+    </p>
+    <p>
+      The grid takes its own scroller at <code>xl</code> and not before,
+      because that is where the frame bounds the panel and <code>fills</code>
+      gives this column a height to measure against. Earlier than that the
+      column is sized by its content, so the grid would grow to its full 24
+      hours and the page would carry the overflow anyway — a scrollbar on a
+      box with nothing to scroll, inside the one doing the work. The day
+      headings hold under <code>xl</code> for the same reason: they stay put
+      only where the scroller is beneath them.
     </p>
 
     <table>

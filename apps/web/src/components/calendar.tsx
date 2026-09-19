@@ -266,12 +266,20 @@ export function Calendar() {
 
           {/* One scroll container so the hour gutter cannot drift from the grid.
 
-            **On a phone there is no inner scroller at all** — the page owns
-            the scroll, so there is one gesture however tall the chrome around
-            it is. The cropped window is what keeps that honest. */}
+            **It binds at `xl`, where `fills` gives the column the panel's
+            height for it to measure against.** Below that the column is sized
+            by its content, so an `overflow-y-auto` here would have nothing to
+            resolve against: the grid would grow to its full 24 hours and the
+            scroller outside it would carry the overflow — a scrollbar on a
+            box with nothing to scroll, inside the one doing the work.
+
+            So below `xl` there is no inner scroller and the page owns the
+            scroll, which is one gesture however tall the chrome around it
+            is. The day headings scroll with the hours there; they hold only
+            where the scroller is inside the card. */}
           <div
             ref={scroller}
-            className="sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
+            className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
           >
             <div
               className="flex"
