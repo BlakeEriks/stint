@@ -423,13 +423,21 @@ later.
       colour is still derived, and a stored hex is the drift the token package
       exists to prevent.
 
-      **Every project hue is `L=0.700, C=0.111`**, differing only in hue
-      angle, so a shade walks L at constant hue. Four steps at ΔL 0.080 —
-      `0.780/0.098`, `0.700/0.111`, `0.620/0.118`, `0.540/0.115` — none
-      gamut-clipped at any of the eight angles. **Step 2 is the client's own
-      hue**, so a project with no shade set renders exactly what it renders
-      today and nothing changes for anyone who never sets one. Four is the
+      **The eight project hues are authored, not derived** — hand-set hex and
+      hue pairs in `tokens.json` with no generator behind them. So this needs
+      one written, and it is the long pole rather than the column: `generate.js`
+      emits the flat eight to CSS, TS, Swift and the mockup stylesheet, and
+      `color-picker.tsx` maps the array directly. All four assume a flat shape.
+
+      **Every hue is `L=0.700, C=0.111`**, differing only in angle, so a shade
+      walks L at constant hue. Four steps at ΔL 0.080 — `0.780/0.098`,
+      `0.700/0.111`, `0.620/0.118`, `0.540/0.115` — none gamut-clipped at any
+      of the eight angles. **Step 2 is the client's own hue**, so a project
+      with no shade set renders exactly what it renders today. Four is the
       ceiling: a fifth halves the step.
+
+      **The column is `text` today**, so a 1–4 shade index is an `alter type`
+      to `smallint` with a check constraint, not a revival in place.
 
       **Shades reach the bar chart and Velocity's mix, never the heatmap.**
       Those two spend no lightness, so the channel is free. The heatmap spends

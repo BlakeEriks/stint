@@ -857,10 +857,12 @@
       <li><strong>Stacking a split day's clients in one cell.</strong> At 11px
         a stack is a smear. The majority takes the cell.</li>
       <li><strong>Project shades in the heatmap.</strong> The cell already
-        spends lightness on hours. A shade on the same channel inverts rather
-        than blurs — the lightest project on a quiet day renders darker than
-        the darkest on a busy one — so a day takes its client's base hue.
-        <code>deriving-colour.md</code> has the numbers.</li>
+        spends lightness on hours, and a shade on the same channel inverts
+        rather than blurs: on a four-step scale at ΔL 0.080, the lightest step
+        at 35% opacity composites to L 0.437 while the darkest at full strength
+        reaches L 0.540, so the lightest project on a quiet day renders darker
+        than the darkest on a busy one. At 35% the steps are ΔL 0.032, under
+        half what they were drawn at. A day takes its client's base hue.</li>
       <li><strong>Clicking a project to expand its tasks.</strong> Which
         project is selected is per-user view state, which is the assembled
         dashboard under another name, and it leaves the region with no fixed
