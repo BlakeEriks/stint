@@ -2,7 +2,12 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { formatCompact, formatCurrency, startOfLocalDay } from '@stint/core';
+import {
+  formatCompact,
+  formatCurrency,
+  formatLocalTime,
+  startOfLocalDay,
+} from '@stint/core';
 import { CalendarDays, Lock, Plus } from 'lucide-react';
 import { api, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
@@ -211,13 +216,7 @@ function Row({
   compact?: boolean;
   onEdit: () => void;
 }) {
-  const time = (iso: string) =>
-    new Intl.DateTimeFormat(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: tz,
-    }).format(new Date(iso));
+  const time = (iso: string) => formatLocalTime(iso, tz);
 
   const locked = entry.invoiceId != null;
 

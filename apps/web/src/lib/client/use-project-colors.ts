@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from './api';
 import { keys } from './query-keys';
@@ -53,25 +54,30 @@ export function useProjectClients(): {
   });
   const byId = useClients();
 
-  const colorByProject = new Map<string, string | null>();
-  const clientByProject = new Map<
-    string,
-    { id: string; name: string; color: string }
-  >();
+  /* Memoised on the query data: these Maps are dependencies of the effects
+     and memos that draw a legend, so a fresh identity every render re-runs
+     all of them for colours that did not change. */
+  return useMemo(() => {
+    const colorByProject = new Map<string, string | null>();
+    const clientByProject = new Map<
+      string,
+      { id: string; name: string; color: string }
+    >();
 
-  for (const p of projects.data?.projects ?? []) {
-    const client = p.clientId ? byId.get(p.clientId) : undefined;
-    colorByProject.set(p.id, client?.color ?? null);
-    if (client?.color) {
-      clientByProject.set(p.id, {
-        id: client.id,
-        name: client.name,
-        color: client.color,
-      });
+    for (const p of projects.data?.projects ?? []) {
+      const client = p.clientId ? byId.get(p.clientId) : undefined;
+      colorByProject.set(p.id, client?.color ?? null);
+      if (client?.color) {
+        clientByProject.set(p.id, {
+          id: client.id,
+          name: client.name,
+          color: client.color,
+        });
+      }
     }
-  }
 
-  return { colorByProject, clientByProject };
+    return { colorByProject, clientByProject };
+  }, [projects.data, byId]);
 }
 
 /**
@@ -91,10 +97,14 @@ export function useClients(): Map<
     queryFn: () => api.clients({ includeArchived: true }),
   });
 
-  return new Map(
-    (clients.data?.clients ?? []).map((c) => [
-      c.id,
-      { id: c.id, name: c.name, color: c.color },
-    ]),
+  return useMemo(
+    () =>
+      new Map(
+        (clients.data?.clients ?? []).map((c) => [
+          c.id,
+          { id: c.id, name: c.name, color: c.color },
+        ]),
+      ),
+    [clients.data],
   );
 }

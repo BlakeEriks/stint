@@ -5,11 +5,16 @@ import { useQuery } from '@tanstack/react-query';
 import {
   formatCompact,
   formatClock,
+  formatLocalTime,
   instantAt,
   localDateKey,
 } from '@stint/core';
 import { Button } from '@/components/ui/button';
-import { useCalendar, type PositionedEntry } from '@/lib/client/use-calendar';
+import {
+  PX_PER_HOUR,
+  useCalendar,
+  type PositionedEntry,
+} from '@/lib/client/use-calendar';
 import { useProjectClients } from '@/lib/client/use-project-colors';
 import { useMediaQuery } from '@/lib/client/use-media-query';
 import {
@@ -28,16 +33,10 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 const HOUR_STEP = 3;
 
 /**
- * Pixels per hour, in both views — an hour is one size everywhere, and the
- * window decides how tall the grid is rather than how tall an hour is. 44px
- * keeps a 30-minute entry at the touch target.
- *
- * The cap is the day view's alone: there the PAGE scrolls, and a long window
- * would otherwise render taller than the uncropped day it crops. A week is
- * 24 hours and overflows the panel on purpose, which is the panel's scroll
- * to carry.
+ * The day view's cap alone: there the PAGE scrolls, and a long window would
+ * otherwise render taller than the uncropped day it crops. A week is 24 hours
+ * and overflows the panel on purpose, which is the panel's scroll to carry.
  */
-const PX_PER_HOUR = 44;
 const DAY_MAX_HEIGHT = 620;
 
 /**
@@ -647,12 +646,7 @@ function EntryBlock({
     ? span(live, dayStart, dayEnd)
     : { top: item.top, height: item.height };
 
-  const time = (iso: string) =>
-    new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZone: tz,
-    }).format(new Date(iso));
+  const time = (iso: string) => formatLocalTime(iso, tz);
 
   const startedAt = live ? live.startedAt.toISOString() : entry.startedAt;
   const endedAt = live ? live.endedAt.toISOString() : entry.endedAt;

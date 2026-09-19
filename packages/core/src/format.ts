@@ -26,3 +26,30 @@ export function formatCurrency(
 export function formatHours(hours: number): string {
   return hours.toFixed(2);
 }
+
+/**
+ * One `Intl.DateTimeFormat` per zone rather than one per call — a grid paints
+ * a clock for every entry on screen on every drag frame, and constructing the
+ * formatter is the expensive part.
+ */
+const clocks = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * `2:05 PM` — a wall-clock time in the user's zone.
+ *
+ * US 12-hour everywhere: the dock's list and the grid beside it show the same
+ * instants, so a second set of options renders `14:05` against `2:05 PM` in
+ * two panels of one screen.
+ */
+export function formatLocalTime(at: Date | string, tz: string): string {
+  let fmt = clocks.get(tz);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: tz,
+    });
+    clocks.set(tz, fmt);
+  }
+  return fmt.format(typeof at === 'string' ? new Date(at) : at);
+}

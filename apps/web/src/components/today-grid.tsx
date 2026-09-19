@@ -3,15 +3,13 @@
 import { useEffect, useState } from 'react';
 import {
   formatCompact,
+  formatLocalTime,
   startOfLocalDay,
   startOfLocalDayOffset,
 } from '@stint/core';
 import type { TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import { position, workedWindow } from '@/lib/client/use-calendar';
-
-/** The calendar's scale, so a block is the same size in both places. */
-const PX_PER_HOUR = 44;
+import { PX_PER_HOUR, position, workedWindow } from '@/lib/client/use-calendar';
 
 /** Gridlines every hour; the dock is too narrow for the calendar's 3-hour step. */
 const HOUR_STEP = 1;
@@ -289,9 +287,4 @@ function marks(from: Date, to: Date) {
   return out;
 }
 
-const clock = (iso: string) =>
-  new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: tz,
-  }).format(new Date(iso));
+const clock = (iso: string) => formatLocalTime(iso, tz);

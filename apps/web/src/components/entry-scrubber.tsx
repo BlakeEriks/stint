@@ -1,7 +1,14 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import { instantAt, movedTo, resized, snapMs, windowFor } from '@stint/core';
+import {
+  formatLocalTime,
+  instantAt,
+  movedTo,
+  resized,
+  snapMs,
+  windowFor,
+} from '@stint/core';
 
 /** What the pointer is doing to the block. Same three as the calendar's. */
 type Mode = 'move' | 'start' | 'end';
@@ -140,12 +147,7 @@ export function EntryScrubber({
     strip.current?.releasePointerCapture(event.pointerId);
   };
 
-  const time = (at: Date) =>
-    new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZone: tz,
-    }).format(at);
+  const time = (at: Date) => formatLocalTime(at, tz);
 
   const marks = useMemo(
     () => hourMarks(view.from, view.to, tz),
