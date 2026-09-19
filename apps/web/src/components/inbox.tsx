@@ -138,15 +138,22 @@ export function Inbox({ stats }: { stats: Stats }) {
           />
           <h2 className="type-label truncate text-subtle">Inbox</h2>
         </div>
-        {/* The count is the whole status — no badge colour. At zero the slot
-            is empty: "Nothing needs you" below already says it, and the count
-            is a count. */}
-        <span className="type-meta text-subtle">{count || null}</span>
+        {/* A pill on the same fill the cards use, so the header reads as
+            naming the set below it. No badge colour — at zero the slot is
+            empty, because "Nothing needs you" already says it. */}
+        {count ? (
+          <span className="inline-flex h-[17px] min-w-[17px] flex-none items-center justify-center rounded-full bg-surface-elevated px-1.5 type-meta text-primary">
+            {count}
+          </span>
+        ) : null}
       </header>
 
       {count === 0 ? (
         <p className="px-1 py-3 type-support text-subtle">Nothing needs you.</p>
       ) : (
+        /* 6px between cards is a margin on the card, not a `gap` on this
+           list: a flex gap belongs to the container and survives a row
+           collapsing, so a departing card would leave its gap behind. */
         <ul className="flex flex-col">
           {/* The runaway sorts first: it is the only row whose subject is still
               changing while you read it. */}
@@ -317,8 +324,7 @@ function Row({
         .filter(Boolean)
         .join(' · ')}
       value={formatCompact(e.seconds)}
-      valueTone="warning"
-      tone="neutral"
+      tone="warning"
       actions={
         <>
           <Action
@@ -363,8 +369,7 @@ function RunawayItem({
       label="Timer still running"
       detail={`${runaway.hours} hours so far`}
       value={`${runaway.hours}h`}
-      valueTone="warning"
-      tone="neutral"
+      tone="warning"
       actions={
         confirmingDiscard ? (
           <>
@@ -434,7 +439,6 @@ function Item({
   label,
   detail,
   value,
-  valueTone,
   tone,
   actions,
   exiting,
@@ -447,22 +451,33 @@ function Item({
   label: string;
   detail: string;
   value: string;
-  /** Warning only where the figure IS the problem — a runaway or a length. */
-  valueTone?: 'warning';
   /**
-   * The left rule, and the qualifier line with it. `danger` belongs to the
-   * overdue invoice alone — every other row is an object that needs an action,
-   * not a fault, and a column of coloured rules has nothing to pick out of it.
-   * Severity survives in the copy and in `valueTone`.
+   * How urgent the row is, and the ONLY thing on the card that takes colour.
+   * It paints a 2px edge inside the card and the clause of `detail` that
+   * names the fault — one value, so the two cannot disagree.
+   *
+   * `danger` is the overdue invoice, where money is already late. `warning`
+   * is a length that wants a look. `neutral` draws nothing: a stale draft and
+   * an unprojected entry are chores, and five flagged cards are a texture
+   * with nothing to pick out of it.
    */
-  tone: 'danger' | 'neutral';
+  tone: 'danger' | 'warning' | 'neutral';
   actions?: React.ReactNode;
   /** From `useExit` — the row collapses while its exit plays. */
   exiting?: boolean;
   ref?: React.Ref<HTMLLIElement>;
 }) {
   const titleClass =
-    'truncate text-left rounded-sm type-control text-strong hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
+    'block truncate text-left rounded-sm type-control text-strong hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
+
+  /* The edge is drawn by a pseudo-element inside the card rather than a
+     border, so it ranks the card without insetting its content. */
+  const edge =
+    tone === 'danger'
+      ? 'before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-danger'
+      : tone === 'warning'
+        ? 'before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-timer-warning'
+        : '';
 
   return (
     /* The collapsing wrapper is the `li` and the padded box is inside it, so
@@ -470,49 +485,56 @@ function Item({
        box's padding too — a `0fr` track still floors at min-content. */
     <li
       ref={ref}
-      className="exit-collapse"
+      className="exit-collapse [&:not(:first-child)>*]:mt-1.5"
       data-exiting={exiting ? '' : undefined}
     >
       <div
-        /* The rule is an alignment edge first: it is the same 2px on every
-           row, so the one that is coloured is the one that stands out. */
-        className={`group rounded-r-md border-l-2 py-2.5 pr-2.5 pl-3 transition-colors hover:bg-surface-primary ${
-          tone === 'danger' ? 'border-danger' : 'border-edge-subtle'
-        }`}
+        /* A card: its own surface, no border on any edge. The dock's ground
+           is the plane below it, so depth says where the card ends — which
+           is the job the old coloured rule was standing in for. */
+        className={`group relative overflow-hidden rounded-lg bg-surface-elevated px-2.5 py-2.5 shadow-card transition-colors hover:bg-surface-hover ${edge}`}
       >
-        <div className="flex items-baseline gap-2.5">
-          {href ? (
-            <Link href={href} className={`flex-1 ${titleClass}`}>
-              {label}
-            </Link>
-          ) : onSelect ? (
-            <button
-              type="button"
-              onClick={onSelect}
-              className={`flex-1 ${titleClass}`}
-            >
-              {label}
-            </button>
-          ) : (
-            /* Plain text where there is nothing to open — a running timer has
+        {/* The title owns its line. It is the subject of the row, and a
+            figure sharing the line takes width from it in proportion to how
+            much money the row is about. */}
+        {href ? (
+          <Link href={href} className={titleClass}>
+            {label}
+          </Link>
+        ) : onSelect ? (
+          <button type="button" onClick={onSelect} className={titleClass}>
+            {label}
+          </button>
+        ) : (
+          /* Plain text where there is nothing to open — a running timer has
              no record yet. */
-            <span className={`flex-1 ${titleClass} hover:no-underline`}>
-              {label}
-            </span>
-          )}
+          <span className={`${titleClass} hover:no-underline`}>{label}</span>
+        )}
+
+        {/* The figure is a fact ABOUT the subject, so it sits beside the
+            qualifier and the two read as one statement. */}
+        <div className="mt-0.5 flex items-baseline gap-1.5 text-subtle">
           <span
-            className={`flex-none ${
-              valueTone === 'warning' ? 'text-warning' : 'text-primary'
-            } ${value.startsWith('$') ? 'type-amount' : 'type-duration'}`}
+            className={`flex-none text-primary ${
+              value.startsWith('$') ? 'type-amount' : 'type-duration'
+            }`}
           >
             {value}
           </span>
-        </div>
-
-        <div className="mt-px">
           <span
-            className={`truncate type-support ${
-              tone === 'danger' ? 'text-danger' : 'text-muted'
+            aria-hidden
+            className="size-0.5 flex-none rounded-full bg-edge-control"
+          />
+          {/* Wraps rather than truncating: it names which threshold was
+              tripped, and an ellipsis eating "over 8h" takes the half of the
+              signal that colour cannot carry. */}
+          <span
+            className={`min-w-0 type-support ${
+              tone === 'danger'
+                ? 'text-danger'
+                : tone === 'warning'
+                  ? 'text-warning'
+                  : 'text-muted'
             }`}
           >
             {detail}
@@ -526,20 +548,15 @@ function Item({
 }
 
 /**
- * The row's actions, revealed on hover.
+ * The row's actions — always drawn.
  *
- * **The slot is always in flow; only its contents fade.** `display:none` drops
- * it out of flow and the row grows the moment a pointer crosses it.
- *
- * `reveal-on-hover` (globals.css) keeps the buttons visible on touch, where
- * there is no hover.
+ * **Nothing fades in.** A slot reserving height for controls nobody can see
+ * costs the same space as drawing them, and a touch device has no hover to
+ * reveal them with. On a raised card the outline gives each button its own
+ * edge, which is what a hover-only control had nothing to sit against.
  */
 function ActionSlot({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="reveal-on-hover mt-2 flex min-h-[26px] items-center gap-0.5">
-      {children}
-    </div>
-  );
+  return <div className="mt-2 flex items-center gap-1.5">{children}</div>;
 }
 
 /**
@@ -567,8 +584,13 @@ function Action({
   disabled?: boolean;
   destructive?: boolean;
 }) {
-  const className = `inline-flex items-center gap-1.5 rounded-md px-2 py-1 type-support whitespace-nowrap text-muted transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none disabled:opacity-50 ${
-    destructive ? 'hover:text-danger' : 'hover:text-strong'
+  /* Outlined, because the card underneath it is a surface of its own: a bare
+     label on a raised card has nothing to read as a control against. The
+     border and the label move together on hover, so nothing reflows. */
+  const className = `inline-flex items-center gap-1.5 rounded border border-edge-default px-2 py-0.5 type-support whitespace-nowrap text-muted transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none disabled:opacity-50 ${
+    destructive
+      ? 'hover:border-danger hover:text-danger'
+      : 'hover:border-edge-control hover:text-strong'
   }`;
 
   return href ? (

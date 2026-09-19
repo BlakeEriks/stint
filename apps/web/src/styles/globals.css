@@ -45,30 +45,6 @@
   }
 }
 
-/* ── Revealing an action on hover ──────────────────────────────────
-   Used by the inbox's rows. The slot stays in flow and only its contents
-   fade, so the row never changes height under the cursor — `display:none`
-   here regrows the row, which is the regression `test/ui/inbox.test.tsx`
-   pins down.
-
-   A touch device has no hover to reveal anything, so the actions are simply
-   always visible there. Tailwind has no variant for this, hence a utility. */
-@layer utilities {
-  .reveal-on-hover > * {
-    opacity: 0;
-    transition: opacity var(--motion-instant) var(--ease-standard);
-  }
-  .group:hover .reveal-on-hover > *,
-  .group:focus-within .reveal-on-hover > * {
-    opacity: 1;
-  }
-  @media (hover: none) {
-    .reveal-on-hover > * {
-      opacity: 1;
-    }
-  }
-}
-
 /* ── A row leaving a list ──────────────────────────────────────────
    The row fades, then the gap closes behind it. `grid-template-rows`
    interpolates `1fr` → `0fr` on its own, so nothing measures a height and
@@ -100,10 +76,17 @@
   }
   /* A `0fr` track still floors at the content's min-content height, and the
      row's own vertical padding is part of that — without this the gap stops
-     closing 20px short. The padding runs on the same curve as the track. */
+     closing 20px short. The padding runs on the same curve as the track.
+
+     `margin-block` goes with it: a flush band had no gap of its own, but a
+     card carries one, and a collapsed track with a live margin leaves that
+     gap behind as empty dock. */
   .exit-collapse[data-exiting] > * {
     padding-block: 0;
-    transition: padding-block var(--motion-quick) var(--ease-accelerate);
+    margin-block: 0;
+    transition:
+      padding-block var(--motion-quick) var(--ease-accelerate),
+      margin-block var(--motion-quick) var(--ease-accelerate);
   }
   @media (prefers-reduced-motion: reduce) {
     .exit-collapse {

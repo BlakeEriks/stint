@@ -134,6 +134,13 @@ reconciling several belongs on `/invoices`.
 contractor with one timer has never produced one, so it reassures about a bug
 they have never had, in the vocabulary of our implementation.
 
+**An inbox card carries no icon for its kind.** A glyph per row type — a
+stopwatch for the runaway, a document for the invoice — was drawn and cut. It
+costs 21px of a 286px card's title line, and the title is the one thing there
+that must not be cut: it names the subject, where the qualifier beneath it
+already says which kind of problem this is, in words. Five shapes to learn buy
+less than the sentence that was there anyway.
+
 ## Platform scope
 
 The web app is where features are built. The native apps exist for the things
