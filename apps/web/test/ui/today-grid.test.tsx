@@ -174,6 +174,22 @@ describe('Today as a day column', () => {
     );
   });
 
+  it('scrolls Today rather than the dock', async () => {
+    serve([entry()]);
+    const { container } = draw();
+    await screen.findByRole('button', { name: /Edit API integration/ });
+
+    /* The scroll lives on a box INSIDE Today, not on the section or anything
+       above it. The inbox holds its place and the grid gives way, so a full
+       inbox squeezes the calendar — which is the pressure that gets the
+       inbox cleared, and the reason clearing it is rewarded. */
+    const section = container.querySelector(
+      'section[aria-label="Today\'s entries"]',
+    );
+    expect(section?.className).not.toMatch(/overflow-y-auto/);
+    expect(section?.querySelector('.overflow-y-auto')).not.toBeNull();
+  });
+
   it('is the only accent on the column', async () => {
     serve([entry()]);
     const { container } = draw();

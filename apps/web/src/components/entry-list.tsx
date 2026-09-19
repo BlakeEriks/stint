@@ -70,10 +70,15 @@ export function EntryList({
 
   return (
     <section
-      className="mt-6 border-t border-edge-subtle pt-4"
+      /* In the dock this is the region that absorbs the leftover height, so
+         the inbox above it never scrolls: `min-h-0` lets it shrink below its
+         content and the grid inside it takes the scroll. */
+      className={`mt-6 border-t border-edge-subtle pt-4 ${
+        grid ? 'flex min-h-0 flex-1 flex-col' : ''
+      }`}
       aria-label="Today's entries"
     >
-      <header className="flex items-baseline justify-between gap-3 px-1 pb-2">
+      <header className="flex flex-none items-baseline justify-between gap-3 px-1 pb-2">
         <h2 className="type-label text-subtle">Today</h2>
         <span className="ml-auto type-duration text-muted">
           {formatClock(todaySeconds)}
@@ -89,35 +94,37 @@ export function EntryList({
         </Button>
       </header>
 
-      <Listing
-        query={query}
-        tight
-        empty="Nothing logged yet today. Start a timer above."
-      >
-        {(entries) =>
-          grid ? (
-            <TodayGrid entries={entries} colors={colors} onEdit={openFor} />
-          ) : (
-            <ul>
-              {/* The running entry is in the timer bar already; a second
-                  duration counting up beside it is the same fact twice. */}
-              {entries
-                .filter((entry) => entry.endedAt !== null)
-                .map((entry) => (
-                  <li key={entry.id}>
-                    <Row
-                      entry={entry}
-                      project={byId.get(entry.projectId ?? '')}
-                      color={colors.get(entry.projectId ?? '')}
-                      compact={compact}
-                      onEdit={() => openFor(entry)}
-                    />
-                  </li>
-                ))}
-            </ul>
-          )
-        }
-      </Listing>
+      <div className={grid ? 'min-h-0 flex-1 overflow-y-auto' : undefined}>
+        <Listing
+          query={query}
+          tight
+          empty="Nothing logged yet today. Start a timer above."
+        >
+          {(entries) =>
+            grid ? (
+              <TodayGrid entries={entries} colors={colors} onEdit={openFor} />
+            ) : (
+              <ul>
+                {/* The running entry is in the timer bar already; a second
+                    duration counting up beside it is the same fact twice. */}
+                {entries
+                  .filter((entry) => entry.endedAt !== null)
+                  .map((entry) => (
+                    <li key={entry.id}>
+                      <Row
+                        entry={entry}
+                        project={byId.get(entry.projectId ?? '')}
+                        color={colors.get(entry.projectId ?? '')}
+                        compact={compact}
+                        onEdit={() => openFor(entry)}
+                      />
+                    </li>
+                  ))}
+              </ul>
+            )
+          }
+        </Listing>
+      </div>
 
       <EntryDialog
         open={open}
