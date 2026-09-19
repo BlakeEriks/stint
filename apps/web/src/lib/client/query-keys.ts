@@ -18,11 +18,13 @@ export const keys = {
     tz ? (['stats', tz] as const) : (['stats'] as const),
   activity: (tz?: string, days?: number) =>
     tz ? (['activity', tz, days] as const) : (['activity'] as const),
-  /* Its own key, not a variant of `activity`: the heatmap's range is a fixed
-     year, so sharing a key with a range the user picks would refetch 365 days
-     every time that picker moved. */
-  heatmap: (tz?: string) =>
-    tz ? (['heatmap', tz] as const) : (['heatmap'] as const),
+  /* Its own key, not a variant of `activity`: the heatmap's range is fixed,
+     so sharing a key with a range the user picks would refetch every day of
+     it each time that picker moved. Fixed is not immutable, though, so
+     `days` is in the key: a payload cached at one length would otherwise be
+     served to a view that draws a different number of cells. */
+  heatmap: (tz?: string, days?: number) =>
+    tz ? (['heatmap', tz, days] as const) : (['heatmap'] as const),
   calendar: (weekStart?: string, tz?: string) =>
     weekStart
       ? (['calendar', weekStart, tz] as const)

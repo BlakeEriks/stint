@@ -5,7 +5,7 @@ import {
   localDateKey,
   startOfLocalDayOffset,
 } from '@stint/core';
-import { BarChart3 } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import { api } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
@@ -15,37 +15,43 @@ import { type Clients, Region } from './home-shell';
 /** Internal work: no client, so no hue — but not rest either. */
 const INTERNAL = '';
 
-/** A full year of columns, which is what makes a seasonal shape visible. */
-const WEEKS = 52;
+/**
+ * Half a year of columns.
+ *
+ * The region shares its row with By project now, so 52 columns would draw the
+ * cell at half the size it needs to read as a cell. Half the window at full
+ * size says more than a full one reduced to a texture.
+ */
+const WEEKS = 26;
 const DAYS = WEEKS * 7;
 
 /**
- * A year of days: when the work happened, and whose it was.
+ * Half a year of days: when the work happened, and whose it was.
  *
  * **Hue is the client**, resolved as everywhere else and never the accent;
  * **density is the hours**. A blank day stays blank — a weekend is
  * information, not missing data.
  *
  * A day split across clients takes the one with the most hours. A cell is
- * ~11px and cannot carry a stack; the alternative is a smear of colour that
+ * ~12px and cannot carry a stack; the alternative is a smear of colour that
  * names nobody.
  */
 export function Heatmap({ clients }: { clients: Clients }) {
   /* Taken once, so `from` and `to` are the same instants on every render.
-     Read inline they drifted by milliseconds while `keys.heatmap(tz)` stayed
+     Read inline they drifted by milliseconds while the cache key stayed
      fixed — a stable cache key over a moving request. */
   const now = useMemo(() => new Date(), []);
   const from = useMemo(() => startOfLocalDayOffset(now, tz, DAYS - 1), [now]);
 
   const { data } = useQuery({
-    queryKey: keys.heatmap(tz),
+    queryKey: keys.heatmap(tz, DAYS),
     queryFn: () =>
       api.activity({ from: from.toISOString(), to: now.toISOString(), tz }),
   });
 
-  /* A year of cells and the legend behind them, derived once per response.
-     Unmemoised this ran ~364 date conversions plus four passes over them on
-     every beat, every tick and every refetch of anything on the panel. */
+  /* Every cell and the legend behind them, derived once per response.
+     Unmemoised this ran a date conversion per day plus four passes over them
+     on every beat, every tick and every refetch of anything on the panel. */
   const view = useMemo(() => {
     if (!data) return null;
 
@@ -60,16 +66,17 @@ export function Heatmap({ clients }: { clients: Clients }) {
       return { key, day: byDate.get(key) };
     });
 
-    /* The busiest day sets the density scale. A fixed ceiling would flatten a
-       quiet year into nothing. */
+    /* The busiest day sets the density scale, so it rebases with the window:
+       the same day reads darker over six months than it did over twelve. A
+       fixed ceiling would flatten a quiet stretch into nothing. */
     const peak = Math.max(...cells.map((c) => c.day?.totalSeconds ?? 0), 1);
-    const yearSeconds = cells.reduce(
+    const windowSeconds = cells.reduce(
       (sum, c) => sum + (c.day?.totalSeconds ?? 0),
       0,
     );
 
-    /* Ranked over the whole year, not per week, so the legend names the
-       clients the year was actually spent on. */
+    /* Ranked over the whole window, not per week, so the legend names the
+       clients the half-year was actually spent on. */
     const totals = new Map<string, number>();
     for (const { day } of cells) {
       for (const [id, seconds] of Object.entries(day?.byClient ?? {})) {
@@ -86,17 +93,17 @@ export function Heatmap({ clients }: { clients: Clients }) {
       ([id, seconds]) => seconds > 0 && !inLegend.has(id),
     );
 
-    return { cells, peak, yearSeconds, named, inLegend, hasOther };
+    return { cells, peak, windowSeconds, named, inLegend, hasOther };
   }, [data, now]);
 
   if (!view) return null;
 
-  const { cells, peak, yearSeconds, named, inLegend, hasOther } = view;
+  const { cells, peak, windowSeconds, named, inLegend, hasOther } = view;
 
   return (
     <Region
-      title="Year"
-      icon={BarChart3}
+      title="Last 6 months"
+      icon={CalendarDays}
       action={
         /* `whitespace-nowrap`: the heading beside it is `flex-1`, so at a
            narrow width the streak is what gives, and "34 day / streak" over
@@ -157,7 +164,7 @@ export function Heatmap({ clients }: { clients: Clients }) {
           ))}
           {hasOther ? <Swatch colour={INTERNAL_SWATCH} label="Other" /> : null}
           <span className="ml-auto type-meta text-subtle">
-            {formatCompact(yearSeconds)}
+            {formatCompact(windowSeconds)}
           </span>
         </div>
       </div>

@@ -1,5 +1,11 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  act,
+  fireEvent,
+} from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { HomeCards } from '@/components/home-cards';
@@ -34,6 +40,14 @@ function stats(over: Partial<Stats> = {}): Stats {
       byClient: [],
       moreClients: 0,
     },
+    byProject: {
+      seconds: 0,
+      amount: 0,
+      byProject: [],
+      moreProjects: 0,
+      tailSeconds: 0,
+      tailAmount: 0,
+    },
     pace: null,
     billableRatio: null,
     awaitingPayment: 0,
@@ -62,6 +76,68 @@ const oneClient = {
     },
   ],
   moreClients: 0,
+};
+
+/**
+ * Four projects whose hours and revenue rank differently, so a test that
+ * switches the unit can tell a re-sort from a redraw: Retainer is last by
+ * hours and first by money.
+ *
+ * The tail carries three further projects plus whatever was filed under none,
+ * so `columns + tail === total` — the reconciliation the footer prints.
+ */
+const fourProjects = {
+  seconds: 360000 + 36000,
+  amount: 9000.01 + 900,
+  byProject: [
+    {
+      projectId: 'p1',
+      projectName: 'Platform rebuild',
+      clientId: 'c1',
+      clientName: 'Northwind',
+      currency: 'USD',
+      seconds: 180000,
+      billableSeconds: 180000,
+      amount: 1000,
+      unratedCount: 0,
+    },
+    {
+      projectId: 'p2',
+      projectName: 'Brand system',
+      clientId: 'c1',
+      clientName: 'Northwind',
+      currency: 'USD',
+      seconds: 90000,
+      billableSeconds: 90000,
+      amount: 2000,
+      unratedCount: 0,
+    },
+    {
+      projectId: 'p3',
+      projectName: 'Checkout API',
+      clientId: null,
+      clientName: null,
+      currency: 'USD',
+      seconds: 54000,
+      billableSeconds: 54000,
+      amount: 3000,
+      unratedCount: 0,
+    },
+    {
+      projectId: 'p4',
+      projectName: 'Retainer',
+      clientId: 'c1',
+      clientName: 'Northwind',
+      currency: 'USD',
+      seconds: 36000,
+      billableSeconds: 36000,
+      amount: 3000.01,
+      unratedCount: 0,
+    },
+  ],
+  moreProjects: 3,
+  tailSeconds: 36000,
+  tailAmount: 900,
 };
 
 /** A month's worth of business days, cumulative actual against the ray. */
@@ -447,11 +523,12 @@ describe('the panel resolves its colours once', () => {
     });
     render(<HomeCards />, { wrapper: wrapperFor(client) });
 
-    // All three colour-painting regions on screen, so all three would have
-    // subscribed had they kept their own query.
+    // Every colour-painting region on screen, so each would have subscribed
+    // had it kept its own query.
     await waitFor(() => {
       expect(screen.getByText('Velocity')).toBeInTheDocument();
-      expect(screen.getByText('Year')).toBeInTheDocument();
+      expect(screen.getByText('Last 6 months')).toBeInTheDocument();
+      expect(screen.getByText('By project')).toBeInTheDocument();
       expect(
         screen.getByRole('heading', { name: /by client/i }),
       ).toBeInTheDocument();
@@ -600,8 +677,13 @@ describe('Velocity', () => {
     expect(screen.queryByText(/invoiced/)).toBeNull();
     expect(screen.queryByText(/unbilled$/)).toBeNull();
     expect(screen.queryByText('$6,000.00')).toBeNull();
-    // The hours are what sits under the bar instead.
-    expect(screen.getByText('100h')).toBeVisible();
+
+    /* The window's hours are By project's footer now, not a line under this
+       bar: one window, one place that totals it. */
+    const region = screen
+      .getByRole('heading', { name: /velocity/i })
+      .closest('section');
+    expect(region?.textContent).not.toContain('100h');
   });
 
   it('reports the figure per month, so two windows are comparable', async () => {
@@ -714,7 +796,7 @@ describe('the panel pairs its regions', () => {
     const pairs = [...container.querySelectorAll('div.grid')].filter((d) =>
       [...d.classList].some((c) => c.includes('grid-cols-')),
     );
-    expect(pairs.length).toBe(2);
+    expect(pairs.length).toBe(3);
 
     for (const pair of pairs) {
       const classes = [...pair.classList];
@@ -726,8 +808,8 @@ describe('the panel pairs its regions', () => {
     }
   });
 
-  it('pairs Unbilled with By-client and the month with Velocity', async () => {
-    serve(stats({ unbilled: oneClient, velocity }));
+  it('pairs Unbilled with By-client, the month with Velocity, and By project with the half-year', async () => {
+    serve(stats({ unbilled: oneClient, velocity, byProject: fourProjects }));
     const { container } = render(<HomeCards />, { wrapper });
 
     await waitFor(() =>
@@ -745,6 +827,7 @@ describe('the panel pairs its regions', () => {
     );
     expect(headings[0]).toEqual(['Unbilled', 'By client']);
     expect(headings[1]?.[1]).toMatch(/velocity/i);
+    expect(headings[2]).toEqual(['By project', 'Last 6 months']);
   });
 
   /* A vertical rule between the columns rebuilds the gridlines this whole
@@ -778,6 +861,45 @@ describe('the heatmap', () => {
     const totalSeconds = Object.values(byClient).reduce((a, b) => a + b, 0);
     return { date, totalSeconds, byClient };
   }
+
+  /* The window is half a year now, and nothing else on screen says how long
+     it is: the heading is prose and the cells are the only count. Widening it
+     back to 52 weeks halves the cell at this region's width, and without this
+     test it does so silently. */
+  it('draws half a year — 26 columns of 7 days, and no more', async () => {
+    serve(stats({ unbilled: oneClient }), [dayAgo(1, { c1: 7200 })]);
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('Last 6 months')).toBeInTheDocument(),
+    );
+
+    const grid = container.querySelector<HTMLElement>('div.grid-rows-7');
+    expect(grid).not.toBeNull();
+    expect(grid?.children.length).toBe(182);
+    expect(grid?.style.gridTemplateColumns).toBe('repeat(26, minmax(0, 1fr))');
+  });
+
+  /* The cell count is also the fetch length, and the cache key has to carry
+     it: a payload held from a 364-day range would be handed to a view that
+     draws 182 cells, dropping half of it without a refetch. */
+  it('keys its cache by the range it draws', async () => {
+    serve(stats({ unbilled: oneClient }), [dayAgo(1, { c1: 7200 })]);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    render(<HomeCards />, { wrapper: wrapperFor(client) });
+
+    await waitFor(() =>
+      expect(screen.getByText('Last 6 months')).toBeInTheDocument(),
+    );
+
+    const key = client
+      .getQueryCache()
+      .getAll()
+      .find((q) => q.queryKey[0] === 'heatmap')?.queryKey;
+    expect(key).toContain(182);
+  });
 
   it('keeps an archived client’s colour rather than reassigning its hours', async () => {
     serve(
@@ -1232,5 +1354,149 @@ describe('the velocity figures reconcile', () => {
     expect(Math.round(perMonth * 3 * 100) / 100).toBe(
       Math.round((invoiced + unbilled) * 100) / 100,
     );
+  });
+});
+
+describe('By project', () => {
+  /** The panel, rendered with four projects and a tail behind them. */
+  async function panel(over: Partial<Stats['byProject']> = {}) {
+    serve(stats({ byProject: { ...fourProjects, ...over } }));
+    const view = render(<HomeCards />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getByText('By project')).toBeInTheDocument(),
+    );
+    return view;
+  }
+
+  /** The region's own section, so a second chart on the panel cannot match. */
+  function region() {
+    return screen.getByText('By project').closest('section');
+  }
+
+  /* The toggle is the region's whole interaction, and both halves of it have
+     to move: the figures change unit AND the columns change order, because
+     the hours leader and the revenue leader are different projects. A toggle
+     that reformats without re-ranking would look right on a book where the
+     two agree, which is most of them. */
+  it('switches the unit and re-ranks the columns with it', async () => {
+    await panel();
+
+    // By hours: Platform rebuild leads, Retainer is last.
+    const byHours = [...(region()?.querySelectorAll('.truncate') ?? [])]
+      .map((el) => el.textContent?.trim())
+      .filter((t) => t === 'Platform rebuild' || t === 'Retainer');
+    expect(byHours).toEqual(['Platform rebuild', 'Retainer']);
+    expect(screen.getByText('50h')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Revenue' }));
+
+    /* Retainer bills the most per hour, so revenue inverts the pair. The
+       money appears and the hours go. */
+    const byRevenue = [...(region()?.querySelectorAll('.truncate') ?? [])]
+      .map((el) => el.textContent?.trim())
+      .filter((t) => t === 'Platform rebuild' || t === 'Retainer');
+    expect(byRevenue).toEqual(['Retainer', 'Platform rebuild']);
+    expect(screen.getByText('$3,000.01')).toBeVisible();
+    expect(region()?.textContent).not.toContain('50h');
+  });
+
+  /* The footer is where the window's real total lives — including the work
+     the columns are not allowed to show. Both halves are conditional on
+     there being a remainder, and a footer that prints "+0h 00m across 0 more"
+     invents a category. */
+  it('prints the tail only when there is one, in the unit on screen', async () => {
+    const { unmount } = await panel();
+
+    const footer = () =>
+      [...(region()?.querySelectorAll('p') ?? [])]
+        .map((p) => p.textContent ?? '')
+        .find((t) => t.includes('logged')) ?? '';
+
+    expect(footer()).toContain('+10h across 3 more');
+    expect(footer()).toContain('110h logged');
+    expect(footer()).toContain('last 3 months');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Revenue' }));
+    expect(footer()).toContain('+$900.00 across 3 more');
+    expect(footer()).toContain('$9,900.01 logged');
+
+    unmount();
+
+    await panel({ moreProjects: 0, tailSeconds: 0, tailAmount: 0 });
+    expect(footer()).not.toContain('across');
+    expect(footer()).toContain('logged');
+  });
+
+  /* The tallest bar is always the full plot, so the picture is "which is
+     biggest and by how much". Heights as a share of the SUM instead would
+     flatten four near-equal projects into four quarter-height stubs and make
+     every book look the same. 50h against 25h is half, not a quarter. */
+  it('scales the bars against the tallest, never against their sum', async () => {
+    await panel();
+
+    const bars = [
+      ...(region()?.querySelectorAll<HTMLElement>('[role="img"] > div > div') ??
+        []),
+    ];
+    expect(bars.map((b) => b.style.height)).toEqual([
+      '100%',
+      '50%',
+      '30%',
+      '20%',
+    ]);
+  });
+
+  /* One project is a real book, not an edge case — most contractors start
+     there. A region that renders nothing until it has four columns is a
+     region that is blank for the users who most need to trust it. */
+  it('renders one project as one full-height bar', async () => {
+    await panel({
+      byProject: [fourProjects.byProject[0]!],
+      moreProjects: 0,
+      tailSeconds: 0,
+      tailAmount: 0,
+      seconds: 180000,
+      amount: 1000,
+    });
+
+    const bars = [
+      ...(region()?.querySelectorAll<HTMLElement>('[role="img"] > div > div') ??
+        []),
+    ];
+    expect(bars.length).toBe(1);
+    expect(bars[0]?.style.height).toBe('100%');
+  });
+
+  /* Work filed under no project is in the total and never in the columns: a
+     "No project" bar competes for one of four slots with something that is
+     not a project, and the inbox already owns that subject. The API keeps it
+     out of the array, so what this guards is a component that reads the tail
+     back into the chart. */
+  it('never draws a column for work with no project', async () => {
+    await panel({ tailSeconds: 360000, tailAmount: 9000, moreProjects: 1 });
+
+    const bars = [
+      ...(region()?.querySelectorAll<HTMLElement>('[role="img"] > div') ?? []),
+    ];
+    expect(bars.length).toBe(fourProjects.byProject.length);
+    expect(region()?.textContent).not.toMatch(/no project/i);
+  });
+
+  /* Same rule as Velocity's mix, and the reason `MIX_OPACITY` is one export
+     rather than a constant in each file: at full strength four hues across
+     the panel pull harder than the running timer. */
+  it('mutes its bars so they never out-shout the running timer', async () => {
+    await panel();
+
+    const bars = [
+      ...(region()?.querySelectorAll<HTMLElement>('[role="img"] > div > div') ??
+        []),
+    ];
+    expect(bars.length).toBe(4);
+    for (const bar of bars) {
+      const opacity = Number(bar.style.opacity);
+      expect(opacity).toBeGreaterThan(0);
+      expect(opacity).toBeLessThan(1);
+    }
   });
 });

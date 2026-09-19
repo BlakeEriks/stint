@@ -11,6 +11,7 @@ import { useDayState } from '@/lib/client/use-day-state';
 import { ByClient, Unbilled } from './home-unbilled';
 import { Month } from './home-month';
 import { Velocity } from './home-velocity';
+import { ByProject } from './home-by-project';
 import { Heatmap } from './home-year';
 
 /**
@@ -66,7 +67,8 @@ export function HomeCards() {
 
 /**
  * The home screen's regions, in three rows: money waiting beside who owes it,
- * the month beside the trailing quarter, then a year of texture across both.
+ * the month beside the trailing quarter, then that same quarter by project
+ * beside half a year of texture.
  *
  * **Nothing here writes.** Every action is a link to the surface that owns
  * the mutation, so a stray click cannot change an invoice.
@@ -82,10 +84,15 @@ function Panel({ stats }: { stats: Stats }) {
   const day = useDayState(stats);
   const data = stats;
 
-  /* Resolved ONCE for the whole panel and handed down. By-client, Velocity
-     and the heatmap all need it, and three subscriptions to one answer is
-     three places for the hues to disagree the moment one of them stops
-     asking for archived clients. */
+  /* Resolved ONCE for the whole panel and handed down. By-client, Velocity,
+     By project and the heatmap all need it, and four subscriptions to one
+     answer is four places for the hues to disagree the moment one of them
+     stops asking for archived clients.
+
+     By project resolves from this map rather than `useProjectClients()`: its
+     rows already carry `clientId`, so the project-to-client hop that hook
+     exists for is one the data has already made, and taking it would add a
+     projects fetch to this screen for an answer it is holding. */
   const clients = useClients();
 
   /* `@container` on the panel, and every pairing below sizes off it. The
@@ -115,7 +122,10 @@ function Panel({ stats }: { stats: Stats }) {
         right={<Velocity stats={data} beat={day.beat} clients={clients} />}
       />
       <Rule />
-      <Heatmap clients={clients} />
+      <Pair
+        left={<ByProject stats={data} clients={clients} />}
+        right={<Heatmap clients={clients} />}
+      />
     </div>
   );
 }

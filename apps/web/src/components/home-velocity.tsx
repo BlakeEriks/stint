@@ -1,4 +1,4 @@
-import { formatCompact, formatCurrency } from '@stint/core';
+import { formatCurrency } from '@stint/core';
 import { TrendingUp } from 'lucide-react';
 import type { Stats } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
@@ -79,17 +79,18 @@ export function Velocity({
           ))}
           {v.moreClients > 0 ? <span>+{v.moreClients} more</span> : null}
         </p>
-
-        <p className="type-meta tabular-nums text-right text-subtle">
-          {formatCompact(v.seconds)}
-        </p>
       </div>
     </Region>
   );
 }
 
-/** Muted so the client hues never out-shout the running timer. */
-const MIX_OPACITY = 0.62;
+/**
+ * Muted so the client hues never out-shout the running timer.
+ *
+ * Exported because By project paints the same hues beside this bar: a second
+ * constant is a second thing to edit, and the two drift the moment one is.
+ */
+export const MIX_OPACITY = 0.62;
 
 /**
  * One segment per client, sized by share of the gross — so the bar always
