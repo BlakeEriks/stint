@@ -71,12 +71,18 @@ Four planes, depth increasing toward what is being read:
 
 | Plane | Surface | What sits on it |
 |---|---|---|
-| Furthest | `--bg-recessed` | header, timer bar |
-| | `--bg-base` | rail, dock |
-| | `--bg-primary` | content column |
-| Nearest | `--bg-elevated` + `--shadow-card` | cards |
+| Furthest | `--bg-recessed` | the ground the app's card floats on at `2xl` |
+| | `--bg-base` | the ground; the header, rail, dock and timer bar are painted straight onto it |
+| | `--bg-primary` | the content column — one panel, shadow alone, no border |
+| Nearest | `--bg-elevated` + `--shadow-card` | a row or a list you act on |
 
-Never invert this — a card darker than the surface under it reads as a hole.
+Never invert this — a surface darker than the one under it reads as a hole.
+
+The header, the rail and the dock carry no surface of their own: the ground
+runs unbroken behind them, so the only edge in the frame belongs to the
+panel. **Nothing inside the panel is a card** — regions there are separated
+by an inset rule with 18px above and below, and `_shell.html` is the copy to
+start from.
 
 The rail is 192px and appears at `lg`; the dock is a band beneath the content
 until `xl`, where it becomes a 286px column. The content measure is 48rem, or

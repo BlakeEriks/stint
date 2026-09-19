@@ -658,12 +658,6 @@ moves up — do not start one by guessing the answer.
       Worth a test that hits a real server with a real token before the Expo
       or macOS app depends on it.
 
-- [ ] **`docs/design/screens/README.md`'s frame table names the wrong
-      planes.** It puts the header and timer bar on `--bg-recessed`, but
-      `layout.tsx` paints them on `bg-base` and `bg-recessed` is the ground
-      the app's card sits on at `2xl`. The table is what a new screen doc is
-      started from, so it propagates.
-
 ## Deferred
 
 - **Branch protection** — needs GitHub Pro on a private repo. CI runs without
