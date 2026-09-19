@@ -130,8 +130,29 @@
   /* The month plot: a cumulative line against the goal ray. */
   .plot { display: block; width: 100%; height: 64px; }
 
-  /* The year: 52 columns of 7 days. */
-  .heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); grid-template-columns: repeat(52, minmax(0, 1fr)); gap: 2px; }
+  /* By project: four columns on a shared baseline. The height is fixed so the
+     tallest bar is the scale — proportional heights against an auto height
+     would rescale the picture every time the window total moved. */
+  .cols { display: flex; align-items: flex-end; gap: 10px; height: 116px; }
+  /* The column is full-height so a bar's percentage has a definite box to
+     resolve against — on an auto-height column every bar computes to zero. */
+  .cols .col { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
+  .cols .fig { text-align: center; white-space: nowrap; }
+  .cols .bar-v { border-radius: 4px 4px 0 0; opacity: .62; }
+  /* The baseline the columns stand on, and the names below it. */
+  .cols-base { height: 1px; background: var(--border-subtle); margin-top: 8px; }
+  .cols-names { display: flex; gap: 10px; margin-top: 8px; }
+  .cols-names .nm { flex: 1; min-width: 0; text-align: center; }
+  /* The unit toggle: two words and a divider, at meta weight. A segmented
+     control here would be the heaviest thing in the region. */
+  .unit { display: inline-flex; align-items: baseline; gap: 5px; flex: none; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+  .unit button { background: none; border: 0; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; color: var(--text-subtle); }
+  .unit button[aria-pressed="true"] { color: var(--text-strong); }
+  .unit .sep { color: var(--text-subtle); }
+
+  /* The half-year: 26 columns of 7 days. Half the window, so the cell stays a
+     cell at the half-width this region now occupies. */
+  .heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); grid-template-columns: repeat(26, minmax(0, 1fr)); gap: 2px; }
   .heat i { display: block; aspect-ratio: 1; border-radius: 2px; background: var(--bg-hover); }
   .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-top: 10px; }
   .lg { display: inline-flex; align-items: center; gap: 6px; }
@@ -197,17 +218,24 @@
     <p>
       The panel is wide enough for two columns, and the regions pair by
       subject: <strong>a figure beside the breakdown that explains it.</strong>
-      Unbilled sits beside who owes it; the month sits beside the quarter.
-      The year spans both, because a 52-week heatmap at half width is a
-      texture nobody can read.
+      Unbilled sits beside who owes it; the month sits beside the quarter;
+      where the time went sits beside when it was spent.
     </p>
 
     <table>
       <tr><th>Row</th><th>Left</th><th>Right</th></tr>
       <tr><td>1</td><td>Unbilled — the figure, the beat, the awaiting-payment line</td><td>By client — the per-client rows</td></tr>
       <tr><td>2</td><td>The month — the cumulative plot against the goal ray</td><td>Gross earned — the figure, the mix, the split</td></tr>
-      <tr><td>3</td><td colspan="2">The year — the heatmap, across both columns</td></tr>
+      <tr><td>3</td><td>By project — the columns, the toggle, the window line</td><td>The half-year — the heatmap</td></tr>
     </table>
+
+    <p>
+      <strong>The heatmap's window is what its width buys.</strong> Half-width
+      at 52 weeks is a texture nobody can read, so the third row halves the
+      window rather than the cell: at the panel's 900px, 26 weeks renders
+      <strong>12.5px cells against the 10.8px a full-width year renders</strong>,
+      and a day stays a day.
+    </p>
 
     <div class="mock">
       <div class="panel">
@@ -292,30 +320,73 @@
                 <span class="k type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-6)"></span>Northwind <span class="type-meta">$17,600.00</span></span>
                 <span class="k type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-2)"></span>Byrne <span class="type-meta">$10,810.00</span></span>
               </div>
-              <div class="hoursline">
-                <span class="type-meta" style="color:var(--text-subtle)">214h 20m</span>
-              </div>
             </div>
           </div>
         </div>
 
         <div class="region-rule"></div>
 
-        <div class="region">
-          <div class="region-head listmode">
-            <span class="region-title">
-              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-              <span class="type-heading" style="color:var(--text-strong)">Year</span>
-            </span>
-            <span class="type-meta" style="color:var(--text-subtle)">34 day streak</span>
+        <div class="pair">
+          <div class="region">
+            <div class="region-head listmode">
+              <span class="region-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
+                <span class="type-heading" style="color:var(--text-strong)">By project</span>
+              </span>
+              <span class="unit">
+                <button type="button" aria-pressed="true">Hours</button>
+                <span class="sep" aria-hidden="true">/</span>
+                <button type="button" aria-pressed="false">Revenue</button>
+              </span>
+            </div>
+            <div class="region-body">
+              <div class="cols">
+                <div class="col">
+                  <span class="fig type-meta" style="color:var(--text-muted)">86h 10m</span>
+                  <span class="bar-v" style="height:100%;background:var(--proj-6)"></span>
+                </div>
+                <div class="col">
+                  <span class="fig type-meta" style="color:var(--text-muted)">52h 40m</span>
+                  <span class="bar-v" style="height:61%;background:var(--proj-2)"></span>
+                </div>
+                <div class="col">
+                  <span class="fig type-meta" style="color:var(--text-muted)">41h 15m</span>
+                  <span class="bar-v" style="height:48%;background:var(--proj-6)"></span>
+                </div>
+                <div class="col">
+                  <span class="fig type-meta" style="color:var(--text-muted)">22h 30m</span>
+                  <span class="bar-v" style="height:26%;background:var(--proj-2)"></span>
+                </div>
+              </div>
+              <div class="cols-base"></div>
+              <div class="cols-names">
+                <span class="nm"><span class="type-support" style="color:var(--text-muted)">Platform rebuild</span><br><span class="type-meta" style="color:var(--text-subtle)">Northwind</span></span>
+                <span class="nm"><span class="type-support" style="color:var(--text-muted)">Brand system</span><br><span class="type-meta" style="color:var(--text-subtle)">Byrne</span></span>
+                <span class="nm"><span class="type-support" style="color:var(--text-muted)">Checkout API</span><br><span class="type-meta" style="color:var(--text-subtle)">Northwind</span></span>
+                <span class="nm"><span class="type-support" style="color:var(--text-muted)">Retainer · support</span><br><span class="type-meta" style="color:var(--text-subtle)">Byrne</span></span>
+              </div>
+              <div class="hoursline">
+                <span class="type-meta" style="color:var(--text-subtle)">+11h 45m across 3 more · 214h 20m logged · last 3 months</span>
+              </div>
+            </div>
           </div>
-          <div class="region-body">
-            <div class="heat" id="heat"></div>
-            <div class="legend">
-              <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-6)"></span>Northwind Trading</span>
-              <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-2)"></span>Byrne Studio</span>
-              <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--text-subtle)"></span>Other</span>
-              <span class="type-meta" style="color:var(--text-subtle); margin-left:auto">861h 40m</span>
+
+          <div class="region">
+            <div class="region-head listmode">
+              <span class="region-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                <span class="type-heading" style="color:var(--text-strong)">Last 6 months</span>
+              </span>
+              <span class="type-meta" style="color:var(--text-subtle)">34 day streak</span>
+            </div>
+            <div class="region-body">
+              <div class="heat" id="heat"></div>
+              <div class="legend">
+                <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-6)"></span>Northwind Trading</span>
+                <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-2)"></span>Byrne Studio</span>
+                <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--text-subtle)"></span>Other</span>
+                <span class="type-meta" style="color:var(--text-subtle); margin-left:auto">431h 05m</span>
+              </div>
             </div>
           </div>
         </div>
@@ -325,11 +396,12 @@
     </div>
 
     <script>
-      /* 364 cells, generated rather than typed: a year of hand-written divs
-         would be unreadable as a spec and nobody would keep it current. */
+      /* 182 cells — 26 weeks — generated rather than typed: half a year of
+         hand-written divs would be unreadable as a spec and nobody would keep
+         it current. */
       const heat = document.getElementById('heat');
       const hues = ['var(--proj-6)', 'var(--proj-2)', 'var(--text-subtle)'];
-      for (let i = 0; i < 364; i++) {
+      for (let i = 0; i < 182; i++) {
         const cell = document.createElement('i');
         const weekday = i % 7;
         const worked = weekday < 5 && Math.random() > 0.18;
@@ -343,7 +415,7 @@
 
     <ul class="rule">
       <li><strong>Row order is fixed:</strong> money waiting, then whether the
-        month is working, then where the year went. No hiding a region, no
+        month is working, then where the work went. No hiding a region, no
         reordering them.</li>
       <li><strong>The columns size by <code>@container</code>, not
         viewport.</strong> The panel is not the window: the rail and the dock
@@ -352,7 +424,8 @@
         window. A viewport breakpoint would collapse the wide one and split
         the narrow one.</li>
       <li><strong>Below the threshold the pairs stack</strong>, in the order
-        they read: Unbilled, By client, the month, Gross earned, the year.</li>
+        they read: Unbilled, By client, the month, Gross earned, By project,
+        the half-year.</li>
       <li><strong>The left column is the wider</strong>, at
         <code>1.15fr</code> to <code>1fr</code>. It carries the figures, and an
         equal split leaves client names truncating while the money column has
@@ -414,7 +487,7 @@
               <div class="region-head listmode">
                 <span class="region-title">
                   <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-                  <span class="type-heading" style="color:var(--text-strong)">Year</span>
+                  <span class="type-heading" style="color:var(--text-strong)">Last 6 months</span>
                 </span>
                 <span class="type-meta" style="color:var(--text-subtle)">34 day streak</span>
               </div>
@@ -466,7 +539,7 @@
         work not yet invoiced; this is money already asked for, and summing
         them double-counts the same hours.</li>
       <li><strong>Past five clients the remainder is a count</strong>, the same
-        shape the year's legend uses.</li>
+        shape the half-year's legend uses.</li>
     </ul>
   </section>
 
@@ -600,22 +673,60 @@
         tween.</li>
       <li><strong>Not comparable with awaiting payment</strong>, which spans
         every period rather than this window.</li>
-      <li><strong>The hours sit alone under the bar</strong>, right-aligned.
-        The one figure in the region that is not money.</li>
       <li><strong>A client's share is its gross</strong>, invoiced plus
         unbilled. A client whose whole window is still unbilled grosses its
         unbilled amount, not nothing.</li>
     </ul>
   </section>
 
-  <!-- ───────────────────────── the year ───────────────────────── -->
+  <!-- ───────────────────────── by project ───────────────────────── -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">The year</span></div>
+    <div class="sec-head"><span class="eyebrow">By project</span></div>
 
     <p>
-      Fifty-two weeks, one cell per day. Colour is the client, density is the
-      hours. A year is the window where a seasonal shape — a quiet August, a
-      client that ended in March — becomes visible at all.
+      Four columns on a shared baseline over the trailing three months, the
+      same window Velocity reports. <strong>The heights are the answer</strong>
+      — which work took the time, read without arithmetic.
+    </p>
+
+    <ul class="rule">
+      <li><strong>Four columns, and the rest is a count.</strong> A fifth
+        column narrows every name to a truncation, and the tail of a solo
+        book is projects worth an hour each.</li>
+      <li><strong>A column takes its project's shade of its client's
+        hue</strong>, muted to the segments' own strength. The hue still
+        answers whose work it is; the step separates one engagement's projects
+        from each other, which is the whole picture for a book with one
+        client. An unshaded project renders the client's hue exactly.</li>
+      <li><strong>With one project it draws tasks, and the heading says
+        so</strong> — <code>By task · Betterlife</code>. One client and one
+        project is where most books start, and a single column is a chart that
+        failed. The fall-through is a function of the data: no click, no
+        selection, nothing remembered. Tasks group on a trimmed, case-folded
+        <code>task_name</code> and display the most recent spelling, because
+        the column is free text and two spellings of one task would otherwise
+        be two columns.</li>
+      <li><strong>The toggle switches the unit, never the window.</strong>
+        Hours and revenue reorder the same four projects; a window control
+        here would be a second range on a screen whose ranges are all
+        fixed.</li>
+      <li><strong>Unbillable work has hours and no revenue.</strong> On
+        revenue it drops out of the ranking rather than sitting at zero, and
+        the count line is where it goes.</li>
+      <li><strong>The footer line carries the window and the remainder</strong>,
+        right-aligned. The logged total is the one figure here that is not a
+        column.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── the half-year ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The half-year</span></div>
+
+    <p>
+      Twenty-six weeks, one cell per day. Colour is the client, density is the
+      hours. Half a year is long enough to show an engagement beginning and
+      ending, and a quiet stretch as a stretch rather than a bad week.
     </p>
 
     <ul class="rule">
@@ -623,11 +734,11 @@
         <strong>never the accent</strong> — that belongs to the running timer.
         Internal work keeps a neutral that reads as worked rather than as
         rest.</li>
-      <li><strong>A blank day stays blank.</strong> Every day in the year gets a
-        cell, so a gap is a weekend or a dry spell rather than missing
+      <li><strong>A blank day stays blank.</strong> Every day in the window
+        gets a cell, so a gap is a weekend or a dry spell rather than missing
         data.</li>
       <li><strong>A day split across clients takes the one with the most
-        hours.</strong> A cell is about 11px and cannot carry a stack; the
+        hours.</strong> A cell is about 12px and cannot carry a stack; the
         alternative is a smear of colour that names nobody.</li>
       <li><strong>Archived clients keep their colour.</strong> Work billed to a
         finished engagement belongs in the history, and dropping the hue would
@@ -639,7 +750,7 @@
         single missed day punishes one appointment and stops being a figure
         anyone trusts. Today not yet worked does not break it.</li>
       <li><strong>Each cell's date and hours are in its tooltip.</strong> There
-        is no axis; at 52 columns every label is noise.</li>
+        is no axis; at 26 columns every label is noise.</li>
     </ul>
   </section>
 
@@ -740,13 +851,24 @@
         dashboard the user assembles is a dashboard nobody can specify, and it
         is the path by which this becomes the product it was built
         against.</li>
-      <li><strong>A range control on the year.</strong> The window is fixed at
-        52 weeks. A picker turns one honest shape into four that disagree, and
-        each switch refetches a year.</li>
+      <li><strong>A range control on the heatmap.</strong> The window is fixed
+        at 26 weeks. A picker turns one honest shape into four that disagree,
+        and each switch refetches the lot.</li>
       <li><strong>Stacking a split day's clients in one cell.</strong> At 11px
         a stack is a smear. The majority takes the cell.</li>
-      <li><strong>Top projects this week.</strong> With one to three clients, a
-        ranked table ranks one thing.</li>
+      <li><strong>Project shades in the heatmap.</strong> The cell already
+        spends lightness on hours. A shade on the same channel inverts rather
+        than blurs — the lightest project on a quiet day renders darker than
+        the darkest on a busy one — so a day takes its client's base hue.
+        <code>deriving-colour.md</code> has the numbers.</li>
+      <li><strong>Clicking a project to expand its tasks.</strong> Which
+        project is selected is per-user view state, which is the assembled
+        dashboard under another name, and it leaves the region with no fixed
+        subject to pair against. The one-project case is served by falling
+        through to tasks on the data alone.</li>
+      <li><strong>A ranked project table.</strong> Its shape is By client's,
+        two rows above, and the same picture twice is what the pairing removed.
+        The columns are the answer, not the ranking.</li>
       <li><strong>Pie charts.</strong> A solo contractor's time splits two to
         four ways. A bar does that in less space and stays readable when one
         slice is 4%.</li>
@@ -763,31 +885,36 @@
       <tr><th>Call</th><th>Feeds</th><th>Note</th></tr>
       <tr>
         <td><code>GET /stats</code></td>
-        <td>Unbilled, the month, Velocity</td>
+        <td>Unbilled, the month, Velocity, By project</td>
         <td>Unbilled by client with aging, the month's cumulative series
             against its ray, trailing-quarter gross by client, and the billable
-            ratio. One request, because they render together.</td>
+            ratio. One request, because they render together. The same window
+            by project, in both units, is <strong>not implemented</strong> —
+            it is a SQL aggregate through <code>resolve_rate()</code> and a
+            <code>byProject</code> shape in <code>@stint/schema</code>
+            (<code>tasks.md</code>).</td>
       </tr>
       <tr>
         <td><code>GET /calendar?granularity=day</code></td>
-        <td>the year</td>
-        <td>One call over a one-year range. Already groups by local day
+        <td>the half-year</td>
+        <td>One call over a 26-week range. Already groups by local day
             server-side, which is the DST-correct bucketing this needs and the
             reason not to build a second one. Returns
             <code>{ date, totalSeconds, byClient }</code> and nothing else.</td>
       </tr>
       <tr>
         <td><code>GET /clients?includeArchived</code></td>
-        <td>the year's hues and legend</td>
+        <td>the half-year's hues and legend</td>
         <td>Archived clients included, so a finished engagement keeps its
             colour instead of falling into the neutral band.</td>
       </tr>
     </table>
 
     <p style="margin-top:1.25rem">
-      The year's cache key is its own, not a variant of the activity key: the
-      range is fixed, so sharing one with a range the user picks would refetch
-      365 days on every change. It joins <code>invalidateEntryData()</code>,
+      The half-year's cache key is its own, not a variant of the activity key:
+      the range is fixed, so sharing one with a range the user picks would
+      refetch 182 days on every change. It joins
+      <code>invalidateEntryData()</code>,
       or the region goes stale on every timer stop.
     </p>
 

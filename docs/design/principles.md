@@ -81,8 +81,19 @@ bank balance and nothing more, so a row that sits permanently true with no way
 to say *not yet* is a reminder with no off switch rather than an unattended
 mess. It snoozes, defaulting to daily. Nothing else does.
 
-**No per-project colours.** Colour answers *whose work is this?*; a project is
-a subdivision of a client already identified by it. See `brand.html`.
+**No per-project hues.** Colour answers *whose work is this?*, so a project
+never takes a hue of its own — it takes a step on its client's, which keeps
+the answer the same at a glance. `deriving-colour.md` has the scale, and the
+heatmap is excluded from it. See `brand.html`.
+
+**No grouping layer between client and project.** The shape that wants one is
+a client with internal sub-clients — billing goes to the parent, while the
+work divides below it. A table for that is a nullable FK on projects, a rung
+in every aggregate, and a fourth level in a rate chain `CLAUDE.md` already
+requires two implementations to agree on. A naming convention carries it at no
+cost (`BL · E24`), and project shades give the grouping its colour. Revisit
+when prefixes become load-bearing across invoices and reports rather than a
+reading aid.
 
 **No "System" theme.** The palette is dark-first and its light block is keyed
 to an explicit `[data-theme="light"]`, so a System option would resolve to

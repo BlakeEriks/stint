@@ -137,6 +137,45 @@ consequences are baked into the system:
 2. **Timer state is carried by form and motion, not colour alone** — the
    pulsing dot and the running readout signal it independently.
 
+## Project shades — a scale per client hue
+
+The eight project hues are one colour at eight angles: every one is
+**L 0.700, C 0.111**, 40° apart. So a project's shade within its client's hue
+is a walk in **L at constant hue**, and the same four steps serve all eight.
+
+| Step | L | C | Role |
+| --- | --- | --- | --- |
+| 1 | 0.780 | 0.098 | lightest |
+| 2 | 0.700 | 0.111 | **the client's own hue** |
+| 3 | 0.620 | 0.118 | |
+| 4 | 0.540 | 0.115 | darkest |
+
+ΔL is 0.080 at every step and nothing clips at any of the eight angles. C
+rises slightly into the middle and falls at the ends, tracking where the hue
+holds chroma — held constant, step 4 reads muddy and step 1 pastel.
+
+**Step 2 is the client hue itself**, so an unshaded project renders what it
+renders today.
+
+**Four is the ceiling**, set by the heatmap's opacity range rather than by
+taste: a fifth step halves ΔL, and the table below is already at the floor.
+
+**Shades never reach the heatmap.** It spends lightness on hours, so a second
+meaning on the same channel does not blur but inverts — composited on
+`bg-surface-primary`:
+
+| Opacity | step 1 | step 2 | step 3 | step 4 | ΔL |
+| --- | --- | --- | --- | --- | --- |
+| 1.00 | 0.779 | 0.700 | 0.620 | 0.540 | 0.080 |
+| 0.62 | 0.586 | 0.531 | 0.479 | 0.426 | 0.053 |
+| 0.35 | 0.437 | 0.403 | 0.370 | 0.340 | 0.032 |
+
+Step 1 at 0.35 (L 0.437) is **darker** than step 4 at full strength
+(L 0.540): the lightest project on a quiet day outranks the darkest on a busy
+one, and the cell contradicts both of the things it encodes. A heatmap day
+takes its client's base hue, which is the existing majority-client rule
+unchanged.
+
 ## Warning and danger
 
 Both are hand-set literals, like the light accent — there is no generator for

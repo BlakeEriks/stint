@@ -279,8 +279,37 @@ later.
 
       **One control: hours or revenue.** A genuine either/or — hours answer
       where the time went, revenue what it was worth, and a project can rank
-      high on one and low on the other, which is the insight. Same shape as
-      Velocity's figure-and-keyline, so it reads as a sibling.
+      high on one and low on the other, which is the insight.
+
+      **Vertical columns on a shared baseline**, four named, ordered by the
+      active measure. The panel already draws ranked rows (By client) and a
+      stacked bar (Velocity); a fifth region in either shape is the same
+      picture twice, and By client sits two rows above wearing the one this
+      region would otherwise take. Columns are the common chart the panel has
+      never used, and a comparison across a handful of named things is what
+      they are for. At 900px the four columns are ~102px each — a project name
+      on one line with its client beneath it, and the full figure
+      (`86h 10m`, not `86h`) riding above each bar.
+
+      **A fifth project and beyond fold into the footer line**, not a bar:
+      `+11h 45m across 3 more`. A tail column can be neither clicked nor
+      named, and four is what the width holds at full names.
+
+      **Velocity's hours total moves here**, into that same footer line —
+      `214h 20m logged · last 3 months` — which names the window once for the
+      row. It is the region's own subject in hours mode rather than a
+      right-aligned footnote under someone else's bar.
+
+      **With one project it draws tasks instead, and the heading says so**
+      (`By task · Betterlife`). One client and one project is the first-run
+      shape of nearly every user, and a one-bar chart reads as a chart that
+      failed where a one-row list merely reads as short. Fall-through is a
+      function of the data — no click, no selection, no stored view state,
+      which is what separates it from the drill-down `principles.md` refuses.
+      Aggregate on **trimmed, case-folded `task_name`**, displaying the most
+      recent spelling: the column is free text with no id, so `Auth refactor`
+      and `auth refactor ` are one task or the region lies. Two or more
+      projects and it draws projects again.
 
       **No timeframe picker; inherit Velocity's trailing window.** Two
       regions side by side on different windows invite a comparison that is
@@ -294,13 +323,15 @@ later.
       aggregate is proved against a real Postgres before anything is built on
       it — a project with no client, a NULL rate at every level, and two
       projects sharing a name under different clients are the rows that will
-      find the bugs.
+      find the bugs. The task fall-through is a second grouping in the same
+      shape, and `task_name` being nullable is one of its rows.
 
-      **It takes half a row, and the heatmap gives up the other half.** The
-      heatmap is full-width today because nothing else was ready to sit
-      beside it, not because it needs the width. At `@2xl` the pair is
-      `1.15fr 1fr`; the chart takes the wider half, since bars with project
-      names need more room than a year of 9px cells.
+      **It takes half a row, and the heatmap gives up the other half** at
+      `1.15fr 1fr`, the chart taking the wider half. **The heatmap drops to 26
+      weeks**, and gains by it: at the 900px panel a half-width 26-week map
+      renders **12.5px cells against the 10.8px it has full-width at 52**. The
+      region is renamed to match the window it draws, which carries the streak
+      copy and the 364-day logic with it.
 
 - [ ] **Stopping the timer moves Unbilled on the stop response.** In the menu
       bar panel, `toggle()` discards what `stopTimer()` returns and waits on a
@@ -378,11 +409,41 @@ later.
       route-level check would need repeating in three places and would be a
       race besides. `rls.test.ts` is where the assertion goes.
 
-- [ ] **Drop `projects.color`.** Nothing selects or writes it, and a project
-      takes its colour from its client — the column is the only thing in the
-      repo claiming otherwise. It has shipped, so this is the second release
-      of a two-release retirement: a migration of its own that drops the
-      column and touches no code.
+- [ ] **A project takes a shade within its client's hue**, and
+      `projects.color` stops being dead. One client and several projects is
+      the common solo shape, not the edge: that user's mix is a single flat
+      segment and their heatmap is one colour, so the panel spends its colour
+      channel saying nothing. A shade splits the engagement without breaking
+      what colour means, because every step is the same hue.
+
+      **This cancels the column's drop.** `projects.color` was scheduled for
+      retirement on the grounds that nothing claims a project has a colour;
+      that is the rule changing, so the column is revived rather than dropped
+      and re-added. It is re-specified as a **shade index, not a hex** — the
+      colour is still derived, and a stored hex is the drift the token package
+      exists to prevent.
+
+      **Every project hue is `L=0.700, C=0.111`**, differing only in hue
+      angle, so a shade walks L at constant hue. Four steps at ΔL 0.080 —
+      `0.780/0.098`, `0.700/0.111`, `0.620/0.118`, `0.540/0.115` — none
+      gamut-clipped at any of the eight angles. **Step 2 is the client's own
+      hue**, so a project with no shade set renders exactly what it renders
+      today and nothing changes for anyone who never sets one. Four is the
+      ceiling: a fifth halves the step.
+
+      **Shades reach the bar chart and Velocity's mix, never the heatmap.**
+      Those two spend no lightness, so the channel is free. The heatmap spends
+      it on hours, and shades there do not blur but **invert**: composited on
+      the panel, step 1 at 35% opacity lands at L 0.437 while step 4 at full
+      opacity lands at L 0.540, so the lightest project on a quiet day renders
+      darker than the darkest project on a busy one — the cell lying on both
+      axes at once. At 35% the steps are ΔL 0.032, under half what they were
+      derived at. `home.html` carries this as a refusal.
+
+      The generator emits the scale, `useProjectColors()` resolves it, and
+      `deriving-colour.md` owns the derivation. `CLAUDE.md`'s *only clients
+      have a colour* becomes *a client owns a hue; a project may take a step
+      on it*.
 
 - [ ] **`POST /invoices` and `/preview` leak `entryIds` per line item**, and
       `POST /invoices` returns `lineItems` + `entryCount` while `api.ts`
