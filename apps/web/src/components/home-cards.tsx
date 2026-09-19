@@ -203,7 +203,13 @@ function SinceLine({
  * it cuts the panel in two and reads as two stacked cards.
  */
 function Rule() {
-  /* 12px each side. Below about 8 the regions read as a list of rows rather
-     than as four things sharing one surface. */
-  return <div className={`${INSET_X} my-3 border-t border-edge-subtle`} />;
+  /* The regions' own padding is the rest of the distance: a body's `pb-3` and
+     a section's `py-1` sit between the rule and the nearest ink, so 6px here
+     puts content 22px from the line.
+
+     22 is `INSET` plus that section step, and it runs looser than the 18px
+     between two halves on purpose — that gap is empty, while this one has a
+     rule drawn through it, and a line needs clearance the empty gap does
+     not. */
+  return <div className={`${INSET_X} my-1.5 border-t border-edge-subtle`} />;
 }

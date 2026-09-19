@@ -79,7 +79,7 @@
   .region { padding: 4px 0; }
   /* Inset to the rows' own 18px. Full-bleed it cuts the panel in two and
      reads as two stacked cards. */
-  .region-rule { height: 1px; margin: 12px 18px; background: var(--border-subtle); }
+  .region-rule { height: 1px; margin: 6px 18px; background: var(--border-subtle); }
 
   /* The pairing. Sized by CONTAINER, not viewport: the panel is not the
      window — the rail and dock claim their space at `lg` and `xl`, so the
@@ -448,6 +448,10 @@
         apart by exactly twice what either sits from the panel's edge, which
         is the spacing the outer margin already implies. A gutter on top of
         the insets is a second number governing one gap, and the two drift.</li>
+      <li><strong>A rule sits 22px from the nearest ink</strong> — the inset
+        plus the section's own step. It runs looser than the 18px between two
+        halves because that gap is empty and this one has a line drawn through
+        it, and a line needs clearance the empty gap does not.</li>
       <li><strong>Unbilled hides itself with nothing outstanding</strong>, and
         By-client goes with it. A region with no rows is a heading over a
         gap.</li>
