@@ -27,6 +27,7 @@ export function EntryList({
   todaySeconds,
   compact = false,
   grid = false,
+  flush = false,
 }: {
   projects: Project[];
   todaySeconds: number;
@@ -41,6 +42,12 @@ export function EntryList({
    * it answers "where did the day go" rather than "what have I booked".
    */
   grid?: boolean;
+  /**
+   * Drop the top rule and the space above it, because something else is
+   * already drawing the divider — the dock's drag handle, which IS the rule
+   * between the two regions. Two would read as a boxed region.
+   */
+  flush?: boolean;
 }) {
   const from = startOfLocalDay(new Date(), tz).toISOString();
 
@@ -75,7 +82,7 @@ export function EntryList({
          below its content so the grid scrolls rather than the column growing;
          `basis-1/2` is the floor that stops a long inbox crushing it. It
          still grows past half when the inbox wants less. */
-      className={`mt-6 border-t border-edge-subtle pt-4 ${
+      className={`${flush ? 'pt-1' : 'mt-6 border-t border-edge-subtle pt-4'} ${
         grid ? 'flex min-h-0 flex-1 flex-col' : ''
       }`}
       aria-label="Today's entries"
