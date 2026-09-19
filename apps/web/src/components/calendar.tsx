@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   formatCompact,
@@ -28,9 +28,14 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 const HOUR_STEP = 3;
 
 /**
- * Pixels per hour in the cropped day view, and the ceiling it obeys. 44px
- * keeps a 30-minute entry at the touch target; the cap is what keeps a long
- * window from rendering taller than the uncropped day it crops.
+ * Pixels per hour, in both views — an hour is one size everywhere, and the
+ * window decides how tall the grid is rather than how tall an hour is. 44px
+ * keeps a 30-minute entry at the touch target.
+ *
+ * The cap is the day view's alone: there the PAGE scrolls, and a long window
+ * would otherwise render taller than the uncropped day it crops. A week is
+ * 24 hours and overflows the panel on purpose, which is the panel's scroll
+ * to carry.
  */
 const PX_PER_HOUR = 44;
 const DAY_MAX_HEIGHT = 620;
@@ -102,15 +107,44 @@ export function Calendar() {
   const to = cal.days[0]?.to ?? cal.weekEnd;
   const marks = hourMarks(from, to);
 
-  /* Fixed height in week view, so an hour is the same size on every screen. In
-     day view the height follows the window and the page scrolls, so a shorter
-     day is a shorter page. */
+  /* An hour is the same height in both views: the window sets how tall the
+     grid is, never how tall an hour is. A week is 24 of them and taller than
+     the panel, so the scroller the panel already owns carries the difference
+     — which is what a fixed height could not do without crushing the hours
+     into it. The day view keeps its cap, where the PAGE scrolls and a long
+     window would otherwise run past the end of a cropped day. */
+  const windowHours = (to.getTime() - from.getTime()) / 3_600_000;
   const gridHeight = byDay
-    ? Math.min(
-        DAY_MAX_HEIGHT,
-        Math.round(((to.getTime() - from.getTime()) / 3_600_000) * PX_PER_HOUR),
-      )
-    : GRID_HEIGHT;
+    ? Math.min(DAY_MAX_HEIGHT, Math.round(windowHours * PX_PER_HOUR))
+    : Math.round(windowHours * PX_PER_HOUR);
+
+  /* The earliest entry on screen, as a fraction of the window. A week of
+     ordinary days opens on the morning rather than on midnight, which is
+     what makes 24 hours affordable: the empty small hours are above the
+     fold instead of squeezing the worked ones. */
+  const firstTop = Math.min(
+    ...cal.days.flatMap((d) => d.positioned.map((p) => p.top)),
+  );
+
+  /* Keyed to the period on screen, not to the data: a refetch must not yank
+     the grid back, and neither must a drag. It changes only when the arrows
+     move — the day in day view, the week otherwise, matching what the
+     columns redraw. */
+  const period = byDay
+    ? localDateKey(cal.cursor, tz)
+    : localDateKey(cal.weekStart, tz);
+  const scroller = useRef<HTMLDivElement>(null);
+  const landed = useRef<string>('');
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || landed.current === period) return;
+    /* Nothing logged: the window's own start is already the right place. */
+    if (!Number.isFinite(firstTop)) return;
+    landed.current = period;
+    /* An hour above the first entry, so it does not sit against the top
+       edge and the hour before it stays reachable without scrolling up. */
+    el.scrollTop = Math.max(0, firstTop * gridHeight - PX_PER_HOUR);
+  }, [period, firstTop, gridHeight]);
 
   /* The heading names what is on screen, down to the day in day view. */
   const label = byDay
@@ -147,7 +181,7 @@ export function Calendar() {
   };
 
   return (
-    <Page wide fills>
+    <Page wide flush fills>
       {/* The screen is a column the height of the panel: the heading takes
           what it needs and the grid takes the rest. `min-h-0` at every link
           is what lets the grid shrink rather than push the column taller than
@@ -156,9 +190,14 @@ export function Calendar() {
           It binds at `xl` for the same reason `fills` does — below it the
           column above owns the one gesture. */}
       <div className="flex min-h-0 flex-col xl:flex-1">
-        <header className="flex flex-none flex-wrap items-center justify-between gap-3 pb-4">
+        {/* `flush`, so the regions below carry the panel's inset themselves
+            rather than inheriting a second one from `Page`. */}
+        <header className="flex flex-none flex-wrap items-center justify-between gap-3 px-4 pt-4 pb-3 sm:px-6">
           <div className="flex items-baseline gap-3">
-            <h1 className="type-title text-strong">{label}</h1>
+            {/* `type-heading`, not `type-title`: the mono readout beside it is
+              14px, and 24px over it reads as two unrelated sizes rather than
+              a heading and its total. */}
+            <h1 className="type-heading text-strong">{label}</h1>
             {/* The total matches the grid: this day on a phone, the week
               otherwise. */}
             <span className="type-duration text-muted">
@@ -195,12 +234,16 @@ export function Calendar() {
           </div>
         </header>
 
-        {/* The card is a column that can shrink, so the grid inside it measures
-          against the panel the frame gives this route rather than the window.
-          The day headings are the column's first child and the scroller its
-          second, which is what keeps the headings in place while the hours
-          move under them. */}
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card">
+        {/* The grid IS the panel, not a card on it — nothing inside the panel
+          is a card. It is a column that can shrink, so it measures against
+          the panel the frame gives this route rather than the window. The day
+          headings are the column's first child and the scroller its second,
+          which is what keeps the headings in place while the hours move under
+          them.
+
+          The rules above and below are region separators: edge to edge, they
+          cut the panel into heading, grid and legend. */}
+        <div className="flex min-h-0 flex-col overflow-hidden border-t border-edge-subtle">
           <div className="flex flex-none border-b border-edge-subtle">
             <div className="w-12 flex-none sm:w-14" />
             {cal.days.map((day) => (
@@ -223,10 +266,21 @@ export function Calendar() {
 
           {/* One scroll container so the hour gutter cannot drift from the grid.
 
-            **On a phone there is no inner scroller at all** — the page owns
-            the scroll, so there is one gesture however tall the chrome around
-            it is. The cropped window is what keeps that honest. */}
-          <div className="sm:min-h-0 sm:flex-1 sm:overflow-y-auto">
+            **It binds at `xl`, where `fills` gives the column the panel's
+            height for it to measure against.** Below that the column is sized
+            by its content, so an `overflow-y-auto` here would have nothing to
+            resolve against: the grid would grow to its full 24 hours and the
+            scroller outside it would carry the overflow — a scrollbar on a
+            box with nothing to scroll, inside the one doing the work.
+
+            So below `xl` there is no inner scroller and the page owns the
+            scroll, which is one gesture however tall the chrome around it
+            is. The day headings scroll with the hours there; they hold only
+            where the scroller is inside the card. */}
+          <div
+            ref={scroller}
+            className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
+          >
             <div
               className="flex"
               /* The gesture is owned here rather than on each block: a drag
@@ -285,22 +339,25 @@ export function Calendar() {
         </div>
 
         {error ? (
-          <p role="alert" className="mt-3 type-support text-danger">
+          <p
+            role="alert"
+            className="px-4 pt-3 type-support text-danger sm:px-6"
+          >
             {error}
           </p>
         ) : cal.isLoading ? (
-          <p className="mt-3 type-support text-subtle">Loading…</p>
+          <p className="px-4 pt-3 type-support text-subtle sm:px-6">Loading…</p>
         ) : cal.isError ? (
           /* Neutral: the grid is still drawn and correct, it just has nothing
            in it — a failed fetch is a condition, not a rejected action. */
-          <p className="mt-3 type-support text-subtle">
+          <p className="px-4 pt-3 type-support text-subtle sm:px-6">
             Could not load these entries. Try again.
           </p>
         ) : cal.visibleSeconds === 0 ? (
           /* Says what is actually empty. "Nothing logged this week" over a
            single day's grid would be wrong whenever the rest of the week has
            hours in it. */
-          <p className="mt-3 type-support text-subtle">
+          <p className="px-4 pt-3 type-support text-subtle sm:px-6">
             Nothing logged {byDay ? 'this day' : 'this week'}. Click a time to
             add an entry.
           </p>
@@ -317,9 +374,6 @@ export function Calendar() {
     </Page>
   );
 }
-
-/** Fixed pixel height so an hour is the same size on every screen. */
-const GRID_HEIGHT = 720;
 
 /**
  * Which client each colour on the grid belongs to.
@@ -537,7 +591,7 @@ function DayColumn({
         <div
           key={pct}
           aria-hidden
-          className="absolute inset-x-0 border-t border-edge-subtle/60"
+          className="absolute inset-x-0 border-t border-edge-grid"
           style={{ top: `${pct}%` }}
         />
       ))}

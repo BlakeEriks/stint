@@ -208,6 +208,46 @@ describe('Calendar', () => {
     expect(boxOf(first).style.left).not.toBe(boxOf(second).style.left);
   });
 
+  it('narrows only the entries that overlap, not the whole day', async () => {
+    serve([
+      {
+        date: '2026-09-07',
+        totalSeconds: 18_000,
+        entries: [
+          entry({
+            id: 'a',
+            taskName: 'Morning',
+            startedAt: '2026-09-07T09:00:00.000Z',
+            endedAt: '2026-09-07T11:00:00.000Z',
+          }),
+          entry({
+            id: 'b',
+            taskName: 'Also morning',
+            startedAt: '2026-09-07T10:00:00.000Z',
+            endedAt: '2026-09-07T12:00:00.000Z',
+          }),
+          /* Clear of both. A lane count taken across the whole column would
+             put this at half width against empty space, reading as though
+             something is there to avoid. */
+          entry({
+            id: 'c',
+            taskName: 'Afternoon',
+            startedAt: '2026-09-07T14:00:00.000Z',
+            endedAt: '2026-09-07T15:00:00.000Z',
+          }),
+        ],
+      },
+    ]);
+    render(<Calendar />, { wrapper });
+
+    const afternoon = await screen.findByText('Afternoon');
+    const boxOf = (el: HTMLElement) => el.closest('[style]') as HTMLElement;
+
+    expect(boxOf(afternoon).style.width).toBe('100%');
+    expect(boxOf(screen.getByText('Morning')).style.width).toBe('50%');
+    expect(boxOf(screen.getByText('Also morning')).style.width).toBe('50%');
+  });
+
   it('keeps a single entry full width', async () => {
     serve([
       {
@@ -555,8 +595,10 @@ describe('the mobile day grid crops to the hours in use', () => {
 
     await screen.findByText('September 2026');
     /* Seven columns share one window, so cropping would crop them all to the
-       busiest day's range — and the week's columns are short enough to read
-       whole anyway. */
+       busiest day's range: one 03:00 entry costs every column five empty
+       hours, and work spanning midnight forces the full 24 back regardless.
+       An hour keeps its height and the grid is scrolled to the first entry
+       instead — nothing is hidden from a week that is also a bill. */
     expect(hourLabels()).toContain('00');
     expect(hourLabels()).toContain('21');
   });

@@ -40,9 +40,11 @@
   .rule strong { color: var(--text-strong); font-weight: 600; }
 
   /* ── the grid ─────────────────────────────────────────────────── */
+  /* The grid IS the panel. Nothing inside the panel is a card, so the regions
+     are separated by rules that run edge to edge, not by a border around the
+     whole thing. */
   .cal {
-    border: 1px solid var(--border-subtle);
-    border-radius: 12px;
+    border-top: 1px solid var(--border-subtle);
     overflow: hidden;
     background: var(--bg-primary);
     margin-top: 1.25rem;
@@ -50,7 +52,6 @@
   .cal-head {
     display: flex; align-items: center; gap: 12px;
     padding: 12px 16px;
-    background: var(--bg-base);
     border-bottom: 1px solid var(--border-subtle);
   }
   .arrows { display: flex; gap: 4px; }
@@ -79,7 +80,10 @@
     color: var(--text-subtle); text-transform: uppercase; letter-spacing: .08em;
   }
   .slots { position: relative; height: 264px; }
-  .slots i { position: absolute; left: 0; right: 0; height: 44px; border-bottom: 1px solid var(--border-subtle); opacity: .5; }
+  /* `--border-grid` is the hairline: a gridline reads UNDER the column rules
+     rather than beside them, and a token does that in both themes where an
+     opacity only works over the one surface behind it. */
+  .slots i { position: absolute; left: 0; right: 0; height: 44px; border-bottom: 1px solid var(--border-grid); }
 
   .block {
     position: absolute; left: 3px; right: 3px;
@@ -211,11 +215,22 @@
       needs. A block you cannot read is a block you cannot check.
     </p>
     <p>
-      <strong style="color:var(--text-strong)">The page owns the scroll —
-      one gesture at any inbox size.</strong> A viewport-relative grid height
-      cannot work here, because the inbox beneath it is variable. Cropping is
-      what keeps a single scroller honest: an uncropped 24h column would move
-      the same excess into the page.
+      <strong style="color:var(--text-strong)">Below <code>xl</code> the page
+      owns the scroll — one gesture at any inbox size.</strong> A
+      viewport-relative grid height cannot work here, because the inbox
+      beneath it is variable. Cropping is what keeps a single scroller
+      honest: an uncropped 24h column would move the same excess into the
+      page.
+    </p>
+    <p>
+      The grid takes its own scroller at <code>xl</code> and not before,
+      because that is where the frame bounds the panel and <code>fills</code>
+      gives this column a height to measure against. Earlier than that the
+      column is sized by its content, so the grid would grow to its full 24
+      hours and the page would carry the overflow anyway — a scrollbar on a
+      box with nothing to scroll, inside the one doing the work. The day
+      headings hold under <code>xl</code> for the same reason: they stay put
+      only where the scroller is beneath them.
     </p>
 
     <table>
@@ -223,12 +238,16 @@
       <tr><td><code>workedWindow()</code></td><td>The entries' range, padded an hour either side so a block is never flush against an edge with nowhere to drag it earlier</td></tr>
       <tr><td>Floor</td><td class="num">10 hours</td></tr>
       <tr><td>Nothing tracked</td><td class="num">07:00 – 19:00</td></tr>
-      <tr><td>Height</td><td class="num">44px/hour, capped at 620px</td></tr>
+      <tr><td>Height</td><td class="num">44px/hour in both views; the day view caps at 620px, where the page scrolls</td></tr>
     </table>
 
     <p style="margin-top:1.5rem">
-      The week view keeps all 24 hours: seven columns share one window, and
-      cropping would crop them all to the busiest day's range.
+      The week view keeps all 24 hours at the same 44px, and the panel scrolls
+      to the first entry of the week, an hour above it. Seven columns share
+      one window, so cropping would crop them all to the busiest day's range:
+      one 03:00 entry costs every column five empty hours, and work spanning
+      midnight forces the full 24 back and gains nothing. A week is also a
+      bill, and an hour that is hard to find is an hour that goes unbilled.
     </p>
   </section>
 

@@ -255,24 +255,57 @@ function position(
   return placed;
 }
 
-/** Greedy interval colouring: first lane whose last block has ended. */
+/**
+ * Greedy interval colouring: first lane whose last block has ended.
+ *
+ * **Narrowing is per CLUSTER, not per column.** A cluster is a run of blocks
+ * that overlap transitively — A with B, B with C — and it ends at the first
+ * block starting after everything before it has finished. Lane count is the
+ * cluster's own width, so blocks line up with the ones they sit beside and a
+ * block that overlaps nothing keeps the full column.
+ *
+ * A column-wide count is what a morning collision costs an afternoon entry:
+ * it renders at half width against empty space, reading as though something
+ * is there to avoid.
+ */
 function assignLanes(placed: PositionedEntry[]) {
   const sorted = [...placed].sort((a, b) => a.top - b.top);
-  const laneEnds: number[] = [];
+
+  let cluster: PositionedEntry[] = [];
+  let laneEnds: number[] = [];
+  /* The cluster's furthest end, not the previous block's: B can end before A
+     does, and C starting after B still overlaps A. */
+  let clusterEnd = Number.NEGATIVE_INFINITY;
+
+  /* Tolerance for a block that starts exactly where another ends — floating
+     point, and touching is not overlapping. */
+  const EPS = 1e-9;
+
+  const close = () => {
+    const lanes = Math.max(1, laneEnds.length);
+    for (const item of cluster) item.lanes = lanes;
+  };
 
   for (const item of sorted) {
-    let lane = laneEnds.findIndex((end) => end <= item.top + 1e-9);
+    if (item.top + EPS >= clusterEnd) {
+      close();
+      cluster = [];
+      laneEnds = [];
+      clusterEnd = Number.NEGATIVE_INFINITY;
+    }
+
+    let lane = laneEnds.findIndex((end) => end <= item.top + EPS);
     if (lane === -1) {
       lane = laneEnds.length;
       laneEnds.push(0);
     }
     laneEnds[lane] = item.top + item.height;
     item.lane = lane;
+    cluster.push(item);
+    clusterEnd = Math.max(clusterEnd, item.top + item.height);
   }
 
-  // Every block in a column shares the same lane count, so widths line up.
-  const lanes = Math.max(1, laneEnds.length);
-  for (const item of placed) item.lanes = lanes;
+  close();
 }
 
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
