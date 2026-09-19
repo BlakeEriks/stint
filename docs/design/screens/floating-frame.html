@@ -159,7 +159,7 @@
   /* ── the same treatment in light ──────────────────────────────────
      The mechanism inverts. Dark: the panel is LIT from above, because the
      ground is dark and there is lightness to spare. Light: there is almost
-     no headroom above bg-base (0.049 total, and the panel spends 0.022 of
+     no headroom above bg-base (0.065 total, and the panel spends 0.020 of
      it), so a lit edge is invisible — but shadow, which had nowhere to go
      in dark, now has the whole range. So light is SHADED from above: a
      hairline of darkness at the top, and a real fall beneath. */
@@ -318,10 +318,6 @@
     padding: 16px 20px 12px;
   }
   .panel-head .when { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-subtle); }
-  /* "since yesterday, +$450 unbilled · 1 invoice paid" — tasks.md */
-  .moved { display: flex; align-items: center; gap: 7px; }
-  .moved .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text-subtle); }
-
   .panel-body { flex: 1; min-height: 0; overflow: hidden; padding: 0 20px 18px; }
 
   /* Regions inside the panel. Separation is inset rule + space, never a
@@ -339,13 +335,39 @@
   /* ── Unbilled ─────────────────────────────────────────────────── */
   .fig { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 500; letter-spacing: -.02em; color: var(--text-strong); line-height: 1.1; }
   .fig-row { display: flex; align-items: baseline; gap: 10px; }
-  /* The count-up's +$112.50, mid-fade. Neutral, not green: it reports,
-     it does not celebrate, and green belongs to the running timer. */
-  .delta {
-    font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums;
-    color: var(--text-muted); opacity: .75;
+  /* Today's earnings, beside the total they landed in. A named quantity, so
+     it takes the same micro-label as the by-client list rather than trailing
+     the figure as an annotation. Neutral, not green: it reports, it does not
+     celebrate, and green belongs to the running timer.
+     Aligned on its own value's baseline, which puts the label above the line
+     the total sits on instead of dropping the number below it. */
+  .delta { display: flex; flex-direction: column; gap: 1px; align-self: last baseline; }
+  .delta .lab {
+    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-subtle);
   }
-  .delta.done { color: var(--success); }
+  .delta .n {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size: 13.5px; color: var(--text-primary);
+  }
+
+  /* Returning to the page resolves what landed while you were away: the total
+     rolls to its new value and the delta arrives behind it, so the eye reads
+     "it went up" before "by this much". Tabular digits, so nothing reflows. */
+  .num.rolling { display: inline-block; animation: settle 520ms cubic-bezier(.2,.8,.2,1); }
+  @keyframes settle {
+    0%   { transform: translateY(-.14em); opacity: .35; }
+    60%  { opacity: 1; }
+    100% { transform: none; opacity: 1; }
+  }
+  .delta { animation: deltain 600ms 180ms both cubic-bezier(.2,.8,.2,1); }
+  @keyframes deltain {
+    from { opacity: 0; transform: translateY(2px); }
+    to   { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .num.rolling, .delta { animation: none; }
+  }
 
   .crow {
     display: flex; align-items: center; gap: 10px;
@@ -560,12 +582,12 @@
     <table>
       <tr><th>Mode</th><th>Ground</th><th>L</th><th>Headroom toward the edge's direction</th></tr>
       <tr><td>Dark</td><td><code>bg-base</code></td><td class="type-meta">0.186</td><td>0.814 above &mdash; <strong style="color:var(--text-strong)">lit</strong> top edge</td></tr>
-      <tr><td>Light</td><td><code>bg-base</code></td><td class="type-meta">0.951</td><td>0.049 above &mdash; nothing to lighten toward</td></tr>
+      <tr><td>Light</td><td><code>bg-base</code></td><td class="type-meta">0.935</td><td>0.065 above &mdash; nothing to lighten toward</td></tr>
     </table>
 
     <p style="margin-top:1.25rem">
       In light there is almost no room above <code>bg-base</code>, and the
-      panel at <code>bg-primary</code> already spends 0.022 of the 0.049
+      panel at <code>bg-primary</code> already spends 0.020 of the 0.065
       available. A lit top edge there is invisible. But shadow &mdash; which
       had nowhere to go in dark &mdash; now has the entire range beneath it.
     </p>
@@ -598,13 +620,7 @@
         <div class="centre">
           <main class="content pane">
         <div class="panel-head">
-          <div>
-            <h2 class="type-heading">Thursday</h2>
-            <!-- "since yesterday, +$450 unbilled · 1 invoice paid" — tasks.md -->
-            <span class="moved type-support" style="color:var(--text-muted)">
-              since yesterday <span class="dot"></span> +$450 unbilled <span class="dot"></span> 1 invoice paid
-            </span>
-          </div>
+          <h2 class="type-heading">Thursday</h2>
           <span class="when">17 Sep</span>
         </div>
 
@@ -618,8 +634,11 @@
                   <span class="region-title"><svg><use href="#i-wallet"/></svg><span class="type-label">Unbilled</span></span>
                 </div>
                 <div class="fig-row">
-                  <span class="fig">$3,135.00</span>
-                  <span class="delta">+$112.50</span>
+                  <span class="fig"><span class="num" data-to="3135" data-from="3022.5">$3,135.00</span></span>
+                  <span class="delta">
+                    <span class="lab">Today</span>
+                    <span class="n"><span class="num" data-to="112.5">+$112.50</span></span>
+                  </span>
                 </div>
                 <div class="subline">$3,465.00 sent, awaiting payment</div>
               </div>
@@ -791,13 +810,7 @@
         <div class="centre">
           <main class="content pane">
         <div class="panel-head">
-          <div>
-            <h2 class="type-heading">Thursday</h2>
-            <!-- "since yesterday, +$450 unbilled · 1 invoice paid" — tasks.md -->
-            <span class="moved type-support" style="color:var(--text-muted)">
-              since yesterday <span class="dot"></span> +$450 unbilled <span class="dot"></span> 1 invoice paid
-            </span>
-          </div>
+          <h2 class="type-heading">Thursday</h2>
           <span class="when">17 Sep</span>
         </div>
 
@@ -811,8 +824,11 @@
                   <span class="region-title"><svg><use href="#i-wallet"/></svg><span class="type-label">Unbilled</span></span>
                 </div>
                 <div class="fig-row">
-                  <span class="fig">$3,135.00</span>
-                  <span class="delta">+$112.50</span>
+                  <span class="fig"><span class="num" data-to="3135" data-from="3022.5">$3,135.00</span></span>
+                  <span class="delta">
+                    <span class="lab">Today</span>
+                    <span class="n"><span class="num" data-to="112.5">+$112.50</span></span>
+                  </span>
                 </div>
                 <div class="subline">$3,465.00 sent, awaiting payment</div>
               </div>
@@ -984,13 +1000,7 @@
         <div class="centre">
           <main class="content pane">
         <div class="panel-head">
-          <div>
-            <h2 class="type-heading">Thursday</h2>
-            <!-- "since yesterday, +$450 unbilled · 1 invoice paid" — tasks.md -->
-            <span class="moved type-support" style="color:var(--text-muted)">
-              since yesterday <span class="dot"></span> +$450 unbilled <span class="dot"></span> 1 invoice paid
-            </span>
-          </div>
+          <h2 class="type-heading">Thursday</h2>
           <span class="when">17 Sep</span>
         </div>
 
@@ -1004,8 +1014,11 @@
                   <span class="region-title"><svg><use href="#i-wallet"/></svg><span class="type-label">Unbilled</span></span>
                 </div>
                 <div class="fig-row">
-                  <span class="fig">$3,135.00</span>
-                  <span class="delta">+$112.50</span>
+                  <span class="fig"><span class="num" data-to="3135" data-from="3022.5">$3,135.00</span></span>
+                  <span class="delta">
+                    <span class="lab">Today</span>
+                    <span class="n"><span class="num" data-to="112.5">+$112.50</span></span>
+                  </span>
                 </div>
                 <div class="subline">$3,465.00 sent, awaiting payment</div>
               </div>
@@ -1174,3 +1187,36 @@
   </section>
 
 </div>
+
+<script>
+  /* The count-up, so the spec shows the behaviour rather than describing it.
+     The app animates from what this browser last saw (`useSinceLastSeen`);
+     here the start values are fixed, because a spec page has no last visit. */
+  const money = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  function roll(el) {
+    const to = parseFloat(el.dataset.to);
+    const from = el.dataset.from ? parseFloat(el.dataset.from) : 0;
+    const sign = to > 0 && !el.dataset.from ? '+' : '';
+    const dur = 900, t0 = performance.now();
+    el.classList.add('rolling');
+    (function step(t) {
+      const p = Math.min(1, (t - t0) / dur);
+      el.textContent = sign + money(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(step);
+      else el.classList.remove('rolling');
+    })(t0);
+  }
+
+  function replay() {
+    document.querySelectorAll('.delta').forEach(d => {
+      d.style.animation = 'none'; void d.offsetWidth; d.style.animation = '';
+    });
+    document.querySelectorAll('.num').forEach(roll);
+  }
+
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) replay(); });
+    replay();
+  }
+</script>

@@ -7,21 +7,28 @@ import {
   Image,
 } from '@react-pdf/renderer';
 import { formatCurrency, formatHours } from '@stint/core';
+import { theme } from '@stint/design-tokens';
 
 /**
  * The invoice document.
  *
- * Colors are the design system's LIGHT theme, not the dark UI one: this is
- * ink on white paper. The accent appears once, on the amount due — the same
- * scarcity rule the app follows on screen.
+ * This is ink on WHITE paper — the page has no background, so the sheet is
+ * the printer's. The neutrals are therefore a plain grey ramp and NOT the
+ * light theme, which is cream: reading `bg-primary` here would band the rows
+ * in warm paper colour on top of real white. `landing/page.tsx` draws the
+ * same document and carries the same ramp for the same reason.
+ *
+ * The accent is the exception and is read from the theme, because it is the
+ * brand mark rather than a surface: it appears once, on the amount due, the
+ * same scarcity rule the app follows on screen.
  */
 const c = {
-  ink: '#21242B', // ln-850
-  muted: '#565C67', // ln-600
-  faint: '#8B919D', // ln-400
-  rule: '#D1D5DD', // ln-100
-  band: '#F2F3F6', // ln-25
-  accent: '#1F7E17', // light-mode accent
+  ink: '#1A1C21',
+  muted: '#626875',
+  faint: '#848B98',
+  rule: '#D1D5DD',
+  band: '#F2F3F6',
+  accent: theme.light['accent-default'],
 };
 
 const styles = StyleSheet.create({

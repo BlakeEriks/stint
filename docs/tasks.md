@@ -27,39 +27,28 @@ later.
 
 
 
-- [ ] **Inbox rows become cards, and the colour rail goes.** The rows are
-      borderless bands on the panel's own ground, separated by a 2px left rail
-      that is coloured on the overdue row. `screens/floating-frame.html` draws
-      something else entirely: each row is **its own raised surface** —
-      `bg-surface-elevated`, ~7px radius, ~9px/10px padding, a 6px gap between
-      cards — with **no border on any edge**. Convert to that.
 
-      It is the four-plane rule doing the work the rail was standing in for: a
-      card that floats off the panel is separated by depth, so it needs no
-      edge to say where it ends. The rail exists because the rows had no
-      surface to be distinguished by — remove the reason and it goes with it.
+- [ ] **The running timer and the primary action are the same green.** The
+      accent carries two meanings — it marks the live timer and it marks the
+      one confirm action a screen exists to complete. Dark separates them for
+      free: `#52FC43` on a near-black ground is luminous, so a running timer
+      glows where a filled button reads as a solid rectangle. Light has no
+      glow to spend. At `accent-default` L 0.455 a green dot beside a green
+      duration and a green button are the same ink at the same weight on the
+      same paper, and the one thing allowed to shout stops shouting.
 
-      Also in the spec's drawing and not in the code:
+      **The ladder already has a rung for this.** `accent-subtle` sits at
+      L 0.525, a step up, and clears 4.83 on the card — enough for the timer
+      to sit brighter than the thing you click without a new value. Whether
+      the timer takes it, or the button drops to `accent-hover` instead and
+      leaves `default` to the timer, is the decision: both widen the gap, and
+      they disagree about which of the two meanings owns the base rung.
 
-      - **The count is a pill**, not bare text — mono, ~17px round,
-        `bg-surface-elevated`. `inbox.tsx:144` renders it as plain
-        `type-meta`.
-      - **The actions are outlined**, `1px solid` at ~5px radius, rather than
-        the current bare text that only draws a surface on hover. On a raised
-        card a hover-only control has nothing to sit against.
+      Judge it on the timer bar and the invoice screen together — the only
+      two places where a running timer and a primary action are on screen at
+      once, which is the whole problem.
 
-      **Danger stays, on the figure.** `tone === 'danger'` currently colours
-      the rail and the subtitle; with the rail gone it belongs on the value
-      and the copy — the spec's `.tone-danger` is a text colour, applied to
-      "20 days late", not to a container. The distinction between an overdue
-      invoice and an unprojected entry must survive the conversion.
-
-      Check the exit animation in the same pass: `exit-collapse` collapses a
-      row's height on dismiss, and a card with its own margin collapses
-      differently from a flush band — the gap has to go with it or rows jump
-      as one leaves.
-
-      Wanted for alpha.
+      `src/derive-light-accent.mjs` holds the rungs; `brand.html` is the test.
 - [ ] **One figure for today's earnings, from the server.** Home answers
       "what has today been worth?" twice, in two places, by two mechanisms,
       and neither answers it directly:

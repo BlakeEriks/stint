@@ -360,11 +360,12 @@ function Aside({
  * its total in the light-theme accent, which is correct on paper but would
  * put a second green meaning on this page beside the CTA.
  *
- * Hardcoded hexes, for the same reason `invoice-pdf.tsx` has them: this is
- * ink on paper, not app chrome, so the dark-theme utilities do not apply.
- * Each is the LIGHT value of a token — `#1A1C21` text-primary, `#626875`
- * text-muted, `#848B98` text-subtle, `#D1D5DD` border-default, `#E4E6EC`
- * border-subtle, `#F2F3F6` bg-primary.
+ * Hardcoded hexes, because this is ink on WHITE paper, not app chrome: a
+ * drawing of a printed invoice sitting on a dark marketing page. They are
+ * deliberately not the light theme, which is cream — `theme.light` would
+ * tint this picture of paper and is what `invoice-pdf.tsx` reads instead.
+ * A neutral grey ramp on white: `#1A1C21` ink, `#626875` and `#848B98`
+ * secondary, `#D1D5DD` and `#E4E6EC` rules, `#F2F3F6` the banded row.
  */
 function InvoicePreview() {
   const lines = [
