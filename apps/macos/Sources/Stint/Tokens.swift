@@ -42,11 +42,11 @@ public enum Tokens {
         static let accentMuted = Color(hex: "#1B3518")
         static let timerRunning = Color(hex: "#52FC43")
         static let timerIdle = Color(hex: "#666D79")
-        static let timerWarning = Color(hex: "#DBA929")
+        static let timerWarning = Color(hex: "#5CABF2")
         static let success = Color(hex: "#36C52A")
-        static let warning = Color(hex: "#DBA929")
-        static let danger = Color(hex: "#E9504D")
-        static let dangerMuted = Color(hex: "#47201E")
+        static let warning = Color(hex: "#5CABF2")
+        static let danger = Color(hex: "#F64B66")
+        static let dangerMuted = Color(hex: "#471F23")
         static let info = Color(hex: "#6D7FAE")
     }
     public enum Light {
@@ -75,11 +75,11 @@ public enum Tokens {
         static let accentMuted = Color(hex: "#E8F7E4")
         static let timerRunning = Color(hex: "#1F7E17")
         static let timerIdle = Color(hex: "#8F949C")
-        static let timerWarning = Color(hex: "#A66A00")
+        static let timerWarning = Color(hex: "#1C6DAD")
         static let success = Color(hex: "#1D7815")
-        static let warning = Color(hex: "#A66A00")
-        static let danger = Color(hex: "#C21725")
-        static let dangerMuted = Color(hex: "#FFEBE8")
+        static let warning = Color(hex: "#1C6DAD")
+        static let danger = Color(hex: "#C21F43")
+        static let dangerMuted = Color(hex: "#FFEBEB")
         static let info = Color(hex: "#4A5A85")
     }
     public static let projectColors: [Color] = [

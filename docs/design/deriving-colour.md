@@ -128,13 +128,52 @@ whether it is invisible or not. The four planes are an even ΔL 0.035 apart:
 collapses to the same yellow (deuteranopia ≈ `#DCDC27`), with ΔE against amber
 of only 0.065–0.130 — at or below the discrimination threshold.
 
-Hue rotation cannot fix this. Two consequences are baked into the system:
+Hue rotation cannot fix this *within the warm half of the wheel*. Two
+consequences are baked into the system:
 
-1. **Separation is solved in the lightness channel.** Warning sits at
-   L 0.76 / h85 because at L 0.78+ it collided with the accent under
-   deuteranopia (ΔE 0.084). Worst pair after tuning: 0.105 deuter / 0.183 prot.
+1. **Warning is blue, and that is what buys the separation.** A hue on the
+   other side of the wheel cannot collapse toward the accent the way an amber
+   does, so warning leaves the warm family rather than being tuned inside it.
 2. **Timer state is carried by form and motion, not colour alone** — the
    pulsing dot and the running readout signal it independently.
+
+## Warning and danger
+
+Both are hand-set literals, like the light accent — there is no generator for
+them yet. They are **constructed** the way the accent is, at a fixed fraction
+of the gamut edge, and every value owes the table below.
+
+| token | theme | value | L | C | h |
+|---|---|---|---|---|---|
+| `warning`, `timer-warning` | dark | `#5CABF2` | 0.721 | 0.130 | 248 |
+| `danger` | dark | `#F64B66` | 0.661 | 0.206 | 16 |
+| `warning`, `timer-warning` | light | `#1C6DAD` | 0.521 | 0.126 | 248 |
+| `danger` | light | `#C21F43` | 0.529 | 0.194 | 16 |
+
+**Danger sits at hue 16, not 25.** At 25 it is a red already leaning orange,
+60° from an amber warning — two hues in a region the eye discriminates poorly,
+which reads as one muddy family rather than two decisions. 16 is a clean
+scarlet with the blue warning 232° away.
+
+What each value owes, all four verified by simulation (Viénot-Brettel-Mollon,
+which reproduces this document's own 0.105 figure to within 0.002):
+
+| | dark | light |
+|---|---|---|
+| danger on the card | 4.59 | 5.79 |
+| warning on the card | 6.43 | 5.38 |
+| `text-on-danger` | 5.42 | 5.88 |
+| warning vs accent, worst CVD | 0.265 | 0.219 |
+| danger vs accent, worst CVD | 0.167 | 0.077 |
+| warning vs danger, worst CVD | 0.215 | 0.168 |
+
+0.10 is the discrimination floor. **Light danger-vs-accent is 0.077 and cannot
+be fixed by choosing a different red** — `#1F7E17` is dark and desaturated, so
+everything collapses toward it under simulation. It is a property of the light
+accent, and it moves when that does.
+
+`danger-muted` is a tinted surface rather than ink: it keeps the L and C of the
+fill it replaced, moved to hue 16 — `#471F23` dark, `#FFEBEB` light.
 
 ## Light theme is not the dark script with the numbers flipped
 
