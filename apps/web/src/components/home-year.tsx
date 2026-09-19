@@ -109,8 +109,20 @@ export function Heatmap({ clients }: { clients: Clients }) {
         /* `whitespace-nowrap`: the heading beside it is `flex-1`, so at a
            narrow width the streak is what gives, and "34 day / streak" over
            two lines reads as a figure that outgrew its slot. */
-        <span className="type-meta whitespace-nowrap text-subtle">
-          {streakLabel(cells)}
+        /* The count is the figure and the words are its unit, so the number
+           takes a step up and the label stays quiet beside it — one span at
+           meta weight buried the only part worth reading. */
+        <span className="whitespace-nowrap type-meta text-subtle">
+          {streakDays(cells) > 0 ? (
+            <>
+              <span className="type-duration text-muted">
+                {streakDays(cells)}
+              </span>{' '}
+              day streak
+            </>
+          ) : (
+            'no streak'
+          )}
         </span>
       }
     >
@@ -220,7 +232,7 @@ function dominantClient(
  *
  * Today not yet worked does not break it — the day is still in progress.
  */
-function streakLabel(cells: { day?: { totalSeconds: number } }[]): string {
+function streakDays(cells: { day?: { totalSeconds: number } }[]): number {
   const worked = cells.map((c) => (c.day?.totalSeconds ?? 0) > 0);
 
   let streak = 0;
@@ -237,5 +249,5 @@ function streakLabel(cells: { day?: { totalSeconds: number } }[]): string {
     if (skipped > 1) break;
   }
 
-  return streak > 0 ? `${streak} day streak` : 'no streak';
+  return streak;
 }

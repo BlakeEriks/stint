@@ -964,8 +964,15 @@ describe('the heatmap', () => {
     ]);
     render(<HomeCards />, { wrapper });
 
+    /* The count and its unit are separate elements, so the match is on the
+       header's whole text: what the reader sees is one phrase. */
     await waitFor(() =>
-      expect(screen.getByText('3 day streak')).toBeInTheDocument(),
+      expect(
+        screen.getByText(
+          (_, el) =>
+            el?.tagName === 'SPAN' && el.textContent?.trim() === '3 day streak',
+        ),
+      ).toBeTruthy(),
     );
   });
 
