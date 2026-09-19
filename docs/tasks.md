@@ -27,6 +27,55 @@ later.
 
 
 
+
+- [ ] **Light mode is cold and too bright; warm it to cream.** The light
+      surfaces are derived at `HUE = 264` — the same blue-violet dark uses —
+      with a ceiling of `0.995`, so the card is all but white and every plane
+      under it is a cool grey. It reads as a screen turned up rather than as
+      paper. Move it toward cream, and bring the accent down to a forest or
+      olive green that sits against it.
+
+      **Both halves are generator parameters, not hexes.** `derive-light.mjs`
+      holds `HUE`, the surface `ceiling`, the `steps` between planes and the
+      per-plane `chroma`; warmth is a hue rotation (toward ~70–90) plus more
+      chroma, and "less screaming" is a lower ceiling. Change the constants,
+      run it, paste the output — `pnpm tokens:validate` re-derives and diffs,
+      so a hand-edited hex fails CI naming the step.
+
+      Two constraints the generators already encode and a warm ramp must keep:
+      **planes are judged by OKLCH ΔL**, never WCAG, and light's steps are
+      deliberately larger than they look because perceptual distance
+      compresses toward white. **Ink is judged by WCAG against the card**, so
+      moving the card's lightness moves every ink ratio with it — the eased
+      curve's `TOP`, `FLOOR` and `EXPONENT` are the dials, not individual
+      steps.
+
+      **The accent is the harder half, and it is currently hand-written.**
+      Light already overrides it to `#1F7E17` as a literal, with hover, active,
+      subtle and muted beside it — so unlike the neutrals there is no
+      generator to retune, and a forest/olive value is a decision about which
+      hue the accent takes in light mode while dark keeps `accentHue: 142`.
+      Worth deciding in the same pass whether these become derived too, since
+      five hand-kept hexes is exactly what the neutral ramps have a generator
+      to avoid.
+
+      Non-negotiables that do not bend for a nicer palette: **never white text
+      on the accent** — light sets `text-on-accent: #FFFFFF` today, which
+      works only because `#1F7E17` is dark enough, so any olive that lifts
+      lightness breaks it and CI guards that specific regression. **Green
+      still never means success** (`success` is its own value). **Focus rings
+      stay neutral.**
+
+      **Texture is a separate decision inside this one.** A paper grain is the
+      thing most likely to read as cheap at small sizes and to fight the
+      four-plane depth model, which currently does all its work with
+      lightness. If it is tried, it belongs on the deepest ground only — never
+      on cards, which have to stay legibly nearer than what is behind them —
+      and it has to survive being looked at for eight hours rather than
+      admired in a screenshot.
+
+      `docs/design/deriving-colour.md` owns the generators and is what this
+      edits; `brand.html` is the test for the accent.
 - [ ] **Inbox rows become cards, and the colour rail goes.** The rows are
       borderless bands on the panel's own ground, separated by a 2px left rail
       that is coloured on the overdue row. `screens/floating-frame.html` draws
