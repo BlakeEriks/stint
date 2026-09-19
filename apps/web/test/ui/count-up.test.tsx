@@ -336,7 +336,7 @@ describe('count-up', () => {
     let current = stats({ velocity: velocity(3000, 3000) });
     serve(() => current);
 
-    const { container } = render(<HomeCards />, { wrapper });
+    render(<HomeCards />, { wrapper });
     const perMonth = () => {
       const head = screen.getByText('Velocity').closest('header');
       return (
@@ -364,7 +364,6 @@ describe('count-up', () => {
       .filter((n) => n > 1000 && n < 9000);
 
     expect(between.length).toBeGreaterThan(0);
-    void container;
   });
 
   it('moves hours, not money, on an unbillable stop', async () => {

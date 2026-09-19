@@ -145,6 +145,13 @@ rather than a checkbox. The same argument retires per-region timeframe
 pickers — two regions side by side on different windows invite a comparison
 that is not valid.
 
+**No streak count on the heatmap.** A consecutive-days figure measures showing
+up rather than getting paid, and it rewards the wrong thing: a contractor who
+bills a good month in four long days reads worse than one who opens the app
+daily. It also needs a forgiveness rule to be bearable, and a number fudged to
+avoid punishing a dentist appointment is not one worth printing. The heatmap
+shows the rhythm without scoring it.
+
 **Awaiting-payment stays one line on Unbilled, never a row per invoice.** Rows
 would put ordinary invoices back on Home and undo the overdue grace period;
 reconciling several belongs on `/invoices`.

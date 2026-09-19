@@ -177,11 +177,10 @@ export function ProjectPicker({
             id={id}
             aria-label="Project"
             disabled={disabled}
-            /* biome-ignore lint/a11y/noAutofocus: the rule guards against
-               stealing focus on PAGE load. This is a modal the user just
-               opened, where something must take focus — and when the row
-               they clicked exists because the project is missing, this is
-               the field they came for. */
+            /* Autofocus is right here: this is a modal the user just opened,
+               where something must take focus — and when the row they clicked
+               exists because the project is missing, this is the field they
+               came for. */
             autoFocus={autoFocus}
             /* `focus:` as well as `focus-visible:`. A control focused
                PROGRAMMATICALLY — as the inbox's unprojected row does on open

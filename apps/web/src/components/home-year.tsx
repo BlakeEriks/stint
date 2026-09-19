@@ -101,31 +101,7 @@ export function Heatmap({ clients }: { clients: Clients }) {
   const { cells, peak, windowSeconds, named, inLegend, hasOther } = view;
 
   return (
-    <Region
-      title="Last 6 months"
-      icon={CalendarDays}
-      labelled
-      action={
-        /* `whitespace-nowrap`: the heading beside it is `flex-1`, so at a
-           narrow width the streak is what gives, and "34 day / streak" over
-           two lines reads as a figure that outgrew its slot. */
-        /* The count is the figure and the words are its unit, so the number
-           takes a step up and the label stays quiet beside it — one span at
-           meta weight buried the only part worth reading. */
-        <span className="whitespace-nowrap type-meta text-subtle">
-          {streakDays(cells) > 0 ? (
-            <>
-              <span className="type-duration text-muted">
-                {streakDays(cells)}
-              </span>{' '}
-              day streak
-            </>
-          ) : (
-            'no streak'
-          )}
-        </span>
-      }
-    >
+    <Region title="Last 6 months" icon={CalendarDays} labelled>
       <div className={`${INSET} pt-1 pb-3`}>
         {/* Columns are weeks, rows are weekdays — the layout every calendar
             heatmap uses, so the shape is readable without a key. `grid-flow-col`
@@ -222,32 +198,4 @@ function dominantClient(
     }
   }
   return best;
-}
-
-/**
- * Consecutive worked days back from today, forgiving exactly one gap.
- *
- * A streak that breaks on a single missed day punishes a dentist appointment
- * and stops being a figure anyone trusts. Two missed days is a stop.
- *
- * Today not yet worked does not break it — the day is still in progress.
- */
-function streakDays(cells: { day?: { totalSeconds: number } }[]): number {
-  const worked = cells.map((c) => (c.day?.totalSeconds ?? 0) > 0);
-
-  let streak = 0;
-  let skipped = 0;
-  for (let i = worked.length - 1; i >= 0; i--) {
-    if (worked[i]) {
-      streak++;
-      skipped = 0;
-      continue;
-    }
-    // Today in progress is not a miss; it has not had its chance yet.
-    if (i === worked.length - 1) continue;
-    skipped++;
-    if (skipped > 1) break;
-  }
-
-  return streak;
 }

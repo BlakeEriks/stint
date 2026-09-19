@@ -357,7 +357,9 @@ export function Owed({
           <h3 className={`${INSET} pt-4 pb-1 type-label text-subtle`}>
             Unbilled by client
           </h3>
-          <ul className={`${INSET_X} flex flex-col [&>li+li]:border-t [&>li+li]:border-edge-grid`}>
+          <ul
+            className={`${INSET_X} flex flex-col [&>li+li]:border-t [&>li+li]:border-edge-grid`}
+          >
             {byClient.map((c) => (
               <Row
                 key={c.clientId ?? 'none'}

@@ -132,9 +132,6 @@ describe('the Money region', () => {
     /* Awaiting and unbilled, at equal weight: one is money asked for and the
        other money not yet asked for, and the difference is a stage rather
        than a size. */
-    /* Awaiting and unbilled, at equal weight: one is money asked for and the
-       other money not yet asked for, and the difference is a stage rather
-       than a size. */
     expect(screen.getByText('Awaiting')).toBeVisible();
     expect(document.querySelectorAll('.type-amount-hero').length).toBe(2);
   });

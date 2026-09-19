@@ -111,7 +111,7 @@
      keep the weight every other region uses; only the layout changes. */
   .region-head.withaction { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px 10px; }
   /* The control keeps its line: `.region-title` claims the full width, and a
-     two-line streak reads as a figure that outgrew its slot. */
+     control wrapped over two lines reads as one that outgrew its slot. */
   .region-head.withaction .region-title { width: auto; }
   .region-head.withaction > .type-meta { flex: none; white-space: nowrap; }
   .region-body { padding: 4px 18px 12px; }
@@ -422,12 +422,11 @@
           </div>
 
           <div class="region">
-            <div class="region-head withaction">
+            <div class="region-head">
               <span class="region-title">
                 <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                 <span class="type-label" style="color:var(--text-subtle)">Last 6 months</span>
               </span>
-              <span class="type-meta" style="color:var(--text-subtle)"><span class="type-duration" style="color:var(--text-muted)">34</span> day streak</span>
             </div>
             <div class="region-body">
               <div class="heat" id="heat"></div>
@@ -598,9 +597,13 @@
               <div class="region-head withaction">
                 <span class="region-title">
                   <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-                  <span class="type-label" style="color:var(--text-subtle)">Last 6 months</span>
+                  <span class="type-label" style="color:var(--text-subtle)">By project</span>
                 </span>
-                <span class="type-meta" style="color:var(--text-subtle)"><span class="type-duration" style="color:var(--text-muted)">34</span> day streak</span>
+                <span class="unit">
+                  <button type="button" aria-pressed="true">Hours</button>
+                  <span class="sep" aria-hidden="true">/</span>
+                  <button type="button" aria-pressed="false">Revenue</button>
+                </span>
               </div>
             </div>
           </div>
@@ -847,14 +850,6 @@
         silently reassign those hours to the neutral band.</li>
       <li><strong>The busiest day sets the density scale</strong>, floored so
         the lightest worked day is still visibly a day worked.</li>
-      <li><strong>The count is the figure and the words are its unit.</strong>
-        The number takes a step up to <code>type-duration</code> and the label
-        stays at meta weight beside it; one weight across the whole string
-        buries the only part worth reading.</li>
-      <li><strong>The streak sits in the header at row scale.</strong> It
-        survives one missed day and breaks on two — a streak that breaks on a
-        single missed day punishes one appointment and stops being a figure
-        anyone trusts. Today not yet worked does not break it.</li>
       <li><strong>Each cell's date and hours are in its tooltip.</strong> There
         is no axis; at 26 columns every label is noise.</li>
     </ul>
