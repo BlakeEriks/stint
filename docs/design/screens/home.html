@@ -86,6 +86,9 @@
      panel is wider at a 1100px window than at 1440. The mockup below fakes
      the query with a fixed two-column grid; the app writes `@2xl:`. */
   .pair { display: grid; grid-template-columns: 1.15fr 1fr; gap: 0 24px; align-items: start; }
+  /* Row three inverts the ratio: 26 columns of cells read better with more
+     width, and a name over a full-width rail is legible in less. */
+  .pair.pictures { grid-template-columns: 0.85fr 1.15fr; }
   @media (max-width: 640px) { .pair { grid-template-columns: minmax(0, 1fr); } }
 
   .region-head { padding: 12px 16px 8px; }
@@ -105,13 +108,13 @@
   .region-title .ico { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
   .ico.pencil { margin-left: auto; }
   .region-figure { margin-top: 6px; }
-  /* List mode: the heading is the entry point, so it stays a heading. */
-  .region-head.listmode { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px 10px; }
-  .region-head.listmode .ico { width: 16px; height: 16px; color: var(--text-muted); }
-  /* The streak keeps its line: `.region-title` claims the full width, and a
+  /* A label header carrying one control on the right. The label and its icon
+     keep the weight every other region uses; only the layout changes. */
+  .region-head.withaction { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px 10px; }
+  /* The control keeps its line: `.region-title` claims the full width, and a
      two-line streak reads as a figure that outgrew its slot. */
-  .region-head.listmode .region-title { width: auto; }
-  .region-head.listmode > .type-meta { flex: none; white-space: nowrap; }
+  .region-head.withaction .region-title { width: auto; }
+  .region-head.withaction > .type-meta { flex: none; white-space: nowrap; }
   .region-body { padding: 4px 16px 12px; }
 
   /* A row: label + detail on the left, hours and amount right-aligned. */
@@ -130,19 +133,16 @@
   /* The month plot: a cumulative line against the goal ray. */
   .plot { display: block; width: 100%; height: 64px; }
 
-  /* By project: four columns on a shared baseline. The height is fixed so the
-     tallest bar is the scale — proportional heights against an auto height
-     would rescale the picture every time the window total moved. */
-  .cols { display: flex; align-items: flex-end; gap: 10px; height: 116px; }
-  /* The column is full-height so a bar's percentage has a definite box to
-     resolve against — on an auto-height column every bar computes to zero. */
-  .cols .col { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
-  .cols .fig { text-align: center; white-space: nowrap; }
-  .cols .bar-v { border-radius: 4px 4px 0 0; opacity: .62; }
-  /* The baseline the columns stand on, and the names below it. */
-  .cols-base { height: 1px; background: var(--border-subtle); margin-top: 8px; }
-  .cols-names { display: flex; gap: 10px; margin-top: 8px; }
-  .cols-names .nm { flex: 1; min-width: 0; text-align: center; }
+  /* By project: a name over its own rail, four of them. The rail runs the
+     region's full width, so the name has the long axis to sit on. */
+  .rails .rail { padding: 4px 0; }
+  .rails .head { display: flex; align-items: baseline; gap: 10px; }
+  .rails .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rails .fig { flex: none; white-space: nowrap; }
+  /* Velocity's mix weight, on the same track the month's bar uses: the two
+     pictures on this screen made of a fill read at one strength. */
+  .rails .track { height: 6px; border-radius: 999px; background: var(--bg-hover); overflow: hidden; margin-top: 2px; }
+  .rails .fill { height: 100%; border-radius: 999px; opacity: .62; }
   /* The unit toggle: two words and a divider, at meta weight. A segmented
      control here would be the heaviest thing in the region. */
   .unit { display: inline-flex; align-items: baseline; gap: 5px; flex: none; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
@@ -226,16 +226,22 @@
       <tr><th>Row</th><th>Left</th><th>Right</th></tr>
       <tr><td>1</td><td>Unbilled — the figure, the beat, the awaiting-payment line</td><td>By client — the per-client rows</td></tr>
       <tr><td>2</td><td>The month — the cumulative plot against the goal ray</td><td>Gross earned — the figure, the mix, the split</td></tr>
-      <tr><td>3</td><td>By project — the columns, the toggle, the window line</td><td>The half-year — the heatmap</td></tr>
+      <tr><td>3</td><td>By project — the bars, the toggle, the window line</td><td>The half-year — the heatmap</td></tr>
     </table>
 
     <p>
       <strong>The heatmap's window is what its width buys.</strong> Half-width
       at 52 weeks is a texture nobody can read, so the third row halves the
-      window rather than the cell: at the panel's 900px, 26 weeks renders
-      <strong>12.5px cells against the 10.8px a full-width year renders</strong>,
-      and a day stays a day.
+      window rather than the cell, and takes the wider half to spend on it.
+      A day stays a day.
     </p>
+
+    <table>
+      <tr><th>At the panel's 900px</th><th>Columns</th><th>Cell</th></tr>
+      <tr><td>26 weeks on <code>1.15fr</code></td><td>26</td><td>16.3px</td></tr>
+      <tr><td>26 weeks on an even half</td><td>26</td><td>13.7px</td></tr>
+      <tr><td>A full year, full width</td><td>52</td><td>14.7px</td></tr>
+    </table>
 
     <div class="mock">
       <div class="panel">
@@ -326,12 +332,12 @@
 
         <div class="region-rule"></div>
 
-        <div class="pair">
+        <div class="pair pictures">
           <div class="region">
-            <div class="region-head listmode">
+            <div class="region-head withaction">
               <span class="region-title">
                 <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-                <span class="type-heading" style="color:var(--text-strong)">By project</span>
+                <span class="type-label" style="color:var(--text-subtle)">By project</span>
               </span>
               <span class="unit">
                 <button type="button" aria-pressed="true">Hours</button>
@@ -340,42 +346,47 @@
               </span>
             </div>
             <div class="region-body">
-              <div class="cols">
-                <div class="col">
-                  <span class="fig type-meta" style="color:var(--text-muted)">86h 10m</span>
-                  <span class="bar-v" style="height:100%;background:var(--proj-6)"></span>
+              <div class="rails" role="img" aria-label="Data pipeline audit 86h 10m, Rush: peak season fixes 52h 40m, Warehouse dashboard 41h 15m, Admin and invoicing 22h 30m">
+                <div class="rail">
+                  <div class="head">
+                    <span class="nm type-support" style="color:var(--text-muted)">Data pipeline audit</span>
+                    <span class="fig type-meta" style="color:var(--text-primary)">86h 10m</span>
+                  </div>
+                  <div class="track"><div class="fill" style="width:100%;background:var(--proj-6)"></div></div>
                 </div>
-                <div class="col">
-                  <span class="fig type-meta" style="color:var(--text-muted)">52h 40m</span>
-                  <span class="bar-v" style="height:61%;background:var(--proj-2)"></span>
+                <div class="rail">
+                  <div class="head">
+                    <span class="nm type-support" style="color:var(--text-muted)">Rush: peak season fixes</span>
+                    <span class="fig type-meta" style="color:var(--text-primary)">52h 40m</span>
+                  </div>
+                  <div class="track"><div class="fill" style="width:61%;background:var(--proj-6)"></div></div>
                 </div>
-                <div class="col">
-                  <span class="fig type-meta" style="color:var(--text-muted)">41h 15m</span>
-                  <span class="bar-v" style="height:48%;background:var(--proj-6)"></span>
+                <div class="rail">
+                  <div class="head">
+                    <span class="nm type-support" style="color:var(--text-muted)">Warehouse dashboard</span>
+                    <span class="fig type-meta" style="color:var(--text-primary)">41h 15m</span>
+                  </div>
+                  <div class="track"><div class="fill" style="width:48%;background:var(--proj-2)"></div></div>
                 </div>
-                <div class="col">
-                  <span class="fig type-meta" style="color:var(--text-muted)">22h 30m</span>
-                  <span class="bar-v" style="height:26%;background:var(--proj-2)"></span>
+                <div class="rail">
+                  <div class="head">
+                    <span class="nm type-support" style="color:var(--text-muted)">Admin and invoicing</span>
+                    <span class="fig type-meta" style="color:var(--text-primary)">22h 30m</span>
+                  </div>
+                  <div class="track"><div class="fill" style="width:26%;background:var(--text-subtle)"></div></div>
                 </div>
-              </div>
-              <div class="cols-base"></div>
-              <div class="cols-names">
-                <span class="nm"><span class="type-support" style="color:var(--text-muted)">Platform rebuild</span><br><span class="type-meta" style="color:var(--text-subtle)">Northwind</span></span>
-                <span class="nm"><span class="type-support" style="color:var(--text-muted)">Brand system</span><br><span class="type-meta" style="color:var(--text-subtle)">Byrne</span></span>
-                <span class="nm"><span class="type-support" style="color:var(--text-muted)">Checkout API</span><br><span class="type-meta" style="color:var(--text-subtle)">Northwind</span></span>
-                <span class="nm"><span class="type-support" style="color:var(--text-muted)">Retainer · support</span><br><span class="type-meta" style="color:var(--text-subtle)">Byrne</span></span>
               </div>
               <div class="hoursline">
-                <span class="type-meta" style="color:var(--text-subtle)">+11h 45m across 3 more · 214h 20m logged · last 3 months</span>
+                <span class="type-meta" style="color:var(--text-subtle)">+11h 45m across 3 more · 214h 20m logged · 3mo</span>
               </div>
             </div>
           </div>
 
           <div class="region">
-            <div class="region-head listmode">
+            <div class="region-head withaction">
               <span class="region-title">
                 <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                <span class="type-heading" style="color:var(--text-strong)">Last 6 months</span>
+                <span class="type-label" style="color:var(--text-subtle)">Last 6 months</span>
               </span>
               <span class="type-meta" style="color:var(--text-subtle)">34 day streak</span>
             </div>
@@ -426,10 +437,13 @@
       <li><strong>Below the threshold the pairs stack</strong>, in the order
         they read: Unbilled, By client, the month, Gross earned, By project,
         the half-year.</li>
-      <li><strong>The left column is the wider</strong>, at
-        <code>1.15fr</code> to <code>1fr</code>. It carries the figures, and an
-        equal split leaves client names truncating while the money column has
-        room to spare.</li>
+      <li><strong>The left column is the wider where it carries the
+        figures</strong>, at <code>1.15fr</code> to <code>1fr</code>: an equal
+        split leaves client names truncating while the money column has room to
+        spare. <strong>Row three inverts it to <code>0.85fr</code> to
+        <code>1.15fr</code></strong> — 26 columns of cells read better with the
+        width, and a name sitting over a full-width rail is legible in
+        less.</li>
       <li><strong>Unbilled hides itself with nothing outstanding</strong>, and
         By-client goes with it. A region with no rows is a heading over a
         gap.</li>
@@ -459,10 +473,12 @@
     <div class="sec-head"><span class="eyebrow">The region header, in two modes</span></div>
 
     <p>
-      A region whose point is <em>one figure</em> demotes its title to a quiet
-      label above it — the figure is what the eye should land on. A region
-      whose point is a <em>list</em> keeps its heading, having no figure to be
-      subordinate to.
+      Every title on this screen is a quiet label, because every region's
+      point is the thing under it. <strong>A figure region sets that figure
+      beneath the label</strong>; <strong>a picture region gives the label the
+      line and puts its one control opposite</strong>. The label is what makes
+      six regions in one panel scan as six parts of one screen rather than six
+      headings competing.
     </p>
 
     <div class="mock">
@@ -484,16 +500,16 @@
         <div class="state">
           <div class="panel">
             <div class="region">
-              <div class="region-head listmode">
+              <div class="region-head withaction">
                 <span class="region-title">
                   <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-                  <span class="type-heading" style="color:var(--text-strong)">Last 6 months</span>
+                  <span class="type-label" style="color:var(--text-subtle)">Last 6 months</span>
                 </span>
                 <span class="type-meta" style="color:var(--text-subtle)">34 day streak</span>
               </div>
             </div>
           </div>
-          <span class="caption">List mode</span>
+          <span class="caption">Picture mode — the label keeps the line, the control sits opposite</span>
         </div>
       </div>
     </div>
@@ -684,28 +700,49 @@
     <div class="sec-head"><span class="eyebrow">By project</span></div>
 
     <p>
-      Four columns on a shared baseline over the trailing three months, the
-      same window Velocity reports. <strong>The heights are the answer</strong>
-      — which work took the time, read without arithmetic.
+      Four horizontal bars over the trailing three months, the same window
+      Velocity reports. <strong>The lengths are the answer</strong> — which
+      work took the time, read without arithmetic.
     </p>
 
+    <table>
+      <tr><th>Part</th><th>Role</th><th>Weight</th></tr>
+      <tr><td>Name</td><td><code>type-support</code>, <code>text-muted</code>, truncating</td><td>line one, left</td></tr>
+      <tr><td>Figure</td><td><code>type-meta</code> tabular, <code>text-primary</code></td><td>line one, right</td></tr>
+      <tr><td>Track</td><td><code>bg-hover</code>, fully rounded</td><td>6px, full width</td></tr>
+      <tr><td>Fill</td><td>the client's hue at .62</td><td>share of the longest</td></tr>
+    </table>
+
     <ul class="rule">
-      <li><strong>Four columns, and the rest is a count.</strong> A fifth
-        column narrows every name to a truncation, and the tail of a solo
-        book is projects worth an hour each.</li>
-      <li><strong>A column takes its project's shade of its client's
-        hue</strong>, muted to the segments' own strength. The hue still
-        answers whose work it is; the step separates one engagement's projects
-        from each other, which is the whole picture for a book with one
-        client. An unshaded project renders the client's hue exactly.</li>
+      <li><strong>The name owns its own line, above the bar.</strong> Project
+        names run past twenty characters, and this half gives a label under a
+        column about 92px — every one of them truncates. Across the region's
+        full width none of them does.</li>
+      <li><strong>A bar's length is its share of the longest bar</strong>, not
+        of the window's total. The question is which project is biggest and by
+        how much; shares of the sum flatten four near-equal projects into four
+        quarter-width stubs.</li>
+      <li><strong>The client is not drawn, and the hue carries it.</strong>
+        Naming it costs the project name the line it needs, which is the
+        trade this shape exists to make.</li>
+      <li><strong>The fill is 6px at the mix's own strength</strong>, the
+        weight Velocity's bar uses two rows above: the screen's two pictures
+        made of a fill read as one thing at one strength.</li>
+      <li><strong>The label sits above the fill, never on it.</strong> Text
+        crossing a fill's end changes contrast mid-word.</li>
+      <li><strong>A project with no client takes the internal swatch</strong>,
+        the neutral that reads as worked.</li>
+      <li><strong>Four bars, and the rest is a count.</strong> The region does
+        not scroll — the tail of a solo book is projects worth an hour each,
+        and the full ranking belongs to a screen built to rank.</li>
       <li><strong>With one project it draws tasks, and the heading says
         so</strong> — <code>By task · Betterlife</code>. One client and one
-        project is where most books start, and a single column is a chart that
-        failed. The fall-through is a function of the data: no click, no
-        selection, nothing remembered. Tasks group on a trimmed, case-folded
-        <code>task_name</code> and display the most recent spelling, because
-        the column is free text and two spellings of one task would otherwise
-        be two columns.</li>
+        project is where most books start, and a single full-length bar is a
+        chart that failed. The fall-through is a function of the data: no
+        click, no selection, nothing remembered. Tasks group on a trimmed,
+        case-folded <code>task_name</code> and display the most recent
+        spelling, because the column is free text and two spellings of one
+        task would otherwise be two bars.</li>
       <li><strong>The toggle switches the unit, never the window.</strong>
         Hours and revenue reorder the same four projects; a window control
         here would be a second range on a screen whose ranges are all
@@ -715,7 +752,9 @@
         the count line is where it goes.</li>
       <li><strong>The footer line carries the window and the remainder</strong>,
         right-aligned. The logged total is the one figure here that is not a
-        column.</li>
+        bar. The window is abbreviated — <code>3mo</code> — because Velocity
+        names it in full directly above and the long form wraps at this
+        width.</li>
     </ul>
   </section>
 
@@ -868,9 +907,13 @@
         dashboard under another name, and it leaves the region with no fixed
         subject to pair against. The one-project case is served by falling
         through to tasks on the data alone.</li>
-      <li><strong>A ranked project table.</strong> Its shape is By client's,
-        two rows above, and the same picture twice is what the pairing removed.
-        The columns are the answer, not the ranking.</li>
+      <li><strong>A ranked project table.</strong> By client is text rows —
+        an aging column, an amount column, a trailing arrow into invoice
+        generation. Giving projects the same columns builds a second table
+        that acts like the first one but goes nowhere, since there is no
+        per-project screen to arrive at. The bar is the answer here: a length
+        against the longest is a proportion read without comparing two columns
+        of digits.</li>
       <li><strong>Pie charts.</strong> A solo contractor's time splits two to
         four ways. A bar does that in less space and stays readable when one
         slice is 4%.</li>
