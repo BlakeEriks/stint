@@ -72,12 +72,11 @@
      right one's last row, and the two bottom out together. */
   .pair > .region { display: flex; flex-direction: column; }
   .pair > .region > .region-body { flex: 1; display: flex; flex-direction: column; }
-  /* The rule between the halves. They are stages of one pipeline and never a
-     sum, and a shared edge says so without a word. */
-  .pair > .region + .region { border-left: 1px solid var(--border-grid); }
+  /* No vertical rule between the halves — it rebuilds the gridlines the
+     panel exists without and reads the pair back as two cards. What keeps
+     the figures apart is that each is NAMED: `home.html` holds the rule. */
   @media (max-width: 720px) {
     .pair { grid-template-columns: minmax(0,1fr); gap: 18px 0; }
-    .pair > .region + .region { border-left: 0; border-top: 1px solid var(--border-grid); padding-top: 14px; }
   }
 
   .region { padding: 4px 0; min-width: 0; }
@@ -205,8 +204,9 @@
     <ul class="rule">
       <li><strong>Two halves of one subject.</strong> Money that landed on the
         left, money that has not on the right. The panel pairs this way
-        throughout, and the rule between them is what says the halves do not
-        sum.</li>
+        throughout. What keeps the figures from reading as a sum is that
+        every one of them is named — no rule divides the halves, because a
+        vertical rule rebuilds the gridlines the panel exists without.</li>
       <li><strong>Collected is the only figure at <code>type-figure</code>.</strong>
         It is the one number here that is finished — the money exists, it
         arrived, nothing can take it back. Awaiting and unbilled are claims of

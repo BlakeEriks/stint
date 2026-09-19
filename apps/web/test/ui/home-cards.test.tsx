@@ -162,7 +162,7 @@ describe('HomeCards', () => {
     const headings = [...container.querySelectorAll('h2')].map((h) =>
       h.textContent?.trim(),
     );
-    expect(headings).toContain('Unbilled');
+    expect(headings).toContain('Owed');
     expect(
       headings.some(
         (h) =>
@@ -198,8 +198,15 @@ describe('HomeCards', () => {
     /* Two different kinds of money: unbilled is work not yet invoiced,
        awaiting payment is invoiced and not yet collected. Summing them
        double-counts the same hours, so $3,900 must never appear. */
-    const line = await screen.findByText(/awaiting payment/);
-    expect(line.textContent).toContain('$900.00');
+    /* A named figure now rather than a sentence — read off its label, so
+       the assertion still names which money it is. */
+    const awaiting = await screen.findByText('Awaiting');
+    const column = awaiting.parentElement?.parentElement;
+    await waitFor(() =>
+      expect(column?.querySelector('.type-amount-hero')?.textContent).toContain(
+        '$900.00',
+      ),
+    );
 
     await waitFor(
       () => expect(screen.getAllByText('$3,000.00').length).toBeGreaterThan(0),
@@ -620,11 +627,14 @@ describe('Velocity', () => {
        users on different windows cannot compare it. */
     /* Awaited: a figure arrives from just short of its value, so reading it
        on the first paint catches the tween rather than the answer. */
+    /* Velocity's OWN figure: Collected leads the panel with one too, so a
+       bare `.type-figure` reads whichever comes first in the document. */
+    const velocityHead = screen.getByText('Velocity').closest('header');
     await waitFor(
       () =>
-        expect(container.querySelector('.type-figure')?.textContent).toContain(
-          '$3,000.00',
-        ),
+        expect(
+          velocityHead?.querySelector('.type-figure')?.textContent,
+        ).toContain('$3,000.00'),
       { timeout: 4000 },
     );
   });
@@ -738,24 +748,25 @@ describe('the panel pairs its regions', () => {
     }
   });
 
-  it('pairs Unbilled with By-client and the month with Velocity', async () => {
+  it('pairs Collected with Owed and the month with Velocity', async () => {
     serve(stats({ unbilled: oneClient, velocity }));
     const { container } = render(<HomeCards />, { wrapper });
 
     await waitFor(() =>
-      expect(screen.getByText('By client')).toBeInTheDocument(),
+      expect(screen.getByText('Unbilled by client')).toBeInTheDocument(),
     );
 
-    /* The pairing is the layout. By-client is its own region rather than a
-       list under the figure, which is what leaves room for the pairing at
-       all — and half of why the two money regions stopped looking alike. */
+    /* The pairing is the layout: money that arrived beside money that has
+       not. Each half is its own region, which is what leaves room for the
+       pairing at all. */
     const pairs = [...container.querySelectorAll('div.grid')].filter((d) =>
       [...d.classList].some((c) => c.includes('grid-cols-')),
     );
     const headings = pairs.map((p) =>
       [...p.querySelectorAll('h2')].map((h) => h.textContent?.trim()),
     );
-    expect(headings[0]).toEqual(['Unbilled', 'By client']);
+    expect(headings[0]?.[0]).toMatch(/^Collected/);
+    expect(headings[0]?.[1]).toBe('Owed');
     expect(headings[1]?.[1]).toMatch(/velocity/i);
   });
 
@@ -766,7 +777,7 @@ describe('the panel pairs its regions', () => {
     const { container } = render(<HomeCards />, { wrapper });
 
     await waitFor(() =>
-      expect(screen.getByText('By client')).toBeInTheDocument(),
+      expect(screen.getByText('Unbilled by client')).toBeInTheDocument(),
     );
 
     for (const el of container.querySelectorAll('*')) {
@@ -1156,11 +1167,11 @@ describe('awaiting payment survives a fully-invoiced book', () => {
 
     render(<HomeCards />, { wrapper });
 
-    const link = await screen.findByRole('link', {
-      name: /sent, awaiting payment/,
-    });
+    /* The figure itself is the link now: it is the money, and the words
+       that used to carry the href were a sentence beside it. */
+    const link = await screen.findByRole('link', { name: /Awaiting/ });
     expect(link).toHaveAttribute('href', '/invoices?status=sent');
-    expect(screen.getByText('$4,250.00')).toBeInTheDocument();
+    await waitFor(() => expect(link.textContent).toContain('$4,250.00'));
   });
 
   /* The other half of the guard: with nothing unbilled AND nothing awaiting
@@ -1183,7 +1194,8 @@ describe('awaiting payment survives a fully-invoiced book', () => {
     );
 
     expect(screen.queryByText('Unbilled')).toBeNull();
-    expect(screen.queryByText(/awaiting payment/)).toBeNull();
+    expect(screen.queryByText('Awaiting')).toBeNull();
+    expect(screen.queryByText('Owed')).toBeNull();
   });
 });
 

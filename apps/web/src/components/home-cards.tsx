@@ -7,7 +7,7 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import { useClients } from '@/lib/client/use-project-colors';
 import { keys } from '@/lib/client/query-keys';
 import { useBeatOf } from '@/lib/client/use-beat';
-import { ByClient, Unbilled } from './home-unbilled';
+import { Collected, Owed } from './home-money';
 import { Month } from './home-month';
 import { Velocity } from './home-velocity';
 import { Heatmap } from './home-year';
@@ -53,8 +53,9 @@ export function HomeCards() {
 }
 
 /**
- * The home screen's regions, in three rows: money waiting beside who owes it,
- * the month beside the trailing quarter, then a year of texture across both.
+ * The home screen's regions, in three rows: money that arrived beside money
+ * that has not, the month beside the trailing quarter, then a year of texture
+ * across both.
  *
  * **Nothing here writes.** Every action is a link to the surface that owns
  * the mutation, so a stray click cannot change an invoice.
@@ -88,8 +89,8 @@ function Panel({ stats }: { stats: Stats }) {
     <div className="@container flex flex-col pb-4">
       <PanelHead />
       <Pair
-        left={<Unbilled stats={data} beat={beat} />}
-        right={<ByClient stats={data} clients={clients} />}
+        left={<Collected stats={data} beat={beat} />}
+        right={<Owed stats={data} beat={beat} clients={clients} />}
       />
       <Rule />
       <Pair

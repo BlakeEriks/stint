@@ -143,13 +143,21 @@ function reducedMotion(on: boolean) {
  */
 const SETTLE = { timeout: 8000 };
 
-/** The Unbilled figure as rendered, stripped to digits for comparison. */
+/**
+ * The Unbilled figure as rendered, stripped to digits for comparison.
+ *
+ * It lives in the Owed half now rather than leading the panel — these cases
+ * are about the tween, and it is still the figure the `unbilled` fixture
+ * drives. Read off its own label, because the panel carries several money
+ * figures and they all tween.
+ */
 function figure(): string {
-  const heading = screen.getByText('Unbilled');
-  const header = heading.closest('header');
-  if (!header) throw new Error('no Unbilled header');
-  const el = header.querySelector('.type-figure .tabular-nums');
-  return el?.textContent?.trim() ?? '';
+  /* Exact, because "Unbilled by client" heads the list below it and a
+     substring match would take whichever came first. */
+  const label = screen.getByText('Unbilled', { exact: true });
+  /* label -> its swatch+label row -> the column holding the amount. */
+  const column = label.parentElement?.parentElement;
+  return column?.querySelector('.type-amount-hero')?.textContent?.trim() ?? '';
 }
 
 beforeEach(() => {
