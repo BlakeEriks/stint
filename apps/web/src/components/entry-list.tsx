@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
 import { Listing } from './page';
+import { TodayGrid } from './today-grid';
 import { keys } from '@/lib/client/query-keys';
 
 /**
@@ -25,6 +26,8 @@ export function EntryList({
   projects,
   todaySeconds,
   compact = false,
+  grid = false,
+  flush = false,
 }: {
   projects: Project[];
   todaySeconds: number;
@@ -34,14 +37,29 @@ export function EntryList({
    * row still opens the editor, which is where the rest of an entry lives.
    */
   compact?: boolean;
+  /**
+   * Draw the day as a column instead of a list. Same entries, same editor —
+   * it answers "where did the day go" rather than "what have I booked".
+   */
+  grid?: boolean;
+  /**
+   * Drop the top rule and the space above it, because something else is
+   * already drawing the divider — the dock's drag handle, which IS the rule
+   * between the two regions. Two would read as a boxed region.
+   */
+  flush?: boolean;
 }) {
   const from = startOfLocalDay(new Date(), tz).toISOString();
 
   const query = useQuery({
     queryKey: keys.entries({ from }),
     queryFn: () => api.entries({ from }),
-    // A running entry is shown in the timer bar, not duplicated here.
-    select: (r) => r.entries.filter((e) => e.endedAt !== null),
+    /* Everything today, running included. The two views disagree about the
+       running entry — a list of durations would duplicate the timer bar,
+       while a column without it has a hole at the one place the eye goes —
+       so the filtering happens at render. A `select` that dropped it here
+       would be one cache entry the two views fight over. */
+    select: (r) => r.entries,
   });
 
   const byId = new Map(projects.map((p) => [p.id, p]));
@@ -59,10 +77,17 @@ export function EntryList({
 
   return (
     <section
-      className="mt-6 border-t border-edge-subtle pt-4"
+      /* In the dock this takes half the column and scrolls inside it, the
+         inbox above taking the other half. `min-h-0` is what lets it shrink
+         below its content so the grid scrolls rather than the column growing;
+         `basis-1/2` is the floor that stops a long inbox crushing it. It
+         still grows past half when the inbox wants less. */
+      className={`${flush ? 'pt-1' : 'mt-6 border-t border-edge-subtle pt-4'} ${
+        grid ? 'flex min-h-0 flex-1 flex-col' : ''
+      }`}
       aria-label="Today's entries"
     >
-      <header className="flex items-baseline justify-between gap-3 px-1 pb-2">
+      <header className="flex flex-none items-baseline justify-between gap-3 px-1 pb-2">
         <h2 className="type-label text-subtle">Today</h2>
         <span className="ml-auto type-duration text-muted">
           {formatClock(todaySeconds)}
@@ -78,27 +103,37 @@ export function EntryList({
         </Button>
       </header>
 
-      <Listing
-        query={query}
-        tight
-        empty="Nothing logged yet today. Start a timer above."
-      >
-        {(entries) => (
-          <ul>
-            {entries.map((entry) => (
-              <li key={entry.id}>
-                <Row
-                  entry={entry}
-                  project={byId.get(entry.projectId ?? '')}
-                  color={colors.get(entry.projectId ?? '')}
-                  compact={compact}
-                  onEdit={() => openFor(entry)}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </Listing>
+      <div className={grid ? 'min-h-0 flex-1 overflow-y-auto' : undefined}>
+        <Listing
+          query={query}
+          tight
+          empty="Nothing logged yet today. Start a timer above."
+        >
+          {(entries) =>
+            grid ? (
+              <TodayGrid entries={entries} colors={colors} onEdit={openFor} />
+            ) : (
+              <ul>
+                {/* The running entry is in the timer bar already; a second
+                    duration counting up beside it is the same fact twice. */}
+                {entries
+                  .filter((entry) => entry.endedAt !== null)
+                  .map((entry) => (
+                    <li key={entry.id}>
+                      <Row
+                        entry={entry}
+                        project={byId.get(entry.projectId ?? '')}
+                        color={colors.get(entry.projectId ?? '')}
+                        compact={compact}
+                        onEdit={() => openFor(entry)}
+                      />
+                    </li>
+                  ))}
+              </ul>
+            )
+          }
+        </Listing>
+      </div>
 
       <EntryDialog
         open={open}
