@@ -395,11 +395,19 @@ describe('the surface ramp is ordered, and far enough apart to see', () => {
       const base = L(TOKENS.semantic[theme]['bg-base']);
       const card = L(TOKENS.semantic[theme]['bg-elevated']);
 
-      /* Dark spends 0.105 here and light 0.044 — light needs less because
-         perceptual distance compresses toward white and its shadow does more
-         of the work. Both floors sit far above the 0.0046 that caused the
-         original flatness, so an incremental re-flattening of either trips it. */
-      expect(Math.abs(card - base)).toBeGreaterThan(0.04);
+      /* Dark spends 0.070 here and light exactly 0.040 — light needs less
+         because perceptual distance compresses toward white and its shadow
+         does more of the work. Both sit far above the 0.0046 that caused the
+         original flatness, so an incremental re-flattening of either trips it.
+
+         Compared at 4dp, which is the resolution the ramp is authored in:
+         both generators round every L with `toFixed(4)`, so a difference
+         below that is an artefact of binary subtraction and not a value
+         anyone chose. Light lands ON the floor — 0.975 less 0.935 is
+         0.039999999999999925 — and the floor is the number the ramp is built
+         to, so a ramp that meets it passes. */
+      const gap = Math.round(Math.abs(card - base) * 1e4) / 1e4;
+      expect(gap).toBeGreaterThanOrEqual(0.04);
     },
   );
 
