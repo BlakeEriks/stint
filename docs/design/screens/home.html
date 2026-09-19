@@ -79,16 +79,15 @@
   .region { padding: 4px 0; }
   /* Inset to the rows' own 16px. Full-bleed it cuts the panel in two and
      reads as two stacked cards. */
-  .region-rule { height: 1px; margin: 4px 16px; background: var(--border-subtle); }
+  .region-rule { height: 1px; margin: 12px 16px; background: var(--border-subtle); }
 
   /* The pairing. Sized by CONTAINER, not viewport: the panel is not the
      window — the rail and dock claim their space at `lg` and `xl`, so the
      panel is wider at a 1100px window than at 1440. The mockup below fakes
      the query with a fixed two-column grid; the app writes `@2xl:`. */
-  .pair { display: grid; grid-template-columns: 1.15fr 1fr; gap: 0 24px; align-items: start; }
+  .pair { display: grid; grid-template-columns: 1.15fr 1fr; gap: 0 16px; align-items: start; }
   /* Row three inverts the ratio: 26 columns of cells read better with more
      width, and a name over a full-width rail is legible in less. */
-  .pair.pictures { grid-template-columns: 0.85fr 1.15fr; }
   @media (max-width: 640px) { .pair { grid-template-columns: minmax(0, 1fr); } }
 
   .region-head { padding: 12px 16px 8px; }
@@ -238,9 +237,9 @@
 
     <table>
       <tr><th>At the panel's 900px</th><th>Columns</th><th>Cell</th></tr>
-      <tr><td>26 weeks on <code>1.15fr</code></td><td>26</td><td>15.9px</td></tr>
-      <tr><td>26 weeks on an even half</td><td>26</td><td>13.7px</td></tr>
-      <tr><td>A full year, full width</td><td>52</td><td>14.7px</td></tr>
+      <tr><td>26 weeks on <code>1fr</code>, as built</td><td>26</td><td>12.4px</td></tr>
+      <tr><td>13 weeks in the same column</td><td>13</td><td>26.7px</td></tr>
+      <tr><td>A full year, full width</td><td>52</td><td>10.8px</td></tr>
     </table>
 
     <div class="mock">
@@ -332,7 +331,7 @@
 
         <div class="region-rule"></div>
 
-        <div class="pair pictures">
+        <div class="pair">
           <div class="region">
             <div class="region-head withaction">
               <span class="region-title">
@@ -437,13 +436,15 @@
       <li><strong>Below the threshold the pairs stack</strong>, in the order
         they read: Unbilled, By client, the month, Gross earned, By project,
         the half-year.</li>
-      <li><strong>The left column is the wider where it carries the
-        figures</strong>, at <code>1.15fr</code> to <code>1fr</code>: an equal
-        split leaves client names truncating while the money column has room to
-        spare. <strong>Row three inverts it to <code>0.85fr</code> to
-        <code>1.15fr</code></strong> — 26 columns of cells read better with the
-        width, and a name sitting over a full-width rail is legible in
-        less.</li>
+      <li><strong>The left column is the wider</strong>, at
+        <code>1.15fr</code> to <code>1fr</code>. It carries the figures, and an
+        equal split leaves client names truncating while the money column has
+        room to spare.</li>
+      <li><strong>Every row takes that same ratio</strong>, so one gutter runs
+        the height of the panel. A row on its own split puts the gutter
+        somewhere else; one that lands on the other side of the panel's centre
+        from the row above reads as a mistake rather than as an asymmetry
+        anyone chose.</li>
       <li><strong>Unbilled hides itself with nothing outstanding</strong>, and
         By-client goes with it. A region with no rows is a heading over a
         gap.</li>
@@ -893,6 +894,13 @@
       <li><strong>A range control on the heatmap.</strong> The window is fixed
         at 26 weeks. A picker turns one honest shape into four that disagree,
         and each switch refetches the lot.</li>
+      <li><strong>Matching the heatmap to the row's trailing quarter.</strong>
+        Velocity and By project both report three months, so one window for
+        the whole row is tempting. Thirteen weeks in this column is a 26.7px
+        cell and a block nearly as tall as the chart beside it — a calendar
+        rather than a texture — and capping the cell leaves a third of the
+        column empty. The window is also the region's whole reason to exist:
+        at a quarter it shows what the two regions beside it already do.</li>
       <li><strong>Stacking a split day's clients in one cell.</strong> At 11px
         a stack is a smear. The majority takes the cell.</li>
       <li><strong>Project shades in the heatmap.</strong> The cell already

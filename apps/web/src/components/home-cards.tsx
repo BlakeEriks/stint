@@ -123,7 +123,6 @@ function Panel({ stats }: { stats: Stats }) {
       />
       <Rule />
       <Pair
-        rightWider
         left={<ByProject stats={data} clients={clients} />}
         right={<Heatmap clients={clients} />}
       />
@@ -137,34 +136,27 @@ function Panel({ stats }: { stats: Stats }) {
  * `items-start` so the shorter half does not stretch to the taller one's
  * height and hang its content in the middle of empty space.
  *
- * The left half is the wider where it carries the figures, because an equal
- * split leaves the by-client names truncating while the money column has room
- * to spare. `rightWider` inverts that for a row whose right half is the one
- * spending width on detail.
+ * The left half is the wider: it carries the figures, and an equal split
+ * leaves the by-client names truncating while the money column has room to
+ * spare.
  */
 function Pair({
   left,
   right,
-  rightWider = false,
 }: {
   left: React.ReactNode;
   right: React.ReactNode;
-  /* Give the right half the larger share. The half-year needs it: 26 columns
-     of cells read better the more width they get, while names over rails are
-     legible in less. */
-  rightWider?: boolean;
 }) {
   /* No vertical divider between the columns, ever. The rules on this screen
      are horizontal and inset; a vertical one rebuilds the gridlines the
-     panel removed and reads the pair as two cards again. */
+     panel removed and reads the pair as two cards again.
+
+     One ratio for every row, so the gutter falls in the same place down the
+     whole panel. A row on its own split puts the gutter somewhere else, and
+     one that lands on the other side of the panel's centre reads as a
+     mistake rather than as an asymmetry anyone chose. */
   return (
-    <div
-      className={
-        rightWider
-          ? 'grid items-start gap-x-6 @2xl:grid-cols-[0.85fr_1.15fr]'
-          : 'grid items-start gap-x-6 @2xl:grid-cols-[1.15fr_1fr]'
-      }
-    >
+    <div className="grid items-start gap-x-4 @2xl:grid-cols-[1.15fr_1fr]">
       {left}
       {right}
     </div>
@@ -210,7 +202,7 @@ function SinceLine({
  * it cuts the panel in two and reads as two stacked cards.
  */
 function Rule() {
-  /* 18px each side, which is the panel's rhythm: at `my-1` the regions read
-     as a list of rows rather than as four things sharing one surface. */
-  return <div className="mx-5 my-[18px] border-t border-edge-subtle" />;
+  /* 12px each side. Below about 8 the regions read as a list of rows rather
+     than as four things sharing one surface. */
+  return <div className="mx-5 my-3 border-t border-edge-subtle" />;
 }
