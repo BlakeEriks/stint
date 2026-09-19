@@ -150,6 +150,76 @@ function reducedMotion(on: boolean) {
 const SETTLE = { timeout: 8000 };
 
 /**
+ * A rAF the TEST clocks, replacing the browser's.
+ *
+ * The travel cases used to sample the DOM from a real `setInterval(…, 8)`
+ * racing the tween. Whether any sample landed mid-flight was then a question
+ * about the machine: on a loaded box the whole 900ms could pass between two
+ * ticks, leaving only the endpoints, and "the figure travels" failed on a
+ * hook that was working perfectly.
+ *
+ * So frames are driven rather than awaited. `frame(ms)` advances a clock the
+ * hook reads through `performance.now()` and runs whatever it has scheduled,
+ * which makes the intermediate frame something the test PERFORMS. A tween
+ * that cut straight to its target still schedules nothing to observe, so the
+ * claim is unweakened — only its timing is no longer a race.
+ */
+function controlledRaf() {
+  let now = 0;
+  let next = 1;
+  const pending = new Map<number, FrameRequestCallback>();
+
+  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+    const id = next++;
+    pending.set(id, cb);
+    return id;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+    pending.delete(id);
+  });
+  vi.spyOn(performance, 'now').mockImplementation(() => now);
+
+  /** Advance the clock and run every frame that was waiting on it. */
+  return async function frame(ms: number) {
+    now += ms;
+    const due = [...pending];
+    pending.clear();
+    await act(async () => {
+      for (const [, cb] of due) cb(now);
+    });
+  };
+}
+
+/** Every distinct money value the figure shows across a driven tween. */
+async function travel(
+  read: () => string,
+  frame: (ms: number) => Promise<void>,
+  steps = 12,
+) {
+  const seen = new Set<string>([read()]);
+  for (let i = 0; i < steps; i++) {
+    await frame(DURATION / steps);
+    seen.add(read());
+  }
+  /* One frame past the end. The steps divide the duration exactly, so the
+     last of them lands ON it rather than after — and `t >= 1` is what settles
+     the figure on the target. */
+  await frame(DURATION);
+  seen.add(read());
+  return seen;
+}
+
+/** `--motion-count`, the tween's length, as `use-count-up` sets it. */
+const DURATION = 900;
+
+/** The money values among the samples, as numbers. */
+function amounts(seen: Set<string>): number[] {
+  return [...seen]
+    .filter((t) => /^\$[\d,]+\.\d\d$/.test(t))
+    .map((t) => Number(t.replace(/[$,]/g, '')));
+}
+
+/**
  * The Unbilled figure as rendered, stripped to digits for comparison.
  *
  * It lives in the Owed half now rather than leading the panel — these cases
@@ -175,6 +245,9 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  /* `controlledRaf` mocks `performance.now`; a test that does not drive frames
+     needs the real clock back, or its tween never advances and it times out. */
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -205,33 +278,24 @@ describe('count-up', () => {
      would put a balance the user does not have in front of them and animate
      their whole history as though it had just happened. */
   it('arrives from near the figure on load, never from zero', async () => {
+    const frame = controlledRaf();
     serve(() => stats({ unbilled: unbilled(4200) }));
 
-    /* Sampled from the render itself. The settled figure is also the FIRST
-       paint — the arrival is applied by the effect — so waiting for that value
-       would return before a single frame had run and prove nothing. */
-    const seen = new Set<string>();
-    const sample = setInterval(() => {
-      try {
-        seen.add(figure());
-      } catch {
-        // Not mounted yet.
-      }
-    }, 8);
     render(<HomeCards />, { wrapper });
+    /* The settled figure is also the FIRST paint — the arrival is applied by
+       the effect — so the tween has to be driven to see where it starts. */
+    await waitFor(() => expect(figure()).toBe('$4,200.00'));
+
+    const seen = await travel(figure, frame);
 
     // Leaves its settled value, then comes back to it.
-    await waitFor(() => expect(figure()).not.toBe('$4,200.00'), SETTLE);
-    await waitFor(() => expect(figure()).toBe('$4,200.00'), SETTLE);
-    clearInterval(sample);
+    expect(seen.size).toBeGreaterThan(1);
+    expect(figure()).toBe('$4,200.00');
 
-    const money = (t: string) => Number(t.replace(/[$,]/g, ''));
-    const amounts = [...seen]
-      .filter((t) => /^\$[\d,]+\.\d\d$/.test(t))
-      .map(money);
-
-    expect(amounts.length).toBeGreaterThan(1);
-    expect(Math.min(...amounts)).toBeGreaterThan(4200 * 0.9);
+    const money = amounts(seen);
+    expect(money.length).toBeGreaterThan(1);
+    // Never a balance the user does not have: the origin is NEAR the figure.
+    expect(Math.min(...money)).toBeGreaterThan(4200 * 0.9);
   });
 
   it('settles on exactly the server value after the tween', async () => {
@@ -262,34 +326,29 @@ describe('count-up', () => {
      itself: at least one frame between the two figures, and none outside
      them. */
   it('travels through intermediate values rather than cutting', async () => {
+    const frame = controlledRaf();
     let current = stats({ unbilled: unbilled(1000) });
     serve(() => current);
 
     render(<HomeCards />, { wrapper });
     await waitFor(() => expect(figure()).toBe('$1,000.00'));
 
-    const seen = new Set<string>();
-    const sample = setInterval(() => seen.add(figure() ?? ''), 8);
-
     current = stats({ unbilled: unbilled(9000) });
     await act(async () => {
       await client.refetchQueries();
     });
-    await waitFor(() => expect(figure()).toBe('$9,000.00'), SETTLE);
-    clearInterval(sample);
 
-    const money = (t: string) => Number(t.replace(/[$,]/g, ''));
-    const between = [...seen]
-      .filter((t) => /^\$[\d,]+\.\d\d$/.test(t))
-      .map(money)
-      .filter((n) => n > 1000 && n < 9000);
+    const seen = await travel(figure, frame);
+    expect(figure()).toBe('$9,000.00');
 
+    const money = amounts(seen);
+    const between = money.filter((n) => n > 1000 && n < 9000);
     expect(between.length).toBeGreaterThan(0);
+
     // And it never overshoots either end of the journey.
-    for (const t of seen) {
-      if (!/^\$[\d,]+\.\d\d$/.test(t)) continue;
-      expect(money(t)).toBeGreaterThanOrEqual(1000);
-      expect(money(t)).toBeLessThanOrEqual(9000);
+    for (const n of money) {
+      expect(n).toBeGreaterThanOrEqual(1000);
+      expect(n).toBeLessThanOrEqual(9000);
     }
   });
 
@@ -297,6 +356,7 @@ describe('count-up', () => {
      still while the headline above it travelled read as the stale one — which
      is what "by client is not updating" actually looked like. */
   it('travels the by-client rows, not just the headline', async () => {
+    const frame = controlledRaf();
     let current = stats({ unbilled: unbilled(1000) });
     serve(() => current);
 
@@ -311,28 +371,22 @@ describe('count-up', () => {
     };
     await waitFor(() => expect(row()).toBe('$1,000.00'));
 
-    const seen = new Set<string>();
-    const sample = setInterval(() => seen.add(row()), 8);
-
     current = stats({ unbilled: unbilled(9000) });
     await act(async () => {
       await client.refetchQueries();
     });
-    await waitFor(() => expect(row()).toBe('$9,000.00'), SETTLE);
-    clearInterval(sample);
 
-    const money = (t: string) => Number(t.replace(/[$,]/g, ''));
-    const between = [...seen]
-      .filter((t) => /^\$[\d,]+\.\d\d$/.test(t))
-      .map(money)
-      .filter((n) => n > 1000 && n < 9000);
+    const seen = await travel(row, frame);
+    expect(row()).toBe('$9,000.00');
 
+    const between = amounts(seen).filter((n) => n > 1000 && n < 9000);
     expect(between.length).toBeGreaterThan(0);
   });
 
   /* Velocity's headline sits in the same figure slot as Unbilled's and moves
      on the same edits, so it cannot be the one number that cuts. */
   it("travels velocity's per-month figure", async () => {
+    const frame = controlledRaf();
     let current = stats({ velocity: velocity(3000, 3000) });
     serve(() => current);
 
@@ -349,22 +403,15 @@ describe('count-up', () => {
     };
     await waitFor(() => expect(perMonth()).toBe('$1,000.00'));
 
-    const seen = new Set<string>();
-    const sample = setInterval(() => seen.add(perMonth()), 8);
-
     current = stats({ velocity: velocity(27000, 27000) });
     await act(async () => {
       await client.refetchQueries();
     });
-    await waitFor(() => expect(perMonth()).toBe('$9,000.00'), SETTLE);
-    clearInterval(sample);
 
-    const money = (t: string) => Number(t.replace(/[$,]/g, ''));
-    const between = [...seen]
-      .filter((t) => /^\$[\d,]+\.\d\d$/.test(t))
-      .map(money)
-      .filter((n) => n > 1000 && n < 9000);
+    const seen = await travel(perMonth, frame);
+    expect(perMonth()).toBe('$9,000.00');
 
+    const between = amounts(seen).filter((n) => n > 1000 && n < 9000);
     expect(between.length).toBeGreaterThan(0);
   });
 

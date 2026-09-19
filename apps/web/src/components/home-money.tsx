@@ -144,6 +144,18 @@ const PLOT_W = 300;
 const PLOT_H = 86;
 
 /**
+ * The baseline the plot sits on, inset from the viewport's foot.
+ *
+ * Exported because it is where a month with no payment is DRAWN, which is the
+ * thing the tests read a `cy` against — a number retyped there would go stale
+ * the first time the plot is resized.
+ */
+export const PLOT_AXIS_Y = PLOT_H - 8;
+
+/** Headroom above the axis the series is drawn into. */
+const PLOT_INK_H = PLOT_H - 24;
+
+/**
  * Collected per month, as a line.
  *
  * A month is a point in a sequence rather than a category: one payment a
@@ -180,12 +192,12 @@ function Series({
   const span = Math.max(peak - base, 1);
 
   const x = (i: number) => (i / (points.length - 1)) * PLOT_W;
-  const y = (v: number) => PLOT_H - 8 - ((v - base) / span) * (PLOT_H - 24);
+  const y = (v: number) => PLOT_AXIS_Y - ((v - base) / span) * PLOT_INK_H;
 
   const line = points
     .map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.amount)}`)
     .join(' ');
-  const area = `${line} L${x(points.length - 1)},${PLOT_H - 8} L0,${PLOT_H - 8} Z`;
+  const area = `${line} L${x(points.length - 1)},${PLOT_AXIS_Y} L0,${PLOT_AXIS_Y} Z`;
   const last = points.length - 1;
   const open = points[last];
   if (!open) return null;
@@ -205,9 +217,9 @@ function Series({
       >
         <line
           x1="0"
-          y1={PLOT_H - 8}
+          y1={PLOT_AXIS_Y}
           x2={PLOT_W}
-          y2={PLOT_H - 8}
+          y2={PLOT_AXIS_Y}
           className="stroke-edge-grid"
           strokeWidth="1"
         />

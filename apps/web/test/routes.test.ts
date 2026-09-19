@@ -961,8 +961,15 @@ const S = (n: number) =>
  * date silently falls out of range once the real clock leaves that month and
  * the figure reads 0 while the test still describes real money.
  *
- * The 2nd at noon UTC, so the entry stays inside the month in every timezone
- * the suite runs `tz` as, and clear of a DST boundary at either end.
+ * Noon UTC, so the entry stays inside the month in every timezone the suite
+ * runs `tz` as, and clear of a DST boundary at either end.
+ *
+ * The day is the month's last BUSINESS day at or before today, never a fixed
+ * 2nd. Pace's cumulative line is null past today and steps only on business
+ * days, so an entry dated beyond the last such day sits past the line's end:
+ * read on the 1st, or on a 2nd whose month opens at a weekend, the last
+ * non-null point is 0 — and when no business day has elapsed the filter is
+ * empty and `.at(-1)` is undefined.
  */
 async function entryThisMonth(opts: {
   id: string;
@@ -971,8 +978,19 @@ async function entryThisMonth(opts: {
   rateOverride?: number | null;
 }) {
   const now = new Date();
+  /* Walk back from today to the nearest weekday, then no earlier than the
+     1st — a month opening Sat/Sun has none elapsed on day 1 or 2, and the
+     1st still keeps the entry inside the window every figure here reads. */
+  let day = now.getUTCDate();
+  while (day > 1) {
+    const dow = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), day),
+    ).getUTCDay();
+    if (dow !== 0 && dow !== 6) break;
+    day -= 1;
+  }
   const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 2, 12, 0, 0),
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), day, 12, 0, 0),
   );
   const end = new Date(start.getTime() + opts.hours * 3_600_000);
   await pool.query(
@@ -1980,13 +1998,19 @@ test('a revenue target gets a ray, not a withheld one', async () => {
   assert.notEqual(res.body.pace.delta, null);
 
   const series = res.body.pace.series as { actual: number | null }[];
-  // The money reached the line, so the series is the month's revenue and not
-  // an hours series wearing a money label.
-  assert.equal(
-    series.filter((s) => s.actual !== null).at(-1)?.actual,
-    400,
-    'the cumulative line carries the money, not the hours',
-  );
+  const drawn = series.filter((s) => s.actual !== null);
+  /* The line is null past today, so before the month's first business day
+     there is no point to read. That is the series being right, not the money
+     going missing — `pace.actual` above carries the figure either way. */
+  if (drawn.length > 0) {
+    // The money reached the line, so the series is the month's revenue and
+    // not an hours series wearing a money label.
+    assert.equal(
+      drawn.at(-1)?.actual,
+      400,
+      'the cumulative line carries the money, not the hours',
+    );
+  }
 });
 
 // ── stale drafts ───────────────────────────────────────────────────

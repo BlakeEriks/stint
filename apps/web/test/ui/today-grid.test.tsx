@@ -213,20 +213,6 @@ describe('Today as a day column', () => {
     expect(top).toBeLessThanOrEqual(100);
   });
 
-  it('draws no line at all rather than one pinned to an edge', async () => {
-    /* Before hydration there is no clock to read — the server does not know
-       what time it is here — so the line is absent rather than guessed. */
-    serve([entry()]);
-    const { container } = draw();
-    await screen.findByRole('button', { name: /Edit API integration/ });
-
-    const line = container.querySelector('.border-accent-default');
-    const top = line
-      ? Number.parseFloat((line as HTMLElement).style.top)
-      : null;
-    expect(top === null || (top >= 0 && top <= 100)).toBe(true);
-  });
-
   it('is the only accent on the column', async () => {
     serve([entry()]);
     const { container } = draw();

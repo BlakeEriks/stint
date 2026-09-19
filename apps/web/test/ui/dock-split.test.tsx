@@ -12,10 +12,12 @@ import { Dock } from '@/components/dock';
  * the ratio is stored per device, and that the handle exists only where a
  * column has a height to divide.
  *
- * The drag itself is a window pointer gesture over a measured box, which is
- * exactly what jsdom cannot provide (`getBoundingClientRect` is all zeroes).
- * The keyboard path moves the same state through the same clamp, so it is
- * what the range is asserted through.
+ * The drag is a window pointer gesture over a measured box, and jsdom's
+ * `getBoundingClientRect` is all zeroes — so the column's is stubbed with a
+ * height the fractions can be read against, the same way the entry dialog's
+ * scrubber is driven. That is what makes the pointer path assertable: the
+ * zero-height guard, the clamp when the pointer leaves the column, and the
+ * write landing on release rather than on every move.
  */
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
@@ -176,6 +178,114 @@ describe('the dock split', () => {
     /* Removed, not written as the default: a stored value is a CHOICE, and
        reset means there is no longer one to restore. */
     expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  /**
+   * The pointer path, over a column given a height to divide.
+   *
+   * The gesture is bound to the WINDOW rather than the handle, because the
+   * handle re-renders on every move and pointer capture would go with the
+   * element it was set on — so the moves and the release are dispatched
+   * there, which is also what lets the pointer leave the column and clamp.
+   */
+  describe('dragging it', () => {
+    const BOX = { top: 100, height: 400 };
+
+    /** The column, measured: `top` 100 and 400 tall, so 300 is halfway. */
+    function measured(height = BOX.height) {
+      const el = screen.getByLabelText('At a glance');
+      el.getBoundingClientRect = () =>
+        ({ top: BOX.top, height, bottom: BOX.top + height }) as DOMRect;
+      return el;
+    }
+
+    /** The clientY that lands on a given fraction of the column. */
+    const atFraction = (f: number) => BOX.top + f * BOX.height;
+
+    const move = async (clientY: number) => {
+      await act(async () => {
+        window.dispatchEvent(
+          new PointerEvent('pointermove', { clientY, bubbles: true }),
+        );
+      });
+    };
+
+    const release = async () => {
+      await act(async () => {
+        window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+      });
+    };
+
+    /** Press on the handle, which is what arms the window listeners. */
+    const grab = async () => {
+      const el = await handle();
+      await act(async () => {
+        el.dispatchEvent(
+          new PointerEvent('pointerdown', { bubbles: true, cancelable: true }),
+        );
+      });
+      return el;
+    };
+
+    it('follows the pointer down the column', async () => {
+      serve();
+      render(<Dock />, { wrapper });
+      measured();
+
+      const el = await grab();
+      await move(atFraction(0.6));
+
+      expect(el).toHaveAttribute('aria-valuenow', '60');
+    });
+
+    it('ignores a column with no height rather than dividing by zero', async () => {
+      serve();
+      render(<Dock />, { wrapper });
+      /* A collapsed or not-yet-laid-out column measures zero. Dividing by it
+         gives Infinity, which the clamp would pin to an edge — the split
+         would jump to 75% on a move the user has not finished making. */
+      measured(0);
+
+      const el = await grab();
+      await move(atFraction(0.6));
+
+      expect(el).toHaveAttribute('aria-valuenow', '50');
+    });
+
+    it('clamps when the pointer leaves the column', async () => {
+      serve();
+      render(<Dock />, { wrapper });
+      measured();
+
+      const el = await grab();
+
+      // Far below the column's bottom edge.
+      await move(BOX.top + BOX.height * 3);
+      expect(el).toHaveAttribute('aria-valuenow', '75');
+
+      // And far above its top.
+      await move(BOX.top - BOX.height);
+      expect(el).toHaveAttribute('aria-valuenow', '25');
+    });
+
+    it('writes the ratio on release, not during the drag', async () => {
+      serve();
+      render(<Dock />, { wrapper });
+      measured();
+
+      const el = await grab();
+      await move(atFraction(0.6));
+      await move(atFraction(0.65));
+
+      /* A drag is ONE decision. Writing per move is a hundred writes for it,
+         and it would also persist every value the pointer passed through. */
+      expect(localStorage.getItem(KEY)).toBeNull();
+
+      await release();
+
+      expect(el).toHaveAttribute('aria-valuenow', '65');
+      expect(localStorage.getItem(KEY)).toBe('0.65');
+    });
   });
 
   it('has no handle below xl', async () => {

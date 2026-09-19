@@ -259,10 +259,7 @@ describe('Inbox', () => {
       wrapper,
     });
 
-    expect(
-      screen.getByRole('button', { name: /mark .* paid/i }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('Mark paid')).toBeVisible();
+    expect(screen.getByRole('button', { name: /mark .* paid/i })).toBeVisible();
   });
 });
 

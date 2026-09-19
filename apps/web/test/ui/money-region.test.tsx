@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { HomeCards } from '@/components/home-cards';
+import { PLOT_AXIS_Y } from '@/components/home-money';
 import type { Stats } from '@/lib/client/api';
 
 /**
@@ -186,9 +187,28 @@ describe('the Money region', () => {
        visibly lower than the rest and still visibly a month. At a base of
        the minimum it would render flat on the axis and read as no income. */
     const ys = [...dots].map((d) => Number(d.getAttribute('cy')));
-    const axis = 86 - 8;
-    expect(Math.max(...ys)).toBeLessThan(axis);
-    expect(Math.max(...ys)).toBeGreaterThan(Math.min(...ys));
+
+    /* June is the lowest month and August the highest, so their dots are the
+       bottom and top of the drawing. Read by INDEX rather than as max/min:
+       the scale being the right way up is part of the claim. */
+    const june = ys[2] as number;
+    const august = ys[4] as number;
+    expect(june).toBe(Math.max(...ys));
+    expect(august).toBe(Math.min(...ys));
+
+    /* The shape, in proportions rather than a bare "they differ" — which two
+       dots a pixel apart would also satisfy. June must clear the axis by a
+       fifth of the drawing's height, which a base AT the minimum does not:
+       that pins it flat on the axis and reads as a month with no income.
+       And it must still sit well below the peak, or the scale has no shape
+       left to carry. */
+    const ink = PLOT_AXIS_Y - august;
+    expect(june).toBeLessThan(PLOT_AXIS_Y - ink * 0.2);
+    expect(june).toBeGreaterThan(august + ink * 0.3);
+
+    /* And the peak reaches the top of the plot rather than hovering in the
+       middle of it — the drawing uses the height it is given. */
+    expect(august).toBeLessThan(PLOT_AXIS_Y * 0.25);
   });
 
   it('sits a month with no payment on the axis, never above it', async () => {
@@ -219,10 +239,9 @@ describe('the Money region', () => {
     );
 
     const dots = [...container.querySelectorAll('svg[role="img"] circle')];
-    const axis = 86 - 8;
     const ys = dots.map((d) => Number(d.getAttribute('cy')));
-    expect(ys.slice(0, -1).every((y) => y === axis)).toBe(true);
-    expect(ys.at(-1)).toBeLessThan(axis);
+    expect(ys.slice(0, -1).every((y) => y === PLOT_AXIS_Y)).toBe(true);
+    expect(ys.at(-1)).toBeLessThan(PLOT_AXIS_Y);
   });
 
   it('leaves the open month hollow', async () => {
