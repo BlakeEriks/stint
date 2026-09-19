@@ -97,9 +97,17 @@
      would claim the month had settled. */
   .plot .last   { fill: var(--bg-primary); stroke: var(--success); stroke-width: 2.5; }
   .plot .grid   { stroke: var(--border-grid); stroke-width: 1; }
-  .axis { display: flex; margin-top: 6px; }
-  .axis span { flex: 1; text-align: center; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle); }
-  .axis span:last-child { color: var(--text-muted); }
+  /* Each label centres on ITS OWN point. The points sit at `i/(n-1)` and so
+     touch both edges, while equal columns would centre their labels a
+     half-column in from each — a drift that leaves no label owning a dot.
+     The two ends pull back inside the box so neither overhangs. */
+  .axis { position: relative; height: 16px; margin-top: 6px; }
+  .axis span {
+    position: absolute; transform: translateX(-50%);
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle);
+  }
+  .axis span:first-child { transform: none; }
+  .axis span:last-child { transform: translateX(-100%); color: var(--text-muted); }
 
   /* ── The two open figures ───────────────────────────────────── */
   .owed { display: flex; gap: 0; padding: 2px 16px 0; }
@@ -408,7 +416,8 @@
   document.getElementById('plot').innerHTML =
     `<line class="grid" x1="0" y1="${H - 8}" x2="${W}" y2="${H - 8}"/>` +
     `<path class="fill" d="${area}"/><path class="stroke" d="${line}"/>${dots}`;
-  document.getElementById('axis').innerHTML = MONTHS.map(([n]) => `<span>${n}</span>`).join('');
+  document.getElementById('axis').innerHTML = MONTHS.map(([n], i) =>
+    `<span style="left:${(i / (MONTHS.length - 1)) * 100}%">${n}</span>`).join('');
 
   const ARROW = '<svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
   document.getElementById('byclient').innerHTML = CLIENTS.map((c) => `

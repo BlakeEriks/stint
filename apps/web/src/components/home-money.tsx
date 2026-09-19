@@ -264,11 +264,28 @@ function Series({
           strokeWidth="2.5"
         />
       </svg>
-      <div className="mt-1.5 flex">
+      {/* Each label is centred on ITS OWN point, at the same fraction of the
+          width the point is drawn at. Six equal columns centre their labels a
+          half-column in from each edge while the points sit ON the edges —
+          a drift running +38px to −39px across the plot, which leaves no
+          label clearly owning a dot.
+
+          The two ends pull back inside the box rather than centring, so
+          neither overhangs the plot. */}
+      <div className="relative mt-1.5 h-4">
         {points.map((p, i) => (
           <span
             key={p.month}
-            className={`flex-1 text-center type-meta ${
+            style={{
+              left: `${(i / (points.length - 1)) * 100}%`,
+              transform:
+                i === 0
+                  ? 'none'
+                  : i === last
+                    ? 'translateX(-100%)'
+                    : 'translateX(-50%)',
+            }}
+            className={`absolute type-meta ${
               i === last ? 'text-muted' : 'text-subtle'
             }`}
           >

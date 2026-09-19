@@ -232,6 +232,39 @@ describe('the Money region', () => {
     }
   });
 
+  it('centres each month label on its own point', async () => {
+    serve(stats());
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await waitFor(() => expect(screen.getByText('Owed')).toBeVisible());
+
+    /* The points sit at `i/(n-1)` and so touch both edges of the plot, while
+       equal columns would centre their labels a half-column in from each —
+       a drift that leaves no label clearly owning a dot. jsdom reports no
+       geometry, so this asserts the positioning RULE instead: each label is
+       placed at its own point's fraction of the width. */
+    const labels = [
+      ...container.querySelectorAll('div.relative > span'),
+    ] as HTMLElement[];
+    expect(labels.length).toBe(6);
+    expect(labels.map((l) => l.style.left)).toEqual([
+      '0%',
+      '20%',
+      '40%',
+      '60%',
+      '80%',
+      '100%',
+    ]);
+
+    /* The ends pull back inside the box rather than centring, so neither
+       overhangs the plot. */
+    expect(labels[0]?.style.transform).toBe('none');
+    expect(labels.at(-1)?.style.transform).toBe('translateX(-100%)');
+    for (const l of labels.slice(1, -1)) {
+      expect(l.style.transform).toBe('translateX(-50%)');
+    }
+  });
+
   it('names the client list for the one figure it breaks down', async () => {
     serve(stats());
     render(<HomeCards />, { wrapper });
