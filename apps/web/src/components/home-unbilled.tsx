@@ -94,7 +94,14 @@ function Earned({
   if (amount === 0) return null;
 
   return (
-    <span className="flex flex-col gap-px self-baseline" data-earned="today">
+    /* `self-baseline-last` aligns the VALUE's baseline to the total, not the
+       label's — at `self-baseline` the label lands on the total's baseline and
+       the number hangs below it. `items-start` because a column stretches its
+       children by default, which centres each line in the widest one's box. */
+    <span
+      className="flex flex-col items-start gap-px self-baseline-last"
+      data-earned="today"
+    >
       <span className="type-label text-subtle">Today</span>
       <Rolling amount={amount} currency={currency} />
     </span>
@@ -105,7 +112,7 @@ function Earned({
 function Rolling({ amount, currency }: { amount: number; currency: string }) {
   const { value } = useCountUp(amount);
   return (
-    <span className="type-meta tabular-nums text-primary">
+    <span className="type-amount text-primary">
       +{formatCurrency(value, currency)}
     </span>
   );

@@ -13,8 +13,17 @@ import { useEffect, useRef, useState } from 'react';
  * move here is the rendered text of a number.
  */
 
-/** `--motion-quick`, which is the longest beat the token file defines. */
-const DURATION = 160;
+/**
+ * `--motion-count`, and the one duration on the scale that is not a UI beat.
+ *
+ * A transition moves a thing that is already understood, so it wants to be
+ * over before it is noticed — `--motion-quick` at 160ms. A count-up is the
+ * figure being READ: four digits crossing thousands need long enough for the
+ * eye to follow the travel, and at a transition's speed the number simply
+ * changes. Hence its own token rather than stretching `quick`, which every
+ * real transition still uses.
+ */
+const DURATION = 900;
 
 /** `--motion-ease-decelerate`, sampled rather than parsed out of the sheet. */
 function ease(t: number) {
@@ -80,7 +89,12 @@ export function useCountUp(to: number): CountUp {
     let frame = 0;
 
     const step = (now: number) => {
-      const t = Math.min((now - began) / DURATION, 1);
+      /* Clamped at BOTH ends. `requestAnimationFrame` hands its callback a
+         timestamp that need not share an origin with `performance.now()` —
+         under fake timers it does not — and a negative `t` runs the ease
+         backwards, so the figure sweeps far below `start` before climbing.
+         On a billing screen that renders as a large negative balance. */
+      const t = Math.min(Math.max((now - began) / DURATION, 0), 1);
       if (t >= 1) {
         /* The exact server figure, never the last interpolation: this is a
            billing screen, and a tween that settles a cent off has silently

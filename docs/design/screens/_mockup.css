@@ -48,6 +48,7 @@
 
     --motion-instant: 90ms;
     --motion-quick: 160ms;
+    --motion-count: 900ms;
     --motion-rise: 3px;
     --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
     --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
