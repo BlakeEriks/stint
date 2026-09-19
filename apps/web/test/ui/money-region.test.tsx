@@ -182,6 +182,38 @@ describe('the Money region', () => {
     expect(Math.max(...ys)).toBeGreaterThan(Math.min(...ys));
   });
 
+  it('sits a month with no payment on the axis, never above it', async () => {
+    /* The shape a new account has: one payment, five empty months. Padding
+       the base below a minimum of zero would lift those months off the floor
+       and claim each had collected something. */
+    serve(
+      stats({
+        collected: {
+          trailing12: 3195,
+          thisMonth: 3195,
+          daysSincePaid: 15,
+          byMonth: [
+            { month: '2026-04', amount: 0 },
+            { month: '2026-05', amount: 0 },
+            { month: '2026-06', amount: 0 },
+            { month: '2026-07', amount: 0 },
+            { month: '2026-08', amount: 0 },
+            { month: '2026-09', amount: 3195 },
+          ],
+        },
+      }),
+    );
+    const { container } = render(<HomeCards />, { wrapper });
+
+    await waitFor(() => expect(screen.getByText('Owed')).toBeVisible());
+
+    const dots = [...container.querySelectorAll('svg[role="img"] circle')];
+    const axis = 86 - 8;
+    const ys = dots.map((d) => Number(d.getAttribute('cy')));
+    expect(ys.slice(0, -1).every((y) => y === axis)).toBe(true);
+    expect(ys.at(-1)).toBeLessThan(axis);
+  });
+
   it('leaves the open month hollow', async () => {
     serve(stats());
     const { container } = render(<HomeCards />, { wrapper });

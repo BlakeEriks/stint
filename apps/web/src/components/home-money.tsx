@@ -186,17 +186,20 @@ function Series({
   const peak = Math.max(...values);
   const low = Math.min(...values);
 
-  /* The base sits BELOW the lowest month, by a third of the observed range.
-     At zero a steady income draws six near-identical points and the shape is
-     invisible; at the minimum the lowest month renders flat on the axis, so a
-     light month reads as a month with no income at all. The range is floored
-     at 30% of the peak so a flat stretch does not amplify a small wobble into
-     a cliff.
+  /* The base sits below the lowest month, by a third of the observed range,
+     so a light month reads as lower rather than as nothing: at a base of the
+     minimum it renders flat on the axis, and at zero a steady income draws
+     six near-identical points with no shape at all.
+
+     A month that collected NOTHING is the exception and sits on the axis,
+     because zero collected is zero — padding beneath it would lift a month
+     with no payment off the floor and claim it had one. So the base only
+     drops below a minimum that is itself a real payment.
 
      This is why the axis carries no values: the scale is not proportional
      from zero, so the plot carries SHAPE and the figures carry amounts. */
   const range = Math.max(peak - low, peak * 0.3, 1);
-  const base = Math.max(0, low - range / 3);
+  const base = low > 0 ? Math.max(0, low - range / 3) : 0;
   const span = Math.max(peak - base, 1);
 
   const x = (i: number) => (i / (points.length - 1)) * PLOT_W;
