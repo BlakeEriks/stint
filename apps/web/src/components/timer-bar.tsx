@@ -70,44 +70,46 @@ export function TimerBar({ projects }: { projects: Project[] }) {
       className="flex flex-none flex-col rounded-xl bg-surface-primary/55"
       aria-label="Timer"
     >
-      {/* Running and idle are two arrangements, not one layout with things
-          hidden. Both wrap to two rows below `sm` — 375px cannot hold four
-          objects plus a seven-character clock without crushing the task name.
-          The split is by kind: WHAT you are working on above, HOW LONG and the
-          control beneath. */}
-      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:gap-4 sm:px-5">
+      {/* Identity holds the left edge, the readout the right, so the clock
+          lands in the same place in every state — the number a glance goes to
+          does not move as the name beside it changes length. `Readout` carries
+          the `ml-auto` that does it.
+
+          Running never wraps: below `sm` the project pill is dropped rather
+          than wrapped, which leaves a name and a readout, and those fit. Idle
+          wraps, because both of its fields are inputs and neither can be
+          dropped the way a read-only pill can. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 sm:flex-nowrap sm:gap-4 sm:px-5">
         {isRunning ? (
           <>
-            {/* Dot, name and project are ONE flex item: flex-wrap places items
-                before it shrinks them, so as three siblings the tag takes a
-                line of its own instead of letting the name truncate beside
-                it. */}
-            <div className="flex min-w-0 items-center gap-3 sm:contents">
-              <StatusDot running exceeded={exceeded} />
-              <TaskName
-                name={running!.taskName}
-                editing={editing}
-                onEdit={() => setEditing(running!.taskName)}
-                onChange={setEditing}
-                onCommit={commitRename}
-                onCancel={() => setEditing(null)}
-              />
+            <StatusDot running exceeded={exceeded} />
+            <TaskName
+              name={running!.taskName}
+              editing={editing}
+              onEdit={() => setEditing(running!.taskName)}
+              onChange={setEditing}
+              onCommit={commitRename}
+              onCancel={() => setEditing(null)}
+            />
+            {/* Shown, not offered — `readOnly` is why this is a span. Hidden
+                below `sm`: a running timer is glanced at rather than operated,
+                and the project cannot change until it stops, so it is the one
+                thing on this row that a phone can do without. */}
+            <div className="hidden min-w-0 shrink sm:flex">
               <ProjectPicker
                 projects={projects}
                 value={running!.projectId}
                 onChange={(id) => timer.update.mutate({ projectId: id })}
                 selected={project}
+                readOnly
               />
             </div>
-            {/* `basis-full` breaks the row: the clock and its control take the
-                second line together. */}
             <Readout
               seconds={timer.seconds}
               exceeded={exceeded}
               running
               onToggle={toggle}
               busy={timer.start.isPending || timer.stop.isPending}
-              className="basis-full justify-center sm:basis-auto"
             />
           </>
         ) : (
@@ -155,15 +157,12 @@ export function TimerBar({ projects }: { projects: Project[] }) {
               onChange={setDraftProject}
               selected={project}
             />
-            {/* Pushed right on the wrapped row so the clock anchors its end;
-                centring takes over at `sm`. */}
             <Readout
               seconds={timer.seconds}
               exceeded={false}
               running={false}
               onToggle={toggle}
               busy={timer.start.isPending || timer.stop.isPending}
-              className="ml-auto sm:ml-0"
             />
           </>
         )}
@@ -240,10 +239,10 @@ function TaskName({
   }
 
   return (
-    /* Shrinks, never grows: not `flex-1`, so a long name cannot shove the tag
-       and clock to the far edge. `min-w-[7rem]` stays readable while leaving
-       the project tag room on the same phone row. */
-    <span className="flex min-w-[7rem] shrink items-center gap-1.5">
+    /* Shrinks, never grows: not `flex-1`, so a long name truncates rather
+       than walking the pill rightward and pushing the readout off its edge.
+       `min-w-0` is what lets `truncate` clip instead of push. */
+    <span className="flex min-w-0 shrink items-center gap-1.5">
       {/* `truncate` needs a min-width-0 flex item to clip rather than push. */}
       <span className="min-w-0 truncate type-body text-strong">{name}</span>
       <button
@@ -280,7 +279,9 @@ function Readout({
   className?: string;
 }) {
   return (
-    <div className={`flex flex-none items-center gap-3 sm:gap-4 ${className}`}>
+    /* `ml-auto` is the arrangement: this is what pushes the readout to the
+       right edge and leaves identity on the left. */
+    <div className={`ml-auto flex flex-none items-center gap-3 ${className}`}>
       <time
         className={`type-timer
                     ${exceeded ? 'text-warning' : running ? 'text-accent-default' : 'text-subtle'}`}
@@ -296,10 +297,16 @@ function Readout({
         onClick={onToggle}
         disabled={busy}
         aria-label={running ? 'Stop timer' : 'Start timer'}
-        /* text-on-accent is n-0 (13.61:1). Never white here — 1.37:1. */
-        className="grid size-9 flex-none place-items-center rounded-full
-                   bg-accent-default text-on-accent transition-colors
-                   hover:bg-accent-hover disabled:opacity-60"
+        /* The accent marks the one action the bar exists to complete, which
+           while running is stopping — so Stop is accent and Start is neutral.
+           text-on-accent is n-0 (13.61:1). Never white here — 1.37:1. */
+        className={`grid size-9 flex-none place-items-center rounded-[9px]
+                    transition-colors disabled:opacity-60
+                    ${
+                      running
+                        ? 'bg-accent-default text-on-accent hover:bg-accent-hover'
+                        : 'border border-edge-default bg-surface-hover text-primary hover:bg-surface-active'
+                    }`}
       >
         {running ? (
           <span className="block size-2.5 rounded-[2px] bg-current" />
@@ -326,13 +333,17 @@ function StatusDot({
   exceeded: boolean;
 }) {
   return (
+    /* A status light, not a bullet: 7px with a spread-only ring around it,
+       so it reads as lit without another 10px object competing in a row of
+       small ones. The ring is an elevation token because it needs an alpha
+       and a semantic colour token may not carry one. */
     <span
       aria-hidden
-      className={`size-2.5 flex-none rounded-full ${
+      className={`size-[7px] flex-none rounded-full ${
         exceeded
-          ? 'bg-warning'
+          ? 'bg-warning shadow-halo-warning motion-safe:animate-pulse'
           : running
-            ? 'bg-accent-default motion-safe:animate-pulse'
+            ? 'bg-accent-default shadow-halo-running motion-safe:animate-pulse'
             : 'bg-timer-idle'
       }`}
     />

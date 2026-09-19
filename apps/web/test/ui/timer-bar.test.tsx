@@ -403,21 +403,34 @@ describe('TimerBar — running', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('patches the project immediately when reassigned mid-run', async () => {
-    const calls = serve(runningSummary());
-    const user = userEvent.setup();
+  /* Reassigning mid-run re-bills time already tracked against the project
+     that did the work, which is a billing edit wearing a dropdown. The
+     project is shown as a pill and stopping the timer is how it moves, so
+     the guard is that no control offers the edit — not that the edit is
+     handled well. */
+  it('offers no project control while running', async () => {
+    serve(summary({ running: entry({ projectId: 'p1' }), todaySeconds: 1500 }));
     renderBar();
 
     await screen.findByRole('button', { name: 'Stop timer' });
-    await user.click(screen.getByRole('button', { name: 'Project' }));
-    await user.click(screen.getByRole('menuitemradio', { name: /Acme/ }));
 
-    await waitFor(() =>
-      expect(calls).toContainEqual({
-        method: 'PATCH',
-        path: '/timer/current',
-        body: { projectId: 'p1' },
-      }),
-    );
+    expect(screen.queryByRole('button', { name: 'Project' })).toBeNull();
+    /* Reported, not offered: the name is there, the control is not. */
+    expect(screen.getByText('Acme Redesign')).toBeInTheDocument();
+  });
+
+  /* A running timer is glanced at rather than operated, and the project
+     cannot change until it stops — so on a phone it is the one thing on the
+     row that gives way, and the name and readout keep a single line. jsdom
+     has no viewport, so the breakpoint is pinned by class. */
+  it('drops the project below sm rather than wrapping the row', async () => {
+    serve(summary({ running: entry({ projectId: 'p1' }), todaySeconds: 1500 }));
+    renderBar();
+
+    await screen.findByRole('button', { name: 'Stop timer' });
+    const pill = screen.getByText('Acme Redesign').closest('div')!;
+
+    expect(pill.className).toContain('hidden');
+    expect(pill.className).toContain('sm:flex');
   });
 });

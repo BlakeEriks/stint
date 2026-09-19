@@ -56,18 +56,19 @@
     background: color-mix(in oklab, var(--bg-elevated) 55%, transparent);
   }
 
-  /* The pip carries a halo rather than size: 7px reads as a status light,
-     and the ring is the accent at 18% so the live thing glows without
-     another 10px object competing in a row of small ones. It pulses, which
+  /* The pip carries a halo rather than size: 7px reads as a status light and
+     the ring makes it glow, without another 10px object competing in a row
+     of small ones. `shadow-halo-*` is an elevation token because the ring
+     needs an alpha and a semantic colour may not carry one. It pulses, which
      is the only motion in the chrome — a timer running is the one fact the
-     bar exists to report. */
+     bar exists to report, and the digits themselves never animate. */
   .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
   .dot.run  { background: var(--timer-running);
-              box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-default) 18%, transparent);
+              box-shadow: var(--shadow-halo-running);
               animation: pip 2s ease-in-out infinite; }
   .dot.idle { background: var(--timer-idle); }
   .dot.warn { background: var(--timer-warning);
-              box-shadow: 0 0 0 3px color-mix(in oklab, var(--timer-warning) 18%, transparent);
+              box-shadow: var(--shadow-halo-warning);
               animation: pip 2s ease-in-out infinite; }
   @keyframes pip { 50% { opacity: .45; } }
   @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
