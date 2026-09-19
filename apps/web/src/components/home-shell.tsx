@@ -100,7 +100,9 @@ export function Row({
   icon?: React.ReactNode;
   label: string;
   detail: string;
-  value: string;
+  /* A node, not a string: a row's amount tweens to its new value like the
+     figure it breaks down, and a plain string cannot hold its own state. */
+  value: React.ReactNode;
 }) {
   /* Sized by CONTAINER, not viewport — the same row renders in Home's wide
      panel and in the narrow dock, where a `sm:` breakpoint is true at 1600px

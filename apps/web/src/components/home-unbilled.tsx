@@ -3,7 +3,7 @@ import { formatCompact, formatCurrency } from '@stint/core';
 import { Wallet } from 'lucide-react';
 import type { Stats } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
-import { useCountUp } from '@/lib/client/use-count-up';
+import { Money } from './money';
 import type { Beat } from '@/lib/client/use-beat';
 import { type Clients, Region, Row } from './home-shell';
 
@@ -103,17 +103,12 @@ function Earned({
       data-earned="today"
     >
       <span className="type-label text-subtle">Today</span>
-      <Rolling amount={amount} currency={currency} />
-    </span>
-  );
-}
-
-/** A figure that travels to its new value rather than cutting to it. */
-function Rolling({ amount, currency }: { amount: number; currency: string }) {
-  const { value } = useCountUp(amount);
-  return (
-    <span className="type-amount text-primary">
-      +{formatCurrency(value, currency)}
+      <Money
+        amount={amount}
+        currency={currency}
+        className="type-amount text-primary"
+        sign
+      />
     </span>
   );
 }
@@ -127,10 +122,6 @@ function Rolling({ amount, currency }: { amount: number; currency: string }) {
  */
 export function Unbilled({ stats, beat }: { stats: Stats; beat: Beat }) {
   const { total, byClient } = stats.unbilled;
-  /* Travel only, from whatever this screen last showed. The figure itself is
-     the server's; the movement just keeps a number that changed from looking
-     like a number that was wrong before. */
-  const arrival = useCountUp(total);
 
   /* The awaiting-payment link lives inside this region, so hiding on an empty
      `byClient` alone would take money already asked for down with it: the
@@ -146,9 +137,11 @@ export function Unbilled({ stats, beat }: { stats: Stats; beat: Beat }) {
       icon={Wallet}
       value={
         <span className="flex flex-wrap items-baseline gap-x-2">
-          <span className="tabular-nums">
-            {formatCurrency(arrival.value, stats.currency)}
-          </span>
+          <Money
+            amount={total}
+            currency={stats.currency}
+            className="tabular-nums"
+          />
           <Earned
             amount={stats.earnedToday}
             beat={beat}
@@ -236,8 +229,13 @@ export function ByClient({
             }
             value={
               /* Unbillable work has no rate by definition; an em-dash is
-                 honest where a zero would look like a real figure. */
-              c.amount > 0 ? formatCurrency(c.amount, c.currency) : '—'
+                 honest where a zero would look like a real figure — and it is
+                 a branch on the SETTLED amount, never a tweened one. */
+              c.amount > 0 ? (
+                <Money amount={c.amount} currency={c.currency} />
+              ) : (
+                '—'
+              )
             }
           />
         ))}

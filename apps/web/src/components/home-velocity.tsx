@@ -4,6 +4,7 @@ import type { Stats } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 import type { Beat } from '@/lib/client/use-beat';
 import { type Clients, Region } from './home-shell';
+import { Money } from './money';
 
 /**
  * The trailing quarter's gross, and how it was made up: a figure, a bar and
@@ -42,11 +43,12 @@ export function Velocity({
           {/* Fires with Unbilled's countdown, in another region — without the
               pairing, getting paid looks only like the screen's largest
               number shrinking. */}
-          <span
-            className={`tabular-nums ${paid ? 'text-success' : ''}`}
-            data-beat={paid ? 'paid' : undefined}
-          >
-            {formatCurrency(perMonth, stats.currency)}
+          <span data-beat={paid ? 'paid' : undefined}>
+            <Money
+              amount={perMonth}
+              currency={stats.currency}
+              className={`tabular-nums ${paid ? 'text-success' : ''}`}
+            />
           </span>
           <span className="type-duration text-subtle">/mo gross</span>
         </span>
@@ -72,9 +74,11 @@ export function Velocity({
                 }}
               />
               <span className="truncate text-muted">{c.clientName}</span>
-              <span className="type-meta tabular-nums">
-                {formatCurrency(gross(c), c.currency)}
-              </span>
+              <Money
+                amount={gross(c)}
+                currency={c.currency}
+                className="type-meta tabular-nums"
+              />
             </span>
           ))}
           {v.moreClients > 0 ? <span>+{v.moreClients} more</span> : null}

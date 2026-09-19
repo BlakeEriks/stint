@@ -242,6 +242,80 @@ describe('count-up', () => {
     }
   });
 
+  /* The breakdown must move with the figure it breaks down. A row that sat
+     still while the headline above it travelled read as the stale one — which
+     is what "by client is not updating" actually looked like. */
+  it('travels the by-client rows, not just the headline', async () => {
+    let current = stats({ unbilled: unbilled(1000) });
+    serve(() => current);
+
+    const { container } = render(<HomeCards />, { wrapper });
+    await waitFor(() => expect(figure()).toBe('$1,000.00'));
+
+    /* The row's own amount, never the headline's: they share a value in this
+       fixture, so reading the wrong node would pass on the headline alone. */
+    const row = () => {
+      const li = container.querySelector('ul li');
+      return li?.querySelector('.type-duration')?.textContent?.trim() ?? '';
+    };
+    await waitFor(() => expect(row()).toBe('$1,000.00'));
+
+    const seen = new Set<string>();
+    const sample = setInterval(() => seen.add(row()), 8);
+
+    current = stats({ unbilled: unbilled(9000) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+    await waitFor(() => expect(row()).toBe('$9,000.00'), SETTLE);
+    clearInterval(sample);
+
+    const money = (t: string) => Number(t.replace(/[$,]/g, ''));
+    const between = [...seen]
+      .filter((t) => /^\$[\d,]+\.\d\d$/.test(t))
+      .map(money)
+      .filter((n) => n > 1000 && n < 9000);
+
+    expect(between.length).toBeGreaterThan(0);
+  });
+
+  /* Velocity's headline sits in the same figure slot as Unbilled's and moves
+     on the same edits, so it cannot be the one number that cuts. */
+  it("travels velocity's per-month figure", async () => {
+    let current = stats({ velocity: velocity(3000, 3000) });
+    serve(() => current);
+
+    const { container } = render(<HomeCards />, { wrapper });
+    const perMonth = () => {
+      const head = screen.getByText('Velocity').closest('header');
+      return (
+        head
+          ?.querySelector('.type-figure .tabular-nums')
+          ?.textContent?.trim() ?? ''
+      );
+    };
+    await waitFor(() => expect(perMonth()).toBe('$1,000.00'));
+
+    const seen = new Set<string>();
+    const sample = setInterval(() => seen.add(perMonth()), 8);
+
+    current = stats({ velocity: velocity(27000, 27000) });
+    await act(async () => {
+      await client.refetchQueries();
+    });
+    await waitFor(() => expect(perMonth()).toBe('$9,000.00'), SETTLE);
+    clearInterval(sample);
+
+    const money = (t: string) => Number(t.replace(/[$,]/g, ''));
+    const between = [...seen]
+      .filter((t) => /^\$[\d,]+\.\d\d$/.test(t))
+      .map(money)
+      .filter((n) => n > 1000 && n < 9000);
+
+    expect(between.length).toBeGreaterThan(0);
+    void container;
+  });
+
   it('moves hours, not money, on an unbillable stop', async () => {
     /* An unbillable stop resolves to no money. A stop that moved nothing
        would teach the user that marking work billable is what makes the app
