@@ -206,10 +206,17 @@ export function EntryDialog({
 
   /* The strip draws instants, the draft holds wall-clock strings, so the two
      are converted at this boundary rather than either side holding both. An
-     incomplete draft — a cleared time field, or a new entry before a time is
-     picked — has nothing to draw, and `null` is what hides the strip. */
+     incomplete draft — a cleared time field — has nothing to draw, and `null`
+     is what hides the strip.
+
+     EDITING ONLY. Adjusting is a correction to times that already exist: the
+     gesture answers "this started at 9, not 9:30", which is a question a new
+     entry has not asked yet. On Add the fields are the whole job, and a strip
+     drawn from a default would invite dragging the times into place instead
+     of typing the two the user already knows. */
   const colors = useProjectColors();
   const drawn = (() => {
+    if (!existing) return null;
     const { date, start, end } = draft;
     if (!date || !start || !end) return null;
     const startedAt = localDateTimeToInstant(date, start, tz);

@@ -484,6 +484,24 @@ describe('EntryDialog', () => {
       expect(Number.parseFloat(blockEl().style.width)).toBeGreaterThan(before);
     });
 
+    it('offers no strip on a new entry, only on one being corrected', async () => {
+      serve();
+      render(
+        <EntryDialog
+          open
+          onOpenChange={() => {}}
+          projects={PROJECTS}
+          tz={TZ}
+        />,
+        { wrapper },
+      );
+      await waitFor(() => screen.getByLabelText('Start'));
+
+      /* Adjusting is a correction to times that already exist. A new entry
+         has not got any yet, and the fields are the whole job there. */
+      expect(screen.queryByTestId('entry-scrubber')).not.toBeInTheDocument();
+    });
+
     it('offers no strip on an entry billed to an issued invoice', async () => {
       serve('sent');
       open(entry({ invoiceId: 'i1' }));
