@@ -10,7 +10,7 @@ import { api } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 import { keys } from '@/lib/client/query-keys';
-import { type Clients, Region } from './home-shell';
+import { type Clients, INSET, Region } from './home-shell';
 
 /** Internal work: no client, so no hue — but not rest either. */
 const INTERNAL = '';
@@ -114,7 +114,7 @@ export function Heatmap({ clients }: { clients: Clients }) {
         </span>
       }
     >
-      <div className="px-5 pt-1 pb-3">
+      <div className={`${INSET} pt-1 pb-3`}>
         {/* Columns are weeks, rows are weekdays — the layout every calendar
             heatmap uses, so the shape is readable without a key. `grid-flow-col`
             fills down each week before moving right. */}

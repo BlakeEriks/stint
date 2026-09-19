@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { formatCurrency } from '@stint/core';
 import { CalendarDays, Pencil } from 'lucide-react';
 import type { Pace, Stats } from '@/lib/client/api';
-import { Region } from './home-shell';
+import { INSET, Region } from './home-shell';
 
 /**
  * Month to date as a cumulative line against the goal ray.
@@ -17,7 +17,7 @@ export function Month({ stats }: { stats: Stats }) {
   if (!p) {
     return (
       <Region title={monthName()} icon={CalendarDays} action={<EditGoal />}>
-        <div className="px-5 pt-1 pb-3">
+        <div className={`${INSET} pt-1 pb-3`}>
           <p className="type-support text-subtle">
             Set a monthly goal to track hours or revenue against it.
           </p>
@@ -31,7 +31,7 @@ export function Month({ stats }: { stats: Stats }) {
   if (p.actual == null) {
     return (
       <Region title={monthName()} icon={CalendarDays} action={<EditGoal />}>
-        <div className="px-5 pt-1 pb-3">
+        <div className={`${INSET} pt-1 pb-3`}>
           <p className="type-support text-subtle">
             A {p.unit} target is set, but pace in {p.unit} is not computed yet.
           </p>
@@ -67,7 +67,7 @@ export function Month({ stats }: { stats: Stats }) {
         </EditGoal>
       }
     >
-      <div className="flex flex-col gap-2 px-5 pt-1 pb-3">
+      <div className={`flex flex-col gap-2 ${INSET} pt-1 pb-3`}>
         <PaceLine
           series={p.series}
           target={p.target}

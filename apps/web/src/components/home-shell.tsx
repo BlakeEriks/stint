@@ -2,6 +2,24 @@ import Link from 'next/link';
 import { ArrowRight, type LucideIcon } from 'lucide-react';
 
 /**
+ * The panel's one spacing number, on all four sides of every region.
+ *
+ * It is the outer margin, the rules' own inset, and — because the pairing grid
+ * carries no gutter — half the gap between two halves. Two regions side by side
+ * sit apart by exactly twice what either sits from the panel's edge, which is
+ * the spacing the outer margin already implies.
+ *
+ * A grid gutter on top of this is a second number governing the same gap, and
+ * the two drift: at a 16px gutter the middle read 2.8x the margin.
+ *
+ * Off Tailwind's scale at 18px deliberately — 20 (`5`) leaves the middle wide,
+ * 16 (`4`) crowds the panel's corner.
+ */
+export const INSET = 'px-[18px]';
+/** The same figure as a margin, for a rule that stops short of the edges. */
+export const INSET_X = 'mx-[18px]';
+
+/**
  * Every client by id — resolved once in `Panel` and passed down.
  *
  * `color` is nullable because the column is: a client without one takes
@@ -47,7 +65,7 @@ export function Region({
   if (value !== undefined || labelled) {
     return (
       <section className="py-1">
-        <header className="px-5 pt-3 pb-2">
+        <header className={`${INSET} pt-3 pb-2`}>
           <div className="flex items-center gap-2">
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <Icon
@@ -75,7 +93,7 @@ export function Region({
 
   return (
     <section className="py-1">
-      <header className="flex items-center gap-2 px-5 pt-3 pb-2.5">
+      <header className={`flex items-center gap-2 ${INSET} pt-3 pb-2.5`}>
         <Icon
           aria-hidden
           strokeWidth={1.75}

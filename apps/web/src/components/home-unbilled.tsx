@@ -5,7 +5,7 @@ import type { Stats } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 import { useSinceLastSeen } from '@/lib/client/use-count-up';
 import type { Beat } from '@/lib/client/use-day-state';
-import { type Clients, Region, Row } from './home-shell';
+import { type Clients, INSET, INSET_X, Region, Row } from './home-shell';
 
 /**
  * What the last change was worth, beside the figure it changed.
@@ -156,7 +156,7 @@ export function Unbilled({
       {stats.awaitingPayment > 0 ? (
         <Link
           href="/invoices?status=sent"
-          className="mx-5 mt-1 mb-1 inline-flex items-baseline gap-1.5 rounded-sm type-support text-subtle hover:text-muted hover:underline hover:decoration-edge-subtle hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+          className={`${INSET_X} mt-1 mb-1 inline-flex items-baseline gap-1.5 rounded-sm type-support text-subtle hover:text-muted hover:underline hover:decoration-edge-subtle hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none`}
         >
           <span className="type-meta text-muted">
             {formatCurrency(stats.awaitingPayment, stats.currency)}
@@ -191,11 +191,13 @@ export function ByClient({
 
   return (
     <section className="py-1">
-      <h2 className="px-5 pt-3 pb-1 type-label text-subtle">By client</h2>
+      <h2 className={`${INSET} pt-3 pb-1 type-label text-subtle`}>By client</h2>
       {/* A hairline BETWEEN rows, never above the first — the section head
-          already separates it from what is above. `mx-5` rather than padding
+          already separates it from what is above. A margin rather than padding
           on the row, so the rule starts where the content does. */}
-      <ul className="mx-5 flex flex-col [&>li+li]:border-t [&>li+li]:border-edge-grid">
+      <ul
+        className={`${INSET_X} flex flex-col [&>li+li]:border-t [&>li+li]:border-edge-grid`}
+      >
         {byClient.map((c) => (
           <Row
             key={c.clientId ?? 'none'}
@@ -233,7 +235,7 @@ export function ByClient({
         ))}
       </ul>
       {moreClients > 0 ? (
-        <p className="px-5 py-2 type-support text-subtle">
+        <p className={`${INSET} py-2 type-support text-subtle`}>
           +{moreClients} more
         </p>
       ) : null}

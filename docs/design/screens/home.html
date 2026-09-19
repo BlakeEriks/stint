@@ -77,23 +77,23 @@
   /* A region carries no border, no background and no shadow: the panel has
      all three, and a second set inside it reads as a card in a card. */
   .region { padding: 4px 0; }
-  /* Inset to the rows' own 16px. Full-bleed it cuts the panel in two and
+  /* Inset to the rows' own 18px. Full-bleed it cuts the panel in two and
      reads as two stacked cards. */
-  .region-rule { height: 1px; margin: 12px 16px; background: var(--border-subtle); }
+  .region-rule { height: 1px; margin: 12px 18px; background: var(--border-subtle); }
 
   /* The pairing. Sized by CONTAINER, not viewport: the panel is not the
      window — the rail and dock claim their space at `lg` and `xl`, so the
      panel is wider at a 1100px window than at 1440. The mockup below fakes
      the query with a fixed two-column grid; the app writes `@2xl:`. */
-  .pair { display: grid; grid-template-columns: 1.15fr 1fr; gap: 0 16px; align-items: start; }
+  .pair { display: grid; grid-template-columns: 1.15fr 1fr; align-items: start; }
   /* Row three inverts the ratio: 26 columns of cells read better with more
      width, and a name over a full-width rail is legible in less. */
   @media (max-width: 640px) { .pair { grid-template-columns: minmax(0, 1fr); } }
 
-  .region-head { padding: 12px 16px 8px; }
+  .region-head { padding: 12px 18px 8px; }
   /* The right half of a pairing is the second half of one subject, so it
      takes a quiet label rather than a heading that would announce a third. */
-  .sublabel { padding: 12px 16px 4px; display: block; }
+  .sublabel { padding: 12px 18px 4px; display: block; }
 
   /* Velocity's mix: one segment per client, muted. At full strength the hues
      pull harder than the running timer, the one thing allowed to shout. */
@@ -108,20 +108,20 @@
   .region-figure { margin-top: 6px; }
   /* A label header carrying one control on the right. The label and its icon
      keep the weight every other region uses; only the layout changes. */
-  .region-head.withaction { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px 10px; }
+  .region-head.withaction { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px 10px; }
   /* The control keeps its line: `.region-title` claims the full width, and a
      two-line streak reads as a figure that outgrew its slot. */
   .region-head.withaction .region-title { width: auto; }
   .region-head.withaction > .type-meta { flex: none; white-space: nowrap; }
-  .region-body { padding: 4px 16px 12px; }
+  .region-body { padding: 4px 18px 12px; }
 
   /* A row: label + detail on the left, hours and amount right-aligned. */
-  .erow { display: flex; align-items: center; gap: 10px; padding: 8px 16px; }
+  .erow { display: flex; align-items: center; gap: 10px; padding: 8px 18px; }
   .erow .left { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1; }
   .erow .hours { width: 64px; text-align: right; flex: none; }
   .erow .amt { width: 96px; text-align: right; flex: none; }
   .erow .arrow { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
-  .foot { display: flex; align-items: baseline; gap: 6px; padding: 8px 16px; }
+  .foot { display: flex; align-items: baseline; gap: 6px; padding: 8px 18px; }
 
   .bar { height: 6px; border-radius: 999px; background: var(--bg-hover); overflow: hidden; }
   .bar span { display: block; height: 100%; background: var(--text-muted); border-radius: 999px; }
@@ -443,6 +443,11 @@
         somewhere else; one that lands on the other side of the panel's centre
         from the row above reads as a mistake rather than as an asymmetry
         anyone chose.</li>
+      <li><strong>One inset, on all four sides of every region</strong>, and
+        the pairing grid carries no gutter of its own. Two halves then sit
+        apart by exactly twice what either sits from the panel's edge, which
+        is the spacing the outer margin already implies. A gutter on top of
+        the insets is a second number governing one gap, and the two drift.</li>
       <li><strong>Unbilled hides itself with nothing outstanding</strong>, and
         By-client goes with it. A region with no rows is a heading over a
         gap.</li>
@@ -462,7 +467,7 @@
         rebuilds the gridlines this panel exists without, and reads the pair
         back as two cards.</li>
       <li><strong>Never a full-bleed horizontal rule.</strong> Inset to the
-        rows' own 16px; edge to edge it cuts the panel in two and reads as two
+        rows' own 18px; edge to edge it cuts the panel in two and reads as two
         stacked cards.</li>
     </ul>
   </section>

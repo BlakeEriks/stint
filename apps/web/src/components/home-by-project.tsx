@@ -3,7 +3,7 @@ import { formatCompact, formatCurrency } from '@stint/core';
 import { ChartColumn } from 'lucide-react';
 import type { Stats } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
-import { type Clients, Region } from './home-shell';
+import { type Clients, INSET, Region } from './home-shell';
 import { MIX_OPACITY } from './home-velocity';
 
 type Unit = 'hours' | 'revenue';
@@ -62,7 +62,7 @@ export function ByProject({
       labelled
       action={<UnitToggle unit={unit} onChange={setUnit} />}
     >
-      <div className="px-5 pt-1 pb-3">
+      <div className={`${INSET} pt-1 pb-3`}>
         {rows.length > 0 ? (
           <div
             role="img"

@@ -8,6 +8,7 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import { useClients } from '@/lib/client/use-project-colors';
 import { keys } from '@/lib/client/query-keys';
 import { useDayState } from '@/lib/client/use-day-state';
+import { INSET, INSET_X } from './home-shell';
 import { ByClient, Unbilled } from './home-unbilled';
 import { Month } from './home-month';
 import { Velocity } from './home-velocity';
@@ -44,7 +45,7 @@ function PanelHead({
      to that left 20px under the day name where the mockup has 8. The head
      carries the since-line's space only when the line is there to need it. */
   return (
-    <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
+    <div className={`flex items-baseline justify-between gap-3 ${INSET} pt-4`}>
       <div className="min-w-0">
         <h2 className="type-heading text-strong">{day}</h2>
         <SinceLine delta={delta} currency={currency} />
@@ -156,7 +157,7 @@ function Pair({
      one that lands on the other side of the panel's centre reads as a
      mistake rather than as an asymmetry anyone chose. */
   return (
-    <div className="grid items-start gap-x-4 @2xl:grid-cols-[1.15fr_1fr]">
+    <div className="grid items-start @2xl:grid-cols-[1.15fr_1fr]">
       {left}
       {right}
     </div>
@@ -198,11 +199,11 @@ function SinceLine({
 /**
  * The rule between two regions.
  *
- * Inset to the regions' own `px-5`, never a `border-b` on a header: full-bleed
+ * Inset to the regions' own `INSET`, never a `border-b` on a header: full-bleed
  * it cuts the panel in two and reads as two stacked cards.
  */
 function Rule() {
   /* 12px each side. Below about 8 the regions read as a list of rows rather
      than as four things sharing one surface. */
-  return <div className="mx-5 my-3 border-t border-edge-subtle" />;
+  return <div className={`${INSET_X} my-3 border-t border-edge-subtle`} />;
 }

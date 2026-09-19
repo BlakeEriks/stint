@@ -3,7 +3,7 @@ import { TrendingUp } from 'lucide-react';
 import type { Stats } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 import type { Beat } from '@/lib/client/use-day-state';
-import { type Clients, Region } from './home-shell';
+import { type Clients, INSET, Region } from './home-shell';
 
 /**
  * The trailing quarter's gross, and how it was made up: a figure, a bar and
@@ -52,7 +52,7 @@ export function Velocity({
         </span>
       }
     >
-      <div className="flex flex-col gap-2 px-5 pt-1 pb-3">
+      <div className={`flex flex-col gap-2 ${INSET} pt-1 pb-3`}>
         <Mix rows={v.byClient} clients={clients} gross={gross} />
 
         <p className="flex flex-wrap gap-x-4 gap-y-1 type-support text-subtle">
