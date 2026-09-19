@@ -79,7 +79,10 @@ export function TimerBar({ projects }: { projects: Project[] }) {
           than wrapped, which leaves a name and a readout, and those fit. Idle
           wraps, because both of its fields are inputs and neither can be
           dropped the way a read-only pill can. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 sm:flex-nowrap sm:gap-4 sm:px-5">
+      <div
+        className={`flex items-center gap-x-3 gap-y-2 px-4 py-2 sm:gap-4 sm:px-5
+                    ${isRunning ? 'flex-nowrap' : 'flex-wrap sm:flex-nowrap'}`}
+      >
         {isRunning ? (
           <>
             <StatusDot running exceeded={exceeded} />
