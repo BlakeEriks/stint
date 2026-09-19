@@ -25,20 +25,6 @@ later.
 
 ## Ready
 
-- [ ] **Home's Money region — the screen.** `docs/design/screens/money.html`
-      is the spec and `/stats` already carries every figure it needs. What is
-      left is the region itself: the pairing, the six-month plot, the two
-      owed figures with their count and age lines, and the client list named
-      `Unbilled by client`.
-
-      Replaces the Unbilled region rather than sitting beside it — the two
-      figures it leads with are Unbilled's own, and `home.html` still
-      describes the old arrangement.
-
-      The `sent` beat has no home yet. `cause()` classifies it and `Delta`
-      renders it, but only Unbilled and Velocity mount a beat today, so an
-      invoice going out still moves figures nothing reports.
-
 - [ ] **The running timer and the primary action are the same green.** The
       accent carries two meanings — it marks the live timer and it marks the
       one confirm action a screen exists to complete. Dark separates them for
