@@ -110,10 +110,13 @@
   .axis span:last-child { transform: translateX(-100%); color: var(--text-muted); }
 
   /* ── The two open figures ───────────────────────────────────── */
-  .owed { display: flex; gap: 0; padding: 2px 16px 0; }
-  .owed .o { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-  .owed .cap { display: inline-flex; align-items: center; gap: 6px; }
-  .owed .sw { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  /* Each figure takes the same head a region does — an icon and a
+     `type-label` — because each IS one. A pip is a colour standing for a
+     client, and neither of these belongs to one. */
+  .owed { display: flex; gap: 12px; padding: 12px 16px 0; }
+  .owed .o { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+  .owed .cap { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .owed .cap .ico { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
 
   /* ── A by-client row, as `Row` builds it ────────────────────── */
   .rows { list-style: none; margin: 0 16px; padding: 0; }
@@ -174,26 +177,19 @@
           </div>
 
           <div class="region">
-            <div class="region-head">
-              <span class="region-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 3v18M17 6.5c0-1.4-2.2-2.5-5-2.5s-5 1-5 2.5 2.2 2.5 5 3 5 1.6 5 3.1-2.2 2.5-5 2.5-5-1.1-5-2.5"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">Owed</span>
-              </span>
-            </div>
-
             <div class="owed">
               <span class="o">
                 <span class="cap">
-                  <span class="sw" style="background:var(--text-subtle)"></span>
-                  <span class="type-support" style="color:var(--text-muted)">Awaiting</span>
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg>
+                  <span class="type-label" style="color:var(--text-subtle)">Awaiting</span>
                 </span>
                 <span class="type-amount-hero" style="color:var(--text-strong)">$6,400.00</span>
                 <span class="type-meta" style="color:var(--text-subtle)">1 open invoice</span>
               </span>
               <span class="o">
                 <span class="cap">
-                  <span class="sw" style="background:var(--bg-active)"></span>
-                  <span class="type-support" style="color:var(--text-muted)">Unbilled</span>
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M5 22h14M5 2h14M17 22v-4.2a2 2 0 0 0-.6-1.4L12 12l-4.4 4.4a2 2 0 0 0-.6 1.4V22M7 2v4.2a2 2 0 0 0 .6 1.4L12 12l4.4-4.4a2 2 0 0 0 .6-1.4V2"/></svg>
+                  <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
                 </span>
                 <span class="type-amount-hero" style="color:var(--text-strong)">$3,461.25</span>
                 <span class="type-meta" style="color:var(--text-subtle)">12d oldest</span>
@@ -222,6 +218,12 @@
       <li><strong>Awaiting and unbilled are equal weight.</strong> One is money
         asked for, the other money not yet asked for; the difference is a
         stage rather than a size.</li>
+      <li><strong>Each carries a region's own head</strong> — an icon and a
+        <code>type-label</code> — because each is one. The right half takes no
+        title above them: a word naming the grouping costs a row to restate
+        what the two figures already say.</li>
+      <li><strong>An icon, never a pip.</strong> A pip is a colour standing
+        for a client, and neither of these figures belongs to one.</li>
       <li><strong>The client list breaks down the unbilled half alone</strong>,
         and its heading says so. Both figures above it are money owed, and a
         list under both that totals only one of them reads as a breakdown of

@@ -386,32 +386,28 @@ describe('count-up', () => {
 
   it('marks a billable stop neutrally, never with the accent', async () => {
     /* The accent is the running timer, and a stop has just ended one. */
-    let current = stats({ unbilled: unbilled(100) });
+    let current = stats({ unbilled: unbilled(0, 3600) });
     serve(() => current);
 
     render(<HomeCards />, { wrapper });
-    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled', { exact: true })).toBeVisible(),
+    );
 
-    // The hours move too: a stop is what adds them, and money alone also
-    // moves when a rate is edited elsewhere.
-    current = stats({ unbilled: unbilled(212.5, 7200), earnedToday: 112.5 });
+    /* An unbillable stop: the hours move and the money does not, which is the
+       one stop the figure alone cannot report — so it is the one that renders
+       a chip. A priced stop is already described by the figure travelling. */
+    current = stats({ unbilled: unbilled(0, 7200) });
     await act(async () => {
       await client.refetchQueries();
     });
 
-    /* The stop is reported by the server's figure for the day, which persists
-       rather than retiring on a timer. The tone rule is unchanged. */
     const chip = await waitFor(() => {
-      const el = document.querySelector('[data-earned="today"]');
-      if (!el) throw new Error('no earned-today figure');
+      const el = document.querySelector('[data-beat="stop"]');
+      if (!el) throw new Error('no stop chip');
       return el as HTMLElement;
     });
     expect(chip).toBeVisible();
-    expect(chip.textContent).toMatch(/Today/);
-    await waitFor(
-      () => expect(chip.textContent).toMatch(/\+\$112\.50/),
-      SETTLE,
-    );
     // Classes, not inline style: the tone is a utility, so reading `style`
     // alone would pass against an accent-coloured chip.
     expect(chip.className).not.toMatch(/accent/);

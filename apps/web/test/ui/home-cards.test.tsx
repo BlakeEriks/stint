@@ -162,7 +162,7 @@ describe('HomeCards', () => {
     const headings = [...container.querySelectorAll('h2')].map((h) =>
       h.textContent?.trim(),
     );
-    expect(headings).toContain('Owed');
+    expect(headings.some((h) => h?.startsWith('Collected'))).toBe(true);
     expect(
       headings.some(
         (h) =>
@@ -765,8 +765,12 @@ describe('the panel pairs its regions', () => {
     const headings = pairs.map((p) =>
       [...p.querySelectorAll('h2')].map((h) => h.textContent?.trim()),
     );
+    /* The right half carries no region title: "Owed" named a grouping
+       rather than a quantity, and its two figures already say what they
+       are. Each takes its own label at region weight instead. */
     expect(headings[0]?.[0]).toMatch(/^Collected/);
-    expect(headings[0]?.[1]).toBe('Owed');
+    expect(screen.getByText('Awaiting')).toBeVisible();
+    expect(screen.getByText('Unbilled', { exact: true })).toBeVisible();
     expect(headings[1]?.[1]).toMatch(/velocity/i);
   });
 
@@ -1042,36 +1046,31 @@ describe('the beat says only what it can tell', () => {
     }
   });
 
-  it('still counts a plain billable stop up with its delta', async () => {
-    /* The behaviour that was already right: hours and money both arrive, so
-       the beat is a stop and the delta is what the stop earned. Neutral, not
-       the accent — the accent is the running timer, which just ended. */
+  it('reports a plain billable stop by moving the figure alone', async () => {
+    /* Hours and money both arrive, so the beat is a stop — and the Unbilled
+       figure travelling to its new value IS the report. A chip beside it
+       saying the same amount would read as two events. */
     let current = stats({ unbilled: unbilledAt(100, 3600) });
     serveMoving(() => current);
 
     const { container } = render(<HomeCards />, { wrapper: movingWrapper });
     await waitFor(() =>
-      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+      expect(screen.getByText('Unbilled', { exact: true })).toBeInTheDocument(),
     );
 
-    current = stats({ unbilled: unbilledAt(212.5, 7200), earnedToday: 112.5 });
+    current = stats({ unbilled: unbilledAt(212.5, 7200) });
     await act(async () => {
       await client.refetchQueries();
     });
 
-    const chip = await waitFor(() => {
-      const el = container.querySelector('[data-earned="today"]');
-      if (!el) throw new Error('no earned-today figure');
-      return el as HTMLElement;
-    });
-    expect(chip.textContent).toMatch(/Today/);
-    await waitFor(() => expect(chip.textContent).toMatch(/\+\$112\.50/));
-    expect(chip.className).not.toMatch(/accent/);
-    expect(chip.className).not.toMatch(/text-success/);
-    /* No transient beat: a plain billable stop is fully described by the
-       running total, and a second chip saying the same figure would read as
-       two events. The beat is reserved for what the total cannot say — an
-       unbillable stop, and a raised invoice. */
+    /* The figure lands on the server's number. */
+    await waitFor(
+      () => expect(screen.getAllByText('$212.50').length).toBeGreaterThan(0),
+      { timeout: 4000 },
+    );
+
+    /* Nothing transient: the chip is reserved for what the figure cannot
+       say — a stop that earned no money, and an invoice changing stage. */
     expect(beats(container).length).toBe(0);
   });
 
@@ -1195,7 +1194,6 @@ describe('awaiting payment survives a fully-invoiced book', () => {
 
     expect(screen.queryByText('Unbilled')).toBeNull();
     expect(screen.queryByText('Awaiting')).toBeNull();
-    expect(screen.queryByText('Owed')).toBeNull();
   });
 });
 

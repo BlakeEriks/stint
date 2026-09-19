@@ -142,11 +142,14 @@
   .axis span:first-child { transform: none; }
   .axis span:last-child { transform: translateX(-100%); color: var(--text-muted); }
 
-  /* The two owed figures, side by side at equal weight. */
-  .owed { display: flex; gap: 12px; padding: 2px 16px 0; }
-  .owed .o { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-  .owed .cap { display: inline-flex; align-items: center; gap: 6px; }
-  .owed .sw { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  /* The two open figures, side by side at equal weight. Each takes the same
+     head a region does — an icon and a `type-label` — because each IS one. A
+     pip is a colour standing for a client, and neither of these belongs to
+     one. */
+  .owed { display: flex; gap: 12px; padding: 12px 16px 0; }
+  .owed .o { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+  .owed .cap { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .owed .cap .ico { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
   /* Its own line under a figure: beside a `type-figure` the chip would have to
      shrink to fit, and it retires while the figure does not. */
   .beatline { padding: 2px 16px 0; min-height: 17px; }
@@ -234,7 +237,7 @@
 
     <table>
       <tr><th>Row</th><th>Left</th><th>Right</th></tr>
-      <tr><td>1</td><td>Collected — the figure, the cadence line, the beat, the plot</td><td>Owed — awaiting and unbilled, then the per-client rows</td></tr>
+      <tr><td>1</td><td>Collected — the figure, the cadence line, the beat, the plot</td><td>Awaiting and unbilled, then the per-client rows</td></tr>
       <tr><td>2</td><td>The month — the cumulative plot against the goal ray</td><td>Gross earned — the figure, the mix, the split</td></tr>
       <tr><td>3</td><td colspan="2">The year — the heatmap, across both columns</td></tr>
     </table>
@@ -261,33 +264,23 @@
           </div>
 
           <div class="region">
-            <div class="region-head">
-              <span class="region-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 3v18M17 6.5c0-1.4-2.2-2.5-5-2.5s-5 1-5 2.5 2.2 2.5 5 3 5 1.6 5 3.1-2.2 2.5-5 2.5-5-1.1-5-2.5"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">Owed</span>
-              </span>
-            </div>
             <div class="owed">
               <span class="o">
                 <span class="cap">
-                  <span class="sw" style="background:var(--bg-active)"></span>
-                  <span class="type-support" style="color:var(--text-muted)">Awaiting</span>
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg>
+                  <span class="type-label" style="color:var(--text-subtle)">Awaiting</span>
                 </span>
                 <span class="type-amount-hero" style="color:var(--text-strong)">$6,400.00</span>
                 <span class="type-meta" style="color:var(--text-subtle)">1 open invoice</span>
               </span>
               <span class="o">
                 <span class="cap">
-                  <span class="sw" style="background:var(--bg-hover)"></span>
-                  <span class="type-support" style="color:var(--text-muted)">Unbilled</span>
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M5 22h14M5 2h14M17 22v-4.2a2 2 0 0 0-.6-1.4L12 12l-4.4 4.4a2 2 0 0 0-.6 1.4V22M7 2v4.2a2 2 0 0 0 .6 1.4L12 12l4.4-4.4a2 2 0 0 0 .6-1.4V2"/></svg>
+                  <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
                 </span>
                 <span class="type-amount-hero" style="color:var(--text-strong)">$3,022.50</span>
                 <span class="type-meta" style="color:var(--text-subtle)">10d oldest</span>
               </span>
-            </div>
-            <div class="beatline">
-              <span class="type-label" style="color:var(--text-subtle)">Today</span>
-              <span class="type-meta" style="color:var(--text-primary)"> +$150.00</span>
             </div>
             <span class="sublabel type-label" style="color:var(--text-subtle)">Unbilled by client</span>
             <ul class="rows" id="byclient"></ul>
@@ -442,16 +435,18 @@
         window. A viewport breakpoint would collapse the wide one and split
         the narrow one.</li>
       <li><strong>Below the threshold the pairs stack</strong>, in the order
-        they read: Collected, Owed, the month, Velocity, the year.</li>
+        they read: Collected, the open figures, the month, Velocity, the
+        year.</li>
       <li><strong>The left column is the wider</strong>, at
         <code>1.15fr</code> to <code>1fr</code>. It carries the figures, and an
         equal split leaves client names truncating while the money column has
         room to spare.</li>
       <li><strong>Collected never hides</strong>, because an account that has
         collected nothing renders <code>$0.00</code> — true, and the figure its
-        first payment moves. <strong>Owed hides with nothing awaiting and
-        nothing unbilled</strong>: with neither figure there is no list either,
-        and a region with no rows is a heading over a gap.</li>
+        first payment moves. <strong>The right half hides with nothing
+        awaiting and nothing unbilled</strong>: with neither figure there is no
+        list either, and what is left is an empty column beside a full
+        one.</li>
       <li><strong>Rows size by <code>@container</code> too.</strong> The same
         row renders in this panel and in the narrow dock, where a
         <code>sm:</code> breakpoint is true at 1600px and lays out as though
@@ -624,12 +619,12 @@
     <p>
       Gross over the trailing three months, per month, and the mix that made
       it up. It sits beside the month plot, and it is <strong>a different
-      object from Owed</strong>: a figure, a bar, and a key.
+      object from the open figures</strong>: a figure, a bar, and a key.
     </p>
 
     <ul class="rule">
-      <li><strong>The mix is a bar, never a row list.</strong> Owed already
-        carries per-client rows. A second region in that shape — same columns,
+      <li><strong>The mix is a bar, never a row list.</strong> The unbilled
+        half already carries per-client rows. A second region in that shape — same columns,
         same trailing arrow, and with a full book the same order of magnitude —
         is read at a glance as the first one printed twice.</li>
       <li><strong>The bar is the region's picture</strong>, one segment per
@@ -648,8 +643,8 @@
         what says so.</li>
       <li><strong>The invoiced/unbilled split is not printed.</strong> Its
         figures are window totals while the headline is per month, so they do
-        not reconcile with the number above them, and the unbilled half
-        restates the figure Owed already carries. The gap still reads when it
+        not reconcile with the number above them, and its unbilled half
+        restates the unbilled figure. The gap still reads when it
         matters: the unbilled figure exceeding this window's gross is the
         signal.</li>
       <li><strong>The headline takes the sent beat</strong>, alone, and
@@ -715,23 +710,16 @@
 
     <table>
       <tr><th>Event</th><th>Reported under</th></tr>
-      <tr><td><code>stop</code></td><td>The owed figures</td></tr>
-      <tr><td><code>sent</code></td><td>The owed figures, and Velocity's headline</td></tr>
+      <tr><td><code>stop</code></td><td>The open figures</td></tr>
+      <tr><td><code>sent</code></td><td>The open figures, and Velocity's headline</td></tr>
       <tr><td><code>paid</code></td><td>The collected figure</td></tr>
     </table>
 
     <ul class="rule">
       <li><strong>A stop is reported where the work landed.</strong> Work just
-        finished is unbilled work, so the beat sits under the owed figures; the
-        amount is the <em>resolved</em> one, which is the number the user cannot
-        arrive at alone.</li>
-      <li><strong>Today's total outranks the stop chip</strong>, in the same
-        slot. Three stops at $40, $30 and $80 read <code>+$150 today</code>: it
-        is a fact about the day rather than a flash about a fetch, so it
-        survives a refresh. The chip takes the slot only for the one thing the
-        total cannot say — an unbillable stop earned no money, and
-        <code>+$0.00 today</code> would teach the user that only billable work
-        makes the app react.</li>
+        finished is unbilled work, so the unbilled figure is the one that
+        moves; the amount is the <em>resolved</em> one, which is the number the
+        user cannot arrive at alone.</li>
       <li><strong>An unbillable stop moves the hours</strong> and says so. It
         reports what happened rather than praising it.</li>
       <li><strong>The stop beat is neutral, never green.</strong> The accent
@@ -785,8 +773,8 @@
         exception. A money column that reflows as digits change is the same
         defect as a timer that does.</li>
       <li><strong>Aggregate rate resolution belongs in SQL.</strong>
-        <code>resolve_entry_rate(uuid)</code> is per-entry; Owed and Velocity
-        sum across hundreds of entries and must not call it N times. A
+        <code>resolve_entry_rate(uuid)</code> is per-entry; unbilled and
+        Velocity sum across hundreds of entries and must not call it N times. A
         set-returning rollup is the correct shape.</li>
       <li><strong><code>0</code> is a valid rate.</strong> Null-coalescing, never
         truthiness.</li>
@@ -825,7 +813,7 @@
       <tr><th>Call</th><th>Feeds</th><th>Note</th></tr>
       <tr>
         <td><code>GET /stats</code></td>
-        <td>Collected, Owed, the month, Velocity</td>
+        <td>Collected, the open figures, the month, Velocity</td>
         <td>Collected per month with its trailing total, unbilled by client with
             aging, what is awaiting and across how many invoices, the month's
             cumulative series against its ray, trailing-quarter gross by client,

@@ -109,7 +109,9 @@ describe('the Money region', () => {
     serve(stats());
     render(<HomeCards />, { wrapper });
 
-    await waitFor(() => expect(screen.getByText('Owed')).toBeVisible());
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled by client')).toBeVisible(),
+    );
 
     /* Collected is the only money figure at `type-figure`: it is the one
        number here that is finished. The owed pair sits a size down. */
@@ -167,7 +169,9 @@ describe('the Money region', () => {
     serve(stats());
     const { container } = render(<HomeCards />, { wrapper });
 
-    await waitFor(() => expect(screen.getByText('Owed')).toBeVisible());
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled by client')).toBeVisible(),
+    );
 
     const plot = container.querySelector('svg[role="img"]');
     const dots = plot?.querySelectorAll('circle') ?? [];
@@ -205,7 +209,9 @@ describe('the Money region', () => {
     );
     const { container } = render(<HomeCards />, { wrapper });
 
-    await waitFor(() => expect(screen.getByText('Owed')).toBeVisible());
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled by client')).toBeVisible(),
+    );
 
     const dots = [...container.querySelectorAll('svg[role="img"] circle')];
     const axis = 86 - 8;
@@ -218,7 +224,9 @@ describe('the Money region', () => {
     serve(stats());
     const { container } = render(<HomeCards />, { wrapper });
 
-    await waitFor(() => expect(screen.getByText('Owed')).toBeVisible());
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled by client')).toBeVisible(),
+    );
 
     /* The current month is still being collected, and a filled dot would
        claim it had settled. */
@@ -236,7 +244,9 @@ describe('the Money region', () => {
     serve(stats());
     const { container } = render(<HomeCards />, { wrapper });
 
-    await waitFor(() => expect(screen.getByText('Owed')).toBeVisible());
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled by client')).toBeVisible(),
+    );
 
     /* The points sit at `i/(n-1)` and so touch both edges of the plot, while
        equal columns would centre their labels a half-column in from each —
@@ -290,7 +300,9 @@ describe('the Money region', () => {
     );
     const { container } = render(<HomeCards />, { wrapper });
 
-    await waitFor(() => expect(screen.getByText('Owed')).toBeVisible());
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled by client')).toBeVisible(),
+    );
 
     /* With the left half gone the grid puts Owed in its place, and the screen
        reads as though money owed were what arrived. */

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { COLLECTED_MONTHS, formatCompact, formatCurrency } from '@stint/core';
-import { Banknote, Coins } from 'lucide-react';
+import { Banknote, Hourglass, type LucideIcon, Send } from 'lucide-react';
 import type { Stats } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 import type { Beat } from '@/lib/client/use-beat';
@@ -70,36 +70,6 @@ function StopDelta({ beat, currency }: { beat: Beat; currency: string }) {
       data-beat="stop"
     >
       {text}
-    </span>
-  );
-}
-
-/**
- * What today has earned, under the figure it added to.
- *
- * A property of the data rather than of this browser: the server buckets work
- * by the entry's own date, so it reads the same on a laptop and a phone and
- * does not reset when the tab closes. **Neutral, never the accent** — the
- * accent is the running timer, and today's work is finished.
- */
-function Earned({ amount, currency }: { amount: number; currency: string }) {
-  /* Absent at zero, which includes "nothing stopped yet today": an empty slot
-     is quieter than a figure reporting no movement. `0` is a valid amount, so
-     this is a value check and never truthiness. */
-  if (amount === 0) return null;
-
-  return (
-    <span
-      className="inline-flex items-baseline gap-1.5 motion-safe:animate-in motion-safe:fade-in"
-      data-earned="today"
-    >
-      <span className="type-label text-subtle">Today</span>
-      <Money
-        amount={amount}
-        currency={currency}
-        className="type-meta tabular-nums text-primary"
-        sign
-      />
     </span>
   );
 }
@@ -330,10 +300,14 @@ export function Owed({
   if (awaiting <= 0 && byClient.length === 0) return null;
 
   return (
-    <Region title="Owed" icon={Coins} labelled>
-      <div className="flex gap-3 px-5 pt-1">
+    <section className="py-1">
+      {/* No region title above them. "Owed" named a grouping rather than a
+          quantity, and the two figures beneath it already say what they are —
+          so it cost a row to restate the obvious. Each figure carries its own
+          label at region weight instead, which is what it always was. */}
+      <div className="flex gap-3 px-5 pt-3">
         <Figure
-          swatch="bg-surface-active"
+          icon={Send}
           label="Awaiting"
           amount={awaiting}
           currency={stats.currency}
@@ -351,7 +325,7 @@ export function Owed({
           href={awaiting > 0 ? '/invoices?status=sent' : undefined}
         />
         <Figure
-          swatch="bg-surface-hover"
+          icon={Hourglass}
           label="Unbilled"
           amount={total}
           currency={stats.currency}
@@ -362,24 +336,16 @@ export function Owed({
               ? `${Math.max(...byClient.map((c) => c.oldestDays))}d oldest`
               : 'nothing unbilled'
           }
+          /* A stop moves THIS figure, so its chip replaces this figure's own
+             detail line rather than taking a row of its own. Only a stop the
+             beat could not price needs saying — a priced one is already in
+             the figure above it, travelling. */
+          override={
+            beat?.kind === 'stop' && beat.billable !== true ? (
+              <StopDelta beat={beat} currency={stats.currency} />
+            ) : null
+          }
         />
-      </div>
-
-      {/* Both belong HERE, on the figure they move: work just finished is
-          unbilled work, and reporting it beside money already collected would
-          put it against a figure it cannot change.
-
-          The day's total outranks the transient chip, except for the one
-          thing it cannot say — an unbillable stop earned no money, and
-          `+$0.00 today` would teach the user that only billable work makes
-          the app respond. The chip says the hours; the total resumes when it
-          retires. */}
-      <div className="mx-5 mt-1 min-h-4">
-        {beat?.kind === 'stop' && beat.billable !== true ? (
-          <StopDelta beat={beat} currency={stats.currency} />
-        ) : (
-          <Earned amount={stats.earnedToday} currency={stats.currency} />
-        )}
       </div>
 
       {byClient.length > 0 ? (
@@ -443,42 +409,49 @@ export function Owed({
           ) : null}
         </>
       ) : null}
-    </Region>
+    </section>
   );
 }
 
-/** One of the two owed figures, with its swatch, its amount and its line. */
+/** One of the two owed figures, with its icon, its amount and its line. */
 function Figure({
-  swatch,
+  icon: Icon,
   label,
   amount,
   currency,
   detail,
   href,
+  override,
 }: {
-  swatch: string;
+  icon: LucideIcon;
   label: string;
   amount: number;
   currency: string;
   detail: string;
   /** Present only while the figure has somewhere worth going. */
   href?: string;
+  /** Replaces `detail` while a beat has something better to say. */
+  override?: React.ReactNode;
 }) {
   const body = (
     <>
-      <span className="flex items-center gap-1.5">
-        <span
+      {/* The same head a region takes — an icon and a `type-label` — because
+          each of these IS one. A pip is a colour standing for a client, and
+          neither of these figures belongs to one. */}
+      <span className="flex items-center gap-2">
+        <Icon
           aria-hidden
-          className={`size-2 flex-none rounded-[2px] ${swatch}`}
+          strokeWidth={1.75}
+          className="size-3.5 flex-none text-subtle"
         />
-        <span className="type-support text-muted">{label}</span>
+        <span className="type-label truncate text-subtle">{label}</span>
       </span>
       <Money
         amount={amount}
         currency={currency}
-        className="type-amount-hero tabular-nums text-strong"
+        className="mt-1.5 type-amount-hero tabular-nums text-strong"
       />
-      <span className="type-meta text-subtle">{detail}</span>
+      <span className="type-meta text-subtle">{override ?? detail}</span>
     </>
   );
 
