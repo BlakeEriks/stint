@@ -1373,12 +1373,21 @@ describe('By project', () => {
     return screen.getByText('By project').closest('section');
   }
 
+  /* The fill, not the track it sits in: both are divs inside the row and only
+     the fill carries a width, so a bare `div` selector counts each bar twice. */
+  function bars() {
+    return [
+      ...(region()?.querySelectorAll<HTMLElement>('[role="img"] div[style]') ??
+        []),
+    ].filter((el) => el.style.width !== '');
+  }
+
   /* The toggle is the region's whole interaction, and both halves of it have
-     to move: the figures change unit AND the columns change order, because
+     to move: the figures change unit AND the bars change order, because
      the hours leader and the revenue leader are different projects. A toggle
      that reformats without re-ranking would look right on a book where the
      two agree, which is most of them. */
-  it('switches the unit and re-ranks the columns with it', async () => {
+  it('switches the unit and re-ranks the bars with it', async () => {
     await panel();
 
     // By hours: Platform rebuild leads, Retainer is last.
@@ -1414,7 +1423,7 @@ describe('By project', () => {
 
     expect(footer()).toContain('+10h across 3 more');
     expect(footer()).toContain('110h logged');
-    expect(footer()).toContain('last 3 months');
+    expect(footer()).toContain('3mo');
 
     fireEvent.click(screen.getByRole('button', { name: 'Revenue' }));
     expect(footer()).toContain('+$900.00 across 3 more');
@@ -1427,18 +1436,14 @@ describe('By project', () => {
     expect(footer()).toContain('logged');
   });
 
-  /* The tallest bar is always the full plot, so the picture is "which is
-     biggest and by how much". Heights as a share of the SUM instead would
-     flatten four near-equal projects into four quarter-height stubs and make
+  /* The longest bar is always the full track, so the picture is "which is
+     biggest and by how much". Widths as a share of the SUM instead would
+     flatten four near-equal projects into four quarter-length stubs and make
      every book look the same. 50h against 25h is half, not a quarter. */
-  it('scales the bars against the tallest, never against their sum', async () => {
+  it('scales the bars against the longest, never against their sum', async () => {
     await panel();
 
-    const bars = [
-      ...(region()?.querySelectorAll<HTMLElement>('[role="img"] > div > div') ??
-        []),
-    ];
-    expect(bars.map((b) => b.style.height)).toEqual([
+    expect(bars().map((b) => b.style.width)).toEqual([
       '100%',
       '50%',
       '30%',
@@ -1447,9 +1452,9 @@ describe('By project', () => {
   });
 
   /* One project is a real book, not an edge case — most contractors start
-     there. A region that renders nothing until it has four columns is a
+     there. A region that renders nothing until it has four bars is a
      region that is blank for the users who most need to trust it. */
-  it('renders one project as one full-height bar', async () => {
+  it('renders one project as one full-length bar', async () => {
     await panel({
       byProject: [fourProjects.byProject[0]!],
       moreProjects: 0,
@@ -1459,26 +1464,19 @@ describe('By project', () => {
       amount: 1000,
     });
 
-    const bars = [
-      ...(region()?.querySelectorAll<HTMLElement>('[role="img"] > div > div') ??
-        []),
-    ];
-    expect(bars.length).toBe(1);
-    expect(bars[0]?.style.height).toBe('100%');
+    expect(bars().length).toBe(1);
+    expect(bars()[0]?.style.width).toBe('100%');
   });
 
-  /* Work filed under no project is in the total and never in the columns: a
+  /* Work filed under no project is in the total and never in the bars: a
      "No project" bar competes for one of four slots with something that is
      not a project, and the inbox already owns that subject. The API keeps it
      out of the array, so what this guards is a component that reads the tail
      back into the chart. */
-  it('never draws a column for work with no project', async () => {
+  it('never draws a bar for work with no project', async () => {
     await panel({ tailSeconds: 360000, tailAmount: 9000, moreProjects: 1 });
 
-    const bars = [
-      ...(region()?.querySelectorAll<HTMLElement>('[role="img"] > div') ?? []),
-    ];
-    expect(bars.length).toBe(fourProjects.byProject.length);
+    expect(bars().length).toBe(fourProjects.byProject.length);
     expect(region()?.textContent).not.toMatch(/no project/i);
   });
 
@@ -1488,12 +1486,8 @@ describe('By project', () => {
   it('mutes its bars so they never out-shout the running timer', async () => {
     await panel();
 
-    const bars = [
-      ...(region()?.querySelectorAll<HTMLElement>('[role="img"] > div > div') ??
-        []),
-    ];
-    expect(bars.length).toBe(4);
-    for (const bar of bars) {
+    expect(bars().length).toBe(4);
+    for (const bar of bars()) {
       const opacity = Number(bar.style.opacity);
       expect(opacity).toBeGreaterThan(0);
       expect(opacity).toBeLessThan(1);
