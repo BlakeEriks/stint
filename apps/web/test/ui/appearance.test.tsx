@@ -157,10 +157,14 @@ describe('the accent marks the running timer, and nothing else', () => {
 });
 
 describe('never white text on the accent', () => {
+  /* Stop, not Start: the accent marks the one action a screen exists to
+     complete, and while a timer runs that is stopping it. Start is neutral,
+     so the accent appears once — on the running timer and the control that
+     ends it. */
   it('pairs the accent button with text-on-accent, never a white token', async () => {
-    serve(summary({ running: null }));
+    serve(summary({ running: entry() }));
     render(<TimerBar projects={PROJECTS} />, { wrapper });
-    const button = await screen.findByRole('button', { name: /start timer/i });
+    const button = await screen.findByRole('button', { name: /stop timer/i });
 
     expect(button.className).toContain('bg-accent-default');
     /* White on #52FC43 is 1.37:1 — illegible, and the tempting mistake since

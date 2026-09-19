@@ -89,6 +89,14 @@ never a hex.
 `apps/web/.env.development.local`; `pnpm migrate` and `pnpm verify:schema`
 read `.env.local` and reach the hosted project.
 
+**A new worktree is made with `pnpm worktree <branch>`**, never
+`git worktree add`. Git carries no `node_modules`, no
+`packages/design-tokens/dist` and no `.env.development.local`, so a
+hand-made worktree cannot run the app or resolve `@stint/design-tokens` —
+and a change verified only against jsdom is a change nobody has seen. The
+script does those three; `--from <ref>` branches off something other than
+main.
+
 `docs/local-dev.md` has the rest: one sign-in at a time per browser and how a
 failed magic link is diagnosed, why everything speaks `localhost` and never
 `127.0.0.1`, and which services `dev:up` leaves out.

@@ -113,7 +113,8 @@
     background: color-mix(in oklab, var(--bg-primary) 55%, transparent);
     font-family: var(--font-mono); font-size: 10px;
   }
-  /* At xl the bar is the panel's width, so it lives in the centre column. */
+  /* From lg the bar is the panel's width, so it lives in the centre column
+     rather than spanning the frame under the rail. */
   .mini .centre { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
   .mini .centre .content { flex: 1; }
   .mini .pip { width: 6px; height: 6px; border-radius: 50%; background: var(--timer-idle); flex: none; }
@@ -180,7 +181,7 @@
         <div class="dock"><span class="lbl">Inbox</span><div class="irow"></div><div class="irow"></div></div>
       </div>
     </div>
-    <span class="caption">xl and up — dock its own column, the bar at the panel's width</span>
+    <span class="caption">xl and up — the dock becomes its own column; the bar keeps the panel's width</span>
 
     <div class="mini w-md">
       <div class="hd"><span class="mark" style="font-size:13px;color:var(--text-strong)">Stint</span><span class="lbl">you@…</span></div>
@@ -193,14 +194,14 @@
           <span class="navitem"><svg><use href="#i-invoices"/></svg>Invoices</span>
           <span class="navitem"><svg><use href="#i-settings"/></svg>Settings</span>
         </div>
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
-          <div class="content" style="flex:1"><div class="region"></div></div>
+        <div class="centre">
+          <div class="content"><div class="region"></div></div>
           <div class="dockband"><span class="lbl">Inbox</span><div class="irow"></div></div>
+          <div class="bar"><span class="pip"></span><span style="color:var(--text-subtle)">What are you working on?</span><span style="margin-left:auto;color:var(--timer-idle)">0:00:00</span></div>
         </div>
       </div>
-      <div class="bar"><span class="pip"></span><span style="color:var(--text-subtle)">What are you working on?</span><span style="margin-left:auto;color:var(--timer-idle)">0:00:00</span></div>
     </div>
-    <span class="caption">lg to xl — rail beside content, dock a band beneath it</span>
+    <span class="caption">lg to xl — rail beside content, the bar starting at the rail's edge</span>
 
     <div class="mini w-sm">
       <div class="hd"><span class="mark" style="font-size:12px;color:var(--text-strong)">Stint</span><span class="lbl">you@…</span></div>
@@ -229,15 +230,16 @@
       </tr>
       <tr>
         <td class="num">lg</td>
-        <td>Nav becomes a vertical rail, 192px</td>
-        <td>Where cards go two-column. At 900px the rail held 183px of labels while the cards made do with 692 — moving it took the content to the full 900</td>
+        <td>Nav becomes a vertical rail, 192px, and the timer bar starts at
+          the rail's edge rather than running under it</td>
+        <td>Where cards go two-column. At 900px the rail held 183px of labels while the cards made do with 692 — moving it took the content to the full 900. The bar follows the rail: a band crossing beneath it spans two things that are not related, and the rail's footprint is the rail's</td>
       </tr>
       <tr>
         <td class="num">xl</td>
-        <td>The dock becomes its own scrolling column, and the timer bar moves
-          under the panel at the panel's width</td>
-        <td>Below it the dock scrolls with the page it summarises and the bar
-          runs full width across the bottom</td>
+        <td>The dock becomes its own scrolling column</td>
+        <td>Below it the dock scrolls with the page it summarises. The bar does
+          not move — it took the content column's width at <code>lg</code> and
+          keeps it</td>
       </tr>
       <tr>
         <td class="num">2xl</td>
