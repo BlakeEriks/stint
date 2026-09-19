@@ -114,14 +114,6 @@
   .region-head.listmode > .type-meta { flex: none; white-space: nowrap; }
   .region-body { padding: 4px 16px 12px; }
 
-  /* A row: label + detail on the left, hours and amount right-aligned. */
-  .erow { display: flex; align-items: center; gap: 10px; padding: 8px 16px; }
-  .erow .left { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1; }
-  .erow .hours { width: 64px; text-align: right; flex: none; }
-  .erow .amt { width: 96px; text-align: right; flex: none; }
-  .erow .arrow { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
-  .foot { display: flex; align-items: baseline; gap: 6px; padding: 8px 16px; }
-
   .bar { height: 6px; border-radius: 999px; background: var(--bg-hover); overflow: hidden; }
   .bar span { display: block; height: 100%; background: var(--text-muted); border-radius: 999px; }
   .hoursline { text-align: right; margin-top: 8px; }
@@ -129,6 +121,37 @@
 
   /* The month plot: a cumulative line against the goal ray. */
   .plot { display: block; width: 100%; height: 64px; }
+
+  /* The collected sequence: a line of per-month arrivals. `money.html` holds
+     its scale. */
+  .seq { display: block; width: 100%; height: 86px; overflow: visible; margin-top: 12px; }
+  .seq .fill   { fill: var(--success); opacity: .15; }
+  .seq .stroke { fill: none; stroke: var(--success); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .seq .dot    { fill: var(--success); }
+  .seq .last   { fill: var(--bg-primary); stroke: var(--success); stroke-width: 2.5; }
+  .seq .grid   { stroke: var(--border-grid); stroke-width: 1; }
+  .axis { display: flex; margin-top: 6px; }
+  .axis span { flex: 1; text-align: center; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle); }
+  .axis span:last-child { color: var(--text-muted); }
+
+  /* The two owed figures, side by side at equal weight. */
+  .owed { display: flex; gap: 12px; padding: 2px 16px 0; }
+  .owed .o { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .owed .cap { display: inline-flex; align-items: center; gap: 6px; }
+  .owed .sw { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  /* Its own line under a figure: beside a `type-figure` the chip would have to
+     shrink to fit, and it retires while the figure does not. */
+  .beatline { padding: 2px 16px 0; min-height: 17px; }
+
+  /* An unbilled-by-client row: pip, name, age, amount, arrow. */
+  .rows { list-style: none; margin: 0 16px; padding: 0; }
+  .rows li + li { border-top: 1px solid var(--border-grid); }
+  .erow { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+  .erow .pip { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .erow .name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .erow .age { flex: none; }
+  .erow .amt { flex: none; text-align: right; width: 88px; }
+  .erow .arr { width: 13px; height: 13px; flex: none; color: var(--text-subtle); }
 
   /* The year: 52 columns of 7 days. */
   .heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); grid-template-columns: repeat(52, minmax(0, 1fr)); gap: 2px; }
@@ -144,9 +167,8 @@
   <h1>Home</h1>
   <p class="standfirst">
     The screen opened fifty times a day. It answers what a contractor cannot
-    answer from memory: how much money is sitting unbilled, whether the month
-    is on pace, what the last quarter actually grossed, and where the work
-    went.
+    answer from memory: how the money stands, whether the month is on pace,
+    what the last quarter actually grossed, and where the work went.
   </p>
   <p class="standfirst">
     The frame — header, rail, dock, timer bar — is <code>_shell.html</code>.
@@ -197,14 +219,14 @@
     <p>
       The panel is wide enough for two columns, and the regions pair by
       subject: <strong>a figure beside the breakdown that explains it.</strong>
-      Unbilled sits beside who owes it; the month sits beside the quarter.
-      The year spans both, because a 52-week heatmap at half width is a
-      texture nobody can read.
+      Money collected sits beside money still owed; the month sits beside the
+      quarter. The year spans both, because a 52-week heatmap at half width is
+      a texture nobody can read.
     </p>
 
     <table>
       <tr><th>Row</th><th>Left</th><th>Right</th></tr>
-      <tr><td>1</td><td>Unbilled — the figure, the beat, the awaiting-payment line</td><td>By client — the per-client rows</td></tr>
+      <tr><td>1</td><td>Collected — the figure, the cadence line, the beat, the plot</td><td>Owed — awaiting and unbilled, then the per-client rows</td></tr>
       <tr><td>2</td><td>The month — the cumulative plot against the goal ray</td><td>Gross earned — the figure, the mix, the split</td></tr>
       <tr><td>3</td><td colspan="2">The year — the heatmap, across both columns</td></tr>
     </table>
@@ -216,33 +238,51 @@
           <div class="region">
             <div class="region-head">
               <span class="region-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M19 7V4H5a2 2 0 0 0 0 4h15v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M18 12h.01"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>
+                <span class="type-label" style="color:var(--text-subtle)">Collected</span>
+                <span class="type-meta" style="margin-left:auto; color:var(--text-subtle)">12 MO</span>
               </span>
-              <div class="region-figure type-figure" style="color:var(--text-strong)">$3,022.50</div>
+              <div class="region-figure type-figure" style="color:var(--text-strong)">$70,500.00</div>
+              <div class="type-meta" style="margin-top:2px; color:var(--text-subtle)">+$6,400.00 this month · last paid 14d ago</div>
             </div>
-            <div class="foot">
-              <span class="type-meta" style="color:var(--text-muted)">$3,465.00</span>
-              <span class="type-support" style="color:var(--text-subtle)">sent, awaiting payment</span>
+            <div class="beatline"></div>
+            <div class="region-body">
+              <svg class="seq" id="seq" viewBox="0 0 300 86" preserveAspectRatio="none" role="img" aria-label="Collected per month, last six"></svg>
+              <div class="axis" id="axis"></div>
             </div>
           </div>
 
           <div class="region">
-            <span class="sublabel type-label" style="color:var(--text-subtle)">By client</span>
-            <div class="erow">
-              <span class="left"><span class="type-control">Northwind Trading</span>
-                <span class="type-meta" style="color:var(--text-subtle)">oldest 10d</span></span>
-              <span class="hours type-meta" style="color:var(--text-subtle)">9h</span>
-              <span class="amt type-duration">$1,650.00</span>
-              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            <div class="region-head">
+              <span class="region-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 3v18M17 6.5c0-1.4-2.2-2.5-5-2.5s-5 1-5 2.5 2.2 2.5 5 3 5 1.6 5 3.1-2.2 2.5-5 2.5-5-1.1-5-2.5"/></svg>
+                <span class="type-label" style="color:var(--text-subtle)">Owed</span>
+              </span>
             </div>
-            <div class="erow">
-              <span class="left"><span class="type-control">Byrne Studio</span>
-                <span class="type-meta" style="color:var(--text-subtle)">oldest 4d</span></span>
-              <span class="hours type-meta" style="color:var(--text-subtle)">10h 30m</span>
-              <span class="amt type-duration">$1,372.50</span>
-              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            <div class="owed">
+              <span class="o">
+                <span class="cap">
+                  <span class="sw" style="background:var(--bg-active)"></span>
+                  <span class="type-support" style="color:var(--text-muted)">Awaiting</span>
+                </span>
+                <span class="type-amount-hero" style="color:var(--text-strong)">$6,400.00</span>
+                <span class="type-meta" style="color:var(--text-subtle)">1 open invoice</span>
+              </span>
+              <span class="o">
+                <span class="cap">
+                  <span class="sw" style="background:var(--bg-hover)"></span>
+                  <span class="type-support" style="color:var(--text-muted)">Unbilled</span>
+                </span>
+                <span class="type-amount-hero" style="color:var(--text-strong)">$3,022.50</span>
+                <span class="type-meta" style="color:var(--text-subtle)">10d oldest</span>
+              </span>
             </div>
+            <div class="beatline">
+              <span class="type-label" style="color:var(--text-subtle)">Today</span>
+              <span class="type-meta" style="color:var(--text-primary)"> +$150.00</span>
+            </div>
+            <span class="sublabel type-label" style="color:var(--text-subtle)">Unbilled by client</span>
+            <ul class="rows" id="byclient"></ul>
           </div>
         </div>
 
@@ -325,6 +365,47 @@
     </div>
 
     <script>
+      /* The collected sequence and the by-client rows, drawn rather than
+         typed, so the picture and the prose cannot drift apart. */
+      const MONTHS = [['Apr', 6400], ['May', 7100], ['Jun', 4200], ['Jul', 7100], ['Aug', 7800], ['Sep', 6400]];
+      const CLIENTS = [
+        { name: 'Northwind Trading', colour: 'var(--proj-6)', amount: '$1,650.00', days: 10 },
+        { name: 'Byrne Studio',      colour: 'var(--proj-2)', amount: '$1,372.50', days: 4 },
+      ];
+
+      const vals = MONTHS.map((m) => m[1]);
+      const peak = Math.max(...vals), low = Math.min(...vals);
+      const range = Math.max(peak - low, peak * 0.3);
+      const base = Math.max(0, low - range / 3);
+      const span = peak - base;
+
+      const W = 300, H = 86;
+      const px = (i) => (i / (MONTHS.length - 1)) * W;
+      const py = (v) => H - 8 - ((v - base) / span) * (H - 24);
+      const pts = MONTHS.map(([, v], i) => [px(i), py(v)]);
+      const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+      const area = `${line} L${W},${H - 8} L0,${H - 8} Z`;
+      const dots = pts.map((p, i) =>
+        i === pts.length - 1
+          ? `<circle class="last" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4"/>`
+          : `<circle class="dot" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.5"/>`
+      ).join('');
+
+      document.getElementById('seq').innerHTML =
+        `<line class="grid" x1="0" y1="${H - 8}" x2="${W}" y2="${H - 8}"/>` +
+        `<path class="fill" d="${area}"/><path class="stroke" d="${line}"/>${dots}`;
+      document.getElementById('axis').innerHTML = MONTHS.map(([n]) => `<span>${n}</span>`).join('');
+
+      const ARROW = '<svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+      document.getElementById('byclient').innerHTML = CLIENTS.map((c) => `
+        <li><div class="erow">
+          <span class="pip" style="background:${c.colour}"></span>
+          <span class="name type-control" style="color:var(--text-primary)">${c.name}</span>
+          <span class="age type-meta" style="color:var(--text-subtle)">${c.days}d</span>
+          <span class="amt type-duration" style="color:var(--text-primary)">${c.amount}</span>
+          ${ARROW}
+        </div></li>`).join('');
+
       /* 364 cells, generated rather than typed: a year of hand-written divs
          would be unreadable as a spec and nobody would keep it current. */
       const heat = document.getElementById('heat');
@@ -342,9 +423,9 @@
     </script>
 
     <ul class="rule">
-      <li><strong>Row order is fixed:</strong> money waiting, then whether the
-        month is working, then where the year went. No hiding a region, no
-        reordering them.</li>
+      <li><strong>Row order is fixed:</strong> where the money stands, then
+        whether the month is working, then where the year went. No hiding a
+        region, no reordering them.</li>
       <li><strong>The columns size by <code>@container</code>, not
         viewport.</strong> The panel is not the window: the rail and the dock
         claim their space at <code>lg</code> and <code>xl</code>, so the panel
@@ -352,14 +433,16 @@
         window. A viewport breakpoint would collapse the wide one and split
         the narrow one.</li>
       <li><strong>Below the threshold the pairs stack</strong>, in the order
-        they read: Unbilled, By client, the month, Gross earned, the year.</li>
+        they read: Collected, Owed, the month, Velocity, the year.</li>
       <li><strong>The left column is the wider</strong>, at
         <code>1.15fr</code> to <code>1fr</code>. It carries the figures, and an
         equal split leaves client names truncating while the money column has
         room to spare.</li>
-      <li><strong>Unbilled hides itself with nothing outstanding</strong>, and
-        By-client goes with it. A region with no rows is a heading over a
-        gap.</li>
+      <li><strong>Collected never hides</strong>, because an account that has
+        collected nothing renders <code>$0.00</code> — true, and the figure its
+        first payment moves. <strong>Owed hides with nothing awaiting and
+        nothing unbilled</strong>: with neither figure there is no list either,
+        and a region with no rows is a heading over a gap.</li>
       <li><strong>Rows size by <code>@container</code> too.</strong> The same
         row renders in this panel and in the narrow dock, where a
         <code>sm:</code> breakpoint is true at 1600px and lays out as though
@@ -399,10 +482,10 @@
             <div class="region">
               <div class="region-head">
                 <span class="region-title">
-                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M19 7V4H5a2 2 0 0 0 0 4h15v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M18 12h.01"/></svg>
-                  <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>
+                  <span class="type-label" style="color:var(--text-subtle)">Collected · 12 mo</span>
                 </span>
-                <div class="region-figure type-figure" style="color:var(--text-strong)">$3,022.50</div>
+                <div class="region-figure type-figure" style="color:var(--text-strong)">$70,500.00</div>
               </div>
             </div>
           </div>
@@ -428,45 +511,11 @@
     <ul class="rule">
       <li><strong>The icon is <code>aria-hidden</code></strong>. It is a second
         channel for a region you are scanning, not part of its name — without
-        it a screen reader announces "wallet Unbilled".</li>
+        it a screen reader announces "banknote Collected".</li>
       <li><strong>The icon is neutral unless the region is <em>about</em>
         something being wrong</strong>, and never the accent.</li>
       <li><strong>At most one quiet control</strong>, top-right against the
         title. The month's pencil is the only one.</li>
-    </ul>
-  </section>
-
-  <!-- ───────────────────────── unbilled ───────────────────────── -->
-  <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Unbilled</span></div>
-
-    <p>
-      The headline number, and the reason this screen exists. Work done and not
-      yet invoiced — money the user might still never see. The figure is the
-      left half of the first row; <strong>By client</strong> is the right.
-    </p>
-
-    <ul class="rule">
-      <li><strong>Never labelled "earned" or "revenue".</strong> Overstating it
-        in a billing tool is the same trust failure as silently editing an
-        entry.</li>
-      <li><strong>By-client is its own region, beside the figure.</strong>
-        Paired, the total and its breakdown are read together; stacked, they
-        push every other region a screenful down.</li>
-      <li><strong>It takes a quiet label, not a heading.</strong> It is the
-        second half of one subject, and a heading at region weight announces
-        it as a third.</li>
-      <li><strong>Each row links to invoice generation for that client</strong>,
-        which is what makes the region an action rather than a readout.</li>
-      <li><strong>Work with no resolvable rate shows an em-dash, not
-        $0.00.</strong> A zero looks like a real figure and understates the
-        total; <code>unratedCount</code> says the total is incomplete rather
-        than low.</li>
-      <li><strong>Awaiting payment is never added to the total.</strong> That is
-        work not yet invoiced; this is money already asked for, and summing
-        them double-counts the same hours.</li>
-      <li><strong>Past five clients the remainder is a count</strong>, the same
-        shape the year's legend uses.</li>
     </ul>
   </section>
 
@@ -566,14 +615,14 @@
     <p>
       Gross over the trailing three months, per month, and the mix that made
       it up. It sits beside the month plot, and it is <strong>a different
-      object from Unbilled</strong>: a figure, a bar, and a key.
+      object from Owed</strong>: a figure, a bar, and a key.
     </p>
 
     <ul class="rule">
-      <li><strong>The mix is a bar, never a row list.</strong> Unbilled is a
-        figure over per-client rows. A second region in that shape — same
-        columns, same trailing arrow, and with a full book the same order of
-        magnitude — is read at a glance as the first one printed twice.</li>
+      <li><strong>The mix is a bar, never a row list.</strong> Owed already
+        carries per-client rows. A second region in that shape — same columns,
+        same trailing arrow, and with a full book the same order of magnitude —
+        is read at a glance as the first one printed twice.</li>
       <li><strong>The bar is the region's picture</strong>, one segment per
         client, sized by that client's share of the gross.</li>
       <li><strong>The segments are muted.</strong> At full strength the client
@@ -591,13 +640,13 @@
       <li><strong>The invoiced/unbilled split is not printed.</strong> Its
         figures are window totals while the headline is per month, so they do
         not reconcile with the number above them, and the unbilled half
-        restates what the Unbilled region already says. The gap still reads
-        when it matters: Unbilled's own total exceeding this window's gross is
-        the signal.</li>
-      <li><strong>The headline takes the paid beat</strong>, alone. A payment
-        moves money across the split without changing the gross, so the figure
-        does not move — the colour marks the event, and it leaves with the
-        tween.</li>
+        restates the figure Owed already carries. The gap still reads when it
+        matters: the unbilled figure exceeding this window's gross is the
+        signal.</li>
+      <li><strong>The headline takes the sent beat</strong>, alone, and
+        neutrally. Raising an invoice moves money across the split without
+        changing the gross, so the figure does not move — the motion marks the
+        event, and it leaves with the tween.</li>
       <li><strong>Not comparable with awaiting payment</strong>, which spans
         every period rather than this window.</li>
       <li><strong>The hours sit alone under the bar</strong>, right-aligned.
@@ -648,53 +697,57 @@
     <div class="sec-head"><span class="eyebrow">The beats</span></div>
 
     <p>
-      Three moments where a figure moves rather than replaces itself. The
-      screen's largest numbers change for reasons the user cannot compute in
-      their head — a four-level rate lookup, an invoice clearing — and landing
-      on the new figure without the travel makes the old one look wrong.
+      Three events move a figure rather than replacing it, and each is reported
+      under the figure it moved. The screen's largest numbers change for reasons
+      the user cannot compute in their head — a four-level rate lookup, an
+      invoice clearing — and landing on the new figure without the travel makes
+      the old one look wrong.
     </p>
 
+    <table>
+      <tr><th>Event</th><th>Reported under</th></tr>
+      <tr><td><code>stop</code></td><td>The owed figures</td></tr>
+      <tr><td><code>sent</code></td><td>The owed figures, and Velocity's headline</td></tr>
+      <tr><td><code>paid</code></td><td>The collected figure</td></tr>
+    </table>
+
     <ul class="rule">
-      <li><strong>On stop, Unbilled counts to its new value</strong>, with
-        the day's earnings beside it. Both are the <em>resolved</em> amount,
-        which is the number the user cannot arrive at alone.</li>
-      <li><strong>That chip is today's running total, not the last
-        stop.</strong> Three stops at $40, $30 and $80 read
-        <code>+$150 today</code>. It survives a refresh and resets at local
-        midnight, because it is a fact about the day rather than a flash
-        about a fetch.</li>
-      <li><strong>Raising an invoice never subtracts from it.</strong> The
-        money leaves Unbilled without any work being undone, and a day's
-        earnings that fall when the user invoices them is the screen
-        disagreeing with what happened.</li>
+      <li><strong>A stop is reported where the work landed.</strong> Work just
+        finished is unbilled work, so the beat sits under the owed figures; the
+        amount is the <em>resolved</em> one, which is the number the user cannot
+        arrive at alone.</li>
+      <li><strong>Today's total outranks the stop chip</strong>, in the same
+        slot. Three stops at $40, $30 and $80 read <code>+$150 today</code>: it
+        is a fact about the day rather than a flash about a fetch, so it
+        survives a refresh. The chip takes the slot only for the one thing the
+        total cannot say — an unbillable stop earned no money, and
+        <code>+$0.00 today</code> would teach the user that only billable work
+        makes the app react.</li>
+      <li><strong>An unbillable stop moves the hours</strong> and says so. It
+        reports what happened rather than praising it.</li>
       <li><strong>The stop beat is neutral, never green.</strong> The accent
         is the running timer, and a stop has just ended one — borrowing it
         marks as live the one thing that stopped being live.</li>
-      <li><strong>An unbillable stop moves the hours</strong> and says so. It
-        resolves to no money, and a stop that moved nothing would teach the
-        user that marking work billable is what makes the app react: the UI
-        arguing with the data's honesty. It reports what happened rather than
-        praising it.</li>
-      <li><strong>On marking an invoice paid, Unbilled counts down while
-        Velocity's headline flashes</strong>, together. Without the pairing the
-        screen's largest number shrinks at the moment the user got paid, which
-        reads as a loss. The gross itself does not move — the work was already
-        done — so here the colour alone carries the event.</li>
-      <li><strong>That beat is the one legitimate use of the success green
-        here</strong>, and it leaves with the tween. It is the only outcome on
-        the screen; nothing else earns the colour.</li>
-      <li><strong>On arrival, the figure animates from what this browser last
-        displayed.</strong> The line beneath the day names a different period:
-        it measures against a baseline taken once per local day, so it says
-        the same thing however often the app is opened.</li>
-      <li><strong>Last-seen is per-device</strong>, in <code>localStorage</code>
-        under one key per origin — a display detail, never account state. Two
-        devices disagreeing is correct: each animates what <em>it</em> has not
-        shown you.</li>
-      <li><strong>A first load never animates.</strong> With nothing stored
-        there is no period to name, and counting up from zero would report the
-        user's entire history as though it had just happened. No stored value
-        renders settled, then stores.</li>
+      <li><strong>A send moves a boundary, not a total.</strong> Unbilled falls
+        by exactly what awaiting gains, and Velocity's headline marks the event
+        without moving: nothing was earned, and a figure that grew when an
+        invoice was raised would be the screen inventing money.</li>
+      <li><strong>A payment is reported under Collected</strong>, which is the
+        figure it moves. It does not touch unbilled at all — that money left
+        when the invoice was raised — so a countdown there would report a loss
+        at the moment the user got paid.</li>
+      <li><strong>The paid beat is the one use of the success green
+        here</strong>, and it leaves with the tween. A stop and a send are
+        things the user just did; a payment is the one outcome that happened to
+        them, and spending the colour on all three spends it on nothing.</li>
+      <li><strong>One refetch reports one event.</strong> Two at once resolve to
+        no beat: each amount would carry the other's movement mixed in, and a
+        figure that is the net of two unrelated events is money the app
+        invented.</li>
+      <li><strong>A figure arrives near its value, never from zero.</strong> A
+        full climb animates the user's whole history as though it had just
+        happened, and a frame far below the figure is a balance they do not
+        have.</li>
       <li><strong>Reduced motion renders the settled figure</strong> — not a
         jump to zero and not a skipped render. The number is the content, so
         suppressing the animation must leave the answer on screen.</li>
@@ -713,18 +766,18 @@
     <div class="sec-head"><span class="eyebrow">Constraints this screen inherits</span></div>
 
     <ul class="rule">
-      <li><strong>Nothing here is green.</strong> The accent is spent on the
-        running timer in the bar below.</li>
+      <li><strong>The accent appears nowhere on this screen.</strong> It is
+        spent on the running timer in the bar below. <code>success</code> is
+        the accent a step down, and it carries the collected plot and the paid
+        beat — an outcome that has already happened, never a live thing.</li>
       <li><strong>Warning is the only alert channel</strong>, and the month's
-        delta is the only thing on this screen that uses it. The success
-        green is spent on the paid beat and nowhere else — it is the only
-        outcome the screen has.</li>
+        delta is the only thing on this screen that uses it.</li>
       <li><strong>Durations and currency are mono and tabular</strong>, without
-        exception. An unbilled column that reflows as digits change is the same
+        exception. A money column that reflows as digits change is the same
         defect as a timer that does.</li>
       <li><strong>Aggregate rate resolution belongs in SQL.</strong>
-        <code>resolve_entry_rate(uuid)</code> is per-entry; Unbilled and
-        Velocity sum across hundreds of entries and must not call it N times. A
+        <code>resolve_entry_rate(uuid)</code> is per-entry; Owed and Velocity
+        sum across hundreds of entries and must not call it N times. A
         set-returning rollup is the correct shape.</li>
       <li><strong><code>0</code> is a valid rate.</strong> Null-coalescing, never
         truthiness.</li>
@@ -763,10 +816,12 @@
       <tr><th>Call</th><th>Feeds</th><th>Note</th></tr>
       <tr>
         <td><code>GET /stats</code></td>
-        <td>Unbilled, the month, Velocity</td>
-        <td>Unbilled by client with aging, the month's cumulative series
-            against its ray, trailing-quarter gross by client, and the billable
-            ratio. One request, because they render together.</td>
+        <td>Collected, Owed, the month, Velocity</td>
+        <td>Collected per month with its trailing total, unbilled by client with
+            aging, what is awaiting and across how many invoices, the month's
+            cumulative series against its ray, trailing-quarter gross by client,
+            and the billable ratio. One request, because they render
+            together.</td>
       </tr>
       <tr>
         <td><code>GET /calendar?granularity=day</code></td>
