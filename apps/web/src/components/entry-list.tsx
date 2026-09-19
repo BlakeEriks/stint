@@ -70,9 +70,11 @@ export function EntryList({
 
   return (
     <section
-      /* In the dock this is the region that absorbs the leftover height, so
-         the inbox above it never scrolls: `min-h-0` lets it shrink below its
-         content and the grid inside it takes the scroll. */
+      /* In the dock this takes half the column and scrolls inside it, the
+         inbox above taking the other half. `min-h-0` is what lets it shrink
+         below its content so the grid scrolls rather than the column growing;
+         `basis-1/2` is the floor that stops a long inbox crushing it. It
+         still grows past half when the inbox wants less. */
       className={`mt-6 border-t border-edge-subtle pt-4 ${
         grid ? 'flex min-h-0 flex-1 flex-col' : ''
       }`}

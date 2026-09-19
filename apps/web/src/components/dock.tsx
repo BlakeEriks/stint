@@ -39,20 +39,24 @@ export function Dock() {
          bar's height of empty ground — and Today is the region that can use
          it.
 
-         The column itself does not scroll: the inbox holds its place and
-         Today scrolls inside it. An inbox that scrolls away is an inbox you
-         forget, and the reward for clearing it is the grid growing into the
-         space it leaves. */
+         The column itself does not scroll. It splits: each region is given
+         HALF and scrolls inside its own half, so neither can push the other
+         off. An inbox that scrolls away is an inbox you forget, and a
+         calendar crushed to a sliver is one you cannot read — the half is
+         the floor that stops either.
+
+         Half is a floor, not a fence: `basis-1/2` with shrink allowed means
+         a region that wants less gives the remainder to the other, so a
+         cleared inbox still hands Today the whole column. */
       className="flex min-h-0 flex-none flex-col xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]"
     >
       {/* Today has its own `/entries` query, so it waits on stats for nothing.
 
-          `flex-none` so the inbox keeps its full height and Today gives way
-          instead: the whole point is that the inbox does not move. A long
-          inbox squeezes the grid, which is the pressure that gets it
-          cleared. */}
+          The inbox takes its own half and scrolls within it. `min-h-0` is
+          what lets it shrink below its content so the scroller engages
+          rather than the column growing. */}
       {data ? (
-        <div className="flex-none">
+        <div className="xl:max-h-1/2 xl:min-h-0 xl:flex-none xl:overflow-y-auto">
           <Inbox stats={data} />
         </div>
       ) : null}
