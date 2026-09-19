@@ -104,6 +104,7 @@ export function Heatmap({ clients }: { clients: Clients }) {
     <Region
       title="Last 6 months"
       icon={CalendarDays}
+      labelled
       action={
         /* `whitespace-nowrap`: the heading beside it is `flex-1`, so at a
            narrow width the streak is what gives, and "34 day / streak" over

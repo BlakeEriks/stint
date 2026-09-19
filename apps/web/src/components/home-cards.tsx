@@ -123,6 +123,7 @@ function Panel({ stats }: { stats: Stats }) {
       />
       <Rule />
       <Pair
+        rightWider
         left={<ByProject stats={data} clients={clients} />}
         right={<Heatmap clients={clients} />}
       />
@@ -136,22 +137,34 @@ function Panel({ stats }: { stats: Stats }) {
  * `items-start` so the shorter half does not stretch to the taller one's
  * height and hang its content in the middle of empty space.
  *
- * The left half is the wider: it carries the figures, and an equal split
- * leaves the by-client names truncating while the money column has room to
- * spare.
+ * The left half is the wider where it carries the figures, because an equal
+ * split leaves the by-client names truncating while the money column has room
+ * to spare. `rightWider` inverts that for a row whose right half is the one
+ * spending width on detail.
  */
 function Pair({
   left,
   right,
+  rightWider = false,
 }: {
   left: React.ReactNode;
   right: React.ReactNode;
+  /* Give the right half the larger share. The half-year needs it: 26 columns
+     of cells read better the more width they get, while names over rails are
+     legible in less. */
+  rightWider?: boolean;
 }) {
   /* No vertical divider between the columns, ever. The rules on this screen
      are horizontal and inset; a vertical one rebuilds the gridlines the
      panel removed and reads the pair as two cards again. */
   return (
-    <div className="grid items-start gap-x-6 @2xl:grid-cols-[1.15fr_1fr]">
+    <div
+      className={
+        rightWider
+          ? 'grid items-start gap-x-6 @2xl:grid-cols-[0.85fr_1.15fr]'
+          : 'grid items-start gap-x-6 @2xl:grid-cols-[1.15fr_1fr]'
+      }
+    >
       {left}
       {right}
     </div>

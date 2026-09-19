@@ -13,11 +13,15 @@ type Entry = Stats['byProject']['byProject'][number];
 /**
  * The same window Velocity reports, ranked by project instead of client.
  *
- * Columns, not a bar or a row list: four projects compared against each other
- * is a question about relative size, and the panel already answers "who" as a
- * proportion and "what is owed" as rows.
+ * A name over its own bar, four of them. The panel already answers "who" as a
+ * proportion and "what is owed" as rows, and a project name needs the long
+ * axis: under a column it gets ~90px against names that run past twenty
+ * characters, and every one of them truncates.
  *
- * The region always renders. One project draws one full-height bar and none
+ * The client is not drawn here. It would cost the name its line, and the hue
+ * already carries it.
+ *
+ * The region always renders. One project draws one full-length bar and none
  * draws no bars at all — the footer still carries the window's real total,
  * which includes work filed under no project and is therefore the only figure
  * on screen that reconciles with the hours actually logged.
@@ -46,42 +50,46 @@ export function ByProject({
   const total = (seconds: number, amount: number) =>
     revenue ? formatCurrency(amount, stats.currency) : formatCompact(seconds);
 
-  /* Share of the tallest, not of the total: the question is which project is
-     biggest and by how much, and heights as a share of the sum flatten four
-     near-equal projects into four quarter-height stubs. */
+  /* Share of the longest, not of the total: the question is which project is
+     biggest and by how much, and lengths as a share of the sum flatten four
+     near-equal projects into four quarter-width stubs. */
   const peak = Math.max(...rows.map(size), 0);
 
   return (
     <Region
       title="By project"
       icon={ChartColumn}
+      labelled
       action={<UnitToggle unit={unit} onChange={setUnit} />}
     >
       <div className="px-5 pt-1 pb-3">
         {rows.length > 0 ? (
-          <>
-            {/* Fixed height, and every column fills it: a percentage resolves
-                against a definite box, so on an auto-height row every bar
-                computes to zero. */}
-            <div
-              className="flex h-[116px] items-end gap-2.5"
-              role="img"
-              aria-label={rows
-                .map((e) => `${e.projectName} ${figure(e)}`)
-                .join(', ')}
-            >
-              {rows.map((e) => (
-                <div
-                  key={e.projectId}
-                  className="flex h-full min-w-0 flex-1 flex-col justify-end gap-1"
-                >
-                  <span className="truncate text-center type-meta tabular-nums text-muted">
+          <div
+            role="img"
+            aria-label={rows
+              .map((e) => `${e.projectName} ${figure(e)}`)
+              .join(', ')}
+          >
+            {rows.map((e) => (
+              <div key={e.projectId} className="py-1">
+                {/* The name owns its line, so it never truncates at any length
+                    the data has — a project name under a column had 92px and
+                    every one of them cut. */}
+                <div className="flex items-baseline gap-2.5">
+                  <span className="min-w-0 flex-1 truncate type-support text-muted">
+                    {e.projectName}
+                  </span>
+                  <span className="flex-none type-meta tabular-nums text-primary">
                     {figure(e)}
                   </span>
+                </div>
+                {/* The label sits above the fill rather than on it: text
+                    crossing a bar's end changes contrast mid-word. */}
+                <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-surface-hover">
                   <div
-                    className="rounded-t-[4px]"
+                    className="h-full rounded-full"
                     style={{
-                      height: `${peak > 0 ? (size(e) / peak) * 100 : 0}%`,
+                      width: `${peak > 0 ? (size(e) / peak) * 100 : 0}%`,
                       backgroundColor:
                         (e.clientId ? clients.get(e.clientId)?.color : null) ??
                         INTERNAL_SWATCH,
@@ -89,37 +97,18 @@ export function ByProject({
                     }}
                   />
                 </div>
-              ))}
-            </div>
-
-            {/* The line the columns stand on. Without it a short bar floats
-                against the region's own ground with nothing to be short
-                against. */}
-            <div className="mt-2 h-px bg-edge-subtle" />
-
-            <div className="mt-2 flex gap-2.5">
-              {rows.map((e) => (
-                <span key={e.projectId} className="min-w-0 flex-1 text-center">
-                  <span className="block truncate type-support text-muted">
-                    {e.projectName}
-                  </span>
-                  {e.clientName ? (
-                    <span className="block truncate type-meta text-subtle">
-                      {e.clientName}
-                    </span>
-                  ) : null}
-                </span>
-              ))}
-            </div>
-          </>
+              </div>
+            ))}
+          </div>
         ) : null}
 
-        <p className="mt-2 type-meta tabular-nums text-right text-subtle">
+        {/* The window is abbreviated because Velocity names it in full
+            directly above; spelled out here the line wraps at this width. */}
+        <p className="mt-2.5 type-meta tabular-nums text-right text-subtle">
           {b.moreProjects > 0
             ? `+${total(b.tailSeconds, b.tailAmount)} across ${b.moreProjects} more · `
             : ''}
-          {total(b.seconds, b.amount)} logged · last {stats.velocity.months}{' '}
-          months
+          {total(b.seconds, b.amount)} logged · {stats.velocity.months}mo
         </p>
       </div>
     </Region>
@@ -128,8 +117,8 @@ export function ByProject({
 
 /**
  * Two words and a divider, not a segmented control: the region's subject is
- * the columns, and a filled control in the header would be the heaviest thing
- * in it.
+ * the bars, and a filled control in the header would be the heaviest thing in
+ * it.
  *
  * `aria-pressed` rather than tabs — this switches the unit of one picture, it
  * does not swap the panel between two views.
