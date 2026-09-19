@@ -1475,6 +1475,42 @@ test('collected counts only the user’s own currency', async () => {
   );
 });
 
+test('the last payment counted is one in the user’s currency', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-00000000006f';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Euro',100)`,
+    [c, USER],
+  );
+
+  /* The only payment there is, and it is a euro one. `daysSincePaid` sits
+     beside a figure that counts dollars, so "paid today" next to $0.00 is the
+     screen describing money it did not report. */
+  await pool.query(
+    `insert into invoices
+       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+        subtotal,tax_rate,tax_amount,total,currency,grouping_mode,paid_at)
+     values ($1,$2,$3,'INV-0022',22,'paid','2026-09-01',1000,0,0,1000,'EUR',
+             'entry',$4)`,
+    [
+      '44444444-0000-4000-8000-000000000022',
+      USER,
+      c,
+      `${new Date().toISOString().slice(0, 10)}T12:00:00Z`,
+    ],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.currency, 'USD');
+  assert.equal(res.body.collected.thisMonth, 0);
+  assert.equal(
+    res.body.collected.daysSincePaid,
+    null,
+    'a payment in another currency is not this figure’s last payment',
+  );
+});
+
 test('a paid invoice cannot exist without its payment date', async () => {
   const c = '33333333-0000-4000-8000-00000000006d';
   await pool.query(
