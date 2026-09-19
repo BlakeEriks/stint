@@ -26,6 +26,13 @@ function stats(over: Partial<Stats> = {}): Stats {
     pace: null,
     billableRatio: null,
     awaitingPayment: 0,
+    openInvoiceCount: 0,
+    collected: {
+      trailing12: 0,
+      thisMonth: 0,
+      daysSincePaid: null,
+      byMonth: [],
+    },
     earnedToday: 0,
     attention: {
       overdueInvoices: [],
@@ -136,13 +143,21 @@ function reducedMotion(on: boolean) {
  */
 const SETTLE = { timeout: 8000 };
 
-/** The Unbilled figure as rendered, stripped to digits for comparison. */
+/**
+ * The Unbilled figure as rendered, stripped to digits for comparison.
+ *
+ * It lives in the Owed half now rather than leading the panel — these cases
+ * are about the tween, and it is still the figure the `unbilled` fixture
+ * drives. Read off its own label, because the panel carries several money
+ * figures and they all tween.
+ */
 function figure(): string {
-  const heading = screen.getByText('Unbilled');
-  const header = heading.closest('header');
-  if (!header) throw new Error('no Unbilled header');
-  const el = header.querySelector('.type-figure .tabular-nums');
-  return el?.textContent?.trim() ?? '';
+  /* Exact, because "Unbilled by client" heads the list below it and a
+     substring match would take whichever came first. */
+  const label = screen.getByText('Unbilled', { exact: true });
+  /* label -> its swatch+label row -> the column holding the amount. */
+  const column = label.parentElement?.parentElement;
+  return column?.querySelector('.type-amount-hero')?.textContent?.trim() ?? '';
 }
 
 beforeEach(() => {
@@ -371,32 +386,28 @@ describe('count-up', () => {
 
   it('marks a billable stop neutrally, never with the accent', async () => {
     /* The accent is the running timer, and a stop has just ended one. */
-    let current = stats({ unbilled: unbilled(100) });
+    let current = stats({ unbilled: unbilled(0, 3600) });
     serve(() => current);
 
     render(<HomeCards />, { wrapper });
-    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
+    await waitFor(() =>
+      expect(screen.getByText('Unbilled', { exact: true })).toBeVisible(),
+    );
 
-    // The hours move too: a stop is what adds them, and money alone also
-    // moves when a rate is edited elsewhere.
-    current = stats({ unbilled: unbilled(212.5, 7200), earnedToday: 112.5 });
+    /* An unbillable stop: the hours move and the money does not, which is the
+       one stop the figure alone cannot report — so it is the one that renders
+       a chip. A priced stop is already described by the figure travelling. */
+    current = stats({ unbilled: unbilled(0, 7200) });
     await act(async () => {
       await client.refetchQueries();
     });
 
-    /* The stop is reported by the server's figure for the day, which persists
-       rather than retiring on a timer. The tone rule is unchanged. */
     const chip = await waitFor(() => {
-      const el = document.querySelector('[data-earned="today"]');
-      if (!el) throw new Error('no earned-today figure');
+      const el = document.querySelector('[data-beat="stop"]');
+      if (!el) throw new Error('no stop chip');
       return el as HTMLElement;
     });
     expect(chip).toBeVisible();
-    expect(chip.textContent).toMatch(/Today/);
-    await waitFor(
-      () => expect(chip.textContent).toMatch(/\+\$112\.50/),
-      SETTLE,
-    );
     // Classes, not inline style: the tone is a utility, so reading `style`
     // alone would pass against an accent-coloured chip.
     expect(chip.className).not.toMatch(/accent/);
@@ -405,8 +416,9 @@ describe('count-up', () => {
 
   it('spends the success colour on the paid beat and nowhere else', async () => {
     let current = stats({
-      unbilled: unbilled(1000),
-      velocity: velocity(5000, 4000),
+      unbilled: unbilled(400),
+      velocity: velocity(5000, 4600),
+      awaitingPayment: 600,
     });
     serve(() => current);
 
@@ -416,12 +428,20 @@ describe('count-up', () => {
     // Before the beat, nothing on the screen carries it.
     expect(container.querySelectorAll('.text-success')).toHaveLength(0);
 
-    /* An invoice clears: unbilled work becomes invoiced. The gross is
-       unchanged — the money moved across the split, it did not arrive. */
+    /* A cheque clears. Money LEAVES what is awaiting and lands in collected —
+       the gross is unchanged, because the work was already done. Raising an
+       invoice moves the same money the other way and is a `sent` beat, which
+       spends no colour. */
     current = stats({
       unbilled: unbilled(400),
       velocity: velocity(5000, 4600),
-      awaitingPayment: 600,
+      awaitingPayment: 0,
+      collected: {
+        trailing12: 600,
+        thisMonth: 600,
+        daysSincePaid: 0,
+        byMonth: [],
+      },
     });
     await act(async () => {
       await client.refetchQueries();
@@ -433,30 +453,30 @@ describe('count-up', () => {
       ).toBeGreaterThan(0),
     );
 
-    /* BOTH halves of the beat carry it: the delta beside Unbilled and
-       Velocity's headline. Asserting only "some exists" passed while
-       Velocity's half compared a Beat object to a string and was permanently
-       false — the money appeared to leave rather than move. */
+    /* The arrival, reported where the money landed. */
     const paid = () => [...container.querySelectorAll('.text-success')];
-    expect(paid().length).toBeGreaterThanOrEqual(2);
     expect(paid().some((el) => el.textContent?.includes('$600.00'))).toBe(true);
-
-    /* Velocity's headline, which does not move when an invoice is paid — the
-       work was already done, so the colour alone carries the event. */
-    await waitFor(
-      () =>
-        expect(paid().some((el) => el.textContent?.includes('$1,666.67'))).toBe(
-          true,
-        ),
-      SETTLE,
-    );
 
     // And every one on the screen is the beat's own.
     for (const el of paid()) {
       expect(el.closest('[data-beat="paid"]')).not.toBeNull();
     }
 
-    // Unbilled counted DOWN to the server's figure.
+    /* Velocity's headline stays NEUTRAL. It reports gross earned, which a
+       payment does not move — the work was done and invoiced already. The
+       colour marks the one outcome on the screen, and spreading it over a
+       figure that did not change spends it on nothing. */
+    await waitFor(
+      () =>
+        expect(paid().some((el) => el.textContent?.includes('$1,666.67'))).toBe(
+          false,
+        ),
+      SETTLE,
+    );
+
+    /* Unbilled holds: a payment collects money that LEFT unbilled when the
+       invoice was raised, so counting it down again would subtract the same
+       work twice. */
     await waitFor(() => expect(figure()).toBe('$400.00'), SETTLE);
   });
 });

@@ -93,11 +93,34 @@ describe('EntryList', () => {
     expect(screen.queryByText('Still running')).not.toBeInTheDocument();
   });
 
-  it("shows today's total in the header", async () => {
+  it('totals the day at the foot, under the entries it sums', async () => {
     serve([entry()]);
     renderList(7200);
 
-    expect(await screen.findByText('2:00:00')).toBeInTheDocument();
+    /* A column of hours ending in its own sum reads without a label, which is
+       what lets the header spend its one slot on what the day earned. */
+    expect(await screen.findByText('2h')).toBeInTheDocument();
+    expect(screen.getByText('1 entry')).toBeInTheDocument();
+  });
+
+  it('shows what the day earned beside the title', async () => {
+    serve([entry()]);
+    render(
+      <EntryList projects={PROJECTS} todaySeconds={7200} earnedToday={262.5} />,
+      { wrapper },
+    );
+
+    expect(await screen.findByText('$262.50')).toBeInTheDocument();
+  });
+
+  it('says nothing about money where there is no figure to say', async () => {
+    serve([entry()]);
+    renderList(7200);
+
+    /* `$0.00` over a figure that is merely not loaded reports a day that
+       earned nothing and then takes it back a moment later. */
+    await screen.findByText('2h');
+    expect(screen.queryByText(/^\$/)).toBeNull();
   });
 
   it('names an untitled entry rather than rendering a blank row', async () => {

@@ -5,7 +5,9 @@ import { parseQuery } from '@/lib/validate';
 import {
   buildAwaitingPayment,
   buildBillableRatio,
+  buildCollected,
   buildMonthTotals,
+  buildOpenInvoiceCount,
   buildOverdueInvoices,
   buildPace,
   buildStaleDrafts,
@@ -15,11 +17,15 @@ import {
   buildVelocity,
   buildHoursByDay,
   clientNamesFrom,
+  COLLECTED_MONTHS,
+  type CollectedRow,
   type DayRow,
+  daysSince,
   type DurationRow,
   type InvoiceRow,
   type MonthRow,
   localDateKey,
+  localMonthKeys,
   OVERDUE_GRACE_DAYS,
   projectNamesFrom,
   revenueByDay,
@@ -27,6 +33,7 @@ import {
   STALE_DRAFT_DAYS,
   startOfLocalDayOffset,
   startOfLocalMonth,
+  startOfLocalMonthsBack,
   startOfNextLocalMonth,
   type UnbilledRow,
   type UnprojectedRow,
@@ -68,6 +75,12 @@ export const GET = handle(async (req: Request) => {
     );
   }
 
+  /* The Collected window: whole months back from this month's start, so the
+     figure covers a period the user can name. The figure sums all twelve; the
+     plot draws the last six of the same series. */
+  const collectedStart = startOfLocalMonthsBack(now, tz, COLLECTED_MONTHS - 1);
+  const collectedMonths = localMonthKeys(now, tz, COLLECTED_MONTHS);
+
   const [
     unbilled,
     monthRevenue,
@@ -79,6 +92,8 @@ export const GET = handle(async (req: Request) => {
     unprojected,
     durationCandidates,
     projectRows,
+    collectedRows,
+    lastPaid,
   ] = await Promise.all([
     db.rpc('unbilled_by_client', { p_user_id: userId }),
 
@@ -158,6 +173,24 @@ export const GET = handle(async (req: Request) => {
          supabase-shaped shim, which passes `select()` straight into SQL and
          has no PostgREST embedding to expand. */
     db.from('projects').select('id, name, client_id'),
+
+    db.rpc('collected_by_month', {
+      p_user_id: userId,
+      p_from: collectedStart.toISOString(),
+      p_to: monthEnd.toISOString(),
+      p_tz: tz,
+    }),
+
+    /* The most recent payment, for "last paid Nd ago". Its own query rather
+       than the newest row of the rollup: that one is bucketed by month and
+       carries no day, and the last payment can be older than the window. */
+    db
+      .from('invoices')
+      .select('paid_at')
+      .eq('status', 'paid')
+      .order('paid_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   for (const r of [
@@ -171,6 +204,8 @@ export const GET = handle(async (req: Request) => {
     unprojected,
     durationCandidates,
     projectRows,
+    collectedRows,
+    lastPaid,
   ]) {
     if (r.error) throw r.error;
   }
@@ -204,6 +239,12 @@ export const GET = handle(async (req: Request) => {
       VELOCITY_MONTHS,
     ),
     awaitingPayment: buildAwaitingPayment(invoiceRows),
+    openInvoiceCount: buildOpenInvoiceCount(invoiceRows),
+    collected: buildCollected(
+      (collectedRows.data ?? []) as CollectedRow[],
+      collectedMonths,
+      lastPaid.data?.paid_at ? daysSince(lastPaid.data.paid_at, now) : null,
+    ),
     pace: buildPace({
       target: settings.data?.monthly_target,
       unit,

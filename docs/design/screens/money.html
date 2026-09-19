@@ -1,0 +1,433 @@
+<meta charset="utf-8">
+<title>Stint Money</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_mockup.css">
+<style>
+  /* Chrome for the spec page itself. Everything the product owns comes from
+     _mockup.css. See _shell.html for the frame this region sits in. */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0; background: var(--bg-base); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 88ch; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  .standfirst { margin: 0 0 1rem; color: var(--text-muted); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
+  h3 { margin: 2.25rem 0 .25rem; font-size: 15px; font-weight: 600; color: var(--text-strong); }
+
+  table { border-collapse: collapse; width: 100%; margin-top: .75rem; }
+  th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  th {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle); font-weight: 500;
+  }
+  td { font-size: 14px; }
+  code { font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); }
+
+  .rule { list-style: none; margin: 1rem 0 0; padding: 0; }
+  .rule li { position: relative; padding-left: 1.5rem; margin-bottom: .85rem; }
+  .rule li::before {
+    content: ''; position: absolute; left: 0; top: .55em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--border-control);
+  }
+  .rule strong { color: var(--text-strong); font-weight: 600; }
+  .never li::before { background: var(--danger); }
+
+  /* ── The mockup surface ──────────────────────────────────────── */
+  .mock {
+    background: var(--bg-base);
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 1.5rem;
+  }
+  .caption {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-subtle);
+    display: block; margin-top: .7rem;
+  }
+
+  .panel {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    box-shadow: var(--shadow-panel);
+    overflow: hidden;
+    padding: 4px 0;
+  }
+
+  /* ── The pairing ────────────────────────────────────────────────
+     Sized by CONTAINER, not viewport: the panel is not the window — the rail
+     and dock claim their space at lg and xl, so the panel is wider at a
+     1100px window than at 1440. The app writes `@2xl:`. */
+  .pair { display: grid; grid-template-columns: 1.05fr 1fr; gap: 0 26px; align-items: stretch; }
+  /* Each half is a column so the left one can push its plot down to meet the
+     right one's last row, and the two bottom out together. */
+  .pair > .region { display: flex; flex-direction: column; }
+  .pair > .region > .region-body { flex: 1; display: flex; flex-direction: column; }
+  /* No vertical rule between the halves — it rebuilds the gridlines the
+     panel exists without and reads the pair back as two cards. What keeps
+     the figures apart is that each is NAMED: `home.html` holds the rule. */
+  @media (max-width: 720px) {
+    .pair { grid-template-columns: minmax(0,1fr); gap: 18px 0; }
+  }
+
+  .region { padding: 4px 0; min-width: 0; }
+  .region-head { padding: 12px 16px 6px; }
+  .region-title { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
+  .region-title .ico { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
+  .region-body { padding: 4px 16px 12px; }
+  /* Space above it, not a rule: the figures and the list are the same half of
+     one subject, and an edge would split the region in two. */
+  .sublabel { padding: 18px 16px 4px; display: block; }
+
+  /* ── The sequence plot ──────────────────────────────────────── */
+  .plot { display: block; width: 100%; flex: 1; min-height: 86px; margin-top: 12px; overflow: visible; }
+  .plot .fill   { fill: var(--success); opacity: .15; }
+  .plot .stroke { fill: none; stroke: var(--success); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .plot .dot    { fill: var(--success); }
+  /* The open month is hollow: its point is still moving, and a filled dot
+     would claim the month had settled. */
+  .plot .last   { fill: var(--bg-primary); stroke: var(--success); stroke-width: 2.5; }
+  .plot .grid   { stroke: var(--border-grid); stroke-width: 1; }
+  /* Each label centres on ITS OWN point. The points sit at `i/(n-1)` and so
+     touch both edges, while equal columns would centre their labels a
+     half-column in from each — a drift that leaves no label owning a dot.
+     The two ends pull back inside the box so neither overhangs. */
+  .axis { position: relative; height: 16px; margin-top: 6px; }
+  .axis span {
+    position: absolute; transform: translateX(-50%);
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle);
+  }
+  .axis span:first-child { transform: none; }
+  .axis span:last-child { transform: translateX(-100%); color: var(--text-muted); }
+
+  /* ── The two open figures ───────────────────────────────────── */
+  /* Each figure takes the same head a region does — an icon and a
+     `type-label` — because each IS one. A pip is a colour standing for a
+     client, and neither of these belongs to one. */
+  .owed { display: flex; gap: 12px; padding: 12px 16px 0; }
+  .owed .o { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+  .owed .cap { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .owed .cap .ico { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
+
+  /* ── A by-client row, as `Row` builds it ────────────────────── */
+  .rows { list-style: none; margin: 0 16px; padding: 0; }
+  .rows li + li { border-top: 1px solid var(--border-grid); }
+  .erow { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+  .erow .pip { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .erow .name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .erow .age { flex: none; }
+  .erow .amt { flex: none; text-align: right; width: 88px; }
+  .erow .arr { width: 13px; height: 13px; flex: none; color: var(--text-subtle); }
+
+  .beatline { padding: 2px 16px 0; min-height: 17px; }
+</style>
+
+<div class="page">
+
+  <span class="eyebrow">Stint · Screens</span>
+  <h1>Money</h1>
+  <p class="standfirst">
+    The top region of Home, and the one the screen is named for. It answers
+    what a contractor cannot answer from memory: how much has actually
+    arrived, how much has been asked for, and how much work is still sitting
+    unbilled.
+  </p>
+  <p class="standfirst">
+    The frame — header, rail, dock, timer bar — is <code>_shell.html</code>.
+    This page specifies one region of the panel; <code>home.html</code>
+    specifies the rest.
+  </p>
+
+  <!-- ───────────────────────── the region ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The region</span></div>
+
+    <div class="mock">
+      <div class="panel">
+        <div class="pair">
+
+          <div class="region">
+            <div class="region-head">
+              <span class="region-title">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>
+                <span class="type-label" style="color:var(--text-subtle)">Collected</span>
+                <span class="type-meta" style="margin-left:auto; color:var(--text-subtle)">12 MO</span>
+              </span>
+              <div style="margin-top:6px">
+                <span class="type-figure" style="color:var(--text-strong)">$70,500.00</span>
+              </div>
+              <div style="margin-top:2px">
+                <span class="type-meta" style="color:var(--text-subtle)">+$6,400.00 this month · last paid 14d ago</span>
+              </div>
+            </div>
+            <div class="beatline"></div>
+            <div class="region-body">
+              <svg class="plot" id="plot" viewBox="0 0 300 86" preserveAspectRatio="none" role="img" aria-label="Collected per month, last six"></svg>
+              <div class="axis" id="axis"></div>
+            </div>
+          </div>
+
+          <div class="region">
+            <div class="owed">
+              <span class="o">
+                <span class="cap">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg>
+                  <span class="type-label" style="color:var(--text-subtle)">Awaiting</span>
+                </span>
+                <span class="type-amount-hero" style="color:var(--text-strong)">$6,400.00</span>
+                <span class="type-meta" style="color:var(--text-subtle)">1 open invoice</span>
+              </span>
+              <span class="o">
+                <span class="cap">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M5 22h14M5 2h14M17 22v-4.2a2 2 0 0 0-.6-1.4L12 12l-4.4 4.4a2 2 0 0 0-.6 1.4V22M7 2v4.2a2 2 0 0 0 .6 1.4L12 12l4.4-4.4a2 2 0 0 0 .6-1.4V2"/></svg>
+                  <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
+                </span>
+                <span class="type-amount-hero" style="color:var(--text-strong)">$3,461.25</span>
+                <span class="type-meta" style="color:var(--text-subtle)">12d oldest</span>
+              </span>
+            </div>
+
+            <span class="sublabel type-label" style="color:var(--text-subtle)">Unbilled by client</span>
+            <ul class="rows" id="byclient"></ul>
+          </div>
+
+        </div>
+      </div>
+      <span class="caption">Collected left, owed right — one subject in two halves</span>
+    </div>
+
+    <ul class="rule">
+      <li><strong>Two halves of one subject.</strong> Money that landed on the
+        left, money that has not on the right. The panel pairs this way
+        throughout. What keeps the figures from reading as a sum is that
+        every one of them is named — no rule divides the halves, because a
+        vertical rule rebuilds the gridlines the panel exists without.</li>
+      <li><strong>Collected is the only figure at <code>type-figure</code>.</strong>
+        It is the one number here that is finished — the money exists, it
+        arrived, nothing can take it back. Awaiting and unbilled are claims of
+        decreasing certainty and take <code>type-amount-hero</code>.</li>
+      <li><strong>Awaiting and unbilled are equal weight.</strong> One is money
+        asked for, the other money not yet asked for; the difference is a
+        stage rather than a size.</li>
+      <li><strong>Each carries a region's own head</strong> — an icon and a
+        <code>type-label</code> — because each is one. The right half takes no
+        title above them: a word naming the grouping costs a row to restate
+        what the two figures already say.</li>
+      <li><strong>An icon, never a pip.</strong> A pip is a colour standing
+        for a client, and neither of these figures belongs to one.</li>
+      <li><strong>The client list breaks down the unbilled half alone</strong>,
+        and its heading says so. Both figures above it are money owed, and a
+        list under both that totals only one of them reads as a breakdown of
+        the pair. Unbilled sits on the right so the list falls directly beneath
+        its own figure.</li>
+      <li><strong>Every row links to generating an invoice</strong> for that
+        client, which is what makes the list an action rather than a readout.
+        The awaiting half is invoices, and invoices have a screen.</li>
+      <li><strong>Four rows, then <code>+N more</code>.</strong> At five the
+        right half outgrows the plot and the pairing stops reading as one
+        subject.</li>
+    </ul>
+
+    <ul class="rule never">
+      <li><strong>Never a combined total.</strong> Awaiting has an invoice, a
+        due date and someone who owes it; unbilled is work that can still be
+        discounted, written off or never billed. Their sum presents the second
+        with the authority of the first, and it is the figure that reads best
+        and means least. The honest version of "what will land" is awaiting,
+        already on screen.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── the windows ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Two windows, because two questions</span></div>
+
+    <p>
+      The figure and the plot answer different questions, so they take
+      different windows. Neither is configurable: the region has one view.
+    </p>
+
+    <table>
+      <tr><th>Element</th><th>Window</th><th>Because</th></tr>
+      <tr>
+        <td>The figure</td><td>Trailing 12 months</td>
+        <td>An accumulator. It never reads zero, and a payment moves it up and
+          leaves it there until a month rolls off.</td>
+      </tr>
+      <tr>
+        <td>The plot</td><td>Last 6 months</td>
+        <td>The horizon a contractor can act on, and wide enough that one
+          month is a legible share of the picture.</td>
+      </tr>
+      <tr>
+        <td>The subtitle</td><td>Calendar month</td>
+        <td>Where a sometimes-zero figure is fine.</td>
+      </tr>
+    </table>
+
+    <ul class="rule">
+      <li><strong>A calendar month is the wrong headline.</strong> Paid monthly,
+        it reads <code>$0.00</code> for most of every month and resets the
+        morning after a cheque lands — a billing tool leading with zero while
+        thousands are owed and last week's payment cleared.</li>
+      <li><strong>A rolling window is the wrong headline too.</strong> It
+        smooths the zero away and takes the arrival with it: a third added to
+        a number nobody can name. Velocity can average because it reports a
+        <em>rate</em> and says <code>/mo gross</code>; this region reports
+        events.</li>
+      <li><strong><code>last paid 14d ago</code> is the cadence signal</strong>,
+        and the reason the subtitle exists. Invoiced monthly, it is how a late
+        cheque is noticed without arithmetic.</li>
+    </ul>
+
+    <h3>The plot's scale</h3>
+    <p>
+      The base sits below the lowest month by a third of the observed range,
+      and the range is floored at 30% of the peak.
+    </p>
+    <table>
+      <tr><th>Base at</th><th>What breaks</th></tr>
+      <tr><td>Zero</td><td>Steady income draws six near-identical points; the shape the plot exists to show is invisible.</td></tr>
+      <tr><td>The minimum</td><td>The lowest month renders flat on the axis, so a light month reads as a month with no income.</td></tr>
+      <tr><td>A fraction of the peak</td><td>One strong month raises the base above real months and they vanish from the plot.</td></tr>
+    </table>
+    <ul class="rule">
+      <li><strong>The axis carries no values</strong>, because the scale is not
+        proportional from zero. The plot carries shape; the figures carry
+        amounts, and a labelled axis over a floored scale would be a lie about
+        proportion.</li>
+      <li><strong>The last point is hollow.</strong> The current month is still
+        being collected, and a filled dot would claim it had settled.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── the beats ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The beats</span></div>
+
+    <p>
+      Three events move this region, and each moves a different thing. A
+      shared motion would make them indistinguishable — the motion is what
+      names the event before a word is read.
+    </p>
+
+    <table>
+      <tr><th>Event</th><th>What moves</th><th>Colour</th></tr>
+      <tr>
+        <td>A timer stops</td>
+        <td>Unbilled rises; the client's row takes the hours and its age resets.</td>
+        <td>Neutral</td>
+      </tr>
+      <tr>
+        <td>An invoice is sent</td>
+        <td>The client's row leaves the list, unbilled falls by exactly what awaiting gains, and the open-invoice count rises.</td>
+        <td>Neutral</td>
+      </tr>
+      <tr>
+        <td>An invoice is paid</td>
+        <td>Collected rises, the plot's last point rises with it, awaiting falls, the count falls.</td>
+        <td><code>success</code></td>
+      </tr>
+    </table>
+
+    <ul class="rule">
+      <li><strong>Only the payment is green.</strong> Stopping a timer and
+        raising an invoice are things the user did; a payment is the one
+        outcome that happened to them. Spending the colour on all three spends
+        it on nothing.</li>
+      <li><strong>Send moves money without changing the total.</strong> Nothing
+        was earned — a boundary moved — and a figure that grew when an invoice
+        was raised would be the screen inventing money.</li>
+      <li><strong>A row leaving the list is the send.</strong> The client whose
+        work was just invoiced has no unbilled work left, so it drops out while
+        the two figures exchange its amount.</li>
+      <li><strong>The beat sits under the collected figure</strong>, on its own
+        line. It reports the payment, and the payment is the left half's
+        subject.</li>
+    </ul>
+
+    <ul class="rule never">
+      <li><strong>Never green on the open figures.</strong> Awaiting falling is
+        the same event as collected rising, and marking both makes the
+        region flash rather than point.</li>
+    </ul>
+  </section>
+
+  <!-- ───────────────────────── the counts ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The lines under the figures</span></div>
+
+    <table>
+      <tr><th>Figure</th><th>Line</th><th>At zero</th></tr>
+      <tr><td>Awaiting</td><td><code>N open invoices</code></td><td><code>nothing outstanding</code></td></tr>
+      <tr><td>Unbilled</td><td><code>Nd oldest</code></td><td><code>nothing unbilled</code></td></tr>
+    </table>
+
+    <ul class="rule">
+      <li><strong>Awaiting counts, rather than describing.</strong> A line
+        naming the worst invoice — its client, its lateness — says nothing
+        about the others, and at two or more it silently drops them. The lateness
+        of any one invoice is the inbox's subject, where it comes with the
+        action that answers it.</li>
+      <li><strong>Unbilled ages</strong>, because age is what makes unbilled
+        work worth acting on: the figure alone cannot say whether it is a day
+        old or a quarter.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+  /* The mockup's data. A spec page draws its own figures so the picture and
+     the prose cannot drift apart. */
+  const MONTHS = [['Apr', 6400], ['May', 7100], ['Jun', 4200], ['Jul', 7100], ['Aug', 7800], ['Sep', 6400]];
+  const CLIENTS = [
+    { name: 'Northwind Trading', colour: 'var(--proj-6)', amount: 1991.25, days: 12 },
+    { name: 'Meridian Labs',     colour: 'var(--proj-7)', amount: 1080.00, days: 11 },
+    { name: 'No client',         colour: 'var(--text-subtle)', amount: 270.00, days: 8 },
+    { name: 'Random Client',     colour: 'var(--proj-1)', amount: 120.00, days: 8 },
+  ];
+  const money = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const vals = MONTHS.map((m) => m[1]);
+  const peak = Math.max(...vals), low = Math.min(...vals);
+  const range = Math.max(peak - low, peak * 0.3);
+  const base = Math.max(0, low - range / 3);
+  const span = peak - base;
+
+  const W = 300, H = 86, pad = 10;
+  const x = (i) => (i / (MONTHS.length - 1)) * (W - pad * 2) + pad;
+  const y = (v) => H - 8 - ((v - base) / span) * (H - 24);
+  const pts = MONTHS.map(([, v], i) => [x(i), y(v)]);
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  const area = `${line} L${x(MONTHS.length - 1).toFixed(1)},${H - 8} L${pad},${H - 8} Z`;
+  const dots = pts.map((p, i) =>
+    i === pts.length - 1
+      ? `<circle class="last" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4"/>`
+      : `<circle class="dot" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.5"/>`
+  ).join('');
+
+  document.getElementById('plot').innerHTML =
+    `<line class="grid" x1="0" y1="${H - 8}" x2="${W}" y2="${H - 8}"/>` +
+    `<path class="fill" d="${area}"/><path class="stroke" d="${line}"/>${dots}`;
+  document.getElementById('axis').innerHTML = MONTHS.map(([n], i) =>
+    `<span style="left:${(i / (MONTHS.length - 1)) * 100}%">${n}</span>`).join('');
+
+  const ARROW = '<svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+  document.getElementById('byclient').innerHTML = CLIENTS.map((c) => `
+    <li><div class="erow">
+      <span class="pip" style="background:${c.colour}"></span>
+      <span class="name type-control" style="color:var(--text-primary)">${c.name}</span>
+      <span class="age type-meta" style="color:var(--text-subtle)">${c.days}d</span>
+      <span class="amt type-duration" style="color:var(--text-primary)">${money(c.amount)}</span>
+      ${ARROW}
+    </div></li>`).join('');
+</script>

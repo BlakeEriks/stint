@@ -10,7 +10,12 @@ import type { Stats } from '@/lib/client/api';
  * previous arrival are the subject, and a render adds a network to fake.
  */
 
-function arrival(total: number, seconds: number, awaiting = 0): Stats {
+function arrival(
+  total: number,
+  seconds: number,
+  awaiting = 0,
+  collected = 0,
+): Stats {
   return {
     currency: 'USD',
     unbilled: { total, seconds, byClient: [], moreClients: 0 },
@@ -28,6 +33,13 @@ function arrival(total: number, seconds: number, awaiting = 0): Stats {
     pace: null,
     billableRatio: null,
     awaitingPayment: awaiting,
+    openInvoiceCount: awaiting > 0 ? 1 : 0,
+    collected: {
+      trailing12: collected,
+      thisMonth: collected,
+      daysSincePaid: collected > 0 ? 0 : null,
+      byMonth: [],
+    },
     attention: {
       overdueInvoices: [],
       staleDrafts: [],
@@ -37,19 +49,41 @@ function arrival(total: number, seconds: number, awaiting = 0): Stats {
   };
 }
 
-const figures = (total: number, seconds: number, awaitingPayment = 0) => ({
-  total,
-  seconds,
-  awaitingPayment,
-});
+const figures = (
+  total: number,
+  seconds: number,
+  awaitingPayment = 0,
+  collected = 0,
+) => ({ total, seconds, awaitingPayment, collected });
 
 describe('what counts as an event', () => {
   it('reads a stop off the hours axis', () => {
     expect(cause(figures(1000, 3600), figures(1150, 7200))).toBe('stop');
   });
 
+  /* Raising an invoice moves money out of unbilled and into what is awaiting.
+     Nothing was collected, which is what makes it a send rather than a
+     payment. */
   it('reads a raised invoice off awaiting payment', () => {
-    expect(cause(figures(1000, 3600), figures(600, 3600, 400))).toBe('paid');
+    expect(cause(figures(1000, 3600), figures(600, 3600, 400))).toBe('sent');
+  });
+
+  /* A payment LOWERS what is awaiting as it raises collected, so the two
+     invoice events move that axis in opposite directions and it cannot name
+     either of them alone. */
+  it('reads a payment off the collected axis', () => {
+    expect(cause(figures(600, 3600, 400), figures(600, 3600, 0, 400))).toBe(
+      'paid',
+    );
+  });
+
+  /* Awaiting RISES here — a $900 invoice raised while a $400 one is paid — so
+     a test of the rise alone would call this a send. A payment reported as a
+     send tells the user money arrived when it only changed stage. */
+  it('reads a payment as paid even when a larger invoice went out', () => {
+    expect(cause(figures(1000, 3600, 400), figures(100, 3600, 900, 400))).toBe(
+      'paid',
+    );
   });
 
   /* One refetch can carry two events, and a single net figure cannot tell
@@ -57,6 +91,12 @@ describe('what counts as an event', () => {
      in, which is money the app would be inventing. */
   it('refuses to classify a stop and an invoice in one arrival', () => {
     expect(cause(figures(1000, 3600), figures(1100, 7200, 400))).toBeNull();
+  });
+
+  it('refuses to classify a stop and a payment in one arrival', () => {
+    expect(
+      cause(figures(1000, 3600, 400), figures(1100, 7200, 0, 400)),
+    ).toBeNull();
   });
 
   /* Money alone also moves when a rate is edited elsewhere, so hours are the

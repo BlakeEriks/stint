@@ -38,6 +38,13 @@ function stats(over: Partial<Stats> = {}): Stats {
     pace: null,
     billableRatio: null,
     awaitingPayment: 0,
+    openInvoiceCount: 0,
+    collected: {
+      trailing12: 0,
+      thisMonth: 0,
+      daysSincePaid: null,
+      byMonth: [],
+    },
     attention: {
       overdueInvoices: [],
       staleDrafts: [],
@@ -155,7 +162,7 @@ describe('HomeCards', () => {
     const headings = [...container.querySelectorAll('h2')].map((h) =>
       h.textContent?.trim(),
     );
-    expect(headings).toContain('Unbilled');
+    expect(headings.some((h) => h?.startsWith('Collected'))).toBe(true);
     expect(
       headings.some(
         (h) =>
@@ -191,8 +198,15 @@ describe('HomeCards', () => {
     /* Two different kinds of money: unbilled is work not yet invoiced,
        awaiting payment is invoiced and not yet collected. Summing them
        double-counts the same hours, so $3,900 must never appear. */
-    const line = await screen.findByText(/awaiting payment/);
-    expect(line.textContent).toContain('$900.00');
+    /* A named figure now rather than a sentence — read off its label, so
+       the assertion still names which money it is. */
+    const awaiting = await screen.findByText('Awaiting');
+    const column = awaiting.parentElement?.parentElement;
+    await waitFor(() =>
+      expect(column?.querySelector('.type-amount-hero')?.textContent).toContain(
+        '$900.00',
+      ),
+    );
 
     await waitFor(
       () => expect(screen.getAllByText('$3,000.00').length).toBeGreaterThan(0),
@@ -613,11 +627,14 @@ describe('Velocity', () => {
        users on different windows cannot compare it. */
     /* Awaited: a figure arrives from just short of its value, so reading it
        on the first paint catches the tween rather than the answer. */
+    /* Velocity's OWN figure: Collected leads the panel with one too, so a
+       bare `.type-figure` reads whichever comes first in the document. */
+    const velocityHead = screen.getByText('Velocity').closest('header');
     await waitFor(
       () =>
-        expect(container.querySelector('.type-figure')?.textContent).toContain(
-          '$3,000.00',
-        ),
+        expect(
+          velocityHead?.querySelector('.type-figure')?.textContent,
+        ).toContain('$3,000.00'),
       { timeout: 4000 },
     );
   });
@@ -731,24 +748,29 @@ describe('the panel pairs its regions', () => {
     }
   });
 
-  it('pairs Unbilled with By-client and the month with Velocity', async () => {
+  it('pairs Collected with Owed and the month with Velocity', async () => {
     serve(stats({ unbilled: oneClient, velocity }));
     const { container } = render(<HomeCards />, { wrapper });
 
     await waitFor(() =>
-      expect(screen.getByText('By client')).toBeInTheDocument(),
+      expect(screen.getByText('Unbilled by client')).toBeInTheDocument(),
     );
 
-    /* The pairing is the layout. By-client is its own region rather than a
-       list under the figure, which is what leaves room for the pairing at
-       all — and half of why the two money regions stopped looking alike. */
+    /* The pairing is the layout: money that arrived beside money that has
+       not. Each half is its own region, which is what leaves room for the
+       pairing at all. */
     const pairs = [...container.querySelectorAll('div.grid')].filter((d) =>
       [...d.classList].some((c) => c.includes('grid-cols-')),
     );
     const headings = pairs.map((p) =>
       [...p.querySelectorAll('h2')].map((h) => h.textContent?.trim()),
     );
-    expect(headings[0]).toEqual(['Unbilled', 'By client']);
+    /* The right half carries no region title: "Owed" named a grouping
+       rather than a quantity, and its two figures already say what they
+       are. Each takes its own label at region weight instead. */
+    expect(headings[0]?.[0]).toMatch(/^Collected/);
+    expect(screen.getByText('Awaiting')).toBeVisible();
+    expect(screen.getByText('Unbilled', { exact: true })).toBeVisible();
     expect(headings[1]?.[1]).toMatch(/velocity/i);
   });
 
@@ -759,7 +781,7 @@ describe('the panel pairs its regions', () => {
     const { container } = render(<HomeCards />, { wrapper });
 
     await waitFor(() =>
-      expect(screen.getByText('By client')).toBeInTheDocument(),
+      expect(screen.getByText('Unbilled by client')).toBeInTheDocument(),
     );
 
     for (const el of container.querySelectorAll('*')) {
@@ -1024,36 +1046,31 @@ describe('the beat says only what it can tell', () => {
     }
   });
 
-  it('still counts a plain billable stop up with its delta', async () => {
-    /* The behaviour that was already right: hours and money both arrive, so
-       the beat is a stop and the delta is what the stop earned. Neutral, not
-       the accent — the accent is the running timer, which just ended. */
+  it('reports a plain billable stop by moving the figure alone', async () => {
+    /* Hours and money both arrive, so the beat is a stop — and the Unbilled
+       figure travelling to its new value IS the report. A chip beside it
+       saying the same amount would read as two events. */
     let current = stats({ unbilled: unbilledAt(100, 3600) });
     serveMoving(() => current);
 
     const { container } = render(<HomeCards />, { wrapper: movingWrapper });
     await waitFor(() =>
-      expect(screen.getByText('Unbilled')).toBeInTheDocument(),
+      expect(screen.getByText('Unbilled', { exact: true })).toBeInTheDocument(),
     );
 
-    current = stats({ unbilled: unbilledAt(212.5, 7200), earnedToday: 112.5 });
+    current = stats({ unbilled: unbilledAt(212.5, 7200) });
     await act(async () => {
       await client.refetchQueries();
     });
 
-    const chip = await waitFor(() => {
-      const el = container.querySelector('[data-earned="today"]');
-      if (!el) throw new Error('no earned-today figure');
-      return el as HTMLElement;
-    });
-    expect(chip.textContent).toMatch(/Today/);
-    await waitFor(() => expect(chip.textContent).toMatch(/\+\$112\.50/));
-    expect(chip.className).not.toMatch(/accent/);
-    expect(chip.className).not.toMatch(/text-success/);
-    /* No transient beat: a plain billable stop is fully described by the
-       running total, and a second chip saying the same figure would read as
-       two events. The beat is reserved for what the total cannot say — an
-       unbillable stop, and a raised invoice. */
+    /* The figure lands on the server's number. */
+    await waitFor(
+      () => expect(screen.getAllByText('$212.50').length).toBeGreaterThan(0),
+      { timeout: 4000 },
+    );
+
+    /* Nothing transient: the chip is reserved for what the figure cannot
+       say — a stop that earned no money, and an invoice changing stage. */
     expect(beats(container).length).toBe(0);
   });
 
@@ -1149,11 +1166,11 @@ describe('awaiting payment survives a fully-invoiced book', () => {
 
     render(<HomeCards />, { wrapper });
 
-    const link = await screen.findByRole('link', {
-      name: /sent, awaiting payment/,
-    });
+    /* The figure itself is the link now: it is the money, and the words
+       that used to carry the href were a sentence beside it. */
+    const link = await screen.findByRole('link', { name: /Awaiting/ });
     expect(link).toHaveAttribute('href', '/invoices?status=sent');
-    expect(screen.getByText('$4,250.00')).toBeInTheDocument();
+    await waitFor(() => expect(link.textContent).toContain('$4,250.00'));
   });
 
   /* The other half of the guard: with nothing unbilled AND nothing awaiting
@@ -1176,7 +1193,7 @@ describe('awaiting payment survives a fully-invoiced book', () => {
     );
 
     expect(screen.queryByText('Unbilled')).toBeNull();
-    expect(screen.queryByText(/awaiting payment/)).toBeNull();
+    expect(screen.queryByText('Awaiting')).toBeNull();
   });
 });
 

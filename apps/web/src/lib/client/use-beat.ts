@@ -22,18 +22,27 @@ import type { Stats } from '@/lib/client/api';
  * them would be a region that knows about all of them. `/stats` is already
  * invalidated by every one, so the refetch carries the news.
  *
- * Two axes, because one refetch can carry two events and a single net figure
- * cannot tell them apart. Hours are the only evidence a timer stopped: money
- * alone also moves when a rate is edited elsewhere. `awaitingPayment` is the
- * only evidence an invoice was raised, and it moves independently of
- * `unbilled` rather than being netted against it.
+ * Three axes, because one refetch can carry more than one event and a single
+ * net figure cannot tell them apart. Each event owns the axis no other event
+ * moves in its direction:
  *
- * Both at once resolves to null. The delta each would report is the other's
- * movement mixed in, and a figure that is the net of two unrelated events is
- * money the app would be inventing.
+ * | Event | Axis | Direction |
+ * | --- | --- | --- |
+ * | `stop` | `seconds` | rises |
+ * | `sent` | `awaitingPayment` | rises |
+ * | `paid` | `collected` | rises |
+ *
+ * Hours are the only evidence a timer stopped: money alone also moves when a
+ * rate is edited elsewhere. Sending and paying BOTH move `awaitingPayment` —
+ * a send raises it, a payment lowers it — so that axis alone cannot name
+ * which happened, and `collected` is what separates them.
+ *
+ * More than one at once resolves to null. The delta each would report is the
+ * others' movement mixed in, and a figure that is the net of two unrelated
+ * events is money the app would be inventing.
  */
 /**
- * The three figures a classification is read from.
+ * The figures a classification is read from.
  *
  * Scalars rather than the `Stats` object: React Query returns a new object
  * whenever ANY field changes, so a caller holding the object in a ref or a
@@ -43,27 +52,35 @@ export type Figures = {
   total: number;
   seconds: number;
   awaitingPayment: number;
+  collected: number;
 };
 
 export const figuresOf = (s: Stats): Figures => ({
   total: s.unbilled.total,
   seconds: s.unbilled.seconds,
   awaitingPayment: s.awaitingPayment,
+  collected: s.collected.trailing12,
 });
 
 export function cause(
   prev: Figures | null,
   next: Figures,
-): 'stop' | 'paid' | null {
+): 'stop' | 'sent' | 'paid' | null {
   if (!prev) return null;
   const stopped = next.seconds > prev.seconds;
-  const raised = next.awaitingPayment > prev.awaitingPayment;
-  if (stopped === raised) return null;
-  return stopped ? 'stop' : 'paid';
+  const paid = next.collected > prev.collected;
+  /* A send is a rise in what is awaiting with `collected` HELD. Testing the
+     rise alone misreads the case where one invoice is paid while a larger one
+     is raised in the same refetch — both axes move, and the send would win on
+     an axis the payment also touches. */
+  const sent = next.awaitingPayment > prev.awaitingPayment && !paid;
+
+  if ([stopped, sent, paid].filter(Boolean).length !== 1) return null;
+  return stopped ? 'stop' : sent ? 'sent' : 'paid';
 }
 
 export type Beat = {
-  kind: 'stop' | 'paid';
+  kind: 'stop' | 'sent' | 'paid';
   amount: number;
   seconds: number;
   /** Whether the stopped work carries a rate at all, read off the money axis
@@ -98,12 +115,14 @@ export const BEAT_MS = 2600;
  * A net BELOW zero is the same offsetting case, more plainly.
  */
 function billabilityOf(
-  kind: 'stop' | 'paid',
+  kind: 'stop' | 'sent' | 'paid',
   amount: number,
   before: number,
   after: number,
 ): boolean | null {
-  if (kind === 'paid') return true;
+  /* Money that reached an invoice was billable by definition — both of these
+     kinds describe an invoice, not a stop. */
+  if (kind !== 'stop') return true;
   if (amount > 0) return true;
   if (amount === 0 && before === 0 && after === 0) return false;
   return null;
@@ -125,6 +144,7 @@ function useBeat(
   total: number,
   seconds: number,
   awaitingPayment: number,
+  collected: number,
   epoch: string,
 ): Beat {
   const prev = useRef<Figures | null>(null);
@@ -132,7 +152,7 @@ function useBeat(
   const [beat, setBeat] = useState<Beat>(null);
 
   useEffect(() => {
-    const next = { total, seconds, awaitingPayment };
+    const next = { total, seconds, awaitingPayment, collected };
     /* A new timezone is a new query key, so React Query refetches and the
        figures that arrive describe a different day boundary. Comparing them
        against the old zone's snapshot reports the difference between two
@@ -145,13 +165,16 @@ function useBeat(
     const kind = cause(before, next);
     if (!kind || !before) return;
 
-    /* Each kind takes its amount from the axis its own event moves: a raised
-       invoice is what landed in `awaitingPayment`, never the net of unbilled,
-       which a concurrent stop would have already mixed into. */
+    /* Each kind takes its amount from the axis its OWN event moves. A payment
+       reads `collected` rather than the fall in what is awaiting: the two
+       agree only when nothing else was invoiced in the same refetch, and the
+       collected axis is the one the event is defined by. */
     const amount =
       kind === 'paid'
-        ? awaitingPayment - before.awaitingPayment
-        : total - before.total;
+        ? collected - before.collected
+        : kind === 'sent'
+          ? awaitingPayment - before.awaitingPayment
+          : total - before.total;
     setBeat({
       kind,
       amount,
@@ -160,7 +183,7 @@ function useBeat(
     });
     const t = setTimeout(() => setBeat(null), BEAT_MS);
     return () => clearTimeout(t);
-  }, [total, seconds, awaitingPayment, epoch]);
+  }, [total, seconds, awaitingPayment, collected, epoch]);
 
   return beat;
 }
@@ -179,6 +202,7 @@ export function useBeatOf(stats: Stats | null | undefined, zone: string = tz) {
     stats?.unbilled.total ?? 0,
     stats?.unbilled.seconds ?? 0,
     stats?.awaitingPayment ?? 0,
+    stats?.collected.trailing12 ?? 0,
     zone,
   );
 }

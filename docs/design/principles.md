@@ -81,6 +81,14 @@ bank balance and nothing more, so a row that sits permanently true with no way
 to say *not yet* is a reminder with no off switch rather than an unattended
 mess. It snoozes, defaulting to daily. Nothing else does.
 
+**No total across collected, awaiting and unbilled.** Three stages of one
+pipeline, and any two summed double-count the same hours. The tempting one is
+awaiting plus unbilled, labelled *what I am owed*: awaiting has an invoice, a
+due date and someone who owes it, while unbilled can still be discounted,
+written off or never billed, so the sum lends the second the authority of the
+first. It reads best and means least. The honest version of *what will land*
+is awaiting, already on screen. `screens/money.html` is the region.
+
 **No per-project colours.** Colour answers *whose work is this?*; a project is
 a subdivision of a client already identified by it. See `brand.html`.
 

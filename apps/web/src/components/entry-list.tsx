@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { formatClock, formatCompact, startOfLocalDay } from '@stint/core';
-import { Lock, Plus } from 'lucide-react';
+import { formatCompact, formatCurrency, startOfLocalDay } from '@stint/core';
+import { CalendarDays, Lock, Plus } from 'lucide-react';
 import { api, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
@@ -25,12 +25,23 @@ import { keys } from '@/lib/client/query-keys';
 export function EntryList({
   projects,
   todaySeconds,
+  earnedToday,
+  currency = 'USD',
   compact = false,
   grid = false,
   flush = false,
 }: {
   projects: Project[];
   todaySeconds: number;
+  /**
+   * What the day's work is worth, from `/stats`.
+   *
+   * Undefined where the caller has no stats to hand, which is what keeps the
+   * header from printing `$0.00` over a figure that is merely not loaded yet.
+   * `0` is a real answer and renders as one.
+   */
+  earnedToday?: number;
+  currency?: string;
   /**
    * Three fields to a row — swatch, task, duration — for the 286px dock,
    * where six of them wrapped to three lines and made a glance a read. The
@@ -62,6 +73,10 @@ export function EntryList({
     select: (r) => r.entries,
   });
 
+  /* The foot totals outside the scroller, so it reads the day off the
+     query rather than the render prop below. */
+  const today = query.data ?? [];
+
   const byId = new Map(projects.map((p) => [p.id, p]));
   const colors = useProjectColors();
 
@@ -87,15 +102,34 @@ export function EntryList({
       }`}
       aria-label="Today's entries"
     >
-      <header className="flex flex-none items-baseline justify-between gap-3 px-1 pb-2">
-        <h2 className="type-label text-subtle">Today</h2>
-        <span className="ml-auto type-duration text-muted">
-          {formatClock(todaySeconds)}
-        </span>
+      {/* The head answers what the day was worth; the foot totals what it
+          took. A region's figure sits beside its title everywhere else on the
+          screen, and the hours belong under the column that adds up to them.
+
+          `items-center` rather than `items-baseline`, because the icon has no
+          baseline to share and hung low beside the title without it. */}
+      <header className="flex flex-none items-center gap-2 px-1 pb-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <CalendarDays
+            aria-hidden
+            strokeWidth={1.75}
+            className="size-3.5 flex-none text-subtle"
+          />
+          <h2 className="type-label truncate text-subtle">Today</h2>
+        </div>
+        {/* Undefined while stats are still in flight: a `$0.00` that resolves
+            to a real figure a moment later reports a day that earned nothing
+            and then took it back. */}
+        {earnedToday === undefined ? null : (
+          <span className="ml-auto type-duration tabular-nums text-primary">
+            {formatCurrency(earnedToday, currency)}
+          </span>
+        )}
         <Button
           type="button"
           variant="ghost"
           size="xs"
+          className={earnedToday === undefined ? 'ml-auto' : undefined}
           onClick={() => openFor()}
         >
           <Plus aria-hidden />
@@ -134,6 +168,24 @@ export function EntryList({
           }
         </Listing>
       </div>
+
+      {/* OUTSIDE the scroller, so the total stays put while the day scrolls
+          past it — a sum that scrolls away is a sum you have to go looking
+          for. `flex-none` keeps it out of the height the grid divides.
+
+          A column of hours ending in its own sum reads without a label, which
+          is what lets the header spend its one slot on the money. Both
+          variants take it: the list has the same day to total. */}
+      {today.length > 0 ? (
+        <div className="flex flex-none items-baseline gap-2 border-t border-edge-grid px-1 pt-1.5">
+          <span className="type-meta text-subtle">
+            {today.length} {today.length === 1 ? 'entry' : 'entries'}
+          </span>
+          <span className="ml-auto type-duration tabular-nums text-muted">
+            {formatCompact(todaySeconds)}
+          </span>
+        </div>
+      ) : null}
 
       <EntryDialog
         open={open}
