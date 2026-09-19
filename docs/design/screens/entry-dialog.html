@@ -1,0 +1,451 @@
+<meta charset="utf-8">
+<title>Stint Entry Dialog</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_mockup.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0; background: var(--bg-primary); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 88ch; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  .standfirst { margin: 0 0 1rem; color: var(--text-muted); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
+  .caption {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-subtle);
+    display: block; margin-top: .7rem;
+  }
+  table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+  th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  th {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle); font-weight: 500;
+  }
+  td { font-size: 14px; }
+  code { font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); }
+  .rule { list-style: none; margin: 1rem 0 0; padding: 0; }
+  .rule li { position: relative; padding-left: 1.5rem; margin-bottom: .85rem; }
+  .rule li::before {
+    content: ''; position: absolute; left: 0; top: .55em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--border-control);
+  }
+  .rule strong { color: var(--text-strong); font-weight: 600; }
+  p { max-width: 74ch; }
+
+  /* The dialog, on the overlay it really sits on — the strip's surfaces are
+     judged against what will be behind them. */
+  .frame {
+    background: var(--overlay);
+    border-radius: 12px;
+    padding: 2.5rem 1.25rem;
+    display: flex; justify-content: center;
+  }
+  .dialog {
+    width: 100%; max-width: 30rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    box-shadow: var(--shadow-float);
+    padding: 1.35rem;
+    display: flex; flex-direction: column; gap: .9rem;
+  }
+  .dtitle { font-size: 1.05rem; font-weight: 600; color: var(--text-strong); }
+  .ddesc { color: var(--text-muted); font-size: 12.5px; max-width: 46ch; }
+  .field { display: flex; flex-direction: column; gap: .35rem; }
+  .lab {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-subtle);
+  }
+  .inp {
+    width: 100%; padding: .5rem .7rem;
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 14px;
+  }
+  .inp:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+  .inp[type="time"], .inp[type="date"] {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+  /* A field the strip is writing carries the same edge as the handle
+     producing it — the one visual link between the two controls. */
+  .inp.live { border-color: var(--border-focus); }
+  .grid3 { display: grid; grid-template-columns: 1fr 1.2fr 1.2fr; gap: .7rem; }
+  .check { display: flex; align-items: center; gap: .6rem; font-size: 14px; color: var(--text-primary); }
+  .check input { width: 16px; height: 16px; accent-color: var(--text-muted); }
+  .foot { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; margin-top: .25rem; }
+  .btn {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .5rem .85rem; border-radius: 8px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-elevated); color: var(--text-strong);
+    font-family: var(--font-sans); font-size: 14px; font-weight: 500; cursor: pointer;
+  }
+  .btn.accent { background: var(--accent-default); border-color: var(--accent-default); color: var(--text-on-accent); }
+  .btn.quiet { background: transparent; border-color: transparent; color: var(--text-muted); }
+  .btn.icon { margin-right: auto; padding: .5rem; color: var(--danger); background: transparent; border-color: transparent; }
+
+  /* ── The scrubber ───────────────────────────────────────────────
+     A recessed trough: it is the ground the block sits on, the one place
+     in the dialog where depth carries meaning. */
+  .scrub {
+    position: relative; height: 60px;
+    background: var(--bg-recessed);
+    border: 1px solid var(--border-subtle);
+    border-radius: 9px;
+    touch-action: none; user-select: none;
+  }
+  .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border-grid); }
+  .ticklab {
+    position: absolute; bottom: 3px; translate: -50% 0;
+    color: var(--text-subtle);
+    font-family: var(--font-mono); font-size: 10px;
+    font-variant-numeric: tabular-nums; pointer-events: none;
+  }
+  .block {
+    position: absolute; top: 6px; bottom: 19px;
+    border-radius: 6px;
+    background: color-mix(in oklab, var(--proj-6) 26%, var(--bg-elevated));
+    border: 1px solid color-mix(in oklab, var(--proj-6) 55%, transparent);
+    border-left: 2px solid var(--proj-6);
+    cursor: grab;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 12px;
+    /* Visible so the handles may straddle the edges. */
+    overflow: visible;
+  }
+  .block:active { cursor: grabbing; }
+  .block .dur {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size: 12px; color: var(--text-strong);
+    white-space: nowrap; pointer-events: none;
+  }
+  /* The handles STRADDLE the block's edges. At MIN_ENTRY_MINUTES the block
+     is ~27px however tightly the window crops, so two inset 10px handles
+     leave 7px of body and the move gesture is unreachable on exactly the
+     entry most likely to be a mistake worth dragging. */
+  .handle {
+    position: absolute; top: -1px; bottom: -1px; width: 16px;
+    cursor: ew-resize; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .handle.s { left: -8px; }
+  .handle.e { right: -8px; }
+  .handle::before {
+    content: ''; width: 2px; height: 15px; border-radius: 999px;
+    background: color-mix(in oklab, var(--text-strong) 65%, transparent);
+  }
+  .handle:hover::before, .handle.on::before { background: var(--text-strong); }
+  .ghost {
+    position: absolute; top: -2px; translate: -50% -100%;
+    padding: 2px 6px;
+    background: var(--bg-active);
+    border: 1px solid var(--border-default);
+    border-radius: 5px;
+    font-family: var(--font-mono); font-size: 11.5px;
+    font-variant-numeric: tabular-nums; color: var(--text-strong);
+    white-space: nowrap; pointer-events: none; display: none;
+  }
+  .scrub.dragging .ghost.show { display: block; }
+  .scrubhead { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
+  .hint { color: var(--text-subtle); font-size: 11.5px; }
+
+  /* Read-only: a billed entry. Painted, no handles, no cursor change. */
+  .scrub.locked .block { cursor: default; opacity: .75; }
+  .scrub.locked .handle { display: none; }
+</style>
+
+<div class="page">
+
+  <span class="eyebrow">Stint · Screens</span>
+  <h1>Edit entry</h1>
+  <p class="standfirst">
+    The only place a logged entry is corrected. Its times are adjustable two
+    ways — typed into the fields, or dragged on a strip that draws the entry
+    on a cropped day. <code>entry-dialog.tsx</code>.
+  </p>
+
+  <!-- ───────────────────────── the dialog ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The dialog, editing an entry</span></div>
+
+    <div class="frame">
+      <div class="dialog" role="dialog" aria-label="Edit entry">
+        <div>
+          <div class="dtitle">Edit entry</div>
+          <div class="ddesc">Times are in your local timezone. An end before the start counts as overnight.</div>
+        </div>
+
+        <div class="field">
+          <span class="lab">Task</span>
+          <input class="inp" value="Checkout flow — payment step">
+        </div>
+
+        <div class="field">
+          <span class="lab">Project</span>
+          <input class="inp" value="Northwind Trading — Website rebuild">
+        </div>
+
+        <div class="field">
+          <div class="scrubhead">
+            <span class="lab" id="scrub-label">Adjust</span>
+            <span class="hint" id="scrub-hint">Drag an edge, or the block</span>
+          </div>
+          <div class="scrub" id="scrub" role="group" aria-labelledby="scrub-label">
+            <div class="block" id="block">
+              <span class="dur" id="dur">1:30</span>
+              <div class="handle s" id="hs" aria-hidden="true"></div>
+              <div class="handle e" id="he" aria-hidden="true"></div>
+            </div>
+            <div class="ghost" id="ghost"></div>
+          </div>
+        </div>
+
+        <div class="grid3">
+          <div class="field">
+            <span class="lab">Date</span>
+            <input class="inp" type="date" id="f-date" value="2026-09-19">
+          </div>
+          <div class="field">
+            <span class="lab">Start</span>
+            <input class="inp" type="time" id="f-start" value="09:30" step="900">
+          </div>
+          <div class="field">
+            <span class="lab">End</span>
+            <input class="inp" type="time" id="f-end" value="11:00" step="900">
+          </div>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" checked> Billable
+        </label>
+
+        <div class="foot">
+          <button class="btn icon" aria-label="Delete entry">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          </button>
+          <button class="btn quiet">Cancel</button>
+          <button class="btn accent">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+    <span class="caption">Live · drag an edge or the block, or type a time</span>
+  </section>
+
+  <!-- ───────────────────────── the strip ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The strip</span></div>
+
+    <p>
+      The strip and the two <code>time</code> inputs are one value with two
+      controls. A drag rewrites the fields on every pointer move; typing a
+      time redraws the block.
+    </p>
+
+    <ul class="rule">
+      <li>
+        <strong>It runs horizontally.</strong> The dialog is a column of rows,
+        and at the calendar's 44px/hour a day is ~700px of dialog to adjust
+        two fields. A vertical grid would also read against the left-to-right
+        Start&nbsp;→&nbsp;End pair directly beneath it.
+      </li>
+      <li>
+        <strong>The block takes its client's colour</strong> through
+        <code>useProjectColors()</code>, so the same entry is the same colour
+        here and on the calendar. The accent in this dialog is
+        <strong>Save</strong>.
+      </li>
+      <li>
+        <strong>The handles straddle the block's edges.</strong> At
+        <code>MIN_ENTRY_MINUTES</code> the block is ~27px however tightly the
+        window crops; two inset 10px handles would leave 7px of body, making
+        the move gesture unreachable on exactly the entry most likely to be a
+        mistake worth dragging.
+      </li>
+      <li>
+        <strong>Nothing commits on release.</strong> The strip writes the
+        draft and Save writes the server, like every other field here.
+        <code>useEntryDrag</code> PATCHes on pointer-up because the calendar
+        has no Save to wait for; for the same reason this needs no drag
+        threshold, the block not being the control that opens the editor.
+      </li>
+      <li>
+        <strong>The handles are not focusable.</strong> Start and End with
+        <code>step="900"</code> are the keyboard path to the same two values,
+        and arrow keys already step the quarter hour the drag snaps to.
+      </li>
+    </ul>
+
+    <table>
+      <tr><th style="width:9rem">Window</th><td>The entry ±2h, or ±its own length when longer, held in the day and rounded out to a tick. Recomputed on open and on a typed time — never mid-drag, which would slide the ground under the pointer.</td></tr>
+      <tr><th>Snap</th><td><code>SNAP_MINUTES</code> 15, via <code>instantAt()</code>.</td></tr>
+      <tr><th>Floor</th><td><code>MIN_ENTRY_MINUTES</code> 15, via <code>resized()</code>. An edge dragged past the other clamps; it never inverts.</td></tr>
+      <tr><th>Move</th><td><code>movedTo()</code> — duration preserved exactly, only the start snaps.</td></tr>
+      <tr><th>Reach</th><td>A drag stops at the window's edge. Moving an entry hours across the day is the field's job.</td></tr>
+      <tr><th>Billed</th><td>Painted read-only, handles gone — the clearest statement of what is frozen.</td></tr>
+    </table>
+  </section>
+
+</div>
+
+<script>
+  /* The prototype's maths, in minutes from midnight — a mockup has no
+     timezone to be correct about. The build goes through instantAt(),
+     movedTo() and resized(), which take the column's real span. */
+
+  const SNAP = 15, FLOOR = 15, DAY = 24 * 60;
+
+  /* Two hours either side, or the entry's own length when it is longer, so a
+     12-hour entry is not drawn edge to edge with no context. How SMALL the
+     block may get is the handles' problem, not the window's. */
+  const PAD_FLOOR = 120;
+  let WIN_START = 0, WIN_END = DAY, SPAN = DAY;
+
+  function window_(s, e) {
+    const pad = Math.max(PAD_FLOOR, e - s);
+    let a = s - pad, b = e + pad;
+    if (a < 0) { b += -a; a = 0; }
+    if (b > DAY) { a -= b - DAY; b = DAY; }
+    /* Rounded out to a tick, so the strip begins and ends on a labelled
+       edge. A narrow window rounds to the half hour — at the whole hour a
+       15-minute entry gained back most of the width the pad just saved. */
+    const r = b - a <= 240 ? 30 : 60;
+    WIN_START = Math.max(0, Math.floor(a / r) * r);
+    WIN_END = Math.min(DAY, Math.ceil(b / r) * r);
+    SPAN = WIN_END - WIN_START;
+  }
+
+  const scrub = document.getElementById('scrub');
+  const block = document.getElementById('block');
+  const ghost = document.getElementById('ghost');
+  const dur = document.getElementById('dur');
+  const fS = document.getElementById('f-start');
+  const fE = document.getElementById('f-end');
+  const hint = document.getElementById('scrub-hint');
+
+  let start = 9 * 60 + 30, end = 11 * 60;
+
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const snap = (m) => Math.round(m / SNAP) * SNAP;
+  const hhmm = (m) => String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  const pct = (m) => ((m - WIN_START) / SPAN) * 100;
+
+  /* Every tick is labelled — a cropped window never holds enough to crowd.
+     A label within half its width of either end is dropped, not clipped. */
+  function ticks() {
+    scrub.querySelectorAll('.tick, .ticklab').forEach((n) => n.remove());
+    const step = SPAN <= 240 ? 30 : SPAN <= 480 ? 60 : SPAN <= 960 ? 120 : 180;
+    for (let m = Math.ceil(WIN_START / step) * step; m <= WIN_END; m += step) {
+      const p = pct(m);
+      const t = document.createElement('div');
+      t.className = 'tick';
+      t.style.left = p + '%';
+      scrub.appendChild(t);
+      if (p < 3 || p > 97) continue;
+      const l = document.createElement('div');
+      l.className = 'ticklab';
+      l.style.left = p + '%';
+      l.textContent = hhmm(m);
+      scrub.appendChild(l);
+    }
+  }
+
+  function paint(writeFields = true) {
+    block.style.left = pct(start) + '%';
+    block.style.width = ((end - start) / SPAN) * 100 + '%';
+    const mins = end - start;
+    dur.textContent = Math.floor(mins / 60) + ':' + String(mins % 60).padStart(2, '0');
+    dur.style.visibility = ((end - start) / SPAN) * scrub.clientWidth > 52 ? '' : 'hidden';
+    if (writeFields) { fS.value = hhmm(start); fE.value = hhmm(end); }
+  }
+
+  let drag = null;
+  const minutesAt = (x) => {
+    const r = scrub.getBoundingClientRect();
+    return WIN_START + clamp((x - r.left) / r.width, 0, 1) * SPAN;
+  };
+
+  const begin = (mode) => (e) => {
+    e.preventDefault(); e.stopPropagation();
+    drag = { mode, originX: e.clientX, fromStart: start, fromEnd: end };
+    scrub.setPointerCapture(e.pointerId);
+    scrub.classList.add('dragging');
+    ghost.classList.add('show');
+    if (mode !== 'move') document.getElementById(mode === 'start' ? 'hs' : 'he').classList.add('on');
+    (mode === 'end' ? fE : fS).classList.add('live');
+    if (mode === 'move') fE.classList.add('live');
+    hint.textContent = 'Release to set';
+    move(e);
+  };
+
+  function move(e) {
+    if (!drag) return;
+    const at = snap(minutesAt(e.clientX));
+    if (drag.mode === 'move') {
+      const len = drag.fromEnd - drag.fromStart;
+      const delta = snap(minutesAt(e.clientX) - minutesAt(drag.originX));
+      start = clamp(drag.fromStart + delta, WIN_START, WIN_END - len);
+      end = start + len;
+    } else if (drag.mode === 'start') {
+      start = clamp(at, WIN_START, drag.fromEnd - FLOOR);
+      end = drag.fromEnd;
+    } else {
+      start = drag.fromStart;
+      end = clamp(at, drag.fromStart + FLOOR, WIN_END);
+    }
+    paint();
+    const edge = drag.mode === 'start' ? start : end;
+    ghost.style.left = pct(edge) + '%';
+    ghost.textContent = drag.mode === 'move' ? hhmm(start) + '–' + hhmm(end) : hhmm(edge);
+  }
+
+  function finish(e) {
+    if (!drag) return;
+    drag = null;
+    scrub.classList.remove('dragging');
+    ghost.classList.remove('show');
+    document.querySelectorAll('.handle').forEach((h) => h.classList.remove('on'));
+    document.querySelectorAll('.inp').forEach((i) => i.classList.remove('live'));
+    hint.textContent = 'Drag an edge, or the block';
+    try { scrub.releasePointerCapture(e.pointerId); } catch {}
+  }
+
+  document.getElementById('hs').addEventListener('pointerdown', begin('start'));
+  document.getElementById('he').addEventListener('pointerdown', begin('end'));
+  block.addEventListener('pointerdown', begin('move'));
+  scrub.addEventListener('pointermove', move);
+  scrub.addEventListener('pointerup', finish);
+  scrub.addEventListener('pointercancel', finish);
+
+  function fromFields() {
+    const [sh, sm] = fS.value.split(':').map(Number);
+    const [eh, em] = fE.value.split(':').map(Number);
+    if ([sh, sm, eh, em].some(Number.isNaN)) return;
+    start = clamp(sh * 60 + sm, 0, DAY);
+    end = clamp(eh * 60 + em, start + FLOOR, DAY);
+    /* A typed time can land outside the drawn window, and this is the one
+       moment other than opening where recomputing it is safe. */
+    window_(start, end);
+    ticks();
+    paint(false);
+  }
+  fS.addEventListener('input', fromFields);
+  fE.addEventListener('input', fromFields);
+
+  window_(start, end);
+  ticks();
+  paint();
+</script>
