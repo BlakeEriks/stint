@@ -146,9 +146,12 @@
 
   .group { display: flex; align-items: center; gap: 12px; min-width: 0; }
 
-  /* phone — two rows only where a field needs the width */
+  /* phone — idle wraps because both its fields are inputs; running does not,
+     because dropping the pill leaves a name and a readout, which fit. */
   .phone { width: 375px; }
   .phone .bar { flex-wrap: wrap; height: auto; padding: 10px 10px 10px 14px; }
+  .phone .bar.running { flex-wrap: nowrap; height: 50px; padding: 0 8px 0 14px; }
+  .phone .bar.running .tag { display: none; }
   .phone .group { flex-basis: 100%; }
   .phone .row2 { display: flex; align-items: center; gap: 12px; flex-basis: 100%; }
   /* On two rows the clock and transport travel together to the right edge,
@@ -235,7 +238,7 @@
 
   <!-- ───────────────────────── phone ───────────────────────── -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">375px — both wrap to two rows</span></div>
+    <div class="sec-head"><span class="eyebrow">375px — idle wraps, running does not</span></div>
 
     <div class="frame phone">
       <div class="bar">
@@ -251,25 +254,26 @@
     <span class="caption">Idle — the field takes its own line</span>
 
     <div class="frame phone">
-      <div class="bar">
-        <span class="group">
-          <span class="dot run"></span>
-          <span class="type-body name">API integration</span>
-          <span class="tag"><span class="sw" style="background:var(--proj-6)"></span><span class="cn">Mobile app redesign</span></span>
-        </span>
-        <span class="row2">
-          <span class="clock run">1:47:32</span>
-          <button class="transport stop" aria-label="Stop"><span class="sq"></span></button>
-        </span>
+      <div class="bar running">
+        <span class="dot run"></span>
+        <span class="type-body name">API integration</span>
+        <span class="clock run">1:47:32</span>
+        <button class="transport stop" aria-label="Stop"><span class="sq"></span></button>
       </div>
     </div>
-    <span class="caption">Running — <em>what</em> on top, <em>how long</em> beneath</span>
+    <span class="caption">Running — one row; the pill is dropped, not wrapped</span>
 
     <p style="margin-top:2rem">
-      375px cannot hold a name, a pill and a seven-character clock on one
-      line — two truncated words are worse than one whole one. Each row is one
-      idea rather than a queue of fragments, and the readout keeps the right
-      edge on both, so the control is under the thumb wherever the row breaks.
+      Running is one row because a running timer is being glanced at, not
+      operated: the task name and the clock are what a glance is for, and the
+      project is already fixed for the duration of the entry. Dropping the
+      pill is what buys the row — wrapping it would spend a second line on
+      the one thing that cannot change until the timer stops.
+    </p>
+    <p>
+      Idle takes two, because both its fields are inputs. The task field
+      wants the width to be typed into and the picker has to stay reachable,
+      so neither can be dropped the way the pill can.
     </p>
   </section>
 
