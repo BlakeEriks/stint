@@ -25,6 +25,15 @@ export const OVERDUE_GRACE_DAYS = 7;
 export const MAX_UNBILLED_ROWS = 5;
 
 /**
+ * Columns the by-project chart draws before the rest becomes a footer line.
+ *
+ * Its own constant rather than `MAX_UNBILLED_ROWS`: that one bounds a list of
+ * rows, this one bounds bars competing for a fixed plot width, and sharing it
+ * would let a change made for one reshape the other.
+ */
+export const MAX_PROJECT_COLUMNS = 4;
+
+/**
  * Months of trailing work the Velocity figure covers.
  *
  * Whole months including the current one, so the window is a period the user
@@ -60,6 +69,25 @@ export interface VelocityRow {
   client_name: string | null;
   currency: string | null;
   seconds: string | number;
+  invoiced: string | number;
+  unbilled: string | number;
+  unrated_count: string | number;
+}
+
+/**
+ * A `revenue_by_project` row. Numerics arrive from PostgREST as strings.
+ *
+ * `project_id` and `project_name` are both null on the single row that
+ * carries work filed under no project.
+ */
+export interface ByProjectRow {
+  project_id: string | null;
+  project_name: string | null;
+  client_id: string | null;
+  client_name: string | null;
+  currency: string | null;
+  seconds: string | number;
+  billable_seconds: string | number;
   invoiced: string | number;
   unbilled: string | number;
   unrated_count: string | number;
@@ -212,6 +240,58 @@ export function buildVelocity(
       unratedCount: Number(r.unrated_count),
     })),
     moreClients: Math.max(0, rows.length - MAX_UNBILLED_ROWS),
+  };
+}
+
+/**
+ * The same trailing window as Velocity, ranked by project instead of client.
+ *
+ * `seconds` counts all worked time and `amount` counts billable work alone,
+ * so a project that is entirely unbillable has hours and no money — which is
+ * what it is, not a gap.
+ *
+ * Work filed under no project is partitioned out before the slice and can
+ * never become a column, however many hours it carries: a bar for work that
+ * is not a project would take one of four slots from work that is, and the
+ * unprojected card already owns that subject and links to the fix. It still
+ * lands in the tail and the section totals, so `columns + tail === total`
+ * holds and the footer states the window's real total. A chart whose total
+ * omits unfiled hours is a billing screen disagreeing with itself.
+ *
+ * One array, ordered by seconds as SQL ordered it. Revenue mode ranks
+ * differently, but that is a re-sort of the same four rows, not a second cut.
+ */
+export function buildByProject(rows: ByProjectRow[], fallbackCurrency: string) {
+  const amountOf = (r: ByProjectRow) => Number(r.invoiced) + Number(r.unbilled);
+  const projects = rows.filter((r) => r.project_id !== null);
+  const columns = projects.slice(0, MAX_PROJECT_COLUMNS);
+  const tail = [
+    ...projects.slice(MAX_PROJECT_COLUMNS),
+    ...rows.filter((r) => r.project_id === null),
+  ];
+  return {
+    seconds: rows.reduce((a, r) => a + Number(r.seconds), 0),
+    /* Rounded once on the sum, like every other total here: each row was
+       already rounded per bucket in SQL, and adding rounded lines lands
+       fractions of a cent below the last place. */
+    amount: roundMoney(rows.reduce((a, r) => a + amountOf(r), 0)),
+    byProject: columns.map((r) => ({
+      projectId: r.project_id,
+      projectName: r.project_name,
+      /** Null for internal work — a project with no client. */
+      clientId: r.client_id,
+      clientName: r.client_name,
+      currency: r.currency ?? fallbackCurrency,
+      seconds: Number(r.seconds),
+      billableSeconds: Number(r.billable_seconds),
+      amount: amountOf(r),
+      unratedCount: Number(r.unrated_count),
+    })),
+    /* The footer prints the remainder as a figure, not just a count, so it
+       carries its own totals rather than leaving the reader to subtract. */
+    moreProjects: tail.length,
+    tailSeconds: tail.reduce((a, r) => a + Number(r.seconds), 0),
+    tailAmount: roundMoney(tail.reduce((a, r) => a + amountOf(r), 0)),
   };
 }
 

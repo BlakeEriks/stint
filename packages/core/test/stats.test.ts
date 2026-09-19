@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildAwaitingPayment,
   buildBillableRatio,
+  buildByProject,
   buildHoursByDay,
   buildMonthTotals,
   buildOverdueInvoices,
@@ -12,11 +13,13 @@ import {
   buildUnbilled,
   buildUnprojected,
   buildVelocity,
+  type ByProjectRow,
   clientNamesFrom,
   type DurationRow,
   type InvoiceRow,
   projectNamesFrom,
   revenueByDay,
+  roundMoney,
   scalar,
   type UnbilledRow,
   type VelocityRow,
@@ -153,6 +156,117 @@ test('velocity caps byClient at five and counts the rest', () => {
   assert.equal(v.byClient.length, 5);
   assert.equal(v.moreClients, 3);
   assert.equal(v.seconds, 8 * 3600, 'the total still covers every client');
+});
+
+// ── by project ──────────────────────────────────────────────────────
+
+const byProjectRow = (o: Partial<ByProjectRow> = {}): ByProjectRow => ({
+  project_id: 'p1',
+  project_name: 'Redesign',
+  client_id: 'c1',
+  client_name: 'Acme',
+  currency: 'USD',
+  seconds: 3600,
+  billable_seconds: 3600,
+  invoiced: '0',
+  unbilled: '0',
+  unrated_count: 0,
+  ...o,
+});
+
+/** The invariant the footer rests on, asserted wherever a case can break it. */
+const reconciles = (b: ReturnType<typeof buildByProject>) => {
+  const columnSeconds = b.byProject.reduce((a, r) => a + r.seconds, 0);
+  const columnAmount = b.byProject.reduce((a, r) => a + r.amount, 0);
+  assert.equal(columnSeconds + b.tailSeconds, b.seconds, 'seconds reconcile');
+  assert.equal(
+    roundMoney(columnAmount + b.tailAmount),
+    b.amount,
+    'amount reconciles',
+  );
+};
+
+test('byProject totals the split and rounds once, so the sum is money', () => {
+  const b = buildByProject(
+    [
+      byProjectRow({ project_id: 'p1', invoiced: '33.33', unbilled: '11.11' }),
+      byProjectRow({ project_id: 'p2', invoiced: '33.34', unbilled: '11.12' }),
+    ],
+    'USD',
+  );
+  assert.equal(b.amount, 88.9, 'the gross, not a third figure');
+  assert.equal(Math.round(b.amount * 100) / 100, b.amount, 'already money');
+  reconciles(b);
+});
+
+test('byProject caps the columns at four and counts the rest into the tail', () => {
+  const b = buildByProject(
+    Array.from({ length: 7 }, (_, i) =>
+      byProjectRow({ project_id: `p${i}`, invoiced: '10.00' }),
+    ),
+    'USD',
+  );
+  assert.equal(b.byProject.length, 4);
+  assert.equal(b.moreProjects, 3);
+  assert.equal(b.tailSeconds, 3 * 3600);
+  assert.equal(b.tailAmount, 30);
+  assert.equal(b.seconds, 7 * 3600, 'the total still covers every project');
+  reconciles(b);
+});
+
+test('byProject leaves a null client unnamed rather than inventing a label', () => {
+  const [row] = buildByProject(
+    [byProjectRow({ client_id: null, client_name: null, currency: null })],
+    'EUR',
+  ).byProject;
+  assert.equal(row?.clientName, null, 'the client renders the qualifier');
+  assert.equal(row?.currency, 'EUR');
+});
+
+test('unfiled work is never a column, however many hours it carries', () => {
+  /* The decision the whole region rests on. A bar for work that is not a
+     project would take a slot from work that is, and the unprojected card
+     already owns that subject — but dropping the row instead would put a
+     total on screen that omits unfiled hours. So: out of the columns, into
+     the tail, inside the total. */
+  const b = buildByProject(
+    [
+      byProjectRow({
+        project_id: null,
+        project_name: null,
+        client_id: null,
+        client_name: null,
+        seconds: 99 * 3600,
+        billable_seconds: 99 * 3600,
+        invoiced: '990.00',
+      }),
+      byProjectRow({ project_id: 'p1', seconds: 3600, invoiced: '10.00' }),
+      byProjectRow({ project_id: 'p2', seconds: 3600, invoiced: '10.00' }),
+    ],
+    'USD',
+  );
+  assert.deepEqual(
+    b.byProject.map((r) => r.projectId),
+    ['p1', 'p2'],
+    'it outranks both and is still absent',
+  );
+  assert.equal(b.moreProjects, 1, 'it is the tail, not a fifth project');
+  assert.equal(b.tailSeconds, 99 * 3600);
+  assert.equal(b.tailAmount, 990);
+  assert.equal(b.seconds, 101 * 3600, 'the window total is the real total');
+  assert.equal(b.amount, 1010);
+  reconciles(b);
+});
+
+test('byProject reports unbillable work as hours with no money', () => {
+  const b = buildByProject(
+    [byProjectRow({ billable_seconds: 0, invoiced: '0', unbilled: '0' })],
+    'USD',
+  );
+  assert.equal(b.byProject[0]?.seconds, 3600);
+  assert.equal(b.byProject[0]?.billableSeconds, 0);
+  assert.equal(b.amount, 0);
+  reconciles(b);
 });
 
 test('revenueByDay keeps the day SQL grouped by, not a shifted ISO date', () => {

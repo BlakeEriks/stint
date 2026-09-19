@@ -503,6 +503,22 @@ export const VelocityClient = z.object({
   unratedCount: z.number().int().nonnegative(),
 });
 
+export const ByProjectEntry = z.object({
+  /** Never null here: work with no project is a tail row, never a column. */
+  projectId: uuid,
+  projectName: z.string(),
+  /** Null for internal work — a project with no client. */
+  clientId: uuid.nullable(),
+  clientName: z.string().nullable(),
+  currency,
+  /** All worked time. Money counts billable alone, so the two diverge. */
+  seconds: z.number().int().nonnegative(),
+  billableSeconds: z.number().int().nonnegative(),
+  amount: money,
+  /** Entries with no resolvable rate: the total is incomplete, not low. */
+  unratedCount: z.number().int().nonnegative(),
+});
+
 export const Stats = z.object({
   currency,
   unbilled: z.object({
@@ -530,6 +546,22 @@ export const Stats = z.object({
     seconds: z.number().int().nonnegative(),
     byClient: z.array(VelocityClient),
     moreClients: z.number().int().nonnegative(),
+  }),
+  /**
+   * The same window as `velocity`, ranked by project.
+   *
+   * `seconds` and `amount` cover every project plus work filed under none,
+   * so the columns and the tail reconcile to them exactly. Ordered by
+   * seconds; revenue mode re-sorts these same rows.
+   */
+  byProject: z.object({
+    seconds: z.number().int().nonnegative(),
+    amount: money,
+    byProject: z.array(ByProjectEntry),
+    /** Everything past the column cap, plus the unfiled row, as one line. */
+    moreProjects: z.number().int().nonnegative(),
+    tailSeconds: z.number().int().nonnegative(),
+    tailAmount: money,
   }),
   /** Invoiced and not yet collected. Never summed with `unbilled` — that
    *  would double-count the same hours. */
@@ -674,6 +706,7 @@ export type PaymentProfile = z.infer<typeof PaymentProfile>;
 export type Stats = z.infer<typeof Stats>;
 export type Pace = z.infer<typeof Pace>;
 export type UnbilledClient = z.infer<typeof UnbilledClient>;
+export type ByProjectEntry = z.infer<typeof ByProjectEntry>;
 export type ClientWithScale = z.infer<typeof ClientWithScale>;
 export type Invoice = z.infer<typeof Invoice>;
 export type CalendarDay = z.infer<typeof CalendarDay>;
