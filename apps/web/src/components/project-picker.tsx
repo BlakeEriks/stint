@@ -12,12 +12,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ProjectDialog } from './project-dialog';
 import { inputClass } from './field';
+import { Swatch } from './swatch';
 import type { Project } from '@/lib/client/api';
-import {
-  INTERNAL_SWATCH,
-  useClients,
-  useProjectColors,
-} from '@/lib/client/use-project-colors';
+import { useClients, useProjectColors } from '@/lib/client/use-project-colors';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 
 /** "No project" is a real choice, not an absent one, so it needs a value. */
@@ -302,16 +299,5 @@ function Row({
         </span>
       ) : null}
     </>
-  );
-}
-
-/** A client's colour is data, so it stays an inline style. */
-function Swatch({ color }: { color?: string | null }) {
-  return (
-    <span
-      aria-hidden
-      className="size-2 flex-none rounded-[2px]"
-      style={{ background: color ?? INTERNAL_SWATCH }}
-    />
   );
 }

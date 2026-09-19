@@ -10,8 +10,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { inputClass } from './field';
+import { Swatch } from './swatch';
 import type { Client } from '@/lib/client/api';
-import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 
 /** "No client" is a real choice, not an absent one, so it needs a value. */
@@ -136,16 +136,5 @@ function Row({ client }: { client: Client }) {
       <Swatch color={client.color} />
       <span className="min-w-0 flex-1 truncate">{client.name}</span>
     </>
-  );
-}
-
-/** A client's colour is data, so it stays an inline style. */
-function Swatch({ color }: { color?: string | null }) {
-  return (
-    <span
-      aria-hidden
-      className="size-2 flex-none rounded-[2px]"
-      style={{ background: color ?? INTERNAL_SWATCH }}
-    />
   );
 }

@@ -82,7 +82,7 @@ export function TodayGrid({
         {marks(from, to).map((m) => (
           <div
             key={m.at.toISOString()}
-            className="-translate-y-[5px] text-right type-meta text-subtle tabular-nums"
+            className="-translate-y-[5px] text-right type-meta text-subtle"
             style={{ height: PX_PER_HOUR * HOUR_STEP }}
           >
             {m.label}

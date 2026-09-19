@@ -11,13 +11,11 @@ import {
 import { CalendarDays, Lock, Plus } from 'lucide-react';
 import { api, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import {
-  INTERNAL_SWATCH,
-  useProjectColors,
-} from '@/lib/client/use-project-colors';
+import { useProjectColors } from '@/lib/client/use-project-colors';
 import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
 import { Listing } from './page';
+import { Swatch } from './swatch';
 import { TodayGrid } from './today-grid';
 import { keys } from '@/lib/client/query-keys';
 
@@ -126,7 +124,7 @@ export function EntryList({
             to a real figure a moment later reports a day that earned nothing
             and then took it back. */}
         {earnedToday === undefined ? null : (
-          <span className="ml-auto type-duration tabular-nums text-primary">
+          <span className="ml-auto type-duration text-primary">
             {formatCurrency(earnedToday, currency)}
           </span>
         )}
@@ -186,7 +184,7 @@ export function EntryList({
           <span className="type-meta text-subtle">
             {today.length} {today.length === 1 ? 'entry' : 'entries'}
           </span>
-          <span className="ml-auto type-duration tabular-nums text-muted">
+          <span className="ml-auto type-duration text-muted">
             {formatCompact(todaySeconds)}
           </span>
         </div>
@@ -232,13 +230,7 @@ function Row({
      both are billing-relevant, and in a list this short density is not the
      constraint. At `@md` they rejoin the first line, because one line per
      entry is what makes a wide list scannable. */
-  const swatch = (
-    <span
-      aria-hidden
-      className="size-1.5 flex-none rounded-[2px]"
-      style={{ background: color ?? INTERNAL_SWATCH }}
-    />
-  );
+  const swatch = <Swatch color={color} size="size-1.5" />;
 
   /* Three fields, one line, and the swatch LEADS: in a column this narrow the
      colour is what the eye sorts by, so it is the first thing on the row

@@ -3,7 +3,7 @@ import { formatCompact, formatCurrency } from '@stint/core';
 import { ChartColumn } from 'lucide-react';
 import type { Stats } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
-import { type Clients, INSET, Region } from './home-shell';
+import { type Clients, INSET, Region, unratedNote } from './home-shell';
 import { MIX_OPACITY } from './home-velocity';
 
 type Unit = 'hours' | 'revenue';
@@ -67,7 +67,14 @@ export function ByProject({
           <div
             role="img"
             aria-label={rows
-              .map((e) => `${e.projectName} ${figure(e)}`)
+              .map((e) =>
+                [
+                  `${e.projectName} ${figure(e)}`,
+                  revenue ? unratedNote(e.unratedCount) : null,
+                ]
+                  .filter(Boolean)
+                  .join(' '),
+              )
               .join(', ')}
           >
             {rows.map((e) => (
@@ -79,7 +86,15 @@ export function ByProject({
                   <span className="min-w-0 flex-1 truncate type-support text-muted">
                     {e.projectName}
                   </span>
-                  <span className="flex-none type-meta tabular-nums text-primary">
+                  {/* Only in revenue mode: unrated work is missing from the
+                      AMOUNT, and says nothing about the hours, which are
+                      counted either way. */}
+                  {revenue && unratedNote(e.unratedCount) ? (
+                    <span className="flex-none type-meta text-subtle">
+                      {unratedNote(e.unratedCount)}
+                    </span>
+                  ) : null}
+                  <span className="flex-none type-meta text-primary">
                     {figure(e)}
                   </span>
                 </div>
@@ -104,7 +119,7 @@ export function ByProject({
 
         {/* The window is abbreviated because Velocity names it in full
             directly above; spelled out here the line wraps at this width. */}
-        <p className="mt-2.5 type-meta tabular-nums text-right text-subtle">
+        <p className="mt-2.5 type-meta text-right text-subtle">
           {b.moreProjects > 0
             ? `+${total(b.tailSeconds, b.tailAmount)} across ${b.moreProjects} more · `
             : ''}

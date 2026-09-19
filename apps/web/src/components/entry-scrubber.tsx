@@ -183,7 +183,7 @@ export function EntryScrubber({
           {m.pct > 3 && m.pct < 97 ? (
             <span
               className="absolute bottom-0.5 -translate-x-1/2 whitespace-nowrap
-                         type-meta tabular-nums text-subtle"
+                         type-meta text-subtle"
             >
               {m.label}
             </span>
@@ -242,7 +242,7 @@ export function EntryScrubber({
           aria-hidden
           className="absolute top-0 -translate-x-1/2 -translate-y-full rounded
                      border border-edge-default bg-surface-active px-1.5
-                     type-meta tabular-nums text-strong"
+                     type-meta text-strong"
           style={{ left: `${active === 'start' ? left : left + width}%` }}
         >
           {active === 'move'

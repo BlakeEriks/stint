@@ -11,6 +11,7 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 import { keys } from '@/lib/client/query-keys';
 import { type Clients, INSET, Region } from './home-shell';
+import { Swatch } from './swatch';
 
 /** Internal work: no client, so no hue — but not rest either. */
 const INTERNAL = '';
@@ -145,13 +146,15 @@ export function Heatmap({ clients }: { clients: Clients }) {
 
         <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
           {named.map((id) => (
-            <Swatch
+            <LegendSwatch
               key={id}
               colour={clients.get(id)?.color ?? INTERNAL_SWATCH}
               label={clients.get(id)?.name ?? 'Unknown client'}
             />
           ))}
-          {hasOther ? <Swatch colour={INTERNAL_SWATCH} label="Other" /> : null}
+          {hasOther ? (
+            <LegendSwatch colour={INTERNAL_SWATCH} label="Other" />
+          ) : null}
           <span className="ml-auto type-meta text-subtle">
             {formatCompact(windowSeconds)}
           </span>
@@ -161,14 +164,10 @@ export function Heatmap({ clients }: { clients: Clients }) {
   );
 }
 
-function Swatch({ colour, label }: { colour: string; label: string }) {
+function LegendSwatch({ colour, label }: { colour: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5 type-support text-muted">
-      <span
-        aria-hidden
-        className="size-2 flex-none rounded-[2px]"
-        style={{ backgroundColor: colour }}
-      />
+      <Swatch color={colour} />
       {label}
     </span>
   );

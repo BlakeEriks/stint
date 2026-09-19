@@ -31,6 +31,18 @@ export type Clients = Map<
 >;
 
 /**
+ * How a figure says it is INCOMPLETE: some of the work under it has no rate,
+ * so the money shown is less than the money earned.
+ *
+ * One phrasing, because a figure marked `3 unrated` in one region and
+ * `3 no rate` in another reads as two different conditions. Returns null when
+ * there is nothing to mark, so a caller renders it unconditionally.
+ */
+export function unratedNote(count: number): string | null {
+  return count > 0 ? `${count} unrated` : null;
+}
+
+/**
  * A region of the panel, in one of two header modes, selected by `value`.
  *
  * A region whose point is one figure demotes its title to a quiet `type-label`

@@ -339,10 +339,12 @@ describe('count-up', () => {
     render(<HomeCards />, { wrapper });
     const perMonth = () => {
       const head = screen.getByText('Velocity').closest('header');
+      /* The Money span INSIDE the header's figure slot, which names the
+         same role the slot does — the slot itself also holds the `/mo gross`
+         suffix. */
       return (
-        head
-          ?.querySelector('.type-figure .tabular-nums')
-          ?.textContent?.trim() ?? ''
+        head?.querySelector('.type-figure .type-figure')?.textContent?.trim() ??
+        ''
       );
     };
     await waitFor(() => expect(perMonth()).toBe('$1,000.00'));

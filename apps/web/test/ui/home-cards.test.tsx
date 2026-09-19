@@ -1424,6 +1424,31 @@ describe('By project', () => {
     expect(region()?.textContent).not.toContain('50h');
   });
 
+  /* A project's AMOUNT is short by whatever has no rate, so the figure says
+     so. Hours are counted either way, which is why the mark is revenue's
+     alone — in the hours unit it would flag a figure that is complete. */
+  it('marks a project whose amount is missing unrated work, in revenue only', async () => {
+    await panel({
+      byProject: [
+        { ...fourProjects.byProject[0]!, unratedCount: 3 },
+        { ...fourProjects.byProject[1]!, unratedCount: 0 },
+      ],
+    });
+
+    expect(region()?.textContent).not.toContain('unrated');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Revenue' }));
+
+    expect(screen.getByText('3 unrated')).toBeVisible();
+    // Only the project that has some — the other row stays unmarked.
+    expect(region()?.textContent?.match(/unrated/g)).toHaveLength(1);
+
+    // And the chart's own description carries it, not just the pixels.
+    expect(
+      region()?.querySelector('[role="img"]')?.getAttribute('aria-label'),
+    ).toContain('3 unrated');
+  });
+
   /* The footer is where the window's real total lives — including the work
      the columns are not allowed to show. Both halves are conditional on
      there being a remainder, and a footer that prints "+0h 00m across 0 more"

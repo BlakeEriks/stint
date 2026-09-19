@@ -5,6 +5,7 @@ import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 import type { Beat } from '@/lib/client/use-beat';
 import { type Clients, INSET, Region } from './home-shell';
 import { Money } from './money';
+import { Swatch } from './swatch';
 
 /**
  * The trailing quarter's gross, and how it was made up: a figure, a bar and
@@ -53,7 +54,7 @@ export function Velocity({
             <Money
               amount={perMonth}
               currency={stats.currency}
-              className="tabular-nums"
+              className="type-figure"
             />
           </span>
           <span className="type-duration text-subtle">/mo gross</span>
@@ -69,21 +70,15 @@ export function Velocity({
               key={c.clientId ?? 'none'}
               className="flex items-center gap-1.5"
             >
-              <span
-                aria-hidden
-                className="size-2 flex-none rounded-[2px]"
-                style={{
-                  backgroundColor:
-                    (c.clientId ? clients.get(c.clientId)?.color : null) ??
-                    INTERNAL_SWATCH,
-                  opacity: MIX_OPACITY,
-                }}
+              <Swatch
+                color={c.clientId ? clients.get(c.clientId)?.color : null}
+                style={{ opacity: MIX_OPACITY }}
               />
               <span className="truncate text-muted">{c.clientName}</span>
               <Money
                 amount={gross(c)}
                 currency={c.currency}
-                className="type-meta tabular-nums"
+                className="type-meta"
               />
             </span>
           ))}

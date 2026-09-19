@@ -320,7 +320,14 @@ export function EntryDialog({
               typing a time redraws the block. */}
           {drawn ? (
             <div className="flex flex-col gap-1.5">
-              <Label className={LABEL}>Adjust</Label>
+              {/* A caption, not a label: the scrubber it heads is
+                  `aria-hidden`, so there is no control for a `<label>` to
+                  name. `asChild` keeps the styling and drops the element —
+                  the classes are `Label`'s own, so it is unchanged to look
+                  at. */}
+              <Label asChild className={LABEL}>
+                <span>Adjust</span>
+              </Label>
               <EntryScrubber
                 startedAt={drawn.startedAt}
                 endedAt={drawn.endedAt}
