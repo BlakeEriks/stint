@@ -141,18 +141,22 @@ try {
   // such role exists — so an owner test excludes nothing there and every
   // pgcrypto function reports as a failure.
   //
-  // Trigger functions are exempt: privilege is not consulted when a trigger
-  // fires, and they cannot be called directly.
+  // Trigger AND event-trigger functions are exempt: privilege is not
+  // consulted when either fires, and neither can be called directly — the
+  // call fails on the return type whoever the caller is. Production carries
+  // an `rls_auto_enable` event trigger that no migration created and that
+  // this check flagged on its first run against a database it had not seen.
   //
   // `to_regrole` guards the privilege call: `has_function_privilege` RAISES
   // on a role that does not exist, and this script takes a `--url` to
   // arbitrary databases. Crashing mid-run would skip the check below it and
   // report a Postgres stack trace instead of one of this script's own lines.
   const { rows: fns } = await client.query(
-    `select p.proname, pg_get_function_identity_arguments(p.oid) args
+    `select p.proname, pg_get_function_identity_arguments(p.oid) args,
+            p.prokind, p.prosecdef
      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public'
-       and p.prorettype <> 'trigger'::regtype
+       and p.prorettype not in ('trigger'::regtype, 'event_trigger'::regtype)
        and not exists (
          select 1 from pg_depend d
          where d.objid = p.oid
@@ -165,8 +169,18 @@ try {
   );
   if (fns.length > 0) {
     for (const f of fns) {
+      // Name what was found, not a diagnosis. This check runs against
+      // production in the release gate, where it meets objects no migration
+      // created and no test environment has — the first one it met was an
+      // event trigger set up in the dashboard, and calling that "missing its
+      // revoke/grant tail" sent a real release chasing a fix that did not
+      // exist. A caller is only genuinely exposed if it can CALL the thing.
       fail(
-        `anon can execute ${f.proname}(${f.args}) — it is missing its revoke/grant tail.`,
+        `anon holds execute on ${f.proname}(${f.args}).\n` +
+          '      If this is ours, give it the revoke/grant tail every\n' +
+          '      function in 00000000000010 onward carries. If it is not —\n' +
+          '      check `docs/setup.md` for a dashboard setting that created\n' +
+          '      it, and whether it is callable at all.',
       );
     }
   } else {

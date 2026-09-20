@@ -223,6 +223,24 @@ table has RLS on and at least one policy, because RLS with no policies denies
 everything and is indistinguishable from a broken deploy until someone tries
 to read.
 
+### One safety net exists only on production
+
+An event trigger, `rls_auto_enable()`, fires on every `CREATE TABLE` in
+`public` on the hosted project and enables RLS on the new table. **No
+migration creates it**, so it is invisible from a checkout and absent from
+local and CI databases.
+
+It is a backstop, not a mechanism to build on. It cannot write policies, and
+by the paragraph above a table with RLS and no policy denies everything — so
+a table it "rescues" is still broken, just differently. Every table declares
+its own `enable row level security` and at least one policy in its migration,
+and `verify:schema` is what actually enforces that.
+
+Worth knowing when reading the schema: an event-trigger function carries no
+explicit grant and needs none, because privilege is not consulted when one
+fires. `verify:schema`'s anon-execute check exempts them for the same reason
+it exempts row triggers.
+
 ## What the database guarantees
 
 These are enforced by the schema itself, so they hold no matter which client

@@ -53,6 +53,11 @@ before it reaches a real project. It reads `SUPABASE_DB_URL` from
 `apps/web/.env.local` — a secret that bypasses RLS and is never used by the
 app itself.
 
+**Production has an `rls_auto_enable` event trigger that no migration
+creates** — see `docs/data-model.md`. Never let it stand in for a table's own
+`enable row level security` and policy: local and CI have no such trigger, and
+it cannot write policies anyway.
+
 ### Triggers on `auth.users`
 
 `create_default_settings` fires inside Supabase's **signup transaction**.
