@@ -2,7 +2,7 @@
 description: Interview, spec and mock a feature, then build it on a branch with fresh-context agents
 ---
 
-Build `$ARGUMENTS` — a line from `docs/tasks.md`, or a description. If none
+Build `$ARGUMENTS` — a line from `docs/roadmap.md`, or a description. If none
 given, ask which.
 
 You are the decision maker and the interviewer. You hold the spec; subagents
@@ -15,7 +15,7 @@ command proving it is not ready to be built.
 
 ## 1. Read before asking
 
-Read `docs/tasks.md` for the entry if there is one — a task line already
+Read `docs/roadmap.md` for the entry if there is one — a task line already
 records the thinking that is not to be re-litigated. Then `CLAUDE.md`, and the
 docs that own the area.
 
@@ -65,7 +65,7 @@ deferred client whose integration point is written down is a follow-up; one
 that is merely implied is a rediscovery.
 
 Do not add a status column to `architecture.md` — what exists on disk is the
-signal, and unbuilt work lives in `tasks.md`.
+signal, and unbuilt work lives in `roadmap.md`.
 
 Do not ask what the codebase answers, what `principles.md` already refused, or
 anything with an obvious default — make the call, state it in the spec.
@@ -112,7 +112,7 @@ omission here becomes several corrections later.
 
 ## 4. Write the spec, then wait
 
-Write to `docs/tasks.md`'s sibling scratch — `.claude/scratch/<feature>.md`.
+Write to `docs/roadmap.md`'s sibling scratch — `.claude/scratch/<feature>.md`.
 Not `docs/`: it is working state, deleted when the feature ships.
 
 The spec names:
@@ -130,7 +130,7 @@ The spec names:
   is the rest and wants the local stack up. Both mirror a CI job and take no
   arguments — `pnpm db:setup` first if a migration landed, since the test
   databases are built from migrations and do not pick up a new one.
-- **Doc changes**, including deleting the `tasks.md` line. A finished task is
+- **Doc changes**, including deleting the `roadmap.md` line. A finished task is
   deleted, not ticked.
 
 Then present **decisions with consequences** separately from work you will
@@ -263,7 +263,7 @@ Fix what they find, with a test each.
 ## 7. Land it
 
 Run `pnpm verify:static` and `pnpm verify:db` green before reporting, plus
-`pnpm test:e2e` if a screen changed and `swift build` if the Mac app did. Delete the `tasks.md` line and
+`pnpm test:e2e` if a screen changed and `swift build` if the Mac app did. Delete the `roadmap.md` line and
 the scratch spec in the final commit — git holds the history, and the mockup
 stays as the screen doc.
 

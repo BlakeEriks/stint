@@ -141,7 +141,7 @@ consequences are baked into the system:
 
 The eight are hand-set literals in `tokens.json`, each a hex and a hue angle
 at **L 0.700, C 0.111**, 40° apart. There is no generator for them, and a
-scale per hue would need one — `tasks.md` carries that work.
+scale per hue would need one — `roadmap.md` carries that work.
 
 ## Warning and danger
 

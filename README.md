@@ -18,7 +18,7 @@ app runs the timer — start, stop, task name, project — and nothing else.
 
 ```
 docs/            setup, deploying, architecture, data model, API contract, design system
-docs/tasks.md    wanted but not built, and the hard parts already thought through
+docs/roadmap.md    wanted but not built, and the hard parts already thought through
 docs/design/samples/  committed renderer output
 packages/
   schema/        Zod schemas — the API contract
@@ -86,7 +86,7 @@ navigation, redirects and server components — see `docs/local-dev.md`.
 - [docs/api.md](docs/api.md) — endpoint contract
 - [docs/macos.md](docs/macos.md) — the menu bar app: building it, and which backend it talks to
 - [docs/design/principles.md](docs/design/principles.md) — what this app refuses to do
-- [docs/tasks.md](docs/tasks.md) — wanted but not built
+- [docs/roadmap.md](docs/roadmap.md) — wanted but not built
 
 ## License
 
