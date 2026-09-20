@@ -110,7 +110,13 @@
   }
   .input.ph { color: var(--text-subtle); }
   .input.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-  .charge-row { display: flex; gap: 8px; align-items: center; padding: 8px 0; }
+  .flabel {
+    display: block;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .fhint { margin: 6px 0 0; font-size: 12px; color: var(--text-subtle); }
+  .charge-row { display: flex; gap: 8px; align-items: center; padding: 4px 0; }
   .charge-row .desc { flex: 1; }
   .charge-row .amt-field { width: 116px; }
   .x {
@@ -280,12 +286,38 @@
 
     <p>
       A fixed fee, a deposit, a retainer amount, a rebilled flight or licence.
-      They sit <strong style="color:var(--text-strong)">under the preview
-      table</strong>, inside the same card, because the preview is already the
-      moment the user reads what is about to be billed — a charge added
-      anywhere else is a number that arrives after they have approved the
-      total.
+      They sit in <strong style="color:var(--text-strong)">What to bill,
+      beside the client and the period</strong>, because a charge
+      <em>decides</em> what gets billed. Everything that answers "what goes on
+      this invoice" is entered before the preview and clears it when changed —
+      a charge entered after the preview would be a charge added to invalidate
+      the thing it was added to.
     </p>
+
+    <div class="mock">
+      <div class="card">
+        <div class="card-head">
+          <span class="type-heading" style="color:var(--text-strong)">What to bill</span>
+        </div>
+        <div class="card-rule"></div>
+        <div class="card-body" style="padding-top:14px">
+          <span class="flabel">Charges</span>
+          <div class="charge-row" style="margin-top:6px">
+            <div class="desc"><div class="input">Fixed-scope build</div></div>
+            <div class="amt-field"><div class="input mono">2400</div></div>
+            <button class="x">×</button>
+          </div>
+          <div class="charge-row">
+            <div class="desc"><div class="input ph">What is the charge for?</div></div>
+            <div class="amt-field"><div class="input mono ph">0.00</div></div>
+            <button class="x">×</button>
+          </div>
+          <button class="add-charge">+ Add a charge</button>
+          <p class="fhint">A fixed fee, a deposit, or an expense you are passing on.</p>
+        </div>
+      </div>
+    </div>
+    <span class="caption">Entered with the client and the period, before any preview</span>
 
     <div class="mock">
       <div class="card">
@@ -310,12 +342,6 @@
             <span class="type-duration" style="color:var(--text-subtle)"></span>
             <span class="amt">$2,400.00</span>
           </div>
-          <div class="charge-row">
-            <div class="desc"><div class="input ph">What is the charge for?</div></div>
-            <div class="amt-field"><div class="input mono ph">0.00</div></div>
-            <button class="x">×</button>
-          </div>
-          <button class="add-charge">+ Add a charge</button>
           <div class="irow" style="justify-content:flex-end; gap:8px">
             <button class="btn">Download PDF</button>
             <button class="btn primary">Generate</button>
@@ -323,7 +349,7 @@
         </div>
       </div>
     </div>
-    <span class="caption">A charge joins the lines it will be billed beside</span>
+    <span class="caption">The charge lands last, stating no quantity and no rate</span>
 
     <ul class="rule">
       <li><strong>A charge states no quantity and no rate.</strong> Its
@@ -339,9 +365,11 @@
       <li><strong>Adding or editing a charge clears the approved preview</strong>,
         the same as changing the client or the period. It changes what would
         be billed, which is the whole test.</li>
-      <li><strong>A blank row is not a line.</strong> The empty row is the
-        affordance, not an entry; it reaches the invoice once it has a
-        description and an amount.</li>
+      <li><strong>A half-filled row is not a line.</strong> A row reaches the
+        invoice once it has both a description and an amount above zero.
+        Someone mid-thought is not billing zero, and the same filter runs
+        before the preview and before generation — so what was approved is
+        what gets created.</li>
     </ul>
   </section>
 
