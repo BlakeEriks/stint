@@ -51,7 +51,6 @@ there is no archive of what was declined. Re-argue the idea against
 
 ## The unvalidated part
 
-That a contractor will pay $15/month for a correct invoice is **inference from
-the market, not from customers**. It is well supported by what the incumbents
-did in 2026 and no Stint user has been asked. Nothing written here should
-outrank what real conversations say once they happen.
+Everything above is **a bet, not a finding** — `positioning.md`'s last section
+says what would settle it. Write the thesis as what we are building on, never
+as something users have confirmed.
