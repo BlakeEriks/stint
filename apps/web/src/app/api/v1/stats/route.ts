@@ -22,7 +22,7 @@ import {
   COLLECTED_MONTHS,
   type CollectedRow,
   type DayRow,
-  daysSince,
+  daysSincePaid,
   type DurationRow,
   type InvoiceRow,
   type MonthRow,
@@ -96,7 +96,6 @@ export const GET = handle(async (req: Request) => {
     durationCandidates,
     projectRows,
     collectedRows,
-    lastPaid,
   ] = await Promise.all([
     db.rpc('unbilled_by_client', { p_user_id: userId }),
 
@@ -192,17 +191,6 @@ export const GET = handle(async (req: Request) => {
       p_to: monthEnd.toISOString(),
       p_tz: tz,
     }),
-
-    /* The most recent payment, for "last paid Nd ago". Its own query rather
-       than the newest row of the rollup: that one is bucketed by month and
-       carries no day, and the last payment can be older than the window. */
-    db
-      .from('invoices')
-      .select('paid_at')
-      .eq('status', 'paid')
-      .order('paid_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
   ]);
 
   for (const r of [
@@ -218,12 +206,30 @@ export const GET = handle(async (req: Request) => {
     durationCandidates,
     projectRows,
     collectedRows,
-    lastPaid,
   ]) {
     if (r.error) throw r.error;
   }
 
   const currency = settings.data?.currency ?? 'USD';
+
+  /* The most recent payment, for "last paid Nd ago". Its own query rather
+     than the newest row of the rollup: that one is bucketed by month and
+     carries no day, and the last payment can be older than the window.
+
+     Scoped to `currency`, which is why it waits for settings rather than
+     joining the batch above: the line sits beside the collected figure, and
+     that figure counts only this currency. A euro paid today against a
+     dollar figure would read "nothing collected this month · paid today". */
+  const lastPaid = await db
+    .from('invoices')
+    .select('paid_at')
+    .eq('status', 'paid')
+    .eq('currency', currency)
+    .order('paid_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (lastPaid.error) throw lastPaid.error;
+
   const unbilledRows = (unbilled.data ?? []) as UnbilledRow[];
   const invoiceRows = (invoices.data ?? []) as InvoiceRow[];
   const unprojectedRows = (unprojected.data ?? []) as UnprojectedRow[];
@@ -260,7 +266,10 @@ export const GET = handle(async (req: Request) => {
     collected: buildCollected(
       (collectedRows.data ?? []) as CollectedRow[],
       collectedMonths,
-      lastPaid.data?.paid_at ? daysSince(lastPaid.data.paid_at, now) : null,
+      lastPaid.data?.paid_at
+        ? daysSincePaid(lastPaid.data.paid_at, now, tz)
+        : null,
+      currency,
     ),
     pace: buildPace({
       target: settings.data?.monthly_target,

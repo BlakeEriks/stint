@@ -1,11 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import {
-  render,
-  screen,
-  waitFor,
-  within,
-  fireEvent,
-} from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -232,11 +226,6 @@ describe('EntryDialog', () => {
     const SUGGESTIONS: TaskNameSuggestion[] = [
       { taskName: 'Invoice reconciliation', projectId: 'p1', lastUsedAt: '1' },
     ];
-
-    /* Scoped to the list: the project `<select>` fills the page with options
-       of its own, and an unscoped query would be ambiguous. */
-    const suggestions = () =>
-      screen.findByRole('listbox', { name: 'Task name suggestions' });
 
     /* An entry that exists is already named, so there is nothing to
        accelerate and the overlay would drop over the field the moment it

@@ -17,8 +17,16 @@ hex, and no alpha modifier on a semantic token — `bg-danger/12` is a
 one-off that exists in one file, has no light-mode counterpart, and cannot be
 found by anyone auditing the palette. Need a tint? Add it to `tokens.json` and
 run `pnpm tokens`. `accent-muted` and `danger-muted` are the tinted-surface
-pair, both at OKLCH L 0.299 / C 0.060 dark and L 0.960 / C 0.030 light on
-their own hue; a third follows the same numbers. Opacity is for *elevation* —
+pair, each a near-ground tint on its own hue:
+
+| token | dark | light |
+|---|---|---|
+| `accent-muted` | L 0.299 / C 0.060 | L 0.936 / C 0.031 |
+| `danger-muted` | L 0.298 / C 0.061 | L 0.956 / C 0.022 |
+
+Dark holds one pair of numbers for both; light tunes each against the card it
+sits on, so a third is tuned the same way rather than copied. Opacity is for
+*elevation* —
 overlays, scrims, a disabled control — not for deriving a colour that should
 have a name.
 

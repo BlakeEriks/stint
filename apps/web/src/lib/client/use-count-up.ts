@@ -25,20 +25,12 @@ function ease(t: number) {
   return 1 - (1 - t) ** 3;
 }
 
-export function prefersReducedMotion() {
+function prefersReducedMotion() {
   if (typeof window === 'undefined') return false;
   return (
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
   );
 }
-
-/**
- * The value to render, and whether it is still travelling.
- *
- * `running` is for the decoration beside the figure — the delta chip, the
- * cyan — never for the figure itself, which is always `value`.
- */
-export type CountUp = { value: number; running: boolean };
 
 /**
  * Where a figure starts on its first mount, as a fraction of its value.
@@ -52,15 +44,15 @@ const ARRIVAL = 0.92;
 /**
  * Tween `to` from wherever the figure already was.
  *
- * `value` always holds the SETTLED figure, so a tween that never runs — a
- * suspended rAF in a hidden tab, reduced motion, an unmount mid-flight —
- * leaves the answer on screen rather than a number the user does not have.
+ * The returned `value` always holds the SETTLED figure, so a tween that never
+ * runs — a suspended rAF in a hidden tab, reduced motion, an unmount
+ * mid-flight — leaves the answer on screen rather than a number the user does
+ * not have.
  */
-export function useCountUp(to: number): CountUp {
+export function useCountUp(to: number): { value: number } {
   const reduced = prefersReducedMotion();
 
   const [value, setValue] = useState(to);
-  const [running, setRunning] = useState(false);
 
   /* The figure currently on screen, read by the next tween as its origin.
      State cannot serve: the effect closes over the value from its own render
@@ -84,11 +76,9 @@ export function useCountUp(to: number): CountUp {
     const start = shown.current === to ? previous : shown.current;
     if (reduced || start === to) {
       setValue(to);
-      setRunning(false);
       return;
     }
 
-    setRunning(true);
     const began = performance.now();
     let frame = 0;
 
@@ -100,7 +90,6 @@ export function useCountUp(to: number): CountUp {
       const t = Math.min(Math.max((now - began) / DURATION, 0), 1);
       if (t >= 1) {
         setValue(to);
-        setRunning(false);
         return;
       }
       setValue(start + (to - start) * ease(t));
@@ -116,9 +105,8 @@ export function useCountUp(to: number): CountUp {
       cancelAnimationFrame(frame);
       target.current = previous;
       setValue(to);
-      setRunning(false);
     };
   }, [to, reduced]);
 
-  return { value, running };
+  return { value };
 }

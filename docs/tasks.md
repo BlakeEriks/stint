@@ -215,8 +215,10 @@ later.
       **It snoozes, defaulting to daily, with a dropdown for longer.** Checking
       a bank balance is a real errand and a daily nudge is wanted; what the row
       must not do is sit there permanently true with no way to say *not yet*.
-      This is the one row that snoozes — `principles.md` carries the
-      distinction and the reason.
+      Whether a client has paid is outside the contractor's control — looking
+      is the only action — which is what would earn this row the exception
+      `principles.md` refuses every other row. If it ships, it is the only one
+      that snoozes, and that refusal is amended in the same change.
 
 - [ ] **Stopping the timer moves Unbilled on the stop response.** In the menu
       bar panel, `toggle()` discards what `stopTimer()` returns and waits on a
@@ -274,6 +276,23 @@ later.
       `:54322` — but the CLI keeps its own `supabase_migrations.schema_migrations`,
       and two tables tracking one database is how this got confusing. Decide
       which one is authoritative before writing it.
+
+- [ ] **`allocate_invoice_number` has no explicit grant.** Every rollup ends
+      with the same two lines — `revoke all … from public, anon`, then
+      `grant execute … to authenticated` — and this function has neither, so
+      it executes only through Postgres's default `PUBLIC` execute. `anon`
+      therefore holds execute on the one function that mutates
+      `next_invoice_number`.
+
+      RLS on `user_settings` is what keeps that from being exploitable today:
+      the function is `security invoker`, so the `update` inside it matches no
+      row for an anonymous caller and it raises instead. The fault is that the
+      protection is incidental — nothing in the migration says who may call
+      this, and `00000000000004_api_grants.sql` grants tables explicitly for
+      exactly that reason.
+
+      Give it the same revoke/grant tail in a migration.
+      `resolve_entry_rate(uuid)` is in the same position and takes it too.
 
 - [ ] **A write accepts another user's `project_id`.** `POST /timer/start`
       with a project belonging to a different account returns 201 and stores
@@ -360,6 +379,44 @@ later.
       empty state is a different element from the list, so nothing
       interpolates one into the other. Wanted: the paragraph occupying the
       space the row vacates, so the section settles once.
+
+- [ ] **The menu bar panel calls `GET /entries/task-names` for its recent
+      names.** It reimplements them instead — `distinctTasks`
+      (`TimerModel.swift:165-196`) walks a two-week `api.entries()` page and
+      keeps the first five names it has not seen. The endpoint is live and
+      backed by `recent_task_names` (migration 11), so the two disagree on
+      what a name is: the RPC dedupes **case-insensitively** and keeps the
+      most recent spelling, where Swift dedupes on the raw string and offers
+      the user both halves of their own typo.
+
+      **The RPC also ranks the selected project first**, which the panel wants
+      and cannot get from a recency walk. And it costs one row per name
+      against the 200 the panel fetches every poll to keep five.
+
+      **The restart list shows a duration, and the endpoint does not return
+      one.** `recent` is `[TimeEntry]` and the only thing the two-week window
+      is fetched for, but `EntryRow` renders `entry.durationSeconds`
+      (`ContentView.swift:550`) beside the name. `{ taskName, projectId,
+      lastUsedAt }` restarts the work — `resume()` sends only those two
+      fields — and drops the figure. So this decides what the row is: a name
+      to restart, or a past entry. The panel's premise is the former.
+
+- [ ] **Every size in the macOS app comes from a Typography role.** Eight do
+      not: `ContentView.swift` sets `.font(.system(size:))` by hand at `:66`,
+      `:185`, `:441`, `:509`, `:547`, `:578` and `:717`, and `Mark.swift:17`
+      sizes the mark. `.role()` is right beside them, so these are the scale's
+      exceptions with nothing recording why.
+
+      **Nothing catches them.** `check:type` reads `src/**/*.tsx` and is the
+      web's alone, so the rule `CLAUDE.md` states for both apps is enforced in
+      one of them. The Swift half wants the same check before the drift grows.
+
+      **`Role.tabular` is generated and never read** (`Tokens.swift`,
+      emitted by `generate.js:369`). `.role()` applies `.monospacedDigit()` to
+      every role unconditionally, so a role that is not tabular gets tabular
+      figures anyway and the flag that would say so is inert. Either `.role()`
+      reads it or `generate.js` stops emitting it — a generated field nothing
+      consumes is a claim the app does not honour.
 
 ## Deferred
 
@@ -667,42 +724,33 @@ is already done.
   admin turns out to be scattered evenly through the day, the card has
   nothing to say and should not ship. Check before building.
 
-- **The quarter as a first-class period.** *Question: does the app report
-  cash received, when every number in it today reports work done?* A US
-  contractor pays estimated tax four times a year on **money actually
-  collected in that quarter**, and that is the one figure the app cannot
-  currently produce. Answer this before building anything below it.
+- **The quarter as a first-class period.** A US contractor pays estimated
+  tax four times a year on **money actually collected in that quarter**.
+  `collected_by_month()` buckets paid invoices by `paid_at` in the caller's
+  zone and groups by currency, so the cash figure exists — by month, over a
+  twelve-month window, for Home. The quarter is the period it is not yet
+  reported in.
 
-  It is a real hole in "track time and get paid": paying the tax is part
-  of getting paid, four deadlines a year, and the number is sitting in
-  this database already. Toggl is no argument against it either — this is
-  not project management, it is the contractor's own year.
-
-  **The conflict is a principle, not a schema gap.** `principles.md`:
-  *revenue is work done, not money collected, and it is bucketed by the
-  entry's date rather than the invoice's* — written so a bar does not
-  drop when a client pays late. Tax is the exact inverse: the IRS wants
-  the date the money arrived, so a quarterly figure must bucket by
-  `paidAt`, which no view does. Both are correct for their own question,
-  which is why this needs deciding rather than assuming — and if it ships,
-  the two numbers must be labelled so precisely that nobody reads one as
-  the other. That framing is also the guard against scope: this reports
-  what happened, it does not compute what is owed.
+  **The two numbers must be labelled so precisely that nobody reads one as
+  the other.** `principles.md` holds that revenue is work done, bucketed by
+  the entry's date rather than the invoice's, so a bar does not drop when a
+  client pays late; the IRS wants the date the money arrived. Both are
+  correct for their own question, and Home already carries both — that
+  naming care is what the quarter inherits.
 
   **Not tax advice, and not a tax product.** No rates, no estimates, no
   safe-harbour maths, no filing. The app puts the contractor's own numbers
   in the shape their accountant or their 1040-ES asks for, and stops. That
   line is what keeps this from becoming the thing the thesis refuses.
 
-  Candidates, if the answer is yes:
+  What is unbuilt:
 
   - **A date filter on `/invoices`.** The list filters by status alone
     today, so "what did I invoice last quarter" is unanswerable without
     scrolling. Quarter presets plus a range, in query params so the link
     is shareable. Cheapest, useful even if nothing else here ships.
-  - **Collected-per-quarter**, summing `total` over invoices with `paidAt`
-    in the quarter. The estimated-tax number, and the one that needs the
-    naming care above.
+  - **Collected per quarter**, which is the month rollup regrouped — three
+    of its buckets, and a window walked in quarters rather than months.
   - **Quarter over quarter**, once four quarters exist. The comparison a
     contractor actually makes, and one a month cannot show.
   - **An export for the accountant** — invoices with issue date, paid
@@ -714,8 +762,8 @@ is already done.
   quarter and setting a goal against one are different things, and only
   the first is in question.
 
-  Where it lives is `/reports`, which does not exist yet. That is the
-  other reason it waits.
+  Where it lives is `/reports`, which does not exist yet. That is why it
+  waits.
 
 - **Record a reminder on a sent invoice.** `last_reminded_at`, so an
   overdue row can read "12 days late · chased 3d ago" rather than either

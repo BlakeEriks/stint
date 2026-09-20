@@ -9,7 +9,7 @@ import {
 import { resolveRate, resolveRateSource, lineAmount } from '../src/rates.ts';
 import { deriveTimerView } from '../src/timer.ts';
 import { uuidv7 } from '../src/uuid.ts';
-import { formatCurrency, formatHours } from '../src/format.ts';
+import { formatCurrency, formatHours, formatLocalTime } from '../src/format.ts';
 
 test('formatClock renders the timer format', () => {
   assert.equal(formatClock(0), '0:00:00');
@@ -141,4 +141,18 @@ test('formatHours keeps the 2dp the amount was computed from', () => {
   assert.equal(formatHours(1.5), '1.50');
   assert.equal(formatHours(0), '0.00');
   assert.equal(formatHours(10), '10.00');
+});
+
+test('formatLocalTime is 12-hour in the zone it is given', () => {
+  const at = new Date('2026-03-10T19:05:00.000Z');
+  assert.equal(formatLocalTime(at, 'UTC'), '7:05 PM');
+  assert.equal(formatLocalTime(at.toISOString(), 'UTC'), '7:05 PM');
+  assert.equal(formatLocalTime(at, 'America/New_York'), '3:05 PM');
+  assert.equal(formatLocalTime(at, 'Asia/Tokyo'), '4:05 AM');
+  // The cached formatter stays bound to its own zone.
+  assert.equal(formatLocalTime(at, 'UTC'), '7:05 PM');
+  assert.equal(
+    formatLocalTime(new Date('2026-03-10T00:00:00Z'), 'UTC'),
+    '12:00 AM',
+  );
 });

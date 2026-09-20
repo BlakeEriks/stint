@@ -961,8 +961,15 @@ const S = (n: number) =>
  * date silently falls out of range once the real clock leaves that month and
  * the figure reads 0 while the test still describes real money.
  *
- * The 2nd at noon UTC, so the entry stays inside the month in every timezone
- * the suite runs `tz` as, and clear of a DST boundary at either end.
+ * Noon UTC, so the entry stays inside the month in every timezone the suite
+ * runs `tz` as, and clear of a DST boundary at either end.
+ *
+ * The day is the month's last BUSINESS day at or before today, never a fixed
+ * 2nd. Pace's cumulative line is null past today and steps only on business
+ * days, so an entry dated beyond the last such day sits past the line's end:
+ * read on the 1st, or on a 2nd whose month opens at a weekend, the last
+ * non-null point is 0 — and when no business day has elapsed the filter is
+ * empty and `.at(-1)` is undefined.
  */
 async function entryThisMonth(opts: {
   id: string;
@@ -971,8 +978,19 @@ async function entryThisMonth(opts: {
   rateOverride?: number | null;
 }) {
   const now = new Date();
+  /* Walk back from today to the nearest weekday, then no earlier than the
+     1st — a month opening Sat/Sun has none elapsed on day 1 or 2, and the
+     1st still keeps the entry inside the window every figure here reads. */
+  let day = now.getUTCDate();
+  while (day > 1) {
+    const dow = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), day),
+    ).getUTCDay();
+    if (dow !== 0 && dow !== 6) break;
+    day -= 1;
+  }
   const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 2, 12, 0, 0),
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), day, 12, 0, 0),
   );
   const end = new Date(start.getTime() + opts.hours * 3_600_000);
   await pool.query(
@@ -1355,15 +1373,20 @@ test('collected sums payments by when they were paid', async () => {
      `issue_date` is held constant, so a bucket following it rather than the
      payment would put all three in one month.
 
-     Months back from NOW rather than from a pinned day, so the assertions
-     below hold whatever date the suite runs on. Each step lands mid-month —
-     the 1st minus a timezone offset is the previous month. */
+     Months back from the CURRENT UTC month, every step pinned to noon on the
+     1st — including this one, which used to be the live instant and so could
+     land within minutes of a month boundary, leaving the run's own clock to
+     decide the bucket. Noon on the 1st is a day every month has and one the
+     run can never be earlier than, so the newest payment is in this month and
+     in the past whatever day the suite runs on. The request asks for UTC, so
+     the fixture is built in UTC and the two agree where a month begins. */
+  const anchor = new Date();
+  anchor.setUTCDate(1);
+  anchor.setUTCHours(12, 0, 0, 0);
+
   const paidAt = (monthsBack: number) => {
-    const d = new Date();
-    if (monthsBack > 0) {
-      d.setUTCDate(15);
-      d.setUTCMonth(d.getUTCMonth() - monthsBack);
-    }
+    const d = new Date(anchor);
+    d.setUTCMonth(d.getUTCMonth() - monthsBack);
     return d.toISOString();
   };
   const mk = (id: string, num: string, total: number, monthsBack: number) =>
@@ -1385,8 +1408,14 @@ test('collected sums payments by when they were paid', async () => {
 
   assert.equal(collected.trailing12, 800, 'the window excludes the old one');
   assert.equal(collected.thisMonth, 500, 'and the month is its own figure');
-  // Measured from the NEWEST payment, which this fixture makes `now`.
-  assert.equal(collected.daysSincePaid, 0);
+  /* Whole CALENDAR days from the newest payment, which the fixture pins to
+     the 1st — so the figure is today's date minus one, in the zone asked for,
+     and never the elapsed-hours floor that reads last night as today. */
+  assert.equal(
+    collected.daysSincePaid,
+    new Date().getUTCDate() - 1,
+    'calendar days back to the newest payment',
+  );
 
   /* Six buckets, oldest first, every month present. A month nobody paid in is
      a real zero rather than a missing point, or the plot draws a hole. */
@@ -1399,6 +1428,86 @@ test('collected sums payments by when they were paid', async () => {
     ),
     collected.byMonth,
     'oldest first',
+  );
+});
+
+test('collected counts only the user’s own currency', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-00000000006e';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Mixed',100)`,
+    [c, USER],
+  );
+
+  /* Both paid on the same day, in two currencies. Money is not addable
+     across them and the response carries ONE currency, so a euro summed in
+     here is a euro reported as a dollar on the figure Home leads with. */
+  // Noon UTC today, so both land in this month's bucket whatever hour the
+  // suite runs at.
+  const paidToday = `${new Date().toISOString().slice(0, 10)}T12:00:00Z`;
+  const mk = (id: string, num: string, total: number, currency: string) =>
+    pool.query(
+      `insert into invoices
+         (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+          subtotal,tax_rate,tax_amount,total,currency,grouping_mode,paid_at)
+       values ($1,$2,$3,$4,$5,'paid','2026-09-01',$6,0,0,$6,$7,'entry',$8)`,
+      [id, USER, c, num, Number(num.slice(-2)), total, currency, paidToday],
+    );
+
+  await mk('44444444-0000-4000-8000-000000000020', 'INV-0020', 500, 'USD');
+  await mk('44444444-0000-4000-8000-000000000021', 'INV-0021', 1000, 'EUR');
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const { collected } = res.body;
+
+  assert.equal(
+    res.body.currency,
+    'USD',
+    'the settings currency is the figure’s',
+  );
+  assert.equal(collected.trailing12, 500, 'the euro invoice is not added in');
+  assert.equal(collected.thisMonth, 500);
+  assert.equal(
+    collected.byMonth[collected.byMonth.length - 1]?.amount,
+    500,
+    'nor does it reach the plot',
+  );
+});
+
+test('the last payment counted is one in the user’s currency', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-00000000006f';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Euro',100)`,
+    [c, USER],
+  );
+
+  /* The only payment there is, and it is a euro one. `daysSincePaid` sits
+     beside a figure that counts dollars, so "paid today" next to $0.00 is the
+     screen describing money it did not report. */
+  await pool.query(
+    `insert into invoices
+       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+        subtotal,tax_rate,tax_amount,total,currency,grouping_mode,paid_at)
+     values ($1,$2,$3,'INV-0022',22,'paid','2026-09-01',1000,0,0,1000,'EUR',
+             'entry',$4)`,
+    [
+      '44444444-0000-4000-8000-000000000022',
+      USER,
+      c,
+      `${new Date().toISOString().slice(0, 10)}T12:00:00Z`,
+    ],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.currency, 'USD');
+  assert.equal(res.body.collected.thisMonth, 0);
+  assert.equal(
+    res.body.collected.daysSincePaid,
+    null,
+    'a payment in another currency is not this figure’s last payment',
   );
 });
 
@@ -1925,13 +2034,19 @@ test('a revenue target gets a ray, not a withheld one', async () => {
   assert.notEqual(res.body.pace.delta, null);
 
   const series = res.body.pace.series as { actual: number | null }[];
-  // The money reached the line, so the series is the month's revenue and not
-  // an hours series wearing a money label.
-  assert.equal(
-    series.filter((s) => s.actual !== null).at(-1)?.actual,
-    400,
-    'the cumulative line carries the money, not the hours',
-  );
+  const drawn = series.filter((s) => s.actual !== null);
+  /* The line is null past today, so before the month's first business day
+     there is no point to read. That is the series being right, not the money
+     going missing — `pace.actual` above carries the figure either way. */
+  if (drawn.length > 0) {
+    // The money reached the line, so the series is the month's revenue and
+    // not an hours series wearing a money label.
+    assert.equal(
+      drawn.at(-1)?.actual,
+      400,
+      'the cumulative line carries the money, not the hours',
+    );
+  }
 });
 
 // ── stale drafts ───────────────────────────────────────────────────

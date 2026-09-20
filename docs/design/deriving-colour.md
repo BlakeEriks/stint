@@ -145,9 +145,9 @@ scale per hue would need one — `tasks.md` carries that work.
 
 ## Warning and danger
 
-Both are hand-set literals, like the light accent — there is no generator for
-them yet. They are **constructed** the way the accent is, at a fixed fraction
-of the gamut edge, and every value owes the table below.
+Both are hand-set literals — there is no generator for them yet. They are
+**constructed** the way the accent is, at a fixed fraction of the gamut edge,
+and every value owes the table below.
 
 | token | theme | value | L | C | h |
 |---|---|---|---|---|---|
@@ -213,9 +213,20 @@ accent; across the whole forest/olive range dark ink tops out near 3:1, so
 `accent-default` must stay dark enough to carry white. That caps the ladder —
 an olive lifted much above L 0.5 fails the assertion guarding it.
 
-`success` follows the accent hue a step down, at L 0.50 against the accent's
-0.455, so a paid badge reads green without reaching the running timer's
-weight.
+**`success` is the accent hue one step off `accent-default`, and the direction
+is the theme's** — each moves toward its own ground, so the paid badge recedes
+where the running timer does not. The step is what separates them, not which
+side of it `success` sits on.
+
+| theme | `accent-default` | `success` | step |
+|---|---|---|---|
+| dark | `accent.300`, L 0.870 | `accent.500`, L 0.720 | down, toward the ground |
+| light | L 0.455 | `#457036`, L 0.499 | up, toward the paper |
+
+Light `success` is a **hand-set literal with no rung in
+`derive-light-accent.mjs`** — the generator prints the five accent rungs, and
+inventing a sixth to cover this one would be the hand-editing the ramp check
+exists to catch, the other way round.
 
 ## Contract assertions
 
@@ -226,4 +237,8 @@ weight.
   text on danger.
 - Forbidden pairings that **must not** — white on the accent is 1.37:1, and
   the assertion exists so a well-meaning change cannot quietly make it legal.
-- Both ramps re-derived and diffed against `tokens.json`.
+- Every generated ramp re-derived and diffed against `tokens.json`: both
+  neutrals, and the **light accent**, which lives under `semantic.light` as
+  flat strings rather than in `primitive` and so needs its own check. Only the
+  rungs the generator prints are compared, which is why light `success` is
+  outside it.

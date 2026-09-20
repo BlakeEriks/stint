@@ -12,12 +12,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ProjectDialog } from './project-dialog';
 import { inputClass } from './field';
+import { Swatch } from './swatch';
 import type { Project } from '@/lib/client/api';
-import {
-  INTERNAL_SWATCH,
-  useClients,
-  useProjectColors,
-} from '@/lib/client/use-project-colors';
+import { useClients, useProjectColors } from '@/lib/client/use-project-colors';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 
 /** "No project" is a real choice, not an absent one, so it needs a value. */
@@ -177,11 +174,10 @@ export function ProjectPicker({
             id={id}
             aria-label="Project"
             disabled={disabled}
-            /* biome-ignore lint/a11y/noAutofocus: the rule guards against
-               stealing focus on PAGE load. This is a modal the user just
-               opened, where something must take focus — and when the row
-               they clicked exists because the project is missing, this is
-               the field they came for. */
+            /* Autofocus is right here: this is a modal the user just opened,
+               where something must take focus — and when the row they clicked
+               exists because the project is missing, this is the field they
+               came for. */
             autoFocus={autoFocus}
             /* `focus:` as well as `focus-visible:`. A control focused
                PROGRAMMATICALLY — as the inbox's unprojected row does on open
@@ -303,16 +299,5 @@ function Row({
         </span>
       ) : null}
     </>
-  );
-}
-
-/** A client's colour is data, so it stays an inline style. */
-function Swatch({ color }: { color?: string | null }) {
-  return (
-    <span
-      aria-hidden
-      className="size-2 flex-none rounded-[2px]"
-      style={{ background: color ?? INTERNAL_SWATCH }}
-    />
   );
 }

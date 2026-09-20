@@ -4,8 +4,10 @@ import {
   buildAwaitingPayment,
   buildBillableRatio,
   buildByProject,
+  buildCollected,
   buildHoursByDay,
   buildMonthTotals,
+  buildOpenInvoiceCount,
   buildOverdueInvoices,
   buildPace,
   buildStaleDrafts,
@@ -15,6 +17,8 @@ import {
   buildVelocity,
   type ByProjectRow,
   clientNamesFrom,
+  type CollectedRow,
+  daysSincePaid,
   type DurationRow,
   type InvoiceRow,
   projectNamesFrom,
@@ -623,6 +627,172 @@ test('the cumulative line stops at today rather than running flat', () => {
   );
   // The ray still runs the whole month — where the target lands is the point.
   assert.ok(p?.series.every((s) => s.expected > 0));
+});
+
+// ── days since paid ─────────────────────────────────────────────────
+
+/* The screen says "paid today", which is a calendar word. Elapsed 24-hour
+   spans make last night's payment ten hours old this morning, so it floors
+   to 0 and the line claims today's money about yesterday's. */
+test('daysSincePaid counts calendar days, not elapsed 24-hour spans', () => {
+  const morning = new Date('2026-03-18T13:00:00Z'); // 09:00 New York
+  const lastNight = '2026-03-18T03:00:00Z'; // 23:00 New York, the 17th
+
+  assert.equal(daysSincePaid(lastNight, morning, 'America/New_York'), 1);
+  assert.equal(
+    daysSincePaid('2026-03-18T12:00:00Z', morning, 'America/New_York'),
+    0,
+    'the same local date is today',
+  );
+});
+
+/* Bucketed in the caller's zone like every other figure here: one instant is
+   two different calendar dates either side of the date line. */
+test('daysSincePaid reads the local date, not UTC', () => {
+  const now = new Date('2026-03-18T12:00:00Z');
+  const paid = '2026-03-17T23:30:00Z';
+
+  assert.equal(daysSincePaid(paid, now, 'UTC'), 1);
+  assert.equal(
+    daysSincePaid(paid, now, 'Asia/Tokyo'),
+    0,
+    'already the 18th in Tokyo',
+  );
+});
+
+/* A future payment date is a data error, not a state the line has copy for.
+   Clamping it to 0 is what would make the screen say "paid today" about
+   money that has not arrived, so it reports nothing instead. */
+test('a future paid_at is null rather than “paid today”', () => {
+  const now = new Date('2026-03-18T12:00:00Z');
+  assert.equal(daysSincePaid('2026-03-19T12:00:00Z', now, 'UTC'), null);
+  assert.equal(daysSincePaid('2026-03-18T23:00:00Z', now, 'UTC'), 0);
+});
+
+// ── collected ───────────────────────────────────────────────────────
+
+const collectedRow = (o: Partial<CollectedRow> = {}): CollectedRow => ({
+  month: '2026-03',
+  currency: 'USD',
+  amount: '500.00',
+  ...o,
+});
+
+/* The rollup returns one row per (month, currency). The response carries ONE
+   currency and the screen prints it beside the figure, so a euro added in is
+   a euro reported as a dollar. */
+test('collected counts only rows in the response’s currency', () => {
+  const c = buildCollected(
+    [
+      collectedRow({ month: '2026-03', currency: 'USD', amount: '500.00' }),
+      collectedRow({ month: '2026-03', currency: 'EUR', amount: '1000.00' }),
+    ],
+    ['2026-02', '2026-03'],
+    null,
+    'USD',
+  );
+
+  assert.equal(c.trailing12, 500);
+  assert.equal(c.thisMonth, 500);
+  assert.equal(c.byMonth.at(-1)?.amount, 500, 'nor does it reach the plot');
+});
+
+/* Summed over the WINDOW rather than over the rows. The rollup is asked for
+   the window, but a row outside it — a boundary the caller and SQL bucket
+   differently — would otherwise inflate the figure Home leads with. */
+test('a month outside the window reaches neither the figure nor the plot', () => {
+  const c = buildCollected(
+    [
+      collectedRow({ month: '2026-03', amount: '500.00' }),
+      collectedRow({ month: '2025-01', amount: '9000.00' }),
+    ],
+    ['2026-02', '2026-03'],
+    null,
+    'USD',
+  );
+
+  assert.equal(c.trailing12, 500);
+  assert.deepEqual(
+    c.byMonth.map((m) => m.month),
+    ['2026-02', '2026-03'],
+  );
+});
+
+/* The plot draws the last six of the same series the figure sums. A shorter
+   window is every month it has, not six padded with invented ones. */
+test('a window shorter than the plot draws only the months it has', () => {
+  const c = buildCollected(
+    [collectedRow({ month: '2026-03', amount: '500.00' })],
+    ['2026-02', '2026-03'],
+    null,
+    'USD',
+  );
+
+  assert.equal(c.byMonth.length, 2);
+  assert.deepEqual(
+    c.byMonth.map((m) => m.amount),
+    [0, 500],
+    'a month nobody paid in is a real zero, not a hole',
+  );
+});
+
+/* No window is no figure. `thisMonth` has no month to read, and reporting
+   the rows' own total would be a figure for a period nobody asked about. */
+test('an empty window is zero, not the rows’ total', () => {
+  const c = buildCollected(
+    [collectedRow({ month: '2026-03', amount: '500.00' })],
+    [],
+    null,
+    'USD',
+  );
+
+  assert.equal(c.trailing12, 0);
+  assert.equal(c.thisMonth, 0);
+  assert.deepEqual(c.byMonth, []);
+});
+
+/* Rounded once on the sum like every other total here: adding rounded lines
+   lands fractions of a cent below the last place and the response would not
+   be `money`. */
+test('collected rounds its sums to cents', () => {
+  const c = buildCollected(
+    [
+      collectedRow({ month: '2026-02', amount: '33.333' }),
+      collectedRow({ month: '2026-03', amount: '33.333' }),
+      collectedRow({ month: '2026-03', amount: '33.334' }),
+    ],
+    ['2026-02', '2026-03'],
+    null,
+    'USD',
+  );
+
+  assert.equal(c.trailing12, 100);
+  assert.equal(c.thisMonth, 66.67);
+  assert.equal(c.byMonth.at(-1)?.amount, 66.67);
+  assert.equal(c.byMonth.at(0)?.amount, 33.33);
+});
+
+// ── open invoices ───────────────────────────────────────────────────
+
+/* The count of what makes up `awaitingPayment`, so it counts exactly what
+   that figure sums: a draft has not been asked for and a paid one has
+   arrived. */
+test('the open count is the sent invoices, and only those', () => {
+  const rows = [
+    invoice({ id: 'a', status: 'sent' }),
+    invoice({ id: 'b', status: 'sent' }),
+    invoice({ id: 'c', status: 'draft' }),
+    invoice({ id: 'd', status: 'paid' }),
+    invoice({ id: 'e', status: 'void' }),
+  ];
+
+  assert.equal(buildOpenInvoiceCount(rows), 2);
+  assert.equal(buildOpenInvoiceCount([]), 0);
+  assert.equal(
+    buildOpenInvoiceCount(rows),
+    rows.filter((i) => Number(buildAwaitingPayment([i])) > 0).length,
+    'it counts what awaitingPayment sums',
+  );
 });
 
 // ── scalar ──────────────────────────────────────────────────────────

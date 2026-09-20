@@ -2,10 +2,17 @@ import Link from 'next/link';
 import { COLLECTED_MONTHS, formatCompact, formatCurrency } from '@stint/core';
 import { Banknote, Hourglass, type LucideIcon, Send } from 'lucide-react';
 import type { Stats } from '@/lib/client/api';
-import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 import type { Beat } from '@/lib/client/use-beat';
 import { Money } from './money';
-import { type Clients, INSET, INSET_X, Region, Row } from './home-shell';
+import { Swatch } from './swatch';
+import {
+  type Clients,
+  INSET,
+  INSET_X,
+  Region,
+  Row,
+  unratedNote,
+} from './home-shell';
 
 /**
  * What just changed, under the figure it changed.
@@ -25,7 +32,7 @@ function InvoiceBeat({ beat, currency }: { beat: Beat; currency: string }) {
 
   return (
     <span
-      className={`type-meta tabular-nums motion-safe:animate-in motion-safe:fade-in ${
+      className={`type-meta motion-safe:animate-in motion-safe:fade-in ${
         beat.kind === 'paid' ? 'text-success' : 'text-subtle'
       }`}
       data-beat={beat.kind}
@@ -66,7 +73,7 @@ function StopDelta({ beat, currency }: { beat: Beat; currency: string }) {
 
   return (
     <span
-      className="type-meta tabular-nums text-subtle motion-safe:animate-in motion-safe:fade-in"
+      className="type-meta text-subtle motion-safe:animate-in motion-safe:fade-in"
       data-beat="stop"
     >
       {text}
@@ -104,7 +111,7 @@ export function Collected({ stats, beat }: { stats: Stats; beat: Beat }) {
         <Money
           amount={trailing12}
           currency={stats.currency}
-          className="tabular-nums"
+          className="type-figure"
         />
       }
     >
@@ -135,6 +142,18 @@ export function Collected({ stats, beat }: { stats: Stats; beat: Beat }) {
 /** Viewport of the collected plot, in its own units — SVG scales the path. */
 const PLOT_W = 300;
 const PLOT_H = 86;
+
+/**
+ * The baseline the plot sits on, inset from the viewport's foot.
+ *
+ * Exported because it is where a month with no payment is DRAWN, which is the
+ * thing the tests read a `cy` against — a number retyped there would go stale
+ * the first time the plot is resized.
+ */
+export const PLOT_AXIS_Y = PLOT_H - 8;
+
+/** Headroom above the axis the series is drawn into. */
+const PLOT_INK_H = PLOT_H - 24;
 
 /**
  * Collected per month, as a line.
@@ -173,12 +192,12 @@ function Series({
   const span = Math.max(peak - base, 1);
 
   const x = (i: number) => (i / (points.length - 1)) * PLOT_W;
-  const y = (v: number) => PLOT_H - 8 - ((v - base) / span) * (PLOT_H - 24);
+  const y = (v: number) => PLOT_AXIS_Y - ((v - base) / span) * PLOT_INK_H;
 
   const line = points
     .map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.amount)}`)
     .join(' ');
-  const area = `${line} L${x(points.length - 1)},${PLOT_H - 8} L0,${PLOT_H - 8} Z`;
+  const area = `${line} L${x(points.length - 1)},${PLOT_AXIS_Y} L0,${PLOT_AXIS_Y} Z`;
   const last = points.length - 1;
   const open = points[last];
   if (!open) return null;
@@ -198,9 +217,9 @@ function Series({
       >
         <line
           x1="0"
-          y1={PLOT_H - 8}
+          y1={PLOT_AXIS_Y}
           x2={PLOT_W}
-          y2={PLOT_H - 8}
+          y2={PLOT_AXIS_Y}
           className="stroke-edge-grid"
           strokeWidth="1"
         />
@@ -357,7 +376,9 @@ export function Owed({
           <h3 className={`${INSET} pt-4 pb-1 type-label text-subtle`}>
             Unbilled by client
           </h3>
-          <ul className={`${INSET_X} flex flex-col [&>li+li]:border-t [&>li+li]:border-edge-grid`}>
+          <ul
+            className={`${INSET_X} flex flex-col [&>li+li]:border-t [&>li+li]:border-edge-grid`}
+          >
             {byClient.map((c) => (
               <Row
                 key={c.clientId ?? 'none'}
@@ -369,19 +390,14 @@ export function Owed({
                     : '/invoices/new'
                 }
                 icon={
-                  <Pip
-                    colour={
-                      (c.clientId ? clients.get(c.clientId)?.color : null) ??
-                      INTERNAL_SWATCH
-                    }
+                  <Swatch
+                    color={c.clientId ? clients.get(c.clientId)?.color : null}
                   />
                 }
                 label={c.clientName}
-                detail={
-                  c.unratedCount > 0
-                    ? `${c.oldestDays}d · ${c.unratedCount} unrated`
-                    : `${c.oldestDays}d`
-                }
+                detail={[`${c.oldestDays}d`, unratedNote(c.unratedCount)]
+                  .filter(Boolean)
+                  .join(' · ')}
                 value={
                   /* Unbillable work has no rate by definition; an em-dash is
                      honest where a zero would look like a real figure.
@@ -393,7 +409,7 @@ export function Owed({
                     <Money
                       amount={c.amount}
                       currency={c.currency}
-                      className="tabular-nums"
+                      className="type-duration"
                     />
                   ) : (
                     '—'
@@ -449,7 +465,7 @@ function Figure({
       <Money
         amount={amount}
         currency={currency}
-        className="mt-1.5 type-amount-hero tabular-nums text-strong"
+        className="mt-1.5 type-amount-hero text-strong"
       />
       <span className="type-meta text-subtle">{override ?? detail}</span>
     </>
@@ -466,21 +482,5 @@ function Figure({
     >
       {body}
     </Link>
-  );
-}
-
-/**
- * The client's colour, in a row that already names them.
- *
- * `aria-hidden` because the name is right there: a screen reader announcing a
- * colour before every client is noise, not information.
- */
-function Pip({ colour }: { colour: string }) {
-  return (
-    <span
-      aria-hidden
-      className="size-2 flex-none rounded-[2px]"
-      style={{ backgroundColor: colour }}
-    />
   );
 }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { localDateKey } from '@stint/core';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import type { Stats } from '@/lib/client/api';
 
@@ -54,13 +53,6 @@ export type Figures = {
   awaitingPayment: number;
   collected: number;
 };
-
-export const figuresOf = (s: Stats): Figures => ({
-  total: s.unbilled.total,
-  seconds: s.unbilled.seconds,
-  awaitingPayment: s.awaitingPayment,
-  collected: s.collected.trailing12,
-});
 
 export function cause(
   prev: Figures | null,

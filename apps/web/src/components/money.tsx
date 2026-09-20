@@ -10,8 +10,10 @@ import { useCountUp } from '@/lib/client/use-count-up';
  * one edit moves the whole panel at one speed: a figure that snaps beside one
  * that travels reads as the stale one.
  *
- * Frozen amounts do NOT use it — an invoice total that tweens implies the
- * app is recalculating money the user has already sent.
+ * An INVOICE's own total does not use it — a figure that tweens implies the
+ * app is recalculating money the user has already sent. A home-panel
+ * aggregate that a payment moves does travel: Collected rises on the paid
+ * beat, which `docs/design/screens/money.html` specifies.
  *
  * `className` carries the type role and colour, because those differ by where
  * the figure sits: a headline is `type-figure`, a row's amount is

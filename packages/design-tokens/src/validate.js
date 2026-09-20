@@ -59,12 +59,58 @@ for (const f of tokens.contract.forbidden) {
  */
 console.log('\n  ramps match their generators\n');
 
+/**
+ * A primitive ramp: `{ "50": { "hex": "#…" } }` under `primitive[group]`,
+ * pasted one step per line as `"50": { "hex": "#…" }`.
+ */
+const primitiveRamp = (group, script, args = []) => ({
+  group,
+  script,
+  args,
+  live: () =>
+    Object.fromEntries(
+      Object.entries(tokens.primitive[group]).map(([k, v]) => [k, v.hex]),
+    ),
+  line: /^"([a-z0-9]+)":\s*\{ "hex": "(#[0-9A-F]{6})"/,
+});
+
+/**
+ * The light accent is a SEMANTIC ramp, and it drifted unchecked.
+ *
+ * It is derived by `derive-light-accent.mjs` for the same reason the neutrals
+ * are — five hexes kept by hand is the drift this package exists to prevent —
+ * but it lives under `semantic.light` as flat strings rather than in
+ * `primitive`, so the loop above never saw it and a hand-edited value passed
+ * `pnpm tokens:validate` outright.
+ *
+ * Only the rungs the generator actually prints are compared. Light `success`
+ * (#457036) is a legitimate hand-set literal with no rung in the generator,
+ * and inventing one to cover it would be the hand-editing this check exists
+ * to catch, the other way round.
+ */
+const lightAccentRamp = {
+  group: 'semantic.light accent',
+  script: 'derive-light-accent.mjs',
+  args: [],
+  live: () =>
+    Object.fromEntries(
+      Object.entries(tokens.semantic.light).filter(
+        ([k, v]) =>
+          typeof v === 'string' &&
+          v.startsWith('#') &&
+          (k.startsWith('accent-') || k === 'timer-running'),
+      ),
+    ),
+  line: /^"(accent-[a-z]+|timer-running)":\s*"(#[0-9A-F]{6})"/,
+};
+
 const RAMPS = [
-  { group: 'neutral', script: 'derive-neutrals.mjs', args: ['--gradual'] },
-  { group: 'lightNeutral', script: 'derive-light.mjs', args: [] },
+  primitiveRamp('neutral', 'derive-neutrals.mjs', ['--gradual']),
+  primitiveRamp('lightNeutral', 'derive-light.mjs'),
+  lightAccentRamp,
 ];
 
-for (const { group, script, args } of RAMPS) {
+for (const { group, script, args, live: readLive, line: pattern } of RAMPS) {
   const out = execFileSync(
     process.execPath,
     [join(root, 'src', script), ...args],
@@ -77,19 +123,29 @@ for (const { group, script, args } of RAMPS) {
      rather than importing it keeps this honest about the thing a human
      actually copies. */
   const generated = {};
-  for (const line of out.split('\n')) {
-    const m = line.match(/^"([a-z0-9]+)":\s*\{ "hex": "(#[0-9A-F]{6})"/);
+  for (const l of out.split('\n')) {
+    const m = l.match(pattern);
     if (m) generated[m[1]] = m[2];
   }
 
-  const live = tokens.primitive[group];
+  const live = readLive();
+
+  /* A generator that printed nothing the pattern matched would otherwise
+     report every step as derived — the check passing because it ran on an
+     empty set is the one failure mode it cannot report itself. */
+  if (Object.keys(generated).length === 0) {
+    console.log(`  ✗ ${group} — ${script} printed no paste block to compare`);
+    failed += 1;
+    continue;
+  }
+
   const drifted = Object.keys(live).filter(
-    (step) => generated[step] !== live[step].hex,
+    (step) => generated[step] !== live[step],
   );
 
   for (const step of drifted) {
     console.log(
-      `  ✗ ${group}.${step}  file ${live[step].hex}  generator ${generated[step] ?? '(absent)'}`,
+      `  ✗ ${group}.${step}  file ${live[step]}  generator ${generated[step] ?? '(absent)'}`,
     );
   }
   failed += drifted.length;

@@ -7,6 +7,8 @@ import {
   localDayOfWeek,
   isValidTimeZone,
   startOfLocalDate,
+  startOfLocalMonthsBack,
+  localMonthKeys,
   localDateTimeToInstant,
   addDays,
 } from '../src/calendar.ts';
@@ -146,4 +148,106 @@ test('addDays steps the calendar, including over month and year ends', () => {
 test('addDays is unaffected by a DST transition in the range', () => {
   assert.equal(addDays('2026-03-07', 1), '2026-03-08');
   assert.equal(addDays('2026-10-31', 2), '2026-11-02');
+});
+
+// ── the Collected window ────────────────────────────────────────────
+
+/* `Date.UTC` normalises a negative month index into the previous year, which
+   is the whole mechanism — a twelve-month window looked at from January
+   reaches back through two of them. */
+test('startOfLocalMonthsBack wraps the year going back past January', () => {
+  const jan = new Date('2026-01-15T12:00:00Z');
+
+  assert.equal(
+    render(startOfLocalMonthsBack(jan, 'UTC', 0), 'UTC').slice(0, 10),
+    '2026-01-01',
+  );
+  assert.equal(
+    render(startOfLocalMonthsBack(jan, 'UTC', 1), 'UTC').slice(0, 10),
+    '2025-12-01',
+  );
+  // The figure's own window: eleven back from the month containing `now`.
+  assert.equal(
+    render(startOfLocalMonthsBack(jan, 'UTC', 11), 'UTC').slice(0, 10),
+    '2025-02-01',
+  );
+  assert.equal(
+    render(startOfLocalMonthsBack(jan, 'UTC', 13), 'UTC').slice(0, 10),
+    '2024-12-01',
+  );
+});
+
+/* Midnight ON the 1st in the caller's zone, not an offset assumed from today:
+   a window boundary an hour out puts a payment in the wrong month, and these
+   zones each transition inside the range walked back over. */
+test('startOfLocalMonthsBack lands on local midnight of the 1st', () => {
+  for (const tz of [
+    'UTC',
+    'America/New_York',
+    'Australia/Lord_Howe',
+    'Pacific/Chatham',
+  ]) {
+    for (const back of [0, 1, 4, 7, 11]) {
+      const out = render(
+        startOfLocalMonthsBack(new Date('2026-07-15T12:00:00Z'), tz, back),
+        tz,
+      );
+      assert.ok(
+        out.includes('00:00:00'),
+        `${tz} -${back}: ${out} is not midnight`,
+      );
+      assert.equal(
+        out.slice(8, 10),
+        '01',
+        `${tz} -${back}: ${out} is not the 1st`,
+      );
+    }
+  }
+});
+
+/* One instant is two different local months either side of a boundary, so
+   the window is keyed in the caller's zone like the rollup that fills it. */
+test('startOfLocalMonthsBack reads the local month, not UTC', () => {
+  // 23:00 UTC on the 31st is already the 1st in Tokyo.
+  const at = new Date('2026-08-31T23:00:00Z');
+  assert.equal(
+    render(startOfLocalMonthsBack(at, 'UTC', 0), 'UTC').slice(0, 10),
+    '2026-08-01',
+  );
+  assert.equal(
+    render(startOfLocalMonthsBack(at, 'Asia/Tokyo', 0), 'Asia/Tokyo').slice(
+      0,
+      10,
+    ),
+    '2026-09-01',
+  );
+});
+
+/* The keys the Collected series is built from: the rollup returns only months
+   that HAVE payments, so a quiet month is a real zero rather than a hole. */
+test('localMonthKeys ends with this month and wraps the year', () => {
+  const jan = new Date('2026-01-15T12:00:00Z');
+  assert.deepEqual(localMonthKeys(jan, 'UTC', 3), [
+    '2025-11',
+    '2025-12',
+    '2026-01',
+  ]);
+  assert.equal(localMonthKeys(jan, 'UTC', 12).length, 12);
+  assert.equal(localMonthKeys(jan, 'UTC', 12)[0], '2025-02');
+  assert.equal(localMonthKeys(jan, 'UTC', 12).at(-1), '2026-01');
+  assert.deepEqual(localMonthKeys(jan, 'UTC', 1), ['2026-01']);
+});
+
+/* Keyed off the local month, and unaffected by a DST transition inside the
+   window: the keys step on the calendar, never by a fixed span. */
+test('localMonthKeys reads the local month and is unmoved by DST', () => {
+  const at = new Date('2026-08-31T23:00:00Z');
+  assert.equal(localMonthKeys(at, 'UTC', 1)[0], '2026-08');
+  assert.equal(localMonthKeys(at, 'Asia/Tokyo', 1)[0], '2026-09');
+
+  // March and November each hold a US transition; the walk crosses both.
+  assert.deepEqual(
+    localMonthKeys(new Date('2026-04-15T12:00:00Z'), 'America/New_York', 6),
+    ['2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04'],
+  );
 });

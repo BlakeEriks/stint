@@ -949,33 +949,6 @@ describe('the heatmap', () => {
     });
   });
 
-  it('survives one missed day and breaks on two', async () => {
-    /* The streak is the figure in the header. Breaking on a single missed day
-       punishes one appointment and stops being a number anyone trusts; two
-       is a stop. Days 1,2 worked, day 3 missed, day 4 worked — a 3-day
-       streak across the gap. Days 5 and 6 are both missed, so nothing before
-       them counts. */
-    serve(stats({ unbilled: oneClient }), [
-      dayAgo(1, { c1: 3600 }),
-      dayAgo(2, { c1: 3600 }),
-      dayAgo(4, { c1: 3600 }),
-      dayAgo(7, { c1: 3600 }),
-      dayAgo(8, { c1: 3600 }),
-    ]);
-    render(<HomeCards />, { wrapper });
-
-    /* The count and its unit are separate elements, so the match is on the
-       header's whole text: what the reader sees is one phrase. */
-    await waitFor(() =>
-      expect(
-        screen.getByText(
-          (_, el) =>
-            el?.tagName === 'SPAN' && el.textContent?.trim() === '3 day streak',
-        ),
-      ).toBeTruthy(),
-    );
-  });
-
   it('gives a split day the client with the most hours', async () => {
     /* A cell is ~11px and cannot carry a stack, so the majority takes it.
        `c2` has more of this day and must be the hue that lands. */
@@ -1449,6 +1422,31 @@ describe('By project', () => {
     expect(byRevenue).toEqual(['Retainer', 'Platform rebuild']);
     expect(screen.getByText('$3,000.01')).toBeVisible();
     expect(region()?.textContent).not.toContain('50h');
+  });
+
+  /* A project's AMOUNT is short by whatever has no rate, so the figure says
+     so. Hours are counted either way, which is why the mark is revenue's
+     alone — in the hours unit it would flag a figure that is complete. */
+  it('marks a project whose amount is missing unrated work, in revenue only', async () => {
+    await panel({
+      byProject: [
+        { ...fourProjects.byProject[0]!, unratedCount: 3 },
+        { ...fourProjects.byProject[1]!, unratedCount: 0 },
+      ],
+    });
+
+    expect(region()?.textContent).not.toContain('unrated');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Revenue' }));
+
+    expect(screen.getByText('3 unrated')).toBeVisible();
+    // Only the project that has some — the other row stays unmarked.
+    expect(region()?.textContent?.match(/unrated/g)).toHaveLength(1);
+
+    // And the chart's own description carries it, not just the pixels.
+    expect(
+      region()?.querySelector('[role="img"]')?.getAttribute('aria-label'),
+    ).toContain('3 unrated');
   });
 
   /* The footer is where the window's real total lives — including the work

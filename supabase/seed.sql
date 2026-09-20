@@ -7,8 +7,8 @@
 --
 -- Two halves. The hand-written rows below name the awkward cases a layout has
 -- to survive, one row each, and are meant to be read. The generated year at
--- the foot is volume: the heatmap, the streak and Velocity's trailing quarter
--- read a year at a time and cannot be judged from a handful of days. It is
+-- the foot is volume: the heatmap and Velocity's trailing quarter read a year
+-- at a time and cannot be judged from a handful of days. It is
 -- generated because a year hand-written is a file nobody will correct, and
 -- deterministically so a screenshot diff between two runs means something.
 --
@@ -206,8 +206,8 @@ values
 on conflict (id) do nothing;
 
 -- ── a year of history, generated ───────────────────────────────────
--- The regions above this line need a handful of rows; the heatmap, the streak
--- and Velocity's trailing quarter need a year of them, and a year hand-written
+-- The regions above this line need a handful of rows; the heatmap and
+-- Velocity's trailing quarter need a year of them, and a year hand-written
 -- is a file nobody will ever re-read or correct.
 --
 -- Deterministic on purpose: the pick of client, start hour and length comes
@@ -223,9 +223,9 @@ on conflict (id) do nothing;
 --     rhythm rather than a wash — weekends are blank, and blank is information
 --   * two dry spells (a fortnight off around day 250, a week around day 120),
 --     because a year with no gap in it never shows what a gap looks like
---   * a one-day gap 6 days back that the streak FORGIVES, and a two-day gap
---     at 19-20 that BREAKS it — that forgiveness rule is the card's whole
---     claim to honesty and unexercised data never shows it working
+--   * a one-day gap 6 days back and a two-day gap at 19-20, so a recent
+--     stretch carries gaps of both lengths rather than reading as one
+--     unbroken run
 --   * a different client mix in each of the last three months, so Velocity's
 --     split bar has three distinguishable months to describe
 with days as (
@@ -243,16 +243,14 @@ with days as (
 ),
 worked as (
   select * from days
-  -- The streak counts CALENDAR days, so a weekend breaks it: a year of pure
-  -- five-on-two-off can never read higher than 5 and the forgiveness rule
-  -- never fires. The recent stretch is therefore worked through its weekends —
-  -- a contractor pushing to a deadline — and the two gaps below are weekdays,
-  -- which is the only way the streak reaches a figure worth showing.
+  -- The recent stretch is worked through its weekends — a contractor pushing
+  -- to a deadline — so the heatmap carries a dense run as well as the steady
+  -- five-on-two-off behind it. The two gaps below are weekdays.
   where (offset_days <= 40 or extract(isodow from day_start) < 6)
     and offset_days not between 244 and 258       -- a fortnight away
     and offset_days not between 118 and 124       -- a week off
-    and offset_days <> 6                          -- the gap the streak forgives
-    and offset_days not between 19 and 20         -- the gap that breaks it
+    and offset_days <> 6                          -- a one-day gap
+    and offset_days not between 19 and 20         -- a two-day gap
 )
 insert into time_entries (
   id, user_id, project_id, task_name, started_at, ended_at, is_billable

@@ -45,12 +45,13 @@ confirm action** — the one action a screen or dialog exists to complete. Two
 uses, and a screen gets one of the second kind at most.
 
 **Green is the product's one colour, and it runs a scale.** `accent-default`
-is the live thing and the button that acts; `success` is the same hue a step
-down (`accent.500`), for an outcome that has already happened — paid, saved.
-The step is what separates them: a paid badge must read as green without
-reaching the weight of a running timer. Never white text on the accent — use
-`--text-on-accent`. `docs/design/brand.html` is the test, and for focus rings
-(neutral, never the accent).
+is the live thing and the button that acts; `success` is the same hue one step
+off it — toward the ground in dark, toward the paper in light — for an outcome
+that has already happened: paid, saved. The step is what separates them: a
+paid badge must read as green without reaching the weight of a running timer.
+Never white text on the accent — use `--text-on-accent`.
+`docs/design/deriving-colour.md` has the step; `docs/design/brand.html` is the
+test, and for focus rings (neutral, never the accent).
 
 **Content floats, chrome recedes — in four planes**, deepest to nearest:
 `bg-surface-recessed`, `bg-surface-base`, `bg-surface-primary`,

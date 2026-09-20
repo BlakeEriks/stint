@@ -91,6 +91,10 @@
      are the gap. */
   @media (max-width: 640px) { .pair { grid-template-columns: minmax(0, 1fr); } }
 
+  /* The panel's own head: the day, and the date opposite. No bottom padding —
+     the first region's own 12px follows it. */
+  .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 16px 18px 0; }
+
   .region-head { padding: 12px 18px 8px; }
   /* The right half of a pairing is the second half of one subject, so it
      takes a quiet label rather than a heading that would announce a third. */
@@ -111,7 +115,7 @@
      keep the weight every other region uses; only the layout changes. */
   .region-head.withaction { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px 10px; }
   /* The control keeps its line: `.region-title` claims the full width, and a
-     two-line streak reads as a figure that outgrew its slot. */
+     control wrapped over two lines reads as one that outgrew its slot. */
   .region-head.withaction .region-title { width: auto; }
   .region-head.withaction > .type-meta { flex: none; white-space: nowrap; }
   .region-body { padding: 4px 18px 12px; }
@@ -254,9 +258,19 @@
       quarter; where the time went sits beside when it was spent.
     </p>
 
+    <p>
+      <strong>The panel opens on the day.</strong> The weekday at
+      <code>type-heading</code> with the short date opposite it at
+      <code>type-label</code> — the date is the answer to "is this figure
+      current?", which is the question a dashboard that mostly does not change
+      invites. It names the day and nothing else: what moved is reported beside
+      the figure it moved, and the day is fixed at render so a beat cannot
+      move it.
+    </p>
+
     <table>
       <tr><th>Row</th><th>Left</th><th>Right</th></tr>
-      <tr><td>1</td><td>Collected — the figure, the cadence line, the beat, the plot</td><td>Awaiting and unbilled, then the per-client rows</td></tr>
+      <tr><td>1</td><td colspan="2">The money region — <code>money.html</code> specifies it, both halves</td></tr>
       <tr><td>2</td><td>The month — the cumulative plot against the goal ray</td><td>Gross earned — the figure, the mix, the key</td></tr>
       <tr><td>3</td><td>By project — the bars, the toggle, the window line</td><td>The half-year — the heatmap</td></tr>
     </table>
@@ -277,6 +291,11 @@
 
     <div class="mock">
       <div class="panel">
+
+        <div class="panel-head">
+          <span class="type-heading" style="color:var(--text-strong)">Tuesday</span>
+          <span class="type-label" style="color:var(--text-subtle)">16 Sep</span>
+        </div>
 
         <div class="pair">
           <div class="region">
@@ -311,8 +330,8 @@
                   <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M5 22h14M5 2h14M17 22v-4.2a2 2 0 0 0-.6-1.4L12 12l-4.4 4.4a2 2 0 0 0-.6 1.4V22M7 2v4.2a2 2 0 0 0 .6 1.4L12 12l4.4-4.4a2 2 0 0 0 .6-1.4V2"/></svg>
                   <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
                 </span>
-                <span class="type-amount-hero" style="color:var(--text-strong)">$3,022.50</span>
-                <span class="type-meta" style="color:var(--text-subtle)">10d oldest</span>
+                <span class="type-amount-hero" style="color:var(--text-strong)">$3,461.25</span>
+                <span class="type-meta" style="color:var(--text-subtle)">12d oldest</span>
               </span>
             </div>
             <span class="sublabel type-label" style="color:var(--text-subtle)">Unbilled by client</span>
@@ -422,12 +441,11 @@
           </div>
 
           <div class="region">
-            <div class="region-head withaction">
+            <div class="region-head">
               <span class="region-title">
                 <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                 <span class="type-label" style="color:var(--text-subtle)">Last 6 months</span>
               </span>
-              <span class="type-meta" style="color:var(--text-subtle)"><span class="type-duration" style="color:var(--text-muted)">34</span> day streak</span>
             </div>
             <div class="region-body">
               <div class="heat" id="heat"></div>
@@ -449,9 +467,13 @@
       /* The collected sequence and the by-client rows, drawn rather than
          typed, so the picture and the prose cannot drift apart. */
       const MONTHS = [['Apr', 6400], ['May', 7100], ['Jun', 4200], ['Jul', 7100], ['Aug', 7800], ['Sep', 6400]];
+      /* The same four rows `money.html` draws, because the region is one
+         region and two sets of numbers for it is the drift that doc owns. */
       const CLIENTS = [
-        { name: 'Northwind Trading', colour: 'var(--proj-6)', amount: '$1,650.00', days: 10 },
-        { name: 'Byrne Studio',      colour: 'var(--proj-2)', amount: '$1,372.50', days: 4 },
+        { name: 'Northwind Trading', colour: 'var(--proj-6)', amount: '$1,991.25', days: 12 },
+        { name: 'Meridian Labs',     colour: 'var(--proj-7)', amount: '$1,080.00', days: 11 },
+        { name: 'No client',         colour: 'var(--text-subtle)', amount: '$270.00', days: 8 },
+        { name: 'Random Client',     colour: 'var(--proj-1)', amount: '$120.00', days: 8 },
       ];
 
       const vals = MONTHS.map((m) => m[1]);
@@ -598,9 +620,13 @@
               <div class="region-head withaction">
                 <span class="region-title">
                   <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-                  <span class="type-label" style="color:var(--text-subtle)">Last 6 months</span>
+                  <span class="type-label" style="color:var(--text-subtle)">By project</span>
                 </span>
-                <span class="type-meta" style="color:var(--text-subtle)"><span class="type-duration" style="color:var(--text-muted)">34</span> day streak</span>
+                <span class="unit">
+                  <button type="button" aria-pressed="true">Hours</button>
+                  <span class="sep" aria-hidden="true">/</span>
+                  <button type="button" aria-pressed="false">Revenue</button>
+                </span>
               </div>
             </div>
           </div>
@@ -813,6 +839,12 @@
       <li><strong>Unbillable work has hours and no revenue.</strong> On
         revenue it drops out of the ranking rather than sitting at zero, and
         the count line is where it goes.</li>
+      <li><strong>A bar whose work is not all rated carries
+        <code>N unrated</code></strong> — <code>type-meta</code>,
+        <code>text-subtle</code>, between the name and the figure, and
+        <strong>only on revenue</strong>. Unrated work is missing from the
+        amount and says nothing about the hours, which are counted either way,
+        so on hours the marker would qualify a figure that is complete.</li>
       <li><strong>The footer line carries the window and the remainder</strong>,
         right-aligned. The logged total is the one figure here that is not a
         bar. The window is abbreviated — <code>3mo</code> — because Velocity
@@ -847,14 +879,6 @@
         silently reassign those hours to the neutral band.</li>
       <li><strong>The busiest day sets the density scale</strong>, floored so
         the lightest worked day is still visibly a day worked.</li>
-      <li><strong>The count is the figure and the words are its unit.</strong>
-        The number takes a step up to <code>type-duration</code> and the label
-        stays at meta weight beside it; one weight across the whole string
-        buries the only part worth reading.</li>
-      <li><strong>The streak sits in the header at row scale.</strong> It
-        survives one missed day and breaks on two — a streak that breaks on a
-        single missed day punishes one appointment and stops being a figure
-        anyone trusts. Today not yet worked does not break it.</li>
       <li><strong>Each cell's date and hours are in its tooltip.</strong> There
         is no axis; at 26 columns every label is noise.</li>
     </ul>
