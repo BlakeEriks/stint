@@ -25,6 +25,21 @@ later.
 
 ## Ready
 
+- [ ] **The arrival count-up belongs to the page load, not to the mount.**
+      `useCountUp` seeds `target` at `to * ARRIVAL` on every mount, so every
+      `Money` on the home panel rolls each time it mounts — including a
+      client-side navigation away and back, where the figures are the ones
+      already read a moment ago. The roll means "these numbers just arrived";
+      on a return to a screen still holding them, it says it of nothing.
+
+      The `QueryClient` in `providers.tsx` is the scope that already draws
+      this line: held in `useState` above the router, it survives a navigation
+      and dies on reload. A flag set on it at the first arrival, and read by
+      `useCountUp` to decide whether to seed the origin or rest on `to`, needs
+      no route detection, no session storage and no new provider. The tween on
+      a value that CHANGES is untouched — an edit still moves the figure it
+      moved.
+
 - [ ] **The running timer and the primary action are the same green.** The
       accent carries two meanings — it marks the live timer and it marks the
       one confirm action a screen exists to complete. Dark separates them for
