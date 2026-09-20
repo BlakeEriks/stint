@@ -1,182 +1,108 @@
 # Product Principles
 
-## The thesis
+`docs/positioning.md` says who this is for and what it charges. This file says
+what that means for the product.
 
-Toggl is trying to do too much — it now ships project management alongside time
-tracking. **The beauty of this app is in what it refuses to do.**
+## The test
 
-Every feature request gets measured against: *does this help a solo contractor
-track time and get paid?* If not, it does not ship.
+Every feature is measured against one question: **does this help one
+contractor track time and get paid?**
 
-## Rules
+Not "is it useful" — most things are useful to someone. The subject of that
+sentence is one person, and the object is getting paid.
 
-**One timer. Always.** Not a constraint to work around — the organizing
-principle. It is enforced by a database index, so overlapping entries are
-impossible rather than cleaned up later. That is what makes the invoice
-trustworthy.
+## Money
 
-**The app never silently changes your data.** Runaway timers are surfaced, not
-auto-corrected. Rates are frozen onto invoices at generation. In a billing
-system, silent modification is a trust failure, and trust is the whole product.
+**The invoice is the product.** Time tracking is the input and it is free.
+What the user pays for is a document their client takes seriously: a gapless
+number, rates frozen at generation, their bank details on it. Everything in
+the app either produces that document or gets out of its way.
 
-Past `max_timer_hours` (default 8) the inbox offers **keep, adjust or
-discard**. Auto-trimming would mean the billing system silently edited a record
-of billable work — and even when the guess is right, the user cannot tell what
+**Unbilled is the number the app exists to show.** How much work is done and
+not yet invoiced is the question a contractor cannot answer from memory, and a
+tracker that does not know rates structurally cannot ask it. It is a balance:
+it climbs while you work and resets when you invoice.
+
+**Earned is bucketed by when the work was done**, never by when it was
+invoiced or paid. It answers *was this a good month*, so it must not move when
+an invoice is sent.
+
+**Collected, awaiting and unbilled are never summed.** Three stages of one
+pipeline, and any two added double-count the same hours. Awaiting has an
+invoice, a due date and someone who owes it; unbilled can still be discounted,
+written off or never billed. A total would lend the second the authority of
+the first.
+
+**`0` is a valid rate.** Use null-coalescing, never truthiness.
+
+## Trust
+
+This is a billing system. Every rule below exists because a wrong number costs
+the user money and the app credibility.
+
+**One timer per user, enforced by a database index.** Not a constraint to work
+around — the organising principle. Overlapping entries are impossible rather
+than cleaned up later, which is what makes the invoice trustworthy.
+
+**The app never silently modifies user data.** A suspect record is surfaced
+for the user to resolve, never corrected on their behalf — and this holds even
+when the correction would be right, because the user cannot tell that it
 happened. Surfacing costs one prompt; silent correction costs confidence in
 every number the app reports.
 
-**Server owns truth; clients own responsiveness.** The timer keeps ticking
-locally with no network, but the server decides whether it is running. Clients
-never guess at global state.
+**Rates freeze onto invoices at generation**, and so do payment details.
+Changing a client's rate next year must never alter an invoice already sent.
 
-**Where a gesture writes, it is made deliberate rather than removed.** A
-calendar block can be dragged to correct its times — the place you notice a
-mistake should be the place you fix it. Drags snap to 15 minutes, commit only
-past a 4px threshold, and a move preserves the original duration exactly rather
-than re-deriving it. See `packages/core/src/grid.ts`.
+**Preview before anything irreversible.** Generation allocates a gapless
+number and locks entries, so it is always preceded by a preview with no side
+effects.
 
-**Preview before anything irreversible.** Invoice generation allocates a
-gapless number and locks entries. It is always preceded by a preview with no
-side effects.
+**Server owns timer truth; clients own responsiveness.** The timer ticks
+locally with no network, but the server decides whether it is running.
+
+**Archive, don't delete.** Invoices reference clients and projects, and the
+user's records are theirs for three to seven years.
+
+**Invoices go out from the user's own address.** We render the PDF; they send
+it. Mail from a shared application domain gets filtered on the way to a client
+and the sender finds out when the client says it never arrived. Sending it
+themselves uses their own domain's reputation and leaves a copy in their Sent
+folder.
+
+## The screen
+
+**Home is where the habit lives.** Invoicing is monthly; a tool used once a
+month gets cancelled. The daily open is the timer, and that habit is what
+keeps the subscription. Home's job is to be worth opening.
 
 **A card ships only if it carries a number the user cannot compute in their
 head, or a row they can click to act on.** "Interesting" is not the bar.
-Decoration on the home screen is the mechanism by which this app becomes the
-one it was built against.
 
-**Stats are denominated in money.** This app resolves rates and owns an invoice
-table, so it can answer *how much is unbilled* — the question a contractor
-cannot answer from memory, and one a tracker that does not know rates
-structurally cannot ask. Hours are the raw material; dollars are what the user
-thinks in.
+**A figure that moves must be true.** The month projection earns its place
+because it answers *will this be a good month* from real data. A metric
+invented to produce a feeling — a streak, a compliance score — measures
+showing up rather than getting paid, and rewards the wrong thing.
 
-Visual rules — the accent, the four planes, focus rings, type — live in
-`brand.html`, where they can be seen rather than pictured.
+**Where a gesture writes, it is made deliberate rather than removed.** A
+calendar block can be dragged to correct its times — the place you notice a
+mistake should be the place you fix it — so the gesture gets a threshold and a
+snap, and it never re-derives a value it was only asked to move.
 
-## Refusals
+## Colour and type
 
-Things proposed, decided against, and likely to come back. Everything else that
-was rejected is simply not here.
+Visual rules live in `design/brand.html`, where they can be seen rather than
+described. Two meanings carry into code:
 
-**No email sending.** Invoices are downloaded and sent by the user from their
-own address. Mail from a shared application domain gets filtered on the way to
-a client and the sender only finds out when the client says it never arrived.
-Sending it themselves uses their own domain's reputation and leaves a copy in
-their Sent folder.
+**The accent marks the running timer and the primary confirm action** — the
+one action a screen exists to complete. A screen gets one of the second kind
+at most.
 
-**No multi-step onboarding walkthrough.** A tour is a surface that needs
-maintaining, breaks whenever the UI moves, and is scope of exactly the kind the
-thesis refuses. Contextual empty states do the same work and cannot drift out
-of sync with the screen they describe, because they *are* the screen.
-
-**No inbox row snoozes.** Assign the project, fix the runaway entry, send the
-draft — hiding one of those hides a problem from the person who can fix it, and
-the user most likely to snooze everything is the one the inbox exists for.
-Grace periods keep it quiet enough that nothing needs dismissing, and the two
-rows whose condition never clears on its own carry a flag about that one
-object — `dismissed`, `duration_ok` — which dies with it rather than hiding a
-row that is still true.
-
-**No total across collected, awaiting and unbilled.** Three stages of one
-pipeline, and any two summed double-count the same hours. The tempting one is
-awaiting plus unbilled, labelled *what I am owed*: awaiting has an invoice, a
-due date and someone who owes it, while unbilled can still be discounted,
-written off or never billed, so the sum lends the second the authority of the
-first. It reads best and means least. The honest version of *what will land*
-is awaiting, already on screen. `screens/money.html` is the region.
-
-**No per-project hues.** Colour answers *whose work is this?*, so a project
-never takes a hue of its own — it takes a step on its client's, which keeps
-the answer the same at a glance. `deriving-colour.md` has the scale, and the
-heatmap is excluded from it. See `brand.html`.
-
-**No grouping layer between client and project.** The shape that wants one is
-a client with internal sub-clients — billing goes to the parent, while the
-work divides below it. A table for that is a nullable FK on projects, a rung
-in every aggregate, and a fourth level in a rate chain `CLAUDE.md` already
-requires two implementations to agree on. A naming convention carries it at no
-cost (`BL · E24`), and project shades give the grouping its colour. Revisit
-when prefixes become load-bearing across invoices and reports rather than a
-reading aid.
-
-**No "System" theme.** The palette is dark-first and its light block is keyed
-to an explicit `[data-theme="light"]`, so a System option would resolve to
-dark for everyone — a control that appears to do something and does nothing.
-Following the OS honestly means changing the generator first.
-
-**No warm neutral ground.** Rotating the hue is free in OKLCH so it is cheap
-to propose, but a warm ground reads as brown or red, and the obvious choices
-collapse the accent separation from 122° to 67–82°.
-
-**No fourth motion duration.** A fourth is always a tweak of one of the two
-that remain.
-
-**No week or quarter targets, and never two units at once.** Three progress
-bars competing for the same glance; a contractor thinks in months because
-invoicing is monthly.
-
-**Revenue is work done, not money collected, and it is bucketed by the entry's
-date rather than the invoice's.** A bar that drops when a client pays late
-reports someone else's behaviour as your own, and invoicing March's work on
-April 1st is ordinary — booking it into April reports when paperwork happened.
-
-**No editing a finished entry from the menu bar panel.** It needs a date and
-two times the panel has no room for; resuming starts new work instead.
-
-**The dock holds what you act on: the inbox, then Today beneath it.** A chart
-is not among them — Pace is a monthly reading and thirty bars in a 280px
-column is a ~4px bar. Rows survive the width because they are short and can
-wrap; a figure per pixel-column cannot.
-
-**The inbox is never also copied onto Home at narrow widths.** It has one home
-and changes axis, not identity, across the breakpoint.
-
-**Home is one view. No configurable card set, no reordering, no hiding.** A
-`home_cards` preference was specced and cut before it was built: each toggle
-multiplies the arrangements the screen has to be designed for, and every
-later card then has to look right in all of them. The cost is not the
-setting, it is that nobody can say what Home looks like any more. A card
-worth showing is worth showing to everyone; one that is not earns deletion
-rather than a checkbox. The same argument retires per-region timeframe
-pickers — two regions side by side on different windows invite a comparison
-that is not valid.
-
-**No streak count on the heatmap.** A consecutive-days figure measures showing
-up rather than getting paid, and it rewards the wrong thing: a contractor who
-bills a good month in four long days reads worse than one who opens the app
-daily. It also needs a forgiveness rule to be bearable, and a number fudged to
-avoid punishing a dentist appointment is not one worth printing. The heatmap
-shows the rhythm without scoring it.
-
-**Awaiting-payment stays one line on Unbilled, never a row per invoice.** Rows
-would put ordinary invoices back on Home and undo the overdue grace period;
-reconciling several belongs on `/invoices`.
-
-**"Overlapping entries are impossible" is not a landing-page pillar.** A solo
-contractor with one timer has never produced one, so it reassures about a bug
-they have never had, in the vocabulary of our implementation.
-
-**An inbox card carries no icon for its kind.** A glyph per row type — a
-stopwatch for the runaway, a document for the invoice — was drawn and cut. It
-costs 21px of a 286px card's title line, and the title is the one thing there
-that must not be cut: it names the subject, where the qualifier beneath it
-already says which kind of problem this is, in words. Five shapes to learn buy
-less than the sentence that was there anyway.
-
-**A figure's count-up is not a CSS animation.** A keyframe animates a style,
-and what has to move on a money figure is the rendered text of a number —
-`$3,022.50` to `$3,135.00` is sixty distinct strings, which no interpolation
-of a property produces. A pulse or a slide on change was the alternative, and
-it says only that something changed; the travel says what it climbed to.
-
+**Only clients have a colour**, resolved through `useProjectColors()`.
+Internal work gets none.
 
 ## Platform scope
 
-The web app is where features are built. The native apps exist for the things
-only they can do:
-
-- **macOS** — menu bar presence, toggling between current timer and today's
-  total.
-- **Mobile** — starting and stopping away from the desk.
-
-Neither is a port of the web app, and neither should grow into one.
+The web app is where features are built. The native apps exist for what only
+they can do: **macOS** is menu bar presence and the timer; **mobile** is
+starting and stopping away from the desk. Neither is a port, and neither
+should grow into one.
