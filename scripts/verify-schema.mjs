@@ -125,6 +125,35 @@ try {
     console.log('  ✓ an entry\u2019s project belongs to the same user');
   }
 
+  // ── anon cannot execute the app's functions ──────────────────────
+  // A function with no explicit grant runs on Postgres's default, which is
+  // execute for PUBLIC — so a new rollup that forgets its revoke/grant tail
+  // is reachable without a session. Found by OWNER rather than by name, so
+  // that a function added later is covered without editing this list.
+  //
+  // Extensions are excluded by the same test: pgcrypto installs into public
+  // and its functions are owned by `supabase_admin`, while ours are owned by
+  // the migration role. Trigger functions are exempt — privilege is not
+  // consulted when a trigger fires, and they cannot be called directly.
+  const { rows: fns } = await client.query(
+    `select p.proname, pg_get_function_identity_arguments(p.oid) args
+     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.prorettype <> 'trigger'::regtype
+       and p.proowner::regrole::text <> 'supabase_admin'
+       and has_function_privilege('anon', p.oid, 'execute')
+     order by 1`,
+  );
+  if (fns.length > 0) {
+    for (const f of fns) {
+      fail(
+        `anon can execute ${f.proname}(${f.args}) — it is missing its revoke/grant tail.`,
+      );
+    }
+  } else {
+    console.log('  ✓ anon cannot execute any application function');
+  }
+
   // ── settings are created on signup ───────────────────────────────
   const { rows: trg } = await client.query(
     `select tgname from pg_trigger
