@@ -24,9 +24,9 @@ const entry = (over: Partial<BillableEntry> = {}): BillableEntry => ({
 test('one entry, one line, rate from the user default', () => {
   const r = buildLineItems([entry()], { groupingMode: 'entry' });
   assert.equal(r.lineItems.length, 1);
-  assert.equal(r.lineItems[0]!.resolvedRate, 100);
+  assert.equal(r.lineItems[0]!.unitPrice, 100);
   assert.equal(r.lineItems[0]!.rateSource, 'default');
-  assert.equal(r.lineItems[0]!.quantityHours, 1);
+  assert.equal(r.lineItems[0]!.quantity, 1);
   assert.equal(r.lineItems[0]!.amount, 100);
   assert.equal(r.subtotal, 100);
   assert.equal(r.total, 100);
@@ -43,7 +43,7 @@ test('rate precedence flows through to the line item', () => {
     { groupingMode: 'entry' },
   );
   assert.deepEqual(
-    r.lineItems.map((li) => [li.resolvedRate, li.rateSource]),
+    r.lineItems.map((li) => [li.unitPrice, li.rateSource]),
     [
       [999, 'entry'],
       [175, 'project'],
@@ -78,7 +78,7 @@ test('a deliberate zero rate bills at zero rather than being flagged unrated', (
     groupingMode: 'entry',
   });
   assert.deepEqual(r.unratedEntryIds, []);
-  assert.equal(r.lineItems[0]!.resolvedRate, 0);
+  assert.equal(r.lineItems[0]!.unitPrice, 0);
   assert.equal(r.lineItems[0]!.amount, 0);
   assert.equal(r.lineItems[0]!.rateSource, 'project');
 });
@@ -94,8 +94,7 @@ test('grouping by task sums matching entries into one line', () => {
   );
   assert.equal(r.lineItems.length, 2);
   const design = r.lineItems.find((li) => li.description === 'Design')!;
-  assert.equal(design.quantitySeconds, 5400);
-  assert.equal(design.quantityHours, 1.5);
+  assert.equal(design.quantity, 1.5);
   assert.equal(design.amount, 150);
   assert.deepEqual(design.entryIds, ['a', 'b']);
 });
@@ -114,7 +113,7 @@ test('same task name at different rates stays on separate lines', () => {
   );
   assert.equal(r.lineItems.length, 2, 'rates must not be merged');
   assert.deepEqual(
-    r.lineItems.map((li) => li.resolvedRate).sort((x, y) => x - y),
+    r.lineItems.map((li) => li.unitPrice).sort((x, y) => x - y),
     [150, 200],
   );
   assert.equal(r.subtotal, 350);
@@ -133,7 +132,7 @@ test('grouping by project, with unassigned work labelled', () => {
     r.lineItems.map((li) => li.description),
     ['Lifecycle', 'Unassigned'],
   );
-  assert.equal(r.lineItems[0]!.quantityHours, 2);
+  assert.equal(r.lineItems[0]!.quantity, 2);
 });
 
 test('grouping by day uses the LOCAL date', () => {
@@ -147,7 +146,7 @@ test('grouping by day uses the LOCAL date', () => {
   );
   assert.equal(r.lineItems.length, 1, 'both fall on the same local day');
   assert.equal(r.lineItems[0]!.description, '2026-09-11');
-  assert.equal(r.lineItems[0]!.quantityHours, 2);
+  assert.equal(r.lineItems[0]!.quantity, 2);
 });
 
 test('tax is applied to the subtotal', () => {
@@ -186,7 +185,7 @@ test('grouped amounts round once per line, not per entry', () => {
     { groupingMode: 'task' },
   );
   assert.equal(r.lineItems.length, 1);
-  assert.equal(r.lineItems[0]!.quantitySeconds, 3600);
+  assert.equal(r.lineItems[0]!.quantity, 1);
   assert.equal(
     r.lineItems[0]!.amount,
     100,
@@ -227,6 +226,78 @@ test('an untitled task still gets a description', () => {
     groupingMode: 'entry',
   });
   assert.equal(r.lineItems[0]!.description, 'Untitled');
+});
+
+// ── charges that are not time ──────────────────────────────────────
+test('a flat fee bills its amount with no rate arithmetic', () => {
+  const r = buildLineItems([], {
+    groupingMode: 'task',
+    manualLines: [{ description: 'Fixed-scope build', amount: 2400 }],
+  });
+
+  assert.equal(r.lineItems.length, 1);
+  const fee = r.lineItems[0]!;
+  assert.equal(fee.unit, 'fixed');
+  assert.equal(fee.quantity, 1);
+  assert.equal(fee.unitPrice, 2400);
+  assert.equal(fee.amount, 2400, 'the amount is what was entered');
+  assert.equal(fee.rateSource, 'manual');
+  assert.deepEqual(fee.entryIds, [], 'no time produced it');
+  assert.equal(r.subtotal, 2400);
+});
+
+test('an invoice can carry both time and a rebilled expense', () => {
+  const r = buildLineItems(
+    [entry({ id: 'a', taskName: 'Build', durationSeconds: 3600 })],
+    {
+      groupingMode: 'task',
+      manualLines: [{ description: 'Figma licence', amount: 15 }],
+    },
+  );
+
+  assert.equal(r.lineItems.length, 2);
+  assert.equal(r.lineItems[0]!.unit, 'hour');
+  assert.equal(r.lineItems[1]!.unit, 'fixed');
+  assert.equal(r.subtotal, 115, 'both kinds reach the subtotal');
+  assert.equal(r.entryCount, 1, 'a manual line is not a time entry');
+});
+
+test('manual lines keep their given order, after the time lines', () => {
+  // Time lines sort by description; manual ones must not join that sort.
+  const r = buildLineItems(
+    [entry({ id: 'a', taskName: 'Zebra', durationSeconds: 3600 })],
+    {
+      groupingMode: 'task',
+      manualLines: [
+        { description: 'Deposit', amount: 500 },
+        { description: 'Airfare', amount: 320 },
+      ],
+    },
+  );
+
+  assert.deepEqual(
+    r.lineItems.map((li) => li.description),
+    ['Zebra', 'Deposit', 'Airfare'],
+  );
+});
+
+test('a fee rounds to cents once', () => {
+  const r = buildLineItems([], {
+    groupingMode: 'task',
+    manualLines: [{ description: 'Third of a dollar', amount: 0.335 }],
+  });
+  assert.equal(r.lineItems[0]!.amount, 0.34);
+  assert.equal(r.lineItems[0]!.unitPrice, 0.34, 'the printed price matches');
+});
+
+test('tax applies to fees as well as time', () => {
+  const r = buildLineItems([], {
+    groupingMode: 'task',
+    taxRate: 10,
+    manualLines: [{ description: 'Retainer', amount: 1000 }],
+  });
+  assert.equal(r.taxAmount, 100);
+  assert.equal(r.total, 1100);
 });
 
 test('invoice numbers pad to four digits and grow beyond', () => {
