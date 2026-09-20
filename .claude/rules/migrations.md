@@ -53,24 +53,10 @@ before it reaches a real project. It reads `SUPABASE_DB_URL` from
 `apps/web/.env.local` — a secret that bypasses RLS and is never used by the
 app itself.
 
-### The production database has a safety net no migration created
-
-An **event trigger**, `rls_auto_enable()`, runs on every `CREATE TABLE` in
-`public` on the hosted project and enables RLS on the new table. It is
-`security definer` with `search_path` pinned to `pg_catalog`, it swallows its
-own failures into the log, and it exists only there — no migration creates
-it, so local and CI databases do not have it.
-
-**Do not rely on it.** A table still ships with `enable row level security`
-and a policy in its own migration: the trigger cannot write policies, and RLS
-with no policy denies everything, so a table it "rescued" is a table nothing
-can read. `verify:schema` is the control, and it runs against production in
-the release gate.
-
-It is recorded here because it is invisible from a checkout and surprises
-anything that inspects the schema — `verify:schema`'s anon-execute check
-flagged it on its first run against production, since an event-trigger
-function carries no explicit grant and does not need one.
+**Production has an `rls_auto_enable` event trigger that no migration
+creates** — see `docs/data-model.md`. Never let it stand in for a table's own
+`enable row level security` and policy: local and CI have no such trigger, and
+it cannot write policies anyway.
 
 ### Triggers on `auth.users`
 
