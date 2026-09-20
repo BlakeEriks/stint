@@ -104,6 +104,75 @@ try {
     console.log('  ✓ one running timer per user (partial unique index)');
   }
 
+  // ── an entry cannot borrow another user's project ────────────────
+  // RLS scopes reads; it does not constrain what a row points at. If this
+  // constraint is dropped, cross-tenant writes start succeeding again and
+  // nothing else in the schema notices.
+  const { rows: fk } = await client.query(
+    `select pg_get_constraintdef(oid) def from pg_constraint
+     where conrelid = 'time_entries'::regclass
+       and conname  = 'entry_project_same_owner'`,
+  );
+  if (fk.length === 0) {
+    fail(
+      'entry_project_same_owner is missing — an entry may reference another user\u2019s project.',
+    );
+  } else if (!/SET NULL \(project_id\)/i.test(fk[0].def)) {
+    fail(
+      `entry_project_same_owner must clear only project_id on delete:\n      ${fk[0].def}`,
+    );
+  } else {
+    console.log('  ✓ an entry\u2019s project belongs to the same user');
+  }
+
+  // ── anon cannot execute the app's functions ──────────────────────
+  // A function with no explicit grant runs on Postgres's default, which is
+  // execute for PUBLIC — so a new rollup that forgets its revoke/grant tail
+  // is reachable without a session. Found by OWNER rather than by name, so
+  // that a function added later is covered without editing this list.
+  //
+  // Extension functions are excluded by asking whether they BELONG to an
+  // extension (`pg_depend.deptype = 'e'`), not by owner. Verified against a
+  // bare `postgres:16` built by `ci-db.sh`, not only the local stack: an
+  // owner test passes locally and flags 36 pgcrypto functions there. pgcrypto installs
+  // into public, and who ends up owning it differs by environment: on the
+  // Supabase image it is `supabase_admin`, but CI runs a bare postgres
+  // container where `create extension` runs as the migration role and no
+  // such role exists — so an owner test excludes nothing there and every
+  // pgcrypto function reports as a failure.
+  //
+  // Trigger functions are exempt: privilege is not consulted when a trigger
+  // fires, and they cannot be called directly.
+  //
+  // `to_regrole` guards the privilege call: `has_function_privilege` RAISES
+  // on a role that does not exist, and this script takes a `--url` to
+  // arbitrary databases. Crashing mid-run would skip the check below it and
+  // report a Postgres stack trace instead of one of this script's own lines.
+  const { rows: fns } = await client.query(
+    `select p.proname, pg_get_function_identity_arguments(p.oid) args
+     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.prorettype <> 'trigger'::regtype
+       and not exists (
+         select 1 from pg_depend d
+         where d.objid = p.oid
+           and d.classid = 'pg_proc'::regclass
+           and d.deptype = 'e'
+       )
+       and to_regrole('anon') is not null
+       and has_function_privilege('anon', p.oid, 'execute')
+     order by 1`,
+  );
+  if (fns.length > 0) {
+    for (const f of fns) {
+      fail(
+        `anon can execute ${f.proname}(${f.args}) — it is missing its revoke/grant tail.`,
+      );
+    }
+  } else {
+    console.log('  ✓ anon cannot execute any application function');
+  }
+
   // ── settings are created on signup ───────────────────────────────
   const { rows: trg } = await client.query(
     `select tgname from pg_trigger

@@ -279,6 +279,23 @@ missing `search_path`. Local reproduces that code path faithfully.
 `major_version = 17` in `config.toml` matches the hosted project (17.6). If
 you upgrade one, upgrade the other.
 
+## Running the bearer-token test
+
+```bash
+pnpm test:auth
+```
+
+Needs `pnpm dev:up` and nothing else — not the app, not a browser. It reads
+`API_URL`, `PUBLISHABLE_KEY` and `SECRET_KEY` from `supabase status`, because
+the file that otherwise holds them is gitignored and absent in CI.
+
+It is separate from `verify:db` because it is the one suite that needs a real
+**Auth server** rather than a Postgres instance. The route suites inject
+`__TEST_DB__` and never reach `requireSession`'s bearer branch, so the path
+Expo and macOS depend on went untested and shipped broken. Asserting the fix
+in isolation would restate it; only a genuinely signed token proves it. In CI
+it runs in the e2e job, right after `supabase start`.
+
 ## Running the browser tests
 
 `pnpm test:e2e` needs the local stack and the app already running — `pnpm

@@ -7,10 +7,6 @@ place through the gate.
 Ranked by what it costs: a wrong number or a lost record first, then a thing
 that misleads, then a thing that looks wrong. A fixed defect is deleted.
 
-**The four correctness defects that block launch live in `roadmap.md` under
-M0**, because they are release-gating rather than background faults. They are
-not duplicated here.
-
 ## Wrong data
 
 - [ ] **`paid_at` records when the user clicked, not when the money arrived.**

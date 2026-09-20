@@ -261,6 +261,13 @@ jobs:
       - name: Start Supabase
         run: npx supabase start -x studio,postgres-meta
 
+      # Needs the Auth server rather than a Postgres instance, so it cannot
+      # live in the `database` job: the point is that a genuinely signed
+      # token resolves. Runs here, before the browser setup, because it is
+      # the cheapest thing in this job and the stack is already up.
+      - name: The bearer-token path
+        run: pnpm test:auth
+
       # The Playwright version alone is the key: browser builds are pinned to
       # it. Read from the installed package rather than hashing the lockfile,
       # which would throw away a still-valid browser on every unrelated
