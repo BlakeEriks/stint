@@ -328,7 +328,7 @@ export const InvoiceLineItem = z.object({
 export const ComputedLineItem = InvoiceLineItem.extend({
   /** Which level of the hierarchy supplied the rate. */
   rateSource: z.enum(['entry', 'project', 'client', 'default', 'none']),
-  /** The entries this line merged. Internal ids; see `docs/tasks.md`. */
+  /** The entries this line merged. Internal ids; see `docs/roadmap.md`. */
   entryIds: z.array(uuid),
 });
 

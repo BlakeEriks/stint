@@ -1,7 +1,8 @@
 # Time Tracking — working notes
 
-A time tracker for solo contractors. The product thesis is **restraint**; Toggl
-is the comparison point and it does too much.
+Time tracking and invoicing for one contractor. Tracking is free; the invoice
+is what gets paid for. **`docs/positioning.md` owns the thesis, the
+competitors and the price** — this file and every other doc defer to it.
 
 Read `docs/` before changing anything structural — `docs/CLAUDE.md` says how
 those are written.
@@ -15,7 +16,10 @@ to it, name the doc that owns the claim:
 | About one screen or one app | that screen's doc, `docs/macos.md`, `docs/design/landing.html` |
 | A shape a screen is assembled from | `docs/design/screens/components.html` |
 | Enforced by a check or a config | that script or config, in a comment at the line someone edits |
-| Unbuilt work, or something decided against | `docs/tasks.md`, `docs/design/principles.md` |
+| Who this is for, what it competes with, what it costs | `docs/positioning.md` |
+| What we believe about the product | `docs/design/principles.md` |
+| Unbuilt work | `docs/roadmap.md` |
+| A known fault | `docs/defects.md` |
 | True only under one path | `.claude/rules/<topic>.md`, with `paths:` frontmatter |
 
 Only a claim no doc above owns belongs here, and then as one paragraph.
@@ -34,9 +38,9 @@ nothing the rest of the time.
 **One running timer per user, enforced by a database index.** Never add a code
 path that could produce overlapping entries.
 
-**The app never silently modifies user data.** Runaway timers are surfaced, not
-auto-trimmed. Rates freeze onto invoices at generation. This is a billing
-system — silent correction destroys trust in every number it reports.
+**The app never silently modifies user data.** A suspect record is surfaced
+for the user to resolve, never corrected on their behalf
+(`docs/design/principles.md`).
 
 **Server owns timer truth; clients own responsiveness.**
 
@@ -68,8 +72,7 @@ never a hex.
 - Colors come from **semantic** tokens only; primitives stay in the token
   package.
 - **Only clients have a colour**, resolved through `useProjectColors()`;
-  internal work gets none. `projects.color` is a dead column awaiting its drop
-  migration — nothing selects or writes it.
+  internal work gets none.
 - Design tokens are **generated** — edit `packages/design-tokens/tokens.json`,
   then `pnpm tokens`. Never edit files in `dist/`.
 - Both neutral ramps are **derived**: change a parameter in
@@ -135,9 +138,13 @@ data or a developer's current location.
 `docs/CLAUDE.md` says how docs are written and `/trim <path>` measures one
 against it.
 
-**`docs/tasks.md` is the only list of unbuilt work.** A finished task is
-deleted, not ticked; something decided against moves to
-`docs/design/principles.md`, where it will be read before being re-proposed.
+**`docs/roadmap.md` is the only list of unbuilt work**, and it carries the
+gate that work passes to get there. Known faults go to `docs/defects.md`.
+
+**A branch that decides something gets `/dissent` before it merges** — a
+price, a thesis, a scope cut, a milestone order. It argues against the branch
+with agents that did not write it, because a claim and the evidence refuting
+it can sit four lines apart and never collide for whoever wrote both.
 
 **`docs/api.md` marks unimplemented endpoints `(not implemented)`.**
 

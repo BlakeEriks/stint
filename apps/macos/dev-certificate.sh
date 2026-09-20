@@ -6,7 +6,7 @@
 #
 # Self-signed, lives only in YOUR login keychain, trusted by nothing except
 # this machine. Not a Developer ID and cannot distribute an app — see
-# `docs/tasks.md`. Run it once.
+# `docs/roadmap.md`. Run it once.
 set -euo pipefail
 
 NAME="Stint Local Dev"

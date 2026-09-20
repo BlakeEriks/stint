@@ -46,8 +46,53 @@ trusting the device clock.
 | `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, exceedsThreshold, maxTimerHours, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. |
 | `GET` | `/calendar` | `?from&to` (**both required**) `&tz&granularity`. Returns `{ days: [...] }`. `400 INVALID_PERIOD` if `to < from`. |
 | `GET` | `/calendar?granularity=day` | Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. Backs the home screen's activity chart, where a month of full entries is a heavy payload for something drawing one column per day. `byClient` keys by client id with `''` for internal work, and running entries are excluded. |
-| `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call: `currency`, `unbilled` (by client with aging, capped at **5 rows** plus a `moreClients` count — the total still covers every client), `earnedToday`, `collected`, `awaitingPayment`, `openInvoiceCount`, `pace`, `billableRatio`, and `attention` . **`earnedToday` is work done today at its resolved rate**, bucketed by the entry's own date in `tz` from the same `revenue_by_day()` series the pace ray uses — a property of the data, so it reads the same on every device; unrated work earns nothing it can name, so it can understate a day whose rate chain resolves to null. One request because they render together and a set that pops in piecemeal reads as broken. **`awaitingPayment` is invoiced-not-yet-collected and must never be summed with `unbilled.total`** — that would double-count the same hours. `openInvoiceCount` is how many invoices make up it. **`collected` is money that arrived** — `sum(total)` over **paid** invoices bucketed by `paid_at` in `tz`, from the `collected_by_month()` rollup: `trailing12` over twelve whole months, `thisMonth` (`0` is normal), `byMonth` for the last six of that same window oldest first with a quiet month present at `0`, and `daysSincePaid`. **Only invoices in the response's `currency` count**, since the screen prints one currency beside the figure and a euro added in would be reported as a dollar. `daysSincePaid` is whole calendar days in `tz` from the latest `paid_at` **in that same currency**, so the line describes the money the figure counts, **null** when nothing in it has ever been paid or that `paid_at` is in the future. **`collected` must never be summed with `unbilled.total` or `awaitingPayment`** — the same three stages of one pipeline, and any two summed double-count. The attention rows are **derived per request** from stored facts, and carry grace periods: an invoice is overdue at `due_date` **+ 7 days**, a draft is stale **7 days** after issue. One row whose condition never stops holding on its own is gated by a stored answer instead — `duration_ok` on an entry of unusual length — so it cannot return every day once answered, and nothing else is remembered. Unbilled totals come from the `unbilled_by_client` SQL rollup, grouped by (client, rate); a client-less row reports `clientName: "No client"`. `velocity` is the trailing **3 whole months** from `revenue_by_client()`, gross work done split `invoiced` vs `unbilled` (the two sum to `total`), per client and capped at the same 5 rows. The home screen renders the gross and the per-client mix but **not** the split: its window opens on the 1st three months back, so `velocity.unbilled` parts from `unbilled.total` only when work has gone unbilled past that boundary, and printing both put the same figure on screen twice in the ordinary case. `perMonth` is `total / months` rounded to cents **on the server**; the client never divides money. `byProject` is the same window from `revenue_by_project()`, ranked by hours and capped at **4 rows** with the remainder — including work filed under no project, which never takes a row — summed into `tailSeconds`/`tailAmount` so the section totals cover the whole window. Unlike every other rollup it counts **unbillable work in `seconds`**, because the hours reading answers where the time went; the money columns stay billable-only. It uses the same rate chain and the same group-by-(client, rate) shape as the unbilled rollup, so the two figures agree; it is **not** comparable with `awaitingPayment`, which spans every period. `pace` carries a `series`: one point per **business day** of the month, each with the cumulative `actual` (null past today) and the goal ray's `expected`. The ray steps on business days only — one sloping through the weekend would show the user behind every Saturday and recovered every Monday. A **revenue** target gets the same ray, its `actual` from `month_revenue()` and its series from `revenue_by_day()`; it counts work DONE (invoiced plus unbilled at its resolved rate) bucketed by the entry's date, never the invoice's `issue_date`, and a voided invoice releases its entries. `unprojected` is one row per entry, oldest first, and `strangeDurations` one per entry of implausible length (`kind` is `short` or `long`; both thresholds live on `user_settings` and default to null, so the row is opt-in). The runaway timer is the inbox's fifth row and comes from `/summary`, not here. Quiet clients are not built (`tasks.md`). Specified in `docs/design/screens/home.html`. |
+| `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call. One request because they render together, and a set that pops in piecemeal reads as broken. Fields and their rules are below. |
 | `GET` | `/entries/task-names` | `?projectId&limit` (1–20, default 8). Returns `{ taskNames: [{ taskName, projectId, lastUsedAt }] }` — names the user has typed before, for suggesting one rather than retyping it. One row per name **case-insensitively**, keeping the most recent spelling, since offering both is offering the user their own typo; the empty name is excluded, so a timer started in a hurry never becomes a suggestion. **`projectId` ranks, it does not filter** — names used with that project come first and every other name still follows, so there is no `none` literal as there is on `/entries`: "no project" and "no preference" are one request. Omitting it ranks by recency alone. Ranking is the server's and clients must not re-sort it; filtering as the user types is theirs. Backed by the `recent_task_names` SQL function. |
+
+### `/stats` fields
+
+`currency`, `unbilled`, `earnedToday`, `collected`, `awaitingPayment`,
+`openInvoiceCount`, `pace`, `billableRatio`, `velocity`, `byProject` and
+`attention`. The rollups behind them, and the window each one runs, are in
+`docs/data-model.md`; what the screen does with them is
+`docs/design/screens/home.html`.
+
+**Three figures are three stages of one pipeline, and no two may be summed** —
+any pair double-counts the same hours. `unbilled` is work done and not
+invoiced, `awaitingPayment` is invoiced and not collected, `collected` is
+money that arrived. `openInvoiceCount` is how many invoices make up the
+second.
+
+**Only invoices in the response's `currency` count**, since the screen prints
+one currency beside the figure and a euro added in would be reported as a
+dollar. `collected.daysSincePaid` is whole calendar days in `tz` from the
+latest `paid_at` in that same currency, and **null** when nothing in it has
+ever been paid or that `paid_at` is in the future.
+
+**`earnedToday` is work done today at its resolved rate**, bucketed by the
+entry's own date in `tz` — a property of the data, so it reads the same on
+every device. Unrated work earns nothing it can name, so it can understate a
+day whose rate chain resolves to null.
+
+**Rows are capped and the remainder is reported, never dropped.** `unbilled`
+and `velocity` carry 5 rows plus a `moreClients` count; `byProject` carries 4
+plus `tailSeconds` / `tailAmount`. Every total still covers the whole window.
+
+**`pace.series` steps on business days only** — a ray sloping through the
+weekend would show the user behind every Saturday and recovered every Monday.
+Each point carries the cumulative `actual`, null past today, and the goal's
+`expected`. A revenue target counts work **done**, bucketed by the entry's
+date and never the invoice's `issue_date`; voiding an invoice releases its
+entries.
+
+**`attention` is derived per request** from stored facts, with grace periods:
+an invoice is overdue at `due_date` + 7 days, a draft stale 7 days after
+issue. The one row whose condition never clears on its own is gated by a
+stored answer instead — `duration_ok` on an entry of unusual length — so it
+cannot return every day once answered. `unprojected` is one row per entry,
+oldest first; `strangeDurations` one per entry of implausible length, and
+both its thresholds default to null, so the row is opt-in. The runaway timer
+is the inbox's fifth row and comes from `/summary`, not here.
 
 ## Clients / projects / settings
 
@@ -85,8 +130,7 @@ it means `false`.
 
 **A user with any live profile always has a default.** `isDefault: false` on
 the last one is answered with the unchanged profile, and archiving the default
-promotes the next profile by name. Without that, resolution falls through to
-null and the next invoice carries no bank details.
+promotes the next profile by name.
 
 `nextInvoiceNumber` is not settable through `PATCH /settings`: gapless
 numbering depends on `allocate_invoice_number()` holding the row lock. Every
@@ -130,41 +174,28 @@ accruing), non-billable entries, and entries already attached to an invoice.
 **Preview before generate is mandatory in the UI.** Generation is the step that
 allocates a gapless number and locks entries — it must never be a surprise.
 
-**The app does not email invoices.** You download the PDF and send it from
-your own address, then record that with `PATCH /status`. Mail sent from a
-shared application domain gets filtered or blocked on the way to a client, and
-you find out when they say it never arrived. Sending it yourself uses your own
-domain's reputation and leaves the invoice in your Sent folder.
+**There is no send endpoint.** The PDF is downloaded and sent by the user from
+their own address; `PATCH /status` records that it went out.
+`docs/design/principles.md` says why.
 
 `grouping_mode` (`entry | task | project | day`) controls whether the invoice
 lists every entry or sums them. It is frozen onto the invoice.
 
 ## Payment details
 
-Bank details live on the **invoice PDF**. That is the convention every major
-invoicing tool follows, and it is the safer posture: details that render
-identically on every invoice create a baseline, so a *change* becomes visible
-and questionable — which is exactly what fraud-prevention guidance tells
-payers to challenge. (The app sends no mail at all, so the PDF is the only
-place they could go.)
+Bank details live on the **invoice PDF**, and the placement is not a user
+preference — `.claude/rules/invoicing.md` has the reason.
 
 `GET|POST /payment-profiles`, `GET|PATCH|DELETE /payment-profiles/:id`.
 
-- A profile is a named bundle of whatever a payer needs. **US-first**: account
-  number + ACH routing number is the default path; IBAN/SWIFT, a labelled
-  national bank code, and intermediary-bank fields are additive and render
-  only when populated.
-- The first profile created becomes the default automatically — otherwise a
-  user who never ticks the box gets invoices with no payment details.
-- **One default per user**, enforced by a partial unique index.
+- A profile is a named bundle of whatever a payer needs; `docs/data-model.md`
+  has the field order and which are additive.
+- The first profile created becomes the default automatically, and there is
+  **one default per user**.
 - A client may point at a specific profile (`paymentProfileId`); otherwise the
   user's default applies. A dangling reference falls back to the default
   rather than leaving an invoice with nothing.
 - Deleting is archival, because clients and invoices reference profiles.
-
-**Invoices freeze the rendered details** into `payment_details` (JSONB) at
-generation, exactly as they freeze rates. Editing or deleting a profile later
-never alters an issued invoice.
 
 `user_settings.payment_notice` is a standing anti-fraud line printed under the
 payment block, defaulted to a warning that details never change and should be

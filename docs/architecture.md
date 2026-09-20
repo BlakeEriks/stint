@@ -2,10 +2,12 @@
 
 ## What this is
 
-A time tracker for solo contractors. The product thesis is **restraint**: one
-active timer, clean logging, a calendar view, and invoicing. Toggl is the
-comparison point, and it is expanding into project management — scope this app
-deliberately does not want.
+Time tracking and invoicing for one contractor: one active timer, clean
+logging, a calendar view, and the invoice that comes out of them. Tracking is
+free and the invoice is the paid artifact, which is why timer arbitration,
+rate resolution and invoice numbering are the parts built to be correct rather
+than merely working. `docs/positioning.md` owns the thesis and the
+competitors.
 
 ## Surfaces
 
@@ -15,7 +17,7 @@ deliberately does not want.
 | macOS | Native Swift menu bar app (`apps/macos`, SwiftPM, no Xcode) | The timer and nothing else: start, stop, task name, project. The menu bar toggles between the running timer and today's total. |
 | iOS + Android | React Native (Expo), `apps/mobile` | Start / stop / view, light editing. |
 
-**Scope, not progress** — `tasks.md` is where unbuilt work lives, and a status
+**Scope, not progress** — `roadmap.md` is where unbuilt work lives, and a status
 column here would be a second list that silently disagrees with it. What
 exists on disk is the honest signal: `apps/mobile` has no directory.
 
@@ -64,20 +66,13 @@ known boundary to watch.
 
 ## The timer invariant
 
-> At most one running time entry per user, enforced by the database.
-
-```sql
-create unique index one_running_timer_per_user
-  on time_entries (user_id) where ended_at is null;
-```
+> At most one running time entry per user, enforced by a partial unique index
+> (`docs/data-model.md`).
 
 Timer state is **server-authoritative**. Opening the phone app shows the timer
 already running on the Mac, because the server is the source of truth. A
 `POST /timer/start` while one is running returns `409 TIMER_ALREADY_RUNNING`
 along with the running entry, so the client can display it.
-
-This makes overlapping entries *structurally impossible* rather than something
-to reconcile later — which is what keeps invoices trustworthy.
 
 Enforcing it in the **database** rather than in API code means no code path —
 including one written later — can produce an overlap.
@@ -152,7 +147,7 @@ route handlers verify it identically.
   a redirect target. `supabase-swift` is not used — the SDK is not needed to
   POST two endpoints. Sign in with Apple via `signInWithIdToken` would need a
   paid developer account, an App ID with the capability and a signed bundle,
-  none of which a SwiftPM executable produces (`tasks.md`).
+  none of which a SwiftPM executable produces (`roadmap.md`).
 - **Expo** — AsyncStorage session store. **`AppState` must be wired to
   `startAutoRefresh()` / `stopAutoRefresh()`**, or the refresh timer keeps
   firing while suspended and sessions go stale on resume. Easy to miss.
@@ -175,9 +170,8 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
 - Invoice PDFs: `@react-pdf/renderer` — ~2MB, sub-500ms, no Chromium cold
   start. Puppeteer is only warranted if pixel-exact HTML fidelity is ever
   needed.
-- **No outbound mail.** Invoices are downloaded and emailed by the user, so
-  there is no provider, no domain reputation to maintain, and no deliverability
-  failure mode where a client silently never receives an invoice.
+- **No outbound mail**, so no provider and no domain in the stack. Invoices
+  are downloaded and sent by the user (`design/principles.md`).
 - Note: Supabase free-tier projects pause after 7 days of inactivity.
 
 ## Repo layout

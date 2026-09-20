@@ -139,7 +139,7 @@ actor TokenStore {
 ///
 /// The trade: anything running as this user can invoke `security` too, so the
 /// item rests on the login keychain's lock rather than on app identity. A
-/// Developer ID would earn a `teamid:` partition — see `docs/tasks.md`.
+/// Developer ID would earn a `teamid:` partition — see `docs/roadmap.md`.
 private enum Keychain {
     private static let service = "dev.stint.session"
 

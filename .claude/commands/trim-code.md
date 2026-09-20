@@ -38,8 +38,9 @@ For each candidate, ask which of these owns the claim:
   keeping a paragraph about it.
 - **A design doc owns it.** `docs/design/screens/*.html` for one screen,
   `brand.html` for the type and colour rules.
-- **`docs/design/principles.md` owns a rejected design**, and
-  **`docs/tasks.md` owns unbuilt work.**
+- **`docs/design/principles.md` owns what we believe about the product**,
+  **`docs/roadmap.md` owns unbuilt work**, and **`docs/defects.md` owns a
+  known fault.**
 
 Then the shapes that own nothing:
 
@@ -83,8 +84,8 @@ it — confirm the file is really unreachable before touching it.
 ## 4. Cut, then verify
 
 - Cut comments; leave every statement, name and type alone.
-- A **rejected design** moves to `docs/design/principles.md`; **unbuilt work**
-  moves to `docs/tasks.md`. Neither is simply deleted.
+- **Unbuilt work** moves to `docs/roadmap.md` and a **known fault** to
+  `docs/defects.md`, rather than being deleted.
 - `duplicateProse` names the files sharing one explanation. Keep it where it
   is load-bearing, and leave a pointer only if the reader genuinely cannot
   proceed without it — a second copy drifts.

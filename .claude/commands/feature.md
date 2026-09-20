@@ -2,8 +2,15 @@
 description: Interview, spec and mock a feature, then build it on a branch with fresh-context agents
 ---
 
-Build `$ARGUMENTS` — a line from `docs/tasks.md`, or a description. If none
-given, ask which.
+Build `$ARGUMENTS` — a line from `docs/roadmap.md`, a fault from
+`docs/defects.md`, or a description. If none given, ask which.
+
+**A description that is on neither list has not passed the gate.** Answer
+`roadmap.md`'s four questions for it first and write the entry. If they cannot
+be answered — most often because the honest answer to *what breaks without it*
+is "it annoys someone" — say so and stop rather than building it. A fault
+needs no gate: if the thing is broken rather than missing, it belongs in
+`defects.md` and the answer is to fix it.
 
 You are the decision maker and the interviewer. You hold the spec; subagents
 running Opus do the reading, building and reviewing. Spend your own tokens on
@@ -15,9 +22,11 @@ command proving it is not ready to be built.
 
 ## 1. Read before asking
 
-Read `docs/tasks.md` for the entry if there is one — a task line already
-records the thinking that is not to be re-litigated. Then `CLAUDE.md`, and the
-docs that own the area.
+Read the entry — in `docs/roadmap.md` it already records the thinking that is
+not to be re-litigated, and its gate answers say who this is for and what
+breaks without it. Then `docs/positioning.md`, which owns the thesis and the
+price and is what the feature has to serve, then `CLAUDE.md` and the docs that
+own the area.
 
 Fan out read-only agents in one message, one per surface the feature touches,
 each capped at ~800 words and required to cite `file:line`. Ask each for the
@@ -65,9 +74,9 @@ deferred client whose integration point is written down is a follow-up; one
 that is merely implied is a rediscovery.
 
 Do not add a status column to `architecture.md` — what exists on disk is the
-signal, and unbuilt work lives in `tasks.md`.
+signal, and unbuilt work lives in `roadmap.md`.
 
-Do not ask what the codebase answers, what `principles.md` already refused, or
+Do not ask what the codebase answers, what `principles.md` settles, or
 anything with an obvious default — make the call, state it in the spec.
 
 Keep going until the hard parts are covered. Then stop; an interview that
@@ -112,7 +121,7 @@ omission here becomes several corrections later.
 
 ## 4. Write the spec, then wait
 
-Write to `docs/tasks.md`'s sibling scratch — `.claude/scratch/<feature>.md`.
+Write to `docs/roadmap.md`'s sibling scratch — `.claude/scratch/<feature>.md`.
 Not `docs/`: it is working state, deleted when the feature ships.
 
 The spec names:
@@ -130,14 +139,21 @@ The spec names:
   is the rest and wants the local stack up. Both mirror a CI job and take no
   arguments — `pnpm db:setup` first if a migration landed, since the test
   databases are built from migrations and do not pick up a new one.
-- **Doc changes**, including deleting the `tasks.md` line. A finished task is
-  deleted, not ticked.
+- **Doc changes**, including deleting the `roadmap.md` or `defects.md` line.
+  A finished item is deleted, not ticked. Name the doc that owns each claim
+  the feature adds — one claim, one doc, per `CLAUDE.md`'s routing table — so
+  a rationale does not land in two files that then drift.
 
 Then present **decisions with consequences** separately from work you will
 just do. A decision earns that list when it changes what a user sees, alters
 the schema, costs money, or removes a capability. Recommend one option each.
 
 Wait for sign-off. Nothing is built, and no branch exists, before it.
+
+**If the spec decided something rather than only scheduling it** — a price, a
+scope cut, a claim about a user, an order that defers someone's problem — that
+decision is cheapest to argue with now. `/dissent` is the pass for it, and
+spec time is the moment it costs an edit instead of a rebuild.
 
 ## 5. Build on a branch, fresh context per phase
 
@@ -229,7 +245,7 @@ restating it is a second copy that goes stale silently. What earns a line:
 
 What does not: a decision record ("we chose X over Y"), a restatement of a
 rule CI enforces, or a narration of what the old version did. Git holds the
-history; `principles.md` holds refusals. A comment written in the same breath
+history, and nothing holds refusals. A comment written in the same breath
 as the code carries the reason the code cannot; one written to justify the
 choice belongs in the spec, which is deleted when the feature ships.
 
@@ -263,9 +279,9 @@ Fix what they find, with a test each.
 ## 7. Land it
 
 Run `pnpm verify:static` and `pnpm verify:db` green before reporting, plus
-`pnpm test:e2e` if a screen changed and `swift build` if the Mac app did. Delete the `tasks.md` line and
-the scratch spec in the final commit — git holds the history, and the mockup
-stays as the screen doc.
+`pnpm test:e2e` if a screen changed and `swift build` if the Mac app did.
+Delete the `roadmap.md` or `defects.md` line and the scratch spec in the final
+commit — git holds the history, and the mockup stays as the screen doc.
 
 **A surface does not land until its phase-3 table is reconciled**, row by
 row, against the built screen. Report it as a table of three columns — what,

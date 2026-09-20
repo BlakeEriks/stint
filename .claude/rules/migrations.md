@@ -55,6 +55,10 @@ pg_temp` for the reason the trigger carries it — see the comment above
 `create_default_settings` in `00000000000002_integrity.sql`. It is also the
 standard hardening against a caller shadowing a table name.
 
+**Anything added to that trigger inserts `on conflict do nothing`**, for the
+same reason the settings insert does: a duplicate must not become the error
+that rolls a signup back.
+
 To test a migration locally without touching a real project, start a
 throwaway Postgres (`/opt/homebrew/opt/postgresql@14/bin`) on a spare port
 over TCP — the socket path in the scratchpad exceeds the 103-byte limit —
