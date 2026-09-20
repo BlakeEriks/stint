@@ -25,6 +25,7 @@
     "test:e2e": "pnpm --filter @stint/web test:e2e",
     "test:ui": "pnpm --filter @stint/web test:ui",
     "test:rls": "pnpm --filter @stint/web test:rls",
+    "test:auth": "node scripts/test-auth.mjs",
     "check:type": "pnpm --filter @stint/web check:type",
     "detox": "pnpm --filter @stint/web detox",
     "typecheck": "npx tsc --noEmit -p tsconfig.json && pnpm --filter @stint/web typecheck",
