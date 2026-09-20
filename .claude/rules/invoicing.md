@@ -72,11 +72,9 @@ and truncate tables in `beforeEach`, so parallel files clobber each other.
 ### RLS
 
 `pnpm test:rls` is a **separate script against a separate database**, because
-the route tests disable RLS on theirs. It connects as a non-superuser
-`authenticated` role and sets `request.jwt.claim.sub` per transaction the way
-PostgREST does, so `auth.uid()` resolves and the policies actually run.
+the route tests disable RLS on theirs. **Do not add `rls.test.ts` to the
+`test` glob** — pointed at the RLS-disabled database it would pass while
+proving nothing.
 
-Its `before` hook asserts the role is neither a superuser nor `BYPASSRLS` —
-without that, every assertion would pass vacuously and the suite would be
-decorative. Do not add `rls.test.ts` to the `test` glob: pointed at the
-RLS-disabled database it would pass while proving nothing.
+`docs/data-model.md` has how the suite makes the policies run and why it
+cannot pass vacuously.

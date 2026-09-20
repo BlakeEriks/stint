@@ -60,22 +60,10 @@ omits one.
 - `nextInvoiceNumber` is not client-settable — gapless numbering depends on
   `allocate_invoice_number()` holding the row lock.
 
-### Testing
+### Schemas
 
-`apps/web/test/routes.test.ts` runs the **real** handlers against a **real**
-Postgres with the real migrations. `requireSession` has a `__TEST_DB__` seam;
-`test/shim.mjs` is a supabase-js-shaped builder over node-postgres, and
-`test/loader.mjs` resolves `next/*` and the `@/` alias for `node --test`.
-
-**CI splits by what a check needs**: `static` for everything that needs no
-database, `database` for the route and RLS suites over a Postgres service
-container built by `scripts/ci-db.sh`, `macos` for `swift build`, and `e2e`
-for the browser. Root `pnpm test` is `pnpm -r test`, so it runs the core
-package's suite too — filter to `@stint/web` for the route suite alone.
-
-Node's `--experimental-strip-types` rejects **TypeScript parameter
-properties** — write constructor fields explicitly in any code the tests load.
-
-Zod 4 is used throughout: `z.uuid()`, `z.iso.datetime()`, `z.email()`,
+Zod 4 throughout: `z.uuid()`, `z.iso.datetime()`, `z.email()`,
 `z.record(z.string(), z.unknown())`. Keep every workspace package on the same
 Zod major, or `z.infer` degrades to `unknown` across package boundaries.
+
+How the route suite runs is `.claude/rules/testing.md`'s.
