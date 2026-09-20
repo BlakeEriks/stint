@@ -2,10 +2,12 @@
 
 ## What this is
 
-A time tracker for solo contractors. The product thesis is **restraint**: one
-active timer, clean logging, a calendar view, and invoicing. Toggl is the
-comparison point, and it is expanding into project management — scope this app
-deliberately does not want.
+Time tracking and invoicing for one contractor: one active timer, clean
+logging, a calendar view, and the invoice that comes out of them. Tracking is
+free and the invoice is the paid artifact, which is why timer arbitration,
+rate resolution and invoice numbering are the parts built to be correct rather
+than merely working. `docs/positioning.md` owns the thesis and the
+competitors.
 
 ## Surfaces
 
@@ -15,7 +17,7 @@ deliberately does not want.
 | macOS | Native Swift menu bar app (`apps/macos`, SwiftPM, no Xcode) | The timer and nothing else: start, stop, task name, project. The menu bar toggles between the running timer and today's total. |
 | iOS + Android | React Native (Expo), `apps/mobile` | Start / stop / view, light editing. |
 
-**Scope, not progress** — `tasks.md` is where unbuilt work lives, and a status
+**Scope, not progress** — `roadmap.md` is where unbuilt work lives, and a status
 column here would be a second list that silently disagrees with it. What
 exists on disk is the honest signal: `apps/mobile` has no directory.
 
@@ -152,7 +154,7 @@ route handlers verify it identically.
   a redirect target. `supabase-swift` is not used — the SDK is not needed to
   POST two endpoints. Sign in with Apple via `signInWithIdToken` would need a
   paid developer account, an App ID with the capability and a signed bundle,
-  none of which a SwiftPM executable produces (`tasks.md`).
+  none of which a SwiftPM executable produces (`roadmap.md`).
 - **Expo** — AsyncStorage session store. **`AppState` must be wired to
   `startAutoRefresh()` / `stopAutoRefresh()`**, or the refresh timer keeps
   firing while suspended and sessions go stale on resume. Easy to miss.

@@ -1,7 +1,8 @@
 # Time Tracking — working notes
 
-A time tracker for solo contractors. The product thesis is **restraint**; Toggl
-is the comparison point and it does too much.
+Time tracking and invoicing for one contractor. Tracking is free; the invoice
+is what gets paid for. **`docs/positioning.md` owns the thesis, the
+competitors and the price** — this file and every other doc defer to it.
 
 Read `docs/` before changing anything structural — `docs/CLAUDE.md` says how
 those are written.
@@ -15,7 +16,10 @@ to it, name the doc that owns the claim:
 | About one screen or one app | that screen's doc, `docs/macos.md`, `docs/design/landing.html` |
 | A shape a screen is assembled from | `docs/design/screens/components.html` |
 | Enforced by a check or a config | that script or config, in a comment at the line someone edits |
-| Unbuilt work, or something decided against | `docs/tasks.md`, `docs/design/principles.md` |
+| Who this is for, what it competes with, what it costs | `docs/positioning.md` |
+| What we believe about the product | `docs/design/principles.md` |
+| Unbuilt work | `docs/roadmap.md` |
+| A known fault | `docs/defects.md` |
 | True only under one path | `.claude/rules/<topic>.md`, with `paths:` frontmatter |
 
 Only a claim no doc above owns belongs here, and then as one paragraph.
@@ -135,9 +139,13 @@ data or a developer's current location.
 `docs/CLAUDE.md` says how docs are written and `/trim <path>` measures one
 against it.
 
-**`docs/tasks.md` is the only list of unbuilt work.** A finished task is
-deleted, not ticked; something decided against moves to
-`docs/design/principles.md`, where it will be read before being re-proposed.
+**`docs/roadmap.md` is the only list of unbuilt work**, and nothing enters it
+without passing the gate at the top of that file. Known faults go to
+`docs/defects.md` instead — a bug needs no justification, a feature does.
+
+A finished item is deleted, not ticked, and so is something decided against —
+no archive of rejections. The thesis moves, so a past no does not bind a new
+proposal; re-argue it against `docs/positioning.md` instead of looking it up.
 
 **`docs/api.md` marks unimplemented endpoints `(not implemented)`.**
 
