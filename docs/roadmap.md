@@ -80,7 +80,10 @@ nothing to sell.
       Expenses need no receipt capture or categories to clear this bar. A
       line on an invoice that is not hours is the whole requirement.
 
-## M2 · Trust the tool with your records
+## M2 · Your records get in, and back out
+
+Both directions of the same promise: the history you arrive with comes with
+you, and nothing you build here is held hostage.
 
 - [ ] **CSV export of entries and invoices.**
 
@@ -94,6 +97,54 @@ nothing to sell.
       Invoices with issue date, paid date, client and total is the
       accountant's version and is probably the highest value per line of code
       in the file. Rates must be in the entry export, and `0` is a real rate.
+
+- [ ] **Import from Toggl and Harvest.**
+
+      *Whose problem:* a contractor arriving with years of history has it
+      somewhere else. Starting on an empty database means their first month
+      here cannot be compared with anything, and the invoice they most want to
+      check against is the one they already sent from the old tool.
+
+      *Without it:* they do not start. Not "they leave in month three" — an
+      import is the first thing they try, before any of this is worth
+      evaluating.
+
+      *One person:* yes, and the first of them is us. This is the path onto
+      the product, not a migration nicety.
+
+      A **file upload**, not an API integration: the CSV/JSON export is
+      stable, needs no OAuth app or stored third-party credential, and keeps
+      working if their API changes. Parsing belongs in `packages/core` as pure
+      functions over parsed rows, so the preview a user reviews and the rows
+      that get written come from identical code.
+
+      Four parts are hard, and each is already decided:
+
+      - **Overlaps violate the timer invariant.** Toggl permits overlapping
+        entries and a real export contains them. Never resolve this by
+        adjusting timestamps — import everything unambiguous and present the
+        conflicting set as a review step. Import happens once in a lifetime,
+        so a review step is cheap; a wrong hour inside a past invoice is not.
+      - **Rates are not in the export, and `0` is a real rate.** The CSV
+        carries an amount per entry, not the hierarchy that produced it.
+        Back-computing rate from amount ÷ duration gives rounding noise and is
+        wrong for anything billed flat. Imported entries resolve through the
+        normal chain; those that cannot surface as unrated, the state
+        invoicing already refuses to generate from. Never write a guessed
+        rate.
+      - **Idempotency.** A stable UUIDv7 per source entry, so re-running a
+        partial or interrupted import cannot duplicate anything.
+      - **Timestamps and DST.** Toggl exports wall-clock local time plus a
+        separate timezone field. Parse to an absolute instant and store UTC.
+
+      Tags are dropped — there is no tag concept here and adding one to serve
+      an import imports Toggl's scope along with its data. Durations are
+      derived, so the import writes `started_at`/`ended_at` and never a
+      duration; where Toggl's reported duration disagrees with its own
+      start/end pair, surface the disagreement rather than picking a winner.
+
+      **Out of scope:** no live sync. Two systems of record is a different
+      product.
 
 ## M3 · Money truth on Home
 
@@ -142,18 +193,6 @@ the gate its four answers when it moves up.
 
 - **Recurring invoices.** Retainer clients invoice the same amount monthly.
   Zoho does this free. Not a signup blocker; a month-three one.
-
-- **Import from Toggl and Harvest.** A file upload, not an API integration.
-  Four hard parts, each already decided: overlapping entries violate the
-  timer invariant and get a review step rather than silent adjustment; rates
-  are not in the export and must never be back-computed from amount ÷
-  duration; a stable UUIDv7 per source entry makes a re-run idempotent; and
-  timestamps parse to an absolute instant, never fixed-millisecond
-  arithmetic.
-
-  Tempting earlier because the market window is open — Harvest, Clockify,
-  Bonsai and FreshBooks users are all looking — but it serves people who have
-  not chosen us yet, where M1 serves people who want to pay now.
 
 - **Payment links.** Every competitor has them and they get the user paid
   faster. Also a large build — webhooks, reconciliation, payout states, KYC —
