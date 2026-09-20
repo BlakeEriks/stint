@@ -34,17 +34,66 @@ update time_entries e
 -- `user_id` is `not null`, so deleting a project would fail on its own
 -- entries. Postgres 15+.
 --
--- `on update cascade` because the pair is what is referenced: a project
--- handed to another user must carry its entries or orphan them, and there is
--- no such operation in this product. It is here so the constraint is
--- complete rather than because anything performs it.
+-- `on update restrict`, NOT cascade. `user_id` is half the referenced key, so
+-- a cascade would not fix up a reference — it would WRITE `time_entries.user_id`
+-- and hand another user's time records to a different account in one statement.
+-- It also walks past `guard_billed_entry`, which enumerates the columns an
+-- issued invoice freezes and does not list `user_id`, because until this
+-- constraint existed nothing could change it: an entry billed on a sent
+-- invoice ends up owned by someone other than the invoice.
+--
+-- Nothing in this product hands a project to another user. That is the reason
+-- the operation must FAIL rather than succeed quietly — an absent writer is
+-- not a guarantee, and `CLAUDE.md`'s "never silently modifies user data"
+-- binds the database as much as the app.
 alter table time_entries
   add constraint entry_project_same_owner
   foreign key (project_id, user_id) references projects (id, user_id)
   on delete set null (project_id)
-  on update cascade;
+  on update restrict;
 
 -- The single-column FK is now implied: same `on delete set null`, narrower
 -- predicate. Keeping it would check the same reference twice on every write
 -- and give one violation two names.
 alter table time_entries drop constraint time_entries_project_id_fkey;
+
+-- `guard_billed_entry` froze every column an issued invoice depends on except
+-- the one nothing could write. The constraint above closes the path that
+-- exposed it, so this is the second lock rather than the fix: the guarantee
+-- should hold because the trigger says so, not because no writer exists.
+create or replace function guard_billed_entry() returns trigger
+language plpgsql as $$
+declare
+  inv_status text;
+begin
+  if old.invoice_id is null then
+    return new;
+  end if;
+
+  select status into inv_status from invoices where id = old.invoice_id;
+
+  if inv_status is null or inv_status = 'draft' then
+    return new;
+  end if;
+
+  -- Allow only detachment from the invoice (void/unbill path).
+  if new.invoice_id is distinct from old.invoice_id and new.invoice_id is null then
+    return new;
+  end if;
+
+  if new.started_at    is distinct from old.started_at
+     or new.ended_at   is distinct from old.ended_at
+     or new.is_billable is distinct from old.is_billable
+     or new.rate_override is distinct from old.rate_override
+     or new.project_id is distinct from old.project_id
+     -- An entry billed on someone's invoice must stay theirs.
+     or new.user_id    is distinct from old.user_id
+     -- task_name becomes the invoice line description: editing it after
+     -- issue changes what the client was told they were billed for.
+     or new.task_name is distinct from old.task_name then
+    raise exception 'Entry % is billed on a % invoice and cannot be modified', old.id, inv_status
+      using errcode = 'check_violation';
+  end if;
+
+  return new;
+end $$;

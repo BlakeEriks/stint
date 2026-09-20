@@ -131,16 +131,31 @@ try {
   // is reachable without a session. Found by OWNER rather than by name, so
   // that a function added later is covered without editing this list.
   //
-  // Extensions are excluded by the same test: pgcrypto installs into public
-  // and its functions are owned by `supabase_admin`, while ours are owned by
-  // the migration role. Trigger functions are exempt — privilege is not
-  // consulted when a trigger fires, and they cannot be called directly.
+  // Extension functions are excluded by asking whether they BELONG to an
+  // extension (`pg_depend.deptype = 'e'`), not by owner. pgcrypto installs
+  // into public, and who ends up owning it differs by environment: on the
+  // Supabase image it is `supabase_admin`, but CI runs a bare postgres
+  // container where `create extension` runs as the migration role and no
+  // such role exists — so an owner test excludes nothing there and every
+  // pgcrypto function reports as a failure.
+  //
+  // Trigger functions are exempt: privilege is not consulted when a trigger
+  // fires, and they cannot be called directly.
+  //
+  // `to_regrole` guards the privilege call: `has_function_privilege` RAISES
+  // on a role that does not exist, and this script takes a `--url` to
+  // arbitrary databases. Crashing mid-run would skip the check below it and
+  // report a Postgres stack trace instead of one of this script's own lines.
   const { rows: fns } = await client.query(
     `select p.proname, pg_get_function_identity_arguments(p.oid) args
      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public'
        and p.prorettype <> 'trigger'::regtype
-       and p.proowner::regrole::text <> 'supabase_admin'
+       and not exists (
+         select 1 from pg_depend d
+         where d.objid = p.oid and d.deptype = 'e'
+       )
+       and to_regrole('anon') is not null
        and has_function_privilege('anon', p.oid, 'execute')
      order by 1`,
   );

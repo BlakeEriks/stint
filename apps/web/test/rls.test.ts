@@ -346,6 +346,30 @@ test('an entry cannot be updated onto another user’s project', async () => {
   );
 });
 
+test('a project cannot be handed to another user while entries reference it', async () => {
+  await seedBoth();
+
+  // `on update restrict`, not cascade. `user_id` is half the referenced key,
+  // so a cascade would WRITE time_entries.user_id — moving another user's
+  // records in one statement, and past `guard_billed_entry`, which does not
+  // list a column nothing could previously change.
+  await assert.rejects(
+    () =>
+      admin.query('update projects set user_id = $1 where id = $2', [
+        BOB,
+        'bb000000-0000-4000-8000-00000000000a',
+      ]),
+    /entry_project_same_owner/,
+    'the transfer must fail rather than carry the entries across',
+  );
+
+  const { rows } = await admin.query(
+    'select user_id from time_entries where id = $1',
+    ['018f0000-0000-7000-8000-00000000000a'],
+  );
+  assert.equal(rows[0].user_id, ALICE, 'the entry did not change hands');
+});
+
 test('an entry keeps its owner when its project is deleted', async () => {
   await seedBoth();
 

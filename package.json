@@ -32,7 +32,7 @@
     "verify:static": "pnpm lint && pnpm tokens:validate && pnpm detox && pnpm check:type && pnpm typecheck && pnpm test:ui && pnpm core:test",
     "db:setup": "PGPORT=54322 bash scripts/ci-db.sh tt && PGPORT=54322 bash scripts/ci-db.sh tt_rls --rls",
     "verify:db": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:54322/tt} pnpm --filter @stint/web test && DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:54322/tt_rls} RLS_DATABASE_URL=${RLS_DATABASE_URL:-postgresql://authenticated:test@localhost:54322/tt_rls} pnpm --filter @stint/web test:rls && pnpm verify:schema --url ${SUPABASE_DB_URL:-postgresql://postgres:postgres@localhost:54322/tt_rls}",
-    "verify:all": "pnpm verify:static && pnpm verify:db && pnpm test:e2e",
+    "verify:all": "pnpm verify:static && pnpm verify:db && pnpm test:auth && pnpm test:e2e",
     "prepare": "husky",
     "core:test": "node --test --experimental-strip-types packages/core/test/*.test.ts"
   },
