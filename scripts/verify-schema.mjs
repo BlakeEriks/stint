@@ -141,8 +141,11 @@ try {
   // such role exists — so an owner test excludes nothing there and every
   // pgcrypto function reports as a failure.
   //
-  // Trigger functions are exempt: privilege is not consulted when a trigger
-  // fires, and they cannot be called directly.
+  // Trigger AND event-trigger functions are exempt: privilege is not
+  // consulted when either fires, and neither can be called directly — the
+  // call fails on the return type whoever the caller is. Production carries
+  // an `rls_auto_enable` event trigger that no migration created and that
+  // this check flagged on its first run against a database it had not seen.
   //
   // `to_regrole` guards the privilege call: `has_function_privilege` RAISES
   // on a role that does not exist, and this script takes a `--url` to
@@ -152,7 +155,7 @@ try {
     `select p.proname, pg_get_function_identity_arguments(p.oid) args
      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public'
-       and p.prorettype <> 'trigger'::regtype
+       and p.prorettype not in ('trigger'::regtype, 'event_trigger'::regtype)
        and not exists (
          select 1 from pg_depend d
          where d.objid = p.oid
