@@ -115,7 +115,7 @@ test('preview resolves rates and has no side effects', async () => {
   assert.equal(res.status, 200);
   assert.equal(res.body.lineItems.length, 1);
   assert.equal(
-    res.body.lineItems[0].resolvedRate,
+    res.body.lineItems[0].unitPrice,
     150,
     'falls back to the client rate',
   );
@@ -320,12 +320,12 @@ test('generating allocates a number, freezes line items and locks entries', asyn
   assert.equal(res.body.paymentTerms, 'Net 30', 'inherited from settings');
 
   const { rows: items } = await pool.query(
-    'select description, resolved_rate, amount from invoice_line_items where invoice_id=$1',
+    'select description, unit, quantity, unit_price, amount from invoice_line_items where invoice_id=$1',
     [res.body.id],
   );
   assert.equal(items.length, 1);
   assert.equal(
-    Number(items[0].resolved_rate),
+    Number(items[0].unit_price),
     150,
     'the rate is frozen onto the line',
   );
@@ -622,8 +622,8 @@ test('detail returns the frozen line items with the client', async () => {
   assert.equal(res.status, 200);
   assert.equal(res.body.client.name, 'Northwind');
   assert.equal(res.body.lineItems.length, 1);
-  assert.equal(res.body.lineItems[0].quantityHours, 2);
-  assert.equal(res.body.lineItems[0].resolvedRate, 150);
+  assert.equal(res.body.lineItems[0].quantity, 2);
+  assert.equal(res.body.lineItems[0].unitPrice, 150);
 
   const all = await json(await list(req('/invoices', undefined, 'GET')));
   assert.equal(all.body.invoices.length, 1);
@@ -1124,5 +1124,5 @@ test('the invoice detail response matches what the browser expects', async () =>
      carry it, which is why the schema marks it optional — asserting the
      difference keeps that honest. */
   assert.equal(res.body.lineItems[0].rateSource, undefined);
-  assert.equal(res.body.lineItems[0].resolvedRate, 150);
+  assert.equal(res.body.lineItems[0].unitPrice, 150);
 });

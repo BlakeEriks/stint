@@ -205,9 +205,9 @@ test('invoice line items inherit isolation from their invoice', async () => {
     [ALICE, BOB],
   );
   await admin.query(
-    `insert into invoice_line_items (invoice_id,description,quantity_seconds,resolved_rate,amount) values
-       ('ff000000-0000-4000-8000-00000000000a','Alice line',3600,150,150),
-       ('ff000000-0000-4000-8000-00000000000b','Bob line',3600,200,200)`,
+    `insert into invoice_line_items (invoice_id,description,unit,quantity,unit_price,amount) values
+       ('ff000000-0000-4000-8000-00000000000a','Alice line','hour',1,150,150),
+       ('ff000000-0000-4000-8000-00000000000b','Bob line','hour',1,200,200)`,
   );
 
   // invoice_line_items has no user_id at all — its policy joins through the

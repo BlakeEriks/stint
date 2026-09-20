@@ -82,6 +82,7 @@ export const POST = handle(async (req: Request) => {
     groupingMode: body.groupingMode,
     taxRate,
     tz: body.tz,
+    manualLines: body.manualLines,
   });
 
   if (totals.unratedEntryIds.length > 0) {
@@ -94,10 +95,12 @@ export const POST = handle(async (req: Request) => {
     );
   }
 
+  // A fee alone is a valid invoice — a deposit before any work is done is
+  // the ordinary case — so this asks for LINES, not for time.
   if (totals.lineItems.length === 0) {
     throw new ApiError(
       'INVALID_PERIOD',
-      'No unbilled, billable time in this period',
+      'Nothing to invoice: no unbilled, billable time in this period and no charges added',
       { periodStart: body.periodStart, periodEnd: body.periodEnd },
     );
   }
@@ -162,8 +165,9 @@ export const POST = handle(async (req: Request) => {
     totals.lineItems.map((li, i) => ({
       invoice_id: invoiceId,
       description: li.description,
-      quantity_seconds: li.quantitySeconds,
-      resolved_rate: li.resolvedRate,
+      unit: li.unit,
+      quantity: li.quantity,
+      unit_price: li.unitPrice,
       amount: li.amount,
       sort_order: i,
     })),
@@ -174,12 +178,17 @@ export const POST = handle(async (req: Request) => {
     throw itemsError;
   }
 
+  // An invoice of only fees attaches nothing: `.in('id', [])` would be a
+  // pointless round trip, and PostgREST's empty-list handling is not worth
+  // depending on for a call with no work to do.
   const entryIds = totals.lineItems.flatMap((li) => li.entryIds);
-  const { error: attachError } = await db
-    .from('time_entries')
-    .update({ invoice_id: invoiceId })
-    .in('id', entryIds)
-    .is('invoice_id', null); // never steal an entry another invoice claimed
+  const { error: attachError } = entryIds.length
+    ? await db
+        .from('time_entries')
+        .update({ invoice_id: invoiceId })
+        .in('id', entryIds)
+        .is('invoice_id', null) // never steal an entry another invoice claimed
+    : { error: null };
 
   if (attachError) {
     await db.from('invoice_line_items').delete().eq('invoice_id', invoiceId);

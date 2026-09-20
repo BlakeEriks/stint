@@ -341,7 +341,7 @@ function PreviewTable({ preview }: { preview: InvoicePreview }) {
           <thead>
             <tr className="border-b border-edge-subtle text-left">
               <Th>Description</Th>
-              <Th align="right">Hours</Th>
+              <Th align="right">Qty</Th>
               <Th align="right">Rate</Th>
               <Th align="right">Amount</Th>
             </tr>
@@ -350,8 +350,14 @@ function PreviewTable({ preview }: { preview: InvoicePreview }) {
             {preview.lineItems.map((item, i) => (
               <tr key={i} className="border-b border-edge-subtle last:border-0">
                 <td className="py-2 pr-3 text-primary">{item.description}</td>
-                <Td>{formatHours(item.quantityHours)}</Td>
-                <Td>{formatCurrency(item.resolvedRate, preview.currency)}</Td>
+                <Td>
+                  {item.unit === 'fixed' ? '' : formatHours(item.quantity)}
+                </Td>
+                <Td>
+                  {item.unit === 'fixed'
+                    ? ''
+                    : formatCurrency(item.unitPrice, preview.currency)}
+                </Td>
                 <Td strong>{formatCurrency(item.amount, preview.currency)}</Td>
               </tr>
             ))}

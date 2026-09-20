@@ -329,23 +329,24 @@ export function toInvoice(r: InvoiceRow) {
 export interface LineItemRow {
   id: string;
   description: string;
-  quantity_seconds: number;
-  resolved_rate: Numeric;
+  unit: 'hour' | 'fixed';
+  quantity: Numeric;
+  unit_price: Numeric;
   amount: Numeric;
   sort_order: number;
 }
 
 export const LINE_ITEM_COLUMNS = columns<LineItemRow>()(
-  'id, description, quantity_seconds, resolved_rate, amount, sort_order',
+  'id, description, unit, quantity, unit_price, amount, sort_order',
 );
 
 export function toLineItem(r: LineItemRow) {
   return {
     id: r.id,
     description: r.description,
-    quantitySeconds: r.quantity_seconds,
-    quantityHours: Math.round((r.quantity_seconds / 3600) * 100) / 100,
-    resolvedRate: num(r.resolved_rate),
+    unit: r.unit,
+    quantity: num(r.quantity),
+    unitPrice: num(r.unit_price),
     amount: num(r.amount),
     sortOrder: r.sort_order,
   };
