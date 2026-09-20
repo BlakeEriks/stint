@@ -10,11 +10,11 @@ A US contractor who bills by the hour, works alone, and invoices their own
 clients. Not an agency, not a team lead, not a freelancer on a platform that
 already invoices for them.
 
-They are not price-shopping — they are billing $100k+ a year and $15 is
-noise against one invoice. **Price is not why they arrive; it is why they
-distrust what they have.** A bill that moved, a rate that went behind a
-paywall, a tier that appeared. What they want is the number on the invoice to
-be right, and a tool that will still cost what it costs next year.
+They are not price-shopping — at $100k+ a year, $40 is what a billable
+minute costs them. **Price is not why they arrive; it is why they distrust
+what they have.** A bill that moved, a rate that went behind a paywall, a tier
+that appeared. What they want is the number on the invoice to be right, and a
+tool that still costs what it costs next year.
 
 ## The one line
 
@@ -70,16 +70,30 @@ tracker that produces the invoice, not an invoicer with a timer attached.
 
 ## Price
 
-**$15/month, or $120/year.** Annual is the default offer.
+**$40 a year — $3.33 a month, billed annually.** There is no monthly option.
 
 Time tracking is free and complete: unlimited clients, projects, entries and
-history, kept as long as the user needs it. **Downloading an invoice requires
-the paid tier**, and the data export does not — the records get out free, the
-document is the product.
+history, kept as long as the user needs it, with the money view and the
+exports included. **Downloading an invoice requires the paid tier**, and that
+is the only thing that does — the records get out free, the document is the
+product.
 
-Annual billing matters more than the headline: at $15/mo, Stripe's fixed
-$0.30 is 2% of revenue, and a third of churn under $10 order value is
-involuntary — dead cards, not decisions.
+**The price is set to cover the bill, not to return a margin.** Vercel Pro and
+Supabase Pro are $45 a month between them — Vercel's free tier forbids
+commercial use and Supabase's pauses after a week idle, so both are forced the
+moment money changes hands. That is **$555 a year, and it is the whole
+overhead**. At $40 a year, net of Stripe's 4.4% on a single annual charge,
+**fifteen subscribers cover it.**
+
+**Serving one more user costs approximately nothing.** Supabase Pro includes
+8GB and 250GB of egress against a few megabytes of rows per user-year, so the
+bill stays flat to somewhere near a thousand accounts. Nobody has to be
+converted for this to work, which is why the free tier can afford to be whole.
+
+**Annual-only is deliberate.** A third of churn under $10 is involuntary —
+dead cards, not decisions — and one charge a year is one chance to fail. It
+also matches how a tool like this is actually judged: once, at renewal, not
+every month.
 
 ## Scope
 
@@ -91,8 +105,11 @@ own address. Competitors email invoices, so expect the comparison;
 
 ## What this is a bet on
 
-That a contractor will pay $15/month for an invoice that is correct, when the
-tracking around it is free.
+That fifteen contractors will pay $40 a year for an invoice that is correct,
+when the tracking around it is free.
+
+Fifteen is the whole bar, and it is what makes this survivable: the product
+does not need to convert a market, only to cover a hosting bill.
 
 **This is inference from the market, not from customers.** It is well
 supported by what the incumbents did in 2026 — three of them moved money
