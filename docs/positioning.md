@@ -33,7 +33,9 @@ to protect.
 **The invoice is the product; the timer is the input.** Time tracking is a
 commodity given away free by Toggl, Clockify, Zoho, Paymo and Harvest. The
 numbered, rate-frozen, ACH-bearing PDF is the part that is hard and the part
-worth money. We charge for the document, never for the tracking.
+worth money. We charge for the document, never for the tracking — so what the
+paid tier sells is that its numbers are right, which is why the trust rules in
+`design/principles.md` are the product rather than engineering taste.
 
 **The price is knowable in advance and stays.** No seats, no usage metering,
 no tier that unlocks a number you already earned. This is a promise the
@@ -82,11 +84,6 @@ approvals, no capacity planning, no client portal.
 **The app sends no mail** — we render the PDF and the user sends it from their
 own address. Competitors email invoices, so expect the comparison;
 `design/principles.md` has the reasoning.
-
-**The app never silently modifies user data.** Runaway timers are surfaced,
-not trimmed. Rates freeze onto invoices at generation. Silent correction
-destroys trust in every number the app reports, and trust is what the paid
-tier sells.
 
 ## What this is a bet on
 

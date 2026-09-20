@@ -38,9 +38,9 @@ nothing the rest of the time.
 **One running timer per user, enforced by a database index.** Never add a code
 path that could produce overlapping entries.
 
-**The app never silently modifies user data.** Runaway timers are surfaced, not
-auto-trimmed. Rates freeze onto invoices at generation. This is a billing
-system — silent correction destroys trust in every number it reports.
+**The app never silently modifies user data.** A suspect record is surfaced
+for the user to resolve, never corrected on their behalf
+(`docs/design/principles.md`).
 
 **Server owns timer truth; clients own responsiveness.**
 
@@ -72,8 +72,7 @@ never a hex.
 - Colors come from **semantic** tokens only; primitives stay in the token
   package.
 - **Only clients have a colour**, resolved through `useProjectColors()`;
-  internal work gets none. `projects.color` is a dead column awaiting its drop
-  migration — nothing selects or writes it.
+  internal work gets none.
 - Design tokens are **generated** — edit `packages/design-tokens/tokens.json`,
   then `pnpm tokens`. Never edit files in `dist/`.
 - Both neutral ramps are **derived**: change a parameter in
@@ -139,13 +138,8 @@ data or a developer's current location.
 `docs/CLAUDE.md` says how docs are written and `/trim <path>` measures one
 against it.
 
-**`docs/roadmap.md` is the only list of unbuilt work**, and nothing enters it
-without passing the gate at the top of that file. Known faults go to
-`docs/defects.md` instead — a bug needs no justification, a feature does.
-
-A finished item is deleted, not ticked, and so is something decided against —
-no archive of rejections. The thesis moves, so a past no does not bind a new
-proposal; re-argue it against `docs/positioning.md` instead of looking it up.
+**`docs/roadmap.md` is the only list of unbuilt work**, and it carries the
+gate that work passes to get there. Known faults go to `docs/defects.md`.
 
 **`docs/api.md` marks unimplemented endpoints `(not implemented)`.**
 

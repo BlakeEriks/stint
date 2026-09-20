@@ -33,8 +33,6 @@ invoice, a due date and someone who owes it; unbilled can still be discounted,
 written off or never billed. A total would lend the second the authority of
 the first.
 
-**`0` is a valid rate.** Use null-coalescing, never truthiness.
-
 ## Trust
 
 This is a billing system. Every rule below exists because a wrong number costs
@@ -56,9 +54,6 @@ Changing a client's rate next year must never alter an invoice already sent.
 **Preview before anything irreversible.** Generation allocates a gapless
 number and locks entries, so it is always preceded by a preview with no side
 effects.
-
-**Server owns timer truth; clients own responsiveness.** The timer ticks
-locally with no network, but the server decides whether it is running.
 
 **Archive, don't delete.** Invoices reference clients and projects, and the
 user's records are theirs for three to seven years.
@@ -91,14 +86,10 @@ snap, and it never re-derives a value it was only asked to move.
 ## Colour and type
 
 Visual rules live in `design/brand.html`, where they can be seen rather than
-described. Two meanings carry into code:
-
-**The accent marks the running timer and the primary confirm action** — the
-one action a screen exists to complete. A screen gets one of the second kind
-at most.
-
-**Only clients have a colour**, resolved through `useProjectColors()`.
-Internal work gets none.
+described. One meaning carries into code: **colour belongs to the client**,
+resolved through `useProjectColors()`, and internal work gets none. The
+accent's two jobs — the running timer and the one confirm action — are in
+`CLAUDE.md`, which every session loads.
 
 ## Platform scope
 

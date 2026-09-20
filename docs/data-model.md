@@ -35,6 +35,19 @@ Implemented **twice**, once per language:
   Picking which currency the screen shows is the caller's, as it is for
   `revenue_by_client` and `revenue_by_project`.
 
+  **Each rollup owns its window, and `/stats` reports them rather than
+  choosing them.** `unbilled_by_client` groups by (client, rate) and reports a
+  client-less row as "No client". `revenue_by_client` and
+  `revenue_by_project` run the trailing **three whole months**, splitting
+  gross work done into `invoiced` and `unbilled`, which sum to the total;
+  because that window opens on the 1st three months back, their unbilled
+  figure parts from `unbilled_by_client` only when work has gone unbilled past
+  that boundary. `revenue_by_project` is the one rollup counting **unbillable
+  work** in its seconds — the hours reading answers where the time went, while
+  the money columns stay billable-only. `collected_by_month` runs twelve whole
+  months. A per-month average is divided **on the server**; no client divides
+  money.
+
 **`apps/web/test/rates.test.ts` is what keeps them in step.** It builds every
 combination of the four levels being unset, `0`, or a distinct rate, and
 asserts that SQL and TypeScript resolve each entry identically and that both

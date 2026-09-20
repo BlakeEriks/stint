@@ -66,20 +66,13 @@ known boundary to watch.
 
 ## The timer invariant
 
-> At most one running time entry per user, enforced by the database.
-
-```sql
-create unique index one_running_timer_per_user
-  on time_entries (user_id) where ended_at is null;
-```
+> At most one running time entry per user, enforced by a partial unique index
+> (`docs/data-model.md`).
 
 Timer state is **server-authoritative**. Opening the phone app shows the timer
 already running on the Mac, because the server is the source of truth. A
 `POST /timer/start` while one is running returns `409 TIMER_ALREADY_RUNNING`
 along with the running entry, so the client can display it.
-
-This makes overlapping entries *structurally impossible* rather than something
-to reconcile later — which is what keeps invoices trustworthy.
 
 Enforcing it in the **database** rather than in API code means no code path —
 including one written later — can produce an overlap.
@@ -177,9 +170,8 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
 - Invoice PDFs: `@react-pdf/renderer` — ~2MB, sub-500ms, no Chromium cold
   start. Puppeteer is only warranted if pixel-exact HTML fidelity is ever
   needed.
-- **No outbound mail.** Invoices are downloaded and emailed by the user, so
-  there is no provider, no domain reputation to maintain, and no deliverability
-  failure mode where a client silently never receives an invoice.
+- **No outbound mail**, so no provider and no domain in the stack. Invoices
+  are downloaded and sent by the user (`design/principles.md`).
 - Note: Supabase free-tier projects pause after 7 days of inactivity.
 
 ## Repo layout
