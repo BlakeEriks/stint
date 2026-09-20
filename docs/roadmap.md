@@ -24,6 +24,12 @@ fewer. No answer, no entry.
 If an earlier version of the idea was turned down, say what changed. The
 thesis moved in September 2026.
 
+**M0 is exempt**, and it is the only exemption: those four are defects, they
+sit here rather than in `defects.md` because they gate a release, and a defect
+needs no justification. Every other item answers the four questions —
+including the ones that feel too obvious to argue, because an item that skips
+the gate teaches the next reader that the gate is optional.
+
 ---
 
 ## M0 · Correctness
@@ -41,19 +47,26 @@ Security and money integrity. Nothing ships over these.
       route-level check would need repeating in three places, and it would be
       a race besides. `rls.test.ts` is where the assertion goes.
 
-- [ ] **`allocate_invoice_number` has no explicit grant.** Invoice numbering
-      is the one sequence that must be gapless under concurrency; it runs
-      today on default privileges.
+- [ ] **`allocate_invoice_number` has no explicit grant.** Every rollup ends
+      with the same two lines — `revoke all … from public, anon`, then
+      `grant execute … to authenticated` — and this function has neither, so
+      it runs on Postgres's default `PUBLIC` execute. `anon` holds execute on
+      the one function that mutates `next_invoice_number`.
+
+      **The protection that exists today is incidental**, which is the fault.
+      The function is `security invoker`, so RLS on `user_settings` means the
+      `update` inside it matches no row for an anonymous caller and it raises.
+      Nothing in the migration says who may call it, and
+      `00000000000004_api_grants.sql` grants tables explicitly for exactly
+      that reason.
+
+      Give it the same revoke/grant tail in a migration.
+      **`resolve_entry_rate(uuid)` is in the same position and takes it too.**
 
 - [ ] **No test covers the bearer-token auth path.** It shipped broken —
       `getClaims()` needs the token passed explicitly — and nothing caught it
       because route tests inject `__TEST_DB__` and never take that path. The
       macOS app already depends on it.
-
-- [ ] **`POST /invoices` and `/preview` leak `entryIds` per line item**, and
-      `POST /invoices` returns `lineItems` + `entryCount` while `api.ts`
-      declares plain `Invoice`. Decide whether internal entry ids are part of
-      the contract or get stripped.
 
 ## M1 · The invoice can represent a real business
 
@@ -93,6 +106,8 @@ you, and nothing you build here is held hostage.
 
       *Without it:* they do not sign up. Having no export makes us look like
       the lock-in we are positioning against.
+
+      *One person:* yes — one account's rows, no permissions to decide.
 
       Invoices with issue date, paid date, client and total is the
       accountant's version and is probably the highest value per line of code
@@ -154,9 +169,10 @@ you, and nothing you build here is held hostage.
       what they have worked and not yet billed. Earned is a commodity figure
       every competitor computes.
 
-      *Without it:* the daily screen sells nothing. Home is the habit that
-      keeps a monthly subscription alive, so it has to show the thing the
-      subscription is for.
+      *Without it:* they leave in month three. `principles.md` says why Home
+      carries the habit; this is the figure that makes it worth opening.
+
+      *One person:* yes. The figure is one contractor's own unbilled work.
 
       Headline is **unbilled** — a balance that climbs while you work and
       resets when you invoice. The projection stays and projects **earned
@@ -165,24 +181,69 @@ you, and nothing you build here is held hostage.
       when you next invoice and predicts a drop to zero. Earned buckets by
       when the work was done.
 
-      **Awaiting** is one quiet line, rendered only when non-zero.
-      **Collected** lives on `/invoices`. Today and This week are unchanged.
+      **Awaiting** becomes one quiet line, rendered only when non-zero.
+      **Collected** moves off Home to `/invoices` — it renders on Home today
+      (`home-cards.tsx`), and for a contractor paid monthly it is a figure
+      that freezes in week one and says nothing for the rest of the month.
+      Today and This week are unchanged.
 
-## M4 · Price and page
+## M4 · Taking money
 
-- [ ] **The download paywall.** Tracking is free and complete; downloading an
-      invoice requires the paid tier. Preview stays free — it is a view of
-      the user's own data and carries no invoice number, no frozen rates and
-      no payment details.
+**This milestone is a subsystem, not a copy change**, and it is plausibly
+larger than M1. Nothing here exists in the codebase today: there is no Stripe
+integration, no subscription table, no entitlement check.
 
-- [ ] **Name the price on the landing page.** $15/month, $120/year. The page
-      currently says "a few dollars a month", and a vague price reads as an
-      undecided product.
+- [ ] **Billing: subscribe, and know who has.**
 
-- [ ] **The landing page claims platforms that do not exist.** Section 04
-      implies shipped macOS and mobile apps. Write it in the future tense or
-      cut it: a page that lies about platform support is a trust failure on
-      the axis the whole product defends.
+      *Whose problem:* nobody can pay us. Every other milestone improves a
+      product that takes no money.
+
+      *Without it:* there is no business, only a free tracker.
+
+      *One person:* yes — one subscription, no seats, no proration, no team
+      billing. The simplest shape Stripe supports.
+
+      Checkout, a webhook that is the source of truth for subscription state,
+      an entitlement the API can check, dunning for the failed cards that are
+      a third of churn under $10, an upgrade screen, and a place to cancel.
+      **Cancelling never locks an invoice already generated** — the user's
+      records are theirs, and retroactively withholding a document they
+      created while paying is the trust failure the whole product argues
+      against.
+
+      Decide before building: whether the price carries sales tax
+      (`CLAUDE.md` sets a US stance for the user's invoices and says nothing
+      about our own), and what `/terms` has to state once money is recurring.
+
+- [ ] **Gate the invoice document, and gate it in the right place.**
+
+      *Whose problem:* the paid tier has to actually be paid for.
+
+      *Without it:* the price is decorative.
+
+      *One person:* yes.
+
+      **`GET /invoices/:id/pdf` is the boundary — both dispositions.** Today
+      `invoice-detail.tsx` renders Download and Preview against that one
+      route, differing only by `?download=1`, which the route turns into
+      `attachment` or `inline`. Inline is a PDF viewer with a save button, so
+      gating the query parameter gates nothing.
+
+      **Pre-generation preview stays free**, and it is a different thing:
+      `POST /invoices/preview` returns line items as JSON with no invoice
+      number, no frozen rates and no payment details. It is a view of the
+      user's own data, and restricting it would be bookkeeping the product
+      refuses.
+
+      **Generating** an invoice — allocating the number, freezing rates,
+      locking entries — is the other open question. If it stays free, a free
+      user reads the totals off the detail screen and retypes them, which
+      makes the wall an inconvenience rather than a boundary. Decide
+      deliberately.
+
+      The data export in M2 is deliberately not gated: **data gets out free,
+      the document is the product.** Say that on the page, because a reader
+      who meets both rules will otherwise think they contradict.
 
 ---
 
@@ -209,11 +270,53 @@ the gate its four answers when it moves up.
   quarterly, so the quarter is a real unit for this user rather than a
   generic one.
 
+- **A project takes a shade within its client's hue**, and `projects.color`
+  stops being dead. One client and several projects is the common solo shape:
+  that user's mix is a single flat segment and their heatmap one colour, so
+  the panel spends its colour channel saying nothing.
+
+  **This cancels the column's drop**, which `data-model.md` still points here
+  for. The column was scheduled for retirement because nothing claimed a
+  project has a colour; that rule is what changes, so it is revived rather
+  than dropped and re-added — and re-specified as a **shade index, not a
+  hex**, since a stored hex is the drift the token package exists to prevent.
+  It is `text` today, so this is an `alter type` to `smallint` with a check
+  constraint.
+
+  **The eight project hues are authored, not derived** — hand-set pairs in
+  `tokens.json` with no generator behind them, and `generate.js`,
+  `color-picker.tsx` and three emitted formats all assume that flat shape. So
+  the generator is the long pole, not the column. Every hue is `L=0.700,
+  C=0.111`, differing only in angle, so a shade walks L at constant hue: four
+  steps at ΔL 0.080 — `0.780/0.098`, `0.700/0.111`, `0.620/0.118`,
+  `0.540/0.115` — none gamut-clipped at any of the eight angles. **Step 2 is
+  the client's own hue**, so a project with no shade set renders what it
+  renders today. Four is the ceiling; a fifth halves the step.
+
+  **Shades reach the bar chart and Velocity's mix, never the heatmap.** Those
+  two spend no lightness, so the channel is free. The heatmap spends it on
+  hours, where shades do not blur but **invert**: composited on the panel,
+  step 1 at 35% opacity lands at L 0.437 while step 4 at full opacity lands at
+  L 0.540, so the lightest project on a quiet day renders darker than the
+  darkest project on a busy one — the cell lying on both axes at once.
+
+  `deriving-colour.md` owns the derivation. `CLAUDE.md`'s *only clients have a
+  colour* becomes *a client owns a hue; a project may take a step on it*.
+
 - **Calendar proposals.** Blocked on a Google Cloud project and a verified
   OAuth consent screen. Proposed blocks are drawn, never written: a proposal
   is not a time entry, never reaches an invoice, and confirming one opens the
   timer bar pre-filled rather than inserting a row. Never guess the client.
 
 - **macOS global hotkey**, and the menu bar app's system-drawn dropdowns.
+
+- **macOS signing, notarisation and Sign in with Apple** — one gate, which is
+  a paid Apple developer account. `bundle.sh` self-signs with a local
+  identity: fine to run yourself, and not something anyone else can open
+  without right-clicking past Gatekeeper. A Developer ID would also earn
+  `TokenStore` a `teamid:` Keychain partition, and `signInWithIdToken` would
+  replace the emailed six-digit code — it needs that account, an App ID with
+  the capability and a signed bundle, none of which a SwiftPM executable
+  produces. Nothing in the API changes.
 
 - **Expo app.** Last by design; reuses the most.

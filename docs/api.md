@@ -67,7 +67,7 @@ second.
 one currency beside the figure and a euro added in would be reported as a
 dollar. `collected.daysSincePaid` is whole calendar days in `tz` from the
 latest `paid_at` in that same currency, and **null** when nothing in it has
-ever been paid.
+ever been paid or that `paid_at` is in the future.
 
 **`earnedToday` is work done today at its resolved rate**, bucketed by the
 entry's own date in `tz` — a property of the data, so it reads the same on

@@ -22,9 +22,19 @@ not duplicated here.
       control that already exists.
 
 - [ ] **The local database drifts behind the migrations.** `pnpm migrate`
-      reaches the hosted project; the local stack is reset separately, so a
-      developer can run against a schema that no longer matches what the
-      migrations describe.
+      reads `.env.local` and reaches the hosted project; the Supabase CLI owns
+      the local one. Nothing routinely applies a new migration to local except
+      `pnpm dev:reset`, which rebuilds from `seed.sql` and takes the local data
+      with it — so the working answer is "lose your data" and the drift
+      accumulates instead. It reached four migrations behind before a 500
+      surfaced it, and one had been applied by hand without being recorded, so
+      the CLI's tracking disagreed with the schema in both directions.
+
+      **Decide which tracking table is authoritative before writing the fix.**
+      `scripts/migrate.mjs` takes `--url` and tracks its own
+      `schema_migrations`, so the shape may be a `dev:migrate` pointed at
+      `:54322` — but the CLI keeps `supabase_migrations.schema_migrations`,
+      and two tables tracking one database is how this got confusing.
 
 ## Misleading
 
@@ -77,6 +87,13 @@ not duplicated here.
 
       Worth deciding while in there: whether the time is also *selected*, not
       merely focused. The field exists to be replaced rather than edited.
+
+- [ ] **The invoice routes return more than `api.ts` declares.**
+      `POST /invoices` and `/preview` carry `entryIds` per line item, and
+      `POST /invoices` returns `lineItems` + `entryCount` while the client
+      type says plain `Invoice`. The ids reach only the account that owns
+      those entries, so this is a contract that lies rather than a leak —
+      decide whether internal entry ids are part of it or get stripped.
 
 ## Looks wrong
 
@@ -146,9 +163,17 @@ not duplicated here.
       back open.** `exit-collapse` runs the row's track to `0fr` and `useExit`
       does not wait for it.
 
-- [ ] **The menu bar panel refetches `GET /entries/task-names` on every
-      open.** The list changes rarely and the call is on the path that must
-      feel instant.
+- [ ] **The menu bar panel reimplements `GET /entries/task-names`, and the
+      two disagree about what a name is.** `distinctTasks` in
+      `TimerModel.swift` dedupes on the raw string, so a user is offered both
+      halves of their own typo; the RPC dedupes case-insensitively and keeps
+      the most recent spelling. The panel also fetches 200 rows per poll to
+      keep five, and refetches on every open.
+
+      **Adopting the endpoint forces one decision**: `EntryRow` renders a
+      duration the endpoint does not return, so the row has to become a
+      name-to-restart rather than a past entry — or keep the duration and stay
+      a different thing from what the web app suggests.
 
 - [ ] **Eight sizes in the macOS app bypass the Typography roles.** They are
       literals where a role exists.

@@ -19,6 +19,7 @@ app runs the timer — start, stop, task name, project — and nothing else.
 ```
 docs/            setup, deploying, architecture, data model, API contract, design system
 docs/roadmap.md    wanted but not built, and the hard parts already thought through
+docs/defects.md    known faults, worst first
 docs/design/samples/  committed renderer output
 packages/
   schema/        Zod schemas — the API contract
@@ -85,8 +86,10 @@ navigation, redirects and server components — see `docs/local-dev.md`.
 - [docs/data-model.md](docs/data-model.md) — schema and integrity rules
 - [docs/api.md](docs/api.md) — endpoint contract
 - [docs/macos.md](docs/macos.md) — the menu bar app: building it, and which backend it talks to
-- [docs/design/principles.md](docs/design/principles.md) — what this app refuses to do
-- [docs/roadmap.md](docs/roadmap.md) — wanted but not built
+- [docs/positioning.md](docs/positioning.md) — who this is for, what it competes with, what it costs
+- [docs/design/principles.md](docs/design/principles.md) — what we believe about the product
+- [docs/roadmap.md](docs/roadmap.md) — wanted but not built, and the gate it passes to get there
+- [docs/defects.md](docs/defects.md) — known faults, worst first
 
 ## License
 
