@@ -150,6 +150,11 @@ the schema, costs money, or removes a capability. Recommend one option each.
 
 Wait for sign-off. Nothing is built, and no branch exists, before it.
 
+**If the spec decided something rather than only scheduling it** — a price, a
+scope cut, a claim about a user, an order that defers someone's problem — that
+decision is cheapest to argue with now. `/dissent` is the pass for it, and
+spec time is the moment it costs an edit instead of a rebuild.
+
 ## 5. Build on a branch, fresh context per phase
 
 Work in the repository you are already in, on a branch off local `HEAD` —
