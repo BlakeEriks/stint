@@ -292,6 +292,78 @@ test('an unqualified delete removes only the caller’s rows', async () => {
   assert.equal(rows[0].user_id, BOB);
 });
 
+// ── references across a tenant boundary ────────────────────────────
+// RLS scopes what a query can SEE. It says nothing about what a row may
+// POINT AT, so these are a foreign key's job rather than a policy's — and
+// the hole they close returned 201 before `entry_project_same_owner`.
+test('an entry cannot reference another user’s project', async () => {
+  await seedBoth();
+
+  await assert.rejects(
+    () =>
+      asUser(
+        ALICE,
+        `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
+         values ($1,$2,$3,'Borrowed','2026-09-11T09:00:00Z','2026-09-11T10:00:00Z')`,
+        [
+          '018f0000-0000-7000-8000-00000000000c',
+          ALICE,
+          'bb000000-0000-4000-8000-00000000000b',
+        ],
+      ),
+    /entry_project_same_owner/,
+    'the composite FK must reject a project owned by someone else',
+  );
+
+  const { rows } = await admin.query(
+    'select count(*)::int n from time_entries where id = $1',
+    ['018f0000-0000-7000-8000-00000000000c'],
+  );
+  assert.equal(rows[0].n, 0, 'nothing was written');
+});
+
+test('an entry cannot be updated onto another user’s project', async () => {
+  await seedBoth();
+
+  await assert.rejects(
+    () =>
+      asUser(ALICE, `update time_entries set project_id = $1 where id = $2`, [
+        'bb000000-0000-4000-8000-00000000000b',
+        '018f0000-0000-7000-8000-00000000000a',
+      ]),
+    /entry_project_same_owner/,
+    'the column is writable by three routes; the constraint covers all of them',
+  );
+
+  const { rows } = await admin.query(
+    'select project_id from time_entries where id = $1',
+    ['018f0000-0000-7000-8000-00000000000a'],
+  );
+  assert.equal(
+    rows[0].project_id,
+    'bb000000-0000-4000-8000-00000000000a',
+    'Alice’s entry still points at her own project',
+  );
+});
+
+test('an entry keeps its owner when its project is deleted', async () => {
+  await seedBoth();
+
+  // `on delete set null (project_id)` names the column. A bare `set null`
+  // would null `user_id` too, which is `not null` — so deleting a project
+  // would fail on its own entries.
+  await asUser(ALICE, 'delete from projects where id = $1', [
+    'bb000000-0000-4000-8000-00000000000a',
+  ]);
+
+  const { rows } = await admin.query(
+    'select user_id, project_id from time_entries where id = $1',
+    ['018f0000-0000-7000-8000-00000000000a'],
+  );
+  assert.equal(rows[0].project_id, null, 'the reference is cleared');
+  assert.equal(rows[0].user_id, ALICE, 'the entry is still Alice’s');
+});
+
 // ── the invariant under RLS ────────────────────────────────────────
 test('the one-running-timer index is per user, not global', async () => {
   await seedBoth();

@@ -104,6 +104,27 @@ try {
     console.log('  ✓ one running timer per user (partial unique index)');
   }
 
+  // ── an entry cannot borrow another user's project ────────────────
+  // RLS scopes reads; it does not constrain what a row points at. If this
+  // constraint is dropped, cross-tenant writes start succeeding again and
+  // nothing else in the schema notices.
+  const { rows: fk } = await client.query(
+    `select pg_get_constraintdef(oid) def from pg_constraint
+     where conrelid = 'time_entries'::regclass
+       and conname  = 'entry_project_same_owner'`,
+  );
+  if (fk.length === 0) {
+    fail(
+      'entry_project_same_owner is missing — an entry may reference another user\u2019s project.',
+    );
+  } else if (!/SET NULL \(project_id\)/i.test(fk[0].def)) {
+    fail(
+      `entry_project_same_owner must clear only project_id on delete:\n      ${fk[0].def}`,
+    );
+  } else {
+    console.log('  ✓ an entry\u2019s project belongs to the same user');
+  }
+
   // ── settings are created on signup ───────────────────────────────
   const { rows: trg } = await client.query(
     `select tgname from pg_trigger
