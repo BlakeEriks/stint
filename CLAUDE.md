@@ -91,7 +91,10 @@ never a hex.
 
 **Never point local dev at production.** `pnpm dev` reads
 `apps/web/.env.development.local`; `pnpm migrate` and `pnpm verify:schema`
-read `.env.local` and reach the hosted project.
+read `.env.local` and reach the hosted project — which is why **neither is
+run by hand against production**. A merge deploys: Vercel holds the build
+unaliased until `release.yml` migrates and verifies it
+(`docs/deploying.md`).
 
 **A new worktree is made with `pnpm worktree <branch>`**, never
 `git worktree add`. Git carries no `node_modules`, no
