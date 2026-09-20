@@ -24,49 +24,13 @@ fewer. No answer, no entry.
 If an earlier version of the idea was turned down, say what changed. The
 thesis moved in September 2026.
 
-**M0 is exempt**, and it is the only exemption: those four are defects, they
-sit here rather than in `defects.md` because they gate a release, and a defect
+**A release-gating defect is exempt**, and it is the only exemption: it sits
+here rather than in `defects.md` because it blocks a milestone, and a defect
 needs no justification. Every other item answers the four questions —
 including the ones that feel too obvious to argue, because an item that skips
 the gate teaches the next reader that the gate is optional.
 
 ---
-
-## M0 · Correctness
-
-Security and money integrity. Nothing ships over these.
-
-- [ ] **A write accepts another user's `project_id`.** `POST /timer/start`
-      with a project belonging to a different account returns 201 and stores
-      the reference. RLS protects every read, so the entry renders with no
-      project name, but the row is wrong in the database.
-
-      The fix belongs in the database, not each route — a check that the
-      referenced project's `user_id` matches — because `/timer/start`,
-      `PATCH /timer` and `PATCH /entries/:id` all write the column, a
-      route-level check would need repeating in three places, and it would be
-      a race besides. `rls.test.ts` is where the assertion goes.
-
-- [ ] **`allocate_invoice_number` has no explicit grant.** Every rollup ends
-      with the same two lines — `revoke all … from public, anon`, then
-      `grant execute … to authenticated` — and this function has neither, so
-      it runs on Postgres's default `PUBLIC` execute. `anon` holds execute on
-      the one function that mutates `next_invoice_number`.
-
-      **The protection that exists today is incidental**, which is the fault.
-      The function is `security invoker`, so RLS on `user_settings` means the
-      `update` inside it matches no row for an anonymous caller and it raises.
-      Nothing in the migration says who may call it, and
-      `00000000000004_api_grants.sql` grants tables explicitly for exactly
-      that reason.
-
-      Give it the same revoke/grant tail in a migration.
-      **`resolve_entry_rate(uuid)` is in the same position and takes it too.**
-
-- [ ] **No test covers the bearer-token auth path.** It shipped broken —
-      `getClaims()` needs the token passed explicitly — and nothing caught it
-      because route tests inject `__TEST_DB__` and never take that path. The
-      macOS app already depends on it.
 
 ## M1 · The invoice can represent a real business
 
