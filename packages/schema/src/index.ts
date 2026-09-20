@@ -305,14 +305,30 @@ export const InvoicePreviewRequest = z.object({
    * silently coerced to UTC, which would move the boundary by hours.
    */
   tz: timeZoneStrict,
+  /**
+   * Flat charges the user typed: a fixed fee, a deposit, a rebilled expense.
+   * They are priced by the user rather than resolved from a rate, so they
+   * ride on the request instead of being read back from time entries.
+   */
+  manualLines: z
+    .array(
+      z.object({
+        description: z.string().trim().min(1).max(200),
+        amount: money,
+      }),
+    )
+    .max(50)
+    .default([]),
 });
 
-/** What every line item states, however it was produced. */
+/** What a line's quantity means: billed hours, or a flat charge. */
+export const LineUnit = z.enum(['hour', 'fixed']);
+
 export const InvoiceLineItem = z.object({
   description: z.string(),
-  quantitySeconds: z.number().int().nonnegative(),
-  quantityHours: z.number().nonnegative(),
-  resolvedRate: money,
+  unit: LineUnit,
+  quantity: z.number().nonnegative(),
+  unitPrice: money,
   amount: money,
 });
 
@@ -326,8 +342,15 @@ export const InvoiceLineItem = z.object({
  * forever. So neither can appear on a line read back from the database.
  */
 export const ComputedLineItem = InvoiceLineItem.extend({
-  /** Which level of the hierarchy supplied the rate. */
-  rateSource: z.enum(['entry', 'project', 'client', 'default', 'none']),
+  /** Which level of the hierarchy supplied the rate; `manual` if typed. */
+  rateSource: z.enum([
+    'entry',
+    'project',
+    'client',
+    'default',
+    'none',
+    'manual',
+  ]),
   /** The entries this line merged. Internal ids; see `docs/roadmap.md`. */
   entryIds: z.array(uuid),
 });
@@ -360,6 +383,11 @@ export const InvoicePreview = z.object({
   /** Entries with no resolvable rate — blocks generation until fixed. */
   unratedEntryIds: z.array(uuid),
 });
+
+/** One charge on a request: what `manualLines` carries. */
+export type ManualLine = z.infer<
+  typeof InvoicePreviewRequest
+>['manualLines'][number];
 
 export const CreateInvoice = InvoicePreviewRequest.extend({
   issueDate: z.iso.date().optional(),

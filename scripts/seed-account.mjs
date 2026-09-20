@@ -97,7 +97,7 @@ const RUNAWAY_HOURS = 11; // 3 past the 8-hour default
  *
  * **Hours, never a total.** The total is `seconds × the resolved rate`, in
  * that direction: a seeded total with the rate back-derived from it produces
- * a line item whose `resolved_rate` is a number `resolve_rate()` would never
+ * a line item whose `unit_price` is a number `resolve_rate()` would never
  * return for the client it is billed to, and rate resolution is the one thing
  * this data exists to let you see working.
  */
@@ -490,7 +490,7 @@ try {
   for (const inv of INVOICES) {
     /* Seconds first, then money: the line's amount is what those seconds are
        worth at the resolved rate, which is the direction the app computes in
-       and the only one that leaves `resolved_rate` truthful. */
+       and the only one that leaves `unit_price` truthful. */
     const seconds = Math.round(inv.hours * 3600);
     const total = lineAmount(seconds);
     const issued = new Date();
@@ -536,9 +536,15 @@ try {
     );
     await db.query(
       `insert into invoice_line_items
-         (invoice_id, description, quantity_seconds, resolved_rate, amount, sort_order)
-       values ($1, $2, $3, $4, $5, 0)`,
-      [invoiceId, inv.description, seconds, resolvedRate, total],
+         (invoice_id, description, unit, quantity, unit_price, amount, sort_order)
+       values ($1, $2, 'hour', $3, $4, $5, 0)`,
+      [
+        invoiceId,
+        inv.description,
+        Math.round((seconds / 3600) * 100) / 100,
+        resolvedRate,
+        total,
+      ],
     );
     invoiceNo += 1;
   }

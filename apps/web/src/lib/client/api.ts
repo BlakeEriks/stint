@@ -114,6 +114,7 @@ export type Settings = Response<schema.Settings>;
 export type PaymentProfile = Response<schema.PaymentProfile>;
 export type InvoicePreview = Response<schema.InvoicePreview>;
 export type Invoice = Response<schema.Invoice>;
+export type ManualLine = schema.ManualLine;
 export type TaskNameSuggestion = Response<schema.TaskNameSuggestion>;
 
 /* Nested objects keep their own optionality, so `Response` is applied only at
@@ -340,6 +341,7 @@ export const api = {
     periodEnd: string;
     groupingMode?: GroupingMode;
     tz?: string;
+    manualLines?: ManualLine[];
   }) => request<InvoicePreview>('POST', '/invoices/preview', body),
 
   /** Allocates the number, freezes line items and rates, locks the entries. */
@@ -349,6 +351,7 @@ export const api = {
     periodEnd: string;
     groupingMode?: GroupingMode;
     tz?: string;
+    manualLines?: ManualLine[];
     issueDate?: string;
     dueDate?: string;
     notes?: string;
