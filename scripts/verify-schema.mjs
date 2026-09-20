@@ -152,7 +152,8 @@ try {
   // arbitrary databases. Crashing mid-run would skip the check below it and
   // report a Postgres stack trace instead of one of this script's own lines.
   const { rows: fns } = await client.query(
-    `select p.proname, pg_get_function_identity_arguments(p.oid) args
+    `select p.proname, pg_get_function_identity_arguments(p.oid) args,
+            p.prokind, p.prosecdef
      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public'
        and p.prorettype not in ('trigger'::regtype, 'event_trigger'::regtype)
@@ -168,8 +169,18 @@ try {
   );
   if (fns.length > 0) {
     for (const f of fns) {
+      // Name what was found, not a diagnosis. This check runs against
+      // production in the release gate, where it meets objects no migration
+      // created and no test environment has — the first one it met was an
+      // event trigger set up in the dashboard, and calling that "missing its
+      // revoke/grant tail" sent a real release chasing a fix that did not
+      // exist. A caller is only genuinely exposed if it can CALL the thing.
       fail(
-        `anon can execute ${f.proname}(${f.args}) — it is missing its revoke/grant tail.`,
+        `anon holds execute on ${f.proname}(${f.args}).\n` +
+          '      If this is ours, give it the revoke/grant tail every\n' +
+          '      function in 00000000000010 onward carries. If it is not —\n' +
+          '      check `docs/setup.md` for a dashboard setting that created\n' +
+          '      it, and whether it is callable at all.',
       );
     }
   } else {

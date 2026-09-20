@@ -15,6 +15,21 @@ At [supabase.com/dashboard](https://supabase.com/dashboard) → **New project**.
 - The free tier is fine. Note it **pauses after 7 days of inactivity**; the
   first request after that wakes it with a delay.
 
+**Anything you switch on in the dashboard gets recorded here**, because it is
+invisible from a checkout and nothing in CI will ever reproduce it. Known so
+far:
+
+- **"Automatically expose new tables" — OFF.** `00000000000004_api_grants.sql`
+  grants tables explicitly for this reason; a table holding bank details must
+  not become world-reachable the moment it is created.
+- **Auto-enable RLS on new tables — ON.** This installs an `rls_auto_enable`
+  event trigger in `public`. It is a backstop only: every table still declares
+  its own RLS and policy in its migration (`docs/data-model.md`).
+
+A setting left out of this list is one the next person cannot know about. It
+also breaks tooling that reads the schema — `verify:schema` failed a release
+on the event trigger above, because nothing said it was there.
+
 ## 2. Apply the migrations
 
 Supabase already provides the `auth` schema, `auth.users`, and `auth.uid()` —
