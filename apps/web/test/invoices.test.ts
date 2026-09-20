@@ -306,6 +306,87 @@ test('generation resolves the period in the caller timezone too', async () => {
   assert.equal(rows[0].invoice_id, null, 'the August entry stays unbilled');
 });
 
+// ── charges that are not time ───────────────────────────────────────
+test('an invoice of one charge and no time generates', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  // No entries at all: a deposit taken before any work is done.
+  const res = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        manualLines: [{ description: 'Project deposit', amount: 2400 }],
+      }),
+    ),
+  );
+
+  assert.equal(res.status, 201, 'generation does not require time');
+  assert.equal(res.body.total, 2400);
+  assert.equal(res.body.entryCount, 0);
+
+  const { rows } = await pool.query(
+    'select description, unit, quantity, unit_price, amount from invoice_line_items where invoice_id=$1',
+    [res.body.id],
+  );
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].description, 'Project deposit');
+  assert.equal(rows[0].unit, 'fixed');
+  assert.equal(Number(rows[0].quantity), 1);
+  assert.equal(Number(rows[0].amount), 2400);
+});
+
+test('a charge is billed alongside time, after it', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), task: 'Design', hours: 2 });
+
+  const res = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        manualLines: [{ description: 'Stock photos', amount: 49 }],
+      }),
+    ),
+  );
+
+  assert.equal(res.status, 201);
+  assert.deepEqual(
+    res.body.lineItems.map((li: { description: string }) => li.description),
+    ['Design', 'Stock photos'],
+    'the charge follows the work',
+  );
+  assert.equal(res.body.total, 349, '2h at 150 plus the charge');
+
+  // The time entry is still locked; the charge has no entry to lock.
+  const { rows } = await pool.query(
+    'select invoice_id from time_entries where id=$1',
+    [E(1)],
+  );
+  assert.equal(rows[0].invoice_id, res.body.id);
+});
+
+test('a charge cannot be blank or negative', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+
+  for (const bad of [
+    { description: '', amount: 100 },
+    { description: '   ', amount: 100 },
+    { description: 'Refund', amount: -50 },
+  ]) {
+    const res = await json(
+      await create(
+        req('/invoices', { clientId: CLIENT, ...PERIOD, manualLines: [bad] }),
+      ),
+    );
+    assert.equal(
+      res.status,
+      422,
+      `${JSON.stringify(bad)} must be rejected at the edge`,
+    );
+    assert.equal(res.body.code, 'VALIDATION_FAILED');
+  }
+});
+
 test('generating allocates a number, freezes line items and locks entries', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1), task: 'Design', hours: 2 });

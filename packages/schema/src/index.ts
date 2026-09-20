@@ -384,6 +384,11 @@ export const InvoicePreview = z.object({
   unratedEntryIds: z.array(uuid),
 });
 
+/** One charge on a request: what `manualLines` carries. */
+export type ManualLine = z.infer<
+  typeof InvoicePreviewRequest
+>['manualLines'][number];
+
 export const CreateInvoice = InvoicePreviewRequest.extend({
   issueDate: z.iso.date().optional(),
   dueDate: z.iso.date().optional(),

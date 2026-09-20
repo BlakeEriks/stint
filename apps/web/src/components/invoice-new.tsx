@@ -14,7 +14,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Plus, X } from 'lucide-react';
 import { formatCurrency, formatHours } from '@stint/core';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
@@ -37,6 +37,16 @@ const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   { value: 'day', label: 'By day', hint: 'One line per day worked.' },
 ];
 
+/** A charge the user typed: a fee, a deposit, a rebilled expense. */
+interface Charge {
+  /** Stable across edits, so React does not remount a row being typed in. */
+  key: string;
+  description: string;
+  /** Held as the raw string: '' and '0' are different, and parsing on every
+   *  keystroke fights the user over a half-typed '2.'. */
+  amount: string;
+}
+
 interface Draft {
   clientId: string;
   periodStart: string;
@@ -44,6 +54,7 @@ interface Draft {
   groupingMode: GroupingMode;
   notes: string;
   dueDate: string;
+  charges: Charge[];
 }
 
 /** Computed on mount, not at import: the default period is "last month". */
@@ -54,7 +65,28 @@ const empty = (): Draft => ({
   groupingMode: 'entry',
   notes: '',
   dueDate: '',
+  charges: [],
 });
+
+/**
+ * The charges that are complete enough to bill.
+ *
+ * A row with a description and no amount is someone mid-thought, not a line —
+ * so it is dropped rather than billed at zero, and the same filter runs
+ * before the preview and before generation, so what was approved is what is
+ * created.
+ */
+function billableCharges(charges: Charge[]) {
+  return charges
+    .map((c) => ({
+      description: c.description.trim(),
+      amount: Number.parseFloat(c.amount),
+    }))
+    .filter(
+      (c) => c.description !== '' && Number.isFinite(c.amount) && c.amount > 0,
+    )
+    .map((c) => ({ ...c, amount: Math.round(c.amount * 100) / 100 }));
+}
 
 /**
  * Preview, then generate.
@@ -84,6 +116,7 @@ export function NewInvoice() {
         periodEnd: draft.periodEnd,
         groupingMode: draft.groupingMode,
         tz,
+        manualLines: billableCharges(draft.charges),
       }),
     onSuccess: setPreview,
   });
@@ -96,6 +129,7 @@ export function NewInvoice() {
         periodEnd: draft.periodEnd,
         groupingMode: draft.groupingMode,
         tz,
+        manualLines: billableCharges(draft.charges),
         notes: draft.notes.trim() || undefined,
         dueDate: draft.dueDate || undefined,
       }),
@@ -117,6 +151,24 @@ export function NewInvoice() {
     set(key, value);
     setPreview(null);
   };
+
+  /* A charge is a line on the invoice, so editing one invalidates an
+     approved preview exactly as changing the client does. */
+  const setCharges = (next: Charge[]) => setBilled('charges', next);
+
+  const editCharge = (key: string, patch: Partial<Charge>) =>
+    setCharges(
+      draft.charges.map((c) => (c.key === key ? { ...c, ...patch } : c)),
+    );
+
+  const addCharge = () =>
+    setCharges([
+      ...draft.charges,
+      { key: crypto.randomUUID(), description: '', amount: '' },
+    ]);
+
+  const removeCharge = (key: string) =>
+    setCharges(draft.charges.filter((c) => c.key !== key));
 
   const blocked = (preview?.unratedEntryIds.length ?? 0) > 0;
   const nothingToBill = preview !== null && preview.lineItems.length === 0;
@@ -163,6 +215,18 @@ export function NewInvoice() {
             <GroupingPicker
               value={draft.groupingMode}
               onChange={(mode) => setBilled('groupingMode', mode)}
+            />
+          </Field>
+
+          <Field
+            label="Charges"
+            hint="A fixed fee, a deposit, or an expense you are passing on."
+          >
+            <ChargeRows
+              charges={draft.charges}
+              onEdit={editCharge}
+              onRemove={removeCharge}
+              onAdd={addCharge}
             />
           </Field>
 
@@ -383,6 +447,66 @@ function PreviewTable({ preview }: { preview: InvoicePreview }) {
         />
       </dl>
     </Section>
+  );
+}
+
+/**
+ * The charge editor: rows plus one way to add another.
+ *
+ * Always shows at least one row, so the affordance is the control itself
+ * rather than a button that reveals a control. An untouched row costs
+ * nothing — `billableCharges` drops anything without both a description and
+ * an amount.
+ */
+function ChargeRows({
+  charges,
+  onEdit,
+  onRemove,
+  onAdd,
+}: {
+  charges: Charge[];
+  onEdit: (key: string, patch: Partial<Charge>) => void;
+  onRemove: (key: string) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      {charges.map((c, i) => (
+        <div key={c.key} className="flex items-center gap-2">
+          <Input
+            value={c.description}
+            onChange={(e) => onEdit(c.key, { description: e.target.value })}
+            placeholder="What is the charge for?"
+            aria-label={`Charge ${i + 1} description`}
+            className="flex-1"
+          />
+          <Input
+            value={c.amount}
+            onChange={(e) => onEdit(c.key, { amount: e.target.value })}
+            placeholder="0.00"
+            inputMode="decimal"
+            aria-label={`Charge ${i + 1} amount`}
+            className="w-28 type-duration text-right"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => onRemove(c.key)}
+            aria-label={`Remove charge ${i + 1}`}
+          >
+            <X className="size-4" />
+          </Button>
+        </div>
+      ))}
+
+      <div>
+        <Button type="button" variant="ghost" size="sm" onClick={onAdd}>
+          <Plus className="size-4" />
+          Add a charge
+        </Button>
+      </div>
+    </div>
   );
 }
 
