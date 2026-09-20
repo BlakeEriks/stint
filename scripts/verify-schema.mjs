@@ -132,7 +132,9 @@ try {
   // that a function added later is covered without editing this list.
   //
   // Extension functions are excluded by asking whether they BELONG to an
-  // extension (`pg_depend.deptype = 'e'`), not by owner. pgcrypto installs
+  // extension (`pg_depend.deptype = 'e'`), not by owner. Verified against a
+  // bare `postgres:16` built by `ci-db.sh`, not only the local stack: an
+  // owner test passes locally and flags 36 pgcrypto functions there. pgcrypto installs
   // into public, and who ends up owning it differs by environment: on the
   // Supabase image it is `supabase_admin`, but CI runs a bare postgres
   // container where `create extension` runs as the migration role and no
@@ -153,7 +155,9 @@ try {
        and p.prorettype <> 'trigger'::regtype
        and not exists (
          select 1 from pg_depend d
-         where d.objid = p.oid and d.deptype = 'e'
+         where d.objid = p.oid
+           and d.classid = 'pg_proc'::regclass
+           and d.deptype = 'e'
        )
        and to_regrole('anon') is not null
        and has_function_privilege('anon', p.oid, 'execute')
