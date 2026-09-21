@@ -2,20 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildAwaitingPayment,
-  buildBillableRatio,
-  buildByProject,
   buildCollected,
+  buildEarnedPace,
   buildHoursByDay,
   buildMonthTotals,
   buildOpenInvoiceCount,
   buildOverdueInvoices,
-  buildPace,
   buildStaleDrafts,
   buildStrangeDurations,
   buildUnbilled,
   buildUnprojected,
-  buildVelocity,
-  type ByProjectRow,
   clientNamesFrom,
   type CollectedRow,
   daysSincePaid,
@@ -23,10 +19,9 @@ import {
   type InvoiceRow,
   projectNamesFrom,
   revenueByDay,
-  roundMoney,
+  buildWeek,
   scalar,
   type UnbilledRow,
-  type VelocityRow,
 } from '../src/stats.ts';
 
 const now = new Date('2026-03-18T12:00:00Z');
@@ -94,185 +89,6 @@ test('oldestDays ages from the oldest entry', () => {
   assert.equal(row?.oldestDays, 10);
 });
 
-// ── velocity ────────────────────────────────────────────────────────
-
-const velocityRow = (o: Partial<VelocityRow> = {}): VelocityRow => ({
-  client_id: 'c1',
-  client_name: 'Acme',
-  currency: 'USD',
-  seconds: 3600,
-  invoiced: '0',
-  unbilled: '0',
-  unrated_count: 0,
-  ...o,
-});
-
-test('velocity totals the split and rounds once, so the sum is money', () => {
-  const v = buildVelocity(
-    [
-      velocityRow({ invoiced: '33.33', unbilled: '11.11' }),
-      velocityRow({ invoiced: '33.34', unbilled: '11.12' }),
-    ],
-    'USD',
-    3,
-  );
-  assert.equal(v.invoiced, 66.67);
-  assert.equal(v.unbilled, 22.23);
-  assert.equal(v.total, 88.9, 'total is the two sides, not a third figure');
-  assert.equal(v.months, 3);
-});
-
-test('velocity divides per month here, so the screen reconciles', () => {
-  /* A total that does not divide evenly is the whole case. Divided at the
-     render instead, `Intl` rounded the quotient for display and the headline
-     multiplied back to a figure other than the split printed beneath it — a
-     billing screen disagreeing with itself by cents. */
-  const v = buildVelocity(
-    [velocityRow({ invoiced: '2000.00', unbilled: '1000.01' })],
-    'USD',
-    3,
-  );
-  assert.equal(v.total, 3000.01);
-  assert.equal(v.perMonth, 1000, 'rounded to cents, like every other money');
-  assert.equal(
-    Math.round(v.perMonth * 100) / 100,
-    v.perMonth,
-    'already money: nothing downstream needs to round it again',
-  );
-});
-
-test('velocity names internal work rather than rendering a blank', () => {
-  const [row] = buildVelocity(
-    [velocityRow({ client_id: null, client_name: null, currency: null })],
-    'EUR',
-    3,
-  ).byClient;
-  assert.equal(row?.clientName, 'No client');
-  assert.equal(row?.currency, 'EUR');
-});
-
-test('velocity caps byClient at five and counts the rest', () => {
-  const v = buildVelocity(
-    Array.from({ length: 8 }, () => velocityRow()),
-    'USD',
-    3,
-  );
-  assert.equal(v.byClient.length, 5);
-  assert.equal(v.moreClients, 3);
-  assert.equal(v.seconds, 8 * 3600, 'the total still covers every client');
-});
-
-// ── by project ──────────────────────────────────────────────────────
-
-const byProjectRow = (o: Partial<ByProjectRow> = {}): ByProjectRow => ({
-  project_id: 'p1',
-  project_name: 'Redesign',
-  client_id: 'c1',
-  client_name: 'Acme',
-  currency: 'USD',
-  seconds: 3600,
-  billable_seconds: 3600,
-  invoiced: '0',
-  unbilled: '0',
-  unrated_count: 0,
-  ...o,
-});
-
-/** The invariant the footer rests on, asserted wherever a case can break it. */
-const reconciles = (b: ReturnType<typeof buildByProject>) => {
-  const columnSeconds = b.byProject.reduce((a, r) => a + r.seconds, 0);
-  const columnAmount = b.byProject.reduce((a, r) => a + r.amount, 0);
-  assert.equal(columnSeconds + b.tailSeconds, b.seconds, 'seconds reconcile');
-  assert.equal(
-    roundMoney(columnAmount + b.tailAmount),
-    b.amount,
-    'amount reconciles',
-  );
-};
-
-test('byProject totals the split and rounds once, so the sum is money', () => {
-  const b = buildByProject(
-    [
-      byProjectRow({ project_id: 'p1', invoiced: '33.33', unbilled: '11.11' }),
-      byProjectRow({ project_id: 'p2', invoiced: '33.34', unbilled: '11.12' }),
-    ],
-    'USD',
-  );
-  assert.equal(b.amount, 88.9, 'the gross, not a third figure');
-  assert.equal(Math.round(b.amount * 100) / 100, b.amount, 'already money');
-  reconciles(b);
-});
-
-test('byProject caps the columns at four and counts the rest into the tail', () => {
-  const b = buildByProject(
-    Array.from({ length: 7 }, (_, i) =>
-      byProjectRow({ project_id: `p${i}`, invoiced: '10.00' }),
-    ),
-    'USD',
-  );
-  assert.equal(b.byProject.length, 4);
-  assert.equal(b.moreProjects, 3);
-  assert.equal(b.tailSeconds, 3 * 3600);
-  assert.equal(b.tailAmount, 30);
-  assert.equal(b.seconds, 7 * 3600, 'the total still covers every project');
-  reconciles(b);
-});
-
-test('byProject leaves a null client unnamed rather than inventing a label', () => {
-  const [row] = buildByProject(
-    [byProjectRow({ client_id: null, client_name: null, currency: null })],
-    'EUR',
-  ).byProject;
-  assert.equal(row?.clientName, null, 'the client renders the qualifier');
-  assert.equal(row?.currency, 'EUR');
-});
-
-test('unfiled work is never a column, however many hours it carries', () => {
-  /* The decision the whole region rests on. A bar for work that is not a
-     project would take a slot from work that is, and the unprojected card
-     already owns that subject — but dropping the row instead would put a
-     total on screen that omits unfiled hours. So: out of the columns, into
-     the tail, inside the total. */
-  const b = buildByProject(
-    [
-      byProjectRow({
-        project_id: null,
-        project_name: null,
-        client_id: null,
-        client_name: null,
-        seconds: 99 * 3600,
-        billable_seconds: 99 * 3600,
-        invoiced: '990.00',
-      }),
-      byProjectRow({ project_id: 'p1', seconds: 3600, invoiced: '10.00' }),
-      byProjectRow({ project_id: 'p2', seconds: 3600, invoiced: '10.00' }),
-    ],
-    'USD',
-  );
-  assert.deepEqual(
-    b.byProject.map((r) => r.projectId),
-    ['p1', 'p2'],
-    'it outranks both and is still absent',
-  );
-  assert.equal(b.moreProjects, 1, 'it is the tail, not a fifth project');
-  assert.equal(b.tailSeconds, 99 * 3600);
-  assert.equal(b.tailAmount, 990);
-  assert.equal(b.seconds, 101 * 3600, 'the window total is the real total');
-  assert.equal(b.amount, 1010);
-  reconciles(b);
-});
-
-test('byProject reports unbillable work as hours with no money', () => {
-  const b = buildByProject(
-    [byProjectRow({ billable_seconds: 0, invoiced: '0', unbilled: '0' })],
-    'USD',
-  );
-  assert.equal(b.byProject[0]?.seconds, 3600);
-  assert.equal(b.byProject[0]?.billableSeconds, 0);
-  assert.equal(b.amount, 0);
-  reconciles(b);
-});
-
 test('revenueByDay keeps the day SQL grouped by, not a shifted ISO date', () => {
   /* The `pg` driver parses a `date` into a local Date at LOCAL midnight — the
      calendar day SQL grouped by, in the runner's zone. Reading the key off
@@ -284,12 +100,79 @@ test('revenueByDay keeps the day SQL grouped by, not a shifted ISO date', () => 
      this is visible. */
   const local = new Date(2026, 2, 18);
   const m = revenueByDay([
-    { day: local as unknown as string, amount: '120.00' },
+    { day: local as unknown as string, seconds: 7200, amount: '120.00' },
   ]);
 
   assert.equal(m.size, 1);
   assert.equal(m.get('2026-03-18'), 120, 'the day SQL grouped by');
   assert.equal(m.get('2026-03-17'), undefined, 'never its UTC eve');
+});
+
+test('revenueByDay reads a null amount as earning nothing nameable', () => {
+  // A day of purely unrated work: the rollup returns its seconds with a null
+  // amount, and the money line holds flat rather than going NaN.
+  const m = revenueByDay([{ day: '2026-03-18', seconds: 3600, amount: null }]);
+  assert.equal(m.get('2026-03-18'), 0);
+});
+
+// ── the week's bars ─────────────────────────────────────────────────
+
+test('buildWeek returns a column per key, zero where nothing was worked', () => {
+  const keys = [
+    '2026-03-16',
+    '2026-03-17',
+    '2026-03-18',
+    '2026-03-19',
+    '2026-03-20',
+    '2026-03-21',
+    '2026-03-22',
+  ];
+  const week = buildWeek(
+    [
+      { day: '2026-03-16', seconds: 7200, amount: '300.00' },
+      { day: '2026-03-18', seconds: 3600, amount: '150.00' },
+    ],
+    keys,
+  );
+
+  assert.equal(week.length, 7, 'seven columns, always');
+  assert.deepEqual(
+    week.map((d) => d.date),
+    keys,
+    'in the order asked for',
+  );
+  assert.deepEqual(week[0], {
+    date: '2026-03-16',
+    seconds: 7200,
+    amount: 300,
+  });
+  assert.deepEqual(
+    week[1],
+    { date: '2026-03-17', seconds: 0, amount: null },
+    'a day with no work is a zero column, not a missing one',
+  );
+  assert.equal(week[2]?.amount, 150);
+});
+
+test('buildWeek keeps an unrated day’s height and prints no figure', () => {
+  // Seconds and amount do not share a filter: the time was worked, so the
+  // bar has its real height, and the head prints nothing rather than $0.
+  const [day] = buildWeek(
+    [{ day: '2026-03-16', seconds: 5400, amount: null }],
+    ['2026-03-16'],
+  );
+  assert.equal(day?.seconds, 5400, 'the height is the honest record');
+  assert.equal(day?.amount, null, 'never 0 — that would claim it was free');
+});
+
+test('buildWeek reads the pg driver’s Date like revenueByDay does', () => {
+  const local = new Date(2026, 2, 18);
+  const [day] = buildWeek(
+    [{ day: local as unknown as string, seconds: 3600, amount: '90.00' }],
+    ['2026-03-18'],
+  );
+  assert.equal(day?.seconds, 3600, 'matched on the day SQL grouped by');
+  assert.equal(day?.amount, 90);
 });
 
 // ── awaiting payment ────────────────────────────────────────────────
@@ -485,87 +368,127 @@ test('hours bucket by LOCAL day, not by UTC', () => {
   );
 });
 
-test('a month with nothing tracked has no ratio — 0/0 is not 0%', () => {
-  assert.equal(buildBillableRatio(0, 0), null);
-  assert.equal(buildBillableRatio(5400, 3600), 2 / 3);
+// ── the month's trailing pace ───────────────────────────────────────
+
+test('the trailing rate is carried to the last business day', () => {
+  // March 2026: 22 business days, the 18th is a Wednesday and the 13th
+  // elapsed business day. $200 a day so far projects to $4,400.
+  const byDay = new Map<string, number>();
+  for (const d of [2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 16, 17, 18]) {
+    byDay.set(`2026-03-${String(d).padStart(2, '0')}`, 200);
+  }
+
+  const p = buildEarnedPace({ byDay, now, tz: 'UTC' });
+  assert.equal(p.businessDaysElapsed, 13);
+  assert.equal(p.businessDaysTotal, 22);
+  assert.equal(p.earned, 2600);
+  assert.equal(p.projected, 4400, '200 a day across 22 days');
 });
 
-test('no target means no pace card', () => {
+test('the projection is withheld while the month is too young to have a rate', () => {
+  // The 2nd of March 2026 is the month's first business day. A single long
+  // day must not project a month of thousands off one divisor.
+  const p = buildEarnedPace({
+    byDay: new Map([['2026-03-02', 4000]]),
+    now: new Date('2026-03-02T12:00:00Z'),
+    tz: 'UTC',
+  });
+  assert.equal(p.businessDaysElapsed, 1);
+  assert.equal(p.earned, 4000, 'the line still shows what was earned');
+  assert.equal(p.projected, null, 'but nothing is extrapolated from one day');
+  assert.equal(p.projection, null, 'and there is no dashed segment');
+});
+
+test('a month whose 1st is a weekend projects nothing on day one', () => {
+  // August 2026 opens on a Saturday: zero business days elapsed, and a
+  // divisor of zero would make any earned figure infinite.
+  const p = buildEarnedPace({
+    byDay: new Map([['2026-08-01', 500]]),
+    now: new Date('2026-08-01T12:00:00Z'),
+    tz: 'UTC',
+  });
+  assert.equal(p.businessDaysElapsed, 0);
+  assert.equal(p.projected, null);
+  assert.ok(Number.isFinite(p.earned), 'no division by zero leaks out');
   assert.equal(
-    buildPace({
-      target: null,
-      unit: 'hours',
-      monthSeconds: 0,
-      monthRevenue: 0,
-      now,
-      tz: 'UTC',
-    }),
-    null,
+    p.series[0]?.date,
+    '2026-08-03',
+    'the first point is the Monday',
   );
 });
 
-test('an hours target reports the delta', () => {
-  const p = buildPace({
-    target: 100,
-    unit: 'hours',
-    monthSeconds: 36_000,
-    monthRevenue: 0,
-    now,
+test('at month end the projection equals what was earned', () => {
+  const byDay = new Map<string, number>();
+  for (const d of [2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 16, 17, 18, 19, 20]) {
+    byDay.set(`2026-03-${String(d).padStart(2, '0')}`, 100);
+  }
+  byDay.set('2026-03-23', 100);
+  byDay.set('2026-03-24', 100);
+  byDay.set('2026-03-25', 100);
+  byDay.set('2026-03-26', 100);
+  byDay.set('2026-03-27', 100);
+  byDay.set('2026-03-30', 100);
+  byDay.set('2026-03-31', 100);
+
+  const p = buildEarnedPace({
+    byDay,
+    now: new Date('2026-03-31T12:00:00Z'),
     tz: 'UTC',
   });
-  assert.equal(p?.actual, 10);
-  assert.ok(p?.expected != null && p.expected > 0);
-  assert.equal(p?.delta, p.actual! - p.expected!);
+  assert.equal(p.businessDaysElapsed, p.businessDaysTotal);
+  assert.equal(p.earned, 2200);
+  assert.equal(p.projected, 2200, 'nothing left to extrapolate across');
+  assert.equal(p.projection?.from.date, '2026-03-31');
+  assert.equal(p.projection?.to.date, '2026-03-31');
 });
 
-test('a revenue target gets a ray, the same as an hours one', () => {
-  const p = buildPace({
-    target: '5000',
-    unit: 'revenue',
-    monthSeconds: 36_000,
-    monthRevenue: 1200,
+test('a month with nothing earned projects zero, not null', () => {
+  // 0 is a valid rate: an empty month has a trailing pace, and it is zero.
+  const p = buildEarnedPace({ byDay: new Map(), now, tz: 'UTC' });
+  assert.equal(p.earned, 0);
+  assert.equal(p.projected, 0, '0 is a rate, not a missing one');
+  assert.ok(p.series.every((s) => s.actual === 0 || s.actual === null));
+});
+
+test('the line only ever goes up', () => {
+  const p = buildEarnedPace({
+    byDay: new Map([
+      ['2026-03-02', 300],
+      ['2026-03-05', 0],
+      ['2026-03-11', 125.5],
+      ['2026-03-17', 40],
+    ]),
     now,
     tz: 'UTC',
   });
-  assert.equal(p?.actual, 1200);
-  assert.ok(p?.expected != null && p.expected > 0, 'revenue projects too');
-  assert.equal(p?.delta, p.actual! - p.expected!);
-  assert.equal(p?.series.at(-1)?.expected, 5000, 'the ray reaches the target');
+
+  let last = 0;
+  for (const point of p.series) {
+    if (point.actual == null) continue;
+    assert.ok(
+      point.actual >= last,
+      `${point.date} fell from ${last} to ${point.actual}`,
+    );
+    last = point.actual;
+  }
+  assert.equal(last, 465.5, 'and ends at the month’s earned');
 });
 
 // ── the month's cumulative series ───────────────────────────────────
 
-test('the ray steps on business days only, never through the weekend', () => {
+test('the series steps on business days only, never through the weekend', () => {
   // March 2026: the 18th is a Wednesday, and the 21st/22nd are a weekend.
-  const p = buildPace({
-    target: 220,
-    unit: 'hours',
-    monthSeconds: 0,
-    monthRevenue: 0,
-    now,
-    tz: 'UTC',
-  });
+  const p = buildEarnedPace({ now, tz: 'UTC' });
 
-  const dates = p?.series.map((s) => s.date) ?? [];
+  const dates = p.series.map((s) => s.date);
   assert.ok(!dates.includes('2026-03-21'), 'Saturday is not a point');
   assert.ok(!dates.includes('2026-03-22'), 'nor Sunday');
   assert.equal(dates.length, 22, 'March 2026 has 22 business days');
-
-  // The ray rises by exactly one step between adjacent points, including
-  // across the weekend gap: Friday the 20th to Monday the 23rd.
-  const step = 220 / 22;
-  const fri = p?.series.find((s) => s.date === '2026-03-20');
-  const mon = p?.series.find((s) => s.date === '2026-03-23');
-  assert.ok(
-    Math.abs((mon?.expected ?? 0) - (fri?.expected ?? 0) - step) < 1e-9,
-    'the weekend adds no slope',
-  );
-  assert.equal(p?.series.at(-1)?.expected, 220);
 });
 
 test('the series has exactly as many points as the month has business days', () => {
   // Two loops count the month's business days — this one and
-  // `businessDaysInLocalMonth`. The card divides one by the other.
+  // `businessDaysInLocalMonth`. The projection divides one by the other.
   for (const iso of [
     '2026-01-15T12:00:00Z', // starts on a Thursday
     '2026-02-15T12:00:00Z', // 28 days
@@ -573,60 +496,109 @@ test('the series has exactly as many points as the month has business days', () 
     '2026-08-15T12:00:00Z', // starts on a Saturday
     '2028-02-15T12:00:00Z', // a leap February
   ]) {
-    const p = buildPace({
-      target: 100,
-      unit: 'hours',
-      monthSeconds: 0,
-      monthRevenue: 0,
-      now: new Date(iso),
-      tz: 'UTC',
-    });
-    assert.equal(p?.series.length, p?.businessDaysTotal, iso);
+    const p = buildEarnedPace({ now: new Date(iso), tz: 'UTC' });
+    assert.equal(p.series.length, p.businessDaysTotal, iso);
   }
 });
 
 test('weekend work is carried onto the next business day, never lost', () => {
-  const p = buildPace({
-    target: 220,
-    unit: 'hours',
-    monthSeconds: 0,
-    monthRevenue: 0,
-    // The 21st is a Saturday, so its hours have no point of their own.
+  const p = buildEarnedPace({
+    // The 21st is a Saturday, so its money has no point of its own.
     byDay: new Map([
-      ['2026-03-20', 4],
-      ['2026-03-21', 3],
+      ['2026-03-20', 400],
+      ['2026-03-21', 300],
     ]),
     now: new Date('2026-03-31T12:00:00Z'),
     tz: 'UTC',
   });
 
-  assert.equal(p?.series.find((s) => s.date === '2026-03-20')?.actual, 4);
+  assert.equal(p.series.find((s) => s.date === '2026-03-20')?.actual, 400);
   assert.equal(
-    p?.series.find((s) => s.date === '2026-03-23')?.actual,
-    7,
-    'Saturday’s 3 hours land on Monday',
+    p.series.find((s) => s.date === '2026-03-23')?.actual,
+    700,
+    'Saturday’s $300 lands on Monday',
   );
+  assert.equal(p.earned, 700, 'and the total keeps it');
+});
+
+test('a month ending on a Saturday keeps that Saturday’s work', () => {
+  // January 2026 ends on Saturday the 31st, so there is no business day left
+  // to carry it onto. The last point absorbs it rather than dropping it.
+  const p = buildEarnedPace({
+    byDay: new Map([
+      ['2026-01-15', 1000],
+      ['2026-01-31', 500],
+    ]),
+    now: new Date('2026-01-31T12:00:00Z'),
+    tz: 'UTC',
+  });
+
+  assert.equal(p.earned, 1500, 'the 31st is not lost');
+  assert.equal(p.series.at(-1)?.date, '2026-01-30', 'still no weekend point');
+  assert.equal(p.series.at(-1)?.actual, 1500);
+});
+
+test('a month ending on a Sunday keeps the whole closing weekend', () => {
+  // May 2026 ends on Sunday the 31st; the 30th is the Saturday before it.
+  const p = buildEarnedPace({
+    byDay: new Map([
+      ['2026-05-29', 200],
+      ['2026-05-30', 100],
+      ['2026-05-31', 50],
+    ]),
+    now: new Date('2026-05-31T12:00:00Z'),
+    tz: 'UTC',
+  });
+
+  assert.equal(p.earned, 350, 'both weekend days land');
+  assert.equal(p.series.at(-1)?.date, '2026-05-29', 'the Friday is the last');
+  assert.equal(p.series.at(-1)?.actual, 350);
+});
+
+test('the last non-null point equals the month’s full total', () => {
+  // Whatever weekday the month ends on, the line ends where the figure does.
+  for (const [iso, days] of [
+    ['2026-01-31T12:00:00Z', ['2026-01-02', '2026-01-30', '2026-01-31']],
+    ['2026-05-31T12:00:00Z', ['2026-05-01', '2026-05-30', '2026-05-31']],
+    ['2026-08-31T12:00:00Z', ['2026-08-03', '2026-08-29', '2026-08-31']],
+    ['2026-03-31T12:00:00Z', ['2026-03-02', '2026-03-21', '2026-03-31']],
+  ] as [string, string[]][]) {
+    const byDay = new Map(days.map((d) => [d, 100]));
+    const p = buildEarnedPace({ byDay, now: new Date(iso), tz: 'UTC' });
+    const lastActual = p.series.reduce<number>((a, s) => s.actual ?? a, 0);
+    assert.equal(p.earned, 300, iso);
+    assert.equal(lastActual, p.earned, `${iso}: the line ends at the figure`);
+  }
+});
+
+test('earned sums the month itself, not the neighbouring one', () => {
+  const p = buildEarnedPace({
+    byDay: new Map([
+      ['2026-01-31', 500],
+      ['2026-02-02', 999],
+    ]),
+    now: new Date('2026-01-31T12:00:00Z'),
+    tz: 'UTC',
+  });
+  assert.equal(p.earned, 500, 'February is not January’s money');
+  assert.equal(p.series.at(-1)?.actual, 500);
 });
 
 test('the cumulative line stops at today rather than running flat', () => {
-  const p = buildPace({
-    target: 220,
-    unit: 'hours',
-    monthSeconds: 0,
-    monthRevenue: 0,
-    byDay: new Map([['2026-03-02', 6]]),
+  const p = buildEarnedPace({
+    byDay: new Map([['2026-03-02', 600]]),
     now,
     tz: 'UTC',
   });
 
-  assert.equal(p?.series.find((s) => s.date === '2026-03-18')?.actual, 6);
+  assert.equal(p.series.find((s) => s.date === '2026-03-18')?.actual, 600);
   assert.equal(
-    p?.series.find((s) => s.date === '2026-03-19')?.actual,
+    p.series.find((s) => s.date === '2026-03-19')?.actual,
     null,
     'tomorrow has not happened',
   );
-  // The ray still runs the whole month — where the target lands is the point.
-  assert.ok(p?.series.every((s) => s.expected > 0));
+  // The dashed segment is what runs to month end, not the solid line.
+  assert.equal(p.projection?.to.date, '2026-03-31');
 });
 
 // ── days since paid ─────────────────────────────────────────────────

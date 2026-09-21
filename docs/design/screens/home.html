@@ -464,6 +464,16 @@
         every weekday label on one baseline.</li>
       <li><strong>The bars stand on a baseline.</strong> There is no "full"
         day for a ceiling to represent.</li>
+      <li><strong>A bar is stacked by client</strong>, in each client's own
+        hue, bottom-up in the order the legend names them. A day is rarely one
+        client, and a single-hue bar would be the screen choosing one to stand
+        for the rest. Internal work takes the same hollow treatment it takes
+        everywhere: no hue, a neutral segment.</li>
+      <li><strong>The stack is seconds, never money.</strong> The bar's height
+        is hours, so its segments divide those hours — a segment sized by money
+        would make an expensive hour taller than a cheap one and break the
+        ratio the bar exists to show. The money at the bar's head stays the
+        day's total.</li>
     </ul>
 
     <p style="margin-top:1.25rem">
@@ -607,11 +617,33 @@
     <p>
       Four value gridlines and a week cadence. Axis labels are drawn in HTML
       outside the stretched <code>viewBox</code>, so
-      <code>preserveAspectRatio="none"</code> cannot distort the type. The
-      strip beneath the plot is the month's client split on the plot's own
-      x-axis, and the legend at the foot of the panel names every hue used
-      anywhere above it.
+      <code>preserveAspectRatio="none"</code> cannot distort the type.
     </p>
+
+    <h3>The strip and the legend</h3>
+
+    <ul class="rule">
+      <li><strong>The strip beneath the plot is the month's client split</strong>,
+        one band per client sized by that client's share of the month's money,
+        drawn on the plot's own x-axis so it reads as a footing for the line
+        rather than a second chart. It answers <em>who</em> the month came
+        from, which the line cannot: two identical climbs, one from a single
+        client and one from four, are different months to be in.</li>
+      <li><strong>The strip is money, where the bars are seconds.</strong> The
+        month's subject is Earned, so its split divides what was earned; the
+        week's bars plot hours, so theirs divide hours. Each split matches the
+        thing it sits under.</li>
+      <li><strong>The legend names every hue on the screen</strong>, once, at
+        the foot of the panel — the bars and the strip draw from one set of
+        clients, and two keys for one palette is a second thing to keep in
+        agreement. Internal work appears in it with its hollow ring, because a
+        reader who sees the treatment needs to find out what it means.</li>
+      <li><strong>A hue belongs to the client, never to the position.</strong>
+        The same client is the same colour in the week's bars, the month's
+        strip and the legend, resolved through <code>useProjectColors()</code>.
+        A palette that reorders between two regions of one panel is a palette
+        that means nothing.</li>
+    </ul>
   </section>
 
   <!-- ───────────────────────── constraints ───────────────────────── -->
@@ -643,18 +675,21 @@
       <tr><th>Call</th><th>Feeds</th><th>Note</th></tr>
       <tr>
         <td><code>GET /stats</code></td>
-        <td>Every figure on the screen</td>
-        <td><code>earnedToday</code> and <code>unbilled</code> serve Today and
-            the month's third figure as they stand. One request, because the
-            regions render together and a set that pops in piecemeal reads as
-            broken.</td>
+        <td>Every figure, the week's bars, the month's line</td>
+        <td><code>earnedToday</code>, <code>unbilled</code>,
+            <code>awaitingPayment</code>, <code>week</code> (seven
+            <code>{date, seconds, amount}</code>) and <code>month</code> (its
+            earned, the cumulative series and the projection). One request,
+            because the regions render together and a set that pops in
+            piecemeal reads as broken.</td>
       </tr>
       <tr>
         <td><code>GET /calendar?granularity=day</code></td>
-        <td>the week's seven bar heights</td>
-        <td>Groups by local day server-side, which is the DST-correct bucketing
-            the bars need. It carries seconds only, so it sets height and not
-            the money printed at each bar's head.</td>
+        <td>each bar's split by client</td>
+        <td>Its <code>byClient</code> is seconds per client per local day,
+            which is what the stack divides. The bars take their height and
+            their money from <code>/stats.week</code>; this call only says how
+            each day's hours divide.</td>
       </tr>
       <tr>
         <td><code>GET /clients?includeArchived</code></td>
@@ -665,14 +700,11 @@
     </table>
 
     <p style="margin-top:1.25rem">
-      <strong>Three of this screen's figures have no field yet</strong>, and
-      <code>../../roadmap.md</code> carries the work: the month's Earned, its
-      cumulative series and the trailing-pace projection, and per-day money for
-      the week's bars. The month's rollup already runs — <code>revenue_by_day</code>
-      is fetched over the month and reduced to the map <code>earnedToday</code>
-      reads — so the first three are fields to expose rather than queries to
-      add. The week's money is a widened rollup, never
-      <code>resolve_entry_rate</code> once per day.
+      <strong>The month's client split has no field yet.</strong>
+      <code>revenue_by_client</code> already answers it for any window, so the
+      strip is a rollup to call over the month rather than one to write —
+      never <code>resolve_entry_rate</code> once per client.
+      <code>../../roadmap.md</code> carries the work.
     </p>
 
     <p>
@@ -748,8 +780,9 @@
       <tr><th>Field</th><th>Rollup</th><th>Note</th></tr>
       <tr>
         <td><code>velocity</code></td>
-        <td><code>revenue_by_client</code></td>
-        <td>Read only by the cards that go.</td>
+        <td><code>revenue_by_client</code> <strong>stays</strong></td>
+        <td>The field goes with its cards. The rollup does not: the month's
+            client strip calls it over the month.</td>
       </tr>
       <tr>
         <td><code>byProject</code></td>
@@ -785,9 +818,12 @@
 
     <p style="margin-top:1.25rem">
       <code>GET /calendar?granularity=day</code> <strong>stays</strong>: the
-      heatmap was its only caller and the week's bars become the next one.
+      heatmap was its only caller and the week's bars become the next one,
+      taking its <code>byClient</code> seconds for each bar's stack.
       <code>revenue_by_day</code> stays and is read directly rather than only
-      through <code>buildPace</code>.
+      through the projection, and <code>revenue_by_client</code> stays for the
+      month's strip — it lost its old caller with Velocity and gains this
+      one.
     </p>
 
     <p>

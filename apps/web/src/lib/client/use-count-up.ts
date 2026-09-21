@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 /**
  * Tween a figure from whatever it last showed to what the server now says.
@@ -42,6 +43,32 @@ function prefersReducedMotion() {
 const ARRIVAL = 0.92;
 
 /**
+ * Where "has this page already arrived?" is remembered.
+ *
+ * The `QueryClient` in `providers.tsx` is held in `useState` above the router:
+ * it survives a client-side navigation and dies on reload, which is exactly
+ * the line between a return to Home and a fresh load of it. Hanging the flag
+ * there needs no route detection and no second provider.
+ */
+const ARRIVED = Symbol.for('stint.count-up.arrived');
+
+/**
+ * What is remembered is the set of figures ALREADY ROLLED IN, not a boolean
+ * and not a timestamp.
+ *
+ * A single boolean set by the first hook would rest every figure after it —
+ * the whole panel mounts in one pass, so figure two would read what figure one
+ * just wrote. A timestamp window cannot tell a panel mounting together from a
+ * navigation back a second later, which is the case this exists for.
+ *
+ * A figure's own value is the discriminator both miss: on a fresh load nothing
+ * has been shown, so every figure rolls; on a return to Home the figures are
+ * the ones already on the set, so each rests. The same figure arriving at a
+ * value it has NOT held before is new money, and rolls.
+ */
+type Arrivable = { [ARRIVED]?: Set<number> };
+
+/**
  * Tween `to` from wherever the figure already was.
  *
  * The returned `value` always holds the SETTLED figure, so a tween that never
@@ -51,6 +78,21 @@ const ARRIVAL = 0.92;
  */
 export function useCountUp(to: number): { value: number } {
   const reduced = prefersReducedMotion();
+
+  /* Decided ONCE per mount, in `useState`'s initialiser: read in render it
+     would flip under the figure mid-tween. */
+  const client = useQueryClient();
+  const [arrival] = useState(() => {
+    const store = client as Arrivable;
+    let seen = store[ARRIVED];
+    if (!seen) {
+      seen = new Set<number>();
+      store[ARRIVED] = seen;
+    }
+    if (seen.has(to)) return false;
+    seen.add(to);
+    return true;
+  });
 
   const [value, setValue] = useState(to);
 
@@ -63,7 +105,12 @@ export function useCountUp(to: number): { value: number } {
   /* `to` at the time the last tween was scheduled. Without it, any re-render
      during a tween re-enters the effect and restarts it from the current
      position — the figure would crawl toward the target and never arrive. */
-  const target = useRef(reduced ? to : to * ARRIVAL);
+  /* On a FIRST arrival the origin is seeded below the figure so it rolls in.
+     On a remount holding the same figures — a navigation away and back — it
+     rests on `to`, and the effect's `previous === to` early return means no
+     tween is scheduled at all. A value that actually CHANGES still tweens,
+     from wherever the figure sat, which is the whole point of the roll. */
+  const target = useRef(reduced || !arrival ? to : to * ARRIVAL);
 
   useEffect(() => {
     const previous = target.current;

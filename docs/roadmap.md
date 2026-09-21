@@ -155,6 +155,25 @@ you, and nothing you build here is held hostage.
       dock and `/invoices` read them. A card deleted without its field leaves
       a payload every visitor pays for and nothing renders.
 
+- [ ] **Colour the week's bars and the month's strip by client.**
+
+      *Whose problem:* a month is rarely one client, and the line cannot say
+      who it came from. Two identical climbs, one from a single client and one
+      from four, are different months to be in.
+
+      *Without it:* the panel's one use of colour is the client, and a screen
+      of neutral bars spends none of it.
+
+      *One person:* yes — one contractor's own client mix.
+
+      The week's stack divides each bar's SECONDS, from
+      `/calendar?granularity=day`'s `byClient`, which already returns seconds
+      per client per local day. The month's strip divides the month's MONEY,
+      from `revenue_by_client` over the month — a rollup that already exists
+      and lost its caller with Velocity. One legend at the foot names every
+      hue, internal work included with its hollow ring.
+      `design/screens/home.html` has the rules.
+
 - [ ] **Remove the monthly goal.**
 
       *Whose problem:* nobody's, which is the point. A goal is a number the
