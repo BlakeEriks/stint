@@ -46,7 +46,6 @@
     width: 6px; height: 6px; border-radius: 50%; background: var(--border-control);
   }
   .rule strong { color: var(--text-strong); font-weight: 600; }
-  .never li::before { background: var(--danger); }
 
   /* ── The mockup surface ──────────────────────────────────────── */
   /* The ground the panel floats on, so the shadow has something to fall on —
@@ -62,138 +61,138 @@
     text-transform: uppercase; color: var(--text-subtle);
     display: block; margin-top: .7rem;
   }
-  .states { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-  .states.stack { grid-template-columns: minmax(0, 1fr); gap: 20px; }
-  .state > .caption { margin-top: .55rem; }
 
   /* ── The panel, as the app builds it ─────────────────────────── */
   .panel {
     background: var(--bg-primary);
     border-radius: 12px;
     box-shadow: var(--shadow-panel);
-    overflow: hidden;
-    padding: 4px 0;
+    padding: 24px;
   }
-  /* A region carries no border, no background and no shadow: the panel has
-     all three, and a second set inside it reads as a card in a card. */
-  .region { padding: 4px 0; }
-  /* Inset to the rows' own 18px. Full-bleed it cuts the panel in two and
-     reads as two stacked cards. */
-  .region-rule { height: 1px; margin: 6px 18px; background: var(--border-subtle); }
 
-  /* The pairing. Sized by CONTAINER, not viewport: the panel is not the
-     window — the rail and dock claim their space at `lg` and `xl`, so the
-     panel is wider at a 1100px window than at 1440. The mockup below fakes
-     the query with a fixed two-column grid; the app writes `@2xl:`. */
-  .pair { display: grid; grid-template-columns: 1.15fr 1fr; align-items: start; }
-  /* One ratio for every row, so the gutter falls in the same place down the
-     whole panel. The grid carries no gutter of its own: the regions' insets
-     are the gap. */
-  @media (max-width: 640px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  /* ═══ THE CARD'S TYPE SYSTEM ═══════════════════════════════════
+     Three figure tiers, ranked by what the number means rather than by
+     which region it sits in. One label voice introduces every figure. */
+  .fig-hero  { font-family: var(--font-mono); font-size: 40px; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--text-strong); }
+  .fig-major { font-family: var(--font-mono); font-size: 30px; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--text-strong); }
+  .fig-minor { font-family: var(--font-mono); font-size: 24px; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--text-strong); }
 
-  /* The panel's own head: the day, and the date opposite. No bottom padding —
-     the first region's own 12px follows it. */
-  .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 16px 18px 0; }
-
-  .region-head { padding: 12px 18px 8px; }
-  /* The right half of a pairing is the second half of one subject, so it
-     takes a quiet label rather than a heading that would announce a third. */
-  .sublabel { padding: 12px 18px 4px; display: block; }
-
-  /* Velocity's mix: one segment per client, muted. At full strength the hues
-     pull harder than the running timer, the one thing allowed to shout. */
-  .mix { display: flex; height: 6px; gap: 2px; margin-top: 4px; }
-  .mix i { display: block; height: 100%; border-radius: 999px; opacity: .62; }
-  /* Inline key, never rows: a name and its share is all the bar needs. */
-  .keyline { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; }
-  .keyline .k { display: inline-flex; align-items: center; gap: 6px; }
-  .keyline .sw { width: 8px; height: 8px; border-radius: 2px; flex: none; opacity: .62; }
-  .region-title { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
-  .region-title .ico { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
-  .region-figure { margin-top: 6px; }
-  /* A label header carrying one control on the right. The label and its icon
-     keep the weight every other region uses; only the layout changes. */
-  .region-head.withaction { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px 10px; }
-  /* The control keeps its line: `.region-title` claims the full width, and a
-     control wrapped over two lines reads as one that outgrew its slot. */
-  .region-head.withaction .region-title { width: auto; }
-  .region-head.withaction > .type-meta { flex: none; white-space: nowrap; }
-  .region-body { padding: 4px 18px 12px; }
-
-  .bar { height: 6px; border-radius: 999px; background: var(--bg-hover); overflow: hidden; }
-  .bar span { display: block; height: 100%; background: var(--text-muted); border-radius: 999px; }
-  .hoursline { text-align: right; margin-top: 8px; }
-  .paceline { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 8px; }
-
-  /* The month plot: a cumulative line against the goal ray. */
-  .plot { display: block; width: 100%; height: 64px; }
-
-  /* The collected sequence: a line of per-month arrivals. `money.html` holds
-     its scale. */
-  .seq { display: block; width: 100%; height: 86px; overflow: visible; margin-top: 12px; }
-  .seq .fill   { fill: var(--success); opacity: .15; }
-  .seq .stroke { fill: none; stroke: var(--success); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-  .seq .dot    { fill: var(--success); }
-  .seq .last   { fill: var(--bg-primary); stroke: var(--success); stroke-width: 2.5; }
-  .seq .grid   { stroke: var(--border-grid); stroke-width: 1; }
-  /* Each label centres on ITS OWN point. The points sit at `i/(n-1)` and so
-     touch both edges, while equal columns would centre their labels a
-     half-column in from each — a drift that leaves no label owning a dot.
-     The two ends pull back inside the box so neither overhangs. */
-  .axis { position: relative; height: 16px; margin-top: 6px; }
-  .axis span {
-    position: absolute; transform: translateX(-50%);
-    font-family: var(--font-mono); font-size: 10.5px; color: var(--text-subtle);
+  .figlabel {
+    display: block; font-family: var(--font-mono); font-size: 11px;
+    font-weight: 500; letter-spacing: .14em; text-transform: uppercase;
+    line-height: 1; color: var(--text-subtle);
   }
-  .axis span:first-child { transform: none; }
-  .axis span:last-child { transform: translateX(-100%); color: var(--text-muted); }
+  /* The gap under a label is corrected per tier: a larger glyph sits deeper
+     in its own line box, so equal margins read as unequal ink. Set here,
+     once, and never at a call site. */
+  .figgroup { display: flex; flex-direction: column; }
+  .figgroup > .figlabel + * { margin-top: 9px; }
+  .figgroup.tier-hero  > .figlabel + * { margin-top: 5px; }
+  .figgroup.tier-major > .figlabel + * { margin-top: 4px; }
+  .figgroup.tier-minor > .figlabel + * { margin-top: 5px; }
 
-  /* The two open figures, side by side at equal weight. Each takes the same
-     head a region does — an icon and a `type-label` — because each IS one. A
-     pip is a colour standing for a client, and neither of these belongs to
-     one. */
-  .owed { display: flex; gap: 12px; padding: 12px 18px 0; }
-  .owed .o { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
-  .owed .cap { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .owed .cap .ico { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
-  /* Its own line under a figure: beside a `type-figure` the chip would have to
-     shrink to fit, and it retires while the figure does not. */
-  .beatline { padding: 2px 18px 0; min-height: 17px; }
+  .pairline { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .pairline .u { color: var(--text-subtle); font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
 
-  /* An unbilled-by-client row: pip, name, age, amount, arrow. */
-  .rows { list-style: none; margin: 0 18px; padding: 0; }
-  .rows li + li { border-top: 1px solid var(--border-grid); }
-  .erow { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
-  .erow .pip { width: 8px; height: 8px; border-radius: 2px; flex: none; }
-  .erow .name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .erow .age { flex: none; }
-  .erow .amt { flex: none; text-align: right; width: 88px; }
-  .erow .arr { width: 13px; height: 13px; flex: none; color: var(--text-subtle); }
+  /* The period header names the region. Sentence case keeps it out of the
+     tracked-caps voice `.figlabel` owns, so the two jobs read as two
+     different things on sight, and a date is legible unspaced. */
+  .region-head {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+    letter-spacing: .01em; line-height: 1; color: var(--text-subtle);
+    display: block;
+  }
+  .region-head .dot { color: var(--text-subtle); margin: 0 2px; }
 
-  /* By project: a name over its own rail, four of them. The rail runs the
-     region's full width, so the name has the long axis to sit on. */
-  .rails .rail { padding: 4px 0; }
-  .rails .head { display: flex; align-items: baseline; gap: 10px; }
-  .rails .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .rails .fig { flex: none; white-space: nowrap; }
-  /* Velocity's mix weight, on the same track the month's bar uses: the two
-     pictures on this screen made of a fill read at one strength. */
-  .rails .track { height: 6px; border-radius: 999px; background: var(--bg-hover); overflow: hidden; margin-top: 2px; }
-  .rails .fill { height: 100%; border-radius: 999px; opacity: .62; }
-  /* The unit toggle: two words and a divider, at meta weight. A segmented
-     control here would be the heaviest thing in the region. */
-  .unit { display: inline-flex; align-items: baseline; gap: 5px; flex: none; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
-  .unit button { background: none; border: 0; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; color: var(--text-subtle); }
-  .unit button[aria-pressed="true"] { color: var(--text-strong); }
-  .unit .sep { color: var(--text-subtle); }
+  .swatch { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .swatch.none { background: transparent; border: 1.5px solid var(--border-default); }
 
-  /* The half-year: 26 columns of 7 days. Half the window, so the cell stays a
-     cell at the half-width this region now occupies. */
-  .heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); grid-template-columns: repeat(26, minmax(0, 1fr)); gap: 2px; }
-  .heat i { display: block; aspect-ratio: 1; border-radius: 2px; background: var(--bg-hover); }
-  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-top: 10px; }
-  .lg { display: inline-flex; align-items: center; gap: 6px; }
-  .lg .sw { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  /* ── Layout ──────────────────────────────────────────────────── */
+  /* Today's content is a figure and three short rows; the week's chart wants
+     the long axis. The rule between them is the only edge inside the panel. */
+  .toprow { display: grid; grid-template-columns: 1fr 2fr; }
+  .rgn-today { padding: 0 28px 0 0; border-right: 1px solid var(--border-subtle); }
+  .rgn-week  { padding: 0 0 0 28px; }
+  @media (max-width: 720px) {
+    .toprow { grid-template-columns: minmax(0, 1fr); }
+    .rgn-today { padding: 0; border-right: 0; border-bottom: 1px solid var(--border-subtle); padding-bottom: 24px; }
+    .rgn-week { padding: 24px 0 0; }
+  }
+
+  .today-card, .week-card { display: flex; flex-direction: column; }
+  .today-card .figgroup { margin-top: 24px; }
+
+  .tentries { display: flex; flex-direction: column; margin-top: 24px; }
+  .tentry {
+    display: grid; grid-template-columns: 9px minmax(0, 1fr) auto;
+    align-items: center; gap: 10px; padding: 9px 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .tentry:first-child { border-top: none; }
+  .tentry .nm { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+  .tentry.live .nm { color: var(--text-primary); }
+  .tentry .dur { color: var(--text-subtle); font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+  /* ── The week's bars ─────────────────────────────────────────── */
+  .wfig { display: flex; flex-direction: column; align-items: flex-start; margin-top: 20px; }
+  .plot { margin-top: 24px; }
+  .tracks { position: relative; height: 150px; display: flex; gap: 16px; align-items: stretch; border-bottom: 1px solid var(--border-default); }
+  .day { flex: 1; display: flex; min-width: 0; }
+  .dtrack { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column-reverse; width: 100%; max-width: 74px; margin: 0 auto; }
+  .dtrack i { display: block; flex: none; width: 100%; opacity: .85; border-radius: 5px 5px 0 0; position: relative; }
+  .caps { display: flex; gap: 16px; margin-top: 12px; }
+  .dcap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; align-items: center; }
+  /* Hours lead: the bar's height IS hours, so the number matching what is
+     drawn takes the weight. Money is a second reading of the same bar. */
+  .dhours { text-align: center; color: var(--text-primary); font-family: var(--font-mono); font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dlabel { text-align: center; color: var(--text-subtle); font-family: var(--font-mono); font-size: 11.5px; }
+  .dcap.rest .dhours { color: var(--text-subtle); }
+  .dcap.today .dlabel { color: var(--text-primary); }
+  /* Money rides the bar it describes. Inside the bar's own column it cannot
+     be misread as belonging to the day beside it, and the caption below
+     stays two lines rather than three. */
+  .barmoney {
+    position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 6px;
+    text-align: center; color: var(--text-subtle); font-family: var(--font-mono);
+    font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+
+  /* ── The month ───────────────────────────────────────────────── */
+  .monthregion { border-top: 1px solid var(--border-subtle); padding-top: 24px; margin-top: 24px; }
+  .earnings { display: grid; grid-template-columns: 17.5rem minmax(0, 1fr); gap: 32px; align-items: start; }
+  @media (max-width: 720px) { .earnings { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+  .paystats { display: flex; flex-direction: column; }
+  .paystats .figgroup + .figgroup { margin-top: 22px; }
+  /* Spacing alone carries the split: Earned is the month's subject, the two
+     below are readings taken from it. A rule here would read as a section
+     boundary, which is not what this is. */
+  .paystats .tier-hero + .figgroup { margin-top: 26px; }
+  .cap { color: var(--text-subtle); font-family: var(--font-mono); font-size: 11.5px; }
+
+  .climb { min-width: 0; }
+  .climbplot { position: relative; padding: 0 14px 0 44px; }
+  .climbsq { aspect-ratio: 16 / 9.2; width: 100%; position: relative; min-height: 230px; }
+  .climbplot svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .grid  { stroke: var(--border-grid); }
+  .mline { stroke: var(--text-strong); }
+  .mproj { stroke: var(--text-strong); opacity: .38; stroke-dasharray: 5 4; }
+  .mfill { fill: var(--text-strong); opacity: .07; }
+  .mdot  { fill: var(--text-strong); }
+  .mend  { fill: var(--bg-primary); stroke: var(--success); stroke-width: 2; }
+  .vtick { stroke: var(--border-grid); }
+  /* Axis labels are drawn OUTSIDE the stretched viewBox, in HTML, so
+     `preserveAspectRatio="none"` cannot distort the type. */
+  .ylabels { position: absolute; inset: 0 auto 0 -44px; width: 44px; }
+  .ylab { position: absolute; left: 0; translate: 0 -50%; color: var(--text-subtle); font-family: var(--font-mono); font-size: 11.5px; white-space: nowrap; }
+  .xlabels { position: relative; height: 16px; margin: 10px 14px 0 44px; }
+  .xlab { position: absolute; translate: -50% 0; color: var(--text-subtle); font-family: var(--font-mono); font-size: 11.5px; white-space: nowrap; }
+  .xlab.now { color: var(--text-primary); }
+  .xlab.edge { translate: 0 0; }
+  .xlab.edge.right { translate: -100% 0; }
+  .mstrip { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin: 0 14px 0 44px; }
+
+  .cardkey { display: flex; align-items: center; gap: 20px; margin-top: 22px; flex-wrap: wrap; }
+  .ck { display: inline-flex; align-items: center; gap: 7px; color: var(--text-subtle); font-family: var(--font-mono); font-size: 11.5px; }
 </style>
 
 <div class="page">
@@ -201,9 +200,9 @@
   <span class="eyebrow">Stint · Screens</span>
   <h1>Home</h1>
   <p class="standfirst">
-    The screen opened fifty times a day. It answers what a contractor cannot
-    answer from memory: how the money stands, whether the month is on pace,
-    what the last quarter actually grossed, and where the work went.
+    The screen opened every working day. It answers one question at three
+    widths — <em>how much have I earned?</em> — for today, this week and this
+    month, and says how much of that is still waiting to be invoiced.
   </p>
   <p class="standfirst">
     The frame — header, rail, dock, timer bar — is <code>_shell.html</code>.
@@ -214,736 +213,307 @@
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">What earns a place</span></div>
 
-    <p>
-      Toggl's dashboard answers <em>how did I spend my time?</em> For a solo
-      contractor that is the wrong question — you already know, you were
-      there.
-    </p>
-
     <ul class="rule">
       <li><strong>A region ships only if it carries a number the user cannot
         compute in their head, or a row they can click to act on.</strong>
-        Preferably both. "Interesting" is not the bar.</li>
-      <li><strong>Stats are denominated in money.</strong> Hours are the raw
-        material; dollars are what the user thinks in. Unbillable work has no
-        rate by definition, so those rows show hours and an em-dash.</li>
-      <li><strong><code>GET /stats</code> is one call.</strong> The regions
-        render together, and a set that pops in piecemeal reads as broken.</li>
+        "Interesting" is not the bar.</li>
+      <li><strong>Every figure on this screen is money the user has already
+        earned</strong>, bucketed by when the work was done. Hours ride
+        alongside as the raw material.</li>
+      <li><strong>Nothing here is measured against a target.</strong> A goal is
+        a number the user invents, and everything derived from one — a pace
+        line, a percentage, a projected shortfall — is arithmetic on a guess
+        presented with the authority of a fact. The month's projection is the
+        one forward-looking figure, and it comes from trailing pace alone.</li>
       <li><strong>Nothing here writes.</strong> Every region reads, and every
-        action on one is a link to the surface that owns the mutation — a
-        dashboard that edits data turns a stray click into a changed
-        invoice.</li>
+        action on one is a link to the surface that owns the mutation.</li>
       <li><strong>There is one view.</strong> No hiding a region, no reordering
-        them. "Pick your own dashboard" is the most natural path by which this
-        becomes the thing it was built against.</li>
+        them, no range picker.</li>
     </ul>
   </section>
 
-  <!-- ───────────────────────── one surface ───────────────────────── -->
+  <!-- ───────────────────────── the panel ───────────────────────── -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">One surface, three rows</span></div>
+    <div class="sec-head"><span class="eyebrow">One panel, three regions</span></div>
 
     <p>
-      The content column is a single borderless panel on the ground. The
-      regions are parts of it, not cards on it: <strong>nothing inside the
-      panel carries a border, a background or a shadow of its own.</strong>
-      Rows of regions separate by an inset rule with equal space above and
-      below.
+      The content column is a single borderless panel on the ground. Today and
+      this week share the top row, split by a vertical rule; the month runs the
+      full width beneath a horizontal one. <strong>Nothing inside the panel
+      carries a border, a background or a shadow of its own.</strong>
     </p>
-
-    <p>
-      The panel is wide enough for two columns, and the regions pair by
-      subject: <strong>a figure beside the breakdown that explains it.</strong>
-      Money collected sits beside money still owed; the month sits beside the
-      quarter; where the time went sits beside when it was spent.
-    </p>
-
-    <p>
-      <strong>The panel opens on the day.</strong> The weekday at
-      <code>type-heading</code> with the short date opposite it at
-      <code>type-label</code> — the date is the answer to "is this figure
-      current?", which is the question a dashboard that mostly does not change
-      invites. It names the day and nothing else: what moved is reported beside
-      the figure it moved, and the day is fixed at render so a beat cannot
-      move it.
-    </p>
-
-    <table>
-      <tr><th>Row</th><th>Left</th><th>Right</th></tr>
-      <tr><td>1</td><td colspan="2">The money region — <code>money.html</code> specifies it, both halves</td></tr>
-      <tr><td>2</td><td>The month — the cumulative plot against the goal ray</td><td>Gross earned — the figure, the mix, the key</td></tr>
-      <tr><td>3</td><td>By project — the bars, the toggle, the window line</td><td>The half-year — the heatmap</td></tr>
-    </table>
-
-    <p>
-      <strong>The heatmap's window is what its width buys.</strong> Half-width
-      at 52 weeks is a texture nobody can read, so the third row halves the
-      window rather than the cell, and takes the wider half to spend on it.
-      A day stays a day.
-    </p>
-
-    <table>
-      <tr><th>At the panel's 900px</th><th>Columns</th><th>Cell</th></tr>
-      <tr><td>26 weeks on <code>1fr</code>, as built</td><td>26</td><td>12.4px</td></tr>
-      <tr><td>13 weeks in the same column</td><td>13</td><td>26.7px</td></tr>
-      <tr><td>A full year, full width</td><td>52</td><td>10.8px</td></tr>
-    </table>
 
     <div class="mock">
       <div class="panel">
 
-        <div class="panel-head">
-          <span class="type-heading" style="color:var(--text-strong)">Tuesday</span>
-          <span class="type-label" style="color:var(--text-subtle)">16 Sep</span>
-        </div>
-
-        <div class="pair">
-          <div class="region">
-            <div class="region-head">
-              <span class="region-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">Collected</span>
-                <span class="type-meta" style="margin-left:auto; color:var(--text-subtle)">12 MO</span>
-              </span>
-              <div class="region-figure type-figure" style="color:var(--text-strong)">$70,500.00</div>
-              <div class="type-meta" style="margin-top:2px; color:var(--text-subtle)">+$6,400.00 this month · last paid 14d ago</div>
-            </div>
-            <div class="beatline"></div>
-            <div class="region-body">
-              <svg class="seq" id="seq" viewBox="0 0 300 86" preserveAspectRatio="none" role="img" aria-label="Collected per month, last six"></svg>
-              <div class="axis" id="axis"></div>
-            </div>
-          </div>
-
-          <div class="region">
-            <div class="owed">
-              <span class="o">
-                <span class="cap">
-                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg>
-                  <span class="type-label" style="color:var(--text-subtle)">Awaiting</span>
-                </span>
-                <span class="type-amount-hero" style="color:var(--text-strong)">$6,400.00</span>
-                <span class="type-meta" style="color:var(--text-subtle)">1 open invoice</span>
-              </span>
-              <span class="o">
-                <span class="cap">
-                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M5 22h14M5 2h14M17 22v-4.2a2 2 0 0 0-.6-1.4L12 12l-4.4 4.4a2 2 0 0 0-.6 1.4V22M7 2v4.2a2 2 0 0 0 .6 1.4L12 12l4.4-4.4a2 2 0 0 0 .6-1.4V2"/></svg>
-                  <span class="type-label" style="color:var(--text-subtle)">Unbilled</span>
-                </span>
-                <span class="type-amount-hero" style="color:var(--text-strong)">$3,461.25</span>
-                <span class="type-meta" style="color:var(--text-subtle)">12d oldest</span>
-              </span>
-            </div>
-            <span class="sublabel type-label" style="color:var(--text-subtle)">Unbilled by client</span>
-            <ul class="rows" id="byclient"></ul>
-          </div>
-        </div>
-
-        <div class="region-rule"></div>
-
-        <div class="pair">
-          <div class="region">
-            <div class="region-head">
-              <span class="region-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">September</span>
-              </span>
-              <span class="type-meta" style="color:var(--text-subtle)">21.4h / 120h</span>
-            </div>
-            <div class="region-body">
-              <svg class="plot" viewBox="0 0 300 64" preserveAspectRatio="none" aria-hidden="true">
-                <path d="M0,58.5 L27.3,53 L54.5,47.5 L81.8,42 L109,36.5 L136.4,31 L163.6,25.5 L190.9,20 L218.2,14.5
-                         L218.2,52.5 L190.9,53.5 L163.6,55 L136.4,56.5 L109,58 L81.8,59.5 L54.5,61 L27.3,62 L0,63 Z"
-                      fill="var(--text-subtle)" opacity=".12"/>
-                <path d="M0,58.5 L27.3,53 L54.5,47.5 L81.8,42 L109,36.5 L136.4,31 L163.6,25.5 L190.9,20 L218.2,14.5 L245.5,9 L272.7,3.5 L300,0"
-                      fill="none" stroke="var(--text-subtle)" stroke-width="1" stroke-dasharray="3 3"/>
-                <path d="M0,63 L27.3,62 L54.5,61 L81.8,59.5 L109,58 L136.4,56.5 L163.6,55 L190.9,53.5 L218.2,52.5"
-                      fill="none" stroke="var(--text-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <div class="paceline">
-                <span class="type-support" style="color:var(--text-subtle)">10 of 22 business days · 98% billable</span>
-                <span class="type-meta" style="color:var(--warning)">behind −33.1h</span>
+        <div class="toprow">
+          <div class="rgn-today">
+            <div class="today-card">
+              <span class="region-head">Today <span class="dot">&middot;</span> Thursday, Sep 17</span>
+              <div class="figgroup tier-major">
+                <span class="figlabel">Earned</span>
+                <span class="pairline"><span class="fig-major">$340</span><span class="u">5h 00m</span></span>
+              </div>
+              <div class="tentries">
+                <div class="tentry live">
+                  <span class="swatch" style="background:var(--proj-6)"></span>
+                  <span class="nm">Inventory sync edge cases</span>
+                  <span class="dur">4:15</span>
+                </div>
+                <div class="tentry">
+                  <span class="swatch" style="background:var(--proj-6)"></span>
+                  <span class="nm">Standup and planning</span>
+                  <span class="dur">0:25</span>
+                </div>
+                <div class="tentry">
+                  <span class="swatch none"></span>
+                  <span class="nm">Invoicing admin</span>
+                  <span class="dur">0:20</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="region">
-            <div class="region-head">
-              <span class="region-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">Gross earned · last 3 months</span>
-              </span>
-              <div class="region-figure type-figure" style="color:var(--text-strong)">$9,470.00<span class="type-duration" style="color:var(--text-subtle)"> /mo gross</span></div>
-            </div>
-            <div class="region-body">
-              <div class="mix" role="img" aria-label="Northwind Trading $17,600.00, Byrne Studio $10,810.00">
-                <i style="width:62%;background:var(--proj-6)"></i>
-                <i style="width:38%;background:var(--proj-2)"></i>
+          <div class="rgn-week">
+            <div class="week-card">
+              <span class="region-head">This week <span class="dot">&middot;</span> Sep 14&ndash;20</span>
+              <div class="wfig figgroup tier-major">
+                <span class="figlabel">Earned</span>
+                <span class="pairline"><span class="fig-major">$1,880</span><span class="u">23h 30m</span></span>
               </div>
-              <div class="keyline">
-                <span class="k type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-6)"></span>Northwind <span class="type-meta">$17,600.00</span></span>
-                <span class="k type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-2)"></span>Byrne <span class="type-meta">$10,810.00</span></span>
+              <div class="plot" role="img" aria-label="Mon 7h $560, Tue 5h 30m $440, Wed 6h 45m $540, Thu 4h 15m $340 so far, Fri to Sun not yet worked.">
+                <div class="tracks">
+                  <div class="day"><div class="dtrack"><i style="height:94%; background:var(--proj-6)"><span class="barmoney">$560</span></i></div></div>
+                  <div class="day"><div class="dtrack"><i style="height:73.9%; background:var(--proj-6)"><span class="barmoney">$440</span></i></div></div>
+                  <div class="day"><div class="dtrack"><i style="height:90.6%; background:var(--proj-6)"><span class="barmoney">$540</span></i></div></div>
+                  <div class="day today"><div class="dtrack"><i style="height:57.1%; background:var(--proj-6)"><span class="barmoney">$340</span></i></div></div>
+                  <div class="day rest"><div class="dtrack"></div></div>
+                  <div class="day rest"><div class="dtrack"></div></div>
+                  <div class="day rest"><div class="dtrack"></div></div>
+                </div>
+                <div class="caps">
+                  <div class="dcap"><span class="dhours">7h</span><span class="dlabel">MON</span></div>
+                  <div class="dcap"><span class="dhours">5h 30m</span><span class="dlabel">TUE</span></div>
+                  <div class="dcap"><span class="dhours">6h 45m</span><span class="dlabel">WED</span></div>
+                  <div class="dcap today"><span class="dhours">4h 15m</span><span class="dlabel">THU</span></div>
+                  <div class="dcap rest"><span class="dhours">&mdash;</span><span class="dlabel">FRI</span></div>
+                  <div class="dcap rest"><span class="dhours">&mdash;</span><span class="dlabel">SAT</span></div>
+                  <div class="dcap rest"><span class="dhours">&mdash;</span><span class="dlabel">SUN</span></div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="region-rule"></div>
-
-        <div class="pair">
-          <div class="region">
-            <div class="region-head withaction">
-              <span class="region-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">By project</span>
-              </span>
-              <span class="unit">
-                <button type="button" aria-pressed="true">Hours</button>
-                <span class="sep" aria-hidden="true">/</span>
-                <button type="button" aria-pressed="false">Revenue</button>
-              </span>
+        <div class="monthregion">
+          <div class="earnings">
+            <div class="paystats">
+              <span class="region-head">This month <span class="dot">&middot;</span> September</span>
+              <div class="figgroup tier-hero" style="margin-top:16px">
+                <span class="figlabel">Earned</span>
+                <span class="pairline"><span class="fig-hero">$6,840</span><span class="u">85h 30m</span></span>
+              </div>
+              <div class="figgroup tier-minor">
+                <span class="figlabel">On track for</span>
+                <span class="fig-minor">$11,817</span>
+              </div>
+              <div class="figgroup tier-minor">
+                <span class="figlabel">Unbilled</span>
+                <span class="pairline"><span class="fig-minor">$6,840</span><span class="cap">across 2 clients</span></span>
+              </div>
             </div>
-            <div class="region-body">
-              <div class="rails" role="img" aria-label="Data pipeline audit 86h 10m, Rush: peak season fixes 52h 40m, Warehouse dashboard 41h 15m, Admin and invoicing 22h 30m">
-                <div class="rail">
-                  <div class="head">
-                    <span class="nm type-support" style="color:var(--text-muted)">Data pipeline audit</span>
-                    <span class="fig type-meta" style="color:var(--text-primary)">86h 10m</span>
+
+            <div class="climb">
+              <div class="climbplot">
+                <div class="climbsq">
+                  <svg viewBox="0 0 300 200" preserveAspectRatio="none" role="img"
+                       aria-label="September earnings climbing to $6,840 over 13 of 22 working days, projecting $11,817 by the 30th">
+                    <line x1="0" y1="46.2"  x2="300" y2="46.2"  stroke-width="1" class="grid"/>
+                    <line x1="0" y1="84.6"  x2="300" y2="84.6"  stroke-width="1" class="grid"/>
+                    <line x1="0" y1="123.1" x2="300" y2="123.1" stroke-width="1" class="grid"/>
+                    <line x1="0" y1="161.5" x2="300" y2="161.5" stroke-width="1" class="grid"/>
+                    <line x1="62.1"  y1="0" x2="62.1"  y2="200" stroke-width="1" class="vtick"/>
+                    <line x1="134.5" y1="0" x2="134.5" y2="200" stroke-width="1" class="vtick"/>
+                    <line x1="206.9" y1="0" x2="206.9" y2="200" stroke-width="1" class="vtick"/>
+                    <line x1="279.3" y1="0" x2="279.3" y2="200" stroke-width="1" class="vtick"/>
+                    <path d="M0.0,192.0 L10.3,183.4 L20.7,177.2 L31.0,167.4 L41.4,167.4 L51.7,164.3 L62.1,156.9 L72.4,147.7 L82.8,142.8 L93.1,134.8 L103.4,123.7 L113.8,123.7 L124.1,123.7 L134.5,115.1 L144.8,108.3 L155.2,100.0 L165.5,94.8 L165.5,200 L0,200 Z" class="mfill"/>
+                    <path d="M0.0,192.0 L10.3,183.4 L20.7,177.2 L31.0,167.4 L41.4,167.4 L51.7,164.3 L62.1,156.9 L72.4,147.7 L82.8,142.8 L93.1,134.8 L103.4,123.7 L113.8,123.7 L124.1,123.7 L134.5,115.1 L144.8,108.3 L155.2,100.0 L165.5,94.8"
+                          fill="none" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round" class="mline"/>
+                    <path d="M165.5,94.8 L175.9,88.9 L186.2,83.0 L196.6,77.1 L206.9,71.2 L217.2,65.3 L227.6,59.4 L237.9,53.5 L248.3,47.6 L258.6,41.8 L269.0,35.9 L279.3,30.0 L289.7,24.1 L300.0,18.2"
+                          fill="none" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round" class="mproj"/>
+                    <circle cx="165.5" cy="94.8" r="3.25" class="mdot"/>
+                    <circle cx="300" cy="18.2" r="3.75" class="mend"/>
+                  </svg>
+                  <div class="ylabels">
+                    <span class="ylab" style="top:23.08%">$10k</span>
+                    <span class="ylab" style="top:42.31%">$7.5k</span>
+                    <span class="ylab" style="top:61.54%">$5k</span>
+                    <span class="ylab" style="top:80.77%">$2.5k</span>
                   </div>
-                  <div class="track"><div class="fill" style="width:100%;background:var(--proj-6)"></div></div>
-                </div>
-                <div class="rail">
-                  <div class="head">
-                    <span class="nm type-support" style="color:var(--text-muted)">Rush: peak season fixes</span>
-                    <span class="fig type-meta" style="color:var(--text-primary)">52h 40m</span>
-                  </div>
-                  <div class="track"><div class="fill" style="width:61%;background:var(--proj-6)"></div></div>
-                </div>
-                <div class="rail">
-                  <div class="head">
-                    <span class="nm type-support" style="color:var(--text-muted)">Warehouse dashboard</span>
-                    <span class="fig type-meta" style="color:var(--text-primary)">41h 15m</span>
-                  </div>
-                  <div class="track"><div class="fill" style="width:48%;background:var(--proj-2)"></div></div>
-                </div>
-                <div class="rail">
-                  <div class="head">
-                    <span class="nm type-support" style="color:var(--text-muted)">Admin and invoicing</span>
-                    <span class="fig type-meta" style="color:var(--text-primary)">22h 30m</span>
-                  </div>
-                  <div class="track"><div class="fill" style="width:26%;background:var(--text-subtle)"></div></div>
                 </div>
               </div>
-              <div class="hoursline">
-                <span class="type-meta" style="color:var(--text-subtle)">+11h 45m across 3 more · 214h 20m logged · 3mo</span>
+              <div class="mstrip" role="img" aria-label="Northwind 80%, Meridian Labs 17%, internal 3% of the month">
+                <span style="width:80.1%; background:var(--proj-6)"></span>
+                <span style="width:17.0%; background:var(--proj-7)"></span>
+                <span style="width:2.9%;  background:var(--text-subtle)"></span>
+              </div>
+              <div class="xlabels">
+                <span class="xlab edge" style="left:0">Sep 1</span>
+                <span class="xlab" style="left:20.69%">Sep 7</span>
+                <span class="xlab" style="left:44.83%">Sep 14</span>
+                <span class="xlab now" style="left:55.17%">today</span>
+                <span class="xlab edge right" style="left:100%">Sep 30</span>
               </div>
             </div>
           </div>
 
-          <div class="region">
-            <div class="region-head">
-              <span class="region-title">
-                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                <span class="type-label" style="color:var(--text-subtle)">Last 6 months</span>
-              </span>
-            </div>
-            <div class="region-body">
-              <div class="heat" id="heat"></div>
-              <div class="legend">
-                <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-6)"></span>Northwind Trading</span>
-                <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--proj-2)"></span>Byrne Studio</span>
-                <span class="lg type-support" style="color:var(--text-muted)"><span class="sw" style="background:var(--text-subtle)"></span>Other</span>
-                <span class="type-meta" style="color:var(--text-subtle); margin-left:auto">431h 05m</span>
-              </div>
-            </div>
+          <div class="cardkey">
+            <span class="ck"><span class="swatch" style="background:var(--proj-6)"></span>Northwind Trading</span>
+            <span class="ck"><span class="swatch" style="background:var(--proj-7)"></span>Meridian Labs</span>
+            <span class="ck"><span class="swatch none"></span>Internal</span>
           </div>
         </div>
 
       </div>
-      <span class="caption">Three rows. The rules are inset and horizontal; nothing inside has an edge of its own</span>
+      <span class="caption">The panel at <code>2xl</code></span>
     </div>
 
-    <script>
-      /* The collected sequence and the by-client rows, drawn rather than
-         typed, so the picture and the prose cannot drift apart. */
-      const MONTHS = [['Apr', 6400], ['May', 7100], ['Jun', 4200], ['Jul', 7100], ['Aug', 7800], ['Sep', 6400]];
-      /* The same four rows `money.html` draws, because the region is one
-         region and two sets of numbers for it is the drift that doc owns. */
-      const CLIENTS = [
-        { name: 'Northwind Trading', colour: 'var(--proj-6)', amount: '$1,991.25', days: 12 },
-        { name: 'Meridian Labs',     colour: 'var(--proj-7)', amount: '$1,080.00', days: 11 },
-        { name: 'No client',         colour: 'var(--text-subtle)', amount: '$270.00', days: 8 },
-        { name: 'Random Client',     colour: 'var(--proj-1)', amount: '$120.00', days: 8 },
-      ];
-
-      const vals = MONTHS.map((m) => m[1]);
-      const peak = Math.max(...vals), low = Math.min(...vals);
-      const range = Math.max(peak - low, peak * 0.3);
-      const base = Math.max(0, low - range / 3);
-      const span = peak - base;
-
-      const W = 300, H = 86;
-      const px = (i) => (i / (MONTHS.length - 1)) * W;
-      const py = (v) => H - 8 - ((v - base) / span) * (H - 24);
-      const pts = MONTHS.map(([, v], i) => [px(i), py(v)]);
-      const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
-      const area = `${line} L${W},${H - 8} L0,${H - 8} Z`;
-      const dots = pts.map((p, i) =>
-        i === pts.length - 1
-          ? `<circle class="last" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4"/>`
-          : `<circle class="dot" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.5"/>`
-      ).join('');
-
-      document.getElementById('seq').innerHTML =
-        `<line class="grid" x1="0" y1="${H - 8}" x2="${W}" y2="${H - 8}"/>` +
-        `<path class="fill" d="${area}"/><path class="stroke" d="${line}"/>${dots}`;
-      document.getElementById('axis').innerHTML = MONTHS.map(([n], i) =>
-    `<span style="left:${(i / (MONTHS.length - 1)) * 100}%">${n}</span>`).join('');
-
-      const ARROW = '<svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
-      document.getElementById('byclient').innerHTML = CLIENTS.map((c) => `
-        <li><div class="erow">
-          <span class="pip" style="background:${c.colour}"></span>
-          <span class="name type-control" style="color:var(--text-primary)">${c.name}</span>
-          <span class="age type-meta" style="color:var(--text-subtle)">${c.days}d</span>
-          <span class="amt type-duration" style="color:var(--text-primary)">${c.amount}</span>
-          ${ARROW}
-        </div></li>`).join('');
-
-      /* 182 cells — 26 weeks — generated rather than typed: half a year of
-         hand-written divs would be unreadable as a spec and nobody would keep
-         it current. */
-      const heat = document.getElementById('heat');
-      const hues = ['var(--proj-6)', 'var(--proj-2)', 'var(--text-subtle)'];
-      for (let i = 0; i < 182; i++) {
-        const cell = document.createElement('i');
-        const weekday = i % 7;
-        const worked = weekday < 5 && Math.random() > 0.18;
-        if (worked) {
-          cell.style.background = hues[Math.random() < 0.55 ? 0 : Math.random() < 0.7 ? 1 : 2];
-          cell.style.opacity = (0.25 + 0.75 * Math.random()).toFixed(2);
-        }
-        heat.appendChild(cell);
-      }
-    </script>
-
-    <ul class="rule">
-      <li><strong>Row order is fixed:</strong> where the money stands, then
-        whether the month is working, then where the work went. No hiding a
-        region, no reordering them.</li>
-      <li><strong>The columns size by <code>@container</code>, not
-        viewport.</strong> The panel is not the window: the rail and the dock
-        claim their space at <code>lg</code> and <code>xl</code>, so the panel
-        is 780px at a 1100px window and 732px at 1440 — wider at the narrower
-        window. A viewport breakpoint would collapse the wide one and split
-        the narrow one.</li>
-      <li><strong>Below the threshold the pairs stack</strong>, in the order
-        they read: Collected, the open figures, the month, Velocity, By
-        project, the half-year.</li>
-      <li><strong>The left column is the wider</strong>, at
-        <code>1.15fr</code> to <code>1fr</code>. It carries the figures, and an
-        equal split leaves client names truncating while the money column has
-        room to spare.</li>
-      <li><strong>Every row takes that same ratio</strong>, so one gutter runs
-        the height of the panel. A row on its own split puts the gutter
-        somewhere else; one that lands on the other side of the panel's centre
-        from the row above reads as a mistake rather than as an asymmetry
-        anyone chose.</li>
-      <li><strong>One inset, on all four sides of every region</strong>, and
-        the pairing grid carries no gutter of its own. Two halves then sit
-        apart by exactly twice what either sits from the panel's edge, which
-        is the spacing the outer margin already implies. A gutter on top of
-        the insets is a second number governing one gap, and the two drift.</li>
-      <li><strong>A rule sits 22px from the nearest ink</strong> — the inset
-        plus the section's own step. It runs looser than the 18px between two
-        halves because that gap is empty and this one has a line drawn through
-        it, and a line needs clearance the empty gap does not.</li>
-      <li><strong>Collected never hides</strong>, because an account that has
-        collected nothing renders <code>$0.00</code> — true, and the figure its
-        first payment moves. <strong>The right half hides with nothing
-        awaiting and nothing unbilled</strong>: with neither figure there is no
-        list either, and what is left is an empty column beside a full
-        one.</li>
-      <li><strong>Rows size by <code>@container</code> too.</strong> The same
-        row renders in this panel and in the narrow dock, where a
-        <code>sm:</code> breakpoint is true at 1600px and lays out as though
-        there were room.</li>
-    </ul>
-
-    <p>
-      Separation is <strong>space and an inset horizontal rule</strong>,
-      nothing else.
+    <p style="margin-top:1.5rem">
+      Today takes a third of the top row and the week two thirds. Today's
+      content is a figure and three short rows; the week's chart needs the
+      long axis for seven columns and their captions.
     </p>
-
-    <ul class="rule never">
-      <li><strong>Never a vertical rule between the columns.</strong> It
-        rebuilds the gridlines this panel exists without, and reads the pair
-        back as two cards.</li>
-      <li><strong>Never a full-bleed horizontal rule.</strong> Inset to the
-        rows' own 18px; edge to edge it cuts the panel in two and reads as two
-        stacked cards.</li>
-    </ul>
   </section>
 
-  <!-- ───────────────────────── the header, in two modes ───────────────────────── -->
+  <!-- ───────────────────────── the type system ───────────────────────── -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">The region header, in two modes</span></div>
+    <div class="sec-head"><span class="eyebrow">Three figure tiers</span></div>
 
     <p>
-      Every title on this screen is a quiet label, because every region's
-      point is the thing under it. <strong>A figure region sets that figure
-      beneath the label</strong>; <strong>a picture region gives the label the
-      line and puts its one control opposite</strong>. The label is what makes
-      six regions in one panel scan as six parts of one screen rather than six
-      headings competing.
+      A figure's size is set by <strong>what the number means</strong>, not by
+      which region it sits in.
     </p>
 
-    <div class="mock">
-      <div class="states">
-        <div class="state">
-          <div class="panel">
-            <div class="region">
-              <div class="region-head">
-                <span class="region-title">
-                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>
-                  <span class="type-label" style="color:var(--text-subtle)">Collected · 12 mo</span>
-                </span>
-                <div class="region-figure type-figure" style="color:var(--text-strong)">$70,500.00</div>
-              </div>
-            </div>
-          </div>
-          <span class="caption">Figure mode</span>
-        </div>
-        <div class="state">
-          <div class="panel">
-            <div class="region">
-              <div class="region-head withaction">
-                <span class="region-title">
-                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17V9M13 17V5M18 17v-5"/></svg>
-                  <span class="type-label" style="color:var(--text-subtle)">By project</span>
-                </span>
-                <span class="unit">
-                  <button type="button" aria-pressed="true">Hours</button>
-                  <span class="sep" aria-hidden="true">/</span>
-                  <button type="button" aria-pressed="false">Revenue</button>
-                </span>
-              </div>
-            </div>
-          </div>
-          <span class="caption">Picture mode — the label keeps the line, the control sits opposite</span>
-        </div>
-      </div>
-    </div>
+    <table>
+      <tr><th>Tier</th><th>Size</th><th>Carries</th></tr>
+      <tr>
+        <td><code>fig-hero</code></td>
+        <td>40px</td>
+        <td>The month's Earned — the number the product exists to grow.</td>
+      </tr>
+      <tr>
+        <td><code>fig-major</code></td>
+        <td>30px</td>
+        <td>Today's and the week's Earned. One tier down, and equal to each
+            other: the two short windows on the same question.</td>
+      </tr>
+      <tr>
+        <td><code>fig-minor</code></td>
+        <td>24px</td>
+        <td>On track for, Unbilled. Readings taken <em>from</em> Earned rather
+            than a fourth subject.</td>
+      </tr>
+    </table>
 
-    <ul class="rule">
-      <li><strong>The icon is <code>aria-hidden</code></strong>. It is a second
-        channel for a region you are scanning, not part of its name — without
-        it a screen reader announces "banknote Collected".</li>
-      <li><strong>The icon is neutral unless the region is <em>about</em>
-        something being wrong</strong>, and never the accent.</li>
-      <li><strong>At most one quiet control</strong>, top-right against the
-        title: the month's figure and By project's unit switch are the
-        two.</li>
-    </ul>
+    <p style="margin-top:1.25rem">
+      <strong>Two label voices, two jobs.</strong> The period header
+      (<code>region-head</code>, 13px mono, sentence case) names the region.
+      The figure label (<code>figlabel</code>, 11px mono, tracked caps)
+      names a number. Sharing one voice left the header unable to outrank the
+      label directly beneath it, and a date reads better unspaced.
+    </p>
+
+    <p style="margin-top:1.25rem">
+      <strong>The gap under a label is corrected per tier.</strong> A larger
+      glyph sits deeper in its own line box, so equal margins produce unequal
+      ink — matched box gaps measured anywhere from &minus;1px to 11px of
+      visible space. Each tier sets its own margin once, in the system block,
+      never at a call site.
+    </p>
   </section>
 
-  <!-- ───────────────────────── month ───────────────────────── -->
+  <!-- ───────────────────────── the week's chart ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">The week's bars</span></div>
+
+    <ul class="rule">
+      <li><strong>The bar's height is hours</strong>, so hours lead the caption
+        at 15px and the weekday sits beneath at 11.5px. The number that matches
+        what is drawn takes the weight.</li>
+      <li><strong>Money rides the bar it describes</strong>, printed at that
+        bar's own head. Inside the bar's column it cannot be misread as
+        belonging to the day beside it, and the caption below stays two lines
+        rather than three.</li>
+      <li><strong>The scale is the week's own longest day</strong>, which fills
+        94% of the track. Heights stay a true ratio of hours; only what 100%
+        means changes. Bars are therefore not comparable across weeks — the
+        axis is unlabelled and each bar prints its own money, so nothing is
+        misread.</li>
+      <li><strong>A day with no work prints an em-dash</strong> and no bar. The
+        caption keeps its hours line as an empty placeholder, or the weekday
+        labels of unworked days rise above the rest of the row.</li>
+      <li><strong>The bars stand on a baseline, not in a track.</strong> A
+        full-height container implies a ceiling, and there is no "full" day.</li>
+    </ul>
+
+    <p style="margin-top:1.25rem">
+      Empty columns at the end of the week are the week not being over. That
+      space is left alone.
+    </p>
+  </section>
+
+  <!-- ───────────────────────── the month ───────────────────────── -->
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">The month</span></div>
 
     <p>
-      A cumulative line of accumulated hours — or money, following the goal's
-      unit — against the goal ray. <strong>The gap between the two lines is the
-      delta</strong>, rendered as a distance rather than a percentage to
-      decode.
-    </p>
-
-    <div class="mock">
-      <div class="states stack">
-        <div class="state">
-          <div class="panel">
-            <div class="region">
-              <div class="region-head">
-                <span class="region-title">
-                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                  <span class="type-label" style="color:var(--text-subtle)">September</span>
-                </span>
-                <div class="region-figure type-figure" style="color:var(--text-strong)">$9,240.00<span class="type-duration" style="color:var(--text-subtle)"> / $12,000.00</span></div>
-              </div>
-              <div class="region-body">
-                <svg class="plot" viewBox="0 0 300 64" preserveAspectRatio="none" aria-hidden="true">
-                  <path d="M0,58.5 L27.3,53 L54.5,47.5 L81.8,42 L109,36.5 L136.4,31 L163.6,25.5 L190.9,20 L218.2,14.5
-                           L218.2,15.5 L190.9,22 L163.6,29 L136.4,33 L109,39 L81.8,44 L54.5,49 L27.3,55 L0,60 Z"
-                        fill="var(--text-subtle)" opacity=".12"/>
-                  <path d="M0,58.5 L27.3,53 L54.5,47.5 L81.8,42 L109,36.5 L136.4,31 L163.6,25.5 L190.9,20 L218.2,14.5 L245.5,9 L272.7,3.5 L300,0"
-                        fill="none" stroke="var(--text-subtle)" stroke-width="1" stroke-dasharray="3 3"/>
-                  <path d="M0,60 L27.3,55 L54.5,49 L81.8,44 L109,39 L136.4,33 L163.6,29 L190.9,22 L218.2,15.5"
-                        fill="none" stroke="var(--text-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <div class="paceline">
-                  <span class="type-support" style="color:var(--text-subtle)">18 of 22 business days · 94% billable</span>
-                  <span class="type-meta" style="color:var(--text-muted)">on pace +$420.00</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <span class="caption">On pace — the line rides the ray, and the gap closes</span>
-        </div>
-
-        <div class="state">
-          <div class="panel">
-            <div class="region">
-              <div class="region-head">
-                <span class="region-title">
-                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                  <span class="type-label" style="color:var(--text-subtle)">September</span>
-                </span>
-              </div>
-              <div class="region-body">
-                <span class="type-support" style="color:var(--text-subtle)">Set a monthly goal to track hours or revenue against it.</span>
-              </div>
-            </div>
-          </div>
-          <span class="caption">No target — the region stays, carrying the way in</span>
-        </div>
-      </div>
-    </div>
-
-    <ul class="rule">
-      <li><strong>The ray steps on business days only.</strong> A ray sloping
-        through the weekend shows the user behind every Saturday and recovered
-        every Monday, which is the noise the business-day rule exists to
-        kill.</li>
-      <li><strong>The actual line stops at today</strong> and is null beyond
-        it. A line drawn flat to the 31st reads as a month that stopped
-        working, not a month still in progress.</li>
-      <li><strong>Weekend work is carried onto the next business day's
-        point</strong>, never discarded, so the cumulative total always equals
-        the month's actual.</li>
-      <li><strong>The target is context, not part of the figure</strong> — set
-        at row scale beside it rather than carried along at 30px.</li>
-      <li><strong>With no target the region stays</strong>, carrying a line that
-        names what a goal is for and a link to the field. Hiding it made the
-        feature invisible to the only account that had never set one.</li>
-      <li><strong>The scale is the target</strong>, unless the month ran past
-        it — a line that leaves the top of the box would misreport a month that
-        beat its goal.</li>
-      <li><strong>Settings owns the goal field.</strong> A link, never a
-        dialog: a second editor here is a second place to look when the number
-        is wrong.</li>
-      <li><strong>The figure is the link.</strong> An icon that only edits the
-        number beside it says nothing the number cannot, and the header holds
-        one control rather than a control and a caption.</li>
-    </ul>
-  </section>
-
-  <!-- ───────────────────────── velocity ───────────────────────── -->
-  <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Velocity</span></div>
-
-    <p>
-      Gross over the trailing three months, per month, and the mix that made
-      it up. It sits beside the month plot, and it is <strong>a different
-      object from the open figures</strong>: a figure, a bar, and a key.
-    </p>
-
-    <ul class="rule">
-      <li><strong>The mix is a bar, never a row list.</strong> The unbilled
-        half already carries per-client rows. A second region in that shape — same columns,
-        same trailing arrow, and with a full book the same order of magnitude —
-        is read at a glance as the first one printed twice.</li>
-      <li><strong>The bar is the region's picture</strong>, one segment per
-        client, sized by that client's share of the gross.</li>
-      <li><strong>The segments are muted.</strong> At full strength the client
-        hues across the panel's width pull harder than the running timer,
-        which is the one thing on screen allowed to shout.</li>
-      <li><strong>The key is inline text with a swatch</strong> — a name and a
-        figure. No aging column, no amount column, no arrow: those are the
-        row shape this region exists not to be.</li>
-      <li><strong>The figure is per month</strong>, with <code>/mo gross</code>
-        beside it. The window total carries no rate, so two windows of
-        different lengths cannot be compared by it.</li>
-      <li><strong>"Gross earned", never "earned" alone.</strong> It is work done
-        over the window, not money collected, and <code>/mo gross</code> is
-        what says so.</li>
-      <li><strong>The invoiced/unbilled split is not printed.</strong> Its
-        figures are window totals while the headline is per month, so they do
-        not reconcile with the number above them, and its unbilled half
-        restates the unbilled figure. The gap still reads when it
-        matters: the unbilled figure exceeding this window's gross is the
-        signal.</li>
-      <li><strong>The headline takes the sent beat</strong>, alone, and
-        neutrally. Raising an invoice moves money across the split without
-        changing the gross, so the figure does not move — the motion marks the
-        event, and it leaves with the tween.</li>
-      <li><strong>Not comparable with awaiting payment</strong>, which spans
-        every period rather than this window.</li>
-      <li><strong>A client's share is its gross</strong>, invoiced plus
-        unbilled. A client whose whole window is still unbilled grosses its
-        unbilled amount, not nothing.</li>
-    </ul>
-  </section>
-
-  <!-- ───────────────────────── by project ───────────────────────── -->
-  <section class="sec">
-    <div class="sec-head"><span class="eyebrow">By project</span></div>
-
-    <p>
-      Four horizontal bars over the trailing three months, the same window
-      Velocity reports. <strong>The lengths are the answer</strong> — which
-      work took the time, read without arithmetic.
+      Three figures in a column beside a cumulative chart. A hairline separates
+      the month's Earned from the two figures read from it.
     </p>
 
     <table>
-      <tr><th>Part</th><th>Role</th><th>Weight</th></tr>
-      <tr><td>Name</td><td><code>type-support</code>, <code>text-muted</code>, truncating</td><td>line one, left</td></tr>
-      <tr><td>Figure</td><td><code>type-meta</code> tabular, <code>text-primary</code></td><td>line one, right</td></tr>
-      <tr><td>Track</td><td><code>bg-hover</code>, fully rounded</td><td>6px, full width</td></tr>
-      <tr><td>Fill</td><td>the client's hue at .62</td><td>share of the longest</td></tr>
+      <tr><th>Figure</th><th>Answers</th></tr>
+      <tr>
+        <td>Earned</td>
+        <td><em>Was this a good month?</em> Bucketed by when the work was done,
+            so it never moves when an invoice is sent.</td>
+      </tr>
+      <tr>
+        <td>On track for</td>
+        <td><em>Where does this month land?</em> Trailing pace carried to the
+            last working day. It moves when a long day is logged, which is the
+            point.</td>
+      </tr>
+      <tr>
+        <td>Unbilled</td>
+        <td><em>What is ready to bill?</em> Work done and not yet invoiced.
+            Climbs while you work and resets when you invoice.</td>
+      </tr>
     </table>
 
-    <ul class="rule">
-      <li><strong>The name owns its own line, above the bar.</strong> Project
-        names run past twenty characters, and this half gives a label under a
-        column about 92px — every one of them truncates. Across the region's
-        full width none of them does.</li>
-      <li><strong>A bar's length is its share of the longest bar</strong>, not
-        of the window's total. The question is which project is biggest and by
-        how much; shares of the sum flatten four near-equal projects into four
-        quarter-width stubs.</li>
-      <li><strong>The client is not drawn, and the hue carries it.</strong>
-        Naming it costs the project name the line it needs, which is the
-        trade this shape exists to make.</li>
-      <li><strong>The fill is 6px at the mix's own strength</strong>, the
-        weight Velocity's bar uses two rows above: the screen's two pictures
-        made of a fill read as one thing at one strength.</li>
-      <li><strong>The label sits above the fill, never on it.</strong> Text
-        crossing a fill's end changes contrast mid-word.</li>
-      <li><strong>A project with no client takes the internal swatch</strong>,
-        the neutral that reads as worked.</li>
-      <li><strong>Four bars, and the rest is a count.</strong> The region does
-        not scroll — the tail of a solo book is projects worth an hour each,
-        and the full ranking belongs to a screen built to rank.</li>
-      <li><strong>With one project it draws tasks, and the heading says
-        so</strong> — <code>By task · Betterlife</code>. One client and one
-        project is where most books start, and a single full-length bar is a
-        chart that failed. The fall-through is a function of the data: no
-        click, no selection, nothing remembered. Tasks group on a trimmed,
-        case-folded <code>task_name</code> and display the most recent
-        spelling, because the column is free text and two spellings of one
-        task would otherwise be two bars.</li>
-      <li><strong>The toggle switches the unit, never the window.</strong>
-        Hours and revenue reorder the same four projects; a window control
-        here would be a second range on a screen whose ranges are all
-        fixed.</li>
-      <li><strong>Unbillable work has hours and no revenue.</strong> On
-        revenue it drops out of the ranking rather than sitting at zero, and
-        the count line is where it goes.</li>
-      <li><strong>A bar whose work is not all rated carries
-        <code>N unrated</code></strong> — <code>type-meta</code>,
-        <code>text-subtle</code>, between the name and the figure, and
-        <strong>only on revenue</strong>. Unrated work is missing from the
-        amount and says nothing about the hours, which are counted either way,
-        so on hours the marker would qualify a figure that is complete.</li>
-      <li><strong>The footer line carries the window and the remainder</strong>,
-        right-aligned. The logged total is the one figure here that is not a
-        bar. The window is abbreviated — <code>3mo</code> — because Velocity
-        names it in full directly above and the long form wraps at this
-        width.</li>
-    </ul>
-  </section>
-
-  <!-- ───────────────────────── the half-year ───────────────────────── -->
-  <section class="sec">
-    <div class="sec-head"><span class="eyebrow">The half-year</span></div>
-
-    <p>
-      Twenty-six weeks, one cell per day. Colour is the client, density is the
-      hours. Half a year is long enough to show an engagement beginning and
-      ending, and a quiet stretch as a stretch rather than a bad week.
+    <p style="margin-top:1.25rem">
+      Earned and Unbilled read the same for most of a monthly cycle and diverge
+      the moment the invoice goes out. That is not a duplicate — it is the one
+      cycle where two different questions share an answer. <strong>They are
+      never summed</strong>, and neither is ever summed with awaiting payment
+      (<code>../principles.md</code>).
     </p>
 
-    <ul class="rule">
-      <li><strong>Hue is the client</strong>, resolved as everywhere else, and
-        <strong>never the accent</strong> — that belongs to the running timer.
-        Internal work keeps a neutral that reads as worked rather than as
-        rest.</li>
-      <li><strong>A blank day stays blank.</strong> Every day in the window
-        gets a cell, so a gap is a weekend or a dry spell rather than missing
-        data.</li>
-      <li><strong>A day split across clients takes the one with the most
-        hours.</strong> A cell is about 12px and cannot carry a stack; the
-        alternative is a smear of colour that names nobody.</li>
-      <li><strong>Archived clients keep their colour.</strong> Work billed to a
-        finished engagement belongs in the history, and dropping the hue would
-        silently reassign those hours to the neutral band.</li>
-      <li><strong>The busiest day sets the density scale</strong>, floored so
-        the lightest worked day is still visibly a day worked.</li>
-      <li><strong>Each cell's date and hours are in its tooltip.</strong> There
-        is no axis; at 26 columns every label is noise.</li>
-    </ul>
-  </section>
-
-  <!-- ───────────────────────── the beats ───────────────────────── -->
-  <section class="sec">
-    <div class="sec-head"><span class="eyebrow">The beats</span></div>
-
+    <h3>The climb</h3>
     <p>
-      Three events move a figure rather than replacing it, and each is reported
-      under the figure it moved. The screen's largest numbers change for reasons
-      the user cannot compute in their head — a four-level rate lookup, an
-      invoice clearing — and landing on the new figure without the travel makes
-      the old one look wrong.
+      Earnings accumulated day by day, solid to today and dashed to where the
+      trailing pace lands. The shape is the argument for the projection: a line
+      that has been climbing makes its continuation believable, where a bar
+      would only assert it. The line only ever goes up.
     </p>
-
-    <table>
-      <tr><th>Event</th><th>Reported under</th></tr>
-      <tr><td><code>stop</code></td><td>The open figures</td></tr>
-      <tr><td><code>sent</code></td><td>The open figures, and Velocity's headline</td></tr>
-      <tr><td><code>paid</code></td><td>The collected figure</td></tr>
-    </table>
-
-    <ul class="rule">
-      <li><strong>A stop is reported where the work landed.</strong> Work just
-        finished is unbilled work, so the unbilled figure is the one that
-        moves; the amount is the <em>resolved</em> one, which is the number the
-        user cannot arrive at alone.</li>
-      <li><strong>An unbillable stop moves the hours</strong> and says so. It
-        reports what happened rather than praising it.</li>
-      <li><strong>The stop beat is neutral, never green.</strong> The accent
-        is the running timer, and a stop has just ended one — borrowing it
-        marks as live the one thing that stopped being live.</li>
-      <li><strong>A send moves a boundary, not a total.</strong> Unbilled falls
-        by exactly what awaiting gains, and Velocity's headline marks the event
-        without moving: nothing was earned, and a figure that grew when an
-        invoice was raised would be the screen inventing money.</li>
-      <li><strong>A payment is reported under Collected</strong>, which is the
-        figure it moves. It does not touch unbilled at all — that money left
-        when the invoice was raised — so a countdown there would report a loss
-        at the moment the user got paid.</li>
-      <li><strong>The paid beat is the one use of the success green
-        here</strong>, and it leaves with the tween. A stop and a send are
-        things the user just did; a payment is the one outcome that happened to
-        them, and spending the colour on all three spends it on nothing.</li>
-      <li><strong>One refetch reports one event.</strong> Two at once resolve to
-        no beat: each amount would carry the other's movement mixed in, and a
-        figure that is the net of two unrelated events is money the app
-        invented.</li>
-      <li><strong>A figure arrives near its value, never from zero.</strong> A
-        full climb animates the user's whole history as though it had just
-        happened, and a frame far below the figure is a balance they do not
-        have.</li>
-      <li><strong>Reduced motion renders the settled figure</strong> — not a
-        jump to zero and not a skipped render. The number is the content, so
-        suppressing the animation must leave the answer on screen.</li>
-      <li><strong>An animation never leaves a figure showing anything but the
-        server's value.</strong> The tween ends on the target itself, never on
-        its last interpolation: a billing screen that settles a cent off has
-        silently changed what it reports.</li>
-      <li><strong>The regions still never mutate.</strong> The beats are
-        reactions to mutations owned by other screens, read off
-        <code>/stats</code> — which every one of them already invalidates.</li>
-    </ul>
+    <p>
+      Four value gridlines and a week cadence. Axis labels are drawn in HTML
+      outside the stretched <code>viewBox</code>, so
+      <code>preserveAspectRatio="none"</code> cannot distort the type. The
+      strip beneath the plot is the month's client split on the plot's own
+      x-axis, and the legend at the foot of the panel names every hue used
+      anywhere above it.
+    </p>
   </section>
 
   <!-- ───────────────────────── constraints ───────────────────────── -->
@@ -952,68 +522,20 @@
 
     <ul class="rule">
       <li><strong>The accent appears nowhere on this screen.</strong> It is
-        spent on the running timer in the bar below. <code>success</code> is
-        the accent a step down, and it carries the collected plot and the paid
-        beat — an outcome that has already happened, never a live thing.</li>
-      <li><strong>Warning is the only alert channel</strong>, and the month's
-        delta is the only thing on this screen that uses it.</li>
+        spent on the running timer in the bar below. <code>success</code> — the
+        accent a step down — marks only the endpoint of the projection.</li>
       <li><strong>Durations and currency are mono and tabular</strong>, without
-        exception. A money column that reflows as digits change is the same
-        defect as a timer that does.</li>
+        exception. Durations are written <code>5h 30m</code>, never decimal
+        hours.</li>
+      <li><strong>Only clients have a colour</strong>, resolved through
+        <code>useProjectColors()</code>. Internal work gets none and takes a
+        hollow ring in both the entry list and the legend.</li>
       <li><strong>Aggregate rate resolution belongs in SQL.</strong>
-        <code>resolve_entry_rate(uuid)</code> is per-entry; unbilled and
-        Velocity sum across hundreds of entries and must not call it N times. A
-        set-returning rollup is the correct shape.</li>
+        <code>resolve_entry_rate(uuid)</code> is per-entry; unbilled and the
+        month's series sum across hundreds of entries and must not call it N
+        times.</li>
       <li><strong><code>0</code> is a valid rate.</strong> Null-coalescing, never
         truthiness.</li>
-    </ul>
-  </section>
-
-  <!-- ───────────────────────── rejected ───────────────────────── -->
-  <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Rejected — each will look appealing again</span></div>
-
-    <ul class="rule never">
-      <li><strong>Hiding or reordering regions.</strong> There is one view. A
-        dashboard the user assembles is a dashboard nobody can specify, and it
-        is the path by which this becomes the product it was built
-        against.</li>
-      <li><strong>A range control on the heatmap.</strong> The window is fixed
-        at 26 weeks. A picker turns one honest shape into four that disagree,
-        and each switch refetches the lot.</li>
-      <li><strong>Matching the heatmap to the row's trailing quarter.</strong>
-        Velocity and By project both report three months, so one window for
-        the whole row is tempting. Thirteen weeks in this column is a 26.7px
-        cell and a block nearly as tall as the chart beside it — a calendar
-        rather than a texture — and capping the cell leaves a third of the
-        column empty. The window is also the region's whole reason to exist:
-        at a quarter it shows what the two regions beside it already do.</li>
-      <li><strong>Stacking a split day's clients in one cell.</strong> At 11px
-        a stack is a smear. The majority takes the cell.</li>
-      <li><strong>Project shades in the heatmap.</strong> The cell already
-        spends lightness on hours, and a shade on the same channel inverts
-        rather than blurs: on a four-step scale at ΔL 0.080, the lightest step
-        at 35% opacity composites to L 0.437 while the darkest at full strength
-        reaches L 0.540, so the lightest project on a quiet day renders darker
-        than the darkest on a busy one. At 35% the steps are ΔL 0.032, under
-        half what they were drawn at. A day takes its client's base hue.</li>
-      <li><strong>Clicking a project to expand its tasks.</strong> Which
-        project is selected is per-user view state, which is the assembled
-        dashboard under another name, and it leaves the region with no fixed
-        subject to pair against. The one-project case is served by falling
-        through to tasks on the data alone.</li>
-      <li><strong>A ranked project table.</strong> By client is text rows —
-        an aging column, an amount column, a trailing arrow into invoice
-        generation. Giving projects the same columns builds a second table
-        that acts like the first one but goes nowhere, since there is no
-        per-project screen to arrive at. The bar is the answer here: a length
-        against the longest is a proportion read without comparing two columns
-        of digits.</li>
-      <li><strong>Pie charts.</strong> A solo contractor's time splits two to
-        four ways. A bar does that in less space and stays readable when one
-        slice is 4%.</li>
-      <li><strong>Team and comparison stats.</strong> There is no team. This is
-        the slot Toggl wastes.</li>
     </ul>
   </section>
 
@@ -1025,45 +547,33 @@
       <tr><th>Call</th><th>Feeds</th><th>Note</th></tr>
       <tr>
         <td><code>GET /stats</code></td>
-        <td>Collected, the open figures, the month, Velocity, By project</td>
-        <td>Collected per month with its trailing total, unbilled by client with
-            aging, what is awaiting and across how many invoices, the month's
-            cumulative series against its ray, trailing-quarter gross by client
-            and by project in both units, and the billable ratio. One request,
-            because they render together.</td>
+        <td>Every figure on the screen</td>
+        <td>Today's and the month's earnings, the month's cumulative series and
+            its projection, unbilled by client, and the month's split by client.
+            One request, because the regions render together and a set that
+            pops in piecemeal reads as broken.</td>
       </tr>
       <tr>
         <td><code>GET /calendar?granularity=day</code></td>
-        <td>the half-year</td>
-        <td>One call over a 26-week range. Already groups by local day
-            server-side, which is the DST-correct bucketing this needs and the
-            reason not to build a second one. Returns
-            <code>{ date, totalSeconds, byClient }</code> and nothing else.</td>
+        <td>the week's seven bars</td>
+        <td>Already groups by local day server-side, which is the DST-correct
+            bucketing this needs and the reason not to build a second one.</td>
       </tr>
       <tr>
         <td><code>GET /clients?includeArchived</code></td>
-        <td>the half-year's hues and legend</td>
-        <td>Archived clients included, so a finished engagement keeps its
-            colour instead of falling into the neutral band.</td>
+        <td>hues and the legend</td>
+        <td>Archived clients included, so a finished engagement keeps its colour
+            instead of falling into the neutral band.</td>
       </tr>
     </table>
 
     <p style="margin-top:1.25rem">
-      The half-year's cache key is its own, not a variant of the activity key:
-      the range is fixed, so sharing one with a range the user picks would
-      refetch 182 days on every change. It joins
-      <code>invalidateEntryData()</code>,
-      or the region goes stale on every timer stop.
-    </p>
-
-    <p style="margin-top:1.25rem">
-      The target lives on <code>user_settings</code> as
-      <code>monthly_target</code> and <code>monthly_target_unit</code>, paired
-      by a check constraint so neither can be set without the other — so the
-      Settings field writes both in one patch, and clearing one clears both.
-      Revenue's figure comes from <code>month_revenue()</code>, whose coalesce
-      chain must stay identical to the other three — see
-      <code>data-model.md</code>.
+      <code>earnedToday</code> comes out of the month's own by-day series, which
+      is already loaded and already grouped on the local date — a second query
+      for one of its rows would be a second definition of the same amount.
+      Unbilled filters on <code>invoice_id IS NULL</code> and is
+      <strong>never</strong> called earned or revenue
+      (<code>packages/core/src/stats.ts</code>).
     </p>
   </section>
 
