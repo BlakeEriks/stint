@@ -48,7 +48,6 @@ beforeEach(async () => {
   await pool.query(
     `update user_settings set default_hourly_rate=100, max_timer_hours=8,
                     week_starts_on=1, next_invoice_number=1,
-                    monthly_target=null, monthly_target_unit=null,
                     -- Null is the shipped default: the strange-duration row
                     -- does not exist until a threshold is set.
                     min_entry_seconds=null, max_entry_hours=null
@@ -749,8 +748,6 @@ test('every settable field round-trips, rather than being silently dropped', asy
     businessAddress: '1 Main St\nAustin, TX 78701',
     paymentNotice: 'Details never change. Verify by phone.',
     invoiceNumberPrefix: 'STINT-',
-    monthlyTarget: 12000,
-    monthlyTargetUnit: 'revenue',
   };
 
   const res = await json(await patch(req('/settings', sent, 'PATCH')));
@@ -758,59 +755,6 @@ test('every settable field round-trips, rather than being silently dropped', asy
   for (const [field, value] of Object.entries(sent)) {
     assert.deepEqual(res.body[field], value, field);
   }
-});
-
-/* The database check is `monthly_target > 0`, so a zero that passes Zod comes
-   back as a 500 instead of a field error the form can show. */
-test('a monthly target of zero is a validation error, not a 500', async () => {
-  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
-
-  const res = await json(
-    await patch(
-      req(
-        '/settings',
-        { monthlyTarget: 0, monthlyTargetUnit: 'revenue' },
-        'PATCH',
-      ),
-    ),
-  );
-  assert.equal(res.status, 422);
-  assert.equal(res.body.code, 'VALIDATION_FAILED');
-});
-
-test('a target and its unit must be set or cleared together', async () => {
-  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
-
-  const res = await json(
-    await patch(
-      req(
-        '/settings',
-        { monthlyTarget: 12000, monthlyTargetUnit: null },
-        'PATCH',
-      ),
-    ),
-  );
-  assert.equal(res.status, 422);
-});
-
-/* Zod cannot see the stored row, so a patch naming only one half of the pair
-   passes it and the database check is what rejects the result. */
-test('clearing only the unit breaks the pairing with a 422, not a 500', async () => {
-  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
-
-  await patch(
-    req(
-      '/settings',
-      { monthlyTarget: 120, monthlyTargetUnit: 'hours' },
-      'PATCH',
-    ),
-  );
-
-  const res = await json(
-    await patch(req('/settings', { monthlyTargetUnit: null }, 'PATCH')),
-  );
-  assert.equal(res.status, 422);
-  assert.equal(res.body.code, 'VALIDATION_FAILED');
 });
 
 // ── calendar ───────────────────────────────────────────────────────
@@ -1221,26 +1165,17 @@ test('the month reports MONEY earned, never the hours behind it', async () => {
   assert.notEqual(res.body.month.earned, 4, 'nor the hours themselves');
 });
 
-test('a target is set and the month ignores it entirely', async () => {
+/* The screen that read these is gone and so are they: a field nothing
+   renders is a payload every visitor pays for. */
+test('the cards that left took their fields with them', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
-  const before = await json(await stats(req('/stats?tz=UTC')));
+  const res = await json(await stats(req('/stats?tz=UTC')));
 
-  /* The goal is phase 5's, and this figure is not derived from it: the month
-     extrapolates its own trailing rate, so setting a target must not move a
-     single field here. */
-  await pool.query(
-    `update user_settings set monthly_target=10000, monthly_target_unit='revenue'
-     where user_id=$1`,
-    [USER],
-  );
-  const after = await json(await stats(req('/stats?tz=UTC')));
-
-  assert.deepEqual(after.body.month, before.body.month);
-  assert.equal(after.body.pace, undefined, 'the goal-derived field is gone');
-  assert.equal(after.body.velocity, undefined);
-  assert.equal(after.body.byProject, undefined);
-  assert.equal(after.body.billableRatio, undefined);
+  assert.equal(res.body.pace, undefined, 'the goal-derived field is gone');
+  assert.equal(res.body.velocity, undefined);
+  assert.equal(res.body.byProject, undefined);
+  assert.equal(res.body.billableRatio, undefined);
 });
 
 test('earned counts invoiced work, and drops it when the invoice is voided', async () => {

@@ -216,6 +216,10 @@ public enum Tokens {
             size: 13, weight: .medium, tracking: 1.04,
             uppercase: true, tabular: false, mono: true
         )
+        public static let regionHead = Role(
+            size: 13, weight: .medium, tracking: 0.13,
+            uppercase: false, tabular: false, mono: true
+        )
         public static let label = Role(
             size: 11, weight: .medium, tracking: 1.76,
             uppercase: true, tabular: false, mono: true

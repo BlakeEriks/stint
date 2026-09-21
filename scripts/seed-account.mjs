@@ -282,14 +282,10 @@ try {
     process.exit(0);
   }
 
-  /* A default rate, so a client with none has something to inherit — and a
-     monthly target, without which the Pace card hides entirely rather than
-     showing an empty bar. */
+  /* A default rate, so a client with none has something to inherit. */
   await db.query(
     `update user_settings
-        set default_hourly_rate = coalesce(default_hourly_rate, 125),
-            monthly_target = coalesce(monthly_target, 120),
-            monthly_target_unit = coalesce(monthly_target_unit, 'hours')
+        set default_hourly_rate = coalesce(default_hourly_rate, 125)
       where user_id = $1`,
     [userId],
   );

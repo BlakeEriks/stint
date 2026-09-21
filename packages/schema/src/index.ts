@@ -257,39 +257,14 @@ export const Settings = z.object({
   nextInvoiceNumber: z.number().int().positive(),
   /** Standing anti-fraud line printed under the invoice payment block. */
   paymentNotice: z.string().max(500).nullable(),
-
-  /**
-   * Monthly target for the Pace card. Both null means no target and the card
-   * hides; the database enforces that they are both set or both null.
-   */
-  /** Positive, matching the database check — `0` is not a target, and
-   *  sending it would 500 rather than fail validation. */
-  monthlyTarget: money.positive().nullable(),
-  monthlyTargetUnit: z.enum(['hours', 'revenue']).nullable(),
 });
 /**
  * `nextInvoiceNumber` is not client-settable: gapless numbering depends on
  * allocate_invoice_number() holding the row lock.
- *
- * A target without a unit cannot be rendered, and a unit without a target
- * means nothing. The database enforces this too — the check constraint is
- * authoritative — but catching it here returns a 422 naming the problem
- * instead of a 500 carrying a constraint name. Only when both appear in the
- * same patch: setting one while the other already holds a value is
- * legitimate, and the database still guards the result.
  */
-export const UpdateSettings = Settings.partial()
-  .omit({ nextInvoiceNumber: true })
-  .refine(
-    (p) =>
-      !('monthlyTarget' in p && 'monthlyTargetUnit' in p) ||
-      (p.monthlyTarget === null) === (p.monthlyTargetUnit === null),
-    {
-      message:
-        'monthlyTarget and monthlyTargetUnit must be set or cleared together',
-      path: ['monthlyTarget'],
-    },
-  );
+export const UpdateSettings = Settings.partial().omit({
+  nextInvoiceNumber: true,
+});
 
 // ── invoicing ──────────────────────────────────────────────────────
 export const GroupingMode = z.enum(['entry', 'task', 'project', 'day']);
@@ -531,8 +506,8 @@ export const MonthEarned = z.object({
    * Null until three business days have elapsed. Earned-so-far over one
    * elapsed day carried across twenty-two is one day's work multiplied by the
    * month — a figure that swings by thousands on the second day — so it is
-   * withheld rather than guessed at. Needs no target: `monthlyTarget` is a
-   * setting this figure does not read.
+   * withheld rather than guessed at. It extrapolates what was earned and
+   * reads no target of any kind.
    */
   projected: money.nullable(),
   businessDaysElapsed: z.number().int().nonnegative(),

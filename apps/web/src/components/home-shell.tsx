@@ -130,11 +130,11 @@ export function unratedNote(count: number): string | null {
  * jobs — the header names the region, the label names a number.
  */
 export function RegionHead({ children }: { children: React.ReactNode }) {
-  /* The role, bent on its two case-and-tracking properties rather than re-cut
-     at 13px mono here: `type-nav` carries the size and weight, and the two
-     overrides are what sentence case costs. */
+  /* `type-region-head` is the role: `type-nav`'s size and weight in sentence
+     case, which is what keeps the header out of `type-label`'s voice directly
+     above a `type-label`. */
   return (
-    <span className="block type-nav leading-none tracking-[0.01em] text-subtle normal-case">
+    <span className="block type-region-head leading-none text-subtle">
       {children}
     </span>
   );

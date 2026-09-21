@@ -96,15 +96,10 @@
   /* The period header names the region. Sentence case keeps it out of the
      tracked-caps voice `.figlabel` owns, so the two jobs read as two
      different things on sight, and a date is legible unspaced. */
-  /* The period header is `.type-nav`'s size and weight in sentence case:
-     the scale has no 13px mono role that is not tracked caps, and caps here
-     would put the header in `.type-label`'s voice directly above a
-     `.type-label`. Promote or bend the role, never re-cut it at a call site. */
-  .region-head {
-    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
-    letter-spacing: .01em; line-height: 1; color: var(--text-subtle);
-    display: block;
-  }
+  /* `.type-region-head` carries the size, weight and tracking: `.type-nav`'s
+     13px mono in sentence case, which is what keeps the header out of
+     `.type-label`'s voice directly above a `.type-label`. */
+  .region-head { line-height: 1; color: var(--text-subtle); display: block; }
   .region-head .dot { color: var(--text-subtle); margin: 0 2px; }
 
   .swatch { width: 9px; height: 9px; border-radius: 50%; flex: none; }
@@ -260,7 +255,7 @@
         <div class="toprow">
           <div class="rgn-today">
             <div class="today-card">
-              <span class="region-head">Today <span class="dot">&middot;</span> Thursday, Sep 17</span>
+              <span class="type-region-head region-head">Today <span class="dot">&middot;</span> Thursday, Sep 17</span>
               <div class="figgroup tier-major">
                 <span class="type-label figlabel">Earned</span>
                 <span class="pairline"><span class="type-figure fig-major">$340</span><span class="type-duration u">5h 00m</span></span>
@@ -287,7 +282,7 @@
 
           <div class="rgn-week">
             <div class="week-card">
-              <span class="region-head">This week <span class="dot">&middot;</span> Sep 14&ndash;20</span>
+              <span class="type-region-head region-head">This week <span class="dot">&middot;</span> Sep 14&ndash;20</span>
               <div class="wfig figgroup tier-major">
                 <span class="type-label figlabel">Earned</span>
                 <span class="pairline"><span class="type-figure fig-major">$1,880</span><span class="type-duration u">23h 30m</span></span>
@@ -319,7 +314,7 @@
         <div class="monthregion">
           <div class="earnings">
             <div class="paystats">
-              <span class="region-head">This month <span class="dot">&middot;</span> September</span>
+              <span class="type-region-head region-head">This month <span class="dot">&middot;</span> September</span>
               <div class="figgroup tier-hero" style="margin-top:16px">
                 <span class="type-label figlabel">Earned</span>
                 <span class="pairline"><span class="type-figure-hero fig-hero">$6,840</span><span class="type-duration u">85h 30m</span></span>
