@@ -601,4 +601,116 @@
     </p>
   </section>
 
+  <!-- ───────────────────────── what leaves ───────────────────────── -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">What leaves when this ships</span></div>
+
+    <p>
+      Three regions replace six cards, and the screen is not built until the
+      ones it replaces are gone. A component left mounted is a second answer
+      to a question this screen already answers; a field left on
+      <code>/stats</code> is a payload every visitor pays for and nothing
+      reads. <strong>The last step of building this is deleting the rest.</strong>
+    </p>
+
+    <table>
+      <tr><th>Goes</th><th>Because</th></tr>
+      <tr>
+        <td><code>Collected</code>, <code>Owed</code>
+            (<code>home-money.tsx</code>)</td>
+        <td>Collected freezes in week one for a contractor paid monthly.
+            Awaiting becomes one quiet line here, rendered only when non-zero;
+            both figures keep their home on <code>/invoices</code>.</td>
+      </tr>
+      <tr>
+        <td><code>Velocity</code> (<code>home-velocity.tsx</code>)</td>
+        <td>A trailing quarter by client, which is a report rather than a
+            reading taken on the way past.</td>
+      </tr>
+      <tr>
+        <td><code>ByProject</code> (<code>home-by-project.tsx</code>)</td>
+        <td>Ranked projects answer <em>where did the time go</em>, which is
+            the calendar's question.</td>
+      </tr>
+      <tr>
+        <td><code>Heatmap</code> (<code>home-year.tsx</code>)</td>
+        <td>A half-year of squares is the shape of a habit, not a number the
+            user cannot compute. It fails the gate at the top of this page.</td>
+      </tr>
+      <tr>
+        <td><code>Month</code>'s pace rendering
+            (<code>home-month.tsx</code>)</td>
+        <td>The goal ray and its on-pace copy go with the goal. The cumulative
+            line stays and gains the trailing-pace projection.</td>
+      </tr>
+      <tr>
+        <td><code>Pair</code>, <code>Rule</code>, <code>PanelHead</code>
+            (<code>home-cards.tsx</code>)</td>
+        <td>The two-up grid is the arrangement three regions replace.</td>
+      </tr>
+    </table>
+
+    <h3>The fields that go with them</h3>
+
+    <p>
+      <code>/stats</code> is one request for the whole screen, so a field
+      nothing renders is dead weight on every load. <strong>A field is removed
+      in the same change as its last reader</strong>, and the rollup behind it
+      goes too — a SQL function no route calls is the same debt one step
+      further down.
+    </p>
+
+    <table>
+      <tr><th>Field</th><th>Rollup</th><th>Note</th></tr>
+      <tr>
+        <td><code>velocity</code></td>
+        <td><code>revenue_by_client</code></td>
+        <td>Read only by the cards that go.</td>
+      </tr>
+      <tr>
+        <td><code>byProject</code></td>
+        <td><code>revenue_by_project</code></td>
+        <td>Read only by <code>ByProject</code>.</td>
+      </tr>
+      <tr>
+        <td><code>billableRatio</code></td>
+        <td>—</td>
+        <td>Read only by <code>Month</code>'s old rendering.</td>
+      </tr>
+      <tr>
+        <td><code>pace</code></td>
+        <td><code>buildPace</code>, <code>buildPaceSeries</code></td>
+        <td>Goal-derived, and the goal goes entirely
+            (<code>../../roadmap.md</code>).</td>
+      </tr>
+      <tr>
+        <td><code>collected</code>, <code>awaitingPayment</code>,
+            <code>openInvoiceCount</code></td>
+        <td><code>collected_by_month</code></td>
+        <td><strong>Stay.</strong> The beat reads <code>collected</code> to
+            know an invoice was paid (<code>use-beat.ts</code>), so only
+            Home's use of them ends.</td>
+      </tr>
+      <tr>
+        <td><code>attention</code></td>
+        <td>derived per request</td>
+        <td><strong>Stays.</strong> It is the dock's inbox, not this
+            screen.</td>
+      </tr>
+    </table>
+
+    <p style="margin-top:1.25rem">
+      <code>GET /calendar?granularity=day</code> <strong>stays</strong>: the
+      heatmap was its only caller and the week's bars become the next one.
+      <code>revenue_by_day</code> stays and is read directly rather than only
+      through <code>buildPace</code>.
+    </p>
+
+    <p>
+      The tests go with their subjects — a suite asserting a deleted card
+      renders is a suite that fails for the right reason, and deleting it is
+      part of the same change rather than a follow-up.
+    </p>
+  </section>
+
 </div>

@@ -148,8 +148,12 @@ you, and nothing you build here is held hostage.
       `/invoices` — for a contractor paid monthly it freezes in week one and
       says nothing for the rest of the month.
 
-      `Velocity`, `By project` and `The half-year` come off the screen with
-      it; `home-cards.tsx` mounts them today and nothing specs them.
+      **The cleanup is part of this item, not a follow-up.** Six cards come
+      off, and with them the `/stats` fields and SQL rollups only they read —
+      `home.html`'s *What leaves when this ships* names each one, which side
+      of the line it falls on, and the three fields that stay because the
+      dock and `/invoices` read them. A card deleted without its field leaves
+      a payload every visitor pays for and nothing renders.
 
 - [ ] **Remove the monthly goal.**
 
@@ -166,10 +170,11 @@ you, and nothing you build here is held hostage.
 
       `monthly_target` and `monthly_target_unit` (migration `…_6_goals.sql`),
       `buildPace`/`buildPaceSeries` in `packages/core/src/stats.ts`, `pace` on
-      `GET /stats`, the goal field in `settings-form.tsx`, the pace rendering
-      in `home-month.tsx`, and `settings-goal.test.tsx`. `api.md` still
-      documents `pace.series` and "the goal's `expected`"; `settings.html`
-      still says the setting feeds "the Pace card on Home, and nothing else".
+      `GET /stats`, the goal field in `settings-form.tsx` and its `Settings`
+      schema entry, the pace rendering in `home-month.tsx`, and
+      `settings-goal.test.tsx`. Nothing is left behind a flag: a column no
+      writer fills and a builder no route calls are the same debt as the card
+      itself.
 
       **Users who set one are told, not silently corrected.** The columns hold
       real data somebody typed, and `principles.md` says the app never
