@@ -148,6 +148,14 @@
     font-variant-numeric: tabular-nums;
 }
 
+.type-figure-hero {
+    font-family: var(--font-mono);
+    font-size: 40px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
 .type-lede {
     font-family: var(--font-sans);
     font-size: 15px;

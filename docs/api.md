@@ -45,7 +45,7 @@ trusting the device clock.
 |---|---|---|
 | `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, exceedsThreshold, maxTimerHours, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. |
 | `GET` | `/calendar` | `?from&to` (**both required**) `&tz&granularity`. Returns `{ days: [...] }`. `400 INVALID_PERIOD` if `to < from`. |
-| `GET` | `/calendar?granularity=day` | Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. Backs the home screen's activity chart, where a month of full entries is a heavy payload for something drawing one column per day. `byClient` keys by client id with `''` for internal work, and running entries are excluded. |
+| `GET` | `/calendar?granularity=day` | Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. Backs the home screen's week bars, where a month of full entries is a heavy payload for something drawing one column per day. **Seconds only** — it sets each bar's height and not the money printed at its head. `byClient` keys by client id with `''` for internal work, and running entries are excluded. |
 | `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call. One request because they render together, and a set that pops in piecemeal reads as broken. Fields and their rules are below. |
 | `GET` | `/entries/task-names` | `?projectId&limit` (1–20, default 8). Returns `{ taskNames: [{ taskName, projectId, lastUsedAt }] }` — names the user has typed before, for suggesting one rather than retyping it. One row per name **case-insensitively**, keeping the most recent spelling, since offering both is offering the user their own typo; the empty name is excluded, so a timer started in a hurry never becomes a suggestion. **`projectId` ranks, it does not filter** — names used with that project come first and every other name still follows, so there is no `none` literal as there is on `/entries`: "no project" and "no preference" are one request. Omitting it ranks by recency alone. Ranking is the server's and clients must not re-sort it; filtering as the user types is theirs. Backed by the `recent_task_names` SQL function. |
 
@@ -53,7 +53,10 @@ trusting the device clock.
 
 `currency`, `unbilled`, `earnedToday`, `collected`, `awaitingPayment`,
 `openInvoiceCount`, `pace`, `billableRatio`, `velocity`, `byProject` and
-`attention`. The rollups behind them, and the window each one runs, are in
+`attention`. **`pace`, `velocity` and `byProject` are on their way out** with
+the screen that reads them, and the month's earned, its cumulative series and
+per-day money for the week's bars are not here yet — `../roadmap.md` carries
+both halves. The rollups behind them, and the window each one runs, are in
 `docs/data-model.md`; what the screen does with them is
 `docs/design/screens/home.html`.
 
@@ -78,12 +81,14 @@ day whose rate chain resolves to null.
 and `velocity` carry 5 rows plus a `moreClients` count; `byProject` carries 4
 plus `tailSeconds` / `tailAmount`. Every total still covers the whole window.
 
-**`pace.series` steps on business days only** — a ray sloping through the
-weekend would show the user behind every Saturday and recovered every Monday.
-Each point carries the cumulative `actual`, null past today, and the goal's
-`expected`. A revenue target counts work **done**, bucketed by the entry's
-date and never the invoice's `issue_date`; voiding an invoice releases its
-entries.
+**`pace` is goal-derived and is being removed** (`../roadmap.md`). It returns
+null unless the user set a monthly target, so the figure Home specs — the
+month's earned carried to month-end on trailing pace — is not this field.
+`pace.series` steps on business days only, and each point carries the
+cumulative `actual`, null past today, beside the goal's `expected`. Earned
+counts work **done**, bucketed by the entry's date and never the invoice's
+`issue_date`; voiding an invoice releases its entries, and that stays true of
+whatever replaces this.
 
 **`attention` is derived per request** from stored facts, with grace periods:
 an invoice is overdue at `due_date` + 7 days, a draft stale 7 days after

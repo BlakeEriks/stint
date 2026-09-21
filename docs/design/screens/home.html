@@ -73,15 +73,11 @@
   /* ═══ THE CARD'S TYPE SYSTEM ═══════════════════════════════════
      Three figure tiers, ranked by what the number means rather than by
      which region it sits in. One label voice introduces every figure. */
-  /* Two of the three tiers are roles the scale already carries: `.fig-major`
-     is `.type-figure`, `.fig-minor` is `.type-amount-hero`, and the markup
-     names the role beside the tier. Only the month's 40px is a size the
-     product does not have — the one thing here to promote into tokens.json. */
+  /* Every tier is a role the scale carries: `.fig-hero` is
+     `.type-figure-hero`, `.fig-major` is `.type-figure`, `.fig-minor` is
+     `.type-amount-hero`. The markup names the role beside the tier, and the
+     tier carries only what is particular to this screen. */
   .fig-hero, .fig-major, .fig-minor { color: var(--text-strong); }
-  .fig-hero {
-    font-family: var(--font-mono); font-size: 40px; font-weight: 500;
-    letter-spacing: -.02em; font-variant-numeric: tabular-nums;
-  }
 
   /* `.type-label` carries the size, weight, tracking and case. */
   .figlabel { display: block; line-height: 1; color: var(--text-subtle); }
@@ -100,6 +96,10 @@
   /* The period header names the region. Sentence case keeps it out of the
      tracked-caps voice `.figlabel` owns, so the two jobs read as two
      different things on sight, and a date is legible unspaced. */
+  /* The period header is `.type-nav`'s size and weight in sentence case:
+     the scale has no 13px mono role that is not tracked caps, and caps here
+     would put the header in `.type-label`'s voice directly above a
+     `.type-label`. Promote or bend the role, never re-cut it at a call site. */
   .region-head {
     font-family: var(--font-mono); font-size: 13px; font-weight: 500;
     letter-spacing: .01em; line-height: 1; color: var(--text-subtle);
@@ -322,7 +322,7 @@
               <span class="region-head">This month <span class="dot">&middot;</span> September</span>
               <div class="figgroup tier-hero" style="margin-top:16px">
                 <span class="type-label figlabel">Earned</span>
-                <span class="pairline"><span class="fig-hero">$6,840</span><span class="type-duration u">85h 30m</span></span>
+                <span class="pairline"><span class="type-figure-hero fig-hero">$6,840</span><span class="type-duration u">85h 30m</span></span>
               </div>
               <div class="figgroup tier-minor">
                 <span class="type-label figlabel">On track for</span>
