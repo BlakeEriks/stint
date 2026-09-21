@@ -204,6 +204,10 @@ public enum Tokens {
             size: 11.5, weight: .regular, tracking: 0,
             uppercase: false, tabular: true, mono: true
         )
+        public static let metaStrong = Role(
+            size: 11.5, weight: .semibold, tracking: 0,
+            uppercase: false, tabular: true, mono: true
+        )
         public static let wordmark = Role(
             size: 24, weight: .semibold, tracking: 2.88,
             uppercase: false, tabular: false, mono: true

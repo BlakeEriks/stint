@@ -145,6 +145,7 @@
   .dhours { text-align: center; color: var(--text-primary); white-space: nowrap; }
   .dlabel { text-align: center; color: var(--text-subtle); }
   .dcap.rest .dhours { color: var(--text-subtle); }
+  /* Today's label takes `.type-meta-strong`; the rest take `.type-meta`. */
   .dcap.today .dlabel { color: var(--text-primary); }
   /* Money rides the bar it describes. Inside the bar's own column it cannot
      be misread as belonging to the day beside it, and the caption below
@@ -189,7 +190,12 @@
   .xlab.edge.right { translate: -100% 0; }
   .mstrip { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin: 0 14px 0 44px; }
 
-  .cardkey { display: flex; align-items: center; gap: 20px; margin-top: 22px; flex-wrap: wrap; }
+  /* The legend is the panel's footing, not a part of the month, so it takes
+     the same rule the month takes from the row above it. */
+  .cardkey {
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-subtle);
+  }
   .ck { display: inline-flex; align-items: center; gap: 7px; color: var(--text-subtle); }
 </style>
 
@@ -301,7 +307,7 @@
                   <div class="dcap"><span class="type-amount dhours">7h</span><span class="type-meta dlabel">MON</span></div>
                   <div class="dcap"><span class="type-amount dhours">5h 30m</span><span class="type-meta dlabel">TUE</span></div>
                   <div class="dcap"><span class="type-amount dhours">6h 45m</span><span class="type-meta dlabel">WED</span></div>
-                  <div class="dcap today"><span class="type-amount dhours">4h 15m</span><span class="type-meta dlabel">THU</span></div>
+                  <div class="dcap today"><span class="type-amount dhours">4h 15m</span><span class="type-meta-strong dlabel">THU</span></div>
                   <div class="dcap rest"><span class="type-amount dhours">&mdash;</span><span class="type-meta dlabel">FRI</span></div>
                   <div class="dcap rest"><span class="type-amount dhours">&mdash;</span><span class="type-meta dlabel">SAT</span></div>
                   <div class="dcap rest"><span class="type-amount dhours">&mdash;</span><span class="type-meta dlabel">SUN</span></div>
@@ -457,6 +463,10 @@
       <li><strong>A day with no work prints an em-dash</strong> and no bar. The
         caption keeps its hours line as a placeholder, which is what holds
         every weekday label on one baseline.</li>
+      <li><strong>Today's weekday carries weight as well as colour.</strong>
+        Colour alone puts the whole distinction on the one channel a
+        colour-blind reader may not have, and today is the column the eye
+        should find first.</li>
       <li><strong>The bars stand on a baseline.</strong> There is no "full"
         day for a ceiling to represent.</li>
       <li><strong>A bar is stacked by client</strong>, in each client's own
@@ -633,6 +643,11 @@
         clients, and two keys for one palette is a second thing to keep in
         agreement. Internal work appears in it with its hollow ring, because a
         reader who sees the treatment needs to find out what it means.</li>
+      <li><strong>The legend sits below a rule</strong>, the same one the
+        month takes from the row above it. It is the panel's footing rather
+        than a part of the month, and without the rule it reads as the
+        strip's caption — a key for one region instead of for the whole
+        panel.</li>
       <li><strong>A hue belongs to the client, never to the position.</strong>
         The same client is the same colour in the week's bars, the month's
         strip and the legend, resolved through <code>useProjectColors()</code>.

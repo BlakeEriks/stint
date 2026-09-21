@@ -144,9 +144,14 @@ export function Week({
                 >
                   {rest ? '—' : formatCompact(d.seconds)}
                 </span>
+                {/* Today carries weight as well as colour: colour alone puts
+                    the weight of the distinction on the one channel a
+                    colour-blind reader may not have. */}
                 <span
-                  className={`text-center type-meta ${
-                    d.date === today ? 'text-primary' : 'text-subtle'
+                  className={`text-center ${
+                    d.date === today
+                      ? 'type-meta-strong text-primary'
+                      : 'type-meta text-subtle'
                   }`}
                 >
                   {weekday(d.date)}
