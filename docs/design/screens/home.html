@@ -664,7 +664,10 @@
         one region instead of for the whole panel.</li>
       <li><strong>A hue belongs to the client, never to the position.</strong>
         The same client is the same colour in the week's bars, the month's
-        strip and the legend, resolved through <code>useProjectColors()</code>.
+        strip and the legend. Today's rows resolve a project's colour through
+        <code>useProjectColors()</code>; the bars, the strip and the legend
+        take <code>useClients()</code>, which carries the name each one also
+        has to print.
         A palette that reorders between two regions of one panel is a palette
         that means nothing.</li>
     </ul>
@@ -703,7 +706,8 @@
         <td><code>earnedToday</code>, <code>unbilled</code>,
             <code>awaitingPayment</code>, <code>week</code> (seven
             <code>{date, seconds, amount}</code>) and <code>month</code> (its
-            earned, the cumulative series and the projection). One request,
+            earned, the cumulative series, the projection and the client
+            split). One request,
             because the regions render together and a set that pops in
             piecemeal reads as broken.</td>
       </tr>
@@ -724,11 +728,10 @@
     </table>
 
     <p style="margin-top:1.25rem">
-      <strong>The month's client split has no field yet.</strong>
-      <code>revenue_by_client</code> already answers it for any window, so the
-      strip is a rollup to call over the month rather than one to write —
-      never <code>resolve_entry_rate</code> once per client.
-      <code>../../roadmap.md</code> carries the work.
+      The month's client split is <code>month.byClient</code>, from
+      <code>revenue_by_client</code> over the month — a rollup that answers
+      any window, so the strip calls one rather than needing its own. Never
+      <code>resolve_entry_rate</code> once per client.
     </p>
 
     <p>
@@ -738,122 +741,6 @@
       Unbilled filters on <code>invoice_id IS NULL</code> and is
       <strong>never</strong> called earned or revenue
       (<code>packages/core/src/stats.ts</code>).
-    </p>
-  </section>
-
-  <!-- ───────────────────────── what leaves ───────────────────────── -->
-  <section class="sec">
-    <div class="sec-head"><span class="eyebrow">What leaves when this ships</span></div>
-
-    <p>
-      Three regions replace six cards, and the screen is not built until the
-      ones it replaces are gone. A component left mounted is a second answer
-      to a question this screen already answers; a field left on
-      <code>/stats</code> is a payload every visitor pays for and nothing
-      reads. <strong>The last step of building this is deleting the rest.</strong>
-    </p>
-
-    <table>
-      <tr><th>Goes</th><th>Because</th></tr>
-      <tr>
-        <td><code>Collected</code>, <code>Owed</code>
-            (<code>home-money.tsx</code>)</td>
-        <td>Collected freezes in week one for a contractor paid monthly.
-            Awaiting becomes one quiet line here, rendered only when non-zero;
-            both figures keep their home on <code>/invoices</code>.</td>
-      </tr>
-      <tr>
-        <td><code>Velocity</code> (<code>home-velocity.tsx</code>)</td>
-        <td>A trailing quarter by client, which is a report rather than a
-            reading taken on the way past.</td>
-      </tr>
-      <tr>
-        <td><code>ByProject</code> (<code>home-by-project.tsx</code>)</td>
-        <td>Ranked projects answer <em>where did the time go</em>, which is
-            the calendar's question.</td>
-      </tr>
-      <tr>
-        <td><code>Heatmap</code> (<code>home-year.tsx</code>)</td>
-        <td>A half-year of squares is the shape of a habit, not a number the
-            user cannot compute. It fails the gate at the top of this page.</td>
-      </tr>
-      <tr>
-        <td><code>Month</code>'s pace rendering
-            (<code>home-month.tsx</code>)</td>
-        <td>The goal ray and its on-pace copy go with the goal. The cumulative
-            line stays and gains the trailing-pace projection.</td>
-      </tr>
-      <tr>
-        <td><code>Pair</code>, <code>Rule</code>, <code>PanelHead</code>
-            (<code>home-cards.tsx</code>)</td>
-        <td>The two-up grid is the arrangement three regions replace.</td>
-      </tr>
-    </table>
-
-    <h3>The fields that go with them</h3>
-
-    <p>
-      <code>/stats</code> is one request for the whole screen, so a field
-      nothing renders is dead weight on every load. <strong>A field is removed
-      in the same change as its last reader</strong>, and the rollup behind it
-      goes too — a SQL function no route calls is the same debt one step
-      further down.
-    </p>
-
-    <table>
-      <tr><th>Field</th><th>Rollup</th><th>Note</th></tr>
-      <tr>
-        <td><code>velocity</code></td>
-        <td><code>revenue_by_client</code> <strong>stays</strong></td>
-        <td>The field goes with its cards. The rollup does not: the month's
-            client strip calls it over the month.</td>
-      </tr>
-      <tr>
-        <td><code>byProject</code></td>
-        <td><code>revenue_by_project</code></td>
-        <td>Read only by <code>ByProject</code>.</td>
-      </tr>
-      <tr>
-        <td><code>billableRatio</code></td>
-        <td>—</td>
-        <td>Read only by <code>Month</code>'s old rendering.</td>
-      </tr>
-      <tr>
-        <td><code>pace</code></td>
-        <td><code>buildPace</code>, <code>buildPaceSeries</code></td>
-        <td>Goal-derived, and the goal goes entirely
-            (<code>../../roadmap.md</code>).</td>
-      </tr>
-      <tr>
-        <td><code>collected</code>, <code>awaitingPayment</code>,
-            <code>openInvoiceCount</code></td>
-        <td><code>collected_by_month</code></td>
-        <td><strong>Stay.</strong> The beat reads <code>collected</code> to
-            know an invoice was paid (<code>use-beat.ts</code>), so only
-            Home's use of them ends.</td>
-      </tr>
-      <tr>
-        <td><code>attention</code></td>
-        <td>derived per request</td>
-        <td><strong>Stays.</strong> It is the dock's inbox, not this
-            screen.</td>
-      </tr>
-    </table>
-
-    <p style="margin-top:1.25rem">
-      <code>GET /calendar?granularity=day</code> <strong>stays</strong>: the
-      heatmap was its only caller and the week's bars become the next one,
-      taking its <code>byClient</code> seconds for each bar's stack.
-      <code>revenue_by_day</code> stays and is read directly rather than only
-      through the projection, and <code>revenue_by_client</code> stays for the
-      month's strip — it lost its old caller with Velocity and gains this
-      one.
-    </p>
-
-    <p>
-      The tests go with their subjects — a suite asserting a deleted card
-      renders is a suite that fails for the right reason, and deleting it is
-      part of the same change rather than a follow-up.
     </p>
   </section>
 

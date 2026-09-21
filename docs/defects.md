@@ -98,20 +98,6 @@ that misleads, then a thing that looks wrong. A fixed defect is deleted.
 
 ## Looks wrong
 
-- [ ] **The arrival count-up runs on mount, not on page load.** `useCountUp`
-      seeds `target` at `to * ARRIVAL` on every mount, so every `Money` on
-      Home rolls each time it mounts — including a client-side navigation
-      away and back, where the figures are the ones read a moment ago. The
-      roll means "these numbers just arrived"; on a return to a screen still
-      holding them, it says it of nothing.
-
-      The `QueryClient` in `providers.tsx` already draws this line: held in
-      `useState` above the router, it survives a navigation and dies on
-      reload. A flag set on it at first arrival, read by `useCountUp` to
-      decide whether to seed the origin or rest on `to`, needs no route
-      detection and no new provider. The tween on a value that *changes* is
-      untouched.
-
 - [ ] **The running timer and the primary action are the same green in
       light.** The accent carries two meanings — the live timer and the one
       confirm action a screen exists to complete. Dark separates them for
