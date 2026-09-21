@@ -330,7 +330,7 @@
               </div>
               <div class="figgroup tier-minor">
                 <span class="type-label figlabel">Unbilled</span>
-                <span class="pairline"><span class="type-amount-hero fig-minor">$6,840</span><span class="type-meta cap">across 2 clients</span></span>
+                <span class="pairline"><span class="type-amount-hero fig-minor">$6,840</span><span class="type-meta cap">across 2 clients &middot; 12d oldest</span></span>
               </div>
             </div>
 
@@ -510,8 +510,92 @@
       the moment the invoice goes out. That is not a duplicate — it is the one
       cycle where two different questions share an answer. <strong>They are
       never summed</strong>, and neither is ever summed with awaiting payment
-      (<code>../principles.md</code>).
+      (<code>../principles.md</code>). Awaiting has an invoice, a due date and
+      someone who owes it; unbilled can still be discounted, written off or
+      never billed. Their sum reads best and means least, and the honest
+      version of <em>what will land</em> is awaiting on its own.
     </p>
+
+    <h3>The lines under the figures</h3>
+
+    <p>
+      A figure's line says what the figure cannot. Both are
+      <code>type-meta</code>, and both have a form at zero.
+    </p>
+
+    <table>
+      <tr><th>Figure</th><th>Line</th><th>At zero</th></tr>
+      <tr>
+        <td>Unbilled</td>
+        <td><code>across N clients</code>, and <code>Nd oldest</code> once
+            there is an age worth naming</td>
+        <td><code>nothing unbilled</code></td>
+      </tr>
+      <tr>
+        <td>Awaiting</td>
+        <td><code>N open invoices</code></td>
+        <td>the line is not rendered</td>
+      </tr>
+    </table>
+
+    <ul class="rule">
+      <li><strong>Unbilled ages.</strong> Age is what makes unbilled work
+        worth acting on — the figure alone cannot say whether it is a day old
+        or a quarter, and a quarter-old balance is a conversation the user is
+        overdue to have.</li>
+      <li><strong>Awaiting counts rather than describes.</strong> A line
+        naming the worst invoice says nothing about the others and silently
+        drops them at two or more. One late invoice is the dock's subject,
+        where it arrives with the action that answers it.</li>
+      <li><strong>A row whose work is not all rated carries
+        <code>N unrated</code></strong> beside its age. Unrated work is
+        missing from the amount, so a row that says so is a figure the user
+        can trust — and it is phrased the same way everywhere, because one
+        fact marked two ways reads as two facts.</li>
+    </ul>
+
+    <h3>What moves, and what turns green</h3>
+
+    <p>
+      Three events move this screen's money, and each moves a different thing.
+      A shared motion would make them indistinguishable: the motion names the
+      event before a word is read.
+    </p>
+
+    <table>
+      <tr><th>Event</th><th>What moves</th><th>Colour</th></tr>
+      <tr>
+        <td>A timer stops</td>
+        <td>Unbilled rises; the client's share takes the hours and its age
+            resets.</td>
+        <td>Neutral</td>
+      </tr>
+      <tr>
+        <td>An invoice is sent</td>
+        <td>Unbilled falls by exactly what awaiting gains, and the open-invoice
+            count rises.</td>
+        <td>Neutral</td>
+      </tr>
+      <tr>
+        <td>An invoice is paid</td>
+        <td>Awaiting falls and the count falls.</td>
+        <td><code>success</code></td>
+      </tr>
+    </table>
+
+    <ul class="rule">
+      <li><strong>Only the payment is green.</strong> Stopping a timer and
+        raising an invoice are things the user did; a payment is the one
+        outcome that happened to them. Spending the colour on all three spends
+        it on nothing.</li>
+      <li><strong>Sending moves money without changing the total.</strong>
+        Nothing was earned — a boundary moved — and a figure that grew when an
+        invoice was raised would be the screen inventing money. Earned does
+        not move at all, because it buckets by when the work was done.</li>
+      <li><strong>Never green on a figure falling.</strong> Awaiting falling
+        is the same event as money arriving, and marking both makes the screen
+        flash rather than point.</li>
+    </ul>
 
     <h3>The climb</h3>
     <p>

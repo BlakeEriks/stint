@@ -8,7 +8,7 @@ import type { Stats } from '@/lib/client/api';
 
 /**
  * The Money region: the pairing, the plot's scale, and the lines under the
- * two owed figures. `docs/design/screens/money.html` is the spec.
+ * two owed figures. `docs/design/screens/home.html` is the spec.
  */
 
 let client: QueryClient;

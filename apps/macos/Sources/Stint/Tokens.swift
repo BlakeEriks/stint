@@ -156,6 +156,10 @@ public enum Tokens {
             size: 30, weight: .medium, tracking: -0.6,
             uppercase: false, tabular: true, mono: true
         )
+        public static let figureHero = Role(
+            size: 40, weight: .medium, tracking: -0.8,
+            uppercase: false, tabular: true, mono: true
+        )
         public static let lede = Role(
             size: 15, weight: .regular, tracking: 0,
             uppercase: false, tabular: false, mono: false

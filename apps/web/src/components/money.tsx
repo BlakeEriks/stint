@@ -12,8 +12,9 @@ import { useCountUp } from '@/lib/client/use-count-up';
  *
  * An INVOICE's own total does not use it — a figure that tweens implies the
  * app is recalculating money the user has already sent. A home-panel
- * aggregate that a payment moves does travel: Collected rises on the paid
- * beat, which `docs/design/screens/money.html` specifies.
+ * aggregate that a payment moves does travel, which
+ * `docs/design/screens/home.html` specifies: it rolls on arrival and on a
+ * value that actually changed, never on a remount holding the same figures.
  *
  * `className` carries the type role and colour, because those differ by where
  * the figure sits: a headline is `type-figure`, a row's amount is
