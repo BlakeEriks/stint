@@ -73,15 +73,18 @@
   /* ═══ THE CARD'S TYPE SYSTEM ═══════════════════════════════════
      Three figure tiers, ranked by what the number means rather than by
      which region it sits in. One label voice introduces every figure. */
-  .fig-hero  { font-family: var(--font-mono); font-size: 40px; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--text-strong); }
-  .fig-major { font-family: var(--font-mono); font-size: 30px; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--text-strong); }
-  .fig-minor { font-family: var(--font-mono); font-size: 24px; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--text-strong); }
-
-  .figlabel {
-    display: block; font-family: var(--font-mono); font-size: 11px;
-    font-weight: 500; letter-spacing: .14em; text-transform: uppercase;
-    line-height: 1; color: var(--text-subtle);
+  /* Two of the three tiers are roles the scale already carries: `.fig-major`
+     is `.type-figure`, `.fig-minor` is `.type-amount-hero`, and the markup
+     names the role beside the tier. Only the month's 40px is a size the
+     product does not have — the one thing here to promote into tokens.json. */
+  .fig-hero, .fig-major, .fig-minor { color: var(--text-strong); }
+  .fig-hero {
+    font-family: var(--font-mono); font-size: 40px; font-weight: 500;
+    letter-spacing: -.02em; font-variant-numeric: tabular-nums;
   }
+
+  /* `.type-label` carries the size, weight, tracking and case. */
+  .figlabel { display: block; line-height: 1; color: var(--text-subtle); }
   /* The gap under a label is corrected per tier: a larger glyph sits deeper
      in its own line box, so equal margins read as unequal ink. Set here,
      once, and never at a call site. */
@@ -220,15 +223,18 @@
       <li><strong>Every figure on this screen is money the user has already
         earned</strong>, bucketed by when the work was done. Hours ride
         alongside as the raw material.</li>
-      <li><strong>Nothing here is measured against a target.</strong> A goal is
-        a number the user invents, and everything derived from one — a pace
-        line, a percentage, a projected shortfall — is arithmetic on a guess
-        presented with the authority of a fact. The month's projection is the
-        one forward-looking figure, and it comes from trailing pace alone.</li>
-      <li><strong>Nothing here writes.</strong> Every region reads, and every
-        action on one is a link to the surface that owns the mutation.</li>
-      <li><strong>There is one view.</strong> No hiding a region, no reordering
-        them, no range picker.</li>
+      <li><strong>A figure is extrapolated only if it is monotonic.</strong>
+        Earned accumulates: it climbs all month and settles, so carrying its
+        trailing pace to month-end is arithmetic on a shape the series already
+        has. Unbilled resets when an invoice goes out, so its projection would
+        forecast the next invoice date and predict a drop to zero. The month's
+        projection is the one forward-looking figure on the screen, and Earned
+        is the only series that earns one.</li>
+      <li><strong>Every region reads.</strong> An action on one is a link to
+        the surface that owns the mutation.</li>
+      <li><strong>The screen is the same on every open.</strong> One
+        arrangement, one window per region, and the habit is built on finding
+        the number where it was yesterday.</li>
     </ul>
   </section>
 
@@ -251,8 +257,8 @@
             <div class="today-card">
               <span class="region-head">Today <span class="dot">&middot;</span> Thursday, Sep 17</span>
               <div class="figgroup tier-major">
-                <span class="figlabel">Earned</span>
-                <span class="pairline"><span class="fig-major">$340</span><span class="u">5h 00m</span></span>
+                <span class="type-label figlabel">Earned</span>
+                <span class="pairline"><span class="type-figure fig-major">$340</span><span class="u">5h 00m</span></span>
               </div>
               <div class="tentries">
                 <div class="tentry live">
@@ -278,8 +284,8 @@
             <div class="week-card">
               <span class="region-head">This week <span class="dot">&middot;</span> Sep 14&ndash;20</span>
               <div class="wfig figgroup tier-major">
-                <span class="figlabel">Earned</span>
-                <span class="pairline"><span class="fig-major">$1,880</span><span class="u">23h 30m</span></span>
+                <span class="type-label figlabel">Earned</span>
+                <span class="pairline"><span class="type-figure fig-major">$1,880</span><span class="u">23h 30m</span></span>
               </div>
               <div class="plot" role="img" aria-label="Mon 7h $560, Tue 5h 30m $440, Wed 6h 45m $540, Thu 4h 15m $340 so far, Fri to Sun not yet worked.">
                 <div class="tracks">
@@ -310,16 +316,16 @@
             <div class="paystats">
               <span class="region-head">This month <span class="dot">&middot;</span> September</span>
               <div class="figgroup tier-hero" style="margin-top:16px">
-                <span class="figlabel">Earned</span>
+                <span class="type-label figlabel">Earned</span>
                 <span class="pairline"><span class="fig-hero">$6,840</span><span class="u">85h 30m</span></span>
               </div>
               <div class="figgroup tier-minor">
-                <span class="figlabel">On track for</span>
-                <span class="fig-minor">$11,817</span>
+                <span class="type-label figlabel">On track for</span>
+                <span class="type-amount-hero fig-minor">$11,817</span>
               </div>
               <div class="figgroup tier-minor">
-                <span class="figlabel">Unbilled</span>
-                <span class="pairline"><span class="fig-minor">$6,840</span><span class="cap">across 2 clients</span></span>
+                <span class="type-label figlabel">Unbilled</span>
+                <span class="pairline"><span class="type-amount-hero fig-minor">$6,840</span><span class="cap">across 2 clients</span></span>
               </div>
             </div>
 
@@ -399,7 +405,8 @@
       <tr>
         <td><code>fig-hero</code></td>
         <td>40px</td>
-        <td>The month's Earned — the number the product exists to grow.</td>
+        <td>The month's Earned — the screen's subject, and the series the
+            projection extrapolates.</td>
       </tr>
       <tr>
         <td><code>fig-major</code></td>
@@ -410,8 +417,8 @@
       <tr>
         <td><code>fig-minor</code></td>
         <td>24px</td>
-        <td>On track for, Unbilled. Readings taken <em>from</em> Earned rather
-            than a fourth subject.</td>
+        <td>On track for, Unbilled. Two readings of the month's money that
+            answer narrower questions than Earned does.</td>
       </tr>
     </table>
 
@@ -419,16 +426,15 @@
       <strong>Two label voices, two jobs.</strong> The period header
       (<code>region-head</code>, 13px mono, sentence case) names the region.
       The figure label (<code>figlabel</code>, 11px mono, tracked caps)
-      names a number. Sharing one voice left the header unable to outrank the
-      label directly beneath it, and a date reads better unspaced.
+      names a number. The header outranks the label directly beneath it
+      because the two voices differ, and a date reads better unspaced.
     </p>
 
     <p style="margin-top:1.25rem">
       <strong>The gap under a label is corrected per tier.</strong> A larger
-      glyph sits deeper in its own line box, so equal margins produce unequal
-      ink — matched box gaps measured anywhere from &minus;1px to 11px of
-      visible space. Each tier sets its own margin once, in the system block,
-      never at a call site.
+      glyph sits deeper in its own line box, so a margin is set against the
+      ink rather than the box. Each tier sets its own once, in the system
+      block, never at a call site.
     </p>
   </section>
 
@@ -446,14 +452,13 @@
         rather than three.</li>
       <li><strong>The scale is the week's own longest day</strong>, which fills
         94% of the track. Heights stay a true ratio of hours; only what 100%
-        means changes. Bars are therefore not comparable across weeks — the
-        axis is unlabelled and each bar prints its own money, so nothing is
-        misread.</li>
+        means changes. Each bar prints its own money and the axis is
+        unlabelled, so every column is read on its own terms.</li>
       <li><strong>A day with no work prints an em-dash</strong> and no bar. The
-        caption keeps its hours line as an empty placeholder, or the weekday
-        labels of unworked days rise above the rest of the row.</li>
-      <li><strong>The bars stand on a baseline, not in a track.</strong> A
-        full-height container implies a ceiling, and there is no "full" day.</li>
+        caption keeps its hours line as a placeholder, which is what holds
+        every weekday label on one baseline.</li>
+      <li><strong>The bars stand on a baseline.</strong> There is no "full"
+        day for a ceiling to represent.</li>
     </ul>
 
     <p style="margin-top:1.25rem">
@@ -503,8 +508,8 @@
     <p>
       Earnings accumulated day by day, solid to today and dashed to where the
       trailing pace lands. The shape is the argument for the projection: a line
-      that has been climbing makes its continuation believable, where a bar
-      would only assert it. The line only ever goes up.
+      that has been climbing makes its continuation believable. The line only
+      ever goes up.
     </p>
     <p>
       Four value gridlines and a week cadence. Axis labels are drawn in HTML
@@ -520,22 +525,20 @@
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">Constraints this screen inherits</span></div>
 
+    <p><code>CLAUDE.md</code> owns the accent's two jobs, mono and tabular
+      durations, colour belonging to the client, and <code>0</code> as a valid
+      rate. What is particular to this screen:</p>
+
     <ul class="rule">
-      <li><strong>The accent appears nowhere on this screen.</strong> It is
-        spent on the running timer in the bar below. <code>success</code> — the
-        accent a step down — marks only the endpoint of the projection.</li>
-      <li><strong>Durations and currency are mono and tabular</strong>, without
-        exception. Durations are written <code>5h 30m</code>, never decimal
-        hours.</li>
-      <li><strong>Only clients have a colour</strong>, resolved through
-        <code>useProjectColors()</code>. Internal work gets none and takes a
-        hollow ring in both the entry list and the legend.</li>
-      <li><strong>Aggregate rate resolution belongs in SQL.</strong>
-        <code>resolve_entry_rate(uuid)</code> is per-entry; unbilled and the
-        month's series sum across hundreds of entries and must not call it N
-        times.</li>
-      <li><strong><code>0</code> is a valid rate.</strong> Null-coalescing, never
-        truthiness.</li>
+      <li><strong>The accent appears nowhere here.</strong> It is spent on the
+        running timer in the bar below, so the screen takes none of it.
+        <code>success</code> marks one thing: the endpoint of the projection.</li>
+      <li><strong>Internal work takes a hollow ring</strong> in the entry list
+        and the legend, which is what having no colour looks like on a screen
+        that is otherwise keyed by client.</li>
+      <li><strong>Every figure here is an aggregate</strong>, so each one is a
+        rollup in SQL. <code>resolve_entry_rate(uuid)</code> is per-entry and
+        summing hundreds of them one call at a time is the shape to avoid.</li>
     </ul>
   </section>
 
@@ -548,16 +551,17 @@
       <tr>
         <td><code>GET /stats</code></td>
         <td>Every figure on the screen</td>
-        <td>Today's and the month's earnings, the month's cumulative series and
-            its projection, unbilled by client, and the month's split by client.
-            One request, because the regions render together and a set that
-            pops in piecemeal reads as broken.</td>
+        <td><code>earnedToday</code> and <code>unbilled</code> serve Today and
+            the month's third figure as they stand. One request, because the
+            regions render together and a set that pops in piecemeal reads as
+            broken.</td>
       </tr>
       <tr>
         <td><code>GET /calendar?granularity=day</code></td>
-        <td>the week's seven bars</td>
-        <td>Already groups by local day server-side, which is the DST-correct
-            bucketing this needs and the reason not to build a second one.</td>
+        <td>the week's seven bar heights</td>
+        <td>Groups by local day server-side, which is the DST-correct bucketing
+            the bars need. It carries seconds only, so it sets height and not
+            the money printed at each bar's head.</td>
       </tr>
       <tr>
         <td><code>GET /clients?includeArchived</code></td>
@@ -568,6 +572,17 @@
     </table>
 
     <p style="margin-top:1.25rem">
+      <strong>Three of this screen's figures have no field yet</strong>, and
+      <code>../../roadmap.md</code> carries the work: the month's Earned, its
+      cumulative series and the trailing-pace projection, and per-day money for
+      the week's bars. The month's rollup already runs — <code>revenue_by_day</code>
+      is fetched over the month and reduced to the map <code>earnedToday</code>
+      reads — so the first three are fields to expose rather than queries to
+      add. The week's money is a widened rollup, never
+      <code>resolve_entry_rate</code> once per day.
+    </p>
+
+    <p>
       <code>earnedToday</code> comes out of the month's own by-day series, which
       is already loaded and already grouped on the local date — a second query
       for one of its rows would be a second definition of the same amount.
