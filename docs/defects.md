@@ -84,6 +84,11 @@ that misleads, then a thing that looks wrong. A fixed defect is deleted.
       Worth deciding while in there: whether the time is also *selected*, not
       merely focused. The field exists to be replaced rather than edited.
 
+- [ ] **The menu bar panel's project list never updates.** `refresh()` in
+      `TimerModel.swift` fetches projects only while the list is empty, so a
+      project added, renamed or archived on the web reaches the panel only
+      after a quit and relaunch. Refetch on panel open.
+
 - [ ] **The invoice routes return more than `api.ts` declares.**
       `POST /invoices` and `/preview` carry `entryIds` per line item, and
       `POST /invoices` returns `lineItems` + `entryCount` while the client
