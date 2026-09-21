@@ -313,8 +313,15 @@ describe('the three regions', () => {
     }
 
     /* The caption keeps its hours line as a placeholder, which is what holds
-       every weekday label on one baseline. */
-    expect(screen.getAllByText('—')).toHaveLength(3);
+       every weekday label on one baseline. Scoped to the week: Today's own
+       empty rows print the same em-dash, and a card-wide count would make
+       this assertion about both regions at once. */
+    const weekDashes = [
+      ...(container
+        .querySelector('[data-region="week"]')
+        ?.querySelectorAll('span') ?? []),
+    ].filter((el) => el.textContent === '—');
+    expect(weekDashes).toHaveLength(3);
   });
 
   it('gives internal work a hollow ring rather than a colour', async () => {
@@ -384,6 +391,36 @@ describe('the three regions', () => {
     await waitFor(() =>
       expect(screen.getByText(/2 open invoices/)).toBeVisible(),
     );
+  });
+
+  it('a day with no entries keeps its rows', async () => {
+    serve(() => stats(), { entries: [] });
+    const { container } = render(<HomeCards />, { wrapper });
+
+    /* The column holds the height it will have once the day has work in it,
+       so the top row does not change shape at the first entry. */
+    await waitFor(() =>
+      expect(
+        container.querySelectorAll('[aria-hidden="true"][data-entry-empty]'),
+      ).toHaveLength(3),
+    );
+  });
+
+  it('a placeholder row carries no pip', async () => {
+    serve(() => stats(), { entries: [] });
+    const { container } = render(<HomeCards />, { wrapper });
+
+    /* The hollow ring means internal work. Three of them would say the day
+       held three untracked entries, which is the screen asserting something
+       that did not happen. */
+    await waitFor(() =>
+      expect(
+        container.querySelectorAll('[data-entry-empty]').length,
+      ).toBeGreaterThan(0),
+    );
+    for (const row of container.querySelectorAll('[data-entry-empty]')) {
+      expect(row.querySelector('[data-pip]')).toBeNull();
+    }
   });
 });
 

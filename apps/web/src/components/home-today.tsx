@@ -34,6 +34,11 @@ export function Today({ stats }: { stats: Stats }) {
   const entries = data?.entries ?? [];
   const seconds = entries.reduce((sum, e) => sum + secondsOf(e), 0);
 
+  /* Three, because it is what the region holds beside the week's chart: the
+     column keeps the height it will have once the day has work in it, so the
+     top row does not change shape at the first entry. */
+  const PLACEHOLDER_ROWS = 3;
+
   return (
     <div className="flex flex-col">
       <RegionHead>Today · {dayLabel()}</RegionHead>
@@ -52,34 +57,53 @@ export function Today({ stats }: { stats: Stats }) {
         </PairLine>
       </FigGroup>
 
-      {entries.length > 0 ? (
-        <div className="mt-6 flex flex-col">
-          {entries.map((e) => (
-            <div
-              key={e.id}
-              data-entry={e.id}
-              className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
-            >
-              {/* Only clients have a colour; internal work takes the hollow
+      <div className="mt-6 flex flex-col">
+        {entries.length === 0
+          ? /* An empty day keeps its rows rather than collapsing, the same way
+               an unworked day in the week's chart keeps its caption: the
+               em-dash is what holds the shape. Not a shimmer — nothing is
+               loading by the time this renders, and a pulse would promise
+               rows that are not coming. */
+            Array.from({ length: PLACEHOLDER_ROWS }, (_, i) => (
+              <div
+                key={`empty-${i}`}
+                aria-hidden="true"
+                data-entry-empty=""
+                className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
+              >
+                {/* No pip: the hollow ring means internal work, and three of
+                    them would say the day held three untracked entries. An
+                    empty column is what nothing looks like. */}
+                <span />
+                <span className="type-support text-subtle">—</span>
+                <span className="type-duration text-subtle">—</span>
+              </div>
+            ))
+          : entries.map((e) => (
+              <div
+                key={e.id}
+                data-entry={e.id}
+                className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
+              >
+                {/* Only clients have a colour; internal work takes the hollow
                   ring, which is what having none looks like on a screen
                   otherwise keyed by client. */}
-              <Pip
-                color={e.projectId ? (colors.get(e.projectId) ?? null) : null}
-              />
-              <span
-                className={`type-support truncate ${
-                  e.endedAt === null ? 'text-primary' : 'text-muted'
-                }`}
-              >
-                {e.taskName || 'Untitled'}
-              </span>
-              <span className="type-duration text-subtle">
-                {clock(secondsOf(e))}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : null}
+                <Pip
+                  color={e.projectId ? (colors.get(e.projectId) ?? null) : null}
+                />
+                <span
+                  className={`type-support truncate ${
+                    e.endedAt === null ? 'text-primary' : 'text-muted'
+                  }`}
+                >
+                  {e.taskName || 'Untitled'}
+                </span>
+                <span className="type-duration text-subtle">
+                  {clock(secondsOf(e))}
+                </span>
+              </div>
+            ))}
+      </div>
     </div>
   );
 }

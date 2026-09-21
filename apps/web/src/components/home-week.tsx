@@ -51,7 +51,7 @@ export function Week({
   const longest = Math.max(...week.map((d) => d.seconds), 0);
 
   return (
-    <div className="flex flex-col">
+    <div data-region="week" className="flex flex-col">
       <RegionHead>This week · {range(week)}</RegionHead>
 
       <FigGroup tier="major" className="mt-5 items-start">
