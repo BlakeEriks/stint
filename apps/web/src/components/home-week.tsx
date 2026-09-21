@@ -54,7 +54,7 @@ export function Week({
     <div data-region="week" className="flex flex-col">
       <RegionHead>This week · {range(week)}</RegionHead>
 
-      <FigGroup tier="major" className="mt-5 items-start">
+      <FigGroup tier="major" className="mt-6 items-start">
         <FigLabel>Earned</FigLabel>
         <PairLine>
           <Money

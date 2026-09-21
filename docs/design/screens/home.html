@@ -118,6 +118,8 @@
   }
 
   .today-card, .week-card { display: flex; flex-direction: column; }
+  /* One gap between a period header and the figure it names, in all three
+     regions: three different values read as three different relationships. */
   .today-card .figgroup { margin-top: 24px; }
 
   .tentries { display: flex; flex-direction: column; margin-top: 24px; }
@@ -132,7 +134,7 @@
   .tentry .dur { color: var(--text-subtle); font-variant-numeric: tabular-nums; }
 
   /* ── The week's bars ─────────────────────────────────────────── */
-  .wfig { display: flex; flex-direction: column; align-items: flex-start; margin-top: 20px; }
+  .wfig { display: flex; flex-direction: column; align-items: flex-start; margin-top: 24px; }
   .plot { margin-top: 24px; }
   .tracks { position: relative; height: 150px; display: flex; gap: 16px; align-items: stretch; border-bottom: 1px solid var(--border-default); }
   .day { flex: 1; display: flex; min-width: 0; }
@@ -321,7 +323,7 @@
           <div class="earnings">
             <div class="paystats">
               <span class="type-region-head region-head">This month <span class="dot">&middot;</span> September</span>
-              <div class="figgroup tier-hero" style="margin-top:16px">
+              <div class="figgroup tier-hero" style="margin-top:24px">
                 <span class="type-label figlabel">Earned</span>
                 <span class="pairline"><span class="type-figure-hero fig-hero">$6,840</span><span class="type-duration u">85h 30m</span></span>
               </div>
@@ -331,7 +333,7 @@
               </div>
               <div class="figgroup tier-minor">
                 <span class="type-label figlabel">Unbilled</span>
-                <span class="pairline"><span class="type-amount-hero fig-minor">$6,840</span><span class="type-meta cap">across 2 clients &middot; 12d oldest</span></span>
+                <span class="type-amount-hero fig-minor">$6,840</span>
               </div>
             </div>
 
@@ -547,39 +549,22 @@
     <h3>The lines under the figures</h3>
 
     <p>
-      A figure's line says what the figure cannot. Both are
-      <code>type-meta</code>, and both have a form at zero.
+      <strong>The three figures carry no sublabel.</strong> Each is a number
+      with a name above it, and a line of qualifiers under one of them makes
+      that figure read as the region's subject while the other two read as
+      its footnotes. Awaiting is the column's one line, below all three.
     </p>
 
-    <table>
-      <tr><th>Figure</th><th>Line</th><th>At zero</th></tr>
-      <tr>
-        <td>Unbilled</td>
-        <td><code>across N clients</code>, and <code>Nd oldest</code> once
-            there is an age worth naming</td>
-        <td><code>nothing unbilled</code></td>
-      </tr>
-      <tr>
-        <td>Awaiting</td>
-        <td><code>N open invoices</code></td>
-        <td>the line is not rendered</td>
-      </tr>
-    </table>
-
     <ul class="rule">
-      <li><strong>Unbilled ages.</strong> Age is what makes unbilled work
-        worth acting on — the figure alone cannot say whether it is a day old
-        or a quarter, and a quarter-old balance is a conversation the user is
-        overdue to have.</li>
-      <li><strong>Awaiting counts rather than describes.</strong> A line
-        naming the worst invoice says nothing about the others and silently
-        drops them at two or more. One late invoice is the dock's subject,
-        where it arrives with the action that answers it.</li>
-      <li><strong>A row whose work is not all rated carries
-        <code>N unrated</code></strong> beside its age. Unrated work is
-        missing from the amount, so a row that says so is a figure the user
-        can trust — and it is phrased the same way everywhere, because one
-        fact marked two ways reads as two facts.</li>
+      <li><strong>Awaiting counts rather than describes</strong>, and renders
+        only when there is something to count. A line naming the worst invoice
+        says nothing about the others and silently drops them at two or more.
+        One late invoice is the dock's subject, where it arrives with the
+        action that answers it.</li>
+      <li><strong>Unbilled's age belongs to the client rows</strong>, not to
+        the figure. Age is what makes unbilled work worth acting on, and it is
+        per client — a single worst-case age over a figure covering four of
+        them names one and hides three.</li>
     </ul>
 
     <h3>What moves, and what turns green</h3>

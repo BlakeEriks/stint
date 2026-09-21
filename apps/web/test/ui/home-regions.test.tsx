@@ -348,30 +348,6 @@ describe('the three regions', () => {
     expect(screen.queryByText(/\d\.\d+h/)).toBeNull();
   });
 
-  it('carries the unbilled line: clients, age and unrated work', async () => {
-    serve(() => stats());
-    render(<HomeCards />, { wrapper });
-
-    /* `moreClients` is counted in, so the line names every client behind the
-       figure rather than only the rows that fit. */
-    await waitFor(() =>
-      expect(screen.getByText(/across 2 clients · 12d oldest/)).toBeVisible(),
-    );
-  });
-
-  it('says nothing unbilled at zero rather than printing an age', async () => {
-    serve(() =>
-      stats({
-        unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
-      }),
-    );
-    render(<HomeCards />, { wrapper });
-
-    await waitFor(() =>
-      expect(screen.getByText('nothing unbilled')).toBeVisible(),
-    );
-  });
-
   it('omits the awaiting line when there is nothing to count', async () => {
     serve(() => stats());
     render(<HomeCards />, { wrapper });

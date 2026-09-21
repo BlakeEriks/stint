@@ -9,7 +9,6 @@ import {
   FigLabel,
   type Hue,
   INTERNAL,
-  PairLine,
   RegionHead,
 } from './home-shell';
 
@@ -48,7 +47,7 @@ export function Month({
               rather than the month — so printing it here would label one
               period's hours with another's. `docs/roadmap.md` carries the
               field. */}
-          <FigGroup tier="hero" className="mt-4">
+          <FigGroup tier="hero" className="mt-6">
             <FigLabel>Earned</FigLabel>
             <Money
               amount={month.earned}
@@ -80,16 +79,11 @@ export function Month({
 
           <FigGroup tier="minor" className="mt-[22px]">
             <FigLabel>Unbilled</FigLabel>
-            <PairLine>
-              <Money
-                amount={unbilled.total}
-                currency={currency}
-                className="type-amount-hero text-strong"
-              />
-              <span className="type-meta text-subtle">
-                {unbilledLine(unbilled)}
-              </span>
-            </PairLine>
+            <Money
+              amount={unbilled.total}
+              currency={currency}
+              className="type-amount-hero text-strong"
+            />
           </FigGroup>
 
           {/* Awaiting counts rather than describes, and is rendered only when
@@ -181,31 +175,6 @@ function stripLabel(
         )}%`,
     )
     .join('; ');
-}
-
-/**
- * `across N clients`, and `Nd oldest` once there is an age worth naming.
- *
- * Age is what makes unbilled work worth acting on: the figure alone cannot say
- * whether it is a day old or a quarter.
- */
-function unbilledLine(unbilled: Stats['unbilled']): string {
-  const { byClient, moreClients } = unbilled;
-  if (byClient.length === 0) return 'nothing unbilled';
-
-  const clients = byClient.length + moreClients;
-  const oldest = Math.max(...byClient.map((c) => c.oldestDays));
-  const unrated = byClient.reduce((sum, c) => sum + c.unratedCount, 0);
-
-  return [
-    `across ${clients} client${clients === 1 ? '' : 's'}`,
-    oldest > 0 ? `${oldest}d oldest` : null,
-    /* One phrasing everywhere: a figure marked `3 unrated` in one region and
-       `3 no rate` in another reads as two different conditions. */
-    unrated > 0 ? `${unrated} unrated` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
 }
 
 /**
