@@ -28,7 +28,14 @@ export function Today({ stats }: { stats: Stats }) {
      the list is what makes the figure something the user can account for. */
   const { data } = useQuery({
     queryKey: keys.entries({ from: today }),
-    queryFn: () => api.entries({ from: today, to: today }),
+    /* `ListEntriesQuery` takes ISO datetimes with an offset, not a date key:
+       a bare `2026-09-21` fails validation and the list renders empty on a
+       day that has work in it. */
+    queryFn: () =>
+      api.entries({
+        from: `${today}T00:00:00.000Z`,
+        to: `${today}T23:59:59.999Z`,
+      }),
   });
 
   const entries = data?.entries ?? [];

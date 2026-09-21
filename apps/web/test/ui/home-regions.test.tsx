@@ -406,6 +406,26 @@ describe('the three regions', () => {
     );
   });
 
+  it('asks for the day as an ISO range, not a date key', async () => {
+    serve(() => stats());
+    render(<HomeCards />, { wrapper });
+
+    /* `ListEntriesQuery` takes ISO datetimes with an offset. A bare
+       `2026-09-21` is a 422, and the list then renders empty on a day that
+       has work in it — which looks exactly like a day with none. */
+    await waitFor(() => {
+      const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+        .map(([url]) => String(url))
+        .filter((u) => u.includes('/entries?'));
+      expect(calls.length).toBeGreaterThan(0);
+      for (const url of calls) {
+        const q = new URL(url, 'http://localhost').searchParams;
+        expect(q.get('from')).toMatch(/T\d{2}:\d{2}:\d{2}/);
+        expect(q.get('to')).toMatch(/T\d{2}:\d{2}:\d{2}/);
+      }
+    });
+  });
+
   it('a placeholder row carries no pip', async () => {
     serve(() => stats(), { entries: [] });
     const { container } = render(<HomeCards />, { wrapper });
