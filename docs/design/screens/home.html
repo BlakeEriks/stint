@@ -67,7 +67,7 @@
     background: var(--bg-primary);
     border-radius: 12px;
     box-shadow: var(--shadow-panel);
-    padding: 24px;
+    padding: 24px 24px 14px;
   }
 
   /* ═══ THE CARD'S TYPE SYSTEM ═══════════════════════════════════
@@ -194,7 +194,7 @@
      the same rule the month takes from the row above it. */
   .cardkey {
     display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
-    margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-subtle);
+    margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--border-subtle);
   }
   .ck { display: inline-flex; align-items: center; gap: 7px; color: var(--text-subtle); }
 </style>
@@ -643,11 +643,12 @@
         clients, and two keys for one palette is a second thing to keep in
         agreement. Internal work appears in it with its hollow ring, because a
         reader who sees the treatment needs to find out what it means.</li>
-      <li><strong>The legend sits below a rule</strong>, the same one the
-        month takes from the row above it. It is the panel's footing rather
-        than a part of the month, and without the rule it reads as the
-        strip's caption — a key for one region instead of for the whole
-        panel.</li>
+      <li><strong>The legend is the panel's footer.</strong> It sits below the
+        same rule the month takes from the row above it, and the panel closes
+        under it at the gap the rule leaves above it — bracketed evenly, so it
+        reads as a band the card ends with rather than a row that floats after
+        the month. Without the rule it reads as the strip's caption: a key for
+        one region instead of for the whole panel.</li>
       <li><strong>A hue belongs to the client, never to the position.</strong>
         The same client is the same colour in the week's bars, the month's
         strip and the legend, resolved through <code>useProjectColors()</code>.

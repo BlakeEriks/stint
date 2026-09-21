@@ -81,7 +81,7 @@ function Panel({ stats }: { stats: Stats }) {
      wider at the narrower window. A viewport breakpoint would collapse the
      wide one and split the narrow one. */
   return (
-    <div className="@container flex flex-col px-[18px] py-5">
+    <div className="@container flex flex-col px-[18px] pt-5 pb-3.5">
       {/* Today takes a third of the top row and the week two thirds: today's
           content is a figure and a few short rows, and the week's chart needs
           the long axis for seven columns and their captions. The rule between
