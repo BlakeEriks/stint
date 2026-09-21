@@ -127,29 +127,71 @@ you, and nothing you build here is held hostage.
 
 ## M3 · Money truth on Home
 
-- [ ] **Re-noun the month card to unbilled, keep the projection on earned.**
+- [ ] **Build Home as `design/screens/home.html` specs it.**
 
-      *Whose problem:* the number a contractor cannot get anywhere else is
-      what they have worked and not yet billed. Earned is a commodity figure
-      every competitor computes.
+      *Whose problem:* the screen is the daily open, and the habit is what
+      keeps the subscription. `principles.md` says why Home carries it.
 
-      *Without it:* they leave in month three. `principles.md` says why Home
-      carries the habit; this is the figure that makes it worth opening.
+      *Without it:* Home stays a grid of cards that never agreed on what it
+      is for.
 
-      *One person:* yes. The figure is one contractor's own unbilled work.
+      *One person:* yes. Every figure is one contractor's own work.
 
-      Headline is **unbilled** — a balance that climbs while you work and
-      resets when you invoice. The projection stays and projects **earned
-      month-to-date extrapolated to month-end**, which is monotonic and so
-      can be extrapolated; unbilled cannot, since projecting it forecasts
-      when you next invoice and predicts a drop to zero. Earned buckets by
-      when the work was done.
+      Three regions — Today, This week, the month — in one panel. The
+      headline is **earned**, which accumulates all month and settles; the
+      projection extrapolates it because a monotonic series is the only kind
+      that can be extrapolated. **Unbilled stays all-time** and keeps its
+      place as the month's third figure: it is the balance a contractor
+      cannot get anywhere else, and month-scoping it would answer a narrower
+      question than the one it is there for. Awaiting becomes one quiet line,
+      rendered only when non-zero. **Collected moves off Home** to
+      `/invoices` — for a contractor paid monthly it freezes in week one and
+      says nothing for the rest of the month.
 
-      **Awaiting** becomes one quiet line, rendered only when non-zero.
-      **Collected** moves off Home to `/invoices` — it renders on Home today
-      (`home-cards.tsx`), and for a contractor paid monthly it is a figure
-      that freezes in week one and says nothing for the rest of the month.
-      Today and This week are unchanged.
+      `Velocity`, `By project` and `The half-year` come off the screen with
+      it; `home-cards.tsx` mounts them today and nothing specs them.
+
+- [ ] **Remove the monthly goal.**
+
+      *Whose problem:* nobody's, which is the point. A goal is a number the
+      user invents, and a pace line, a percentage or a projected shortfall is
+      arithmetic on a guess wearing the authority of a fact. It fails the gate
+      in `principles.md` twice: it is not a number the user cannot compute in
+      their head, and a figure that moves must be true.
+
+      *Without it:* the screen keeps a figure that measures showing up rather
+      than getting paid.
+
+      *One person:* n/a — this is a removal.
+
+      `monthly_target` and `monthly_target_unit` (migration `…_6_goals.sql`),
+      `buildPace`/`buildPaceSeries` in `packages/core/src/stats.ts`, `pace` on
+      `GET /stats`, the goal field in `settings-form.tsx`, the pace rendering
+      in `home-month.tsx`, and `settings-goal.test.tsx`. `api.md` still
+      documents `pace.series` and "the goal's `expected`"; `settings.html`
+      still says the setting feeds "the Pace card on Home, and nothing else".
+
+      **Users who set one are told, not silently corrected.** The columns hold
+      real data somebody typed, and `principles.md` says the app never
+      modifies user data on their behalf. Drop the columns in a migration that
+      is announced, not folded into an unrelated deploy.
+
+- [ ] **Expose the fields Home's spec needs.**
+
+      *Whose problem:* three figures on the specced screen have no field
+      behind them.
+
+      *Without it:* the screen cannot be built.
+
+      *One person:* n/a — this is plumbing.
+
+      The month's **earned** and its **cumulative series** are already
+      computed: `revenue_by_day` runs over the month and reduces to the map
+      `earnedToday` reads, but only `earnedToday` is returned. The
+      **trailing-pace projection** replaces the goal ray `buildPace` built.
+      The week's bars need **money per day**, which `GET
+      /calendar?granularity=day` does not carry — it returns seconds. Widen
+      the rollup; never call `resolve_entry_rate` once per day.
 
 ## M4 · Taking money
 

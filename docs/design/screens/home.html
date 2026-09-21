@@ -95,7 +95,7 @@
   .figgroup.tier-minor > .figlabel + * { margin-top: 5px; }
 
   .pairline { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-  .pairline .u { color: var(--text-subtle); font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .pairline .u { color: var(--text-subtle); font-variant-numeric: tabular-nums; }
 
   /* The period header names the region. Sentence case keeps it out of the
      tracked-caps voice `.figlabel` owns, so the two jobs read as two
@@ -132,9 +132,9 @@
     border-top: 1px solid var(--border-subtle);
   }
   .tentry:first-child { border-top: none; }
-  .tentry .nm { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+  .tentry .nm { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tentry.live .nm { color: var(--text-primary); }
-  .tentry .dur { color: var(--text-subtle); font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .tentry .dur { color: var(--text-subtle); font-variant-numeric: tabular-nums; }
 
   /* ── The week's bars ─────────────────────────────────────────── */
   .wfig { display: flex; flex-direction: column; align-items: flex-start; margin-top: 20px; }
@@ -147,8 +147,8 @@
   .dcap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; align-items: center; }
   /* Hours lead: the bar's height IS hours, so the number matching what is
      drawn takes the weight. Money is a second reading of the same bar. */
-  .dhours { text-align: center; color: var(--text-primary); font-family: var(--font-mono); font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .dlabel { text-align: center; color: var(--text-subtle); font-family: var(--font-mono); font-size: 11.5px; }
+  .dhours { text-align: center; color: var(--text-primary); white-space: nowrap; }
+  .dlabel { text-align: center; color: var(--text-subtle); }
   .dcap.rest .dhours { color: var(--text-subtle); }
   .dcap.today .dlabel { color: var(--text-primary); }
   /* Money rides the bar it describes. Inside the bar's own column it cannot
@@ -156,8 +156,8 @@
      stays two lines rather than three. */
   .barmoney {
     position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 6px;
-    text-align: center; color: var(--text-subtle); font-family: var(--font-mono);
-    font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap;
+    text-align: center; color: var(--text-subtle);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
   }
 
   /* ── The month ───────────────────────────────────────────────── */
@@ -170,7 +170,7 @@
      below are readings taken from it. A rule here would read as a section
      boundary, which is not what this is. */
   .paystats .tier-hero + .figgroup { margin-top: 26px; }
-  .cap { color: var(--text-subtle); font-family: var(--font-mono); font-size: 11.5px; }
+  .cap { color: var(--text-subtle); }
 
   .climb { min-width: 0; }
   .climbplot { position: relative; padding: 0 14px 0 44px; }
@@ -186,16 +186,16 @@
   /* Axis labels are drawn OUTSIDE the stretched viewBox, in HTML, so
      `preserveAspectRatio="none"` cannot distort the type. */
   .ylabels { position: absolute; inset: 0 auto 0 -44px; width: 44px; }
-  .ylab { position: absolute; left: 0; translate: 0 -50%; color: var(--text-subtle); font-family: var(--font-mono); font-size: 11.5px; white-space: nowrap; }
+  .ylab { position: absolute; left: 0; translate: 0 -50%; color: var(--text-subtle); white-space: nowrap; }
   .xlabels { position: relative; height: 16px; margin: 10px 14px 0 44px; }
-  .xlab { position: absolute; translate: -50% 0; color: var(--text-subtle); font-family: var(--font-mono); font-size: 11.5px; white-space: nowrap; }
+  .xlab { position: absolute; translate: -50% 0; color: var(--text-subtle); white-space: nowrap; }
   .xlab.now { color: var(--text-primary); }
   .xlab.edge { translate: 0 0; }
   .xlab.edge.right { translate: -100% 0; }
   .mstrip { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin: 0 14px 0 44px; }
 
   .cardkey { display: flex; align-items: center; gap: 20px; margin-top: 22px; flex-wrap: wrap; }
-  .ck { display: inline-flex; align-items: center; gap: 7px; color: var(--text-subtle); font-family: var(--font-mono); font-size: 11.5px; }
+  .ck { display: inline-flex; align-items: center; gap: 7px; color: var(--text-subtle); }
 </style>
 
 <div class="page">
@@ -235,6 +235,11 @@
       <li><strong>The screen is the same on every open.</strong> One
         arrangement, one window per region, and the habit is built on finding
         the number where it was yesterday.</li>
+      <li><strong>A figure rolls when its money changes.</strong> The count-up
+        means "this number just moved", so it runs on arrival and on a value
+        that actually changed. Returning to Home from another screen holding
+        the same figures rolls nothing — a roll there would say it of
+        numbers the user read a moment ago.</li>
     </ul>
   </section>
 
@@ -258,23 +263,23 @@
               <span class="region-head">Today <span class="dot">&middot;</span> Thursday, Sep 17</span>
               <div class="figgroup tier-major">
                 <span class="type-label figlabel">Earned</span>
-                <span class="pairline"><span class="type-figure fig-major">$340</span><span class="u">5h 00m</span></span>
+                <span class="pairline"><span class="type-figure fig-major">$340</span><span class="type-duration u">5h 00m</span></span>
               </div>
               <div class="tentries">
                 <div class="tentry live">
                   <span class="swatch" style="background:var(--proj-6)"></span>
-                  <span class="nm">Inventory sync edge cases</span>
-                  <span class="dur">4:15</span>
+                  <span class="type-support nm">Inventory sync edge cases</span>
+                  <span class="type-duration dur">4:15</span>
                 </div>
                 <div class="tentry">
                   <span class="swatch" style="background:var(--proj-6)"></span>
-                  <span class="nm">Standup and planning</span>
-                  <span class="dur">0:25</span>
+                  <span class="type-support nm">Standup and planning</span>
+                  <span class="type-duration dur">0:25</span>
                 </div>
                 <div class="tentry">
                   <span class="swatch none"></span>
-                  <span class="nm">Invoicing admin</span>
-                  <span class="dur">0:20</span>
+                  <span class="type-support nm">Invoicing admin</span>
+                  <span class="type-duration dur">0:20</span>
                 </div>
               </div>
             </div>
@@ -285,26 +290,26 @@
               <span class="region-head">This week <span class="dot">&middot;</span> Sep 14&ndash;20</span>
               <div class="wfig figgroup tier-major">
                 <span class="type-label figlabel">Earned</span>
-                <span class="pairline"><span class="type-figure fig-major">$1,880</span><span class="u">23h 30m</span></span>
+                <span class="pairline"><span class="type-figure fig-major">$1,880</span><span class="type-duration u">23h 30m</span></span>
               </div>
               <div class="plot" role="img" aria-label="Mon 7h $560, Tue 5h 30m $440, Wed 6h 45m $540, Thu 4h 15m $340 so far, Fri to Sun not yet worked.">
                 <div class="tracks">
-                  <div class="day"><div class="dtrack"><i style="height:94%; background:var(--proj-6)"><span class="barmoney">$560</span></i></div></div>
-                  <div class="day"><div class="dtrack"><i style="height:73.9%; background:var(--proj-6)"><span class="barmoney">$440</span></i></div></div>
-                  <div class="day"><div class="dtrack"><i style="height:90.6%; background:var(--proj-6)"><span class="barmoney">$540</span></i></div></div>
-                  <div class="day today"><div class="dtrack"><i style="height:57.1%; background:var(--proj-6)"><span class="barmoney">$340</span></i></div></div>
+                  <div class="day"><div class="dtrack"><i style="height:94%; background:var(--proj-6)"><span class="type-meta barmoney">$560</span></i></div></div>
+                  <div class="day"><div class="dtrack"><i style="height:73.9%; background:var(--proj-6)"><span class="type-meta barmoney">$440</span></i></div></div>
+                  <div class="day"><div class="dtrack"><i style="height:90.6%; background:var(--proj-6)"><span class="type-meta barmoney">$540</span></i></div></div>
+                  <div class="day today"><div class="dtrack"><i style="height:57.1%; background:var(--proj-6)"><span class="type-meta barmoney">$340</span></i></div></div>
                   <div class="day rest"><div class="dtrack"></div></div>
                   <div class="day rest"><div class="dtrack"></div></div>
                   <div class="day rest"><div class="dtrack"></div></div>
                 </div>
                 <div class="caps">
-                  <div class="dcap"><span class="dhours">7h</span><span class="dlabel">MON</span></div>
-                  <div class="dcap"><span class="dhours">5h 30m</span><span class="dlabel">TUE</span></div>
-                  <div class="dcap"><span class="dhours">6h 45m</span><span class="dlabel">WED</span></div>
-                  <div class="dcap today"><span class="dhours">4h 15m</span><span class="dlabel">THU</span></div>
-                  <div class="dcap rest"><span class="dhours">&mdash;</span><span class="dlabel">FRI</span></div>
-                  <div class="dcap rest"><span class="dhours">&mdash;</span><span class="dlabel">SAT</span></div>
-                  <div class="dcap rest"><span class="dhours">&mdash;</span><span class="dlabel">SUN</span></div>
+                  <div class="dcap"><span class="type-amount dhours">7h</span><span class="type-meta dlabel">MON</span></div>
+                  <div class="dcap"><span class="type-amount dhours">5h 30m</span><span class="type-meta dlabel">TUE</span></div>
+                  <div class="dcap"><span class="type-amount dhours">6h 45m</span><span class="type-meta dlabel">WED</span></div>
+                  <div class="dcap today"><span class="type-amount dhours">4h 15m</span><span class="type-meta dlabel">THU</span></div>
+                  <div class="dcap rest"><span class="type-amount dhours">&mdash;</span><span class="type-meta dlabel">FRI</span></div>
+                  <div class="dcap rest"><span class="type-amount dhours">&mdash;</span><span class="type-meta dlabel">SAT</span></div>
+                  <div class="dcap rest"><span class="type-amount dhours">&mdash;</span><span class="type-meta dlabel">SUN</span></div>
                 </div>
               </div>
             </div>
@@ -317,7 +322,7 @@
               <span class="region-head">This month <span class="dot">&middot;</span> September</span>
               <div class="figgroup tier-hero" style="margin-top:16px">
                 <span class="type-label figlabel">Earned</span>
-                <span class="pairline"><span class="fig-hero">$6,840</span><span class="u">85h 30m</span></span>
+                <span class="pairline"><span class="fig-hero">$6,840</span><span class="type-duration u">85h 30m</span></span>
               </div>
               <div class="figgroup tier-minor">
                 <span class="type-label figlabel">On track for</span>
@@ -325,7 +330,7 @@
               </div>
               <div class="figgroup tier-minor">
                 <span class="type-label figlabel">Unbilled</span>
-                <span class="pairline"><span class="type-amount-hero fig-minor">$6,840</span><span class="cap">across 2 clients</span></span>
+                <span class="pairline"><span class="type-amount-hero fig-minor">$6,840</span><span class="type-meta cap">across 2 clients</span></span>
               </div>
             </div>
 
@@ -351,10 +356,10 @@
                     <circle cx="300" cy="18.2" r="3.75" class="mend"/>
                   </svg>
                   <div class="ylabels">
-                    <span class="ylab" style="top:23.08%">$10k</span>
-                    <span class="ylab" style="top:42.31%">$7.5k</span>
-                    <span class="ylab" style="top:61.54%">$5k</span>
-                    <span class="ylab" style="top:80.77%">$2.5k</span>
+                    <span class="type-meta ylab" style="top:23.08%">$10k</span>
+                    <span class="type-meta ylab" style="top:42.31%">$7.5k</span>
+                    <span class="type-meta ylab" style="top:61.54%">$5k</span>
+                    <span class="type-meta ylab" style="top:80.77%">$2.5k</span>
                   </div>
                 </div>
               </div>
@@ -363,20 +368,20 @@
                 <span style="width:17.0%; background:var(--proj-7)"></span>
                 <span style="width:2.9%;  background:var(--text-subtle)"></span>
               </div>
-              <div class="xlabels">
-                <span class="xlab edge" style="left:0">Sep 1</span>
-                <span class="xlab" style="left:20.69%">Sep 7</span>
-                <span class="xlab" style="left:44.83%">Sep 14</span>
-                <span class="xlab now" style="left:55.17%">today</span>
-                <span class="xlab edge right" style="left:100%">Sep 30</span>
+              <div class="type-meta xlabels">
+                <span class="type-meta xlab edge" style="left:0">Sep 1</span>
+                <span class="type-meta xlab" style="left:20.69%">Sep 7</span>
+                <span class="type-meta xlab" style="left:44.83%">Sep 14</span>
+                <span class="type-meta xlab now" style="left:55.17%">today</span>
+                <span class="type-meta xlab edge right" style="left:100%">Sep 30</span>
               </div>
             </div>
           </div>
 
           <div class="cardkey">
-            <span class="ck"><span class="swatch" style="background:var(--proj-6)"></span>Northwind Trading</span>
-            <span class="ck"><span class="swatch" style="background:var(--proj-7)"></span>Meridian Labs</span>
-            <span class="ck"><span class="swatch none"></span>Internal</span>
+            <span class="type-meta ck"><span class="swatch" style="background:var(--proj-6)"></span>Northwind Trading</span>
+            <span class="type-meta ck"><span class="swatch" style="background:var(--proj-7)"></span>Meridian Labs</span>
+            <span class="type-meta ck"><span class="swatch none"></span>Internal</span>
           </div>
         </div>
 
@@ -492,7 +497,11 @@
       <tr>
         <td>Unbilled</td>
         <td><em>What is ready to bill?</em> Work done and not yet invoiced.
-            Climbs while you work and resets when you invoice.</td>
+            Climbs while you work and resets when you invoice. <strong>All-time,
+            not the month</strong> — it is a balance rather than a period, and
+            the backlog that matters most is the part older than September.
+            It sits beside the month's figures without sharing their
+            window.</td>
       </tr>
     </table>
 
