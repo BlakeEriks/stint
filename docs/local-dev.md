@@ -279,6 +279,31 @@ missing `search_path`. Local reproduces that code path faithfully.
 `major_version = 17` in `config.toml` matches the hosted project (17.6). If
 you upgrade one, upgrade the other.
 
+### Asking production a question
+
+Before changing a table, ask the hosted database what is in it. A script
+under `scripts/` gets the connection from `scripts/db-url.mjs` and never
+handles the secret itself:
+
+```js
+import pg from 'pg';
+import { connectionString, sslFor, short } from './db-url.mjs';
+const url = connectionString([]);           // [] so argv is not parsed
+console.log('target:', short(url));          // password masked for the log
+const c = new pg.Client({ connectionString: url, ssl: sslFor(url) });
+```
+
+`connectionString()` reads `apps/web/.env.local`, so the value is never
+pasted into a command, a shell history or a chat. `short()` is what makes the
+output safe to paste back. It must run from the repo root, where `pg`
+resolves.
+
+This is how a destructive plan gets checked before it runs: the reset that
+M1's schema change seemed to need turned out to be unnecessary, because
+production held **zero** rows in the table being altered and thirteen real
+time entries beside it. A migration replaced the reset. **Read-only until the
+counts say otherwise.**
+
 ## Running the bearer-token test
 
 ```bash
