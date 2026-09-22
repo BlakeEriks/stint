@@ -164,6 +164,45 @@ them together, because each one blocks work that looks unrelated to it.
       The version belongs in the bundle and readable from the app, so a
       report names it without the user finding it.
 
+- [ ] **Alpha is invite-only, and the landing page is how you ask.**
+
+      *Whose problem:* ours, and it is live the moment the apex resolves.
+      Magic-link auth **creates the account on first sign-in** — there is no
+      allowlist anywhere in the tree — so today every CTA on the landing page
+      is an open front door into the production database.
+
+      *Without it:* a stranger we did not invite has a real account, and the
+      first limit we hit is Supabase's default sender, which is the same
+      few-an-hour cap the SMTP item above exists to lift.
+
+      *One person:* yes, and it is what makes the page publishable before
+      any of that is finished.
+
+      **Capture an address instead of signing them in.** A form service, not
+      a table and a route: an unauthenticated write endpoint on our own
+      database needs rate limiting to not become a spam target, and that is
+      more work than an alpha list of a dozen people justifies. The gate is
+      us reading the list, which is what invite-only means at this size.
+
+      Swap it for a real table when there is a reason — a volume that makes
+      reading the list tedious, not a preference for owning the rows.
+
+- [ ] **An address on the domain: `hello@runstint.com`.**
+
+      *Whose problem:* every alpha user who wants to reply to something, and
+      ours on the invoice — a billing tool whose only contact is a personal
+      Gmail undercuts the thing it is selling.
+
+      *Without it:* it annoys them, which does not make the roadmap on its
+      own — **but the capture form and the invoice footer both need an
+      address to name**, and neither can ship without one.
+
+      *One person:* yes.
+
+      Cloudflare Email Routing forwards it, free and in minutes. **It does
+      not send**, so it replaces nothing in the SMTP item above: that is
+      still a separate provider, and this is only an inbox.
+
 - [ ] **Sign in as a stranger would.** A second machine, an address that has
       never touched this project, and no local anything — through the real
       domain, the real sender, the real redirect. Every failure above
