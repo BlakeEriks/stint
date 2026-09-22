@@ -32,31 +32,6 @@ the gate teaches the next reader that the gate is optional.
 
 ---
 
-## M1 · The invoice can represent a real business
-
-The paid tier is the invoice. If it cannot describe the work, there is
-nothing to sell.
-
-- [ ] **Non-time line items: flat fee and rebilled expense.**
-
-      *Whose problem:* a contractor who bills a fixed-scope project, a
-      deposit, a retainer amount, or who rebills a flight or a licence, cannot
-      produce a correct invoice at all today.
-
-      *Without it:* they do not sign up. This is not a missing nicety — the
-      tool cannot invoice their business.
-
-      *One person:* yes. Flat-fee work is the common solo shape, not an
-      agency one.
-
-      `LineItem` in `packages/core/src/invoice.ts` requires `quantitySeconds`
-      and `entryIds`, so every line is structurally time. This is a type
-      change reaching core, the SQL rate chain, the PDF and the API — the
-      largest item before launch, and the one that gates revenue.
-
-      Expenses need no receipt capture or categories to clear this bar. A
-      line on an invoice that is not hours is the whole requirement.
-
 ## M2 · Your records get in, and back out
 
 Both directions of the same promise: the history you arrive with comes with
@@ -127,8 +102,8 @@ you, and nothing you build here is held hostage.
 
 ## M4 · Taking money
 
-**This milestone is a subsystem, not a copy change**, and it is plausibly
-larger than M1. Nothing here exists in the codebase today: there is no Stripe
+**This milestone is a subsystem, not a copy change**, and it is the largest
+thing left. Nothing here exists in the codebase today: there is no Stripe
 integration, no subscription table, no entitlement check.
 
 - [ ] **Billing: subscribe, and know who has.**
