@@ -48,7 +48,6 @@ beforeEach(async () => {
   await pool.query(
     `update user_settings set default_hourly_rate=100, max_timer_hours=8,
                     week_starts_on=1, next_invoice_number=1,
-                    monthly_target=null, monthly_target_unit=null,
                     -- Null is the shipped default: the strange-duration row
                     -- does not exist until a threshold is set.
                     min_entry_seconds=null, max_entry_hours=null
@@ -749,8 +748,6 @@ test('every settable field round-trips, rather than being silently dropped', asy
     businessAddress: '1 Main St\nAustin, TX 78701',
     paymentNotice: 'Details never change. Verify by phone.',
     invoiceNumberPrefix: 'STINT-',
-    monthlyTarget: 12000,
-    monthlyTargetUnit: 'revenue',
   };
 
   const res = await json(await patch(req('/settings', sent, 'PATCH')));
@@ -758,59 +755,6 @@ test('every settable field round-trips, rather than being silently dropped', asy
   for (const [field, value] of Object.entries(sent)) {
     assert.deepEqual(res.body[field], value, field);
   }
-});
-
-/* The database check is `monthly_target > 0`, so a zero that passes Zod comes
-   back as a 500 instead of a field error the form can show. */
-test('a monthly target of zero is a validation error, not a 500', async () => {
-  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
-
-  const res = await json(
-    await patch(
-      req(
-        '/settings',
-        { monthlyTarget: 0, monthlyTargetUnit: 'revenue' },
-        'PATCH',
-      ),
-    ),
-  );
-  assert.equal(res.status, 422);
-  assert.equal(res.body.code, 'VALIDATION_FAILED');
-});
-
-test('a target and its unit must be set or cleared together', async () => {
-  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
-
-  const res = await json(
-    await patch(
-      req(
-        '/settings',
-        { monthlyTarget: 12000, monthlyTargetUnit: null },
-        'PATCH',
-      ),
-    ),
-  );
-  assert.equal(res.status, 422);
-});
-
-/* Zod cannot see the stored row, so a patch naming only one half of the pair
-   passes it and the database check is what rejects the result. */
-test('clearing only the unit breaks the pairing with a 422, not a 500', async () => {
-  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
-
-  await patch(
-    req(
-      '/settings',
-      { monthlyTarget: 120, monthlyTargetUnit: 'hours' },
-      'PATCH',
-    ),
-  );
-
-  const res = await json(
-    await patch(req('/settings', { monthlyTargetUnit: null }, 'PATCH')),
-  );
-  assert.equal(res.status, 422);
-  assert.equal(res.body.code, 'VALIDATION_FAILED');
 });
 
 // ── calendar ───────────────────────────────────────────────────────
@@ -848,6 +792,52 @@ test('calendar groups entries by LOCAL day', async () => {
     'the same entry files under the local date',
   );
   assert.equal(sp.body.days[0].totalSeconds, 3600);
+});
+
+/* The week's bar height is billable seconds (`revenue_by_day`), and its stack
+   divides that height. If `byClient` counted non-billable work too, internal
+   time would take a share of a bar it did not raise. */
+test('the day split counts billable work only', async () => {
+  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
+  const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
+
+  await create(
+    req('/entries', {
+      id: '018f0000-0000-7000-8000-000000000031',
+      taskName: 'Billable',
+      startedAt: '2026-09-14T09:00:00Z',
+      endedAt: '2026-09-14T11:00:00Z',
+    }),
+  );
+  await create(
+    req('/entries', {
+      id: '018f0000-0000-7000-8000-000000000032',
+      taskName: 'Not billable',
+      startedAt: '2026-09-14T13:00:00Z',
+      endedAt: '2026-09-14T14:00:00Z',
+      isBillable: false,
+    }),
+  );
+
+  const res = await json(
+    await calendar(
+      req(
+        '/calendar?from=2026-09-14T00:00:00Z&to=2026-09-15T00:00:00Z&granularity=day&tz=UTC',
+      ),
+    ),
+  );
+
+  const day = res.body.days.find(
+    (d: { date: string }) => d.date === '2026-09-14',
+  );
+  const split = Object.values(day.byClient as Record<string, number>).reduce(
+    (sum: number, n) => sum + (n as number),
+    0,
+  );
+
+  // The day's whole load stays unfiltered: the calendar draws all of it.
+  assert.equal(day.totalSeconds, 10_800);
+  assert.equal(split, 7200, 'but the split leaves the non-billable hour out');
 });
 
 test('calendar rejects an inverted period', async () => {
@@ -1190,66 +1180,56 @@ test('the unbilled total covers every client, even past the row cap', async () =
   assert.equal(res.body.unbilled.total, 700, 'but the total is all seven');
 });
 
-test('pace measures against BUSINESS days, and hides with no target', async () => {
+test('the month counts BUSINESS days, and needs no target to do it', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
-  const none = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(none.body.pace, null, 'no target, no card');
-
-  await pool.query(
-    `update user_settings set monthly_target=120, monthly_target_unit='hours'
-     where user_id=$1`,
-    [USER],
-  );
   const res = await json(await stats(req('/stats?tz=UTC')));
-  const pace = res.body.pace;
+  const month = res.body.month;
 
-  assert.equal(pace.unit, 'hours');
-  assert.equal(pace.target, 120);
+  assert.ok(month, 'the month is always present — there is no target to miss');
   assert.ok(
-    pace.businessDaysTotal >= 20 && pace.businessDaysTotal <= 23,
-    `a month has 20-23 business days, got ${pace.businessDaysTotal}`,
+    month.businessDaysTotal >= 20 && month.businessDaysTotal <= 23,
+    `a month has 20-23 business days, got ${month.businessDaysTotal}`,
   );
-  assert.ok(pace.businessDaysTotal < 28, 'business days, not calendar days');
-  assert.ok(pace.businessDaysElapsed <= pace.businessDaysTotal);
-  assert.equal(pace.delta, pace.actual - pace.expected);
+  assert.ok(month.businessDaysTotal < 28, 'business days, not calendar days');
+  assert.ok(month.businessDaysElapsed <= month.businessDaysTotal);
+  assert.equal(
+    month.series.length,
+    month.businessDaysTotal,
+    'one point per business day',
+  );
 });
 
-test('a revenue target reports money, and never hours in dollars', async () => {
+test('the month reports MONEY earned, never the hours behind it', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-  await pool.query(
-    `update user_settings set monthly_target=10000, monthly_target_unit='revenue'
-     where user_id=$1`,
-    [USER],
-  );
+
   // 4h at an explicit 150/h, inside whatever month the clock says it is.
   await entryThisMonth({ id: S(70), hours: 4, rateOverride: 150 });
 
   const res = await json(await stats(req('/stats?tz=UTC')));
-  const pace = res.body.pace;
-
-  assert.equal(pace.unit, 'revenue');
-  assert.equal(pace.target, 10000);
-  // The figure is MONEY at the resolved rate, not the 4 hours behind it.
-  assert.equal(pace.actual, 600);
-  assert.notEqual(pace.actual, 4, 'nor the hours themselves');
-
-  // The ray is drawn against the money, so the projection is in dollars too.
-  assert.equal(pace.delta, pace.actual - pace.expected);
-  assert.ok(pace.businessDaysTotal > 0);
+  assert.equal(res.body.month.earned, 600);
+  assert.notEqual(res.body.month.earned, 4, 'nor the hours themselves');
 });
 
-test('revenue counts invoiced work, and drops it when the invoice is voided', async () => {
+/* The screen that read these is gone and so are they: a field nothing
+   renders is a payload every visitor pays for. */
+test('the cards that left took their fields with them', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-  await pool.query(
-    `update user_settings set monthly_target=10000, monthly_target_unit='revenue'
-     where user_id=$1`,
-    [USER],
-  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+
+  assert.equal(res.body.pace, undefined, 'the goal-derived field is gone');
+  assert.equal(res.body.velocity, undefined);
+  assert.equal(res.body.byProject, undefined);
+  assert.equal(res.body.billableRatio, undefined);
+});
+
+test('earned counts invoiced work, and drops it when the invoice is voided', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   await entryThisMonth({ id: S(71), hours: 2, rateOverride: 100 });
 
   const before = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(before.body.pace.actual, 200, 'unbilled work is still earned');
+  assert.equal(before.body.month.earned, 200, 'unbilled work is still earned');
 
   /* Invoicing does not change what was earned: the figure is work DONE, so
      it must not move when the paperwork happens. */
@@ -1277,13 +1257,13 @@ test('revenue counts invoiced work, and drops it when the invoice is voided', as
     S(71),
   ]);
   const sent = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(sent.body.pace.actual, 200, 'invoicing it changes nothing');
+  assert.equal(sent.body.month.earned, 200, 'invoicing it changes nothing');
 
   /* Voiding releases the entries, so the work stops counting — otherwise a
      voided invoice would leave revenue claiming money nobody owes. */
   await pool.query(`update invoices set status='void' where id=$1`, [invoice]);
   const voided = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(voided.body.pace.actual, 0, 'a voided invoice earns nothing');
+  assert.equal(voided.body.month.earned, 0, 'a voided invoice earns nothing');
 });
 
 test('an invoice is overdue only after the grace period', async () => {
@@ -1565,50 +1545,11 @@ test('stats sees only its own user’s work', async () => {
   assert.equal(res.body.unbilled.byClient.length, 1);
 });
 
-// ── velocity ───────────────────────────────────────────────────────
+// ── today's earnings ───────────────────────────────────────────────
 //
-// A FOURTH rollup over the same rate chain. Its whole job is to agree with
-// Unbilled, which sits directly above it on the same screen, so these check
-// the agreement rather than the arithmetic in isolation.
-
-test('velocity splits invoiced from unbilled without double-counting', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const c = '44444444-0000-4000-8000-000000000001';
-  const p = '44444444-0000-4000-8000-0000000000a1';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Velo',100)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
-    [p, USER, c],
-  );
-
-  await entryThisMonth({ id: S(40), hours: 3, projectId: p }); // 300 unbilled
-  await entryThisMonth({ id: S(41), hours: 2, projectId: p }); // 200, invoiced
-
-  const inv = '44444444-0000-4000-8000-0000000000b1';
-  await pool.query(
-    `insert into invoices (id,user_id,client_id,status,invoice_number,sequence_no)
-     values ($1,$2,$3,'sent','INV-V1',9001)`,
-    [inv, USER, c],
-  );
-  await pool.query(`update time_entries set invoice_id = $1 where id = $2`, [
-    inv,
-    S(41),
-  ]);
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.velocity.invoiced, 200);
-  assert.equal(res.body.velocity.unbilled, 300);
-  assert.equal(res.body.velocity.total, 500, 'the split IS the total');
-  assert.equal(res.body.velocity.seconds, 5 * 3600);
-
-  // Unbilled is the same work by the same chain; a divergence here is two
-  // figures disagreeing on one screen.
-  assert.equal(res.body.unbilled.total, res.body.velocity.unbilled);
-});
+// `earnedToday` comes out of the month's own by-day series, which is the
+// same map the cumulative line is built from — so this also guards that
+// map being keyed on the local date SQL grouped by.
 
 test("today's earnings are today's work, bucketed in the caller's zone", async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
@@ -1669,342 +1610,34 @@ test("today's earnings are today's work, bucketed in the caller's zone", async (
   );
 });
 
-test('velocity groups by (client, RATE), like every other rollup', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const c = '44444444-0000-4000-8000-000000000002';
-  const pBase = '44444444-0000-4000-8000-0000000000a2';
-  const pRush = '44444444-0000-4000-8000-0000000000a3';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'TwoRates',150)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Base')`,
-    [pBase, USER, c],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name,hourly_rate)
-     values ($1,$2,$3,'Rush',195)`,
-    [pRush, USER, c],
-  );
-
-  await entryThisMonth({ id: S(42), hours: 6, projectId: pBase }); // 900
-  await entryThisMonth({ id: S(43), hours: 3, projectId: pRush }); // 585
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.velocity.total, 1485);
-  assert.notEqual(res.body.velocity.total, 1755, 'must not take the top rate');
-  assert.notEqual(res.body.velocity.total, 1350, 'nor the bottom one');
-  assert.equal(res.body.velocity.byClient.length, 1, 'one ROW per client');
-});
-
-test('a rate of exactly 0 is a rate, and never counted as unrated', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const c = '44444444-0000-4000-8000-000000000003';
-  const p = '44444444-0000-4000-8000-0000000000a4';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Pro Bono',0)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
-    [p, USER, c],
-  );
-  await entryThisMonth({ id: S(44), hours: 5, projectId: p });
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  const row = res.body.velocity.byClient.find(
-    (r: { clientName: string }) => r.clientName === 'Pro Bono',
-  );
-  assert.ok(row, 'a zero-rate client is still a row, not a dropped one');
-  assert.equal(row.seconds, 5 * 3600);
-  assert.equal(row.unbilled, 0);
-  assert.equal(row.unratedCount, 0, '0 is a rate; only NULL is unrated');
-});
-
-test('velocity sees only its own user’s work', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const theirs = '44444444-0000-4000-8000-000000000004';
-  const pt = '44444444-0000-4000-8000-0000000000a5';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Theirs',900)`,
-    [theirs, OTHER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
-    [pt, OTHER, theirs],
-  );
-  const now = new Date();
-  const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 2, 12, 0, 0),
-  );
-  await pool.query(
-    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
-     values ($1,$2,$3,'theirs',$4,$5,true)`,
-    [
-      S(45),
-      OTHER,
-      pt,
-      start.toISOString(),
-      new Date(start.getTime() + 10 * 3_600_000).toISOString(),
-    ],
-  );
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.velocity.total, 0, 'nine thousand of theirs is absent');
-  assert.deepEqual(res.body.velocity.byClient, []);
-});
-
-// ── by project ─────────────────────────────────────────────────────
-//
-// Velocity's window, ranked by project instead of client. Two things are
-// particular to it: hours count all worked time while money counts billable
-// work alone, and unfiled work is inside the section totals but never a
-// column. These check both, and that the footer still reconciles.
-
-/** An ended entry inside the current month, billable or not. */
-async function projectEntry(opts: {
-  id: string;
-  hours: number;
-  projectId: string | null;
-  billable?: boolean;
-  userId?: string;
-}) {
-  const now = new Date();
-  const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 2, 12, 0, 0),
-  );
-  await pool.query(
-    `insert into time_entries
-       (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
-     values ($1,$2,$3,'work',$4,$5,$6)`,
-    [
-      opts.id,
-      opts.userId ?? USER,
-      opts.projectId,
-      start.toISOString(),
-      new Date(start.getTime() + opts.hours * 3_600_000).toISOString(),
-      opts.billable ?? true,
-    ],
-  );
-}
-
-test('by project counts every hour but only billable money', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const c = '55555555-0000-4000-8000-000000000001';
-  const p = '55555555-0000-4000-8000-0000000000a1';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Mixed',100)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Both')`,
-    [p, USER, c],
-  );
-
-  await projectEntry({ id: S(90), hours: 4, projectId: p });
-  await projectEntry({ id: S(91), hours: 3, projectId: p, billable: false });
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  const row = res.body.byProject.byProject[0];
-  assert.equal(row.projectName, 'Both');
-  assert.equal(row.seconds, 7 * 3600, 'unbillable work is still worked time');
-  assert.equal(row.billableSeconds, 4 * 3600);
-  assert.equal(row.amount, 400, 'the three unbillable hours earn nothing');
-  assert.equal(res.body.byProject.seconds, 7 * 3600);
-  assert.equal(res.body.byProject.amount, 400);
-});
-
-test('two projects sharing a name under different clients stay two rows', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const c1 = '55555555-0000-4000-8000-000000000002';
-  const c2 = '55555555-0000-4000-8000-000000000003';
-  const p1 = '55555555-0000-4000-8000-0000000000a2';
-  const p2 = '55555555-0000-4000-8000-0000000000a3';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate)
-     values ($1,$2,'Acme',100),($3,$2,'Globex',200)`,
-    [c1, USER, c2],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name)
-     values ($1,$2,$3,'Redesign'),($4,$2,$5,'Redesign')`,
-    [p1, USER, c1, p2, c2],
-  );
-
-  await projectEntry({ id: S(92), hours: 5, projectId: p1 });
-  await projectEntry({ id: S(93), hours: 2, projectId: p2 });
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  const rows = res.body.byProject.byProject;
-  assert.equal(rows.length, 2, 'the name is not the grouping key');
-  assert.deepEqual(
-    rows.map((r: { clientName: string }) => r.clientName).sort(),
-    ['Acme', 'Globex'],
-    'the client is what tells them apart',
-  );
-  assert.equal(
-    rows.find((r: { clientName: string }) => r.clientName === 'Acme').amount,
-    500,
-  );
-  assert.equal(
-    rows.find((r: { clientName: string }) => r.clientName === 'Globex').amount,
-    400,
-  );
-});
-
-test('an entirely unbillable project is a row with hours and no money', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const c = '55555555-0000-4000-8000-000000000004';
-  const p = '55555555-0000-4000-8000-0000000000a4';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Admin',150)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Overhead')`,
-    [p, USER, c],
-  );
-  await projectEntry({ id: S(94), hours: 6, projectId: p, billable: false });
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  const row = res.body.byProject.byProject.find(
-    (r: { projectName: string }) => r.projectName === 'Overhead',
-  );
-  assert.ok(row, 'work with no money is still work, and still a column');
-  assert.equal(row.seconds, 6 * 3600);
-  assert.equal(row.billableSeconds, 0);
-  assert.equal(row.amount, 0);
-  assert.equal(row.unratedCount, 0, 'unbillable work is not unrated work');
-});
-
-test('by project: a rate of exactly 0 is a rate, and never counted as unrated', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const c = '55555555-0000-4000-8000-000000000005';
-  const p = '55555555-0000-4000-8000-0000000000a5';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Pro Bono',0)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Free')`,
-    [p, USER, c],
-  );
-  await projectEntry({ id: S(95), hours: 5, projectId: p });
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  const row = res.body.byProject.byProject.find(
-    (r: { projectName: string }) => r.projectName === 'Free',
-  );
-  assert.ok(row, 'a zero-rate project is still a row, not a dropped one');
-  assert.equal(row.seconds, 5 * 3600);
-  assert.equal(row.amount, 0);
-  assert.equal(row.unratedCount, 0, '0 is a rate; only NULL is unrated');
-});
-
-test('by project sees only its own user’s work', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const theirs = '55555555-0000-4000-8000-000000000006';
-  const pt = '55555555-0000-4000-8000-0000000000a6';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Theirs',900)`,
-    [theirs, OTHER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Secret')`,
-    [pt, OTHER, theirs],
-  );
-  await projectEntry({ id: S(96), hours: 10, projectId: pt, userId: OTHER });
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.deepEqual(res.body.byProject.byProject, []);
-  assert.equal(res.body.byProject.seconds, 0);
-  assert.equal(res.body.byProject.amount, 0);
-});
-
-test('THE DECISION: unfiled work reaches the total but never a column', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-
-  const c = '55555555-0000-4000-8000-000000000007';
-  const p = '55555555-0000-4000-8000-0000000000a7';
-  await pool.query(
-    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Filed',100)`,
-    [c, USER],
-  );
-  await pool.query(
-    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Real')`,
-    [p, USER, c],
-  );
-
-  await projectEntry({ id: S(97), hours: 2, projectId: p });
-  // More hours than any real project, so ordering alone would put it first.
-  await projectEntry({ id: S(98), hours: 40, projectId: null });
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  const { byProject: columns, seconds, tailSeconds } = res.body.byProject;
-
-  assert.equal(columns.length, 1, 'only the real project is a column');
-  assert.equal(columns[0].projectName, 'Real');
-  assert.ok(
-    !columns.some((r: { projectId: string | null }) => r.projectId === null),
-    'no bar for work that is not a project, however many hours it carries',
-  );
-
-  assert.equal(tailSeconds, 40 * 3600, 'the unfiled hours land in the tail');
-  assert.equal(res.body.byProject.moreProjects, 1);
-  assert.equal(seconds, 42 * 3600, 'the footer states the window’s real total');
-
-  const columnSeconds = columns.reduce(
-    (a: number, r: { seconds: number }) => a + r.seconds,
-    0,
-  );
-  assert.equal(
-    columnSeconds + tailSeconds,
-    seconds,
-    'columns + tail === total, or the screen disagrees with itself',
-  );
-});
-
 // ── the month's cumulative series ──────────────────────────────────
 
-test('the pace series steps on business days and its ray reaches the target', async () => {
+test('the series steps on business days, one point per day', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
-  await pool.query(
-    `insert into user_settings (user_id, monthly_target, monthly_target_unit)
-     values ($1,120,'hours')
-     on conflict (user_id) do update
-       set monthly_target = 120, monthly_target_unit = 'hours'`,
-    [USER],
-  );
-
   const res = await json(await stats(req('/stats?tz=UTC')));
-  const series = res.body.pace.series as {
+  const series = res.body.month.series as {
     date: string;
     actual: number | null;
-    expected: number;
   }[];
 
-  assert.equal(series.length, res.body.pace.businessDaysTotal);
+  assert.equal(series.length, res.body.month.businessDaysTotal);
   for (const point of series) {
     const dow = new Date(`${point.date}T00:00:00Z`).getUTCDay();
     assert.ok(dow !== 0 && dow !== 6, `${point.date} is a weekend`);
   }
-  assert.ok(
-    Math.abs(series[series.length - 1]!.expected - 120) < 1e-9,
-    'the ray lands on the target, not short of or past it',
+
+  /* The line stops at today rather than running flat to the 31st — a level
+     line to month end reads as a month that stopped working. */
+  const drawn = series.filter((s) => s.actual !== null);
+  assert.equal(
+    drawn.length,
+    res.body.month.businessDaysElapsed,
+    'null past today, and only past today',
   );
 });
 
-test('a revenue target gets a ray, not a withheld one', async () => {
+test('the cumulative line carries money, and ends on the month’s earned', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   const c = '44444444-0000-4000-8000-000000000005';
@@ -2019,34 +1652,249 @@ test('a revenue target gets a ray, not a withheld one', async () => {
   );
   await entryThisMonth({ id: S(46), hours: 4, projectId: p }); // 400
 
-  await pool.query(
-    `insert into user_settings (user_id, monthly_target, monthly_target_unit)
-     values ($1,5000,'revenue')
-     on conflict (user_id) do update
-       set monthly_target = 5000, monthly_target_unit = 'revenue'`,
-    [USER],
-  );
-
   const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.pace.unit, 'revenue');
-  assert.equal(res.body.pace.actual, 400);
-  assert.notEqual(res.body.pace.expected, null, 'revenue projects too');
-  assert.notEqual(res.body.pace.delta, null);
+  assert.equal(res.body.month.earned, 400);
 
-  const series = res.body.pace.series as { actual: number | null }[];
+  const series = res.body.month.series as { actual: number | null }[];
   const drawn = series.filter((s) => s.actual !== null);
   /* The line is null past today, so before the month's first business day
      there is no point to read. That is the series being right, not the money
-     going missing — `pace.actual` above carries the figure either way. */
+     going missing — `month.earned` above carries the figure either way. */
   if (drawn.length > 0) {
-    // The money reached the line, so the series is the month's revenue and
-    // not an hours series wearing a money label.
+    // The hero figure IS the line's last point: the projection extrapolates
+    // that series, so a figure from a second source would disagree with it.
     assert.equal(
       drawn.at(-1)?.actual,
       400,
       'the cumulative line carries the money, not the hours',
     );
+    assert.equal(drawn.at(-1)?.actual, res.body.month.earned);
   }
+});
+
+test('the projection is withheld until the month has a shape', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const { businessDaysElapsed, projected, projection } = res.body.month;
+
+  /* Three business days is the floor. Earned-so-far over one elapsed day
+     carried across twenty-two is one day's work times the month, a figure
+     that swings by thousands on the second day. */
+  if (businessDaysElapsed < 3) {
+    assert.equal(projected, null, 'too early to extrapolate');
+    assert.equal(projection, null, 'and nothing to draw the dashed leg to');
+  } else {
+    assert.notEqual(projected, null, 'three days in, the rate is carried');
+    assert.ok(projection, 'and the dashed leg has both endpoints');
+    assert.equal(projection.from.amount, res.body.month.earned);
+    assert.equal(projection.to.amount, projected);
+    assert.equal(
+      projection.to.date,
+      res.body.month.series.at(-1).date,
+      'the leg lands on the last business day',
+    );
+  }
+});
+
+// ── the week's bars ────────────────────────────────────────────────
+//
+// Seven columns from the same rollup the month's line reads, over the week's
+// own window — a week straddles the 1st, so the month's rows stop short of
+// it. Height comes from `seconds` and the figure at the head from `amount`,
+// and the two deliberately do not share a filter.
+
+test('the week is always seven days, in order, from the week start', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  const week = res.body.week as {
+    date: string;
+    seconds: number;
+    amount: number | null;
+  }[];
+
+  assert.equal(week.length, 7, 'seven columns, worked or not');
+  for (let i = 1; i < week.length; i += 1) {
+    const prev = new Date(`${week[i - 1]!.date}T00:00:00Z`);
+    const here = new Date(`${week[i]!.date}T00:00:00Z`);
+    assert.equal(
+      here.getTime() - prev.getTime(),
+      86_400_000,
+      'consecutive local days, no gaps',
+    );
+  }
+
+  // The seed default is Monday, and the window must contain today.
+  const todayKey = new Date().toISOString().slice(0, 10);
+  assert.ok(
+    week[0]!.date <= todayKey && todayKey <= week[6]!.date,
+    `today ${todayKey} sits inside ${week[0]!.date}..${week[6]!.date}`,
+  );
+});
+
+test('a worked day carries BOTH its seconds and its money', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '66666666-0000-4000-8000-000000000001';
+  const p = '66666666-0000-4000-8000-0000000000a1';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Week',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+
+  // Today at 09:00 local, which every zone agrees is today.
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9);
+  await pool.query(
+    `insert into time_entries
+       (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+     values ($1,$2,$3,'work',$4,$5,true)`,
+    [
+      S(80),
+      USER,
+      p,
+      start.toISOString(),
+      new Date(start.getTime() + 2 * 3_600_000).toISOString(),
+    ],
+  );
+
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const res = await json(await stats(req(`/stats?tz=${zone}`)));
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const today = (res.body.week as { date: string }[]).find(
+    (d) => d.date === todayKey,
+  ) as { seconds: number; amount: number } | undefined;
+
+  assert.ok(today, `today ${todayKey} is one of the seven`);
+  assert.equal(today.seconds, 2 * 3600, 'the height');
+  assert.equal(today.amount, 200, 'and the figure at its head');
+  assert.equal(
+    today.amount,
+    res.body.earnedToday,
+    'the same day read two ways agrees',
+  );
+});
+
+test('an unrated day keeps its height and prints no figure', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  /* No rate anywhere in the chain — including the user default the fixture
+     sets, which would otherwise resolve for a project-less entry. The time
+     was worked, so the bar stands at its true height, and the head prints
+     nothing rather than $0, which would claim the work was free. */
+  await pool.query(
+    'update user_settings set default_hourly_rate = null where user_id = $1',
+    [USER],
+  );
+
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10);
+  await pool.query(
+    `insert into time_entries
+       (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+     values ($1,$2,null,'unrated',$3,$4,true)`,
+    [
+      S(81),
+      USER,
+      start.toISOString(),
+      new Date(start.getTime() + 3_600_000).toISOString(),
+    ],
+  );
+
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const res = await json(await stats(req(`/stats?tz=${zone}`)));
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const today = (res.body.week as { date: string }[]).find(
+    (d) => d.date === todayKey,
+  ) as { seconds: number; amount: number | null } | undefined;
+
+  assert.ok(today);
+  assert.equal(today.seconds, 3600, 'the honest record of the time');
+  assert.equal(today.amount, null, 'never 0 — that would claim it was free');
+});
+
+test('a rate of exactly 0 is a rate: real seconds, and 0.00 of money', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '66666666-0000-4000-8000-000000000002';
+  const p = '66666666-0000-4000-8000-0000000000a2';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Pro Bono',0)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11);
+  await pool.query(
+    `insert into time_entries
+       (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+     values ($1,$2,$3,'free',$4,$5,true)`,
+    [
+      S(82),
+      USER,
+      p,
+      start.toISOString(),
+      new Date(start.getTime() + 5 * 3_600_000).toISOString(),
+    ],
+  );
+
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const res = await json(await stats(req(`/stats?tz=${zone}`)));
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const today = (res.body.week as { date: string }[]).find(
+    (d) => d.date === todayKey,
+  ) as { seconds: number; amount: number | null } | undefined;
+
+  assert.ok(today);
+  assert.equal(today.seconds, 5 * 3600);
+  assert.equal(today.amount, 0, '0 is a rate; only NULL withholds the figure');
+  assert.notEqual(today.amount, null, 'and 0 is not the same as unrated');
+});
+
+test('the week sees only its own user’s work', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const theirs = '66666666-0000-4000-8000-000000000003';
+  const pt = '66666666-0000-4000-8000-0000000000a3';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Theirs',900)`,
+    [theirs, OTHER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [pt, OTHER, theirs],
+  );
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,is_billable)
+     values ($1,$2,$3,'theirs',$4,$5,true)`,
+    [
+      S(83),
+      OTHER,
+      pt,
+      start.toISOString(),
+      new Date(start.getTime() + 10 * 3_600_000).toISOString(),
+    ],
+  );
+
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const res = await json(await stats(req(`/stats?tz=${zone}`)));
+  const total = (res.body.week as { seconds: number }[]).reduce(
+    (a, d) => a + d.seconds,
+    0,
+  );
+  assert.equal(total, 0, 'ten hours of theirs is absent');
+  assert.equal(res.body.month.earned, 0);
 });
 
 // ── stale drafts ───────────────────────────────────────────────────

@@ -1,249 +1,403 @@
-import Link from 'next/link';
+'use client';
+
 import { formatCurrency } from '@stint/core';
-import { CalendarDays, Pencil } from 'lucide-react';
-import type { Pace, Stats } from '@/lib/client/api';
-import { INSET, Region } from './home-shell';
+import type { Stats } from '@/lib/client/api';
+import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
+import { Money } from './money';
+import {
+  FigGroup,
+  FigLabel,
+  type Hue,
+  INTERNAL,
+  RegionHead,
+} from './home-shell';
+
+/** The climb's viewport, in its own units — the paths are scaled by SVG. */
+const PLOT_W = 300;
+const PLOT_H = 200;
+
+/** Four value gridlines, so the climb is read against something. */
+const GRIDLINES = 4;
 
 /**
- * Month to date as a cumulative line against the goal ray.
+ * This month: three figures beside the cumulative climb.
  *
- * The gap between the two lines IS the delta — a distance you read rather
- * than a percentage you decode. With no target the region stays, carrying a
- * line that names what a goal is for and links to the field.
+ * Earned is the screen's subject and the series the projection extrapolates;
+ * On track for and Unbilled are two narrower readings taken from the month's
+ * money (`docs/design/screens/home.html`).
  */
-export function Month({ stats }: { stats: Stats }) {
-  const p = stats.pace;
-
-  if (!p) {
-    return (
-      <Region title={monthName()} icon={CalendarDays} action={<EditGoal />}>
-        <div className={`${INSET} pt-1 pb-3`}>
-          <p className="type-support text-subtle">
-            Set a monthly goal to track hours or revenue against it.
-          </p>
-        </div>
-      </Region>
-    );
-  }
-
-  /* No figure yet means no subject, so the region keeps a heading rather than
-     demoting its title above an empty space. */
-  if (p.actual == null) {
-    return (
-      <Region title={monthName()} icon={CalendarDays} action={<EditGoal />}>
-        <div className={`${INSET} pt-1 pb-3`}>
-          <p className="type-support text-subtle">
-            A {p.unit} target is set, but pace in {p.unit} is not computed yet.
-          </p>
-        </div>
-      </Region>
-    );
-  }
-
-  const actual = p.actual;
-  const isRevenue = p.unit === 'revenue';
-  /** Money in the unit the target is in; hours keep one decimal and an `h`. */
-  const fmt = (n: number) =>
-    isRevenue ? formatCurrency(n, stats.currency) : `${n.toFixed(1)}h`;
-
-  /* "Behind" is derived from BUSINESS days elapsed, not calendar days: a
-     120-hour target is six hours a working day, and reading "behind" on a
-     Monday because the weekend passed would be noise pretending to be
-     signal. */
-  const ahead = p.delta != null && p.delta >= 0;
+export function Month({
+  stats,
+  hues,
+}: {
+  stats: Stats;
+  /** The panel's one palette, so a band matches its bar and its key. */
+  hues: Map<string, Hue>;
+}) {
+  const { month, currency, unbilled } = stats;
 
   return (
-    /* The only region with no figure, and deliberately: its answer is the
-       SHAPE of the month against its goal, and a 30px total above the plot
-       restates the fraction top-right while pulling the eye off the line
-       that is doing the work. */
-    <Region
-      title={monthName()}
-      icon={CalendarDays}
-      labelled
-      action={
-        <EditGoal>
-          {fmt(actual)} / {fmt(p.target)}
-        </EditGoal>
-      }
-    >
-      <div className={`flex flex-col gap-2 ${INSET} pt-1 pb-3`}>
-        <PaceLine
-          series={p.series}
-          target={p.target}
-          ahead={ahead}
-          label={`${fmt(actual)} of ${fmt(p.target)}`}
-        />
+    <div className="mt-6 border-t border-edge-subtle pt-6">
+      <div className="grid items-start gap-8 @2xl:grid-cols-[17.5rem_minmax(0,1fr)]">
+        <div className="flex flex-col">
+          <RegionHead>This month · {monthName()}</RegionHead>
 
-        <div className="flex items-baseline justify-between gap-3">
-          <p className="type-support text-subtle">
-            {p.businessDaysElapsed} of {p.businessDaysTotal} business days
-            {stats.billableRatio != null
-              ? ` · ${Math.round(stats.billableRatio * 100)}% billable`
-              : null}
-          </p>
-          {p.delta != null ? (
-            <span
-              className={`flex-none type-meta ${ahead ? 'text-muted' : 'text-warning'}`}
-            >
-              {ahead ? 'on pace' : 'behind'} {p.delta >= 0 ? '+' : ''}
-              {fmt(p.delta)}
-            </span>
+          {/* No hours beside this figure: `month` carries no seconds, and
+              `unbilled.seconds` is a different window — an all-time balance
+              rather than the month — so printing it here would label one
+              period's hours with another's. `docs/roadmap.md` carries the
+              field. */}
+          <FigGroup tier="hero" className="mt-6">
+            <FigLabel>Earned</FigLabel>
+            <Money
+              figure="month-earned"
+              amount={month.earned}
+              currency={currency}
+              className="type-figure-hero text-strong"
+            />
+          </FigGroup>
+
+          {/* Spacing alone carries the split: Earned is the month's subject,
+              the two below are readings taken from it. A rule here would read
+              as a section boundary, which is not what this is. */}
+          <FigGroup tier="minor" className="mt-[26px]">
+            <FigLabel>On track for</FigLabel>
+            {/* Null until three business days have elapsed: earned-so-far over
+                one elapsed day carried across twenty-two is a figure that
+                swings by thousands, so it is withheld rather than guessed. */}
+            {month.projected != null ? (
+              <Money
+                figure="month-projected"
+                amount={month.projected}
+                currency={currency}
+                className="type-amount-hero text-strong"
+              />
+            ) : (
+              <span data-projection="pending" className="type-meta text-subtle">
+                after {month.businessDaysElapsed} of 3 business days
+              </span>
+            )}
+          </FigGroup>
+
+          <FigGroup tier="minor" className="mt-[22px]">
+            <FigLabel>Unbilled</FigLabel>
+            <Money
+              figure="month-unbilled"
+              amount={unbilled.total}
+              currency={currency}
+              className="type-amount-hero text-strong"
+            />
+          </FigGroup>
+
+          {/* Awaiting counts rather than describes, and is rendered only when
+              there is something to count. Never summed with unbilled: one has
+              an invoice and a due date, the other can still be written off. */}
+          {stats.awaitingPayment > 0 ? (
+            <p className="mt-[22px] type-meta text-subtle">
+              {formatCurrency(stats.awaitingPayment, currency)} awaiting ·{' '}
+              {stats.openInvoiceCount} open invoice
+              {stats.openInvoiceCount === 1 ? '' : 's'}
+            </p>
           ) : null}
         </div>
+
+        <Climb month={month} currency={currency} hues={hues} />
       </div>
-    </Region>
+    </div>
   );
 }
 
-/** Viewport of the pace plot, in its own units — the path is scaled by SVG. */
-const PLOT_W = 300;
-const PLOT_H = 104;
+/**
+ * The month's client split, on the plot's own x-axis.
+ *
+ * MONEY, where the week's bars are seconds: the month's subject is Earned, so
+ * its split divides what was earned. It answers WHO the month came from,
+ * which the line cannot — two identical climbs, one from a single client and
+ * one from four, are different months to be in.
+ *
+ * Inset to the plot's own axis so it reads as a footing for the line rather
+ * than a second chart (`docs/design/screens/home.html`).
+ */
+function Strip({
+  byClient,
+  hues,
+  currency,
+}: {
+  byClient: Stats['month']['byClient'];
+  hues: Map<string, Hue>;
+  currency: string;
+}) {
+  const total = byClient.reduce((sum, c) => sum + c.amount, 0);
+  /* No money, no split. A strip of one neutral band would claim a month came
+     from nobody, where the honest reading is that it has not earned yet. */
+  if (total <= 0) return null;
+
+  /* Walked in the palette's order rather than the field's, so a band sits
+     where its key and its bar segment do. */
+  const bands = [...hues.entries()]
+    .map(([key, hue]) => ({
+      hue,
+      amount:
+        byClient.find((c) => (c.clientId ?? INTERNAL) === key)?.amount ?? 0,
+    }))
+    .filter((b) => b.amount > 0);
+
+  return (
+    <div
+      data-strip="clients"
+      role="img"
+      aria-label={stripLabel(bands, total, currency)}
+      className="mt-2.5 mr-3.5 ml-11 flex h-1 overflow-hidden rounded-sm"
+    >
+      {bands.map((b) => (
+        <span
+          key={b.hue.id || 'internal'}
+          data-band={b.hue.id || 'internal'}
+          style={{
+            width: `${(b.amount / total) * 100}%`,
+            backgroundColor: b.hue.color ?? INTERNAL_SWATCH,
+          }}
+          className="block h-full flex-none"
+        />
+      ))}
+    </div>
+  );
+}
+
+/** The strip's one alt text: who the month came from, and how much of it. */
+function stripLabel(
+  bands: { hue: Hue; amount: number }[],
+  total: number,
+  currency: string,
+): string {
+  return bands
+    .map(
+      (b) =>
+        `${b.hue.name} ${formatCurrency(b.amount, currency)}, ${Math.round(
+          (b.amount / total) * 100,
+        )}%`,
+    )
+    .join('; ');
+}
 
 /**
- * The cumulative line against the goal ray, the gap between them shaded.
+ * Earnings accumulated day by day, solid to today and dashed to where the
+ * trailing pace lands.
  *
- * `actual` is null beyond today (`PacePoint`), so the line stops where the
- * month does rather than flattening to the 31st, which would read as a month
- * that stopped working.
+ * The shape is the argument for the projection: a line that has been climbing
+ * makes its continuation believable. The line only ever goes up.
  *
- * `preserveAspectRatio="none"` — this is a plot, not a glyph: it stretches to
- * the region's width and the vertical scale is the one that carries meaning.
+ * Axis labels are drawn in HTML OUTSIDE the stretched viewBox, so
+ * `preserveAspectRatio="none"` cannot distort the type.
  */
-function PaceLine({
-  series,
-  target,
-  label,
-  ahead,
+function Climb({
+  month,
+  currency,
+  hues,
 }: {
-  series: Pace['series'];
-  target: number;
-  label: string;
-  /** Which side of the ray the line is on, which is what colours the gap. */
-  ahead: boolean;
+  month: Stats['month'];
+  currency: string;
+  hues: Map<string, Hue>;
 }) {
-  if (series.length < 2) return null;
+  const done = month.series.filter((p) => p.actual != null);
+  if (done.length < 2) {
+    return (
+      <div className="min-w-0">
+        <div
+          data-climb="empty"
+          className="flex min-h-[230px] items-center type-meta text-subtle"
+        >
+          The month&apos;s climb draws once there are two days on it.
+        </div>
+        {/* The split still answers WHO on a month too young to draw a line:
+            one day of work has no shape, but it already has a source. */}
+        <Strip byClient={month.byClient} hues={hues} currency={currency} />
+      </div>
+    );
+  }
 
-  /* The ray's end is the target, so the scale is the target unless the month
-     ran past it — a line that leaves the top of the box would misreport a
-     month that beat its goal. */
+  const proj = month.projection;
+  /* The scale takes the projection's endpoint when there is one, so the dashed
+     segment lands inside the box rather than leaving the top of it. */
   const peak = Math.max(
-    target,
-    ...series.map((p) => p.actual ?? 0),
-    ...series.map((p) => p.expected),
+    ...done.map((p) => p.actual ?? 0),
+    proj?.to.amount ?? 0,
     1,
   );
-  const x = (i: number) => (i / (series.length - 1)) * PLOT_W;
+
+  /* The x axis is the whole month, so the solid line stops where the month
+     does rather than stretching to fill the box — which would draw a finished
+     month on the 13th. */
+  const total = Math.max(month.series.length - 1, 1);
+  const x = (i: number) => (i / total) * PLOT_W;
   const y = (v: number) => PLOT_H - (v / peak) * PLOT_H;
 
-  const done = series.filter((p) => p.actual != null);
-  const last = done.at(-1) ?? null;
-  const actualPath = done
+  const line = done
     .map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.actual ?? 0)}`)
     .join(' ');
-  const rayPath = series
-    .map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.expected)}`)
-    .join(' ');
+  const last = done.length - 1;
+  const area = `${line} L${x(last)},${PLOT_H} L0,${PLOT_H} Z`;
 
-  /* The delta as a closed area: down the ray to today, back along the actual.
-     The shape between the lines is the answer, so it is filled rather than
-     left for the eye to measure. */
-  const gap =
-    done.length >= 2
-      ? `${done.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.expected)}`).join(' ')} ` +
-        `${[...done]
-          .reverse()
-          .map((p, i) => `L${x(done.length - 1 - i)},${y(p.actual ?? 0)}`)
-          .join(' ')} Z`
-      : null;
+  const dashed = proj
+    ? `M${x(last)},${y(proj.from.amount)} L${PLOT_W},${y(proj.to.amount)}`
+    : null;
 
   return (
-    <svg
-      viewBox={`0 0 ${PLOT_W} ${PLOT_H}`}
-      preserveAspectRatio="none"
-      className="h-26 w-full"
-      role="img"
-      aria-label={label}
-    >
-      {/* The gap says which way it runs. Warning matches the "behind" figure
-          below it, so the shape and the number agree. Ahead takes `info`, not
-          `success`: success is reserved for an outcome, and a month that is
-          ahead on the 13th can be behind on the 14th. */}
-      {gap ? (
-        /* Two opacities, not one: `info` is a muted blue and `warning` a
-           bright amber, so the same alpha puts the blue 30% weaker against
-           the panel (OKLCH ΔL 0.076 vs 0.109). These land both near 0.11, so
-           the gap carries the same weight whichever way the month is going. */
-        <path
-          d={gap}
-          fill={ahead ? 'var(--color-info)' : 'var(--color-warning)'}
-          opacity={ahead ? '0.26' : '0.18'}
-        />
-      ) : null}
-      {/* The ray is the reference, so it recedes: dashed and quiet. */}
-      <path
-        d={rayPath}
-        fill="none"
-        stroke="var(--color-subtle)"
-        strokeWidth="1"
-        strokeDasharray="3 3"
-        vectorEffect="non-scaling-stroke"
-      />
-      {/* The subject of the region, so it carries the weight the figure used
-          to. Neutral, never the accent: the accent is the running timer. */}
-      <path
-        d={actualPath}
-        fill="none"
-        stroke="var(--color-strong)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
-      />
-      {/* Today. Without it the line reads as having run out of data rather
-          than as having reached the present. */}
-      {last ? (
-        /* A zero-length round-capped stroke, not a <circle>: the plot sets
-           `preserveAspectRatio="none"`, so x and y scale by different factors
-           and a circle renders as a squashed ellipse. A cap is drawn in stroke
-           space, which `vectorEffect` keeps round. */
-        <path
-          d={`M${x(done.length - 1)},${y(last.actual ?? 0)} l0,0`}
-          stroke="var(--color-strong)"
-          strokeWidth="6"
-          strokeLinecap="round"
-          vectorEffect="non-scaling-stroke"
-        />
-      ) : null}
-    </svg>
+    <div className="min-w-0">
+      <div className="relative pr-3.5 pl-11">
+        <div className="relative min-h-[230px] w-full aspect-[16/9.2]">
+          <svg
+            viewBox={`0 0 ${PLOT_W} ${PLOT_H}`}
+            preserveAspectRatio="none"
+            className="block h-full w-full overflow-visible"
+            role="img"
+            aria-label={label(month, currency)}
+          >
+            {Array.from({ length: GRIDLINES }, (_, i) => {
+              const v = (peak / (GRIDLINES + 1)) * (i + 1);
+              return (
+                <line
+                  key={i}
+                  x1="0"
+                  y1={y(v)}
+                  x2={PLOT_W}
+                  y2={y(v)}
+                  strokeWidth="1"
+                  className="stroke-edge-grid"
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
+
+            <path d={area} className="fill-strong opacity-[0.07]" />
+            <path
+              d={line}
+              fill="none"
+              strokeWidth="1.75"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              className="stroke-strong"
+              vectorEffect="non-scaling-stroke"
+            />
+
+            {/* The projection recedes: dashed, and at the same hue as the line
+                it continues. It is the one forward-looking figure here. */}
+            {dashed ? (
+              <path
+                data-projection="line"
+                d={dashed}
+                fill="none"
+                strokeWidth="1.75"
+                strokeDasharray="5 4"
+                strokeLinecap="round"
+                className="stroke-strong opacity-[0.38]"
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : null}
+
+            {/* Today. A zero-length round-capped stroke, not a <circle>: the
+                plot sets `preserveAspectRatio="none"`, so x and y scale by
+                different factors and a circle renders as a squashed ellipse.
+                A cap is drawn in stroke space, which `vectorEffect` keeps
+                round. */}
+            <path
+              d={`M${x(last)},${y(done[last]?.actual ?? 0)} l0,0`}
+              strokeWidth="6.5"
+              strokeLinecap="round"
+              className="stroke-strong"
+              vectorEffect="non-scaling-stroke"
+            />
+
+            {/* `success` marks ONE thing on this screen: the endpoint of the
+                projection. The accent appears nowhere here — it is spent on
+                the running timer in the bar below. */}
+            {proj ? (
+              <path
+                data-projection="end"
+                d={`M${PLOT_W},${y(proj.to.amount)} l0,0`}
+                strokeWidth="7.5"
+                strokeLinecap="round"
+                className="stroke-success"
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : null}
+          </svg>
+
+          <div className="absolute inset-y-0 -left-11 w-11">
+            {Array.from({ length: GRIDLINES }, (_, i) => {
+              const v = (peak / (GRIDLINES + 1)) * (i + 1);
+              return (
+                <span
+                  key={i}
+                  style={{ top: `${(1 - v / peak) * 100}%` }}
+                  className="absolute left-0 -translate-y-1/2 type-meta whitespace-nowrap text-subtle"
+                >
+                  {compact(v, currency)}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* The strip sits between the plot and its labels, on the plot's own
+          axis: a footing for the line, not a second chart. */}
+      <Strip byClient={month.byClient} hues={hues} currency={currency} />
+
+      <div className="relative mt-2.5 mr-3.5 ml-11 h-4">
+        <span className="absolute left-0 type-meta whitespace-nowrap text-subtle">
+          {dayLabel(month.series[0]?.date)}
+        </span>
+        <span
+          style={{ left: `${(last / total) * 100}%` }}
+          className="absolute -translate-x-1/2 type-meta whitespace-nowrap text-primary"
+        >
+          today
+        </span>
+        <span className="absolute left-full -translate-x-full type-meta whitespace-nowrap text-subtle">
+          {dayLabel(month.series.at(-1)?.date)}
+        </span>
+      </div>
+    </div>
   );
 }
 
-/**
- * Into the goal field in Settings. A link, not a dialog: Settings owns the
- * field, and a second editor here is a second place to look when the number is
- * wrong.
- *
- * The figure is the link once there is one, rather than a pencil beside it: a
- * control that only edits the number next to it says nothing the number
- * cannot, and the header is where the region's one quiet control sits.
- */
-function EditGoal({ children }: { children?: React.ReactNode }) {
-  return (
-    <Link
-      href="/settings#goal"
-      aria-label="Edit monthly goal"
-      className="-my-1 rounded-sm type-meta whitespace-nowrap text-subtle hover:text-muted hover:underline hover:decoration-edge-subtle hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
-    >
-      {children ?? <Pencil aria-hidden strokeWidth={1.75} className="size-4" />}
-    </Link>
-  );
+/** `$10k`, `$7.5k` — an axis label, not an amount to be read exactly. */
+function compact(v: number, currency: string): string {
+  if (v >= 1000) {
+    const k = v / 1000;
+    return `${formatCurrency(0, currency).replace(/[\d.,]/g, '')}${
+      k >= 10 ? Math.round(k) : k.toFixed(1).replace(/\.0$/, '')
+    }k`;
+  }
+  return formatCurrency(Math.round(v), currency);
 }
 
-/* Browser locale, like the day and date in `PanelHead` and the dates in the
-   entry list: a heading that says "September" beside a date that says
-   "17 sept." is the app disagreeing with itself. */
-function monthName() {
+function label(month: Stats['month'], currency: string): string {
+  const earned = `${formatCurrency(month.earned, currency)} over ${
+    month.businessDaysElapsed
+  } of ${month.businessDaysTotal} working days`;
+  return month.projection
+    ? `${monthName()} earnings climbing to ${earned}, projecting ${formatCurrency(
+        month.projection.to.amount,
+        currency,
+      )}`
+    : `${monthName()} earnings climbing to ${earned}`;
+}
+
+/** `Sep 1`. Built as UTC, so no zone can shift the key a day. */
+function dayLabel(key: string | undefined): string {
+  if (!key) return '';
+  const [y, m, d] = key.split('-').map(Number);
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1)));
+}
+
+/* Browser locale, like every other date on this screen. */
+function monthName(): string {
   return new Intl.DateTimeFormat(undefined, { month: 'long' }).format(
     new Date(),
   );

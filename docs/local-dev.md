@@ -207,8 +207,9 @@ conditions and the thresholds each is checked against — and it overshoots each
 one, so the seed never sits on a boundary a timezone could round the wrong
 way.
 
-It also sets a monthly target, without which the Pace card hides rather than
-rendering empty.
+It gives the most recent worked day an extra block, because that day's last
+block is the one left running: without it Home opens on a day that has earned
+nothing, which is the one figure the screen exists to show.
 
 **Idempotent by client name.** Re-running replaces what it made last time
 rather than stacking a second copy, and it touches nothing it did not create —

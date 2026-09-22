@@ -48,18 +48,6 @@ function serve() {
           JSON.stringify({
             currency: 'USD',
             unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
-            velocity: {
-              months: 3,
-              total: 0,
-              perMonth: 0,
-              invoiced: 0,
-              unbilled: 0,
-              seconds: 0,
-              byClient: [],
-              moreClients: 0,
-            },
-            pace: null,
-            billableRatio: null,
             awaitingPayment: 0,
             earnedToday: 0,
             attention: {

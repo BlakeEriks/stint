@@ -181,12 +181,10 @@ export interface SettingsRow {
   invoice_number_prefix: string;
   next_invoice_number: number;
   payment_notice: string | null;
-  monthly_target: Numeric;
-  monthly_target_unit: z.infer<typeof Settings>['monthlyTargetUnit'];
 }
 
 export const SETTINGS_COLUMNS = columns<SettingsRow>()(
-  'default_hourly_rate, currency, week_starts_on, time_format, max_timer_hours, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, tax_id, default_payment_terms, invoice_number_prefix, next_invoice_number, payment_notice, monthly_target, monthly_target_unit',
+  'default_hourly_rate, currency, week_starts_on, time_format, max_timer_hours, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, tax_id, default_payment_terms, invoice_number_prefix, next_invoice_number, payment_notice',
 );
 
 export function toSettings(r: SettingsRow) {
@@ -207,8 +205,6 @@ export function toSettings(r: SettingsRow) {
     invoiceNumberPrefix: r.invoice_number_prefix,
     nextInvoiceNumber: r.next_invoice_number,
     paymentNotice: r.payment_notice,
-    monthlyTarget: num(r.monthly_target),
-    monthlyTargetUnit: r.monthly_target_unit,
   };
 }
 
@@ -408,8 +404,6 @@ export const SETTINGS_FIELDS = {
   defaultPaymentTerms: 'default_payment_terms',
   invoiceNumberPrefix: 'invoice_number_prefix',
   paymentNotice: 'payment_notice',
-  monthlyTarget: 'monthly_target',
-  monthlyTargetUnit: 'monthly_target_unit',
 } as const;
 
 export const PAYMENT_PROFILE_FIELDS = {

@@ -50,10 +50,6 @@ function Cards({ loaded }: { loaded: Settings }) {
   });
 
   const [form, setForm] = useState<Settings>(loaded);
-  /** What the unit select shows, which outlives an empty target. */
-  const [goalUnit, setGoalUnit] = useState<'hours' | 'revenue'>(
-    loaded.monthlyTargetUnit ?? 'hours',
-  );
 
   /**
    * `nextInvoiceNumber` is server-owned — gapless numbering depends on
@@ -65,17 +61,14 @@ function Cards({ loaded }: { loaded: Settings }) {
     };
     await api.updateSettings(rest);
     queryClient.invalidateQueries({ queryKey: keys.settings() });
-    /* The default rate and the monthly target are both inputs to the home
-       cards, so a settings edit that leaves them stale contradicts itself —
-       and the default rate is the last link of the chain every rollup bills
-       through, so they all go. */
+    /* The default rate is an input to every figure on Home, and it is the
+       last link of the chain every rollup bills through, so they all go. */
     invalidateEntryData(queryClient);
   };
 
   const billing = useAutosave(persist);
   const identity = useAutosave(persist);
   const numbering = useAutosave(persist);
-  const goal = useAutosave(persist);
 
   /** Update local state, then schedule that card's save with the new value. */
   const edit =
@@ -88,26 +81,6 @@ function Cards({ loaded }: { loaded: Settings }) {
   const setBilling = edit(billing);
   const setIdentity = edit(identity);
   const setNumbering = edit(numbering);
-
-  /* The target and its unit travel together: `schedule` replaces the queued
-     payload rather than merging into it, so sending one key would drop the
-     other mid-debounce. Clearing the target clears the unit with it — the
-     database rejects one without the other.
-
-     The unit the SELECT shows is held separately, because a unit chosen
-     before a target has been typed cannot be persisted yet: writing it alone
-     would violate the constraint, and writing null would snap the select back
-     to Hours under the user mid-choice. */
-  const setGoal = (target: number | null, unit: 'hours' | 'revenue') => {
-    setGoalUnit(unit);
-    const paired = target === null ? null : unit;
-    setForm((f) => ({
-      ...f,
-      monthlyTarget: target,
-      monthlyTargetUnit: paired,
-    }));
-    goal.schedule({ monthlyTarget: target, monthlyTargetUnit: paired });
-  };
 
   return (
     <>
@@ -188,62 +161,6 @@ function Cards({ loaded }: { loaded: Settings }) {
             placeholder="Net 30"
           />
         </Field>
-      </Section>
-
-      {/* The Pace card on Home is the only thing that reads this. Leaving the
-          target empty is a valid answer, not an unfinished one: the card stays
-          away rather than nagging for a number the user does not work to. */}
-      <Section
-        id="goal"
-        title="Monthly goal"
-        description="Drives the Pace card on Home. Leave it empty for no goal."
-        status={<SaveIndicator state={goal.state} />}
-      >
-        <div className="flex flex-wrap gap-4">
-          <Field
-            label="Target"
-            htmlFor="goal-target"
-            className="flex-1 basis-44"
-          >
-            <Input
-              id="goal-target"
-              type="number"
-              min="0"
-              step={goalUnit === 'revenue' ? '0.01' : '1'}
-              inputMode="decimal"
-              value={form.monthlyTarget ?? ''}
-              onChange={(e) =>
-                setGoal(
-                  e.target.value === '' ? null : Number(e.target.value),
-                  goalUnit,
-                )
-              }
-              placeholder={goalUnit === 'revenue' ? '10000' : '120'}
-            />
-          </Field>
-
-          <Field
-            label="Measured in"
-            htmlFor="goal-unit"
-            hint="Revenue counts work done, not money collected."
-            className="flex-1 basis-44"
-          >
-            <Select
-              value={goalUnit}
-              onValueChange={(v) =>
-                setGoal(form.monthlyTarget, v as 'hours' | 'revenue')
-              }
-            >
-              <SelectTrigger id="goal-unit" className={inputClass}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="hours">Hours</SelectItem>
-                <SelectItem value="revenue">Revenue</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
       </Section>
 
       <Section

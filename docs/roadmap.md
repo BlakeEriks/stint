@@ -125,32 +125,6 @@ you, and nothing you build here is held hostage.
       **Out of scope:** no live sync. Two systems of record is a different
       product.
 
-## M3 · Money truth on Home
-
-- [ ] **Re-noun the month card to unbilled, keep the projection on earned.**
-
-      *Whose problem:* the number a contractor cannot get anywhere else is
-      what they have worked and not yet billed. Earned is a commodity figure
-      every competitor computes.
-
-      *Without it:* they leave in month three. `principles.md` says why Home
-      carries the habit; this is the figure that makes it worth opening.
-
-      *One person:* yes. The figure is one contractor's own unbilled work.
-
-      Headline is **unbilled** — a balance that climbs while you work and
-      resets when you invoice. The projection stays and projects **earned
-      month-to-date extrapolated to month-end**, which is monotonic and so
-      can be extrapolated; unbilled cannot, since projecting it forecasts
-      when you next invoice and predicts a drop to zero. Earned buckets by
-      when the work was done.
-
-      **Awaiting** becomes one quiet line, rendered only when non-zero.
-      **Collected** moves off Home to `/invoices` — it renders on Home today
-      (`home-cards.tsx`), and for a contractor paid monthly it is a figure
-      that freezes in week one and says nothing for the rest of the month.
-      Today and This week are unchanged.
-
 ## M4 · Taking money
 
 **This milestone is a subsystem, not a copy change**, and it is plausibly

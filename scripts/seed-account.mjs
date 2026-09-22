@@ -282,14 +282,10 @@ try {
     process.exit(0);
   }
 
-  /* A default rate, so a client with none has something to inherit — and a
-     monthly target, without which the Pace card hides entirely rather than
-     showing an empty bar. */
+  /* A default rate, so a client with none has something to inherit. */
   await db.query(
     `update user_settings
-        set default_hourly_rate = coalesce(default_hourly_rate, 125),
-            monthly_target = coalesce(monthly_target, 120),
-            monthly_target_unit = coalesce(monthly_target_unit, 'hours')
+        set default_hourly_rate = coalesce(default_hourly_rate, 125)
       where user_id = $1`,
     [userId],
   );
@@ -362,8 +358,11 @@ try {
     const weekday = day.getDay();
     if (weekday === 0 || weekday === 6) continue; // weekends stay empty
 
-    // One or two blocks a day, starting at 09:00 local.
-    const blocks = back % 3 === 0 ? 2 : 1;
+    /* One or two blocks a day, starting at 09:00 local. The most recent
+       worked day takes one more: its last block is left running and has
+       earned nothing yet, so without the extra the day reads $0.00 on a
+       screen whose subject is what you earned. */
+    const blocks = (back % 3 === 0 ? 2 : 1) + (back === lastWorkedBack ? 1 : 0);
     for (let b = 0; b < blocks; b += 1) {
       const start = new Date(day);
       start.setHours(9 + b * 4, b === 0 ? 0 : 30, 0, 0);

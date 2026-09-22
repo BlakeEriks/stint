@@ -12,26 +12,32 @@ import { useCountUp } from '@/lib/client/use-count-up';
  *
  * An INVOICE's own total does not use it — a figure that tweens implies the
  * app is recalculating money the user has already sent. A home-panel
- * aggregate that a payment moves does travel: Collected rises on the paid
- * beat, which `docs/design/screens/money.html` specifies.
+ * aggregate that a payment moves does travel, which
+ * `docs/design/screens/home.html` specifies: it rolls on arrival and on a
+ * value that actually changed, never on a remount holding the same figures.
  *
  * `className` carries the type role and colour, because those differ by where
  * the figure sits: a headline is `type-figure`, a row's amount is
  * `type-duration`, a legend's is `type-meta`.
  */
 export function Money({
+  figure,
   amount,
   currency,
   className,
   sign = false,
 }: {
+  /** What this figure IS, stable across mounts — `month-earned`, not its
+   *  amount. Two figures holding the same number are still two figures, and
+   *  the roll is remembered per name. */
+  figure: string;
   amount: number;
   currency: string;
   className?: string;
   /** A delta leads with its sign; a standing total does not. */
   sign?: boolean;
 }) {
-  const { value } = useCountUp(amount);
+  const { value } = useCountUp(figure, amount);
   return (
     <span className={className}>
       {sign ? '+' : ''}

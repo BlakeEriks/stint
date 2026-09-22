@@ -11,7 +11,6 @@ otherwise restate:
 | `frame.html` | what every screen renders inside |
 | `floating-frame.html` | that frame in both themes, with the measurements a build is checked against |
 | `components.html` | what a screen is assembled *from* |
-| `money.html` | the money region of the home panel, both halves |
 | `inbox.html` | the dock's rows |
 | `timer-bar.html` | the bar under every screen |
 | `entry-dialog.html`, `task-suggest.html` | the two surfaces that open over one |

@@ -45,17 +45,16 @@ trusting the device clock.
 |---|---|---|
 | `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, exceedsThreshold, maxTimerHours, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. |
 | `GET` | `/calendar` | `?from&to` (**both required**) `&tz&granularity`. Returns `{ days: [...] }`. `400 INVALID_PERIOD` if `to < from`. |
-| `GET` | `/calendar?granularity=day` | Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. Backs the home screen's activity chart, where a month of full entries is a heavy payload for something drawing one column per day. `byClient` keys by client id with `''` for internal work, and running entries are excluded. |
+| `GET` | `/calendar?granularity=day` | Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. A month of full entries is a heavy payload for something drawing one column per day. **Seconds only**, so it carries no money; Home's week bars take both columns from `/stats`'s `week` instead. `byClient` keys by client id with `''` for internal work, and running entries are excluded. |
 | `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call. One request because they render together, and a set that pops in piecemeal reads as broken. Fields and their rules are below. |
 | `GET` | `/entries/task-names` | `?projectId&limit` (1–20, default 8). Returns `{ taskNames: [{ taskName, projectId, lastUsedAt }] }` — names the user has typed before, for suggesting one rather than retyping it. One row per name **case-insensitively**, keeping the most recent spelling, since offering both is offering the user their own typo; the empty name is excluded, so a timer started in a hurry never becomes a suggestion. **`projectId` ranks, it does not filter** — names used with that project come first and every other name still follows, so there is no `none` literal as there is on `/entries`: "no project" and "no preference" are one request. Omitting it ranks by recency alone. Ranking is the server's and clients must not re-sort it; filtering as the user types is theirs. Backed by the `recent_task_names` SQL function. |
 
 ### `/stats` fields
 
-`currency`, `unbilled`, `earnedToday`, `collected`, `awaitingPayment`,
-`openInvoiceCount`, `pace`, `billableRatio`, `velocity`, `byProject` and
-`attention`. The rollups behind them, and the window each one runs, are in
-`docs/data-model.md`; what the screen does with them is
-`docs/design/screens/home.html`.
+`currency`, `unbilled`, `earnedToday`, `week`, `month`, `collected`,
+`awaitingPayment`, `openInvoiceCount` and `attention`. The rollups behind
+them, and the window each one runs, are in `docs/data-model.md`; what the
+screen does with them is `docs/design/screens/home.html`.
 
 **Three figures are three stages of one pipeline, and no two may be summed** —
 any pair double-counts the same hours. `unbilled` is work done and not
@@ -75,15 +74,48 @@ every device. Unrated work earns nothing it can name, so it can understate a
 day whose rate chain resolves to null.
 
 **Rows are capped and the remainder is reported, never dropped.** `unbilled`
-and `velocity` carry 5 rows plus a `moreClients` count; `byProject` carries 4
-plus `tailSeconds` / `tailAmount`. Every total still covers the whole window.
+carries 5 rows plus a `moreClients` count. The total still covers every
+client.
 
-**`pace.series` steps on business days only** — a ray sloping through the
-weekend would show the user behind every Saturday and recovered every Monday.
-Each point carries the cumulative `actual`, null past today, and the goal's
-`expected`. A revenue target counts work **done**, bucketed by the entry's
-date and never the invoice's `issue_date`; voiding an invoice releases its
-entries.
+**`month` is the screen's subject and needs no target.** `month.earned` is
+the month so far; `month.projected` carries its trailing rate to the last
+business day, and is **null until three business days have elapsed** —
+earned-so-far over one elapsed day multiplied by the month is a figure that
+swings by thousands on the second day, so it is withheld rather than guessed
+at. `monthlyTarget` is a setting this field does not read.
+
+`month.series` steps on business days **only** and carries one point per
+business day of the month: the cumulative `actual`, **null past today**,
+because a line held level to the 31st reads as a month that stopped working.
+Weekend work is carried onto the next business day's point, so the last
+non-null `actual` always equals `month.earned` — the hero figure is the
+line's own last point, never a separate sum, since the projection
+extrapolates that series. `month.projection` is the dashed leg from today to
+month end, `{ from, to }`, and null whenever `projected` is.
+
+Earned counts work **done**, bucketed by the entry's date and never the
+invoice's `issue_date`; voiding an invoice releases its entries.
+
+**`month.byClient` is the month's money per client** — the strip beneath the
+climb, `{ clientId, clientName, amount }` ordered by amount descending, with
+`clientId` null for internal work. It is **money, where the week's bars are
+seconds**: the month's subject is Earned, so its split divides what was
+earned. `amount` sums invoiced and unbilled, because the split is by client
+and not by billing state — a client's band must not shrink the day its
+invoice goes out. A client whose month resolved no rate is absent, having
+earned nothing to give a band a width. One `revenue_by_client` call over the
+month, never `resolve_entry_rate` per client.
+
+**`week` is seven days, oldest first, from the user's own `weekStartsOn`** —
+always seven, so a day with no work is a zero column rather than an absent
+one. Each carries `seconds` and `amount`, and **the two do not share a
+filter**: `seconds` counts all billable worked time including work whose rate
+chain resolves to null, because that time was worked and it sets the bar's
+height; `amount` excludes it and is **null** on a day that resolves no rate,
+so the bar prints no figure rather than `$0`. A rate of exactly `0` is a real
+rate — it counts in `seconds` and contributes `0.00`. The week runs its own
+window over `revenue_by_day`, since a week straddles the 1st and the month's
+rows stop at the boundary.
 
 **`attention` is derived per request** from stored facts, with grace periods:
 an invoice is overdue at `due_date` + 7 days, a draft stale 7 days after
