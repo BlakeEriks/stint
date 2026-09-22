@@ -8,6 +8,21 @@ A finished item is **deleted**, not ticked. So is one decided against: there
 is no archive of rejections, because the thesis moves and a past no does not
 bind a new proposal. Re-argue it against `positioning.md`.
 
+## Two lines, not one
+
+**Alpha** is a handful of friends using it for real, on the web and on
+macOS. The bar is that someone who is not us can reach it, arrive with the
+history they already have, and leave with it — so M2 and M3 are both alpha,
+and nothing about money is. Alpha has no price, which also defers every
+question that depends on one.
+
+**Launch** is a stranger paying. That is M4, and it is the only milestone
+past the alpha line.
+
+The distinction decides what "blocks" means in question 4 below. An item that
+blocks launch and not alpha is not urgent; an item that blocks alpha is, even
+when it is not product work at all.
+
 ## The gate
 
 Nothing enters this file without answering four questions in five lines or
@@ -19,7 +34,7 @@ fewer. No answer, no entry.
 2. **What happens without it?** One of: they do not sign up, they leave in
    month three, or it annoys them. **Annoyance does not make the roadmap.**
 3. **Does it serve the one person, or a team we do not have?**
-4. **Which milestone, and does it block launch?**
+4. **Which milestone, and does it block alpha or launch?**
 
 If an earlier version of the idea was turned down, say what changed. The
 thesis moved in September 2026.
@@ -32,7 +47,101 @@ the gate teaches the next reader that the gate is optional.
 
 ---
 
-## M2 · Your records get in, and back out
+## M2 · Someone else can open it
+
+**Nothing here is product work**, which is why it was missing: the roadmap
+gates features, and this milestone is the ground a feature stands on. A
+friend who cannot receive a sign-in link, or whose Mac refuses the app, has
+no opinion to give us.
+
+Three purchases and their consequences — a domain, an SMTP provider, an Apple
+developer account. Buy all three at once; each one blocks work that looks
+unrelated to it.
+
+- [ ] **Buy `trackwithstint.com`.**
+
+      *Whose problem:* ours, and it blocks everyone else's. `deploying.md`
+      already routes `trackwithstint.com` to the landing page and
+      `app.trackwithstint.com` to the product, `isAppHost()` splits them, and
+      `.claude/rules/routing.md` carries the rules — **all of it describing a
+      domain nobody has registered.** The docs are written as though this is
+      done.
+
+      *Without it:* there is nothing to send a friend. A `*.vercel.app` URL
+      on a private project is fronted by SSO, so an unauthenticated visitor
+      gets redirected to Vercel rather than to the app.
+
+      *One person:* it is the precondition for anyone at all.
+
+      Then both hostnames onto the Vercel project, and the app host added to
+      Supabase's **Site URL** and **Redirect URLs** — `setup.md` §4 has the
+      shape, and a magic link that redirects to an unlisted origin fails
+      after the click rather than before it.
+
+- [ ] **Custom SMTP, so sign-in links arrive.**
+
+      *Whose problem:* every alpha user, at the only moment that matters —
+      their first. Supabase's default sender is **rate-limited to a few
+      messages an hour** and shared across projects, so it is adequate for
+      one developer and not for five friends signing in on the same evening.
+      Mail from a shared sender also lands in spam more often, and a sign-in
+      link in spam reads as a broken product.
+
+      *Without it:* they do not sign up, in the most literal sense available.
+
+      *One person:* yes — the app sends nothing else. **Invoices still go
+      from the user's own address** (`principles.md`), so this carries
+      authentication mail only and nothing about it argues for sending
+      invoices later.
+
+      A provider, SPF and DKIM on the domain above, then the magic-link
+      template `setup.md` §4a is already written against — which also gives
+      the macOS app its six-digit code and retires `signin.sh`. One
+      unresolved question: which sender address, since it appears in every
+      inbox we ever reach.
+
+- [ ] **Sign the macOS app, so it opens on someone else's Mac.**
+
+      *Whose problem:* every alpha user on macOS. `bundle.sh` self-signs with
+      a local identity, which is fine to run yourself and **not something
+      anyone else can open without right-clicking past Gatekeeper**
+      (`docs/macos.md`). A friend who has to be talked through a security
+      warning has already learned the wrong thing about a billing app.
+
+      *Without it:* they do not use the menu bar app, which is the daily
+      habit the whole subscription rests on (`principles.md`).
+
+      *One person:* yes, and it is the gate on several later things — a
+      Developer ID also earns `TokenStore` a `teamid:` Keychain partition and
+      is what Sign in with Apple waits on.
+
+      A paid Apple developer account, then notarisation. The same purchase
+      unblocks both.
+
+- [ ] **Version the macOS app, and tag `0.1.0` at alpha.**
+
+      *Whose problem:* ours, the first time a friend reports something from a
+      build three weeks old. Nothing carries a version today — the root
+      `package.json` has none and the bundle has no `CFBundleShortVersionString`
+      — which is correct while the only copy is ours and a commit SHA
+      identifies it.
+
+      *Without it:* a support question has no answer. The web app cannot
+      drift, because everyone gets the current deploy; **a native app on
+      someone else's machine is the first thing that can.**
+
+      *One person:* it starts mattering the moment the app leaves this
+      machine, which is what makes it M2 rather than earlier.
+
+      The version belongs in the bundle and readable from the app, so a
+      report names it without the user finding it.
+
+- [ ] **Sign in as a stranger would.** A second machine, an address that has
+      never touched this project, and no local anything — through the real
+      domain, the real sender, the real redirect. Every failure above
+      happens after a click and none of them show up in CI.
+
+## M3 · Your records get in, and back out
 
 Both directions of the same promise: the history you arrive with comes with
 you, and nothing you build here is held hostage.
@@ -101,6 +210,9 @@ you, and nothing you build here is held hostage.
       product.
 
 ## M4 · Taking money
+
+**Past the alpha line.** Friends are not a pricing experiment, so nothing
+here blocks them trying it — but nothing else turns this into a business.
 
 **This milestone is a subsystem, not a copy change**, and it is the largest
 thing left. Nothing here exists in the codebase today: there is no Stripe
@@ -223,13 +335,9 @@ the gate its four answers when it moves up.
 
 - **macOS global hotkey**, and the menu bar app's system-drawn dropdowns.
 
-- **macOS signing, notarisation and Sign in with Apple** — one gate, which is
-  a paid Apple developer account. `bundle.sh` self-signs with a local
-  identity: fine to run yourself, and not something anyone else can open
-  without right-clicking past Gatekeeper. A Developer ID would also earn
-  `TokenStore` a `teamid:` Keychain partition, and `signInWithIdToken` would
-  replace the emailed six-digit code — it needs that account, an App ID with
-  the capability and a signed bundle, none of which a SwiftPM executable
-  produces. Nothing in the API changes.
+- **Sign in with Apple on macOS.** `signInWithIdToken` would replace the
+  emailed six-digit code. It needs the Developer ID that M2 buys, plus an App
+  ID with the capability and a signed bundle — a SwiftPM executable produces
+  none of that. Nothing in the API changes. Deferred because the code works.
 
 - **Expo app.** Last by design; reuses the most.
