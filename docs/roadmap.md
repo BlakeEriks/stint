@@ -55,17 +55,14 @@ friend who cannot receive a sign-in link, or whose Mac refuses the app, has
 no opinion to give us.
 
 Three purchases and their consequences — a domain, an SMTP provider, an Apple
-developer account. Buy all three at once; each one blocks work that looks
-unrelated to it.
+developer account. `runstint.com` is registered; the other two are not. Buy
+them together, because each one blocks work that looks unrelated to it.
 
-- [ ] **Buy `trackwithstint.com`.**
+- [ ] **Point `runstint.com` at the deployment.**
 
-      *Whose problem:* ours, and it blocks everyone else's. `deploying.md`
-      already routes `trackwithstint.com` to the landing page and
-      `app.trackwithstint.com` to the product, `isAppHost()` splits them, and
-      `.claude/rules/routing.md` carries the rules — **all of it describing a
-      domain nobody has registered.** The docs are written as though this is
-      done.
+      *Whose problem:* ours, and it blocks everyone else's. The domain is
+      registered — `deploying.md`, `isAppHost()` and
+      `.claude/rules/routing.md` name it, and none of it resolves yet.
 
       *Without it:* there is nothing to send a friend. A `*.vercel.app` URL
       on a private project is fronted by SSO, so an unauthenticated visitor
@@ -73,10 +70,41 @@ unrelated to it.
 
       *One person:* it is the precondition for anyone at all.
 
-      Then both hostnames onto the Vercel project, and the app host added to
+      Both hostnames onto the Vercel project, and the app host added to
       Supabase's **Site URL** and **Redirect URLs** — `setup.md` §4 has the
       shape, and a magic link that redirects to an unlisted origin fails
       after the click rather than before it.
+
+      DNS is on Cloudflare, which the registrar requires. **Vercel's records
+      are proxied off — grey cloud, DNS only** — because an orange-clouded
+      record terminates TLS at Cloudflare and Vercel's certificate issuance
+      never completes.
+
+- [ ] **Get a trademark read on `STINT` before the name gets expensive.**
+
+      *Whose problem:* ours, and it is the only item here that can invalidate
+      the other two. **Serial 50073296** — the word STINT in standard
+      characters, classes 009, 035 and 042 — was filed intent-to-use on
+      26 August 2026 by Stint Workforce, LLC. Class 042 is ours, and their
+      goods name *temporary work assignments*, which is close to a product
+      for contractors. **STYNT** (reg. 87539615, classes 035 and 042) is a
+      phonetic twin that already registered. The UK staffing app's three US
+      filings are all abandoned and block nothing.
+
+      *Without it:* nothing breaks today. Intent-to-use means they are not
+      using the mark yet and the application has not been examined — it can
+      still be refused or abandoned. But if it registers, its priority date
+      precedes any we could establish.
+
+      *One person:* no, and that is why it sits above the other purchases
+      rather than beside them. An hour with an attorney costs less than an
+      Apple developer account, and it is the last moment a rename is cheap:
+      a signed binary and a domain in a client's inbox are what make the
+      name expensive to change.
+
+      A domain is $10 and reversible. **The Apple account, the signed app
+      and the first invoice a client receives are not** — so this resolves
+      before those, not after.
 
 - [ ] **Custom SMTP, so sign-in links arrive.**
 
