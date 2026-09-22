@@ -9,7 +9,6 @@ otherwise restate:
 | Doc | Subject |
 |---|---|
 | `frame.html` | what every screen renders inside |
-| `floating-frame.html` | that frame in both themes, with the measurements a build is checked against |
 | `components.html` | what a screen is assembled *from* |
 | `inbox.html` | the dock's rows |
 | `timer-bar.html` | the bar under every screen |
