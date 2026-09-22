@@ -612,10 +612,14 @@ export function buildEarnedPace({
   // non-null point. The series nulls everything past today, so reading the
   // total off it would make `earned` depend on where `now` falls — a month
   // queried after it ended would have no non-null point at all and report 0.
-  const monthPrefix = `${localDateKey(now, tz).slice(0, 7)}-`;
+  const todayKey = localDateKey(now, tz);
+  const monthPrefix = `${todayKey.slice(0, 7)}-`;
   let earned = 0;
   for (const [key, amount] of byDay ?? []) {
-    if (key.startsWith(monthPrefix)) earned += amount;
+    /* This month, and not past today: an entry dated forward is money nobody
+       has earned yet, and counting it would put it in the figure the line
+       stops short of. */
+    if (key.startsWith(monthPrefix) && key <= todayKey) earned += amount;
   }
 
   // `elapsed` counts today, so a month whose 1st is a weekend gives 0 — there
@@ -690,11 +694,24 @@ function buildEarnedSeries({
   let running = 0;
 
   const lastKey = keys.at(-1);
+  /* The last point that will be DRAWN: the final business day on or before
+     today. It absorbs everything worked up to now, so a weekend whose
+     carrier has not arrived yet still reaches the line. */
+  const lastVisible = keys.filter((k) => k <= todayKey).at(-1);
 
   return keys.map((key) => {
-    // On the final business day the bound is the month's end rather than the
-    // day itself, so a trailing Sat/Sun lands here instead of nowhere.
-    const bound = key === lastKey ? `${key.slice(0, 7)}-32` : key;
+    /* Two days take a bound wider than themselves, for the same reason: work
+       that has no later business day to land on would otherwise vanish. The
+       final business day absorbs a trailing weekend at the month's end; the
+       last drawn point absorbs up to TODAY, which is a weekend still waiting
+       on Monday — and no further, or a future entry would be drawn as
+       already earned. */
+    const bound =
+      key === lastKey
+        ? `${key.slice(0, 7)}-32`
+        : key === lastVisible
+          ? todayKey
+          : key;
     while (
       cursor < days.length &&
       (days[cursor] as [string, number])[0] <= bound

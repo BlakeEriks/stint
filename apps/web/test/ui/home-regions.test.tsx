@@ -670,6 +670,39 @@ describe('the arrival roll', () => {
     ).toBe('$6,840.00');
   });
 
+  /**
+   * `home.html`: "Earned and Unbilled read the same for most of a monthly
+   * cycle." Two figures holding one number are still two figures, and a roll
+   * remembered by VALUE would let the first of them speak for the second.
+   */
+  it('rolls both figures when two of them hold the same amount', async () => {
+    reducedMotion(true);
+    serve(() => stats());
+
+    const { container } = render(<HomeCards />, { wrapper });
+
+    /* The fixture's month earned and unbilled total are both 6840. Each must
+       arrive at its own figure: keyed by amount, the second finds 6840
+       already recorded and never rolls, so it paints its final number on the
+       first frame while the other climbs to it. */
+    await waitFor(() =>
+      expect(container.querySelector('.type-figure-hero')?.textContent).toBe(
+        '$6,840.00',
+      ),
+    );
+
+    const seen = (
+      client as unknown as {
+        [k: symbol]: Map<string, number> | undefined;
+      }
+    )[Symbol.for('stint.count-up.arrived')];
+
+    expect(seen?.get('month-earned')).toBe(6840);
+    expect(seen?.get('month-unbilled')).toBe(6840);
+    /* Five figures, five names — not one entry standing for all of them. */
+    expect(seen?.size).toBeGreaterThanOrEqual(4);
+  });
+
   it('still rolls a figure whose value actually changed', async () => {
     reducedMotion(true);
     let current = stats();

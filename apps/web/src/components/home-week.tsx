@@ -58,6 +58,7 @@ export function Week({
         <FigLabel>Earned</FigLabel>
         <PairLine>
           <Money
+            figure="week-earned"
             amount={earned}
             currency={currency}
             className="type-figure text-strong"

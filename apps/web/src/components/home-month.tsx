@@ -50,6 +50,7 @@ export function Month({
           <FigGroup tier="hero" className="mt-6">
             <FigLabel>Earned</FigLabel>
             <Money
+              figure="month-earned"
               amount={month.earned}
               currency={currency}
               className="type-figure-hero text-strong"
@@ -66,6 +67,7 @@ export function Month({
                 swings by thousands, so it is withheld rather than guessed. */}
             {month.projected != null ? (
               <Money
+                figure="month-projected"
                 amount={month.projected}
                 currency={currency}
                 className="type-amount-hero text-strong"
@@ -80,6 +82,7 @@ export function Month({
           <FigGroup tier="minor" className="mt-[22px]">
             <FigLabel>Unbilled</FigLabel>
             <Money
+              figure="month-unbilled"
               amount={unbilled.total}
               currency={currency}
               className="type-amount-hero text-strong"

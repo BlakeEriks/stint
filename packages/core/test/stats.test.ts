@@ -450,6 +450,50 @@ test('a month with nothing earned projects zero, not null', () => {
   assert.ok(p.series.every((s) => s.actual === 0 || s.actual === null));
 });
 
+/* The figure and the line under it are the same money. A weekend whose next
+   business day has not arrived yet still belongs to what has been earned, so
+   the last point that is DRAWN has to hold it — otherwise the hero figure
+   reads one total and the chart tops out at another. */
+test('the last drawn point holds a weekend the week has not reached', () => {
+  const p = buildEarnedPace({
+    byDay: new Map([
+      ['2026-03-02', 100],
+      ['2026-03-07', 500],
+    ]),
+    // Sunday. The carrier, Monday the 9th, is still in the future.
+    now: new Date('2026-03-08T12:00:00Z'),
+    tz: 'UTC',
+  });
+
+  const lastDrawn = [...p.series].reverse().find((x) => x.actual != null);
+  assert.equal(p.earned, 600);
+  assert.equal(lastDrawn?.actual, 600, 'the line reaches what was earned');
+  assert.equal(
+    p.projection?.from.amount,
+    lastDrawn?.actual,
+    'and the dashed segment leaves from where the solid one stops',
+  );
+});
+
+test('work dated after today is not earned yet', () => {
+  const p = buildEarnedPace({
+    byDay: new Map([
+      ['2026-03-02', 100],
+      ['2026-03-20', 999],
+    ]),
+    now: new Date('2026-03-08T12:00:00Z'),
+    tz: 'UTC',
+  });
+
+  const lastDrawn = [...p.series].reverse().find((x) => x.actual != null);
+  assert.equal(
+    p.earned,
+    100,
+    'a forward-dated entry is nobody\u2019s money yet',
+  );
+  assert.equal(lastDrawn?.actual, 100);
+});
+
 test('the line only ever goes up', () => {
   const p = buildEarnedPace({
     byDay: new Map([

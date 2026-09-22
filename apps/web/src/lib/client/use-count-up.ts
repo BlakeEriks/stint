@@ -53,20 +53,22 @@ const ARRIVAL = 0.92;
 const ARRIVED = Symbol.for('stint.count-up.arrived');
 
 /**
- * What is remembered is the set of figures ALREADY ROLLED IN, not a boolean
- * and not a timestamp.
+ * What is remembered is the value each NAMED figure was last shown holding.
  *
  * A single boolean set by the first hook would rest every figure after it —
  * the whole panel mounts in one pass, so figure two would read what figure one
  * just wrote. A timestamp window cannot tell a panel mounting together from a
- * navigation back a second later, which is the case this exists for.
+ * navigation back a second later, which is the case this exists for. A set of
+ * bare values collides: `home.html` says Earned and Unbilled read the same for
+ * most of a monthly cycle, so the second of the two would find its own amount
+ * already there and never roll.
  *
- * A figure's own value is the discriminator both miss: on a fresh load nothing
- * has been shown, so every figure rolls; on a return to Home the figures are
- * the ones already on the set, so each rests. The same figure arriving at a
- * value it has NOT held before is new money, and rolls.
+ * Keyed by the figure's own name, the three cases separate. Nothing recorded
+ * means a fresh load, so it rolls. The same name at the same value is a
+ * remount holding what the user already read, so it rests. The same name at a
+ * new value is money that moved, and tweens from where it sat.
  */
-type Arrivable = { [ARRIVED]?: Set<number> };
+type Arrivable = { [ARRIVED]?: Map<string, number> };
 
 /**
  * Tween `to` from wherever the figure already was.
@@ -76,7 +78,7 @@ type Arrivable = { [ARRIVED]?: Set<number> };
  * mid-flight — leaves the answer on screen rather than a number the user does
  * not have.
  */
-export function useCountUp(to: number): { value: number } {
+export function useCountUp(figure: string, to: number): { value: number } {
   const reduced = prefersReducedMotion();
 
   /* Decided ONCE per mount, in `useState`'s initialiser: read in render it
@@ -86,12 +88,15 @@ export function useCountUp(to: number): { value: number } {
     const store = client as Arrivable;
     let seen = store[ARRIVED];
     if (!seen) {
-      seen = new Set<number>();
+      seen = new Map<string, number>();
       store[ARRIVED] = seen;
     }
-    if (seen.has(to)) return false;
-    seen.add(to);
-    return true;
+    const shownBefore = seen.get(figure);
+    seen.set(figure, to);
+    /* Unseen: a fresh load, so roll. Seen at this very value: a remount
+       holding what the user already read, so rest. Seen at another value:
+       money moved, and the effect tweens it from where it sat. */
+    return shownBefore == null;
   });
 
   const [value, setValue] = useState(to);

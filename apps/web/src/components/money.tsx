@@ -21,18 +21,23 @@ import { useCountUp } from '@/lib/client/use-count-up';
  * `type-duration`, a legend's is `type-meta`.
  */
 export function Money({
+  figure,
   amount,
   currency,
   className,
   sign = false,
 }: {
+  /** What this figure IS, stable across mounts — `month-earned`, not its
+   *  amount. Two figures holding the same number are still two figures, and
+   *  the roll is remembered per name. */
+  figure: string;
   amount: number;
   currency: string;
   className?: string;
   /** A delta leads with its sign; a standing total does not. */
   sign?: boolean;
 }) {
-  const { value } = useCountUp(amount);
+  const { value } = useCountUp(figure, amount);
   return (
     <span className={className}>
       {sign ? '+' : ''}

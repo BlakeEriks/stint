@@ -794,6 +794,52 @@ test('calendar groups entries by LOCAL day', async () => {
   assert.equal(sp.body.days[0].totalSeconds, 3600);
 });
 
+/* The week's bar height is billable seconds (`revenue_by_day`), and its stack
+   divides that height. If `byClient` counted non-billable work too, internal
+   time would take a share of a bar it did not raise. */
+test('the day split counts billable work only', async () => {
+  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
+  const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
+
+  await create(
+    req('/entries', {
+      id: '018f0000-0000-7000-8000-000000000031',
+      taskName: 'Billable',
+      startedAt: '2026-09-14T09:00:00Z',
+      endedAt: '2026-09-14T11:00:00Z',
+    }),
+  );
+  await create(
+    req('/entries', {
+      id: '018f0000-0000-7000-8000-000000000032',
+      taskName: 'Not billable',
+      startedAt: '2026-09-14T13:00:00Z',
+      endedAt: '2026-09-14T14:00:00Z',
+      isBillable: false,
+    }),
+  );
+
+  const res = await json(
+    await calendar(
+      req(
+        '/calendar?from=2026-09-14T00:00:00Z&to=2026-09-15T00:00:00Z&granularity=day&tz=UTC',
+      ),
+    ),
+  );
+
+  const day = res.body.days.find(
+    (d: { date: string }) => d.date === '2026-09-14',
+  );
+  const split = Object.values(day.byClient as Record<string, number>).reduce(
+    (sum: number, n) => sum + (n as number),
+    0,
+  );
+
+  // The day's whole load stays unfiltered: the calendar draws all of it.
+  assert.equal(day.totalSeconds, 10_800);
+  assert.equal(split, 7200, 'but the split leaves the non-billable hour out');
+});
+
 test('calendar rejects an inverted period', async () => {
   const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
   const res = await json(

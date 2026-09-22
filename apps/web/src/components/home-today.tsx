@@ -54,6 +54,7 @@ export function Today({ stats }: { stats: Stats }) {
         <FigLabel>Earned</FigLabel>
         <PairLine>
           <Money
+            figure="today-earned"
             amount={stats.earnedToday}
             currency={stats.currency}
             className="type-figure text-strong"
