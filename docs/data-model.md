@@ -69,8 +69,7 @@ client's rate next year must never retroactively alter an invoice already sent.
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, `max_timer_hours`, the invoice
 identity block (business name, address, logo, tax id, terms), the invoice
-number sequence, `payment_notice`, the monthly goal
-(`monthly_target`, `monthly_target_unit`), and the entry-length thresholds
+number sequence, `payment_notice`, and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
 
 **The length thresholds default to null, and that is the feature.** Null

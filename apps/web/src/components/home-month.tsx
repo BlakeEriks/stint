@@ -45,8 +45,7 @@ export function Month({
           {/* No hours beside this figure: `month` carries no seconds, and
               `unbilled.seconds` is a different window — an all-time balance
               rather than the month — so printing it here would label one
-              period's hours with another's. `docs/roadmap.md` carries the
-              field. */}
+              period's hours with another's. */}
           <FigGroup tier="hero" className="mt-6">
             <FigLabel>Earned</FigLabel>
             <Money

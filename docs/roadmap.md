@@ -206,8 +206,8 @@ the gate its four answers when it moves up.
   the client's own hue**, so a project with no shade set renders what it
   renders today. Four is the ceiling; a fifth halves the step.
 
-  **Shades reach the bar chart and Velocity's mix, never the heatmap.** Those
-  two spend no lightness, so the channel is free. The heatmap spends it on
+  **Shades reach the week's bars and the month's client strip, never the
+  heatmap.** Those two spend no lightness, so the channel is free. The heatmap spends it on
   hours, where shades do not blur but **invert**: composited on the panel,
   step 1 at 35% opacity lands at L 0.437 while step 4 at full opacity lands at
   L 0.540, so the lightest project on a quiet day renders darker than the
