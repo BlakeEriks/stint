@@ -128,6 +128,29 @@ them together, because each one blocks work that looks unrelated to it.
       unresolved question: which sender address, since it appears in every
       inbox we ever reach.
 
+- [ ] **Upgrade Supabase to Pro before the first invite goes out.**
+
+      *Whose problem:* every alpha user, silently. The free tier **pauses a
+      project after seven days with no database activity** — fine while the
+      only traffic is ours, and the first thing a friend can hit once they
+      are not. Unpausing is a manual dashboard click; the failure mode is
+      not data loss, it is a friend opening the app to nothing and us not
+      knowing until they say so.
+
+      *Without it:* they do not sign up, or worse, they do once and the
+      project pauses before they come back.
+
+      *One person:* no — this is the plan tier, not a feature. It is listed
+      here because it is a purchase with the same shape as the other three:
+      cheap, invisible until missing, and due before a stranger's first
+      visit rather than after.
+
+      **This does not touch email.** The 2/hour default-sender cap above is
+      hardcoded to Supabase's shared infrastructure at every plan tier —
+      Pro does not raise it, does not change the sender address, and does
+      not unlock template customization. Custom SMTP is still required
+      regardless of plan.
+
 - [ ] **Sign the macOS app, so it opens on someone else's Mac.**
 
       *Whose problem:* every alpha user on macOS. `bundle.sh` self-signs with
