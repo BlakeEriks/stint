@@ -12,15 +12,13 @@ hooks:
       enabled: true
       description: >
         Adversarial review of the plan's decisions — a price, a milestone
-        order, a scope cut, a claim about a user or a market — by agents
-        that did not write it and are told to argue it's wrong. This is not
+        order, a scope cut, a claim about a user or a market — by one agent
+        that did not write it and is told to argue it's wrong. This is not
         what /speckit-analyze checks: analyze verifies spec/plan/tasks agree
         with each other and with the constitution: internal consistency.
         Nothing in Spec Kit argues a business decision is itself wrong.
       prompt: >
         Run /dissent against this feature's plan.md (or the branch diff if
-        code already exists) before /speckit-implement proceeds. If
-        plan.md decides nothing — a defect fix, or work whose only question
-        is whether it functions — say so explicitly and skip; CLAUDE.md's
-        own rule ("a branch that decides something gets /dissent before it
-        merges") only fires when a decision was actually made.
+        code already exists) before /speckit-implement proceeds. /dissent's
+        own step 0 is the cheap exit for a plan that decides nothing — do
+        not duplicate that judgment here, just invoke it and let it decide.
