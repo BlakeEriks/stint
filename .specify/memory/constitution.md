@@ -1,29 +1,42 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 2.0.0 → 2.1.0 → 2.2.0 → 2.3.0
-- v2.0.0: v1.0.0 restated design/positioning beliefs that already live in
-  positioning.md and principles.md. Replaced every restated belief with
-  structural law — a rule that names the mechanism enforcing it, or states
-  plainly that none exists yet. All six principles rewritten to that shape,
-  following a sibling project's constitution (BL-API) the user supplied as
-  the bar to hit.
-- v2.1.0: .claude/commands/feature.md deleted as redundant with speckit-*.
-  /dissent wired as a mandatory before_implement hook in
-  .specify/extensions.yml (superseded, see v2.2.0/v2.3.0).
-- v2.2.0: the user identified that before_implement is too late — by
-  plan.md a decision already reads as settled. .specify/extensions.yml
-  deleted. Compliance section rewritten to state /dissent's new timing
-  (ideation/roadmapping, before /speckit-specify) directly.
-- v2.3.0 (PATCH — removes a cross-reference, redefines no principle or
-  mechanism): the user pointed out that even describing /dissent's timing
-  here was wrong — this constitution governs the speckit-* workflow, and
-  /dissent explicitly runs outside it. Removed the last references; that
-  command's existence, shape and timing are owned by
-  .claude/commands/dissent.md alone, cited by nothing here. Compliance
-  keeps only the boundary fact speckit-* itself needs: /speckit-analyze is
-  internal-consistency only, and a decision's correctness is settled by a
-  process this document does not govern.
-- Deferred TODOs (unchanged since v2.0.0):
+- Version change: 1.0.0 → 2.0.0 → 2.1.0 → 2.2.0 → 2.3.0 → 3.0.0
+- v2.0.0 through v2.3.0: see prior report, preserved in git history.
+- v3.0.0 (MAJOR — four new principles, renumbering existing ones): an
+  outside review found the six existing principles cover data integrity,
+  schema shape, API surface, dual-write parity, non-destructive writes, and
+  I/O purity — but nothing governs authorization *correctness* (as opposed
+  to RLS being merely enabled), secrets, observability, or migration
+  rollout safety across independently-deployed clients. Each gap was
+  checked against the actual repo before being written, per this
+  document's own rule that a principle without a mechanism is a hope:
+  - Authorization correctness: apps/web/test/rls.test.ts already exists
+    and is real (cross-user isolation tests against a real RLS-enabled
+    Postgres, run as `pnpm test:rls` in CI) — promoted to a named
+    Principle rather than left implicit under II's "RLS enabled" check,
+    because "enabled" and "correct" are different claims.
+  - Secrets: .gitleaks.toml + .github/workflows/gitleaks.yml already run
+    on every push and PR — promoted to a Principle for the same reason.
+  - Observability: nothing exists beyond bare `console.error` in
+    apps/web/src/lib/errors.ts. Stated as TODO(ERROR_TRACKING) rather than
+    invented.
+  - Migration rollout across clients: .claude/rules/migrations.md already
+    states a real, detailed policy (additive-only, two-release column
+    retirement) but it is a review rule, not a script — verify:schema
+    checks shape, not rollout safety. Stated with the real mechanism
+    (verify:schema) named for what it actually covers, and TODO for the
+    rest.
+  - Rejected as a new principle: API versioning/deprecation (no v2 exists
+    yet, nothing to state beyond a TODO with no principle to hang it on —
+    revisit when v2 is real) and a general "testing bar" principle
+    (already extensive per-suite coverage exists but no per-route
+    enforcement gate; folding it into Principle IV's dual-write scope
+    would blur that principle's actual claim, so left out rather than
+    stated loosely).
+  - docs/api.md line 3 claims "web, Expo, Swift" as the three clients;
+    no Expo app exists in this repo. Not a constitution concern, flagged
+    to the user as a doc accuracy issue instead.
+- Deferred TODOs (carried forward, unchanged):
   - TODO(SERVER_ACTIONS_LINT): a biome rule banning 'use server' outside an
     allowed path does not exist yet. Principle III states the rule and this
     gap explicitly rather than implying enforcement that isn't there.
@@ -31,6 +44,14 @@ Sync Impact Report
     '@supabase/*', or any I/O-performing package inside packages/core/src
     does not exist yet. Principle VI states the rule; the check is future
     work.
+- New deferred TODOs (v3.0.0):
+  - TODO(ERROR_TRACKING): no structured logging or error-tracking service
+    exists. Principle VIII states the gap rather than implying a mechanism
+    that isn't there.
+  - TODO(MIGRATION_ROLLOUT_CHECK): no automated check verifies a migration
+    is safe for a client on the previous schema version to keep running
+    against. Principle IX names the real mechanism for shape/RLS and the
+    gap for rollout safety.
 -->
 
 # Stint Constitution
@@ -139,6 +160,69 @@ by convention, not by a lint rule banning the import. Stated now, before a
 second consumer of `packages/core` exists, so the rule is inherited rather
 than retrofitted.
 
+### VII. Row-Level Security Is Verified Correct, Not Merely Enabled
+
+Principle II asserts every table has RLS *on*. That is a different claim from
+RLS being *right* — a policy can exist and still leak: a missing `USING`
+clause, a policy scoped to the wrong column, a forged `user_id` accepted on
+insert. Every table holding user data MUST have a test proving one user
+cannot read, update, or delete another user's rows through it, run against a
+real Postgres instance authenticating as the `authenticated` role — never as
+a superuser or RLS-bypassing connection, which would pass trivially. A table
+added without this test is unverified, regardless of what `verify:schema`
+reports.
+
+**Mechanism**: `apps/web/test/rls.test.ts`, run as `pnpm test:rls` in CI
+(`database` job, `.github/workflows/ci.yml`) against a dedicated RLS-enabled
+database, authenticating via a per-transaction JWT claim the way PostgREST
+does. A new table without an equivalent cross-user case in this file has not
+met this principle.
+
+### VIII. A Secret Committed Is a Broken Build, an Unhandled Error Is a Silent One
+
+No credential, key, or connection string that grants write access or bypasses
+RLS may reach version control — not "should be caught in review," a build
+that contains one is broken the moment it's pushed. Separately, and today
+less completely enforced: an error the app doesn't expect MUST be
+distinguishable from one it does, so a failure can be found before a user
+reports it rather than after.
+
+**Mechanism (secrets)**: `.gitleaks.toml` (scoped allowlist for known
+placeholders) enforced by `.github/workflows/gitleaks.yml` on every push to
+`main` and every PR, scanning full history. A commit containing a real
+secret fails this workflow, not a reviewer's eye.
+
+**Mechanism (errors)**: none yet beyond `apps/web/src/lib/errors.ts`
+producing a structured `ApiError` response shape for *expected* failures.
+An unexpected exception currently reaches only `console.error`, which is not
+monitored. `TODO(ERROR_TRACKING)` — no structured logging or error-tracking
+service exists; an unhandled exception in production is invisible until a
+user reports the symptom. Stated now rather than implied, because this gap
+is the difference between finding a production bug in an hour and finding
+it in a support message.
+
+### IX. A Migration Ships for the Client That Hasn't Updated Yet
+
+Web deploys the moment `main` merges; the Swift app waits on App Store
+review and a user choosing to update. A migration that assumes every client
+is on the new schema the moment it lands breaks the Swift client running
+against the old one for however long review takes. Migrations MUST be
+additive and forward-only — new columns nullable or defaulted, no dropped or
+renamed column that has shipped, no narrowed type — and retiring a column is
+two releases: stop writing it, ship, confirm nothing reads it, then drop it
+later, never in the migration that changes the code. A destructive change is
+only permitted against schema that has never reached production.
+
+**Mechanism**: `scripts/verify-schema.mjs` (`pnpm verify:schema`) asserts
+shape and RLS are correct after a migration runs, and runs again by the
+release gate against the hosted project before a deploy is unaliased
+(`docs/deploying.md`). It does not verify that the migration was safe to
+ship *while an older client is still running* — that discipline is stated
+in `.claude/rules/migrations.md` and enforced by review, not by a script.
+`TODO(MIGRATION_ROLLOUT_CHECK)` — no automated check exists that would
+catch a dropped or narrowed column before it reaches a client that hasn't
+updated.
+
 ## Doc Ownership — Where a Claim Belongs
 
 Every claim about the product lives in exactly one place. A spec, plan, or
@@ -221,4 +305,4 @@ constitution — internal consistency, nothing further. Whether a decision
 behind a spec was the right one is settled before a feature reaches this
 workflow at all, by a process this document does not govern.
 
-**Version**: 2.3.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-22
+**Version**: 3.0.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-23
