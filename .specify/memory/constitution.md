@@ -1,24 +1,23 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 2.0.0
-- Rationale for MAJOR: v1.0.0 restated design/positioning beliefs that
-  already live in positioning.md and principles.md. This version replaces
-  every restated belief with structural law — a rule that names the
-  mechanism enforcing it, or states plainly that none exists yet. That is a
-  redefinition of what a "principle" in this document is, not an addition.
-- Modified principles: all — rewritten from belief-statements to
-  mechanism-backed rules, following the shape of a sibling project's
-  constitution (BL-API) the user supplied as the bar to hit.
-- Added: Principle II (schema invariants), IV (parity testing), VI (packages/core
-  purity), the Main Branch Bar governance rule, the Server Actions enforcement
-  gap named as a TODO.
-- Removed: the prior five principles that restated positioning.md/principles.md
-  verbatim (single-user scope, free-tracking-paid-invoice, simplicity-as-
-  instruction) — those remain true and are cited by reference in Doc
-  Ownership, not repeated here as "principles" with no mechanism.
-- Templates requiring updates: none yet — no specs/plans exist against v1.0.0
-  to re-validate.
-- Deferred TODOs:
+- Version change: 1.0.0 → 2.0.0 → 2.1.0
+- v2.0.0: v1.0.0 restated design/positioning beliefs that already live in
+  positioning.md and principles.md. Replaced every restated belief with
+  structural law — a rule that names the mechanism enforcing it, or states
+  plainly that none exists yet. All six principles rewritten to that shape,
+  following a sibling project's constitution (BL-API) the user supplied as
+  the bar to hit.
+- v2.1.0 (MINOR — new governance mechanism, no principle redefined):
+  .claude/commands/feature.md deleted as redundant with speckit-* now that
+  the constitution exists to ground it. .claude/commands/dissent.md was
+  nearly deleted for the same reason and is NOT redundant: /speckit-analyze
+  checks spec/plan/tasks internal consistency against the constitution;
+  /dissent argues a business decision (price, milestone order, scope cut) is
+  itself wrong, which nothing in Spec Kit's shipped skills does. Wired as a
+  mandatory before_implement hook in .specify/extensions.yml instead of
+  remaining a convention a session has to remember — Governance's
+  Compliance section now names the hook as the mechanism.
+- Deferred TODOs (unchanged from v2.0.0):
   - TODO(SERVER_ACTIONS_LINT): a biome rule banning 'use server' outside an
     allowed path does not exist yet. Principle III states the rule and this
     gap explicitly rather than implying enforcement that isn't there.
@@ -210,9 +209,18 @@ valid.
 
 **Compliance**: a `/speckit-plan` or `/speckit-implement` run that conflicts
 with a Core Principle above is a defect in the plan, not a judgment call for
-the implementing agent — stop and surface it. A branch that decides
-something (a price, a scope cut, a milestone order) still gets `/dissent`
-before merge, per the project's existing convention; `/speckit-analyze` is
-a complement to that, not a replacement.
+the implementing agent — stop and surface it.
 
-**Version**: 2.0.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-22
+**Adversarial review of a decision is mandatory, not remembered.**
+`/speckit-analyze` checks that `spec.md`, `plan.md`, and `tasks.md` agree
+with each other and with this constitution — internal consistency. It does
+not, and cannot, argue that a price, a milestone order, a scope cut, or a
+claim about a user is itself wrong; nothing in Spec Kit's shipped skills
+does. `/dissent` is that check, and it is wired as a **mandatory
+`before_implement` hook** in `.specify/extensions.yml` — `/speckit-implement`
+MUST invoke it before proceeding, not offer it as an option a session can
+decline to notice. A feature whose plan decides nothing (a defect fix, pure
+mechanics) states that explicitly and is skipped by the hook's own prompt;
+silence is not how a decision-bearing plan exits this gate.
+
+**Version**: 2.1.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-22

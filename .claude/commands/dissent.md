@@ -40,7 +40,7 @@ worth doing. Those are what the reviewers are pointed at.
 Each gets the branch, the claim list, and one angle. Tell each to cite
 `file:line` and to say plainly where it disagrees. They run in parallel — they
 are reading, not editing, so they cannot read each other's half-applied work
-the way `/feature`'s reviewers could.
+the way `/speckit-implement`'s phase agents could.
 
 **The dissent.** The brief is to argue the branch is wrong, and it is worded
 that way. *The author has been agreeing with themselves for a while and needs
