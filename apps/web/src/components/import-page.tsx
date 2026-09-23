@@ -6,8 +6,10 @@ import {
   formatCompact,
   formatCurrency,
   type ImportPreview,
+  type ImportResult,
   type ImportRow,
 } from '@stint/core';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { inputClass, Section } from './field';
 import { Page } from './page';
@@ -122,7 +124,9 @@ export function ImportPage() {
           ) : null}
         </Section>
 
-        {preview.data && file ? (
+        {confirm.data && preview.data ? (
+          <Result result={confirm.data} preview={preview.data} />
+        ) : preview.data && file ? (
           <Review
             preview={preview.data}
             zone={zone}
@@ -130,7 +134,6 @@ export function ImportPage() {
             onAllBillable={(b) => choose(file, zone, b)}
             onConfirm={() => confirm.mutate({ file, zone, allBillable })}
             pending={confirm.isPending}
-            done={confirm.isSuccess}
           />
         ) : null}
 
@@ -138,17 +141,6 @@ export function ImportPage() {
           <p role="alert" className="type-support text-muted">
             {confirm.error.message} Trying again is safe — nothing is imported
             twice.
-          </p>
-        ) : null}
-
-        {confirm.data ? (
-          <p role="status" className="type-support text-primary">
-            Imported {confirm.data.written}{' '}
-            {confirm.data.written === 1 ? 'entry' : 'entries'}
-            {confirm.data.alreadyImported
-              ? `; ${confirm.data.alreadyImported} were already here`
-              : ''}
-            .
           </p>
         ) : null}
       </div>
@@ -163,7 +155,6 @@ function Review({
   onAllBillable,
   onConfirm,
   pending,
-  done,
 }: {
   preview: ImportPreview;
   zone: string;
@@ -171,7 +162,6 @@ function Review({
   onAllBillable: (b: boolean) => void;
   onConfirm: () => void;
   pending: boolean;
-  done: boolean;
 }) {
   const { summary } = preview;
   const fmt = when(zone);
@@ -201,7 +191,7 @@ function Review({
           type="button"
           variant="accent"
           onClick={onConfirm}
-          disabled={pending || done || summary.willWriteCount === 0}
+          disabled={pending || summary.willWriteCount === 0}
         >
           {pending ? 'Importing…' : 'Import'}
         </Button>
@@ -298,5 +288,69 @@ function Row({ row, fmt }: { row: ImportRow; fmt: Intl.DateTimeFormat }) {
         )}
       </td>
     </tr>
+  );
+}
+
+/**
+ * What the import did, in place of the preview. An imported history has no
+ * rate until one is set, and invoicing refuses unrated work, so that is the
+ * first thing offered.
+ */
+function Result({
+  result,
+  preview,
+}: {
+  result: ImportResult;
+  preview: ImportPreview;
+}) {
+  const clientIds = [
+    ...new Set(
+      preview.rows.flatMap((r) =>
+        r.willWrite && r.clientId ? [r.clientId] : [],
+      ),
+    ),
+  ];
+  const rateHref =
+    clientIds.length === 1 ? `/clients/${clientIds[0]}` : '/settings';
+  const names = [
+    ...new Set(
+      preview.rows.flatMap((r) =>
+        r.willWrite && r.clientName ? [r.clientName] : [],
+      ),
+    ),
+  ];
+
+  return (
+    <Section
+      title={`Imported ${result.written} ${result.written === 1 ? 'entry' : 'entries'}`}
+      description={[
+        names.length ? `Into ${names.join(', ')}.` : null,
+        result.alreadyImported
+          ? `${result.alreadyImported} were already here and were left as they are.`
+          : null,
+        result.excluded
+          ? `${result.excluded} had no end time and were not imported.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {result.unrated ? (
+        <p className="type-support text-danger">
+          {result.unrated} {result.unrated === 1 ? 'entry has' : 'entries have'}{' '}
+          no rate yet — invoicing will refuse them until one is set.
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        {result.unrated ? (
+          <Button asChild>
+            <Link href={rateHref}>Set a rate</Link>
+          </Button>
+        ) : null}
+        <Button asChild variant={result.unrated ? 'ghost' : 'default'}>
+          <Link href="/calendar">Open the calendar</Link>
+        </Button>
+      </div>
+    </Section>
   );
 }
