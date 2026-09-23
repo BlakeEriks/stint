@@ -1,23 +1,26 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 2.0.0 → 2.1.0
+- Version change: 1.0.0 → 2.0.0 → 2.1.0 → 2.2.0
 - v2.0.0: v1.0.0 restated design/positioning beliefs that already live in
   positioning.md and principles.md. Replaced every restated belief with
   structural law — a rule that names the mechanism enforcing it, or states
   plainly that none exists yet. All six principles rewritten to that shape,
   following a sibling project's constitution (BL-API) the user supplied as
   the bar to hit.
-- v2.1.0 (MINOR — new governance mechanism, no principle redefined):
-  .claude/commands/feature.md deleted as redundant with speckit-* now that
-  the constitution exists to ground it. .claude/commands/dissent.md was
-  nearly deleted for the same reason and is NOT redundant: /speckit-analyze
-  checks spec/plan/tasks internal consistency against the constitution;
-  /dissent argues a business decision (price, milestone order, scope cut) is
-  itself wrong, which nothing in Spec Kit's shipped skills does. Wired as a
-  mandatory before_implement hook in .specify/extensions.yml instead of
-  remaining a convention a session has to remember — Governance's
-  Compliance section now names the hook as the mechanism.
-- Deferred TODOs (unchanged from v2.0.0):
+- v2.1.0: .claude/commands/feature.md deleted as redundant with speckit-*.
+  /dissent kept — /speckit-analyze checks internal consistency, not whether
+  a decision is itself wrong — and wired as a mandatory before_implement
+  hook in .specify/extensions.yml.
+- v2.2.0 (MINOR — reverses v2.1.0's hook, does not touch a Core Principle):
+  the user identified that before_implement is too late. By plan.md, a
+  decision already reads as settled — a /dissent finding there costs a
+  rewrite of spec.md/plan.md/tasks.md instead of an edit to one roadmap
+  paragraph. .specify/extensions.yml deleted (its one hook was this).
+  /dissent now runs during ideation/roadmapping, before /speckit-specify,
+  and is explicitly NOT invoked anywhere in the speckit-* lifecycle.
+  Governance's Compliance section rewritten to state this timing rather
+  than name a hook that no longer exists.
+- Deferred TODOs (unchanged since v2.0.0):
   - TODO(SERVER_ACTIONS_LINT): a biome rule banning 'use server' outside an
     allowed path does not exist yet. Principle III states the rule and this
     gap explicitly rather than implying enforcement that isn't there.
@@ -211,16 +214,18 @@ valid.
 with a Core Principle above is a defect in the plan, not a judgment call for
 the implementing agent — stop and surface it.
 
-**Adversarial review of a decision is mandatory, not remembered.**
+**Adversarial review of a decision happens before Spec Kit, not inside it.**
 `/speckit-analyze` checks that `spec.md`, `plan.md`, and `tasks.md` agree
 with each other and with this constitution — internal consistency. It does
 not, and cannot, argue that a price, a milestone order, a scope cut, or a
 claim about a user is itself wrong; nothing in Spec Kit's shipped skills
-does. `/dissent` is that check, and it is wired as a **mandatory
-`before_implement` hook** in `.specify/extensions.yml` — `/speckit-implement`
-MUST invoke it before proceeding, not offer it as an option a session can
-decline to notice. A feature whose plan decides nothing (a defect fix, pure
-mechanics) states that explicitly and is skipped by the hook's own prompt;
-silence is not how a decision-bearing plan exits this gate.
+does. `/dissent` is that check, and it runs during ideation and roadmapping —
+against a `roadmap.md` line, a proposal, a rough plan — **before**
+`/speckit-specify` turns a decision into a spec. By `plan.md`, the decision
+already reads as settled; a finding there costs a rewrite of three generated
+artifacts instead of an edit to one roadmap paragraph. `/speckit-implement`
+does not invoke it and has no hook that does — a decision-bearing feature
+earns its `/dissent` pass on the way into the roadmap, not on the way out of
+planning.
 
-**Version**: 2.1.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-22
+**Version**: 2.2.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-22
