@@ -158,7 +158,7 @@ export type PaymentProfileInput = Partial<
   Pick<PaymentProfile, 'name'>;
 
 export const api = {
-  /** A Toggl or Harvest export, plus the zone its wall-clock times are in. */
+  /** A Toggl export, plus the zone its wall-clock times are in. */
   importPreview: (form: FormData) =>
     request<ImportPreview>('POST', '/imports/preview', form),
 

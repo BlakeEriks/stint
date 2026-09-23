@@ -22,6 +22,6 @@ export function parseExport(text: string): ParsedExport {
   }
   return {
     ok: false,
-    reason: 'This is not a Toggl or Harvest time-entry export.',
+    reason: 'This is not a Toggl Track detailed-report CSV.',
   };
 }

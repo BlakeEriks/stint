@@ -40,7 +40,7 @@ function form({ file, zone }: Upload) {
 }
 
 /**
- * Bring history in from Toggl or Harvest: choose the export, read what it
+ * Bring history in from Toggl: choose the export, read what it
  * will write, confirm. Nothing is written until the confirm.
  */
 export function ImportPage() {
@@ -82,8 +82,8 @@ export function ImportPage() {
       <h1 className="mb-6 type-title text-strong">Import</h1>
       <div className="flex flex-col gap-4">
         <Section
-          title="From Toggl or Harvest"
-          description="Export your time entries as CSV and choose the file. You see every entry before anything is written, and importing the same file again adds nothing."
+          title="From Toggl"
+          description="Export a detailed report from Toggl Track as CSV and choose the file. You see every entry before anything is written, and importing the same file again adds nothing."
         >
           <input
             type="file"
@@ -174,7 +174,7 @@ function Review({
     <Section
       title={`${summary.willWriteCount} ${
         summary.willWriteCount === 1 ? 'entry' : 'entries'
-      } from ${preview.source === 'toggl' ? 'Toggl' : 'Harvest'}`}
+      } from Toggl`}
       description={[
         summary.unratedCount
           ? `${summary.unratedCount} will be unrated until a rate is set on their project, client or account.`

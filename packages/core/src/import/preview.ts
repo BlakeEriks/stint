@@ -2,7 +2,7 @@ import { localDateTimeToInstant } from '../calendar.ts';
 import { resolveRate, resolveRateSource } from '../rates.ts';
 import { deterministicUuidv7 } from '../uuid.ts';
 
-export type ImportSource = 'toggl' | 'harvest';
+export type ImportSource = 'toggl';
 
 /** One export row, as the source reported it — nothing matched or resolved. */
 export interface ParsedRow {

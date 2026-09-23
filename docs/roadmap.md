@@ -251,7 +251,7 @@ you, and nothing you build here is held hostage.
       accountant's version and is probably the highest value per line of code
       in the file. Rates must be in the entry export, and `0` is a real rate.
 
-- [ ] **Import from Toggl and Harvest.**
+- [ ] **Import from Toggl.**
 
       *Whose problem:* a contractor arriving with years of history has it
       somewhere else. Starting on an empty database means their first month
@@ -298,6 +298,18 @@ you, and nothing you build here is held hostage.
 
       **Out of scope:** no live sync. Two systems of record is a different
       product.
+
+- [ ] **Import from Harvest, once someone asks for it.**
+
+      *Whose problem:* a contractor arriving from Harvest rather than Toggl.
+
+      *Without it:* they start with no history — but no user has asked yet,
+      and Harvest's export is the harder one: a duration-tracking account
+      records no time of day, so every row needs a placement decision the
+      Toggl import never faces.
+
+      *One person:* yes, when one exists. The Toggl pipeline takes a second
+      parser; nothing else changes. Gate: a user asks.
 
 ## M4 · Taking money
 

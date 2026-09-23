@@ -20,7 +20,7 @@ export function SettingsPage() {
         <PaymentProfiles />
         <Section
           title="Import"
-          description="Bring your history in from a Toggl or Harvest export."
+          description="Bring your history in from a Toggl export."
         >
           <div>
             <Button asChild>

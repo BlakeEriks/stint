@@ -41,7 +41,7 @@ trusting the device clock.
 
 ## Import
 
-A Toggl or Harvest CSV export, as `multipart/form-data`: `file`, and
+A Toggl Track detailed-report CSV, as `multipart/form-data`: `file`, and
 `timeZone` (IANA) — the zone the export's wall-clock times are in, which is
 the exporting account's and not necessarily the caller's.
 
@@ -54,7 +54,7 @@ Each entry's id is derived from the user and the row's own content, so a
 retry or the same file twice lands on rows already written and adds nothing.
 Imported entries carry no `rateOverride`: they resolve through the rate chain
 like any other. A row with no end time is never written. Both return **`422
-IMPORT_FILE_UNRECOGNIZED`** for a file that is not a Toggl or Harvest export,
+IMPORT_FILE_UNRECOGNIZED`** for a file that is not a Toggl export,
 or one with an unreadable row, before anything is written.
 
 ## Views
@@ -266,7 +266,7 @@ verified by phone.
 | `NO_RATE_CONFIGURED` | 400 | No rate at any level for a billable entry. |
 | `INVALID_PERIOD` | 400 | |
 | `UNAUTHORIZED` | 401 | |
-| `IMPORT_FILE_UNRECOGNIZED` | 422 | Not a Toggl or Harvest export, or a row in it cannot be read; `message` names the line. |
+| `IMPORT_FILE_UNRECOGNIZED` | 422 | Not a Toggl export, or a row in it cannot be read; `message` names the line. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, or a `PATCH` body that parses but maps to no column. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 

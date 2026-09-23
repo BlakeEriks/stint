@@ -17,7 +17,7 @@ missed (SC-005), DST (FR-012). They run under `pnpm core:test`
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: US1–US4, mapping to spec.md's user stories
+- **[Story]**: US1–US3, mapping to spec.md's user stories
 
 ---
 
@@ -99,15 +99,9 @@ missed (SC-005), DST (FR-012). They run under `pnpm core:test`
 
 ---
 
-## Phase 6: User Story 4 — Harvest (P3)
+## Phase 6: User Story 4 — Harvest
 
-**Goal**: Harvest export through the same pipeline.
-
-**Independent test**: quickstart.md Scenario 4.
-
-- [ ] T030 [US4] Implement `parseHarvest(csvRows): ParsedRow[]` in `packages/core/src/import/parse-harvest.ts` against Harvest's documented time-report CSV (record consumed columns in a comment). Harvest reports date + hours rather than start/end for many accounts — if a row has no start time, treat it per research.md's no-fabrication rule: exclude with a new `excludedReason` value rather than inventing a start, and add that value to T004's union
-- [ ] T031 [P] [US4] Unit tests in `packages/core/test/import-harvest.test.ts` with `packages/core/test/fixtures/harvest.csv`
-- [ ] T032 [US4] Recognize Harvest's header in `detectSource()` in `packages/core/src/import/detect.ts`
+Deferred to its own roadmap item, gated on a user asking for it.
 
 ---
 
@@ -127,7 +121,6 @@ missed (SC-005), DST (FR-012). They run under `pnpm core:test`
 - **US1** depends only on Phase 2.
 - **US2** depends on US1's routes and page (T015–T019); its logic already lives in T010.
 - **US3** T023–T024 can start after Phase 2; T025 edits `build-preview.ts` after T010; T029 after T019.
-- **US4** depends on Phase 2 and US1's routes; no dependency on US2/US3.
 - Polish after the stories it touches.
 
 ## Parallel Examples
@@ -135,12 +128,11 @@ missed (SC-005), DST (FR-012). They run under `pnpm core:test`
 - Phase 2: T004, T005, T006, T007 together (separate files); T008 once they land.
 - US1: T014 and T018 alongside T015/T016.
 - US3: T023/T024 in parallel with US1's UI work; T026–T028 are one sequence.
-- US4: T030/T031 in parallel with US3.
 
 ## Implementation Strategy
 
 **MVP = Phase 1 + Phase 2 + US1.** That is a working Toggl import with
 rates already resolved correctly (T010) and no-end rows excluded. Then US3
-(the trust rule that matters most after rates), US2's display, US4, polish.
+(the trust rule that matters most after rates), US2's display, polish.
 Each story ships behind nothing — the import page is new, so an incomplete
 later story does not break an earlier one.
