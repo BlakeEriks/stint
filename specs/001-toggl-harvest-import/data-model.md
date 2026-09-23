@@ -13,13 +13,12 @@ account.
 | Field | Type | Notes |
 | --- | --- | --- |
 | `source` | `'toggl' \| 'harvest'` | |
-| `sourceRowId` | `string` | The export's own stable per-row identifier (Toggl: its entry id column; Harvest: its line identifier). Falls back to a content hash only if the format has none — see research.md. |
+| `sourceRowId` | `string` | The row's own content plus its position among identical twins — Toggl's CSV has no entry id. See research.md. |
 | `projectName` | `string \| null` | As reported by the export, unmatched. |
 | `clientName` | `string \| null` | As reported by the export, unmatched. |
 | `taskName` | `string` | |
 | `startedAtLocal` | `string` | Wall-clock local time as reported. |
 | `endedAtLocal` | `string \| null` | `null` means the export reported this entry as still running — see Running Entries below. |
-| `reportedTimezone` | `string \| null` | Explicit zone if the export names one; used to resolve `startedAtLocal`/`endedAtLocal` to an absolute instant (FR-012, DST edge case). |
 | `reportedDurationSeconds` | `number \| null` | The export's own separately-reported duration, compared against `endedAtLocal - startedAtLocal` per FR-015. |
 | `reportedAmount` | `number \| null` | Present on some rows, absent on others (User Story 2) — read only for display in the preview, never for rate computation. |
 
@@ -30,10 +29,10 @@ response and the write operation share.
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `id` | `uuid` (UUIDv7) | `deterministicUuidv7(userId, source, sourceRowId)` — see research.md. This *is* the idempotency mechanism; no separate dedup check exists. |
+| `id` | `uuid` (UUIDv7) | `deterministicUuidv7(userId|source|sourceRowId, startedAt)` — see research.md. This *is* the idempotency mechanism; no separate dedup check exists. |
 | `projectId` | `uuid \| null` | Resolved by name match against the contractor's existing `projects` (scoped `user_id`, case-insensitive), or flagged `willCreateProject: true` if none matches (per spec Assumption — creating a project from an unmatched name is in scope). |
 | `clientId` | `uuid \| null` | Same matching against `clients`, reached the same way the UI reaches it — independently of `projectId`, since `projects.client_id` is nullable. |
-| `startedAt` | `timestamptz` | Absolute instant resolved from `startedAtLocal` + `reportedTimezone` (or the contractor's account timezone if the export names none). |
+| `startedAt` | `timestamptz` | Absolute instant from the wall-clock start and the zone the contractor names on upload (defaulting to the browser's) — the export carries none. Resolved by `localDateTimeToInstant()`. |
 | `endedAt` | `timestamptz \| null` | `null` only for a row excluded from the write per the Running Entries decision below — never written as `null` to `time_entries`. |
 | `resolvedRate` | `number \| null` | Output of `resolveRate()` from `packages/core/src/rates.ts`, called with this row's `projectId`/`clientId` context — never derived from `reportedAmount`. |
 | `rateSource` | `'project' \| 'client' \| 'default' \| 'none'` | Output of `resolveRateSource()`, shown in the preview so the contractor sees *why* a rate did or didn't resolve. |
@@ -91,13 +90,13 @@ Upload file
   → contractor reviews ImportPreview
   → POST /api/v1/imports/confirm (re-sends the same file)
       re-parse + re-build ImportRow[] server-side (never trusts a client-echoed preview)
-      insert every ImportRow where willWrite === true
-      duplicate-key (23505) on a deterministic id → treated as already-imported, not an error
+      insert every ImportRow where willWrite === true, on conflict (id) do nothing
+      a row already there is counted as alreadyImported, not an error
       → confirmation summary (counts: written, unrated, overlapping, excluded-no-end-time)
 ```
 
 A retried `confirm` call with the same file after a partial failure re-runs
-this whole flow; every row whose deterministic id already exists hits the
-existing `23505` → "already there" path (`apps/web/src/app/api/v1/entries/route.ts:73-84`'s
-pattern, reused), satisfying FR-010/FR-011 without a separate "was this
-batch already imported" check.
+this whole flow; every row whose deterministic id already exists is
+skipped by the insert itself, satisfying FR-010/FR-011 without a separate
+"was this batch already imported" check. New projects and clients get
+deterministic ids the same way, so a retry never creates a second one.

@@ -21,25 +21,33 @@ missed (SC-005), DST (FR-012). They run under `pnpm core:test`
 
 ---
 
+## As built (MVP)
+
+- Core lives in fewer files than listed: `packages/core/src/import/{csv,toggl,preview,index}.ts`. Matching, detection and the preview builder are in `preview.ts`/`index.ts`; T007 reuses `localDateTimeToInstant()` from `calendar.ts` instead of a new `time.ts`.
+- Toggl's CSV has no entry id and no zone. `sourceRowId` is the row's content plus its position among identical twins, and the zone is chosen on the import page (default: the browser's).
+- New projects and clients get deterministic ids too, so T017's retry safety comes from `on conflict (id) do nothing` rather than re-matching.
+- Tests: `packages/core/test/import.test.ts` (T008, T014, T021's cases) and three route tests in `apps/web/test/routes.test.ts`.
+- T003 was written as implemented, not `(not implemented)`, since the routes shipped with it. T033's `durationDisagreement` is computed; showing it on the page is still open.
+
 ## Phase 1: Setup
 
-- [ ] T001 Create `packages/core/src/import/` and an `index.ts` barrel; re-export it from `packages/core/src/index.ts`
-- [ ] T002 [P] Add `IMPORT_FILE_UNRECOGNIZED` to `ErrorCode` in `packages/schema/src/index.ts` and to the `Code` union plus `STATUS` (422) in `apps/web/src/lib/errors.ts` in the same change — the drift guard at `errors.ts:109-120` fails the build otherwise
-- [ ] T003 [P] Mark `POST /api/v1/imports/preview` and `POST /api/v1/imports/confirm` `(not implemented)` in `docs/api.md`, linking the shapes in `specs/001-toggl-harvest-import/contracts/imports-api.md`
+- [X] T001 Create `packages/core/src/import/` and an `index.ts` barrel; re-export it from `packages/core/src/index.ts`
+- [X] T002 [P] Add `IMPORT_FILE_UNRECOGNIZED` to `ErrorCode` in `packages/schema/src/index.ts` and to the `Code` union plus `STATUS` (422) in `apps/web/src/lib/errors.ts` in the same change — the drift guard at `errors.ts:109-120` fails the build otherwise
+- [X] T003 [P] Mark `POST /api/v1/imports/preview` and `POST /api/v1/imports/confirm` `(not implemented)` in `docs/api.md`, linking the shapes in `specs/001-toggl-harvest-import/contracts/imports-api.md`
 
 ---
 
 ## Phase 2: Foundational (blocks every story)
 
-- [ ] T004 [P] Define `ParsedRow`, `ImportRow`, `ImportPreview`, `ImportResult` types in `packages/core/src/import/types.ts` exactly per data-model.md — `source: 'toggl' | 'harvest'`; `endedAtLocal: string | null`; `reportedAmount: number | null` (display only); `rateSource: 'project' | 'client' | 'default' | 'none'`; `excludedReason: 'no_end_time' | null`
-- [ ] T005 [P] Implement an RFC 4180 CSV parser (quoted fields, escaped `""`, CRLF/LF, BOM stripped) with no dependency in `packages/core/src/import/csv.ts`
-- [ ] T006 [P] Implement `deterministicUuidv7(userId, source, sourceRowId): string` in `packages/core/src/uuid.ts` — SHA-256 of `userId|source|sourceRowId`, version nibble `0x7`, variant `0b10`, remaining bits from the hash. Keep the existing random `uuidv7()` unchanged. Must be synchronous or clearly async and usable in both routes identically
-- [ ] T007 [P] Implement `localToInstant(local: string, timeZone: string): string` in `packages/core/src/import/time.ts` using `Intl` only — a skipped DST time resolves forward to the first valid instant, a repeated time resolves to the earlier offset; both are deterministic (FR-012)
-- [ ] T008 [P] Unit tests in `packages/core/test/import-foundation.test.ts`: `deterministicUuidv7` is stable across calls, differs per user/source/row, and is a valid v7 UUID; CSV parser handles quoted commas/newlines; `localToInstant` on the US spring-forward gap and fall-back overlap for `America/New_York`
-- [ ] T009 Implement `matchProjects(rows, projects, clients)` in `packages/core/src/import/match-project.ts` — case-insensitive, trimmed name match scoped to non-archived rows; returns `projectId`/`clientId` or `willCreateProject`/`willCreateClient` (depends on T004)
-- [ ] T010 Implement `buildPreview(parsed, context): ImportPreview` in `packages/core/src/import/build-preview.ts` — the single function both routes call (FR-004). Context carries `userId`, account timezone, projects, clients, user default rate, existing entry ranges. Per row: deterministic id, instants, `resolveRate()`/`resolveRateSource()` from `packages/core/src/rates.ts` with `entryRateOverride: null` and **never** `reportedAmount`, `willWrite: false` + `excludedReason: 'no_end_time'` when `endedAtLocal` is null (never synthesize an end), and summary counts (depends on T004–T007, T009)
-- [ ] T011 Implement `detectSource(csvHeader): 'toggl' | 'harvest' | null` in `packages/core/src/import/detect.ts`; `null` means the file is unrecognized (FR-016)
-- [ ] T012 Implement a shared route helper `readImport(req, db, userId)` in `apps/web/src/lib/import.ts` — reads exactly one `file` from `request.formData()` (else `VALIDATION_FAILED`), detects source (else `IMPORT_FILE_UNRECOGNIZED`), parses, loads projects/clients/user_settings/existing entries in the file's date span through the RLS-scoped `db`, and returns `buildPreview(...)`. No `parseBody` — it assumes JSON (depends on T010, T011)
+- [X] T004 [P] Define `ParsedRow`, `ImportRow`, `ImportPreview`, `ImportResult` types in `packages/core/src/import/types.ts` exactly per data-model.md — `source: 'toggl' | 'harvest'`; `endedAtLocal: string | null`; `reportedAmount: number | null` (display only); `rateSource: 'project' | 'client' | 'default' | 'none'`; `excludedReason: 'no_end_time' | null`
+- [X] T005 [P] Implement an RFC 4180 CSV parser (quoted fields, escaped `""`, CRLF/LF, BOM stripped) with no dependency in `packages/core/src/import/csv.ts`
+- [X] T006 [P] Implement `deterministicUuidv7(userId, source, sourceRowId): string` in `packages/core/src/uuid.ts` — SHA-256 of `userId|source|sourceRowId`, version nibble `0x7`, variant `0b10`, remaining bits from the hash. Keep the existing random `uuidv7()` unchanged. Must be synchronous or clearly async and usable in both routes identically
+- [X] T007 [P] Implement `localToInstant(local: string, timeZone: string): string` in `packages/core/src/import/time.ts` using `Intl` only — a skipped DST time resolves forward to the first valid instant, a repeated time resolves to the earlier offset; both are deterministic (FR-012)
+- [X] T008 [P] Unit tests in `packages/core/test/import-foundation.test.ts`: `deterministicUuidv7` is stable across calls, differs per user/source/row, and is a valid v7 UUID; CSV parser handles quoted commas/newlines; `localToInstant` on the US spring-forward gap and fall-back overlap for `America/New_York`
+- [X] T009 Implement `matchProjects(rows, projects, clients)` in `packages/core/src/import/match-project.ts` — case-insensitive, trimmed name match scoped to non-archived rows; returns `projectId`/`clientId` or `willCreateProject`/`willCreateClient` (depends on T004)
+- [X] T010 Implement `buildPreview(parsed, context): ImportPreview` in `packages/core/src/import/build-preview.ts` — the single function both routes call (FR-004). Context carries `userId`, account timezone, projects, clients, user default rate, existing entry ranges. Per row: deterministic id, instants, `resolveRate()`/`resolveRateSource()` from `packages/core/src/rates.ts` with `entryRateOverride: null` and **never** `reportedAmount`, `willWrite: false` + `excludedReason: 'no_end_time'` when `endedAtLocal` is null (never synthesize an end), and summary counts (depends on T004–T007, T009)
+- [X] T011 Implement `detectSource(csvHeader): 'toggl' | 'harvest' | null` in `packages/core/src/import/detect.ts`; `null` means the file is unrecognized (FR-016)
+- [X] T012 Implement a shared route helper `readImport(req, db, userId)` in `apps/web/src/lib/import.ts` — reads exactly one `file` from `request.formData()` (else `VALIDATION_FAILED`), detects source (else `IMPORT_FILE_UNRECOGNIZED`), parses, loads projects/clients/user_settings/existing entries in the file's date span through the RLS-scoped `db`, and returns `buildPreview(...)`. No `parseBody` — it assumes JSON (depends on T010, T011)
 
 **Checkpoint**: every story now needs only a source parser and routes.
 
@@ -51,14 +59,14 @@ missed (SC-005), DST (FR-012). They run under `pnpm core:test`
 
 **Independent test**: quickstart.md Scenario 1.
 
-- [ ] T013 [US1] Implement `parseToggl(csvRows): ParsedRow[]` in `packages/core/src/import/parse-toggl.ts` against Toggl Track's documented detailed-report CSV columns (record the exact column names consumed in a comment at the mapping). Tags are ignored (FR-013). `sourceRowId` comes from the export's per-entry id; content-hash fallback only if absent (research.md)
-- [ ] T014 [P] [US1] Unit tests in `packages/core/test/import-toggl.test.ts` with a small fixture CSV at `packages/core/test/fixtures/toggl.csv`: rows map to correct instants, a row with no end is excluded not written, identical input produces identical ids
-- [ ] T015 [US1] Implement `POST /api/v1/imports/preview` in `apps/web/src/app/api/v1/imports/preview/route.ts` — `handle()` + `requireSession()` + `readImport()`, returns `ImportPreview`, writes nothing
-- [ ] T016 [US1] Implement `POST /api/v1/imports/confirm` in `apps/web/src/app/api/v1/imports/confirm/route.ts` — re-derives the preview via `readImport()` from the uploaded bytes (never trusts a client-echoed preview), creates missing projects/clients first, inserts rows where `willWrite` with `user_id` from the session and `rate_override: null`, counts a `23505` on a row id as `alreadyImported` (the `apps/web/src/app/api/v1/entries/route.ts:73-84` pattern), returns `ImportResult`
-- [ ] T017 [US1] Make project/client creation in T016 idempotent across retries — a retried confirm must match the project it created the first time rather than creating a second one with the same name (match again after create, within the same request)
-- [ ] T018 [P] [US1] Add the import screen doc `docs/design/screens/import.html` (upload → preview table → confirm), assembled from shapes in `docs/design/screens/components.html`; the primary confirm is the one accent use
-- [ ] T019 [US1] Build the import page in `apps/web/src/app/(app)/import/page.tsx` per T018 — upload, preview table with summary counts, confirm button, result summary; entry point from Settings
-- [ ] T020 [US1] Unrecognized-file state on the page: show the `IMPORT_FILE_UNRECOGNIZED` message before any confirm is offered (FR-016)
+- [X] T013 [US1] Implement `parseToggl(csvRows): ParsedRow[]` in `packages/core/src/import/parse-toggl.ts` against Toggl Track's documented detailed-report CSV columns (record the exact column names consumed in a comment at the mapping). Tags are ignored (FR-013). `sourceRowId` comes from the export's per-entry id; content-hash fallback only if absent (research.md)
+- [X] T014 [P] [US1] Unit tests in `packages/core/test/import-toggl.test.ts` with a small fixture CSV at `packages/core/test/fixtures/toggl.csv`: rows map to correct instants, a row with no end is excluded not written, identical input produces identical ids
+- [X] T015 [US1] Implement `POST /api/v1/imports/preview` in `apps/web/src/app/api/v1/imports/preview/route.ts` — `handle()` + `requireSession()` + `readImport()`, returns `ImportPreview`, writes nothing
+- [X] T016 [US1] Implement `POST /api/v1/imports/confirm` in `apps/web/src/app/api/v1/imports/confirm/route.ts` — re-derives the preview via `readImport()` from the uploaded bytes (never trusts a client-echoed preview), creates missing projects/clients first, inserts rows where `willWrite` with `user_id` from the session and `rate_override: null`, counts a `23505` on a row id as `alreadyImported` (the `apps/web/src/app/api/v1/entries/route.ts:73-84` pattern), returns `ImportResult`
+- [X] T017 [US1] Make project/client creation in T016 idempotent across retries — a retried confirm must match the project it created the first time rather than creating a second one with the same name (match again after create, within the same request)
+- [X] T018 [P] [US1] Add the import screen doc `docs/design/screens/import.html` (upload → preview table → confirm), assembled from shapes in `docs/design/screens/components.html`; the primary confirm is the one accent use
+- [X] T019 [US1] Build the import page in `apps/web/src/app/(app)/import/page.tsx` per T018 — upload, preview table with summary counts, confirm button, result summary; entry point from Settings
+- [X] T020 [US1] Unrecognized-file state on the page: show the `IMPORT_FILE_UNRECOGNIZED` message before any confirm is offered (FR-016)
 
 **Checkpoint**: Toggl import is usable end-to-end.
 
@@ -70,7 +78,7 @@ missed (SC-005), DST (FR-012). They run under `pnpm core:test`
 
 **Independent test**: quickstart.md Scenario 2.
 
-- [ ] T021 [P] [US2] Unit test in `packages/core/test/import-rates.test.ts`: a row with a `reportedAmount` and no resolvable chain yields `resolvedRate: null`, `rateSource: 'none'`; a row under a rated project yields that project's rate regardless of `reportedAmount`; a `0` project rate resolves to `0`, not a fall-through (SC-003)
+- [X] T021 [P] [US2] Unit test in `packages/core/test/import-rates.test.ts`: a row with a `reportedAmount` and no resolvable chain yields `resolvedRate: null`, `rateSource: 'none'`; a row under a rated project yields that project's rate regardless of `reportedAmount`; a `0` project rate resolves to `0`, not a fall-through (SC-003)
 - [ ] T022 [US2] Show `rateSource` and an "unrated" marker per preview row, and the unrated count in the summary, in `apps/web/src/app/(app)/import/page.tsx`; `reportedAmount` may be shown only labelled as the source tool's figure
 
 ---

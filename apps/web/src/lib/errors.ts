@@ -8,6 +8,7 @@ export type Code =
   | 'NO_RATE_CONFIGURED'
   | 'INVALID_PERIOD'
   | 'UNAUTHORIZED'
+  | 'IMPORT_FILE_UNRECOGNIZED'
   | 'VALIDATION_FAILED';
 
 const STATUS: Record<Code, number> = {
@@ -18,6 +19,7 @@ const STATUS: Record<Code, number> = {
   NO_RATE_CONFIGURED: 400,
   INVALID_PERIOD: 400,
   UNAUTHORIZED: 401,
+  IMPORT_FILE_UNRECOGNIZED: 422,
   VALIDATION_FAILED: 422,
 };
 

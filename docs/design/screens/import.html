@@ -1,0 +1,120 @@
+<meta charset="utf-8">
+<title>Stint Import</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_mockup.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg-primary); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 88ch; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  h1 { margin: 0 0 .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; color: var(--text-strong); }
+  .standfirst { margin: 0 0 1rem; color: var(--text-muted); }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .sec { margin-top: 3.25rem; }
+  .sec-head { padding-bottom: .7rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1.75rem; }
+  code { font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); }
+  .rule { list-style: none; margin: 1rem 0 0; padding: 0; }
+  .rule li { position: relative; padding-left: 1.5rem; margin-bottom: .85rem; }
+  .rule li::before {
+    content: ''; position: absolute; left: 0; top: .55em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--text-subtle);
+  }
+  .card {
+    border: 1px solid var(--border-subtle); border-radius: 12px;
+    background: var(--bg-elevated); padding: 20px; margin-bottom: 16px;
+  }
+  .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .sub { margin: 4px 0 0; color: var(--text-muted); font-size: 13px; }
+  .btn {
+    padding: 8px 16px; border-radius: 7px; border: 1px solid var(--border-default);
+    background: var(--bg-elevated); color: var(--text-strong); font: inherit; font-size: 13px;
+  }
+  .btn.accent { background: var(--accent-default); color: var(--text-on-accent); border-color: transparent; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+  th { text-align: left; padding: 0 12px 8px 0; }
+  td { padding: 8px 12px 8px 0; border-top: 1px solid var(--border-subtle); color: var(--text-muted); vertical-align: top; }
+  td.task { color: var(--text-primary); }
+  .r { text-align: right; }
+  .meta { display: block; font-family: var(--font-mono); font-size: 11px; color: var(--text-subtle); }
+  tr.out { opacity: .6; }
+</style>
+
+<div class="page">
+
+  <span class="eyebrow">Stint · Screens</span>
+  <h1>Import</h1>
+  <p class="standfirst">
+    <code>/import</code>, reached from Settings. A Toggl or Harvest CSV export
+    comes in once: choose the file, read every entry it will write, confirm.
+  </p>
+
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">/import — a file chosen</span></div>
+
+    <div class="card">
+      <span class="type-heading" style="color:var(--text-strong)">From Toggl or Harvest</span>
+      <p class="sub">Export your time entries as CSV and choose the file. You see every entry before anything is written, and importing the same file again adds nothing.</p>
+      <p style="margin:16px 0 8px"><button class="btn">Choose File</button> <span style="color:var(--text-muted);font-size:13px">toggl.csv</span></p>
+      <span class="type-label" style="color:var(--text-subtle)">Times in the export are in</span>
+      <p style="margin:6px 0 0"><button class="btn" style="min-width:18rem;text-align:left">America/New York</button></p>
+    </div>
+
+    <div class="card">
+      <div class="head">
+        <div>
+          <span class="type-heading" style="color:var(--text-strong)">6 entries from Toggl</span>
+          <p class="sub">1 will be unrated until a rate is set on its project, client or account. 1 will not be imported — see below. Creates client Globex, project Onboarding.</p>
+        </div>
+        <button class="btn accent">Import</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th class="type-label" style="color:var(--text-subtle)">Start</th>
+          <th class="type-label" style="color:var(--text-subtle)">Task</th>
+          <th class="type-label" style="color:var(--text-subtle)">Project</th>
+          <th class="type-label r" style="color:var(--text-subtle)">Time</th>
+          <th class="type-label r" style="color:var(--text-subtle)">Rate</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>Aug 3, 2026, 9:00 AM</td><td class="task">Hotfix checkout</td><td>Rush: peak season fixes<span class="meta">Northwind Trading</span></td><td class="type-duration r">2h</td><td class="type-duration r">$195.00/h</td></tr>
+          <tr><td>Aug 5, 2026, 3:00 PM</td><td class="task">Kickoff call</td><td>Onboarding<span class="meta">Globex</span></td><td class="type-duration r">1h</td><td class="type-duration r" style="color:var(--danger)">No rate</td></tr>
+          <tr><td>Aug 6, 2026, 8:30 AM</td><td class="task">Bookkeeping</td><td>Admin and invoicing</td><td class="type-duration r">30m</td><td class="type-duration r" style="color:var(--text-subtle)">Not billable</td></tr>
+          <tr class="out"><td>Aug 7, 2026, 9:00 AM</td><td class="task">Still running<span class="meta">Not imported: the export has no end time.</span></td><td>Onboarding<span class="meta">Globex</span></td><td class="type-duration r">—</td><td class="type-duration r">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ul class="rule">
+      <li><strong>The preview is what gets written.</strong> Confirm sends the
+        same file and the server derives the rows again with the same function,
+        so nothing the page holds can make the write differ from what was
+        read.</li>
+      <li><strong>The zone is asked for, defaulting to this browser's.</strong>
+        An export's times are wall clock in the zone of the account that made
+        it, and a contractor who travels is often somewhere else. Start times
+        are shown so a wrong zone is visible before anything is written.</li>
+      <li><strong>The rate is this app's, never the export's amount.</strong>
+        Each row resolves through <code>resolveRate</code> like any entry. A
+        row with nothing to resolve reads "No rate" in the danger channel —
+        invoicing refuses unrated work, so it is a blocked invoice, not a
+        detail.</li>
+      <li><strong>A row with no end time is shown and not written.</strong> An
+        import never starts a timer and never invents an end.</li>
+      <li><strong>Projects and clients match by name</strong>, ignoring case
+        and surrounding spaces. One that does not exist is named in the
+        summary before it is created.</li>
+      <li><strong>Import is the one accent on the screen</strong> beside the
+        running timer — the action the screen exists to complete.</li>
+      <li><strong>An unreadable file says so under the picker</strong>, in
+        neutral text, with "Nothing was imported." Nothing below it
+        renders.</li>
+    </ul>
+  </section>
+
+</div>

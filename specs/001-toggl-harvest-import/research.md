@@ -19,16 +19,14 @@ This needs no migration, no new RLS surface, and no parity test (Principle
 IV) since the derivation exists in exactly one place — TypeScript, called by
 both `preview` and `confirm` routes, never restated in SQL.
 
-`sourceRowId` is source-specific: Toggl's CSV export includes a per-row
-numeric `Duration` and start/stop timestamps but critically also a `Time
-Entry Id`-equivalent column (confirmed by Toggl's documented CSV format) —
-Phase 1's `data-model.md` records the exact column consumed per source.
-Harvest's export includes a comparable stable identifier per line. If a
-future export format lacks a stable per-row id entirely, the fallback is a
-hash of the row's own content (project, start, end, task) — accepted as a
-known limitation (two genuinely identical entries in one export would
-collide) rather than solved speculatively, since neither documented export
-format requires this fallback today.
+`sourceRowId` is the row's own content: client, project, description,
+start and end as the export printed them. Toggl's detailed CSV carries no
+entry id, so there is nothing more stable to use. Identical twins in one
+file are told apart by their position among each other (`…|1`, `…|2`),
+which a re-upload reproduces. The key is the wall-clock text, not the
+resolved instant, so re-importing under a different zone lands on the rows
+already written rather than duplicating them shifted. An entry edited in
+Toggl between two exports is a different row, and arrives as a new entry.
 
 **Alternatives considered**:
 - *New `external_source text, external_id text` column pair with a unique

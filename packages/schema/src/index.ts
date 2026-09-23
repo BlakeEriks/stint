@@ -751,6 +751,7 @@ export const ErrorCode = z.enum([
   'NO_RATE_CONFIGURED',
   'INVALID_PERIOD',
   'UNAUTHORIZED',
+  'IMPORT_FILE_UNRECOGNIZED',
   'VALIDATION_FAILED',
 ]);
 

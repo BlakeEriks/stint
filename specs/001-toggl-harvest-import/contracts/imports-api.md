@@ -6,8 +6,9 @@ Two Route Handlers, following the existing convention at
 
 ## `POST /api/v1/imports/preview`
 
-**Request**: `multipart/form-data` — one field, `file` (the Toggl or
-Harvest CSV export). No JSON body; `parseBody` (which assumes JSON) is not
+**Request**: `multipart/form-data` — `file` (the Toggl or Harvest CSV
+export) and `timeZone` (IANA), the zone the export's wall-clock times are
+in. No JSON body; `parseBody` (which assumes JSON) is not
 used for this route — the file is read via `request.formData()`.
 
 **Response 200** — `ImportPreview`:
@@ -15,6 +16,8 @@ used for this route — the file is read via `request.formData()`.
 ```jsonc
 {
   "source": "toggl" | "harvest",
+  "newClients": [{ "id": "uuid", "name": "string" }],
+  "newProjects": [{ "id": "uuid", "name": "string", "clientId": "uuid | null" }],
   "rows": [
     {
       "sourceRowId": "string",
@@ -30,7 +33,7 @@ used for this route — the file is read via `request.formData()`.
       "durationDisagreement": "boolean",
       "overlapsWith": "string[]  // sourceRowId or existing-entry id",
       "willWrite": "boolean",
-      "excludedReason": "no_end_time | null"
+      "excludedReason": "no_end_time | not_after_start | null"
     }
   ],
   "summary": {

@@ -2523,3 +2523,55 @@ test('task names reject a non-uuid projectId', async () => {
   assert.equal(res.status, 422);
   assert.equal(res.body.code, 'VALIDATION_FAILED');
 });
+
+// ── import ─────────────────────────────────────────────────────────
+const TOGGL = `User,Email,Client,Project,Task,Description,Billable,Start date,Start time,End date,End time,Duration,Tags,Amount (USD)
+Me,me@x,Acme,Site,,Design,Yes,2026-03-10,09:00:00,2026-03-10,10:30:00,01:30:00,,150.00
+Me,me@x,,Internal,,Admin,No,2026-03-10,11:00:00,2026-03-10,11:15:00,00:15:00,,
+Me,me@x,Acme,Site,,Open,Yes,2026-03-11,09:00:00,,,,,
+`;
+
+const upload = (url: string, text: string) => {
+  const form = new FormData();
+  form.set('file', new File([text], 'export.csv', { type: 'text/csv' }));
+  form.set('timeZone', 'America/New_York');
+  return new Request(`http://t${url}`, { method: 'POST', body: form });
+};
+
+test('import preview writes nothing', async () => {
+  const { POST } = await import('../src/app/api/v1/imports/preview/route.ts');
+  const r = await json(await POST(upload('/imports/preview', TOGGL)));
+  assert.equal(r.status, 200);
+  assert.equal(r.body.summary.willWriteCount, 2);
+  assert.equal(r.body.summary.excludedCount, 1);
+  const { rows } = await pool.query('select count(*)::int n from time_entries');
+  assert.equal(rows[0].n, 0);
+});
+
+test('import confirm writes once; the same file again adds nothing', async () => {
+  const { POST } = await import('../src/app/api/v1/imports/confirm/route.ts');
+  const first = await json(await POST(upload('/imports/confirm', TOGGL)));
+  assert.equal(first.status, 200);
+  assert.equal(first.body.written, 2);
+
+  const again = await json(await POST(upload('/imports/confirm', TOGGL)));
+  assert.equal(again.body.written, 0);
+  assert.equal(again.body.alreadyImported, 2);
+
+  const counts = await pool.query(
+    `select (select count(*)::int from time_entries) e,
+            (select count(*)::int from projects) p,
+            (select count(*)::int from clients) c,
+            (select count(*)::int from time_entries where rate_override is not null) o`,
+  );
+  assert.deepEqual(counts.rows[0], { e: 2, p: 2, c: 1, o: 0 });
+});
+
+test('import refuses a file that is not an export, before writing', async () => {
+  const { POST } = await import('../src/app/api/v1/imports/confirm/route.ts');
+  const r = await json(await POST(upload('/imports/confirm', 'a,b\n1,2\n')));
+  assert.equal(r.status, 422);
+  assert.equal(r.body.code, 'IMPORT_FILE_UNRECOGNIZED');
+  const { rows } = await pool.query('select count(*)::int n from time_entries');
+  assert.equal(rows[0].n, 0);
+});

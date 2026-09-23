@@ -12,7 +12,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 37 of 37, counting handlers rather than files.
+Every handler is covered — 39 of 39, counting handlers rather than files.
 
 ## Timer
 
@@ -38,6 +38,24 @@ trusting the device clock.
 | `POST` | `/entries` | Manual entry. `id` is client-supplied (UUIDv7) so a retry is idempotent. Always complete — `endedAt` required, and `422 VALIDATION_FAILED` if it is at or before `startedAt`. |
 | `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice. Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. |
 | `DELETE` | `/entries/:id` | Same lock applies. |
+
+## Import
+
+A Toggl or Harvest CSV export, as `multipart/form-data`: `file`, and
+`timeZone` (IANA) — the zone the export's wall-clock times are in, which is
+the exporting account's and not necessarily the caller's.
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/imports/preview` | Every row the file would write, and why any would not. Writes nothing. |
+| `POST` | `/imports/confirm` | Writes what the same file previews as, re-deriving it server-side rather than trusting a preview sent back. Returns `{ written, alreadyImported, unrated, overlapping, excluded }`. |
+
+Each entry's id is derived from the user and the row's own content, so a
+retry or the same file twice lands on rows already written and adds nothing.
+Imported entries carry no `rateOverride`: they resolve through the rate chain
+like any other. A row with no end time is never written. Both return **`422
+IMPORT_FILE_UNRECOGNIZED`** for a file that is not a Toggl or Harvest export,
+or one with an unreadable row, before anything is written.
 
 ## Views
 
@@ -248,6 +266,7 @@ verified by phone.
 | `NO_RATE_CONFIGURED` | 400 | No rate at any level for a billable entry. |
 | `INVALID_PERIOD` | 400 | |
 | `UNAUTHORIZED` | 401 | |
+| `IMPORT_FILE_UNRECOGNIZED` | 422 | Not a Toggl or Harvest export, or a row in it cannot be read; `message` names the line. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, or a `PATCH` body that parses but maps to no column. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 
