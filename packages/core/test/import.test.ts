@@ -19,6 +19,7 @@ Me,me@x,Acme,Site,,Open,Yes,2026-03-11,09:00:00,,,,,
 
 const ctx = (over: Partial<ImportContext> = {}): ImportContext => ({
   userId: USER,
+  allBillable: false,
   timeZone: 'America/New_York',
   defaultRate: 100,
   clients: [{ id: 'c1', name: 'ACME ', hourlyRate: null, archived: false }],
@@ -142,4 +143,28 @@ test('a row with no end is excluded, never given one', async () => {
   assert.equal(open?.endedAt, null);
   assert.equal(p.summary.excludedCount, 1);
   assert.equal(p.summary.willWriteCount, 3);
+});
+
+test('a tab-separated export reads the same as a comma one', () => {
+  const tsv = parseCsv('a\tb, c\t"d\te"\n1\t2\t3\n');
+  assert.deepEqual(tsv, [
+    ['a', 'b, c', 'd\te'],
+    ['1', '2', '3'],
+  ]);
+});
+
+test('an export with every row not billable is named, and can be overridden', async () => {
+  const csv = TOGGL.replaceAll(',Yes,', ',No,');
+  const parsed = parseExport(csv);
+  assert.ok(parsed.ok);
+  const as = await buildPreview(parsed.source, parsed.rows, ctx());
+  assert.equal(as.summary.exportedNoneBillable, true);
+  assert.ok(as.rows.every((r) => !r.billable));
+  const over = await buildPreview(
+    parsed.source,
+    parsed.rows,
+    ctx({ allBillable: true }),
+  );
+  assert.ok(over.rows.every((r) => r.billable));
+  assert.equal((await preview()).summary.exportedNoneBillable, false);
 });

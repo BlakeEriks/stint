@@ -57,6 +57,11 @@ export interface ImportPreview {
     unratedCount: number;
     overlappingCount: number;
     excludedCount: number;
+    /**
+     * Toggl's free plan marks every entry not billable, so an export that
+     * says No on every row is the plan talking, not the contractor.
+     */
+    exportedNoneBillable: boolean;
   };
 }
 
@@ -71,6 +76,8 @@ export interface ImportResult {
 
 export interface ImportContext {
   userId: string;
+  /** Import every row as billable, whatever the export says. */
+  allBillable: boolean;
   timeZone: string;
   defaultRate: number | null;
   clients: {
@@ -212,7 +219,7 @@ export async function buildPreview(
       taskName: p.taskName,
       startedAt: start.toISOString(),
       endedAt: end?.toISOString() ?? null,
-      billable: p.billable ?? billableDefault,
+      billable: ctx.allBillable || (p.billable ?? billableDefault),
       resolvedRate: resolveRate(rateCtx),
       rateSource: resolveRateSource(rateCtx),
       reportedAmount: p.reportedAmount,
@@ -246,6 +253,8 @@ export async function buildPreview(
         .length,
       overlappingCount: rows.filter((r) => r.overlapsWith.length > 0).length,
       excludedCount: rows.length - written.length,
+      exportedNoneBillable:
+        parsed.length > 0 && parsed.every((p) => p.billable === false),
     },
   };
 }

@@ -30,12 +30,14 @@ const when = (zone: string) =>
 interface Upload {
   file: File;
   zone: string;
+  allBillable: boolean;
 }
 
-function form({ file, zone }: Upload) {
+function form({ file, zone, allBillable }: Upload) {
   const f = new FormData();
   f.set('file', file);
   f.set('timeZone', zone);
+  f.set('allBillable', String(allBillable));
   return f;
 }
 
@@ -52,6 +54,7 @@ export function ImportPage() {
   /* Filled after mount: the server's zone list and zone differ from the
      browser's, so rendering them there fails hydration. */
   const [zones, setZones] = useState<string[]>([]);
+  const [allBillable, setAllBillable] = useState(false);
   useEffect(() => {
     setZones(Intl.supportedValuesOf('timeZone'));
     setZone(timeZone);
@@ -69,11 +72,12 @@ export function ImportPage() {
     },
   });
 
-  const choose = (f: File | null, z: string) => {
+  const choose = (f: File | null, z: string, b: boolean) => {
     setFile(f);
     setZone(z);
+    setAllBillable(b);
     confirm.reset();
-    if (f) preview.mutate({ file: f, zone: z });
+    if (f) preview.mutate({ file: f, zone: z, allBillable: b });
     else preview.reset();
   };
 
@@ -87,10 +91,10 @@ export function ImportPage() {
         >
           <input
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.tsv,text/csv,text/tab-separated-values"
             aria-label="Export file"
             className="type-control text-muted file:mr-3 file:rounded-md file:border file:border-edge-default file:bg-surface-elevated file:px-3 file:py-1.5 file:text-strong"
-            onChange={(e) => choose(e.target.files?.[0] ?? null, zone)}
+            onChange={(e) => choose(e.target.files?.[0] ?? null, zone, false)}
           />
           <label className="flex flex-col gap-1.5">
             <span className="type-label text-subtle">
@@ -99,7 +103,7 @@ export function ImportPage() {
             <select
               className={`${inputClass} max-w-xs`}
               value={zone}
-              onChange={(e) => choose(file, e.target.value)}
+              onChange={(e) => choose(file, e.target.value, allBillable)}
             >
               {zones.map((z) => (
                 <option key={z} value={z}>
@@ -122,7 +126,9 @@ export function ImportPage() {
           <Review
             preview={preview.data}
             zone={zone}
-            onConfirm={() => confirm.mutate({ file, zone })}
+            allBillable={allBillable}
+            onAllBillable={(b) => choose(file, zone, b)}
+            onConfirm={() => confirm.mutate({ file, zone, allBillable })}
             pending={confirm.isPending}
             done={confirm.isSuccess}
           />
@@ -153,12 +159,16 @@ export function ImportPage() {
 function Review({
   preview,
   zone,
+  allBillable,
+  onAllBillable,
   onConfirm,
   pending,
   done,
 }: {
   preview: ImportPreview;
   zone: string;
+  allBillable: boolean;
+  onAllBillable: (b: boolean) => void;
   onConfirm: () => void;
   pending: boolean;
   done: boolean;
@@ -197,6 +207,23 @@ function Review({
         </Button>
       }
     >
+      {summary.exportedNoneBillable ? (
+        <label className="flex items-start gap-2 type-support text-primary">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={allBillable}
+            onChange={(e) => onAllBillable(e.target.checked)}
+          />
+          <span>
+            Import them as billable
+            <span className="block type-meta text-subtle">
+              Toggl marked every entry not billable. Its free plan does that to
+              all of them, whatever the work was.
+            </span>
+          </span>
+        </label>
+      ) : null}
       <div className="overflow-x-auto">
         <table className="w-full type-support">
           <thead>

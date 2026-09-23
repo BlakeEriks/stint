@@ -1,5 +1,11 @@
-/** RFC 4180: quoted fields may hold commas, newlines and `""` escapes. */
+/**
+ * RFC 4180: quoted fields may hold separators, newlines and `""` escapes.
+ * Comma or tab, whichever the header line uses more of — a CSV opened and
+ * re-saved in a spreadsheet often comes back tab-separated.
+ */
 export function parseCsv(text: string): string[][] {
+  const header = text.slice(0, text.search(/\r?\n|$/));
+  const sep = header.split('\t').length > header.split(',').length ? '\t' : ',';
   const rows: string[][] = [];
   let row: string[] = [];
   let field = '';
@@ -14,7 +20,7 @@ export function parseCsv(text: string): string[][] {
         i++;
       } else quoted = false;
     } else if (c === '"') quoted = true;
-    else if (c === ',') {
+    else if (c === sep) {
       row.push(field);
       field = '';
     } else if (c === '\n' || c === '\r') {
