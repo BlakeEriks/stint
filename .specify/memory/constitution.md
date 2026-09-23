@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 2.0.0 → 2.1.0 → 2.2.0
+- Version change: 1.0.0 → 2.0.0 → 2.1.0 → 2.2.0 → 2.3.0
 - v2.0.0: v1.0.0 restated design/positioning beliefs that already live in
   positioning.md and principles.md. Replaced every restated belief with
   structural law — a rule that names the mechanism enforcing it, or states
@@ -8,18 +8,21 @@ Sync Impact Report
   following a sibling project's constitution (BL-API) the user supplied as
   the bar to hit.
 - v2.1.0: .claude/commands/feature.md deleted as redundant with speckit-*.
-  /dissent kept — /speckit-analyze checks internal consistency, not whether
-  a decision is itself wrong — and wired as a mandatory before_implement
-  hook in .specify/extensions.yml.
-- v2.2.0 (MINOR — reverses v2.1.0's hook, does not touch a Core Principle):
-  the user identified that before_implement is too late. By plan.md, a
-  decision already reads as settled — a /dissent finding there costs a
-  rewrite of spec.md/plan.md/tasks.md instead of an edit to one roadmap
-  paragraph. .specify/extensions.yml deleted (its one hook was this).
-  /dissent now runs during ideation/roadmapping, before /speckit-specify,
-  and is explicitly NOT invoked anywhere in the speckit-* lifecycle.
-  Governance's Compliance section rewritten to state this timing rather
-  than name a hook that no longer exists.
+  /dissent wired as a mandatory before_implement hook in
+  .specify/extensions.yml (superseded, see v2.2.0/v2.3.0).
+- v2.2.0: the user identified that before_implement is too late — by
+  plan.md a decision already reads as settled. .specify/extensions.yml
+  deleted. Compliance section rewritten to state /dissent's new timing
+  (ideation/roadmapping, before /speckit-specify) directly.
+- v2.3.0 (PATCH — removes a cross-reference, redefines no principle or
+  mechanism): the user pointed out that even describing /dissent's timing
+  here was wrong — this constitution governs the speckit-* workflow, and
+  /dissent explicitly runs outside it. Removed the last references; that
+  command's existence, shape and timing are owned by
+  .claude/commands/dissent.md alone, cited by nothing here. Compliance
+  keeps only the boundary fact speckit-* itself needs: /speckit-analyze is
+  internal-consistency only, and a decision's correctness is settled by a
+  process this document does not govern.
 - Deferred TODOs (unchanged since v2.0.0):
   - TODO(SERVER_ACTIONS_LINT): a biome rule banning 'use server' outside an
     allowed path does not exist yet. Principle III states the rule and this
@@ -212,20 +215,10 @@ valid.
 
 **Compliance**: a `/speckit-plan` or `/speckit-implement` run that conflicts
 with a Core Principle above is a defect in the plan, not a judgment call for
-the implementing agent — stop and surface it.
+the implementing agent — stop and surface it. `/speckit-analyze` checks that
+`spec.md`, `plan.md`, and `tasks.md` agree with each other and with this
+constitution — internal consistency, nothing further. Whether a decision
+behind a spec was the right one is settled before a feature reaches this
+workflow at all, by a process this document does not govern.
 
-**Adversarial review of a decision happens before Spec Kit, not inside it.**
-`/speckit-analyze` checks that `spec.md`, `plan.md`, and `tasks.md` agree
-with each other and with this constitution — internal consistency. It does
-not, and cannot, argue that a price, a milestone order, a scope cut, or a
-claim about a user is itself wrong; nothing in Spec Kit's shipped skills
-does. `/dissent` is that check, and it runs during ideation and roadmapping —
-against a `roadmap.md` line, a proposal, a rough plan — **before**
-`/speckit-specify` turns a decision into a spec. By `plan.md`, the decision
-already reads as settled; a finding there costs a rewrite of three generated
-artifacts instead of an edit to one roadmap paragraph. `/speckit-implement`
-does not invoke it and has no hook that does — a decision-bearing feature
-earns its `/dissent` pass on the way into the roadmap, not on the way out of
-planning.
-
-**Version**: 2.2.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-22
+**Version**: 2.3.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-22
