@@ -13,8 +13,8 @@
  *
  * The env file is COPIED, not linked: a worktree is where you try things, and
  * a symlink would let one of those things edit the original. It is only ever
- * `.env.development.local` — `.env.local` reaches the hosted project, and
- * `docs/local-dev.md` is emphatic that local dev never points at production.
+ * `.env.development.local`: `docs/local-dev.md` is emphatic that local dev
+ * never points at production.
  *
  * Paths are derived from this file's own location, so nothing here knows
  * where the repo lives.

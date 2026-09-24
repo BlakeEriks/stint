@@ -18,12 +18,9 @@
  * reserves the name `init` and silently skips any migration using it, so the
  * local stack came up with no tables at all.
  */
-import { readFileSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { connectionString, sslFor } from './db-url.mjs';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const [oldName, newName] = args.filter((a) => !a.startsWith('--'));
 
@@ -32,17 +29,7 @@ if (!oldName || !newName) {
   process.exit(1);
 }
 
-const i = args.indexOf('--url');
-const url =
-  (i !== -1 && args[i + 1]) ||
-  process.env.SUPABASE_DB_URL ||
-  (existsSync(join(root, 'apps/web/.env.local'))
-    ? readFileSync(join(root, 'apps/web/.env.local'), 'utf8')
-        .split('\n')
-        .find((l) => l.startsWith('SUPABASE_DB_URL='))
-        ?.slice('SUPABASE_DB_URL='.length)
-        .trim()
-    : null);
+const url = connectionString();
 
 if (!url) {
   console.error('No SUPABASE_DB_URL.');
@@ -51,10 +38,7 @@ if (!url) {
 
 const client = new pg.Client({
   connectionString: url,
-  ssl:
-    url.includes('localhost') || url.includes('127.0.0.1')
-      ? false
-      : { rejectUnauthorized: false },
+  ssl: sslFor(url),
 });
 await client.connect();
 

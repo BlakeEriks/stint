@@ -63,9 +63,8 @@ can silently undo — the partial unique index behind the timer rule, the
 composite key keeping an entry's project with its owner, that no application
 function is executable by `anon`, and the signup trigger. CI runs it in the `database` job
 against the RLS database, so a migration creating a table without RLS fails
-before it reaches a real project. It reads `SUPABASE_DB_URL` from
-`apps/web/.env.local` — a secret that bypasses RLS and is never used by the
-app itself.
+before it reaches a real project. It takes `--url` or `SUPABASE_DB_URL` from
+the environment — a secret that bypasses RLS, kept in no file on disk.
 
 **Production has an `rls_auto_enable` event trigger that no migration
 creates** — see `docs/data-model.md`. Never let it stand in for a table's own
