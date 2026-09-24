@@ -203,7 +203,10 @@ export function ImportPage() {
               })
             }
             onConfirm={() => confirm.mutate({ file, ...upload })}
-            pending={confirm.isPending || preview.isPending}
+            /* A failed re-read leaves the last preview on screen, and the
+               choices it did not reflect would still be sent: confirm only
+               what was read. */
+            disabled={confirm.isPending || preview.isPending || preview.isError}
           />
         ) : null}
 
@@ -227,7 +230,7 @@ function Review({
   onChoose,
   onExclude,
   onConfirm,
-  pending,
+  disabled,
 }: {
   preview: ImportPreview;
   zone: string;
@@ -237,7 +240,7 @@ function Review({
   onChoose: (key: string, c: ClientChoice) => void;
   onExclude: (sourceRowIds: string[], out: boolean) => void;
   onConfirm: () => void;
-  pending: boolean;
+  disabled: boolean;
 }) {
   const { summary } = preview;
   const fmt = when(zone);
@@ -335,7 +338,7 @@ function Review({
           type="button"
           variant="accent"
           onClick={onConfirm}
-          disabled={pending || summary.newCount === 0}
+          disabled={disabled || summary.newCount === 0}
         >
           {summary.newCount
             ? `Import ${plural(summary.newCount, 'entry', 'entries')}`
@@ -440,9 +443,16 @@ function ClientRow({
         </label>
       ) : (
         <span className="text-right type-duration text-muted">
-          {client.hourlyRate == null
-            ? '—'
-            : `${formatCurrency(client.hourlyRate)}/h`}
+          {client.hourlyRate != null ? (
+            `${formatCurrency(client.hourlyRate)}/h`
+          ) : defaultRate != null ? (
+            <>
+              {`${formatCurrency(defaultRate)}/h`}
+              <span className="block type-meta text-subtle">your default</span>
+            </>
+          ) : (
+            <span className="text-danger">No rate</span>
+          )}
         </span>
       )}
 

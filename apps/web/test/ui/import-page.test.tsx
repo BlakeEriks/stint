@@ -277,4 +277,54 @@ describe('ImportPage', () => {
       /^#[0-9A-F]{6}$/i,
     );
   });
+
+  it('a failed re-read blocks Import, so choices the screen never showed are not written', async () => {
+    let fail = false;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        fail
+          ? new Response(
+              JSON.stringify({ code: 'INTERNAL', message: 'Server down.' }),
+              { status: 500 },
+            )
+          : new Response(JSON.stringify(preview()), { status: 200 }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<ImportPage />, { wrapper });
+    await chooseFile(user);
+
+    fail = true;
+    await user.click(
+      screen.getByRole('button', { name: 'Exclude API refactor' }),
+    );
+    await screen.findByRole('alert');
+    expect(
+      screen.getByRole('button', { name: 'Import 5 entries' }),
+    ).toBeDisabled();
+  });
+
+  it('an existing client with no rate shows the default it bills at, or No rate', async () => {
+    const rateless = (defaultRate: number | null) =>
+      preview({
+        defaultRate,
+        clients: [
+          { ...preview().clients[0], hourlyRate: null },
+        ] as ImportPreview['clients'],
+      });
+
+    serve(() => rateless(125));
+    const user = userEvent.setup();
+    const { unmount } = render(<ImportPage />, { wrapper });
+    await chooseFile(user);
+    expect(screen.getByText('$125.00/h')).toBeInTheDocument();
+    expect(screen.getByText('your default')).toBeInTheDocument();
+    unmount();
+
+    serve(() => rateless(null));
+    render(<ImportPage />, { wrapper });
+    await chooseFile(user);
+    expect(screen.getByText('No rate')).toBeInTheDocument();
+  });
 });
