@@ -15,20 +15,18 @@ export function SettingsPage() {
   return (
     <Page>
       <h1 className="mb-6 type-title text-strong">Settings</h1>
-      <div className="flex flex-col gap-4">
-        <SettingsForm />
-        <PaymentProfiles />
-        <Section
-          title="Import"
-          description="Bring your history in from a Toggl export."
-        >
-          <div>
-            <Button asChild>
-              <Link href="/import">Import a file</Link>
-            </Button>
-          </div>
-        </Section>
-      </div>
+      <SettingsForm />
+      <PaymentProfiles />
+      <Section
+        title="Import"
+        description="Bring your history in from a Toggl export."
+      >
+        <div>
+          <Button asChild>
+            <Link href="/import">Import a file</Link>
+          </Button>
+        </div>
+      </Section>
     </Page>
   );
 }

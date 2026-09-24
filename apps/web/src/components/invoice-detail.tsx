@@ -182,7 +182,7 @@ function Loaded({
         </p>
       </Section>
 
-      <div className="mt-4">
+      <div>
         <Section title="Status" description={statusHint(invoice.status)}>
           <div className="flex flex-wrap items-center gap-2">
             {invoice.status === 'draft' ? (

@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, type Client, type Project } from '@/lib/client/api';
-import { Listing, Page, Panel } from './page';
+import { Listing, Page } from './page';
+import { Pip } from './home-shell';
 import { ProjectDialog } from './project-dialog';
 import { ProjectRate } from './project-rate';
 import { formatCurrency } from '@stint/core';
@@ -55,34 +56,33 @@ export function ProjectList() {
         </Button>
       </header>
 
-      {/* Each group is its own panel, so the message gets one of its own. */}
       <Listing
         query={{
           ...projectQuery,
           data: projectQuery.data ? groups : undefined,
         }}
-        panel
         empty="No projects yet. A project groups time entries and sets the rate they bill at."
       >
         {(shown) => (
-          <div className="flex flex-col gap-5">
+          <div>
             {shown.map((g) => (
-              <section key={g.client?.id ?? '__none__'}>
+              <section
+                key={g.client?.id ?? '__none__'}
+                className="border-t border-edge-subtle py-[18px]"
+              >
                 <GroupHeading client={g.client} count={g.projects.length} />
-                <Panel edge color={g.client?.color}>
-                  <ul>
-                    {g.projects.map((project) => (
-                      <li key={project.id}>
-                        <Row
-                          project={project}
-                          client={g.client}
-                          userDefaultRate={settings?.defaultHourlyRate ?? null}
-                          onEdit={() => setEditing(project)}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </Panel>
+                <ul className="divide-y divide-edge-subtle">
+                  {g.projects.map((project) => (
+                    <li key={project.id}>
+                      <Row
+                        project={project}
+                        client={g.client}
+                        userDefaultRate={settings?.defaultHourlyRate ?? null}
+                        onEdit={() => setEditing(project)}
+                      />
+                    </li>
+                  ))}
+                </ul>
               </section>
             ))}
           </div>
@@ -122,11 +122,10 @@ function GroupHeading({
   count: number;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 px-1 pb-2">
-      {/* No dot: the panel below carries the client's colour as a left edge,
-          and the two together read as one thing stated twice. */}
+    <div className="flex items-baseline justify-between gap-3 pb-2">
       <div className="flex min-w-0 items-center gap-2">
-        <h2 className="truncate type-label text-muted">
+        <Pip color={client?.color} />
+        <h2 className="truncate type-region-head text-muted">
           {client ? client.name : 'No client'}
         </h2>
         {client?.archivedAt ? (
@@ -169,7 +168,7 @@ function Row({
   onEdit: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 border-t border-edge-subtle px-4 py-3 first:border-t-0">
+    <div className="flex items-center gap-3 py-3">
       <div className="min-w-0 flex-1">
         <p className="truncate type-body text-strong">{project.name}</p>
         <ProjectRate

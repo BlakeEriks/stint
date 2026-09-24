@@ -113,7 +113,7 @@ export function InvoiceList() {
           }
         >
           {(rows) => (
-            <ul>
+            <ul className="divide-y divide-edge-subtle">
               {rows.map((invoice) => (
                 <li key={invoice.id}>
                   <Row
@@ -151,7 +151,7 @@ function Row({
   /* A grid, not a link wrapping a button: an <a> containing a <button> is
      invalid HTML and breaks keyboard navigation. */
   return (
-    <div className="flex items-center gap-3 border-t border-edge-subtle px-4 py-3 first:border-t-0">
+    <div className="flex items-center gap-3 py-3">
       <Link
         href={`/invoices/${invoice.id}`}
         className="flex min-w-0 flex-1 items-center gap-3 rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"

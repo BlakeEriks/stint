@@ -34,7 +34,7 @@ export function PaymentProfiles() {
   });
 
   /* Which profile the failure belongs to. One mutation serves every row, so
-     without this the message would have to sit at the foot of the card and
+     without this the message would have to sit at the foot of the section and
      could not say which "Make default" was refused — and this one decides
      which bank details print on an invoice, so a silent refusal means the
      next invoice carries the wrong account. */
@@ -51,12 +51,9 @@ export function PaymentProfiles() {
           No payment details yet. Invoices will render without a payment block.
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="divide-y divide-edge-subtle">
           {profiles.map((profile) => (
-            <li
-              key={profile.id}
-              className="rounded-lg border border-edge-subtle px-3 py-2.5"
-            >
+            <li key={profile.id} className="py-2.5">
               <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate type-control text-primary">

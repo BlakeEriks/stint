@@ -20,7 +20,7 @@ import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 /**
  * Settings. No save button: edits persist on their own after a pause, and
- * each card owns its own autosave so the indicator refers to the fields the
+ * each section owns its own autosave so the indicator refers to the fields the
  * user is looking at.
  */
 export function SettingsForm() {
@@ -35,7 +35,7 @@ export function SettingsForm() {
 }
 
 /**
- * The cards, seeded from the server's answer once.
+ * The sections, seeded from the server's answer once.
  *
  * Seeded rather than controlled by the query: an autosave invalidates
  * `settings`, and a form that followed every refetch would overwrite what the
@@ -70,7 +70,7 @@ function Cards({ loaded }: { loaded: Settings }) {
   const identity = useAutosave(persist);
   const numbering = useAutosave(persist);
 
-  /** Update local state, then schedule that card's save with the new value. */
+  /** Update local state, then schedule that section's save with the new value. */
   const edit =
     (card: ReturnType<typeof useAutosave<SettingsInput>>) =>
     <K extends keyof Settings>(key: K, value: Settings[K]) => {

@@ -80,10 +80,7 @@ export function ClientDetail({ id }: { id: string }) {
               </p>
             ) : null}
 
-            <dl
-              className="grid gap-x-6 gap-y-4 rounded-xl border border-edge-subtle
-                           bg-surface-elevated p-5 shadow-card sm:grid-cols-2"
-            >
+            <dl className="grid gap-x-6 gap-y-4 border-t border-edge-subtle py-[18px] sm:grid-cols-2">
               <Detail label="Email" value={client.email} />
               <Detail
                 label="Hourly rate"
@@ -108,7 +105,7 @@ export function ClientDetail({ id }: { id: string }) {
             </dl>
 
             {client.archivedAt ? (
-              <p className="mt-4 type-support text-muted">
+              <p className="pb-[18px] type-support text-muted">
                 Archived. Past invoices still reference this client.
               </p>
             ) : null}

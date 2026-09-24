@@ -102,7 +102,7 @@ export function ImportPage() {
   return (
     <Page wide>
       <h1 className="mb-6 type-title text-strong">Import</h1>
-      <div className="flex flex-col gap-4">
+      <div>
         <Section
           title="From Toggl"
           description="Export a detailed report from Toggl Track as CSV and choose the file. You see every entry before anything is written, and importing the same file again adds nothing."
