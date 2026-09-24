@@ -46,23 +46,32 @@
     padding: 8px 16px; border-radius: 7px; border: 1px solid var(--border-default);
     background: var(--bg-elevated); color: var(--text-strong); font: inherit; font-size: 13px;
   }
+  .btn.sm { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--text-muted); }
   .btn.accent { background: var(--accent-default); color: var(--text-on-accent); border-color: transparent; }
-  table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
-  th { text-align: left; padding: 0 12px 8px 0; }
-  td { padding: 8px 12px 8px 0; border-top: 1px solid var(--border-subtle); color: var(--text-muted); vertical-align: top; }
-  td.task { color: var(--text-primary); }
-  .r { text-align: right; }
   .meta { display: block; font-family: var(--font-mono); font-size: 11px; color: var(--text-subtle); }
-  tr.out { opacity: .6; }
+
+  /* A list row: what it is on the left, its value and action on the right. */
+  .list { margin-top: 12px; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 16px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border-subtle); font-size: 14px; }
+  .list .row:first-child { border-top: 0; }
+  .row .name { color: var(--text-primary); }
+  .row.done .name, .row.done .type-duration { opacity: .6; }
+  .row .type-duration { color: var(--warning); white-space: nowrap; }
+  .rate {
+    display: flex; align-items: center; gap: 4px; width: 9rem; padding: 6px 10px; border-radius: 7px;
+    border: 1px solid var(--border-control); background: var(--bg-primary);
+    font-family: var(--font-mono); font-size: 13px; color: var(--text-strong);
+  }
+  .rate .ph { color: var(--text-subtle); }
 </style>
 
 <div class="page">
-
   <span class="eyebrow">Stint · Screens</span>
   <h1>Import</h1>
   <p class="standfirst">
     <code>/settings/import</code>, a page under Settings: the rail keeps Settings active and a back link returns to it. A Toggl CSV export comes in
-    once: choose the file, read every entry it will write, confirm.
+    once: choose the file, read one line on what it will add, confirm.
   </p>
 
   <section class="sec">
@@ -71,74 +80,87 @@
     <div class="panel">
     <div class="region">
       <span class="type-region-head region-head">From Toggl</span>
-      <p class="sub" style="margin-top:8px">Export a detailed report from Toggl Track as CSV and choose the file. You see every entry before anything is written, and importing the same file again adds nothing.</p>
-      <p style="margin:16px 0 8px"><button class="btn">Choose File</button> <span style="color:var(--text-muted);font-size:13px">toggl.csv</span></p>
+      <p class="sub" style="margin-top:8px">Export a detailed report from Toggl Track as CSV and choose the file. Nothing is written until you confirm, and importing the same file again adds nothing.</p>
+      <p style="margin:16px 0 8px"><button class="btn">Choose File</button> <span style="color:var(--text-muted);font-size:13px">toggl-2023-2026.csv</span></p>
       <span class="type-label" style="color:var(--text-subtle)">Times in the export are in</span>
       <p style="margin:6px 0 12px"><button class="btn" style="min-width:18rem;text-align:left">America/New York</button></p>
       <span class="type-label" style="color:var(--text-subtle)">Already invoiced through</span>
-      <p style="margin:6px 0 0"><button class="btn" style="min-width:18rem;text-align:left;color:var(--text-subtle)">Optional</button></p>
+      <p style="margin:6px 0 0"><button class="btn" style="min-width:18rem;text-align:left">Dec 31, 2025</button></p>
     </div>
 
     <div class="region">
       <div class="head">
         <div>
-          <span class="type-region-head region-head">6 entries from Toggl</span>
-          <p class="sub" style="margin-top:8px">1 will be unrated until a rate is set on its project, client or account. 1 will not be imported — see below. Creates client Globex, project Onboarding.</p>
+          <span class="type-region-head region-head">2,409 new entries from Toggl</span>
+          <p class="sub" style="margin-top:8px">Jan 3, 2023, 9:00 AM – Sep 19, 2026, 5:30 PM<br>3 new clients · 11 new projects · 3 rows have no end time and won't import</p>
         </div>
         <button class="btn accent">Import</button>
       </div>
     </div>
 
     <div class="region">
-      <table style="margin-top:0">
-        <thead><tr>
-          <th class="type-label" style="color:var(--text-subtle)">Start</th>
-          <th class="type-label" style="color:var(--text-subtle)">Task</th>
-          <th class="type-label" style="color:var(--text-subtle)">Project</th>
-          <th class="type-label r" style="color:var(--text-subtle)">Time</th>
-          <th class="type-label r" style="color:var(--text-subtle)">Rate</th>
-        </tr></thead>
-        <tbody>
-          <tr><td>Aug 3, 2026, 9:00 AM</td><td class="task">Hotfix checkout</td><td>Rush: peak season fixes<span class="meta">Northwind Trading</span></td><td class="type-duration r">2h</td><td class="type-duration r">$195.00/h</td></tr>
-          <tr><td>Aug 5, 2026, 3:00 PM</td><td class="task">Kickoff call</td><td>Onboarding<span class="meta">Globex</span></td><td class="type-duration r">1h</td><td class="type-duration r" style="color:var(--danger)">No rate</td></tr>
-          <tr><td>Aug 6, 2026, 8:30 AM</td><td class="task">Bookkeeping</td><td>Admin and invoicing</td><td class="type-duration r">30m</td><td class="type-duration r" style="color:var(--text-subtle)">Not billable</td></tr>
-          <tr class="out"><td>Aug 7, 2026, 9:00 AM</td><td class="task">Still running<span class="meta">Not imported: the export has no end time.</span></td><td>Onboarding<span class="meta">Globex</span></td><td class="type-duration r">—</td><td class="type-duration r">—</td></tr>
-        </tbody>
-      </table>
+      <span class="type-region-head region-head">Rates for 3 new clients</span>
+      <p class="sub" style="margin-top:8px">Leave one empty to use your default.</p>
+      <div class="list">
+        <div class="row"><span class="name">Globex<span class="meta">312h</span></span><span></span><span class="rate">$<span>175</span><span class="ph">/h</span></span></div>
+        <div class="row"><span class="name">Initech<span class="meta">188h</span></span><span></span><span class="rate">$<span class="ph">150 default</span></span></div>
+        <div class="row"><span class="name">Hooli<span class="meta">29h</span></span><span></span><span class="rate">$<span class="ph">150 default</span></span></div>
+      </div>
+    </div>
+
+    <div class="region">
+      <div class="head">
+        <div>
+          <span class="type-region-head region-head">9 entries overlap other work</span>
+          <p class="sub" style="margin-top:8px">Longest first. Exclude one and it stays out of the import; what it overlaps stands.</p>
+        </div>
+        <button class="btn sm">Exclude all 9</button>
+      </div>
+      <div class="list">
+        <div class="row"><span class="name">API refactor<span class="meta">Mon, Aug 4, 2025 · overlaps API refactor · in Stint</span></span><span class="type-duration">3h 00m</span><button class="btn sm">Exclude</button></div>
+        <div class="row"><span class="name">Design review<span class="meta">Thu, Mar 13, 2025 · overlaps Checkout rebuild · in this file</span></span><span class="type-duration">1h 00m</span><button class="btn sm">Exclude</button></div>
+        <div class="row done"><span class="name">Invoice export bug<span class="meta">Tue, Nov 12, 2024 · won't import</span></span><span class="type-duration">42m</span><button class="btn sm ghost">Undo</button></div>
+        <div class="row"><span class="name">Onboarding docs<span class="meta">Wed, Jun 5, 2024 · overlaps Client call · in Stint</span></span><span class="type-duration">18m</span><button class="btn sm">Exclude</button></div>
+        <div class="row"><span class="name">Standup<span class="meta">Fri, Jan 10, 2025 · overlaps Standup · in Stint</span></span><span class="type-duration">15m</span><button class="btn sm">Exclude</button></div>
+      </div>
+      <p style="margin:8px 0 0"><button class="btn sm ghost">Show 4 more</button></p>
     </div>
     </div>
 
     <ul class="rule">
-      <li><strong>One panel, three regions:</strong> the file and its
-        settings, the review, and the rows. Nothing inside the panel is a
-        card; an inset rule is the only edge between regions.</li>
+      <li><strong>A region with nothing in it is not drawn.</strong> A clean
+        import is the file and one line; rates appear only when the import
+        creates a client, overlaps only when it has any. Nothing inside the
+        panel is a card; an inset rule is the only edge between regions.</li>
+      <li><strong>One line says what confirming adds</strong>: entries, new
+        clients, new projects, and rows that won't import. Money is Home's —
+        it is there the moment the import lands.</li>
+      <li><strong>The line opens with the first and last times</strong>, so a
+        wrong zone is visible before anything is written.</li>
       <li><strong>The preview is what gets written.</strong> Confirm sends the
-        same file and the server derives the rows again with the same function,
-        so nothing the page holds can make the write differ from what was
-        read.</li>
-      <li><strong>The zone is asked for, defaulting to this browser's.</strong>
-        An export's times are wall clock in the zone of the account that made
-        it, and a contractor who travels is often somewhere else. Start times
-        are shown so a wrong zone is visible before anything is written.</li>
-      <li><strong>The rate is this app's, never the export's amount.</strong>
-        Each row resolves through <code>resolveRate</code> like any entry. A
-        row with nothing to resolve reads "No rate" in the danger channel —
-        invoicing refuses unrated work, so it is a blocked invoice, not a
-        detail.</li>
-      <li><strong>An overlap imports and is flagged, never adjusted.</strong>
-        A row sharing a minute or more with another row or with existing work
-        says so under its task, and the pair waits in the inbox to be edited
-        apart.</li>
-      <li><strong>A rate names where it came from</strong> — project rate,
-        client rate or your default — under the figure.</li>
-      <li><strong>Where Toggl's own total disagrees with its start and
-        end</strong>, the row says so; the start and end are what
-        import.</li>
-      <li><strong>A row with no end time is shown and not written.</strong> An
-        import never starts a timer and never invents an end.</li>
+        same file with every choice made here — exclusions and rates — and the
+        server derives the rows again with the same function, so nothing the
+        page holds can make the write differ from what was read.</li>
+      <li><strong>A client the import creates gets its rate here</strong>,
+        so invoicing works without a trip to each client's page. Empty falls
+        through to your default; with no default the field reads "rate" and
+        the client's work imports unrated. Colour is set on the client's
+        page, like any client.</li>
+      <li><strong>Every overlap past the 60-second grace period is
+        listed</strong>, longest first — against work in Stint or between two
+        rows of the file, and the row says which. The row is the entry that
+        started later: it began inside the other, so it is usually the one to
+        drop.</li>
+      <li><strong>The fix is Exclude</strong>: the listed row stays out of
+        the import and what it overlaps stands. Nothing already in Stint is
+        touched. An excluded row dims in place, reads "won't import", and
+        offers Undo. The first five show; Exclude all is the answer to
+        more.</li>
+      <li><strong>An overlap left alone imports as it is</strong> and waits in
+        the inbox. Work invoiced elsewhere never reaches the inbox, so for
+        that history this list is the one place to settle it.</li>
       <li><strong>Projects and clients match by name</strong>, ignoring case
-        and surrounding spaces. One that does not exist is named in the
-        summary before it is created.</li>
+        and surrounding spaces.</li>
       <li><strong>Import is the one accent on the screen</strong> beside the
         running timer — the action the screen exists to complete.</li>
       <li><strong>After the import, the preview gives way to what it
@@ -146,14 +168,15 @@
         already here. Unrated entries come first, in the danger channel, with
         <em>Set a rate</em> — the client's page when the import touched one
         client, Settings otherwise — because invoicing refuses them. Then
-        <em>Open the calendar</em>. It stays on this screen rather than
-        navigating away, so the count and the next step stay in view.</li>
+        <em>Open the calendar</em>.</li>
       <li><strong>"Already invoiced through" is optional.</strong> Rows on
-        or before it read "Invoiced elsewhere": still earned, never unbilled,
-        never on an invoice here. Changing it re-reads the file.</li>
-      <li><strong>"Import them as billable" appears only when the export
-        marks every row not billable</strong> — Toggl's free plan does that
-        to all of them.</li>
+        or before it import as invoiced elsewhere: still earned, never
+        unbilled, never on an invoice here. Changing it re-reads the file.</li>
+      <li><strong>"Import them as billable" appears under the line only when
+        the export marks every row not billable</strong> — Toggl's free plan
+        does that to all of them.</li>
+      <li><strong>A file with nothing new</strong> reads "Nothing new in this
+        file", and the button reads Nothing new, disabled.</li>
       <li><strong>An unreadable file says so under the picker</strong>, in
         neutral text, with "Nothing was imported." Nothing below it
         renders.</li>
