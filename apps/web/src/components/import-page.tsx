@@ -207,10 +207,15 @@ function Review({
 
   return (
     <Section
-      title={`${summary.willWriteCount} ${
-        summary.willWriteCount === 1 ? 'entry' : 'entries'
-      } from Toggl`}
+      title={
+        summary.newCount
+          ? `${summary.newCount} new ${summary.newCount === 1 ? 'entry' : 'entries'} from Toggl`
+          : 'Nothing new in this file'
+      }
       description={[
+        summary.alreadyImportedCount
+          ? `${summary.alreadyImportedCount} ${were(summary.alreadyImportedCount)} imported before and will be left as ${summary.alreadyImportedCount === 1 ? 'it is' : 'they are'}.`
+          : null,
         summary.unratedCount
           ? `${summary.unratedCount} will be unrated until a rate is set on their project, client or account.`
           : null,
@@ -232,9 +237,9 @@ function Review({
           type="button"
           variant="accent"
           onClick={onConfirm}
-          disabled={pending || summary.willWriteCount === 0}
+          disabled={pending || summary.newCount === 0}
         >
-          {pending ? 'Importing…' : 'Import'}
+          {pending ? 'Importing…' : summary.newCount ? 'Import' : 'Nothing new'}
         </Button>
       }
     >
@@ -291,7 +296,7 @@ function Row({ row, fmt }: { row: ImportRow; fmt: Intl.DateTimeFormat }) {
   const seconds = row.endedAt
     ? (Date.parse(row.endedAt) - Date.parse(row.startedAt)) / 1000
     : null;
-  const muted = row.willWrite ? '' : ' opacity-60';
+  const muted = row.willWrite && !row.alreadyImported ? '' : ' opacity-60';
 
   return (
     <tr className={`border-b border-edge-subtle last:border-0${muted}`}>
@@ -300,6 +305,11 @@ function Row({ row, fmt }: { row: ImportRow; fmt: Intl.DateTimeFormat }) {
       </td>
       <td className="py-2 pr-3 text-primary">
         {row.taskName || <span className="text-subtle">No description</span>}
+        {row.alreadyImported ? (
+          <span className="mt-0.5 block type-meta text-subtle">
+            Already imported
+          </span>
+        ) : null}
         {row.invoicedElsewhere ? (
           <span className="mt-0.5 block type-meta text-subtle">
             Invoiced elsewhere

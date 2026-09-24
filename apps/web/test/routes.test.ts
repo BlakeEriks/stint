@@ -2554,6 +2554,13 @@ test('import confirm writes once; the same file again adds nothing', async () =>
   assert.equal(first.status, 200);
   assert.equal(first.body.written, 2);
 
+  const { POST: preview } = await import(
+    '../src/app/api/v1/imports/preview/route.ts'
+  );
+  const told = await json(await preview(upload('/imports/preview', TOGGL)));
+  assert.equal(told.body.summary.newCount, 0, 'the preview says so first');
+  assert.equal(told.body.summary.alreadyImportedCount, 2);
+
   const again = await json(await POST(upload('/imports/confirm', TOGGL)));
   assert.equal(again.body.written, 0);
   assert.equal(again.body.alreadyImported, 2);
