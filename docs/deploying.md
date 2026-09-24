@@ -157,8 +157,9 @@ before changing that file:
 - The condition is `client_payload.environment == 'production'`. Get the
   field wrong and the job is skipped, no status is ever written, and the
   deployment simply waits.
-- The status step must be **first**. It registers a `post` hook that sets the
-  final status; placed after a step that fails, it never runs.
+- `report` is the only job that writes the final status, and it runs
+  whatever happened before it. Vercel's own status action cannot be used
+  here: with several jobs, it reports the first job's outcome, not its own.
 
 ## 3a. Deployment protection, and which URL you are testing
 
@@ -193,7 +194,10 @@ account `stintbackups4b3306`, container `dumps`, in the personal subscription
 
 - **Nothing stored can reach Azure.** GitHub's OIDC token for the
   Production environment is exchanged for a storage token; the app
-  registration `stint-backup-writer` trusts only that subject.
+  registration `stint-backup-writer` trusts only that subject,
+  `repo:BlakeEriks@35611123/stint@1366791093:environment:Production`. The
+  repo uses GitHub's immutable subject (owner and repo ids), so a renamed or
+  re-created repo does not inherit the trust.
 - **It can write and nothing else.** The custom role "Stint Backup Writer"
   creates blobs; it cannot read, list or delete them.
 - **Nobody can delete a backup for 90 days.** A time-based retention policy
@@ -205,9 +209,10 @@ account `stintbackups4b3306`, container `dumps`, in the personal subscription
   day passes without one — including when GitHub disables the schedule on a
   quiet public repo.
 
-**Restore.** A blob is named `<time>-<nightly|release>-<sha>.dump.age`, and
-the SHA is the schema it was taken against. Data only, because the `auth`
-schema belongs to Supabase: structure comes from the migrations.
+**Restore.** A blob is named `<time>-<nightly|release>.dump.age`. Data only,
+because the `auth` schema belongs to Supabase: structure comes from the
+migrations, checked out at the last one the dump's own `schema_migrations`
+lists — the commit that added it.
 
 ```bash
 export AZURE_CONFIG_DIR=~/.azure-personal
@@ -216,7 +221,9 @@ az role assignment create --role "Storage Blob Data Reader" --assignee "$(az ad 
 az storage blob list --auth-mode login --account-name stintbackups4b3306 -c dumps --query "[].name" -o tsv
 az storage blob download --auth-mode login --account-name stintbackups4b3306 -c dumps -n <name> -f db.dump.age
 age -d -i <(pbpaste) -o db.dump db.dump.age          # private key on the clipboard
-git checkout <sha> && pnpm migrate --url "$TARGET"     # a fresh project
+pg_restore -a -t schema_migrations -f - db.dump | grep -o '^[0-9_a-z]*\.sql' | sort | tail -1
+git checkout "$(git log -1 --format=%H -- supabase/migrations/<that file>)"
+pnpm migrate --url "$TARGET"                           # a fresh project
 pg_restore -l db.dump | grep -v 'schema_migrations' > toc
 pg_restore -L toc -f data.sql db.dump
 psql "$TARGET" --single-transaction -v ON_ERROR_STOP=1 \

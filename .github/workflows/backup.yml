@@ -14,7 +14,6 @@ on:
   workflow_call:
     inputs:
       label: { type: string, required: true }
-      sha: { type: string, required: true }
 
 permissions:
   # Exchanged for a short-lived Azure token; no Azure secret is stored.
@@ -39,7 +38,7 @@ jobs:
           tar xzf age.tgz && sudo install age/age /usr/local/bin/age
 
       # Data only: the auth schema belongs to Supabase, so a restore rebuilds
-      # structure from the migrations at the dump's SHA and loads this into it.
+      # structure from the migrations the dump's own schema_migrations lists.
       - name: Dump
         env:
           DB: ${{ secrets.PRODUCTION_DB_URL }}
@@ -69,7 +68,6 @@ jobs:
           TENANT: ${{ vars.AZURE_TENANT_ID }}
           ACCOUNT: ${{ vars.BACKUP_STORAGE_ACCOUNT }}
           LABEL: ${{ inputs.label || 'nightly' }}
-          SHA: ${{ inputs.sha || github.sha }}
         run: |
           OIDC=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)
@@ -80,10 +78,11 @@ jobs:
             -d client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer \
             --data-urlencode client_assertion="$OIDC" | jq -r .access_token)
           echo "::add-mask::$TOKEN"
-          NAME="$(date -u +%Y-%m-%dT%H%M%SZ)-$LABEL-${SHA:0:7}.dump.age"
+          NAME="$(date -u +%Y-%m-%dT%H%M%SZ)-$LABEL.dump.age"
           curl -sS --fail-with-body -X PUT --data-binary @db.dump.age \
             -H "Authorization: Bearer $TOKEN" -H "x-ms-version: 2023-11-03" \
             -H "x-ms-blob-type: BlockBlob" -H "If-None-Match: *" \
+            -H "Content-Type: application/octet-stream" \
             "https://$ACCOUNT.blob.core.windows.net/dumps/$NAME"
           echo "Uploaded $NAME ($(stat -c%s db.dump.age) bytes)" >> "$GITHUB_STEP_SUMMARY"
 
