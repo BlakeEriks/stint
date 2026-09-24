@@ -626,7 +626,7 @@ describe('the arrival roll', () => {
    * The roll means "this number just moved". Returning to Home from another
    * screen holding the same figures must roll nothing — a roll there would
    * say it of numbers the user read a moment ago
-   * (`docs/defects.md`, and the spec's "What earns a place").
+   * (the spec's "What earns a place").
    */
   it('does not fire on a remount holding the same figures', async () => {
     reducedMotion(false);
