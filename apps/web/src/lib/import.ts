@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  addDays,
   buildPreview,
   isValidTimeZone,
   parseExport,
@@ -41,21 +42,50 @@ export async function readImport(
   const parsed = parseExport(await file.text());
   if (!parsed.ok) throw new ApiError('IMPORT_FILE_UNRECOGNIZED', parsed.reason);
 
-  const [clients, projects, settings] = await Promise.all([
+  /* Existing work the export could overlap: a day's margin either side of
+     its dates covers any zone the times resolve in. */
+  const dates = parsed.rows.flatMap((r) => [
+    r.startDate,
+    r.endDate ?? r.startDate,
+  ]);
+  const from = addDays(
+    dates.reduce((a, b) => (b < a ? b : a), dates[0] ?? ''),
+    -1,
+  );
+  const to = addDays(
+    dates.reduce((a, b) => (b > a ? b : a), dates[0] ?? ''),
+    2,
+  );
+
+  const [clients, projects, settings, existing] = await Promise.all([
     db.from('clients').select('id,name,hourly_rate,archived_at'),
     db
       .from('projects')
       .select('id,name,client_id,hourly_rate,is_billable_default,archived_at'),
     db.from('user_settings').select('default_hourly_rate').maybeSingle(),
+    dates.length
+      ? db
+          .from('time_entries')
+          .select('id,started_at,ended_at')
+          .not('ended_at', 'is', null)
+          .lt('started_at', `${to}T00:00:00Z`)
+          .gt('ended_at', `${from}T00:00:00Z`)
+      : Promise.resolve({ data: [], error: null }),
   ]);
   if (clients.error) throw clients.error;
   if (projects.error) throw projects.error;
   if (settings.error) throw settings.error;
+  if (existing.error) throw existing.error;
 
   return buildPreview(parsed.source, parsed.rows, {
     userId,
     allBillable,
     invoicedThrough: through || null,
+    existing: (existing.data ?? []).map((e) => ({
+      id: e.id,
+      startedAt: e.started_at,
+      endedAt: e.ended_at,
+    })),
     timeZone,
     defaultRate: rate(settings.data?.default_hourly_rate),
     clients: (clients.data ?? []).map((c) => ({

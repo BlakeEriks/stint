@@ -27,6 +27,7 @@ function stats(over: Partial<Stats> = {}): Stats {
       staleDrafts: [],
       unprojected: [],
       strangeDurations: [],
+      overlaps: [],
     },
     ...over,
   } as Stats;

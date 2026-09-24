@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { deterministicUuidv7 } from '../src/uuid.ts';
 import { parseCsv } from '../src/import/csv.ts';
 import {
@@ -21,6 +22,7 @@ const ctx = (over: Partial<ImportContext> = {}): ImportContext => ({
   userId: USER,
   allBillable: false,
   invoicedThrough: null,
+  existing: [],
   timeZone: 'America/New_York',
   defaultRate: 100,
   clients: [{ id: 'c1', name: 'ACME ', hourlyRate: null, archived: false }],
@@ -178,4 +180,71 @@ test('entries on or before the invoiced-through date are marked invoiced elsewhe
   );
   assert.equal(p.summary.invoicedElsewhereCount, 3);
   assert.ok((await preview()).rows.every((r) => !r.invoicedElsewhere));
+});
+
+test('overlaps within the file and against existing work are flagged, never dropped', async () => {
+  // Admin (11:00–11:15 ET) sits inside this existing entry; the twin Design
+  // rows overlap each other for their full 90 minutes.
+  const p = await preview({
+    existing: [
+      {
+        id: 'e1',
+        startedAt: '2026-03-10T15:05:00.000Z',
+        endedAt: '2026-03-10T15:10:00.000Z',
+      },
+    ],
+  });
+  const [design, admin, twin] = p.rows;
+  assert.deepEqual(design?.overlapsWith, [twin?.id]);
+  assert.deepEqual(twin?.overlapsWith, [design?.id]);
+  assert.deepEqual(admin?.overlapsWith, ['e1']);
+  assert.equal(p.summary.overlappingCount, 3);
+  assert.ok(p.rows.slice(0, 3).every((r) => r.willWrite));
+});
+
+test('a row already imported is not an overlap with its own copy', async () => {
+  const first = await preview();
+  const again = await preview({
+    existing: first.rows
+      .filter((r) => r.willWrite)
+      .map((r) => ({
+        id: r.id,
+        startedAt: r.startedAt,
+        endedAt: r.endedAt as string,
+      })),
+  });
+  assert.deepEqual(
+    again.rows.map((r) => r.overlapsWith.length),
+    first.rows.map((r) => r.overlapsWith.length),
+  );
+});
+
+test("a real Toggl detailed export's shape: tabs, Currency and Amount apart, free plan", async () => {
+  const text = readFileSync(
+    new URL('./fixtures/toggl-detailed.tsv', import.meta.url),
+    'utf8',
+  );
+  const parsed = parseExport(text);
+  assert.ok(parsed.ok);
+  const p = await buildPreview(
+    parsed.source,
+    parsed.rows,
+    ctx({ clients: [], projects: [] }),
+  );
+  assert.equal(p.summary.willWriteCount, 6);
+  assert.equal(p.summary.exportedNoneBillable, true);
+  assert.deepEqual(
+    p.newClients.map((c) => c.name),
+    ['Northwind'],
+  );
+  assert.equal(
+    p.rows[5]?.taskName,
+    'E4.2 — extract & codify the visual language',
+  );
+  assert.equal(p.rows[0]?.reportedAmount, 0);
+  // Foundation runs past Standup's start by three minutes: flagged. The two
+  // Standups share eight seconds: not.
+  assert.equal(p.rows[2]?.overlapsWith.length, 1);
+  assert.equal(p.rows[3]?.overlapsWith.length, 1);
+  assert.equal(p.rows[4]?.overlapsWith.length, 0);
 });

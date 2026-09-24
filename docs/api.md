@@ -143,8 +143,11 @@ issue. The one row whose condition never clears on its own is gated by a
 stored answer instead — `duration_ok` on an entry of unusual length — so it
 cannot return every day once answered. `unprojected` is one row per entry,
 oldest first; `strangeDurations` one per entry of implausible length, and
-both its thresholds default to null, so the row is opt-in. The runaway timer
-is the inbox's fifth row and comes from `/summary`, not here.
+both its thresholds default to null, so the row is opt-in. `overlaps` is one
+per pair of uninvoiced entries sharing a minute or more (`MIN_OVERLAP_SECONDS`
+in `@stint/core`), naming the later-starting entry; it clears when either is
+edited apart. The runaway timer is the inbox's sixth row and comes from
+`/summary`, not here.
 
 ## Clients / projects / settings
 
