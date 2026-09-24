@@ -51,6 +51,7 @@ export const POST = handle(async (req: Request) => {
     groupingMode: body.groupingMode,
     taxRate,
     tz: body.tz,
+    manualLines: body.manualLines,
   });
 
   return NextResponse.json({

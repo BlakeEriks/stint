@@ -7,8 +7,8 @@
 --
 -- Two halves. The hand-written rows below name the awkward cases a layout has
 -- to survive, one row each, and are meant to be read. The generated year at
--- the foot is volume: the heatmap and Velocity's trailing quarter read a year
--- at a time and cannot be judged from a handful of days. It is
+-- the foot is volume: the heatmap reads a year at a time and cannot be judged
+-- from a handful of days. It is
 -- generated because a year hand-written is a file nobody will correct, and
 -- deterministically so a screenshot diff between two runs means something.
 --
@@ -53,14 +53,7 @@ update user_settings set
   business_address      = E'1 Market St\nSan Francisco, CA 94105',
   business_email        = 'dev@localhost.test',
   tax_id                = '00-0000000',
-  invoice_number_prefix = 'STINT-',
-  -- Hours rather than revenue because it is the easier one to sanity-check by
-  -- eye against the seeded entries. Sized just under the generated year's
-  -- monthly average (74-125h): a target the seed clears every month puts the
-  -- goal ray on the floor and the month plot stops showing a gap at all, which
-  -- is the one thing that region is for.
-  monthly_target        = 110,
-  monthly_target_unit   = 'hours'
+  invoice_number_prefix = 'STINT-'
 where user_id = '00000000-0000-4000-8000-000000000001';
 
 -- ── clients ────────────────────────────────────────────────────────
@@ -206,9 +199,9 @@ values
 on conflict (id) do nothing;
 
 -- ── a year of history, generated ───────────────────────────────────
--- The regions above this line need a handful of rows; the heatmap and
--- Velocity's trailing quarter need a year of them, and a year hand-written
--- is a file nobody will ever re-read or correct.
+-- The regions above this line need a handful of rows; the heatmap needs a
+-- year of them, and a year hand-written is a file nobody will ever re-read
+-- or correct.
 --
 -- Deterministic on purpose: the pick of client, start hour and length comes
 -- from mixing the day's offset, never `random()`, so two `dev:reset` runs
@@ -226,8 +219,8 @@ on conflict (id) do nothing;
 --   * a one-day gap 6 days back and a two-day gap at 19-20, so a recent
 --     stretch carries gaps of both lengths rather than reading as one
 --     unbroken run
---   * a different client mix in each of the last three months, so Velocity's
---     split bar has three distinguishable months to describe
+--   * a different client mix in each of the last three months, so the month's
+--     client strip has something to divide
 with days as (
   select
     d                                             as offset_days,
@@ -291,9 +284,9 @@ from worked
 on conflict (id) do nothing;
 
 -- ── invoices over the history ──────────────────────────────────────
--- Without these every hour ever logged is unbilled, and Velocity's
--- `invoiced · unbilled` split renders as one bar with nothing to compare —
--- the case where the region says least about itself.
+-- Without these every hour ever logged is unbilled, and the month's Unbilled
+-- figure swallows the whole year — the case where the screen says least
+-- about itself.
 --
 -- Older work is invoiced and the recent quarter is not, which is what a
 -- contractor's ledger actually looks like mid-month.
@@ -325,7 +318,7 @@ on conflict (id) do nothing;
 -- Scoped to the invoice's OWN client. Every invoice above is raised against
 -- c1, so without this the date window sweeps up whatever else ran that month
 -- and three invoices bill one client for another's work — which makes the
--- by-client and Velocity splits report money to the wrong name.
+-- month's client strip report money to the wrong name.
 update time_entries e
    set invoice_id = ('00000000-0000-4000-8000-2' || lpad(n::text, 11, '0'))::uuid
   from generate_series(1, 9) as n
@@ -344,12 +337,15 @@ update time_entries e
 -- same key `buildLineItems` groups on — the rate belongs in the key because two
 -- rates for one task name are two lines, not an average.
 insert into invoice_line_items (
-  invoice_id, description, quantity_seconds, resolved_rate, amount, sort_order
+  invoice_id, description, unit, quantity, unit_price, amount, sort_order
 )
 select
   e.invoice_id,
   coalesce(nullif(e.task_name, ''), 'Untitled'),
-  sum(e.duration_seconds)::int,
+  -- Seeded lines are all time. A `fixed` line is a charge the user typed,
+  -- which no seed can invent on their behalf.
+  'hour',
+  round(sum(e.duration_seconds) / 3600.0, 2),
   resolve_rate(e.rate_override, p.hourly_rate, c.hourly_rate, s.default_hourly_rate),
   round(sum(e.duration_seconds) / 3600.0
         * resolve_rate(e.rate_override, p.hourly_rate, c.hourly_rate, s.default_hourly_rate), 2),

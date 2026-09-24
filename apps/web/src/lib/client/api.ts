@@ -2,6 +2,7 @@
 
 import type { z } from 'zod';
 import type * as schema from '@stint/schema';
+import type { ImportPreview, ImportResult } from '@stint/core';
 
 /**
  * Browser-side API access.
@@ -51,10 +52,11 @@ async function request<T>(
   path: string,
   body?: unknown,
 ): Promise<T> {
+  const form = body instanceof FormData;
   const res = await fetch(`/api/v1${path}`, {
     method,
-    headers: body ? { 'content-type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
+    headers: body && !form ? { 'content-type': 'application/json' } : undefined,
+    body: form ? body : body ? JSON.stringify(body) : undefined,
   });
 
   if (res.status === 204) return undefined as T;
@@ -114,12 +116,14 @@ export type Settings = Response<schema.Settings>;
 export type PaymentProfile = Response<schema.PaymentProfile>;
 export type InvoicePreview = Response<schema.InvoicePreview>;
 export type Invoice = Response<schema.Invoice>;
+export type ManualLine = schema.ManualLine;
 export type TaskNameSuggestion = Response<schema.TaskNameSuggestion>;
 
 /* Nested objects keep their own optionality, so `Response` is applied only at
    the top level here — every nested field is already required. */
 export type Stats = Response<schema.Stats>;
-export type Pace = schema.Pace;
+export type MonthEarned = schema.MonthEarned;
+export type WeekDay = schema.WeekDay;
 export type UnbilledClient = schema.UnbilledClient;
 
 export type CalendarDay = Response<Omit<schema.CalendarDay, 'entries'>> & {
@@ -154,6 +158,13 @@ export type PaymentProfileInput = Partial<
   Pick<PaymentProfile, 'name'>;
 
 export const api = {
+  /** A Toggl export, plus the zone its wall-clock times are in. */
+  importPreview: (form: FormData) =>
+    request<ImportPreview>('POST', '/imports/preview', form),
+
+  importConfirm: (form: FormData) =>
+    request<ImportResult>('POST', '/imports/confirm', form),
+
   summary: (tz: string) =>
     request<Summary>('GET', `/summary?tz=${encodeURIComponent(tz)}`),
 
@@ -340,6 +351,7 @@ export const api = {
     periodEnd: string;
     groupingMode?: GroupingMode;
     tz?: string;
+    manualLines?: ManualLine[];
   }) => request<InvoicePreview>('POST', '/invoices/preview', body),
 
   /** Allocates the number, freezes line items and rates, locks the entries. */
@@ -349,6 +361,7 @@ export const api = {
     periodEnd: string;
     groupingMode?: GroupingMode;
     tz?: string;
+    manualLines?: ManualLine[];
     issueDate?: string;
     dueDate?: string;
     notes?: string;

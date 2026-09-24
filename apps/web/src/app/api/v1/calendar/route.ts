@@ -68,13 +68,21 @@ export const GET = handle(async (req: Request) => {
       const seconds = entry.durationSeconds ?? 0;
       day.totalSeconds += seconds;
 
-      /* Internal work keys as the empty string rather than being dropped: a
-         day spent on unbilled work is not an empty day, and the strip must
-         be able to show it. */
-      const client = entry.projectId
-        ? (clientOf.get(entry.projectId) ?? '')
-        : '';
-      day.byClient[client] = (day.byClient[client] ?? 0) + seconds;
+      /* `byClient` counts BILLABLE work only, because its one reader is the
+         week's bar stack and that bar's height is billable seconds
+         (`revenue_by_day`). Splitting a billable height by every client who
+         worked would give non-billable work a share of a bar it did not
+         raise. `totalSeconds` is unfiltered and stays that way: the calendar
+         draws a day's whole load. */
+      if (entry.isBillable) {
+        /* Internal work keys as the empty string rather than being dropped: a
+           day spent on unbilled work is not an empty day, and the strip must
+           be able to show it. */
+        const client = entry.projectId
+          ? (clientOf.get(entry.projectId) ?? '')
+          : '';
+        day.byClient[client] = (day.byClient[client] ?? 0) + seconds;
+      }
       days.set(key, day);
     }
 

@@ -186,12 +186,17 @@ worked.
 ## Seeding your own account
 
 `seed.sql` belongs to `dev@localhost.test` — the account the e2e suite
-restores, so do not track real time in it. For a second account:
+restores. For a second account:
 
 ```
-pnpm seed you@example.com            # creates the account if it is new
-pnpm seed you@example.com --clear    # remove the data, keep the account
+pnpm seed you@example.com            # reset, then seed
+pnpm seed you@example.com --clear    # reset to an empty account
 ```
+
+**Every run is a reset.** Everything the account holds — entries, invoices,
+projects, clients, payment details — is deleted, and its settings return to a
+new signup's, before anything is written. `--clear` stops there, which is the
+starting point for trying an import.
 
 **The account is created if it does not exist**, inserted into `auth.users`
 the same way `seed.sql` does it — so this works before you have ever signed
@@ -207,24 +212,17 @@ conditions and the thresholds each is checked against — and it overshoots each
 one, so the seed never sits on a boundary a timezone could round the wrong
 way.
 
-It also sets a monthly target, without which the Pace card hides rather than
-rendering empty.
-
-**Idempotent by client name.** Re-running replaces what it made last time
-rather than stacking a second copy, and it touches nothing it did not create —
-your own entries and invoices survive. Invoices are deleted before entries,
-because a billed entry cannot be deleted while its invoice stands
-(`guard_billed_entry_delete`); removing the invoice releases them through
-`on delete set null`.
+It gives the most recent worked day an extra block, because that day's last
+block is the one left running: without it Home opens on a day that has earned
+nothing, which is the one figure the screen exists to show.
 
 The runaway timer is an **update**, not an insert: one running timer per user
 is a database index, so the entry the script already left running is backdated
-rather than joined by a second one. If a timer is already running when you
-seed — yours — it is left alone and the summary says so.
+rather than joined by a second one.
 
 `next_invoice_number` advances past whatever the seed used. Numbering is
-gapless and allocated from that counter, so leaving it behind would make your
-next real invoice collide.
+gapless and allocated from that counter, so leaving it behind would make the
+next invoice collide.
 
 ## Traps found setting this up
 
@@ -278,6 +276,31 @@ missing `search_path`. Local reproduces that code path faithfully.
 
 `major_version = 17` in `config.toml` matches the hosted project (17.6). If
 you upgrade one, upgrade the other.
+
+### Asking production a question
+
+Before changing a table, ask the hosted database what is in it. A script
+under `scripts/` gets the connection from `scripts/db-url.mjs` and never
+handles the secret itself:
+
+```js
+import pg from 'pg';
+import { connectionString, sslFor, short } from './db-url.mjs';
+const url = connectionString([]);           // [] so argv is not parsed
+console.log('target:', short(url));          // password masked for the log
+const c = new pg.Client({ connectionString: url, ssl: sslFor(url) });
+```
+
+`connectionString()` reads `apps/web/.env.local`, so the value is never
+pasted into a command, a shell history or a chat. `short()` is what makes the
+output safe to paste back. It must run from the repo root, where `pg`
+resolves.
+
+This is how a destructive plan gets checked before it runs: the reset that
+M1's schema change seemed to need turned out to be unnecessary, because
+production held **zero** rows in the table being altered and thirteen real
+time entries beside it. A migration replaced the reset. **Read-only until the
+counts say otherwise.**
 
 ## Running the bearer-token test
 

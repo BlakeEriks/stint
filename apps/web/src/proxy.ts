@@ -4,8 +4,8 @@ import type { NextRequest } from 'next/server';
 /**
  * Two sites, one deployment, split by hostname.
  *
- *   trackwithstint.com      -> the landing page
- *   app.trackwithstint.com  -> the product
+ *   runstint.com      -> the landing page
+ *   app.runstint.com  -> the product
  *
  * Only `/` needs deciding. Every other path belongs to the app; a marketing
  * page that is not `/` adds its path to `MARKETING_PATHS` below.

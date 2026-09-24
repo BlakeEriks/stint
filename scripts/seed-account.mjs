@@ -8,8 +8,8 @@
  * second local user is useful from the first launch rather than an empty
  * timer screen.
  *
- *   pnpm seed you@example.com
- *   pnpm seed you@example.com --clear     # remove it again
+ *   pnpm seed you@example.com             # reset, then seed
+ *   pnpm seed you@example.com --clear     # reset to an empty account
  *
  * **The account is created if it does not exist**, so this works before you
  * have ever signed in. Sign in afterwards with a magic link and pick it up
@@ -19,9 +19,9 @@
  * surface to exercise by hand: each row needs a condition that takes days to
  * arrive naturally. See `SCENARIOS` below for the four and what each requires.
  *
- * Idempotent by client name: re-running replaces what it made last time
- * rather than stacking a second copy. It touches nothing it did not create,
- * so entries and invoices you made yourself are safe.
+ * **Every run is a reset.** Everything the account holds is deleted and its
+ * settings return to a new signup's before anything is written — it is a
+ * test account, and a known starting point is the point.
  *
  * Dates are relative to today, not fixed like `seed.sql`'s — a screen with
  * "last worked on: three months ago" teaches you nothing about how the app
@@ -47,7 +47,7 @@ if (!email) {
 
 const clearOnly = process.argv.includes('--clear');
 
-/** Everything this script creates, tagged so it can find them again. */
+/** The clients the seed writes. */
 const CLIENTS = [
   {
     name: 'Northwind Trading',
@@ -97,7 +97,7 @@ const RUNAWAY_HOURS = 11; // 3 past the 8-hour default
  *
  * **Hours, never a total.** The total is `seconds × the resolved rate`, in
  * that direction: a seeded total with the rate back-derived from it produces
- * a line item whose `resolved_rate` is a number `resolve_rate()` would never
+ * a line item whose `unit_price` is a number `resolve_rate()` would never
  * return for the client it is billed to, and rate resolution is the one thing
  * this data exists to let you see working.
  */
@@ -234,63 +234,30 @@ try {
     process.exit(1);
   }
 
-  /* Remove a previous run before writing a new one. Scoped to the client
-     names above and to the internal project, so anything you logged yourself
-     survives — this must never be the thing that eats your own work. */
-  const names = CLIENTS.map((c) => c.name);
-
-  /* Invoices first: a time entry cannot be deleted while it is billed to a
-     non-draft invoice — `guard_billed_entry_delete` raises — and detaching
-     is the only way past that, which is exactly what voiding does in the
-     app. Deleting the invoice releases its entries by the same FK rule
-     (`on delete set null`), so the entry delete below then succeeds.
-
-     Scoped to this seed's own clients, so an invoice you generated yourself
-     is never touched. */
-  await db.query(
-    `delete from invoices
-      where user_id = $1
-        and client_id in (select id from clients where user_id = $1 and name = any($2))`,
-    [userId, names],
-  );
-
-  await db.query(
-    `delete from time_entries
-      where user_id = $1
-        and (project_id in (
-              select p.id from projects p
-               left join clients c on c.id = p.client_id
-               where p.user_id = $1 and (c.name = any($2) or p.name = $3))
-             or (project_id is null and task_name like 'Seeded:%'))`,
-    [userId, names, INTERNAL],
-  );
-  await db.query(
-    `delete from projects
-      where user_id = $1
-        and (client_id in (select id from clients where user_id = $1 and name = any($2))
-             or (client_id is null and name = $3))`,
-    [userId, names, INTERNAL],
-  );
-  await db.query('delete from clients where user_id = $1 and name = any($2)', [
-    userId,
-    names,
-  ]);
+  /* Invoices first: a billed entry cannot be deleted while its invoice
+     stands, and deleting the invoice releases it. Clients before payment
+     profiles, which they reference. */
+  for (const table of [
+    'invoices',
+    'time_entries',
+    'projects',
+    'clients',
+    'payment_profiles',
+    'user_settings',
+  ]) {
+    await db.query(`delete from ${table} where user_id = $1`, [userId]);
+  }
+  await db.query('insert into user_settings (user_id) values ($1)', [userId]);
 
   if (clearOnly) {
     await db.query('commit');
-    console.log(`Cleared seeded data for ${email}.`);
+    console.log(`Reset ${email} to an empty account.`);
     process.exit(0);
   }
 
-  /* A default rate, so a client with none has something to inherit — and a
-     monthly target, without which the Pace card hides entirely rather than
-     showing an empty bar. */
+  /* A default rate, so a client with none has something to inherit. */
   await db.query(
-    `update user_settings
-        set default_hourly_rate = coalesce(default_hourly_rate, 125),
-            monthly_target = coalesce(monthly_target, 120),
-            monthly_target_unit = coalesce(monthly_target_unit, 'hours')
-      where user_id = $1`,
+    'update user_settings set default_hourly_rate = 125 where user_id = $1',
     [userId],
   );
 
@@ -349,12 +316,6 @@ try {
     if (dow !== 0 && dow !== 6) lastWorkedBack = back;
   }
 
-  const { rows: alreadyRunning } = await db.query(
-    'select 1 from time_entries where user_id = $1 and ended_at is null',
-    [userId],
-  );
-  const someoneIsRunning = alreadyRunning.length > 0;
-
   let entries = 0;
   for (let back = 13; back >= 0; back -= 1) {
     const day = new Date();
@@ -362,8 +323,11 @@ try {
     const weekday = day.getDay();
     if (weekday === 0 || weekday === 6) continue; // weekends stay empty
 
-    // One or two blocks a day, starting at 09:00 local.
-    const blocks = back % 3 === 0 ? 2 : 1;
+    /* One or two blocks a day, starting at 09:00 local. The most recent
+       worked day takes one more: its last block is left running and has
+       earned nothing yet, so without the extra the day reads $0.00 on a
+       screen whose subject is what you earned. */
+    const blocks = (back % 3 === 0 ? 2 : 1) + (back === lastWorkedBack ? 1 : 0);
     for (let b = 0; b < blocks; b += 1) {
       const start = new Date(day);
       start.setHours(9 + b * 4, b === 0 ? 0 : 30, 0, 0);
@@ -371,14 +335,8 @@ try {
       const end = new Date(start.getTime() + hours * 3_600_000);
 
       /* The final block of the most recent worked day is left running, so the
-         app opens on a live timer rather than a stopped screen.
-
-         Skipped entirely when a timer is ALREADY running — one running timer
-         per user is enforced by a partial unique index, so a second insert
-         is a constraint violation, and seeding must never be the thing that
-         breaks an invariant the whole app rests on. */
-      const running =
-        !someoneIsRunning && back === lastWorkedBack && b === blocks - 1;
+         app opens on a live timer rather than a stopped screen. */
+      const running = back === lastWorkedBack && b === blocks - 1;
       const projectId =
         (back + b) % 5 === 0
           ? internalId
@@ -433,23 +391,17 @@ try {
     entries += 1;
   }
 
-  /* The runaway timer, which replaces the ordinary running entry above when
-     nothing else is running. Started far enough back to be past
+  /* The runaway timer: the running entry above, started far enough back to be past
      `max_timer_hours`, so the inbox offers keep / adjust / discard.
 
      `update`, not `insert`: one running timer per user is a partial unique
      index, so the entry the loop already left running is backdated rather
      than joined by a second one. */
-  let runaway = false;
-  if (!someoneIsRunning) {
-    const startedAt = new Date(Date.now() - RUNAWAY_HOURS * 3_600_000);
-    const { rowCount } = await db.query(
-      `update time_entries set started_at = $2
-        where user_id = $1 and ended_at is null`,
-      [userId, startedAt.toISOString()],
-    );
-    runaway = rowCount > 0;
-  }
+  await db.query(
+    `update time_entries set started_at = $2
+      where user_id = $1 and ended_at is null`,
+    [userId, new Date(Date.now() - RUNAWAY_HOURS * 3_600_000).toISOString()],
+  );
 
   /* Invoices: overdue, awaiting payment, stale draft, and paid. Each carries
      one line item, because an invoice with no lines renders a total of zero
@@ -490,7 +442,7 @@ try {
   for (const inv of INVOICES) {
     /* Seconds first, then money: the line's amount is what those seconds are
        worth at the resolved rate, which is the direction the app computes in
-       and the only one that leaves `resolved_rate` truthful. */
+       and the only one that leaves `unit_price` truthful. */
     const seconds = Math.round(inv.hours * 3600);
     const total = lineAmount(seconds);
     const issued = new Date();
@@ -536,9 +488,15 @@ try {
     );
     await db.query(
       `insert into invoice_line_items
-         (invoice_id, description, quantity_seconds, resolved_rate, amount, sort_order)
-       values ($1, $2, $3, $4, $5, 0)`,
-      [invoiceId, inv.description, seconds, resolvedRate, total],
+         (invoice_id, description, unit, quantity, unit_price, amount, sort_order)
+       values ($1, $2, 'hour', $3, $4, $5, 0)`,
+      [
+        invoiceId,
+        inv.description,
+        Math.round((seconds / 3600) * 100) / 100,
+        resolvedRate,
+        total,
+      ],
     );
     invoiceNo += 1;
   }
@@ -558,9 +516,7 @@ try {
   );
   console.log(`  ${INVOICES.length} invoices (overdue, sent, draft, paid)`);
   console.log('\n  Inbox:');
-  console.log(
-    `    runaway timer      ${runaway ? 'yes' : 'skipped — one was already running'}`,
-  );
+  console.log('    runaway timer      yes');
   console.log('    overdue invoice    yes');
   console.log('    stale draft        yes');
   console.log(`    unprojected work   yes (${unprojected.length} entries)`);

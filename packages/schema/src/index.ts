@@ -257,39 +257,14 @@ export const Settings = z.object({
   nextInvoiceNumber: z.number().int().positive(),
   /** Standing anti-fraud line printed under the invoice payment block. */
   paymentNotice: z.string().max(500).nullable(),
-
-  /**
-   * Monthly target for the Pace card. Both null means no target and the card
-   * hides; the database enforces that they are both set or both null.
-   */
-  /** Positive, matching the database check — `0` is not a target, and
-   *  sending it would 500 rather than fail validation. */
-  monthlyTarget: money.positive().nullable(),
-  monthlyTargetUnit: z.enum(['hours', 'revenue']).nullable(),
 });
 /**
  * `nextInvoiceNumber` is not client-settable: gapless numbering depends on
  * allocate_invoice_number() holding the row lock.
- *
- * A target without a unit cannot be rendered, and a unit without a target
- * means nothing. The database enforces this too — the check constraint is
- * authoritative — but catching it here returns a 422 naming the problem
- * instead of a 500 carrying a constraint name. Only when both appear in the
- * same patch: setting one while the other already holds a value is
- * legitimate, and the database still guards the result.
  */
-export const UpdateSettings = Settings.partial()
-  .omit({ nextInvoiceNumber: true })
-  .refine(
-    (p) =>
-      !('monthlyTarget' in p && 'monthlyTargetUnit' in p) ||
-      (p.monthlyTarget === null) === (p.monthlyTargetUnit === null),
-    {
-      message:
-        'monthlyTarget and monthlyTargetUnit must be set or cleared together',
-      path: ['monthlyTarget'],
-    },
-  );
+export const UpdateSettings = Settings.partial().omit({
+  nextInvoiceNumber: true,
+});
 
 // ── invoicing ──────────────────────────────────────────────────────
 export const GroupingMode = z.enum(['entry', 'task', 'project', 'day']);
@@ -305,14 +280,30 @@ export const InvoicePreviewRequest = z.object({
    * silently coerced to UTC, which would move the boundary by hours.
    */
   tz: timeZoneStrict,
+  /**
+   * Flat charges the user typed: a fixed fee, a deposit, a rebilled expense.
+   * They are priced by the user rather than resolved from a rate, so they
+   * ride on the request instead of being read back from time entries.
+   */
+  manualLines: z
+    .array(
+      z.object({
+        description: z.string().trim().min(1).max(200),
+        amount: money,
+      }),
+    )
+    .max(50)
+    .default([]),
 });
 
-/** What every line item states, however it was produced. */
+/** What a line's quantity means: billed hours, or a flat charge. */
+export const LineUnit = z.enum(['hour', 'fixed']);
+
 export const InvoiceLineItem = z.object({
   description: z.string(),
-  quantitySeconds: z.number().int().nonnegative(),
-  quantityHours: z.number().nonnegative(),
-  resolvedRate: money,
+  unit: LineUnit,
+  quantity: z.number().nonnegative(),
+  unitPrice: money,
   amount: money,
 });
 
@@ -326,8 +317,15 @@ export const InvoiceLineItem = z.object({
  * forever. So neither can appear on a line read back from the database.
  */
 export const ComputedLineItem = InvoiceLineItem.extend({
-  /** Which level of the hierarchy supplied the rate. */
-  rateSource: z.enum(['entry', 'project', 'client', 'default', 'none']),
+  /** Which level of the hierarchy supplied the rate; `manual` if typed. */
+  rateSource: z.enum([
+    'entry',
+    'project',
+    'client',
+    'default',
+    'none',
+    'manual',
+  ]),
   /** The entries this line merged. Internal ids; see `docs/roadmap.md`. */
   entryIds: z.array(uuid),
 });
@@ -360,6 +358,11 @@ export const InvoicePreview = z.object({
   /** Entries with no resolvable rate — blocks generation until fixed. */
   unratedEntryIds: z.array(uuid),
 });
+
+/** One charge on a request: what `manualLines` carries. */
+export type ManualLine = z.infer<
+  typeof InvoicePreviewRequest
+>['manualLines'][number];
 
 export const CreateInvoice = InvoicePreviewRequest.extend({
   issueDate: z.iso.date().optional(),
@@ -466,57 +469,83 @@ export const UnbilledClient = z.object({
   oldestDays: z.number().int().nonnegative(),
 });
 
-export const PacePoint = z.object({
+export const EarnedPoint = z.object({
   /** A business day, `YYYY-MM-DD` in the caller's zone. */
   date: z.string(),
-  /** Cumulative to this day, in the target's unit. Null beyond today. */
+  /**
+   * Cumulative money earned to this day. Null beyond today.
+   *
+   * Null rather than flat, because a line held level to the 31st reads as a
+   * month that stopped working rather than one still in progress. Weekend
+   * work is carried onto the next business day's point, so the last non-null
+   * value always equals the month's earned.
+   */
   actual: z.number().nullable(),
-  /** The goal ray. It steps on business days ONLY — a ray sloping through
-   *  the weekend shows the user behind every Saturday and recovered every
-   *  Monday, which is the noise the business-day rule exists to kill. */
-  expected: z.number(),
 });
 
-export const Pace = z.object({
-  unit: z.enum(['hours', 'revenue']),
-  target: money,
-  /** Null when the unit cannot be computed from time entries alone. */
-  actual: z.number().nullable(),
-  expected: z.number().nullable(),
-  /** Positive is ahead. Spelled out rather than left to a bar to imply. */
-  delta: z.number().nullable(),
-  businessDaysElapsed: z.number().int().nonnegative(),
-  businessDaysTotal: z.number().int().nonnegative(),
-  /** One point per business day of the month, for the cumulative line. */
-  series: z.array(PacePoint),
-});
-
-export const VelocityClient = z.object({
-  /** Null for internal work — a project with no client. */
+/** One band of the month's client strip, and one key in the legend. */
+export const MonthClient = z.object({
+  /** Null for internal work — a project with no client, and so no hue. */
   clientId: uuid.nullable(),
   clientName: z.string(),
-  currency,
-  seconds: z.number().int().nonnegative(),
-  invoiced: money,
-  unbilled: money,
-  /** Entries with no resolvable rate: the total is incomplete, not low. */
-  unratedCount: z.number().int().nonnegative(),
+  amount: money,
 });
 
-export const ByProjectEntry = z.object({
-  /** Never null here: work with no project is a tail row, never a column. */
-  projectId: uuid,
-  projectName: z.string(),
-  /** Null for internal work — a project with no client. */
-  clientId: uuid.nullable(),
-  clientName: z.string().nullable(),
-  currency,
-  /** All worked time. Money counts billable alone, so the two diverge. */
+export const MonthEarned = z.object({
+  /**
+   * The month's earned so far — the screen's hero figure.
+   *
+   * The series' own last point, never a separate sum: the projection
+   * extrapolates that series, and a figure taken from a second source would
+   * disagree with the line drawn beneath it.
+   */
+  earned: money,
+  /**
+   * Where the month lands if it keeps earning at the rate it has so far.
+   *
+   * Null until three business days have elapsed. Earned-so-far over one
+   * elapsed day carried across twenty-two is one day's work multiplied by the
+   * month — a figure that swings by thousands on the second day — so it is
+   * withheld rather than guessed at. It extrapolates what was earned and
+   * reads no target of any kind.
+   */
+  projected: money.nullable(),
+  businessDaysElapsed: z.number().int().nonnegative(),
+  businessDaysTotal: z.number().int().nonnegative(),
+  /** One point per business day of the month: the solid cumulative line. */
+  series: z.array(EarnedPoint),
+  /** The dashed segment from today to month end. Null whenever `projected`
+   *  is — there is no second endpoint to draw to. */
+  projection: z
+    .object({
+      from: z.object({ date: z.string(), amount: money }),
+      to: z.object({ date: z.string(), amount: money }),
+    })
+    .nullable(),
+  /**
+   * The month's money per client — the strip beneath the climb.
+   *
+   * MONEY, where the week's bars are seconds: the month's subject is Earned,
+   * so its split divides what was earned. Ordered by amount descending, which
+   * is the order the legend names them in.
+   */
+  byClient: z.array(MonthClient),
+});
+
+export const WeekDay = z.object({
+  /** `YYYY-MM-DD` in the caller's zone. */
+  date: z.string(),
+  /**
+   * All billable worked time that day — the bar's height.
+   *
+   * Counts work whose rate chain resolves to null, which `amount` does not:
+   * that time was worked, and dropping it would draw a short day that was
+   * not short.
+   */
   seconds: z.number().int().nonnegative(),
-  billableSeconds: z.number().int().nonnegative(),
-  amount: money,
-  /** Entries with no resolvable rate: the total is incomplete, not low. */
-  unratedCount: z.number().int().nonnegative(),
+  /** The figure at the bar's head, null when the day resolves no rate. A
+   *  day of unrated work has a real height and no money to print. */
+  amount: money.nullable(),
 });
 
 export const Stats = z.object({
@@ -541,40 +570,15 @@ export const Stats = z.object({
    */
   earnedToday: money,
   /**
-   * Trailing-window gross, split by where the work stands now.
+   * The week's seven bars, oldest first, starting on the user's own
+   * `weekStartsOn`.
    *
-   * Work DONE over the window, not money collected. `invoiced + unbilled`
-   * is `total`; the split moves as invoices are raised while the total does
-   * not. NOT comparable with `awaitingPayment`, which spans every period.
+   * Always seven entries: a day with no work is present at zero rather than
+   * absent, which is what holds every weekday label on one baseline.
    */
-  velocity: z.object({
-    months: z.number().int().positive(),
-    total: money,
-    /** `total / months`, rounded to cents here so the figure the screen
-     *  leads with reconciles with the split printed beneath it. */
-    perMonth: money,
-    invoiced: money,
-    unbilled: money,
-    seconds: z.number().int().nonnegative(),
-    byClient: z.array(VelocityClient),
-    moreClients: z.number().int().nonnegative(),
-  }),
-  /**
-   * The same window as `velocity`, ranked by project.
-   *
-   * `seconds` and `amount` cover every project plus work filed under none,
-   * so the columns and the tail reconcile to them exactly. Ordered by
-   * seconds; revenue mode re-sorts these same rows.
-   */
-  byProject: z.object({
-    seconds: z.number().int().nonnegative(),
-    amount: money,
-    byProject: z.array(ByProjectEntry),
-    /** Everything past the column cap, plus the unfiled row, as one line. */
-    moreProjects: z.number().int().nonnegative(),
-    tailSeconds: z.number().int().nonnegative(),
-    tailAmount: money,
-  }),
+  week: z.array(WeekDay),
+  /** The month's earned, its cumulative line, and where that line lands. */
+  month: MonthEarned,
   /** Invoiced and not yet collected. Never summed with `unbilled` — that
    *  would double-count the same hours. */
   awaitingPayment: money,
@@ -631,10 +635,6 @@ export const Stats = z.object({
       }),
     ),
   }),
-  /** Null when no monthly target is set; the card hides rather than nagging. */
-  pace: Pace.nullable(),
-  /** Null when nothing was tracked this month — 0/0 is not 0%. */
-  billableRatio: z.number().min(0).max(1).nullable(),
   attention: z.object({
     overdueInvoices: z.array(
       z.object({
@@ -680,6 +680,20 @@ export const Stats = z.object({
         clientName: z.string().nullable(),
         startedAt: z.iso.datetime(),
         seconds: z.number().int().nonnegative(),
+      }),
+    ),
+    /**
+     * Pairs of uninvoiced entries sharing a minute or more. Derived per
+     * request, so editing either entry clears the row.
+     */
+    overlaps: z.array(
+      z.object({
+        entryId: uuid,
+        taskName: z.string(),
+        otherEntryId: uuid,
+        otherTaskName: z.string(),
+        startedAt: z.iso.datetime(),
+        seconds: z.number().int().positive(),
       }),
     ),
   }),
@@ -751,6 +765,7 @@ export const ErrorCode = z.enum([
   'NO_RATE_CONFIGURED',
   'INVALID_PERIOD',
   'UNAUTHORIZED',
+  'IMPORT_FILE_UNRECOGNIZED',
   'VALIDATION_FAILED',
 ]);
 
@@ -769,9 +784,10 @@ export type Settings = z.infer<typeof Settings>;
 export type InvoicePreview = z.infer<typeof InvoicePreview>;
 export type PaymentProfile = z.infer<typeof PaymentProfile>;
 export type Stats = z.infer<typeof Stats>;
-export type Pace = z.infer<typeof Pace>;
+export type MonthEarned = z.infer<typeof MonthEarned>;
+export type WeekDay = z.infer<typeof WeekDay>;
 export type UnbilledClient = z.infer<typeof UnbilledClient>;
-export type ByProjectEntry = z.infer<typeof ByProjectEntry>;
+export type MonthClient = z.infer<typeof MonthClient>;
 export type ClientWithScale = z.infer<typeof ClientWithScale>;
 export type Invoice = z.infer<typeof Invoice>;
 export type CalendarDay = z.infer<typeof CalendarDay>;

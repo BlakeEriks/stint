@@ -11,8 +11,8 @@ The marketing page and the product are split by **hostname**, decided in
 `apps/web/src/proxy.ts` — `proxy.ts`, not `middleware.ts`, because the
 middleware convention is deprecated in Next 16 and renamed.
 
-    trackwithstint.com      -> app/landing/page.tsx   (rewritten, not redirected)
-    app.trackwithstint.com  -> app/(app)/**
+    runstint.com      -> app/landing/page.tsx   (rewritten, not redirected)
+    app.runstint.com  -> app/(app)/**
 
 **The app lives at the root of its own origin, so its URLs carry no segment.**
 `/invoices/…`, never `/app/invoices/…`.

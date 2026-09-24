@@ -221,8 +221,9 @@ export interface InvoicePdfData {
   client: { name: string; email: string | null; address: string | null };
   lineItems: Array<{
     description: string;
-    quantityHours: number;
-    resolvedRate: number | null;
+    unit: 'hour' | 'fixed';
+    quantity: number | null;
+    unitPrice: number | null;
     amount: number | null;
   }>;
   /** Frozen payment snapshot from the invoice; null when none was set. */
@@ -335,7 +336,7 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
 
         <View style={styles.tHead}>
           <Text style={[styles.cDesc, styles.headCell]}>DESCRIPTION</Text>
-          <Text style={[styles.cQty, styles.headCell]}>HOURS</Text>
+          <Text style={[styles.cQty, styles.headCell]}>QTY</Text>
           <Text style={[styles.cRate, styles.headCell]}>RATE</Text>
           <Text style={[styles.cAmt, styles.headCell]}>AMOUNT</Text>
         </View>
@@ -343,9 +344,14 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
         {data.lineItems.map((li, i) => (
           <View key={i} style={styles.row} wrap={false}>
             <Text style={styles.cDesc}>{li.description}</Text>
-            <Text style={styles.cQty}>{formatHours(li.quantityHours)}</Text>
+            {/* A flat charge leaves both cells blank. "1 x $2,400.00" tells
+                the client nothing the amount does not already say, and the
+                quantity column exists to be read, not filled. */}
+            <Text style={styles.cQty}>
+              {li.unit === 'fixed' ? '' : formatHours(li.quantity ?? 0)}
+            </Text>
             <Text style={styles.cRate}>
-              {formatCurrency(li.resolvedRate, cur)}
+              {li.unit === 'fixed' ? '' : formatCurrency(li.unitPrice, cur)}
             </Text>
             <Text style={styles.cAmt}>{formatCurrency(li.amount, cur)}</Text>
           </View>

@@ -11,26 +11,8 @@ function stats(over: Partial<Stats> = {}): Stats {
   return {
     currency: 'USD',
     unbilled: { total: 0, seconds: 0, byClient: [], moreClients: 0 },
-    velocity: {
-      months: 3,
-      total: 0,
-      perMonth: 0,
-      invoiced: 0,
-      unbilled: 0,
-      seconds: 0,
-      byClient: [],
-      moreClients: 0,
-    },
-    byProject: {
-      seconds: 0,
-      amount: 0,
-      byProject: [],
-      moreProjects: 0,
-      tailSeconds: 0,
-      tailAmount: 0,
-    },
-    pace: null,
-    billableRatio: null,
+    week: WEEK,
+    month: MONTH,
     awaitingPayment: 0,
     openInvoiceCount: 0,
     collected: {
@@ -45,6 +27,7 @@ function stats(over: Partial<Stats> = {}): Stats {
       staleDrafts: [],
       unprojected: [],
       strangeDurations: [],
+      overlaps: [],
     },
     ...over,
   } as Stats;
@@ -70,28 +53,23 @@ function unbilled(total: number, seconds = 3600) {
   };
 }
 
-function velocity(total: number, invoiced: number) {
-  return {
-    months: 3,
-    total,
-    perMonth: Math.round((total / 3) * 100) / 100,
-    invoiced,
-    unbilled: total - invoiced,
-    seconds: 7200,
-    byClient: [
-      {
-        clientId: 'c1',
-        clientName: 'Northwind',
-        currency: 'USD',
-        seconds: 7200,
-        invoiced,
-        unbilled: total - invoiced,
-        unratedCount: 0,
-      },
-    ],
-    moreClients: 0,
-  };
-}
+/** Seven quiet days. These cases are about the tween, not the bars. */
+const WEEK = Array.from({ length: 7 }, (_, i) => ({
+  date: `2026-09-${String(14 + i).padStart(2, '0')}`,
+  seconds: 0,
+  amount: null,
+}));
+
+/** A month with no climb and no projection — again, not what is under test. */
+const MONTH = {
+  earned: 0,
+  projected: null,
+  businessDaysElapsed: 0,
+  businessDaysTotal: 22,
+  series: [],
+  projection: null,
+  byClient: [],
+};
 
 /** Serves whatever `current` points at, so a refetch can return new figures. */
 function serve(get: () => Stats) {
@@ -352,185 +330,55 @@ describe('count-up', () => {
     }
   });
 
-  /* The breakdown must move with the figure it breaks down. A row that sat
-     still while the headline above it travelled read as the stale one — which
-     is what "by client is not updating" actually looked like. */
-  it('travels the by-client rows, not just the headline', async () => {
+  /* Today's figure must move with the rest. A figure that sat still while
+     the others travelled read as the stale one — which is what "the panel is
+     not updating" actually looked like. */
+  it("travels today's figure, not just the month's", async () => {
     const frame = controlledRaf();
-    let current = stats({ unbilled: unbilled(1000) });
+    let current = stats({ earnedToday: 1000 });
     serve(() => current);
 
     const { container } = render(<HomeCards />, { wrapper });
-    await waitFor(() => expect(figure()).toBe('$1,000.00'));
 
-    /* The row's own amount, never the headline's: they share a value in this
-       fixture, so reading the wrong node would pass on the headline alone. */
-    const row = () => {
-      const li = container.querySelector('ul li');
-      return li?.querySelector('.type-duration')?.textContent?.trim() ?? '';
-    };
-    await waitFor(() => expect(row()).toBe('$1,000.00'));
+    /* Today's own figure, never the month's: they are both `type-figure`
+       tiers, so the region is what distinguishes them. */
+    const today = () =>
+      container.querySelectorAll('.type-figure')[0]?.textContent?.trim() ?? '';
+    await waitFor(() => expect(today()).toBe('$1,000.00'));
 
-    current = stats({ unbilled: unbilled(9000) });
+    current = stats({ earnedToday: 9000 });
     await act(async () => {
       await client.refetchQueries();
     });
 
-    const seen = await travel(row, frame);
-    expect(row()).toBe('$9,000.00');
+    const seen = await travel(today, frame);
+    expect(today()).toBe('$9,000.00');
 
     const between = amounts(seen).filter((n) => n > 1000 && n < 9000);
     expect(between.length).toBeGreaterThan(0);
   });
 
-  /* Velocity's headline sits in the same figure slot as Unbilled's and moves
-     on the same edits, so it cannot be the one number that cuts. */
-  it("travels velocity's per-month figure", async () => {
+  /* The month's Earned is the screen's hero figure and moves on the same
+     edits, so it cannot be the one number that cuts. */
+  it("travels the month's earned figure", async () => {
     const frame = controlledRaf();
-    let current = stats({ velocity: velocity(3000, 3000) });
+    let current = stats({ month: { ...MONTH, earned: 1000 } });
     serve(() => current);
 
     render(<HomeCards />, { wrapper });
-    const perMonth = () => {
-      const head = screen.getByText('Velocity').closest('header');
-      /* The Money span INSIDE the header's figure slot, which names the
-         same role the slot does — the slot itself also holds the `/mo gross`
-         suffix. */
-      return (
-        head?.querySelector('.type-figure .type-figure')?.textContent?.trim() ??
-        ''
-      );
-    };
-    await waitFor(() => expect(perMonth()).toBe('$1,000.00'));
+    const earned = () =>
+      document.querySelector('.type-figure-hero')?.textContent?.trim() ?? '';
+    await waitFor(() => expect(earned()).toBe('$1,000.00'));
 
-    current = stats({ velocity: velocity(27000, 27000) });
+    current = stats({ month: { ...MONTH, earned: 9000 } });
     await act(async () => {
       await client.refetchQueries();
     });
 
-    const seen = await travel(perMonth, frame);
-    expect(perMonth()).toBe('$9,000.00');
+    const seen = await travel(earned, frame);
+    expect(earned()).toBe('$9,000.00');
 
     const between = amounts(seen).filter((n) => n > 1000 && n < 9000);
     expect(between.length).toBeGreaterThan(0);
-  });
-
-  it('moves hours, not money, on an unbillable stop', async () => {
-    /* An unbillable stop resolves to no money. A stop that moved nothing
-       would teach the user that marking work billable is what makes the app
-       react — the UI arguing with the data's honesty. */
-    let current = stats({ unbilled: unbilled(0, 3600) });
-    serve(() => current);
-
-    render(<HomeCards />, { wrapper });
-    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
-
-    // The stop adds an hour and no money at all.
-    current = stats({ unbilled: unbilled(0, 7200) });
-    await act(async () => {
-      await client.refetchQueries();
-    });
-
-    await waitFor(() => expect(screen.getByText(/unbillable/)).toBeVisible());
-    const chip = screen.getByText(/unbillable/);
-    // Reports the hours it did move, and no currency at all.
-    expect(chip.textContent).toMatch(/1h/);
-    expect(chip.textContent).not.toMatch(/\$/);
-  });
-
-  it('marks a billable stop neutrally, never with the accent', async () => {
-    /* The accent is the running timer, and a stop has just ended one. */
-    let current = stats({ unbilled: unbilled(0, 3600) });
-    serve(() => current);
-
-    render(<HomeCards />, { wrapper });
-    await waitFor(() =>
-      expect(screen.getByText('Unbilled', { exact: true })).toBeVisible(),
-    );
-
-    /* An unbillable stop: the hours move and the money does not, which is the
-       one stop the figure alone cannot report — so it is the one that renders
-       a chip. A priced stop is already described by the figure travelling. */
-    current = stats({ unbilled: unbilled(0, 7200) });
-    await act(async () => {
-      await client.refetchQueries();
-    });
-
-    const chip = await waitFor(() => {
-      const el = document.querySelector('[data-beat="stop"]');
-      if (!el) throw new Error('no stop chip');
-      return el as HTMLElement;
-    });
-    expect(chip).toBeVisible();
-    // Classes, not inline style: the tone is a utility, so reading `style`
-    // alone would pass against an accent-coloured chip.
-    expect(chip.className).not.toMatch(/accent/);
-    expect(chip.className).not.toMatch(/text-success/);
-  });
-
-  it('spends the success colour on the paid beat and nowhere else', async () => {
-    let current = stats({
-      unbilled: unbilled(400),
-      velocity: velocity(5000, 4600),
-      awaitingPayment: 600,
-    });
-    serve(() => current);
-
-    const { container } = render(<HomeCards />, { wrapper });
-    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
-
-    // Before the beat, nothing on the screen carries it.
-    expect(container.querySelectorAll('.text-success')).toHaveLength(0);
-
-    /* A cheque clears. Money LEAVES what is awaiting and lands in collected —
-       the gross is unchanged, because the work was already done. Raising an
-       invoice moves the same money the other way and is a `sent` beat, which
-       spends no colour. */
-    current = stats({
-      unbilled: unbilled(400),
-      velocity: velocity(5000, 4600),
-      awaitingPayment: 0,
-      collected: {
-        trailing12: 600,
-        thisMonth: 600,
-        daysSincePaid: 0,
-        byMonth: [],
-      },
-    });
-    await act(async () => {
-      await client.refetchQueries();
-    });
-
-    await waitFor(() =>
-      expect(
-        container.querySelectorAll('[data-beat="paid"]').length,
-      ).toBeGreaterThan(0),
-    );
-
-    /* The arrival, reported where the money landed. */
-    const paid = () => [...container.querySelectorAll('.text-success')];
-    expect(paid().some((el) => el.textContent?.includes('$600.00'))).toBe(true);
-
-    // And every one on the screen is the beat's own.
-    for (const el of paid()) {
-      expect(el.closest('[data-beat="paid"]')).not.toBeNull();
-    }
-
-    /* Velocity's headline stays NEUTRAL. It reports gross earned, which a
-       payment does not move — the work was done and invoiced already. The
-       colour marks the one outcome on the screen, and spreading it over a
-       figure that did not change spends it on nothing. */
-    await waitFor(
-      () =>
-        expect(paid().some((el) => el.textContent?.includes('$1,666.67'))).toBe(
-          false,
-        ),
-      SETTLE,
-    );
-
-    /* Unbilled holds: a payment collects money that LEFT unbilled when the
-       invoice was raised, so counting it down again would subtract the same
-       work twice. */
-    await waitFor(() => expect(figure()).toBe('$400.00'), SETTLE);
   });
 });

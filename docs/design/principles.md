@@ -18,14 +18,19 @@ What the user pays for is a document their client takes seriously: a gapless
 number, rates frozen at generation, their bank details on it. Everything in
 the app either produces that document or gets out of its way.
 
-**Unbilled is the number the app exists to show.** How much work is done and
-not yet invoiced is the question a contractor cannot answer from memory, and a
-tracker that does not know rates structurally cannot ask it. It is a balance:
-it climbs while you work and resets when you invoice.
+**Earned leads, because it is the only figure that grows all month.**
+Bucketed by when the work was done, never by when it was invoiced or paid, so
+it must not move when an invoice is sent. A contractor who invoices at the
+halfway mark would watch a headline built on anything else collapse to zero
+with two weeks of work still ahead of it — a number that resets is not a
+headline, whatever it measures.
 
-**Earned is bucketed by when the work was done**, never by when it was
-invoiced or paid. It answers *was this a good month*, so it must not move when
-an invoice is sent.
+**Unbilled is the figure a competitor cannot show**, and it sits beside
+earned rather than above it. How much work is done and not yet invoiced is
+the question a contractor cannot answer from memory, and a tracker that does
+not know rates structurally cannot ask it. It is a balance: it climbs while
+you work and resets when you invoice, which is exactly why it is a reading
+rather than the headline.
 
 **Collected, awaiting and unbilled are never summed.** Three stages of one
 pipeline, and any two added double-count the same hours. Awaiting has an

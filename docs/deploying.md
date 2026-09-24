@@ -91,7 +91,7 @@ Still set in the dashboard:
 - Environment variables (Production and Preview):
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-  - `NEXT_PUBLIC_APP_ORIGIN` — `https://app.trackwithstint.com`. The code
+  - `NEXT_PUBLIC_APP_ORIGIN` — `https://app.runstint.com`. The code
     falls back to `''`, so an unset one costs a redirect hop on every landing
     CTA rather than failing the build.
 
@@ -158,8 +158,8 @@ before changing that file:
 
 | Hostname | Serves |
 |---|---|
-| `trackwithstint.com` | the landing page, rewritten from `/landing` |
-| `app.trackwithstint.com` | the product |
+| `runstint.com` | the landing page, rewritten from `/landing` |
+| `app.runstint.com` | the product |
 
 Both domains point at the same project, so there is one build and one set of
 environment variables. `isAppHost()` also treats bare `localhost` and any
