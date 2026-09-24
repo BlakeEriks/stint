@@ -39,8 +39,8 @@ For each candidate, ask which of these owns the claim:
 - **A design doc owns it.** `docs/design/screens/*.html` for one screen,
   `brand.html` for the type and colour rules.
 - **`docs/design/principles.md` owns what we believe about the product**,
-  **`docs/roadmap.md` owns unbuilt work**, and **a GitHub issue labelled
-  `bug` owns a known fault.**
+  **`docs/roadmap.md` owns an unbuilt capability**, and **a GitHub issue
+  owns a fault or an improvement.**
 
 Then the shapes that own nothing:
 
@@ -84,8 +84,8 @@ it — confirm the file is really unreachable before touching it.
 ## 4. Cut, then verify
 
 - Cut comments; leave every statement, name and type alone.
-- **Unbuilt work** moves to `docs/roadmap.md` and a **known fault** to a
-  GitHub issue, rather than being deleted.
+- **An unbuilt capability** moves to `docs/roadmap.md`, and a **fault or an
+  improvement** to a GitHub issue, rather than being deleted.
 - `duplicateProse` names the files sharing one explanation. Keep it where it
   is load-bearing, and leave a pointer only if the reader genuinely cannot
   proceed without it — a second copy drifts.
