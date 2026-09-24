@@ -122,6 +122,30 @@
   .btn.ghost { border-color: transparent; background: transparent; color: var(--text-muted); }
   .btn svg { width: 14px; height: 14px; flex: none; stroke: currentColor; fill: none;
              stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .btn.danger { color: var(--danger); }
+  .btn.destructive { background: var(--danger); border-color: var(--danger); color: var(--text-on-danger); }
+  .btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+  /* ── the delete dialog, on the overlay it sits on ────────────── */
+  .frame {
+    margin-top: 1.25rem; background: var(--overlay); border-radius: 12px;
+    padding: 2.5rem 1.25rem; display: flex; justify-content: center;
+  }
+  .dialog {
+    width: 100%; max-width: 30rem;
+    background: var(--bg-primary); border: 1px solid var(--border-subtle);
+    border-radius: 12px; box-shadow: var(--shadow-float);
+    padding: 1.35rem; display: flex; flex-direction: column; gap: .9rem;
+  }
+  .dtitle { font-size: 1.05rem; font-weight: 600; color: var(--text-strong); }
+  .ddesc { margin: 0; color: var(--text-muted); font-size: 13px; }
+  .counts { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 16px;
+            font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text-strong); }
+  .counts span { color: var(--text-subtle); }
+  .dialog .input { background: var(--bg-base); }
+  .foot { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .25rem; }
+  .foot .btn { font-size: 14px; padding: .5rem .85rem; }
+  .err-line { margin: 0; font-size: 13px; color: var(--danger); }
 </style>
 
 <div class="page">
@@ -262,6 +286,14 @@
           </div>
         </div>
       </div>
+
+      <div class="region">
+        <span class="type-region-head region-head">Account</span>
+        <p class="desc">Signed in as blake@example.com.</p>
+        <div class="fields">
+          <div><button class="btn ghost danger">Delete account</button></div>
+        </div>
+      </div>
     </div>
     <span class="caption">Each region: its head, a description, its own save state in the corner · next number has no box — it is reported, not edited · account numbers masked to the last four, one default, badged</span>
 
@@ -356,6 +388,11 @@
         <td>Named bundles of bank fields</td>
         <td>The invoice PDF — <em>never</em> an email body</td>
       </tr>
+      <tr>
+        <td>Account</td>
+        <td>The sign-in email; deleting the account</td>
+        <td>Nothing — it holds no preference</td>
+      </tr>
     </table>
 
     <ul class="rule">
@@ -409,6 +446,85 @@
         invoice.</li>
       <li><strong>No profiles is a stated outcome</strong>, not an empty list:
         "Invoices will render without a payment block."</li>
+    </ul>
+  </section>
+  <!-- ═══════════════ deleting the account ═══════════════ -->
+  <section class="sec">
+    <div class="sec-head"><span class="eyebrow">Deleting the account</span></div>
+
+    <p>
+      "Delete account" opens a dialog that names what goes, and deletes only
+      once the sign-in email is typed back.
+    </p>
+
+    <div class="frame">
+      <div class="dialog" role="alertdialog">
+        <span class="dtitle">Delete your account?</span>
+        <p class="ddesc">Everything below is deleted now and cannot be recovered from the app.</p>
+        <ul class="counts">
+          <li>1,284 <span>entries</span></li>
+          <li>9 <span>clients</span></li>
+          <li>14 <span>projects</span></li>
+          <li>37 <span>invoices</span></li>
+        </ul>
+        <p class="ddesc">Invoices you have sent are tax records. Download the PDFs you need before you go.
+          Backups keep a copy for 90 days, then it is gone.</p>
+        <div class="field">
+          <label>Type your email to confirm</label>
+          <div class="input ph">blake@example.com</div>
+        </div>
+        <div class="foot">
+          <button class="btn ghost">Cancel</button>
+          <button class="btn destructive" disabled>Delete account and data</button>
+        </div>
+      </div>
+    </div>
+    <span class="caption">Untyped · the confirm is disabled until the field matches</span>
+
+    <div class="frame">
+      <div class="dialog" role="alertdialog">
+        <span class="dtitle">Delete your account?</span>
+        <p class="ddesc">Everything below is deleted now and cannot be recovered from the app.</p>
+        <ul class="counts">
+          <li>1,284 <span>entries</span></li>
+          <li>9 <span>clients</span></li>
+          <li>14 <span>projects</span></li>
+          <li>37 <span>invoices</span></li>
+        </ul>
+        <p class="ddesc">Invoices you have sent are tax records. Download the PDFs you need before you go.
+          Backups keep a copy for 90 days, then it is gone.</p>
+        <div class="field">
+          <label>Type your email to confirm</label>
+          <div class="input">blake@example.com</div>
+        </div>
+        <p class="err-line">Not deleted — nothing was removed. Try again.</p>
+        <div class="foot">
+          <button class="btn ghost">Cancel</button>
+          <button class="btn destructive">Delete account and data</button>
+        </div>
+      </div>
+    </div>
+    <span class="caption">Typed, after a failed request · the error sits above the button that failed</span>
+
+    <ul class="rule">
+      <li><strong>The first step is quiet; the second spells it out.</strong>
+        The region's button is a ghost in <code>text-danger</code>; the red
+        fill is spent on the dialog's confirm, which says "and data" because
+        that is the consequence.</li>
+      <li><strong>The dialog counts what goes.</strong> "All your data" is
+        abstract; 37 invoices is the number that makes someone stop and
+        download them.</li>
+      <li><strong>Typing the email is the gate</strong>, not a checkbox. It
+        cannot be clicked through by habit, and it names which account, for
+        someone signed in to more than one.</li>
+      <li><strong>It is all or nothing.</strong> One transaction removes every
+        row the user owns and then the auth user, so a failure leaves the
+        account whole and the error can say "nothing was removed".</li>
+      <li><strong>Success signs out and lands on <code>/signin</code></strong>
+        with "Your account was deleted." There is no screen after it to
+        return to.</li>
+      <li><strong>No accent here.</strong> The dialog's one confirm is
+        destructive, so green does not appear in it at all.</li>
     </ul>
   </section>
 </div>

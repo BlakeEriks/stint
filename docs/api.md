@@ -154,6 +154,12 @@ edited apart. The runaway timer is the inbox's sixth row and comes from
 Standard CRUD: `GET|POST /clients`, `GET|PATCH|DELETE /clients/:id`, same for
 `/projects` and `/payment-profiles`. `GET|PATCH /settings`.
 
+`GET /account` counts what deleting it would remove — `{ entries, clients,
+projects, invoices }`, archived rows included. `DELETE /account` removes the
+caller and every row they own in one transaction, issued invoices included,
+and returns `204`; a failure removes nothing. The caller's token still
+verifies until it expires, so a client signs out locally after the `204`.
+
 `POST` on all three accepts an optional client-supplied `id` (UUIDv7); a
 duplicate-key insert returns the existing row with `200` rather than an error,
 so a retried request is idempotent. A fresh create returns `201`.

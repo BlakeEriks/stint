@@ -113,6 +113,7 @@ export type Project = Response<schema.Project>;
 export type Client = Response<schema.Client>;
 export type ClientWithScale = Response<schema.ClientWithScale>;
 export type Settings = Response<schema.Settings>;
+export type Account = Response<schema.Account>;
 export type PaymentProfile = Response<schema.PaymentProfile>;
 export type InvoicePreview = Response<schema.InvoicePreview>;
 export type Invoice = Response<schema.Invoice>;
@@ -400,4 +401,8 @@ export const api = {
 
   archivePaymentProfile: (id: string) =>
     request<void>('DELETE', `/payment-profiles/${id}`),
+
+  account: () => request<Account>('GET', '/account'),
+
+  deleteAccount: () => request<void>('DELETE', '/account'),
 };

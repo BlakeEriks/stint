@@ -36,6 +36,7 @@ export const keys = {
     opts ? (['projects', opts] as const) : (['projects'] as const),
   taskNames: (opts?: { projectId?: string | null }) =>
     opts ? (['task-names', opts] as const) : (['task-names'] as const),
+  account: () => ['account'] as const,
   invoices: () => ['invoices'] as const,
   invoice: (id: string | null | undefined) => ['invoices', id] as const,
   settings: () => ['settings'] as const,

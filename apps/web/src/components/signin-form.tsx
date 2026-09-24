@@ -12,7 +12,13 @@ import { browserClient } from '@/lib/client/supabase';
  * independent Supabase providers, and accounts sharing an email address link
  * to one user automatically.
  */
-export function SignInForm({ error }: { error?: string }) {
+export function SignInForm({
+  error,
+  deleted,
+}: {
+  error?: string;
+  deleted?: boolean;
+}) {
   const [email, setEmail] = useState('');
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>(
     'idle',
@@ -59,6 +65,15 @@ export function SignInForm({ error }: { error?: string }) {
       <p className="mt-1.5 type-control text-muted">
         Time tracking for solo contractors.
       </p>
+
+      {deleted && state === 'idle' ? (
+        <p
+          role="status"
+          className="mt-6 rounded-lg border border-edge-subtle bg-surface-base p-3 type-support text-muted"
+        >
+          Your account was deleted.
+        </p>
+      ) : null}
 
       {error && state === 'idle' ? (
         <p
