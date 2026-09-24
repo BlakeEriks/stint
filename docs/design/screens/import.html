@@ -64,6 +64,22 @@
     font-family: var(--font-mono); font-size: 13px; color: var(--text-strong);
   }
   .rate .ph { color: var(--text-subtle); }
+  .rate.date { width: 10rem; font-family: var(--font-sans); }
+  .fixed { width: 9rem; text-align: right; font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); }
+  .colhead { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 16px; margin-top: 12px; }
+  .colhead span { color: var(--text-subtle); }
+  .who { display: flex; align-items: flex-start; gap: 10px; position: relative; }
+  /* A new client's swatch is a button; an existing client's is only its mark. */
+  .dot { width: 14px; height: 14px; border-radius: 50%; margin-top: 4px; flex: none; }
+  .dot.btn-dot { box-shadow: 0 0 0 1px var(--border-default), 0 0 0 3px var(--bg-primary), 0 0 0 4px var(--border-subtle); }
+  .dot.none { background: transparent; border: 1.5px solid var(--border-default); }
+  .pop {
+    position: absolute; top: 42px; left: -6px; z-index: 1; display: flex; gap: 6px; padding: 8px;
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; box-shadow: var(--shadow-float);
+  }
+  .sw { width: 20px; height: 20px; border-radius: 5px; border: 1px solid var(--border-subtle); }
+  .sw.none { background: transparent; display: grid; place-items: center; font-size: 11px; color: var(--text-subtle); }
+  .sw.sel { border-color: var(--border-control); box-shadow: 0 0 0 2px var(--border-control); }
 </style>
 
 <div class="page">
@@ -83,9 +99,7 @@
       <p class="sub" style="margin-top:8px">Export a detailed report from Toggl Track as CSV and choose the file. Nothing is written until you confirm, and importing the same file again adds nothing.</p>
       <p style="margin:16px 0 8px"><button class="btn">Choose File</button> <span style="color:var(--text-muted);font-size:13px">toggl-2023-2026.csv</span></p>
       <span class="type-label" style="color:var(--text-subtle)">Times in the export are in</span>
-      <p style="margin:6px 0 12px"><button class="btn" style="min-width:18rem;text-align:left">America/New York</button></p>
-      <span class="type-label" style="color:var(--text-subtle)">Already invoiced through</span>
-      <p style="margin:6px 0 0"><button class="btn" style="min-width:18rem;text-align:left">Dec 31, 2025</button></p>
+      <p style="margin:6px 0 0"><button class="btn" style="min-width:18rem;text-align:left">America/New York</button></p>
     </div>
 
     <div class="region">
@@ -99,12 +113,14 @@
     </div>
 
     <div class="region">
-      <span class="type-region-head region-head">Rates for 3 new clients</span>
-      <p class="sub" style="margin-top:8px">Leave one empty to use your default.</p>
-      <div class="list">
-        <div class="row"><span class="name">Globex<span class="meta">312h</span></span><span></span><span class="rate">$<span>175</span><span class="ph">/h</span></span></div>
-        <div class="row"><span class="name">Initech<span class="meta">188h</span></span><span></span><span class="rate">$<span class="ph">150 default</span></span></div>
-        <div class="row"><span class="name">Hooli<span class="meta">29h</span></span><span></span><span class="rate">$<span class="ph">150 default</span></span></div>
+      <span class="type-region-head region-head">Clients in this file</span>
+      <p class="sub" style="margin-top:8px">Work up to a client's date was billed from Toggl or elsewhere: still earned, never unbilled. Leave it empty if none was. A new client's empty rate uses your default.</p>
+      <div class="colhead"><span></span><span class="type-label" style="width:9rem;text-align:right">Rate</span><span class="type-label" style="width:10rem">Invoiced through</span></div>
+      <div class="list" style="margin-top:4px">
+        <div class="row"><span class="who"><span class="dot" style="background:var(--proj-6)"></span><span class="name">Northwind Trading<span class="meta">1,016h</span></span></span><span class="fixed">$100/h</span><span class="rate date">Aug 31, 2026</span></div>
+        <div class="row"><span class="who"><span class="dot btn-dot" style="background:var(--proj-2)"></span><span class="name">Globex<span class="meta">new client · 312h</span></span><div class="pop"><span class="sw none">—</span><span class="sw" style="background:var(--proj-1)"></span><span class="sw sel" style="background:var(--proj-2)"></span><span class="sw" style="background:var(--proj-3)"></span><span class="sw" style="background:var(--proj-4)"></span><span class="sw" style="background:var(--proj-5)"></span><span class="sw" style="background:var(--proj-6)"></span><span class="sw" style="background:var(--proj-7)"></span><span class="sw" style="background:var(--proj-8)"></span></div></span><span class="rate">$<span>175</span><span class="ph">/h</span></span><span class="rate date">Dec 31, 2025</span></div>
+        <div class="row"><span class="who"><span class="dot btn-dot" style="background:var(--proj-5)"></span><span class="name">Initech<span class="meta">new client · 188h</span></span></span><span class="rate">$<span class="ph">150 default</span></span><span class="rate date"><span class="ph">None</span></span></div>
+        <div class="row"><span class="who"><span class="dot btn-dot none"></span><span class="name">Hooli<span class="meta">new client · 29h</span></span></span><span class="rate">$<span class="ph">150 default</span></span><span class="rate date"><span class="ph">None</span></span></div>
       </div>
     </div>
 
@@ -128,9 +144,9 @@
     </div>
 
     <ul class="rule">
-      <li><strong>A region with nothing in it is not drawn.</strong> A clean
-        import is the file and one line; rates appear only when the import
-        creates a client, overlaps only when it has any. Nothing inside the
+      <li><strong>A region with nothing in it is not drawn.</strong> Clients
+        appear only when the file names any, overlaps only when it has
+        any. Nothing inside the
         panel is a card; an inset rule is the only edge between regions.</li>
       <li><strong>One line says what confirming adds</strong>: entries, new
         clients, new projects, and rows that won't import. Money is Home's —
@@ -138,14 +154,28 @@
       <li><strong>The line opens with the first and last times</strong>, so a
         wrong zone is visible before anything is written.</li>
       <li><strong>The preview is what gets written.</strong> Confirm sends the
-        same file with every choice made here — exclusions and rates — and the
+        same file with every choice made here — exclusions, rates, dates and colours — and the
         server derives the rows again with the same function, so nothing the
         page holds can make the write differ from what was read.</li>
+      <li><strong>Every client in the file has a row</strong>, with the
+        hours it will receive. Work with no client has none: it is never on
+        an invoice.</li>
+      <li><strong>"Invoiced through" is per client</strong>, because clients
+        are billed on their own cycles, and it is optional. Rows on or before
+        a client's date import as invoiced elsewhere: still earned, never
+        unbilled, never on an invoice here. A single date would either strand
+        unbilled work or offer billed work for a second invoice, and nothing
+        changes it after the import.</li>
       <li><strong>A client the import creates gets its rate here</strong>,
         so invoicing works without a trip to each client's page. Empty falls
         through to your default; with no default the field reads "rate" and
-        the client's work imports unrated. Colour is set on the client's
-        page, like any client.</li>
+        the client's work imports unrated. An existing client's rate is shown,
+        not edited.</li>
+      <li><strong>A new client's colour is the swatch leading its
+        name</strong>: pressed, it opens the closed set of eight and none.
+        None is the default. Colour moves no number, so choosing one does not
+        re-read the file; it is sent with the confirm. An existing client's
+        swatch is only its mark — its colour is changed on its own page.</li>
       <li><strong>Every overlap past the 60-second grace period is
         listed</strong>, longest first — against work in Stint or between two
         rows of the file, and the row says which. The row is the entry that
@@ -169,9 +199,6 @@
         <em>Set a rate</em> — the client's page when the import touched one
         client, Settings otherwise — because invoicing refuses them. Then
         <em>Open the calendar</em>.</li>
-      <li><strong>"Already invoiced through" is optional.</strong> Rows on
-        or before it import as invoiced elsewhere: still earned, never
-        unbilled, never on an invoice here. Changing it re-reads the file.</li>
       <li><strong>"Import them as billable" appears under the line only when
         the export marks every row not billable</strong> — Toggl's free plan
         does that to all of them.</li>
