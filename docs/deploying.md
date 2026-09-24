@@ -220,19 +220,50 @@ SCOPE=$(az storage account show -n stintbackups4b3306 --query id -o tsv)/blobSer
 az role assignment create --role "Storage Blob Data Reader" --assignee "$(az ad signed-in-user show --query id -o tsv)" --scope "$SCOPE"
 az storage blob list --auth-mode login --account-name stintbackups4b3306 -c dumps --query "[].name" -o tsv
 az storage blob download --auth-mode login --account-name stintbackups4b3306 -c dumps -n <name> -f db.dump.age
-age -d -i <(pbpaste) -o db.dump db.dump.age          # private key on the clipboard
+age -d -i <(pbpaste | grep '^AGE-SECRET-KEY-') -o db.dump db.dump.age   # private key on the clipboard
 pg_restore -a -t schema_migrations -f - db.dump | grep -o '^[0-9_a-z]*\.sql' | sort | tail -1
 git checkout "$(git log -1 --format=%H -- supabase/migrations/<that file>)"
-pnpm migrate --url "$TARGET"                           # a fresh project
-pg_restore -l db.dump | grep -v 'schema_migrations' > toc
+pnpm migrate --url "$TARGET"                                            # a fresh project
+pg_restore -l db.dump | grep -E 'TABLE DATA public |TABLE DATA auth (users|identities) |SEQUENCE SET public ' \
+  | grep -v schema_migrations > toc
 pg_restore -L toc -f data.sql db.dump
 psql "$TARGET" --single-transaction -v ON_ERROR_STOP=1 \
   -c 'set session_replication_role = replica' -f data.sql
 ```
 
-`schema_migrations` is left out because both sides already have one. The
-replica role stops triggers and foreign keys firing on rows that already
-satisfied them. Remove the reader role afterwards.
+**Of `auth`, only `users` and `identities` are restored.** They are the
+accounts; the rest is sessions, tokens and logs, and costs only a fresh
+sign-in. It also keeps a restore independent of Supabase's auth version:
+tables and columns there change between releases, and a local stack lags the
+hosted one. The replica role stops triggers and foreign keys firing on rows
+that already satisfied them. Delete the files and remove the reader role
+afterwards.
+
+Rehearsed 2026-09-24 against the local stack: every row came back.
+
+## 3c. Alerts
+
+Alerts go to the private `#alerts` channel on the Stint Discord server.
+**An alert is something you act on, or the one outcome you are waiting for;
+everything else stays silent**, because a channel that reports routine
+success teaches you to stop reading it.
+
+| Event | Message | Source |
+|---|---|---|
+| Release live | ✅ commit and subject | `release.yml`, `report` |
+| Release failed after approval, or its plan failed | ❌ with the run link | `release.yml`, `report` |
+| Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
+
+Never posted: a release awaiting approval (GitHub already notifies you), a
+rejection or cancellation (you did it), and a backup that worked
+(healthchecks.io is quiet until one does not arrive).
+
+**A new alert names what you would do when it arrives.** If the answer is
+nothing, it is a log line. One event is one message from one source — never
+the same failure from GitHub and from healthchecks.io.
+
+The webhook is the `DISCORD_ALERTS_WEBHOOK` secret on Production and exists
+nowhere else: anyone holding it can post to the channel.
 
 ## 4. Auth redirect URLs
 
