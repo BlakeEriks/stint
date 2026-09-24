@@ -10,61 +10,113 @@ name: Release gate
 #   Settings -> Git -> "Required" for this check
 # and a PRODUCTION_DB_URL secret here.
 #
-# If this fails, the deployment is never aliased and the previous one keeps
-# serving. Vercel's "Force Promote" is the escape hatch.
+# Every production release pauses for approval: plan -> approve -> backup ->
+# migrate. If any of them fails or is rejected, the deployment is never
+# aliased and the previous one keeps serving. Vercel's "Force Promote" is the
+# escape hatch.
 on:
   repository_dispatch:
     types: [vercel.deployment.ready]
 
 # A second push while this is running must not race the first one's
-# migration.
+# migration. Per environment, so a preview dispatch cannot displace a
+# production release queued behind one awaiting approval.
 concurrency:
-  group: release-production
+  group: release-${{ github.event.client_payload.environment }}
   cancel-in-progress: false
 
 permissions:
   contents: read
-  # The status action writes a commit status on the deployed SHA; Vercel
-  # watches that status by name.
+  # `plan` and `report` write the commit status Vercel watches by name.
   statuses: write
-  # It also LISTS THIS WORKFLOW'S JOBS to derive the conclusion for its
-  # `post` hook. Without this the very first step dies with "Resource not
-  # accessible by integration" and nothing downstream runs — no migration,
-  # no status, and Vercel waits forever with no check to find.
-  actions: read
 
 jobs:
-  migrate:
+  # What this release will do to the database, written to the run's summary
+  # so it is on the page where the release is approved.
+  plan:
     # Preview builds fire the same event; only gate production. The field is
     # `environment` — an earlier `target` was wrong, and a mismatched
     # condition fails SILENTLY: the job is skipped, no status is ever set,
-    # and the deployment just waits.
+    # and the deployment just waits. Every job below depends on this one.
     if: github.event.client_payload.environment == 'production'
+    runs-on: ubuntu-latest
+    environment: Production
+    env:
+      SHA: ${{ github.event.client_payload.git.sha }}
+    steps:
+      # Vercel shows the check as pending while the release waits for you.
+      # `report` overwrites it with the outcome under the same name.
+      - name: Mark the check pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/$SHA" \
+            -f state=pending -f context=migrate-production \
+            -f description="Waiting for approval" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { ref: '${{ env.SHA }}' }
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with: { node-version: '24', cache: 'pnpm' }
+      # No install scripts: this job holds the production database string, and
+      # migrate needs only `pg`.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Plan
+        env:
+          SUPABASE_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+        run: |
+          pnpm --silent migrate --dry-run > plan.txt
+          pending=$(sed -n 's/^  → \(.*\) (would apply)$/\1/p' plan.txt)
+          {
+            echo "## Release \`${SHA:0:7}\`: $(git log -1 --format=%s)"
+            if [ -z "$pending" ]; then
+              echo "No database changes."
+            else
+              # shellcheck disable=SC2086 # one word per file, split on purpose
+              if (cd supabase/migrations && grep -iqE 'drop[[:space:]]|truncate|delete[[:space:]]+from|^[[:space:]]*update[[:space:]]|disable[[:space:]]+row' $pending); then
+                echo "> [!WARNING]"
+                echo "> This release changes or removes existing data, structure or security: DROP, TRUNCATE, DELETE, UPDATE or DISABLE ROW LEVEL SECURITY below."
+              fi
+              for f in $pending; do
+                echo "### $f"
+                echo '```sql'
+                cat "supabase/migrations/$f"
+                echo '```'
+              done
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # The pause. The Release environment requires your approval and holds no
+  # secrets; rejecting leaves the previous build serving.
+  approve:
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: Release
+    steps:
+      - run: echo "Approved"
+
+  backup:
+    needs: approve
+    uses: ./.github/workflows/backup.yml
+    with:
+      label: release
+    secrets: inherit
+    permissions:
+      id-token: write
+
+  migrate:
+    needs: backup
     runs-on: ubuntu-latest
     # PRODUCTION_DB_URL lives on this environment rather than the repository,
     # so it is reachable only from a job that names it — a workflow added
-    # later cannot read production credentials by accident. It is also where
-    # a required reviewer would go if this ever stops being a solo project,
-    # and it gives the deployment its own audit log.
+    # later cannot read production credentials by accident. It also gives the
+    # deployment its own audit log.
     environment: Production
     steps:
-      # FIRST, before anything that can fail. This action's `post` hook sets
-      # the final commit status, so it has to be registered up front: it
-      # marks the check pending on entry and reports the job's real outcome
-      # on exit. Vercel watches that commit status by name.
-      #
-      # The name must match the "Check Name" in Vercel -> Settings -> Git ->
-      # Deployment Checks, and it carries the environment on purpose: Vercel
-      # warns that a status shared across triggered runs gets overwritten, so
-      # a preview dispatch must not be able to clobber the production result.
-      # The `if:` above already blocks that, but a name collision is the kind
-      # of thing that only bites once something else changes.
-      - name: Report to Vercel
-        uses: vercel/repository-dispatch/actions/status@v1
-        with:
-          name: migrate-production
-
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Migrate the commit being deployed, not whatever main points at
           # now — a repository_dispatch always runs with the default
@@ -72,10 +124,12 @@ jobs:
           # merge lands.
           ref: ${{ github.event.client_payload.git.sha }}
       # Version comes from package.json's `packageManager`.
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with: { node-version: '24', cache: 'pnpm' }
-      - run: pnpm install --frozen-lockfile
+      # No install scripts: this job holds the production database string, and
+      # migrate needs only `pg`.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Apply migrations to production
         env:
@@ -88,3 +142,27 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
         run: pnpm verify:schema
+
+  # The one place the final status is written. Vercel promotes on success
+  # only, so anything short of a migrated, verified database — a rejection, a
+  # failed backup, a failed migration — leaves the previous build serving.
+  #
+  # The context must match the "Check Name" in Vercel -> Settings -> Git ->
+  # Deployment Checks, and carries the environment so a preview dispatch
+  # could never clobber the production result.
+  report:
+    needs: [plan, approve, backup, migrate]
+    if: always() && needs.plan.result != 'skipped'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report to Vercel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.client_payload.git.sha }}
+          RESULT: ${{ needs.migrate.result }}
+        run: |
+          if [ "$RESULT" = success ]; then state=success; else state=failure; fi
+          gh api "repos/${{ github.repository }}/statuses/$SHA" \
+            -f state=$state -f context=migrate-production \
+            -f description="Release $RESULT" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

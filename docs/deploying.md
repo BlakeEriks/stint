@@ -8,9 +8,13 @@ are users to protect.
 ## The shape
 
 ```
-PR ──► CI ──► review ──► merge ──► Vercel builds ──► Release gate ──► live
-       (tests, schema)                               (migrate + verify)
+PR ──► CI ──► merge ──► Vercel builds ──► plan ──► you approve ──► backup ──► migrate + verify ──► live
 ```
+
+**Every production release waits for your approval.** GitHub notifies you;
+the run's summary shows the commit and every pending migration's SQL, with a
+warning when one drops, truncates or deletes. Rejecting leaves the previous
+build serving.
 
 The gate is the point. **Code must never go live before its migration** — a
 handler that assumes a column the database does not have yet returns 500s on
@@ -101,15 +105,18 @@ migration scripts do, and they run in Actions.
 ## 3. The release gate
 
 - **GitHub** → repo Settings → Environments → **Production** → add
-  `PRODUCTION_DB_URL` as an *environment* secret (the same Session-pooler
-  string `pnpm migrate` uses locally).
+  `PRODUCTION_DB_URL` as an *environment* secret (the Session-pooler
+  string).
 
   An environment secret, not a repository one: only a job that declares
   `environment: Production` can read it, so a workflow added later cannot
   reach production credentials by accident. It also gives the deployment its
-  own audit log, and is where a required reviewer would go if this stops
-  being a solo project. Vercel created the Production and Preview
-  environments when you connected the repo.
+  own audit log. Vercel created the Production and Preview environments when
+  you connected the repo.
+
+- **GitHub** → Environments → **Release**: required reviewer (you), `main`
+  only, no secrets. It is the pause and nothing else. Production carries no
+  reviewer because the nightly backup runs in it unattended.
 
 - **Vercel** → Project Settings → Git → **Deployment Checks** → Connect
   GitHub Actions → **Check Name: `migrate-production`**.
@@ -137,10 +144,11 @@ migration scripts do, and they run in Actions.
 ### How it fits together
 
 Vercel dispatches `vercel.deployment.ready` when a production build exists
-but is not yet serving. The workflow runs `pnpm migrate` and
-`pnpm verify:schema` against production while the *previous* build still
-answers requests, then the status action's `post` hook reports the job's
-outcome as a commit status. Success promotes the deployment; failure leaves
+but is not yet serving. `plan` marks the check pending and writes the summary,
+`approve` waits for you, `backup` takes a snapshot, and `migrate` runs
+`pnpm migrate` and `pnpm verify:schema` while the *previous* build still
+answers requests, then its status action's `post` hook reports the outcome as
+a commit status. Success promotes the deployment; failure leaves
 the old one serving, with **Force Promote** as the override.
 
 Two things that fail quietly if they drift, so they are worth re-reading
@@ -149,8 +157,9 @@ before changing that file:
 - The condition is `client_payload.environment == 'production'`. Get the
   field wrong and the job is skipped, no status is ever written, and the
   deployment simply waits.
-- The status step must be **first**. It registers a `post` hook that sets the
-  final status; placed after a step that fails, it never runs.
+- `report` is the only job that writes the final status, and it runs
+  whatever happened before it. Vercel's own status action cannot be used
+  here: with several jobs, it reports the first job's outcome, not its own.
 
 ## 3a. Deployment protection, and which URL you are testing
 
@@ -174,6 +183,56 @@ domain instead.
 
 The app's own redirect looks similar but is not the same thing: on the app
 host, `/` returns 307 to `/signin` when signed out.
+
+## 3b. Backups
+
+`.github/workflows/backup.yml` dumps production's data (`public` and `auth`)
+nightly and before every migration, encrypts it with
+[age](https://age-encryption.org) and uploads it to Azure Blob Storage:
+account `stintbackups4b3306`, container `dumps`, in the personal subscription
+(`AZURE_CONFIG_DIR=~/.azure-personal`, set by a local, untracked `.envrc`).
+
+- **Nothing stored can reach Azure.** GitHub's OIDC token for the
+  Production environment is exchanged for a storage token; the app
+  registration `stint-backup-writer` trusts only that subject,
+  `repo:BlakeEriks@35611123/stint@1366791093:environment:Production`. The
+  repo uses GitHub's immutable subject (owner and repo ids), so a renamed or
+  re-created repo does not inherit the trust.
+- **It can write and nothing else.** The custom role "Stint Backup Writer"
+  creates blobs; it cannot read, list or delete them.
+- **Nobody can delete a backup for 90 days.** A time-based retention policy
+  on the container, then a lifecycle rule removes it.
+- **Only the private key opens one.** The public key is the Production
+  variable `BACKUP_AGE_RECIPIENT`; the private key is in the password manager
+  and nowhere else.
+- **Silence alerts.** Each success pings healthchecks.io, which alerts when a
+  day passes without one — including when GitHub disables the schedule on a
+  quiet public repo.
+
+**Restore.** A blob is named `<time>-<nightly|release>.dump.age`. Data only,
+because the `auth` schema belongs to Supabase: structure comes from the
+migrations, checked out at the last one the dump's own `schema_migrations`
+lists — the commit that added it.
+
+```bash
+export AZURE_CONFIG_DIR=~/.azure-personal
+SCOPE=$(az storage account show -n stintbackups4b3306 --query id -o tsv)/blobServices/default/containers/dumps
+az role assignment create --role "Storage Blob Data Reader" --assignee "$(az ad signed-in-user show --query id -o tsv)" --scope "$SCOPE"
+az storage blob list --auth-mode login --account-name stintbackups4b3306 -c dumps --query "[].name" -o tsv
+az storage blob download --auth-mode login --account-name stintbackups4b3306 -c dumps -n <name> -f db.dump.age
+age -d -i <(pbpaste) -o db.dump db.dump.age          # private key on the clipboard
+pg_restore -a -t schema_migrations -f - db.dump | grep -o '^[0-9_a-z]*\.sql' | sort | tail -1
+git checkout "$(git log -1 --format=%H -- supabase/migrations/<that file>)"
+pnpm migrate --url "$TARGET"                           # a fresh project
+pg_restore -l db.dump | grep -v 'schema_migrations' > toc
+pg_restore -L toc -f data.sql db.dump
+psql "$TARGET" --single-transaction -v ON_ERROR_STOP=1 \
+  -c 'set session_replication_role = replica' -f data.sql
+```
+
+`schema_migrations` is left out because both sides already have one. The
+replica role stops triggers and foreign keys firing on rows that already
+satisfied them. Remove the reader role afterwards.
 
 ## 4. Auth redirect URLs
 
