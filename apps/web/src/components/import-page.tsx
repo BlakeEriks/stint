@@ -12,7 +12,7 @@ import {
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { inputClass, Section } from './field';
-import { Page } from './page';
+import { DetailPage } from './page';
 import { api } from '@/lib/client/api';
 import { invalidateEntryData, keys } from '@/lib/client/query-keys';
 import { timeZone } from '@/lib/client/use-timer';
@@ -100,7 +100,7 @@ export function ImportPage() {
   };
 
   return (
-    <Page wide>
+    <DetailPage back="/settings" label="Settings" wide>
       <h1 className="mb-6 type-title text-strong">Import</h1>
       <div>
         <Section
@@ -179,7 +179,7 @@ export function ImportPage() {
           </p>
         ) : null}
       </div>
-    </Page>
+    </DetailPage>
   );
 }
 

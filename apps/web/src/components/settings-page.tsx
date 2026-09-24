@@ -23,7 +23,7 @@ export function SettingsPage() {
       >
         <div>
           <Button asChild>
-            <Link href="/import">Import a file</Link>
+            <Link href="/settings/import">Import a file</Link>
           </Button>
         </div>
       </Section>
