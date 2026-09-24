@@ -18,12 +18,15 @@ export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
   const preview = await readImport(req, db, userId);
 
-  if (preview.newClients.length) {
+  const newClients = preview.clients.filter((c) => c.isNew);
+  if (newClients.length) {
     const { error } = await db.from('clients').upsert(
-      preview.newClients.map((c) => ({
+      newClients.map((c) => ({
         id: c.id,
         user_id: userId,
         name: c.name,
+        hourly_rate: c.hourlyRate,
+        color: c.color,
       })),
       { onConflict: 'id', ignoreDuplicates: true },
     );

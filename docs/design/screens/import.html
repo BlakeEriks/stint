@@ -103,13 +103,8 @@
     </div>
 
     <div class="region">
-      <div class="head">
-        <div>
-          <span class="type-region-head region-head">2,409 new entries from Toggl</span>
-          <p class="sub" style="margin-top:8px">Jan 3, 2023, 9:00 AM – Sep 19, 2026, 5:30 PM<br>3 new clients · 11 new projects · 3 rows have no end time and won't import</p>
-        </div>
-        <button class="btn accent">Import</button>
-      </div>
+      <span class="type-region-head region-head">2,409 new entries from Toggl</span>
+      <p class="sub" style="margin-top:8px">Jan 3, 2023, 9:00 AM – Sep 19, 2026, 5:30 PM<br>3 new clients · 11 new projects · 3 rows have no end time and won't import</p>
     </div>
 
     <div class="region">
@@ -140,6 +135,10 @@
         <div class="row"><span class="name">Standup<span class="meta">Fri, Jan 10, 2025 · overlaps Standup · in Stint</span></span><span class="type-duration">15m</span><button class="btn sm">Exclude</button></div>
       </div>
       <p style="margin:8px 0 0"><button class="btn sm ghost">Show 4 more</button></p>
+    </div>
+
+    <div class="region" style="display:flex;justify-content:flex-end">
+      <button class="btn accent">Import 2,408 entries</button>
     </div>
     </div>
 
@@ -192,7 +191,9 @@
       <li><strong>Projects and clients match by name</strong>, ignoring case
         and surrounding spaces.</li>
       <li><strong>Import is the one accent on the screen</strong> beside the
-        running timer — the action the screen exists to complete.</li>
+        running timer — the action the screen exists to complete. It ends the
+        panel, after every choice above it, and names the count it will
+        write: an exclusion takes one off.</li>
       <li><strong>After the import, the preview gives way to what it
         did</strong>: how many entries, into which clients, and how many were
         already here. Unrated entries come first, in the danger channel, with

@@ -2587,13 +2587,17 @@ test('import: work invoiced elsewhere is earned but never unbilled or invoiceabl
   const { POST } = await import('../src/app/api/v1/imports/confirm/route.ts');
   const r = upload('/imports/confirm', TOGGL);
   const form = await r.formData();
-  form.set('invoicedThrough', '2026-03-10');
+  form.set(
+    'clients',
+    JSON.stringify({ acme: { invoicedThrough: '2026-03-10' } }),
+  );
   const res = await json(
     await POST(
       new Request('http://t/imports/confirm', { method: 'POST', body: form }),
     ),
   );
-  assert.equal(res.body.invoicedElsewhere, 2, 'both written rows are Mar 10');
+  // Admin is Mar 10 too, but has no client, so no date reaches it.
+  assert.equal(res.body.invoicedElsewhere, 1);
 
   const { rows } = await pool.query(
     'select coalesce(sum(seconds),0)::int s from unbilled_by_client($1)',
