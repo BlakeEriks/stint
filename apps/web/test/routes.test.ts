@@ -2575,3 +2575,23 @@ test('import refuses a file that is not an export, before writing', async () => 
   const { rows } = await pool.query('select count(*)::int n from time_entries');
   assert.equal(rows[0].n, 0);
 });
+
+test('import: work invoiced elsewhere is earned but never unbilled or invoiceable', async () => {
+  const { POST } = await import('../src/app/api/v1/imports/confirm/route.ts');
+  const r = upload('/imports/confirm', TOGGL);
+  const form = await r.formData();
+  form.set('invoicedThrough', '2026-03-10');
+  const res = await json(
+    await POST(
+      new Request('http://t/imports/confirm', { method: 'POST', body: form }),
+    ),
+  );
+  assert.equal(res.body.invoicedElsewhere, 2, 'both written rows are Mar 10');
+
+  const { rows } = await pool.query(
+    'select coalesce(sum(seconds),0)::int s from unbilled_by_client($1)',
+    [USER],
+  );
+  // The billable Mar 10 entry is invoiced elsewhere, so nothing is unbilled.
+  assert.equal(rows[0].s, 0);
+});

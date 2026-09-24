@@ -37,6 +37,7 @@ export interface ImportRow {
   startedAt: string;
   endedAt: string | null;
   billable: boolean;
+  invoicedElsewhere: boolean;
   resolvedRate: number | null;
   rateSource: ReturnType<typeof resolveRateSource>;
   reportedAmount: number | null;
@@ -57,6 +58,7 @@ export interface ImportPreview {
     unratedCount: number;
     overlappingCount: number;
     excludedCount: number;
+    invoicedElsewhereCount: number;
     /**
      * Toggl's free plan marks every entry not billable, so an export that
      * says No on every row is the plan talking, not the contractor.
@@ -72,12 +74,15 @@ export interface ImportResult {
   unrated: number;
   overlapping: number;
   excluded: number;
+  invoicedElsewhere: number;
 }
 
 export interface ImportContext {
   userId: string;
   /** Import every row as billable, whatever the export says. */
   allBillable: boolean;
+  /** `YYYY-MM-DD`: entries starting on or before it were invoiced elsewhere. */
+  invoicedThrough: string | null;
   timeZone: string;
   defaultRate: number | null;
   clients: {
@@ -220,6 +225,8 @@ export async function buildPreview(
       startedAt: start.toISOString(),
       endedAt: end?.toISOString() ?? null,
       billable: ctx.allBillable || (p.billable ?? billableDefault),
+      invoicedElsewhere:
+        ctx.invoicedThrough !== null && p.startDate <= ctx.invoicedThrough,
       resolvedRate: resolveRate(rateCtx),
       rateSource: resolveRateSource(rateCtx),
       reportedAmount: p.reportedAmount,
@@ -253,6 +260,7 @@ export async function buildPreview(
         .length,
       overlappingCount: rows.filter((r) => r.overlapsWith.length > 0).length,
       excludedCount: rows.length - written.length,
+      invoicedElsewhereCount: written.filter((r) => r.invoicedElsewhere).length,
       exportedNoneBillable:
         parsed.length > 0 && parsed.every((p) => p.billable === false),
     },

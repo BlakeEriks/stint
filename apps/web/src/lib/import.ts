@@ -34,6 +34,9 @@ export async function readImport(
     throw new ApiError('VALIDATION_FAILED', 'A valid timeZone is required');
 
   const allBillable = form?.get('allBillable') === 'true';
+  const through = String(form?.get('invoicedThrough') ?? '');
+  if (through && !/^\d{4}-\d{2}-\d{2}$/.test(through))
+    throw new ApiError('VALIDATION_FAILED', 'invoicedThrough is YYYY-MM-DD');
 
   const parsed = parseExport(await file.text());
   if (!parsed.ok) throw new ApiError('IMPORT_FILE_UNRECOGNIZED', parsed.reason);
@@ -52,6 +55,7 @@ export async function readImport(
   return buildPreview(parsed.source, parsed.rows, {
     userId,
     allBillable,
+    invoicedThrough: through || null,
     timeZone,
     defaultRate: rate(settings.data?.default_hourly_rate),
     clients: (clients.data ?? []).map((c) => ({

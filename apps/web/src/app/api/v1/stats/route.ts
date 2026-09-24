@@ -139,6 +139,7 @@ export const GET = handle(async (req: Request) => {
       .select('id, task_name, started_at, duration_seconds')
       .is('project_id', null)
       .is('invoice_id', null)
+      .eq('invoiced_elsewhere', false)
       .not('ended_at', 'is', null)
       .eq('is_billable', true)
       .order('started_at', { ascending: true }),
@@ -153,6 +154,7 @@ export const GET = handle(async (req: Request) => {
       .from('time_entries')
       .select('id, task_name, started_at, duration_seconds, project_id')
       .is('invoice_id', null)
+      .eq('invoiced_elsewhere', false)
       .not('ended_at', 'is', null)
       .eq('duration_ok', false)
       .order('started_at', { ascending: true }),
