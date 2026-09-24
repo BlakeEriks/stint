@@ -266,6 +266,14 @@ export const UpdateSettings = Settings.partial().omit({
   nextInvoiceNumber: true,
 });
 
+/** What deleting the account removes, counted so the confirm can say so. */
+export const Account = z.object({
+  entries: z.number().int().nonnegative(),
+  clients: z.number().int().nonnegative(),
+  projects: z.number().int().nonnegative(),
+  invoices: z.number().int().nonnegative(),
+});
+
 // ── invoicing ──────────────────────────────────────────────────────
 export const GroupingMode = z.enum(['entry', 'task', 'project', 'day']);
 
@@ -781,6 +789,7 @@ export type TimeEntry = z.infer<typeof TimeEntry>;
 export type Summary = z.infer<typeof Summary>;
 export type TaskNameSuggestion = z.infer<typeof TaskNameSuggestion>;
 export type Settings = z.infer<typeof Settings>;
+export type Account = z.infer<typeof Account>;
 export type InvoicePreview = z.infer<typeof InvoicePreview>;
 export type PaymentProfile = z.infer<typeof PaymentProfile>;
 export type Stats = z.infer<typeof Stats>;

@@ -14,12 +14,12 @@ export const dynamic = 'force-dynamic';
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; deleted?: string }>;
 }) {
   const db = await cookieClient();
   const { data } = await db.auth.getClaims();
   if (data?.claims?.sub) redirect('/');
 
-  const { error } = await searchParams;
-  return <SignInForm error={error} />;
+  const { error, deleted } = await searchParams;
+  return <SignInForm error={error} deleted={deleted != null} />;
 }
