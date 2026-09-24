@@ -100,7 +100,7 @@ export function ImportPage() {
   };
 
   return (
-    <DetailPage back="/settings" label="Settings" wide>
+    <DetailPage back="/settings" label="Settings">
       <h1 className="mb-6 type-title text-strong">Import</h1>
       <div>
         <Section
@@ -345,7 +345,7 @@ function Row({ row, fmt }: { row: ImportRow; fmt: Intl.DateTimeFormat }) {
       <td className="type-duration py-2 pr-3 text-right text-muted">
         {seconds == null ? '—' : formatCompact(seconds)}
       </td>
-      <td className="type-duration py-2 text-right text-muted">
+      <td className="type-duration py-2 text-right whitespace-nowrap text-muted">
         {!row.willWrite ? (
           '—'
         ) : !row.billable ? (
