@@ -252,53 +252,17 @@ you, and nothing you build here is held hostage.
       accountant's version and is probably the highest value per line of code
       in the file. Rates must be in the entry export, and `0` is a real rate.
 
-- [ ] **Import from Toggl and Harvest.**
+- [ ] **Import from Harvest, once someone asks for it.**
 
-      *Whose problem:* a contractor arriving with years of history has it
-      somewhere else. Starting on an empty database means their first month
-      here cannot be compared with anything, and the invoice they most want to
-      check against is the one they already sent from the old tool.
+      *Whose problem:* a contractor arriving from Harvest rather than Toggl.
 
-      *Without it:* they do not start. Not "they leave in month three" — an
-      import is the first thing they try, before any of this is worth
-      evaluating.
+      *Without it:* they start with no history — but no user has asked yet,
+      and Harvest's export is the harder one: a duration-tracking account
+      records no time of day, so every row needs a placement decision the
+      Toggl import never faces.
 
-      *One person:* yes, and the first of them is us. This is the path onto
-      the product, not a migration nicety.
-
-      A **file upload**, not an API integration: the CSV/JSON export is
-      stable, needs no OAuth app or stored third-party credential, and keeps
-      working if their API changes. Parsing belongs in `packages/core` as pure
-      functions over parsed rows, so the preview a user reviews and the rows
-      that get written come from identical code.
-
-      Four parts are hard, and each is already decided:
-
-      - **Overlaps violate the timer invariant.** Toggl permits overlapping
-        entries and a real export contains them. Never resolve this by
-        adjusting timestamps — import everything unambiguous and present the
-        conflicting set as a review step. Import happens once in a lifetime,
-        so a review step is cheap; a wrong hour inside a past invoice is not.
-      - **Rates are not in the export, and `0` is a real rate.** The CSV
-        carries an amount per entry, not the hierarchy that produced it.
-        Back-computing rate from amount ÷ duration gives rounding noise and is
-        wrong for anything billed flat. Imported entries resolve through the
-        normal chain; those that cannot surface as unrated, the state
-        invoicing already refuses to generate from. Never write a guessed
-        rate.
-      - **Idempotency.** A stable UUIDv7 per source entry, so re-running a
-        partial or interrupted import cannot duplicate anything.
-      - **Timestamps and DST.** Toggl exports wall-clock local time plus a
-        separate timezone field. Parse to an absolute instant and store UTC.
-
-      Tags are dropped — there is no tag concept here and adding one to serve
-      an import imports Toggl's scope along with its data. Durations are
-      derived, so the import writes `started_at`/`ended_at` and never a
-      duration; where Toggl's reported duration disagrees with its own
-      start/end pair, surface the disagreement rather than picking a winner.
-
-      **Out of scope:** no live sync. Two systems of record is a different
-      product.
+      *One person:* yes, when one exists. The Toggl pipeline takes a second
+      parser; nothing else changes. Gate: a user asks.
 
 ## M4 · Taking money
 

@@ -211,6 +211,7 @@ describe('an inbox row leaving', () => {
         staleDrafts: [],
         unprojected: [],
         strangeDurations: [],
+        overlaps: [],
         ...attention,
       },
     } as Stats;

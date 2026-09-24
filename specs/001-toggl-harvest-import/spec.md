@@ -1,4 +1,4 @@
-# Feature Specification: Import from Toggl and Harvest
+# Feature Specification: Import from Toggl
 
 **Feature Branch**: `001-toggl-harvest-import`
 
@@ -111,33 +111,6 @@ same flag appears.
 
 ---
 
-### User Story 4 - Bring a second history from Harvest (Priority: P3)
-
-A contractor who has used Harvest, not Toggl (or has used both across
-different periods), exports their Harvest data and imports it the same way
-— same upload flow, same review step, same guarantees about rates,
-overlaps, and idempotency.
-
-**Why this priority**: Named explicitly in the roadmap alongside Toggl, but
-lower priority than proving the pipeline against one real export format
-first — Toggl's export has a documented wrinkle (a separately reported
-duration that can disagree with its own start/end pair) that Harvest's does
-not share, so building Toggl's support first and proving overlaps, rates,
-and idempotency against a real format is lower-risk than building both at
-once.
-
-**Independent Test**: Export a Harvest account's time entries, upload it,
-and verify the same behavior as User Story 1 — preview before write, correct
-dates and durations, no duplication on a re-run.
-
-**Acceptance Scenarios**:
-
-1. **Given** a Harvest CSV export, **When** the contractor uploads it,
-   **Then** they get the same preview-then-confirm experience as a Toggl
-   import, with entries appearing correctly afterward.
-
----
-
 ### Edge Cases
 
 - What happens when the uploaded file isn't a recognizable Toggl or Harvest
@@ -169,8 +142,8 @@ dates and durations, no duplication on a re-run.
 - **FR-001**: Contractors MUST be able to upload a Toggl time-entry export
   file and see a preview of what will be imported before anything is
   written.
-- **FR-002**: Contractors MUST be able to upload a Harvest time-entry export
-  file with the same preview-then-confirm experience as a Toggl import.
+- **FR-002**: *Deferred.* Harvest import is a separate `docs/roadmap.md`
+  item, gated on a user asking for it.
 - **FR-003**: The system MUST NOT require the contractor to authorize an
   OAuth connection or store a Toggl/Harvest API credential to perform an
   import — the export file is the only input.

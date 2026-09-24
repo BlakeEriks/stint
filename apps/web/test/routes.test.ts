@@ -2523,3 +2523,116 @@ test('task names reject a non-uuid projectId', async () => {
   assert.equal(res.status, 422);
   assert.equal(res.body.code, 'VALIDATION_FAILED');
 });
+
+// ── import ─────────────────────────────────────────────────────────
+const TOGGL = `User,Email,Client,Project,Task,Description,Billable,Start date,Start time,End date,End time,Duration,Tags,Amount (USD)
+Me,me@x,Acme,Site,,Design,Yes,2026-03-10,09:00:00,2026-03-10,10:30:00,01:30:00,,150.00
+Me,me@x,,Internal,,Admin,No,2026-03-10,11:00:00,2026-03-10,11:15:00,00:15:00,,
+Me,me@x,Acme,Site,,Open,Yes,2026-03-11,09:00:00,,,,,
+`;
+
+const upload = (url: string, text: string) => {
+  const form = new FormData();
+  form.set('file', new File([text], 'export.csv', { type: 'text/csv' }));
+  form.set('timeZone', 'America/New_York');
+  return new Request(`http://t${url}`, { method: 'POST', body: form });
+};
+
+test('import preview writes nothing', async () => {
+  const { POST } = await import('../src/app/api/v1/imports/preview/route.ts');
+  const r = await json(await POST(upload('/imports/preview', TOGGL)));
+  assert.equal(r.status, 200);
+  assert.equal(r.body.summary.willWriteCount, 2);
+  assert.equal(r.body.summary.excludedCount, 1);
+  const { rows } = await pool.query('select count(*)::int n from time_entries');
+  assert.equal(rows[0].n, 0);
+});
+
+test('import confirm writes once; the same file again adds nothing', async () => {
+  const { POST } = await import('../src/app/api/v1/imports/confirm/route.ts');
+  const first = await json(await POST(upload('/imports/confirm', TOGGL)));
+  assert.equal(first.status, 200);
+  assert.equal(first.body.written, 2);
+
+  const { POST: preview } = await import(
+    '../src/app/api/v1/imports/preview/route.ts'
+  );
+  const told = await json(await preview(upload('/imports/preview', TOGGL)));
+  assert.equal(told.body.summary.newCount, 0, 'the preview says so first');
+  assert.equal(told.body.summary.alreadyImportedCount, 2);
+
+  const again = await json(await POST(upload('/imports/confirm', TOGGL)));
+  assert.equal(again.body.written, 0);
+  assert.equal(again.body.alreadyImported, 2);
+
+  const counts = await pool.query(
+    `select (select count(*)::int from time_entries) e,
+            (select count(*)::int from projects) p,
+            (select count(*)::int from clients) c,
+            (select count(*)::int from time_entries where rate_override is not null) o`,
+  );
+  assert.deepEqual(counts.rows[0], { e: 2, p: 2, c: 1, o: 0 });
+});
+
+test('import refuses a file that is not an export, before writing', async () => {
+  const { POST } = await import('../src/app/api/v1/imports/confirm/route.ts');
+  const r = await json(await POST(upload('/imports/confirm', 'a,b\n1,2\n')));
+  assert.equal(r.status, 422);
+  assert.equal(r.body.code, 'IMPORT_FILE_UNRECOGNIZED');
+  const { rows } = await pool.query('select count(*)::int n from time_entries');
+  assert.equal(rows[0].n, 0);
+});
+
+test('import: work invoiced elsewhere is earned but never unbilled or invoiceable', async () => {
+  const { POST } = await import('../src/app/api/v1/imports/confirm/route.ts');
+  const r = upload('/imports/confirm', TOGGL);
+  const form = await r.formData();
+  form.set('invoicedThrough', '2026-03-10');
+  const res = await json(
+    await POST(
+      new Request('http://t/imports/confirm', { method: 'POST', body: form }),
+    ),
+  );
+  assert.equal(res.body.invoicedElsewhere, 2, 'both written rows are Mar 10');
+
+  const { rows } = await pool.query(
+    'select coalesce(sum(seconds),0)::int s from unbilled_by_client($1)',
+    [USER],
+  );
+  // The billable Mar 10 entry is invoiced elsewhere, so nothing is unbilled.
+  assert.equal(rows[0].s, 0);
+});
+
+test('/stats lists entries sharing a minute or more, and editing one clears it', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const a = '018f0000-0000-7000-8000-00000000a0a1';
+  const b = '018f0000-0000-7000-8000-00000000a0a2';
+  const c = '018f0000-0000-7000-8000-00000000a0a3';
+  await pool.query(
+    `insert into time_entries (id,user_id,task_name,started_at,ended_at) values
+       ($1,$4,'Foundation','2026-08-19T13:50:33Z','2026-08-19T15:03:00Z'),
+       ($2,$4,'Standup',   '2026-08-19T15:00:00Z','2026-08-19T15:21:00Z'),
+       ($3,$4,'Standup',   '2026-08-19T15:20:52Z','2026-08-19T15:22:37Z')`,
+    [a, b, c, USER],
+  );
+
+  const before = await json(await stats(req('/stats?tz=UTC')));
+  // Foundation/Standup share 3 minutes; the two Standups share 8 seconds.
+  assert.deepEqual(
+    before.body.attention.overlaps.map(
+      (o: { entryId: string; otherEntryId: string; seconds: number }) => [
+        o.entryId,
+        o.otherEntryId,
+        o.seconds,
+      ],
+    ),
+    [[b, a, 180]],
+  );
+
+  await pool.query(
+    `update time_entries set ended_at='2026-08-19T15:00:00Z' where id=$1`,
+    [a],
+  );
+  const after = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(after.body.attention.overlaps, []);
+});

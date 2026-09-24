@@ -2,6 +2,7 @@
 
 import type { z } from 'zod';
 import type * as schema from '@stint/schema';
+import type { ImportPreview, ImportResult } from '@stint/core';
 
 /**
  * Browser-side API access.
@@ -51,10 +52,11 @@ async function request<T>(
   path: string,
   body?: unknown,
 ): Promise<T> {
+  const form = body instanceof FormData;
   const res = await fetch(`/api/v1${path}`, {
     method,
-    headers: body ? { 'content-type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
+    headers: body && !form ? { 'content-type': 'application/json' } : undefined,
+    body: form ? body : body ? JSON.stringify(body) : undefined,
   });
 
   if (res.status === 204) return undefined as T;
@@ -156,6 +158,13 @@ export type PaymentProfileInput = Partial<
   Pick<PaymentProfile, 'name'>;
 
 export const api = {
+  /** A Toggl export, plus the zone its wall-clock times are in. */
+  importPreview: (form: FormData) =>
+    request<ImportPreview>('POST', '/imports/preview', form),
+
+  importConfirm: (form: FormData) =>
+    request<ImportResult>('POST', '/imports/confirm', form),
+
   summary: (tz: string) =>
     request<Summary>('GET', `/summary?tz=${encodeURIComponent(tz)}`),
 
