@@ -27,9 +27,14 @@ missed (SC-005), DST (FR-012). They run under `pnpm core:test`
 - Toggl's CSV has no entry id and no zone. `sourceRowId` is the row's content plus its position among identical twins, and the zone is chosen on the import page (default: the browser's).
 - New projects and clients get deterministic ids too, so T017's retry safety comes from `on conflict (id) do nothing` rather than re-matching.
 - Tests: `packages/core/test/import.test.ts` (T008, T014, T021's cases) and three route tests in `apps/web/test/routes.test.ts`.
-- T003 was written as implemented, not `(not implemented)`, since the routes shipped with it. T033's `durationDisagreement` is computed; showing it on the page is still open.
+- T003/T034: the endpoints were documented as implemented from the start.
+- Overlaps (US3): `findOverlaps()` lives in `packages/core/src/overlaps.ts`, not under `import/`, because `/stats` uses it too. Only overlaps of 60s or more count (`MIN_OVERLAP_SECONDS`) — real exports hold seconds-long ones from stop/start clicks. The inbox row is per pair, opens the later entry, and has no "It's correct". Tests: `packages/core/test/overlaps.test.ts`, the import tests, `inbox.test.tsx`, and a `/stats` route test.
+- A scrubbed fixture in the real export's shape: `packages/core/test/fixtures/toggl-detailed.tsv`.
 
 - Added after the first real export: tab-separated files, an "import them as billable" choice when every row says not billable (Toggl's free plan), and "Already invoiced through", backed by `time_entries.invoiced_elsewhere` (migration 21) — earned, never unbilled.
+
+- T035: the roadmap deletes a finished item rather than ticking it, so the Toggl entry is gone; Harvest stays as its own item.
+- T036: scenarios 1, 2, 3 and 5 exercised in the browser on the seeded account; scenario 4 was Harvest, deferred.
 
 ## Phase 1: Setup
 
@@ -81,7 +86,7 @@ missed (SC-005), DST (FR-012). They run under `pnpm core:test`
 **Independent test**: quickstart.md Scenario 2.
 
 - [X] T021 [P] [US2] Unit test in `packages/core/test/import-rates.test.ts`: a row with a `reportedAmount` and no resolvable chain yields `resolvedRate: null`, `rateSource: 'none'`; a row under a rated project yields that project's rate regardless of `reportedAmount`; a `0` project rate resolves to `0`, not a fall-through (SC-003)
-- [ ] T022 [US2] Show `rateSource` and an "unrated" marker per preview row, and the unrated count in the summary, in `apps/web/src/app/(app)/import/page.tsx`; `reportedAmount` may be shown only labelled as the source tool's figure
+- [X] T022 [US2] Show `rateSource` and an "unrated" marker per preview row, and the unrated count in the summary, in `apps/web/src/app/(app)/import/page.tsx`; `reportedAmount` may be shown only labelled as the source tool's figure
 
 ---
 
@@ -91,13 +96,13 @@ missed (SC-005), DST (FR-012). They run under `pnpm core:test`
 
 **Independent test**: quickstart.md Scenario 3.
 
-- [ ] T023 [US3] Implement `findOverlaps(ranges: {id, start, end}[]): Map<id, id[]>` in `packages/core/src/import/find-overlaps.ts` — sort-and-sweep, half-open intervals (an entry ending exactly when another starts is not an overlap); used for the batch plus existing entries
-- [ ] T024 [P] [US3] Unit tests in `packages/core/test/import-overlaps.test.ts`: within-batch overlap, batch-vs-existing overlap, touching endpoints not flagged, nested ranges flagged
-- [ ] T025 [US3] Wire `findOverlaps()` into `buildPreview()` in `packages/core/src/import/build-preview.ts` to fill `overlapsWith`; an overlap never sets `willWrite: false` (FR-008)
-- [ ] T026 [US3] Add an `overlaps` array to the inbox part of `Stats` in `packages/schema/src/index.ts` (`entryId`, `otherEntryId`, `taskName`, `startedAt`), derived per request like `strangeDurations` — no stored flag, so editing either entry clears it (FR-009)
-- [ ] T027 [US3] Compute `overlaps` in `apps/web/src/app/api/v1/stats/route.ts` by calling `findOverlaps()` over the user's stopped, uninvoiced entries, matching how strange-duration candidates are loaded there
-- [ ] T028 [US3] Render the overlap row in `apps/web/src/components/inbox.tsx` with an "Edit entry" action, and add its row spec to the table in `docs/design/screens/inbox.html`
-- [ ] T029 [US3] Show `overlapsWith` per preview row and the overlapping count in `apps/web/src/app/(app)/import/page.tsx`
+- [X] T023 [US3] Implement `findOverlaps(ranges: {id, start, end}[]): Map<id, id[]>` in `packages/core/src/import/find-overlaps.ts` — sort-and-sweep, half-open intervals (an entry ending exactly when another starts is not an overlap); used for the batch plus existing entries
+- [X] T024 [P] [US3] Unit tests in `packages/core/test/import-overlaps.test.ts`: within-batch overlap, batch-vs-existing overlap, touching endpoints not flagged, nested ranges flagged
+- [X] T025 [US3] Wire `findOverlaps()` into `buildPreview()` in `packages/core/src/import/build-preview.ts` to fill `overlapsWith`; an overlap never sets `willWrite: false` (FR-008)
+- [X] T026 [US3] Add an `overlaps` array to the inbox part of `Stats` in `packages/schema/src/index.ts` (`entryId`, `otherEntryId`, `taskName`, `startedAt`), derived per request like `strangeDurations` — no stored flag, so editing either entry clears it (FR-009)
+- [X] T027 [US3] Compute `overlaps` in `apps/web/src/app/api/v1/stats/route.ts` by calling `findOverlaps()` over the user's stopped, uninvoiced entries, matching how strange-duration candidates are loaded there
+- [X] T028 [US3] Render the overlap row in `apps/web/src/components/inbox.tsx` with an "Edit entry" action, and add its row spec to the table in `docs/design/screens/inbox.html`
+- [X] T029 [US3] Show `overlapsWith` per preview row and the overlapping count in `apps/web/src/app/(app)/import/page.tsx`
 
 ---
 
@@ -109,11 +114,11 @@ Deferred to its own roadmap item, gated on a user asking for it.
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T033 [P] Duration disagreement (FR-015): set `durationDisagreement` in `buildPreview()` when `reportedDurationSeconds` differs from `end − start` by more than 1 second, and surface it per row on the import page
-- [ ] T034 [P] Remove `(not implemented)` from both endpoints in `docs/api.md`
-- [ ] T035 [P] Tick the Toggl/Harvest item in `docs/roadmap.md`
-- [ ] T036 Run quickstart.md Scenarios 1–5 against local dev, signed in to the seeded account
-- [ ] T037 `pnpm verify:static` and `pnpm verify:db` green before merge (constitution, main branch bar)
+- [X] T033 [P] Duration disagreement (FR-015): set `durationDisagreement` in `buildPreview()` when `reportedDurationSeconds` differs from `end − start` by more than 1 second, and surface it per row on the import page
+- [X] T034 [P] Remove `(not implemented)` from both endpoints in `docs/api.md`
+- [X] T035 [P] Tick the Toggl/Harvest item in `docs/roadmap.md`
+- [X] T036 Run quickstart.md Scenarios 1–5 against local dev, signed in to the seeded account
+- [X] T037 `pnpm verify:static` and `pnpm verify:db` green before merge (constitution, main branch bar)
 
 ---
 

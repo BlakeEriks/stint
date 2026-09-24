@@ -43,6 +43,7 @@ function arrival(
       staleDrafts: [],
       unprojected: [],
       strangeDurations: [],
+      overlaps: [],
     },
   };
 }

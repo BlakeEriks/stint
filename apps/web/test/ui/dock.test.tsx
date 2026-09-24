@@ -89,6 +89,7 @@ function serveFullRow() {
               staleDrafts: [],
               unprojected: [],
               strangeDurations: [],
+              overlaps: [],
             },
           }),
           { status: 200 },

@@ -1,0 +1,7 @@
+User	Email	Client	Project	Task	Description	Billable	Start date	Start time	End date	End time	Duration	Tags	Currency	Amount
+Alex Doe	alex@example.com	Northwind	Portal		Intro meeting	No	2026-08-11	11:15:00	2026-08-11	12:15:00	01:00:00		USD	0
+Alex Doe	alex@example.com	Northwind	Portal		Setup / investigation	No	2026-08-11	15:50:02	2026-08-11	15:50:15	00:00:13		USD	0
+Alex Doe	alex@example.com	Northwind	Portal		Foundation + security POC with Sam + Val	No	2026-08-19	09:50:33	2026-08-19	11:03:00	01:12:27		USD	0
+Alex Doe	alex@example.com	Northwind	Portal		Standup	No	2026-08-19	11:00:00	2026-08-19	11:21:00	00:21:00		USD	0
+Alex Doe	alex@example.com	Northwind	Portal		Standup	No	2026-08-19	11:20:52	2026-08-19	11:22:37	00:01:45		USD	0
+Alex Doe	alex@example.com	Northwind	Portal		E4.2 — extract & codify the visual language	No	2026-08-27	09:55:53	2026-08-27	11:32:29	01:36:36		USD	0

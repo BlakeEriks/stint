@@ -21,6 +21,14 @@ const TH = 'pb-2 pr-3 type-label text-subtle';
 
 const were = (n: number) => (n === 1 ? 'was' : 'were');
 
+const RATE_SOURCE = {
+  entry: 'entry',
+  project: 'project rate',
+  client: 'client rate',
+  default: 'your default',
+  none: '',
+} as const;
+
 const when = (zone: string) =>
   new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -209,6 +217,9 @@ function Review({
         summary.invoicedElsewhereCount
           ? `${summary.invoicedElsewhereCount} ${were(summary.invoicedElsewhereCount)} already invoiced elsewhere.`
           : null,
+        summary.overlappingCount
+          ? `${summary.overlappingCount} overlap other work by a minute or more; they import as they are and wait in the inbox.`
+          : null,
         summary.excludedCount
           ? `${summary.excludedCount} will not be imported — see below.`
           : null,
@@ -294,6 +305,19 @@ function Row({ row, fmt }: { row: ImportRow; fmt: Intl.DateTimeFormat }) {
             Invoiced elsewhere
           </span>
         ) : null}
+        {row.overlapsWith.length ? (
+          <span className="mt-0.5 block type-meta text-primary">
+            Overlaps {row.overlapsWith.length}{' '}
+            {row.overlapsWith.length === 1 ? 'entry' : 'entries'} — imported,
+            and listed in the inbox to fix
+          </span>
+        ) : null}
+        {row.durationDisagreement && row.reportedSeconds != null ? (
+          <span className="mt-0.5 block type-meta text-primary">
+            Toggl's own total says {formatCompact(row.reportedSeconds)}; the
+            start and end are what import
+          </span>
+        ) : null}
         {row.excludedReason ? (
           <span className="mt-0.5 block type-meta text-subtle">
             {row.excludedReason === 'no_end_time'
@@ -319,7 +343,12 @@ function Row({ row, fmt }: { row: ImportRow; fmt: Intl.DateTimeFormat }) {
         ) : row.resolvedRate == null ? (
           <span className="text-danger">No rate</span>
         ) : (
-          `${formatCurrency(row.resolvedRate)}/h`
+          <>
+            {`${formatCurrency(row.resolvedRate)}/h`}
+            <span className="block type-meta text-subtle">
+              {RATE_SOURCE[row.rateSource]}
+            </span>
+          </>
         )}
       </td>
     </tr>

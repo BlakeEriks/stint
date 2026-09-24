@@ -2595,3 +2595,37 @@ test('import: work invoiced elsewhere is earned but never unbilled or invoiceabl
   // The billable Mar 10 entry is invoiced elsewhere, so nothing is unbilled.
   assert.equal(rows[0].s, 0);
 });
+
+test('/stats lists entries sharing a minute or more, and editing one clears it', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const a = '018f0000-0000-7000-8000-00000000a0a1';
+  const b = '018f0000-0000-7000-8000-00000000a0a2';
+  const c = '018f0000-0000-7000-8000-00000000a0a3';
+  await pool.query(
+    `insert into time_entries (id,user_id,task_name,started_at,ended_at) values
+       ($1,$4,'Foundation','2026-08-19T13:50:33Z','2026-08-19T15:03:00Z'),
+       ($2,$4,'Standup',   '2026-08-19T15:00:00Z','2026-08-19T15:21:00Z'),
+       ($3,$4,'Standup',   '2026-08-19T15:20:52Z','2026-08-19T15:22:37Z')`,
+    [a, b, c, USER],
+  );
+
+  const before = await json(await stats(req('/stats?tz=UTC')));
+  // Foundation/Standup share 3 minutes; the two Standups share 8 seconds.
+  assert.deepEqual(
+    before.body.attention.overlaps.map(
+      (o: { entryId: string; otherEntryId: string; seconds: number }) => [
+        o.entryId,
+        o.otherEntryId,
+        o.seconds,
+      ],
+    ),
+    [[b, a, 180]],
+  );
+
+  await pool.query(
+    `update time_entries set ended_at='2026-08-19T15:00:00Z' where id=$1`,
+    [a],
+  );
+  const after = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(after.body.attention.overlaps, []);
+});

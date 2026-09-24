@@ -36,6 +36,7 @@ function stats(attention: Partial<Stats['attention']> = {}): Stats {
       staleDrafts: [],
       unprojected: [],
       strangeDurations: [],
+      overlaps: [],
       ...attention,
     },
   } as Stats;
@@ -635,5 +636,60 @@ describe('entries of unusual length', () => {
       el.querySelector('svg')?.getAttribute('class') ?? '';
     expect(glyph(correct)).not.toEqual('');
     expect(correct.innerHTML).not.toEqual(paid.innerHTML);
+  });
+});
+
+describe('overlap row', () => {
+  const overlap = {
+    entryId: '018f0000-0000-7000-8000-0000000000a2',
+    taskName: 'Standup',
+    otherEntryId: '018f0000-0000-7000-8000-0000000000a1',
+    otherTaskName: 'Foundation POC',
+    startedAt: '2026-08-19T15:00:00.000Z',
+    seconds: 180,
+  };
+
+  beforeEach(() => {
+    const fetchMock = vi.fn(async (url: string) => {
+      const path = String(url).replace('/api/v1', '');
+      if (path.startsWith('/entries/'))
+        return new Response(
+          JSON.stringify({
+            id: overlap.entryId,
+            taskName: 'Standup',
+            projectId: null,
+            startedAt: overlap.startedAt,
+            endedAt: '2026-08-19T15:21:00.000Z',
+            isBillable: true,
+            rateOverride: null,
+            invoiceId: null,
+            durationSeconds: 1260,
+            durationOk: false,
+          }),
+          { status: 200 },
+        );
+      return new Response(JSON.stringify({ projects: [] }), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  it('names both entries and how long they share', () => {
+    render(<Inbox stats={stats({ overlaps: [overlap] })} />, { wrapper });
+    expect(screen.getByText('Standup')).toBeInTheDocument();
+    expect(screen.getByText(/Overlaps Foundation POC/)).toBeInTheDocument();
+    expect(screen.getByText('3m')).toBeInTheDocument();
+  });
+
+  it('is resolved by editing, and offers no "it\'s correct"', async () => {
+    const user = userEvent.setup();
+    render(<Inbox stats={stats({ overlaps: [overlap] })} />, { wrapper });
+    expect(screen.queryByRole('button', { name: /as it is/ })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Edit Standup' }));
+    await waitFor(() =>
+      expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+        `/api/v1/entries/${overlap.entryId}`,
+        expect.anything(),
+      ),
+    );
   });
 });

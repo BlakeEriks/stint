@@ -1,4 +1,5 @@
 import { localDateTimeToInstant } from '../calendar.ts';
+import { findOverlaps } from '../overlaps.ts';
 import { resolveRate, resolveRateSource } from '../rates.ts';
 import { deterministicUuidv7 } from '../uuid.ts';
 
@@ -41,6 +42,8 @@ export interface ImportRow {
   resolvedRate: number | null;
   rateSource: ReturnType<typeof resolveRateSource>;
   reportedAmount: number | null;
+  /** The export's own duration figure, shown when it disagrees. */
+  reportedSeconds: number | null;
   durationDisagreement: boolean;
   overlapsWith: string[];
   willWrite: boolean;
@@ -83,6 +86,8 @@ export interface ImportContext {
   allBillable: boolean;
   /** `YYYY-MM-DD`: entries starting on or before it were invoiced elsewhere. */
   invoicedThrough: string | null;
+  /** Stopped entries already in the account around the export's dates. */
+  existing: { id: string; startedAt: string; endedAt: string }[];
   timeZone: string;
   defaultRate: number | null;
   clients: {
@@ -230,6 +235,7 @@ export async function buildPreview(
       resolvedRate: resolveRate(rateCtx),
       rateSource: resolveRateSource(rateCtx),
       reportedAmount: p.reportedAmount,
+      reportedSeconds: p.reportedDurationSeconds,
       durationDisagreement:
         end != null &&
         p.reportedDurationSeconds != null &&
@@ -243,6 +249,29 @@ export async function buildPreview(
   }
 
   const written = rows.filter((r) => r.willWrite);
+
+  /* Against itself and against what is already here. A row already imported
+     is the same id as its existing copy, not an overlap with it. */
+  const ours = new Set(written.map((r) => r.id));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  for (const o of findOverlaps([
+    ...written.map((r) => ({
+      id: r.id,
+      start: Date.parse(r.startedAt),
+      end: Date.parse(r.endedAt as string),
+    })),
+    ...ctx.existing
+      .filter((e) => !ours.has(e.id))
+      .map((e) => ({
+        id: e.id,
+        start: Date.parse(e.startedAt),
+        end: Date.parse(e.endedAt),
+      })),
+  ])) {
+    byId.get(o.earlier)?.overlapsWith.push(o.later);
+    byId.get(o.later)?.overlapsWith.push(o.earlier);
+  }
+
   const usedClients = new Set(written.map((r) => r.clientId));
   const usedProjects = new Set(written.map((r) => r.projectId));
 
