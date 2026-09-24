@@ -234,6 +234,30 @@ psql "$TARGET" --single-transaction -v ON_ERROR_STOP=1 \
 replica role stops triggers and foreign keys firing on rows that already
 satisfied them. Remove the reader role afterwards.
 
+## 3c. Alerts
+
+Alerts go to the private `#alerts` channel on the Stint Discord server.
+**An alert is something you act on, or the one outcome you are waiting for;
+everything else stays silent**, because a channel that reports routine
+success teaches you to stop reading it.
+
+| Event | Message | Source |
+|---|---|---|
+| Release live | ✅ commit and subject | `release.yml`, `report` |
+| Release failed after approval, or its plan failed | ❌ with the run link | `release.yml`, `report` |
+| Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
+
+Never posted: a release awaiting approval (GitHub already notifies you), a
+rejection or cancellation (you did it), and a backup that worked
+(healthchecks.io is quiet until one does not arrive).
+
+**A new alert names what you would do when it arrives.** If the answer is
+nothing, it is a log line. One event is one message from one source — never
+the same failure from GitHub and from healthchecks.io.
+
+The webhook is the `DISCORD_ALERTS_WEBHOOK` secret on Production and exists
+nowhere else: anyone holding it can post to the channel.
+
 ## 4. Auth redirect URLs
 
 Supabase → Authentication → URL Configuration. Add the production origin to

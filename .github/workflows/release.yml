@@ -154,6 +154,8 @@ jobs:
     needs: [plan, approve, backup, migrate]
     if: always() && needs.plan.result != 'skipped'
     runs-on: ubuntu-latest
+    # For the Discord webhook only; this job touches nothing else there.
+    environment: Production
     steps:
       - name: Report to Vercel
         env:
@@ -166,3 +168,25 @@ jobs:
             -f state=$state -f context=migrate-production \
             -f description="Release $RESULT" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      # docs/deploying.md "Alerts" is the policy: the outcome you approved
+      # and are waiting for, or a plan that failed before you could. Never a
+      # rejection or a cancellation — you did those.
+      - name: Tell Discord
+        if: needs.approve.result == 'success' || needs.plan.result == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.client_payload.git.sha }}
+          RESULT: ${{ needs.migrate.result }}
+          WEBHOOK: ${{ secrets.DISCORD_ALERTS_WEBHOOK }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          subject=$(gh api "repos/${{ github.repository }}/commits/$SHA" --jq '.commit.message | split("\n")[0]')
+          if [ "$RESULT" = success ]; then
+            text="✅ Live: \`${SHA:0:7}\` $subject"
+          else
+            text="❌ Release failed: \`${SHA:0:7}\` $subject. The previous build is still serving. $RUN"
+          fi
+          # Empty allowed_mentions: a commit subject can never ping anyone.
+          jq -n --arg c "$text" '{content: $c, allowed_mentions: {parse: []}}' |
+            curl -fsS -m 10 -o /dev/null -H 'Content-Type: application/json' -d @- "$WEBHOOK"
