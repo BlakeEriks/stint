@@ -43,9 +43,11 @@ export function Today({ stats }: { stats: Stats }) {
       }),
   });
 
+  /* Archived included: a project archived since this morning still named
+     the work done under it. */
   const { data: projectData } = useQuery({
-    queryKey: keys.projects(),
-    queryFn: () => api.projects(),
+    queryKey: keys.projects({ archived: true }),
+    queryFn: () => api.projects({ includeArchived: true }),
   });
 
   const entries = data?.entries ?? [];

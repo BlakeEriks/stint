@@ -326,7 +326,7 @@ describe('the three regions', () => {
 
   it('gives internal work a hollow ring rather than a colour', async () => {
     serve(() => stats());
-    const { container } = render(<HomeCards />, { wrapper });
+    render(<HomeCards />, { wrapper });
 
     await waitFor(() =>
       expect(screen.getByText('Invoicing admin')).toBeVisible(),
@@ -334,7 +334,7 @@ describe('the three regions', () => {
 
     /* Only clients have a colour. The entry with no project is internal, and
        the absence is drawn as a ring. */
-    const row = container.querySelector('[data-entry="e2"]');
+    const row = screen.getByText('Invoicing admin').closest('[data-task]');
     expect(row?.querySelector('[data-pip="internal"]')).not.toBeNull();
   });
 
