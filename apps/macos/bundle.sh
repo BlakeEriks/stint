@@ -16,51 +16,24 @@ TARGET="${2:-local}"
 # silently ignored — the values have to be baked into Info.plist.
 #
 # Local is the default and needs no keys: Config.swift already falls back to
-# the local stack.
+# the local stack. Prod's values are public — the publishable key ships in
+# every browser bundle, and RLS is what protects the data.
 if [ "$TARGET" = "local" ]; then
     LS_ENVIRONMENT=""
-else
-    ENV_FILE="../web/.env.local"
-    [ -f "$ENV_FILE" ] || { echo "error: $ENV_FILE not found" >&2; exit 1; }
+elif [ "$TARGET" = "prod" ]; then
+    SUPABASE_URL="https://zwoceqydagxxmqoaqgbf.supabase.co"
+    ANON_KEY="sb_publishable_dpZCXx5Z71lOUznVCIleJA__YjyUk4e"
+    APP_URL="${STINT_APP_URL:-https://app.runstint.com}"
 
-    # Read straight out of the file rather than sourcing it: `.env.local`
-    # also holds SUPABASE_DB_URL, a secret this bundle must never carry, and
-    # sourcing would run whatever the file contains.
-    value_of() {
-        local line
-        line=$(grep -m1 "^$1=" "$ENV_FILE") || return 1
-        printf '%s' "${line#*=}" | tr -d '"'"'"'\r'
-    }
-
-    SUPABASE_URL=$(value_of NEXT_PUBLIC_SUPABASE_URL) \
-        || { echo "error: NEXT_PUBLIC_SUPABASE_URL missing from $ENV_FILE" >&2; exit 1; }
-    ANON_KEY=$(value_of NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) \
-        || { echo "error: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY missing from $ENV_FILE" >&2; exit 1; }
-    # `.env.example` says to leave NEXT_PUBLIC_APP_ORIGIN empty locally — it
-    # is set in the deployment — so an override is usually how this is
-    # supplied. Never guess a hostname: one that does not resolve reaches the
-    # panel as "a server with the specified hostname could not be found",
-    # which reads as a network fault rather than as a build that was told
-    # where to point.
-    APP_URL="${STINT_APP_URL:-$(value_of NEXT_PUBLIC_APP_ORIGIN || true)}"
-    if [ -z "$APP_URL" ]; then
-        echo "error: no app origin. Add NEXT_PUBLIC_APP_ORIGIN to $ENV_FILE," >&2
-        echo "       or pass it: STINT_APP_URL=https://<host> $0 $CONFIG $TARGET" >&2
-        exit 1
-    fi
-
-    # Resolve it now rather than at the first request.
+    # Resolve it now rather than at the first request: a hostname that does
+    # not resolve reaches the panel as "a server with the specified hostname
+    # could not be found", which reads as a network fault.
     APP_HOST="${APP_URL#*://}"; APP_HOST="${APP_HOST%%/*}"
     if ! host "$APP_HOST" >/dev/null 2>&1; then
         echo "error: $APP_HOST does not resolve — the panel would report it as" >&2
         echo "       a missing server. Check the origin before bundling." >&2
         exit 1
     fi
-
-    case "$SUPABASE_URL" in
-        *localhost*|*127.0.0.1*)
-            echo "error: $ENV_FILE points at localhost — nothing to target" >&2; exit 1 ;;
-    esac
 
     LS_ENVIRONMENT="    <key>LSEnvironment</key>
     <dict>
@@ -69,6 +42,8 @@ else
         <key>STINT_SUPABASE_ANON_KEY</key><string>$ANON_KEY</string>
         <key>STINT_ENV</key><string>$TARGET</string>
     </dict>"
+else
+    echo "error: unknown target $TARGET — local or prod" >&2; exit 1
 fi
 
 swift build -c "$CONFIG"

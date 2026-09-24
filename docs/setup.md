@@ -36,11 +36,10 @@ Supabase already provides the `auth` schema, `auth.users`, and `auth.uid()` —
 the migrations assume all three, so nothing needs stubbing.
 
 Get the connection string: **Project Settings → Database → Connection string
-→ Session pooler**. Swap in your database password and put it in
-`apps/web/.env.local`:
+→ Session pooler**, and swap in your database password:
 
 ```
-SUPABASE_DB_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
 ```
 
 The **pooler**, not the direct connection. `db.<ref>.supabase.co:5432` is
@@ -53,14 +52,16 @@ supports DDL; 6543 is Transaction mode, which does not, so migrations fail.
 The host to look for is `pooler.supabase.com` with `postgres.<ref>` as the
 username.
 
-This is a **secret** — full database access, bypassing RLS. Only the two
-scripts below ever read it; the app never does. `.env.local` is gitignored.
+This is a **secret** — full database access, bypassing RLS. It lives in one
+place, the release gate's `PRODUCTION_DB_URL` (`docs/deploying.md`), and is
+passed by hand to the two scripts below; the app never uses it. Never save it
+to a file.
 
-Then:
+Then, with it in `DB` for this shell only:
 
 ```bash
-pnpm migrate --dry-run   # show what would run
-pnpm migrate             # apply it
+pnpm migrate --url "$DB" --dry-run   # show what would run
+pnpm migrate --url "$DB"             # apply it
 ```
 
 Each file runs in its own transaction, so a failure rolls back whole rather
@@ -71,7 +72,7 @@ applies only the new one.
 ## 2a. Verify it
 
 ```bash
-pnpm verify:schema
+pnpm verify:schema --url "$DB"
 ```
 
 This asserts the things nothing else would catch: all seven tables exist with
@@ -86,7 +87,8 @@ else's.
 ## 3. Point the app at it
 
 Dashboard → **Project Settings** → **API**. Copy the **Project URL** and the
-**publishable** key (`sb_publishable_…`) into `apps/web/.env.local`:
+**publishable** key (`sb_publishable_…`) into the Vercel project's
+environment variables (`docs/deploying.md`) and `apps/macos/bundle.sh`:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
@@ -96,7 +98,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 The publishable key is **meant to be public** — it ships in the browser
 bundle, and RLS is what protects the data. A **secret** key
 (`sb_secret_…`) is not: it bypasses RLS entirely. Never put one in
-`.env.local` or anything `NEXT_PUBLIC_`.
+an env file or anything `NEXT_PUBLIC_`.
 
 If the dashboard still shows legacy `anon` / `service_role` JWTs, those are
 the old key pair and are **deprecated at the end of 2026**. Publishable and
@@ -105,8 +107,6 @@ names. Two things the new keys fix: a secret key sent from a browser is
 rejected with a 401 (the `service_role` JWT leaked silently), and secret keys
 can be minted and revoked individually rather than requiring a JWT-secret
 rotation that invalidates every session.
-
-`.env.local` is gitignored. `.env.example` documents the shape.
 
 ## 4. Let magic links come back
 

@@ -2,7 +2,7 @@
 /**
  * Apply supabase/migrations to a Postgres database.
  *
- *   pnpm migrate                 # uses SUPABASE_DB_URL from apps/web/.env.local
+ *   pnpm migrate                 # uses SUPABASE_DB_URL from the environment
  *   pnpm migrate --dry-run       # show what would run, change nothing
  *   pnpm migrate --url <url>     # explicit connection string
  *
@@ -28,17 +28,11 @@ const dryRun = args.includes('--dry-run');
 
 const url = connectionString();
 if (!url) {
-  console.error(`No database URL.
+  console.error(`No database URL. Pass one:
 
-Add it to apps/web/.env.local:
+  pnpm migrate --url <connection string>
 
-  SUPABASE_DB_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
-
-Supabase dashboard -> Project Settings -> Database -> Connection string ->
-choose "Session pooler" (IPv4-friendly) and swap in your database password.
-
-This is a SECRET: it is full database access, bypassing RLS entirely. It is
-only ever used by this script, never by the app, and .env.local is gitignored.`);
+Production is migrated by release.yml on merge, never from here.`);
   process.exit(1);
 }
 

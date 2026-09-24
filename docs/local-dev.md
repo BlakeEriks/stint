@@ -25,10 +25,9 @@ Those are the CLI's fixed development credentials — identical on every
 machine, published in Supabase's own docs, stable across resets. Nothing here
 is a secret.
 
-**Next.js loads `.env.development.local` before `.env.local` in development**,
-which is what makes this safe: `pnpm dev` gets local, while `pnpm migrate` and
-`pnpm verify:schema` still read `.env.local` and reach production. There is no
-flag to remember and no way to accidentally develop against real data.
+**No file on this machine points at production.** There is no `.env.local`;
+`pnpm migrate` and `pnpm verify:schema` reach a database only through `--url`
+or `SUPABASE_DB_URL`, and production is migrated by the release gate.
 
 ## Every day
 
@@ -291,10 +290,10 @@ console.log('target:', short(url));          // password masked for the log
 const c = new pg.Client({ connectionString: url, ssl: sslFor(url) });
 ```
 
-`connectionString()` reads `apps/web/.env.local`, so the value is never
-pasted into a command, a shell history or a chat. `short()` is what makes the
-output safe to paste back. It must run from the repo root, where `pg`
-resolves.
+`connectionString()` takes the string from `--url` or `SUPABASE_DB_URL`:
+copy it from the dashboard for that one command and never save it to a file.
+`short()` is what makes the output safe to paste back. It must run from the
+repo root, where `pg` resolves.
 
 This is how a destructive plan gets checked before it runs: the reset that
 M1's schema change seemed to need turned out to be unnecessary, because
