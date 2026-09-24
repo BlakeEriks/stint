@@ -156,13 +156,30 @@ alter table time_entries
 -- ── invoice line items ─────────────────────────────────────────────
 -- Denormalized ON PURPOSE. Changing a client's rate next year must not
 -- retroactively alter an invoice that was already sent.
+-- A line is `quantity x unit_price = amount`, whatever it charges for.
+--
+-- `unit` says what the quantity MEANS rather than gating which columns
+-- apply: 'hour' prints both cells, 'fixed' is a flat charge — a fee, a
+-- deposit, a rebilled expense — whose quantity is always 1 and whose
+-- quantity and price cells stay blank on the document, because "1 x
+-- $2,400.00" tells a client nothing.
+--
+-- Hours rather than seconds, because hours are what the invoice states and
+-- numeric(12,2) holds them exactly. The seconds behind a time line are
+-- summed and rounded ONCE in `buildLineItems`, and the amount comes from
+-- those seconds — never from this rounded quantity.
 create table invoice_line_items (
   id               uuid primary key default gen_random_uuid(),
   invoice_id       uuid not null references invoices(id) on delete cascade,
   description      text not null,
-  quantity_seconds integer not null check (quantity_seconds >= 0),
-  resolved_rate    numeric(12,2) not null,   -- frozen at generation time
+  unit             text not null default 'hour' check (unit in ('hour', 'fixed')),
+  quantity         numeric(12,2) not null check (quantity >= 0),
+  unit_price       numeric(12,2) not null,   -- frozen at generation time
   amount           numeric(12,2) not null,
-  sort_order       integer not null default 0
+  sort_order       integer not null default 0,
+
+  -- A flat charge is one of something by definition; letting it carry 3.5
+  -- would put a quantity on the document that the amount does not reflect.
+  constraint fixed_line_is_one check (unit <> 'fixed' or quantity = 1)
 );
 create index line_items_invoice_idx on invoice_line_items (invoice_id, sort_order);

@@ -69,8 +69,7 @@ client's rate next year must never retroactively alter an invoice already sent.
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, `max_timer_hours`, the invoice
 identity block (business name, address, logo, tax id, terms), the invoice
-number sequence, `payment_notice`, the monthly goal
-(`monthly_target`, `monthly_target_unit`), and the entry-length thresholds
+number sequence, `payment_notice`, and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
 
 **The length thresholds default to null, and that is the feature.** Null
@@ -169,6 +168,13 @@ Two deliberate exceptions:
 - Entries on a **draft** invoice remain editable.
 - **Detaching** an entry (`invoice_id → null`) stays allowed, so a voided
   invoice can release its entries.
+
+### Work invoiced elsewhere
+`time_entries.invoiced_elsewhere` marks work already billed from another tool,
+usually history an import brought in. It counts as **earned** and is never
+**unbilled**: `unbilled_by_client`, invoice generation and the inbox's
+uninvoiced rows all skip it. It is a flag, not an invoice, so it takes no
+number and appears in no invoice list, and the entry stays editable.
 
 ### Gapless invoice numbering
 `allocate_invoice_number(user_id)` increments `next_invoice_number` under a row

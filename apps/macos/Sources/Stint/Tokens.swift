@@ -156,6 +156,10 @@ public enum Tokens {
             size: 30, weight: .medium, tracking: -0.6,
             uppercase: false, tabular: true, mono: true
         )
+        public static let figureHero = Role(
+            size: 40, weight: .medium, tracking: -0.8,
+            uppercase: false, tabular: true, mono: true
+        )
         public static let lede = Role(
             size: 15, weight: .regular, tracking: 0,
             uppercase: false, tabular: false, mono: false
@@ -200,6 +204,10 @@ public enum Tokens {
             size: 11.5, weight: .regular, tracking: 0,
             uppercase: false, tabular: true, mono: true
         )
+        public static let metaStrong = Role(
+            size: 11.5, weight: .semibold, tracking: 0,
+            uppercase: false, tabular: true, mono: true
+        )
         public static let wordmark = Role(
             size: 24, weight: .semibold, tracking: 2.88,
             uppercase: false, tabular: false, mono: true
@@ -211,6 +219,10 @@ public enum Tokens {
         public static let nav = Role(
             size: 13, weight: .medium, tracking: 1.04,
             uppercase: true, tabular: false, mono: true
+        )
+        public static let regionHead = Role(
+            size: 13, weight: .medium, tracking: 0.13,
+            uppercase: false, tabular: false, mono: true
         )
         public static let label = Role(
             size: 11, weight: .medium, tracking: 1.76,

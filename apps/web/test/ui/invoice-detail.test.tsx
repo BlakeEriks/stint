@@ -49,9 +49,9 @@ function serve(status: InvoiceStatus) {
             lineItems: [
               {
                 description: 'Design review',
-                quantitySeconds: 9000,
-                quantityHours: 2.5,
-                resolvedRate: 150,
+                unit: 'hour' as const,
+                quantity: 2.5,
+                unitPrice: 150,
                 rateSource: 'client',
                 amount: 375,
               },

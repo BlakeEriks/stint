@@ -12,7 +12,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 37 of 37, counting handlers rather than files.
+Every handler is covered — 39 of 39, counting handlers rather than files.
 
 ## Timer
 
@@ -39,27 +39,46 @@ trusting the device clock.
 | `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice. Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. |
 | `DELETE` | `/entries/:id` | Same lock applies. |
 
+## Import
+
+A Toggl Track detailed-report CSV, as `multipart/form-data`: `file`, and
+`timeZone` (IANA) — the zone the export's wall-clock times are in, which is
+the exporting account's and not necessarily the caller's. Optional: `allBillable=true` imports every row billable (Toggl's
+free plan marks all of them not billable), and `invoicedThrough`
+(`YYYY-MM-DD`) marks rows starting on or before it as invoiced elsewhere.
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/imports/preview` | Every row the file would write, and why any would not. Writes nothing. |
+| `POST` | `/imports/confirm` | Writes what the same file previews as, re-deriving it server-side rather than trusting a preview sent back. Returns `{ written, alreadyImported, unrated, overlapping, excluded, invoicedElsewhere }`. |
+
+Each entry's id is derived from the user and the row's own content, so a
+retry or the same file twice lands on rows already written and adds nothing.
+Imported entries carry no `rateOverride`: they resolve through the rate chain
+like any other. A row with no end time is never written. Both return **`422
+IMPORT_FILE_UNRECOGNIZED`** for a file that is not a Toggl export,
+or one with an unreadable row, before anything is written.
+
 ## Views
 
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, exceedsThreshold, maxTimerHours, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. |
 | `GET` | `/calendar` | `?from&to` (**both required**) `&tz&granularity`. Returns `{ days: [...] }`. `400 INVALID_PERIOD` if `to < from`. |
-| `GET` | `/calendar?granularity=day` | Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. Backs the home screen's activity chart, where a month of full entries is a heavy payload for something drawing one column per day. `byClient` keys by client id with `''` for internal work, and running entries are excluded. |
+| `GET` | `/calendar?granularity=day` | Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. A month of full entries is a heavy payload for something drawing one column per day. **Seconds only**, so it carries no money; Home's week bars take both columns from `/stats`'s `week` instead. `byClient` keys by client id with `''` for internal work, and running entries are excluded. |
 | `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call. One request because they render together, and a set that pops in piecemeal reads as broken. Fields and their rules are below. |
 | `GET` | `/entries/task-names` | `?projectId&limit` (1–20, default 8). Returns `{ taskNames: [{ taskName, projectId, lastUsedAt }] }` — names the user has typed before, for suggesting one rather than retyping it. One row per name **case-insensitively**, keeping the most recent spelling, since offering both is offering the user their own typo; the empty name is excluded, so a timer started in a hurry never becomes a suggestion. **`projectId` ranks, it does not filter** — names used with that project come first and every other name still follows, so there is no `none` literal as there is on `/entries`: "no project" and "no preference" are one request. Omitting it ranks by recency alone. Ranking is the server's and clients must not re-sort it; filtering as the user types is theirs. Backed by the `recent_task_names` SQL function. |
 
 ### `/stats` fields
 
-`currency`, `unbilled`, `earnedToday`, `collected`, `awaitingPayment`,
-`openInvoiceCount`, `pace`, `billableRatio`, `velocity`, `byProject` and
-`attention`. The rollups behind them, and the window each one runs, are in
-`docs/data-model.md`; what the screen does with them is
-`docs/design/screens/home.html`.
+`currency`, `unbilled`, `earnedToday`, `week`, `month`, `collected`,
+`awaitingPayment`, `openInvoiceCount` and `attention`. The rollups behind
+them, and the window each one runs, are in `docs/data-model.md`; what the
+screen does with them is `docs/design/screens/home.html`.
 
 **Three figures are three stages of one pipeline, and no two may be summed** —
 any pair double-counts the same hours. `unbilled` is work done and not
-invoiced, `awaitingPayment` is invoiced and not collected, `collected` is
+invoiced — here or, for an entry marked `invoiced_elsewhere`, anywhere — `awaitingPayment` is invoiced and not collected, `collected` is
 money that arrived. `openInvoiceCount` is how many invoices make up the
 second.
 
@@ -75,15 +94,48 @@ every device. Unrated work earns nothing it can name, so it can understate a
 day whose rate chain resolves to null.
 
 **Rows are capped and the remainder is reported, never dropped.** `unbilled`
-and `velocity` carry 5 rows plus a `moreClients` count; `byProject` carries 4
-plus `tailSeconds` / `tailAmount`. Every total still covers the whole window.
+carries 5 rows plus a `moreClients` count. The total still covers every
+client.
 
-**`pace.series` steps on business days only** — a ray sloping through the
-weekend would show the user behind every Saturday and recovered every Monday.
-Each point carries the cumulative `actual`, null past today, and the goal's
-`expected`. A revenue target counts work **done**, bucketed by the entry's
-date and never the invoice's `issue_date`; voiding an invoice releases its
-entries.
+**`month` is the screen's subject and needs no target.** `month.earned` is
+the month so far; `month.projected` carries its trailing rate to the last
+business day, and is **null until three business days have elapsed** —
+earned-so-far over one elapsed day multiplied by the month is a figure that
+swings by thousands on the second day, so it is withheld rather than guessed
+at. `monthlyTarget` is a setting this field does not read.
+
+`month.series` steps on business days **only** and carries one point per
+business day of the month: the cumulative `actual`, **null past today**,
+because a line held level to the 31st reads as a month that stopped working.
+Weekend work is carried onto the next business day's point, so the last
+non-null `actual` always equals `month.earned` — the hero figure is the
+line's own last point, never a separate sum, since the projection
+extrapolates that series. `month.projection` is the dashed leg from today to
+month end, `{ from, to }`, and null whenever `projected` is.
+
+Earned counts work **done**, bucketed by the entry's date and never the
+invoice's `issue_date`; voiding an invoice releases its entries.
+
+**`month.byClient` is the month's money per client** — the strip beneath the
+climb, `{ clientId, clientName, amount }` ordered by amount descending, with
+`clientId` null for internal work. It is **money, where the week's bars are
+seconds**: the month's subject is Earned, so its split divides what was
+earned. `amount` sums invoiced and unbilled, because the split is by client
+and not by billing state — a client's band must not shrink the day its
+invoice goes out. A client whose month resolved no rate is absent, having
+earned nothing to give a band a width. One `revenue_by_client` call over the
+month, never `resolve_entry_rate` per client.
+
+**`week` is seven days, oldest first, from the user's own `weekStartsOn`** —
+always seven, so a day with no work is a zero column rather than an absent
+one. Each carries `seconds` and `amount`, and **the two do not share a
+filter**: `seconds` counts all billable worked time including work whose rate
+chain resolves to null, because that time was worked and it sets the bar's
+height; `amount` excludes it and is **null** on a day that resolves no rate,
+so the bar prints no figure rather than `$0`. A rate of exactly `0` is a real
+rate — it counts in `seconds` and contributes `0.00`. The week runs its own
+window over `revenue_by_day`, since a week straddles the 1st and the month's
+rows stop at the boundary.
 
 **`attention` is derived per request** from stored facts, with grace periods:
 an invoice is overdue at `due_date` + 7 days, a draft stale 7 days after
@@ -91,8 +143,11 @@ issue. The one row whose condition never clears on its own is gated by a
 stored answer instead — `duration_ok` on an entry of unusual length — so it
 cannot return every day once answered. `unprojected` is one row per entry,
 oldest first; `strangeDurations` one per entry of implausible length, and
-both its thresholds default to null, so the row is opt-in. The runaway timer
-is the inbox's fifth row and comes from `/summary`, not here.
+both its thresholds default to null, so the row is opt-in. `overlaps` is one
+per pair of uninvoiced entries sharing a minute or more (`MIN_OVERLAP_SECONDS`
+in `@stint/core`), naming the later-starting entry; it clears when either is
+edited apart. The runaway timer is the inbox's sixth row and comes from
+`/summary`, not here.
 
 ## Clients / projects / settings
 
@@ -216,6 +271,7 @@ verified by phone.
 | `NO_RATE_CONFIGURED` | 400 | No rate at any level for a billable entry. |
 | `INVALID_PERIOD` | 400 | |
 | `UNAUTHORIZED` | 401 | |
+| `IMPORT_FILE_UNRECOGNIZED` | 422 | Not a Toggl export, or a row in it cannot be read; `message` names the line. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, or a `PATCH` body that parses but maps to no column. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 

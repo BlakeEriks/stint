@@ -1,12 +1,28 @@
 # Roadmap
 
-Work that is wanted and not yet built, ordered by the milestone it belongs
-to. **Known faults go in `defects.md` instead** — a bug needs no
+New capabilities that are wanted and not yet built, ordered by the
+milestone they belong to — each one a Spec Kit build. **Faults, tweaks and
+improvements to what exists are GitHub issues instead**: a bug needs no
 justification, a feature does.
 
 A finished item is **deleted**, not ticked. So is one decided against: there
 is no archive of rejections, because the thesis moves and a past no does not
 bind a new proposal. Re-argue it against `positioning.md`.
+
+## Two lines, not one
+
+**Alpha** is a handful of friends using it for real, on the web and on
+macOS. The bar is that someone who is not us can reach it, arrive with the
+history they already have, and leave with it — so M2 and M3 are both alpha,
+and nothing about money is. Alpha has no price, which also defers every
+question that depends on one.
+
+**Launch** is a stranger paying. That is M4, and it is the only milestone
+past the alpha line.
+
+The distinction decides what "blocks" means in question 4 below. An item that
+blocks launch and not alpha is not urgent; an item that blocks alpha is, even
+when it is not product work at all.
 
 ## The gate
 
@@ -19,45 +35,204 @@ fewer. No answer, no entry.
 2. **What happens without it?** One of: they do not sign up, they leave in
    month three, or it annoys them. **Annoyance does not make the roadmap.**
 3. **Does it serve the one person, or a team we do not have?**
-4. **Which milestone, and does it block launch?**
+4. **Which milestone, and does it block alpha or launch?**
 
 If an earlier version of the idea was turned down, say what changed. The
 thesis moved in September 2026.
 
 **A release-gating defect is exempt**, and it is the only exemption: it sits
-here rather than in `defects.md` because it blocks a milestone, and a defect
+here rather than in an issue because it blocks a milestone, and a defect
 needs no justification. Every other item answers the four questions —
 including the ones that feel too obvious to argue, because an item that skips
 the gate teaches the next reader that the gate is optional.
 
 ---
 
-## M1 · The invoice can represent a real business
+## M2 · Someone else can open it
 
-The paid tier is the invoice. If it cannot describe the work, there is
-nothing to sell.
+**Nothing here is product work**, which is why it was missing: the roadmap
+gates features, and this milestone is the ground a feature stands on. A
+friend who cannot receive a sign-in link, or whose Mac refuses the app, has
+no opinion to give us.
 
-- [ ] **Non-time line items: flat fee and rebilled expense.**
+Three purchases and their consequences — a domain, an SMTP provider, an Apple
+developer account. `runstint.com` is registered; the other two are not. Buy
+them together, because each one blocks work that looks unrelated to it.
 
-      *Whose problem:* a contractor who bills a fixed-scope project, a
-      deposit, a retainer amount, or who rebills a flight or a licence, cannot
-      produce a correct invoice at all today.
+- [ ] **Point `runstint.com` at the deployment.**
 
-      *Without it:* they do not sign up. This is not a missing nicety — the
-      tool cannot invoice their business.
+      *Whose problem:* ours, and it blocks everyone else's. The domain is
+      registered — `deploying.md`, `isAppHost()` and
+      `.claude/rules/routing.md` name it, and none of it resolves yet.
 
-      *One person:* yes. Flat-fee work is the common solo shape, not an
-      agency one.
+      *Without it:* there is nothing to send a friend. A `*.vercel.app` URL
+      on a private project is fronted by SSO, so an unauthenticated visitor
+      gets redirected to Vercel rather than to the app.
 
-      `LineItem` in `packages/core/src/invoice.ts` requires `quantitySeconds`
-      and `entryIds`, so every line is structurally time. This is a type
-      change reaching core, the SQL rate chain, the PDF and the API — the
-      largest item before launch, and the one that gates revenue.
+      *One person:* it is the precondition for anyone at all.
 
-      Expenses need no receipt capture or categories to clear this bar. A
-      line on an invoice that is not hours is the whole requirement.
+      Both hostnames onto the Vercel project, and the app host added to
+      Supabase's **Site URL** and **Redirect URLs** — `setup.md` §4 has the
+      shape, and a magic link that redirects to an unlisted origin fails
+      after the click rather than before it.
 
-## M2 · Your records get in, and back out
+      DNS is on Cloudflare, which the registrar requires. **Vercel's records
+      are proxied off — grey cloud, DNS only** — because an orange-clouded
+      record terminates TLS at Cloudflare and Vercel's certificate issuance
+      never completes.
+
+- [ ] **Get a trademark read on `STINT` before the name gets expensive.**
+
+      *Whose problem:* ours, and it is the only item here that can invalidate
+      the other two. **Serial 50073296** — the word STINT in standard
+      characters, classes 009, 035 and 042 — was filed intent-to-use on
+      26 August 2026 by Stint Workforce, LLC. Class 042 is ours, and their
+      goods name *temporary work assignments*, which is close to a product
+      for contractors. **STYNT** (reg. 87539615, classes 035 and 042) is a
+      phonetic twin that already registered. The UK staffing app's three US
+      filings are all abandoned and block nothing.
+
+      *Without it:* nothing breaks today. Intent-to-use means they are not
+      using the mark yet and the application has not been examined — it can
+      still be refused or abandoned. But if it registers, its priority date
+      precedes any we could establish.
+
+      *One person:* no, and that is why it sits above the other purchases
+      rather than beside them. An hour with an attorney costs less than an
+      Apple developer account, and it is the last moment a rename is cheap:
+      a signed binary and a domain in a client's inbox are what make the
+      name expensive to change.
+
+      A domain is $10 and reversible. **The Apple account, the signed app
+      and the first invoice a client receives are not** — so this resolves
+      before those, not after.
+
+- [ ] **Custom SMTP, so sign-in links arrive.**
+
+      *Whose problem:* every alpha user, at the only moment that matters —
+      their first. Supabase's default sender is **rate-limited to a few
+      messages an hour** and shared across projects, so it is adequate for
+      one developer and not for five friends signing in on the same evening.
+      Mail from a shared sender also lands in spam more often, and a sign-in
+      link in spam reads as a broken product.
+
+      *Without it:* they do not sign up, in the most literal sense available.
+
+      *One person:* yes — the app sends nothing else. **Invoices still go
+      from the user's own address** (`principles.md`), so this carries
+      authentication mail only and nothing about it argues for sending
+      invoices later.
+
+      A provider, SPF and DKIM on the domain above, then the magic-link
+      template `setup.md` §4a is already written against — which also gives
+      the macOS app its six-digit code and retires `signin.sh`. One
+      unresolved question: which sender address, since it appears in every
+      inbox we ever reach.
+
+- [ ] **Upgrade Supabase to Pro before the first invite goes out.**
+
+      *Whose problem:* every alpha user, silently. The free tier **pauses a
+      project after seven days with no database activity** — fine while the
+      only traffic is ours, and the first thing a friend can hit once they
+      are not. Unpausing is a manual dashboard click; the failure mode is
+      not data loss, it is a friend opening the app to nothing and us not
+      knowing until they say so.
+
+      *Without it:* they do not sign up, or worse, they do once and the
+      project pauses before they come back.
+
+      *One person:* no — this is the plan tier, not a feature. It is listed
+      here because it is a purchase with the same shape as the other three:
+      cheap, invisible until missing, and due before a stranger's first
+      visit rather than after.
+
+      **This does not touch email.** The 2/hour default-sender cap above is
+      hardcoded to Supabase's shared infrastructure at every plan tier —
+      Pro does not raise it, does not change the sender address, and does
+      not unlock template customization. Custom SMTP is still required
+      regardless of plan.
+
+- [ ] **Sign the macOS app, so it opens on someone else's Mac.**
+
+      *Whose problem:* every alpha user on macOS. `bundle.sh` self-signs with
+      a local identity, which is fine to run yourself and **not something
+      anyone else can open without right-clicking past Gatekeeper**
+      (`docs/macos.md`). A friend who has to be talked through a security
+      warning has already learned the wrong thing about a billing app.
+
+      *Without it:* they do not use the menu bar app, which is the daily
+      habit the whole subscription rests on (`principles.md`).
+
+      *One person:* yes, and it is the gate on several later things — a
+      Developer ID also earns `TokenStore` a `teamid:` Keychain partition and
+      is what Sign in with Apple waits on.
+
+      A paid Apple developer account, then notarisation. The same purchase
+      unblocks both.
+
+- [ ] **Version the macOS app, and tag `0.1.0` at alpha.**
+
+      *Whose problem:* ours, the first time a friend reports something from a
+      build three weeks old. Nothing carries a version today — the root
+      `package.json` has none and the bundle has no `CFBundleShortVersionString`
+      — which is correct while the only copy is ours and a commit SHA
+      identifies it.
+
+      *Without it:* a support question has no answer. The web app cannot
+      drift, because everyone gets the current deploy; **a native app on
+      someone else's machine is the first thing that can.**
+
+      *One person:* it starts mattering the moment the app leaves this
+      machine, which is what makes it M2 rather than earlier.
+
+      The version belongs in the bundle and readable from the app, so a
+      report names it without the user finding it.
+
+- [ ] **Alpha is invite-only, and the landing page is how you ask.**
+
+      *Whose problem:* ours, and it is live the moment the apex resolves.
+      Magic-link auth **creates the account on first sign-in** — there is no
+      allowlist anywhere in the tree — so today every CTA on the landing page
+      is an open front door into the production database.
+
+      *Without it:* a stranger we did not invite has a real account, and the
+      first limit we hit is Supabase's default sender, which is the same
+      few-an-hour cap the SMTP item above exists to lift.
+
+      *One person:* yes, and it is what makes the page publishable before
+      any of that is finished.
+
+      **Capture an address instead of signing them in.** A form service, not
+      a table and a route: an unauthenticated write endpoint on our own
+      database needs rate limiting to not become a spam target, and that is
+      more work than an alpha list of a dozen people justifies. The gate is
+      us reading the list, which is what invite-only means at this size.
+
+      Swap it for a real table when there is a reason — a volume that makes
+      reading the list tedious, not a preference for owning the rows.
+
+- [ ] **An address on the domain: `hello@runstint.com`.**
+
+      *Whose problem:* every alpha user who wants to reply to something, and
+      ours on the invoice — a billing tool whose only contact is a personal
+      Gmail undercuts the thing it is selling.
+
+      *Without it:* it annoys them, which does not make the roadmap on its
+      own — **but the capture form and the invoice footer both need an
+      address to name**, and neither can ship without one.
+
+      *One person:* yes.
+
+      Cloudflare Email Routing forwards it, free and in minutes. **It does
+      not send**, so it replaces nothing in the SMTP item above: that is
+      still a separate provider, and this is only an inbox.
+
+- [ ] **Sign in as a stranger would.** A second machine, an address that has
+      never touched this project, and no local anything — through the real
+      domain, the real sender, the real redirect. Every failure above
+      happens after a click and none of them show up in CI.
+
+## M3 · Your records get in, and back out
 
 Both directions of the same promise: the history you arrive with comes with
 you, and nothing you build here is held hostage.
@@ -77,84 +252,25 @@ you, and nothing you build here is held hostage.
       accountant's version and is probably the highest value per line of code
       in the file. Rates must be in the entry export, and `0` is a real rate.
 
-- [ ] **Import from Toggl and Harvest.**
+- [ ] **Import from Harvest, once someone asks for it.**
 
-      *Whose problem:* a contractor arriving with years of history has it
-      somewhere else. Starting on an empty database means their first month
-      here cannot be compared with anything, and the invoice they most want to
-      check against is the one they already sent from the old tool.
+      *Whose problem:* a contractor arriving from Harvest rather than Toggl.
 
-      *Without it:* they do not start. Not "they leave in month three" — an
-      import is the first thing they try, before any of this is worth
-      evaluating.
+      *Without it:* they start with no history — but no user has asked yet,
+      and Harvest's export is the harder one: a duration-tracking account
+      records no time of day, so every row needs a placement decision the
+      Toggl import never faces.
 
-      *One person:* yes, and the first of them is us. This is the path onto
-      the product, not a migration nicety.
-
-      A **file upload**, not an API integration: the CSV/JSON export is
-      stable, needs no OAuth app or stored third-party credential, and keeps
-      working if their API changes. Parsing belongs in `packages/core` as pure
-      functions over parsed rows, so the preview a user reviews and the rows
-      that get written come from identical code.
-
-      Four parts are hard, and each is already decided:
-
-      - **Overlaps violate the timer invariant.** Toggl permits overlapping
-        entries and a real export contains them. Never resolve this by
-        adjusting timestamps — import everything unambiguous and present the
-        conflicting set as a review step. Import happens once in a lifetime,
-        so a review step is cheap; a wrong hour inside a past invoice is not.
-      - **Rates are not in the export, and `0` is a real rate.** The CSV
-        carries an amount per entry, not the hierarchy that produced it.
-        Back-computing rate from amount ÷ duration gives rounding noise and is
-        wrong for anything billed flat. Imported entries resolve through the
-        normal chain; those that cannot surface as unrated, the state
-        invoicing already refuses to generate from. Never write a guessed
-        rate.
-      - **Idempotency.** A stable UUIDv7 per source entry, so re-running a
-        partial or interrupted import cannot duplicate anything.
-      - **Timestamps and DST.** Toggl exports wall-clock local time plus a
-        separate timezone field. Parse to an absolute instant and store UTC.
-
-      Tags are dropped — there is no tag concept here and adding one to serve
-      an import imports Toggl's scope along with its data. Durations are
-      derived, so the import writes `started_at`/`ended_at` and never a
-      duration; where Toggl's reported duration disagrees with its own
-      start/end pair, surface the disagreement rather than picking a winner.
-
-      **Out of scope:** no live sync. Two systems of record is a different
-      product.
-
-## M3 · Money truth on Home
-
-- [ ] **Re-noun the month card to unbilled, keep the projection on earned.**
-
-      *Whose problem:* the number a contractor cannot get anywhere else is
-      what they have worked and not yet billed. Earned is a commodity figure
-      every competitor computes.
-
-      *Without it:* they leave in month three. `principles.md` says why Home
-      carries the habit; this is the figure that makes it worth opening.
-
-      *One person:* yes. The figure is one contractor's own unbilled work.
-
-      Headline is **unbilled** — a balance that climbs while you work and
-      resets when you invoice. The projection stays and projects **earned
-      month-to-date extrapolated to month-end**, which is monotonic and so
-      can be extrapolated; unbilled cannot, since projecting it forecasts
-      when you next invoice and predicts a drop to zero. Earned buckets by
-      when the work was done.
-
-      **Awaiting** becomes one quiet line, rendered only when non-zero.
-      **Collected** moves off Home to `/invoices` — it renders on Home today
-      (`home-cards.tsx`), and for a contractor paid monthly it is a figure
-      that freezes in week one and says nothing for the rest of the month.
-      Today and This week are unchanged.
+      *One person:* yes, when one exists. The Toggl pipeline takes a second
+      parser; nothing else changes. Gate: a user asks.
 
 ## M4 · Taking money
 
-**This milestone is a subsystem, not a copy change**, and it is plausibly
-larger than M1. Nothing here exists in the codebase today: there is no Stripe
+**Past the alpha line.** Friends are not a pricing experiment, so nothing
+here blocks them trying it — but nothing else turns this into a business.
+
+**This milestone is a subsystem, not a copy change**, and it is the largest
+thing left. Nothing here exists in the codebase today: there is no Stripe
 integration, no subscription table, no entitlement check.
 
 - [ ] **Billing: subscribe, and know who has.**
@@ -257,8 +373,8 @@ the gate its four answers when it moves up.
   the client's own hue**, so a project with no shade set renders what it
   renders today. Four is the ceiling; a fifth halves the step.
 
-  **Shades reach the bar chart and Velocity's mix, never the heatmap.** Those
-  two spend no lightness, so the channel is free. The heatmap spends it on
+  **Shades reach the week's bars and the month's client strip, never the
+  heatmap.** Those two spend no lightness, so the channel is free. The heatmap spends it on
   hours, where shades do not blur but **invert**: composited on the panel,
   step 1 at 35% opacity lands at L 0.437 while step 4 at full opacity lands at
   L 0.540, so the lightest project on a quiet day renders darker than the
@@ -274,13 +390,9 @@ the gate its four answers when it moves up.
 
 - **macOS global hotkey**, and the menu bar app's system-drawn dropdowns.
 
-- **macOS signing, notarisation and Sign in with Apple** — one gate, which is
-  a paid Apple developer account. `bundle.sh` self-signs with a local
-  identity: fine to run yourself, and not something anyone else can open
-  without right-clicking past Gatekeeper. A Developer ID would also earn
-  `TokenStore` a `teamid:` Keychain partition, and `signInWithIdToken` would
-  replace the emailed six-digit code — it needs that account, an App ID with
-  the capability and a signed bundle, none of which a SwiftPM executable
-  produces. Nothing in the API changes.
+- **Sign in with Apple on macOS.** `signInWithIdToken` would replace the
+  emailed six-digit code. It needs the Developer ID that M2 buys, plus an App
+  ID with the capability and a signed bundle — a SwiftPM executable produces
+  none of that. Nothing in the API changes. Deferred because the code works.
 
 - **Expo app.** Last by design; reuses the most.

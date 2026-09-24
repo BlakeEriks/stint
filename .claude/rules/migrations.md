@@ -10,6 +10,20 @@ paths:
 `pnpm migrate` applies `supabase/migrations/`; `docs/setup.md` has the
 connection and the flags.
 
+**Count the rows before proposing anything destructive.** A script under
+`scripts/` importing `connectionString()` from `db-url.mjs` queries the
+hosted database without the secret passing through a command or a log —
+`short(url)` masks it for output, and `docs/local-dev.md` has the shape. A
+reset that looked necessary for M1 was not: the table being altered held
+zero rows and thirteen real time entries sat beside it.
+
+**Editing an existing migration changes nothing that has already run.**
+`pnpm migrate` records applied files by name, so a database that has seen
+the old version keeps it. Correcting migration 1 is right for a fresh build
+AND needs a new migration carrying the same change to production — and
+`verify:schema` will not catch the gap unless it happens to assert that
+column.
+
 **Production migrates itself — never tell the user to run `pnpm migrate`
 against it.** `.github/workflows/release.yml` is a Vercel deployment check:
 the production build is built but not aliased until that workflow runs

@@ -123,7 +123,7 @@ function Loaded({
                   Description
                 </th>
                 <th scope="col" className={`${TH} text-right`}>
-                  Hours
+                  Qty
                 </th>
                 <th scope="col" className={`${TH} text-right`}>
                   Rate
@@ -140,11 +140,14 @@ function Loaded({
                   className="border-b border-edge-subtle last:border-0"
                 >
                   <td className="py-2 pr-3 text-primary">{item.description}</td>
+                  {/* A flat charge shows neither, matching the PDF. */}
                   <td className="type-duration py-2 pl-3 text-right text-muted">
-                    {formatHours(item.quantityHours)}
+                    {item.unit === 'fixed' ? '' : formatHours(item.quantity)}
                   </td>
                   <td className="type-duration py-2 pl-3 text-right text-muted">
-                    {formatCurrency(item.resolvedRate, invoice.currency)}
+                    {item.unit === 'fixed'
+                      ? ''
+                      : formatCurrency(item.unitPrice, invoice.currency)}
                   </td>
                   <td className="type-duration py-2 pl-3 text-right text-strong">
                     {formatCurrency(item.amount, invoice.currency)}

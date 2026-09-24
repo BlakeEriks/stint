@@ -18,8 +18,8 @@ to it, name the doc that owns the claim:
 | Enforced by a check or a config | that script or config, in a comment at the line someone edits |
 | Who this is for, what it competes with, what it costs | `docs/positioning.md` |
 | What we believe about the product | `docs/design/principles.md` |
-| Unbuilt work | `docs/roadmap.md` |
-| A known fault | `docs/defects.md` |
+| A new capability, built through Spec Kit | `docs/roadmap.md` |
+| A fault, or an improvement to what exists | a GitHub issue |
 | True only under one path | `.claude/rules/<topic>.md`, with `paths:` frontmatter |
 
 Only a claim no doc above owns belongs here, and then as one paragraph.
@@ -141,8 +141,12 @@ data or a developer's current location.
 `docs/CLAUDE.md` says how docs are written and `/trim <path>` measures one
 against it.
 
-**`docs/roadmap.md` is the only list of unbuilt work**, and it carries the
-gate that work passes to get there. Known faults go to `docs/defects.md`.
+**Unbuilt work splits on one question: does it need a spec?** A new
+capability or an expansion does — it goes in `docs/roadmap.md`, passes the
+gate there, and is built through Spec Kit. Everything smaller is a **GitHub
+issue**: a fault labelled `bug` plus its cost (`wrong data`, `misleading`,
+`looks wrong`, worst first), or a tweak or improvement to something that
+exists, labelled `enhancement`. The PR that does it closes it.
 
 **A branch that decides something gets `/dissent` before it merges** — a
 price, a thesis, a scope cut, a milestone order. It argues against the branch

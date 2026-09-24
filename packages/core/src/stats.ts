@@ -7,6 +7,7 @@
  */
 
 import { businessDaysInLocalMonth, localDateKey } from './calendar.ts';
+import { findOverlaps } from './overlaps.ts';
 
 /** A draft left this long is usually forgotten, not deliberate. */
 export const STALE_DRAFT_DAYS = 7;
@@ -23,24 +24,6 @@ export const OVERDUE_GRACE_DAYS = 7;
 
 /** Beyond this the card stops being a prompt and becomes a list. */
 export const MAX_UNBILLED_ROWS = 5;
-
-/**
- * Columns the by-project chart draws before the rest becomes a footer line.
- *
- * Its own constant rather than `MAX_UNBILLED_ROWS`: that one bounds a list of
- * rows, this one bounds bars competing for a fixed plot width, and sharing it
- * would let a change made for one reshape the other.
- */
-export const MAX_PROJECT_COLUMNS = 4;
-
-/**
- * Months of trailing work the Velocity figure covers.
- *
- * Whole months including the current one, so the window is a period the user
- * can name. A trailing 90 days would cut a month in half and make the figure
- * disagree with anything they compare it against.
- */
-export const VELOCITY_MONTHS = 3;
 
 /**
  * Months of payments the Collected figure sums.
@@ -72,6 +55,38 @@ export interface DurationRow extends UnprojectedRow {
   project_id: string | null;
 }
 
+export interface SpanRow {
+  id: string;
+  task_name: string;
+  started_at: string;
+  ended_at: string;
+}
+
+/**
+ * One row per overlapping pair, oldest first. The later entry is the one
+ * opened: it started inside the other, so it is usually the one to move.
+ */
+export function buildOverlaps(rows: SpanRow[]) {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return findOverlaps(
+    rows.map((r) => ({
+      id: r.id,
+      start: Date.parse(r.started_at),
+      end: Date.parse(r.ended_at),
+    })),
+  ).map((o) => {
+    const later = byId.get(o.later) as SpanRow;
+    return {
+      entryId: o.later,
+      taskName: later.task_name,
+      otherEntryId: o.earlier,
+      otherTaskName: (byId.get(o.earlier) as SpanRow).task_name,
+      startedAt: later.started_at,
+      seconds: o.seconds,
+    };
+  });
+}
+
 export interface UnbilledRow {
   client_id: string | null;
   client_name: string | null;
@@ -83,39 +98,26 @@ export interface UnbilledRow {
 }
 
 /** A `revenue_by_client` row. Numerics arrive from PostgREST as strings. */
-export interface VelocityRow {
+export interface ClientRevenueRow {
   client_id: string | null;
   client_name: string | null;
-  currency: string | null;
   seconds: string | number;
   invoiced: string | number;
   unbilled: string | number;
-  unrated_count: string | number;
 }
 
 /**
- * A `revenue_by_project` row. Numerics arrive from PostgREST as strings.
+ * A `revenue_by_day` row, keyed by local date.
  *
- * `project_id` and `project_name` are both null on the single row that
- * carries work filed under no project.
+ * `seconds` and `amount` do not share a filter: seconds counts all billable
+ * worked time in the day, amount excludes work whose rate chain resolves to
+ * null. So a day of purely unrated work carries its seconds with a null
+ * amount (`00000000000019_revenue_by_day_seconds.sql`).
  */
-export interface ByProjectRow {
-  project_id: string | null;
-  project_name: string | null;
-  client_id: string | null;
-  client_name: string | null;
-  currency: string | null;
-  seconds: string | number;
-  billable_seconds: string | number;
-  invoiced: string | number;
-  unbilled: string | number;
-  unrated_count: string | number;
-}
-
-/** A `revenue_by_day` row, keyed by local date. */
 export interface DayRow {
   day: string;
-  amount: string | number;
+  seconds: string | number;
+  amount: string | number | null;
 }
 
 export interface InvoiceRow {
@@ -236,106 +238,6 @@ export function buildUnbilled(
       oldestDays: daysSince(r.oldest_at, now),
     })),
     moreClients: Math.max(0, rows.length - MAX_UNBILLED_ROWS),
-  };
-}
-
-/**
- * Trailing-window gross, split invoiced vs not yet invoiced, per client.
- *
- * Gross work DONE over the window, on the same terms as `month_revenue`: a
- * client paying late says nothing about the quarter you worked. The split is
- * where the work stands now, so it moves as invoices are raised while the
- * total does not.
- *
- * DELIBERATELY not comparable with `awaitingPayment`, which is money already
- * asked for across every period, not this window's.
- *
- * Each row is already rounded once per (client, rate, invoiced) bucket in SQL,
- * so the totals round once more — adding rounded lines lands fractions of a
- * cent below the last place and the response would not be `money`.
- */
-export function buildVelocity(
-  rows: VelocityRow[],
-  fallbackCurrency: string,
-  months: number,
-) {
-  const invoiced = roundMoney(rows.reduce((a, r) => a + Number(r.invoiced), 0));
-  const unbilled = roundMoney(rows.reduce((a, r) => a + Number(r.unbilled), 0));
-  const total = roundMoney(invoiced + unbilled);
-  return {
-    months,
-    total,
-    /* Rounded here, not at the render: `Intl` rounds an unrounded quotient to
-       two places for display, so the headline the user reads multiplied by
-       `months` did not equal the split printed beneath it. The client does
-       not compute money. */
-    perMonth: roundMoney(total / months),
-    invoiced,
-    unbilled,
-    seconds: rows.reduce((a, r) => a + Number(r.seconds), 0),
-    byClient: rows.slice(0, MAX_UNBILLED_ROWS).map((r) => ({
-      clientId: r.client_id,
-      // Work with no client is internal; the UI must not render a blank name.
-      clientName: r.client_name ?? 'No client',
-      currency: r.currency ?? fallbackCurrency,
-      seconds: Number(r.seconds),
-      invoiced: Number(r.invoiced),
-      unbilled: Number(r.unbilled),
-      unratedCount: Number(r.unrated_count),
-    })),
-    moreClients: Math.max(0, rows.length - MAX_UNBILLED_ROWS),
-  };
-}
-
-/**
- * The same trailing window as Velocity, ranked by project instead of client.
- *
- * `seconds` counts all worked time and `amount` counts billable work alone,
- * so a project that is entirely unbillable has hours and no money — which is
- * what it is, not a gap.
- *
- * Work filed under no project is partitioned out before the slice and can
- * never become a column, however many hours it carries: a bar for work that
- * is not a project would take one of four slots from work that is, and the
- * unprojected card already owns that subject and links to the fix. It still
- * lands in the tail and the section totals, so `columns + tail === total`
- * holds and the footer states the window's real total. A chart whose total
- * omits unfiled hours is a billing screen disagreeing with itself.
- *
- * One array, ordered by seconds as SQL ordered it. Revenue mode ranks
- * differently, but that is a re-sort of the same four rows, not a second cut.
- */
-export function buildByProject(rows: ByProjectRow[], fallbackCurrency: string) {
-  const amountOf = (r: ByProjectRow) => Number(r.invoiced) + Number(r.unbilled);
-  const projects = rows.filter((r) => r.project_id !== null);
-  const columns = projects.slice(0, MAX_PROJECT_COLUMNS);
-  const tail = [
-    ...projects.slice(MAX_PROJECT_COLUMNS),
-    ...rows.filter((r) => r.project_id === null),
-  ];
-  return {
-    seconds: rows.reduce((a, r) => a + Number(r.seconds), 0),
-    /* Rounded once on the sum, like every other total here: each row was
-       already rounded per bucket in SQL, and adding rounded lines lands
-       fractions of a cent below the last place. */
-    amount: roundMoney(rows.reduce((a, r) => a + amountOf(r), 0)),
-    byProject: columns.map((r) => ({
-      projectId: r.project_id,
-      projectName: r.project_name,
-      /** Null for internal work — a project with no client. */
-      clientId: r.client_id,
-      clientName: r.client_name,
-      currency: r.currency ?? fallbackCurrency,
-      seconds: Number(r.seconds),
-      billableSeconds: Number(r.billable_seconds),
-      amount: amountOf(r),
-      unratedCount: Number(r.unrated_count),
-    })),
-    /* The footer prints the remainder as a figure, not just a count, so it
-       carries its own totals rather than leaving the reader to subtract. */
-    moreProjects: tail.length,
-    tailSeconds: tail.reduce((a, r) => a + Number(r.seconds), 0),
-    tailAmount: roundMoney(tail.reduce((a, r) => a + amountOf(r), 0)),
   };
 }
 
@@ -568,7 +470,7 @@ export function buildHoursByDay(
 }
 
 /**
- * `revenue_by_day` rows as the map `buildPace` walks.
+ * `revenue_by_day` rows as the map `buildEarnedPace` walks.
  *
  * A `date` column reaches PostgREST as `YYYY-MM-DD` but the `pg` driver the
  * route tests run through parses it into a local `Date`, whose ISO form is the
@@ -576,24 +478,97 @@ export function buildHoursByDay(
  * keeps both paths on the key SQL actually grouped by.
  */
 export function revenueByDay(rows: DayRow[]): Map<string, number> {
-  return new Map(
-    rows.map((r) => {
-      const d = r.day as unknown;
-      const key =
-        d instanceof Date
-          ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-          : String(d);
-      return [key, Number(r.amount)];
-    }),
-  );
+  // A null amount is a day of purely unrated work: it earned nothing it can
+  // name, so it contributes 0 to the money line while keeping its seconds.
+  return new Map(rows.map((r) => [dayKey(r), Number(r.amount ?? 0)]));
 }
 
-/** Null when nothing was tracked this month — 0/0 is not 0%. */
-export function buildBillableRatio(
-  monthSeconds: number,
-  billableSeconds: number,
-): number | null {
-  return monthSeconds === 0 ? null : billableSeconds / monthSeconds;
+/**
+ * A `revenue_by_day` row's local date as the `YYYY-MM-DD` key SQL grouped by.
+ *
+ * A `date` column reaches PostgREST as `YYYY-MM-DD` but the `pg` driver the
+ * route tests run through parses it into a local `Date`, whose ISO form is the
+ * previous day west of Greenwich. Taking the date parts off the local value
+ * keeps both paths on the same key.
+ */
+function dayKey(row: DayRow): string {
+  const d = row.day as unknown;
+  return d instanceof Date
+    ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    : String(d);
+}
+
+/** One day of the week's bars: the height, and the figure at its head. */
+export interface WeekDay {
+  /** `YYYY-MM-DD` in the caller's zone. */
+  date: string;
+  /** All billable worked time, unrated work included — this is the height. */
+  seconds: number;
+  /** Null when the day's work resolves no rate: the bar prints no figure. */
+  amount: number | null;
+}
+
+/**
+ * The week's seven bars, from the same rollup the month's line is built from.
+ *
+ * Seven entries always, one per local date from `startKeys`, so a day with no
+ * work is present at zero rather than absent — the chart holds every weekday
+ * label on one baseline and cannot infer a missing column's position.
+ *
+ * `amount` stays null where the rollup returned null, because a day of
+ * unrated work has a real height and no figure to print: substituting 0 would
+ * claim the work was free (`docs/design/screens/home.html`, "The week's
+ * bars").
+ */
+export function buildWeek(rows: DayRow[], dateKeys: string[]): WeekDay[] {
+  const byDate = new Map(rows.map((r) => [dayKey(r), r]));
+  return dateKeys.map((date) => {
+    const row = byDate.get(date);
+    return {
+      date,
+      seconds: row ? Number(row.seconds) : 0,
+      amount: row?.amount == null ? null : roundMoney(Number(row.amount)),
+    };
+  });
+}
+
+/** One band of the month's strip: a client, and the money it earned. */
+export interface MonthClient {
+  /** Null for internal work — a project with no client, and so no hue. */
+  clientId: string | null;
+  clientName: string;
+  amount: number;
+}
+
+/**
+ * The month's money split by client — the strip beneath the climb.
+ *
+ * The strip is MONEY where the week's bars are seconds: the month's subject
+ * is Earned, so its split divides what was earned
+ * (`docs/design/screens/home.html`, "The strip and the legend").
+ *
+ * Each row's two money columns are summed because the split is by client and
+ * not by billing state: work already invoiced is still money the month
+ * earned, and dropping it would shrink a client's band the day its invoice
+ * goes out.
+ *
+ * Ordered by amount, descending — the same order the rollup returns and the
+ * order the legend names them in, so a band and its key line up.
+ */
+export function buildMonthByClient(rows: ClientRevenueRow[]): MonthClient[] {
+  return (
+    rows
+      .map((r) => ({
+        clientId: r.client_id,
+        // Work with no client is internal; the UI must not render a blank name.
+        clientName: r.client_name ?? 'Internal',
+        amount: roundMoney(Number(r.invoiced) + Number(r.unbilled)),
+      }))
+      /* A client whose month resolved no rate earned nothing to give a band a
+       width. It keeps its seconds in the week's bars, where height is hours. */
+      .filter((c) => c.amount > 0)
+      .sort((a, b) => b.amount - a.amount)
+  );
 }
 
 /**
@@ -629,86 +604,118 @@ export function businessDayKeysInLocalMonth(now: Date, tz: string): string[] {
 }
 
 /**
- * Pace against the monthly target, or null when none is set — the card hides
- * entirely rather than rendering an empty bar that asks to be configured.
+ * Business days a projection refuses to extrapolate from.
  *
- * `byDay` is that unit's own per-day figure — hours for an hours target, money
- * for a revenue one — keyed by local date. Days absent from it contributed
- * nothing, which is not the same as a gap: the cumulative line holds flat.
- *
- * A revenue target reports `expected` and `delta` on the same terms as an
- * hours one. A bare "behind by $2,400" on the 3rd is arithmetic rather than a
- * finding; read against the cumulative line, the same projection is a shape,
- * which is what makes it worth stating.
+ * Earned-so-far divided by one elapsed day, carried across twenty-two, is one
+ * day's work multiplied by the month — a figure that swings by thousands when
+ * the second day is logged. Below this the month has not shown a shape yet and
+ * the projection is withheld rather than guessed at.
  */
-export function buildPace({
-  target,
-  unit,
-  monthSeconds,
-  monthRevenue,
+export const MIN_PACE_DAYS = 3;
+
+/**
+ * Where the month lands if it keeps earning at the rate it has so far.
+ *
+ * Needs no target. Earned accumulates — it climbs all month and settles — so
+ * carrying its trailing rate to the last working day is arithmetic on a shape
+ * the series already has (`docs/design/screens/home.html`, "What earns a
+ * place"). Nothing else on the screen is monotonic enough to deserve one.
+ *
+ * `byDay` is money per local date. Days absent from it contributed nothing,
+ * which is not the same as a gap: the cumulative line holds flat.
+ *
+ * `projected` is null until the month has `MIN_PACE_DAYS` of business days to
+ * average, which is the same instability the goal-derived pace guarded by
+ * clamping its divisor — here there is no target to fall back on, so the
+ * figure is withheld instead of invented.
+ */
+export function buildEarnedPace({
   byDay,
   now,
   tz,
 }: {
-  target: string | number | null | undefined;
-  unit: string | null | undefined;
-  monthSeconds: number;
-  monthRevenue: number;
   byDay?: ReadonlyMap<string, number>;
   now: Date;
   tz: string;
 }) {
-  if (target == null || unit == null) return null;
-
-  const goal = Number(target);
   const { elapsed, total } = businessDaysInLocalMonth(now, tz);
+  const series = buildEarnedSeries({ byDay, now, tz });
 
-  // A month whose 1st falls on a weekend has zero business days elapsed that
-  // day. Dividing by it would report any target as infinitely behind.
-  const expected = total === 0 ? 0 : goal * (Math.max(elapsed, 1) / total);
+  // Summed from `byDay` directly rather than read off the series' last
+  // non-null point. The series nulls everything past today, so reading the
+  // total off it would make `earned` depend on where `now` falls — a month
+  // queried after it ended would have no non-null point at all and report 0.
+  const todayKey = localDateKey(now, tz);
+  const monthPrefix = `${todayKey.slice(0, 7)}-`;
+  let earned = 0;
+  for (const [key, amount] of byDay ?? []) {
+    /* This month, and not past today: an entry dated forward is money nobody
+       has earned yet, and counting it would put it in the figure the line
+       stops short of. */
+    if (key.startsWith(monthPrefix) && key <= todayKey) earned += amount;
+  }
 
-  const actual = unit === 'revenue' ? monthRevenue : monthSeconds / 3600;
+  // `elapsed` counts today, so a month whose 1st is a weekend gives 0 — there
+  // is no rate to carry, whatever has been earned.
+  const projected =
+    elapsed < MIN_PACE_DAYS || total === 0
+      ? null
+      : roundMoney((earned / elapsed) * total);
 
   return {
-    unit,
-    target: goal,
-    actual,
-    expected,
-    /** Positive is ahead. Spelled out, not left to a bar to imply. */
-    delta: actual - expected,
+    earned: roundMoney(earned),
+    /** Null while the month is too young to have a rate worth carrying. */
+    projected,
     businessDaysElapsed: elapsed,
     businessDaysTotal: total,
-    series: buildPaceSeries({ goal, byDay, total, now, tz }),
+    /** The solid line: cumulative earned, null past today. */
+    series,
+    /** The dashed segment, today to month end. Null whenever `projected` is:
+     *  there is no second endpoint to draw to. */
+    projection:
+      projected == null
+        ? null
+        : {
+            from: {
+              date: localDateKey(now, tz),
+              amount: roundMoney(earned),
+            },
+            to: {
+              date: series.at(-1)?.date ?? localDateKey(now, tz),
+              amount: projected,
+            },
+          },
   };
 }
 
 /**
- * The month's cumulative line against its goal ray, one point per business day.
+ * The month's cumulative earned, one point per business day.
  *
  * `actual` stops at today and is null beyond it: a line drawn flat to the 31st
  * would read as a month that stopped working, not a month still in progress.
- * The ray runs the full month, because where the target lands is the point of
- * drawing it.
  *
  * Weekend work is not discarded — it is carried onto the next business day's
- * point, so the cumulative total always equals the month's actual.
+ * point, so the cumulative total always equals the month's earned. Stepping on
+ * business days is the whole reason this is not a calendar series: a line that
+ * advanced through the weekend would sag every Saturday and recover every
+ * Monday, which is the noise the business-day rule exists to kill.
+ *
+ * A month ending on a Saturday or Sunday has no business day left to carry
+ * that weekend onto, so the LAST point absorbs everything still unconsumed.
+ * Without it, work logged on the 31st of a month ending at the weekend — Jan,
+ * May and Aug 2026 all do — would vanish from the line's final point.
  */
-function buildPaceSeries({
-  goal,
+function buildEarnedSeries({
   byDay,
-  total,
   now,
   tz,
 }: {
-  goal: number;
   byDay: ReadonlyMap<string, number> | undefined;
-  total: number;
   now: Date;
   tz: string;
 }) {
   const keys = businessDayKeysInLocalMonth(now, tz);
   const todayKey = localDateKey(now, tz);
-  const step = total === 0 ? 0 : goal / total;
 
   // Sorted once, then walked in step with the business days, so a weekend's
   // work lands on the next business day's point rather than vanishing.
@@ -719,10 +726,28 @@ function buildPaceSeries({
   let cursor = 0;
   let running = 0;
 
-  return keys.map((key, i) => {
+  const lastKey = keys.at(-1);
+  /* The last point that will be DRAWN: the final business day on or before
+     today. It absorbs everything worked up to now, so a weekend whose
+     carrier has not arrived yet still reaches the line. */
+  const lastVisible = keys.filter((k) => k <= todayKey).at(-1);
+
+  return keys.map((key) => {
+    /* Two days take a bound wider than themselves, for the same reason: work
+       that has no later business day to land on would otherwise vanish. The
+       final business day absorbs a trailing weekend at the month's end; the
+       last drawn point absorbs up to TODAY, which is a weekend still waiting
+       on Monday — and no further, or a future entry would be drawn as
+       already earned. */
+    const bound =
+      key === lastKey
+        ? `${key.slice(0, 7)}-32`
+        : key === lastVisible
+          ? todayKey
+          : key;
     while (
       cursor < days.length &&
-      (days[cursor] as [string, number])[0] <= key
+      (days[cursor] as [string, number])[0] <= bound
     ) {
       running += (days[cursor] as [string, number])[1];
       cursor += 1;
@@ -731,9 +756,7 @@ function buildPaceSeries({
       date: key,
       /** Null beyond today — the month has not happened yet, and a line drawn
        *  flat to the 31st would read as a month that stopped working. */
-      actual: key <= todayKey ? running : null,
-      /** The ray steps once per business day, never through the weekend. */
-      expected: step * (i + 1),
+      actual: key <= todayKey ? roundMoney(running) : null,
     };
   });
 }

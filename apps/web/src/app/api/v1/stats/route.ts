@@ -3,21 +3,20 @@ import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseQuery } from '@/lib/validate';
 import {
+  addDays,
   buildAwaitingPayment,
-  buildBillableRatio,
-  buildByProject,
   buildCollected,
-  buildMonthTotals,
+  buildEarnedPace,
   buildOpenInvoiceCount,
   buildOverdueInvoices,
-  buildPace,
+  buildOverlaps,
   buildStaleDrafts,
+  buildMonthByClient,
   buildStrangeDurations,
   buildUnbilled,
   buildUnprojected,
-  buildVelocity,
-  buildHoursByDay,
-  type ByProjectRow,
+  buildWeek,
+  type ClientRevenueRow,
   clientNamesFrom,
   COLLECTED_MONTHS,
   type CollectedRow,
@@ -25,22 +24,20 @@ import {
   daysSincePaid,
   type DurationRow,
   type InvoiceRow,
-  type MonthRow,
+  type SpanRow,
   localDateKey,
   localMonthKeys,
   OVERDUE_GRACE_DAYS,
   projectNamesFrom,
   revenueByDay,
-  scalar,
   STALE_DRAFT_DAYS,
   startOfLocalDayOffset,
   startOfLocalMonth,
   startOfLocalMonthsBack,
+  startOfLocalWeek,
   startOfNextLocalMonth,
   type UnbilledRow,
   type UnprojectedRow,
-  type VelocityRow,
-  VELOCITY_MONTHS,
 } from '@stint/core';
 import { StatsQuery } from '@stint/schema';
 
@@ -62,63 +59,38 @@ export const GET = handle(async (req: Request) => {
   const monthStart = startOfLocalMonth(now, tz);
   const monthEnd = startOfNextLocalMonth(now, tz);
 
-  /* Walked back a month at a time from this month's start rather than by a
-     fixed number of days: months are 28-31 days long, so subtracting 90 would
-     land mid-month and the window would stop being a period with a name.
-
-     Each step lands well inside the previous month rather than one second
-     before the boundary, so a DST shift cannot put it back on the 1st and
-     stall the walk. */
-  let velocityStart = monthStart;
-  for (let i = 1; i < VELOCITY_MONTHS; i += 1) {
-    velocityStart = startOfLocalMonth(
-      new Date(velocityStart.getTime() - 12 * 3_600_000),
-      tz,
-    );
-  }
-
   /* The Collected window: whole months back from this month's start, so the
      figure covers a period the user can name. The figure sums all twelve; the
      plot draws the last six of the same series. */
   const collectedStart = startOfLocalMonthsBack(now, tz, COLLECTED_MONTHS - 1);
   const collectedMonths = localMonthKeys(now, tz, COLLECTED_MONTHS);
 
+  /* The week's rollup runs over every day a week containing today could hold,
+     because which of them it actually holds depends on `week_starts_on` —
+     which arrives in the same batch as this query and so cannot be read
+     before it is issued. Whatever week start lands, its seven days sit inside
+     the six before today and the six after; the slice below picks them.
+
+     Widened rather than serialized: settings-then-query would put a round
+     trip in front of the heaviest route on the screen, to narrow a rollup
+     already grouped and indexed by day. */
+  const weekWindowStart = startOfLocalDayOffset(now, tz, 6);
+  const weekWindowEnd = startOfLocalDayOffset(now, tz, -7);
+
   const [
     unbilled,
-    monthRevenue,
-    velocity,
-    byProject,
     revenueDays,
+    monthClients,
+    weekDays,
     settings,
-    month,
     invoices,
     unprojected,
     durationCandidates,
+    overlapCandidates,
     projectRows,
     collectedRows,
   ] = await Promise.all([
     db.rpc('unbilled_by_client', { p_user_id: userId }),
-
-    db.rpc('month_revenue', {
-      p_user_id: userId,
-      p_from: monthStart.toISOString(),
-      p_to: monthEnd.toISOString(),
-    }),
-
-    db.rpc('revenue_by_client', {
-      p_user_id: userId,
-      p_from: velocityStart.toISOString(),
-      p_to: monthEnd.toISOString(),
-    }),
-
-    /* The same window as Velocity, from the same two bindings and never a
-       recomputation: the two regions sit on one screen, and a window derived
-       twice is how they come to disagree about the period they both name. */
-    db.rpc('revenue_by_project', {
-      p_user_id: userId,
-      p_from: velocityStart.toISOString(),
-      p_to: monthEnd.toISOString(),
-    }),
 
     /* The month's money one day at a time. `month_revenue` answers the month
        as a single number, which cannot be summed into a cumulative line. */
@@ -129,21 +101,31 @@ export const GET = handle(async (req: Request) => {
       p_tz: tz,
     }),
 
+    /* The month's money per client — the strip under the climb. A rollup
+       over the month rather than `resolve_entry_rate` once per client, which
+       is the shape this screen exists to avoid. Its window is the month's,
+       so the bands sum to the same Earned the line climbs to. */
+    db.rpc('revenue_by_client', {
+      p_user_id: userId,
+      p_from: monthStart.toISOString(),
+      p_to: monthEnd.toISOString(),
+    }),
+
+    /* The week's bars: the same rollup over its own window, because a week
+       straddles the 1st and the month's rows stop at the boundary. Both
+       columns are read here — seconds set each bar's height and the money
+       rides the bar's head. */
+    db.rpc('revenue_by_day', {
+      p_user_id: userId,
+      p_from: weekWindowStart.toISOString(),
+      p_to: weekWindowEnd.toISOString(),
+      p_tz: tz,
+    }),
+
     db
       .from('user_settings')
-      .select(
-        'monthly_target, monthly_target_unit, currency, min_entry_seconds, max_entry_hours',
-      )
+      .select('currency, min_entry_seconds, max_entry_hours, week_starts_on')
       .maybeSingle(),
-
-    // Month-to-date, for Pace and the billable ratio. `started_at` buckets an
-    // hours target's cumulative line by local day.
-    db
-      .from('time_entries')
-      .select('duration_seconds, is_billable, started_at')
-      .gte('started_at', monthStart.toISOString())
-      .lt('started_at', monthEnd.toISOString())
-      .not('ended_at', 'is', null),
 
     db
       .from('invoices')
@@ -160,6 +142,7 @@ export const GET = handle(async (req: Request) => {
       .select('id, task_name, started_at, duration_seconds')
       .is('project_id', null)
       .is('invoice_id', null)
+      .eq('invoiced_elsewhere', false)
       .not('ended_at', 'is', null)
       .eq('is_billable', true)
       .order('started_at', { ascending: true }),
@@ -174,9 +157,20 @@ export const GET = handle(async (req: Request) => {
       .from('time_entries')
       .select('id, task_name, started_at, duration_seconds, project_id')
       .is('invoice_id', null)
+      .eq('invoiced_elsewhere', false)
       .not('ended_at', 'is', null)
       .eq('duration_ok', false)
       .order('started_at', { ascending: true }),
+
+    /* Candidates for the overlap row: the same uninvoiced, stopped set,
+       whatever its length. A billed entry is locked, so flagging it would
+       ask for an edit nobody can make. */
+    db
+      .from('time_entries')
+      .select('id, task_name, started_at, ended_at')
+      .is('invoice_id', null)
+      .eq('invoiced_elsewhere', false)
+      .not('ended_at', 'is', null),
 
     /* Project and client names for whichever of those rows survives the
          threshold test. Fetched flat rather than as an embedded join: the
@@ -195,15 +189,14 @@ export const GET = handle(async (req: Request) => {
 
   for (const r of [
     unbilled,
-    monthRevenue,
-    velocity,
-    byProject,
     revenueDays,
+    monthClients,
+    weekDays,
     settings,
-    month,
     invoices,
     unprojected,
     durationCandidates,
+    overlapCandidates,
     projectRows,
     collectedRows,
   ]) {
@@ -236,15 +229,29 @@ export const GET = handle(async (req: Request) => {
   const clientNames = clientNamesFrom(unbilledRows);
 
   const todayKey = localDateKey(now, tz);
-  const monthRows = (month.data ?? []) as MonthRow[];
-  const { monthSeconds, billableSeconds } = buildMonthTotals(monthRows);
-
-  const unit = settings.data?.monthly_target_unit;
 
   /* Today's earnings come out of the month's own by-day series, which is
      already loaded and already grouped on the local date. A second query for
      one of its rows would be a second definition of the same amount. */
   const byDay = revenueByDay((revenueDays.data ?? []) as DayRow[]);
+
+  /* The month's earned, its cumulative line and the projection, from that one
+     map. `earned` is the series' own last point rather than a separate sum,
+     because the projection extrapolates that series and a figure taken from a
+     second source would disagree with the line drawn under it. */
+  const month = buildEarnedPace({ byDay, now, tz });
+
+  /* The week's seven days, sliced out of the widened window by the user's own
+     week start. Seven keys always, so a day with no work is a zero column and
+     never a missing one. */
+  const weekStartKey = localDateKey(
+    startOfLocalWeek(now, tz, settings.data?.week_starts_on ?? 1),
+    tz,
+  );
+  const week = buildWeek(
+    (weekDays.data ?? []) as DayRow[],
+    Array.from({ length: 7 }, (_, i) => addDays(weekStartKey, i)),
+  );
 
   return NextResponse.json({
     currency,
@@ -252,15 +259,18 @@ export const GET = handle(async (req: Request) => {
     /* Work done today at its resolved rate, which is what `revenue_by_day`
        already computes. Absent from the map until the day earns something. */
     earnedToday: byDay.get(todayKey) ?? 0,
-    velocity: buildVelocity(
-      (velocity.data ?? []) as VelocityRow[],
-      currency,
-      VELOCITY_MONTHS,
-    ),
-    byProject: buildByProject(
-      (byProject.data ?? []) as ByProjectRow[],
-      currency,
-    ),
+    /* The week's bars: height from `seconds`, the figure at each head from
+       `amount`, which is null on a day whose work resolves no rate. */
+    week,
+    /* The month: the hero figure, the line under it, where that line lands
+       if the month keeps its pace, and who the month came from — the strip's
+       bands, which the line itself cannot say. */
+    month: {
+      ...month,
+      byClient: buildMonthByClient(
+        (monthClients.data ?? []) as ClientRevenueRow[],
+      ),
+    },
     awaitingPayment: buildAwaitingPayment(invoiceRows),
     openInvoiceCount: buildOpenInvoiceCount(invoiceRows),
     collected: buildCollected(
@@ -271,18 +281,6 @@ export const GET = handle(async (req: Request) => {
         : null,
       currency,
     ),
-    pace: buildPace({
-      target: settings.data?.monthly_target,
-      unit,
-      monthSeconds,
-      monthRevenue: scalar(monthRevenue.data),
-      // The cumulative line is in the target's own unit, so only that unit's
-      // series is built — the other would be a second shape nothing reads.
-      byDay: unit === 'revenue' ? byDay : buildHoursByDay(monthRows, tz),
-      now,
-      tz,
-    }),
-    billableRatio: buildBillableRatio(monthSeconds, billableSeconds),
     attention: {
       overdueInvoices: buildOverdueInvoices(
         invoiceRows,
@@ -317,6 +315,7 @@ export const GET = handle(async (req: Request) => {
         ),
         new Set(unprojectedRows.map((r) => r.id)),
       ),
+      overlaps: buildOverlaps((overlapCandidates.data ?? []) as SpanRow[]),
     },
   });
 });
