@@ -220,19 +220,26 @@ SCOPE=$(az storage account show -n stintbackups4b3306 --query id -o tsv)/blobSer
 az role assignment create --role "Storage Blob Data Reader" --assignee "$(az ad signed-in-user show --query id -o tsv)" --scope "$SCOPE"
 az storage blob list --auth-mode login --account-name stintbackups4b3306 -c dumps --query "[].name" -o tsv
 az storage blob download --auth-mode login --account-name stintbackups4b3306 -c dumps -n <name> -f db.dump.age
-age -d -i <(pbpaste) -o db.dump db.dump.age          # private key on the clipboard
+age -d -i <(pbpaste | grep '^AGE-SECRET-KEY-') -o db.dump db.dump.age   # private key on the clipboard
 pg_restore -a -t schema_migrations -f - db.dump | grep -o '^[0-9_a-z]*\.sql' | sort | tail -1
 git checkout "$(git log -1 --format=%H -- supabase/migrations/<that file>)"
-pnpm migrate --url "$TARGET"                           # a fresh project
-pg_restore -l db.dump | grep -v 'schema_migrations' > toc
+pnpm migrate --url "$TARGET"                                            # a fresh project
+pg_restore -l db.dump | grep -E 'TABLE DATA public |TABLE DATA auth (users|identities) |SEQUENCE SET public ' \
+  | grep -v schema_migrations > toc
 pg_restore -L toc -f data.sql db.dump
 psql "$TARGET" --single-transaction -v ON_ERROR_STOP=1 \
   -c 'set session_replication_role = replica' -f data.sql
 ```
 
-`schema_migrations` is left out because both sides already have one. The
-replica role stops triggers and foreign keys firing on rows that already
-satisfied them. Remove the reader role afterwards.
+**Of `auth`, only `users` and `identities` are restored.** They are the
+accounts; the rest is sessions, tokens and logs, and costs only a fresh
+sign-in. It also keeps a restore independent of Supabase's auth version:
+tables and columns there change between releases, and a local stack lags the
+hosted one. The replica role stops triggers and foreign keys firing on rows
+that already satisfied them. Delete the files and remove the reader role
+afterwards.
+
+Rehearsed 2026-09-24 against the local stack: every row came back.
 
 ## 3c. Alerts
 
