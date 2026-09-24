@@ -55,6 +55,7 @@ function serve() {
               staleDrafts: [],
               unprojected: [],
               strangeDurations: [],
+              overlaps: [],
             },
           }),
           { status: 200 },

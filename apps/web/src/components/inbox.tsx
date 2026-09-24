@@ -34,7 +34,8 @@ type InboxRow =
   | { id: string; kind: 'overdue'; row: Attention['overdueInvoices'][number] }
   | { id: string; kind: 'draft'; row: Attention['staleDrafts'][number] }
   | { id: string; kind: 'unprojected'; row: Attention['unprojected'][number] }
-  | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] };
+  | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] }
+  | { id: string; kind: 'overlap'; row: Attention['overlaps'][number] };
 
 /**
  * The dock's inbox: everything that wants a decision, in one fixed place.
@@ -46,8 +47,13 @@ type InboxRow =
  * spends the column's width on nesting.
  */
 export function Inbox({ stats }: { stats: Stats }) {
-  const { overdueInvoices, staleDrafts, unprojected, strangeDurations } =
-    stats.attention;
+  const {
+    overdueInvoices,
+    staleDrafts,
+    unprojected,
+    strangeDurations,
+    overlaps,
+  } = stats.attention;
   const queryClient = useQueryClient();
 
   const exit = useExit();
@@ -122,6 +128,13 @@ export function Inbox({ stats }: { stats: Stats }) {
       id: e.entryId,
       kind: 'strange' as const,
       row: e,
+    })),
+    /* Keyed by the pair: one entry can overlap several, and an entry here can
+       also be a strange-duration row above. */
+    ...overlaps.map((o) => ({
+      id: `overlap:${o.entryId}:${o.otherEntryId}`,
+      kind: 'overlap' as const,
+      row: o,
     })),
   ];
 
@@ -199,7 +212,7 @@ export function Inbox({ stats }: { stats: Stats }) {
   );
 }
 
-/** Which `Item` a row becomes — the one place the four kinds differ. */
+/** Which `Item` a row becomes — the one place the five kinds differ. */
 function Row({
   entry,
   busy,
@@ -302,6 +315,31 @@ function Row({
             ariaLabel={`Assign a project to ${u.taskName || 'this entry'}`}
             icon={<FolderInput aria-hidden className="size-3.5" />}
             onClick={() => onOpen({ id: u.entryId, focus: 'project' })}
+          />
+        }
+      />
+    );
+  }
+
+  /* The pair's later entry is the one opened — it started inside the other.
+     Resolved by editing either, never by an "it's fine": two entries billing
+     the same minutes cannot both be right. */
+  if (r.kind === 'overlap') {
+    const o = r.row;
+    return (
+      <Item
+        {...leaving}
+        onSelect={() => onOpen({ id: o.entryId, focus: 'task' })}
+        label={o.taskName || 'Untitled entry'}
+        detail={`Overlaps ${o.otherTaskName || 'another entry'} · ${dayLabel(o.startedAt, tz)}`}
+        value={formatCompact(o.seconds)}
+        tone="warning"
+        actions={
+          <Action
+            label="Edit entry"
+            ariaLabel={`Edit ${o.taskName || 'this entry'}`}
+            icon={<Pencil aria-hidden className="size-3.5" />}
+            onClick={() => onOpen({ id: o.entryId, focus: 'task' })}
           />
         }
       />

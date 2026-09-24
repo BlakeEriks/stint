@@ -682,6 +682,20 @@ export const Stats = z.object({
         seconds: z.number().int().nonnegative(),
       }),
     ),
+    /**
+     * Pairs of uninvoiced entries sharing a minute or more. Derived per
+     * request, so editing either entry clears the row.
+     */
+    overlaps: z.array(
+      z.object({
+        entryId: uuid,
+        taskName: z.string(),
+        otherEntryId: uuid,
+        otherTaskName: z.string(),
+        startedAt: z.iso.datetime(),
+        seconds: z.number().int().positive(),
+      }),
+    ),
   }),
 });
 
@@ -751,6 +765,7 @@ export const ErrorCode = z.enum([
   'NO_RATE_CONFIGURED',
   'INVALID_PERIOD',
   'UNAUTHORIZED',
+  'IMPORT_FILE_UNRECOGNIZED',
   'VALIDATION_FAILED',
 ]);
 

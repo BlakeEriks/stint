@@ -9,6 +9,7 @@ import {
   buildEarnedPace,
   buildOpenInvoiceCount,
   buildOverdueInvoices,
+  buildOverlaps,
   buildStaleDrafts,
   buildMonthByClient,
   buildStrangeDurations,
@@ -23,6 +24,7 @@ import {
   daysSincePaid,
   type DurationRow,
   type InvoiceRow,
+  type SpanRow,
   localDateKey,
   localMonthKeys,
   OVERDUE_GRACE_DAYS,
@@ -84,6 +86,7 @@ export const GET = handle(async (req: Request) => {
     invoices,
     unprojected,
     durationCandidates,
+    overlapCandidates,
     projectRows,
     collectedRows,
   ] = await Promise.all([
@@ -139,6 +142,7 @@ export const GET = handle(async (req: Request) => {
       .select('id, task_name, started_at, duration_seconds')
       .is('project_id', null)
       .is('invoice_id', null)
+      .eq('invoiced_elsewhere', false)
       .not('ended_at', 'is', null)
       .eq('is_billable', true)
       .order('started_at', { ascending: true }),
@@ -153,9 +157,20 @@ export const GET = handle(async (req: Request) => {
       .from('time_entries')
       .select('id, task_name, started_at, duration_seconds, project_id')
       .is('invoice_id', null)
+      .eq('invoiced_elsewhere', false)
       .not('ended_at', 'is', null)
       .eq('duration_ok', false)
       .order('started_at', { ascending: true }),
+
+    /* Candidates for the overlap row: the same uninvoiced, stopped set,
+       whatever its length. A billed entry is locked, so flagging it would
+       ask for an edit nobody can make. */
+    db
+      .from('time_entries')
+      .select('id, task_name, started_at, ended_at')
+      .is('invoice_id', null)
+      .eq('invoiced_elsewhere', false)
+      .not('ended_at', 'is', null),
 
     /* Project and client names for whichever of those rows survives the
          threshold test. Fetched flat rather than as an embedded join: the
@@ -181,6 +196,7 @@ export const GET = handle(async (req: Request) => {
     invoices,
     unprojected,
     durationCandidates,
+    overlapCandidates,
     projectRows,
     collectedRows,
   ]) {
@@ -299,6 +315,7 @@ export const GET = handle(async (req: Request) => {
         ),
         new Set(unprojectedRows.map((r) => r.id)),
       ),
+      overlaps: buildOverlaps((overlapCandidates.data ?? []) as SpanRow[]),
     },
   });
 });

@@ -12,8 +12,26 @@ function randomBytes(n: number): Uint8Array {
 }
 
 export function uuidv7(now: number = Date.now()): string {
-  const bytes = randomBytes(16);
+  return format(randomBytes(16), now);
+}
 
+/**
+ * A UUIDv7 whose random bits are a SHA-256 of `key`, so the same key always
+ * yields the same id. An import derives each row's id this way, which makes
+ * re-importing a file land on the rows it already wrote.
+ */
+export async function deterministicUuidv7(
+  key: string,
+  now: number,
+): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(key),
+  );
+  return format(new Uint8Array(digest).slice(0, 16), now);
+}
+
+function format(bytes: Uint8Array, now: number): string {
   // 48-bit big-endian timestamp (ms since epoch)
   bytes[0] = (now / 2 ** 40) & 0xff;
   bytes[1] = (now / 2 ** 32) & 0xff;

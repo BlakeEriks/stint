@@ -7,6 +7,7 @@
  */
 
 import { businessDaysInLocalMonth, localDateKey } from './calendar.ts';
+import { findOverlaps } from './overlaps.ts';
 
 /** A draft left this long is usually forgotten, not deliberate. */
 export const STALE_DRAFT_DAYS = 7;
@@ -52,6 +53,38 @@ export interface UnprojectedRow {
 
 export interface DurationRow extends UnprojectedRow {
   project_id: string | null;
+}
+
+export interface SpanRow {
+  id: string;
+  task_name: string;
+  started_at: string;
+  ended_at: string;
+}
+
+/**
+ * One row per overlapping pair, oldest first. The later entry is the one
+ * opened: it started inside the other, so it is usually the one to move.
+ */
+export function buildOverlaps(rows: SpanRow[]) {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return findOverlaps(
+    rows.map((r) => ({
+      id: r.id,
+      start: Date.parse(r.started_at),
+      end: Date.parse(r.ended_at),
+    })),
+  ).map((o) => {
+    const later = byId.get(o.later) as SpanRow;
+    return {
+      entryId: o.later,
+      taskName: later.task_name,
+      otherEntryId: o.earlier,
+      otherTaskName: (byId.get(o.earlier) as SpanRow).task_name,
+      startedAt: later.started_at,
+      seconds: o.seconds,
+    };
+  });
 }
 
 export interface UnbilledRow {

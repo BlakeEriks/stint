@@ -84,6 +84,7 @@ export async function loadBillableEntries(
     )
     .in('project_id', [...byId.keys()])
     .is('invoice_id', null)
+    .eq('invoiced_elsewhere', false)
     .not('ended_at', 'is', null)
     .gte('started_at', startInstant.toISOString())
     .lt('started_at', endExclusive.toISOString())

@@ -12,7 +12,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 37 of 37, counting handlers rather than files.
+Every handler is covered — 39 of 39, counting handlers rather than files.
 
 ## Timer
 
@@ -39,6 +39,26 @@ trusting the device clock.
 | `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice. Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. |
 | `DELETE` | `/entries/:id` | Same lock applies. |
 
+## Import
+
+A Toggl Track detailed-report CSV, as `multipart/form-data`: `file`, and
+`timeZone` (IANA) — the zone the export's wall-clock times are in, which is
+the exporting account's and not necessarily the caller's. Optional: `allBillable=true` imports every row billable (Toggl's
+free plan marks all of them not billable), and `invoicedThrough`
+(`YYYY-MM-DD`) marks rows starting on or before it as invoiced elsewhere.
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/imports/preview` | Every row the file would write, and why any would not. Writes nothing. |
+| `POST` | `/imports/confirm` | Writes what the same file previews as, re-deriving it server-side rather than trusting a preview sent back. Returns `{ written, alreadyImported, unrated, overlapping, excluded, invoicedElsewhere }`. |
+
+Each entry's id is derived from the user and the row's own content, so a
+retry or the same file twice lands on rows already written and adds nothing.
+Imported entries carry no `rateOverride`: they resolve through the rate chain
+like any other. A row with no end time is never written. Both return **`422
+IMPORT_FILE_UNRECOGNIZED`** for a file that is not a Toggl export,
+or one with an unreadable row, before anything is written.
+
 ## Views
 
 | Method | Path | Notes |
@@ -58,7 +78,7 @@ screen does with them is `docs/design/screens/home.html`.
 
 **Three figures are three stages of one pipeline, and no two may be summed** —
 any pair double-counts the same hours. `unbilled` is work done and not
-invoiced, `awaitingPayment` is invoiced and not collected, `collected` is
+invoiced — here or, for an entry marked `invoiced_elsewhere`, anywhere — `awaitingPayment` is invoiced and not collected, `collected` is
 money that arrived. `openInvoiceCount` is how many invoices make up the
 second.
 
@@ -123,8 +143,11 @@ issue. The one row whose condition never clears on its own is gated by a
 stored answer instead — `duration_ok` on an entry of unusual length — so it
 cannot return every day once answered. `unprojected` is one row per entry,
 oldest first; `strangeDurations` one per entry of implausible length, and
-both its thresholds default to null, so the row is opt-in. The runaway timer
-is the inbox's fifth row and comes from `/summary`, not here.
+both its thresholds default to null, so the row is opt-in. `overlaps` is one
+per pair of uninvoiced entries sharing a minute or more (`MIN_OVERLAP_SECONDS`
+in `@stint/core`), naming the later-starting entry; it clears when either is
+edited apart. The runaway timer is the inbox's sixth row and comes from
+`/summary`, not here.
 
 ## Clients / projects / settings
 
@@ -248,6 +271,7 @@ verified by phone.
 | `NO_RATE_CONFIGURED` | 400 | No rate at any level for a billable entry. |
 | `INVALID_PERIOD` | 400 | |
 | `UNAUTHORIZED` | 401 | |
+| `IMPORT_FILE_UNRECOGNIZED` | 422 | Not a Toggl export, or a row in it cannot be read; `message` names the line. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, or a `PATCH` body that parses but maps to no column. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 

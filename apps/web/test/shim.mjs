@@ -56,6 +56,14 @@ export function makeDb(pool, userId) {
         st.payload = obj;
         return api;
       },
+      upsert(obj, opts = {}) {
+        if (!opts.ignoreDuplicates)
+          throw new Error('shim: upsert supports ignoreDuplicates only');
+        st.op = 'insert';
+        st.payload = obj;
+        st.onConflict = opts.onConflict ?? 'id';
+        return api;
+      },
       update(obj) {
         st.op = 'update';
         st.payload = obj;
@@ -134,7 +142,10 @@ export function makeDb(pool, userId) {
           const tuples = rows
             .map((r) => `(${keys.map((k) => P(r[k])).join(',')})`)
             .join(',');
-          sql = `insert into ${st.table} (${keys.join(',')}) values ${tuples} returning ${st.cols}`;
+          const conflict = st.onConflict
+            ? ` on conflict (${st.onConflict}) do nothing`
+            : '';
+          sql = `insert into ${st.table} (${keys.join(',')}) values ${tuples}${conflict} returning ${st.cols}`;
         } else if (st.op === 'update') {
           // SET placeholders must be numbered before the WHERE ones.
           const sets = Object.keys(st.payload).map(
