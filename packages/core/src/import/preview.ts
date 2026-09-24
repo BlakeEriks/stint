@@ -47,6 +47,8 @@ export interface ImportRow {
   durationDisagreement: boolean;
   overlapsWith: string[];
   willWrite: boolean;
+  /** Written by an earlier import of the same row; confirming leaves it be. */
+  alreadyImported: boolean;
   excludedReason: ExcludedReason | null;
 }
 
@@ -58,6 +60,9 @@ export interface ImportPreview {
   summary: {
     totalRows: number;
     willWriteCount: number;
+    /** Rows confirming would actually add — `willWriteCount` less those already here. */
+    newCount: number;
+    alreadyImportedCount: number;
     unratedCount: number;
     overlappingCount: number;
     excludedCount: number;
@@ -244,16 +249,21 @@ export async function buildPreview(
         ) > 1,
       overlapsWith: [],
       willWrite: excludedReason === null,
+      alreadyImported: false,
       excludedReason,
     });
   }
 
   const written = rows.filter((r) => r.willWrite);
+  const byId = new Map(rows.map((r) => [r.id, r]));
 
   /* Against itself and against what is already here. A row already imported
      is the same id as its existing copy, not an overlap with it. */
   const ours = new Set(written.map((r) => r.id));
-  const byId = new Map(rows.map((r) => [r.id, r]));
+  for (const e of ctx.existing) {
+    const row = ours.has(e.id) ? byId.get(e.id) : undefined;
+    if (row) row.alreadyImported = true;
+  }
   for (const o of findOverlaps([
     ...written.map((r) => ({
       id: r.id,
@@ -285,6 +295,8 @@ export async function buildPreview(
     summary: {
       totalRows: rows.length,
       willWriteCount: written.length,
+      newCount: written.filter((r) => !r.alreadyImported).length,
+      alreadyImportedCount: written.filter((r) => r.alreadyImported).length,
       unratedCount: written.filter((r) => r.billable && r.resolvedRate === null)
         .length,
       overlappingCount: rows.filter((r) => r.overlapsWith.length > 0).length,

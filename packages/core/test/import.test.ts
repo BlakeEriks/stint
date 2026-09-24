@@ -248,3 +248,22 @@ test("a real Toggl detailed export's shape: tabs, Currency and Amount apart, fre
   assert.equal(p.rows[3]?.overlapsWith.length, 1);
   assert.equal(p.rows[4]?.overlapsWith.length, 0);
 });
+
+test('a re-upload previews as nothing new, before anything is confirmed', async () => {
+  const first = await preview();
+  assert.equal(first.summary.newCount, 3);
+  const again = await preview({
+    existing: first.rows
+      .filter((r) => r.willWrite)
+      .map((r) => ({
+        id: r.id,
+        startedAt: r.startedAt,
+        endedAt: r.endedAt as string,
+      })),
+  });
+  assert.equal(again.summary.newCount, 0);
+  assert.equal(again.summary.alreadyImportedCount, 3);
+  assert.ok(
+    again.rows.filter((r) => r.willWrite).every((r) => r.alreadyImported),
+  );
+});
