@@ -101,6 +101,7 @@
     font-family: var(--font-sans); font-size: 12.5px; cursor: pointer; flex: none;
   }
   .btn.primary { background: var(--bg-hover); }
+  .btn.accent  { background: var(--accent-default); color: var(--text-on-accent); border-color: transparent; }
   .btn[disabled] { opacity: .45; cursor: not-allowed; }
 
   /* Same control as `settings.html` — one input, one look. */
@@ -301,7 +302,15 @@
         <div class="rhead">
           <span class="type-region-head region-head">What to bill</span>
         </div>
-          <span class="flabel">Charges</span>
+          <span class="flabel">Client</span>
+          <div class="input" style="margin-top:6px; justify-content:space-between">Acme Corp <span style="color:var(--text-muted)">⌄</span></div>
+          <div style="display:flex; gap:16px; margin-top:14px">
+            <div style="flex:1"><span class="flabel">From</span><div class="input mono" style="margin-top:6px">08/01/2026</div></div>
+            <div style="flex:1"><span class="flabel">To</span><div class="input mono" style="margin-top:6px">08/31/2026</div></div>
+          </div>
+          <span class="flabel" style="margin-top:14px">Group lines</span>
+          <div class="input" style="margin-top:6px; justify-content:space-between">By task name <span style="color:var(--text-muted)">⌄</span></div>
+          <span class="flabel" style="margin-top:14px">Charges</span>
           <div class="charge-row" style="margin-top:6px">
             <div class="desc"><div class="input">Fixed-scope build</div></div>
             <div class="amt-field"><div class="input mono">2400</div></div>
@@ -314,34 +323,59 @@
           </div>
           <button class="add-charge">+ Add a charge</button>
           <p class="fhint">A fixed fee, a deposit, or an expense you are passing on.</p>
+          <button class="btn" style="margin-top:14px">Preview</button>
       </div>
       <div class="region">
         <div class="rhead">
-          <span class="type-region-head region-head">Preview</span>
-          <span class="type-amount-hero" style="color:var(--text-strong)">$3,862.50</span>
+          <span class="type-region-head region-head">Acme Corp · 9 entries</span>
         </div>
+          <p class="fhint" style="margin:-8px 0 8px">Nothing has been created yet.</p>
           <div class="irow">
-            <span class="who type-body">Website redesign</span>
-            <span class="type-duration" style="color:var(--text-muted)">6.5h · $150.00</span>
-            <span class="amt">$975.00</span>
+            <span class="who flabel">Description</span>
+            <span class="flabel" style="width:56px; text-align:right">Qty</span>
+            <span class="flabel" style="width:72px; text-align:right">Rate</span>
+            <span class="flabel" style="width:88px; text-align:right">Amount</span>
           </div>
           <div class="irow">
             <span class="who type-body">API integration</span>
-            <span class="type-duration" style="color:var(--text-muted)">3.25h · $150.00</span>
-            <span class="amt">$487.50</span>
+            <span class="type-duration" style="width:56px; text-align:right; color:var(--text-muted)">3.25h</span>
+            <span class="type-duration" style="width:72px; text-align:right; color:var(--text-muted)">$150.00</span>
+            <span class="amt" style="width:88px; text-align:right">$487.50</span>
+          </div>
+          <div class="irow">
+            <span class="who type-body">Website redesign</span>
+            <span class="type-duration" style="width:56px; text-align:right; color:var(--text-muted)">6.5h</span>
+            <span class="type-duration" style="width:72px; text-align:right; color:var(--text-muted)">$150.00</span>
+            <span class="amt" style="width:88px; text-align:right">$975.00</span>
           </div>
           <div class="irow">
             <span class="who type-body">Fixed-scope build</span>
-            <span class="type-duration" style="color:var(--text-subtle)"></span>
-            <span class="amt">$2,400.00</span>
+            <span style="width:56px"></span>
+            <span style="width:72px"></span>
+            <span class="amt" style="width:88px; text-align:right">$2,400.00</span>
           </div>
-          <div class="irow" style="justify-content:flex-end; gap:8px">
-            <button class="btn">Download PDF</button>
-            <button class="btn primary">Generate</button>
+          <div style="margin:10px 0 0 auto; max-width:16rem" class="type-support">
+            <div style="display:flex; justify-content:space-between; color:var(--text-muted)">Subtotal <span class="type-duration">$3,862.50</span></div>
+            <div style="display:flex; justify-content:space-between; border-top:1px solid var(--border-subtle); margin-top:4px; padding-top:6px; color:var(--text-primary)">Total <span class="type-amount" style="color:var(--text-strong)">$3,862.50</span></div>
           </div>
       </div>
+      <div class="region">
+        <div class="rhead">
+          <span class="type-region-head region-head">Invoice details</span>
+        </div>
+          <span class="flabel">Due date</span>
+          <div class="input mono ph" style="margin-top:6px">mm/dd/yyyy</div>
+          <p class="fhint">Defaults to your payment terms.</p>
+          <span class="flabel" style="margin-top:14px">Notes</span>
+          <div class="input ph" style="margin-top:6px; height:56px"></div>
+          <p class="fhint">Printed on the invoice.</p>
+      </div>
+      <div class="region" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+          <button class="btn accent">Generate invoice</button>
+          <span class="type-support" style="color:var(--text-subtle)">Assigns a number and locks these entries. Voiding later keeps the number on record.</span>
+      </div>
     </div>
-    <span class="caption">Entered with the client and the period; in the preview it lands last, stating no quantity and no rate</span>
+    <span class="caption">The whole screen: charges are entered with the client and the period; in the preview they land last, stating no quantity and no rate</span>
 
     <ul class="rule">
       <li><strong>A charge states no quantity and no rate.</strong> Its
