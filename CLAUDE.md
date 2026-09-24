@@ -104,6 +104,12 @@ and a change verified only against jsdom is a change nobody has seen. The
 script does those three; `--from <ref>` branches off something other than
 main.
 
+**Merging a branch closes its worktree in the same step.** Once it is in
+main: `git worktree remove <path>`, then `git branch -d <branch>` — `-d`,
+never `-D`, so a branch with unmerged work refuses rather than vanishes. A
+worktree with uncommitted changes is someone's work; ask before touching it.
+`git worktree list` should show only what is still in flight.
+
 `docs/local-dev.md` has the rest: one sign-in at a time per browser and how a
 failed magic link is diagnosed, why everything speaks `localhost` and never
 `127.0.0.1`, and which services `dev:up` leaves out.
