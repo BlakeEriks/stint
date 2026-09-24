@@ -19,7 +19,7 @@ to it, name the doc that owns the claim:
 | Who this is for, what it competes with, what it costs | `docs/positioning.md` |
 | What we believe about the product | `docs/design/principles.md` |
 | Unbuilt work | `docs/roadmap.md` |
-| A known fault | `docs/defects.md` |
+| A known fault | a GitHub issue labelled `bug` |
 | True only under one path | `.claude/rules/<topic>.md`, with `paths:` frontmatter |
 
 Only a claim no doc above owns belongs here, and then as one paragraph.
@@ -142,7 +142,9 @@ data or a developer's current location.
 against it.
 
 **`docs/roadmap.md` is the only list of unbuilt work**, and it carries the
-gate that work passes to get there. Known faults go to `docs/defects.md`.
+gate that work passes to get there. **A known fault is a GitHub issue**,
+labelled `bug` plus its cost — `wrong data`, `misleading` or `looks wrong`,
+worst first — and the PR that fixes it closes it.
 
 **A branch that decides something gets `/dissent` before it merges** — a
 price, a thesis, a scope cut, a milestone order. It argues against the branch
