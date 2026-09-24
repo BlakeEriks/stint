@@ -162,5 +162,13 @@ that misleads, then a thing that looks wrong. A fixed defect is deleted.
       name-to-restart rather than a past entry — or keep the duration and stay
       a different thing from what the web app suggests.
 
+- [ ] **Home's Today list repeats a task once per entry and grows without
+      limit.** A real day — or an imported one — shows "E4.13 - Telemetry"
+      four times at 0:00, 1:20, 0:19 and 0:57, and the region pushes the page
+      down instead of scrolling. One row per task (name and project, since a
+      name under two projects is two tasks) with the summed duration, and a
+      max height with the list scrolling inside it.
+      `apps/web/src/components/home-today.tsx`; `home.html` changes with it.
+
 - [ ] **Eight sizes in the macOS app bypass the Typography roles.** They are
       literals where a role exists.
