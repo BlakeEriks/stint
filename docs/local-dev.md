@@ -186,12 +186,17 @@ worked.
 ## Seeding your own account
 
 `seed.sql` belongs to `dev@localhost.test` — the account the e2e suite
-restores, so do not track real time in it. For a second account:
+restores. For a second account:
 
 ```
-pnpm seed you@example.com            # creates the account if it is new
-pnpm seed you@example.com --clear    # remove the data, keep the account
+pnpm seed you@example.com            # reset, then seed
+pnpm seed you@example.com --clear    # reset to an empty account
 ```
+
+**Every run is a reset.** Everything the account holds — entries, invoices,
+projects, clients, payment details — is deleted, and its settings return to a
+new signup's, before anything is written. `--clear` stops there, which is the
+starting point for trying an import.
 
 **The account is created if it does not exist**, inserted into `auth.users`
 the same way `seed.sql` does it — so this works before you have ever signed
@@ -211,21 +216,13 @@ It gives the most recent worked day an extra block, because that day's last
 block is the one left running: without it Home opens on a day that has earned
 nothing, which is the one figure the screen exists to show.
 
-**Idempotent by client name.** Re-running replaces what it made last time
-rather than stacking a second copy, and it touches nothing it did not create —
-your own entries and invoices survive. Invoices are deleted before entries,
-because a billed entry cannot be deleted while its invoice stands
-(`guard_billed_entry_delete`); removing the invoice releases them through
-`on delete set null`.
-
 The runaway timer is an **update**, not an insert: one running timer per user
 is a database index, so the entry the script already left running is backdated
-rather than joined by a second one. If a timer is already running when you
-seed — yours — it is left alone and the summary says so.
+rather than joined by a second one.
 
 `next_invoice_number` advances past whatever the seed used. Numbering is
-gapless and allocated from that counter, so leaving it behind would make your
-next real invoice collide.
+gapless and allocated from that counter, so leaving it behind would make the
+next invoice collide.
 
 ## Traps found setting this up
 
