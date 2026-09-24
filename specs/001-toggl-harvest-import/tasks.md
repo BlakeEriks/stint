@@ -29,6 +29,8 @@ missed (SC-005), DST (FR-012). They run under `pnpm core:test`
 - Tests: `packages/core/test/import.test.ts` (T008, T014, T021's cases) and three route tests in `apps/web/test/routes.test.ts`.
 - T003 was written as implemented, not `(not implemented)`, since the routes shipped with it. T033's `durationDisagreement` is computed; showing it on the page is still open.
 
+- Added after the first real export: tab-separated files, an "import them as billable" choice when every row says not billable (Toggl's free plan), and "Already invoiced through", backed by `time_entries.invoiced_elsewhere` (migration 21) — earned, never unbilled.
+
 ## Phase 1: Setup
 
 - [X] T001 Create `packages/core/src/import/` and an `index.ts` barrel; re-export it from `packages/core/src/index.ts`

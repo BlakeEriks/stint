@@ -57,6 +57,7 @@ export const POST = handle(async (req: Request) => {
           started_at: r.startedAt,
           ended_at: r.endedAt,
           is_billable: r.billable,
+          invoiced_elsewhere: r.invoicedElsewhere,
           // Null so the rate resolves live through the chain, as for any entry.
           rate_override: null,
         })),
@@ -74,5 +75,6 @@ export const POST = handle(async (req: Request) => {
     unrated: preview.summary.unratedCount,
     overlapping: preview.summary.overlappingCount,
     excluded: preview.summary.excludedCount,
+    invoicedElsewhere: preview.summary.invoicedElsewhereCount,
   });
 });

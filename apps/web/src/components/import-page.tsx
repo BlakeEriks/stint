@@ -19,6 +19,8 @@ import { timeZone } from '@/lib/client/use-timer';
 
 const TH = 'pb-2 pr-3 type-label text-subtle';
 
+const were = (n: number) => (n === 1 ? 'was' : 'were');
+
 const when = (zone: string) =>
   new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -33,13 +35,15 @@ interface Upload {
   file: File;
   zone: string;
   allBillable: boolean;
+  invoicedThrough: string;
 }
 
-function form({ file, zone, allBillable }: Upload) {
+function form({ file, zone, allBillable, invoicedThrough }: Upload) {
   const f = new FormData();
   f.set('file', file);
   f.set('timeZone', zone);
   f.set('allBillable', String(allBillable));
+  f.set('invoicedThrough', invoicedThrough);
   return f;
 }
 
@@ -57,6 +61,7 @@ export function ImportPage() {
      browser's, so rendering them there fails hydration. */
   const [zones, setZones] = useState<string[]>([]);
   const [allBillable, setAllBillable] = useState(false);
+  const [invoicedThrough, setInvoicedThrough] = useState('');
   useEffect(() => {
     setZones(Intl.supportedValuesOf('timeZone'));
     setZone(timeZone);
@@ -74,12 +79,15 @@ export function ImportPage() {
     },
   });
 
-  const choose = (f: File | null, z: string, b: boolean) => {
+  const upload = { zone, allBillable, invoicedThrough };
+  const choose = (f: File | null, next: Partial<typeof upload> = {}) => {
+    const u = { ...upload, ...next };
     setFile(f);
-    setZone(z);
-    setAllBillable(b);
+    setZone(u.zone);
+    setAllBillable(u.allBillable);
+    setInvoicedThrough(u.invoicedThrough);
     confirm.reset();
-    if (f) preview.mutate({ file: f, zone: z, allBillable: b });
+    if (f) preview.mutate({ file: f, ...u });
     else preview.reset();
   };
 
@@ -96,7 +104,9 @@ export function ImportPage() {
             accept=".csv,.tsv,text/csv,text/tab-separated-values"
             aria-label="Export file"
             className="type-control text-muted file:mr-3 file:rounded-md file:border file:border-edge-default file:bg-surface-elevated file:px-3 file:py-1.5 file:text-strong"
-            onChange={(e) => choose(e.target.files?.[0] ?? null, zone, false)}
+            onChange={(e) =>
+              choose(e.target.files?.[0] ?? null, { allBillable: false })
+            }
           />
           <label className="flex flex-col gap-1.5">
             <span className="type-label text-subtle">
@@ -105,7 +115,7 @@ export function ImportPage() {
             <select
               className={`${inputClass} max-w-xs`}
               value={zone}
-              onChange={(e) => choose(file, e.target.value, allBillable)}
+              onChange={(e) => choose(file, { zone: e.target.value })}
             >
               {zones.map((z) => (
                 <option key={z} value={z}>
@@ -113,6 +123,23 @@ export function ImportPage() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="type-label text-subtle">
+              Already invoiced through
+            </span>
+            <input
+              type="date"
+              className={`${inputClass} max-w-xs`}
+              value={invoicedThrough}
+              onChange={(e) =>
+                choose(file, { invoicedThrough: e.target.value })
+              }
+            />
+            <span className="type-meta text-subtle">
+              Work up to this date was billed from Toggl or elsewhere. It still
+              counts as earned, never as unbilled. Leave empty if none was.
+            </span>
           </label>
           {preview.isPending ? (
             <p className="type-support text-subtle">Reading the file…</p>
@@ -131,8 +158,8 @@ export function ImportPage() {
             preview={preview.data}
             zone={zone}
             allBillable={allBillable}
-            onAllBillable={(b) => choose(file, zone, b)}
-            onConfirm={() => confirm.mutate({ file, zone, allBillable })}
+            onAllBillable={(b) => choose(file, { allBillable: b })}
+            onConfirm={() => confirm.mutate({ file, ...upload })}
             pending={confirm.isPending}
           />
         ) : null}
@@ -178,6 +205,9 @@ function Review({
       description={[
         summary.unratedCount
           ? `${summary.unratedCount} will be unrated until a rate is set on their project, client or account.`
+          : null,
+        summary.invoicedElsewhereCount
+          ? `${summary.invoicedElsewhereCount} ${were(summary.invoicedElsewhereCount)} already invoiced elsewhere.`
           : null,
         summary.excludedCount
           ? `${summary.excludedCount} will not be imported — see below.`
@@ -259,6 +289,11 @@ function Row({ row, fmt }: { row: ImportRow; fmt: Intl.DateTimeFormat }) {
       </td>
       <td className="py-2 pr-3 text-primary">
         {row.taskName || <span className="text-subtle">No description</span>}
+        {row.invoicedElsewhere ? (
+          <span className="mt-0.5 block type-meta text-subtle">
+            Invoiced elsewhere
+          </span>
+        ) : null}
         {row.excludedReason ? (
           <span className="mt-0.5 block type-meta text-subtle">
             {row.excludedReason === 'no_end_time'
@@ -326,10 +361,13 @@ function Result({
       description={[
         names.length ? `Into ${names.join(', ')}.` : null,
         result.alreadyImported
-          ? `${result.alreadyImported} were already here and were left as they are.`
+          ? `${result.alreadyImported} ${were(result.alreadyImported)} already here and left as ${result.alreadyImported === 1 ? 'it was' : 'they were'}.`
+          : null,
+        result.invoicedElsewhere
+          ? `${result.invoicedElsewhere} ${were(result.invoicedElsewhere)} marked invoiced elsewhere.`
           : null,
         result.excluded
-          ? `${result.excluded} had no end time and were not imported.`
+          ? `${result.excluded} had no end time and ${result.excluded === 1 ? 'was' : 'were'} not imported.`
           : null,
       ]
         .filter(Boolean)

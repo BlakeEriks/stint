@@ -20,6 +20,7 @@ Me,me@x,Acme,Site,,Open,Yes,2026-03-11,09:00:00,,,,,
 const ctx = (over: Partial<ImportContext> = {}): ImportContext => ({
   userId: USER,
   allBillable: false,
+  invoicedThrough: null,
   timeZone: 'America/New_York',
   defaultRate: 100,
   clients: [{ id: 'c1', name: 'ACME ', hourlyRate: null, archived: false }],
@@ -167,4 +168,14 @@ test('an export with every row not billable is named, and can be overridden', as
   );
   assert.ok(over.rows.every((r) => r.billable));
   assert.equal((await preview()).summary.exportedNoneBillable, false);
+});
+
+test('entries on or before the invoiced-through date are marked invoiced elsewhere', async () => {
+  const p = await preview({ invoicedThrough: '2026-03-10' });
+  assert.deepEqual(
+    p.rows.map((r) => r.invoicedElsewhere),
+    [true, true, true, false],
+  );
+  assert.equal(p.summary.invoicedElsewhereCount, 3);
+  assert.ok((await preview()).rows.every((r) => !r.invoicedElsewhere));
 });
