@@ -1,7 +1,7 @@
 # Roadmap
 
 Work that is wanted and not yet built, ordered by the milestone it belongs
-to. **Known faults go in `defects.md` instead** — a bug needs no
+to. **Known faults are GitHub issues instead** — a bug needs no
 justification, a feature does.
 
 A finished item is **deleted**, not ticked. So is one decided against: there
@@ -40,7 +40,7 @@ If an earlier version of the idea was turned down, say what changed. The
 thesis moved in September 2026.
 
 **A release-gating defect is exempt**, and it is the only exemption: it sits
-here rather than in `defects.md` because it blocks a milestone, and a defect
+here rather than in an issue because it blocks a milestone, and a defect
 needs no justification. Every other item answers the four questions —
 including the ones that feel too obvious to argue, because an item that skips
 the gate teaches the next reader that the gate is optional.

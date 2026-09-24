@@ -24,8 +24,8 @@ considered, not a decision log. A doc may say *why* a thing is the way it is —
 that constrains the next change — but never *what else was on the table*: no
 "this used to say", no "was tried first", no refuting a proposal nobody made.
 
-Unbuilt work goes to `../../roadmap.md` and a known fault to
-`../../defects.md`. A rejection is deleted — `../principles.md` holds what we
+Unbuilt work goes to `../../roadmap.md` and a known fault to a GitHub
+issue. A rejection is deleted — `../principles.md` holds what we
 believe, never a record of what was turned down.
 
 ## Starting one

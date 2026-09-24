@@ -1,6 +1,8 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 2.0.0 → 2.1.0 → 2.2.0 → 2.3.0 → 3.0.0
+- Version change: 1.0.0 → 2.0.0 → 2.1.0 → 2.2.0 → 2.3.0 → 3.0.0 → 3.0.1
+- v3.0.1 (PATCH — Doc Ownership row only): known faults moved from
+  docs/defects.md to GitHub issues labelled `bug`.
 - v2.0.0 through v2.3.0: see prior report, preserved in git history.
 - v3.0.0 (MAJOR — four new principles, renumbering existing ones): an
   outside review found the six existing principles cover data integrity,
@@ -239,7 +241,7 @@ these already owns — it cites the doc instead.
 | The data model and rate/invoice-numbering chains | `docs/data-model.md` |
 | Enforced by a check or config, beyond what's named above | that script or config, commented at the line someone edits |
 | Unbuilt work | `docs/roadmap.md` — gated by four questions (whose problem, what happens without it, does it serve the one person, which milestone) |
-| A known fault | `docs/defects.md` |
+| A known fault | a GitHub issue labelled `bug` |
 | True only under one path in the tree | `.claude/rules/<topic>.md`, with `paths:` frontmatter |
 | What constrains code anywhere in the repo, beyond this constitution's structural rules | `CLAUDE.md`, under 200 lines by design |
 
@@ -305,4 +307,4 @@ constitution — internal consistency, nothing further. Whether a decision
 behind a spec was the right one is settled before a feature reaches this
 workflow at all, by a process this document does not govern.
 
-**Version**: 3.0.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-23
+**Version**: 3.0.1 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-24
