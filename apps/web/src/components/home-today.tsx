@@ -3,7 +3,12 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatCompact, localDateKey } from '@stint/core';
-import { api, type Stats, type TimeEntry } from '@/lib/client/api';
+import {
+  api,
+  type Project,
+  type Stats,
+  type TimeEntry,
+} from '@/lib/client/api';
 import { keys } from '@/lib/client/query-keys';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { useProjectColors } from '@/lib/client/use-project-colors';
@@ -11,7 +16,7 @@ import { Money } from './money';
 import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
 
 /**
- * Today: one figure and the day's entries.
+ * Today: one figure and the day's tasks.
  *
  * The narrow third of the top row — a figure and a few short rows, against
  * the week's chart which wants the long axis
@@ -38,8 +43,16 @@ export function Today({ stats }: { stats: Stats }) {
       }),
   });
 
+  /* Archived included: a project archived since this morning still named
+     the work done under it. */
+  const { data: projectData } = useQuery({
+    queryKey: keys.projects({ archived: true }),
+    queryFn: () => api.projects({ includeArchived: true }),
+  });
+
   const entries = data?.entries ?? [];
   const seconds = entries.reduce((sum, e) => sum + secondsOf(e), 0);
+  const tasks = groupByTask(entries, projectData?.projects ?? []);
 
   /* Three, because it is what the region holds beside the week's chart: the
      column keeps the height it will have once the day has work in it, so the
@@ -65,7 +78,10 @@ export function Today({ stats }: { stats: Stats }) {
         </PairLine>
       </FigGroup>
 
-      <div className="mt-6 flex flex-col">
+      {/* A fixed ceiling rather than the panel's height: the page is a column
+          sized by its content, so there is no bounded height to measure
+          against. Just under five rows, so the cut-off row says it scrolls. */}
+      <div className="mt-6 flex max-h-48 flex-col overflow-y-auto">
         {entries.length === 0
           ? /* An empty day keeps its rows rather than collapsing, the same way
                an unworked day in the week's chart keeps its caption: the
@@ -87,33 +103,71 @@ export function Today({ stats }: { stats: Stats }) {
                 <span className="type-duration text-subtle">—</span>
               </div>
             ))
-          : entries.map((e) => (
+          : tasks.map((t) => (
               <div
-                key={e.id}
-                data-entry={e.id}
+                key={t.key}
+                data-task={t.key}
                 className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
               >
                 {/* Only clients have a colour; internal work takes the hollow
                   ring, which is what having none looks like on a screen
                   otherwise keyed by client. */}
                 <Pip
-                  color={e.projectId ? (colors.get(e.projectId) ?? null) : null}
+                  color={t.projectId ? (colors.get(t.projectId) ?? null) : null}
                 />
                 <span
                   className={`type-support truncate ${
-                    e.endedAt === null ? 'text-primary' : 'text-muted'
+                    t.live ? 'text-primary' : 'text-muted'
                   }`}
                 >
-                  {e.taskName || 'Untitled'}
+                  {t.name}
+                  {t.projectName ? (
+                    <span className="text-subtle"> · {t.projectName}</span>
+                  ) : null}
                 </span>
                 <span className="type-duration text-subtle">
-                  {clock(secondsOf(e))}
+                  {clock(t.seconds)}
                 </span>
               </div>
             ))}
       </div>
     </div>
   );
+}
+
+/**
+ * One row per task: a name under two projects is two tasks. Entries arrive
+ * newest first, so a task sits where its latest entry would.
+ */
+function groupByTask(entries: TimeEntry[], projects: Project[]) {
+  const names = new Map(projects.map((p) => [p.id, p.name]));
+  const tasks = new Map<
+    string,
+    {
+      key: string;
+      name: string;
+      projectId: string | null;
+      projectName: string | null;
+      seconds: number;
+      live: boolean;
+    }
+  >();
+  for (const e of entries) {
+    const name = e.taskName || 'Untitled';
+    const key = `${e.projectId ?? ''}:${name}`;
+    const t = tasks.get(key) ?? {
+      key,
+      name,
+      projectId: e.projectId,
+      projectName: e.projectId ? (names.get(e.projectId) ?? null) : null,
+      seconds: 0,
+      live: false,
+    };
+    t.seconds += secondsOf(e);
+    t.live ||= e.endedAt === null;
+    tasks.set(key, t);
+  }
+  return [...tasks.values()];
 }
 
 /**
@@ -129,7 +183,7 @@ function secondsOf(e: TimeEntry): number {
   );
 }
 
-/** `4:15` — an entry's own length, beside `5h 00m` for the day's total. */
+/** `4:15` — a task's length, beside `5h 00m` for the day's total. */
 function clock(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
