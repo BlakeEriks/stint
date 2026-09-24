@@ -2,8 +2,27 @@ import Link from 'next/link';
 import { ApiError } from '@/lib/client/api';
 
 /**
+ * The panel's one spacing number, on all four sides of every region.
+ *
+ * It is the outer margin, the rules' own inset, and — because the pairing grid
+ * carries no gutter — half the gap between two halves. Two regions side by side
+ * sit apart by exactly twice what either sits from the panel's edge, which is
+ * the spacing the outer margin already implies.
+ *
+ * A grid gutter on top of this is a second number governing the same gap, and
+ * the two drift: at a 16px gutter the middle read 2.8x the margin.
+ *
+ * Off Tailwind's scale at 18px deliberately — 20 (`5`) leaves the middle wide,
+ * 16 (`4`) crowds the panel's corner.
+ */
+export const INSET = 'px-[18px]';
+
+/**
  * The content column. No screen sets its own width; `wide` is for screens that
  * are a grid rather than a column.
+ *
+ * Its padding is `INSET` on every side, so a region's rule — which spans the
+ * column — stops that far short of the panel's edges.
  */
 export function Page({
   wide = false,
@@ -35,14 +54,9 @@ export function Page({
 }) {
   return (
     <main
-      /* The top inset follows the NAV's breakpoint (`lg`), not the page's own
-         (`sm`): where the nav is a horizontal strip directly above, the full
-         inset reads as a gap rather than as margin. */
-      className={`mx-auto ${
-        flush ? '' : 'px-4 pt-4 pb-8 sm:px-8 sm:pb-10 lg:pt-10 '
-      }${wide ? 'max-w-6xl' : 'max-w-3xl'}${
-        fills ? ' xl:flex xl:h-full xl:min-h-0 xl:flex-col' : ''
-      }`}
+      className={`mx-auto ${flush ? '' : `${INSET} py-[18px] `}${
+        wide ? 'max-w-6xl' : 'max-w-3xl'
+      }${fills ? ' xl:flex xl:h-full xl:min-h-0 xl:flex-col' : ''}`}
     >
       {children}
     </main>
@@ -75,31 +89,15 @@ export function DetailPage({
 }
 
 /**
- * A card that holds rows, or one message where rows would be.
+ * A region of the panel: rows, or one message where rows would be, under an
+ * inset rule.
  *
- * `edge` draws the client's colour down the left edge. It is opt-in and a null
- * colour still reserves the rail, so a group of panels aligns whether or not
- * each client has a colour.
+ * No border, no background, no shadow: the panel around it carries all three,
+ * and a second set inside it reads as a card in a card. Its rows are split by
+ * rules of their own (`divide-y`), never boxed.
  */
-export function Panel({
-  edge = false,
-  color,
-  children,
-}: {
-  edge?: boolean;
-  color?: string | null;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={`overflow-hidden rounded-xl border border-edge-subtle bg-surface-elevated shadow-card${
-        edge ? ' border-l-2' : ''
-      }`}
-      style={edge && color ? { borderLeftColor: color } : undefined}
-    >
-      {children}
-    </div>
-  );
+export function Panel({ children }: { children: React.ReactNode }) {
+  return <div className="border-t border-edge-subtle">{children}</div>;
 }
 
 /**
@@ -139,7 +137,6 @@ export function Listing<T>({
   empty,
   missing,
   tight = false,
-  panel = false,
   children,
 }: {
   query: { data: T | undefined; error: unknown; isLoading: boolean };
@@ -147,17 +144,11 @@ export function Listing<T>({
   /** What a 404 says, where the screen is about one record. */
   missing?: React.ReactNode;
   tight?: boolean;
-  /**
-   * Wrap the MESSAGE in a panel, for a list whose rows are cards of their
-   * own — a panel around those would nest a card inside a card.
-   */
-  panel?: boolean;
   children: (data: T) => React.ReactNode;
 }) {
-  const message = (text: React.ReactNode) => {
-    const p = <Empty tight={tight}>{text}</Empty>;
-    return panel ? <Panel>{p}</Panel> : p;
-  };
+  const message = (text: React.ReactNode) => (
+    <Empty tight={tight}>{text}</Empty>
+  );
 
   /* A 401 has already sent the browser to `/signin`. Reporting a failure over
      the top of a navigation in flight tells the user something is broken when

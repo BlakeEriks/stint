@@ -39,23 +39,26 @@
   }
   .rule strong { color: var(--text-strong); font-weight: 600; }
 
-  .mock {
+  /* The frame panel is the only surface. Everything inside it is a region:
+     no background, border, shadow or radius of its own. */
+  .panel {
     background: var(--bg-primary);
     border: 1px solid var(--border-subtle);
-    border-radius: 12px; padding: 20px;
-    margin-top: 1.25rem;
+    border-radius: 12px; box-shadow: var(--shadow-card);
+    padding: 18px 0; margin-top: 1.25rem;
   }
-  .card {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: 10px; box-shadow: var(--shadow-card);
+  .region { padding: 0 18px; }
+  .region + .region { position: relative; margin-top: 18px; padding-top: 18px; }
+  .region + .region::before {
+    content: ''; position: absolute; top: 0; left: 18px; right: 18px;
+    height: 1px; background: var(--border-subtle);
   }
-  .card-head {
+  .rhead {
     display: flex; align-items: baseline; justify-content: space-between;
-    gap: 12px; padding: 14px 16px 10px;
+    gap: 12px; margin-bottom: 14px;
   }
-  .card-rule { height: 1px; margin: 0 16px; background: var(--border-subtle); }
-  .card-body { padding: 6px 16px 14px; }
+  /* `.type-region-head` carries size, weight and tracking, as on home. */
+  .region-head { line-height: 1; color: var(--text-subtle); display: block; }
 
   .filters { display: flex; gap: 4px; margin-bottom: 14px; }
   /* FilterTabs is a row of links, not pills: no border, `rounded-md` like
@@ -98,6 +101,7 @@
     font-family: var(--font-sans); font-size: 12.5px; cursor: pointer; flex: none;
   }
   .btn.primary { background: var(--bg-hover); }
+  .btn.accent  { background: var(--accent-default); color: var(--text-on-accent); border-color: transparent; }
   .btn[disabled] { opacity: .45; cursor: not-allowed; }
 
   /* Same control as `settings.html` — one input, one look. */
@@ -130,7 +134,7 @@
     padding: 6px 0; text-align: left;
   }
 
-  .empty { padding: 28px 16px; text-align: center; color: var(--text-muted); }
+  .empty { padding: 10px 0; text-align: center; color: var(--text-muted); }
 </style>
 
 <div class="page">
@@ -141,20 +145,28 @@
     The screen to open when money lands, which is why home needs only the one
     number.
   </p>
+  <p>
+    Each screen — the list, one invoice, a new invoice — is <strong
+    style="color:var(--text-strong)">one panel, and its sections are regions
+    inside it</strong>: no background, border or shadow of their own, inset
+    18px, divided by a rule that stops 18px short of each edge. A new invoice
+    runs its sections down one panel; an invoice runs its lines and its
+    status. Rows inside a region are divided by the same rule, never boxed.
+  </p>
 
   <!-- ───────────────────────── the list ───────────────────────── -->
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">The list</span></div>
 
-    <div class="mock">
-      <div class="card">
-        <div class="card-head">
-          <span class="type-heading" style="color:var(--text-strong)">Invoices</span>
+    <div class="panel">
+      <div class="region">
+        <div class="rhead">
+          <span class="type-region-head region-head">Invoices</span>
           <span><span class="type-label" style="color:var(--text-subtle)">Outstanding</span>
                 <span class="type-amount-hero" style="color:var(--text-strong); margin-left:10px">$3,100.00</span></span>
         </div>
-        <div class="card-rule"></div>
-        <div class="card-body">
+      </div>
+      <div class="region">
           <nav class="filters" aria-label="Filter">
             <a class="chip on" aria-current="page">Open</a>
             <a class="chip">Paid</a>
@@ -183,7 +195,6 @@
             <span class="date">11 Sep</span>
             <span class="amt">$487.50</span>
           </div>
-        </div>
       </div>
     </div>
     <span class="caption">Defaults to open — draft + sent</span>
@@ -201,13 +212,11 @@
         invoice itself, where the whole document is in view.</li>
     </ul>
 
-    <div class="mock">
-      <div class="card">
-        <div class="card-body">
-          <div class="empty">
-            <div class="type-body" style="color:var(--text-strong)">No open invoices</div>
-            <div class="type-support" style="margin-top:4px">3 paid · 1 void</div>
-          </div>
+    <div class="panel">
+      <div class="region">
+        <div class="empty">
+          <div class="type-body" style="color:var(--text-strong)">No open invoices</div>
+          <div class="type-support" style="margin-top:4px">3 paid · 1 void</div>
         </div>
       </div>
     </div>
@@ -223,14 +232,12 @@
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">Preview, then generate</span></div>
 
-    <div class="mock">
-      <div class="card">
-        <div class="card-head">
-          <span class="type-heading" style="color:var(--text-strong)">Preview</span>
+    <div class="panel">
+      <div class="region">
+        <div class="rhead">
+          <span class="type-region-head region-head">Preview</span>
           <span class="type-amount-hero" style="color:var(--text-strong)">$1,462.50</span>
         </div>
-        <div class="card-rule"></div>
-        <div class="card-body">
           <div class="irow">
             <span class="who type-body">Website redesign</span>
             <span class="type-duration" style="color:var(--text-muted)">6.5h · $150.00</span>
@@ -245,19 +252,16 @@
             <button class="btn">Download PDF</button>
             <button class="btn primary">Generate</button>
           </div>
-        </div>
       </div>
     </div>
     <span class="caption">Approved — Generate is offered</span>
 
-    <div class="mock">
-      <div class="card">
-        <div class="card-head">
-          <span class="type-heading" style="color:var(--text-strong)">Preview</span>
+    <div class="panel">
+      <div class="region">
+        <div class="rhead">
+          <span class="type-region-head region-head">Preview</span>
           <span class="type-amount-hero" style="color:var(--text-subtle)">—</span>
         </div>
-        <div class="card-rule"></div>
-        <div class="card-body">
           <div class="irow">
             <span class="who type-body">Scoping call</span>
             <span class="type-duration" style="color:var(--danger)">2 entries have no rate</span>
@@ -266,7 +270,6 @@
             <button class="btn">Download PDF</button>
             <button class="btn primary" disabled>Generate</button>
           </div>
-        </div>
       </div>
     </div>
     <span class="caption">Unrated entries — generation is refused, not billed at zero</span>
@@ -294,14 +297,20 @@
       the thing it was added to.
     </p>
 
-    <div class="mock">
-      <div class="card">
-        <div class="card-head">
-          <span class="type-heading" style="color:var(--text-strong)">What to bill</span>
+    <div class="panel">
+      <div class="region">
+        <div class="rhead">
+          <span class="type-region-head region-head">What to bill</span>
         </div>
-        <div class="card-rule"></div>
-        <div class="card-body" style="padding-top:14px">
-          <span class="flabel">Charges</span>
+          <span class="flabel">Client</span>
+          <div class="input" style="margin-top:6px; justify-content:space-between">Acme Corp <span style="color:var(--text-muted)">⌄</span></div>
+          <div style="display:flex; gap:16px; margin-top:14px">
+            <div style="flex:1"><span class="flabel">From</span><div class="input mono" style="margin-top:6px">08/01/2026</div></div>
+            <div style="flex:1"><span class="flabel">To</span><div class="input mono" style="margin-top:6px">08/31/2026</div></div>
+          </div>
+          <span class="flabel" style="margin-top:14px">Group lines</span>
+          <div class="input" style="margin-top:6px; justify-content:space-between">By task name <span style="color:var(--text-muted)">⌄</span></div>
+          <span class="flabel" style="margin-top:14px">Charges</span>
           <div class="charge-row" style="margin-top:6px">
             <div class="desc"><div class="input">Fixed-scope build</div></div>
             <div class="amt-field"><div class="input mono">2400</div></div>
@@ -314,42 +323,59 @@
           </div>
           <button class="add-charge">+ Add a charge</button>
           <p class="fhint">A fixed fee, a deposit, or an expense you are passing on.</p>
-        </div>
+          <button class="btn" style="margin-top:14px">Preview</button>
       </div>
-    </div>
-    <span class="caption">Entered with the client and the period, before any preview</span>
-
-    <div class="mock">
-      <div class="card">
-        <div class="card-head">
-          <span class="type-heading" style="color:var(--text-strong)">Preview</span>
-          <span class="type-amount-hero" style="color:var(--text-strong)">$3,862.50</span>
+      <div class="region">
+        <div class="rhead">
+          <span class="type-region-head region-head">Acme Corp · 9 entries</span>
         </div>
-        <div class="card-rule"></div>
-        <div class="card-body">
+          <p class="fhint" style="margin:-8px 0 8px">Nothing has been created yet.</p>
           <div class="irow">
-            <span class="who type-body">Website redesign</span>
-            <span class="type-duration" style="color:var(--text-muted)">6.5h · $150.00</span>
-            <span class="amt">$975.00</span>
+            <span class="who flabel">Description</span>
+            <span class="flabel" style="width:56px; text-align:right">Qty</span>
+            <span class="flabel" style="width:72px; text-align:right">Rate</span>
+            <span class="flabel" style="width:88px; text-align:right">Amount</span>
           </div>
           <div class="irow">
             <span class="who type-body">API integration</span>
-            <span class="type-duration" style="color:var(--text-muted)">3.25h · $150.00</span>
-            <span class="amt">$487.50</span>
+            <span class="type-duration" style="width:56px; text-align:right; color:var(--text-muted)">3.25h</span>
+            <span class="type-duration" style="width:72px; text-align:right; color:var(--text-muted)">$150.00</span>
+            <span class="amt" style="width:88px; text-align:right">$487.50</span>
+          </div>
+          <div class="irow">
+            <span class="who type-body">Website redesign</span>
+            <span class="type-duration" style="width:56px; text-align:right; color:var(--text-muted)">6.5h</span>
+            <span class="type-duration" style="width:72px; text-align:right; color:var(--text-muted)">$150.00</span>
+            <span class="amt" style="width:88px; text-align:right">$975.00</span>
           </div>
           <div class="irow">
             <span class="who type-body">Fixed-scope build</span>
-            <span class="type-duration" style="color:var(--text-subtle)"></span>
-            <span class="amt">$2,400.00</span>
+            <span style="width:56px"></span>
+            <span style="width:72px"></span>
+            <span class="amt" style="width:88px; text-align:right">$2,400.00</span>
           </div>
-          <div class="irow" style="justify-content:flex-end; gap:8px">
-            <button class="btn">Download PDF</button>
-            <button class="btn primary">Generate</button>
+          <div style="margin:10px 0 0 auto; max-width:16rem" class="type-support">
+            <div style="display:flex; justify-content:space-between; color:var(--text-muted)">Subtotal <span class="type-duration">$3,862.50</span></div>
+            <div style="display:flex; justify-content:space-between; border-top:1px solid var(--border-subtle); margin-top:4px; padding-top:6px; color:var(--text-primary)">Total <span class="type-amount" style="color:var(--text-strong)">$3,862.50</span></div>
           </div>
+      </div>
+      <div class="region">
+        <div class="rhead">
+          <span class="type-region-head region-head">Invoice details</span>
         </div>
+          <span class="flabel">Due date</span>
+          <div class="input mono ph" style="margin-top:6px">mm/dd/yyyy</div>
+          <p class="fhint">Defaults to your payment terms.</p>
+          <span class="flabel" style="margin-top:14px">Notes</span>
+          <div class="input ph" style="margin-top:6px; height:56px"></div>
+          <p class="fhint">Printed on the invoice.</p>
+      </div>
+      <div class="region" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+          <button class="btn accent">Generate invoice</button>
+          <span class="type-support" style="color:var(--text-subtle)">Assigns a number and locks these entries. Voiding later keeps the number on record.</span>
       </div>
     </div>
-    <span class="caption">The charge lands last, stating no quantity and no rate</span>
+    <span class="caption">The whole screen: charges are entered with the client and the period; in the preview they land last, stating no quantity and no rate</span>
 
     <ul class="rule">
       <li><strong>A charge states no quantity and no rate.</strong> Its

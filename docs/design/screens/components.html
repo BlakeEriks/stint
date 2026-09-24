@@ -53,23 +53,32 @@
      Everything below draws the component rather than naming it. The
      metrics are the app's: Button's heights and paddings come straight
      off button.tsx's cva, so a row here is measurable against it. */
+  /* `.mock` is the frame's panel: the one surface. */
   .mock {
     background: var(--bg-primary);
     border: 1px solid var(--border-subtle);
-    border-radius: 12px; padding: 20px;
+    border-radius: 12px; box-shadow: var(--shadow-card);
     margin-top: 1.25rem;
   }
-  .card {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: 10px; box-shadow: var(--shadow-card);
-    padding: 16px;
+  /* A region: no surface of its own, content 18px in from the panel's edge,
+     and an inset rule before every region after the first. */
+  .region { position: relative; padding: 18px; }
+  .region + .region::before {
+    content: ''; position: absolute; top: 0; left: 18px; right: 18px;
+    height: 1px; background: var(--border-subtle);
   }
-  .card + .card { margin-top: 12px; }
+  .region-head { display: block; line-height: 1; color: var(--text-subtle); margin-bottom: 8px; }
+  .region-head .dot { margin: 0 2px; }
+  .rrow { display: flex; align-items: center; gap: 10px; padding: 10px 0; min-width: 0; }
+  .rrow + .rrow { border-top: 1px solid var(--border-subtle); }
+  .rrow .rname { flex: 1; min-width: 0; color: var(--text-strong);
+                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rrow .rmeta { flex: none; font-family: var(--font-mono); font-size: 12px;
+                 font-variant-numeric: tabular-nums; color: var(--text-subtle); }
 
   /* A specimen: the thing, with its token underneath. */
   .specimens { display: flex; flex-wrap: wrap; gap: 18px 22px; align-items: flex-end; }
-  /* A card holding an open list aligns to the TOP: baseline-aligning a 36px
+  /* A region holding an open list aligns to the TOP: baseline-aligning a 36px
      trigger against a 150px open menu strands the closed one in mid-air. */
   .specimens.tops { align-items: flex-start; }
   .spec { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; min-width: 0; }
@@ -82,7 +91,7 @@
     text-transform: uppercase; color: var(--text-subtle);
   }
   /* The matrix does not reflow — dropping a size column would lose the
-     comparison the grid exists for. Narrow, the card scrolls it sideways,
+     comparison the grid exists for. Narrow, the region scrolls it sideways,
      the same answer `pre` already uses on this page. */
   .btn-scroll { overflow-x: auto; }
   .btn-grid {
@@ -215,20 +224,6 @@
   .opt.action { color: var(--text-muted); }
   .opt.action svg { width: 13px; height: 13px; stroke: currentColor; fill: none;
                     stroke-width: 2.25; stroke-linecap: round; }
-
-  /* Panel, with and without the client's edge. */
-  .panels { display: flex; flex-wrap: wrap; gap: 14px; }
-  .panel {
-    flex: 1 1 220px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: 10px; padding: 13px 15px;
-    box-shadow: var(--shadow-card);
-  }
-  .panel.edge { border-left: 2px solid var(--border-subtle); padding-left: 14px; }
-  .panel.edge.c4 { border-left-color: var(--proj-4); }
-  .panel .ptitle { color: var(--text-strong); }
-  .panel .pmeta { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-subtle); }
 </style>
 
 <div class="page">
@@ -262,14 +257,14 @@
 &lt;/<span class="k">Page</span>&gt;</pre>
 
     <ul class="rule">
-      <li><strong><code>Page</code> owns the content column</strong> — width,
-        gutters and the inset above the first card. No screen sets its own
-        width, and none adds a top margin: the column already has one, and a
-        second stacks.</li>
+      <li><strong><code>Page</code> owns the content column's width</strong>,
+        and inside the panel it is <code>flush</code>: the regions carry the
+        18px inset, so padding on the column as well doubles it. No screen
+        sets its own width or adds a margin.</li>
       <li><strong><code>wide</code> is for a grid, not a preference.</strong>
         The calendar's seven days need the room; prose does not.</li>
       <li><strong>The page title is <code>type-title</code>, once.</strong>
-        A card's own heading is <code>type-heading</code>.</li>
+        A region's heading is <code>type-region-head</code>.</li>
     </ul>
   </section>
 
@@ -285,7 +280,7 @@
         <td>A <code>max-w-*</code> of your own</td>
       </tr>
       <tr>
-        <td>A titled card with its own save state</td>
+        <td>A titled region with its own save state</td>
         <td><code>Section</code></td>
         <td>A bordered <code>div</code></td>
       </tr>
@@ -387,7 +382,7 @@
         spells the consequence out in words.</li>
       <li><strong>A failure renders beside the thing that failed.</strong>
         One mutation serving many rows means a message at the foot of the
-        card cannot say which row was refused.</li>
+        region cannot say which row was refused.</li>
       <li><strong>An empty state says what to do</strong>, or what the
         consequence is — "Add one to set a rate and bill against it", not "No
         clients."</li>
@@ -482,7 +477,7 @@
     </p>
 
     <div class="mock">
-      <div class="card btn-scroll">
+      <div class="region btn-scroll">
         <div class="btn-grid">
           <span></span>
           <span class="grid-head">xs</span>
@@ -511,7 +506,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="region">
         <div class="specimens">
           <div class="spec">
             <button class="btn default isz-icon" aria-label="Edit">
@@ -546,7 +541,7 @@
     </p>
 
     <div class="mock">
-      <div class="card">
+      <div class="region">
         <div class="specimens">
           <div class="spec">
             <span style="display:flex; gap:6px">
@@ -567,7 +562,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="region">
         <div class="specimens">
           <div class="spec">
             <span class="save"><span class="dot"></span></span>
@@ -616,7 +611,7 @@
     </ul>
 
     <div class="mock">
-      <div class="card">
+      <div class="region">
         <div class="specimens tops" style="gap:26px 30px">
           <div class="spec">
             <div class="picker" style="width:200px">
@@ -645,7 +640,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="region">
         <div class="specimens tops" style="gap:26px 30px">
           <div class="spec">
             <button class="tag"><span class="sw c6"></span>Ledger rewrite
@@ -692,7 +687,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="region">
         <div class="specimens tops" style="gap:26px 30px">
           <div class="spec">
             <div class="picker">
@@ -740,28 +735,38 @@
     </ul>
 
     <div class="mock">
-      <div class="panels">
-        <div class="panel edge c4">
-          <div class="ptitle type-body">Byrne Studio</div>
-          <div class="pmeta">3 projects · $95/hr</div>
-        </div>
-        <div class="panel edge">
-          <div class="ptitle type-body">No client</div>
-          <div class="pmeta">Internal work</div>
-        </div>
-        <div class="panel">
-          <div class="ptitle type-body">This week</div>
-          <div class="pmeta">18h 40m</div>
-        </div>
+      <div class="region">
+        <span class="type-region-head region-head">Byrne Studio <span class="dot">&middot;</span> $95/hr</span>
+        <div class="rrow"><span class="sw c4"></span><span class="rname type-body">Brand refresh</span><span class="rmeta">12h 10m</span></div>
+        <div class="rrow"><span class="sw c4"></span><span class="rname type-body">Packaging</span><span class="rmeta">4h 05m</span></div>
+      </div>
+      <div class="region">
+        <span class="type-region-head region-head">No client</span>
+        <div class="rrow"><span class="sw internal"></span><span class="rname type-body">Admin</span><span class="rmeta">2h 25m</span></div>
       </div>
     </div>
 
     <p>
-      Two panels wearing <code>edge</code> and one without. The middle keeps
-      the rail with no colour in it, so a group stays aligned whether or not
-      each client has one; the third is standalone and has nothing to align
-      with.
+      <strong>Nothing inside the panel is a card.</strong> The panel is the
+      one surface; the content in it sits in regions, and a region is space
+      and a rule.
     </p>
+
+    <table>
+      <tr><th>Part</th><th>Value</th></tr>
+      <tr><td>Region surface</td><td>None — no background, border, shadow or radius</td></tr>
+      <tr><td>Region inset</td><td><code>INSET</code>, 18px each side</td></tr>
+      <tr><td>Between regions</td><td>1px <code>border-subtle</code>, stopping 18px short of each panel edge, 18px above and below</td></tr>
+      <tr><td>Region heading</td><td><code>type-region-head</code>, <code>text-subtle</code></td></tr>
+      <tr><td>Between rows</td><td>1px <code>border-subtle</code> inside the inset</td></tr>
+    </table>
+
+    <ul class="rule">
+      <li><strong>A record is a plain row.</strong> Rows part on a rule, and
+        nothing is bordered per row.</li>
+      <li><strong>A client's colour is a swatch beside its name</strong>,
+        on the heading of a group or on the row itself.</li>
+    </ul>
   </section>
 
   <!-- ═══════════════ the shared three ═══════════════ -->
@@ -786,18 +791,12 @@
 <span class="c">// The filter above a list, in the URL rather than in state.</span>
 &lt;<span class="k">FilterTabs</span> base="/clients" active={status} tabs={[…]} /&gt;
 
-<span class="c">// A group of panels, aligned whether or not each has a colour.</span>
-&lt;<span class="k">Panel</span> edge color={client?.color}&gt;…&lt;/<span class="k">Panel</span>&gt;
-
 <span class="c">// A detail screen.</span>
 &lt;<span class="k">DetailPage</span> back="/clients" label="Clients"&gt;…&lt;/<span class="k">DetailPage</span>&gt;</pre>
 
     <ul class="rule">
-      <li><strong><code>edge</code> is opt-in, and a null colour still reserves
-        the rail.</strong> Panels in a group must align whether or not each
-        client has a colour — "No client" is a grouping rather than a record,
-        so it gets the space and no colour. A standalone panel omits
-        <code>edge</code> and has nothing to align with.</li>
+      <li><strong><code>Panel</code> is a region</strong>, the table above
+        in a component.</li>
       <li><strong><code>Listing</code> renders loading, failure and empty</strong>,
         so no screen writes those branches. Before it, ten screens wrote two of
         the three and none wrote the third — a query that errored said
@@ -805,9 +804,6 @@
       <li><strong>A failed load is neutral, never red.</strong> It is a
         condition rather than a rejected action, and the answer is to try
         again. Red stays on the danger channel.</li>
-      <li><strong><code>panel</code> wraps the MESSAGE alone</strong>, for a
-        list whose rows are cards of their own — a panel around those would
-        nest a card inside a card.</li>
       <li><strong><code>Empty</code> takes <code>tight</code></strong> for the
         in-page variant: today's entries sit under a heading that already has
         space above it, where a list filling its own panel does not.</li>

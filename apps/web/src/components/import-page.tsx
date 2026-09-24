@@ -12,7 +12,7 @@ import {
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { inputClass, Section } from './field';
-import { Page } from './page';
+import { DetailPage } from './page';
 import { api } from '@/lib/client/api';
 import { invalidateEntryData, keys } from '@/lib/client/query-keys';
 import { timeZone } from '@/lib/client/use-timer';
@@ -100,9 +100,9 @@ export function ImportPage() {
   };
 
   return (
-    <Page wide>
+    <DetailPage back="/settings" label="Settings">
       <h1 className="mb-6 type-title text-strong">Import</h1>
-      <div className="flex flex-col gap-4">
+      <div>
         <Section
           title="From Toggl"
           description="Export a detailed report from Toggl Track as CSV and choose the file. You see every entry before anything is written, and importing the same file again adds nothing."
@@ -179,7 +179,7 @@ export function ImportPage() {
           </p>
         ) : null}
       </div>
-    </Page>
+    </DetailPage>
   );
 }
 
@@ -345,7 +345,7 @@ function Row({ row, fmt }: { row: ImportRow; fmt: Intl.DateTimeFormat }) {
       <td className="type-duration py-2 pr-3 text-right text-muted">
         {seconds == null ? '—' : formatCompact(seconds)}
       </td>
-      <td className="type-duration py-2 text-right text-muted">
+      <td className="type-duration py-2 text-right whitespace-nowrap text-muted">
         {!row.willWrite ? (
           '—'
         ) : !row.billable ? (

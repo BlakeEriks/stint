@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, ApiError, type Client, type Project } from '@/lib/client/api';
-import { Listing, Panel } from './page';
+import { Listing } from './page';
 import { ProjectDialog } from './project-dialog';
 import { ProjectRate } from './project-rate';
 import { keys } from '@/lib/client/query-keys';
@@ -40,7 +40,7 @@ export function ClientProjects({ client }: { client: Client }) {
   });
 
   return (
-    <section className="mt-6">
+    <section className="border-t border-edge-subtle pt-[18px]">
       <header className="flex items-center justify-between gap-3 pb-3">
         <h2 className="type-section text-strong">Projects</h2>
         {/* An archived client is a finished engagement, so there is nothing
@@ -54,37 +54,35 @@ export function ClientProjects({ client }: { client: Client }) {
         ) : null}
       </header>
 
-      <Panel>
-        <Listing
-          query={query}
-          tight
-          empty={
-            client.archivedAt
-              ? 'No projects.'
-              : 'No projects yet. Time can be tracked against the client directly, but a project is how work gets grouped on an invoice.'
-          }
-        >
-          {(projects) => (
-            <ul>
-              {projects.map((project) => (
-                <li key={project.id}>
-                  <Row
-                    project={project}
-                    client={client}
-                    userDefaultRate={settings?.defaultHourlyRate ?? null}
-                    onEdit={() => setEditing(project)}
-                    onArchived={() =>
-                      queryClient.invalidateQueries({
-                        queryKey: keys.projects(),
-                      })
-                    }
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Listing>
-      </Panel>
+      <Listing
+        query={query}
+        tight
+        empty={
+          client.archivedAt
+            ? 'No projects.'
+            : 'No projects yet. Time can be tracked against the client directly, but a project is how work gets grouped on an invoice.'
+        }
+      >
+        {(projects) => (
+          <ul className="divide-y divide-edge-subtle">
+            {projects.map((project) => (
+              <li key={project.id}>
+                <Row
+                  project={project}
+                  client={client}
+                  userDefaultRate={settings?.defaultHourlyRate ?? null}
+                  onEdit={() => setEditing(project)}
+                  onArchived={() =>
+                    queryClient.invalidateQueries({
+                      queryKey: keys.projects(),
+                    })
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Listing>
 
       <ProjectDialog
         open={creating}
@@ -119,8 +117,8 @@ function Row({
   });
 
   return (
-    <div className="border-t border-edge-subtle first:border-t-0">
-      <div className="flex items-center gap-3 px-4 py-3">
+    <div>
+      <div className="flex items-center gap-3 py-3">
         <div className="min-w-0 flex-1">
           <p className="truncate type-body text-strong">{project.name}</p>
           <ProjectRate
@@ -160,7 +158,7 @@ function Row({
       {/* In the row, naming the project: a list of identical failures at the
           foot of the card could not say which archive was refused. */}
       {archive.error ? (
-        <p role="alert" className="px-4 pb-3 type-support text-danger">
+        <p role="alert" className="pb-3 type-support text-danger">
           {archive.error instanceof ApiError
             ? archive.error.message
             : `Could not archive ${project.name}.`}

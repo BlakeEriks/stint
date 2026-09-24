@@ -39,24 +39,25 @@
   }
   .rule strong { color: var(--text-strong); font-weight: 600; }
 
-  .mock {
+  /* ── the panel and its regions ───────────────────────────────── */
+  /* The panel is the only surface. A region is inset content; the rule
+     between two regions stops 18px short of each panel edge. */
+  .panel {
+    margin-top: 1.25rem;
     background: var(--bg-primary);
     border: 1px solid var(--border-subtle);
-    border-radius: 12px; padding: 20px;
-    margin-top: 1.25rem;
-  }
-
-  /* ── a settings card ─────────────────────────────────────────── */
-  .card {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
     border-radius: 12px; box-shadow: var(--shadow-card);
-    padding: 20px;
+    padding: 18px 0;
   }
-  .card + .card { margin-top: 16px; }
-  .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-  .card h2 { margin: 0; font-size: 15px; font-weight: 600; color: var(--text-strong); }
-  .card .desc { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); }
+  .region { padding: 0 18px; }
+  .region + .region::before {
+    content: ''; display: block; height: 1px;
+    background: var(--border-subtle); margin: 0 0 18px;
+  }
+  .region + .region { padding-top: 18px; }
+  .region-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .region-head { line-height: 1; color: var(--text-subtle); display: block; }
+  .region .desc { margin: 8px 0 0; font-size: 13px; color: var(--text-muted); }
   .fields { margin-top: 16px; display: flex; flex-direction: column; gap: 16px; }
   .pair { display: flex; flex-wrap: wrap; gap: 16px; }
   .field { flex: 1; min-width: 11rem; }
@@ -97,17 +98,14 @@
   .states { display: flex; flex-wrap: wrap; gap: 2rem; margin-top: 1.25rem; }
   .state { display: flex; flex-direction: column; gap: 8px; }
   .state .box {
-    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    background: var(--bg-primary); border: 1px solid var(--border-subtle);
     border-radius: 8px; padding: 12px 14px; min-width: 9rem;
   }
 
   /* ── payment profiles ────────────────────────────────────────── */
-  .prof {
-    display: flex; align-items: center; gap: 12px;
-    border: 1px solid var(--border-subtle); border-radius: 8px;
-    padding: 10px 12px;
-  }
-  .prof + .prof { margin-top: 8px; }
+  /* Plain rows: a record you edit, split from the next by a rule. */
+  .prof { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+  .prof + .prof { border-top: 1px solid var(--border-subtle); }
   .prof .name { font-size: 14px; color: var(--text-primary); }
   .prof .sum { display: block; margin-top: 2px; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-subtle); }
   .badge {
@@ -130,20 +128,32 @@
   <p class="eyebrow">Stint · Screens</p>
   <h1>Settings</h1>
   <p class="standfirst">
-    Six cards and no save button. Everything here is a default that something
-    else falls back to, which is what makes it a pile of independent
-    preferences rather than a transaction.
+    One panel of regions and no save button. Everything here is a default
+    that something else falls back to, which is what makes it a pile of
+    independent preferences rather than a transaction.
   </p>
 
   <!-- ═══════════════ the shape ═══════════════ -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">A card</span></div>
+    <div class="sec-head"><span class="eyebrow">One panel, a region per section</span></div>
 
-    <div class="mock">
-      <div class="card">
-        <div class="card-head">
+    <div class="panel">
+      <div class="region">
+        <span class="type-region-head region-head">Appearance</span>
+        <div class="fields">
+          <div class="field">
+            <label>Theme</label>
+            <p style="margin:6px 0 0;display:flex;gap:6px">
+              <button class="btn">System</button><button class="btn ghost">Light</button><button class="btn ghost">Dark</button>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="region">
+        <div class="region-head-row">
           <div>
-            <h2>Billing defaults</h2>
+            <span class="type-region-head region-head">Billing defaults</span>
             <p class="desc">What a client or project falls back to when it sets no rate of its own.</p>
           </div>
           <span class="ind"><span class="dot"></span></span>
@@ -167,11 +177,99 @@
           </div>
         </div>
       </div>
+
+      <div class="region">
+        <div class="region-head-row">
+          <span class="type-region-head region-head">Business identity</span>
+          <span class="ind"><span class="dot"></span></span>
+        </div>
+        <div class="fields">
+          <div class="pair">
+            <div class="field">
+              <label>Name</label>
+              <div class="input">Blake Eriks</div>
+            </div>
+            <div class="field">
+              <label>Email</label>
+              <div class="input">billing@example.com</div>
+            </div>
+          </div>
+          <div class="pair">
+            <div class="field">
+              <label>Address</label>
+              <div class="input">400 Main St, Austin, TX 78701</div>
+            </div>
+            <div class="field">
+              <label>Tax ID</label>
+              <div class="input ph">EIN or SSN</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="region">
+        <div class="region-head-row">
+          <span class="type-region-head region-head">Invoice numbering</span>
+          <span class="ind"><span class="dot"></span></span>
+        </div>
+        <div class="fields">
+          <div class="pair">
+            <div class="field">
+              <label>Prefix</label>
+              <div class="input mono">INV-</div>
+            </div>
+            <div class="field">
+              <label>Next number</label>
+              <div class="readonly">0042</div>
+              <p class="hint">Set by the system so numbering stays gapless.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="region">
+        <span class="type-region-head region-head">Payment details</span>
+        <p class="desc">Printed on the invoice itself, never in an email — details that look the same every time make a change worth questioning.</p>
+        <div class="fields">
+          <div>
+            <div class="prof">
+              <span style="flex:1;min-width:0">
+                <span class="name">Main account <span class="badge">Default</span></span>
+                <span class="sum">First National · ••••4417 · ABA 021000021</span>
+              </span>
+              <button class="btn ghost">
+                <svg viewBox="0 0 24 24" aria-hidden><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                Edit
+              </button>
+            </div>
+            <div class="prof">
+              <span style="flex:1;min-width:0">
+                <span class="name">EUR clients</span>
+                <span class="sum">Wise · ••••8823</span>
+              </span>
+              <button class="btn ghost">Make default</button>
+              <button class="btn ghost">
+                <svg viewBox="0 0 24 24" aria-hidden><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                Edit
+              </button>
+            </div>
+          </div>
+          <div>
+            <button class="btn">
+              <svg viewBox="0 0 24 24" aria-hidden><path d="M5 12h14M12 5v14"/></svg>
+              Add payment details
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-    <span class="caption">Title, description, and the card's own save state in the corner</span>
+    <span class="caption">Each region: its head, a description, its own save state in the corner · next number has no box — it is reported, not edited · account numbers masked to the last four, one default, badged</span>
 
     <ul class="rule">
-      <li><strong>Each card owns its own autosave</strong>, so the indicator
+      <li><strong>Nothing inside the panel is a card.</strong> A region has
+        no background, border, shadow or radius of its own; an inset rule is
+        the only edge between two.</li>
+      <li><strong>Each region owns its own autosave</strong>, so the indicator
         refers to the fields being looked at. One indicator for the page
         could only say that <em>something</em> saved.</li>
       <li><strong>A hint sits under the field it qualifies</strong>, and only
@@ -227,12 +325,12 @@
     </ul>
   </section>
 
-  <!-- ═══════════════ the cards ═══════════════ -->
+  <!-- ═══════════════ the regions ═══════════════ -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">The six cards</span></div>
+    <div class="sec-head"><span class="eyebrow">The regions</span></div>
 
     <table>
-      <tr><th>Card</th><th>Holds</th><th>Read by</th></tr>
+      <tr><th>Region</th><th>Holds</th><th>Read by</th></tr>
       <tr>
         <td>Appearance</td>
         <td>Theme</td>
@@ -279,29 +377,6 @@
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">Invoice numbering</span></div>
 
-    <div class="mock">
-      <div class="card">
-        <div class="card-head">
-          <div><h2>Invoice numbering</h2></div>
-          <span class="ind"><span class="dot"></span></span>
-        </div>
-        <div class="fields">
-          <div class="pair">
-            <div class="field">
-              <label>Prefix</label>
-              <div class="input mono">INV-</div>
-            </div>
-            <div class="field">
-              <label>Next number</label>
-              <div class="readonly">0042</div>
-              <p class="hint">Set by the system so numbering stays gapless.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <span class="caption">Next number has no box — it is reported, not edited</span>
-
     <ul class="rule">
       <li><strong>The next number is server-owned and never goes back.</strong>
         Gapless numbering depends on <code>allocate_invoice_number()</code>
@@ -318,49 +393,6 @@
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">Payment details</span></div>
 
-    <div class="mock">
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <h2>Payment details</h2>
-            <p class="desc">Printed on the invoice itself, never in an email — details that look the same every time make a change worth questioning.</p>
-          </div>
-        </div>
-        <div class="fields">
-          <div>
-            <div class="prof">
-              <span style="flex:1;min-width:0">
-                <span class="name">Main account <span class="badge">Default</span></span>
-                <span class="sum">First National · ••••4417 · ABA 021000021</span>
-              </span>
-              <button class="btn ghost">
-                <svg viewBox="0 0 24 24" aria-hidden><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                Edit
-              </button>
-            </div>
-            <div class="prof">
-              <span style="flex:1;min-width:0">
-                <span class="name">EUR clients</span>
-                <span class="sum">Wise · ••••8823</span>
-              </span>
-              <button class="btn ghost">Make default</button>
-              <button class="btn ghost">
-                <svg viewBox="0 0 24 24" aria-hidden><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                Edit
-              </button>
-            </div>
-          </div>
-          <div>
-            <button class="btn">
-              <svg viewBox="0 0 24 24" aria-hidden><path d="M5 12h14M12 5v14"/></svg>
-              Add payment details
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-    <span class="caption">Account numbers masked to the last four · one default, badged</span>
-
     <ul class="rule">
       <li><strong>Resolution mirrors rates:</strong> the client's own profile,
         else the user's default. A dangling reference falls back rather than
@@ -371,7 +403,7 @@
       <li><strong>A refused "Make default" names its row.</strong> One
         mutation serves every profile, and this is the setting that decides
         which account prints on an invoice — a failure that lands at the foot
-        of the card could not say which one was refused.</li>
+        of the region could not say which one was refused.</li>
       <li><strong>Invoices freeze the rendered snapshot</strong> at
         generation, like rates. Editing a profile never alters an issued
         invoice.</li>

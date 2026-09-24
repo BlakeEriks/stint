@@ -68,10 +68,13 @@ function focusSection(section: HTMLElement) {
 }
 
 /**
- * A titled group of fields inside a floating pane.
+ * A titled group of fields: a region of the panel, under an inset rule.
  *
- * `status` renders top-right. Each card saves independently, so the
- * indicator belongs to the card whose fields are actually in flight rather
+ * No border, no background, no shadow — the panel carries those, and a second
+ * set inside it reads as a card in a card.
+ *
+ * `status` renders top-right. Each section saves independently, so the
+ * indicator belongs to the section whose fields are actually in flight rather
  * than to the page.
  */
 export function Section({
@@ -81,7 +84,7 @@ export function Section({
   status,
   children,
 }: {
-  /** Anchor target, so another screen can link straight to this card. */
+  /** Anchor target, so another screen can link straight to this section. */
   id?: string;
   title: string;
   description?: string;
@@ -105,9 +108,9 @@ export function Section({
     <section
       id={id}
       ref={onMount}
-      /* `scroll-mt` keeps a little air above the card when it is jumped to,
-         so it does not sit flush against the top of the column. */
-      className="scroll-mt-4 rounded-xl border border-edge-subtle bg-surface-elevated p-5 shadow-card"
+      /* `scroll-mt` keeps a little air above the section when it is jumped
+         to, so it does not sit flush against the top of the column. */
+      className="scroll-mt-4 border-t border-edge-subtle py-[18px] last:pb-0"
     >
       <div className="flex items-start justify-between gap-3">
         <div>

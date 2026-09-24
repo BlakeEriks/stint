@@ -177,7 +177,7 @@ export function NewInvoice() {
     <DetailPage back="/invoices" label="Invoices">
       <h1 className="mb-6 type-title text-strong">New invoice</h1>
 
-      <div className="flex flex-col gap-4">
+      <div>
         <Section title="What to bill">
           <Field label="Client" htmlFor="inv-client" required>
             <ClientPicker

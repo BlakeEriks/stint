@@ -83,21 +83,21 @@
     width: 2px; height: 10px; border-radius: 999px;
     background: var(--border-control);
   }
-  /* The panel: borderless, separated from the ground by shadow alone. */
+  /* The panel: a 1px edge and the card shadow, on bg-primary. */
   .mini .content {
-    flex: 1; min-width: 0; padding: 10px;
+    flex: 1; min-width: 0; padding: 10px 0;
     background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
     border-radius: 8px;
-    box-shadow:
-      inset 0 1px 0 color-mix(in oklab, var(--bg-hover) 75%, transparent),
-      0 1px 2px rgb(0 0 0 / .4),
-      0 10px 28px -12px rgb(0 0 0 / .6);
+    box-shadow: var(--shadow-card);
   }
-  /* Regions inside the panel, separated by an inset rule and space. */
-  .mini .region { height: 26px; }
-  .mini .region + .region {
-    margin-top: 9px; padding-top: 9px;
-    border-top: 1px solid var(--border-subtle);
+  /* Regions inside the panel: no surface, inset from the edge, parted by an
+     inset rule and space — 18px in the app, halved at this scale. */
+  .mini .region { position: relative; height: 26px; margin: 0 9px; }
+  .mini .region + .region { margin-top: 18px; }
+  .mini .region + .region::before {
+    content: ''; position: absolute; top: -9px; left: 0; right: 0;
+    height: 1px; background: var(--border-subtle);
   }
   .mini .dock { flex: none; width: 92px; }
   .mini .dockband { padding: 8px 2px 0; }
@@ -234,7 +234,7 @@
         <td class="num">lg</td>
         <td>Nav becomes a vertical rail, 192px, and the timer bar starts at
           the rail's edge rather than running under it</td>
-        <td>Where cards go two-column. At 900px the rail held 183px of labels while the cards made do with 692 — moving it took the content to the full 900. The bar follows the rail: a band crossing beneath it spans two things that are not related, and the rail's footprint is the rail's</td>
+        <td>Where regions go two-column. At 900px the rail held 183px of labels while the regions made do with 692 — moving it took the content to the full 900. The bar follows the rail: a band crossing beneath it spans two things that are not related, and the rail's footprint is the rail's</td>
       </tr>
       <tr>
         <td class="num">xl</td>
@@ -282,9 +282,10 @@
     <table>
       <tr><th>Layer</th><th>Value</th></tr>
       <tr><td>Panel radius</td><td class="num">12px</td></tr>
-      <tr><td>Panel edge, dark</td><td class="num">inset 0 1px 0 bg-hover 75%, 0 1px 2px, 0 10px 28px -12px</td></tr>
-      <tr><td>Panel edge, light</td><td class="num">inset 0 1px 0 bg-active 55%, 0 1px 2px, 0 10px 28px -12px</td></tr>
-      <tr><td>Region separation</td><td class="num">inset 1px border-subtle, 18px above and below</td></tr>
+      <tr><td>Panel edge, dark</td><td class="num">1px border-subtle, shadow-card</td></tr>
+      <tr><td>Panel edge, light</td><td class="num">1px border-subtle, shadow-card</td></tr>
+      <tr><td>Region inset</td><td class="num">18px each side</td></tr>
+      <tr><td>Region separation</td><td class="num">1px border-subtle, 18px short of each panel edge, 18px above and below</td></tr>
       <tr><td>Inbox row</td><td class="num">7px radius</td></tr>
       <tr><td>Rail marker</td><td class="num">2px × 14px, border-control, fully rounded</td></tr>
       <tr><td>Card, 2xl</td><td class="num">1440 × 900 max, 16px radius, 1px border-subtle, shadow-float</td></tr>
@@ -297,16 +298,11 @@
       room the pill is clipped to a flat edge.
     </p>
 
-    <p style="margin-top:1.5rem">
-      The inset layer is a LIT top edge in dark and a SHADED one in light: a
-      shadow needs headroom below the ground and dark has it, while light has
-      headroom nowhere above <code>bg-base</code>, so the edge inverts.
-    </p>
-
     <ul class="rule">
-      <li><strong>Nothing inside the panel is a card.</strong> A region is
-        marked by an inset rule and the space around it, so the whole column
-        reads as one surface.</li>
+      <li><strong>Nothing inside the panel is a card.</strong> The panel is the
+        one surface; a region inside it has no background, border, shadow or
+        radius, and is marked by an inset rule and the space around it, so the
+        whole column reads as one surface.</li>
       <li><strong>An inbox row keeps a small surface</strong> — it is there to
         be acted on, and an object you act on is an object.</li>
       <li><strong>The active rail item is a filled pill with a marker at its
@@ -340,10 +336,10 @@
     </p>
 
     <ul class="rule">
-      <li><strong>A region's rule is inset</strong> — a <code>mx-4
-        border-t</code> div holding the same padding as the rows below it. A
-        rule running edge to edge cuts the panel in two, which reads as two
-        stacked surfaces.</li>
+      <li><strong>A region's rule is inset</strong> — its
+        <code>border-t</code> spans the content column, which
+        <code>Page</code> pads by <code>INSET</code> (18px). A rule running edge to edge cuts the panel in two, which
+        reads as two stacked surfaces.</li>
       <li><strong>The default <code>Button</code> is neutral</strong>; the
         accent is opt-in, because the running timer already holds it.</li>
       <li><strong>Buttons and nav carry icons, and an additive action carries

@@ -39,12 +39,19 @@
   }
   .rule strong { color: var(--text-strong); font-weight: 600; }
 
+  /* The panel is the only surface. Everything inside it sits in a region:
+     no background, border, shadow or radius of its own, inset 18px, and
+     split from the next region by a rule that stops 18px short of each
+     panel edge. */
   .mock {
     background: var(--bg-primary);
     border: 1px solid var(--border-subtle);
-    border-radius: 12px; padding: 20px;
+    border-radius: 12px; box-shadow: var(--shadow-card);
+    padding: 18px;
     margin-top: 1.25rem;
   }
+  .rgn + .rgn { border-top: 1px solid var(--border-subtle); margin-top: 18px; padding-top: 18px; }
+  .region-head { display: block; line-height: 1; color: var(--text-subtle); margin-bottom: 12px; }
 
   /* ── the list ────────────────────────────────────────────────── */
   .list-head {
@@ -70,18 +77,15 @@
   .btn svg { width: 14px; height: 14px; flex: none; stroke: currentColor; fill: none;
              stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-  .rows { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
-  /* Each row is its own card, so the client's colour is that row's left
-     edge. Inside one panel the edges butt into a striped bar owned by no
-     row in particular. */
-  .row {
-    display: flex; align-items: center; gap: 12px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-left: 2px solid var(--border-subtle);
-    border-radius: 10px; box-shadow: var(--shadow-card);
-    padding: 12px 16px;
-  }
+  .rows { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; }
+  /* A record is a plain row; the rule between two rows is the only line. */
+  .row { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+  .row + .row { border-top: 1px solid var(--border-subtle); }
+  .row:first-child { padding-top: 0; }
+  .row:last-child { padding-bottom: 0; }
+  /* The client's colour, as Home's legend draws it. */
+  .swatch { width: 9px; height: 9px; border-radius: 50%; flex: none; align-self: flex-start; margin-top: 7px; }
+  .swatch.none { background: transparent; border: 1.5px solid var(--border-default); }
   .row .name { font-size: 14px; color: var(--text-primary); }
   .row .detail {
     display: block; margin-top: 2px;
@@ -98,12 +102,6 @@
     padding: 1px 6px; font-family: var(--font-mono); font-size: 10px;
     letter-spacing: .08em; text-transform: uppercase; color: var(--text-subtle);
   }
-  .panel {
-    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
-    border-radius: 12px; box-shadow: var(--shadow-card);
-    padding: 40px 16px; text-align: center;
-    font-size: 13px; color: var(--text-subtle);
-  }
   /* Same filter idiom as /invoices: URL-driven pills above the list, so the
      view is linkable and Back works. */
   .filters { display: flex; gap: 4px; padding-bottom: 8px; }
@@ -119,15 +117,13 @@
     font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
     text-transform: uppercase; color: var(--text-subtle); text-decoration: none;
   }
-  .d-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 0 24px; }
+  .d-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-top: 16px; }
   .d-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .chip { width: 12px; height: 12px; border-radius: 3px; flex: none; }
   .acts { display: flex; gap: 8px; flex: none; }
 
   .facts {
     display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px;
-    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
-    border-radius: 12px; box-shadow: var(--shadow-card); padding: 20px;
     margin: 0;
   }
   .facts dt {
@@ -166,29 +162,33 @@
     <div class="sec-head"><span class="eyebrow">/clients</span></div>
 
     <div class="mock">
-      <div class="list-head">
-        <span class="h-title">Clients</span>
-        <button class="btn">
-          <svg viewBox="0 0 24 24" aria-hidden><path d="M5 12h14M12 5v14"/></svg>
-          Add client
-        </button>
+      <div class="rgn">
+        <div class="list-head">
+          <span class="h-title">Clients</span>
+          <button class="btn">
+            <svg viewBox="0 0 24 24" aria-hidden><path d="M5 12h14M12 5v14"/></svg>
+            Add client
+          </button>
+        </div>
+
+        <nav class="filters" aria-label="Filter">
+          <a class="on" href="#x">Active</a>
+          <a href="#x">Archived</a>
+          <a href="#x">All</a>
+        </nav>
       </div>
 
-      <nav class="filters" aria-label="Filter">
-        <a class="on" href="#x">Active</a>
-        <a href="#x">Archived</a>
-        <a href="#x">All</a>
-      </nav>
-
-      <ul class="rows">
-        <li class="row" style="border-left-color:var(--proj-6)">
+      <ul class="rgn rows">
+        <li class="row">
+          <span class="swatch" style="background:var(--proj-6)"></span>
           <span class="grow">
             <span class="name">Northwind Trading</span>
             <span class="detail">3 projects · $2,143.75 unbilled · billing@northwind.example</span>
           </span>
           <span class="rate">$175.00/h</span>
         </li>
-        <li class="row" style="border-left-color:var(--proj-2)">
+        <li class="row">
+          <span class="swatch" style="background:var(--proj-2)"></span>
           <span class="grow">
             <span class="name">Harbour &amp; Co.</span>
             <span class="detail">1 project · hello@harbour.example</span>
@@ -196,13 +196,15 @@
           <span class="rate">$150.00/h</span>
         </li>
         <li class="row">
+          <span class="swatch none"></span>
           <span class="grow">
             <span class="name">Bellweather Studio</span>
             <span class="detail">2 projects · $485.00 unbilled</span>
           </span>
           <span class="rate">—</span>
         </li>
-        <li class="row" style="border-left-color:var(--proj-4)">
+        <li class="row">
+          <span class="swatch" style="background:var(--proj-4)"></span>
           <span class="grow">
             <span class="name">Quill &amp; Press</span>
             <span class="detail">4 projects</span>
@@ -213,9 +215,12 @@
       </ul>
 
     </div>
-    <span class="caption">Colour is the row's left edge · rate right-aligned and mono</span>
+    <span class="caption">Colour is a swatch beside the name · rate right-aligned and mono</span>
 
     <ul class="rule">
+      <li><strong>Each client is a plain row under an inset rule</strong>,
+        its colour a swatch beside the name. A client with no colour takes
+        the hollow ring, so every name starts on the same line.</li>
       <li><strong>The detail line is scale, not contents.</strong> Project
         count and unbilled amount answer "where is my work?" without a click.
         A disclosure row would change the list's height as you poke it and
@@ -239,6 +244,7 @@
     <div class="sec-head"><span class="eyebrow">/clients/:id</span></div>
 
     <div class="mock">
+      <div class="rgn">
       <a class="back" href="#x">← Clients</a>
       <div class="d-head">
         <span class="d-name">
@@ -256,7 +262,10 @@
           </button>
         </span>
       </div>
+      </div>
 
+      <div class="rgn">
+      <span class="type-region-head region-head">Details</span>
       <dl class="facts">
         <div>
           <dt>Email</dt>
@@ -276,8 +285,17 @@
           <p class="hint">Appears on the invoice.</p>
         </div>
       </dl>
+      </div>
+
+      <div class="rgn">
+      <span class="type-region-head region-head">Projects</span>
+      <ul class="rows">
+        <li class="row"><span class="grow name">Website redesign</span><span class="rate">$150.00/h</span></li>
+        <li class="row"><span class="grow name">API integration</span><span class="rate">$175.00/h</span></li>
+      </ul>
+      </div>
     </div>
-    <span class="caption">The colour is a chip here, not an edge — one subject, not a row in a list</span>
+    <span class="caption">Three regions: the client, its details, its projects</span>
 
     <ul class="rule">
       <li><strong>A hint replaces an unset value, never accompanies a set
@@ -297,7 +315,7 @@
     </ul>
 
     <p style="margin-top:1.5rem;color:var(--text-muted)">
-      The Projects section below these facts is specified in
+      The rows in the Projects region are specified in
       <code>projects.html</code>, which owns every place a project row is
       drawn.
     </p>
@@ -366,7 +384,7 @@
       <tr><td>Address</td><td>No</td><td><code>null</code> · appears on the invoice</td></tr>
       <tr><td>Hourly rate</td><td>No</td><td>Falls back to the user default</td></tr>
       <tr><td>Tax rate %</td><td>No</td><td>No tax line on the invoice</td></tr>
-      <tr><td>Colour</td><td>No</td><td>No edge in any list</td></tr>
+      <tr><td>Colour</td><td>No</td><td>A hollow ring in every list</td></tr>
     </table>
 
     <div class="mock">

@@ -32,30 +32,32 @@
   }
   .rule strong { color: var(--text-strong); font-weight: 600; }
 
+  /* The panel is the only surface. Each client group is a region: no
+     background, border, shadow or radius of its own, inset 18px, and split
+     from the next by a rule that stops 18px short of each panel edge. */
   .mock {
     background: var(--bg-primary);
     border: 1px solid var(--border-subtle);
-    border-radius: 12px; padding: 20px;
+    border-radius: 12px; box-shadow: var(--shadow-card);
+    padding: 18px;
     margin-top: 1.25rem;
   }
-  .card {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: 10px; box-shadow: var(--shadow-card);
-    padding: 6px 16px 12px;
-  }
+  .rgn + .rgn { border-top: 1px solid var(--border-subtle); margin-top: 18px; padding-top: 18px; }
+  /* Home's region head, led by the client's swatch as Home's legend draws it. */
   .grouphead {
-    display: flex; align-items: baseline; gap: 10px;
-    padding: 14px 0 8px;
+    display: flex; align-items: center; gap: 7px;
+    line-height: 1; color: var(--text-subtle); padding-bottom: 12px;
   }
-  .grouphead .sw { width: 8px; height: 8px; border-radius: 50%; flex: none; align-self: center; }
   .grouphead .rate { margin-left: auto; }
+  .swatch { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .swatch.none { background: transparent; border: 1.5px solid var(--border-default); }
 
   .prow {
     display: flex; align-items: baseline; justify-content: space-between;
     gap: 12px; padding: 9px 0;
-    border-top: 1px solid var(--border-subtle);
   }
+  .prow + .prow { border-top: 1px solid var(--border-subtle); }
+  .prow:last-child { padding-bottom: 0; }
   .prow .amt { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-strong); }
   .prow .none { color: var(--danger); font-family: var(--font-mono); font-size: 13px; }
   /* Archived is a word, not a badge: an archived project is still a row you
@@ -116,25 +118,30 @@
     <div class="sec-head"><span class="eyebrow">/projects — grouped by client</span></div>
 
     <div class="mock">
-      <div class="card">
+      <div class="rgn">
         <div class="grouphead">
-          <span class="sw" style="background:var(--proj-6)"></span>
-          <span class="type-section" style="color:var(--text-strong)">Northwind Trading</span>
+          <span class="swatch" style="background:var(--proj-6)"></span>
+          <span class="type-region-head">Northwind Trading</span>
           <span class="type-duration rate" style="color:var(--text-muted)">$150.00/h</span>
         </div>
         <div class="prow"><span class="type-body">Website redesign</span><span class="amt">$150.00</span></div>
         <div class="prow"><span class="type-body">API integration</span><span class="amt">$175.00</span></div>
+      </div>
 
+      <div class="rgn">
         <div class="grouphead">
-          <span class="sw" style="background:var(--proj-2)"></span>
-          <span class="type-section" style="color:var(--text-strong)">Byrne Studio</span>
+          <span class="swatch" style="background:var(--proj-2)"></span>
+          <span class="type-region-head">Byrne Studio</span>
           <span class="arch">Archived</span>
           <span class="type-duration rate" style="color:var(--text-muted)">$125.00/h</span>
         </div>
         <div class="prow"><span class="type-body">Checkout validation</span><span class="amt">$125.00</span></div>
+      </div>
 
+      <div class="rgn">
         <div class="grouphead">
-          <span class="type-section" style="color:var(--text-muted)">No client</span>
+          <span class="swatch none"></span>
+          <span class="type-region-head">No client</span>
         </div>
         <div class="prow"><span class="type-body">Admin</span><span class="none">No rate</span></div>
         <div class="prow"><span class="type-body">Website redesign</span><span class="none">No rate</span></div>
@@ -145,17 +152,19 @@
     <p style="margin-top:1.5rem">
       <strong style="color:var(--text-strong)">Two surfaces, different
       jobs.</strong> <code>/projects</code> is where you find a project; the
-      Projects section on a client is where you manage one in the context of
+      Projects region on a client is where you manage one in the context of
       its rate.
     </p>
 
     <ul class="rule">
+      <li><strong>Each client is a region</strong>: its heading carries the
+        client's swatch, and its projects are plain rows beneath.</li>
       <li><strong>Grouping is what makes a flat list readable.</strong> Three
         rows named "Website redesign" have to be decoded in one
         undifferentiated list; under client headings they do not.</li>
       <li><strong>"No client" is a heading, not an entity</strong> — it needs
         no detail page, no rate and no Edit button. It is also the only way to
-        reach a project with no client, which the nested section structurally
+        reach a project with no client, which the nested region structurally
         cannot.</li>
       <li><strong>It is never labelled "internal work".</strong>
         <code>client_id = null</code> covers three states the app cannot tell

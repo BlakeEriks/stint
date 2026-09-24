@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { api, type ClientWithScale } from '@/lib/client/api';
-import { FilterTabs, Listing, Page } from './page';
+import { FilterTabs, Listing, Page, Panel } from './page';
+import { Pip } from './home-shell';
 import { Plus } from 'lucide-react';
 import { formatCurrency } from '@stint/core';
 import { keys } from '@/lib/client/query-keys';
@@ -52,13 +53,8 @@ export function ClientList() {
         />
       </div>
 
-      {/* Each row is its own card so the client's colour reads as that row's
-          left edge. Inside one panel the edges would butt together into a
-          single striped bar that belongs to no row in particular — hence
-          `panel`, which puts one around the message alone. */}
       <Listing
         query={query}
-        panel
         empty={
           status === 'archived'
             ? 'No archived clients.'
@@ -68,13 +64,15 @@ export function ClientList() {
         }
       >
         {(clients) => (
-          <ul className="flex flex-col gap-2">
-            {clients.map((client) => (
-              <li key={client.id}>
-                <Row client={client} />
-              </li>
-            ))}
-          </ul>
+          <Panel>
+            <ul className="divide-y divide-edge-subtle">
+              {clients.map((client) => (
+                <li key={client.id}>
+                  <Row client={client} />
+                </li>
+              ))}
+            </ul>
+          </Panel>
         )}
       </Listing>
     </Page>
@@ -85,15 +83,9 @@ function Row({ client }: { client: ClientWithScale }) {
   return (
     <Link
       href={`/clients/${client.id}`}
-      /* The client colour is a full-height left edge rather than a dot: same
-         fact, same rule (colour answers *whose work is this?*), but legible
-         at a glance down a list instead of needing to be hunted for. Same
-         idiom as an entry block on the calendar. */
-      className="flex items-center gap-3 rounded-lg border border-l-2
-                 border-edge-subtle bg-surface-elevated px-4 py-3 shadow-card
-                 hover:bg-surface-hover"
-      style={{ borderLeftColor: client.color ?? undefined }}
+      className="-mx-2 flex items-center gap-3 rounded-md px-2 py-3 hover:bg-surface-hover"
     >
+      <Pip color={client.color} />
       {/* Name above, secondary detail below. The email joins the detail line
           rather than taking a column that truncates to nothing. */}
       <span className="min-w-0 flex-1">
