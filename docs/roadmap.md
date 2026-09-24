@@ -1,7 +1,8 @@
 # Roadmap
 
-Work that is wanted and not yet built, ordered by the milestone it belongs
-to. **Known faults are GitHub issues instead** — a bug needs no
+New capabilities that are wanted and not yet built, ordered by the
+milestone they belong to — each one a Spec Kit build. **Faults, tweaks and
+improvements to what exists are GitHub issues instead**: a bug needs no
 justification, a feature does.
 
 A finished item is **deleted**, not ticked. So is one decided against: there

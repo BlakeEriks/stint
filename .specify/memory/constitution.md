@@ -1,6 +1,9 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 2.0.0 → 2.1.0 → 2.2.0 → 2.3.0 → 3.0.0 → 3.0.1
+- Version change: 1.0.0 → 2.0.0 → 2.1.0 → 2.2.0 → 2.3.0 → 3.0.0 → 3.0.1 → 3.0.2
+- v3.0.2 (PATCH — Doc Ownership rows only): unbuilt work splits on whether
+  it needs a spec — capabilities to docs/roadmap.md, faults and improvements
+  to GitHub issues.
 - v3.0.1 (PATCH — Doc Ownership row only): known faults moved from
   docs/defects.md to GitHub issues labelled `bug`.
 - v2.0.0 through v2.3.0: see prior report, preserved in git history.
@@ -240,8 +243,8 @@ these already owns — it cites the doc instead.
 | How to run, build, or deploy | `docs/local-dev.md`, `docs/deploying.md`, `docs/setup.md` |
 | The data model and rate/invoice-numbering chains | `docs/data-model.md` |
 | Enforced by a check or config, beyond what's named above | that script or config, commented at the line someone edits |
-| Unbuilt work | `docs/roadmap.md` — gated by four questions (whose problem, what happens without it, does it serve the one person, which milestone) |
-| A known fault | a GitHub issue labelled `bug` |
+| A new capability, built through Spec Kit | `docs/roadmap.md` — gated by four questions (whose problem, what happens without it, does it serve the one person, which milestone) |
+| A fault, or an improvement to what exists | a GitHub issue — `bug` plus its cost, or `enhancement` |
 | True only under one path in the tree | `.claude/rules/<topic>.md`, with `paths:` frontmatter |
 | What constrains code anywhere in the repo, beyond this constitution's structural rules | `CLAUDE.md`, under 200 lines by design |
 
@@ -307,4 +310,4 @@ constitution — internal consistency, nothing further. Whether a decision
 behind a spec was the right one is settled before a feature reaches this
 workflow at all, by a process this document does not govern.
 
-**Version**: 3.0.1 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-24
+**Version**: 3.0.2 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-24

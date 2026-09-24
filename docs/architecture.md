@@ -17,7 +17,7 @@ competitors.
 | macOS | Native Swift menu bar app (`apps/macos`, SwiftPM, no Xcode) | The timer and nothing else: start, stop, task name, project. The menu bar toggles between the running timer and today's total. |
 | iOS + Android | React Native (Expo), `apps/mobile` | Start / stop / view, light editing. |
 
-**Scope, not progress** — `roadmap.md` is where unbuilt work lives, and a status
+**Scope, not progress** — `roadmap.md` is where unbuilt capabilities live, and a status
 column here would be a second list that silently disagrees with it. What
 exists on disk is the honest signal: `apps/mobile` has no directory.
 
