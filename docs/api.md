@@ -44,12 +44,17 @@ trusting the device clock.
 A Toggl Track detailed-report CSV, as `multipart/form-data`: `file`, and
 `timeZone` (IANA) — the zone the export's wall-clock times are in, which is
 the exporting account's and not necessarily the caller's. Optional: `allBillable=true` imports every row billable (Toggl's
-free plan marks all of them not billable), and `invoicedThrough`
-(`YYYY-MM-DD`) marks rows starting on or before it as invoiced elsewhere.
+free plan marks all of them not billable); `clients`, JSON keyed by the
+client's name as matched (trimmed, lower case) —
+`{ invoicedThrough?, hourlyRate?, color? }`, where `invoicedThrough`
+(`YYYY-MM-DD`) marks that client's rows starting on or before it as invoiced
+elsewhere, and `hourlyRate` and `color` apply only to a client the import
+creates; and `excluded`, a JSON list of source row ids left out of the
+import, honoured only for a row listed as overlapping.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/imports/preview` | Every row the file would write, and why any would not. Writes nothing. |
+| `POST` | `/imports/preview` | Every row the file would write and why any would not, the clients its work lands in, and every overlap past the grace period, longest first. Writes nothing. |
 | `POST` | `/imports/confirm` | Writes what the same file previews as, re-deriving it server-side rather than trusting a preview sent back. Returns `{ written, alreadyImported, unrated, overlapping, excluded, invoicedElsewhere }`. |
 
 Each entry's id is derived from the user and the row's own content, so a

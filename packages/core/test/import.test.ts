@@ -21,11 +21,14 @@ Me,me@x,Acme,Site,,Open,Yes,2026-03-11,09:00:00,,,,,
 const ctx = (over: Partial<ImportContext> = {}): ImportContext => ({
   userId: USER,
   allBillable: false,
-  invoicedThrough: null,
+  choices: {},
+  excluded: [],
   existing: [],
   timeZone: 'America/New_York',
   defaultRate: 100,
-  clients: [{ id: 'c1', name: 'ACME ', hourlyRate: null, archived: false }],
+  clients: [
+    { id: 'c1', name: 'ACME ', hourlyRate: null, color: null, archived: false },
+  ],
   projects: [
     {
       id: 'p1',
@@ -127,7 +130,7 @@ test('with nothing in the chain an entry is unrated, not guessed', async () => {
 test('unknown projects and clients are created once, by name', async () => {
   const p = await preview({ clients: [], projects: [] });
   assert.deepEqual(
-    p.newClients.map((c) => c.name),
+    p.clients.filter((c) => c.isNew).map((c) => c.name),
     ['Acme'],
   );
   assert.deepEqual(p.newProjects.map((x) => x.name).sort(), [
@@ -172,33 +175,43 @@ test('an export with every row not billable is named, and can be overridden', as
   assert.equal((await preview()).summary.exportedNoneBillable, false);
 });
 
-test('entries on or before the invoiced-through date are marked invoiced elsewhere', async () => {
-  const p = await preview({ invoicedThrough: '2026-03-10' });
+test("entries on or before their client's invoiced-through date are marked invoiced elsewhere", async () => {
+  const p = await preview({
+    choices: { acme: { invoicedThrough: '2026-03-10' } },
+  });
+  // Admin has no client, so no date reaches it.
   assert.deepEqual(
     p.rows.map((r) => r.invoicedElsewhere),
-    [true, true, true, false],
+    [true, false, true, false],
   );
-  assert.equal(p.summary.invoicedElsewhereCount, 3);
+  assert.equal(p.summary.invoicedElsewhereCount, 2);
   assert.ok((await preview()).rows.every((r) => !r.invoicedElsewhere));
 });
 
-test('overlaps within the file and against existing work are flagged, never dropped', async () => {
+test('overlaps within the file and against existing work are listed, never dropped', async () => {
   // Admin (11:00–11:15 ET) sits inside this existing entry; the twin Design
   // rows overlap each other for their full 90 minutes.
   const p = await preview({
     existing: [
       {
         id: 'e1',
+        taskName: 'Call',
         startedAt: '2026-03-10T15:05:00.000Z',
         endedAt: '2026-03-10T15:10:00.000Z',
       },
     ],
   });
-  const [design, admin, twin] = p.rows;
-  assert.deepEqual(design?.overlapsWith, [twin?.id]);
-  assert.deepEqual(twin?.overlapsWith, [design?.id]);
-  assert.deepEqual(admin?.overlapsWith, ['e1']);
-  assert.equal(p.summary.overlappingCount, 3);
+  const [, admin] = p.rows;
+  assert.deepEqual(
+    p.overlaps.map((o) => [o.taskName, o.otherInStint, o.seconds]),
+    [
+      ['Design, round 2', false, 5400],
+      ['Admin', true, 300],
+    ],
+  );
+  assert.equal(p.overlaps[1]?.rowId, admin?.id);
+  assert.equal(p.overlaps[1]?.otherTaskName, 'Call');
+  assert.equal(p.summary.overlappingCount, 2);
   assert.ok(p.rows.slice(0, 3).every((r) => r.willWrite));
 });
 
@@ -209,14 +222,13 @@ test('a row already imported is not an overlap with its own copy', async () => {
       .filter((r) => r.willWrite)
       .map((r) => ({
         id: r.id,
+        taskName: r.taskName,
         startedAt: r.startedAt,
         endedAt: r.endedAt as string,
       })),
   });
-  assert.deepEqual(
-    again.rows.map((r) => r.overlapsWith.length),
-    first.rows.map((r) => r.overlapsWith.length),
-  );
+  assert.equal(first.overlaps.length, 1);
+  assert.equal(again.overlaps.length, 0, 'both copies are already in Stint');
 });
 
 test("a real Toggl detailed export's shape: tabs, Currency and Amount apart, free plan", async () => {
@@ -234,7 +246,7 @@ test("a real Toggl detailed export's shape: tabs, Currency and Amount apart, fre
   assert.equal(p.summary.willWriteCount, 6);
   assert.equal(p.summary.exportedNoneBillable, true);
   assert.deepEqual(
-    p.newClients.map((c) => c.name),
+    p.clients.map((c) => c.name),
     ['Northwind'],
   );
   assert.equal(
@@ -242,11 +254,12 @@ test("a real Toggl detailed export's shape: tabs, Currency and Amount apart, fre
     'E4.2 — extract & codify the visual language',
   );
   assert.equal(p.rows[0]?.reportedAmount, 0);
-  // Foundation runs past Standup's start by three minutes: flagged. The two
+  // Foundation runs past Standup's start by three minutes: listed. The two
   // Standups share eight seconds: not.
-  assert.equal(p.rows[2]?.overlapsWith.length, 1);
-  assert.equal(p.rows[3]?.overlapsWith.length, 1);
-  assert.equal(p.rows[4]?.overlapsWith.length, 0);
+  assert.deepEqual(
+    p.overlaps.map((o) => [o.rowId, o.otherTaskName]),
+    [[p.rows[3]?.id, 'Foundation + security POC with Sam + Val']],
+  );
 });
 
 test('a re-upload previews as nothing new, before anything is confirmed', async () => {
@@ -257,6 +270,7 @@ test('a re-upload previews as nothing new, before anything is confirmed', async 
       .filter((r) => r.willWrite)
       .map((r) => ({
         id: r.id,
+        taskName: r.taskName,
         startedAt: r.startedAt,
         endedAt: r.endedAt as string,
       })),
@@ -266,4 +280,157 @@ test('a re-upload previews as nothing new, before anything is confirmed', async 
   assert.ok(
     again.rows.filter((r) => r.willWrite).every((r) => r.alreadyImported),
   );
+});
+
+// ── choices made on the review ─────────────────────────────────────
+
+const HEADER =
+  'User,Email,Client,Project,Task,Description,Billable,Start date,Start time,End date,End time,Duration,Tags,Amount (USD)';
+
+/** One Acme row a day on Mar 10, from `HH:MM` to `HH:MM`, in New York. */
+async function rows(
+  spans: [string, string, string][],
+  over?: Partial<ImportContext>,
+) {
+  const parsed = parseExport(
+    [
+      HEADER,
+      ...spans.map(
+        ([task, from, to]) =>
+          `Me,me@x,Acme,Site,,${task},Yes,2026-03-10,${from}:00,2026-03-10,${to}:00,,,`,
+      ),
+    ].join('\n'),
+  );
+  assert.ok(parsed.ok);
+  return buildPreview(parsed.source, parsed.rows, ctx(over));
+}
+
+test('an exclusion keeps a listed overlap out, and is ignored for a row that overlaps nothing', async () => {
+  const first = await preview();
+  const listed = first.overlaps[0];
+  const admin = first.rows[1];
+  assert.ok(listed && admin);
+
+  const p = await preview({
+    excluded: [listed.sourceRowId, admin.sourceRowId],
+  });
+  assert.equal(p.overlaps[0]?.excluded, true);
+  assert.equal(p.summary.overlappingCount, 0);
+  const out = p.rows.find((r) => r.id === listed.rowId);
+  assert.equal(out?.excluded, true);
+  assert.equal(out?.willWrite, false);
+  assert.equal(p.rows[1]?.excluded, false, 'Admin overlaps nothing');
+  assert.equal(p.rows[1]?.willWrite, true);
+  assert.equal(p.summary.newCount, first.summary.newCount - 1);
+});
+
+test('the listed row is the one from the file, even when the Stint entry starts later', async () => {
+  const p = await rows([['Build', '09:00', '11:00']], {
+    existing: [
+      {
+        id: 'e1',
+        taskName: 'Call',
+        startedAt: '2026-03-10T14:30:00.000Z', // 10:30 ET
+        endedAt: '2026-03-10T16:00:00.000Z',
+      },
+    ],
+  });
+  assert.deepEqual(
+    p.overlaps.map((o) => [
+      o.taskName,
+      o.otherTaskName,
+      o.otherInStint,
+      o.seconds,
+    ]),
+    [['Build', 'Call', true, 1800]],
+  );
+});
+
+test('excluding a row settles every overlap it caused', async () => {
+  // A overlaps Stint's entry and B; B overlaps only A.
+  const existing = [
+    {
+      id: 'e1',
+      taskName: 'Call',
+      startedAt: '2026-03-10T12:00:00.000Z', // 08:00–09:30 ET
+      endedAt: '2026-03-10T13:30:00.000Z',
+    },
+  ];
+  const first = await rows(
+    [
+      ['A', '09:00', '11:00'],
+      ['B', '10:00', '12:00'],
+    ],
+    { existing },
+  );
+  assert.deepEqual(
+    first.overlaps.map((o) => o.taskName),
+    ['B', 'A'],
+  );
+  const a = first.rows[0]?.sourceRowId as string;
+  const b = first.rows[1]?.sourceRowId as string;
+
+  const settled = await rows(
+    [
+      ['A', '09:00', '11:00'],
+      ['B', '10:00', '12:00'],
+    ],
+    { existing, excluded: [a] },
+  );
+  assert.deepEqual(
+    settled.overlaps.map((o) => [o.taskName, o.excluded]),
+    [['A', true]],
+    'B no longer overlaps anything that imports',
+  );
+
+  const both = await rows(
+    [
+      ['A', '09:00', '11:00'],
+      ['B', '10:00', '12:00'],
+    ],
+    { existing, excluded: [a, b] },
+  );
+  assert.deepEqual(
+    both.overlaps.map((o) => [o.taskName, o.excluded]),
+    [
+      ['B', true],
+      ['A', true],
+    ],
+    'an excluded row stays listed, so it can be undone',
+  );
+});
+
+test("a new client's rate and colour come from the choices; an existing client's never do", async () => {
+  const created = await preview({
+    clients: [],
+    projects: [],
+    choices: { acme: { hourlyRate: 0, color: '#DA8188' } },
+  });
+  assert.deepEqual(
+    created.clients.map((c) => [c.name, c.isNew, c.hourlyRate, c.color]),
+    [['Acme', true, 0, '#DA8188']],
+  );
+  assert.equal(created.rows[0]?.resolvedRate, 0, '0 is a real rate');
+  assert.equal(created.rows[0]?.rateSource, 'client');
+
+  const kept = await preview({
+    projects: [],
+    choices: { acme: { hourlyRate: 999, color: '#DA8188' } },
+  });
+  assert.deepEqual(
+    kept.clients.map((c) => [c.isNew, c.hourlyRate, c.color]),
+    [[false, null, null]],
+  );
+  assert.equal(kept.rows[0]?.resolvedRate, 100, 'the default, not 999');
+});
+
+test('the summary spans the new rows, and each client carries its hours', async () => {
+  const p = await preview();
+  assert.equal(p.summary.firstStartedAt, '2026-03-10T13:00:00.000Z');
+  assert.equal(p.summary.lastEndedAt, '2026-03-10T15:15:00.000Z');
+  assert.deepEqual(
+    p.clients.map((c) => [c.name, c.seconds]),
+    [['ACME ', 10800]],
+  );
+  assert.equal(p.defaultRate, 100);
 });

@@ -4,6 +4,7 @@ import {
   buildPreview,
   isValidTimeZone,
   parseExport,
+  type ClientChoice,
   type ImportPreview,
 } from '@stint/core';
 import { ApiError } from './errors';
@@ -11,6 +12,62 @@ import { ApiError } from './errors';
 const MAX_BYTES = 10 * 1024 * 1024;
 
 const rate = (v: unknown) => (v == null ? null : Number(v));
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function json(form: FormData | null, name: string): unknown {
+  const raw = form?.get(name);
+  if (raw == null || raw === '') return undefined;
+  try {
+    return JSON.parse(String(raw));
+  } catch {
+    throw new ApiError('VALIDATION_FAILED', `${name} is not JSON`);
+  }
+}
+
+/** `{ [clientKey]: { invoicedThrough?, hourlyRate?, color? } }` */
+function readChoices(v: unknown): Record<string, ClientChoice> {
+  if (v === undefined) return {};
+  if (typeof v !== 'object' || v === null || Array.isArray(v))
+    throw new ApiError('VALIDATION_FAILED', 'clients is an object');
+  const out: Record<string, ClientChoice> = {};
+  for (const [key, c] of Object.entries(v)) {
+    const {
+      invoicedThrough = null,
+      hourlyRate = null,
+      color = null,
+    } = (c ?? {}) as Record<string, unknown>;
+    if (invoicedThrough !== null && !DATE.test(String(invoicedThrough)))
+      throw new ApiError('VALIDATION_FAILED', 'invoicedThrough is YYYY-MM-DD');
+    if (
+      hourlyRate !== null &&
+      !(
+        typeof hourlyRate === 'number' &&
+        Number.isFinite(hourlyRate) &&
+        hourlyRate >= 0
+      )
+    )
+      throw new ApiError(
+        'VALIDATION_FAILED',
+        'hourlyRate is a number, 0 or more',
+      );
+    if (color !== null && !/^#[0-9a-f]{6}$/i.test(String(color)))
+      throw new ApiError('VALIDATION_FAILED', 'color is a hex colour');
+    out[key] = {
+      invoicedThrough: invoicedThrough as string | null,
+      hourlyRate: hourlyRate as number | null,
+      color: color as string | null,
+    };
+  }
+  return out;
+}
+
+function readExcluded(v: unknown): string[] {
+  if (v === undefined) return [];
+  if (!Array.isArray(v) || !v.every((x) => typeof x === 'string'))
+    throw new ApiError('VALIDATION_FAILED', 'excluded is a list of row ids');
+  return v;
+}
 
 /**
  * The uploaded export, read and previewed. Both import routes call this, so
@@ -35,9 +92,8 @@ export async function readImport(
     throw new ApiError('VALIDATION_FAILED', 'A valid timeZone is required');
 
   const allBillable = form?.get('allBillable') === 'true';
-  const through = String(form?.get('invoicedThrough') ?? '');
-  if (through && !/^\d{4}-\d{2}-\d{2}$/.test(through))
-    throw new ApiError('VALIDATION_FAILED', 'invoicedThrough is YYYY-MM-DD');
+  const choices = readChoices(json(form, 'clients'));
+  const excluded = readExcluded(json(form, 'excluded'));
 
   const parsed = parseExport(await file.text());
   if (!parsed.ok) throw new ApiError('IMPORT_FILE_UNRECOGNIZED', parsed.reason);
@@ -58,7 +114,7 @@ export async function readImport(
   );
 
   const [clients, projects, settings, existing] = await Promise.all([
-    db.from('clients').select('id,name,hourly_rate,archived_at'),
+    db.from('clients').select('id,name,hourly_rate,color,archived_at'),
     db
       .from('projects')
       .select('id,name,client_id,hourly_rate,is_billable_default,archived_at'),
@@ -66,7 +122,7 @@ export async function readImport(
     dates.length
       ? db
           .from('time_entries')
-          .select('id,started_at,ended_at')
+          .select('id,task_name,started_at,ended_at')
           .not('ended_at', 'is', null)
           .lt('started_at', `${to}T00:00:00Z`)
           .gt('ended_at', `${from}T00:00:00Z`)
@@ -80,9 +136,11 @@ export async function readImport(
   return buildPreview(parsed.source, parsed.rows, {
     userId,
     allBillable,
-    invoicedThrough: through || null,
+    choices,
+    excluded,
     existing: (existing.data ?? []).map((e) => ({
       id: e.id,
+      taskName: e.task_name,
       startedAt: e.started_at,
       endedAt: e.ended_at,
     })),
@@ -92,6 +150,7 @@ export async function readImport(
       id: c.id,
       name: c.name,
       hourlyRate: rate(c.hourly_rate),
+      color: c.color,
       archived: c.archived_at != null,
     })),
     projects: (projects.data ?? []).map((p) => ({

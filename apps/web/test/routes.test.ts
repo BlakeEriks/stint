@@ -2587,13 +2587,17 @@ test('import: work invoiced elsewhere is earned but never unbilled or invoiceabl
   const { POST } = await import('../src/app/api/v1/imports/confirm/route.ts');
   const r = upload('/imports/confirm', TOGGL);
   const form = await r.formData();
-  form.set('invoicedThrough', '2026-03-10');
+  form.set(
+    'clients',
+    JSON.stringify({ acme: { invoicedThrough: '2026-03-10' } }),
+  );
   const res = await json(
     await POST(
       new Request('http://t/imports/confirm', { method: 'POST', body: form }),
     ),
   );
-  assert.equal(res.body.invoicedElsewhere, 2, 'both written rows are Mar 10');
+  // Admin is Mar 10 too, but has no client, so no date reaches it.
+  assert.equal(res.body.invoicedElsewhere, 1);
 
   const { rows } = await pool.query(
     'select coalesce(sum(seconds),0)::int s from unbilled_by_client($1)',
@@ -2601,6 +2605,72 @@ test('import: work invoiced elsewhere is earned but never unbilled or invoiceabl
   );
   // The billable Mar 10 entry is invoiced elsewhere, so nothing is unbilled.
   assert.equal(rows[0].s, 0);
+});
+
+const withFields = async (
+  url: string,
+  fields: Record<string, string>,
+): Promise<Request> => {
+  const form = await upload(url, TOGGL).formData();
+  for (const [k, v] of Object.entries(fields)) form.set(k, v);
+  return new Request(`http://t${url}`, { method: 'POST', body: form });
+};
+
+test("import confirm writes a new client's rate and colour, and never an excluded row", async () => {
+  // Admin (11:00–11:15 ET) lands on work already here.
+  await pool.query(
+    `insert into time_entries (id,user_id,task_name,started_at,ended_at)
+     values ('018f0000-0000-7000-8000-00000000b0b1',$1,'Call','2026-03-10T15:05:00Z','2026-03-10T15:10:00Z')`,
+    [USER],
+  );
+  const { POST: preview } = await import(
+    '../src/app/api/v1/imports/preview/route.ts'
+  );
+  const told = await json(await preview(upload('/imports/preview', TOGGL)));
+  assert.deepEqual(
+    told.body.overlaps.map((o: { taskName: string; otherInStint: boolean }) => [
+      o.taskName,
+      o.otherInStint,
+    ]),
+    [['Admin', true]],
+  );
+
+  const { POST } = await import('../src/app/api/v1/imports/confirm/route.ts');
+  const res = await json(
+    await POST(
+      await withFields('/imports/confirm', {
+        excluded: JSON.stringify([told.body.overlaps[0].sourceRowId]),
+        clients: JSON.stringify({ acme: { hourlyRate: 0, color: '#DA8188' } }),
+      }),
+    ),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.written, 1, 'Design only; Admin was excluded');
+
+  const { rows } = await pool.query(
+    `select (select count(*)::int from time_entries where task_name = 'Admin') admin,
+            (select row(hourly_rate::float, color)::text from clients where name = 'Acme') acme`,
+  );
+  assert.deepEqual(rows[0], { admin: 0, acme: '(0,#DA8188)' });
+});
+
+test('import refuses malformed choices before writing', async () => {
+  const { POST } = await import('../src/app/api/v1/imports/confirm/route.ts');
+  for (const fields of <Record<string, string>[]>[
+    { clients: 'not json' },
+    { clients: JSON.stringify({ acme: { hourlyRate: -1 } }) },
+    { clients: JSON.stringify({ acme: { invoicedThrough: '3/10/2026' } }) },
+    { clients: JSON.stringify({ acme: { color: 'red' } }) },
+    { excluded: JSON.stringify([1]) },
+  ]) {
+    const r = await json(
+      await POST(await withFields('/imports/confirm', fields)),
+    );
+    assert.equal(r.status, 422, JSON.stringify(fields));
+    assert.equal(r.body.code, 'VALIDATION_FAILED');
+  }
+  const { rows } = await pool.query('select count(*)::int n from time_entries');
+  assert.equal(rows[0].n, 0);
 });
 
 test('/stats lists entries sharing a minute or more, and editing one clears it', async () => {

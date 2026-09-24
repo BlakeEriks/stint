@@ -89,7 +89,7 @@ export function Section({
   title: string;
   description?: string;
   status?: React.ReactNode;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   /* A callback ref rather than `useRef` + an effect keyed on `id`: the form
      renders "Loading…" until settings arrive, so on a cold load of
@@ -121,7 +121,9 @@ export function Section({
         </div>
         {status ? <div className="flex-none pt-1">{status}</div> : null}
       </div>
-      <div className="mt-4 flex flex-col gap-4">{children}</div>
+      {children ? (
+        <div className="mt-4 flex flex-col gap-4">{children}</div>
+      ) : null}
     </section>
   );
 }
