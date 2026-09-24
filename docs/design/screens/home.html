@@ -106,7 +106,7 @@
   .swatch.none { background: transparent; border: 1.5px solid var(--border-default); }
 
   /* ── Layout ──────────────────────────────────────────────────── */
-  /* Today's content is a figure and three short rows; the week's chart wants
+  /* Today's content is a figure and a few short rows; the week's chart wants
      the long axis. The rule between them is the only edge inside the panel. */
   .toprow { display: grid; grid-template-columns: 1fr 2fr; }
   .rgn-today { padding: 0 28px 0 0; border-right: 1px solid var(--border-subtle); }
@@ -122,7 +122,10 @@
      regions: three different values read as three different relationships. */
   .today-card .figgroup { margin-top: 24px; }
 
-  .tentries { display: flex; flex-direction: column; margin-top: 24px; }
+  /* A fixed ceiling, just under five rows, so the cut-off row says it
+     scrolls: the page is a column sized by its content, with no bounded
+     height to measure against. */
+  .tentries { display: flex; flex-direction: column; margin-top: 24px; max-height: 192px; overflow-y: auto; }
   .tentry {
     display: grid; grid-template-columns: 9px minmax(0, 1fr) auto;
     align-items: center; gap: 10px; padding: 9px 0;
@@ -131,6 +134,7 @@
   .tentry:first-child { border-top: none; }
   .tentry .nm { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tentry.live .nm { color: var(--text-primary); }
+  .tentry .proj { color: var(--text-subtle); }
   .tentry .dur { color: var(--text-subtle); font-variant-numeric: tabular-nums; }
 
   /* ── The week's bars ─────────────────────────────────────────── */
@@ -271,12 +275,12 @@
               <div class="tentries">
                 <div class="tentry live">
                   <span class="swatch" style="background:var(--proj-6)"></span>
-                  <span class="type-support nm">Inventory sync edge cases</span>
+                  <span class="type-support nm">Inventory sync edge cases<span class="proj"> &middot; Storefront</span></span>
                   <span class="type-duration dur">4:15</span>
                 </div>
                 <div class="tentry">
                   <span class="swatch" style="background:var(--proj-6)"></span>
-                  <span class="type-support nm">Standup and planning</span>
+                  <span class="type-support nm">Standup and planning<span class="proj"> &middot; Storefront</span></span>
                   <span class="type-duration dur">0:25</span>
                 </div>
                 <div class="tentry">
@@ -394,11 +398,18 @@
 
     <p style="margin-top:1.5rem">
       Today takes a third of the top row and the week two thirds. Today's
-      content is a figure and three short rows; the week's chart needs the
+      content is a figure and a few short rows; the week's chart needs the
       long axis for seven columns and their captions.
     </p>
 
     <ul class="rule">
+      <li><strong>One row per task, with its summed duration.</strong> A task
+        is a name under a project, so the same name under two projects is two
+        rows, and the project follows the name in <code>text-subtle</code>.
+        Rows sit newest first, by each task's latest entry. A task with a
+        running entry reads as live.</li>
+      <li><strong>The rows scroll inside the region</strong> past just under
+        five, so a long day never pushes the panel down.</li>
       <li><strong>A day with no entries keeps its rows.</strong> Three of
         them, each an em-dash, so the column holds the height it will have
         once the day has work in it and the top row does not change shape at
