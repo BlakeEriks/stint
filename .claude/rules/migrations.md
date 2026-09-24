@@ -28,8 +28,9 @@ column.
 against it.** `.github/workflows/release.yml` is a Vercel deployment check:
 the production build is built but not aliased until that workflow runs
 `pnpm migrate` and `verify:schema` against `PRODUCTION_DB_URL`, so the
-migration lands while the previous build still serves traffic. Merging is
-the whole deploy step. `pnpm migrate` by hand is for a local or throwaway
+migration lands while the previous build still serves traffic. Merging and
+approving the release are the whole deploy step: the approval page shows each
+pending migration's SQL. `pnpm migrate` by hand is for a local or throwaway
 database only, and `docs/deploying.md` owns the shape.
 
 **They are additive and forward-only.** Each file runs in its own

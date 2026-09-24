@@ -10,8 +10,10 @@ name: Release gate
 #   Settings -> Git -> "Required" for this check
 # and a PRODUCTION_DB_URL secret here.
 #
-# If this fails, the deployment is never aliased and the previous one keeps
-# serving. Vercel's "Force Promote" is the escape hatch.
+# Every production release pauses for approval: plan -> approve -> backup ->
+# migrate. If any of them fails or is rejected, the deployment is never
+# aliased and the previous one keeps serving. Vercel's "Force Promote" is the
+# escape hatch.
 on:
   repository_dispatch:
     types: [vercel.deployment.ready]
@@ -34,12 +36,83 @@ permissions:
   actions: read
 
 jobs:
-  migrate:
+  # What this release will do to the database, written to the run's summary
+  # so it is on the page where the release is approved.
+  plan:
     # Preview builds fire the same event; only gate production. The field is
     # `environment` — an earlier `target` was wrong, and a mismatched
     # condition fails SILENTLY: the job is skipped, no status is ever set,
-    # and the deployment just waits.
+    # and the deployment just waits. Every job below depends on this one.
     if: github.event.client_payload.environment == 'production'
+    runs-on: ubuntu-latest
+    environment: Production
+    env:
+      SHA: ${{ github.event.client_payload.git.sha }}
+    steps:
+      # Vercel shows the check as pending while the release waits for you.
+      # `migrate` overwrites it with the outcome under the same name.
+      - name: Mark the check pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/$SHA" \
+            -f state=pending -f context=migrate-production \
+            -f description="Waiting for approval" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - uses: actions/checkout@v7
+        with: { ref: '${{ env.SHA }}' }
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with: { node-version: '24', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+
+      - name: Plan
+        env:
+          SUPABASE_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+        run: |
+          pnpm --silent migrate --dry-run > plan.txt
+          pending=$(sed -n 's/^  → \(.*\) (would apply)$/\1/p' plan.txt)
+          {
+            echo "## Release \`${SHA:0:7}\`: $(git log -1 --format=%s)"
+            if [ -z "$pending" ]; then
+              echo "No database changes."
+            else
+              # shellcheck disable=SC2086 # one word per file, split on purpose
+              if (cd supabase/migrations && grep -iqE 'drop[[:space:]]+(table|column|schema|type|view|function)|truncate|delete[[:space:]]+from' $pending); then
+                echo "> [!WARNING]"
+                echo "> This release deletes data or structure: DROP, TRUNCATE or DELETE below."
+              fi
+              for f in $pending; do
+                echo "### $f"
+                echo '```sql'
+                cat "supabase/migrations/$f"
+                echo '```'
+              done
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # The pause. The Release environment requires your approval and holds no
+  # secrets; rejecting leaves the previous build serving.
+  approve:
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: Release
+    steps:
+      - run: echo "Approved"
+
+  backup:
+    needs: approve
+    uses: ./.github/workflows/backup.yml
+    with:
+      label: release
+      sha: ${{ github.event.client_payload.git.sha }}
+    secrets: inherit
+    permissions:
+      id-token: write
+
+  migrate:
+    needs: backup
     runs-on: ubuntu-latest
     # PRODUCTION_DB_URL lives on this environment rather than the repository,
     # so it is reachable only from a job that names it — a workflow added

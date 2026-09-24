@@ -1,0 +1,100 @@
+name: Backup
+
+# An encrypted, data-only dump of production to Azure Blob Storage: nightly,
+# and from release.yml right before a migration runs. docs/deploying.md has
+# the storage, the restore and why each step below is shaped as it is.
+#
+# The repo is public, so its logs are too: nothing here echoes a value, and
+# the only third-party code that sees the database string is a
+# digest-pinned postgres image. No checkout, no install.
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      label: { type: string, required: true }
+      sha: { type: string, required: true }
+
+permissions:
+  # Exchanged for a short-lived Azure token; no Azure secret is stored.
+  id-token: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    environment: Production
+    timeout-minutes: 15
+    defaults:
+      # Explicit so every step runs with pipefail: without it a failed
+      # pg_dump piped onward still exits 0 and an empty backup passes.
+      run: { shell: bash }
+    env:
+      PG_IMAGE: postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+    steps:
+      - name: Install age
+        run: |
+          curl -sSfL -o age.tgz https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-linux-amd64.tar.gz
+          echo "cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10  age.tgz" | sha256sum -c -
+          tar xzf age.tgz && sudo install age/age /usr/local/bin/age
+
+      # Data only: the auth schema belongs to Supabase, so a restore rebuilds
+      # structure from the migrations at the dump's SHA and loads this into it.
+      - name: Dump
+        env:
+          DB: ${{ secrets.PRODUCTION_DB_URL }}
+        run: |
+          docker run --rm -e DB -v "$PWD:/out" "$PG_IMAGE" \
+            sh -c 'pg_dump -d "$DB" --data-only -n public -n auth -Fc -f /out/db.dump'
+
+      - name: Check the dump holds the tables that matter
+        run: |
+          docker run --rm -v "$PWD:/out" "$PG_IMAGE" pg_restore -l /out/db.dump > toc.txt
+          for t in time_entries invoices clients projects users; do
+            grep -q "TABLE DATA [a-z]* $t " toc.txt || { echo "::error::Dump has no data for $t"; exit 1; }
+          done
+
+      - name: Encrypt
+        env:
+          RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+        run: |
+          age -r "$RECIPIENT" -o db.dump.age db.dump
+          rm db.dump
+
+      # The role can create blobs and nothing else, and the container's
+      # retention policy refuses an overwrite, hence If-None-Match.
+      - name: Upload
+        env:
+          CLIENT: ${{ vars.AZURE_CLIENT_ID }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
+          ACCOUNT: ${{ vars.BACKUP_STORAGE_ACCOUNT }}
+          LABEL: ${{ inputs.label || 'nightly' }}
+          SHA: ${{ inputs.sha || github.sha }}
+        run: |
+          OIDC=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)
+          echo "::add-mask::$OIDC"
+          TOKEN=$(curl -sSf "https://login.microsoftonline.com/$TENANT/oauth2/v2.0/token" \
+            -d client_id="$CLIENT" -d grant_type=client_credentials \
+            -d scope=https://storage.azure.com/.default \
+            -d client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer \
+            --data-urlencode client_assertion="$OIDC" | jq -r .access_token)
+          echo "::add-mask::$TOKEN"
+          NAME="$(date -u +%Y-%m-%dT%H%M%SZ)-$LABEL-${SHA:0:7}.dump.age"
+          curl -sS --fail-with-body -X PUT --data-binary @db.dump.age \
+            -H "Authorization: Bearer $TOKEN" -H "x-ms-version: 2023-11-03" \
+            -H "x-ms-blob-type: BlockBlob" -H "If-None-Match: *" \
+            "https://$ACCOUNT.blob.core.windows.net/dumps/$NAME"
+          echo "Uploaded $NAME ($(stat -c%s db.dump.age) bytes)" >> "$GITHUB_STEP_SUMMARY"
+
+      # healthchecks.io alerts when a day passes without this, which also
+      # catches GitHub disabling the schedule on a quiet public repo.
+      - name: Report success
+        env:
+          HC: ${{ secrets.HEALTHCHECK_URL }}
+        run: curl -fsS -m 10 --retry 3 -o /dev/null "$HC"
+      - name: Report failure
+        if: failure()
+        env:
+          HC: ${{ secrets.HEALTHCHECK_URL }}
+        run: curl -fsS -m 10 --retry 3 -o /dev/null "$HC/fail"
