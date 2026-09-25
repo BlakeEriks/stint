@@ -102,7 +102,13 @@ test("on a preview, it signs in as the PR's account and lands on next", async ()
 
 test('next never leaves the deployment', async () => {
   process.env.VERCEL_ENV = 'preview';
-  for (const next of ['//evil.test/x', 'https://evil.test', '/\\evil.test']) {
+  for (const next of [
+    '//evil.test/x',
+    'https://evil.test',
+    '/\\evil.test',
+    '/\t/evil.test',
+    '/\n/evil.test',
+  ]) {
     const res = await signIn(`pr=${PR}&next=${encodeURIComponent(next)}`);
     assert.equal(
       res.headers.get('location'),

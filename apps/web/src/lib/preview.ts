@@ -24,9 +24,13 @@ export function previewAccount(
   return `pr-${pr}@preview.test`;
 }
 
-/** A same-origin path, or `/` — never a redirect off the deployment. */
-export function samePath(next: string | null): string {
-  if (!next?.startsWith('/') || next.startsWith('//') || next.startsWith('/\\'))
-    return '/';
-  return next;
+/**
+ * `next` as a path on `origin`, or `/`. Resolved by the URL parser rather
+ * than prefix checks, which a tab or newline in `next` slips past.
+ */
+export function samePath(next: string | null, origin: string): string {
+  const target = new URL(next ?? '/', origin);
+  return target.origin === origin
+    ? target.pathname + target.search + target.hash
+    : '/';
 }

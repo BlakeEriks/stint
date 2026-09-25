@@ -64,21 +64,28 @@ const branch = out('gh', [
   '-q',
   '.headRefName',
 ]);
+/* Vercel's branch alias, as `.github/workflows/preview-db.yml` builds it.
+   Past 63 characters Vercel truncates and hashes it. */
+const host = `stint-git-${branch.toLowerCase().replace(/[^a-z0-9]/g, '-')}-blakeeriks-projects`;
+if (host.length > 63) {
+  console.error(`${branch} is too long for Vercel's branch alias.`);
+  process.exit(1);
+}
+const url = `https://${host}.vercel.app`;
+
+/* By SHA: FETCH_HEAD belongs to the worktree that fetched, not to `dest`. */
 run('git', ['fetch', '--quiet', 'origin', branch]);
+const sha = out('git', ['rev-parse', 'FETCH_HEAD']);
 
 if (!existsSync(dest)) {
-  run('git', ['worktree', 'add', '--detach', dest, 'FETCH_HEAD']);
+  run('git', ['worktree', 'add', '--detach', dest, sha]);
 } else {
   if (out('git', ['status', '--porcelain'], dest)) {
     console.error(`${dest} has uncommitted changes — not switching it.`);
     process.exit(1);
   }
-  run('git', ['checkout', '--quiet', '--detach', 'FETCH_HEAD'], dest);
+  run('git', ['checkout', '--quiet', '--detach', sha], dest);
 }
-
-/* Vercel's branch alias, as `.github/workflows/preview-db.yml` builds it. */
-const slug = branch.toLowerCase().replace(/[^a-z0-9]/g, '-');
-const url = `https://stint-git-${slug}-blakeeriks-projects.vercel.app`;
 
 try {
   execFileSync('pkill', ['-f', 'Stint Preview.app/Contents/MacOS/Stint']);

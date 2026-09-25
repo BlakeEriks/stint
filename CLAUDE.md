@@ -101,7 +101,9 @@ up, migrates and verifies (`docs/deploying.md`).
 hand-made worktree cannot run the app or resolve `@stint/design-tokens` —
 and a change verified only against jsdom is a change nobody has seen. The
 script does those three; `--from <ref>` branches off something other than
-main.
+main. Two worktrees are long-lived and switch branches: `../stint-issues`, where
+`/work-issues` builds, and `../stint-review`, where `pnpm try-mac` checks out
+a PR.
 
 **Merging a branch closes its worktree in the same step.** Once it is in
 main: `git worktree remove <path>`, then `git branch -d <branch>` — `-d`,

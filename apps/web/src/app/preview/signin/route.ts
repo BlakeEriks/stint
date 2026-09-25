@@ -1,4 +1,8 @@
-import { createServerClient, serializeCookieHeader } from '@supabase/ssr';
+import {
+  createServerClient,
+  parseCookieHeader,
+  serializeCookieHeader,
+} from '@supabase/ssr';
 import { PREVIEW_PASSWORD, previewAccount, samePath } from '@/lib/preview';
 
 /**
@@ -22,8 +26,10 @@ export async function GET(req: Request) {
   const res = new Response(null, {
     status: 303,
     headers: {
-      location: new URL(samePath(url.searchParams.get('next')), url.origin)
-        .href,
+      location: new URL(
+        samePath(url.searchParams.get('next'), url.origin),
+        url.origin,
+      ).href,
     },
   });
 
@@ -32,7 +38,7 @@ export async function GET(req: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '',
     {
       cookies: {
-        getAll: () => [],
+        getAll: () => parseCookieHeader(req.headers.get('cookie') ?? ''),
         setAll: (list) => {
           for (const { name, value, options } of list)
             res.headers.append(

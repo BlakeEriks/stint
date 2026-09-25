@@ -8,16 +8,21 @@ Blake can test from its preview link. Blake merges; merging is the deploy, so
 `$ARGUMENTS`, if given, names the issues to work, in that order.
 
 All work happens in one long-lived worktree, `../stint-issues`, switching
-branches there. Make it with `pnpm worktree issues` the first time; after
-that, `git switch -c <branch> origin/main` inside it and `pnpm install` when
-the lockfile moved.
+branches there. Make it with `pnpm worktree issues` the first time. Every
+switch after that is `git fetch --prune`, then the switch, then
+`pnpm install` and `pnpm tokens`, then a restart of its dev server — which
+otherwise keeps serving the last branch's build.
+
+**Every comment you post starts with `<!-- work-issues -->`.** `gh` runs as
+Blake, so that marker is the only way to tell your comments from his; a
+comment without it is his.
 
 ## 0. Catch up
 
-- **Merged:** delete the local branch of every PR Blake merged
-  (`git branch -d`).
-- **Feedback first:** for every open PR of yours, a comment or review from
-  Blake newer than your last push is feedback. Address it on that branch
+- **Merged:** `git fetch --prune`, `git switch --detach origin/main`, then
+  `git branch -d` every branch `git branch --merged origin/main` lists.
+- **Feedback first:** for every open PR of yours, an unmarked comment or
+  review newer than your last push and your last marked comment is feedback. Address it on that branch
   before picking anything new: change, verify, push, then reply on the PR
   with what changed and an updated **Try it**. Feedback beyond the PR's scope
   becomes a new issue, linked in the reply. A question back gets the
@@ -28,8 +33,9 @@ the lockfile moved.
 `gh issue list --state open --json number,title,labels,body,comments`, then
 skip every issue that:
 
-- is labelled `needs-input` with no reply from Blake since the label went on
-- already has an open PR (`gh pr list --search "#<n>"`)
+- is labelled `needs-input` with no unmarked comment since the label went on
+- already has an open PR
+  (`gh issue view <n> --json closedByPullRequestsReferences`)
 - depends on an unmerged PR, or will likely touch the same files as one
 - needs a migration while another open PR carries one — previews share one
   database schema, so one migration PR at a time
@@ -55,8 +61,8 @@ your recommendation, add the `needs-input` label, and go back to step 1.
 
 ## 3. Build
 
-Branch off `origin/main` in `../stint-issues`, with a short branch name — it
-becomes the preview's URL. Fix it with tests, following `CLAUDE.md` and the
+Branch off `origin/main` in `../stint-issues`. Keep the branch name under 30
+characters: it becomes the preview's URL, and Vercel hashes longer ones. Fix it with tests, following `CLAUDE.md` and the
 `.claude/rules/` the change touches. If testing it needs data the seed does
 not make, add that to `scripts/seed-account.mjs`: the PR's preview account is
 seeded from it, and local dev gets it too. Before calling it done:
@@ -64,6 +70,10 @@ seeded from it, and local dev gets it too. Before calling it done:
 - `pnpm lint`, `pnpm typecheck` and the suites the change affects pass
 - a web change has been seen signed in to local Stint
 - a macOS change builds and has been seen in the app
+
+Then a subagent reviews the diff with `/code-review`, and with
+`/security-review` too when it touches auth, the API or data access. Fix what
+holds up before pushing — Blake sees the fixed work, never the findings.
 
 If a check cannot pass without Blake, treat it as step 2's `needs-input`, with
 the branch pushed so the work survives.
@@ -80,10 +90,20 @@ was verified, any call you made that Blake might make differently, and:
 
     1. <an action> — <what you should see>
 
+A macOS PR opens its section with the command instead:
+
+    ## Try it
+
+    ```bash
+    pnpm try-mac <n>
+    ```
+    Opens Stint Preview in the menu bar, signed in as this PR's seeded account.
+
+    1. <an action> — <what you should see>
+
 `<branch>` is the branch name lowercased, anything else a hyphen; `<n>` is
 the PR number, so create the PR first, then add the section with
-`gh pr edit`. A macOS PR opens with `pnpm try-mac <n>` instead of the link.
-Every step says what Blake should see, never just what to do.
+`gh pr edit`. Every step says what Blake should see, never just what to do.
 
 Run `/dissent` first if the branch decides something. Back to step 0.
 

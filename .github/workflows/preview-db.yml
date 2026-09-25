@@ -4,11 +4,14 @@ name: preview-db
 # the open PRs, and gives each PR its own seeded account, pr-<n>@preview.test,
 # which `/preview/signin?pr=<n>` signs a reviewer into.
 #
-#   A PR is pushed              reseed that PR's account from its branch
-#   ... and it adds migrations  first empty stint-test, apply the PR's schema,
-#                               and reseed every open PR
-#   Migrations land on main     empty, apply main's schema, reseed every open PR
-#   Run by hand                 the same, after closing a migration PR unmerged
+# Every run seeds its PR's account from that branch. It first rebuilds the
+# schema — empty, migrate, reseed every open PR — when:
+#   - the PR's diff touches supabase/migrations
+#   - the checkout holds a migration stint-test has not applied, which also
+#     repairs a run that was superseded in the queue or failed midway
+#   - on main: stint-test has applied a migration main does not have
+#   - a migration PR closed unmerged
+#   - it is run by hand
 #
 # The previews share one schema, so one open PR at a time may carry a
 # migration (`/work-issues` holds to it).
@@ -17,13 +20,13 @@ name: preview-db
 # on the Preview environment.
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, closed]
   push:
     branches: [main]
     paths: ['supabase/migrations/**']
   workflow_dispatch:
 
-# Runs one at a time: a reset racing a seed leaves an account half-written.
+# One at a time: a reset racing a seed leaves an account half-written.
 concurrency:
   group: preview-db
   cancel-in-progress: false
@@ -35,23 +38,30 @@ permissions:
 jobs:
   preview-db:
     # Dependabot's PRs cannot read secrets, and their previews need no account.
-    if: github.actor != 'dependabot[bot]'
+    # A PR merged into main is handled by the push it makes.
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      !(github.event.action == 'closed' && github.event.pull_request.merged)
     runs-on: ubuntu-latest
     environment:
       name: Preview
       # The branch's preview, so this job's entry on the PR links where
-      # Vercel's does rather than replacing it with nothing.
+      # Vercel's does.
       url: ${{ steps.plan.outputs.url }}
     env:
       SUPABASE_DB_URL: ${{ secrets.PREVIEW_DB_URL }}
       SEED_DATABASE_URL: ${{ secrets.PREVIEW_DB_URL }}
       GH_TOKEN: ${{ github.token }}
       PR: ${{ github.event.pull_request.number }}
+      CLOSED: ${{ github.event.action == 'closed' }}
     steps:
-      # A PR checks out its merge with main, so `HEAD^1` is main and the
-      # schema applied is main's plus the PR's.
+      # An open PR checks out its merge with main, so `HEAD^1` is main and the
+      # schema applied is main's plus the PR's. A closed one has no merge ref
+      # and goes back to main.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with: { fetch-depth: 2 }
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.action == 'closed' && 'main' || '' }}
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with: { node-version: '24', cache: 'pnpm' }
@@ -62,19 +72,40 @@ jobs:
         id: plan
         env:
           BRANCH: ${{ github.head_ref }}
+          EVENT: ${{ github.event_name }}
         run: |
-          if [ -z "$PR" ]; then
-            echo "reset=true" >> "$GITHUB_OUTPUT"
-            exit 0
+          applied=$(psql "$SUPABASE_DB_URL" -tAc 'select version from schema_migrations' 2>/dev/null || true)
+          files=$(ls supabase/migrations | grep '\.sql$' | sort)
+          missing=$(comm -23 <(echo "$files") <(echo "$applied" | sort))
+          extra=$(comm -13 <(echo "$files") <(echo "$applied" | sort))
+
+          reset=false
+          if [ "$EVENT" = workflow_dispatch ] || [ -n "$missing" ]; then
+            reset=true
+          elif [ "$EVENT" = push ] && [ -n "$extra" ]; then
+            reset=true
+          elif [ "$CLOSED" = true ]; then
+            # Not `grep -q`: exiting early can fail `gh` on SIGPIPE under pipefail.
+            if gh pr diff "$PR" --name-only | grep '^supabase/migrations/' >/dev/null; then
+              reset=true
+            fi
+          elif ! git diff --quiet HEAD^1 HEAD -- supabase/migrations; then
+            reset=true
           fi
-          if git diff --quiet HEAD^1 HEAD -- supabase/migrations; then
-            echo "reset=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "reset=true" >> "$GITHUB_OUTPUT"
+          echo "reset=$reset" >> "$GITHUB_OUTPUT"
+
+          # Vercel's branch alias: lowercased, anything else a hyphen. Past 63
+          # characters Vercel truncates and hashes it, so a long branch gets
+          # no link rather than a wrong one.
+          if [ -n "$PR" ] && [ "$CLOSED" != true ]; then
+            slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g')
+            host="stint-git-${slug}-blakeeriks-projects"
+            if [ ${#host} -le 63 ]; then
+              echo "url=https://${host}.vercel.app" >> "$GITHUB_OUTPUT"
+            else
+              echo "::warning::Branch name too long for Vercel's alias; Try it needs the deployment URL."
+            fi
           fi
-          # Vercel's branch alias: lowercased, anything else a hyphen.
-          slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g')
-          echo "url=https://stint-git-${slug}-blakeeriks-projects.vercel.app" >> "$GITHUB_OUTPUT"
 
       - name: Rebuild the schema
         if: steps.plan.outputs.reset == 'true'
@@ -83,7 +114,7 @@ jobs:
           pnpm migrate
 
       - name: Seed this PR's account
-        if: env.PR != ''
+        if: env.PR != '' && env.CLOSED != 'true'
         run: node scripts/seed-account.mjs "pr-$PR@preview.test"
 
       # A reset deleted every account, so each open PR is reseeded from its

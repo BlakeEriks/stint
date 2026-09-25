@@ -128,7 +128,12 @@ final class TimerModel {
                 }
             }
             if let account = Config.previewAccount {
-                try? await auth.signIn(email: account.email, password: account.password)
+                do {
+                    try await auth.signIn(email: account.email, password: account.password)
+                } catch {
+                    errorMessage = "Could not sign in as \(account.email): \(error.localizedDescription) "
+                        + "Re-run the PR's preview-db check, which seeds it."
+                }
             }
             if await tokens.isSignedIn { await refresh() }
         }
