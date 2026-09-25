@@ -1,0 +1,102 @@
+name: preview-db
+
+# Keeps stint-test — the database every Vercel preview reads — in step with
+# the open PRs, and gives each PR its own seeded account, pr-<n>@preview.test,
+# which `/preview/signin?pr=<n>` signs a reviewer into.
+#
+#   A PR is pushed              reseed that PR's account from its branch
+#   ... and it adds migrations  first empty stint-test, apply the PR's schema,
+#                               and reseed every open PR
+#   Migrations land on main     empty, apply main's schema, reseed every open PR
+#   Run by hand                 the same, after closing a migration PR unmerged
+#
+# The previews share one schema, so one open PR at a time may carry a
+# migration (`/work-issues` holds to it).
+#
+# Requires PREVIEW_DB_URL — stint-test's session pooler string — as a secret
+# on the Preview environment.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+    paths: ['supabase/migrations/**']
+  workflow_dispatch:
+
+# Runs one at a time: a reset racing a seed leaves an account half-written.
+concurrency:
+  group: preview-db
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  preview-db:
+    # Dependabot's PRs cannot read secrets, and their previews need no account.
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    environment:
+      name: Preview
+      # The branch's preview, so this job's entry on the PR links where
+      # Vercel's does rather than replacing it with nothing.
+      url: ${{ steps.plan.outputs.url }}
+    env:
+      SUPABASE_DB_URL: ${{ secrets.PREVIEW_DB_URL }}
+      SEED_DATABASE_URL: ${{ secrets.PREVIEW_DB_URL }}
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      # A PR checks out its merge with main, so `HEAD^1` is main and the
+      # schema applied is main's plus the PR's.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { fetch-depth: 2 }
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with: { node-version: '24', cache: 'pnpm' }
+      # The scripts need only `pg`, and this job holds a database string.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Plan
+        id: plan
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          if [ -z "$PR" ]; then
+            echo "reset=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --quiet HEAD^1 HEAD -- supabase/migrations; then
+            echo "reset=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "reset=true" >> "$GITHUB_OUTPUT"
+          fi
+          # Vercel's branch alias: lowercased, anything else a hyphen.
+          slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g')
+          echo "url=https://stint-git-${slug}-blakeeriks-projects.vercel.app" >> "$GITHUB_OUTPUT"
+
+      - name: Rebuild the schema
+        if: steps.plan.outputs.reset == 'true'
+        run: |
+          node scripts/preview-reset.mjs
+          pnpm migrate
+
+      - name: Seed this PR's account
+        if: env.PR != ''
+        run: node scripts/seed-account.mjs "pr-$PR@preview.test"
+
+      # A reset deleted every account, so each open PR is reseeded from its
+      # own branch's seed, which may carry data this one does not.
+      - name: Reseed the other open PRs
+        if: steps.plan.outputs.reset == 'true'
+        run: |
+          gh pr list --state open --json number,headRefName \
+            -q '.[] | "\(.number) \(.headRefName)"' |
+          while read -r n branch; do
+            [ "$n" = "$PR" ] && continue
+            git fetch --quiet --depth 1 origin "$branch" || continue
+            git show FETCH_HEAD:scripts/seed-account.mjs > "scripts/.seed-pr-$n.mjs" || continue
+            node "scripts/.seed-pr-$n.mjs" "pr-$n@preview.test" \
+              || echo "::warning::Could not reseed PR #$n — re-run its preview-db check."
+          done

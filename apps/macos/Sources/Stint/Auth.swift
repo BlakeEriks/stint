@@ -56,8 +56,23 @@ actor Auth {
         await tokens.store(try JSONDecoder().decode(Session.self, from: data))
     }
 
-    private func post(_ path: String, _ body: some Encodable) async throws -> (Data, Int) {
-        var req = URLRequest(url: supabaseURL.appending(path: path))
+    /// A preview build's seeded account (`Config.previewAccount`).
+    func signIn(email: String, password: String) async throws {
+        let (data, status) = try await post(
+            "/auth/v1/token", query: [URLQueryItem(name: "grant_type", value: "password")],
+            ["email": email, "password": password]
+        )
+        guard status == 200 else {
+            throw Self.error(from: data, status: status)
+                ?? APIError(status: status, code: "UNKNOWN", message: "Could not sign in as \(email).")
+        }
+        await tokens.store(try JSONDecoder().decode(Session.self, from: data))
+    }
+
+    private func post(
+        _ path: String, query: [URLQueryItem] = [], _ body: some Encodable
+    ) async throws -> (Data, Int) {
+        var req = URLRequest(url: supabaseURL.appending(path: path).appending(queryItems: query))
         req.httpMethod = "POST"
         req.setValue(anonKey, forHTTPHeaderField: "apikey")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")

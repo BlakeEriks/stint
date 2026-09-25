@@ -16,6 +16,18 @@ enum Config {
         return ProcessInfo.processInfo.environment["STINT_ENV"] ?? "prod"
     }()
 
+    /// A preview build's seeded account, signed in on launch. `try-mac` bakes
+    /// it in; every other build signs in by emailed code.
+    static let previewAccount: (email: String, password: String)? = {
+        let env = ProcessInfo.processInfo.environment
+        guard let email = env["STINT_PREVIEW_EMAIL"], let password = env["STINT_PREVIEW_PASSWORD"]
+        else { return nil }
+        return (email, password)
+    }()
+
+    /// Vercel's protection bypass, which a preview deployment asks of every request.
+    static let vercelBypass = ProcessInfo.processInfo.environment["STINT_VERCEL_BYPASS"]
+
     private static func url(_ key: String, default fallback: String) -> URL {
         URL(string: ProcessInfo.processInfo.environment[key] ?? fallback)!
     }

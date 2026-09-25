@@ -92,9 +92,10 @@ It deliberately sets **no `outputDirectory`**: Next.js detection finds
 failed a build that had otherwise succeeded.
 
 Still set in the dashboard:
-- Environment variables (Production and Preview):
-  - `NEXT_PUBLIC_SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- Environment variables, none of them sensitive:
+  - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` —
+    production's project for Production, `stint-test`'s for Preview
+    (§3d). A preview never reaches production data.
   - `NEXT_PUBLIC_APP_ORIGIN` — `https://app.runstint.com`. The code
     falls back to `''`, so an unset one costs a redirect hop on every landing
     CTA rather than failing the build.
@@ -265,12 +266,36 @@ the same failure from GitHub and from healthchecks.io.
 The webhook is the `DISCORD_ALERTS_WEBHOOK` secret on Production and exists
 nowhere else: anyone holding it can post to the channel.
 
+## 3d. Previews
+
+Every preview deployment reads **`stint-test`**, a second Supabase project on
+the free plan holding only seeded data. Each open PR has its own account
+there, `pr-<n>@preview.test`, and `/preview/signin?pr=<n>&next=<path>` signs
+into it and lands on `next` — the link a PR's **Try it** section opens. The
+route is a 404 anywhere `VERCEL_ENV` is not `preview`.
+
+`.github/workflows/preview-db.yml` keeps the project in step: it seeds a PR's
+account from that branch's `scripts/seed-account.mjs` on every push, and when
+a PR's migrations change the schema — or migrations land on main — empties
+`stint-test`, migrates it, and reseeds every open PR. Run it by hand after
+closing a migration PR unmerged. The previews share one schema, so **one open
+PR at a time may carry a migration**.
+
+- **GitHub** → Environments → **Preview** → secret `PREVIEW_DB_URL`:
+  `stint-test`'s session pooler string. The direct connection is IPv6-only,
+  which Actions runners cannot reach.
+- **Vercel** → Deployment Protection → **Protection Bypass for Automation**:
+  the secret `pnpm try-mac` sends so the menu bar app reaches a preview
+  (`docs/macos.md`).
+
+A free project pauses after a week unused; restore it from the dashboard.
+
 ## 4. Auth redirect URLs
 
 Supabase → Authentication → URL Configuration. Add the production origin to
 **Site URL** and `https://<domain>/auth/callback` to **Redirect URLs**, or
-magic links bounce. Preview deployments get a new URL per branch; add a
-wildcard redirect if you want sign-in to work on them.
+magic links bounce. Previews sign in through `/preview/signin` (§3d) and need
+no redirect URL.
 
 ## Gated behind a paid plan
 

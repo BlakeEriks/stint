@@ -16,15 +16,41 @@ TARGET="${2:-local}"
 # silently ignored — the values have to be baked into Info.plist.
 #
 # Local is the default and needs no keys: Config.swift already falls back to
-# the local stack. Prod's values are public — the publishable key ships in
+# the local stack. Prod's and preview's Supabase values are public — the publishable key ships in
 # every browser bundle, and RLS is what protects the data.
-if [ "$TARGET" = "local" ]; then
-    LS_ENVIRONMENT=""
-elif [ "$TARGET" = "prod" ]; then
+NAME="Stint"
+BUNDLE_ID="dev.stint.menubar"
+EXTRA_ENV=""
+ENV_LABEL="$TARGET"
+
+if [ "$TARGET" = "prod" ]; then
     SUPABASE_URL="https://zwoceqydagxxmqoaqgbf.supabase.co"
     ANON_KEY="sb_publishable_dpZCXx5Z71lOUznVCIleJA__YjyUk4e"
     APP_URL="${STINT_APP_URL:-https://app.runstint.com}"
+elif [ "$TARGET" = "preview" ]; then
+    # One PR's Vercel preview and its seeded account on stint-test, signed in
+    # on launch. `pnpm try-mac <pr>` supplies all three variables. Its own
+    # name and bundle id, so it runs beside the installed Stint.app rather
+    # than replacing it.
+    PR="${STINT_PREVIEW_PR:?preview needs STINT_PREVIEW_PR — use pnpm try-mac <pr>}"
+    SUPABASE_URL="https://aywejkegniljsljdzfrk.supabase.co"
+    ANON_KEY="sb_publishable_q79gV5KhfKg05hZMjWVHsg_SqL2HPTH"
+    APP_URL="${STINT_APP_URL:?preview needs STINT_APP_URL}"
+    NAME="Stint Preview"
+    BUNDLE_ID="dev.stint.menubar.preview"
+    ENV_LABEL="PR $PR"
+    # The password is `LOCAL_PASSWORD` in scripts/seed-account.mjs.
+    EXTRA_ENV="
+        <key>STINT_PREVIEW_EMAIL</key><string>pr-$PR@preview.test</string>
+        <key>STINT_PREVIEW_PASSWORD</key><string>devpassword123</string>
+        <key>STINT_VERCEL_BYPASS</key><string>${STINT_VERCEL_BYPASS:?preview needs STINT_VERCEL_BYPASS}</string>"
+elif [ "$TARGET" != "local" ]; then
+    echo "error: unknown target $TARGET — local, prod or preview" >&2; exit 1
+fi
 
+if [ "$TARGET" = "local" ]; then
+    LS_ENVIRONMENT=""
+else
     # Resolve it now rather than at the first request: a hostname that does
     # not resolve reaches the panel as "a server with the specified hostname
     # could not be found", which reads as a network fault.
@@ -40,15 +66,13 @@ elif [ "$TARGET" = "prod" ]; then
         <key>STINT_APP_URL</key><string>$APP_URL</string>
         <key>STINT_SUPABASE_URL</key><string>$SUPABASE_URL</string>
         <key>STINT_SUPABASE_ANON_KEY</key><string>$ANON_KEY</string>
-        <key>STINT_ENV</key><string>$TARGET</string>
+        <key>STINT_ENV</key><string>$ENV_LABEL</string>$EXTRA_ENV
     </dict>"
-else
-    echo "error: unknown target $TARGET — local or prod" >&2; exit 1
 fi
 
 swift build -c "$CONFIG"
 
-APP=".build/Stint.app"
+APP=".build/$NAME.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 
@@ -58,8 +82,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>Stint</string>
-    <key>CFBundleIdentifier</key><string>dev.stint.menubar</string>
+    <key>CFBundleName</key><string>$NAME</string>
+    <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
     <key>CFBundleExecutable</key><string>Stint</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>0.1.0</string>
@@ -87,7 +111,7 @@ echo "built $APP ($TARGET)"
 # ~/Applications works.
 #
 # Always overwritten, so the installed copy cannot drift from the built one.
-INSTALLED="$HOME/Applications/Stint.app"
+INSTALLED="$HOME/Applications/$NAME.app"
 mkdir -p "$HOME/Applications"
 rm -rf "$INSTALLED"
 cp -R "$APP" "$INSTALLED"

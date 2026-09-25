@@ -127,6 +127,9 @@ final class TimerModel {
                     self?.email = session?.email
                 }
             }
+            if let account = Config.previewAccount {
+                try? await auth.signIn(email: account.email, password: account.password)
+            }
             if await tokens.isSignedIn { await refresh() }
         }
 

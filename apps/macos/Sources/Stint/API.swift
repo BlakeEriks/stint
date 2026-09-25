@@ -206,6 +206,9 @@ actor API {
         var req = URLRequest(url: URL(string: baseURL.absoluteString + "/api/v1" + path)!)
         req.httpMethod = method
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let bypass = Config.vercelBypass {
+            req.setValue(bypass, forHTTPHeaderField: "x-vercel-protection-bypass")
+        }
         if let body {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = try Self.encoder.encode(body)

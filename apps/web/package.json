@@ -17,7 +17,7 @@
     "test:ui": "vitest run",
     "sample:invoice": "node --experimental-strip-types scripts/render-sample-invoice.mjs",
     "test:rls": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/rls.test.ts",
-    "test:auth": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/auth.test.ts",
+    "test:auth": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/auth.test.ts test/preview-signin.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
