@@ -20,15 +20,16 @@ switch after that is `git fetch --prune`, then the switch, then
 otherwise keeps serving the last branch's build.
 
 **Every comment you post starts with `<!-- work-issues -->`.** `gh` runs as
-Blake, so that marker is the only way to tell your comments from his; a
-comment without it is his.
+Blake, so the marker is the only way to tell your comments from his. **Blake's
+comment** below means one by `BlakeEriks` without the marker; bots' comments,
+Vercel's included, are never feedback.
 
 ## 0. Catch up
 
 - **Merged:** `git fetch --prune`, `git switch --detach origin/main`, then
   `git branch -d` every branch `git branch --merged origin/main` lists.
-- **Feedback first:** for every open PR of yours, an unmarked comment or
-  review newer than your last push and your last marked comment is feedback. Address it on that branch
+- **Feedback first:** for every open PR of yours, a comment or review of
+  Blake's newer than your last push and your last marked comment is feedback. Address it on that branch
   before picking anything new: change, verify, push, then reply on the PR
   with what changed and an updated **Try it**. Feedback beyond the PR's scope
   becomes a new issue, linked in the reply. A question back gets the
@@ -39,7 +40,8 @@ comment without it is his.
 `gh issue list --state open --json number,title,labels,body,comments`, then
 skip every issue that:
 
-- is labelled `needs-input` with no unmarked comment since the label went on
+- is labelled `needs-input` with no comment of Blake's since your last
+  marked one
 - already has an open PR
   (`gh issue view <n> --json closedByPullRequestsReferences`)
 - depends on an unmerged PR, or will likely touch the same files as one
@@ -67,7 +69,9 @@ your recommendation, add the `needs-input` label, and go back to step 1.
 
 ## 3. Build
 
-Branch off `origin/main` in `../stint-issues`. Keep the branch name under 30
+Picking up a `needs-input` issue Blake has answered: remove the label, and
+continue its pushed branch if it has one. Anything else: branch off
+`origin/main` in `../stint-issues`. Keep the branch name under 30
 characters: it becomes the preview's URL, and Vercel hashes longer ones. Fix it with tests, following `CLAUDE.md` and the
 `.claude/rules/` the change touches. If testing it needs data the seed does
 not make, add that to `scripts/seed-account.mjs`: the PR's preview account is
@@ -111,8 +115,8 @@ A macOS PR opens its section with the command instead:
 the PR number, so create the PR first, then add the section with
 `gh pr edit`. Every step says what Blake should see, never just what to do.
 
-Run `/dissent` first if the branch decides something. Then step 5 if this
-was the `--one` issue or the last one named; otherwise back to step 0.
+Then step 5 if this was the `--one` issue or the last one named; otherwise
+back to step 0.
 
 ## 5. Stop
 

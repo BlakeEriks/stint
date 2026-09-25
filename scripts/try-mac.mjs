@@ -25,7 +25,6 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const dest = resolve(root, '..', `${basename(root)}-review`);
 const pr = process.argv[2];
 
 if (!/^\d+$/.test(pr ?? '')) {
@@ -37,6 +36,13 @@ const out = (cmd, args, cwd = root) =>
   execFileSync(cmd, args, { cwd, encoding: 'utf8' }).trim();
 const run = (cmd, args, cwd = root, env = process.env) =>
   execFileSync(cmd, args, { cwd, stdio: 'inherit', env });
+
+/* Beside the main checkout, whichever worktree this runs from: the shared
+   `.git` is the main checkout's. */
+const main = dirname(
+  resolve(root, out('git', ['rev-parse', '--git-common-dir'])),
+);
+const dest = resolve(main, '..', `${basename(main)}-review`);
 
 let bypass;
 try {

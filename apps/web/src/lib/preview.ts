@@ -25,12 +25,14 @@ export function previewAccount(
 }
 
 /**
- * `next` as a path on `origin`, or `/`. Resolved by the URL parser rather
- * than prefix checks, which a tab or newline in `next` slips past.
+ * Where `next` lands on `origin`, or `origin`'s root: never another host, and
+ * never a throw on input the parser rejects. The URL it returns is used as
+ * is — resolving a path a second time can turn `/.//evil.test` into a
+ * protocol-relative URL.
  */
-export function samePath(next: string | null, origin: string): string {
-  const target = new URL(next ?? '/', origin);
-  return target.origin === origin
-    ? target.pathname + target.search + target.hash
-    : '/';
+export function sameOriginURL(next: string | null, origin: string): string {
+  const target = URL.canParse(next ?? '/', origin)
+    ? new URL(next ?? '/', origin)
+    : null;
+  return target?.origin === origin ? target.href : `${origin}/`;
 }

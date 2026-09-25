@@ -651,8 +651,7 @@ private struct SignInPanel: View {
                     .disabled(busy || email.isEmpty)
             }
 
-            // The model's error is a preview build's failed sign-in on launch.
-            if let error = error ?? model.errorMessage {
+            if let error = error ?? model.previewSignInError {
                 Text(error)
                     .role(.body)
                     .foregroundStyle(Tokens.Dark.danger)

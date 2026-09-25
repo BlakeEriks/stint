@@ -108,11 +108,17 @@ test('next never leaves the deployment', async () => {
     '/\\evil.test',
     '/\t/evil.test',
     '/\n/evil.test',
+    '/.//evil.test',
+    '/..//evil.test',
+    '/%2e//evil.test',
+    'http://[',
+    'http:',
   ]) {
     const res = await signIn(`pr=${PR}&next=${encodeURIComponent(next)}`);
+    // Absolute, so the browser resolves nothing: its origin is where it lands.
     assert.equal(
-      res.headers.get('location'),
-      'https://stint-git-x.vercel.app/',
+      new URL(res.headers.get('location') ?? '').origin,
+      'https://stint-git-x.vercel.app',
       next,
     );
   }

@@ -3,7 +3,7 @@ import {
   parseCookieHeader,
   serializeCookieHeader,
 } from '@supabase/ssr';
-import { PREVIEW_PASSWORD, previewAccount, samePath } from '@/lib/preview';
+import { PREVIEW_PASSWORD, previewAccount, sameOriginURL } from '@/lib/preview';
 
 /**
  * `/preview/signin?pr=24&next=/invoices` — signs in as PR 24's seeded
@@ -26,10 +26,7 @@ export async function GET(req: Request) {
   const res = new Response(null, {
     status: 303,
     headers: {
-      location: new URL(
-        samePath(url.searchParams.get('next'), url.origin),
-        url.origin,
-      ).href,
+      location: sameOriginURL(url.searchParams.get('next'), url.origin),
     },
   });
 

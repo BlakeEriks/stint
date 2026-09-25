@@ -3,6 +3,11 @@
  * Empty `stint-test` so `pnpm migrate` can rebuild it from one branch.
  *
  *   SUPABASE_DB_URL=<stint-test pooler> node scripts/preview-reset.mjs
+ *   ... node scripts/preview-reset.mjs --applied   # list, change nothing
+ *
+ * `--applied` prints the migrations stint-test has applied, one per line —
+ * none if it has no `schema_migrations` yet. Any other failure exits non-zero
+ * rather than reading as an empty database, which would reset every run.
  *
  * `.github/workflows/preview-db.yml` runs this when a PR's migrations change
  * the schema, then migrates and reseeds every open PR's account. A migration
@@ -27,6 +32,20 @@ if (!url || !isPreviewDb(url)) {
 
 const db = new pg.Client({ connectionString: url, ssl: sslFor(url) });
 await db.connect();
+
+if (process.argv.includes('--applied')) {
+  try {
+    const { rows } = await db.query(
+      'select version from schema_migrations order by version',
+    );
+    for (const r of rows) console.log(r.version);
+  } catch (error) {
+    if (error.code !== '42P01') throw error; // undefined_table: never migrated
+  } finally {
+    await db.end();
+  }
+  process.exit(0);
+}
 
 try {
   await db.query('begin');
