@@ -11,7 +11,13 @@ Blake can test from its preview link. Blake merges; merging is the deploy, so
 - `/work-issues` alone works until nothing is left; `/loop /work-issues`
   keeps coming back.
 
-Step 0 runs every time, so feedback on open PRs is handled first either way.
+Step 0 runs every time, so open PRs are caught up before anything new.
+
+**You orchestrate; subagents build.** Each issue, and each round of fixes on
+an open PR, runs in its own subagent (Opus), handed this file, the issue or
+PR number and the step it is on. It reports back one paragraph: the PR, the
+`needs-input` question, or what failed. Your context holds a summary per
+issue, not the work, and a long run survives auto-compaction.
 
 All work happens in one long-lived worktree, `../stint-issues`, switching
 branches there. Make it with `pnpm worktree issues` the first time. Every
@@ -24,16 +30,26 @@ Blake, so the marker is the only way to tell your comments from his. **Blake's
 comment** below means one by `BlakeEriks` without the marker; bots' comments,
 Vercel's included, are never feedback.
 
+**`ready-for-qa` on a PR means Blake can test it now**: CI green, nothing he
+said left unanswered. Adding it posts to Discord #events. Take it off the
+moment either stops being true.
+
 ## 0. Catch up
 
 - **Merged:** `git fetch --prune`, `git switch --detach origin/main`, then
   `git branch -d` every branch `git branch --merged origin/main` lists.
-- **Feedback first:** for every open PR of yours, a comment or review of
-  Blake's newer than your last push and your last marked comment is feedback. Address it on that branch
-  before picking anything new: change, verify, push, then reply on the PR
-  with what changed and an updated **Try it**. Feedback beyond the PR's scope
-  becomes a new issue, linked in the reply. A question back gets the
-  `needs-input` label, as in step 2.
+- **Each open PR of yours**, in order:
+  1. **Feedback:** a comment or review of Blake's newer than your last push
+     and your last marked comment. Remove `ready-for-qa`, then a subagent
+     addresses it: change, verify, push, reply with what changed and an
+     updated **Try it**. Feedback beyond the PR's scope becomes a new issue,
+     linked in the reply. A question back gets `needs-input`, as in step 2.
+  2. **CI failed** (`gh pr checks <n>`): remove `ready-for-qa`; a subagent
+     reads the failing job's log, fixes it on the branch and pushes. A failure
+     the branch did not cause — red on `main` too — is still fixed, in its own
+     commit that says so.
+  3. **CI green and nothing outstanding:** add `ready-for-qa`, once.
+  4. **CI still running:** leave it for the next pass.
 
 ## 1. Pick
 
@@ -50,6 +66,7 @@ skip every issue that:
 
 Take the worst first: `wrong data`, then `misleading`, then `looks wrong`,
 then `enhancement`; oldest first within a label. None left → step 5.
+Otherwise hand it to a subagent for steps 2–4.
 
 ## 2. Triage — does this need Blake?
 
@@ -65,33 +82,36 @@ It needs Blake when it:
 
 Anything else, decide yourself and put the reasoning in the PR. When it does
 need Blake: comment one specific question on the issue, with the options and
-your recommendation, add the `needs-input` label, and go back to step 1.
+your recommendation, add the `needs-input` label, and report back.
 
 ## 3. Build
 
 Picking up a `needs-input` issue Blake has answered: remove the label, and
 continue its pushed branch if it has one. Anything else: branch off
 `origin/main` in `../stint-issues`. Keep the branch name under 30
-characters: it becomes the preview's URL, and Vercel hashes longer ones. Fix it with tests, following `CLAUDE.md` and the
-`.claude/rules/` the change touches. If testing it needs data the seed does
-not make, add that to `scripts/seed-account.mjs`: the PR's preview account is
-seeded from it, and local dev gets it too. Before calling it done:
+characters: it becomes the preview's URL, and Vercel hashes longer ones.
+
+Fix it with tests, following `CLAUDE.md` and the `.claude/rules/` the change
+touches. If testing it needs data the seed does not make, add that to
+`scripts/seed-account.mjs`: the PR's preview account is seeded from it, and
+local dev gets it too. Before calling it done:
 
 - `pnpm lint`, `pnpm typecheck` and the suites the change affects pass
 - a web change has been seen signed in to local Stint
 - a macOS change builds and has been seen in the app
 
-Then a subagent reviews the diff with `/code-review`, and with
-`/security-review` too when it touches auth, the API or data access. Fix what
-holds up before pushing — Blake sees the fixed work, never the findings.
+Commit, and report back unpushed. The orchestrator has a second subagent
+review the diff with `/code-review`, and `/security-review` too when it
+touches auth, the API or data access, then sends the builder what holds up
+to fix. Blake sees the fixed work, never the findings.
 
 If a check cannot pass without Blake, treat it as step 2's `needs-input`, with
 the branch pushed so the work survives.
 
 ## 4. Ship
 
-Commit, push, and `gh pr create` with `Closes #<n>`, what changed, how it
-was verified, any call you made that Blake might make differently, and:
+Push, and `gh pr create` with `Closes #<n>`, what changed, how it was
+verified, any call you made that Blake might make differently, and:
 
     ## Try it
 
@@ -114,13 +134,14 @@ A macOS PR opens its section with the command instead:
 `<branch>` is the branch name lowercased, anything else a hyphen; `<n>` is
 the PR number, so create the PR first, then add the section with
 `gh pr edit`. Every step says what Blake should see, never just what to do.
+No `ready-for-qa` yet — step 0 adds it once CI is green.
 
 Then step 5 if this was the `--one` issue or the last one named; otherwise
 back to step 0.
 
 ## 5. Stop
 
-When nothing is left to pick, end with one summary: PRs opened or updated,
+End with one summary: PRs opened or updated, which are `ready-for-qa`,
 issues now `needs-input` with their question, and anything that failed.
-Under `/loop`, wake again in an hour for Blake's feedback, replies and
-merges.
+Under `/loop`, wake again in an hour for CI results, Blake's feedback,
+replies and merges.

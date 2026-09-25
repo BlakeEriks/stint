@@ -290,6 +290,10 @@ PR at a time may carry a migration**.
 
 A free project pauses after a week unused; restore it from the dashboard.
 
+**`ready-for-qa`** on a PR — CI green, no feedback outstanding — makes
+`.github/workflows/ready-for-qa.yml` post it to Discord #events. It needs
+`DISCORD_EVENTS_WEBHOOK`, a webhook on that channel, as a repository secret.
+
 ## 4. Auth redirect URLs
 
 Supabase → Authentication → URL Configuration. Add the production origin to
