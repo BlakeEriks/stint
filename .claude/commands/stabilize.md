@@ -16,7 +16,7 @@ two throwaway databases on the local Supabase Postgres (`:54322`) and runs every
 check in order, printing PASS/FAIL per step:
 
     lint  typecheck  check:type  detox  tokens:validate
-    core:test  web:test  test:ui  test:rls
+    core test  web:test  test:ui  test:rls
 
 `.github/workflows/ci.yml` holds the database recipe. Take `REPO` and `DB` from
 the environment so phases running in parallel worktrees do not collide, and

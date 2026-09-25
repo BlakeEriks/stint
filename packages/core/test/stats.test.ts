@@ -96,8 +96,8 @@ test('revenueByDay keeps the day SQL grouped by, not a shifted ISO date', () => 
      the offset is positive, which is every zone east of Greenwich.
 
      It therefore only goes red on a runner east of Greenwich — west of it the
-     two readings agree. `TZ=Europe/Berlin pnpm core:test` is where breaking
-     this is visible. */
+     two readings agree. `TZ=Europe/Berlin pnpm --filter @stint/core test` is
+     where breaking this is visible. */
   const local = new Date(2026, 2, 18);
   const m = revenueByDay([
     { day: local as unknown as string, seconds: 7200, amount: '120.00' },

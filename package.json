@@ -12,7 +12,6 @@
     "design": "node scripts/design-server.mjs",
     "worktree": "node scripts/worktree.mjs",
     "lint": "biome check .",
-    "lint:fix": "biome check . --write",
     "dev:up": "supabase stop && supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,studio,postgres-meta",
     "dev:up:studio": "supabase stop && supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor",
     "dev:down": "supabase stop",
@@ -21,7 +20,6 @@
     "seed": "node scripts/seed-account.mjs",
     "migrate": "node scripts/migrate.mjs",
     "verify:schema": "node scripts/verify-schema.mjs",
-    "test": "pnpm -r test",
     "test:e2e": "pnpm --filter @stint/web test:e2e",
     "test:ui": "pnpm --filter @stint/web test:ui",
     "test:rls": "pnpm --filter @stint/web test:rls",
@@ -29,12 +27,11 @@
     "check:type": "pnpm --filter @stint/web check:type",
     "detox": "pnpm --filter @stint/web detox",
     "typecheck": "npx tsc --noEmit -p tsconfig.json && pnpm --filter @stint/web typecheck",
-    "verify:static": "pnpm lint && pnpm tokens:validate && pnpm detox && pnpm check:type && pnpm typecheck && pnpm test:ui && pnpm core:test",
+    "verify:static": "pnpm lint && pnpm tokens:validate && pnpm detox && pnpm check:type && pnpm typecheck && pnpm test:ui && pnpm --filter @stint/core test",
     "db:setup": "PGPORT=54322 bash scripts/ci-db.sh tt && PGPORT=54322 bash scripts/ci-db.sh tt_rls --rls",
     "verify:db": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:54322/tt} pnpm --filter @stint/web test && DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:54322/tt_rls} RLS_DATABASE_URL=${RLS_DATABASE_URL:-postgresql://authenticated:test@localhost:54322/tt_rls} pnpm --filter @stint/web test:rls && pnpm verify:schema --url ${SUPABASE_DB_URL:-postgresql://postgres:postgres@localhost:54322/tt_rls}",
     "verify:all": "pnpm verify:static && pnpm verify:db && pnpm test:auth && pnpm test:e2e",
-    "prepare": "husky",
-    "core:test": "node --test --experimental-strip-types packages/core/test/*.test.ts"
+    "prepare": "husky"
   },
   "lint-staged": {
     "*.{js,mjs,ts,tsx,json,jsonc,css}": "biome check --write --no-errors-on-unmatched"
