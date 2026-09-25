@@ -59,8 +59,8 @@ the branch pushed so the work survives.
 ## 4. Ship
 
 Commit, push, and `gh pr create` with `Closes #<n>`, what changed, how it
-was verified, and any call you made that Blake might make differently. Run
-`/dissent` first if the branch decides something. Back to step 1.
+was verified, and any call you made that Blake might make differently. Back
+to step 1.
 
 ## 5. Stop
 

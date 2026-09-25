@@ -153,11 +153,6 @@ issue**: a fault labelled `bug` plus its cost (`wrong data`, `misleading`,
 `looks wrong`, worst first), or a tweak or improvement to something that
 exists, labelled `enhancement`. The PR that does it closes it.
 
-**A branch that decides something gets `/dissent` before it merges** — a
-price, a thesis, a scope cut, a milestone order. It argues against the branch
-with agents that did not write it, because a claim and the evidence refuting
-it can sit four lines apart and never collide for whoever wrote both.
-
 **`docs/api.md` marks unimplemented endpoints `(not implemented)`.**
 
 **The app is online-only**, for the reasons `docs/architecture.md` records.
