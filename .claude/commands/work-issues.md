@@ -4,8 +4,14 @@ description: Work through open GitHub issues one at a time, to an open PR each, 
 
 Work open issues on `BlakeEriks/stint` one at a time, each to an open PR
 Blake can test from its preview link. Blake merges; merging is the deploy, so
-**never merge, and never touch production**. Run under `/loop` to keep going.
-`$ARGUMENTS`, if given, names the issues to work, in that order.
+**never merge, and never touch production**.
+
+- `/work-issues 24 18` works those issues, in that order, then stops.
+- `/work-issues --one` works the next issue step 1 picks, then stops.
+- `/work-issues` alone works until nothing is left; `/loop /work-issues`
+  keeps coming back.
+
+Step 0 runs every time, so feedback on open PRs is handled first either way.
 
 All work happens in one long-lived worktree, `../stint-issues`, switching
 branches there. Make it with `pnpm worktree issues` the first time. Every
@@ -105,7 +111,8 @@ A macOS PR opens its section with the command instead:
 the PR number, so create the PR first, then add the section with
 `gh pr edit`. Every step says what Blake should see, never just what to do.
 
-Run `/dissent` first if the branch decides something. Back to step 0.
+Run `/dissent` first if the branch decides something. Then step 5 if this
+was the `--one` issue or the last one named; otherwise back to step 0.
 
 ## 5. Stop
 
