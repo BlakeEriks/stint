@@ -17,7 +17,7 @@ competitors.
 | macOS | Native Swift menu bar app (`apps/macos`, SwiftPM, no Xcode) | The timer and nothing else: start, stop, task name, project. The menu bar toggles between the running timer and today's total. |
 | iOS + Android | React Native (Expo), `apps/mobile` | Start / stop / view, light editing. |
 
-**Scope, not progress** — `roadmap.md` is where unbuilt capabilities live, and a status
+**Scope, not progress** — `feature` issues are where unbuilt capabilities live, and a status
 column here would be a second list that silently disagrees with it. What
 exists on disk is the honest signal: `apps/mobile` has no directory.
 
@@ -147,7 +147,7 @@ route handlers verify it identically.
   a redirect target. `supabase-swift` is not used — the SDK is not needed to
   POST two endpoints. Sign in with Apple via `signInWithIdToken` would need a
   paid developer account, an App ID with the capability and a signed bundle,
-  none of which a SwiftPM executable produces (`roadmap.md`).
+  none of which a SwiftPM executable produces (#69).
 - **Expo** — AsyncStorage session store. **`AppState` must be wired to
   `startAutoRefresh()` / `stopAutoRefresh()`**, or the refresh timer keeps
   firing while suspended and sessions go stale on resume. Easy to miss.

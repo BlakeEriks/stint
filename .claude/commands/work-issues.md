@@ -110,6 +110,7 @@ issue that:
 - is labeled `needs-input` with no comment of Blake's since the last marked
   one
 - is labeled `blocked`
+- is labeled `feature` — a capability is built through Spec Kit, not here
 - already has an open PR
   (`gh issue view <n> --json closedByPullRequestsReferences`)
 - is labeled `migration` while an open PR is too — previews share one

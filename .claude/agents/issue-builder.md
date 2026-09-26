@@ -25,7 +25,7 @@ Read the issue, its comments, and the docs that own the area it touches. It
 needs Blake when it:
 
 - decides a price, a thesis, a scope or a milestone (`docs/positioning.md`,
-  `docs/roadmap.md`)
+  the `Alpha` and `Launch` milestones)
 - is a new capability, so needs a spec before building
 - touches production data, backups or the release gate
 - has two fixes the docs do not choose between, and picking wrong would cost

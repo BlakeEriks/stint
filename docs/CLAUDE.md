@@ -10,7 +10,7 @@ spec doubles as the visual reference: `design/brand.html`,
 
 **Anything architectural or procedural is Markdown**: `api.md`,
 `data-model.md`, `architecture.md`, `deploying.md`, `local-dev.md`,
-`macos.md`, `roadmap.md`, `positioning.md`,
+`macos.md`, `positioning.md`, `sdlc.md`,
 `design/principles.md`, `design/deriving-color.md`.
 
 `pnpm design` serves them at `localhost:8778`. Start a screen doc by copying
@@ -78,9 +78,9 @@ siblings — that is the index's job, and a second list drifts.
 screen is assembled *from*, so a rule that would otherwise be restated in
 every screen doc belongs there instead.
 
-A new capability goes to `roadmap.md`, a fault or an improvement to a GitHub
-issue. A rejection is deleted — `principles.md`
-holds what we believe, never a record of what was turned down.
+A new capability is a GitHub issue labeled `feature`, a fault or an
+improvement one labeled `bug` or `enhancement`. A rejection is deleted —
+`principles.md` holds what we believe, never a record of what was turned down.
 
 ## Keeping it tight
 

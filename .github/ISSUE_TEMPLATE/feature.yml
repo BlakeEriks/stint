@@ -1,0 +1,46 @@
+name: Feature
+description: A new capability. It passes this gate, then is built through Spec Kit.
+labels: [feature]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Four answers, five lines or fewer. No answer, no issue. If an earlier
+        version of the idea was closed as not planned, say what changed. After
+        filing, set the milestone the last answer names.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Whose problem is it?
+      description: A situation a contractor is in, not a capability we could have.
+    validations:
+      required: true
+  - type: textarea
+    id: without
+    attributes:
+      label: What happens without it?
+      description: They do not sign up, or they leave in month three. Annoyance does not qualify.
+    validations:
+      required: true
+  - type: textarea
+    id: one-person
+    attributes:
+      label: Does it serve the one person?
+      description: The solo contractor in docs/positioning.md, or a team we do not have?
+    validations:
+      required: true
+  - type: dropdown
+    id: gate
+    attributes:
+      label: Which gate does it block?
+      options:
+        - Alpha
+        - Launch
+        - Neither
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: The hard parts already thought through, what the spec must decide, and the assessment's decision.md if one exists.

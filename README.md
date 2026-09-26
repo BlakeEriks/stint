@@ -18,7 +18,6 @@ app runs the timer — start, stop, task name, project — and nothing else.
 
 ```
 docs/            setup, deploying, architecture, data model, API contract, design system
-docs/roadmap.md    wanted but not built, and the hard parts already thought through
 docs/design/samples/  committed renderer output
 packages/
   schema/        Zod schemas — the API contract
@@ -77,7 +76,7 @@ navigation, redirects and server components — see `docs/local-dev.md`.
 - [docs/macos.md](docs/macos.md) — the menu bar app: building it, and which backend it talks to
 - [docs/positioning.md](docs/positioning.md) — who this is for, what it competes with, what it costs
 - [docs/design/principles.md](docs/design/principles.md) — what we believe about the product
-- [docs/roadmap.md](docs/roadmap.md) — wanted but not built, and the gate it passes to get there
+- [docs/sdlc.md](docs/sdlc.md) — how work moves from an idea to production
 - [Issues labeled `bug`](https://github.com/BlakeEriks/stint/issues?q=is%3Aopen+label%3Abug) — known faults
 
 ## License
