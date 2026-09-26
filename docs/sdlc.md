@@ -13,6 +13,7 @@ flowchart TD
     feature["Feature issue form<br/>milestone: Alpha · Launch · none"]
     killed["kill, recorded in decision.md"]
     hygiene["Hygiene, Mondays<br/>pnpm hygiene → /file-hygiene"]
+    deps["Dependabot, Mondays<br/>grouped minor + patch bumps"]
   end
 
   subgraph Build
@@ -44,7 +45,10 @@ flowchart TD
   issue --> wi
   impl --> pr
   wi --> pr
+  deps --> pr
   pr --> ci --> qa
+  ci -->|red Dependabot PR| wi
+  ci -->|green Dependabot PR,<br/>not framework: auto-merge| release
   qa -->|feedback| wi
   qa -->|Blake merges| release
   release --> live

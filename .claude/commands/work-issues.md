@@ -109,6 +109,14 @@ is `reviewed`.
      merge.
   6. **CI green and none of the above:** add `ready-for-qa`, once.
   7. **CI still running:** leave it for the next pass.
+- **Each open Dependabot PR** (`gh pr list --author app/dependabot`), the
+  same steps, except:
+  - 3: first `gh pr merge --disable-auto <n>`, so Blake reviews the fix
+    before it merges.
+  - 5: `BEHIND` is `gh pr update-branch <n>`, not a round. `DIRTY` with only
+    Dependabot's commits is left to Dependabot, which rebases its own.
+  - 6: only when auto-merge is off (`gh pr view <n> --json autoMergeRequest`
+    is null). The rest merge themselves (`dependabot-merge.yml`).
 - **Blocked issues:** remove `blocked` from any whose named PR has merged or
   closed — one `gh pr view` each, not a new investigation.
 
