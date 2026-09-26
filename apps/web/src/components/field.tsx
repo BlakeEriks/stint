@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 
 const LABEL = 'type-label text-subtle';
 
-/** One labelled control with an optional hint. Shared by every form. */
+/** One labeled control with an optional hint. Shared by every form. */
 export function Field({
   label,
   hint,

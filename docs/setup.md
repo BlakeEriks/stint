@@ -149,7 +149,7 @@ default, which renders only the link — so the panel has no six-digit code to
 type.
 
 **Editing the template needs custom SMTP**, which the dashboard enforces: the
-default provider is a shared sender, so its mail cannot be customised. Until
+default provider is a shared sender, so its mail cannot be customized. Until
 there is an SMTP provider, use the link:
 
 ```bash

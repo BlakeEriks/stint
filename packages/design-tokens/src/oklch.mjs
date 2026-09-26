@@ -21,7 +21,7 @@ export function oklchToRgb(L, C, hDeg) {
 const inGamut = ([r, g, b]) =>
   [r, g, b].every((v) => v >= -1e-4 && v <= 1 + 1e-4);
 
-/** Reduce chroma until the colour fits sRGB, keeping L and hue exact. */
+/** Reduce chroma until the color fits sRGB, keeping L and hue exact. */
 export function gamutMap(L, C, h) {
   if (inGamut(oklchToRgb(L, C, h))) return C;
   let lo = 0,
@@ -48,7 +48,7 @@ export function hex(L, C, h) {
  *
  * Exists to AUDIT, not to author: it is how a hand-picked hex gets measured
  * against the ladder a generator would have produced. Never round-trip a
- * colour through here and keep the result — the source of truth is the L, C
+ * color through here and keep the result — the source of truth is the L, C
  * and h that generated it.
  */
 export function rgbToOklch(hx) {

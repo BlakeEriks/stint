@@ -54,7 +54,7 @@ export function proxy(request: NextRequest) {
 
   // The app subdomain never serves marketing: `/landing` there would be a
   // duplicate of the apex page and a second URL for one document, which is
-  // the canonicalisation problem search engines punish.
+  // the canonicalization problem search engines punish.
   if (isAppHost(hostname)) {
     if (pathname === '/landing') {
       return NextResponse.redirect(new URL('/', request.url));

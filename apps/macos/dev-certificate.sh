@@ -71,7 +71,7 @@ openssl pkcs12 -export -legacy -inkey "$TMP/key.pem" -in "$TMP/cert.pem" \
     -out "$TMP/identity.p12" -passout pass:stint -name "$NAME" 2>/dev/null
 
 echo "Importing into your login keychain…"
-# `-T /usr/bin/codesign` pre-authorises codesign to use the key, which is what
+# `-T /usr/bin/codesign` pre-authorizes codesign to use the key, which is what
 # stops THIS certificate's own prompt appearing on every build.
 security import "$TMP/identity.p12" \
     -k "$HOME/Library/Keychains/login.keychain-db" \

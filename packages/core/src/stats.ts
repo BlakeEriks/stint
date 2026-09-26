@@ -154,7 +154,7 @@ export function roundMoney(amount: number): number {
  * PostgREST unwraps a scalar function to the value itself, while a plain
  * `select * from fn()` — which the route tests' shim runs — yields a one-row,
  * one-column set. Both shapes reach this, and `Number([{...}])` is `NaN`, so
- * the figure is normalised here rather than at the call site.
+ * the figure is normalized here rather than at the call site.
  *
  * Numerics arrive as strings either way.
  */
@@ -393,7 +393,7 @@ export function buildUnprojected(rows: UnprojectedRow[]) {
  * the row entirely, which is the default. Nobody gets a new inbox row without
  * asking for it.
  *
- * `kind` is what the row's qualifier states in words. Colour marks severity;
+ * `kind` is what the row's qualifier states in words. Color marks severity;
  * it never carries the meaning on its own.
  *
  * **An entry already surfaced as unprojected never appears here too.** Both

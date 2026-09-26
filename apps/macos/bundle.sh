@@ -2,9 +2,9 @@
 # Wrap the SwiftPM binary in a .app.
 #
 # A menu bar app needs `LSUIElement` (no Dock icon, no menu bar of its own)
-# and AppKit will not honour it from a bare executable — it has to read it
+# and AppKit will not honor it from a bare executable — it has to read it
 # from a bundle's Info.plist. Unsigned, so this is for running it yourself;
-# distribution needs a Developer ID and notarisation.
+# distribution needs a Developer ID and notarization.
 set -euo pipefail
 cd "$(dirname "$0")"
 

@@ -82,7 +82,7 @@ export default function Page() {
       <Clause heading="Ending your account">
         <p>
           You can stop using Stint and delete your account at any time. An
-          account may be suspended for unlawful use or for behaviour that
+          account may be suspended for unlawful use or for behavior that
           threatens the service for other people.
         </p>
       </Clause>

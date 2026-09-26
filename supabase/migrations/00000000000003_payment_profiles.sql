@@ -32,7 +32,7 @@ create table payment_profiles (
   -- ── international (additive) ─────────────────────────────────────
   iban       text,
   swift_bic  text,
-  -- Sort code, BSB, etc. Labelled so one pair covers every national scheme.
+  -- Sort code, BSB, etc. Labeled so one pair covers every national scheme.
   local_code_label text,
   local_code       text,
 

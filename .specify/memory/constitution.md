@@ -5,7 +5,7 @@ Sync Impact Report
   it needs a spec — capabilities to docs/roadmap.md, faults and improvements
   to GitHub issues.
 - v3.0.1 (PATCH — Doc Ownership row only): known faults moved from
-  docs/defects.md to GitHub issues labelled `bug`.
+  docs/defects.md to GitHub issues labeled `bug`.
 - v2.0.0 through v2.3.0: see prior report, preserved in git history.
 - v3.0.0 (MAJOR — four new principles, renumbering existing ones): an
   outside review found the six existing principles cover data integrity,

@@ -8,7 +8,7 @@ the details are public.
 
 Please do not open a public issue for anything exploitable.
 
-Expect an acknowledgement within a week. This is a single-maintainer project,
+Expect an acknowledgment within a week. This is a single-maintainer project,
 so that is a realistic figure rather than an SLA.
 
 ## What is most worth looking at

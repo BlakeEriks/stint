@@ -60,7 +60,7 @@ afterEach(() => {
 
 /**
  * Everything answers, and Today's entry carries every field a wide row would
- * draw: a project with a client colour, a non-billable badge, the lock of a
+ * draw: a project with a client color, a non-billable badge, the lock of a
  * billed entry, and a start–end range.
  */
 function serveFullRow() {
@@ -147,7 +147,7 @@ describe('Dock', () => {
    * Today is 286px wide. Six fields wrapped to three lines there, which turns
    * a glance into a read — so the dock's row is three: swatch, task, duration.
    *
-   * The project NAME goes with them; the swatch stays, because the colour is
+   * The project NAME goes with them; the swatch stays, because the color is
    * what the eye sorts the column by.
    */
   it('draws three fields to a row, not the wide list’s six', async () => {

@@ -91,7 +91,7 @@ export function buildPaymentDetails(
   push('IBAN', profile.iban);
   push('SWIFT / BIC', profile.swiftBic);
 
-  // A labelled pair covers every national clearing scheme (sort code, BSB…)
+  // A labeled pair covers every national clearing scheme (sort code, BSB…)
   // without a migration per country.
   if (has(profile.localCode)) {
     push(

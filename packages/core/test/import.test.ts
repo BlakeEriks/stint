@@ -400,7 +400,7 @@ test('excluding a row settles every overlap it caused', async () => {
   );
 });
 
-test("a new client's rate and colour come from the choices; an existing client's never do", async () => {
+test("a new client's rate and color come from the choices; an existing client's never do", async () => {
   const created = await preview({
     clients: [],
     projects: [],

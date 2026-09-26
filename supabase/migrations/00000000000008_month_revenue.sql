@@ -2,7 +2,7 @@
 --
 -- Revenue here is WORK DONE, not money collected: a client paying late says
 -- nothing about the month you worked, and a bar that drops when an invoice is
--- still outstanding would report someone else's behaviour as your own. That is
+-- still outstanding would report someone else's behavior as your own. That is
 -- also what `packages/schema` already documents the unit to mean.
 --
 -- Bucketing is by the ENTRY's own date, never the invoice's `issue_date`.

@@ -81,7 +81,7 @@ export function localDayOfWeek(at: Date, tz: string): number {
   return Math.max(0, DAYS.indexOf(name));
 }
 
-/** Start of the local week, honouring the user's `weekStartsOn` (0=Sun). */
+/** Start of the local week, honoring the user's `weekStartsOn` (0=Sun). */
 export function startOfLocalWeek(
   now: Date,
   tz: string,
@@ -112,7 +112,7 @@ export function startOfNextLocalMonth(now: Date, tz: string): Date {
 /**
  * Start of the local month `back` months before the one containing `now`.
  *
- * `Date.UTC` normalises a negative month index into the previous year, so a
+ * `Date.UTC` normalizes a negative month index into the previous year, so a
  * window reaching past January needs no wrapping of its own.
  */
 export function startOfLocalMonthsBack(
@@ -157,7 +157,7 @@ export function localMonthKeys(now: Date, tz: string, count: number): string[] {
  * that starts midweek the ratio is 1/n rather than 0/n, which would make any
  * target look infinitely behind.
  *
- * Holidays are not modelled. A US federal calendar would be wrong for a
+ * Holidays are not modeled. A US federal calendar would be wrong for a
  * contractor who works them, and asking would be a settings screen nobody
  * wants; the error is at most a few percent and always in the direction of
  * "you are slightly ahead".

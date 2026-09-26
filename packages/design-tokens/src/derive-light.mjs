@@ -7,7 +7,7 @@
  *
  * The companion to `derive-neutrals.mjs`, with the same two scales. The card
  * is the anchor here, and ink is pushed DOWN to gain contrast where dark ink
- * is lifted. `docs/design/deriving-colour.md` has why.
+ * is lifted. `docs/design/deriving-color.md` has why.
  */
 import { contrast, hex } from './oklch.mjs';
 
@@ -31,7 +31,7 @@ const HUE = 82;
  *                Five entries for six planes.
  * @param chroma  [card, bars], interpolated linearly. Four times dark's share
  *                of the distance left to white: at this hue chroma is what
- *                reads as paper stock rather than as a grey with a cast.
+ *                reads as paper stock rather than as a gray with a cast.
  */
 function surfaces({ ceiling, steps, chroma: [c0, c1] }) {
   // Card first: it is the anchor, and the frame is built away from it.
@@ -94,7 +94,7 @@ const CHROMA = {
  * - `400` is `border-control`, 1.4.11's 3:1.
  * - `500` is subtle text, AA at 4.5 — it is body copy.
  * - `600` is the muted floor at 5.5: held to 4.5 alongside 500 both land on
- *   the same grey. Muted is stronger than subtle, and the ratios say so.
+ *   the same gray. Muted is stronger than subtle, and the ratios say so.
  * - `700` is the focus ring, 3:1 under WCAG 1.4.11.
  */
 const INK_MINIMA = { 400: 3, 500: 4.5, 600: 5.5, 700: 3 };
@@ -119,7 +119,7 @@ function inkRamp(card) {
 
   /* Pushing a step down to clear a threshold can drive it into the next: they
      descend toward the same card, so the one owing less catches up. 0.035 is
-     roughly where two greys stop reading as the same colour, and it is a
+     roughly where two grays stop reading as the same color, and it is a
      floor — a step that earned more distance by owing a stricter ratio keeps
      it. */
   const MIN_SEPARATION = 0.035;

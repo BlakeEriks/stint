@@ -11,7 +11,8 @@ Verified end to end: seeded, signed in through the real magic-link flow, and
 ## Once
 
 Install a container runtime. Docker Desktop works; so do OrbStack, colima,
-Podman and Rancher Desktop.
+Podman, and Rancher Desktop. `pnpm hygiene` and `/copyedit` also need Vale:
+`brew install vale`.
 
 Then write `apps/web/.env.development.local`:
 
@@ -60,7 +61,7 @@ pnpm worktree <branch> --from <ref> # off something else
 A worktree is a fresh clone as far as the build is concerned: git carries no
 `node_modules`, no `packages/design-tokens/dist` and no
 `.env.development.local`, so `pnpm dev` there fails three ways before it
-serves a page. The script installs, generates the tokens and copies the env
+serves a page. The script installs, generates the tokens, and copies the env
 file.
 
 It copies **only** `.env.development.local`. `.env.local` reaches the hosted
@@ -85,7 +86,7 @@ there is nothing in your actual inbox and nothing to rate-limit.
 
 `auth.email.enable_confirmations` is `false` locally, so a brand-new address
 is usable immediately; `dev@localhost.test` is the one the seed owns, so it is
-the only one that comes with clients, projects and entries.
+the only one that comes with clients, projects, and entries.
 
 **One sign-in at a time per browser.** Sign-in is PKCE: the form stores a
 code verifier in localStorage under **one key per origin**, so two tabs on
@@ -151,7 +152,7 @@ because an empty app is a poor test of one:
   preview has more than one line and "the rate is part of the grouping key"
   is visible
 - an **archived** client and a project with **no client**, which is how
-  internal work is modelled and the one case that renders with no colour
+  internal work is modeled and the one case that renders with no color
 
 Dates are relative to `now()`, so the current week is always populated.
 
@@ -167,11 +168,11 @@ code was a 32px hero and the link a small "Signing in on the web instead?"
 line under a divider, with a subject reading *"Your Stint sign-in code"*. Most
 sign-ins are on the web, so that buried the common path under the rare one —
 and the subject is the whole of what you see in an inbox list. The button
-leads now, the code sits below a rule as a labelled alternative, and the
+leads now, the code sits below a rule as a labeled alternative, and the
 subject is *"Sign in to Stint"*, which names neither.
 
 The wordmark is **one flat `#F9FAFD`**, matching `wordmark.tsx`. It had a
-green `S` and grey pipes, which is the macOS lockup rather than the app's —
+green `S` and gray pipes, which is the macOS lockup rather than the app's —
 green means the running timer, and the only green in this email is the button.
 
 Both parts must survive in the **plaintext** body as well: `e2e/mailpit.ts`

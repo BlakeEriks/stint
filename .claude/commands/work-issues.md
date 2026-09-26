@@ -23,7 +23,7 @@ cost.
 **Blake's comment** means one by `BlakeEriks` without the
 `<!-- work-issues -->` marker every loop comment starts with — `gh` runs as
 Blake, so the marker is the only tell. Bots' comments, Vercel's included, are
-never feedback.
+never feedback, except the doc-drift comment step 0 reads.
 
 **Labels are the loop's memory**, so nothing is worked out twice:
 
@@ -86,8 +86,12 @@ the most. Gitignored; one JSON object per line:
      - Otherwise a round of fixes. After two rounds on the same check that
        did not turn it green, label the PR `needs-input`, with a marked
        comment saying what failed and what was tried.
-  4. **CI green and none of the above:** add `ready-for-qa`, once.
-  5. **CI still running:** leave it for the next pass.
+  4. **Doc drift** — the newest comment starting `<!-- doc-drift:<sha> -->`
+     names the PR's head commit (`gh pr view <n> --json headRefOid`), lists
+     findings, and has no marked comment after it: remove `ready-for-qa`,
+     then a round of fixes.
+  5. **CI green and none of the above:** add `ready-for-qa`, once.
+  6. **CI still running:** leave it for the next pass.
 - **Blocked issues:** remove `blocked` from any whose named PR has merged or
   closed — one `gh pr view` each, not a new investigation.
 
@@ -96,12 +100,12 @@ the most. Gitignored; one JSON object per line:
 `gh issue list --state open --json number,title,labels`, then skip every
 issue that:
 
-- is labelled `needs-input` with no comment of Blake's since the last marked
+- is labeled `needs-input` with no comment of Blake's since the last marked
   one
-- is labelled `blocked`
+- is labeled `blocked`
 - already has an open PR
   (`gh issue view <n> --json closedByPullRequestsReferences`)
-- is labelled `migration` while an open PR is too — previews share one
+- is labeled `migration` while an open PR is too — previews share one
   database schema
 
 `urgent` first, then the worst: `wrong data`, `misleading`, `looks wrong`,

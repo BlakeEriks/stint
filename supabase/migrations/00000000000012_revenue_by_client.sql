@@ -11,7 +11,7 @@
 --
 -- Bucketed by the ENTRY's `started_at`, never an invoice's `issue_date` — see
 -- `month_revenue`. Voided invoices are excluded outright, which is what both
--- neighbours do: `unbilled_by_client` requires `invoice_id is null`, so a
+-- neighbors do: `unbilled_by_client` requires `invoice_id is null`, so a
 -- voided invoice's entry is not unbilled there either.
 create or replace function revenue_by_client(
   p_user_id uuid,

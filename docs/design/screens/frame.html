@@ -113,10 +113,10 @@
     background: color-mix(in oklab, var(--bg-primary) 55%, transparent);
     font-family: var(--font-mono); font-size: 10px;
   }
-  /* From lg the bar is the panel's width, so it lives in the centre column
+  /* From lg the bar is the panel's width, so it lives in the center column
      rather than spanning the frame under the rail. */
-  .mini .centre { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
-  .mini .centre .content { flex: 1; }
+  .mini .center { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+  .mini .center .content { flex: 1; }
   .mini .pip { width: 6px; height: 6px; border-radius: 50%; background: var(--timer-idle); flex: none; }
   .mini .lbl {
     font-family: var(--font-mono); font-size: 8px; letter-spacing: .1em;
@@ -176,7 +176,7 @@
           <span class="navitem"><svg><use href="#i-invoices"/></svg>Invoices</span>
           <span class="navitem"><svg><use href="#i-settings"/></svg>Settings</span>
         </div>
-        <div class="centre">
+        <div class="center">
           <div class="content"><div class="region"></div><div class="region"></div></div>
           <div class="bar"><span class="pip"></span><span style="color:var(--text-subtle)">What are you working on?</span><span style="margin-left:auto;color:var(--timer-idle)">0:00:00</span></div>
         </div>
@@ -196,7 +196,7 @@
           <span class="navitem"><svg><use href="#i-invoices"/></svg>Invoices</span>
           <span class="navitem"><svg><use href="#i-settings"/></svg>Settings</span>
         </div>
-        <div class="centre">
+        <div class="center">
           <div class="content"><div class="region"></div></div>
           <div class="dockband"><span class="lbl">Inbox</span><div class="irow"></div></div>
           <div class="bar"><span class="pip"></span><span style="color:var(--text-subtle)">What are you working on?</span><span style="margin-left:auto;color:var(--timer-idle)">0:00:00</span></div>
@@ -239,18 +239,18 @@
       <tr>
         <td class="num">xl</td>
         <td>The dock becomes its own scrolling column</td>
-        <td>Below it the dock scrolls with the page it summarises. The bar does
+        <td>Below it the dock scrolls with the page it summarizes. The bar does
           not move — it took the content column's width at <code>lg</code> and
           keeps it</td>
       </tr>
       <tr>
         <td class="num">2xl</td>
         <td>The app becomes a bounded card on <code>bg-recessed</code> —
-          1440&times;900, centred horizontally, top-aligned, 24px inset</td>
+          1440&times;900, centered horizontally, top-aligned, 24px inset</td>
         <td>The measure caps content at 1152, so past this width the panel
           grows around content that has stopped. The surplus becomes ground
           instead. Top-aligned because the header and rail are reached by
-          muscle memory, and centring moves them with every resize</td>
+          muscle memory, and centering moves them with every resize</td>
       </tr>
     </table>
 
@@ -361,12 +361,12 @@
 
     <ul class="rule">
       <li><strong>The email is the account.</strong> There is no name, avatar
-        or organisation, so the one thing left to do with it is leave —
+        or organization, so the one thing left to do with it is leave —
         Settings is a rail section and the theme is a field inside it.</li>
       <li><strong>Dark and light only.</strong> The palette is dark-first, so
         "System" would resolve to dark for everyone including a viewer whose
         OS is light — a control that appears to do something and does nothing.
-        <code>deriving-colour.md</code> says what to change to follow the OS
+        <code>deriving-color.md</code> says what to change to follow the OS
         for real.</li>
       <li><strong>The theme carries no save indicator.</strong> It is a device
         preference in <code>localStorage</code> rather than a row on

@@ -234,7 +234,7 @@ export function TaskSuggest({
               : client
                 ? `${client.name} · ${project ?? ''}`.replace(/ · $/, '')
                 : (project ?? 'Archived project');
-            const colour = row.projectId
+            const color = row.projectId
               ? colorByProject.get(row.projectId)
               : null;
             return (
@@ -263,17 +263,17 @@ export function TaskSuggest({
                 <span className="min-w-0 flex-[0_1_auto] truncate type-body text-primary">
                   <Match name={row.taskName} query={query} />
                 </span>
-                {/* A client's colour is data, so it stays an inline style. */}
-                {colour ? (
+                {/* A client's color is data, so it stays an inline style. */}
+                {color ? (
                   <span
                     aria-hidden
                     className="ml-auto size-2 flex-none rounded-full"
-                    style={{ background: colour }}
+                    style={{ background: color }}
                   />
                 ) : null}
                 <span
                   className={`min-w-0 flex-[0_1_auto] truncate type-meta text-subtle
-                              ${colour ? '' : 'ml-auto'}`}
+                              ${color ? '' : 'ml-auto'}`}
                 >
                   {label}
                 </span>

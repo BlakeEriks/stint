@@ -209,7 +209,7 @@ function Row({
 }: {
   entry: TimeEntry;
   project?: Project;
-  /** The project's client's colour; absent for internal work. */
+  /** The project's client's color; absent for internal work. */
   color?: string | null;
   compact?: boolean;
   onEdit: () => void;
@@ -233,7 +233,7 @@ function Row({
   const swatch = <Swatch color={color} size="size-1.5" />;
 
   /* Three fields, one line, and the swatch LEADS: in a column this narrow the
-     colour is what the eye sorts by, so it is the first thing on the row
+     color is what the eye sorts by, so it is the first thing on the row
      rather than a marker hanging off the project name. The project name, the
      badge, the lock and the range are all in the editor a click away. */
   if (compact) {

@@ -88,7 +88,7 @@ navigation, redirects and server components — see `docs/local-dev.md`.
 - [docs/positioning.md](docs/positioning.md) — who this is for, what it competes with, what it costs
 - [docs/design/principles.md](docs/design/principles.md) — what we believe about the product
 - [docs/roadmap.md](docs/roadmap.md) — wanted but not built, and the gate it passes to get there
-- [Issues labelled `bug`](https://github.com/BlakeEriks/stint/issues?q=is%3Aopen+label%3Abug) — known faults
+- [Issues labeled `bug`](https://github.com/BlakeEriks/stint/issues?q=is%3Aopen+label%3Abug) — known faults
 
 ## License
 

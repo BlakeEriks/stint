@@ -1,0 +1,8 @@
+# docs/CLAUDE.md: say what it is, not what it isn't. A sentence that opens
+# with a prohibition survives only when doing the thing would cost money.
+extends: existence
+message: "Sentence opens with '%s'. Say what it is, unless doing it would cost money."
+level: warning
+scope: sentence
+raw:
+  - '^(?:Never|Do not|Don''t|Avoid|Must not)\b'

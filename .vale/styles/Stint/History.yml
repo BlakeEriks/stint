@@ -1,0 +1,15 @@
+# docs/CLAUDE.md: a doc states the current final form; git holds the history.
+extends: existence
+message: "'%s' narrates history. State the current form; git holds the rest."
+level: warning
+ignorecase: true
+tokens:
+  - used to
+  - previously
+  - was tried
+  - tried first
+  - an earlier version
+  - this replaces
+  - shipped once
+  - first draft
+  - no longer

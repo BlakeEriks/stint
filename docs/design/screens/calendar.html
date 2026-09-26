@@ -114,7 +114,7 @@
   <span class="eyebrow">Stint · Screens</span>
   <h1>The calendar</h1>
   <p class="standfirst">
-    A grid of what was tracked. It visualises; it does not schedule — no
+    A grid of what was tracked. It visualizes; it does not schedule — no
     planned layer, no external calendar.
   </p>
 
@@ -173,12 +173,12 @@
     <span class="caption">Seven columns, all 24 hours, overlapping entries in lanes</span>
 
     <p style="margin-top:2rem">
-      A block's left border is its client's colour. The legend is built from
-      what is on screen and ranked by time tracked, so it never names a colour
+      A block's left border is its client's color. The legend is built from
+      what is on screen and ranked by time tracked, so it never names a color
       that is not showing — and it changes as you page. Internal work is
       <strong style="color:var(--text-strong)">"No client" with an outlined
       swatch</strong>: it has no stripe on the grid, so the swatch shows the
-      absence rather than inventing a grey.
+      absence rather than inventing a gray.
     </p>
   </section>
 
@@ -297,7 +297,7 @@
     </ul>
   </section>
 
-  <!-- ───────────────────────── time maths ───────────────────────── -->
+  <!-- ───────────────────────── time math ───────────────────────── -->
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">Time arithmetic</span></div>
 
@@ -333,12 +333,12 @@
     </p>
     <p>
       The arrows step whatever unit is on screen, so "back" always means "the
-      previous one of these" — and the heading, total, empty state and legend
+      previous one of these" — and the heading, total, empty state, and legend
       all follow what is actually rendered.
     </p>
     <p>
       This is <code>useMediaQuery</code>, not a Tailwind <code>sm:</code>,
-      because a breakpoint that changes <em>behaviour</em> cannot be expressed
+      because a breakpoint that changes <em>behavior</em> cannot be expressed
       in CSS. Reach for <code>sm:</code> first. Its server snapshot is
       <code>false</code>, so a component must render correctly as "wide" for
       one paint.

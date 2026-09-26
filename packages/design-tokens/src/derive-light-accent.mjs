@@ -8,7 +8,7 @@
  * borrow it: `#52FC43` is ~1.6:1 on cream and unusable as anything but a
  * fill. The five light values are these, and they are derived for the same
  * reason the neutrals are — five hexes kept by hand is the drift the token
- * package exists to prevent. `docs/design/deriving-colour.md` has why.
+ * package exists to prevent. `docs/design/deriving-color.md` has why.
  */
 import { contrast, hex } from './oklch.mjs';
 
@@ -36,11 +36,11 @@ const ON_ACCENT = '#FFFFFF';
  * - `default`  the running timer and the primary confirm action.
  * - `hover`    and `active`, descending — light darkens under the cursor
  *              where dark brightens, because the ground is paper.
- * - `subtle`   a step UP, for accent-coloured text and marks on the card.
+ * - `subtle`   a step UP, for accent-colored text and marks on the card.
  * - `muted`    the tinted surface: a paid badge, a selected row.
  *
  * Chroma eases off as the rungs darken, where the gamut narrows, and drops
- * hard at `muted`, which is a surface rather than a colour.
+ * hard at `muted`, which is a surface rather than a color.
  */
 const RAMP = {
   default: { L: 0.455, C: 0.095 },

@@ -33,7 +33,7 @@ interface Active extends Drag {
  * Adjusting an entry by dragging its block.
  *
  * The gesture only commits on release, and only if the pointer actually
- * travelled — `DRAG_THRESHOLD_PX`. That matters more here than in most drag
+ * traveled — `DRAG_THRESHOLD_PX`. That matters more here than in most drag
  * implementations: a block is also the control that opens the editor, so
  * without a threshold every click would land a PATCH that rewrites billable
  * time by whatever a 1px tremor resolved to.
@@ -41,7 +41,7 @@ interface Active extends Drag {
  * Vertical only, within one day. Moving an entry to a different day is the
  * rarer correction and the dialog already does it; the common one is "this
  * started at 9, not 9:30", and keeping the drag in one column means the
- * fraction→instant maths uses that column's own span, which is what makes it
+ * fraction→instant math uses that column's own span, which is what makes it
  * DST-correct.
  */
 export function useEntryDrag(onConflict?: (message: string) => void) {

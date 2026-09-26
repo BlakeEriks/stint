@@ -44,7 +44,7 @@ const UNSET = 'unset';
  * Bank details.
  *
  * US rails are the default path — account number plus ACH routing. IBAN,
- * SWIFT, a labelled national code and intermediary-bank fields are real but
+ * SWIFT, a labeled national code and intermediary-bank fields are real but
  * additive, so they sit behind a disclosure rather than padding the form a
  * US contractor actually fills in.
  */

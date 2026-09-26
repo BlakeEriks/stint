@@ -121,7 +121,7 @@ actor API {
         try await request("GET", "/stats?tz=\(timeZone.identifier)")
     }
 
-    /// Archived included: a finished engagement still owns the colour on
+    /// Archived included: a finished engagement still owns the color on
     /// today's entries.
     func clients() async throws -> [Client] {
         let list: ClientList = try await request("GET", "/clients?includeArchived=true")

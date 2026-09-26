@@ -109,7 +109,7 @@ export function Today({ stats }: { stats: Stats }) {
                 data-task={t.key}
                 className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
               >
-                {/* Only clients have a colour; internal work takes the hollow
+                {/* Only clients have a color; internal work takes the hollow
                   ring, which is what having none looks like on a screen
                   otherwise keyed by client. */}
                 <Pip

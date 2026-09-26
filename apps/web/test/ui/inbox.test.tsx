@@ -117,7 +117,7 @@ describe('Inbox', () => {
     );
 
     /* A number that is sometimes zero says more than a dot that is sometimes
-       lit, so the count is the whole status — no badge colour. */
+       lit, so the count is the whole status — no badge color. */
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.queryByText(/nothing needs you/i)).toBeNull();
   });
@@ -564,7 +564,7 @@ describe('entries of unusual length', () => {
       wrapper,
     });
 
-    /* Colour marks severity; it never carries the meaning alone. With both
+    /* Color marks severity; it never carries the meaning alone. With both
        directions in one list, "unusual" does not say which way. */
     expect(screen.getByText(/unusually long/)).toBeInTheDocument();
   });

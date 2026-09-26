@@ -39,3 +39,7 @@ playwright-report/
 
 # /work-issues run log, triaged locally for cost
 .claude/work-issues/
+
+# Vale packages, fetched by `vale sync`
+.vale/styles/*
+!.vale/styles/Stint/

@@ -2,7 +2,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="screens/_mockup.css">
 <style>
-  /* Every colour, size and the mark come from screens/_mockup.css, which
+  /* Every color, size and the mark come from screens/_mockup.css, which
      pnpm tokens generates. This file holds only the shapes that are specific
      to the panel — a stale hex renders perfectly and quietly misrepresents
      the app, which is the whole reason nothing here is written by hand. */
@@ -202,7 +202,7 @@
     padding: 8px 12px 8px 14px;
     background: var(--bg-recessed); border-bottom: 1px solid var(--border-subtle);
   }
-  /* The mark, so it keeps its bounds and one colour. 17px muted per
+  /* The mark, so it keeps its bounds and one color. 17px muted per
      brand.html's placement table, which owns every size and shade the mark is
      set at — the header is chrome above the thing being read. */
   .wordmark {
@@ -342,7 +342,7 @@
           is how a runaway reaches someone whose panel is closed.</li>
         <li><strong>Findability is the honest cost.</strong> A bare dot is
           harder to pick out of a crowded bar than a letter, and people will
-          learn its position rather than recognise its shape. That is how most
+          learn its position rather than recognize its shape. That is how most
           menu bar apps are actually found; do not re-add a letterform to
           compensate.</li>
         <li><strong>Identity lives in the panel header</strong>, where there is
@@ -550,7 +550,7 @@
             building.</strong> Forgetting to stop at 5pm is the most common way
             a tracker produces a wrong invoice, and this is the only surface
             that catches it without you opening anything.</li>
-          <li><strong>Amber, never green.</strong> The readout, the dot and the
+          <li><strong>Amber, never green.</strong> The readout, the dot, and the
             strip pip all move together, so the warning reaches you while the
             popover is closed.</li>
           <li><strong>Keep does not stop the timer.</strong> A long timer is
@@ -701,7 +701,7 @@
 
   <!-- ================= implementation ================= -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Tokens, type and controls</span></div>
+    <div class="sec-head"><span class="eyebrow">Tokens, type, and controls</span></div>
 
     <p>
       <strong style="color:var(--text-primary);font-weight:500;">Use the
@@ -803,7 +803,7 @@
           <tr><td><code>GET /stats?tz=…</code></td><td>The unbilled total</td></tr>
           <tr><td><code>GET /entries?from=&amp;to=&amp;limit=</code></td><td>Recent rows &mdash; a two-week window, deduped by task name client-side and capped at five</td></tr>
           <tr><td><code>PATCH /entries/:id</code></td><td>Rename</td></tr>
-          <tr><td><code>GET /projects</code>, <code>GET /clients</code></td><td>The picker and client colours</td></tr>
+          <tr><td><code>GET /projects</code>, <code>GET /clients</code></td><td>The picker and client colors</td></tr>
         </tbody>
       </table>
     </div>
@@ -824,7 +824,7 @@
           running entry in, and adding it again counts it twice.</li>
         <li><strong>The task field follows the server only when unfocused</strong>,
           so it never overwrites itself mid-type.</li>
-        <li><strong>Unbilled is never labelled "earned" or "revenue".</strong>
+        <li><strong>Unbilled is never labeled "earned" or "revenue".</strong>
           It is work done and not yet invoiced — money the user might still
           never see. Show <code>unbilled.total</code> alone; the per-client
           breakdown is a web surface. When <code>unratedCount &gt; 0</code> the
@@ -837,7 +837,7 @@
   </section>
 
   <footer class="doc">
-    Colours, type roles and the transport button come from
+    Colors, type roles and the transport button come from
     <code>packages/design-tokens</code> and <code>timer-bar.tsx</code>. The
     strip is a mock — macOS spacing and the system font will differ.
   </footer>

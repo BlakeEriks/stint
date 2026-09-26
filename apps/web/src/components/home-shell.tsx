@@ -36,7 +36,7 @@ export const INTERNAL = '';
  * that draw it.
  *
  * A hue belongs to the client, never to the position: the same client is the
- * same colour in the week's bars, the month's strip and the legend. Built
+ * same color in the week's bars, the month's strip and the legend. Built
  * here rather than per region because two regions each deriving their own
  * order is two orders to keep in agreement, and the moment they disagree the
  * palette means nothing (`docs/design/screens/home.html`).
@@ -47,7 +47,7 @@ export const INTERNAL = '';
  * the same sequence on every render.
  *
  * Internal work sorts LAST wherever it appears: it takes no hue, so leading
- * with it would put the neutral segment under every coloured one.
+ * with it would put the neutral segment under every colored one.
  */
 export function buildHues({
   byClient,
@@ -62,7 +62,7 @@ export function buildHues({
 }): Map<string, Hue> {
   const hues = new Map<string, Hue>();
   /* Internal work is held back rather than skipped: it belongs in the legend
-     and at the foot of every stack, after everything with a colour. */
+     and at the foot of every stack, after everything with a color. */
   let internal: Hue | null = null;
 
   const add = (key: string, fallbackName: string) => {
@@ -75,8 +75,8 @@ export function buildHues({
     hues.set(key, {
       id: key,
       name: client?.name ?? fallbackName,
-      /* Null, not a grey: a client whose colour column is empty draws the
-         same absence internal work does, rather than a grey pretending to be
+      /* Null, not a gray: a client whose color column is empty draws the
+         same absence internal work does, rather than a gray pretending to be
          a hue. */
       color: client?.color ?? null,
     });
@@ -172,11 +172,11 @@ export function PairLine({
 }
 
 /**
- * A 9px round pip — the client's colour, or a hollow ring for internal work.
+ * A 9px round pip — the client's color, or a hollow ring for internal work.
  *
- * Distinct from `Swatch`, which is square and fills grey when it has no
- * colour: this screen draws the ABSENCE as a ring, because a filled grey dot
- * beside filled coloured ones reads as a client whose colour is grey.
+ * Distinct from `Swatch`, which is square and fills gray when it has no
+ * color: this screen draws the ABSENCE as a ring, because a filled gray dot
+ * beside filled colored ones reads as a client whose color is gray.
  */
 export function Pip({ color }: { color?: string | null }) {
   if (color) {
@@ -251,7 +251,7 @@ export function Row({
       <div className="flex items-center gap-2.5 py-2">
         {icon}
 
-        {/* One line: the name, then the age against the money it is ageing.
+        {/* One line: the name, then the age against the money it is aging.
             Stacked under the name the age read as part of the client rather
             than as a property of the amount, and cost the row a second line
             it did not need. */}
@@ -291,7 +291,7 @@ export function Region({
   title,
   icon: Icon,
   value,
-  labelled = false,
+  labeled = false,
   action,
   children,
 }: {
@@ -303,12 +303,12 @@ export function Region({
    * Demote the title without a figure, for a region whose subject is a
    * picture.
    */
-  labelled?: boolean;
+  labeled?: boolean;
   /** A single quiet control, top-right against the title. */
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  if (value !== undefined || labelled) {
+  if (value !== undefined || labeled) {
     return (
       <section className="py-1">
         <header className={`${INSET} pt-3 pb-2`}>

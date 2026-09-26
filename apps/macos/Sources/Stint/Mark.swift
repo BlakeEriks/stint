@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// `|Stint|` in one colour. Geometry comes from `Tokens.Mark`, so this and
+/// `|Stint|` in one color. Geometry comes from `Tokens.Mark`, so this and
 /// the web app's `Wordmark` are one drawing; ratios of the font size, so one
 /// definition serves every placement.
 struct Lockup: View {

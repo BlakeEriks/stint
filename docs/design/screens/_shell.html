@@ -10,7 +10,7 @@
      is inside `.content`. There is no include mechanism: these are static
      files opened from disk, and a build step for mockups is the wrong trade.
 
-     Every colour, size and the mark come from _mockup.css, which
+     Every color, size and the mark come from _mockup.css, which
      `pnpm tokens` generates. Nothing here hardcodes a hex.
 
      The frame is a flat ground with one panel floating on it:
@@ -110,7 +110,7 @@
      only thing that scrolls. `Page` owns the measure: max-width 48rem
      normally, 72rem for a screen that is a grid rather than a column. */
   /* Below xl the dock is a BAND BENEATH the content and the two scroll
-     together, so the dock scrolls with the page it summarises. At xl there
+     together, so the dock scrolls with the page it summarizes. At xl there
      is finally room for a third column and it becomes one, scrolling on its
      own. Mirror of the real frame — do not make the dock a column at every
      width, which starves the measure at 1024. */
@@ -183,7 +183,7 @@
      At xl it sits below the panel at the panel's width, on a quiet fill.
      Below xl it runs full width across the bottom.
      Two arrangements, not one layout with pieces hidden: idle is a
-     composing row where the field takes the space; running is a centred
+     composing row where the field takes the space; running is a centered
      readout of four small objects. */
   .timerbar {
     display: flex; align-items: center; gap: 12px;
@@ -364,7 +364,7 @@
       </aside>
 
       <!-- Idle: a composing row, the field takes the space.
-           Swap for `.timerbar.running` to show the centred readout. -->
+           Swap for `.timerbar.running` to show the centered readout. -->
       <div class="barwrap">
         <div class="timerbar">
           <span class="tdot idle"></span>

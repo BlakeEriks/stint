@@ -41,7 +41,7 @@ export default function GlobalError({
       >
         <div style={{ maxWidth: '32rem' }}>
           {/* The wordmark, so the failure is still recognisably this app and
-              not a blank browser error. One flat colour, as everywhere. */}
+              not a blank browser error. One flat color, as everywhere. */}
           <div
             style={{
               fontFamily:

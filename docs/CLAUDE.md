@@ -11,13 +11,13 @@ spec doubles as the visual reference: `design/brand.html`,
 **Anything architectural or procedural is Markdown**: `api.md`,
 `data-model.md`, `architecture.md`, `deploying.md`, `local-dev.md`,
 `macos.md`, `roadmap.md`, `positioning.md`,
-`design/principles.md`, `design/deriving-colour.md`.
+`design/principles.md`, `design/deriving-color.md`.
 
 `pnpm design` serves them at `localhost:8778`. Start a screen doc by copying
 `design/screens/_shell.html`; the index and nav are built by reading the
 directory, so there is no list to update.
 
-**Colour comes from `screens/_mockup.css`**, which `pnpm tokens` generates.
+**Color comes from `screens/_mockup.css`**, which `pnpm tokens` generates.
 `tokens:validate` rejects a hex literal in any doc's stylesheet, because a
 stale one renders perfectly and quietly misrepresents the app. A surface that
 genuinely is not app chrome — the invoice PDF on white paper — opens its block
@@ -28,7 +28,7 @@ with `not-app-chrome:` and a reason.
 Four things say it better, and each is a filter to apply before writing:
 
 **The page can show it.** A type table that sets each role *in* that role has
-already said "numbers are mono". A swatch showing one colour has already said
+already said "numbers are mono". A swatch showing one color has already said
 "never two". Delete the caption, keep the picture.
 
 **CI enforces it.** `check:type`, `detox`, `tokens:validate` and `test:ui` run
@@ -45,16 +45,16 @@ doc. `CLAUDE.md` keeps only what constrains code anywhere in the repo.
 
 What survives is three things per section: **what it is**, **where it goes**,
 and **the one thing none of those four can say** — usually a meaning. Green
-marks the live thing. Colour belongs to the client.
+marks the live thing. Color belongs to the client.
 
 Measurements go in **tables**, not sentences.
 
 ## Say what it is, not what it isn't
 
 Naming what we rejected is what plants the idea. Nobody was going to propose
-per-project colours until a doc explained why we did not have them.
+per-project colors until a doc explained why we did not have them.
 
-A negation survives only when it is **contrastive** — "colour belongs to the
+A negation survives only when it is **contrastive** — "color belongs to the
 client, not the project" defines by distinction — or when someone would
 plausibly do the thing and it would be **wrong in a way that costs money**:
 unbilled and awaiting-payment must never be summed.
@@ -84,12 +84,10 @@ holds what we believe, never a record of what was turned down.
 
 ## Keeping it tight
 
-`/trim <path>` measures a doc and reports candidates before anything is cut.
-
-It counts **prohibitions** (a block *opening* "Never…") rather than every
-"not", because the contrastive kind is doing real work — flagging it produced
-5 false positives out of 7 and a checker nobody would read. The regex finds
-candidates; it never decides.
+Vale lints prose against the Google developer documentation style guide
+and the house rules above that a pattern can catch (`.vale/styles/Stint`).
+It annotates the lines a PR adds, and `/copyedit <path>` fixes a doc. An
+alert is a candidate; it never decides.
 
 **Verify the rendered page, not only the numbers.** Geometry checks here have
 passed while the page read as broken.

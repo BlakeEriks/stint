@@ -46,9 +46,9 @@ const semanticVars = (theme) =>
     .join('\n');
 
 /**
- * Shadows are composite CSS values, not colour references, so they bypass
+ * Shadows are composite CSS values, not color references, so they bypass
  * `resolve()` and are emitted verbatim. They are theme-aware for the same
- * reason colours are: the alpha that reads correctly on a near-black ground
+ * reason colors are: the alpha that reads correctly on a near-black ground
  * looks like soot on a near-white one.
  */
 /**
@@ -156,7 +156,7 @@ ${Object.entries(tokens.radius)
 ${motionVars('  ')}
 
   /* The mark's geometry, in em so one definition serves every size it is
-     set at. No colour here — the mark takes one, via currentColor. */
+     set at. No color here — the mark takes one, via currentColor. */
 ${Object.entries(tokens.brand.mark)
   .map(
     ([k, v]) =>
@@ -386,7 +386,7 @@ writeFileSync(join(out, 'Tokens.swift'), swift);
  * SwiftPM has no way to consume a file from `dist/`, which is gitignored, and
  * a hand-copied palette is exactly the drift the token package exists to
  * prevent. Writing it here keeps `apps/macos` buildable from a fresh clone
- * while leaving `tokens.json` the only place a colour is decided. The file is
+ * while leaving `tokens.json` the only place a color is decided. The file is
  * committed and regenerated, like `dist/` would be if SwiftPM could read it. */
 const macosTokens = join(
   import.meta.dirname,
@@ -477,7 +477,7 @@ ${Object.entries(tokens.type.scale)
   .join('\n\n')}
 
 /* ── The mark ──────────────────────────────────────────────────────
-   \`|Stint|\` — one colour, bounds included, inherited via currentColor.
+   \`|Stint|\` — one color, bounds included, inherited via currentColor.
    Set a font-size on .mark and everything scales from it. */
 .mark {
     font-family: var(--font-mono);
@@ -517,8 +517,8 @@ if (existsSync(dirname(mockupDoc))) writeFileSync(mockupDoc, mockup);
  * icon.svg by file convention and cannot read an ignored dist/, the same
  * reason Tokens.swift is written into apps/macos.
  *
- * The bounds and the colours are tokens. The S is a traced outline of IBM
- * Plex Mono Semibold rather than a <text> element: a favicon is rasterised
+ * The bounds and the colors are tokens. The S is a traced outline of IBM
+ * Plex Mono Semibold rather than a <text> element: a favicon is rasterized
  * by the browser with no webfont loaded, so `font-family` there would fall
  * back to whatever monospace the OS has and the mark would differ per
  * machine. A path is the same drawing everywhere.

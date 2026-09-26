@@ -201,7 +201,7 @@
      so here the list is laid out IN FLOW below its trigger — same box, same
      shadow, 4px off the trigger — and the column grows to fit it. Absolute
      positioning would need a hand-guessed margin under every one, and a
-     guess that is 16px short covers the caption it is labelling. */
+     guess that is 16px short covers the caption it is labeling. */
   .list {
     margin-top: 4px;
     background: var(--bg-elevated);
@@ -285,7 +285,7 @@
         <td>A bordered <code>div</code></td>
       </tr>
       <tr>
-        <td>A labelled control</td>
+        <td>A labeled control</td>
         <td><code>Field</code></td>
         <td><code>label</code> + <code>input</code></td>
       </tr>
@@ -312,7 +312,7 @@
       <tr>
         <td>An invoice's status</td>
         <td><code>StatusBadge</code></td>
-        <td>A coloured span</td>
+        <td>A colored span</td>
       </tr>
       <tr>
         <td>Money, dates, durations</td>
@@ -320,7 +320,7 @@
         <td><code>toLocaleString</code> at the call site</td>
       </tr>
       <tr>
-        <td>A client's colour</td>
+        <td>A client's color</td>
         <td><code>useProjectColors()</code></td>
         <td>Reading <code>client.color</code> down a list</td>
       </tr>
@@ -396,7 +396,7 @@
     <div class="sec-head"><span class="eyebrow">Action buttons</span></div>
 
     <p>
-      Three tables decide a button. Nothing here is a judgement call: the
+      Three tables decide a button. Nothing here is a judgment call: the
       container sets the size, the role sets the variant, and the verb sets
       the icon.
     </p>
@@ -428,7 +428,7 @@
 
     <p>
       Neither is <code>link</code>, which drew a button in the accent — a
-      third claim on a colour that marks the running timer and the one
+      third claim on a color that marks the running timer and the one
       confirm. A link that is a link is an <code>&lt;a&gt;</code>.
       <code>lg</code> is gone with it: it stood 4px above
       <code>default</code>, and the one button that wanted a hero height —
@@ -536,7 +536,7 @@
 
     <p>
       The <code>icon-*</code> pair are those same metrics in a square box, so
-      an icon button lines up with the labelled one beside it. A glyph joins a
+      an icon button lines up with the labeled one beside it. A glyph joins a
       label only for a verb from the table above.
     </p>
 
@@ -725,7 +725,7 @@
       <li><strong>A picker row is swatch, name, then the client muted.</strong>
         The project stays the thing being chosen, and the client answers
         "whose work?" for two projects that read alike.</li>
-      <li><strong>Internal work gets no client text and no colour of its
+      <li><strong>Internal work gets no client text and no color of its
         own.</strong> The absence is the answer — a placeholder there would
         name something that does not exist.</li>
       <li><strong><code>Select</code> is for choices that are only
@@ -754,7 +754,7 @@
 
     <table>
       <tr><th>Part</th><th>Value</th></tr>
-      <tr><td>Region surface</td><td>None — no background, border, shadow or radius</td></tr>
+      <tr><td>Region surface</td><td>None — no background, border, shadow, or radius</td></tr>
       <tr><td>Region inset</td><td><code>INSET</code>, 18px each side</td></tr>
       <tr><td>Between regions</td><td>1px <code>border-subtle</code>, stopping 18px short of each panel edge, 18px above and below</td></tr>
       <tr><td>Region heading</td><td><code>type-region-head</code>, <code>text-subtle</code></td></tr>
@@ -764,7 +764,7 @@
     <ul class="rule">
       <li><strong>A record is a plain row.</strong> Rows part on a rule, and
         nothing is bordered per row.</li>
-      <li><strong>A client's colour is a swatch beside its name</strong>,
+      <li><strong>A client's color is a swatch beside its name</strong>,
         on the heading of a group or on the row itself.</li>
     </ul>
   </section>
@@ -826,8 +826,8 @@
         (<code>font-mono text-[15px]</code>). <code>check:type</code> rejects
         the second in CI, and a typo'd role compiles to no CSS with exit 0 —
         which is why it is a check rather than a convention.</li>
-      <li><strong>Colour comes from a semantic token.</strong> There is a
-        utility for every legitimate colour and none for anything else.</li>
+      <li><strong>Color comes from a semantic token.</strong> There is a
+        utility for every legitimate color and none for anything else.</li>
       <li><strong>Vendored shadcn goes through <code>shadcn-detox.mjs</code></strong>,
         which rewrites its palette names to ours. Two of them mean the
         opposite of ours, and Tailwind drops an unknown utility silently.</li>

@@ -88,12 +88,12 @@ it. **Any future definer function needs the same treatment.**
 
 ### `clients`
 Billing entity. `hourly_rate`, `tax_rate` and `currency` are all nullable —
-null means "fall back". `color` is here because colour identifies a client.
+null means "fall back". `color` is here because color identifies a client.
 
 ### `projects`
 `client_id` is **nullable** — that is how internal/unbilled work is modeled.
 `color` is **dead but not doomed**: nothing selects or writes it, and a
-project takes its colour from its client. Its drop is cancelled —
+project takes its color from its client. Its drop is canceled —
 `roadmap.md` revives it as a shade index within the client's hue, which is an
 `alter type` to `smallint` rather than a drop and re-add.
 
@@ -104,13 +104,13 @@ project takes its colour from its client. Its drop is cancelled —
   it cannot drift from `started_at`/`ended_at`.
 - `invoice_id` set means the entry is billed.
 - `duration_ok` is the user's **answer** to "is this length correct?", and the
-  one piece of stored judgement on an entry — `duration_seconds` beside it is
+  one piece of stored judgment on an entry — `duration_seconds` beside it is
   derived. A trigger clears it whenever `started_at`/`ended_at` change, so the
   answer cannot outlive the length it was given about.
 
 ### `payment_profiles`
 A named bundle of bank details, rendered on the invoice PDF. **US-first**:
-account number + ACH routing is the default path; IBAN/SWIFT, a labelled
+account number + ACH routing is the default path; IBAN/SWIFT, a labeled
 national bank code, and intermediary-bank fields are additive and render only
 when set.
 

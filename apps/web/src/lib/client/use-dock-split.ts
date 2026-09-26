@@ -8,7 +8,7 @@ const KEY = 'stint.dock.split';
  * How much of the dock the inbox gets, as a fraction.
  *
  * Half by default: the two regions answer different questions and neither is
- * the reason the column exists, so nothing justifies favouring one before the
+ * the reason the column exists, so nothing justifies favoring one before the
  * user says so.
  */
 export const DEFAULT_SPLIT = 0.5;
@@ -49,7 +49,7 @@ function stored(): number {
  */
 export function useDockSplit(column: React.RefObject<HTMLElement | null>) {
   /* The default on the server and on first paint, corrected after mount:
-     reading storage in the initialiser renders one value on the server and
+     reading storage in the initializer renders one value on the server and
      another on the client, which is a hydration mismatch. */
   const [split, setSplit] = useState(DEFAULT_SPLIT);
   const [dragging, setDragging] = useState(false);

@@ -60,7 +60,7 @@ spec, and a link bar is not part of what it specifies.
 
 `pnpm tokens` writes it, like `Tokens.swift` and `dist/tokens.css`. **Never
 edit it.** A hand-edited hex is the drift the token package exists to prevent,
-and it fails silently — a stale colour renders perfectly and merely
+and it fails silently — a stale color renders perfectly and merely
 misrepresents the app.
 
 It carries the palette as raw token names (`--bg-primary`, `--text-muted`,
@@ -96,6 +96,6 @@ until `xl`, where it becomes a 286px column. The content measure is 48rem, or
 
 ## Identity
 
-`../brand.html` is the mark, the typefaces and the four colours that carry
+`../brand.html` is the mark, the typefaces, and the four colors that carry
 meaning. It is the authority on all three; a screen doc uses them and does not
 restate them.

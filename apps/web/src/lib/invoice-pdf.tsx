@@ -13,9 +13,9 @@ import { theme } from '@stint/design-tokens';
  * The invoice document.
  *
  * This is ink on WHITE paper — the page has no background, so the sheet is
- * the printer's. The neutrals are therefore a plain grey ramp and NOT the
+ * the printer's. The neutrals are therefore a plain gray ramp and NOT the
  * light theme, which is cream: reading `bg-primary` here would band the rows
- * in warm paper colour on top of real white. `landing/page.tsx` draws the
+ * in warm paper color on top of real white. `landing/page.tsx` draws the
  * same document and carries the same ramp for the same reason.
  *
  * The accent is the exception and is read from the theme, because it is the

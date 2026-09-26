@@ -71,7 +71,7 @@ export function Week({
 
       <div className="mt-6" role="img" aria-label={describe(week, currency)}>
         {/* The bars stand on a baseline. There is no ceiling: the axis is
-            unlabelled and each bar prints its own money, so every column is
+            unlabeled and each bar prints its own money, so every column is
             read on its own terms. */}
         <div className="flex h-[150px] items-stretch gap-4 border-b border-edge-default">
           {week.map((d) => (
@@ -99,7 +99,7 @@ export function Week({
                           data-day={d.date}
                           style={{
                             height: `${s.share * 100}%`,
-                            /* Only clients have a colour. Internal work takes
+                            /* Only clients have a color. Internal work takes
                                the neutral, the same absence the hollow ring
                                draws in a row. */
                             backgroundColor: s.color ?? INTERNAL_SWATCH,
@@ -145,9 +145,9 @@ export function Week({
                 >
                   {rest ? '—' : formatCompact(d.seconds)}
                 </span>
-                {/* Today carries weight as well as colour: colour alone puts
+                {/* Today carries weight as well as color: color alone puts
                     the weight of the distinction on the one channel a
-                    colour-blind reader may not have. */}
+                    color-blind reader may not have. */}
                 <span
                   className={`text-center ${
                     d.date === today

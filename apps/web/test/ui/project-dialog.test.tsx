@@ -22,7 +22,7 @@ function serve(initial: { id: string; name: string }[]) {
   /* A real server returns the new client on the next GET. Keeping the stub
      static would make the "is it selected?" assertion unfalsifiable — the
      option could never exist, so an empty select would look like correct
-     behaviour. */
+     behavior. */
   const clients = [...initial];
   vi.stubGlobal(
     'fetch',
@@ -83,7 +83,7 @@ describe('ProjectDialog', () => {
 
     // The client form replaces the project form — one dialog, not two
     // overlays and two focus traps competing.
-    /* Both forms have a field labelled "Name", so this asserts on the
+    /* Both forms have a field labeled "Name", so this asserts on the
        client form's own control rather than whichever matched first. */
     await user.type(await screen.findByLabelText(/^Name/), 'Northwind');
     await user.click(screen.getByRole('button', { name: 'Add client' }));
@@ -122,7 +122,7 @@ describe('ProjectDialog', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Add a client…' }));
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
 
-    /* Cancelling the detour must abandon only the client. Closing the whole
+    /* Canceling the detour must abandon only the client. Closing the whole
        dialog would lose the project the user was part-way through, which is
        the thing the dialog exists to avoid. */
     await waitFor(() =>

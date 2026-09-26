@@ -6,11 +6,11 @@
  *   node src/derive-neutrals.mjs --surfaces # just the painted planes
  *
  * Two independent scales: `surfaces()` is a linear ladder, `inkRamp()` an
- * eased curve. `docs/design/deriving-colour.md` has why.
+ * eased curve. `docs/design/deriving-color.md` has why.
  */
 import { contrast, hex } from './oklch.mjs';
 
-/** The blue-grey the palette was derived for, held across every step. */
+/** The blue-gray the palette was derived for, held across every step. */
 const HUE = 264;
 
 /* ── surfaces ──────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ const FLOOR = 0.215;
 const EXPONENT = 1.4;
 const TOP = 0.985;
 
-/** Chroma per step — peaks mid-ramp so mid greys carry the cast. */
+/** Chroma per step — peaks mid-ramp so mid grays carry the cast. */
 const CHROMA = {
   300: 0.0196,
   400: 0.0214,
@@ -83,7 +83,7 @@ const CHROMA = {
  * - `400` is `border-control`, 1.4.11's 3:1.
  * - `500` is `text-subtle`, AA at 4.5 — it is body copy.
  * - `600` is the muted floor at 5.5: held to 4.5 alongside 500 both land on
- *   the same grey. Muted is stronger than subtle, and the ratios say so.
+ *   the same gray. Muted is stronger than subtle, and the ratios say so.
  * - `700` is the focus ring, 3:1 under WCAG 1.4.11.
  */
 const INK_MINIMA = { 400: 3, 500: 4.5, 600: 5.5, 700: 3 };
@@ -108,7 +108,7 @@ function inkRamp(card) {
 
   /* Lifting a step to clear a threshold can drive it into the next: they climb
      away from the same card, so the one owing less catches up. 0.035 is
-     roughly where two greys stop reading as the same colour, and it is a
+     roughly where two grays stop reading as the same color, and it is a
      floor — a step that earned more distance by owing a stricter ratio keeps
      it. */
   const MIN_SEPARATION = 0.035;

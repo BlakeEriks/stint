@@ -59,7 +59,7 @@
   /* The pip carries a halo rather than size: 7px reads as a status light and
      the ring makes it glow, without another 10px object competing in a row
      of small ones. `shadow-halo-*` is an elevation token because the ring
-     needs an alpha and a semantic colour may not carry one. It pulses, which
+     needs an alpha and a semantic color may not carry one. It pulses, which
      is the only motion in the chrome — a timer running is the one fact the
      bar exists to report, and the digits themselves never animate. */
   .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
@@ -103,8 +103,8 @@
     background: transparent;
   }
   .tag.empty { border-style: dashed; color: var(--text-subtle); flex: none; }
-  /* Square, against the round pip: shape separates the client's colour from
-     the timer's state, since both are small coloured marks on one line. */
+  /* Square, against the round pip: shape separates the client's color from
+     the timer's state, since both are small colored marks on one line. */
   .tag .sw { width: 7px; height: 7px; border-radius: 2px; flex: none; }
   .tag .cn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -299,14 +299,14 @@
         running it is a <code>span</code> with no chevron, so the one thing a
         press would silently re-bill is the one thing that does not offer
         one.</li>
-      <li><strong>The label is the project; the colour is the client.</strong>
+      <li><strong>The label is the project; the color is the client.</strong>
         <code>useProjectColors()</code> resolves a project to its client's
-        colour, so one line carries both facts and spends words on only the
+        color, so one line carries both facts and spends words on only the
         one that cannot be inferred. Two projects for the same client share a
         swatch, which is the grouping being shown rather than stated.</li>
       <li><strong>Round marks state, square marks work.</strong> Two small
-        coloured marks sit on the same line, and shape tells them apart — the
-        round one is the timer, the square is what is being billed. Colour
+        colored marks sit on the same line, and shape tells them apart — the
+        round one is the timer, the square is what is being billed. Color
         cannot do it: both would be green often enough to confuse.</li>
       <li><strong>The first row is one grouped element</strong>, dissolving at
         <code>sm</code> with <code>contents</code>. Flex-wrap moves items
