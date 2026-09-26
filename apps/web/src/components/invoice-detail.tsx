@@ -1,11 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ban, DollarSign, Download, Eye, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { StatusBadge, shortDate } from './invoice-bits';
+import { MarkPaidDialog } from './mark-paid-dialog';
 import { formatCurrency, formatHours } from '@stint/core';
 import { api, ApiError, type InvoiceStatus } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
@@ -28,8 +30,8 @@ export function InvoiceDetail({ id }: { id: string }) {
   };
 
   const setStatus = useMutation({
-    mutationFn: (status: InvoiceStatus) =>
-      api.updateInvoiceStatus(id, { status }),
+    mutationFn: (args: { status: InvoiceStatus; paidAt?: string }) =>
+      api.updateInvoiceStatus(id, args),
     onSuccess: invalidate,
   });
 
@@ -65,7 +67,11 @@ function Loaded({
   error,
 }: {
   data: Awaited<ReturnType<typeof api.invoice>>;
-  setStatus: { mutate: (s: InvoiceStatus) => void; isPending: boolean };
+  setStatus: {
+    mutate: (args: { status: InvoiceStatus; paidAt?: string }) => void;
+    isPending: boolean;
+    reset: () => void;
+  };
   remove: { mutate: () => void; isPending: boolean };
   /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
      for the message could type-check a stale error while printing a different
@@ -75,6 +81,7 @@ function Loaded({
   const { lineItems, client, ...invoice } = data;
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
+  const [markingPaid, setMarkingPaid] = useState(false);
 
   return (
     <>
@@ -188,7 +195,7 @@ function Loaded({
             {invoice.status === 'draft' ? (
               <Button
                 variant="default"
-                onClick={() => setStatus.mutate('sent')}
+                onClick={() => setStatus.mutate({ status: 'sent' })}
                 disabled={setStatus.isPending}
               >
                 <Send aria-hidden strokeWidth={1.75} />
@@ -199,7 +206,13 @@ function Loaded({
             {invoice.status === 'sent' ? (
               <Button
                 variant="accent"
-                onClick={() => setStatus.mutate('paid')}
+                onClick={() => {
+                  // A void or delete error from earlier on this screen must
+                  // not read as a rejection of the payment date about to be
+                  // entered.
+                  setStatus.reset();
+                  setMarkingPaid(true);
+                }}
                 disabled={setStatus.isPending}
               >
                 {/* A currency glyph, not a check: the check commits a form. */}
@@ -211,7 +224,7 @@ function Loaded({
             {!isVoid && !isDraft ? (
               <Button
                 variant="ghost"
-                onClick={() => setStatus.mutate('void')}
+                onClick={() => setStatus.mutate({ status: 'void' })}
                 disabled={setStatus.isPending}
               >
                 <Ban aria-hidden strokeWidth={1.75} />
@@ -234,6 +247,17 @@ function Loaded({
           <ActionError error={error} />
         </Section>
       </div>
+
+      <MarkPaidDialog
+        /* Closes itself once the mutation lands: success flips the invoice to
+           `paid`, which drops this from the render entirely. */
+        open={markingPaid && invoice.status === 'sent'}
+        onOpenChange={setMarkingPaid}
+        onConfirm={(paidAt) => setStatus.mutate({ status: 'paid', paidAt })}
+        pending={setStatus.isPending}
+        error={error}
+        sentAt={invoice.sentAt}
+      />
     </>
   );
 }

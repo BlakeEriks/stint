@@ -114,6 +114,10 @@ test.describe('invoices', () => {
       .getByRole('button', { name: 'Mark STINT-0001 paid' })
       .click();
 
+    // The dialog asks when the payment actually arrived; confirming the
+    // default (today) matches the pre-dialog behaviour this test checks.
+    await page.getByRole('button', { name: 'Mark paid' }).click();
+
     // The row leaves the open filter because the fact changed, not because
     // the UI hid it.
     await expect(list(page).getByText('STINT-0001')).toBeHidden();
