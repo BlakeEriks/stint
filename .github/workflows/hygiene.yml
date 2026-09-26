@@ -67,4 +67,5 @@ jobs:
           # Write is for each issue body, passed to gh as a file.
           claude_args: >-
             --max-turns 60
+            --model opus
             --allowedTools "Read,Grep,Glob,Write,Bash(gh issue create:*)"

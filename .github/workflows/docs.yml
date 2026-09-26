@@ -67,8 +67,9 @@ jobs:
           display_report: true
           prompt: /doc-drift ${{ github.event.pull_request.number }} ${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.head.sha }}
           # Write is for the comment body, passed to gh as a file.
-          # Default effort: `--effort low` ran 3x faster but missed planted drift
-          # in 2 of 3 runs, one of them posting nothing.
+          # Opus at default effort: the job is judgment. `--effort low` ran 3x
+          # faster but missed planted drift in 2 of 3 runs, one posting nothing.
           claude_args: >-
             --max-turns 40
+            --model opus
             --allowedTools "Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*),Bash(gh pr comment:*)"
