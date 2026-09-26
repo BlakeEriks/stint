@@ -1,15 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { InvoiceDetail } from '@/components/invoice-detail';
 import type { Invoice, InvoiceStatus } from '@/lib/client/api';
+import { localDateKey, localDateTimeToInstant } from '@stint/core';
+
+const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
 }));
 
-function invoice(status: InvoiceStatus): Invoice {
+function invoice(status: InvoiceStatus, sentAt: string | null = null): Invoice {
   return {
     id: 'inv-1',
     clientId: 'c1',
@@ -29,38 +33,48 @@ function invoice(status: InvoiceStatus): Invoice {
     paymentTerms: 'Net 30',
     groupingMode: 'entry',
     paymentDetails: null,
-    sentAt: null,
+    sentAt,
     paidAt: null,
     createdAt: '2026-09-01T00:00:00Z',
   };
 }
 
-function serve(status: InvoiceStatus) {
+function serve(status: InvoiceStatus, sentAt: string | null = null) {
+  const calls: Array<{ method: string; path: string; body: unknown }> = [];
   vi.stubGlobal(
     'fetch',
-    vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            /* FLAT, matching the route: a stub is only as good as its
-               fidelity to the endpoint. */
-            ...invoice(status),
-            client: { id: 'c1', name: 'Acme Corp' },
-            lineItems: [
-              {
-                description: 'Design review',
-                unit: 'hour' as const,
-                quantity: 2.5,
-                unitPrice: 150,
-                rateSource: 'client',
-                amount: 375,
-              },
-            ],
-          }),
-          { status: 200 },
-        ),
-    ),
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET') {
+        calls.push({
+          method,
+          path: String(url).replace('/api/v1', ''),
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        });
+        return new Response('{}', { status: 200 });
+      }
+      return new Response(
+        JSON.stringify({
+          /* FLAT, matching the route: a stub is only as good as its
+             fidelity to the endpoint. */
+          ...invoice(status, sentAt),
+          client: { id: 'c1', name: 'Acme Corp' },
+          lineItems: [
+            {
+              description: 'Design review',
+              unit: 'hour' as const,
+              quantity: 2.5,
+              unitPrice: 150,
+              rateSource: 'client',
+              amount: 375,
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    }),
   );
+  return calls;
 }
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -169,6 +183,86 @@ describe('InvoiceDetail', () => {
     show();
 
     expect(await screen.findByText(/numbering is gapless/)).toBeInTheDocument();
+  });
+
+  /* Nothing asked before, so `paid_at` was always the click, not the
+     payment. The dialog defaults to today and lets a backdated payment be
+     recorded as what it actually was. */
+  it('asks when the payment arrived before recording it as paid', async () => {
+    const calls = serve('sent');
+    const user = userEvent.setup();
+    show();
+
+    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
+
+    const dateInput = await screen.findByLabelText('Date paid');
+    const today = localDateKey(new Date(), tz);
+    expect(dateInput).toHaveValue(today);
+
+    await user.clear(dateInput);
+    await user.type(dateInput, '2026-08-20');
+    await user.click(screen.getByRole('button', { name: 'Mark paid' }));
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    const call = calls[0]!;
+    expect(call.method).toBe('PATCH');
+    expect(call.path).toBe('/invoices/inv-1/status');
+    const body = call.body as { status: string; paidAt: string };
+    expect(body.status).toBe('paid');
+    /* Local midnight of the picked date, not a UTC-day slice — a naive
+       string comparison gives the wrong day for anyone east of UTC. */
+    expect(body.paidAt).toBe(
+      localDateTimeToInstant('2026-08-20', '00:00', tz).toISOString(),
+    );
+  });
+
+  /* The unchanged default must not send an explicit `paidAt` at all — local
+     midnight on the day the invoice was also sent can land before `sentAt`,
+     which the server now rejects, and the original "click marks it paid
+     now" behaviour is what the common case should keep. */
+  it('sends no paidAt when the default date is left unchanged', async () => {
+    const calls = serve('sent');
+    const user = userEvent.setup();
+    show();
+
+    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
+    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    const call = calls[0]!;
+    const body = call.body as { status: string; paidAt?: string };
+    expect(body.status).toBe('paid');
+    expect(body.paidAt).toBeUndefined();
+  });
+
+  /* Sent Monday 3pm, marked paid on that same Monday from a session running
+     Wednesday: local midnight of the picked day is Monday 00:00, which is
+     before Monday 3pm and would underflow `sentAt`. The picked date is the
+     same calendar day the invoice was sent, so the instant sent must be
+     `sentAt` itself, never a midnight that predates it. */
+  it('sends sentAt itself when paid is backdated to the day it was sent', async () => {
+    const sentAt = '2026-09-14T15:00:00.000Z'; // Monday 3pm UTC
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-09-16T12:00:00.000Z')); // Wednesday
+    const calls = serve('sent', sentAt);
+    const user = userEvent.setup();
+    show();
+
+    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
+
+    const dateInput = await screen.findByLabelText('Date paid');
+    const sentDateKey = localDateKey(new Date(sentAt), tz);
+    expect(dateInput).toHaveAttribute('min', sentDateKey);
+
+    await user.clear(dateInput);
+    await user.type(dateInput, sentDateKey);
+    await user.click(screen.getByRole('button', { name: 'Mark paid' }));
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    const body = calls[0]!.body as { status: string; paidAt: string };
+    expect(body.status).toBe('paid');
+    expect(body.paidAt).toBe(sentAt);
+    vi.useRealTimers();
   });
 });
 
