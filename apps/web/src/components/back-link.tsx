@@ -9,8 +9,8 @@ import { LINKS } from './nav';
  * Where the reader has been, this tab: the page before this one, and the last
  * section (a rail entry, filter included) they were on.
  *
- * Module state rather than context, so a reload starts it empty — and a
- * detail page opened cold falls back to where its record sits.
+ * A reload starts it empty, so a detail page opened cold falls back to where
+ * its record sits.
  */
 type Trail = {
   current: string | null;
@@ -21,6 +21,17 @@ type Trail = {
 const EMPTY: Trail = { current: null, previous: null, section: null };
 let trail = EMPTY;
 const listeners = new Set<() => void>();
+
+/* Module scope, so `useSyncExternalStore` sees one identity and subscribes
+   once rather than on every render. */
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+const snapshot = () => trail;
+const serverSnapshot = () => EMPTY;
 
 const isSection = (url: string) =>
   LINKS.some((l) => l.href === url.split('?')[0]);
@@ -59,11 +70,7 @@ export function resetBackTrail() {
  */
 export function BackLink({ up, label }: { up: string; label: string }) {
   const pathname = usePathname();
-  const stored = useSyncExternalStore(
-    (l) => (listeners.add(l), () => listeners.delete(l)),
-    () => trail,
-    () => EMPTY,
-  );
+  const stored = useSyncExternalStore(subscribe, snapshot, serverSnapshot);
   /* The trail records after this page renders, so on arrival it still ends
      at the page before. */
   const { previous, section } = advance(stored, pathname);
