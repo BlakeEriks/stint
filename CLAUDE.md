@@ -92,9 +92,9 @@ never a hex.
 
 **Never point local dev at production.** `pnpm dev` reads
 `apps/web/.env.development.local`, and no file on disk holds the production
-database string — **never save it to one**. A merge deploys once approved:
-Vercel holds the build unaliased until you approve it and `release.yml` backs
-up, migrates and verifies (`docs/deploying.md`).
+database string — **never save it to one**. A merge deploys. Vercel holds the
+build unaliased while `release.yml` verifies it, and a release with a
+migration also waits for your approval and a backup (`docs/deploying.md`).
 
 **A new worktree is made with `pnpm worktree <branch>`**, never
 `git worktree add`. Git carries no `node_modules`, no
