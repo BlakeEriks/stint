@@ -16,7 +16,7 @@
     "dev:up:studio": "supabase stop && supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor",
     "dev:down": "supabase stop",
     "dev:reset": "supabase db reset",
-    "dev:migrate": "node scripts/migrate.mjs --url postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+    "dev:migrate": "node scripts/migrate.mjs --adopt-cli-history --url postgresql://postgres:postgres@127.0.0.1:54322/postgres",
     "dev:status": "supabase status",
     "seed": "node scripts/seed-account.mjs",
     "try-mac": "node scripts/try-mac.mjs",

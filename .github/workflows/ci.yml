@@ -100,8 +100,8 @@ jobs:
       - name: Core logic tests
         run: node --test --experimental-strip-types packages/core/test/*.test.ts
 
-      - name: Hygiene scan tests
-        run: node --test scripts/hygiene/*.test.mjs
+      - name: Script tests
+        run: node --test scripts/*.test.mjs scripts/hygiene/*.test.mjs
 
       - name: Build
         env:

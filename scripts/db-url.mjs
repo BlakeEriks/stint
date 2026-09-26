@@ -10,14 +10,17 @@ export function connectionString(argv = process.argv) {
   return process.env.SUPABASE_DB_URL ?? null;
 }
 
+/** Whether `url` reaches the local Supabase stack rather than a hosted one. */
+export function isLocal(url) {
+  return /localhost|127\.0\.0\.1/.test(url);
+}
+
 /**
  * Supabase terminates TLS with its own CA; the connection is still
  * encrypted, we just do not pin the chain.
  */
 export function sslFor(url) {
-  return /localhost|127\.0\.0\.1/.test(url)
-    ? false
-    : { rejectUnauthorized: false };
+  return isLocal(url) ? false : { rejectUnauthorized: false };
 }
 
 /** A URL safe to print: the password is what must never reach a log. */
