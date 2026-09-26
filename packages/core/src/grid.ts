@@ -108,7 +108,7 @@ export const WINDOW_PAD_MINUTES = 120;
 /**
  * The span a dialog strip draws for an entry, clamped to `dayStart`–`dayEnd`.
  *
- * Rounded out to a tick, which is what puts the strip's ends on labelled
+ * Rounded out to a tick, which is what puts the strip's ends on labeled
  * ones; the step itself is at the line that picks it.
  *
  * Elapsed time from the day's start throughout, like everything else here, so

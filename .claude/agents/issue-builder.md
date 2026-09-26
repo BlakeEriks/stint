@@ -39,7 +39,7 @@ Then two checks, each kept as a label so nobody makes it twice:
   it `blocked`, with a marked comment: "Blocked by #31: both change the
   inbox." Report back.
 - **Migration:** if the fix needs one, label it `migration`. If an open PR
-  is labelled `migration` too, it is `blocked` on that PR.
+  is labeled `migration` too, it is `blocked` on that PR.
 
 ## Build
 

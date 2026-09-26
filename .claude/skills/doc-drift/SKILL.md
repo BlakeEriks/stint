@@ -21,11 +21,11 @@ checking what the PR changed in them.
 
 `git diff <base>...HEAD --stat`, then the diff itself: `<base>` is
 `origin/<base-branch>` in CI and `main` locally. List the
-**behaviour** it changes: an endpoint, a field, a default, a rule, a screen,
+**behavior** it changes: an endpoint, a field, a default, a rule, a screen,
 a command, a script. A rename, a refactor or a test-only change alters no
-behaviour, so it has nothing to drift from.
+behavior, so it has nothing to drift from.
 
-Nothing changed behaviour → go to step 4 with no findings.
+Nothing changed behavior → go to step 4 with no findings.
 
 ## 2. Find the doc that owns each change
 

@@ -156,7 +156,7 @@ describe('the dock split', () => {
     expect(await handle()).toHaveAttribute('aria-valuenow', '50');
   });
 
-  it('Home recentres and forgets the preference', async () => {
+  it('Home recenters and forgets the preference', async () => {
     serve();
     render(<Dock />, { wrapper });
 

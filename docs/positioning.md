@@ -31,14 +31,14 @@ and cannot see money. Clockify moved the same thing out of its free tier in
 Harvest meters projects, clients, invoices and the dollar amount invoiced —
 the bill grows when the month goes well.
 
-**This is a bet on their behaviour, not a law.** Any of them could ship a
-solo plan tomorrow and cannibalise nothing, because a one-person account pays
+**This is a bet on their behavior, not a law.** Any of them could ship a
+solo plan tomorrow and cannibalize nothing, because a one-person account pays
 them nothing today. What is true is that none of them has, and 2026 moved
 them the other way. Where they have a solo path it is a funnel rather than a
 product: Harvest's free tier is two projects, Zoho's is three.
 
 **The invoice is the product; the timer is the input.** Time tracking is a
-commodity given away free by Toggl, Clockify, Zoho, Paymo and Harvest. The
+commodity given away free by Toggl, Clockify, Zoho, Paymo, and Harvest. The
 numbered, rate-frozen, ACH-bearing PDF is the part that is hard and the part
 worth money. We charge for the document, never for the tracking — so what the
 paid tier sells is that its numbers are right, which is why the trust rules in

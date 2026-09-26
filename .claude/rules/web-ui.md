@@ -12,7 +12,7 @@ generator, so `bg-surface-base`, `text-muted`, `border-edge-subtle`,
 `text-on-accent` are real utilities and a hardcoded hex has nothing to hide
 behind.
 
-**A colour a component needs is a token, never mixed at the call site.** No
+**A color a component needs is a token, never mixed at the call site.** No
 hex, and no alpha modifier on a semantic token — `bg-danger/12` is a
 one-off that exists in one file, has no light-mode counterpart, and cannot be
 found by anyone auditing the palette. Need a tint? Add it to `tokens.json` and
@@ -27,7 +27,7 @@ pair, each a near-ground tint on its own hue:
 Dark holds one pair of numbers for both; light tunes each against the card it
 sits on, so a third is tuned the same way rather than copied. Opacity is for
 *elevation* —
-overlays, scrims, a disabled control — not for deriving a colour that should
+overlays, scrims, a disabled control — not for deriving a color that should
 have a name.
 
 **Two things that bite here:**
@@ -53,7 +53,7 @@ does not follow package specifiers when collecting `@theme` values.
 **A component names a role (`type-amount`), never assembles one
 (`font-mono text-[15px]`).** Each role in `tokens.json` under `type.scale`
 generates a Tailwind `@utility` carrying family, size, weight, tracking, case
-and tabular-nums together, so half a role cannot be applied. Colour stays
+and tabular-nums together, so half a role cannot be applied. Color stays
 separate: a role says how text is set, not what it means.
 
 Need something the scale lacks? Add a role, with a reason — `pnpm check:type`
@@ -85,7 +85,7 @@ shapes already duplicated. Read it before adding a component.
 `components/ui/` is **vendored shadcn**, rewritten to our tokens at install by
 `apps/web/scripts/shadcn-detox.mjs`. shadcn's palette names are not defined in
 `@theme`: two collide with ours and mean the opposite — its `bg-primary` is
-the action colour (ours is neutral grey), its `bg-accent` is hover grey (ours
+the action color (ours is neutral gray), its `bg-accent` is hover gray (ours
 is the neon green).
 
 To add one: `pnpm dlx shadcn@latest add <name>`, then
@@ -94,7 +94,7 @@ diff. Add any unmapped name to `MAP` rather than hand-editing the file.
 
 **`pnpm detox` in CI is the only enforcement.** Tailwind 4 drops an unknown
 utility with no warning and exit 0, so a surviving `bg-primary` renders our
-grey on a primary button and the build still passes.
+gray on a primary button and the build still passes.
 
 The converter also rewrites what the check cannot see: `bg-black/50` →
 `bg-overlay`, `shadow-lg`/`shadow-md` → our elevation tokens, and a floating
@@ -106,14 +106,14 @@ It is **one pass over an alternation**, not sequential `replaceAll` —
 cascading turned `bg-primary` into `bg-surface-hover-default` when a later
 rule matched its own output.
 
-Radix supplies dialog/dropdown/popover behaviour: arrow keys, typeahead,
+Radix supplies dialog/dropdown/popover behavior: arrow keys, typeahead,
 roving tabindex and focus-return.
 
 ### Time is local wall-clock; the API is UTC
 
 **Never step days or weeks with `+ 86_400_000`.** Use `startOfLocalDayOffset`:
 a week containing a DST transition is 167 or 169 hours, so fixed-millisecond
-arithmetic mis-buckets the entries at its edges. The inverse maths is
+arithmetic mis-buckets the entries at its edges. The inverse math is
 `packages/core/src/grid.ts`, and every function takes the column's real span
 rather than 24 hours.
 

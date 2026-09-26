@@ -77,7 +77,7 @@ function hourMarks(from: Date, to: Date): { hour: number; pct: number }[] {
  * editor, dragging it adjusts its times, empty space starts a new entry at the
  * time clicked.
  *
- * It visualises what was tracked and does not schedule — the app's claim is
+ * It visualizes what was tracked and does not schedule — the app's claim is
  * that the numbers on the invoice are the numbers you worked.
  */
 export function Calendar() {
@@ -317,7 +317,7 @@ export function Calendar() {
                   colors={colorByProject}
                   /* The window the column DRAWS, which a cropped day view makes
                    narrower than the day itself. Positions are fractions of
-                   this, so the inverse maths a click or drag uses has to take
+                   this, so the inverse math a click or drag uses has to take
                    the same pair — passing the full day here would put every
                    new entry at the wrong time. */
                   dayStart={day.from}
@@ -333,7 +333,7 @@ export function Calendar() {
           </div>
 
           {/* Keyed to what is on screen — the day in day view, the week
-            otherwise — so it never names a colour that is not showing. */}
+            otherwise — so it never names a color that is not showing. */}
           <Legend days={cal.days} clientByProject={clientByProject} />
         </div>
 
@@ -375,11 +375,11 @@ export function Calendar() {
 }
 
 /**
- * Which client each colour on the grid belongs to.
+ * Which client each color on the grid belongs to.
  *
  * **Built from the period in view, not from the client list**, so it never
- * names a colour that is not on screen, and **ordered by tracked time**, which
- * is how much of the grid each colour occupies.
+ * names a color that is not on screen, and **ordered by tracked time**, which
+ * is how much of the grid each color occupies.
  *
  * Every client with time is named — no long tail to merge — and internal work
  * appears only when present.
@@ -403,7 +403,7 @@ function Legend({
 
          A RUNNING entry has no duration yet (the column is generated from
          `ended_at`), so it contributes 0 to the ranking while still putting
-         its client in the legend — the block is on the grid, so its colour
+         its client in the legend — the block is on the grid, so its color
          needs explaining regardless of how long it ends up being. */
       const secs = entry.durationSeconds ?? 0;
       const client = entry.projectId
@@ -427,7 +427,7 @@ function Legend({
       {ranked.map(([id]) => (
         <LegendItem
           key={id}
-          colour={meta.get(id)?.color}
+          color={meta.get(id)?.color}
           label={meta.get(id)?.name ?? 'Unknown client'}
         />
       ))}
@@ -437,22 +437,22 @@ function Legend({
 }
 
 /**
- * `colour` absent means internal work, which carries no stripe on the grid.
+ * `color` absent means internal work, which carries no stripe on the grid.
  *
  * The swatch is then an outline rather than a fill — it shows what the absence
- * looks like instead of inventing a grey, which would read as a client of its
- * own. `use-project-colors.ts` refuses the same shared grey for the same
+ * looks like instead of inventing a gray, which would read as a client of its
+ * own. `use-project-colors.ts` refuses the same shared gray for the same
  * reason.
  */
-function LegendItem({ colour, label }: { colour?: string; label: string }) {
+function LegendItem({ color, label }: { color?: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5 type-support text-muted">
       <span
         aria-hidden
         className={`size-2 flex-none rounded-[2px] ${
-          colour ? '' : 'border border-edge-default'
+          color ? '' : 'border border-edge-default'
         }`}
-        style={colour ? { backgroundColor: colour } : undefined}
+        style={color ? { backgroundColor: color } : undefined}
       />
       {label}
     </span>
@@ -690,7 +690,7 @@ function EntryBlock({
         height: `${height * 100}%`,
         left: `${(lane / lanes) * 100}%`,
         width: `${(1 / lanes) * 100}%`,
-        // A client colour reads as a left edge, so the block stays legible
+        // A client color reads as a left edge, so the block stays legible
         // rather than becoming a saturated tile behind text.
         borderLeft: color ? `2.5px solid ${color}` : undefined,
       }}
@@ -719,7 +719,7 @@ function EntryBlock({
  *
  * `aria-hidden`, and deliberately not focusable: dragging is a pointer
  * affordance, and the keyboard path to the same change is the editor, which
- * has labelled time fields rather than an invisible 6px strip.
+ * has labeled time fields rather than an invisible 6px strip.
  */
 function Handle({
   edge,

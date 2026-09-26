@@ -17,7 +17,7 @@ updates:
       - dependency-name: "*"
         update-types: [version-update:semver-major]
     groups:
-      # Framework minors still change behaviour; keep them separate so a
+      # Framework minors still change behavior; keep them separate so a
       # Next or React bump is reviewable on its own.
       framework:
         patterns: ["next", "react", "react-dom", "@types/react*"]

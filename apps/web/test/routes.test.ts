@@ -37,7 +37,7 @@ after(async () => {
 beforeEach(async () => {
   await pool.query('delete from invoice_line_items');
   // Detach first: the immutability trigger refuses to delete an entry that
-  // is still billed on a non-draft invoice — which is the behaviour under
+  // is still billed on a non-draft invoice — which is the behavior under
   // test elsewhere, so the fixture works around it rather than disabling it.
   await pool.query('update time_entries set invoice_id = null');
   await pool.query('delete from time_entries');
@@ -2493,7 +2493,7 @@ test('the project preference ranks its own names first', async () => {
   ]);
 });
 
-test('task names honour limit', async () => {
+test('task names honor limit', async () => {
   const { GET: taskNames } = await import(TASK_NAMES);
 
   for (let i = 0; i < 5; i++) {
@@ -2616,7 +2616,7 @@ const withFields = async (
   return new Request(`http://t${url}`, { method: 'POST', body: form });
 };
 
-test("import confirm writes a new client's rate and colour, and never an excluded row", async () => {
+test("import confirm writes a new client's rate and color, and never an excluded row", async () => {
   // Admin (11:00–11:15 ET) lands on work already here.
   await pool.query(
     `insert into time_entries (id,user_id,task_name,started_at,ended_at)

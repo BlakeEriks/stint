@@ -114,7 +114,7 @@ test('a fraction resolves against a 25-hour fall-back column', () => {
 test('snapMs rounds to the nearest step in both directions', () => {
   assert.equal(snapMs(7 * MIN), 0);
   assert.equal(snapMs(8 * MIN), 15 * MIN);
-  // `+ 0` normalises -0, which is the same instant but not strictly equal.
+  // `+ 0` normalizes -0, which is the same instant but not strictly equal.
   assert.equal(snapMs(-7 * MIN) + 0, 0);
   assert.equal(snapMs(-8 * MIN), -15 * MIN);
 });

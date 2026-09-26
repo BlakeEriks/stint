@@ -13,7 +13,7 @@ PR ──► CI ──► merge ──► Vercel builds ──► plan ──►
 
 **Every production release waits for your approval.** GitHub notifies you;
 the run's summary shows the commit and every pending migration's SQL, with a
-warning when one drops, truncates or deletes. Rejecting leaves the previous
+warning when one drops, truncates, or deletes. Rejecting leaves the previous
 build serving.
 
 The gate is the point. **Code must never go live before its migration** — a
@@ -206,7 +206,7 @@ account `stintbackups4b3306`, container `dumps`, in the personal subscription
   repo uses GitHub's immutable subject (owner and repo ids), so a renamed or
   re-created repo does not inherit the trust.
 - **It can write and nothing else.** The custom role "Stint Backup Writer"
-  creates blobs; it cannot read, list or delete them.
+  creates blobs; it cannot read, list, or delete them.
 - **Nobody can delete a backup for 90 days.** A time-based retention policy
   on the container, then a lifecycle rule removes it.
 - **Only the private key opens one.** The public key is the Production

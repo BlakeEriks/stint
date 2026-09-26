@@ -331,7 +331,7 @@ describe('count-up', () => {
   });
 
   /* Today's figure must move with the rest. A figure that sat still while
-     the others travelled read as the stale one — which is what "the panel is
+     the others traveled read as the stale one — which is what "the panel is
      not updating" actually looked like. */
   it("travels today's figure, not just the month's", async () => {
     const frame = controlledRaf();

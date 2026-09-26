@@ -35,7 +35,7 @@ export const GET = handle(async (req: Request) => {
   if (error) throw error;
 
   if (q.granularity === 'day') {
-    /* Which client a day's work belongs to, so the strip can colour by
+    /* Which client a day's work belongs to, so the strip can color by
        client. Fetched once for the range rather than per day. */
     const { data: projects, error: projectError } = await db
       .from('projects')

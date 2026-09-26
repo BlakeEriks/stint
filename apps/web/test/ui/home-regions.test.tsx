@@ -119,7 +119,7 @@ const ENTRIES = {
 
 /**
  * Two clients with hues, plus the archived one — a finished engagement keeps
- * its colour rather than falling into the neutral band.
+ * its color rather than falling into the neutral band.
  */
 const CLIENTS = {
   clients: [
@@ -325,7 +325,7 @@ describe('the three regions', () => {
     expect(weekDashes).toHaveLength(3);
   });
 
-  it('gives internal work a hollow ring rather than a colour', async () => {
+  it('gives internal work a hollow ring rather than a color', async () => {
     serve(() => stats());
     render(<HomeCards />, { wrapper });
 
@@ -333,7 +333,7 @@ describe('the three regions', () => {
       expect(screen.getByText('Invoicing admin')).toBeVisible(),
     );
 
-    /* Only clients have a colour. The entry with no project is internal, and
+    /* Only clients have a color. The entry with no project is internal, and
        the absence is drawn as a ring. */
     const row = screen.getByText('Invoicing admin').closest('[data-task]');
     expect(row?.querySelector('[data-pip="internal"]')).not.toBeNull();
@@ -484,7 +484,7 @@ describe('the client split', () => {
     const { container } = render(<HomeCards />, { wrapper });
 
     /* Waits for the HUE, not merely the segment: `/clients` resolves after
-       `/stats`, so a bar asserted on arrival is one whose colours have not
+       `/stats`, so a bar asserted on arrival is one whose colors have not
        landed yet. */
     const c1 = await waitFor(() => {
       const el = container.querySelector(
@@ -497,7 +497,7 @@ describe('the client split', () => {
       '[data-day="2026-09-16"][data-segment="internal"]',
     ) as HTMLElement;
 
-    /* Only clients have a colour. Internal work takes the neutral, never one
+    /* Only clients have a color. Internal work takes the neutral, never one
        of the palette's hues. */
     expect(internal.style.backgroundColor).toBe('var(--color-subtle)');
     expect(internal.style.backgroundColor).not.toBe(c1.style.backgroundColor);
@@ -587,8 +587,8 @@ describe('the client split', () => {
     expect(screen.getByText('Internal')).toBeVisible();
   });
 
-  it('keeps an archived client its colour', async () => {
-    /* A finished engagement stays in the history; dropping its colour would
+  it('keeps an archived client its color', async () => {
+    /* A finished engagement stays in the history; dropping its color would
        silently move those hours into the neutral band. */
     serve(() =>
       stats({
@@ -602,7 +602,7 @@ describe('the client split', () => {
     const { container } = render(<HomeCards />, { wrapper });
 
     /* The band draws neutral until `/clients` answers, so the wait is for a
-       resolved hue rather than for any colour at all. */
+       resolved hue rather than for any color at all. */
     await waitFor(() => {
       const el = container.querySelector(
         '[data-band="c3"]',
@@ -644,7 +644,7 @@ describe('the arrival roll', () => {
     });
 
     /* The first mount IS the arrival: it seeds its origin below the figure
-       and rolls, which is the behaviour being preserved. */
+       and rolls, which is the behavior being preserved. */
     const first = render(<HomeCards />, { wrapper });
     await waitFor(() =>
       expect(

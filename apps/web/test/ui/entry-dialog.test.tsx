@@ -218,7 +218,7 @@ describe('EntryDialog', () => {
   });
 
   /**
-   * The wiring, not the list — `task-suggest.test.tsx` owns its behaviour.
+   * The wiring, not the list — `task-suggest.test.tsx` owns its behavior.
    * What matters here is what a chosen row is allowed to write into a form
    * that bills.
    */
@@ -440,7 +440,7 @@ describe('EntryDialog', () => {
       expect(screen.getByLabelText('End')).toHaveValue('11:00');
 
       /* The whole difference from the calendar's drag, which PATCHes on
-         release. Here Save owns the write, so a cancelled edit leaves the
+         release. Here Save owns the write, so a canceled edit leaves the
          entry alone. */
       expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
 

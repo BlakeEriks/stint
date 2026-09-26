@@ -258,14 +258,14 @@ describe('ImportPage', () => {
     );
   });
 
-  it("a new client's colour is sent with the confirm, without re-reading the file", async () => {
+  it("a new client's color is sent with the confirm, without re-reading the file", async () => {
     const sent = serve(() => preview());
     const user = userEvent.setup();
     render(<ImportPage />, { wrapper });
     await chooseFile(user);
 
-    await user.click(screen.getByRole('button', { name: 'Globex colour' }));
-    const picker = await screen.findByRole('group', { name: 'Globex colour' });
+    await user.click(screen.getByRole('button', { name: 'Globex color' }));
+    const picker = await screen.findByRole('group', { name: 'Globex color' });
     const [, first] = within(picker).getAllByRole('button');
     await user.click(first as HTMLElement);
     expect(sent).toHaveLength(1);

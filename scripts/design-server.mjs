@@ -127,7 +127,7 @@ async function index() {
   <span class="mark">Stint</span>
   <h1>Design docs</h1>
   <p class="standfirst">
-    Every page reads its colours, type and the mark from the generated
+    Every page reads its colors, type and the mark from the generated
     <code>screens/_mockup.css</code>, so nothing here can show a stale value.
   </p>
 

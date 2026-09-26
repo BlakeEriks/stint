@@ -17,14 +17,14 @@ const PROJECTS = [
 ];
 
 /* Two projects under ONE client, plus a second client. The legend groups by
-   client, so `p-north-a` and `p-north-b` must produce a single entry — colour
+   client, so `p-north-a` and `p-north-b` must produce a single entry — color
    identifies a client, and two identical swatches would be a bug. */
 const CLIENT_PROJECTS = [
   { id: 'p-north-a', clientId: 'c-north', name: 'Warehouse' },
   { id: 'p-north-b', clientId: 'c-north', name: 'Peak season' },
   { id: 'p-byrne', clientId: 'c-byrne', name: 'Typography' },
   { id: 'p-internal', clientId: null, name: 'Internal' },
-  /* Belongs to a client with a colour, and has NO time this week. This is the
+  /* Belongs to a client with a color, and has NO time this week. This is the
      case that separates "built from the week" from "built from the project
      list" — a client with no projects at all would be excluded by either. */
   { id: 'p-absent', clientId: 'c-absent', name: 'Dormant' },
@@ -281,9 +281,9 @@ describe('Calendar', () => {
 });
 
 /**
- * The key to the colours on the grid.
+ * The key to the colors on the grid.
  *
- * A block's left border is its client's colour, which only answers "whose work
+ * A block's left border is its client's color, which only answers "whose work
  * is this?" once you know which hue is whose.
  */
 describe('the calendar legend', () => {
@@ -306,7 +306,7 @@ describe('the calendar legend', () => {
     serve(week(), { projects: CLIENT_PROJECTS, clients: CLIENTS });
     render(<Calendar />, { wrapper });
 
-    /* Two projects under Northwind, one entry — colour identifies a client, so
+    /* Two projects under Northwind, one entry — color identifies a client, so
        a row per project would repeat the same swatch twice and imply the hues
        are different. */
     expect(await screen.findAllByText('Northwind Trading')).toHaveLength(1);
@@ -318,7 +318,7 @@ describe('the calendar legend', () => {
     render(<Calendar />, { wrapper });
 
     await screen.findAllByText('Northwind Trading');
-    /* `Absent Co` exists and has a colour, but no time this week. Naming it
+    /* `Absent Co` exists and has a color, but no time this week. Naming it
        would make the legend a client directory rather than a key to what is
        actually on screen. */
     expect(screen.queryByText('Absent Co')).toBeNull();
@@ -351,7 +351,7 @@ describe('the calendar legend', () => {
     );
   });
 
-  it('names internal work only when some is present, and gives it no colour', async () => {
+  it('names internal work only when some is present, and gives it no color', async () => {
     serve(
       [
         {
@@ -367,7 +367,7 @@ describe('the calendar legend', () => {
     render(<Calendar />, { wrapper });
 
     /* Internal work has no client and so no stripe on the grid. Its swatch is
-       an outline, describing the ABSENCE of colour — a shared grey would read
+       an outline, describing the ABSENCE of color — a shared gray would read
        as a client of its own, which `use-project-colors.ts` refuses for the
        same reason. */
     const item = await screen.findByText('No client', { selector: 'span' });

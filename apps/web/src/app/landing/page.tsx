@@ -70,7 +70,7 @@ export default function LandingPage() {
        reader's own problem.
 
        GROUNDS STRICTLY ALTERNATE, base / recessed. Adding or removing a
-       section means re-checking the whole run, not just the neighbour above
+       section means re-checking the whole run, not just the neighbor above
        it — both times this drifted, it was because one section moved and the
        rest were left alone, and the banding then reads as accidental rather
        than as a rhythm. */
@@ -172,7 +172,7 @@ function CallToAction() {
  * A section whose argument and evidence sit side by side above `lg`.
  *
  * `recessed` puts the section on the surface *below* the page ground, which
- * is how the page gets rhythm without alternating bands of unrelated colour —
+ * is how the page gets rhythm without alternating bands of unrelated color —
  * the same recession the app's nav rail uses.
  */
 function SplitSection({
@@ -276,7 +276,7 @@ function UnbilledRow({
   return (
     <div className="flex items-center justify-between gap-4">
       <dt className="flex min-w-0 items-center gap-2.5">
-        {/* Colour belongs to the client, never the project. */}
+        {/* Color belongs to the client, never the project. */}
         <span
           aria-hidden
           className="size-2 flex-none rounded-full"
@@ -292,7 +292,7 @@ function UnbilledRow({
 
 /**
  * The deliverable, and the page's strongest asset — so it gets the full
- * width and a centred heading rather than a column beside a paragraph. It is
+ * width and a centered heading rather than a column beside a paragraph. It is
  * the only section that breaks the left-aligned rhythm, which is what makes
  * it read as the exhibit.
  */
@@ -364,7 +364,7 @@ function Aside({
  * drawing of a printed invoice sitting on a dark marketing page. They are
  * deliberately not the light theme, which is cream — `theme.light` would
  * tint this picture of paper and is what `invoice-pdf.tsx` reads instead.
- * A neutral grey ramp on white: `#1A1C21` ink, `#626875` and `#848B98`
+ * A neutral gray ramp on white: `#1A1C21` ink, `#626875` and `#848B98`
  * secondary, `#D1D5DD` and `#E4E6EC` rules, `#F2F3F6` the banded row.
  */
 function InvoicePreview() {
@@ -493,7 +493,7 @@ function Platforms() {
 }
 
 /**
- * The price and the promises: a centred statement with three short pillars,
+ * The price and the promises: a centered statement with three short pillars,
  * one of the two shapes that break the page's split-section rhythm.
  */
 function Free() {
@@ -529,7 +529,7 @@ function Free() {
   );
 }
 
-/** One of three. Centred, no rule — the row IS the structure here. */
+/** One of three. Centered, no rule — the row IS the structure here. */
 function Pillar({
   term,
   children,

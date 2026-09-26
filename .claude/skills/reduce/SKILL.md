@@ -1,6 +1,6 @@
 ---
 name: reduce
-description: Reduce a source file or directory back to a simple form (complexity, duplication, dead code, comments) without changing behaviour. Use when a hygiene issue says "Fix with /reduce", or a file has grown hard to follow.
+description: Reduce a source file or directory back to a simple form (complexity, duplication, dead code, comments) without changing behavior. Use when a hygiene issue says "Fix with /reduce", or a file has grown hard to follow.
 argument-hint: "<path>"
 ---
 
@@ -20,7 +20,7 @@ minutes:
 
 `--json` adds each finding's line. Record the debt: it is the before number.
 
-## 2. Pin the behaviour
+## 2. Pin the behavior
 
 Find the tests that exercise each function you will change. A function
 with none gets a characterization test first (Feathers, *Working

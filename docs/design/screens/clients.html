@@ -71,7 +71,7 @@
   }
   .btn.secondary { border-color: transparent; background: var(--bg-elevated); color: var(--text-primary); }
   .btn.ghost { border-color: transparent; background: transparent; color: var(--text-muted); }
-  /* Every action carries icon + label: text, colour and glyph together are
+  /* Every action carries icon + label: text, color and glyph together are
      more legible than any one channel. aria-hidden, so the accessible name
      is the label alone. */
   .btn svg { width: 14px; height: 14px; flex: none; stroke: currentColor; fill: none;
@@ -83,7 +83,7 @@
   .row + .row { border-top: 1px solid var(--border-subtle); }
   .row:first-child { padding-top: 0; }
   .row:last-child { padding-bottom: 0; }
-  /* The client's colour, as Home's legend draws it. */
+  /* The client's color, as Home's legend draws it. */
   .swatch { width: 9px; height: 9px; border-radius: 50%; flex: none; align-self: flex-start; margin-top: 7px; }
   .swatch.none { background: transparent; border: 1.5px solid var(--border-default); }
   .row .name { font-size: 14px; color: var(--text-primary); }
@@ -153,7 +153,7 @@
   <h1>Clients</h1>
   <p class="standfirst">
     <code>/clients</code>, one client's page, and the form that serves both
-    create and edit. A client is where a rate and a colour are set, which is
+    create and edit. A client is where a rate and a color are set, which is
     what makes it the top of two chains the rest of the app reads.
   </p>
 
@@ -215,11 +215,11 @@
       </ul>
 
     </div>
-    <span class="caption">Colour is a swatch beside the name · rate right-aligned and mono</span>
+    <span class="caption">Color is a swatch beside the name · rate right-aligned and mono</span>
 
     <ul class="rule">
       <li><strong>Each client is a plain row under an inset rule</strong>,
-        its colour a swatch beside the name. A client with no colour takes
+        its color a swatch beside the name. A client with no color takes
         the hollow ring, so every name starts on the same line.</li>
       <li><strong>The detail line is scale, not contents.</strong> Project
         count and unbilled amount answer "where is my work?" without a click.
@@ -321,12 +321,12 @@
     </p>
   </section>
 
-  <!-- ═══════════════ colour ═══════════════ -->
+  <!-- ═══════════════ color ═══════════════ -->
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Colour</span></div>
+    <div class="sec-head"><span class="eyebrow">Color</span></div>
 
     <p>
-      <strong style="color:var(--text-strong)">Only clients have a colour</strong>,
+      <strong style="color:var(--text-strong)">Only clients have a color</strong>,
       and it answers one question wherever it appears: <em>whose work is
       this?</em> The calendar, the entry list and this list all read the same
       value through <code>useProjectColors()</code>.
@@ -345,7 +345,7 @@
         <span class="sw" style="background:var(--proj-8)"></span>
       </div>
     </div>
-    <span class="caption">Eight generated colours and none · the selected one carries a ring</span>
+    <span class="caption">Eight generated colors and none · the selected one carries a ring</span>
 
     <table>
       <tr><th></th><th>L</th><th>C</th><th>Hues</th></tr>
@@ -354,14 +354,14 @@
     </table>
 
     <ul class="rule">
-      <li><strong>A closed set, not a colour input.</strong> One lightness and
+      <li><strong>A closed set, not a color input.</strong> One lightness and
         one chroma for all eight, well under the accent on both, so a chip can
-        never out-bright the running timer. An arbitrary colour could.</li>
+        never out-bright the running timer. An arbitrary color could.</li>
       <li><strong>None is a real choice</strong>, first in the row. Internal
-        work has no client and so no colour, and that is a state to pick, not
+        work has no client and so no color, and that is a state to pick, not
         an absence to explain.</li>
       <li><strong>Selection is a ring, never a checkmark</strong> — a glyph
-        drawn on the colour has to contrast against all eight.</li>
+        drawn on the color has to contrast against all eight.</li>
     </ul>
   </section>
 
@@ -384,7 +384,7 @@
       <tr><td>Address</td><td>No</td><td><code>null</code> · appears on the invoice</td></tr>
       <tr><td>Hourly rate</td><td>No</td><td>Falls back to the user default</td></tr>
       <tr><td>Tax rate %</td><td>No</td><td>No tax line on the invoice</td></tr>
-      <tr><td>Colour</td><td>No</td><td>A hollow ring in every list</td></tr>
+      <tr><td>Color</td><td>No</td><td>A hollow ring in every list</td></tr>
     </table>
 
     <div class="mock">

@@ -12,7 +12,7 @@ to it, name the doc that owns the claim:
 
 | The claim is | It goes to |
 | --- | --- |
-| How to run, build or deploy something | `docs/local-dev.md`, `docs/deploying.md`, `docs/setup.md` |
+| How to run, build, or deploy something | `docs/local-dev.md`, `docs/deploying.md`, `docs/setup.md` |
 | About one screen or one app | that screen's doc, `docs/macos.md`, `docs/design/landing.html` |
 | A shape a screen is assembled from | `docs/design/screens/components.html` |
 | Enforced by a check or a config | that script or config, in a comment at the line someone edits |
@@ -48,13 +48,13 @@ for the user to resolve, never corrected on their behalf
 confirm action** — the one action a screen or dialog exists to complete. Two
 uses, and a screen gets one of the second kind at most.
 
-**Green is the product's one colour, and it runs a scale.** `accent-default`
+**Green is the product's one color, and it runs a scale.** `accent-default`
 is the live thing and the button that acts; `success` is the same hue one step
 off it — toward the ground in dark, toward the paper in light — for an outcome
 that has already happened: paid, saved. The step is what separates them: a
 paid badge must read as green without reaching the weight of a running timer.
 Never white text on the accent — use `--text-on-accent`.
-`docs/design/deriving-colour.md` has the step; `docs/design/brand.html` is the
+`docs/design/deriving-color.md` has the step; `docs/design/brand.html` is the
 test, and for focus rings (neutral, never the accent).
 
 **Content floats, chrome recedes — in four planes**, deepest to nearest:
@@ -62,7 +62,7 @@ test, and for focus rings (neutral, never the accent).
 `bg-surface-elevated`.
 
 **Judge adjacent surfaces by OKLCH ΔL, never by WCAG contrast.** Changing
-either ramp means changing `docs/design/deriving-colour.md`'s generators,
+either ramp means changing `docs/design/deriving-color.md`'s generators,
 never a hex.
 
 ## Conventions
@@ -71,7 +71,7 @@ never a hex.
   through `/api/v1/*` route handlers.
 - Colors come from **semantic** tokens only; primitives stay in the token
   package.
-- **Only clients have a colour**, resolved through `useProjectColors()`;
+- **Only clients have a color**, resolved through `useProjectColors()`;
   internal work gets none.
 - Design tokens are **generated** — edit `packages/design-tokens/tokens.json`,
   then `pnpm tokens`. Never edit files in `dist/`.
@@ -151,9 +151,9 @@ Google style guide and those rules, and `/copyedit <path>` fixes a doc.
 **Unbuilt work splits on one question: does it need a spec?** A new
 capability or an expansion does — it goes in `docs/roadmap.md`, passes the
 gate there, and is built through Spec Kit. Everything smaller is a **GitHub
-issue**: a fault labelled `bug` plus its cost (`wrong data`, `misleading`,
+issue**: a fault labeled `bug` plus its cost (`wrong data`, `misleading`,
 `looks wrong`, worst first), or a tweak or improvement to something that
-exists, labelled `enhancement`. The PR that does it closes it.
+exists, labeled `enhancement`. The PR that does it closes it.
 
 **`docs/api.md` marks unimplemented endpoints `(not implemented)`.**
 

@@ -47,7 +47,7 @@ export function EntryScrubber({
   /** The local day the entry sits in, so the span is DST-correct. */
   dayStart: Date;
   dayEnd: Date;
-  /** The client's colour, or null for internal work. */
+  /** The client's color, or null for internal work. */
   color?: string | null;
   disabled?: boolean;
   onChange: (next: { startedAt: Date; endedAt: Date }) => void;
@@ -163,7 +163,7 @@ export function EntryScrubber({
     <div
       ref={strip}
       /* The strip carries no role and no accessible name — every part of it
-         is `aria-hidden`, the labelled time fields being the same value. The
+         is `aria-hidden`, the labeled time fields being the same value. The
          test id is how a test reaches a control that assistive tech is
          deliberately not offered. */
       data-testid="entry-scrubber"
@@ -206,7 +206,7 @@ export function EntryScrubber({
         style={{
           left: `${left}%`,
           width: `${width}%`,
-          /* The client's colour, as a left edge and a wash — the same
+          /* The client's color, as a left edge and a wash — the same
              reading as the calendar's block, where a saturated tile behind
              text is what this avoids. The accent is Save's. */
           borderLeft: color ? `2px solid ${color}` : undefined,
@@ -290,7 +290,7 @@ function Handle({
 }
 
 /**
- * The labelled ticks for a window, as percentages of it.
+ * The labeled ticks for a window, as percentages of it.
  *
  * The step comes from the span so a short window is not ruled as sparsely as
  * a long one. Stepping by elapsed time from the window's start, like the

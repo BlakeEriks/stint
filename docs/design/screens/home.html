@@ -49,7 +49,7 @@
 
   /* ── The mockup surface ──────────────────────────────────────── */
   /* The ground the panel floats on, so the shadow has something to fall on —
-     a panel mocked on its own colour looks like a rectangle of nothing. */
+     a panel mocked on its own color looks like a rectangle of nothing. */
   .mock {
     background: var(--bg-base);
     border-radius: 12px;
@@ -212,7 +212,7 @@
   <h1>Home</h1>
   <p class="standfirst">
     The screen opened every working day. It answers one question at three
-    widths — <em>how much have I earned?</em> — for today, this week and this
+    widths — <em>how much have I earned?</em> — for today, this week, and this
     month, and says how much of that is still waiting to be invoiced.
   </p>
   <p class="standfirst">
@@ -259,7 +259,7 @@
       The content column is a single borderless panel on the ground. Today and
       this week share the top row, split by a vertical rule; the month runs the
       full width beneath a horizontal one. <strong>Nothing inside the panel
-      carries a border, a background or a shadow of its own.</strong>
+      carries a border, a background, or a shadow of its own.</strong>
     </p>
 
     <div class="mock">
@@ -486,13 +486,13 @@
       <li><strong>The scale is the week's own longest day</strong>, which fills
         94% of the track. Heights stay a true ratio of hours; only what 100%
         means changes. Each bar prints its own money and the axis is
-        unlabelled, so every column is read on its own terms.</li>
+        unlabeled, so every column is read on its own terms.</li>
       <li><strong>A day with no work prints an em-dash</strong> and no bar. The
         caption keeps its hours line as a placeholder, which is what holds
         every weekday label on one baseline.</li>
-      <li><strong>Today's weekday carries weight as well as colour.</strong>
-        Colour alone puts the whole distinction on the one channel a
-        colour-blind reader may not have, and today is the column the eye
+      <li><strong>Today's weekday carries weight as well as color.</strong>
+        Color alone puts the whole distinction on the one channel a
+        color-blind reader may not have, and today is the column the eye
         should find first.</li>
       <li><strong>The bars stand on a baseline.</strong> There is no "full"
         day for a ceiling to represent.</li>
@@ -588,7 +588,7 @@
     </p>
 
     <table>
-      <tr><th>Event</th><th>What moves</th><th>Colour</th></tr>
+      <tr><th>Event</th><th>What moves</th><th>Color</th></tr>
       <tr>
         <td>A timer stops</td>
         <td>Unbilled rises; the client's share takes the hours and its age
@@ -611,7 +611,7 @@
     <ul class="rule">
       <li><strong>Only the payment is green.</strong> Stopping a timer and
         raising an invoice are things the user did; a payment is the one
-        outcome that happened to them. Spending the colour on all three spends
+        outcome that happened to them. Spending the color on all three spends
         it on nothing.</li>
       <li><strong>Sending moves money without changing the total.</strong>
         Nothing was earned — a boundary moved — and a figure that grew when an
@@ -660,9 +660,9 @@
         the month. Without the rule it reads as the strip's caption: a key for
         one region instead of for the whole panel.</li>
       <li><strong>A hue belongs to the client, never to the position.</strong>
-        The same client is the same colour in the week's bars, the month's
-        strip and the legend. Today's rows resolve a project's colour through
-        <code>useProjectColors()</code>; the bars, the strip and the legend
+        The same client is the same color in the week's bars, the month's
+        strip and the legend. Today's rows resolve a project's color through
+        <code>useProjectColors()</code>; the bars, the strip, and the legend
         take <code>useClients()</code>, which carries the name each one also
         has to print.
         A palette that reorders between two regions of one panel is a palette
@@ -675,7 +675,7 @@
     <div class="sec-head"><span class="eyebrow">Constraints this screen inherits</span></div>
 
     <p><code>CLAUDE.md</code> owns the accent's two jobs, mono and tabular
-      durations, colour belonging to the client, and <code>0</code> as a valid
+      durations, color belonging to the client, and <code>0</code> as a valid
       rate. What is particular to this screen:</p>
 
     <ul class="rule">
@@ -683,7 +683,7 @@
         running timer in the bar below, so the screen takes none of it.
         <code>success</code> marks one thing: the endpoint of the projection.</li>
       <li><strong>Internal work takes a hollow ring</strong> in the entry list
-        and the legend, which is what having no colour looks like on a screen
+        and the legend, which is what having no color looks like on a screen
         that is otherwise keyed by client.</li>
       <li><strong>Every figure here is an aggregate</strong>, so each one is a
         rollup in SQL. <code>resolve_entry_rate(uuid)</code> is per-entry and
@@ -703,7 +703,7 @@
         <td><code>earnedToday</code>, <code>unbilled</code>,
             <code>awaitingPayment</code>, <code>week</code> (seven
             <code>{date, seconds, amount}</code>) and <code>month</code> (its
-            earned, the cumulative series, the projection and the client
+            earned, the cumulative series, the projection, and the client
             split). One request,
             because the regions render together and a set that pops in
             piecemeal reads as broken.</td>
@@ -719,7 +719,7 @@
       <tr>
         <td><code>GET /clients?includeArchived</code></td>
         <td>hues and the legend</td>
-        <td>Archived clients included, so a finished engagement keeps its colour
+        <td>Archived clients included, so a finished engagement keeps its color
             instead of falling into the neutral band.</td>
       </tr>
     </table>

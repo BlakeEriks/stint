@@ -30,7 +30,7 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
  * A vertical rail of sections.
  *
  * The accent belongs to the running timer, so the current section is marked
- * with fill and a marker rather than colour.
+ * with fill and a marker rather than color.
  *
  * The rail is painted straight onto the ground: no surface of its own and no
  * rule beside it. The active item is therefore read as a selected OBJECT —

@@ -58,7 +58,7 @@ export function ProjectDialog({
   const [billable, setBillable] = useState(true);
   const [addingClient, setAddingClient] = useState(false);
 
-  // Reset each time it opens, so a cancelled edit does not leak into the
+  // Reset each time it opens, so a canceled edit does not leak into the
   // next one.
   useEffect(() => {
     if (!open) return;
@@ -115,7 +115,7 @@ export function ProjectDialog({
 
           {/* The same form the page uses, so the field set and validation
               cannot drift. Saving selects the new client and comes straight
-              back to the project; cancelling abandons only the client. */}
+              back to the project; canceling abandons only the client. */}
           <ClientForm
             onSaved={(client) => {
               setClientId(client.id);

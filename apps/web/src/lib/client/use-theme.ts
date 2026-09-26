@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
  *
  * The palette is **dark-first**: the token file keys its light block to an
  * explicit `[data-theme="light"]`, so a light OS preference does not flip the
- * surfaces (`docs/design/deriving-colour.md`). "System" would resolve to dark
+ * surfaces (`docs/design/deriving-color.md`). "System" would resolve to dark
  * for everyone — a control that appears to do something and does nothing.
  * Following the OS honestly means changing the generator first.
  *
@@ -48,7 +48,7 @@ function applyTheme(theme: Theme) {
 
 export function useTheme() {
   // Always 'dark' on the server and on first client render — the default, and
-  // what the markup is rendered as. Reading localStorage in the initialiser
+  // what the markup is rendered as. Reading localStorage in the initializer
   // would render one value on the server and another on the client, which is
   // a hydration mismatch; the effect below corrects it after mount.
   const [theme, setThemeState] = useState<Theme>('dark');

@@ -9,7 +9,7 @@ import type { CalendarDay, TimeEntry } from '@/lib/client/api';
 /**
  * Correcting time from the calendar.
  *
- * The pixel→instant maths is covered against real 23- and 25-hour DST columns
+ * The pixel→instant math is covered against real 23- and 25-hour DST columns
  * in `@stint/core`'s grid tests, where it can be asserted exactly. jsdom has no
  * layout, so what is worth pinning HERE is the wiring: which gestures a block
  * offers, and — above all — that the click which ends a drag does not also
@@ -231,7 +231,7 @@ describe('adjusting an entry by dragging', () => {
   /* 3px is under DRAG_THRESHOLD_PX but, snapped, would still land a 15-minute
      change — so this isolates the threshold rather than relying on the snap
      swallowing the movement. Verified: with the threshold removed, this PATCHes. */
-  it('does not write when the pointer never travelled', async () => {
+  it('does not write when the pointer never traveled', async () => {
     const srv = serve([
       { date: '2026-09-07', totalSeconds: 7200, entries: [entry()] },
     ]);
@@ -252,7 +252,7 @@ describe('adjusting an entry by dragging', () => {
     expect(srv.writes()).toEqual([]);
   });
 
-  it('patches the new times once the pointer has travelled', async () => {
+  it('patches the new times once the pointer has traveled', async () => {
     const srv = serve([
       { date: '2026-09-07', totalSeconds: 7200, entries: [entry()] },
     ]);

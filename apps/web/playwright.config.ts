@@ -39,7 +39,7 @@ export default defineConfig({
            the rail, so its dropdown opens against the bottom edge; on a CI
            runner Radix's popper placed it outside the viewport. */
         viewport: { width: 1280, height: 900 },
-        /* The app honours `prefers-reduced-motion`, so asking for it removes
+        /* The app honors `prefers-reduced-motion`, so asking for it removes
            Radix's open/close animations — the cause of "element is not
            stable" timeouts on any dropdown or dialog. */
         contextOptions: { reducedMotion: 'reduce' },

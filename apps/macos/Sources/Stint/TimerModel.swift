@@ -95,7 +95,7 @@ final class TimerModel {
         return project.name
     }
 
-    /// Project id → its client's colour, the resolution `useProjectColors()`
+    /// Project id → its client's color, the resolution `useProjectColors()`
     /// does on the web. A project with no client has none.
     var projectColors: [String: String] {
         let byClient = Dictionary(

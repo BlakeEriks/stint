@@ -74,7 +74,7 @@ test('startOfLocalDay is correct across DST transitions', () => {
   }
 });
 
-test('startOfLocalWeek honours weekStartsOn', () => {
+test('startOfLocalWeek honors weekStartsOn', () => {
   // 2026-09-11 is a Friday.
   const now = new Date('2026-09-11T14:30:00Z');
   const monday = startOfLocalWeek(now, 'UTC', 1);
@@ -152,7 +152,7 @@ test('addDays is unaffected by a DST transition in the range', () => {
 
 // ── the Collected window ────────────────────────────────────────────
 
-/* `Date.UTC` normalises a negative month index into the previous year, which
+/* `Date.UTC` normalizes a negative month index into the previous year, which
    is the whole mechanism — a twelve-month window looked at from January
    reaches back through two of them. */
 test('startOfLocalMonthsBack wraps the year going back past January', () => {

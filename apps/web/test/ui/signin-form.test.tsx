@@ -55,7 +55,7 @@ describe('SignInForm', () => {
     expect(alert.textContent).toMatch(/another tab started a different/i);
   });
 
-  it('explains an unrecognised reason instead of rendering nothing', async () => {
+  it('explains an unrecognized reason instead of rendering nothing', async () => {
     render(<SignInForm error="something_new" />);
     expect(screen.getByRole('alert').textContent).toMatch(/went wrong/i);
   });

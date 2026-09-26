@@ -52,7 +52,7 @@ function readChoices(v: unknown): Record<string, ClientChoice> {
         'hourlyRate is a number, 0 or more',
       );
     if (color !== null && !/^#[0-9a-f]{6}$/i.test(String(color)))
-      throw new ApiError('VALIDATION_FAILED', 'color is a hex colour');
+      throw new ApiError('VALIDATION_FAILED', 'color is a hex color');
     out[key] = {
       invoicedThrough: invoicedThrough as string | null,
       hourlyRate: hourlyRate as number | null,

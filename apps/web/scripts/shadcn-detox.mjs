@@ -6,11 +6,11 @@
  * Ours is derived in OKLCH with a contrast contract, and two of the names
  * collide with opposite meanings:
  *
- *   bg-primary  — shadcn: the main action colour. Ours: neutral grey #CDD1DA.
- *   bg-accent   — shadcn: hover grey. Ours: the neon green.
+ *   bg-primary  — shadcn: the main action color. Ours: neutral gray #CDD1DA.
+ *   bg-accent   — shadcn: hover gray. Ours: the neon green.
  *
  * So shadcn's names are never defined in our @theme: an alias pointing at the
- * wrong colour is invisible, while an undefined utility renders unstyled.
+ * wrong color is invisible, while an undefined utility renders unstyled.
  *
  * But Tailwind 4 drops an unknown utility with no warning and exit 0
  * (verified against 4.3.3), so this script is the enforcement: `--check`
@@ -70,7 +70,7 @@ const MAP = [
   ['text-foreground', 'text-primary'],
   ['text-destructive', 'text-danger'],
   ['text-background', 'text-on-accent'],
-  // shadcn's `text-primary` (link variant) means the action colour.
+  // shadcn's `text-primary` (link variant) means the action color.
   ['text-primary underline', 'text-accent-default underline'],
 
   // --- surfaces
@@ -80,7 +80,7 @@ const MAP = [
   ['bg-background', 'bg-surface-base'],
   ['bg-popover', 'bg-surface-elevated'],
   ['bg-card', 'bg-surface-elevated'],
-  // shadcn's `accent` is hover grey, NOT our green. Getting this wrong puts
+  // shadcn's `accent` is hover gray, NOT our green. Getting this wrong puts
   // the accent on every menu-item hover.
   ['bg-accent', 'bg-surface-hover'],
   ['bg-muted', 'bg-surface-hover'],
@@ -97,7 +97,7 @@ const MAP = [
   ['ring-offset-background', 'ring-offset-surface-base'],
   ['ring-destructive', 'ring-danger'],
 
-  // Hardcoded colours are banned in components. Danger needs its own
+  // Hardcoded colors are banned in components. Danger needs its own
   // foreground, not the accent's: near-black is 5.39 on dark danger but
   // only 3.25 on light danger, and white is the reverse. `text-on-danger`
   // resolves per theme; both directions are asserted in the contrast
@@ -129,13 +129,13 @@ const MAP = [
  *   - `bg-/border-/ring-` + a shadcn-only surface word
  *   - bare `bg-accent` / `text-accent` with no step suffix — ours always
  *     carry one (`accent-default`, `accent-hover`, …), so a bare one is
- *     shadcn's hover-grey and resolves to nothing.
+ *     shadcn's hover-gray and resolves to nothing.
  */
 const FORBIDDEN = new RegExp(
   [
     // any *-foreground utility
     String.raw`\b[a-z-]*-foreground\b`,
-    // shadcn-only surface/semantic words behind a colour utility
+    // shadcn-only surface/semantic words behind a color utility
     String.raw`\b(?:bg|border|ring|fill|stroke|divide|outline)-(?:primary|secondary|destructive|background|card|popover|muted|input|border|ring)(?:\/\d+)?\b`,
     // bare accent with no step — ours always has one
     String.raw`\b(?:bg|text|border|ring)-accent(?![\w-])`,
@@ -155,7 +155,7 @@ const _DARK_VARIANT = /\bdark:[^\s"'`]+/g;
  *
  * Sequential `replaceAll` calls cascade: `bg-primary` → `bg-accent-default`,
  * and then the later `bg-accent` rule rewrites the substring inside it,
- * yielding `bg-surface-hover-default` — a green button silently turned grey.
+ * yielding `bg-surface-hover-default` — a green button silently turned gray.
  * A single alternation over the whole source cannot re-enter its own output.
  */
 function convert(src) {
@@ -221,7 +221,7 @@ for (const file of files) {
 if (failed > 0) {
   console.error(
     `\n${failed} file(s) still reference shadcn's palette. These resolve to ` +
-      `nothing (or worse, to our grey) — add the mapping to MAP.`,
+      `nothing (or worse, to our gray) — add the mapping to MAP.`,
   );
   process.exit(1);
 }

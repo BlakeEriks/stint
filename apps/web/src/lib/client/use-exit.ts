@@ -79,7 +79,7 @@ async function finished(nodes: Map<string, HTMLElement>, id: string) {
   const el = nodes.get(id);
   if (!el?.isConnected) return;
 
-  /* A cancelled animation rejects, and jsdom implements no `getAnimations`
+  /* A canceled animation rejects, and jsdom implements no `getAnimations`
      at all — either way the row still has to go. */
   await Promise.allSettled(
     el.getAnimations?.({ subtree: true }).map((a) => a.finished) ?? [],

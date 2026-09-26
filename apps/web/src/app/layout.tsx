@@ -6,7 +6,7 @@ import '@/styles/globals.css';
 const sans = IBM_Plex_Sans({
   subsets: ['latin'],
   /* Every weight named in `type.scale`. Requesting one that is not loaded
-     gets a synthesised face with no warning, so this list and the scale have
+     gets a synthesized face with no warning, so this list and the scale have
      to move together. */
   weight: ['400', '500', '600'],
   variable: '--font-plex-sans',

@@ -100,12 +100,12 @@ the most. Gitignored; one JSON object per line:
 `gh issue list --state open --json number,title,labels`, then skip every
 issue that:
 
-- is labelled `needs-input` with no comment of Blake's since the last marked
+- is labeled `needs-input` with no comment of Blake's since the last marked
   one
-- is labelled `blocked`
+- is labeled `blocked`
 - already has an open PR
   (`gh issue view <n> --json closedByPullRequestsReferences`)
-- is labelled `migration` while an open PR is too — previews share one
+- is labeled `migration` while an open PR is too — previews share one
   database schema
 
 `urgent` first, then the worst: `wrong data`, `misleading`, `looks wrong`,

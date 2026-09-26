@@ -405,7 +405,7 @@ private struct RenameRow: View {
     @Bindable var model: TimerModel
     @State private var editing = false
     @State private var name = ""
-    @State private var cancelled = false
+    @State private var canceled = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -421,14 +421,14 @@ private struct RenameRow: View {
                 // panel is not confirmation, so a rename left this way is
                 // discarded rather than written — the flag is what tells the
                 // two apart, and `onDisappear` is what sets it.
-                .onDisappear { cancelled = true }
+                .onDisappear { canceled = true }
                 .onChange(of: focused) { _, has in
-                    if !has { cancelled ? reset() : finish() }
+                    if !has { canceled ? reset() : finish() }
                 }
         } else {
             Button {
                 name = model.running?.taskName ?? ""
-                cancelled = false
+                canceled = false
                 editing = true
             } label: {
                 Hovering { on in
@@ -463,7 +463,7 @@ private struct RenameRow: View {
     private func reset() {
         guard editing else { return }
         editing = false
-        cancelled = false
+        canceled = false
         name = model.running?.taskName ?? ""
     }
 }
@@ -484,7 +484,7 @@ private struct RunawayNotice: View {
     }
 }
 
-/// The project as a menu: the client's colour, the name, a caret.
+/// The project as a menu: the client's color, the name, a caret.
 private struct ProjectPicker: View {
     @Bindable var model: TimerModel
 
@@ -577,7 +577,7 @@ private struct TransportButton: View {
             Image(systemName: model.isRunning ? "stop.fill" : "play.fill")
                 .font(.system(size: 13))
                 .foregroundStyle(model.isRunning ? Tokens.Dark.textPrimary : Tokens.Dark.textOnAccent)
-                // The triangle's side bearings sit it left of centre.
+                // The triangle's side bearings sit it left of center.
                 .padding(.leading, model.isRunning ? 0 : 2)
                 .frame(width: 38, height: 38)
                 .background(model.isRunning ? Tokens.Dark.bgElevated : Tokens.Dark.accentDefault)

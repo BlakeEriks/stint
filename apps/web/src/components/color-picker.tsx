@@ -3,11 +3,11 @@
 import { projectColors } from '@stint/design-tokens';
 
 /**
- * The eight generated project colours, not a free colour input.
+ * The eight generated project colors, not a free color input.
  *
  * They sit at a fixed L 0.70 / C 0.11 and exclude the accent's hue range, so
  * a chip can never out-bright or out-saturate the running timer. An arbitrary
- * colour could, which is why this is a closed set.
+ * color could, which is why this is a closed set.
  */
 export function ColorPicker({
   value,

@@ -78,7 +78,7 @@ jobs:
       # Vendored shadcn components are rewritten to our tokens at install.
       # This is the only enforcement: Tailwind 4 drops an unknown utility
       # with no warning and exit 0, so a surviving `bg-primary` would render
-      # our neutral grey on a primary button and never fail the build.
+      # our neutral gray on a primary button and never fail the build.
       - name: shadcn components use our tokens
         run: pnpm --filter @stint/web detox
 

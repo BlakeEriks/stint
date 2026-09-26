@@ -80,7 +80,7 @@ export const ListClientsQuery = z.object({
 
 // ── project ────────────────────────────────────────────────────────
 /**
- * No `color` — colour identifies a client. The database column still exists:
+ * No `color` — color identifies a client. The database column still exists:
  * retiring one is two releases, and this is the release that stops writing
  * it.
  */
