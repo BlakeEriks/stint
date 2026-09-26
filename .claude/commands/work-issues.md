@@ -8,6 +8,8 @@ Blake can test from its preview link. Blake merges; merging is the deploy, so
 
 - `/work-issues 24 18` works those issues, in that order, then stops.
 - `/work-issues --one` works issues until one PR is open, then stops.
+  `/loop /work-issues --one` starts no second issue: later wakes only catch
+  up, until that PR is `ready-for-qa` or `needs-input`.
 - `/work-issues` alone works until nothing is left; `/loop /work-issues`
   comes back while CI is still running.
 
@@ -15,7 +17,10 @@ Step 0 runs every time, so open PRs are caught up before anything new.
 
 **You orchestrate; subagents build and review.** `issue-builder` does the
 work and `issue-reviewer` reviews it, each in its own subagent reporting back
-one paragraph. Your context holds a summary per issue, not the work, and a
+one paragraph. **One builder per issue**: brief it with the issue or PR
+number and nothing else, and send it everything after — findings, `ship` —
+by SendMessage to its agentId. Never a second builder for that issue, and
+never a status check: its notification is its status. Your context holds a summary per issue, not the work, and a
 long run survives auto-compaction. Nothing smaller than an issue or a round
 of fixes gets a subagent — each one re-reads the project, and that is the
 cost.
@@ -44,16 +49,18 @@ Every build and every fix goes the same way:
 1. A builder does the work and commits, unpushed, and reports back.
 2. `issue-reviewer` reviews the round's commits — the whole branch on a
    first build — unless the round is small: under about 20 lines and no
-   logic change in auth, the API or data access. It runs `/code-review`, and
-   `/security-review` too when the commits touch auth, the API or data
+   logic change in auth, the API or data access. It reviews the diff and what
+   it calls, for security too when the commits touch auth, the API or data
    access.
 3. Findings that hold up go back to the same builder (SendMessage); its fix
-   is reviewed again only if it is not small.
-4. Tell the builder `ship`.
+   is reviewed again only if it is not small — judged from
+   `git diff --stat` of the fix once it is committed, never in advance.
+4. Send `ship` as its own message.
 
 Blake sees the fixed work, never the findings.
 
-**Log every subagent run**: append one line to
+**Log every subagent run** — you alone, as each result arrives, `at` from
+`date -u +%FT%RZ`: append one line to
 `.claude/work-issues/runs.jsonl` in the main checkout — the parent of
 `git rev-parse --git-common-dir` — so runs can be triaged later for what cost
 the most. Gitignored; one JSON object per line:
@@ -121,6 +128,6 @@ When the mode is done or nothing is left to pick, end with one summary: PRs
 opened or updated, which are `ready-for-qa`, what is `needs-input` and its
 question, and anything that failed.
 
-Under `/loop`, wake again in an hour only while an open PR's CI is still
+Under `/loop`, wake again in 15 minutes only while an open PR's CI is still
 running. Otherwise end the loop: Discord tells Blake when something needs
 him, and he starts it again after replying.
