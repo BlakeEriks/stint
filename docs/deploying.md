@@ -71,6 +71,10 @@ Repo → Settings → Branches → Add rule for `main`:
 
 - Require a pull request before merging
 - Require status checks to pass → **`static`** and **`database`**
+- **Leave "Require branches to be up to date" off.** On, every merge puts
+  every open PR behind and each needs a rebase and a second CI run. Off, two
+  PRs green apart could break together; CI on the push to `main`, Vercel's
+  build and the release approval catch that.
 - **Leave "include administrators" off.** Solo, you want the gate to hold by
   default but to be bypassable at 2am when you are the only person who can
   fix production.
@@ -300,7 +304,7 @@ PR at a time may carry a migration**.
 
 A free project pauses after a week unused; restore it from the dashboard.
 
-**`ready-for-qa`** on a PR — up to date with `main`, CI green, no feedback
+**`ready-for-qa`** on a PR — no conflict with `main`, CI green, no feedback
 outstanding — and **`needs-input`** on an issue or PR make
 `.github/workflows/notify.yml` post it to Discord, through the alerts webhook
 (§3c).

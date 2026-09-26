@@ -91,7 +91,7 @@ Feedback, doc drift or a failed check on an open PR: fix it on its branch
 with tests, verify as above, commit unpushed, and report back — push and
 comment only on `ship`, as for a new PR.
 
-**Behind `main`:** `git merge origin/main` into the branch — never rebase,
+**Conflicts with `main`:** `git merge origin/main` into the branch — never rebase,
 never force-push. Resolve any conflicts, verify as above, commit, and report
 back whether it merged clean or needed resolving. For a failed check, read
 the failing job's log first. For doc drift, fix each finding in the doc or

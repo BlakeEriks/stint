@@ -34,7 +34,7 @@ never feedback, except the doc-drift comment step 0 reads.
 
 **Labels are the loop's memory**, so nothing is worked out twice:
 
-- `ready-for-qa` (PR): Blake can test and merge it now — up to date with
+- `ready-for-qa` (PR): Blake can test and merge it now — no conflict with
   `main`, CI green, no question open, nothing he said unanswered. Off the
   moment any of that stops being true.
 - `needs-input` (issue or PR): a question only Blake can answer, asked in a
@@ -102,19 +102,19 @@ is `reviewed`.
      names the PR's head commit (`gh pr view <n> --json headRefOid`), lists
      findings, and has no marked comment after it: remove `ready-for-qa`,
      then a round of fixes.
-  5. **Behind `main`** (`gh pr view <n> --json mergeStateStatus` says
-     `BEHIND` or `DIRTY`): remove `ready-for-qa`, then a round in which the
-     builder merges `main` in. Review it only if conflicts needed resolving.
-     `main` requires branches to be up to date, so a PR behind it cannot
-     merge.
+  5. **Conflicts with `main`** (`gh pr view <n> --json mergeStateStatus`
+     says `DIRTY`): remove `ready-for-qa`, then a round in which the builder
+     merges `main` in. Review it only if the conflicts needed resolving. A PR
+     merely behind `main` is fine: `main` does not require branches to be up
+     to date.
   6. **CI green and none of the above:** add `ready-for-qa`, once.
   7. **CI still running:** leave it for the next pass.
 - **Each open Dependabot PR** (`gh pr list --author app/dependabot`), the
   same steps, except:
   - 3: first `gh pr merge --disable-auto <n>`, so Blake reviews the fix
     before it merges.
-  - 5: `BEHIND` is `gh pr update-branch <n>`, not a round. `DIRTY` with only
-    Dependabot's commits is left to Dependabot, which rebases its own.
+  - 5: `DIRTY` with only Dependabot's commits is left to Dependabot, which
+    rebases its own.
   - 6: only when auto-merge is off (`gh pr view <n> --json autoMergeRequest`
     is null). The rest merge themselves (`dependabot-merge.yml`).
 - **Blocked issues:** remove `blocked` from any whose named PR has merged or
