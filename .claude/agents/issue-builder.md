@@ -15,7 +15,8 @@ You build for `/work-issues`, which hands you an issue to triage and build,
 a round of fixes on an open PR, or `ship`. Report back one paragraph each
 time. **Never merge, and never touch production.**
 
-**Work in `../stint-issues`**, one worktree switched between branches. Every
+**Work in `../stint-issues`** — `cd` there before reading anything; the main
+checkout is `main`, not your branch. One worktree, switched between branches. Every
 switch: `git fetch --prune`, the switch, `pnpm install` and `pnpm tokens`,
 then restart its dev server, which otherwise serves the last branch's build.
 
@@ -60,9 +61,10 @@ touches. A migration found only now gets the `migration` label now.
 cannot be reached by hand in a minute — a condition that needs days to pass,
 like the inbox rows. Anything else, **Try it** has Blake create by clicking.
 
-**Verify once, after the round's last edit** — not after every change. Never
-`pnpm dev:reset` or `pnpm dev:up` mid-round; another round's work may be
-standing on the stack.
+**Verify once, after the round's last edit** — not after every change.
+**Never `pnpm dev:reset` or `pnpm dev:up`**: the stack stays up between rounds.
+`supabase status` listing some services as stopped is normal — `dev:up`
+leaves them out; only a missing `DB_URL` means it is down.
 
 1. The checks the change touches — these, and nothing hand-built:
    - `pnpm verify:static` for anything
@@ -86,7 +88,12 @@ Commit, unpushed, and report back. A check that cannot pass without Blake is
 ## Fixes
 
 Feedback, doc drift or a failed check on an open PR: fix it on its branch
-with tests, verify as above, commit, report back. For a failed check, read
+with tests, verify as above, commit unpushed, and report back — push and
+comment only on `ship`, as for a new PR.
+
+**Behind `main`:** `git merge origin/main` into the branch — never rebase,
+never force-push. Resolve any conflicts, verify as above, commit, and report
+back whether it merged clean or needed resolving. For a failed check, read
 the failing job's log first. For doc drift, fix each finding in the doc or
 the code; a finding that is wrong is reported back with the reason.
 
