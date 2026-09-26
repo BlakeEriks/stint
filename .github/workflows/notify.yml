@@ -1,0 +1,36 @@
+name: notify
+
+# Posts to Discord when something is waiting on Blake:
+#   ready-for-qa on a PR   CI green, no feedback outstanding, ready to try
+#   needs-input on an issue  a question only he can answer
+# `/work-issues` sets both labels; anyone adding one by hand posts the same way.
+#
+# Uses DISCORD_ALERTS_WEBHOOK, the repository secret release.yml posts
+# through too.
+on:
+  pull_request:
+    types: [labeled]
+  issues:
+    types: [labeled]
+
+permissions: {}
+
+jobs:
+  tell-discord:
+    if: >-
+      (github.event_name == 'pull_request' && github.event.label.name == 'ready-for-qa') ||
+      (github.event_name == 'issues' && github.event.label.name == 'needs-input')
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          WEBHOOK: ${{ secrets.DISCORD_ALERTS_WEBHOOK }}
+          KIND: ${{ github.event.label.name }}
+          NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          TITLE: ${{ github.event.pull_request.title || github.event.issue.title }}
+          URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
+        run: |
+          if [ "$KIND" = ready-for-qa ]; then prefix="🧪 Ready for QA"; else prefix="❓ Needs input"; fi
+          text="$prefix: #$NUMBER $TITLE — $URL"
+          # Empty allowed_mentions: a title can never ping anyone.
+          jq -n --arg c "$text" '{content: $c, allowed_mentions: {parse: []}}' |
+            curl -fsS -m 10 -o /dev/null -H 'Content-Type: application/json' -d @- "$WEBHOOK"

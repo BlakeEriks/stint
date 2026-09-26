@@ -14,10 +14,11 @@ Blake can test from its preview link. Blake merges; merging is the deploy, so
 Step 0 runs every time, so open PRs are caught up before anything new.
 
 **You orchestrate; subagents build.** Each issue, and each round of fixes on
-an open PR, runs in its own subagent (Opus), handed this file, the issue or
-PR number and the step it is on. It reports back one paragraph: the PR, the
-`needs-input` question, or what failed. Your context holds a summary per
-issue, not the work, and a long run survives auto-compaction.
+an open PR, runs in an `issue-builder` subagent, handed the issue or PR number
+and the step it is on; `issue-reviewer` reviews before anything ships (step
+3). Both report back one paragraph. Your context holds a summary per issue,
+not the work, and a long run survives auto-compaction. Nothing smaller gets a
+subagent — each one re-reads the project, and that is the cost.
 
 All work happens in one long-lived worktree, `../stint-issues`, switching
 branches there. Make it with `pnpm worktree issues` the first time. Every
@@ -30,9 +31,18 @@ Blake, so the marker is the only way to tell your comments from his. **Blake's
 comment** below means one by `BlakeEriks` without the marker; bots' comments,
 Vercel's included, are never feedback.
 
-**`ready-for-qa` on a PR means Blake can test it now**: CI green, nothing he
-said left unanswered. Adding it posts to Discord. Take it off the
-moment either stops being true.
+**Labels are the loop's memory**, so nothing is worked out twice:
+
+- `ready-for-qa` (PR): Blake can test it now — CI green, nothing he said
+  left unanswered. Take it off the moment either stops being true.
+- `needs-input` (issue or PR): a question only Blake can answer, asked in a
+  marked comment.
+- `blocked` (issue): waits on another PR. The marked comment says which, and
+  why: "Blocked by #31: both change the inbox."
+- `migration` (issue and its PR): the fix needs a database migration.
+- `urgent` (issue): Blake's, to jump the queue.
+
+Adding `ready-for-qa` or `needs-input` posts to Discord.
 
 ## 0. Catch up
 
@@ -40,16 +50,18 @@ moment either stops being true.
   `git branch -d` every branch `git branch --merged origin/main` lists.
 - **Each open PR of yours**, in order:
   1. **Feedback:** a comment or review of Blake's newer than your last push
-     and your last marked comment. Remove `ready-for-qa`, then a subagent
-     addresses it: change, verify, push, reply with what changed and an
-     updated **Try it**. Feedback beyond the PR's scope becomes a new issue,
+     and your last marked comment. Remove `ready-for-qa`, then a builder
+     addresses it: change, verify, review the new commits as step 3 says,
+     push, reply with what changed and an updated **Try it**. Feedback beyond the PR's scope becomes a new issue,
      linked in the reply. A question back gets `needs-input`, as in step 2.
-  2. **CI failed** (`gh pr checks <n>`): remove `ready-for-qa`; a subagent
+  2. **CI failed** (`gh pr checks <n>`): remove `ready-for-qa`; a builder
      reads the failing job's log, fixes it on the branch and pushes. A failure
      the branch did not cause — red on `main` too — is still fixed, in its own
      commit that says so.
   3. **CI green and nothing outstanding:** add `ready-for-qa`, once.
   4. **CI still running:** leave it for the next pass.
+- **Blocked issues:** remove `blocked` from any whose named PR has merged or
+  closed — one `gh pr view` each, not a new investigation.
 
 ## 1. Pick
 
@@ -58,15 +70,15 @@ skip every issue that:
 
 - is labelled `needs-input` with no comment of Blake's since your last
   marked one
+- is labelled `blocked`
 - already has an open PR
   (`gh issue view <n> --json closedByPullRequestsReferences`)
-- depends on an unmerged PR, or will likely touch the same files as one
-- needs a migration while another open PR carries one — previews share one
+- is labelled `migration` while an open PR is too — previews share one
   database schema, so one migration PR at a time
 
-Take the worst first: `wrong data`, then `misleading`, then `looks wrong`,
+`urgent` first, then the worst: `wrong data`, `misleading`, `looks wrong`,
 then `enhancement`; oldest first within a label. None left → step 5.
-Otherwise hand it to a subagent for steps 2–4.
+Otherwise hand it to a builder for steps 2–4.
 
 ## 2. Triage — does this need Blake?
 
@@ -84,6 +96,14 @@ Anything else, decide yourself and put the reasoning in the PR. When it does
 need Blake: comment one specific question on the issue, with the options and
 your recommendation, add the `needs-input` label, and report back.
 
+Then two checks, each settled once and kept as a label:
+
+- **Overlap:** compare the files this fix will touch with each open PR's
+  (`gh pr view <n> --json files` — a list, not a read). A shared file makes
+  it `blocked`, with the marked comment naming the PR; report back.
+- **Migration:** if the fix needs one, label it `migration`. If another open
+  PR is labelled `migration`, it is `blocked` on that PR too.
+
 ## 3. Build
 
 Picking up a `needs-input` issue Blake has answered: remove the label, and
@@ -92,18 +112,25 @@ continue its pushed branch if it has one. Anything else: branch off
 characters: it becomes the preview's URL, and Vercel hashes longer ones.
 
 Fix it with tests, following `CLAUDE.md` and the `.claude/rules/` the change
-touches. If testing it needs data the seed does not make, add that to
-`scripts/seed-account.mjs`: the PR's preview account is seeded from it, and
-local dev gets it too. Before calling it done:
+touches. A migration found only now gets the `migration` label now. Test data
+goes in `scripts/seed-account.mjs` only for a state that cannot be reached by
+hand in a minute — a condition that needs days to pass, like the inbox rows.
+Anything else, **Try it** has Blake create by clicking; the seed is shared by
+every account and must not grow a scenario per PR. Before calling it done:
 
 - `pnpm lint`, `pnpm typecheck` and the suites the change affects pass
 - a web change has been seen signed in to local Stint
 - a macOS change builds and has been seen in the app
 
-Commit, and report back unpushed. The orchestrator has a second subagent
-review the diff with `/code-review`, and `/security-review` too when it
-touches auth, the API or data access, then sends the builder what holds up
-to fix. Blake sees the fixed work, never the findings.
+Commit, and report back unpushed. The orchestrator has `issue-reviewer`
+review the new commits — the whole branch the first time, only the round's
+commits after feedback or a CI fix — then sends the builder what holds up to
+fix. Blake sees the fixed work, never the findings.
+
+- `/code-review` on every first review, and on a later round that changes
+  logic or more than about 20 lines. A round of wording or copy skips it.
+- `/security-review` too whenever the commits touch auth, the API or data
+  access.
 
 If a check cannot pass without Blake, treat it as step 2's `needs-input`, with
 the branch pushed so the work survives.
@@ -120,6 +147,8 @@ verified, any call you made that Blake might make differently, and:
 
     1. <an action> — <what you should see>
 
+    Data back to the seed: re-run this PR's **preview-db** check.
+
 A macOS PR opens its section with the command instead:
 
     ## Try it
@@ -131,9 +160,9 @@ A macOS PR opens its section with the command instead:
 
     1. <an action> — <what you should see>
 
-`<branch>` is the branch name lowercased, anything else a hyphen; `<n>` is
-the PR number, so create the PR first, then add the section with
-`gh pr edit`. Every step says what Blake should see, never just what to do.
+Label the PR `migration` if its issue is. `<branch>` is the branch name
+lowercased, anything else a hyphen; `<n>` is the PR number, so create the PR
+first, then add the section with `gh pr edit`. Every step says what Blake should see, never just what to do.
 No `ready-for-qa` yet — step 0 adds it once CI is green.
 
 Then step 5 if this was the `--one` issue or the last one named; otherwise
