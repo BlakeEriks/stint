@@ -263,6 +263,29 @@ describe('the three regions', () => {
     expect(green[0]?.getAttribute('data-projection')).toBe('end');
   });
 
+  it('lands the projection endpoint on or below the top labeled gridline', async () => {
+    serve(() => stats());
+    const { container } = render(<HomeCards />, { wrapper });
+
+    const end = await waitFor(() => {
+      const el = container.querySelector('[data-projection="end"]');
+      if (!el) throw new Error('no endpoint');
+      return el;
+    });
+
+    // SVG y grows downward, so the top gridline has the smallest y.
+    const endY = Number(end.getAttribute('d')?.match(/^M[\d.]+,([\d.]+)/)?.[1]);
+    const lines = [...container.querySelectorAll('svg line')];
+    const topY = Math.min(...lines.map((l) => Number(l.getAttribute('y1'))));
+    expect(endY).toBeGreaterThanOrEqual(topY);
+
+    // The scale rounds up to a step a reader can add: $11,817 reads against $12k.
+    const labels = [...container.querySelectorAll('[data-axis="y"] span')].map(
+      (el) => el.textContent,
+    );
+    expect(labels).toEqual(['$3k', '$6k', '$9k', '$12k']);
+  });
+
   it('renders the empty state when the projection is null, never NaN', async () => {
     serve(() => stats({ month: month({ projected: null, projection: null }) }));
     const { container } = render(<HomeCards />, { wrapper });
