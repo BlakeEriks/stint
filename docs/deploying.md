@@ -297,9 +297,10 @@ PR at a time may carry a migration**.
 
 A free project pauses after a week unused; restore it from the dashboard.
 
-**`ready-for-qa`** on a PR — CI green, no feedback outstanding — and
-**`needs-input`** on an issue make `.github/workflows/notify.yml` post it to
-Discord, through the alerts webhook (§3c).
+**`ready-for-qa`** on a PR — up to date with `main`, CI green, no feedback
+outstanding — and **`needs-input`** on an issue or PR make
+`.github/workflows/notify.yml` post it to Discord, through the alerts webhook
+(§3c).
 
 ## 4. Auth redirect URLs
 
