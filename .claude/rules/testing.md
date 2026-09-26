@@ -22,7 +22,8 @@ instance — `verify:all` runs it alongside the browser suite, which has the
 same requirement. **Run `db:setup` before every `verify:db`** — it rebuilds
 both test databases from this checkout's migrations in seconds, and one left
 from another branch or an older migration tests a schema that is not this
-one.
+one. Every checkout shares them, so one run at a time: `db:setup` ends
+another checkout's run mid-suite.
 
 Invoking a suite directly means supplying its connection variables yourself,
 and the RLS suite reads two: without `DATABASE_URL` its admin pool falls back

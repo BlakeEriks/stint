@@ -51,26 +51,16 @@ through the generated `dist/`.
 
 ### Running the API tests
 
-They exercise the real handlers against a real database, so **every**
-migration must be applied and the Supabase `auth` schema stubbed:
+They exercise the real handlers against a real database, and the RLS suite
+checks row isolation as a non-superuser `authenticated` role — two throwaway
+databases on the local stack's Postgres, beside the seed:
 
 ```bash
-createdb tt
-psql tt -c "create schema auth" \
-       -c "create table auth.users (id uuid primary key default gen_random_uuid(), email text)" \
-       -c "create function auth.uid() returns uuid language sql stable as \$\$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid \$\$"
-for f in supabase/migrations/*.sql; do psql tt -f "$f"; done
-DATABASE_URL=postgresql://localhost/tt pnpm --filter @stint/web test
+pnpm db:setup    # rebuilds both from this checkout's migrations
+pnpm verify:db   # both suites, then the schema check
 ```
 
-Those tests disable RLS to run through a direct connection. RLS is covered
-separately by `pnpm --filter @stint/web test:rls`, which needs its own database
-with RLS left on and a non-superuser `authenticated` role — see the
-"Set up the RLS database" step in `.github/workflows/ci.yml`, the
-authoritative sequence for both.
-
-`pnpm db:setup` builds both databases on the local stack's Postgres, and
-`pnpm verify:db` runs both suites and the schema check against them.
+`docs/local-dev.md` has why there are two.
 
 `pnpm test:e2e` is a fourth suite: Playwright against a real browser, needing
 the local Supabase stack (`pnpm dev:up`) and the app (`pnpm dev`) already

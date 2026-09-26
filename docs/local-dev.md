@@ -363,6 +363,7 @@ pnpm verify:db   # route and RLS suites, then verify:schema
 never touch it: `tt` with RLS off, for the route tests, and `tt_rls` with RLS
 on, reached as `authenticated`, for the RLS tests. Run it before every
 `verify:db` — it takes seconds, and a database left from another branch tests
-the wrong schema. **Never point a suite at `postgres`
+the wrong schema. Every checkout on the stack shares the two, so **one run at a time**:
+a `db:setup` ends any other checkout's run mid-suite. **Never point a suite at `postgres`
 itself**: the route tests truncate every table in `beforeEach`, and the seed
 goes with them.
