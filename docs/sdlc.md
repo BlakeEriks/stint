@@ -31,7 +31,7 @@ flowchart TD
   subgraph Ship
     release["Release gate<br/>plan → approve + backup if migrating<br/>→ migrate + verify"]
     live([Live])
-    cleanup["git worktree remove<br/>git branch -d"]
+    cleanup["git worktree remove<br/>git branch -D"]
   end
 
   idea -->|fault or tweak| issue
