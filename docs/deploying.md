@@ -27,7 +27,8 @@ the domain until required checks pass, so the migration runs while the
 `.github/workflows/ci.yml`, four jobs in parallel:
 
 - **`static`** — lint, token drift, the contrast contract, shadcn detox, the
-  typography scale, typecheck, the UI suite, core logic, then a build.
+  typography scale, typecheck, the UI suite, core logic, the hygiene scan's
+  tests, then a build.
   Needs no database, so an obvious slip fails in seconds.
 - **`database`** — the route and RLS suites against a real Postgres service
   container. `scripts/ci-db.sh` builds both databases, applying migrations
@@ -40,6 +41,11 @@ the domain until required checks pass, so the migration runs while the
   because it needs GoTrue and Mailpit, not the bare Postgres the others use,
   and because keeping it separate means a type error reports without waiting
   behind a Docker pull.
+
+Two more workflows report and never block. `docs.yml` runs Vale on the doc
+lines a PR adds and `/doc-drift` on the owner's PRs. `hygiene.yml` files
+issues each Monday from `pnpm hygiene`. Both spend Claude tokens from the
+`CLAUDE_CODE_OAUTH_TOKEN` secret, and only for the repository owner.
 
 Two narrowings in `e2e` pay for themselves and are easy to undo by accident:
 `supabase start -x studio,postgres-meta` skips 2.25GB of images the browser

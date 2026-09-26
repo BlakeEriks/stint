@@ -14,7 +14,8 @@ number and its base branch; locally, with none, check this branch against
 
 ## 1. Read the change
 
-`git diff origin/<base>...HEAD --stat`, then the diff itself. List the
+`git diff <base>...HEAD --stat`, then the diff itself: `<base>` is
+`origin/<base-branch>` in CI and `main` locally. List the
 **behaviour** it changes: an endpoint, a field, a default, a rule, a screen,
 a command, a script. A rename, a refactor or a test-only change alters no
 behaviour, so it has nothing to drift from.
@@ -32,10 +33,14 @@ Nothing changed behaviour → go to step 4 with no findings.
 | a screen | its doc in `docs/design/screens/` |
 | running, building or deploying | `docs/local-dev.md`, `docs/deploying.md`, `docs/setup.md` |
 | a rule true only under one path | the `.claude/rules/*.md` whose `paths:` match |
+| a CI workflow | `docs/deploying.md` |
+| a `pnpm` script | `docs/local-dev.md`, `README.md` |
 | a repo-wide constraint | `CLAUDE.md` |
 
-Grep the docs for the names the diff touched as well: a function, route, column
-or script named in a doc is a claim about it.
+Grep `docs/`, `README.md`, the `CLAUDE.md` files and `.claude/` for the
+names the diff touched as well: a function, route, column or script named
+there is a claim about it. `specs/` is Spec Kit's record of past features;
+leave it out.
 
 ## 3. Check each claim against the new code
 
@@ -48,8 +53,9 @@ For each claim, find a finding when:
 - **it points at nothing**: a file, script or `pnpm` command named in a doc
   that the PR removed or renamed
 
-Verify each against the code before reporting it. A doc that is merely
-incomplete about something the PR did not touch is out of scope.
+Verify each against the code before reporting it. Report only drift this
+diff caused: a stale claim about code the PR did not change is out of
+scope.
 
 ## 4. Post one comment
 
