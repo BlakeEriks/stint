@@ -55,7 +55,8 @@ Every build and every fix goes the same way:
    and no logic change in auth, the API or data access. Brief it with the
    commit range in `../stint-issues`, that it is read-only, and to review the
    diff and what it calls — for security too when the commits touch auth, the
-   API or data access.
+   API or data access — and to report in one paragraph: each finding it is
+   confident in, with file:line, the failure and the fix.
 3. Findings that hold up go back to the same builder (SendMessage); its fix
    is reviewed again only if it is not small — judged from
    `git diff --stat` of the fix once it is committed, never in advance.
@@ -100,8 +101,9 @@ is `reviewed`.
        comment saying what failed and what was tried.
   4. **Doc drift** — the newest comment starting `<!-- doc-drift:<sha> -->`
      names the PR's head commit (`gh pr view <n> --json headRefOid`), lists
-     findings, and has no marked comment after it: remove `ready-for-qa`,
-     then a round of fixes.
+     findings, and no marked comment is newer than its `updatedAt` — it is
+     edited on each push, so its `createdAt` is the first push's: remove
+     `ready-for-qa`, then a round of fixes.
   5. **Conflicts with `main`** (`gh pr view <n> --json mergeStateStatus`
      says `DIRTY`): remove `ready-for-qa`, then a round in which the builder
      merges `main` in. Review it only if the conflicts needed resolving. A PR
