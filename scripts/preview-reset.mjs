@@ -36,7 +36,7 @@ await db.connect();
 if (process.argv.includes('--applied')) {
   try {
     const { rows } = await db.query(
-      'select version from schema_migrations order by version',
+      'select version from schema_migrations order by version collate "C"',
     );
     for (const r of rows) console.log(r.version);
   } catch (error) {

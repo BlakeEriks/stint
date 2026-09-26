@@ -36,6 +36,12 @@ permissions:
   contents: read
   pull-requests: read
 
+# Named, so steps run with pipefail too: a bare `run` is `bash -e` alone,
+# and a failed `gh` feeding a pipe or a `for` list would pass silently.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   preview-db:
     # Dependabot's PRs cannot read secrets, and their previews need no account.
@@ -75,22 +81,33 @@ jobs:
           BRANCH: ${{ github.head_ref }}
           EVENT: ${{ github.event_name }}
         run: |
+          # One collation for both lists, or `comm` misreads them.
+          export LC_ALL=C
           applied=$(node scripts/preview-reset.mjs --applied)
           files=$(ls supabase/migrations | grep '\.sql$' | sort)
           missing=$(comm -23 <(echo "$files") <(echo "$applied"))
           extra=$(comm -13 <(echo "$files") <(echo "$applied"))
 
-          # An extra migration is kept only while an open PR still holds it.
-          orphaned=false
+          # An extra migration is kept only while an open PR still holds it;
+          # any one held by none orphans the schema. Assigned, not inlined in
+          # the `for`, so a failed `gh` stops the step instead of reading as
+          # "no open PRs" and wiping every account.
+          held=""
           if [ -n "$extra" ]; then
-            orphaned=true
-            for branch in $(gh pr list --state open --json headRefName -q '.[].headRefName'); do
-              git fetch --quiet --depth 1 origin "$branch" || continue
+            branches=$(gh pr list --state open --json headRefName -q '.[].headRefName')
+            for branch in $branches; do
+              git fetch --quiet --depth 1 origin "$branch"
               for f in $extra; do
-                git cat-file -e "FETCH_HEAD:supabase/migrations/$f" 2>/dev/null && orphaned=false
+                if git cat-file -e "FETCH_HEAD:supabase/migrations/$f" 2>/dev/null; then
+                  held="$held $f"
+                fi
               done
             done
           fi
+          orphaned=false
+          for f in $extra; do
+            case " $held " in *" $f "*) ;; *) orphaned=true ;; esac
+          done
 
           reset=false
           if [ "$EVENT" = workflow_dispatch ] || [ -n "$missing" ] || [ "$orphaned" = true ]; then

@@ -126,6 +126,7 @@ final class TimerModel {
             await tokens.setOnChange { [weak self] session in
                 Task { @MainActor in
                     self?.isSignedIn = session != nil
+                    if session != nil { self?.previewSignInError = nil }
                     self?.email = session?.email
                 }
             }

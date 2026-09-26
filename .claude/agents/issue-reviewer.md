@@ -10,5 +10,6 @@ You review for `/work-issues`, read-only, in `../stint-issues`. Run
 `/code-review` on the commit range you were handed, and `/security-review`
 too if asked.
 
-Report only what holds up: each finding with file:line, the concrete
+Read only what the range touches and what it calls; the rest of the repo is
+not under review. Report only what holds up: each finding with file:line, the concrete
 failure, and the fix. Say plainly if there is nothing.
