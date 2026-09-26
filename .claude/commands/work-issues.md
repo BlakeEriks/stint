@@ -31,7 +31,7 @@ comment** below means one by `BlakeEriks` without the marker; bots' comments,
 Vercel's included, are never feedback.
 
 **`ready-for-qa` on a PR means Blake can test it now**: CI green, nothing he
-said left unanswered. Adding it posts to Discord #events. Take it off the
+said left unanswered. Adding it posts to Discord. Take it off the
 moment either stops being true.
 
 ## 0. Catch up

@@ -263,8 +263,9 @@ rejection or cancellation (you did it), and a backup that worked
 nothing, it is a log line. One event is one message from one source — never
 the same failure from GitHub and from healthchecks.io.
 
-The webhook is the `DISCORD_ALERTS_WEBHOOK` secret on Production and exists
-nowhere else: anyone holding it can post to the channel.
+The webhook is the `DISCORD_ALERTS_WEBHOOK` repository secret, shared by
+`release.yml` and `ready-for-qa.yml` (§3d), and exists nowhere else: anyone
+holding it can post to the channel.
 
 ## 3d. Previews
 
@@ -291,8 +292,8 @@ PR at a time may carry a migration**.
 A free project pauses after a week unused; restore it from the dashboard.
 
 **`ready-for-qa`** on a PR — CI green, no feedback outstanding — makes
-`.github/workflows/ready-for-qa.yml` post it to Discord #events. It needs
-`DISCORD_EVENTS_WEBHOOK`, a webhook on that channel, as a repository secret.
+`.github/workflows/ready-for-qa.yml` post it to Discord, through the alerts
+webhook (§3c).
 
 ## 4. Auth redirect URLs
 
