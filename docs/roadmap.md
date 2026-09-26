@@ -48,6 +48,59 @@ the gate teaches the next reader that the gate is optional.
 
 ---
 
+## Next · Our own invoice goes out of Stint
+
+**Ahead of M2, and it blocks alpha.** Alpha is someone using it for real, and
+the first someone is us: the September invoice to our one client is the
+first that has to leave Stint rather than be assembled beside it. A friend
+with the same kind of client gets the same answer we do.
+
+- [ ] **Supporting schedules: hours by week, by project, and by day.**
+
+      *Whose problem:* a contractor whose client approves hours before
+      paying — a statement of work that asks for weekly hours and a breakdown
+      by workstream. The invoice bills one line, hours × rate; the schedules
+      behind it are what gets that line approved.
+
+      *Without it:* they build the invoice somewhere else, and the invoice is
+      what we charge for. They leave in month three.
+
+      *One person:* yes — one account's entries, grouped by things that
+      already exist: `week_starts_on`, projects and days.
+
+      *Milestone:* blocks alpha, per the section above.
+
+      **The billed line stays one; the schedules are its evidence.** That is
+      what separates this from `grouping_mode`, which splits the line items
+      themselves. **Schedules freeze with the invoice**, like line items,
+      because a PDF regenerated next year must print what the client
+      approved. A workstream is a project under the client, so the rollup is
+      by project and needs no new entity.
+
+      Decide in the spec: whether schedules are set on the client (the
+      statement of work is the client's) or chosen per invoice, and whether
+      the day detail carries amounts.
+
+- [ ] **Reimbursable expenses on the invoice.**
+
+      *Whose problem:* a contractor whose client pre-approved a cost —
+      tooling, a license, travel — and reimburses it on the invoice.
+
+      *Without it:* the invoice is short by the expense, or built elsewhere.
+      Same outcome as above.
+
+      *One person:* yes.
+
+      *Milestone:* blocks alpha — the September invoice carries one.
+
+      **An expense has an amount and no duration, so it is its own subtotal
+      below services**, never a time entry and never hours × rate. It freezes
+      and locks when invoiced, as an entry does.
+
+      Decide in the spec: whether an expense is a row that waits to be
+      invoiced, the way unbilled time does, or is typed onto the invoice at
+      generation; and whether a receipt attaches.
+
 ## M2 · Someone else can open it
 
 **Nothing here is product work**, which is why it was missing: the roadmap
