@@ -83,8 +83,9 @@ is `reviewed`.
 ## 0. Catch up
 
 - **Merged:** in `../stint-issues`, `git fetch --prune`,
-  `git switch --detach origin/main`, then `git branch -d` every branch
-  `git branch --merged origin/main` lists except `main`.
+  `git switch --detach origin/main`, then `git branch -D` every local branch
+  whose PR has merged (`gh pr list --state merged --head <branch>`). PRs
+  squash-merge, so `git branch --merged` never lists them.
 - **Each open PR of yours**, in order:
   1. **`needs-input`:** if Blake has commented since the marked question,
      remove the label and treat his reply as feedback. Otherwise skip the PR.

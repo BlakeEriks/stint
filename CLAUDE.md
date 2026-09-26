@@ -106,9 +106,9 @@ main. Two worktrees are long-lived and switch branches: `../stint-issues`, where
 `/work-issues` builds, and `../stint-review`, where `pnpm try-mac` checks out
 a PR.
 
-**Merging a branch closes its worktree in the same step.** Once it is in
-main: `git worktree remove <path>`, then `git branch -d <branch>` — `-d`,
-never `-D`, so a branch with unmerged work refuses rather than vanishes. A
+**Merging a branch closes its worktree in the same step.** Once its PR has
+merged: `git worktree remove <path>`, then `git branch -D <branch>`. PRs
+squash-merge, so git never sees the branch as merged and `-d` refuses. A
 worktree with uncommitted changes is someone's work; ask before touching it.
 `git worktree list` should show only what is still in flight.
 
