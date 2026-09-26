@@ -68,9 +68,10 @@ describe('filedPaths', () => {
     assert.deepEqual([...filedPaths([issue('a.ts', 'OPEN')], now)], ['a.ts']);
   });
 
-  it('frees a file once its issue is completed, so returning debt is refiled', () => {
-    const done = issue('a.ts', 'CLOSED', 'COMPLETED', '2026-09-20');
-    assert.equal(filedPaths([done], now).size, 0);
+  it('holds a fixed file for 30 days, so leftover findings are not refiled at once', () => {
+    const recent = issue('a.ts', 'CLOSED', 'COMPLETED', '2026-09-20');
+    const old = issue('b.ts', 'CLOSED', 'COMPLETED', '2026-08-01');
+    assert.deepEqual([...filedPaths([recent, old], now)], ['a.ts']);
   });
 
   it('holds a declined file for 90 days, then files it again', () => {

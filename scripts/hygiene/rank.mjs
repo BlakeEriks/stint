@@ -48,20 +48,20 @@ export function rank(findings, commits, skip = new Set()) {
 }
 
 /* An issue owns its file through a marker in its body. A file stays skipped
-   while its issue is open, and for 90 days after it is closed as not
-   planned; a completed issue frees it, so debt that comes back is refiled. */
+   while its issue is open, and for a while after it closes: a fix may leave
+   findings in place on purpose, and a declined file was judged fine. After
+   that, debt still there is filed again. */
 export const MARKER = /<!-- hygiene:(\S+) -->/;
-const NOT_PLANNED_DAYS = 90;
+const HOLD_DAYS = { COMPLETED: 30, NOT_PLANNED: 90 };
 
 export function filedPaths(issues, now = Date.now()) {
   const paths = new Set();
   for (const issue of issues) {
     const path = issue.body?.match(MARKER)?.[1];
     if (!path) continue;
-    const declinedRecently =
-      issue.stateReason === 'NOT_PLANNED' &&
-      now - Date.parse(issue.closedAt) < NOT_PLANNED_DAYS * 86_400_000;
-    if (issue.state === 'OPEN' || declinedRecently) paths.add(path);
+    const hold = HOLD_DAYS[issue.stateReason] ?? 0;
+    const held = now - Date.parse(issue.closedAt) < hold * 86_400_000;
+    if (issue.state === 'OPEN' || held) paths.add(path);
   }
   return paths;
 }

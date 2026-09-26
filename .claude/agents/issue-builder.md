@@ -67,9 +67,10 @@ Commit, unpushed, and report back. A check that cannot pass without Blake is
 
 ## Fixes
 
-Feedback or a failed check on an open PR: fix it on its branch with tests,
-verify as above, commit, report back. For a failed check, read the failing
-job's log first.
+Feedback, doc drift or a failed check on an open PR: fix it on its branch
+with tests, verify as above, commit, report back. For a failed check, read
+the failing job's log first. For doc drift, fix each finding in the doc or
+the code; a finding that is wrong is reported back with the reason.
 
 ## Ship
 
@@ -102,5 +103,6 @@ the PR number, so create the PR first, then add the section with
 Label the PR `migration` if its issue is.
 
 On `ship` for a round of fixes: push, then one marked comment — what changed,
-and an updated **Try it** for feedback; `CI fix: <check> — <what changed>`
-for a failed check, which is how the loop counts attempts.
+and an updated **Try it** for feedback; `Doc drift: <what changed>`, plus
+each finding left alone and why, for doc drift; `CI fix: <check> — <what
+changed>` for a failed check, which is how the loop counts attempts.

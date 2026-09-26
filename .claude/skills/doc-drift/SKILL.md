@@ -1,16 +1,21 @@
 ---
 name: doc-drift
 description: Check whether the docs that own what a PR changed still hold, and post one comment on the PR. Run by the Docs workflow; locally, run it on a branch before opening the PR.
-argument-hint: "<pr-number> <base-branch>"
-allowed-tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(gh pr comment:*)
+argument-hint: "<pr-number> <base-branch> <head-sha>"
+allowed-tools: Read, Grep, Glob, Write, Bash(git diff:*), Bash(git log:*), Bash(gh pr comment:*)
 ---
 
 Check a diff for doc drift: a claim in a doc that the change made false, or
 a change that a doc should now describe and does not. `$ARGUMENTS` is a PR
-number and its base branch; locally, with none, check this branch against
-`main` and print the comment instead of posting it.
+number, its base branch and its head commit; locally, with none, check this
+branch against `main` and print the comment instead of posting it.
 
-**Report only.** Edit no file.
+**Report only.** The one file you write is the comment body.
+
+**In CI, `CLAUDE.md` and `.claude/` are the base branch's copies**: the
+action restores them so a PR cannot rewrite its own reviewer's
+instructions. The PR's versions are under `.claude-pr/`, so read those when
+checking what the PR changed in them.
 
 ## 1. Read the change
 
@@ -64,11 +69,18 @@ scope.
 
 ## 4. Post one comment
 
-`gh pr comment <number> --edit-last --create-if-none --body "<body>"`, so a push
-updates the comment instead of adding one.
+Write the body to `drift-comment.md`, then:
 
-With findings, the body is `### Doc drift` and one line each:
+    gh pr comment <number> --edit-last --create-if-none --body-file drift-comment.md
+
+`--edit-last` updates the comment on each push instead of adding one. A
+file, not `--body`, because the body is full of backticks the shell would
+run.
+
+The body's first line is `<!-- doc-drift:<head-sha> -->`, exactly:
+`/work-issues` reads it to know the comment is about the current commit.
+Then `### Doc drift` and, with findings, one line each:
 
     - `docs/api.md:142`: says `PATCH /entries/:id` rejects a running entry; `route.ts:88` now accepts it and stops the timer.
 
-With none, the body is `### Doc drift\nNone found.`
+With none, `None found.`

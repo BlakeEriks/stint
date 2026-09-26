@@ -40,13 +40,19 @@ const { values, positionals } = parseArgs({
   },
 });
 
-function run(cmd, args) {
+/* `ok` lists the exit codes that mean "ran": Knip exits 1 when it finds
+   something. Anything else fails the scan, rather than letting a broken tool
+   report a clean file. */
+function run(cmd, args, ok = [0]) {
   const r = spawnSync(cmd, args, {
     cwd: ROOT,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   });
   if (r.error) throw new Error(`${cmd}: ${r.error.message}`);
+  if (!ok.includes(r.status)) {
+    throw new Error(`${cmd} exited ${r.status}:\n${r.stderr || r.stdout}`);
+  }
   return r.stdout;
 }
 
@@ -81,37 +87,57 @@ function duplication() {
     '--ignore=**/node_modules/**,**/dist/**,**/.next/**,apps/macos/**',
     '.',
   ]);
+  /* One finding per pair, on the first file: two would file two issues
+     for one extraction. */
   const report = join(dir, 'jscpd-report.json');
-  if (!existsSync(report)) return [];
-  return JSON.parse(readFileSync(report, 'utf8')).duplicates.flatMap((d) => {
-    const [a, b] = [d.firstFile, d.secondFile];
-    return [
-      [a, b],
-      [b, a],
-    ].map(([self, other]) => ({
-      path: self.name,
-      kind: 'duplication',
-      line: self.start,
-      detail: `${d.lines} lines duplicated at ${other.name}:${other.start}`,
-    }));
-  });
+  return JSON.parse(readFileSync(report, 'utf8')).duplicates.map((d) => ({
+    path: d.firstFile.name,
+    kind: 'duplication',
+    line: d.firstFile.start,
+    detail: `${d.lines} lines duplicated at ${d.secondFile.name}:${d.secondFile.start}`,
+  }));
 }
 
+/* Knip's issue types, as a finding reads. */
+const KNIP = {
+  files: 'unused file',
+  dependencies: 'unused dependency',
+  devDependencies: 'unused devDependency',
+  optionalPeerDependencies: 'unused peer dependency',
+  exports: 'unused export',
+  types: 'unused type',
+  nsExports: 'unused namespace export',
+  nsTypes: 'unused namespace type',
+  enumMembers: 'unused enum member',
+  namespaceMembers: 'unused namespace member',
+  classMembers: 'unused class member',
+  duplicates: 'duplicate export',
+  unlisted: 'dependency used but not listed',
+  binaries: 'binary used but not listed',
+  unresolved: 'unresolved import',
+};
+
 function deadCode() {
-  const out = run(join(BIN, 'knip'), ['--reporter=json', '--no-progress']);
+  const out = run(
+    join(BIN, 'knip'),
+    ['--reporter=json', '--no-progress'],
+    [0, 1],
+  );
   return JSON.parse(out).issues.flatMap((issue) =>
-    Object.entries(issue).flatMap(([type, items]) =>
-      Array.isArray(items)
-        ? items.map((item) => ({
-            path: issue.file,
-            kind: 'dead-code',
-            line: item.line ?? 1,
-            detail:
-              type === 'files'
-                ? 'unused file'
-                : `unused ${type.replace(/ies$/, 'y').replace(/s$/, '')}: ${item.name}`,
-          }))
-        : [],
+    Object.entries(KNIP).flatMap(([type, label]) =>
+      (issue[type] ?? []).map((item) => {
+        // A duplicate is a group of names exported twice.
+        const names = [item].flat();
+        return {
+          path: issue.file,
+          kind: 'dead-code',
+          line: names[0].line ?? 1,
+          detail:
+            type === 'files'
+              ? label
+              : `${label}: ${names.map((n) => n.name).join(' = ')}`,
+        };
+      }),
     ),
   );
 }
@@ -168,7 +194,13 @@ let files = rank(
   commits(values.since),
   values['skip-filed'] ? filed() : new Set(),
 );
-if (values.top) files = files.slice(0, Number(values.top));
+if (values.top) {
+  const top = Number(values.top);
+  if (!Number.isInteger(top) || top < 1) {
+    throw new Error(`--top must be a whole number, got ${values.top}`);
+  }
+  files = files.slice(0, top);
+}
 
 if (values.json) {
   console.log(JSON.stringify(files, null, 2));

@@ -1,8 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   // shadcn's vendored components export upstream's full API on purpose.
-  "ignore": [".claude/**", "apps/web/src/components/ui/**"],
-  "ignoreBinaries": ["dev"],
+  "ignore": ["apps/web/src/components/ui/**"],
+  "ignoreBinaries": ["dev", "pkill"],
   // The hygiene scan runs jscpd's binary by path.
   "ignoreDependencies": ["jscpd"],
   "workspaces": {

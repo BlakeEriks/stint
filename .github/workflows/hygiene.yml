@@ -31,6 +31,7 @@ jobs:
       issues: write
     env:
       GH_TOKEN: ${{ github.token }}
+      ISSUES: ${{ inputs.issues || '5' }}
     steps:
       # Full history: churn is counted from the last 30 days of commits.
       - uses: actions/checkout@v7
@@ -48,7 +49,7 @@ jobs:
       - name: Scan
         id: scan
         run: |
-          pnpm --silent hygiene --skip-filed --top "${{ inputs.issues || '5' }}" --json > hygiene.json
+          pnpm --silent hygiene --skip-filed --top "$ISSUES" --json > hygiene.json
           echo "files=$(jq length hygiene.json)" >> "$GITHUB_OUTPUT"
           jq -r '.[] | "- \(.score) `\(.path)`"' hygiene.json >> "$GITHUB_STEP_SUMMARY"
 
@@ -56,12 +57,14 @@ jobs:
         if: steps.scan.outputs.files != '0'
         run: gh label create hygiene --color c5def5 --description "Filed by the weekly hygiene scan" --force
 
+      # Pinned: this step holds the Claude token.
       - if: steps.scan.outputs.files != '0'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@756cc22e19660d20e8cc9496b4f242475a7f7790 # v1.0.235
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
           prompt: /file-hygiene hygiene.json
+          # Write is for each issue body, passed to gh as a file.
           claude_args: >-
             --max-turns 60
-            --allowedTools "Read,Grep,Glob,Bash(gh issue create:*)"
+            --allowedTools "Read,Grep,Glob,Write,Bash(gh issue create:*)"

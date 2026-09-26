@@ -2,7 +2,7 @@
 name: file-hygiene
 description: File one GitHub issue per file in a hygiene scan report. Run by the weekly Hygiene workflow.
 argument-hint: "<report.json>"
-allowed-tools: Read, Grep, Glob, Bash(gh issue create:*)
+allowed-tools: Read, Grep, Glob, Write, Bash(gh issue create:*)
 ---
 
 `$ARGUMENTS` is a `pnpm hygiene --json` report: files ranked worst first,
@@ -10,9 +10,13 @@ each with its `score`, `debt` in minutes, recent `commits` and `findings`. The s
 already chose these files and dropped any already filed. **File every one,
 in order.** Selecting is the scan's job.
 
-For each file, read the file and the lines its findings name, then:
+For each file, read the file and the lines its findings name, write the
+body to `issue-body.md`, then:
 
-    gh issue create --label enhancement --label hygiene --title "<title>" --body "<body>"
+    gh issue create --label enhancement --label hygiene --title "<title>" --body-file issue-body.md
+
+A file, not `--body`, because the body is full of backticks the shell would
+run.
 
 **Title:** `Reduce <path>` for code, `Copyedit <path>` for a doc.
 
