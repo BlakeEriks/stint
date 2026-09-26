@@ -32,8 +32,9 @@ never feedback, except the doc-drift comment step 0 reads.
 
 **Labels are the loop's memory**, so nothing is worked out twice:
 
-- `ready-for-qa` (PR): Blake can test it now — CI green, no question open,
-  nothing he said unanswered. Off the moment any of that stops being true.
+- `ready-for-qa` (PR): Blake can test and merge it now — up to date with
+  `main`, CI green, no question open, nothing he said unanswered. Off the
+  moment any of that stops being true.
 - `needs-input` (issue or PR): a question only Blake can answer, asked in a
   marked comment.
 - `blocked` (issue): waits on another PR; the marked comment names it and why.
@@ -70,9 +71,10 @@ the most. Gitignored; one JSON object per line:
      "durationMs":512000,"findings":2,"outcome":"reviewed"}
 
 `round` is `build`, `feedback` or `ci`; `tokens`, `toolUses` and
-`durationMs` are what the subagent's result reports; `findings` is for
-`issue-reviewer`; `outcome` is one word — `reviewed`, `shipped`,
-`needs-input`, `blocked`, `failed`.
+`durationMs` are what the subagent's result reports; `findings` only on
+`issue-reviewer` rows. `outcome` is what that agent did, one word: a
+builder's is `committed`, `shipped`, `needs-input`, `blocked` or `failed`; a
+reviewer's is `reviewed`.
 
 ## 0. Catch up
 
@@ -97,8 +99,13 @@ the most. Gitignored; one JSON object per line:
      names the PR's head commit (`gh pr view <n> --json headRefOid`), lists
      findings, and has no marked comment after it: remove `ready-for-qa`,
      then a round of fixes.
-  5. **CI green and none of the above:** add `ready-for-qa`, once.
-  6. **CI still running:** leave it for the next pass.
+  5. **Behind `main`** (`gh pr view <n> --json mergeStateStatus` says
+     `BEHIND` or `DIRTY`): remove `ready-for-qa`, then a round in which the
+     builder merges `main` in. Review it only if conflicts needed resolving.
+     `main` requires branches to be up to date, so a PR behind it cannot
+     merge.
+  6. **CI green and none of the above:** add `ready-for-qa`, once.
+  7. **CI still running:** leave it for the next pass.
 - **Blocked issues:** remove `blocked` from any whose named PR has merged or
   closed — one `gh pr view` each, not a new investigation.
 
@@ -128,6 +135,7 @@ When the mode is done or nothing is left to pick, end with one summary: PRs
 opened or updated, which are `ready-for-qa`, what is `needs-input` and its
 question, and anything that failed.
 
-Under `/loop`, wake again in 15 minutes only while an open PR's CI is still
-running. Otherwise end the loop: Discord tells Blake when something needs
+Only under `/loop`: wake again in 15 minutes while an open PR's CI is still
+running, passing the same `/loop` prompt back — never a hand-written one,
+which would skip step 0. Without `/loop`, schedule nothing. Otherwise end the loop: Discord tells Blake when something needs
 him, and he starts it again after replying.
