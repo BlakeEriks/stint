@@ -1,0 +1,16 @@
+# The product is written from a US point of view, spelling included.
+# Platform names keep theirs: aria-labelledby, Swift's isCancelled.
+extends: existence
+message: "Use American spelling instead of '%s'."
+level: warning
+ignorecase: true
+tokens:
+  - '\w*(?:colou?r|behaviou?r|honou?r|neighbou?r|favou?r|flavou?r|humou?r|labou?r)(?<=our)\w*'
+  - 'greys?'
+  - '\w*(?:centre|metre|litre|fibre|theatre)[sd]?'
+  - 'licence|defence|offence'
+  - '\w*(?:catalogue|dialogue|analogue)s?'
+  - '\w*(?:labell|cancell|travell|modell|signall|levell|fuell)(?:ed|ing)'
+  - '\w*(?:organ|recogn|real|optim|normal|summar|prior|custom|minim|maxim|util|apolog|serial|initial|synchron|emphas|final|author|sanit|visual|standard|categor|memo|capital|character|general|special|stabil|token|random|local|central|critic|rational|parameter|raster|synthes|notar|canonical|monet|amort|anonym|digit|item|modern|harmon|neutral|symbol|memor|theor|global|emotional|personal|commercial)is(?:e|es|ed|er|ers|ing|ation|ations)'
+  - '\w*analys(?:e|ed|es|ing)'
+  - 'whilst|amongst|learnt|spelt|maths|ageing|artefacts?|judgements?|acknowledgements?|programme|cheques?|fulfil|enrol'
