@@ -155,7 +155,9 @@ filed through the **Feature** issue form, whose four questions are the gate,
 and built through Spec Kit. Everything smaller is a **GitHub issue**: a fault
 labeled `bug` plus its cost (`wrong data`, `misleading`, `looks wrong`, worst
 first), or a tweak or improvement to something that exists, labeled
-`enhancement`. The PR that does it closes it.
+`enhancement`. Each kind has a form in `.github/ISSUE_TEMPLATE/`, and one
+filed with `gh` answers the same fields under the same labels. The PR that
+does it closes it.
 
 **Two milestones, and they are gates: `Alpha`**, a handful of friends using it
 for real, **and `Launch`**, a stranger paying. An issue in neither is wanted

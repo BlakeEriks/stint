@@ -1,0 +1,17 @@
+name: Enhancement
+description: A tweak or improvement to something that exists. A new capability is a Feature.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: today
+    attributes:
+      label: What exists today?
+      description: The screen, route or behavior, and what is wrong with it as it stands.
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: What should change?
+    validations:
+      required: true
