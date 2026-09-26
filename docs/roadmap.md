@@ -29,6 +29,11 @@ when it is not product work at all.
 Nothing enters this file without answering four questions in five lines or
 fewer. No answer, no entry.
 
+An idea reaches the gate through Spec Kit's `assess` extension:
+`/speckit-assess-intake` through `/speckit-assess-decide`, under
+`.specify/assessments/<slug>/`. A `go` verdict is written here as the four
+answers; a `kill` stays in its `decision.md`.
+
 1. **Whose problem is it?** A situation a contractor is in, not a capability
    we could have. *"Someone billing a flat-fee project cannot produce a
    correct invoice"* is a problem; *"we should support flat fees"* is not.
