@@ -56,7 +56,11 @@ like the inbox rows. Anything else, **Try it** has Blake create by clicking.
 
 Before reporting back:
 
-- `pnpm lint`, `pnpm typecheck` and the suites the change affects pass
+- the checks the change touches pass — these, and nothing hand-built:
+  - `pnpm verify:static` for anything
+  - `pnpm db:setup` (after a migration) then `pnpm verify:db`, for the API or
+    the database — throwaway databases, so the seed survives
+  - `pnpm test:auth` for sign-in or the bearer path
 - a web change has been seen signed in to local Stint — read the page as
   text to confirm content, and take one screenshot only if the change is
   visual

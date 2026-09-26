@@ -355,30 +355,11 @@ pointer-capture methods — without them every DropdownMenu test throws on open.
 and the local stack is real Postgres with the real migrations:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres \
-  pnpm --filter @stint/web test
+pnpm db:setup    # once, and again after a migration lands
+pnpm verify:db   # route and RLS suites, then verify:schema
 ```
 
-**That truncates the seed**, so a `pnpm dev:reset` (and a fresh sign-in) is
-needed afterwards. To keep the seed, point the suite at a throwaway database
-instead — it needs the `auth` schema stubbed, since the migrations reference
-it and the CLI's own `auth` belongs to GoTrue:
-
-```bash
-psql "$DB" -c 'create database stint_routes_test'
-psql "postgresql://postgres:postgres@127.0.0.1:54322/stint_routes_test" <<'SQL'
-create schema if not exists auth;
-create table if not exists auth.users (id uuid primary key, email text, raw_user_meta_data jsonb);
-create or replace function auth.uid() returns uuid language sql stable as
-  $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-SQL
-SUPABASE_DB_URL="…/stint_routes_test?sslmode=disable" pnpm migrate
-DATABASE_URL="…/stint_routes_test" pnpm --filter @stint/web test
-```
-
-`sslmode=disable` is required for `pnpm migrate` against the local stack; it
-assumes SSL otherwise and fails with "The server does not support SSL
-connections".
-
-Note the tests **truncate tables in `beforeEach`**, so running them wipes the
-seed. `pnpm dev:reset` puts it back.
+`db:setup` builds two throwaway databases, `tt` and `tt_rls`, beside the
+seed, so the suites never touch it. **Never point a suite at `postgres`
+itself**: the route tests truncate every table in `beforeEach`, and the seed
+goes with them.
