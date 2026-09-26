@@ -19,8 +19,8 @@ Rejecting leaves the previous build serving. A release with no migration has
 nothing to judge, so it goes straight to `verify:schema` and live.
 
 **A merge that changes nothing the web app ships does not deploy.**
-`ignoreCommand` in `apps/web/vercel.json` skips the production build; the
-paths it ignores are listed there. Previews always build.
+`apps/web/scripts/vercel-ignore.sh`, Vercel's `ignoreCommand`, skips the
+production build and lists the paths it ignores. Previews always build.
 
 The gate is the point. **Code must never go live before its migration** — a
 handler that assumes a column the database does not have yet returns 500s on

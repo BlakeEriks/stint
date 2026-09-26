@@ -6,7 +6,7 @@
       "main": true
     }
   },
-  "ignoreCommand": "[ \"$VERCEL_ENV\" = production ] && git diff --quiet HEAD^ HEAD -- ':(top)' ':(top,exclude)docs' ':(top,exclude)specs' ':(top,exclude)scripts' ':(top,exclude)apps/macos' ':(top,exclude).claude' ':(top,exclude).specify' ':(top,exclude).github' ':(top,exclude).husky' ':(top,exclude).vscode' ':(top,exclude).vale' ':(top,exclude).vale.ini' ':(top,exclude).gitignore' ':(top,exclude).gitleaks.toml' ':(top,glob,exclude)*.md'",
+  "ignoreCommand": "bash scripts/vercel-ignore.sh",
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm build"
 }
