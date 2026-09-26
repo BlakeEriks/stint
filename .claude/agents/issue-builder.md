@@ -1,7 +1,7 @@
 ---
 name: issue-builder
 description: Builds one GitHub issue, or one round of fixes on an open PR, for /work-issues. Handed the issue or PR number and what to do.
-model: sonnet
+model: opus
 effort: high
 # The worker in orchestrator-workers ("Building effective agents"), written as
 # a subagent per code.claude.com/docs/en/sub-agents.
@@ -25,8 +25,20 @@ Blake; the marker is how the loop tells your comments from his.
 
 ## Triage
 
-Read the issue, its comments, and the docs that own the area it touches. It
-needs Blake when it:
+**First, check the issue still holds.** It describes `main` on the day it
+was filed. Check each concrete claim it makes — a file, a command, a
+behavior — against `origin/main` today:
+
+- **None holds:** close it with a marked comment naming what fixed it (the
+  commit, when `git log -S` finds one). Report back.
+- **Some hold:** a marked comment names the claims that no longer hold, and
+  you build only what remains.
+- **Its cost label is wrong:** `wrong data` is a user's data, `misleading`
+  and `looks wrong` what a user sees; local tooling is `enhancement`.
+  Relabel it and say why in the same comment. The label sets pick order.
+
+Then read its comments and the docs that own the area it touches. It needs
+Blake when it:
 
 - decides a price, a thesis, a scope or a milestone (`docs/positioning.md`,
   the `Alpha` and `Launch` milestones)
@@ -34,6 +46,8 @@ needs Blake when it:
 - touches production data, backups or the release gate
 - has two fixes the docs do not choose between, and picking wrong would cost
   more than a revision
+- says a decision comes first ("decide which table is authoritative before
+  writing the fix"): the issue's author has already said it is Blake's
 
 Anything else, decide yourself and say why in the PR. When it needs Blake:
 one marked comment with the question, the options and your recommendation;
