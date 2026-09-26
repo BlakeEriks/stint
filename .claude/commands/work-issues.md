@@ -77,7 +77,7 @@ the most. Gitignored; one JSON object per line:
 `round` is `build`, `feedback` or `ci`; `tokens`, `toolUses` and
 `durationMs` are what the subagent's result reports; `findings` only on the
 reviewer's rows. `outcome` is what that agent did, one word: a builder's is
-`committed`, `shipped`, `needs-input`, `blocked` or `failed`; the reviewer's
+`committed`, `shipped`, `closed`, `needs-input`, `blocked` or `failed`; the reviewer's
 is `reviewed`.
 
 ## 0. Catch up
@@ -141,8 +141,8 @@ issue that:
 then `enhancement`; oldest first within a label. None left → step 2.
 
 Otherwise hand it to a builder for triage and build, as a round. It reports
-one of: a commit ready for review, `needs-input`, or `blocked` — for either
-of those two, pick again.
+one of: a commit ready for review, `closed` (the issue no longer held),
+`needs-input`, or `blocked` — for any but the first, pick again.
 
 ## 2. Stop
 
