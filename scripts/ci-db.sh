@@ -18,7 +18,12 @@ PORT=${PGPORT:-5432}
 PSQL="psql -h localhost -p $PORT -U postgres -v ON_ERROR_STOP=1"
 export PGPASSWORD=postgres
 
-$PSQL -c "create database $DB" 2>/dev/null || true
+# Rebuilt every time, never migrated forward: a database left holding another
+# branch's migration tests a schema this branch does not have, and an edited
+# migration never re-applies, since migrate keys on the filename. `with
+# (force)` ends a previous run's connections rather than failing on them.
+$PSQL -c "drop database if exists $DB with (force)"
+$PSQL -c "create database $DB"
 
 # Supabase ships `auth` and the two roles; the grants migration needs them.
 # Roles are CLUSTER-wide, so only the first database to run this creates them.
@@ -70,12 +75,15 @@ grant select on auth.users to authenticated;
 grant execute on all functions in schema auth to authenticated;
 SQL
 else
-  $PSQL -d "$DB" -c "
-    alter table user_settings disable row level security;
-    alter table clients disable row level security;
-    alter table projects disable row level security;
-    alter table invoices disable row level security;
-    alter table time_entries disable row level security;
-    alter table invoice_line_items disable row level security;
-    alter table payment_profiles disable row level security;"
+  # Every table, not a list: a table a new migration adds must not keep RLS
+  # on here and fail its route tests as a permissions error.
+  $PSQL -d "$DB" <<'SQL'
+do $$
+declare t text;
+begin
+  for t in select tablename from pg_tables where schemaname = 'public' loop
+    execute format('alter table public.%I disable row level security', t);
+  end loop;
+end $$;
+SQL
 fi
