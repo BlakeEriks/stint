@@ -13,6 +13,7 @@ to it, name the doc that owns the claim:
 | The claim is | It goes to |
 | --- | --- |
 | How to run, build, or deploy something | `docs/local-dev.md`, `docs/deploying.md`, `docs/setup.md` |
+| How work moves from an idea to production | `docs/sdlc.md` |
 | About one screen or one app | that screen's doc, `docs/macos.md`, `docs/design/landing.html` |
 | A shape a screen is assembled from | `docs/design/screens/components.html` |
 | Enforced by a check or a config | that script or config, in a comment at the line someone edits |
