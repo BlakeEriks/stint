@@ -38,8 +38,8 @@ Postgres with the real migrations. `requireSession` has a `__TEST_DB__` seam;
 **CI splits by what a check needs**: `static` for everything that needs no
 database, `database` for the route and RLS suites over a Postgres service
 container built by `scripts/ci-db.sh`, `macos` for `swift build`, and `e2e`
-for the browser. Root `pnpm test` is `pnpm -r test`, so it runs the core
-package's suite too — filter to `@stint/web` for the route suite alone.
+for the browser. `pnpm verify:static` and `pnpm verify:db` run the first two
+locally, the latter against the databases `pnpm db:setup` builds.
 
 Node's `--experimental-strip-types` rejects **TypeScript parameter
 properties** — write constructor fields explicitly in any code the tests load.
@@ -51,8 +51,9 @@ Zod major, or `z.infer` degrades to `unknown` across package boundaries.
 ## End-to-end tests
 
 `pnpm test:e2e` — Playwright against the local stack, and deliberately outside
-`pnpm test`: a browser download must not become a prerequisite for the unit
-suites. `docs/local-dev.md` has how to run them and the traps.
+`verify:static` and `verify:db`: a browser download must not become a
+prerequisite for the unit suites. `docs/local-dev.md` has how to run them and
+the traps.
 
 **No retries, in CI either.** A retry doubles the time before a real failure
 is reported — a genuine failure is a 30s timeout, so two failures become four.
@@ -64,8 +65,8 @@ worth covering and stubbing it would test the stub.
 ## UI tests
 
 `pnpm test:ui` — Vitest + Testing Library in jsdom, `test/ui/*.test.tsx`.
-Separate from `pnpm test` (route handlers against real Postgres under
-`node --test`); the Vitest config never picks those up.
+Separate from `pnpm --filter @stint/web test` (route handlers against real
+Postgres under `node --test`); the Vitest config never picks those up.
 
 `test/ui/appearance.test.tsx` covers the design rules that fail **silently**:
 white-on-accent, the accent on a stopped or runaway timer, an accent focus

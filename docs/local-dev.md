@@ -358,9 +358,6 @@ DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres \
   pnpm --filter @stint/web test
 ```
 
-Filtered, because the root `pnpm test` is `pnpm -r test` and runs the core
-package's suite as well.
-
 **That truncates the seed**, so a `pnpm dev:reset` (and a fresh sign-in) is
 needed afterwards. To keep the seed, point the suite at a throwaway database
 instead — it needs the `auth` schema stubbed, since the migrations reference

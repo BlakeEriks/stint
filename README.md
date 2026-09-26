@@ -69,14 +69,14 @@ with RLS left on and a non-superuser `authenticated` role — see the
 "Set up the RLS database" step in `.github/workflows/ci.yml`, the
 authoritative sequence for both.
 
-Note that the root `pnpm test` recurses into `@stint/web`, which needs
-`DATABASE_URL` — use the per-package commands above on a clean checkout.
+`pnpm db:setup` builds both databases on the local stack's Postgres, and
+`pnpm verify:db` runs both suites and the schema check against them.
 
 `pnpm test:e2e` is a fourth suite: Playwright against a real browser, needing
 the local Supabase stack (`pnpm dev:up`) and the app (`pnpm dev`) already
-running. It is deliberately outside `pnpm test` so a browser download is not
-a prerequisite for the unit suites, and it signs in for real through Mailpit
-rather than injecting a cookie. It is the only suite that sees cookies,
+running. It is deliberately outside `verify:static` and `verify:db` so a
+browser download is not a prerequisite for the unit suites, and it signs in
+for real through Mailpit rather than injecting a cookie. It is the only suite that sees cookies,
 navigation, redirects and server components — see `docs/local-dev.md`.
 
 ## Read first
