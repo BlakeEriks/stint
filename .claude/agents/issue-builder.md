@@ -66,10 +66,12 @@ standing on the stack.
    - `pnpm db:setup && pnpm verify:db`, for the API or the database —
      throwaway databases rebuilt from the branch, so the seed survives
    - `pnpm test:auth` for sign-in or the bearer path
-2. A web change, seen once, signed in to local Stint. Data comes from
-   `pnpm seed dev@localhost.test` — clients, entries, and invoices in every
-   state — never built by hand. Read the page as text; take one screenshot
-   only if the change is visual.
+2. A web change, seen once, signed in to local Stint as
+   `builder@localhost.test`, seeded with `pnpm seed builder@localhost.test` —
+   clients, entries, and invoices in every state, never built by hand.
+   `dev@localhost.test` is `seed.sql`'s and the e2e suite's
+   (`docs/local-dev.md`). Read the page as text; take one screenshot only if
+   the change is visual.
 3. Last, the `apps/web/e2e` specs that drive a changed screen:
    `pnpm test:e2e e2e/<spec>.spec.ts`, never the whole suite. They reset the
    local stack as they go, which is why they come after step 2.
