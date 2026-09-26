@@ -65,7 +65,7 @@ export function InvoiceList() {
   const [payingId, setPayingId] = useState<string | null>(null);
 
   const markPaid = useMutation({
-    mutationFn: (args: { id: string; paidAt: string }) =>
+    mutationFn: (args: { id: string; paidAt: string | undefined }) =>
       api.updateInvoiceStatus(args.id, { status: 'paid', paidAt: args.paidAt }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.invoices() });
@@ -127,7 +127,12 @@ export function InvoiceList() {
                     clientName={names.get(invoice.clientId)}
                     onMarkPaid={
                       invoice.status === 'sent'
-                        ? () => setPayingId(invoice.id)
+                        ? () => {
+                            // A previous invoice's rejection must not carry
+                            // over and read as a rejection of this one.
+                            markPaid.reset();
+                            setPayingId(invoice.id);
+                          }
                         : undefined
                     }
                     busy={markPaid.isPending && payingId === invoice.id}

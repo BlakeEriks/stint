@@ -70,6 +70,7 @@ function Loaded({
   setStatus: {
     mutate: (args: { status: InvoiceStatus; paidAt?: string }) => void;
     isPending: boolean;
+    reset: () => void;
   };
   remove: { mutate: () => void; isPending: boolean };
   /* Picked ONCE by the caller. Re-evaluating `a ?? b` for the check and again
@@ -205,7 +206,13 @@ function Loaded({
             {invoice.status === 'sent' ? (
               <Button
                 variant="accent"
-                onClick={() => setMarkingPaid(true)}
+                onClick={() => {
+                  // A void or delete error from earlier on this screen must
+                  // not read as a rejection of the payment date about to be
+                  // entered.
+                  setStatus.reset();
+                  setMarkingPaid(true);
+                }}
                 disabled={setStatus.isPending}
               >
                 {/* A currency glyph, not a check: the check commits a form. */}

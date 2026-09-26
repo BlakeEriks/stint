@@ -5,7 +5,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { InvoiceDetail } from '@/components/invoice-detail';
 import type { Invoice, InvoiceStatus } from '@/lib/client/api';
-import { localDateKey } from '@stint/core';
+import { localDateKey, localDateTimeToInstant } from '@stint/core';
+
+const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
@@ -194,10 +196,7 @@ describe('InvoiceDetail', () => {
     await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
 
     const dateInput = await screen.findByLabelText('Date paid');
-    const today = localDateKey(
-      new Date(),
-      Intl.DateTimeFormat().resolvedOptions().timeZone,
-    );
+    const today = localDateKey(new Date(), tz);
     expect(dateInput).toHaveValue(today);
 
     await user.clear(dateInput);
@@ -210,7 +209,30 @@ describe('InvoiceDetail', () => {
     expect(call.path).toBe('/invoices/inv-1/status');
     const body = call.body as { status: string; paidAt: string };
     expect(body.status).toBe('paid');
-    expect(body.paidAt.slice(0, 10)).toBe('2026-08-20');
+    /* Local midnight of the picked date, not a UTC-day slice — a naive
+       string comparison gives the wrong day for anyone east of UTC. */
+    expect(body.paidAt).toBe(
+      localDateTimeToInstant('2026-08-20', '00:00', tz).toISOString(),
+    );
+  });
+
+  /* The unchanged default must not send an explicit `paidAt` at all — local
+     midnight on the day the invoice was also sent can land before `sentAt`,
+     which the server now rejects, and the original "click marks it paid
+     now" behaviour is what the common case should keep. */
+  it('sends no paidAt when the default date is left unchanged', async () => {
+    const calls = serve('sent');
+    const user = userEvent.setup();
+    show();
+
+    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
+    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    const call = calls[0]!;
+    const body = call.body as { status: string; paidAt?: string };
+    expect(body.status).toBe('paid');
+    expect(body.paidAt).toBeUndefined();
   });
 });
 

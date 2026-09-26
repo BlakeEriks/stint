@@ -32,21 +32,34 @@ export function MarkPaidDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (paidAt: string) => void;
+  /**
+   * `undefined` for the unchanged default (today) — the server's `now()`
+   * then applies, matching the original behaviour for the common case
+   * instead of racing it with a local-midnight instant that can land
+   * before `sent_at` on the same day.
+   */
+  onConfirm: (paidAt: string | undefined) => void;
   pending: boolean;
   error?: unknown;
 }) {
   const [date, setDate] = useState('');
+  const [today, setToday] = useState('');
 
   // Reset to today each time it opens, so a previous pick cannot linger.
   useEffect(() => {
     if (!open) return;
-    setDate(localDateKey(new Date(), timeZone));
+    const key = localDateKey(new Date(), timeZone);
+    setDate(key);
+    setToday(key);
   }, [open]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!date) return;
+    if (date === today) {
+      onConfirm(undefined);
+      return;
+    }
     const paidAt = localDateTimeToInstant(date, '00:00', timeZone);
     onConfirm(paidAt.toISOString());
   };
@@ -68,7 +81,7 @@ export function MarkPaidDialog({
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              max={localDateKey(new Date(), timeZone)}
+              max={today}
               required
             />
           </Field>

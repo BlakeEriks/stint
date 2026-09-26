@@ -31,7 +31,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
 
   const { data: current, error } = await db
     .from('invoices')
-    .select('id, status')
+    .select('id, status, sent_at')
     .eq('id', id)
     .maybeSingle();
 
@@ -40,10 +40,33 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
 
   assertTransition(current.status as string, body.status);
 
-  const now = new Date().toISOString();
+  const now = new Date();
+  /* A user-supplied date is a record of when money actually arrived, not a
+     free-text field — it cannot predate the invoice being sent (paid before
+     it was even delivered) or postdate the moment of the request (a payment
+     that has not happened yet). */
+  if (body.status === 'paid' && body.paidAt) {
+    const paidAt = new Date(body.paidAt);
+    const sentAt = current.sent_at ? new Date(current.sent_at as string) : null;
+    if (paidAt.getTime() > now.getTime()) {
+      throw new ApiError(
+        'VALIDATION_FAILED',
+        'paidAt cannot be in the future',
+        { paidAt: body.paidAt },
+      );
+    }
+    if (sentAt && paidAt.getTime() < sentAt.getTime()) {
+      throw new ApiError(
+        'VALIDATION_FAILED',
+        'paidAt cannot be earlier than the invoice was sent',
+        { paidAt: body.paidAt, sentAt: current.sent_at },
+      );
+    }
+  }
+
   const update: Record<string, unknown> = { status: body.status };
-  if (body.status === 'sent') update.sent_at = body.sentAt ?? now;
-  if (body.status === 'paid') update.paid_at = body.paidAt ?? now;
+  if (body.status === 'sent') update.sent_at = body.sentAt ?? now.toISOString();
+  if (body.status === 'paid') update.paid_at = body.paidAt ?? now.toISOString();
 
   const { data, error: updateError } = await db
     .from('invoices')

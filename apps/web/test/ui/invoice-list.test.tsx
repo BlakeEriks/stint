@@ -5,7 +5,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { InvoiceList } from '@/components/invoice-list';
 import type { Invoice } from '@/lib/client/api';
-import { localDateKey } from '@stint/core';
+import { localDateKey, localDateTimeToInstant } from '@stint/core';
+
+const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const search = { value: new URLSearchParams() };
 vi.mock('next/navigation', () => ({
@@ -163,6 +165,27 @@ describe('InvoiceList', () => {
     });
   });
 
+  /* The unchanged default (today) must not send an explicit `paidAt` — local
+     midnight on the day an invoice was also sent can land before `sentAt`,
+     which the server rejects, and the original "now" behaviour is what the
+     common case should keep. */
+  it('sends no paidAt when the default date is left unchanged', async () => {
+    const calls = serve([invoice()]);
+    const user = userEvent.setup();
+    render(<InvoiceList />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Mark STINT-0001 paid' }),
+    );
+    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    const call = calls[0]!;
+    const body = call.body as { status: string; paidAt?: string };
+    expect(body.status).toBe('paid');
+    expect(body.paidAt).toBeUndefined();
+  });
+
   /* The whole point of the dialog: a payment that arrived earlier than today
      must be recorded on the day it actually happened, not the day someone
      got around to clicking the button — otherwise every days-to-pay average
@@ -177,10 +200,7 @@ describe('InvoiceList', () => {
     );
 
     const dateInput = await screen.findByLabelText('Date paid');
-    const today = localDateKey(
-      new Date(),
-      Intl.DateTimeFormat().resolvedOptions().timeZone,
-    );
+    const today = localDateKey(new Date(), tz);
     expect(dateInput).toHaveValue(today);
 
     await user.clear(dateInput);
@@ -193,7 +213,11 @@ describe('InvoiceList', () => {
     expect(call.path).toBe('/invoices/i1/status');
     const body = call.body as { status: string; paidAt: string };
     expect(body.status).toBe('paid');
-    expect(body.paidAt.slice(0, 10)).toBe('2026-09-03');
+    /* Local midnight of the picked date, not a UTC-day slice — a naive
+       string comparison gives the wrong day for anyone east of UTC. */
+    expect(body.paidAt).toBe(
+      localDateTimeToInstant('2026-09-03', '00:00', tz).toISOString(),
+    );
   });
 
   it('offers no destructive action in the list', async () => {

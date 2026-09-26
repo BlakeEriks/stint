@@ -797,7 +797,7 @@ test('a send date can be backdated', async () => {
    click "mark paid" — otherwise `paid_at` measures the user's habits rather
    than the client's payment behaviour, and every average built on it
    (days-to-pay, collected-by-month) is wrong. */
-test('a paid date can be backdated', async () => {
+test('a paid date can be backdated to any time after it was sent', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const { PATCH: setStatus } = await import(
     '../src/app/api/v1/invoices/[id]/status/route.ts'
@@ -806,9 +806,12 @@ test('a paid date can be backdated', async () => {
   const inv = await json(
     await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
   );
-  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), {
-    params: Promise.resolve({ id: inv.body.id }),
-  });
+  // Backdate the send too, so a paid date well before "now" still lands
+  // after it — sending and paying can both be recorded after the fact.
+  await setStatus(
+    req('/s', { status: 'sent', sentAt: '2026-09-01T00:00:00.000Z' }, 'PATCH'),
+    { params: Promise.resolve({ id: inv.body.id }) },
+  );
 
   const when = '2026-09-03T00:00:00.000Z';
   const paid = await json(
@@ -841,6 +844,62 @@ test('an unspecified paid date falls back to now', async () => {
   );
   const paidAt = new Date(paid.body.paidAt).getTime();
   assert.ok(paidAt >= before && paidAt <= Date.now());
+});
+
+/* A payment cannot be recorded as arriving before the invoice was even
+   sent — that would report a negative days-to-pay, and the only way to
+   produce one client-side would be an interface bug, not a real payment. */
+test('a paid date earlier than the invoice was sent is rejected', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  await seedEntry({ id: E(1), hours: 1 });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await setStatus(
+    req('/s', { status: 'sent', sentAt: '2026-09-10T00:00:00.000Z' }, 'PATCH'),
+    { params: Promise.resolve({ id: inv.body.id }) },
+  );
+
+  const res = await json(
+    await setStatus(
+      req(
+        '/s',
+        { status: 'paid', paidAt: '2026-09-05T00:00:00.000Z' },
+        'PATCH',
+      ),
+      { params: Promise.resolve({ id: inv.body.id }) },
+    ),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
+});
+
+/* A payment cannot be recorded as arriving in the future — the date field
+   is a record of what already happened, not a reminder to set. */
+test('a paid date in the future is rejected', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  await seedEntry({ id: E(1), hours: 1 });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), {
+    params: Promise.resolve({ id: inv.body.id }),
+  });
+
+  const future = new Date(Date.now() + 24 * 3600_000).toISOString();
+  const res = await json(
+    await setStatus(req('/s', { status: 'paid', paidAt: future }, 'PATCH'), {
+      params: Promise.resolve({ id: inv.body.id }),
+    }),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
 });
 
 // ── payment details ────────────────────────────────────────────────
