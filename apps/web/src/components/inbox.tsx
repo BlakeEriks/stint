@@ -139,6 +139,11 @@ export function Inbox({ stats }: { stats: Stats }) {
   ];
 
   const count = rows.length + (runaway.showing ? 1 : 0);
+  /* The rows not already on their way out. At zero the empty state opens
+     while the last row is still collapsing, not after the refetch. */
+  const remaining =
+    rows.filter((r) => !exit.exiting.has(r.id)).length +
+    (runaway.showing && !exit.exiting.has(RUNAWAY_ROW_ID) ? 1 : 0);
 
   return (
     <section aria-label="Inbox">
@@ -161,9 +166,7 @@ export function Inbox({ stats }: { stats: Stats }) {
         ) : null}
       </header>
 
-      {count === 0 ? (
-        <p className="px-1 py-3 type-support text-subtle">Nothing needs you.</p>
-      ) : (
+      {count > 0 ? (
         /* 6px between cards is a margin on the card, not a `gap` on this
            list: a flex gap belongs to the container and survives a row
            collapsing, so a departing card would leave its gap behind. */
@@ -192,7 +195,22 @@ export function Inbox({ stats }: { stats: Stats }) {
             />
           ))}
         </ul>
-      )}
+      ) : null}
+
+      {remaining === 0 ? (
+        /* Mounted under a row still collapsing, it opens on that row's track
+           and curve (`exit-reveal`), so the section closes from card to line
+           in one motion. Mounted onto an empty inbox, it is simply there. The
+           padding sits a level in: a `0fr` track floors at its item's
+           padding. */
+        <div className={count > 0 ? 'exit-reveal' : undefined}>
+          <div>
+            <p className="px-1 py-3 type-support text-subtle">
+              Nothing needs you.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {/* Its own instance: this and the timer bar open the dialog on different
           subjects and never open together. */}

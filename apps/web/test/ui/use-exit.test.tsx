@@ -256,6 +256,83 @@ describe('an inbox row leaving', () => {
     await waitFor(() => expect(fetched.length).toBeGreaterThan(before));
   });
 
+  /**
+   * The last row used to collapse the section to its header, and the empty
+   * state arrived with the refetch and snapped it back open. It now opens
+   * while the row is still collapsing, on the same track.
+   */
+  it('closes the last row onto the empty state while it plays out', async () => {
+    const animation = animating();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })),
+    );
+
+    const user = userEvent.setup();
+    render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
+      wrapper,
+    });
+    expect(screen.queryByText(/nothing needs you/i)).toBeNull();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
+    );
+
+    const empty = await screen.findByText(/nothing needs you/i);
+    expect(screen.getByText('Northwind').closest('li')).toHaveAttribute(
+      'data-exiting',
+    );
+    expect(empty.closest('.exit-reveal')).not.toBeNull();
+
+    await act(async () => {
+      animation.finish();
+    });
+  });
+
+  it('keeps the empty state closed while another row remains', async () => {
+    animating();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })),
+    );
+
+    const user = userEvent.setup();
+    render(
+      <Inbox
+        stats={stats({
+          overdueInvoices: [
+            overdue,
+            { ...overdue, invoiceId: 'i2', invoiceNumber: 'STINT-0002' },
+          ],
+        })}
+      />,
+      { wrapper },
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole('button', { name: 'Mark STINT-0001 paid' })
+          .closest('li'),
+      ).toHaveAttribute('data-exiting'),
+    );
+    expect(screen.queryByText(/nothing needs you/i)).toBeNull();
+  });
+
+  it('does not open an inbox that loads empty', () => {
+    render(<Inbox stats={stats()} />, { wrapper });
+
+    /* `exit-reveal` animates on mount, so on a page that loads empty the
+       sentence would open every time the screen is read. */
+    expect(
+      screen.getByText(/nothing needs you/i).closest('.exit-reveal'),
+    ).toBeNull();
+  });
+
   it('gives the runaway row the same exit as every other row', async () => {
     vi.stubGlobal(
       'fetch',

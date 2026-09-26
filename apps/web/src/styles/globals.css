@@ -88,8 +88,30 @@
       padding-block var(--motion-quick) var(--ease-accelerate),
       margin-block var(--motion-quick) var(--ease-accelerate);
   }
+  /* The last row closes onto the empty state, not onto nothing. Mounted while
+     that row collapses, the state opens on the same duration and curve, so
+     the two tracks sum to one change of height, from card to line. Without
+     it the section shuts to its header, then the empty state snaps it open.
+     Its text waits for the row's to be gone. */
+  .exit-reveal {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition:
+      grid-template-rows var(--motion-quick) var(--ease-accelerate),
+      opacity var(--motion-instant) var(--ease-decelerate) var(--motion-instant);
+  }
+  .exit-reveal > * {
+    overflow: hidden;
+  }
+  @starting-style {
+    .exit-reveal {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
-    .exit-collapse {
+    .exit-collapse,
+    .exit-reveal {
       transition: none;
     }
   }
