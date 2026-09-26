@@ -19,6 +19,12 @@ action restores them so a PR cannot rewrite its own reviewer's
 instructions. The PR's versions are under `.claude-pr/`, so read those when
 checking what the PR changed in them.
 
+**In CI, only the allowed commands run, one per call.** The checkout holds
+every branch, so `origin/<base-branch>` is already there: never fetch. Run
+each command on its own — no pipe, `&&`, `;`, redirect or `$(…)` — and no
+`gh` but the final comment. Anything else is denied, and each denial is a
+turn spent on nothing.
+
 ## 1. Read the change
 
 `git diff <base>...HEAD --stat`, then the diff itself: `<base>` is
