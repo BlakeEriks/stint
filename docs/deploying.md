@@ -9,12 +9,18 @@ are users to protect.
 
 ```
 PR ──► CI ──► merge ──► Vercel builds ──► plan ──► you approve ──► backup ──► migrate + verify ──► live
+                                                  └──── no migration ────────────► verify ──► live
 ```
 
-**Every production release waits for your approval.** GitHub notifies you;
-the run's summary shows the commit and every pending migration's SQL, with a
-warning when one drops, truncates, or deletes. Rejecting leaves the previous
-build serving.
+**A release waits for your approval only when it carries a migration.**
+GitHub notifies you; the run's summary shows the commit and every pending
+migration's SQL, with a warning when one drops, truncates, or deletes.
+Rejecting leaves the previous build serving. A release with no migration has
+nothing to judge, so it goes straight to `verify:schema` and live.
+
+**A merge that changes nothing the web app ships does not deploy.**
+`apps/web/scripts/vercel-ignore.sh`, Vercel's `ignoreCommand`, skips the
+production build and lists the paths it ignores. Previews always build.
 
 The gate is the point. **Code must never go live before its migration** — a
 handler that assumes a column the database does not have yet returns 500s on
@@ -151,8 +157,9 @@ migration scripts do, and they run in Actions.
 ### How it fits together
 
 Vercel dispatches `vercel.deployment.ready` when a production build exists
-but is not yet serving. `plan` marks the check pending and writes the summary,
-`approve` waits for you, `backup` takes a snapshot, and `migrate` runs
+but is not yet serving. `plan` marks the check pending and writes the summary.
+When a migration is pending, `approve` waits for you and `backup` takes a
+snapshot; otherwise both are skipped. `migrate` runs
 `pnpm migrate` and `pnpm verify:schema` while the *previous* build still
 answers requests, then its status action's `post` hook reports the outcome as
 a commit status. Success promotes the deployment; failure leaves
@@ -257,12 +264,13 @@ success teaches you to stop reading it.
 
 | Event | Message | Source |
 |---|---|---|
-| Release live | ✅ commit and subject | `release.yml`, `report` |
-| Release failed after approval, or its plan failed | ❌ with the run link | `release.yml`, `report` |
+| Approved release live | ✅ commit and subject | `release.yml`, `report` |
+| Release failed, or its plan failed | ❌ with the run link | `release.yml`, `report` |
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
 
 Never posted: a release awaiting approval (GitHub already notifies you), a
-rejection or cancellation (you did it), and a backup that worked
+release with no migration going live, a rejection or cancellation (you did
+it), and a backup that worked
 (healthchecks.io is quiet until one does not arrive).
 
 **A new alert names what you would do when it arrives.** If the answer is
