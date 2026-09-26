@@ -5,11 +5,19 @@
  *   pnpm migrate                 # uses SUPABASE_DB_URL from the environment
  *   pnpm migrate --dry-run       # show what would run, change nothing
  *   pnpm migrate --url <url>     # explicit connection string
+ *   pnpm dev:migrate             # this, pointed at the local stack
  *
  * Applied migrations are recorded in `schema_migrations`, so re-running is a
  * no-op rather than an error. That table is the reason this is worth having
  * over pasting SQL into a dashboard: the dashboard cannot tell you what is
  * already applied, so a partial failure leaves you guessing.
+ *
+ * This table, not the CLI's `supabase_migrations.schema_migrations`, is what
+ * CI and production check applied migrations against — so it is what `pnpm
+ * dev:migrate` uses to catch a local database up too. `supabase db reset`
+ * rebuilds from every migration plus `seed.sql` and takes local data with it;
+ * this instead applies only what is new, the same way a merge migrates
+ * production.
  *
  * Each file runs inside a transaction. A migration that fails rolls back
  * whole, so the database never sits half-migrated.
@@ -19,6 +27,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { connectionString, short, sslFor } from './db-url.mjs';
+import { cliAdoptedFiles } from './migrate-cli-history.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = join(root, 'supabase', 'migrations');
@@ -44,6 +53,47 @@ if (files.length === 0) {
   process.exit(1);
 }
 
+/**
+ * The local stack tracks what `supabase db reset` has applied in its own
+ * `supabase_migrations.schema_migrations`, keyed by the numeric prefix rather
+ * than the filename. The first time this script sees a database whose own
+ * `schema_migrations` is empty, it adopts that history instead of trying to
+ * reapply migrations Postgres already has — that collision ("relation
+ * already exists") is the drift issue #9 describes. Neither CI's bare
+ * Postgres nor production has that schema, so this is a no-op there.
+ */
+async function adoptCliHistory(client) {
+  const { rows: existing } = await client.query(
+    'select 1 from schema_migrations limit 1',
+  );
+  if (existing.length > 0) return;
+
+  const { rows: hasCli } = await client.query(`
+    select 1 from information_schema.schemata
+    where schema_name = 'supabase_migrations'
+  `);
+  if (hasCli.length === 0) return;
+
+  const { rows: cli } = await client.query(
+    'select version from supabase_migrations.schema_migrations',
+  );
+  const adopted = cliAdoptedFiles(
+    files,
+    cli.map((r) => r.version),
+  );
+  if (adopted.length === 0) return;
+
+  for (const f of adopted) {
+    await client.query(
+      'insert into schema_migrations (version) values ($1) on conflict do nothing',
+      [f],
+    );
+  }
+  console.log(
+    `Adopted ${adopted.length} migration(s) already applied by the Supabase CLI.`,
+  );
+}
+
 const client = new pg.Client({ connectionString: url, ssl: sslFor(url) });
 
 try {
@@ -60,6 +110,8 @@ try {
       applied_at  timestamptz not null default now()
     )
   `);
+
+  await adoptCliHistory(client);
 
   const { rows } = await client.query('select version from schema_migrations');
   const done = new Set(rows.map((r) => r.version));

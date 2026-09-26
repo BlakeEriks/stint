@@ -42,8 +42,20 @@ pnpm dev           # in apps/web
 start — on an already-running stack it is accepted and does nothing.
 
 `pnpm dev:reset` rebuilds the database from migrations plus `seed.sql` —
-the fastest way back to a known state. `pnpm dev:down` stops it;
-`pnpm dev:status` prints the URLs.
+the fastest way back to a known state, and it takes local data with it.
+`pnpm dev:migrate` instead applies whatever migrations are new, in place,
+through the same `schema_migrations`-tracked script CI and production run —
+the routine way to pick up a teammate's migration without losing your data.
+`pnpm dev:down` stops the stack; `pnpm dev:status` prints the URLs.
+
+**Two tables track migrations, and only one matters day to day.**
+`pnpm migrate` keys its own `schema_migrations` on the filename — the table
+CI's `database` job and the release gate check — while the CLI keeps a
+separate `supabase_migrations.schema_migrations` for `db reset`'s from-scratch
+rebuild. Run `pnpm dev:migrate` after pulling, and the two never have a
+chance to disagree: `dev:reset` reapplies everything from both tables'
+perspective at once, and `dev:migrate` only ever advances the table that CI
+and production already treat as truth.
 
 | What | Where |
 |---|---|
