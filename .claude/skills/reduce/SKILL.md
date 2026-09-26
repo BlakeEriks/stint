@@ -2,6 +2,8 @@
 name: reduce
 description: Reduce a source file or directory back to a simple form (complexity, duplication, dead code, comments) without changing behavior. Use when a hygiene issue says "Fix with /reduce", or a file has grown hard to follow.
 argument-hint: "<path>"
+# Follows Fowler's Refactoring, Feathers' characterization tests and
+# Ousterhout on comments, each cited below.
 ---
 
 Reduce `$ARGUMENTS` without changing what it does. If no path is given, ask

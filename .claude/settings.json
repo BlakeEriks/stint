@@ -4,5 +4,8 @@
       "Read(**/.env.development.local)",
       "Edit(**/.env.development.local)"
     ]
+  },
+  "enabledPlugins": {
+    "pr-review-toolkit@claude-plugins-official": true
   }
 }

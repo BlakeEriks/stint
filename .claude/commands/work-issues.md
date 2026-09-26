@@ -1,5 +1,7 @@
 ---
 description: Work through open GitHub issues one at a time, to an open PR each, stopping only for what needs Blake
+# Follows orchestrator-workers and evaluator-optimizer from "Building effective
+# agents" (anthropic.com/engineering/building-effective-agents).
 ---
 
 Work open issues on `BlakeEriks/stint` one at a time, each to an open PR
@@ -16,7 +18,7 @@ Blake can test from its preview link. Blake merges; merging is the deploy, so
 Step 0 runs every time, so open PRs are caught up before anything new.
 
 **You orchestrate; subagents build and review.** `issue-builder` does the
-work and `issue-reviewer` reviews it, each in its own subagent reporting back
+work and `pr-review-toolkit:code-reviewer` reviews it, each in its own subagent reporting back
 one paragraph. **One builder per issue**: brief it with the issue or PR
 number and nothing else, and send it everything after — findings, `ship` —
 by SendMessage to its agentId. Never a second builder for that issue, and
@@ -48,11 +50,12 @@ Adding `ready-for-qa` or `needs-input` posts to Discord.
 Every build and every fix goes the same way:
 
 1. A builder does the work and commits, unpushed, and reports back.
-2. `issue-reviewer` reviews the round's commits — the whole branch on a
-   first build — unless the round is small: under about 20 lines and no
-   logic change in auth, the API or data access. It reviews the diff and what
-   it calls, for security too when the commits touch auth, the API or data
-   access.
+2. `pr-review-toolkit:code-reviewer` reviews the round's commits — the whole
+   branch on a first build — unless the round is small: under about 20 lines
+   and no logic change in auth, the API or data access. Brief it with the
+   commit range in `../stint-issues`, that it is read-only, and to review the
+   diff and what it calls — for security too when the commits touch auth, the
+   API or data access.
 3. Findings that hold up go back to the same builder (SendMessage); its fix
    is reviewed again only if it is not small — judged from
    `git diff --stat` of the fix once it is committed, never in advance.
@@ -71,10 +74,10 @@ the most. Gitignored; one JSON object per line:
      "durationMs":512000,"findings":2,"outcome":"reviewed"}
 
 `round` is `build`, `feedback` or `ci`; `tokens`, `toolUses` and
-`durationMs` are what the subagent's result reports; `findings` only on
-`issue-reviewer` rows. `outcome` is what that agent did, one word: a
-builder's is `committed`, `shipped`, `needs-input`, `blocked` or `failed`; a
-reviewer's is `reviewed`.
+`durationMs` are what the subagent's result reports; `findings` only on the
+reviewer's rows. `outcome` is what that agent did, one word: a builder's is
+`committed`, `shipped`, `needs-input`, `blocked` or `failed`; the reviewer's
+is `reviewed`.
 
 ## 0. Catch up
 
