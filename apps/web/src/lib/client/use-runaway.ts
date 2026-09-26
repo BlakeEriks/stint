@@ -89,7 +89,7 @@ export function useRunaway(mark: (id: string) => Promise<void>) {
      meant by "I left it going". */
   const adjust = useMutation({
     mutationFn: () => api.stopTimer(),
-    onSuccess: ({ entry }) =>
+    onSuccess: (entry) =>
       leave(() => {
         invalidateEntryData(queryClient);
         setAdjusting(entry);
@@ -98,7 +98,7 @@ export function useRunaway(mark: (id: string) => Promise<void>) {
 
   const discard = useMutation({
     mutationFn: async () => {
-      const { entry } = await api.stopTimer();
+      const entry = await api.stopTimer();
       await api.deleteEntry(entry.id);
     },
     onSuccess: () => leave(() => invalidateEntryData(queryClient)),

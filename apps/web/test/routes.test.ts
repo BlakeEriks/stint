@@ -94,8 +94,8 @@ test('start → current → stop round trip', async () => {
 
   const stopped = await json(await stop(req('/timer/stop', {})));
   assert.equal(stopped.status, 200);
-  assert.ok(stopped.body.entry.endedAt, 'stopping sets endedAt');
-  assert.ok(stopped.body.entry.durationSeconds >= 0);
+  assert.ok(stopped.body.endedAt, 'stopping sets endedAt');
+  assert.ok(stopped.body.durationSeconds >= 0);
 
   const after = await json(await current(req('/timer/current')));
   assert.equal(after.body.entry, null, 'no timer running after stop');

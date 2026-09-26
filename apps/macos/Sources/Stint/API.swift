@@ -43,13 +43,6 @@ struct Stats: Codable, Equatable {
     let unbilled: Unbilled
 }
 
-/// `POST /timer/stop`: the entry, and Unbilled counted after it stopped.
-struct StoppedTimer: Codable, Equatable {
-    let entry: TimeEntry
-    let currency: String
-    let unbilled: Stats.Unbilled
-}
-
 struct Summary: Codable, Equatable {
     let running: TimeEntry?
     let todaySeconds: Int
@@ -183,7 +176,9 @@ actor API {
 
     private struct Empty: Encodable {}
 
-    func stopTimer() async throws -> StoppedTimer {
+    /// The response is the stopped entry plus `currency` and `unbilled`,
+    /// counted after the stop; the panel reads only the latter, as `Stats`.
+    func stopTimer() async throws -> Stats {
         try await request("POST", "/timer/stop", body: Empty())
     }
 

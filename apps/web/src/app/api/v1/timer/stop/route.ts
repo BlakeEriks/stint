@@ -17,9 +17,10 @@ export const dynamic = 'force-dynamic';
  * a client that thinks it stopped a timer it did not stop would display
  * the wrong state.
  *
- * Returns Unbilled alongside the entry, read after the stop so it counts it:
- * the menu bar shows that figure, and would otherwise wait on a full refresh
- * for it.
+ * Returns Unbilled alongside the entry's fields, read after the stop so it
+ * counts it: the menu bar shows that figure, and would otherwise wait on a
+ * full refresh for it. Added to the entry rather than wrapping it, so a
+ * client built before it still decodes the response.
  */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
@@ -61,7 +62,7 @@ export const POST = handle(async (req: Request) => {
 
   const currency = settings.data?.currency ?? 'USD';
   return NextResponse.json({
-    entry: toEntry(data as EntryRow),
+    ...toEntry(data as EntryRow),
     currency,
     unbilled: buildUnbilled(
       (unbilled.data ?? []) as UnbilledRow[],

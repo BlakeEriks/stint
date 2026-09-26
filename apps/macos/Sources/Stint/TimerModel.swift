@@ -216,8 +216,7 @@ final class TimerModel {
             if isRunning {
                 // The server counts the stopped entry into Unbilled, so the
                 // row updates now rather than after the refresh below.
-                let stopped = try await api.stopTimer()
-                stats = Stats(currency: stopped.currency, unbilled: stopped.unbilled)
+                stats = try await api.stopTimer()
             } else {
                 _ = try await api.startTimer(
                     taskName: draftTaskName.trimmingCharacters(in: .whitespacesAndNewlines),

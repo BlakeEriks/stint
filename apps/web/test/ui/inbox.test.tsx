@@ -273,9 +273,7 @@ describe('the runaway timer choice', () => {
         const method = init?.method ?? 'GET';
         if (method !== 'GET') {
           calls.push({ method, path });
-          return new Response(JSON.stringify({ entry: { id: 'e1' } }), {
-            status: 200,
-          });
+          return new Response(JSON.stringify({ id: 'e1' }), { status: 200 });
         }
         return new Response(
           JSON.stringify({
