@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // shadcn's vendored components export upstream's full API on purpose.
+  "ignore": [".claude/**", "apps/web/src/components/ui/**"],
+  "ignoreBinaries": ["dev"],
+  // The hygiene scan runs jscpd's binary by path.
+  "ignoreDependencies": ["jscpd"],
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/**/*.{mjs,js}"]
+    },
+    "packages/design-tokens": {
+      // Run by hand and by validate.js to re-derive the neutral ramps.
+      "entry": ["src/derive-*.mjs"]
+    }
+  }
+}

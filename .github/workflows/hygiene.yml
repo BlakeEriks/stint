@@ -1,0 +1,67 @@
+name: Hygiene
+
+# Weekly: the hygiene scan ranks files by debt × recent churn, and Claude
+# files an issue for each of the worst few that are not already filed.
+# `/work-issues` picks them up like any other enhancement.
+on:
+  schedule:
+    - cron: '0 13 * * 1' # Mondays, morning in the US
+  workflow_dispatch:
+    inputs:
+      issues:
+        description: Most issues to file
+        default: '5'
+
+concurrency:
+  group: hygiene
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  file:
+    # A schedule runs as whoever last edited the cron line, so this admits
+    # the owner's scheduled runs and manual ones, and nobody else's.
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # Full history: churn is counted from the last 30 days of commits.
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with: { node-version: '24', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Vale
+        run: |
+          curl -sSfL https://github.com/vale-cli/vale/releases/download/v3.23.0/vale_3.23.0_Linux_64-bit.tar.gz \
+            | sudo tar -xz -C /usr/local/bin vale
+
+      - name: Scan
+        id: scan
+        run: |
+          pnpm --silent hygiene --skip-filed --top "${{ inputs.issues || '5' }}" --json > hygiene.json
+          echo "files=$(jq length hygiene.json)" >> "$GITHUB_OUTPUT"
+          jq -r '.[] | "- \(.score) `\(.path)`"' hygiene.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Label
+        if: steps.scan.outputs.files != '0'
+        run: gh label create hygiene --color c5def5 --description "Filed by the weekly hygiene scan" --force
+
+      - if: steps.scan.outputs.files != '0'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: /file-hygiene hygiene.json
+          claude_args: >-
+            --max-turns 60
+            --allowedTools "Read,Grep,Glob,Bash(gh issue create:*)"

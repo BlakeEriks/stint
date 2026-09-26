@@ -100,6 +100,9 @@ jobs:
       - name: Core logic tests
         run: node --test --experimental-strip-types packages/core/test/*.test.ts
 
+      - name: Hygiene scan tests
+        run: node --test scripts/hygiene/*.test.mjs
+
       - name: Build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
