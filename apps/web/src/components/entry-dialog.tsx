@@ -106,7 +106,7 @@ export function EntryDialog({
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  // Reset each time it opens, so a cancelled edit cannot leak into the next.
+  // Reset each time it opens, so a canceled edit cannot leak into the next.
   useEffect(() => {
     if (!open) return;
     setError(null);
@@ -486,7 +486,7 @@ export function EntryDialog({
               </Button>
 
               {/* Icon plus label, like every other action in the app: text +
-                  colour + icon is more legible than any single channel. The
+                  color + icon is more legible than any single channel. The
                   glyph is `aria-hidden`, so the accessible name stays the
                   label alone. */}
               <Button type="submit" variant="accent" disabled={busy}>

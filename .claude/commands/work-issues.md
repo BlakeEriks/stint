@@ -8,6 +8,8 @@ Blake can test from its preview link. Blake merges; merging is the deploy, so
 
 - `/work-issues 24 18` works those issues, in that order, then stops.
 - `/work-issues --one` works issues until one PR is open, then stops.
+  `/loop /work-issues --one` starts no second issue: later wakes only catch
+  up, until that PR is `ready-for-qa` or `needs-input`.
 - `/work-issues` alone works until nothing is left; `/loop /work-issues`
   comes back while CI is still running.
 
@@ -15,7 +17,10 @@ Step 0 runs every time, so open PRs are caught up before anything new.
 
 **You orchestrate; subagents build and review.** `issue-builder` does the
 work and `issue-reviewer` reviews it, each in its own subagent reporting back
-one paragraph. Your context holds a summary per issue, not the work, and a
+one paragraph. **One builder per issue**: brief it with the issue or PR
+number and nothing else, and send it everything after — findings, `ship` —
+by SendMessage to its agentId. Never a second builder for that issue, and
+never a status check: its notification is its status. Your context holds a summary per issue, not the work, and a
 long run survives auto-compaction. Nothing smaller than an issue or a round
 of fixes gets a subagent — each one re-reads the project, and that is the
 cost.
@@ -23,7 +28,7 @@ cost.
 **Blake's comment** means one by `BlakeEriks` without the
 `<!-- work-issues -->` marker every loop comment starts with — `gh` runs as
 Blake, so the marker is the only tell. Bots' comments, Vercel's included, are
-never feedback.
+never feedback, except the doc-drift comment step 0 reads.
 
 **Labels are the loop's memory**, so nothing is worked out twice:
 
@@ -44,16 +49,18 @@ Every build and every fix goes the same way:
 1. A builder does the work and commits, unpushed, and reports back.
 2. `issue-reviewer` reviews the round's commits — the whole branch on a
    first build — unless the round is small: under about 20 lines and no
-   logic change in auth, the API or data access. It runs `/code-review`, and
-   `/security-review` too when the commits touch auth, the API or data
+   logic change in auth, the API or data access. It reviews the diff and what
+   it calls, for security too when the commits touch auth, the API or data
    access.
 3. Findings that hold up go back to the same builder (SendMessage); its fix
-   is reviewed again only if it is not small.
-4. Tell the builder `ship`.
+   is reviewed again only if it is not small — judged from
+   `git diff --stat` of the fix once it is committed, never in advance.
+4. Send `ship` as its own message.
 
 Blake sees the fixed work, never the findings.
 
-**Log every subagent run**: append one line to
+**Log every subagent run** — you alone, as each result arrives, `at` from
+`date -u +%FT%RZ`: append one line to
 `.claude/work-issues/runs.jsonl` in the main checkout — the parent of
 `git rev-parse --git-common-dir` — so runs can be triaged later for what cost
 the most. Gitignored; one JSON object per line:
@@ -86,8 +93,12 @@ the most. Gitignored; one JSON object per line:
      - Otherwise a round of fixes. After two rounds on the same check that
        did not turn it green, label the PR `needs-input`, with a marked
        comment saying what failed and what was tried.
-  4. **CI green and none of the above:** add `ready-for-qa`, once.
-  5. **CI still running:** leave it for the next pass.
+  4. **Doc drift** — the newest comment starting `<!-- doc-drift:<sha> -->`
+     names the PR's head commit (`gh pr view <n> --json headRefOid`), lists
+     findings, and has no marked comment after it: remove `ready-for-qa`,
+     then a round of fixes.
+  5. **CI green and none of the above:** add `ready-for-qa`, once.
+  6. **CI still running:** leave it for the next pass.
 - **Blocked issues:** remove `blocked` from any whose named PR has merged or
   closed — one `gh pr view` each, not a new investigation.
 
@@ -96,12 +107,12 @@ the most. Gitignored; one JSON object per line:
 `gh issue list --state open --json number,title,labels`, then skip every
 issue that:
 
-- is labelled `needs-input` with no comment of Blake's since the last marked
+- is labeled `needs-input` with no comment of Blake's since the last marked
   one
-- is labelled `blocked`
+- is labeled `blocked`
 - already has an open PR
   (`gh issue view <n> --json closedByPullRequestsReferences`)
-- is labelled `migration` while an open PR is too — previews share one
+- is labeled `migration` while an open PR is too — previews share one
   database schema
 
 `urgent` first, then the worst: `wrong data`, `misleading`, `looks wrong`,
@@ -117,6 +128,6 @@ When the mode is done or nothing is left to pick, end with one summary: PRs
 opened or updated, which are `ready-for-qa`, what is `needs-input` and its
 question, and anything that failed.
 
-Under `/loop`, wake again in an hour only while an open PR's CI is still
+Under `/loop`, wake again in 15 minutes only while an open PR's CI is still
 running. Otherwise end the loop: Discord tells Blake when something needs
 him, and he starts it again after replying.

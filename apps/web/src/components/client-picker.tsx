@@ -32,9 +32,9 @@ function Tick({ on }: { on: boolean }) {
 /**
  * Client assignment.
  *
- * A menu rather than a `Select`: a client row carries its colour swatch, and
+ * A menu rather than a `Select`: a client row carries its color swatch, and
  * `project-dialog` hangs a create action off the bottom — neither of which
- * Radix's Select hosts. The colour belongs to the client, so this is the one
+ * Radix's Select hosts. The color belongs to the client, so this is the one
  * control where the swatch is the subject rather than an inherited mark.
  *
  * Radix supplies arrow-key navigation, typeahead, focus return to the trigger

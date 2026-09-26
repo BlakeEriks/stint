@@ -1,16 +1,16 @@
 # Deriving the palette
 
-How the colours are computed. The *rules for using them* — what green means,
-the four planes, client colours — are `brand.html`, where they can be seen.
+How the colors are computed. The *rules for using them* — what green means,
+the four planes, client colors — are `brand.html`, where they can be seen.
 
 Both neutral ramps are **derived, not hand-picked**. Change a parameter in
 `src/derive-neutrals.mjs` (dark) or `src/derive-light.mjs` (light) and paste
-the output. Never eyedrop a grey: `pnpm tokens:validate` re-runs both
+the output. Never eyedrop a gray: `pnpm tokens:validate` re-runs both
 generators and diffs them against `tokens.json`, so a hand-edited hex fails CI
-naming the step. `src/oklch.mjs` holds the OKLCH↔sRGB maths with gamut
+naming the step. `src/oklch.mjs` holds the OKLCH↔sRGB math with gamut
 mapping, plus `rgbToOklch` for auditing a hex you did not generate.
 
-That check exists because contrast ratios prove a colour is *legible* and only
+That check exists because contrast ratios prove a color is *legible* and only
 this proves it was *derived*. The dark ramp had drifted to 8 of 12 steps
 hand-pinned while passing every contrast assertion.
 
@@ -44,11 +44,11 @@ of its own stops receding behind the content. The floor is
 
 **Chroma is held nearly flat across the planes** — dark runs 0.0060 → 0.0140
 across the six, interpolated linearly rather than tracking lightness. Chroma
-climbing with L washed the blue-grey cast out exactly where the ladder jumps
+climbing with L washed the blue-gray cast out exactly where the ladder jumps
 hardest, and the middle of the app read as a different palette from its frame.
 Light carries about a third of dark's at the same nominal cast: the same
 chroma is a larger share of the remaining distance to white, so a tint that
-reads as a considered neutral at L 0.25 reads as a colour at L 0.95.
+reads as a considered neutral at L 0.25 reads as a color at L 0.95.
 
 **Hover and active are surfaces, not ink.** They are painted on top of a card,
 so they sit at the card's end of the surface scale; on the ink curve they
@@ -70,7 +70,7 @@ above the curve to clear their AA ratios. `$meta.neutralCurve` in
 `tokens.json` carries the same formula.
 
 Forcing both through one curve is what produced the drift above: every painted
-surface an override, and the curve still governing only 300, 400, 850 and 975
+surface an override, and the curve still governing only 300, 400, 850, and 975
 — none of which are backgrounds.
 
 **Thresholds, not nudges.** The ink steps that owe a ratio are lifted (dark) or
@@ -80,17 +80,17 @@ silently stop meaning anything when the card moves. Making the threshold the
 constant is what makes "let's try a bigger card step" safe: the ink follows.
 
 **A separation sweep runs after.** Pushing a step to clear a threshold can
-drive it into its neighbour, since both move toward the same card and the one
+drive it into its neighbor, since both move toward the same card and the one
 owing less catches up. Anything closer than ΔL 0.035 is pushed the rest of the
 way — a floor, never a ceiling, so a step that earned more distance keeps it.
-Without it, `500` and `600` landed 0.0087 apart: two names for one grey.
+Without it, `500` and `600` landed 0.0087 apart: two names for one gray.
 
 **Lowering `FLOOR` is wrong.** It drags the entire eased curve down, taking the
 text steps with it: muted falls to 4.40 (under AA) and the border to 2.63. Two
 contract assertions broken to solve a problem that lives in the surfaces. Give
 the surfaces their own scale; leave the curve alone. `FLOOR` is 0.215 while the
 darkest painted plane is 0.150 — the surfaces no longer pass through the ink
-curve, which is what lets the floor stay where the contrast maths wants it.
+curve, which is what lets the floor stay where the contrast math wants it.
 
 ### What each ink step owes
 
@@ -103,7 +103,7 @@ curve, which is what lets the floor stay where the contrast maths wants it.
 
 `600` owes **5.5**, not 4.5: held to the same ratio as 500 against the same
 card, both are pushed to the same place and the curve's own separation is lost
-— they came out ΔL 0.0087 apart, two names for one grey. The hierarchy is
+— they came out ΔL 0.0087 apart, two names for one gray. The hierarchy is
 strong > primary > muted > subtle, so muted owes more than subtle.
 
 `400` exists because one primitive cannot owe two ratios: 500 had been
@@ -122,7 +122,7 @@ whether it is invisible or not. The four planes are an even ΔL 0.035 apart:
 | content column | `bg-primary` | 0.220 |
 | cards | `bg-elevated` | 0.255 |
 
-## Colour vision deficiency
+## Color vision deficiency
 
 **No green hue survives dichromacy.** Every candidate between 125 and 160
 collapses to the same yellow (deuteranopia ≈ `#DCDC27`), with ΔE against amber
@@ -134,7 +134,7 @@ consequences are baked into the system:
 1. **Warning is blue, and that is what buys the separation.** A hue on the
    other side of the wheel cannot collapse toward the accent the way an amber
    does, so warning leaves the warm family rather than being tuned inside it.
-2. **Timer state is carried by form and motion, not colour alone** — the
+2. **Timer state is carried by form and motion, not color alone** — the
    pulsing dot and the running readout signal it independently.
 
 ## The project hues are authored, not derived
@@ -199,7 +199,7 @@ distance compresses toward white.
 **Light's neutrals are warm at `HUE` 82 where dark's are blue-violet at 264.**
 The two grounds share no hue: one is paper and the other is a lit screen.
 Chroma runs four times dark's share for the same reason — at this hue it is
-what reads as stock rather than as a grey with a cast.
+what reads as stock rather than as a gray with a cast.
 
 ## The light accent
 

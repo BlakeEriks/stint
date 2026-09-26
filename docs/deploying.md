@@ -13,7 +13,7 @@ PR ──► CI ──► merge ──► Vercel builds ──► plan ──►
 
 **Every production release waits for your approval.** GitHub notifies you;
 the run's summary shows the commit and every pending migration's SQL, with a
-warning when one drops, truncates or deletes. Rejecting leaves the previous
+warning when one drops, truncates, or deletes. Rejecting leaves the previous
 build serving.
 
 The gate is the point. **Code must never go live before its migration** — a
@@ -27,7 +27,8 @@ the domain until required checks pass, so the migration runs while the
 `.github/workflows/ci.yml`, four jobs in parallel:
 
 - **`static`** — lint, token drift, the contrast contract, shadcn detox, the
-  typography scale, typecheck, the UI suite, core logic, then a build.
+  typography scale, typecheck, the UI suite, core logic, the hygiene scan's
+  tests, then a build.
   Needs no database, so an obvious slip fails in seconds.
 - **`database`** — the route and RLS suites against a real Postgres service
   container. `scripts/ci-db.sh` builds both databases, applying migrations
@@ -40,6 +41,11 @@ the domain until required checks pass, so the migration runs while the
   because it needs GoTrue and Mailpit, not the bare Postgres the others use,
   and because keeping it separate means a type error reports without waiting
   behind a Docker pull.
+
+Two more workflows report and never block. `docs.yml` runs Vale on the doc
+lines a PR adds and `/doc-drift` on the owner's PRs. `hygiene.yml` files
+issues each Monday from `pnpm hygiene`. Both spend Claude tokens from the
+`CLAUDE_CODE_OAUTH_TOKEN` secret, and only for the repository owner.
 
 Two narrowings in `e2e` pay for themselves and are easy to undo by accident:
 `supabase start -x studio,postgres-meta` skips 2.25GB of images the browser
@@ -200,7 +206,7 @@ account `stintbackups4b3306`, container `dumps`, in the personal subscription
   repo uses GitHub's immutable subject (owner and repo ids), so a renamed or
   re-created repo does not inherit the trust.
 - **It can write and nothing else.** The custom role "Stint Backup Writer"
-  creates blobs; it cannot read, list or delete them.
+  creates blobs; it cannot read, list, or delete them.
 - **Nobody can delete a backup for 90 days.** A time-based retention policy
   on the container, then a lifecycle rule removes it.
 - **Only the private key opens one.** The public key is the Production

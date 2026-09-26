@@ -77,7 +77,7 @@ them together, because each one blocks work that looks unrelated to it.
       after the click rather than before it.
 
       DNS is on Cloudflare, which the registrar requires. **Vercel's records
-      are proxied off — grey cloud, DNS only** — because an orange-clouded
+      are proxied off — gray cloud, DNS only** — because an orange-clouded
       record terminates TLS at Cloudflare and Vercel's certificate issuance
       never completes.
 
@@ -167,7 +167,7 @@ them together, because each one blocks work that looks unrelated to it.
       Developer ID also earns `TokenStore` a `teamid:` Keychain partition and
       is what Sign in with Apple waits on.
 
-      A paid Apple developer account, then notarisation. The same purchase
+      A paid Apple developer account, then notarization. The same purchase
       unblocks both.
 
 - [ ] **Version the macOS app, and tag `0.1.0` at alpha.**
@@ -286,7 +286,7 @@ integration, no subscription table, no entitlement check.
       Checkout, a webhook that is the source of truth for subscription state,
       an entitlement the API can check, dunning for the failed cards that are
       a third of churn under $10, an upgrade screen, and a place to cancel.
-      **Cancelling never locks an invoice already generated** — the user's
+      **Canceling never locks an invoice already generated** — the user's
       records are theirs, and retroactively withholding a document they
       created while paying is the trust failure the whole product argues
       against.
@@ -352,12 +352,12 @@ the gate its four answers when it moves up.
 
 - **A project takes a shade within its client's hue**, and `projects.color`
   stops being dead. One client and several projects is the common solo shape:
-  that user's mix is a single flat segment and their heatmap one colour, so
-  the panel spends its colour channel saying nothing.
+  that user's mix is a single flat segment and their heatmap one color, so
+  the panel spends its color channel saying nothing.
 
   **This cancels the column's drop**, which `data-model.md` still points here
   for. The column was scheduled for retirement because nothing claimed a
-  project has a colour; that rule is what changes, so it is revived rather
+  project has a color; that rule is what changes, so it is revived rather
   than dropped and re-added — and re-specified as a **shade index, not a
   hex**, since a stored hex is the drift the token package exists to prevent.
   It is `text` today, so this is an `alter type` to `smallint` with a check
@@ -380,8 +380,8 @@ the gate its four answers when it moves up.
   L 0.540, so the lightest project on a quiet day renders darker than the
   darkest project on a busy one — the cell lying on both axes at once.
 
-  `deriving-colour.md` owns the derivation. `CLAUDE.md`'s *only clients have a
-  colour* becomes *a client owns a hue; a project may take a step on it*.
+  `deriving-color.md` owns the derivation. `CLAUDE.md`'s *only clients have a
+  color* becomes *a client owns a hue; a project may take a step on it*.
 
 - **Calendar proposals.** Blocked on a Google Cloud project and a verified
   OAuth consent screen. Proposed blocks are drawn, never written: a proposal

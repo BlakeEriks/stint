@@ -1,0 +1,70 @@
+name: Docs
+
+# Two checks on every pull request. Both report and neither blocks: Vale
+# annotates the doc lines a PR adds, and Claude checks whether the docs that
+# own what the PR changed still hold.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  prose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # .vale.ini scopes it to docs/ and CLAUDE.md; `added` reports only the
+      # lines this PR adds, so the existing backlog stays out of review.
+      - uses: vale-cli/vale-action@518a9136acc6e6668ce7c00d367051e0941e87ff # v3.0.0
+        with:
+          version: 3.23.0
+          filter_mode: added
+
+  drift:
+    # Only the owner's PRs spend the owner's Claude tokens. A fork's PR gets
+    # no secrets anyway; this also keeps Dependabot's PRs from spending them.
+    if: >-
+      github.event.pull_request.user.login == github.repository_owner &&
+      !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # Full history: the skill diffs against the merge base.
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+
+      # The action runs the base branch's .claude/, so a base that predates
+      # /doc-drift has no skill to run.
+      - name: Base has /doc-drift
+        id: skill
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          if git cat-file -e "origin/$BASE:.claude/skills/doc-drift/SKILL.md" 2>/dev/null; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::origin/$BASE has no /doc-drift skill yet; skipping."
+          fi
+
+      # Pinned: this step holds the Claude token.
+      - if: steps.skill.outputs.present == 'true'
+        uses: anthropics/claude-code-action@756cc22e19660d20e8cc9496b4f242475a7f7790 # v1.0.235
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The workflow's own token, so the job needs no Claude GitHub App
+          # and can do nothing beyond the permissions above.
+          github_token: ${{ github.token }}
+          prompt: /doc-drift ${{ github.event.pull_request.number }} ${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.head.sha }}
+          # Write is for the comment body, passed to gh as a file.
+          claude_args: >-
+            --max-turns 40
+            --allowedTools "Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*),Bash(gh pr comment:*)"

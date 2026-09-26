@@ -16,7 +16,7 @@ import { useCountUp } from '@/lib/client/use-count-up';
  * `docs/design/screens/home.html` specifies: it rolls on arrival and on a
  * value that actually changed, never on a remount holding the same figures.
  *
- * `className` carries the type role and colour, because those differ by where
+ * `className` carries the type role and color, because those differ by where
  * the figure sits: a headline is `type-figure`, a row's amount is
  * `type-duration`, a legend's is `type-meta`.
  */

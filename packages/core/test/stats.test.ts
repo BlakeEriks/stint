@@ -615,7 +615,7 @@ test('the last non-null point equals the month’s full total', () => {
   }
 });
 
-test('earned sums the month itself, not the neighbouring one', () => {
+test('earned sums the month itself, not the neighboring one', () => {
   const p = buildEarnedPace({
     byDay: new Map([
       ['2026-01-31', 500],

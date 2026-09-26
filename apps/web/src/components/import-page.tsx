@@ -130,7 +130,7 @@ export function ImportPage() {
     else preview.reset();
   };
 
-  /* Colour moves no number, so it is held here and sent with the confirm
+  /* Color moves no number, so it is held here and sent with the confirm
      rather than re-reading the file. */
   const chooseClient = (key: string, c: ClientChoice) => {
     const next = { ...clients, [key]: { ...clients[key], ...c } };
@@ -370,10 +370,10 @@ function ClientRow({
         {client.isNew ? (
           <DropdownMenu open={open} onOpenChange={setOpen}>
             <DropdownMenuTrigger
-              aria-label={`${client.name} colour`}
+              aria-label={`${client.name} color`}
               className="mt-1 flex-none rounded-[2px] outline-none focus-visible:ring-[3px] focus-visible:ring-edge-focus"
             >
-              {/* Unchosen reads as an outline: the grey fill would say
+              {/* Unchosen reads as an outline: the gray fill would say
                   "internal work", which a client is not. */}
               {color ? (
                 <Swatch
@@ -390,7 +390,7 @@ function ClientRow({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="p-2">
               <ColorPicker
-                label={`${client.name} colour`}
+                label={`${client.name} color`}
                 value={color}
                 onChange={(c) => {
                   onChoose({ color: c });

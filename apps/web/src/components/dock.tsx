@@ -37,7 +37,7 @@ export function Dock() {
   /* The split is only a thing at `xl`, where the dock is a fixed-height
      column. Below that it is a band that sizes to its content, so there is no
      height to divide and no handle to show. `useMediaQuery` rather than a
-     Tailwind `xl:` because this changes BEHAVIOUR, not just appearance. */
+     Tailwind `xl:` because this changes BEHAVIOR, not just appearance. */
   const column = useRef<HTMLElement>(null);
   const wide = useMediaQuery('(width >= 80rem)');
   const { split, dragging, begin, nudge, reset } = useDockSplit(column);
@@ -119,7 +119,7 @@ export function Dock() {
  * cannot hold the grip or take focus. A slider is what this behaves like
  * anyway: one value, moved with the arrows, bounded at both ends.
  *
- * Arrow keys move it, Home centres it, and a double-click does the same.
+ * Arrow keys move it, Home centers it, and a double-click does the same.
  */
 function SplitHandle({
   split,
@@ -175,7 +175,7 @@ function SplitHandle({
             : 'bg-edge-subtle group-hover:bg-edge-control'
         }`}
       />
-      {/* The grip: three dots centred on the rule, shown on hover or while
+      {/* The grip: three dots centered on the rule, shown on hover or while
           dragging. It says the line moves without saying so permanently. */}
       <div
         aria-hidden

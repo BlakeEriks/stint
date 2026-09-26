@@ -8,7 +8,7 @@ export type ParsedExport =
   | { ok: true; source: ImportSource; rows: ParsedRow[] }
   | { ok: false; reason: string };
 
-/** Recognises the export and reads every row, or says why it could not. */
+/** Recognizes the export and reads every row, or says why it could not. */
 export function parseExport(text: string): ParsedExport {
   const csv = parseCsv(text);
   const header = csv[0] ?? [];

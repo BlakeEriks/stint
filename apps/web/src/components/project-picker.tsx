@@ -35,8 +35,8 @@ function Tick({ on }: { on: boolean }) {
 /**
  * Project assignment.
  *
- * A native `<select>` cannot show the colour swatch, and the swatch is how
- * work is recognised at a glance everywhere else in the app. The colour is
+ * A native `<select>` cannot show the color swatch, and the swatch is how
+ * work is recognized at a glance everywhere else in the app. The color is
  * the CLIENT's — projects under one client share it, so the swatch answers
  * "whose work is this?" and the name answers "which piece?".
  *
@@ -96,7 +96,7 @@ export function ProjectPicker({
   const colors = useProjectColors();
   /* The same two queries the swatch already resolves through, so naming the
      client costs no fetch. Keyed by client rather than by project because
-     `clientByProject` drops a client that has no colour, and that project is
+     `clientByProject` drops a client that has no color, and that project is
      billed work whose client still has a name. */
   const clients = useClients();
 
@@ -272,7 +272,7 @@ export function ProjectPicker({
  *
  * **Internal work gets no client text at all.** The absence IS the answer, the
  * same reason its swatch resolves to `INTERNAL_SWATCH` rather than a shared
- * grey — a placeholder there would name something that does not exist.
+ * gray — a placeholder there would name something that does not exist.
  */
 function Row({
   project,

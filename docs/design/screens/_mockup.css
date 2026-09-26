@@ -282,7 +282,7 @@
 }
 
 /* ── The mark ──────────────────────────────────────────────────────
-   `|Stint|` — one colour, bounds included, inherited via currentColor.
+   `|Stint|` — one color, bounds included, inherited via currentColor.
    Set a font-size on .mark and everything scales from it. */
 .mark {
     font-family: var(--font-mono);

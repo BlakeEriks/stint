@@ -152,7 +152,7 @@ export function Inbox({ stats }: { stats: Stats }) {
           <h2 className="type-label truncate text-subtle">Inbox</h2>
         </div>
         {/* A pill on the same fill the cards use, so the header reads as
-            naming the set below it. No badge colour — at zero the slot is
+            naming the set below it. No badge color — at zero the slot is
             empty, because "Nothing needs you" already says it. */}
         {count ? (
           <span className="inline-flex h-[17px] min-w-[17px] flex-none items-center justify-center rounded-full bg-surface-elevated px-1.5 type-meta text-primary">
@@ -346,7 +346,7 @@ function Row({
     );
   }
 
-  /* The qualifier names which threshold it tripped, because colour alone never
+  /* The qualifier names which threshold it tripped, because color alone never
      says which way. */
   const e = r.row;
   return (
@@ -388,7 +388,7 @@ function Row({
 
 /**
  * The runaway timer's row: surfaced here, decided here. Keep / Adjust /
- * Discard stay labelled — three judgements about billable work, and an icon
+ * Discard stay labeled — three judgments about billable work, and an icon
  * meaning "discard 52 hours" is not one to decode.
  */
 function RunawayItem({
@@ -468,7 +468,7 @@ function dayLabel(iso: string, tz: string) {
  * One inbox row: title and figure, the qualifier, then an action slot.
  *
  * **Severity is the left rule, never a per-row icon** — aligned rules are one
- * texture, and the danger one in it is conspicuous. Colour never carries the
+ * texture, and the danger one in it is conspicuous. Color never carries the
  * meaning alone; the qualifier states it in words.
  */
 function Item({
@@ -490,7 +490,7 @@ function Item({
   detail: string;
   value: string;
   /**
-   * How urgent the row is, and the ONLY thing on the card that takes colour.
+   * How urgent the row is, and the ONLY thing on the card that takes color.
    * It paints a 2px edge inside the card and the clause of `detail` that
    * names the fault — one value, so the two cannot disagree.
    *
@@ -529,7 +529,7 @@ function Item({
       <div
         /* A card: its own surface, no border on any edge. The dock's ground
            is the plane below it, so depth says where the card ends — which
-           is the job the old coloured rule was standing in for. */
+           is the job the old colored rule was standing in for. */
         className={`group relative overflow-hidden rounded-lg bg-surface-elevated px-2.5 py-2.5 shadow-card transition-colors hover:bg-surface-hover ${edge}`}
       >
         {/* The title owns its line. It is the subject of the row, and a
@@ -565,7 +565,7 @@ function Item({
           />
           {/* Wraps rather than truncating: it names which threshold was
               tripped, and an ellipsis eating "over 8h" takes the half of the
-              signal that colour cannot carry. */}
+              signal that color cannot carry. */}
           <span
             className={`min-w-0 type-support ${
               tone === 'danger'

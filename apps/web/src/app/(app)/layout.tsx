@@ -38,7 +38,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             not siblings in one row: the rail moves beside the content at
             `lg`, the dock becomes a third column at `xl`. Below `xl` the
             scroller is the wrapper around content + dock, so the dock scrolls
-            with the page it summarises. `frame.html` has the breakpoints.
+            with the page it summarizes. `frame.html` has the breakpoints.
 
             The gutters are what let the ground show around the panel. They
             live here rather than on the panel so the rail, the panel and the

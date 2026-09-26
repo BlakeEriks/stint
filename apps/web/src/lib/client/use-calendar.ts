@@ -91,7 +91,7 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
       };
       /* Each day carries its OWN exclusive end, so a list filtered to one day
          still has it. A DST day is 23 or 25 hours, so this is the real next
-         midnight rather than +24h — the fraction→instant maths a drag depends
+         midnight rather than +24h — the fraction→instant math a drag depends
          on is wrong by an hour otherwise. */
       const next = startOfLocalDayOffset(weekStart, tz, -(i + 1));
 
@@ -106,7 +106,7 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
         at,
         end: next,
         /* What the column spans. Positions are fractions OF THIS, and so is
-           the inverse maths a drag uses. */
+           the inverse math a drag uses. */
         from,
         to,
         ...day,
@@ -123,7 +123,7 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
   const visible = byDay ? days.filter((d) => d.date === cursorKey) : days;
 
   /* What the header totals: the day on a phone, the week on a desktop.
-     Labelling a week's hours over a single day's grid would misreport it. */
+     Labeling a week's hours over a single day's grid would misreport it. */
   const visibleSeconds = byDay ? (visible[0]?.totalSeconds ?? 0) : weekSeconds;
 
   const step = byDay ? 1 : 7;
@@ -135,7 +135,7 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
     weekDays: days,
     weekStart,
     // The exclusive end of the week, so the last column can compute its own
-    // span — a DST day is not 24 hours and the fraction→instant maths for a
+    // span — a DST day is not 24 hours and the fraction→instant math for a
     // drag needs the real one.
     weekEnd,
     weekSeconds,
@@ -270,7 +270,7 @@ export function position(
 }
 
 /**
- * Greedy interval colouring: first lane whose last block has ended.
+ * Greedy interval coloring: first lane whose last block has ended.
  *
  * **Narrowing is per CLUSTER, not per column.** A cluster is a run of blocks
  * that overlap transitively — A with B, B with C — and it ends at the first

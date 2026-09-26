@@ -366,7 +366,7 @@ function GroupingPicker({
               key={g.value}
               value={g.value}
               /* `items-start` and a taller row: the check sits with the label
-                 line, not centred against two lines of text. */
+                 line, not centered against two lines of text. */
               className="items-start pl-8"
             >
               <span className="flex flex-col gap-0.5">

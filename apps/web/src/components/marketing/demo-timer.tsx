@@ -27,7 +27,7 @@ export function DemoTimer() {
   const [seconds, setSeconds] = useState(SEED_SECONDS);
 
   useEffect(() => {
-    // Honour a reduced-motion preference: the readout holds its seeded value
+    // Honor a reduced-motion preference: the readout holds its seeded value
     // and the page stays entirely legible at rest.
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
     if (reduced.matches) return;
@@ -44,9 +44,9 @@ export function DemoTimer() {
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
-            {/* Form and motion carry the running state alongside colour,
+            {/* Form and motion carry the running state alongside color,
                 because no green hue survives dichromacy — see
-                docs/design/deriving-colour.md. */}
+                docs/design/deriving-color.md. */}
             <span
               aria-hidden
               className="size-2.5 flex-none rounded-full bg-accent-default

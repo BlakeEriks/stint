@@ -119,7 +119,7 @@ test('same task name at different rates stays on separate lines', () => {
   assert.equal(r.subtotal, 350);
 });
 
-test('grouping by project, with unassigned work labelled', () => {
+test('grouping by project, with unassigned work labeled', () => {
   const r = buildLineItems(
     [
       entry({ id: 'a', projectName: 'Lifecycle' }),
@@ -251,7 +251,7 @@ test('an invoice can carry both time and a rebilled expense', () => {
     [entry({ id: 'a', taskName: 'Build', durationSeconds: 3600 })],
     {
       groupingMode: 'task',
-      manualLines: [{ description: 'Figma licence', amount: 15 }],
+      manualLines: [{ description: 'Figma license', amount: 15 }],
     },
   );
 

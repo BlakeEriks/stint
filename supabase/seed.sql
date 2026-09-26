@@ -57,7 +57,7 @@ update user_settings set
 where user_id = '00000000-0000-4000-8000-000000000001';
 
 -- ── clients ────────────────────────────────────────────────────────
--- Colours are real palette entries from tokens.json, not eyedropped. Three
+-- Colors are real palette entries from tokens.json, not eyedropped. Three
 -- clients with different rate situations, because rate resolution is the
 -- thing most worth seeing exercised: one overrides, one inherits the user
 -- default, one is archived.
@@ -75,9 +75,9 @@ values
 on conflict (id) do nothing;
 
 -- ── projects ───────────────────────────────────────────────────────
--- No colour: colour identifies the client. One project has no client at all,
--- which is how internal/unbilled work is modelled, and it is the case that
--- renders with no colour rather than a shared grey.
+-- No color: color identifies the client. One project has no client at all,
+-- which is how internal/unbilled work is modeled, and it is the case that
+-- renders with no color rather than a shared gray.
 insert into projects (id, user_id, client_id, name, hourly_rate, is_billable_default)
 values
   ('00000000-0000-4000-8000-00000000a001',
@@ -138,7 +138,7 @@ values
   -- earlier in the week, with the pathological label
   ('00000000-0000-7000-8000-0000000000e5',
    '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-00000000a003',
-   'Rebuild the marketing site navigation, including the mobile drawer, the sticky header behaviour and every redirect from the old information architecture',
+   'Rebuild the marketing site navigation, including the mobile drawer, the sticky header behavior and every redirect from the old information architecture',
    date_trunc('day', now()) - interval '2 days' + interval '9 hours 15 minutes',
    date_trunc('day', now()) - interval '2 days' + interval '15 hours 45 minutes', true, null),
   ('00000000-0000-7000-8000-0000000000e6',

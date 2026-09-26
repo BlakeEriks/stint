@@ -50,7 +50,7 @@ client's name as matched (trimmed, lower case) —
 (`YYYY-MM-DD`) marks that client's rows starting on or before it as invoiced
 elsewhere, and `hourlyRate` and `color` apply only to a client the import
 creates; and `excluded`, a JSON list of source row ids left out of the
-import, honoured only for a row listed as overlapping.
+import, honored only for a row listed as overlapping.
 
 | Method | Path | Notes |
 |---|---|---|
@@ -170,7 +170,7 @@ duplicate-key insert returns the existing row with `200` rather than an error,
 so a retried request is idempotent. A fresh create returns `201`.
 
 **`clientId` on a project is optional and nullable**, so a body carrying only
-a name creates internal work — which is how unbillable time is modelled, and
+a name creates internal work — which is how unbillable time is modeled, and
 the one shape a caller is most likely to send.
 
 Deletion is **archival** (`archivedAt`), never destructive — historical

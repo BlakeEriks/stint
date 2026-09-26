@@ -228,7 +228,7 @@ test('preview excludes a running timer — you cannot bill time still accruing',
   assert.equal(res.body.entryCount, 1);
 });
 
-test('preview honours the period boundaries inclusively', async () => {
+test('preview honors the period boundaries inclusively', async () => {
   const { POST: preview } = await import(
     '../src/app/api/v1/invoices/preview/route.ts'
   );
@@ -278,7 +278,7 @@ test('an invalid timezone is rejected on both preview and generation', async () 
 
 // ── generation ─────────────────────────────────────────────────────
 /* The same boundary the preview test covers, on the route that actually
-   bills: a preview honouring `tz` while generation did not would issue an
+   bills: a preview honoring `tz` while generation did not would issue an
    invoice the user never approved. */
 test('generation resolves the period in the caller timezone too', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');

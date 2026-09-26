@@ -35,7 +35,7 @@ rather than the headline.
 **Collected, awaiting and unbilled are never summed.** Three stages of one
 pipeline, and any two added double-count the same hours. Awaiting has an
 invoice, a due date and someone who owes it; unbilled can still be discounted,
-written off or never billed. A total would lend the second the authority of
+written off, or never billed. A total would lend the second the authority of
 the first.
 
 ## Trust
@@ -44,7 +44,7 @@ This is a billing system. Every rule below exists because a wrong number costs
 the user money and the app credibility.
 
 **One timer per user, enforced by a database index.** Not a constraint to work
-around — the organising principle. Overlapping entries are impossible rather
+around — the organizing principle. Overlapping entries are impossible rather
 than cleaned up later, which is what makes the invoice trustworthy.
 
 **The app never silently modifies user data.** A suspect record is surfaced
@@ -72,7 +72,7 @@ folder.
 ## The screen
 
 **Home is where the habit lives.** Invoicing is monthly; a tool used once a
-month gets cancelled. The daily open is the timer, and that habit is what
+month gets canceled. The daily open is the timer, and that habit is what
 keeps the subscription. Home's job is to be worth opening.
 
 **A card ships only if it carries a number the user cannot compute in their
@@ -88,10 +88,10 @@ calendar block can be dragged to correct its times — the place you notice a
 mistake should be the place you fix it — so the gesture gets a threshold and a
 snap, and it never re-derives a value it was only asked to move.
 
-## Colour and type
+## Color and type
 
 Visual rules live in `design/brand.html`, where they can be seen rather than
-described. One meaning carries into code: **colour belongs to the client**,
+described. One meaning carries into code: **color belongs to the client**,
 resolved through `useProjectColors()`, and internal work gets none. The
 accent's two jobs — the running timer and the one confirm action — are in
 `CLAUDE.md`, which every session loads.

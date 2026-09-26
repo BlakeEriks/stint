@@ -133,7 +133,7 @@ export interface ImportContext {
   allBillable: boolean;
   /** Keyed by the client's name as matched — see `clientKey`. */
   choices: Record<string, ClientChoice>;
-  /** Source row ids to leave out. Honoured only for a row that overlaps. */
+  /** Source row ids to leave out. Honored only for a row that overlaps. */
   excluded: string[];
   /** Stopped entries already in the account around the export's dates. */
   existing: {
@@ -390,7 +390,7 @@ export async function buildPreview(
  *
  * The listed row is the one from the file; of two from the file, the later —
  * it began inside the other, so it is usually the one to drop. An exclusion
- * is honoured only for a listed row, and an overlap with a row excluded
+ * is honored only for a listed row, and an overlap with a row excluded
  * elsewhere is settled, so it drops out unless its own row is excluded too.
  */
 function listOverlaps(

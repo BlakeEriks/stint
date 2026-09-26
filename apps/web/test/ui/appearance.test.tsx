@@ -15,10 +15,10 @@ vi.mock('next/navigation', () => ({
 }));
 
 /**
- * Appearance, not behaviour.
+ * Appearance, not behavior.
  *
  * These pin the design rules in CLAUDE.md that would fail SILENTLY — a wrong
- * colour pairing renders, a misspelled utility renders as nothing, and both
+ * color pairing renders, a misspelled utility renders as nothing, and both
  * ship with a passing build. They are deliberately about *rules*, not about
  * class strings: asserting `toHaveClass('type-nav')` would restate the source
  * and fail on any edit, which is a change detector rather than a test.
@@ -365,7 +365,7 @@ describe('the surface ramp is ordered, and far enough apart to see', () => {
   /* The four painted planes, furthest to nearest. Depth increases toward what
      is being read — and in BOTH themes that means lightness rises, because the
      nearest plane is the lightest either way: a near-black card on a blacker
-     frame, or a white card on a grey one.
+     frame, or a white card on a gray one.
 
      Light is not the mirror of dark here, which is the tempting assumption and
      is wrong. What inverts is where the ink goes (light text darkens to gain
@@ -402,7 +402,7 @@ describe('the surface ramp is ordered, and far enough apart to see', () => {
 
          Compared at 4dp, which is the resolution the ramp is authored in:
          both generators round every L with `toFixed(4)`, so a difference
-         below that is an artefact of binary subtraction and not a value
+         below that is an artifact of binary subtraction and not a value
          anyone chose. Light lands ON the floor — 0.975 less 0.935 is
          0.039999999999999925 — and the floor is the number the ramp is built
          to, so a ramp that meets it passes. */

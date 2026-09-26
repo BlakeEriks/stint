@@ -11,7 +11,8 @@ Verified end to end: seeded, signed in through the real magic-link flow, and
 ## Once
 
 Install a container runtime. Docker Desktop works; so do OrbStack, colima,
-Podman and Rancher Desktop.
+Podman, and Rancher Desktop. `pnpm hygiene` and `/copyedit` also need Vale:
+`brew install vale`.
 
 Then write `apps/web/.env.development.local`:
 
@@ -60,7 +61,7 @@ pnpm worktree <branch> --from <ref> # off something else
 A worktree is a fresh clone as far as the build is concerned: git carries no
 `node_modules`, no `packages/design-tokens/dist` and no
 `.env.development.local`, so `pnpm dev` there fails three ways before it
-serves a page. The script installs, generates the tokens and copies the env
+serves a page. The script installs, generates the tokens, and copies the env
 file.
 
 It copies **only** `.env.development.local`. `.env.local` reaches the hosted
@@ -85,7 +86,7 @@ there is nothing in your actual inbox and nothing to rate-limit.
 
 `auth.email.enable_confirmations` is `false` locally, so a brand-new address
 is usable immediately; `dev@localhost.test` is the one the seed owns, so it is
-the only one that comes with clients, projects and entries.
+the only one that comes with clients, projects, and entries.
 
 **One sign-in at a time per browser.** Sign-in is PKCE: the form stores a
 code verifier in localStorage under **one key per origin**, so two tabs on
@@ -151,7 +152,7 @@ because an empty app is a poor test of one:
   preview has more than one line and "the rate is part of the grouping key"
   is visible
 - an **archived** client and a project with **no client**, which is how
-  internal work is modelled and the one case that renders with no colour
+  internal work is modeled and the one case that renders with no color
 
 Dates are relative to `now()`, so the current week is always populated.
 
@@ -167,11 +168,11 @@ code was a 32px hero and the link a small "Signing in on the web instead?"
 line under a divider, with a subject reading *"Your Stint sign-in code"*. Most
 sign-ins are on the web, so that buried the common path under the rare one —
 and the subject is the whole of what you see in an inbox list. The button
-leads now, the code sits below a rule as a labelled alternative, and the
+leads now, the code sits below a rule as a labeled alternative, and the
 subject is *"Sign in to Stint"*, which names neither.
 
 The wordmark is **one flat `#F9FAFD`**, matching `wordmark.tsx`. It had a
-green `S` and grey pipes, which is the macOS lockup rather than the app's —
+green `S` and gray pipes, which is the macOS lockup rather than the app's —
 green means the running timer, and the only green in this email is the button.
 
 Both parts must survive in the **plaintext** body as well: `e2e/mailpit.ts`
@@ -354,30 +355,15 @@ pointer-capture methods — without them every DropdownMenu test throws on open.
 and the local stack is real Postgres with the real migrations:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres \
-  pnpm --filter @stint/web test
+pnpm db:setup    # rebuilds both from this checkout's migrations
+pnpm verify:db   # route and RLS suites, then verify:schema
 ```
 
-**That truncates the seed**, so a `pnpm dev:reset` (and a fresh sign-in) is
-needed afterwards. To keep the seed, point the suite at a throwaway database
-instead — it needs the `auth` schema stubbed, since the migrations reference
-it and the CLI's own `auth` belongs to GoTrue:
-
-```bash
-psql "$DB" -c 'create database stint_routes_test'
-psql "postgresql://postgres:postgres@127.0.0.1:54322/stint_routes_test" <<'SQL'
-create schema if not exists auth;
-create table if not exists auth.users (id uuid primary key, email text, raw_user_meta_data jsonb);
-create or replace function auth.uid() returns uuid language sql stable as
-  $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-SQL
-SUPABASE_DB_URL="…/stint_routes_test?sslmode=disable" pnpm migrate
-DATABASE_URL="…/stint_routes_test" pnpm --filter @stint/web test
-```
-
-`sslmode=disable` is required for `pnpm migrate` against the local stack; it
-assumes SSL otherwise and fails with "The server does not support SSL
-connections".
-
-Note the tests **truncate tables in `beforeEach`**, so running them wipes the
-seed. `pnpm dev:reset` puts it back.
+`db:setup` rebuilds two throwaway databases beside the seed, so the suites
+never touch it: `tt` with RLS off, for the route tests, and `tt_rls` with RLS
+on, reached as `authenticated`, for the RLS tests. Run it before every
+`verify:db` — it takes seconds, and a database left from another branch tests
+the wrong schema. Every checkout on the stack shares the two, so **one run at a time**:
+a `db:setup` ends any other checkout's run mid-suite. **Never point a suite at `postgres`
+itself**: the route tests truncate every table in `beforeEach`, and the seed
+goes with them.

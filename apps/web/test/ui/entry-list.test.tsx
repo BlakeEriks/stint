@@ -232,8 +232,8 @@ describe('EntryList', () => {
   });
 
   /**
-   * Internal work has no CLIENT and therefore no colour, but it keeps a
-   * swatch: the grey is what a swatch draws when there is no colour to draw,
+   * Internal work has no CLIENT and therefore no color, but it keeps a
+   * swatch: the gray is what a swatch draws when there is no color to draw,
    * so internal hours stay legible in a row or a graph beside the clients.
    *
    * It must be the SEMANTIC token. `--text-subtle` is a primitive that the

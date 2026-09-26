@@ -86,7 +86,7 @@ missed (SC-005), DST (FR-012). They run under `pnpm core:test`
 **Independent test**: quickstart.md Scenario 2.
 
 - [X] T021 [P] [US2] Unit test in `packages/core/test/import-rates.test.ts`: a row with a `reportedAmount` and no resolvable chain yields `resolvedRate: null`, `rateSource: 'none'`; a row under a rated project yields that project's rate regardless of `reportedAmount`; a `0` project rate resolves to `0`, not a fall-through (SC-003)
-- [X] T022 [US2] Show `rateSource` and an "unrated" marker per preview row, and the unrated count in the summary, in `apps/web/src/app/(app)/import/page.tsx`; `reportedAmount` may be shown only labelled as the source tool's figure
+- [X] T022 [US2] Show `rateSource` and an "unrated" marker per preview row, and the unrated count in the summary, in `apps/web/src/app/(app)/import/page.tsx`; `reportedAmount` may be shown only labeled as the source tool's figure
 
 ---
 

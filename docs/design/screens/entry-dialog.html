@@ -263,8 +263,8 @@
         Start&nbsp;→&nbsp;End pair directly beneath it.
       </li>
       <li>
-        <strong>The block takes its client's colour</strong> through
-        <code>useProjectColors()</code>, so the same entry is the same colour
+        <strong>The block takes its client's color</strong> through
+        <code>useProjectColors()</code>, so the same entry is the same color
         here and on the calendar. The accent in this dialog is
         <strong>Save</strong>.
       </li>
@@ -303,7 +303,7 @@
 </div>
 
 <script>
-  /* The prototype's maths, in minutes from midnight — a mockup has no
+  /* The prototype's math, in minutes from midnight — a mockup has no
      timezone to be correct about. The build goes through instantAt(),
      movedTo() and resized(), which take the column's real span. */
 
@@ -320,7 +320,7 @@
     let a = s - pad, b = e + pad;
     if (a < 0) { b += -a; a = 0; }
     if (b > DAY) { a -= b - DAY; b = DAY; }
-    /* Rounded out to a tick, so the strip begins and ends on a labelled
+    /* Rounded out to a tick, so the strip begins and ends on a labeled
        edge. A narrow window rounds to the half hour — at the whole hour a
        15-minute entry gained back most of the width the pad just saved. */
     const r = b - a <= 240 ? 30 : 60;
@@ -344,7 +344,7 @@
   const hhmm = (m) => String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
   const pct = (m) => ((m - WIN_START) / SPAN) * 100;
 
-  /* Every tick is labelled — a cropped window never holds enough to crowd.
+  /* Every tick is labeled — a cropped window never holds enough to crowd.
      A label within half its width of either end is dropped, not clipped. */
   function ticks() {
     scrub.querySelectorAll('.tick, .ticklab').forEach((n) => n.remove());

@@ -5,7 +5,7 @@ name: Secret scan
 # only remedy, and rewriting history does not un-publish it. This scans the
 # commits a push actually adds, before they are the permanent record.
 #
-# GitHub's own push protection covers provider-recognised formats. This is
+# GitHub's own push protection covers provider-recognized formats. This is
 # the wider net: it also catches generic high-entropy strings and private
 # keys, which push protection does not.
 on:

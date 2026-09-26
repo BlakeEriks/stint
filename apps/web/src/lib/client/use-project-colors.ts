@@ -6,12 +6,12 @@ import { api } from './api';
 import { keys } from './query-keys';
 
 /**
- * The swatch for internal work, which has no CLIENT and therefore no colour.
+ * The swatch for internal work, which has no CLIENT and therefore no color.
  *
- * Grey is not a client's colour and never becomes one — it is what a swatch
- * draws when there is no colour to draw, so internal work stays legible in a
+ * Gray is not a client's color and never becomes one — it is what a swatch
+ * draws when there is no color to draw, so internal work stays legible in a
  * row or a graph beside the clients rather than vanishing from it. One
- * constant, because the same grey in three components diverges the moment one
+ * constant, because the same gray in three components diverges the moment one
  * of them is edited.
  *
  * `--color-subtle`, not `--color-text-subtle`: the generator strips the
@@ -22,7 +22,7 @@ import { keys } from './query-keys';
 export const INTERNAL_SWATCH = 'var(--color-subtle)';
 
 /**
- * Resolves each project to its CLIENT's colour.
+ * Resolves each project to its CLIENT's color.
  *
  * Internal work (`clientId === null`) resolves to `null`: the absence is the
  * answer, and `INTERNAL_SWATCH` is what renders it.
@@ -36,11 +36,11 @@ export function useProjectColors(): Map<string, string | null> {
  * The same resolution, plus the client each project belongs to, for a legend
  * that groups by client: two projects for one client are one entry with one
  * swatch. Both come out of the same two queries, so this is one hook rather
- * than a second set of fetches that could disagree with the colours already
+ * than a second set of fetches that could disagree with the colors already
  * painted.
  *
  * **Archived clients are included.** Work billed to a finished engagement is
- * still in the history, and dropping its colour would silently move those
+ * still in the history, and dropping its color would silently move those
  * hours into the unnamed band.
  */
 export function useProjectClients(): {
@@ -54,9 +54,9 @@ export function useProjectClients(): {
   });
   const byId = useClients();
 
-  /* Memoised on the query data: these Maps are dependencies of the effects
+  /* Memoized on the query data: these Maps are dependencies of the effects
      and memos that draw a legend, so a fresh identity every render re-runs
-     all of them for colours that did not change. */
+     all of them for colors that did not change. */
   return useMemo(() => {
     const colorByProject = new Map<string, string | null>();
     const clientByProject = new Map<

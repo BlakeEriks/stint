@@ -50,7 +50,7 @@ for (const f of tokens.contract.forbidden) {
  * The contrast contract above cannot catch a hand-edited hex — a value typed
  * straight into tokens.json passes every assertion as long as it happens to
  * clear its ratio, and that is exactly how the dark ramp drifted to 8 of 12
- * steps hand-pinned while still looking compliant. Ratios prove a colour is
+ * steps hand-pinned while still looking compliant. Ratios prove a color is
  * legible; only this proves it was DERIVED.
  *
  * So both generators are re-run and diffed against the live file. A change to

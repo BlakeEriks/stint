@@ -3,10 +3,10 @@
 `apps/macos` is a **SwiftPM executable, not an Xcode project** — it builds and
 runs with the Command Line Tools alone (`swift build`), which is what makes it
 verifiable from a terminal. `./bundle.sh` wraps the binary in a `.app` with
-`LSUIElement`, because AppKit honours "menu bar only, no Dock icon" from a
+`LSUIElement`, because AppKit honors "menu bar only, no Dock icon" from a
 bundle's Info.plist and not from a bare executable. It self-signs with a local
 identity when one exists, which buys a stable designated requirement rather
-than an ad-hoc one; distribution still needs a Developer ID and notarisation.
+than an ad-hoc one; distribution still needs a Developer ID and notarization.
 
 **It is the timer and nothing else** — start, stop, task name, project.
 `design/menubar.html` is the spec.
@@ -39,7 +39,7 @@ pkill -f 'Stint.app/Contents/MacOS/Stint'
 `STINT_APP_URL` overrides the origin for one build.
 
 **`preview` is one PR's**, built by `pnpm try-mac <pr>`: the branch, checked
-out in `../stint-review`, pointed at its Vercel preview and signed in on
+out in `../stint-review`, pointed at its Vercel preview, and signed in on
 launch as its seeded account (`docs/deploying.md` §3d). It installs as
 `Stint Preview.app` with its own bundle id, beside Stint.app rather than over
 it, and the panel names the PR. Every request carries Vercel's protection
@@ -101,7 +101,7 @@ spend a rotating token and one would lose.
   use than the error.
 - **The task field follows the server only when unfocused**, so it never
   overwrites itself mid-type.
-- **Colours come from `Tokens.swift`, written by `pnpm tokens`** into the
+- **Colors come from `Tokens.swift`, written by `pnpm tokens`** into the
   app's own sources, because SwiftPM cannot read the gitignored `dist/`. The
   Swift names keep the raw prefixes — `borderSubtle`, not `edgeSubtle`.
 - **The runaway notice surfaces and stops there.** Adjusting needs a date and

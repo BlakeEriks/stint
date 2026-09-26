@@ -1,17 +1,17 @@
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 
 /**
- * The client's colour, wherever one is drawn beside a name.
+ * The client's color, wherever one is drawn beside a name.
  *
- * A client's colour is data, so it stays an inline style — the class list
+ * A client's color is data, so it stays an inline style — the class list
  * carries only the shape, which is one size in every list, legend and picker
  * that shows one.
  *
  * `aria-hidden` because the name is right there: a screen reader announcing a
- * colour before every client is noise, not information.
+ * color before every client is noise, not information.
  *
  * `null` resolves to `INTERNAL_SWATCH` — internal work has no client and
- * therefore no colour, and the grey is what the absence looks like.
+ * therefore no color, and the gray is what the absence looks like.
  */
 export function Swatch({
   color,

@@ -81,7 +81,7 @@ type Arrivable = { [ARRIVED]?: Map<string, number> };
 export function useCountUp(figure: string, to: number): { value: number } {
   const reduced = prefersReducedMotion();
 
-  /* Decided ONCE per mount, in `useState`'s initialiser: read in render it
+  /* Decided ONCE per mount, in `useState`'s initializer: read in render it
      would flip under the figure mid-tween. */
   const client = useQueryClient();
   const [arrival] = useState(() => {

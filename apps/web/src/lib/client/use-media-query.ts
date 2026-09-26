@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react';
 
 /**
  * Whether a CSS media query currently matches. For a breakpoint that changes
- * behaviour rather than appearance; Tailwind's `sm:` covers the rest.
+ * behavior rather than appearance; Tailwind's `sm:` covers the rest.
  *
  * The server snapshot is `false`, so a caller renders as "does not match" for
  * one paint and then adjusts.
