@@ -41,9 +41,11 @@ pnpm dev           # in apps/web
 `dev:up` stops the stack before starting it, because `-x` is only read at
 start — on an already-running stack it is accepted and does nothing.
 
-`pnpm dev:reset` rebuilds the database from migrations plus `seed.sql` —
-the fastest way back to a known state. `pnpm dev:down` stops it;
-`pnpm dev:status` prints the URLs.
+`pnpm dev:migrate` applies the migrations a pull brought in, keeping the
+local data. `pnpm dev:reset` rebuilds the database from migrations plus
+`seed.sql` — the fastest way back to a known state, and the fix for a
+database whose migration history disagrees with its schema.
+`pnpm dev:down` stops it; `pnpm dev:status` prints the URLs.
 
 | What | Where |
 |---|---|
