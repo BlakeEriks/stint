@@ -355,11 +355,14 @@ pointer-capture methods — without them every DropdownMenu test throws on open.
 and the local stack is real Postgres with the real migrations:
 
 ```bash
-pnpm db:setup    # once, and again after a migration lands
+pnpm db:setup    # rebuilds both from this checkout's migrations
 pnpm verify:db   # route and RLS suites, then verify:schema
 ```
 
-`db:setup` builds two throwaway databases, `tt` and `tt_rls`, beside the
-seed, so the suites never touch it. **Never point a suite at `postgres`
+`db:setup` rebuilds two throwaway databases beside the seed, so the suites
+never touch it: `tt` with RLS off, for the route tests, and `tt_rls` with RLS
+on, reached as `authenticated`, for the RLS tests. Run it before every
+`verify:db` — it takes seconds, and a database left from another branch tests
+the wrong schema. **Never point a suite at `postgres`
 itself**: the route tests truncate every table in `beforeEach`, and the seed
 goes with them.
