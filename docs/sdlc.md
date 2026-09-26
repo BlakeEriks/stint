@@ -10,7 +10,7 @@ flowchart TD
   subgraph Capture
     issue["GitHub issue<br/>bug · enhancement"]
     assess["/speckit-assess-intake → research<br/>→ define → shape → decide"]
-    roadmap["docs/roadmap.md entry"]
+    feature["Feature issue form<br/>milestone: Alpha · Launch · none"]
     killed["kill, recorded in decision.md"]
     hygiene["Hygiene, Mondays<br/>pnpm hygiene → /file-hygiene"]
   end
@@ -35,10 +35,10 @@ flowchart TD
 
   idea -->|fault or tweak| issue
   idea -->|new capability| assess
-  assess -->|go| roadmap
+  assess -->|go| feature
   assess -->|kill| killed
   hygiene --> issue
-  roadmap --> spec
+  feature --> spec
   spec --> impl
   spec -.->|/speckit-taskstoissues| issue
   issue --> wi

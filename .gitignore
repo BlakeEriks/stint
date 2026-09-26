@@ -43,3 +43,6 @@ playwright-report/
 # Vale packages, fetched by `vale sync`
 .vale/styles/*
 !.vale/styles/Stint/
+
+# Spec Kit extension catalog, downloaded by `specify extension`
+.specify/extensions/.cache/

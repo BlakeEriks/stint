@@ -19,7 +19,7 @@ to it, name the doc that owns the claim:
 | Enforced by a check or a config | that script or config, in a comment at the line someone edits |
 | Who this is for, what it competes with, what it costs | `docs/positioning.md` |
 | What we believe about the product | `docs/design/principles.md` |
-| A new capability, built through Spec Kit | `docs/roadmap.md` |
+| A new capability, built through Spec Kit | a GitHub issue labeled `feature` |
 | A fault, or an improvement to what exists | a GitHub issue |
 | True only under one path | `.claude/rules/<topic>.md`, with `paths:` frontmatter |
 
@@ -150,11 +150,16 @@ data or a developer's current location.
 Google style guide and those rules, and `/copyedit <path>` fixes a doc.
 
 **Unbuilt work splits on one question: does it need a spec?** A new
-capability or an expansion does — it goes in `docs/roadmap.md`, passes the
-gate there, and is built through Spec Kit. Everything smaller is a **GitHub
-issue**: a fault labeled `bug` plus its cost (`wrong data`, `misleading`,
-`looks wrong`, worst first), or a tweak or improvement to something that
-exists, labeled `enhancement`. The PR that does it closes it.
+capability or an expansion does — it is assessed with `/speckit-assess-*`,
+filed through the **Feature** issue form, whose four questions are the gate,
+and built through Spec Kit. Everything smaller is a **GitHub issue**: a fault
+labeled `bug` plus its cost (`wrong data`, `misleading`, `looks wrong`, worst
+first), or a tweak or improvement to something that exists, labeled
+`enhancement`. The PR that does it closes it.
+
+**Two milestones, and they are gates: `Alpha`**, a handful of friends using it
+for real, **and `Launch`**, a stranger paying. An issue in neither is wanted
+and not committed to. `urgent` orders within one.
 
 **`docs/api.md` marks unimplemented endpoints `(not implemented)`.**
 

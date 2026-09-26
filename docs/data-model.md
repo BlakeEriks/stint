@@ -94,7 +94,7 @@ null means "fall back". `color` is here because color identifies a client.
 `client_id` is **nullable** — that is how internal/unbilled work is modeled.
 `color` is **dead but not doomed**: nothing selects or writes it, and a
 project takes its color from its client. Its drop is canceled —
-`roadmap.md` revives it as a shade index within the client's hue, which is an
+#66 revives it as a shade index within the client's hue, which is an
 `alter type` to `smallint` rather than a drop and re-add.
 
 ### `time_entries`
