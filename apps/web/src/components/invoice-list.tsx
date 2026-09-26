@@ -154,6 +154,7 @@ export function InvoiceList() {
         }}
         pending={markPaid.isPending}
         error={markPaid.error}
+        sentAt={all.find((i) => i.id === payingId)?.sentAt}
       />
     </Page>
   );

@@ -29,6 +29,7 @@ export function MarkPaidDialog({
   onConfirm,
   pending,
   error,
+  sentAt,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -41,6 +42,8 @@ export function MarkPaidDialog({
   onConfirm: (paidAt: string | undefined) => void;
   pending: boolean;
   error?: unknown;
+  /** The invoice's send instant, so a same-day payment can't underflow it. */
+  sentAt?: string | null;
 }) {
   const [date, setDate] = useState('');
   const [today, setToday] = useState('');
@@ -53,6 +56,11 @@ export function MarkPaidDialog({
     setToday(key);
   }, [open]);
 
+  const sentAtDate = sentAt ? new Date(sentAt) : null;
+  const sentDateKey = sentAtDate
+    ? localDateKey(sentAtDate, timeZone)
+    : undefined;
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!date) return;
@@ -60,7 +68,15 @@ export function MarkPaidDialog({
       onConfirm(undefined);
       return;
     }
-    const paidAt = localDateTimeToInstant(date, '00:00', timeZone);
+    const midnight = localDateTimeToInstant(date, '00:00', timeZone);
+    /* Picking the same calendar day the invoice was sent still needs an
+       instant no earlier than `sentAt` itself — `sentAt` carries a real
+       time of day, so local midnight of that day underflows it whenever
+       the invoice went out any time after midnight. */
+    const paidAt =
+      sentAtDate && date === sentDateKey && midnight < sentAtDate
+        ? sentAtDate
+        : midnight;
     onConfirm(paidAt.toISOString());
   };
 
@@ -81,6 +97,7 @@ export function MarkPaidDialog({
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
+              min={sentDateKey}
               max={today}
               required
             />

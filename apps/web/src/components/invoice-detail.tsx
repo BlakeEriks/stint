@@ -256,6 +256,7 @@ function Loaded({
         onConfirm={(paidAt) => setStatus.mutate({ status: 'paid', paidAt })}
         pending={setStatus.isPending}
         error={error}
+        sentAt={invoice.sentAt}
       />
     </>
   );

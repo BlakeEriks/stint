@@ -13,7 +13,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
 }));
 
-function invoice(status: InvoiceStatus): Invoice {
+function invoice(status: InvoiceStatus, sentAt: string | null = null): Invoice {
   return {
     id: 'inv-1',
     clientId: 'c1',
@@ -33,13 +33,13 @@ function invoice(status: InvoiceStatus): Invoice {
     paymentTerms: 'Net 30',
     groupingMode: 'entry',
     paymentDetails: null,
-    sentAt: null,
+    sentAt,
     paidAt: null,
     createdAt: '2026-09-01T00:00:00Z',
   };
 }
 
-function serve(status: InvoiceStatus) {
+function serve(status: InvoiceStatus, sentAt: string | null = null) {
   const calls: Array<{ method: string; path: string; body: unknown }> = [];
   vi.stubGlobal(
     'fetch',
@@ -57,7 +57,7 @@ function serve(status: InvoiceStatus) {
         JSON.stringify({
           /* FLAT, matching the route: a stub is only as good as its
              fidelity to the endpoint. */
-          ...invoice(status),
+          ...invoice(status, sentAt),
           client: { id: 'c1', name: 'Acme Corp' },
           lineItems: [
             {
@@ -233,6 +233,36 @@ describe('InvoiceDetail', () => {
     const body = call.body as { status: string; paidAt?: string };
     expect(body.status).toBe('paid');
     expect(body.paidAt).toBeUndefined();
+  });
+
+  /* Sent Monday 3pm, marked paid on that same Monday from a session running
+     Wednesday: local midnight of the picked day is Monday 00:00, which is
+     before Monday 3pm and would underflow `sentAt`. The picked date is the
+     same calendar day the invoice was sent, so the instant sent must be
+     `sentAt` itself, never a midnight that predates it. */
+  it('sends sentAt itself when paid is backdated to the day it was sent', async () => {
+    const sentAt = '2026-09-14T15:00:00.000Z'; // Monday 3pm UTC
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-09-16T12:00:00.000Z')); // Wednesday
+    const calls = serve('sent', sentAt);
+    const user = userEvent.setup();
+    show();
+
+    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
+
+    const dateInput = await screen.findByLabelText('Date paid');
+    const sentDateKey = localDateKey(new Date(sentAt), tz);
+    expect(dateInput).toHaveAttribute('min', sentDateKey);
+
+    await user.clear(dateInput);
+    await user.type(dateInput, sentDateKey);
+    await user.click(screen.getByRole('button', { name: 'Mark paid' }));
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    const body = calls[0]!.body as { status: string; paidAt: string };
+    expect(body.status).toBe('paid');
+    expect(body.paidAt).toBe(sentAt);
+    vi.useRealTimers();
   });
 });
 
