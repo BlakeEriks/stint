@@ -793,6 +793,56 @@ test('a send date can be backdated', async () => {
   assert.equal(new Date(sent.body.sentAt).toISOString(), when);
 });
 
+/* The date the money actually arrived, not the date the user happened to
+   click "mark paid" — otherwise `paid_at` measures the user's habits rather
+   than the client's payment behaviour, and every average built on it
+   (days-to-pay, collected-by-month) is wrong. */
+test('a paid date can be backdated', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  await seedEntry({ id: E(1), hours: 1 });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), {
+    params: Promise.resolve({ id: inv.body.id }),
+  });
+
+  const when = '2026-09-03T00:00:00.000Z';
+  const paid = await json(
+    await setStatus(req('/s', { status: 'paid', paidAt: when }, 'PATCH'), {
+      params: Promise.resolve({ id: inv.body.id }),
+    }),
+  );
+  assert.equal(paid.body.status, 'paid');
+  assert.equal(new Date(paid.body.paidAt).toISOString(), when);
+});
+
+test('an unspecified paid date falls back to now', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  await seedEntry({ id: E(1), hours: 1 });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), {
+    params: Promise.resolve({ id: inv.body.id }),
+  });
+
+  const before = Date.now();
+  const paid = await json(
+    await setStatus(req('/s', { status: 'paid' }, 'PATCH'), {
+      params: Promise.resolve({ id: inv.body.id }),
+    }),
+  );
+  const paidAt = new Date(paid.body.paidAt).getTime();
+  assert.ok(paidAt >= before && paidAt <= Date.now());
+});
+
 // ── payment details ────────────────────────────────────────────────
 test('an invoice freezes the payment profile at generation', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');

@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { InvoiceDetail } from '@/components/invoice-detail';
 import type { Invoice, InvoiceStatus } from '@/lib/client/api';
+import { localDateKey } from '@stint/core';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
@@ -36,31 +38,41 @@ function invoice(status: InvoiceStatus): Invoice {
 }
 
 function serve(status: InvoiceStatus) {
+  const calls: Array<{ method: string; path: string; body: unknown }> = [];
   vi.stubGlobal(
     'fetch',
-    vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            /* FLAT, matching the route: a stub is only as good as its
-               fidelity to the endpoint. */
-            ...invoice(status),
-            client: { id: 'c1', name: 'Acme Corp' },
-            lineItems: [
-              {
-                description: 'Design review',
-                unit: 'hour' as const,
-                quantity: 2.5,
-                unitPrice: 150,
-                rateSource: 'client',
-                amount: 375,
-              },
-            ],
-          }),
-          { status: 200 },
-        ),
-    ),
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET') {
+        calls.push({
+          method,
+          path: String(url).replace('/api/v1', ''),
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        });
+        return new Response('{}', { status: 200 });
+      }
+      return new Response(
+        JSON.stringify({
+          /* FLAT, matching the route: a stub is only as good as its
+             fidelity to the endpoint. */
+          ...invoice(status),
+          client: { id: 'c1', name: 'Acme Corp' },
+          lineItems: [
+            {
+              description: 'Design review',
+              unit: 'hour' as const,
+              quantity: 2.5,
+              unitPrice: 150,
+              rateSource: 'client',
+              amount: 375,
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    }),
   );
+  return calls;
 }
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -169,6 +181,36 @@ describe('InvoiceDetail', () => {
     show();
 
     expect(await screen.findByText(/numbering is gapless/)).toBeInTheDocument();
+  });
+
+  /* Nothing asked before, so `paid_at` was always the click, not the
+     payment. The dialog defaults to today and lets a backdated payment be
+     recorded as what it actually was. */
+  it('asks when the payment arrived before recording it as paid', async () => {
+    const calls = serve('sent');
+    const user = userEvent.setup();
+    show();
+
+    await user.click(await screen.findByRole('button', { name: 'Mark paid' }));
+
+    const dateInput = await screen.findByLabelText('Date paid');
+    const today = localDateKey(
+      new Date(),
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+    );
+    expect(dateInput).toHaveValue(today);
+
+    await user.clear(dateInput);
+    await user.type(dateInput, '2026-08-20');
+    await user.click(screen.getByRole('button', { name: 'Mark paid' }));
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    const call = calls[0]!;
+    expect(call.method).toBe('PATCH');
+    expect(call.path).toBe('/invoices/inv-1/status');
+    const body = call.body as { status: string; paidAt: string };
+    expect(body.status).toBe('paid');
+    expect(body.paidAt.slice(0, 10)).toBe('2026-08-20');
   });
 });
 

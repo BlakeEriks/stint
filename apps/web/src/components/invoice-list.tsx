@@ -1,11 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@stint/core';
 import { StatusBadge, shortDate } from './invoice-bits';
+import { MarkPaidDialog } from './mark-paid-dialog';
 import { api, type Invoice, type InvoiceStatus } from '@/lib/client/api';
 import { FilterTabs, Listing, Page, Panel } from './page';
 import { DollarSign, Plus } from 'lucide-react';
@@ -60,11 +62,15 @@ export function InvoiceList() {
     .filter((i) => i.status === 'sent')
     .reduce((a, i) => a + i.total, 0);
 
+  const [payingId, setPayingId] = useState<string | null>(null);
+
   const markPaid = useMutation({
-    mutationFn: (id: string) => api.updateInvoiceStatus(id, { status: 'paid' }),
+    mutationFn: (args: { id: string; paidAt: string }) =>
+      api.updateInvoiceStatus(args.id, { status: 'paid', paidAt: args.paidAt }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.invoices() });
       queryClient.invalidateQueries({ queryKey: keys.stats() });
+      setPayingId(null);
     },
   });
 
@@ -121,10 +127,10 @@ export function InvoiceList() {
                     clientName={names.get(invoice.clientId)}
                     onMarkPaid={
                       invoice.status === 'sent'
-                        ? () => markPaid.mutate(invoice.id)
+                        ? () => setPayingId(invoice.id)
                         : undefined
                     }
-                    busy={markPaid.isPending}
+                    busy={markPaid.isPending && payingId === invoice.id}
                   />
                 </li>
               ))}
@@ -132,6 +138,18 @@ export function InvoiceList() {
           )}
         </Listing>
       </Panel>
+
+      <MarkPaidDialog
+        open={payingId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPayingId(null);
+        }}
+        onConfirm={(paidAt) => {
+          if (payingId) markPaid.mutate({ id: payingId, paidAt });
+        }}
+        pending={markPaid.isPending}
+        error={markPaid.error}
+      />
     </Page>
   );
 }

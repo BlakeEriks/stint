@@ -1,0 +1,103 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { DollarSign, Loader2 } from 'lucide-react';
+import { localDateKey, localDateTimeToInstant } from '@stint/core';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Field } from './field';
+import { timeZone } from '@/lib/client/use-timer';
+
+/**
+ * When money actually arrived, not when the invoice happened to get opened.
+ *
+ * Defaults to today because most invoices are marked paid the day the
+ * payment lands, but a client that paid earlier — or a backlog worked
+ * through days later — needs the real date, not the click.
+ */
+export function MarkPaidDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+  pending,
+  error,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: (paidAt: string) => void;
+  pending: boolean;
+  error?: unknown;
+}) {
+  const [date, setDate] = useState('');
+
+  // Reset to today each time it opens, so a previous pick cannot linger.
+  useEffect(() => {
+    if (!open) return;
+    setDate(localDateKey(new Date(), timeZone));
+  }, [open]);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!date) return;
+    const paidAt = localDateTimeToInstant(date, '00:00', timeZone);
+    onConfirm(paidAt.toISOString());
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <form onSubmit={submit} className="flex flex-col gap-4">
+          <DialogHeader>
+            <DialogTitle>Mark paid</DialogTitle>
+            <DialogDescription>
+              When did the payment actually arrive?
+            </DialogDescription>
+          </DialogHeader>
+
+          <Field label="Date paid" htmlFor="paid-at">
+            <Input
+              id="paid-at"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              max={localDateKey(new Date(), timeZone)}
+              required
+            />
+          </Field>
+
+          {error ? (
+            <p role="alert" className="type-support text-danger">
+              That change was rejected.
+            </p>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="accent" disabled={pending || !date}>
+              {pending ? (
+                <Loader2 aria-hidden className="animate-spin" />
+              ) : (
+                <DollarSign aria-hidden strokeWidth={1.75} />
+              )}
+              Mark paid
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
