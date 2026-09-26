@@ -53,6 +53,20 @@ Every build and every fix goes the same way:
 
 Blake sees the fixed work, never the findings.
 
+**Log every subagent run**: append one line to
+`.claude/work-issues/runs.jsonl` in the main checkout — the parent of
+`git rev-parse --git-common-dir` — so runs can be triaged later for what cost
+the most. Gitignored; one JSON object per line:
+
+    {"at":"2026-09-26T14:02Z","issue":24,"pr":33,"round":"build",
+     "agent":"issue-builder","agentId":"…","tokens":81234,"toolUses":42,
+     "durationMs":512000,"findings":2,"outcome":"reviewed"}
+
+`round` is `build`, `feedback` or `ci`; `tokens`, `toolUses` and
+`durationMs` are what the subagent's result reports; `findings` is for
+`issue-reviewer`; `outcome` is one word — `reviewed`, `shipped`,
+`needs-input`, `blocked`, `failed`.
+
 ## 0. Catch up
 
 - **Merged:** in `../stint-issues`, `git fetch --prune`,
