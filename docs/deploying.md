@@ -267,14 +267,14 @@ success teaches you to stop reading it.
 
 | Event | Message | Source |
 |---|---|---|
+| Release waiting for approval | ⏸ with the run link, where you approve | `release.yml`, `plan` |
 | Approved release live | ✅ commit and subject | `release.yml`, `report` |
 | Release failed, or its plan failed | ❌ with the run link | `release.yml`, `report` |
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
 
-Never posted: a release awaiting approval (GitHub already notifies you), a
-release with no migration going live, a rejection or cancellation (you did
-it), and a backup that worked
-(healthchecks.io is quiet until one does not arrive).
+Never posted: a release with no migration going live, a rejection or
+cancellation (you did it), and a backup that worked (healthchecks.io is quiet
+until one does not arrive).
 
 **A new alert names what you would do when it arrives.** If the answer is
 nothing, it is a log line. One event is one message from one source — never

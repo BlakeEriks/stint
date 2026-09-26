@@ -95,6 +95,20 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # The approval is the one step that waits on you, and a release left
+      # waiting holds every later one behind it. The run page is where you
+      # approve.
+      - name: Ask for approval on Discord
+        if: steps.plan.outputs.migrations == 'true'
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_ALERTS_WEBHOOK }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          text="⏸ Release \`${SHA:0:7}\` $(git log -1 --format=%s) has a migration and waits for your approval: $RUN"
+          # Empty allowed_mentions: a commit subject can never ping anyone.
+          jq -n --arg c "$text" '{content: $c, allowed_mentions: {parse: []}}' |
+            curl -fsS -m 10 -o /dev/null -H 'Content-Type: application/json' -d @- "$WEBHOOK"
+
   # The pause, only when there is a migration to judge. The Release
   # environment requires your approval and holds no secrets; rejecting leaves
   # the previous build serving.
