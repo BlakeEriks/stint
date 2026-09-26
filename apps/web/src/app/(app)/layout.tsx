@@ -1,4 +1,6 @@
+import { Suspense } from 'react';
 import { Providers } from '@/components/providers';
+import { BackTrail } from '@/components/back-link';
 import { AppHeader } from '@/components/app-header';
 import { Nav, Version } from '@/components/nav';
 import { Dock } from '@/components/dock';
@@ -15,6 +17,11 @@ import { TimerDock } from '@/components/timer-dock';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <Providers>
+      {/* Reads the query string, which a statically rendered route may only
+          do under a Suspense boundary. */}
+      <Suspense fallback={null}>
+        <BackTrail />
+      </Suspense>
       {/* The header and the timer bar are flex siblings rather than
           `position: fixed` — the content column ends between them, so there
           is no reserved padding to keep in sync and nothing overlaps the last

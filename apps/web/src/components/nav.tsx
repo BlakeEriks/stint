@@ -16,7 +16,7 @@ import {
    somewhere you already know, and useless for somewhere you do not — the
    label is what makes it findable the first time. lucide-react is already a
    dependency (shadcn's dialog and dropdown use it), so this costs nothing. */
-const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
+export const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/', label: 'Home', icon: Timer },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/clients', label: 'Clients', icon: Users },
