@@ -80,6 +80,9 @@ to main is then always a merge whose PR already ran the suite, and leaving it
 pays for every suite twice. Do it in that order; removing the trigger first
 leaves no gate at all.
 
+Then Settings → General → **Allow auto-merge**: `dependabot-merge.yml` uses
+it to merge Dependabot's bumps once the required checks pass.
+
 ## 2. Vercel project
 
 Import `BlakeEriks/stint` at vercel.com.
