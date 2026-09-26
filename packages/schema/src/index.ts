@@ -707,6 +707,18 @@ export const Stats = z.object({
   }),
 });
 
+/**
+ * `POST /timer/stop`: the stopped entry, and Unbilled as it stands with that
+ * entry in it — `/stats`'s own figure, so a client shows the new total from
+ * the call it already made rather than predicting the delta from its own copy
+ * of the rate chain.
+ */
+export const StoppedTimer = z.object({
+  entry: TimeEntry,
+  currency,
+  unbilled: Stats.shape.unbilled,
+});
+
 // ── payment profiles ───────────────────────────────────────────────
 // US-first: account + ACH routing is the default path, everything else
 // is additive and renders only when populated.
@@ -793,6 +805,7 @@ export type Account = z.infer<typeof Account>;
 export type InvoicePreview = z.infer<typeof InvoicePreview>;
 export type PaymentProfile = z.infer<typeof PaymentProfile>;
 export type Stats = z.infer<typeof Stats>;
+export type StoppedTimer = z.infer<typeof StoppedTimer>;
 export type MonthEarned = z.infer<typeof MonthEarned>;
 export type WeekDay = z.infer<typeof WeekDay>;
 export type UnbilledClient = z.infer<typeof UnbilledClient>;

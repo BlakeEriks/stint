@@ -4,6 +4,7 @@ import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
+import { buildUnbilled, type UnbilledRow } from '@stint/core';
 import { StopTimer } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -15,9 +16,13 @@ export const dynamic = 'force-dynamic';
  * returns 409 NO_TIMER_RUNNING rather than pretending to succeed, because
  * a client that thinks it stopped a timer it did not stop would display
  * the wrong state.
+ *
+ * Returns Unbilled alongside the entry, read after the stop so it counts it:
+ * the menu bar shows that figure, and would otherwise wait on a full refresh
+ * for it.
  */
 export const POST = handle(async (req: Request) => {
-  const { db } = await requireSession(req);
+  const { userId, db } = await requireSession(req);
   const body = await parseBody(req, StopTimer);
 
   const endedAt = body.endedAt ?? new Date().toISOString();
@@ -47,5 +52,21 @@ export const POST = handle(async (req: Request) => {
   // Lost the race to another device stopping the same timer.
   if (!data) throw new ApiError('NO_TIMER_RUNNING', 'No timer is running');
 
-  return NextResponse.json(toEntry(data as EntryRow));
+  const [unbilled, settings] = await Promise.all([
+    db.rpc('unbilled_by_client', { p_user_id: userId }),
+    db.from('user_settings').select('currency').maybeSingle(),
+  ]);
+  if (unbilled.error) throw unbilled.error;
+  if (settings.error) throw settings.error;
+
+  const currency = settings.data?.currency ?? 'USD';
+  return NextResponse.json({
+    entry: toEntry(data as EntryRow),
+    currency,
+    unbilled: buildUnbilled(
+      (unbilled.data ?? []) as UnbilledRow[],
+      currency,
+      new Date(),
+    ),
+  });
 });

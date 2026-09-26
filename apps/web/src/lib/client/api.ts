@@ -138,6 +138,10 @@ export type Summary = Response<Omit<schema.Summary, 'running'>> & {
   running: TimeEntry | null;
 };
 
+export type StoppedTimer = Response<Omit<schema.StoppedTimer, 'entry'>> & {
+  entry: TimeEntry;
+};
+
 export type GroupingMode = z.infer<typeof schema.GroupingMode>;
 export type InvoiceStatus = z.infer<typeof schema.InvoiceStatus>;
 export type ComputedLineItem = Response<schema.ComputedLineItem>;
@@ -194,7 +198,7 @@ export const api = {
   startTimer: (body: { taskName: string; projectId?: string | null }) =>
     request<TimeEntry>('POST', '/timer/start', body),
 
-  stopTimer: () => request<TimeEntry>('POST', '/timer/stop', {}),
+  stopTimer: () => request<StoppedTimer>('POST', '/timer/stop', {}),
 
   updateRunning: (body: { taskName?: string; projectId?: string | null }) =>
     request<TimeEntry>('PATCH', '/timer/current', body),
