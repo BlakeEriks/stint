@@ -28,7 +28,7 @@ flowchart TD
   end
 
   subgraph Ship
-    release["Release gate<br/>plan → approve → backup → migrate + verify"]
+    release["Release gate<br/>plan → approve + backup if migrating<br/>→ migrate + verify"]
     live([Live])
     cleanup["git worktree remove<br/>git branch -d"]
   end
