@@ -63,6 +63,7 @@ jobs:
           # The workflow's own token, so the job needs no Claude GitHub App
           # and can do nothing beyond the permissions above.
           github_token: ${{ github.token }}
+          display_report: true
           prompt: /doc-drift ${{ github.event.pull_request.number }} ${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.head.sha }}
           # Write is for the comment body, passed to gh as a file.
           claude_args: >-
