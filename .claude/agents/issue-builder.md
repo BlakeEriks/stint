@@ -3,6 +3,9 @@ name: issue-builder
 description: Builds one GitHub issue, or one round of fixes on an open PR, for /work-issues. Handed the issue or PR number and what to do.
 model: sonnet
 effort: high
+# One builder, one issue: it starts no agents and loads no skills — a builder
+# that loaded /work-issues became a second orchestrator on its first run.
+disallowedTools: Agent, Skill
 ---
 
 You build for `/work-issues`, which hands you an issue to triage and build,
@@ -54,17 +57,23 @@ touches. A migration found only now gets the `migration` label now.
 cannot be reached by hand in a minute — a condition that needs days to pass,
 like the inbox rows. Anything else, **Try it** has Blake create by clicking.
 
-Before reporting back:
+**Verify once, after the round's last edit** — not after every change. Never
+`pnpm dev:reset` or `pnpm dev:up` mid-round; another round's work may be
+standing on the stack.
 
-- the checks the change touches pass — these, and nothing hand-built:
-  - `pnpm verify:static` for anything
-  - `pnpm db:setup && pnpm verify:db`, for the API or the database —
-    throwaway databases rebuilt from the branch, so the seed survives
-  - `pnpm test:auth` for sign-in or the bearer path
-- a web change has been seen signed in to local Stint — read the page as
-  text to confirm content, and take one screenshot only if the change is
-  visual
-- a macOS change builds and has been seen in the app
+1. The checks the change touches — these, and nothing hand-built:
+   - `pnpm verify:static` for anything
+   - `pnpm db:setup && pnpm verify:db`, for the API or the database —
+     throwaway databases rebuilt from the branch, so the seed survives
+   - `pnpm test:auth` for sign-in or the bearer path
+2. A web change, seen once, signed in to local Stint. Data comes from
+   `pnpm seed dev@localhost.test` — clients, entries, and invoices in every
+   state — never built by hand. Read the page as text; take one screenshot
+   only if the change is visual.
+3. Last, the `apps/web/e2e` specs that drive a changed screen:
+   `pnpm test:e2e e2e/<spec>.spec.ts`, never the whole suite. They reset the
+   local stack as they go, which is why they come after step 2.
+4. A macOS change builds and has been seen in the app.
 
 Commit, unpushed, and report back. A check that cannot pass without Blake is
 `needs-input`, with the branch pushed so the work survives.
@@ -101,9 +110,9 @@ A macOS PR opens the section with the command instead:
 
     1. <an action> — <what you should see>
 
-`<branch>` is the branch name lowercased, anything else a hyphen; `<n>` is
-the PR number, so create the PR first, then add the section with
-`gh pr edit`. Every step says what Blake should see, never just what to do.
+`<branch>` is the branch name lowercased, anything else a hyphen. `<n>` is
+the number `gh pr create` prints — never the issue's — so create the PR
+without **Try it**, then add it with `gh pr edit`. Every step says what Blake should see, never just what to do.
 Label the PR `migration` if its issue is.
 
 On `ship` for a round of fixes: push, then one marked comment — what changed,
