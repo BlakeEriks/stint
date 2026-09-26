@@ -1,0 +1,3 @@
+# Every issue goes through a form, so it arrives with the labels /work-issues
+# picks by. Issues filed with `gh` bypass this and follow the same forms.
+blank_issues_enabled: false

@@ -1,0 +1,15 @@
+name: "Bug: misleading"
+description: Shows something untrue or stale.
+labels: [bug, "misleading"]
+body:
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What is wrong?
+      description: Where it happens and what it does. Name the screen, route or file if you know it.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen instead?
