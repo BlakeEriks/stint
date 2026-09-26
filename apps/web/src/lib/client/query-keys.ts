@@ -49,15 +49,21 @@ export const keys = {
  * A timer stop, an edited entry, a generated invoice and an inbox action all
  * change the same underlying rows, and each of the four views reads them
  * differently — so any one of them refreshed alone disagrees with the rest.
+ *
+ * Resolves once the queries on screen have refetched.
  */
 export function invalidateEntryData(queryClient: QueryClient) {
-  queryClient.invalidateQueries({ queryKey: keys.summary() });
-  queryClient.invalidateQueries({ queryKey: keys.entries() });
-  queryClient.invalidateQueries({ queryKey: keys.stats() });
-  queryClient.invalidateQueries({ queryKey: keys.calendar() });
-  queryClient.invalidateQueries({ queryKey: keys.activity() });
-  queryClient.invalidateQueries({ queryKey: keys.heatmap() });
-  /* Starting a timer or saving an entry mints a task name, so a list held
-     from before it is one suggestion short of what the user just typed. */
-  queryClient.invalidateQueries({ queryKey: keys.taskNames() });
+  return Promise.all(
+    [
+      keys.summary(),
+      keys.entries(),
+      keys.stats(),
+      keys.calendar(),
+      keys.activity(),
+      keys.heatmap(),
+      /* Starting a timer or saving an entry mints a task name, so a list held
+         from before it is one suggestion short of what the user just typed. */
+      keys.taskNames(),
+    ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+  );
 }

@@ -21,6 +21,20 @@ export function useExit() {
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
 
   /**
+   * Open a marked row again. The unmount is what normally clears a mark, so a
+   * row whose condition survived the write, and comes back from the refetch
+   * under the same key, would otherwise stay collapsed for good.
+   */
+  const unmark = useCallback((id: string) => {
+    setExiting((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  /**
    * Ref callback for a row: `mark` needs the element to wait on, and the
    * unmount drops the id — so a row whose condition still holds, like a
    * runaway timer left running, comes back visible rather than collapsed.
@@ -28,26 +42,24 @@ export function useExit() {
    * **Cached per id**, because React detaches and reattaches a ref whose
    * identity changed — which would clear the mark on the render that set it.
    */
-  const register = useCallback((id: string) => {
-    const cached = refs.current.get(id);
-    if (cached) return cached;
+  const register = useCallback(
+    (id: string) => {
+      const cached = refs.current.get(id);
+      if (cached) return cached;
 
-    const ref = (el: HTMLElement | null) => {
-      if (el) {
-        nodes.current.set(id, el);
-        return;
-      }
-      nodes.current.delete(id);
-      setExiting((prev) => {
-        if (!prev.has(id)) return prev;
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-    };
-    refs.current.set(id, ref);
-    return ref;
-  }, []);
+      const ref = (el: HTMLElement | null) => {
+        if (el) {
+          nodes.current.set(id, el);
+          return;
+        }
+        nodes.current.delete(id);
+        unmark(id);
+      };
+      refs.current.set(id, ref);
+      return ref;
+    },
+    [unmark],
+  );
 
   /** Play the row out, resolving once it has. */
   const mark = useCallback((id: string) => {
@@ -55,7 +67,7 @@ export function useExit() {
     return finished(nodes.current, id);
   }, []);
 
-  return { exiting, register, mark };
+  return { exiting, register, mark, unmark };
 }
 
 async function finished(nodes: Map<string, HTMLElement>, id: string) {

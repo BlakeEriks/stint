@@ -477,6 +477,11 @@
         query data until its animation has finished, so nothing has to be
         reconstructed once it goes. Refreshing first drops the row instantly
         and leaves the exit playing over a gap.</li>
+      <li><strong>A row the write did not clear opens again.</strong> A save
+        that leaves an entry without a project brings the same row back from
+        the refetch, so once the refetch lands, a row still in the data drops
+        its exit. Collapsed, it would be a suspect record hidden under
+        &ldquo;Nothing needs you.&rdquo;</li>
       <li><strong>The gap collapses by
         <code>grid-template-rows: 1fr → 0fr</code></strong> on a wrapper, which
         interpolates without measuring a height. Nothing pins a pixel value and

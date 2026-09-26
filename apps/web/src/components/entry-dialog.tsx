@@ -71,6 +71,7 @@ export function EntryDialog({
   focus = 'task',
   projects,
   onSaved,
+  onSettled,
   tz = timeZone,
 }: {
   open: boolean;
@@ -97,6 +98,11 @@ export function EntryDialog({
    * `useExit`'s `mark`; without it the refetch drops the row mid-animation.
    */
   onSaved?: (id: string) => Promise<void> | void;
+  /**
+   * Called once that refetch has landed. The inbox reopens a row the save
+   * did not clear here, such as an entry still without a project.
+   */
+  onSettled?: (id: string) => void;
   /** Overridable so a test can pin a zone; production always uses the real one. */
   tz?: string;
 }) {
@@ -135,7 +141,8 @@ export function EntryDialog({
     if (existing) await onSaved?.(existing.id);
     /* `stats` is in there too: editing an entry changes the unbilled total,
        and giving a loose entry a project is what clears its inbox row. */
-    invalidateEntryData(queryClient);
+    await invalidateEntryData(queryClient);
+    if (existing) onSettled?.(existing.id);
   };
 
   const save = useMutation({

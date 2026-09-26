@@ -6,6 +6,8 @@ import type { ReactNode } from 'react';
 import { Inbox } from '@/components/inbox';
 import { useExit } from '@/lib/client/use-exit';
 import type { Stats } from '@/lib/client/api';
+import { keys } from '@/lib/client/query-keys';
+import { timeZone } from '@/lib/client/use-timer';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
 
@@ -287,6 +289,78 @@ describe('an inbox row leaving', () => {
     await act(async () => {
       animation.finish();
     });
+  });
+
+  /**
+   * A write that does not clear its row, like a save that leaves the entry
+   * without a project, gets the row back from the refetch under the same key.
+   * It never unmounts, so the mark has to come off once the refetch lands, or
+   * the row stays collapsed under "Nothing needs you." with a count of 1.
+   */
+  it('reopens a row the refetch brings back', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })),
+    );
+    const held = stats({ overdueInvoices: [overdue] });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    });
+    client.setQueryData(keys.stats(timeZone), held);
+
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={client}>
+        <Inbox stats={held} />
+      </QueryClientProvider>,
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText('Northwind').closest('li')).not.toHaveAttribute(
+        'data-exiting',
+      ),
+    );
+    expect(screen.queryByText(/nothing needs you/i)).toBeNull();
+  });
+
+  it('keeps a row closed once the refetch has dropped it', async () => {
+    const fetched: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        fetched.push(String(url));
+        return new Response(JSON.stringify({}), { status: 200 });
+      }),
+    );
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    });
+    client.setQueryData(keys.stats(timeZone), stats());
+
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={client}>
+        <Inbox stats={stats({ overdueInvoices: [overdue] })} />
+      </QueryClientProvider>,
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
+    );
+    await waitFor(() =>
+      expect(fetched.some((u) => u.includes('/invoices/i1'))).toBe(true),
+    );
+
+    /* The fresh data has no such row, so the unmount is what clears the
+       mark. Reopening first would flash the row back before it went. */
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByText('Northwind').closest('li')).toHaveAttribute(
+      'data-exiting',
+    );
   });
 
   it('keeps the empty state closed while another row remains', async () => {

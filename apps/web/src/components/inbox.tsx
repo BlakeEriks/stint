@@ -47,17 +47,21 @@ type InboxRow =
  * spends the column's width on nesting.
  */
 export function Inbox({ stats }: { stats: Stats }) {
-  const {
-    overdueInvoices,
-    staleDrafts,
-    unprojected,
-    strangeDurations,
-    overlaps,
-  } = stats.attention;
   const queryClient = useQueryClient();
 
   const exit = useExit();
   const runaway = useRunaway(exit.mark);
+
+  /* A write does not always clear its row: a save can leave the entry
+     without a project. That row comes back from the refetch under the same
+     key, never unmounts, and would stay collapsed under "Nothing needs you."
+     So once the refetch has landed, a row still in the data opens again. */
+  const reopenIfStill = (id: string) => {
+    const fresh = queryClient.getQueryData<Stats>(keys.stats(tz));
+    if (fresh && rowsOf(fresh.attention).some((r) => r.id === id)) {
+      exit.unmark(id);
+    }
+  };
 
   /* The ENTRY being edited, not its id: saving moves the entry out of the
      query that supplied it, so an id would still say "open" over nothing and
@@ -83,7 +87,8 @@ export function Inbox({ stats }: { stats: Stats }) {
     mutationFn: (id: string) => api.updateEntry(id, { durationOk: true }),
     onSuccess: async (_r, id) => {
       await exit.mark(id);
-      invalidateEntryData(queryClient);
+      await invalidateEntryData(queryClient);
+      reopenIfStill(id);
     },
   });
 
@@ -101,42 +106,12 @@ export function Inbox({ stats }: { stats: Stats }) {
     onSuccess: async (_r, { id }) => {
       await exit.mark(id);
       queryClient.invalidateQueries({ queryKey: keys.invoices() });
-      invalidateEntryData(queryClient);
+      await invalidateEntryData(queryClient);
+      reopenIfStill(id);
     },
   });
 
-  /* The order is this concatenation. Overdue sorts first and carries danger;
-     every other row is neutral. Never the accent — that belongs to the
-     running timer. */
-  const rows: InboxRow[] = [
-    ...overdueInvoices.map((i) => ({
-      id: i.invoiceId,
-      kind: 'overdue' as const,
-      row: i,
-    })),
-    ...staleDrafts.map((d) => ({
-      id: d.invoiceId,
-      kind: 'draft' as const,
-      row: d,
-    })),
-    ...unprojected.map((u) => ({
-      id: u.entryId,
-      kind: 'unprojected' as const,
-      row: u,
-    })),
-    ...strangeDurations.map((e) => ({
-      id: e.entryId,
-      kind: 'strange' as const,
-      row: e,
-    })),
-    /* Keyed by the pair: one entry can overlap several, and an entry here can
-       also be a strange-duration row above. */
-    ...overlaps.map((o) => ({
-      id: `overlap:${o.entryId}:${o.otherEntryId}`,
-      kind: 'overlap' as const,
-      row: o,
-    })),
-  ];
+  const rows = rowsOf(stats.attention);
 
   const count = rows.length + (runaway.showing ? 1 : 0);
   /* The rows not already on their way out. At zero the empty state opens
@@ -225,9 +200,52 @@ export function Inbox({ stats }: { stats: Stats }) {
         /* The row's id IS the entry id for both kinds that open this dialog,
            so the mark lands on the row the user just answered. */
         onSaved={exit.mark}
+        onSettled={reopenIfStill}
       />
     </section>
   );
+}
+
+/** The rows a stats payload puts in the inbox. */
+function rowsOf({
+  overdueInvoices,
+  staleDrafts,
+  unprojected,
+  strangeDurations,
+  overlaps,
+}: Attention): InboxRow[] {
+  /* The order is this concatenation. Overdue sorts first and carries danger;
+     every other row is neutral. Never the accent — that belongs to the
+     running timer. */
+  return [
+    ...overdueInvoices.map((i) => ({
+      id: i.invoiceId,
+      kind: 'overdue' as const,
+      row: i,
+    })),
+    ...staleDrafts.map((d) => ({
+      id: d.invoiceId,
+      kind: 'draft' as const,
+      row: d,
+    })),
+    ...unprojected.map((u) => ({
+      id: u.entryId,
+      kind: 'unprojected' as const,
+      row: u,
+    })),
+    ...strangeDurations.map((e) => ({
+      id: e.entryId,
+      kind: 'strange' as const,
+      row: e,
+    })),
+    /* Keyed by the pair: one entry can overlap several, and an entry here can
+       also be a strange-duration row above. */
+    ...overlaps.map((o) => ({
+      id: `overlap:${o.entryId}:${o.otherEntryId}`,
+      kind: 'overlap' as const,
+      row: o,
+    })),
+  ];
 }
 
 /** Which `Item` a row becomes — the one place the five kinds differ. */

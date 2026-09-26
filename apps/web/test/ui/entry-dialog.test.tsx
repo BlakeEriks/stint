@@ -353,6 +353,44 @@ describe('EntryDialog', () => {
   });
 
   /**
+   * The inbox reopens a row the save did not clear, and it can only tell once
+   * the refetch has landed: before it, the row is still in the old data.
+   */
+  it('calls onSettled once the refetch has landed', async () => {
+    serve();
+    const user = userEvent.setup();
+    const order: string[] = [];
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    client.invalidateQueries = (async () => {
+      await Promise.resolve();
+      order.push('invalidate');
+    }) as typeof client.invalidateQueries;
+
+    render(
+      <QueryClientProvider client={client}>
+        <EntryDialog
+          open
+          onOpenChange={() => {}}
+          existing={entry()}
+          projects={PROJECTS}
+          tz={TZ}
+          onSettled={(id) => order.push(`settled:${id}`)}
+        />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => screen.getByLabelText('End'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(order).toContain('settled:e1'));
+    expect(order.at(-1)).toBe('settled:e1');
+    expect(order.filter((o) => o === 'invalidate').length).toBeGreaterThan(0);
+  });
+
+  /**
    * The strip, which jsdom gives no layout — so the box it resolves pointer
    * positions against is stubbed, and a clientX becomes a known fraction of
    * a known window.
