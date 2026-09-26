@@ -90,8 +90,8 @@ it — confirm the file is really unreachable before touching it.
   is load-bearing, and leave a pointer only if the reader genuinely cannot
   proceed without it — a second copy drifts.
 - Re-run `code-stats.mjs` and report before/after.
-- Run `pnpm lint`, then the suites covering what you touched: `pnpm test` for
-  route handlers, `pnpm test:ui`, `pnpm --filter @stint/core test`. Swift is
+- Run `pnpm lint`, then the suites covering what you touched:
+  `pnpm verify:db` for route handlers, `pnpm test:ui`, `pnpm --filter @stint/core test`. Swift is
   `swift build --package-path apps/macos`.
 - **Verify every factual claim you compress.** Check the test exists, the
   script is still in `package.json`, the file is still named that. Do not
