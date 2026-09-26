@@ -13,6 +13,10 @@ id = "generic-api-key"
 regexTarget = "match"
 regexes = [
   '''sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH''',
+  # stint-test's publishable key, which apps/macos/bundle.sh bakes into
+  # preview builds. Publishable keys ship in every browser bundle; RLS is
+  # what protects the data, and stint-test holds only seeded accounts.
+  '''sb_publishable_q79gV5KhfKg05hZMjWVHsg_SqL2HPTH''',
 ]
 
 # Placeholders in the example env and the CI build step. Both are committed

@@ -2656,13 +2656,13 @@ test("import confirm writes a new client's rate and colour, and never an exclude
 
 test('import refuses malformed choices before writing', async () => {
   const { POST } = await import('../src/app/api/v1/imports/confirm/route.ts');
-  for (const fields of <Record<string, string>[]>[
+  for (const fields of [
     { clients: 'not json' },
     { clients: JSON.stringify({ acme: { hourlyRate: -1 } }) },
     { clients: JSON.stringify({ acme: { invoicedThrough: '3/10/2026' } }) },
     { clients: JSON.stringify({ acme: { color: 'red' } }) },
     { excluded: JSON.stringify([1]) },
-  ]) {
+  ] as Record<string, string>[]) {
     const r = await json(
       await POST(await withFields('/imports/confirm', fields)),
     );

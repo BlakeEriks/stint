@@ -1,0 +1,157 @@
+name: preview-db
+
+# Keeps stint-test — the database every Vercel preview reads — in step with
+# the open PRs, and gives each PR its own seeded account, pr-<n>@preview.test,
+# which `/preview/signin?pr=<n>` signs a reviewer into.
+#
+# Every run seeds its PR's account from that branch. It first rebuilds the
+# schema — empty, migrate, reseed every open PR — when:
+#   - the PR's diff touches supabase/migrations
+#   - the checkout holds a migration stint-test has not applied
+#   - stint-test has applied a migration no open PR and not this checkout
+#     holds: a PR closed unmerged, or one that dropped its migration
+#   - it is run by hand
+# Both state checks mean a run superseded in the queue, or one that failed
+# midway, is repaired by whichever run comes next.
+#
+# The previews share one schema, so one open PR at a time may carry a
+# migration (`/work-issues` holds to it).
+#
+# Requires PREVIEW_DB_URL — stint-test's session pooler string — as a secret
+# on the Preview environment.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+  push:
+    branches: [main]
+    paths: ['supabase/migrations/**']
+  workflow_dispatch:
+
+# One at a time: a reset racing a seed leaves an account half-written.
+concurrency:
+  group: preview-db
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# Named, so steps run with pipefail too: a bare `run` is `bash -e` alone,
+# and a failed `gh` feeding a pipe or a `for` list would pass silently.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  preview-db:
+    # Dependabot's PRs cannot read secrets, and their previews need no account.
+    # A PR merged into main is handled by the push it makes.
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      !(github.event.action == 'closed' && github.event.pull_request.merged)
+    runs-on: ubuntu-latest
+    environment:
+      name: Preview
+      # The branch's preview, so this job's entry on the PR links where
+      # Vercel's does.
+      url: ${{ steps.plan.outputs.url }}
+    env:
+      SUPABASE_DB_URL: ${{ secrets.PREVIEW_DB_URL }}
+      SEED_DATABASE_URL: ${{ secrets.PREVIEW_DB_URL }}
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      CLOSED: ${{ github.event.action == 'closed' }}
+    steps:
+      # An open PR checks out its merge with main, so `HEAD^1` is main and the
+      # schema applied is main's plus the PR's. A closed one has no merge ref
+      # and goes back to main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.action == 'closed' && 'main' || '' }}
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with: { node-version: '24', cache: 'pnpm' }
+      # The scripts need only `pg`, and this job holds a database string.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Plan
+        id: plan
+        env:
+          BRANCH: ${{ github.head_ref }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # One collation for both lists, or `comm` misreads them.
+          export LC_ALL=C
+          applied=$(node scripts/preview-reset.mjs --applied)
+          files=$(ls supabase/migrations | grep '\.sql$' | sort)
+          missing=$(comm -23 <(echo "$files") <(echo "$applied"))
+          extra=$(comm -13 <(echo "$files") <(echo "$applied"))
+
+          # An extra migration is kept only while an open PR still holds it;
+          # any one held by none orphans the schema. Assigned, not inlined in
+          # the `for`, so a failed `gh` stops the step instead of reading as
+          # "no open PRs" and wiping every account.
+          held=""
+          if [ -n "$extra" ]; then
+            branches=$(gh pr list --state open --json headRefName -q '.[].headRefName')
+            for branch in $branches; do
+              git fetch --quiet --depth 1 origin "$branch"
+              for f in $extra; do
+                if git cat-file -e "FETCH_HEAD:supabase/migrations/$f" 2>/dev/null; then
+                  held="$held $f"
+                fi
+              done
+            done
+          fi
+          orphaned=false
+          for f in $extra; do
+            case " $held " in *" $f "*) ;; *) orphaned=true ;; esac
+          done
+
+          reset=false
+          if [ "$EVENT" = workflow_dispatch ] || [ -n "$missing" ] || [ "$orphaned" = true ]; then
+            reset=true
+          elif [ -n "$PR" ] && [ "$CLOSED" != true ] &&
+               ! git diff --quiet HEAD^1 HEAD -- supabase/migrations; then
+            reset=true
+          fi
+          echo "reset=$reset" >> "$GITHUB_OUTPUT"
+
+          # Vercel's branch alias: lowercased, anything else a hyphen. Past 63
+          # characters Vercel truncates and hashes it, so a long branch gets
+          # no link rather than a wrong one.
+          if [ -n "$PR" ] && [ "$CLOSED" != true ]; then
+            slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g')
+            host="stint-git-${slug}-blakeeriks-projects"
+            if [ ${#host} -le 63 ]; then
+              echo "url=https://${host}.vercel.app" >> "$GITHUB_OUTPUT"
+            else
+              echo "::warning::Branch name too long for Vercel's alias; Try it needs the deployment URL."
+            fi
+          fi
+
+      - name: Rebuild the schema
+        if: steps.plan.outputs.reset == 'true'
+        run: |
+          node scripts/preview-reset.mjs
+          pnpm migrate
+
+      - name: Seed this PR's account
+        if: env.PR != '' && env.CLOSED != 'true'
+        run: node scripts/seed-account.mjs "pr-$PR@preview.test"
+
+      # A reset deleted every account, so each open PR is reseeded from its
+      # own branch's seed, which may carry data this one does not.
+      - name: Reseed the other open PRs
+        if: steps.plan.outputs.reset == 'true'
+        run: |
+          gh pr list --state open --json number,headRefName \
+            -q '.[] | "\(.number) \(.headRefName)"' |
+          while read -r n branch; do
+            [ "$n" = "$PR" ] && continue
+            git fetch --quiet --depth 1 origin "$branch" || continue
+            git show FETCH_HEAD:scripts/seed-account.mjs > "scripts/.seed-pr-$n.mjs" || continue
+            node "scripts/.seed-pr-$n.mjs" "pr-$n@preview.test" \
+              || echo "::warning::Could not reseed PR #$n — re-run its preview-db check."
+          done

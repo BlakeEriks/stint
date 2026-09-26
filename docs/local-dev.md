@@ -230,11 +230,9 @@ next invoice collide.
 skipping it, then applied the *rest* — so the stack came up with no tables and
 failed confusingly on the second file. Renamed to `..._schema.sql`.
 
-Because `migrate.mjs` keys `schema_migrations` on the filename, that rename
-made production consider the first migration unapplied. `scripts/record-rename.mjs`
-is the one-off bookkeeping fix; it changes no schema. It is deliberately not a
-migration, since `migrate.mjs` reads `schema_migrations` once before applying
-anything and a fix-up file cannot run early enough to help itself.
+Never rename a migration that has shipped: `migrate.mjs` keys
+`schema_migrations` on the filename, so production would consider it
+unapplied.
 
 **A hand-written `auth.users` row needs empty strings, not NULL**, in
 `confirmation_token`, `recovery_token`, `email_change_token_new` and

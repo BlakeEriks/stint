@@ -29,11 +29,12 @@
  * file is not touched.
  */
 import pg from 'pg';
+import { isPreviewDb, sslFor } from './db-url.mjs';
 
 const DEFAULT_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
-/* Local stack only — this script reaches a database on 127.0.0.1 by default
-   and has no business anywhere else. Matches `seed.sql`'s dev account. */
+/* Matches `seed.sql`'s dev account, and `PREVIEW_PASSWORD` in
+   `apps/web/src/lib/preview.ts`, which signs PR accounts in with it. */
 const LOCAL_PASSWORD = 'devpassword123';
 
 /** Whether this run had to create the account, for the closing report. */
@@ -198,25 +199,30 @@ async function findOrCreateUser(address) {
 }
 
 /**
- * Local stack only, checked before anything connects.
+ * Local stack, or a PR's account on the preview project — checked before
+ * anything connects.
  *
  * This script inserts a confirmed `auth.users` row with a fixed, published
  * password. Against a hosted database that is an account anyone who has read
- * this file can sign in as, so the override is refused rather than trusted:
- * the only addresses it accepts are the local Postgres the dev stack runs.
+ * this file can sign in as, so the one hosted database accepted is
+ * `stint-test`, and only for the `pr-<n>@preview.test` accounts that
+ * `.github/workflows/preview-db.yml` seeds for preview sign-in.
  */
 const connectionString = process.env.SEED_DATABASE_URL ?? DEFAULT_URL;
-{
-  const { hostname, port } = new URL(connectionString);
-  if (!['localhost', '127.0.0.1'].includes(hostname) || port !== '54322') {
-    console.error(
-      `Refusing to seed ${hostname}:${port || '(default)'} — this script writes a known password and runs only against localhost:54322.`,
-    );
-    process.exit(1);
-  }
+const target = new URL(connectionString);
+const isLocal =
+  ['localhost', '127.0.0.1'].includes(target.hostname) &&
+  target.port === '54322';
+const isPreview =
+  isPreviewDb(connectionString) && /^pr-\d+@preview\.test$/.test(email);
+if (!isLocal && !isPreview) {
+  console.error(
+    `Refusing to seed ${email} at ${target.hostname}:${target.port || '(default)'} — this script writes a known password, so it runs only against localhost:54322, or stint-test for a pr-<n>@preview.test account.`,
+  );
+  process.exit(1);
 }
 
-const db = new pg.Client({ connectionString });
+const db = new pg.Client({ connectionString, ssl: sslFor(connectionString) });
 await db.connect();
 
 try {

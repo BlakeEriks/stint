@@ -38,6 +38,17 @@ pkill -f 'Stint.app/Contents/MacOS/Stint'
 `bundle.sh` — all three are public, and the app is their only local reader.
 `STINT_APP_URL` overrides the origin for one build.
 
+**`preview` is one PR's**, built by `pnpm try-mac <pr>`: the branch, checked
+out in `../stint-review`, pointed at its Vercel preview and signed in on
+launch as its seeded account (`docs/deploying.md` §3d). It installs as
+`Stint Preview.app` with its own bundle id, beside Stint.app rather than over
+it, and the panel names the PR. Every request carries Vercel's protection
+bypass, which `try-mac` reads from the Keychain; add it once:
+
+```bash
+security add-generic-password -s dev.stint.vercel-bypass -a stint -w <secret>
+```
+
 **The origin is never guessed, and it is resolved before bundling.** A
 hostname that does not exist reaches the panel as "a server with the specified
 hostname could not be found" — which reads as a network fault, not as a build

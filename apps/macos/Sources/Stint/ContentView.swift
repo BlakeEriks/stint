@@ -651,7 +651,7 @@ private struct SignInPanel: View {
                     .disabled(busy || email.isEmpty)
             }
 
-            if let error {
+            if let error = error ?? model.previewSignInError {
                 Text(error)
                     .role(.body)
                     .foregroundStyle(Tokens.Dark.danger)

@@ -36,3 +36,6 @@ playwright-report/
 
 # Feature worktrees (/feature)
 .claude/worktrees/
+
+# /work-issues run log, triaged locally for cost
+.claude/work-issues/

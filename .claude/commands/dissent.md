@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 description: Argue against the current branch's decisions — not its syntax — with one agent that did not write it
 ---
 

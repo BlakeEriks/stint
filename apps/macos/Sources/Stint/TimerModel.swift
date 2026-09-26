@@ -20,6 +20,8 @@ final class TimerModel {
     private(set) var email: String?
     private(set) var isSignedIn = false
     private(set) var errorMessage: String?
+    /// Why a preview build's launch sign-in failed; shown on the sign-in panel.
+    private(set) var previewSignInError: String?
     private(set) var isBusy = false
     /// Ticks once a second so the readout redraws.
     private(set) var now = Date()
@@ -124,7 +126,16 @@ final class TimerModel {
             await tokens.setOnChange { [weak self] session in
                 Task { @MainActor in
                     self?.isSignedIn = session != nil
+                    if session != nil { self?.previewSignInError = nil }
                     self?.email = session?.email
+                }
+            }
+            if let account = Config.previewAccount {
+                do {
+                    try await auth.signIn(email: account.email, password: account.password)
+                } catch {
+                    previewSignInError = "Could not sign in as \(account.email): \(error.localizedDescription) "
+                        + "Re-run the PR's preview-db check, which seeds it."
                 }
             }
             if await tokens.isSignedIn { await refresh() }

@@ -15,10 +15,21 @@ export function connectionString(argv = process.argv) {
  * encrypted, we just do not pin the chain.
  */
 export function sslFor(url) {
-  return url.includes('localhost') ? false : { rejectUnauthorized: false };
+  return /localhost|127\.0\.0\.1/.test(url)
+    ? false
+    : { rejectUnauthorized: false };
 }
 
 /** A URL safe to print: the password is what must never reach a log. */
 export function short(url) {
   return url.replace(/:[^:@/]+@/, ':***@');
+}
+
+/**
+ * Whether `url` is `stint-test`, the preview project — the one hosted
+ * database a script may wipe or seed with a published password. Its session
+ * pooler names the project in the user, `postgres.<ref>`.
+ */
+export function isPreviewDb(url) {
+  return new URL(url).username === 'postgres.aywejkegniljsljdzfrk';
 }
