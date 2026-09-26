@@ -2,6 +2,7 @@
 name: copyedit
 description: Copyedit a doc against the Google developer documentation style guide and the house rules in docs/CLAUDE.md. Use when a hygiene issue says "Fix with /copyedit", or a doc has grown.
 argument-hint: "<path>"
+# Follows the Google developer documentation style guide, checked by Vale.
 ---
 
 Copyedit `$ARGUMENTS`, a doc under `docs/` or a `CLAUDE.md`. If no path is

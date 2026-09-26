@@ -3,6 +3,8 @@ name: file-hygiene
 description: File one GitHub issue per file in a hygiene scan report. Run by the weekly Hygiene workflow.
 argument-hint: "<report.json>"
 allowed-tools: Read, Grep, Glob, Write, Bash(gh issue create:*)
+# A skill per code.claude.com/docs/en/skills, run in CI by
+# anthropics/claude-code-action.
 ---
 
 `$ARGUMENTS` is a `pnpm hygiene --json` report: files ranked worst first,

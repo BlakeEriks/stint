@@ -12,7 +12,8 @@ Verified end to end: seeded, signed in through the real magic-link flow, and
 
 Install a container runtime. Docker Desktop works; so do OrbStack, colima,
 Podman, and Rancher Desktop. `pnpm hygiene` and `/copyedit` also need Vale:
-`brew install vale`.
+`brew install vale`. `/work-issues` reviews with an official plugin:
+`claude plugin install pr-review-toolkit@claude-plugins-official --scope project`.
 
 Then write `apps/web/.env.development.local`:
 

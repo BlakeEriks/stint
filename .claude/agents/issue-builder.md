@@ -3,6 +3,9 @@ name: issue-builder
 description: Builds one GitHub issue, or one round of fixes on an open PR, for /work-issues. Handed the issue or PR number and what to do.
 model: sonnet
 effort: high
+# The worker in orchestrator-workers ("Building effective agents"), written as
+# a subagent per code.claude.com/docs/en/sub-agents.
+#
 # One builder, one issue: it starts no agents and loads no skills — a builder
 # that loaded /work-issues became a second orchestrator on its first run.
 disallowedTools: Agent, Skill
