@@ -1,0 +1,42 @@
+name: Dependabot merge
+
+# Follows GitHub's "Automating Dependabot with GitHub Actions"
+# (docs.github.com/en/code-security/tutorials/secure-your-dependencies/automate-dependabot-with-actions).
+#
+# Turns on auto-merge for Dependabot's bumps, so each merges itself once the
+# required checks pass; a red one stays open for /work-issues to fix. The
+# framework group is left for Blake: Next and React minors change behavior.
+# Nothing goes live unasked either way — the release gate waits for approval.
+#
+# Needs "Allow auto-merge" in the repo settings.
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  auto-merge:
+    # Dependabot's PR, and Dependabot's push: once someone else pushes a fix,
+    # /work-issues turns auto-merge off so Blake reviews it, and this must not
+    # turn it back on.
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # Pinned: this step holds a write token.
+      - id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      # Majors are ignored in dependabot.yml; checked again so a config
+      # change cannot make one merge itself.
+      - if: >-
+          steps.meta.outputs.dependency-group != 'framework' &&
+          steps.meta.outputs.update-type != 'version-update:semver-major'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR"
