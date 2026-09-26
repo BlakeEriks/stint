@@ -84,12 +84,10 @@ holds what we believe, never a record of what was turned down.
 
 ## Keeping it tight
 
-`/trim <path>` measures a doc and reports candidates before anything is cut.
-
-It counts **prohibitions** (a block *opening* "Never…") rather than every
-"not", because the contrastive kind is doing real work — flagging it produced
-5 false positives out of 7 and a checker nobody would read. The regex finds
-candidates; it never decides.
+Vale lints prose against the Google developer documentation style guide
+and the house rules above that a pattern can catch (`.vale/styles/Stint`).
+It annotates the lines a PR adds, and `/copyedit <path>` fixes a doc. An
+alert is a candidate; it never decides.
 
 **Verify the rendered page, not only the numbers.** Geometry checks here have
 passed while the page read as broken.

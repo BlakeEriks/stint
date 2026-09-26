@@ -52,7 +52,7 @@ brief:
 > either found nothing or been too polite to say; say which.
 
 Dead pointers, doc-vs-doc contradictions and claim-ownership duplication are
-`/code-review` and `/trim`'s jobs, not this one. One agent arguing the
+`/code-review` and `/copyedit`'s jobs, not this one. One agent arguing the
 decision is the part nothing else does; splitting it three ways bought
 coverage this repo's size doesn't need at three times the cost.
 

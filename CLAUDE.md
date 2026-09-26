@@ -145,8 +145,8 @@ data or a developer's current location.
 
 ## Docs
 
-`docs/CLAUDE.md` says how docs are written and `/trim <path>` measures one
-against it.
+`docs/CLAUDE.md` says how docs are written; Vale checks prose against the
+Google style guide and those rules, and `/copyedit <path>` fixes a doc.
 
 **Unbuilt work splits on one question: does it need a spec?** A new
 capability or an expansion does — it goes in `docs/roadmap.md`, passes the
