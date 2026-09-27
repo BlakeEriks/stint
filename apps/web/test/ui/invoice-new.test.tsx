@@ -8,6 +8,7 @@ import { NewInvoice } from '@/components/invoice-new';
 const push = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, back: vi.fn() }),
+  usePathname: () => '/invoices/new',
 }));
 
 const CLIENTS = [
