@@ -178,6 +178,7 @@ export function TimerBar({ projects }: { projects: Project[] }) {
           if (!open) setAdjusting(undefined);
         }}
         existing={adjusting}
+        focus="end"
         projects={projects}
       />
     </section>
