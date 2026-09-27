@@ -3,10 +3,11 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, type Client, type Project } from '@/lib/client/api';
-import { Listing, Page } from './page';
+import { FilterTabs, Listing, Page } from './page';
 import { Pip } from './home-shell';
 import { ProjectDialog } from './project-dialog';
 import { ProjectRate } from './project-rate';
@@ -24,11 +25,21 @@ import { keys } from '@/lib/client/query-keys';
 export function ProjectList() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Project | undefined>();
-  const [showArchived, setShowArchived] = useState(false);
+  /* The filter lives in the URL, as on /clients: the view is linkable and
+     Back returns to it. */
+  const params = useSearchParams();
+  const status = params.get('status');
+  const wantArchived = status === 'archived' || status === 'all';
 
   const projectQuery = useQuery({
-    queryKey: keys.projects({ archived: showArchived }),
-    queryFn: () => api.projects({ includeArchived: showArchived }),
+    queryKey: keys.projects({ archived: wantArchived }),
+    queryFn: () => api.projects({ includeArchived: wantArchived }),
+    /* The API includes archived rather than returning only them, so
+       "Archived" narrows what came back. */
+    select: (r) =>
+      status === 'archived'
+        ? { ...r, projects: r.projects.filter((p) => p.archivedAt) }
+        : r,
   });
   const { data: clientData } = useQuery({
     queryKey: keys.clients({ archived: true }),
@@ -56,12 +67,30 @@ export function ProjectList() {
         </Button>
       </header>
 
+      <div className="pb-2">
+        <FilterTabs
+          base="/projects"
+          active={status}
+          tabs={[
+            { key: null, label: 'Active' },
+            { key: 'archived', label: 'Archived' },
+            { key: 'all', label: 'All' },
+          ]}
+        />
+      </div>
+
       <Listing
         query={{
           ...projectQuery,
           data: projectQuery.data ? groups : undefined,
         }}
-        empty="No projects yet. A project groups time entries and sets the rate they bill at."
+        empty={
+          status === 'archived'
+            ? 'No archived projects.'
+            : status === 'all'
+              ? 'No projects yet.'
+              : 'No projects yet. A project groups time entries and sets the rate they bill at.'
+        }
       >
         {(shown) => (
           <div>
@@ -88,14 +117,6 @@ export function ProjectList() {
           </div>
         )}
       </Listing>
-
-      <button
-        type="button"
-        onClick={() => setShowArchived((v) => !v)}
-        className="mt-4 px-1 type-label text-subtle hover:text-muted"
-      >
-        {showArchived ? 'Hide archived' : 'Show archived'}
-      </button>
 
       <ProjectDialog open={creating} onOpenChange={setCreating} />
       <ProjectDialog

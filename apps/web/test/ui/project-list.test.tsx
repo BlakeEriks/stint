@@ -5,7 +5,11 @@ import type { ReactNode } from 'react';
 import { ProjectList } from '@/components/project-list';
 import type { Client, Project } from '@/lib/client/api';
 
+/* Held in a box so a test can set the filter before rendering: the mock
+   factory is hoisted above every other statement in this file. */
+const search = { value: new URLSearchParams() };
 vi.mock('next/navigation', () => ({
+  useSearchParams: () => search.value,
   usePathname: () => '/projects',
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
 }));
@@ -45,9 +49,11 @@ function project(over: Partial<Project> = {}): Project {
 }
 
 function serve(projects: Project[], clients: Client[]) {
+  const urls: string[] = [];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
+      urls.push(String(url));
       const path = String(url).replace('/api/v1', '');
       if (path.startsWith('/projects')) {
         return new Response(JSON.stringify({ projects }), { status: 200 });
@@ -68,6 +74,7 @@ function serve(projects: Project[], clients: Client[]) {
       });
     }),
   );
+  return urls;
 }
 
 /** Group headings in render order. */
@@ -77,7 +84,11 @@ function headings() {
     .map((h) => h.textContent?.trim());
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  // The filter is module state, so a test that sets it would leak into the next.
+  search.value = new URLSearchParams();
+});
 
 describe('ProjectList', () => {
   it('groups by client so identically-named projects can be told apart', async () => {
@@ -201,5 +212,94 @@ describe('ProjectList', () => {
 
     // An empty client belongs on the clients list, not as a blank panel here.
     await waitFor(() => expect(headings()).toEqual(['Northwind']));
+  });
+
+  /* The filter lives in the URL, as on /clients, so the view is linkable and
+     Back returns to it. These pin what the server is asked for and what
+     survives the narrowing afterwards. */
+  it('asks only for active projects until a filter says otherwise', async () => {
+    const urls = serve([project()], [NORTHWIND]);
+    render(<ProjectList />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('Website redesign')).toBeInTheDocument(),
+    );
+    const projectUrls = urls.filter((u) => u.includes('/projects'));
+    expect(projectUrls.length).toBeGreaterThan(0);
+    expect(projectUrls.some((u) => u.includes('includeArchived'))).toBe(false);
+  });
+
+  it('narrows to archived only, though the server returns both', async () => {
+    search.value = new URLSearchParams('status=archived');
+    const urls = serve(
+      [
+        project({ id: 'p1', name: 'Website redesign' }),
+        project({
+          id: 'p2',
+          name: 'Old site',
+          archivedAt: '2026-01-04T00:00:00Z',
+        }),
+      ],
+      [NORTHWIND],
+    );
+    render(<ProjectList />, { wrapper });
+
+    /* `includeArchived` ADDS archived rows to the active ones, so "Archived"
+       has to filter what came back — asking the server is not enough. */
+    await waitFor(() =>
+      expect(screen.getByText('Old site')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('Website redesign')).not.toBeInTheDocument();
+    expect(
+      urls.some(
+        (u) => u.includes('/projects') && u.includes('includeArchived=true'),
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps both under "All"', async () => {
+    search.value = new URLSearchParams('status=all');
+    serve(
+      [
+        project({ id: 'p1', name: 'Website redesign' }),
+        project({
+          id: 'p2',
+          name: 'Old site',
+          archivedAt: '2026-01-04T00:00:00Z',
+        }),
+      ],
+      [NORTHWIND],
+    );
+    render(<ProjectList />, { wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByText('Website redesign')).toBeInTheDocument(),
+    );
+    expect(screen.getByText('Old site')).toBeInTheDocument();
+  });
+
+  it('filters with linked tabs, not a local toggle', async () => {
+    search.value = new URLSearchParams('status=archived');
+    serve([], []);
+    render(<ProjectList />, { wrapper });
+
+    const nav = await screen.findByRole('navigation', { name: 'Filter' });
+    const links = Array.from(nav.querySelectorAll('a')).map((a) => [
+      a.textContent,
+      a.getAttribute('href'),
+    ]);
+    expect(links).toEqual([
+      ['Active', '/projects'],
+      ['Archived', '/projects?status=archived'],
+      ['All', '/projects?status=all'],
+    ]);
+    expect(screen.getByRole('link', { name: 'Archived' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.queryByText(/show archived/i)).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByText('No archived projects.')).toBeInTheDocument(),
+    );
   });
 });
