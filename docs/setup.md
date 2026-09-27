@@ -158,7 +158,8 @@ there is an SMTP provider, use the link:
 
 The `token` in that link and the six digits are the **same OTP** in two
 shapes. The script posts the token to `/auth/v1/verify` and writes the session
-into the Keychain under the backend's host, which is where the app looks.
+into the Keychain under the backend's host, which is where the app looks,
+then restarts the app so it reads the new session.
 
 With SMTP configured, paste the template at **Authentication → Emails → Magic
 Link**, subject `Sign in to Stint`, and the panel takes codes directly. Keep

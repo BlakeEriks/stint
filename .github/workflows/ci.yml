@@ -223,6 +223,9 @@ jobs:
       - name: Build the menu bar app
         run: cd apps/macos && swift build
 
+      - name: Test the menu bar app
+        run: cd apps/macos && swift test
+
   # The browser suite, in its own job because it needs the whole Supabase
   # stack — GoTrue to issue magic links, Mailpit to catch them — and because
   # it is the slowest, so a lint or type failure reports without waiting

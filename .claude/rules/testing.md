@@ -39,8 +39,8 @@ Postgres with the real migrations. `requireSession` has a `__TEST_DB__` seam;
 
 **CI splits by what a check needs**: `static` for everything that needs no
 database, `database` for the route and RLS suites over a Postgres service
-container built by `scripts/ci-db.sh`, `macos` for `swift build`, and `e2e`
-for the browser. `pnpm verify:static` and `pnpm verify:db` run the first two
+container built by `scripts/ci-db.sh`, `macos` for `swift build` and
+`swift test`, and `e2e` for the browser. `pnpm verify:static` and `pnpm verify:db` run the first two
 locally, the latter against the databases `pnpm db:setup` builds.
 
 Node's `--experimental-strip-types` rejects **TypeScript parameter

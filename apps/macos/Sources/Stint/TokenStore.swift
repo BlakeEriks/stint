@@ -46,6 +46,7 @@ struct Session: Codable, Equatable {
 actor TokenStore {
     private let supabaseURL: URL
     private let anonKey: String
+    private let urlSession: URLSession
     private var session: Session?
     /// One in-flight refresh, shared: two pollers racing would each spend a
     /// rotating refresh token and one would lose.
@@ -58,9 +59,10 @@ actor TokenStore {
     /// as a bug rather than as a sign-out.
     private let account: String
 
-    init(supabaseURL: URL, anonKey: String) {
+    init(supabaseURL: URL, anonKey: String, urlSession: URLSession = .shared) {
         self.supabaseURL = supabaseURL
         self.anonKey = anonKey
+        self.urlSession = urlSession
         self.account = "supabase@" + (supabaseURL.host() ?? "unknown")
         self.session = Keychain.read(account: account)
     }
@@ -87,25 +89,41 @@ actor TokenStore {
     }
 
     /// A token good for the next request, refreshed with 60s of headroom so
-    /// one cannot expire mid-flight.
-    func accessToken() async -> String? {
+    /// one cannot expire mid-flight. Nil once signed out.
+    ///
+    /// **Only GoTrue rejecting the refresh token signs out.** A refresh that
+    /// never reached it throws and keeps the session for the next poll: the
+    /// wake observer fires before Wi-Fi is back, and treating that as a
+    /// sign-out cleared the Keychain on every lid-open.
+    func accessToken() async throws -> String? {
         guard let session else { return nil }
         guard session.expiresAt.timeIntervalSinceNow < 60 else { return session.accessToken }
 
         if let existing = refreshTask {
-            return try? await existing.value.accessToken
+            return try await existing.value.accessToken
         }
         let task = Task { try await refresh(session.refreshToken) }
         refreshTask = task
         defer { refreshTask = nil }
 
-        guard let refreshed = try? await task.value else {
+        do {
+            let refreshed = try await task.value
+            store(refreshed)
+            return refreshed.accessToken
+        } catch let error as APIError where error.isUnauthorized {
             // The refresh token is spent or revoked: a real sign-out.
             signOut()
             return nil
         }
-        store(refreshed)
-        return refreshed.accessToken
+    }
+
+    /// GoTrue answers a spent, revoked or unknown refresh token with a 4xx.
+    /// A timeout, a rate limit or a 5xx says nothing about the token.
+    static func refreshError(status: Int) -> APIError {
+        if (400..<500).contains(status), status != 408, status != 429 {
+            return APIError(status: 401, code: "UNAUTHORIZED", message: "Session expired")
+        }
+        return APIError(status: status, code: "UNKNOWN", message: "The sign-in server returned \(status).")
     }
 
     private func refresh(_ refreshToken: String) async throws -> Session {
@@ -118,10 +136,9 @@ actor TokenStore {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONEncoder().encode(["refresh_token": refreshToken])
 
-        let (data, response) = try await URLSession.shared.data(for: req)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            throw APIError(status: 401, code: "UNAUTHORIZED", message: "Session expired")
-        }
+        let (data, response) = try await urlSession.data(for: req)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard status == 200 else { throw Self.refreshError(status: status) }
         return try JSONDecoder().decode(Session.self, from: data)
     }
 }
