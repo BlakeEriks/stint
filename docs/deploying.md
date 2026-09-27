@@ -42,7 +42,7 @@ the domain until required checks pass, so the migration runs while the
   RLS off for the route tests, `tt_rls` with it on and reached as a
   non-superuser. `verify:schema` runs against `tt_rls`, the one where RLS is
   still on.
-- **`macos`** — `swift build` on the menu bar app, its only check.
+- **`macos`** — `swift build` and `swift test` on the menu bar app.
 - **`e2e`** — Playwright against a real local Supabase stack. Its own job
   because it needs GoTrue and Mailpit, not the bare Postgres the others use,
   and because keeping it separate means a type error reports without waiting
