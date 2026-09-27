@@ -31,25 +31,16 @@ SESSION=$(curl -s -X POST "$URL/auth/v1/verify" \
     -H "apikey: $KEY" -H "Content-Type: application/json" \
     -d "{\"type\":\"${TYPE:-magiclink}\",\"token_hash\":\"$TOKEN\"}")
 
-python3 - "$SESSION" "$URL" <<'PY'
-import json, subprocess, sys, urllib.parse
-session, url = sys.argv[1], sys.argv[2]
-try:
-    data = json.loads(session)
-except json.JSONDecodeError:
-    sys.exit(f"error: unreadable response: {session[:200]}")
-if "access_token" not in data:
-    sys.exit(f"error: {data.get('msg') or data.get('error_description') or data}")
+# plutil reads JSON and ships with macOS, so this runs on a Mac with no
+# developer tools — python3 there is a stub that prompts to install them.
+json() { printf '%s' "$SESSION" | plutil -extract "$1" raw -o - - 2>/dev/null; }
+json access_token >/dev/null || { echo "error: ${SESSION:0:200}" >&2; exit 1; }
 
 # Namespaced by host, matching TokenStore.
-account = "supabase@" + (urllib.parse.urlparse(url).hostname or "unknown")
-subprocess.run(
-    ["/usr/bin/security", "add-generic-password", "-U",
-     "-s", "dev.stint.session", "-a", account, "-w", json.dumps(data)],
-    check=True,
-)
-print(f"signed in as {data.get('user', {}).get('email')} ({account})")
-PY
+HOST=$(printf '%s' "$URL" | sed -E 's#^[a-z]+://([^/:]+).*#\1#')
+ACCOUNT="supabase@$HOST"
+/usr/bin/security add-generic-password -U -s dev.stint.session -a "$ACCOUNT" -w "$SESSION"
+echo "signed in as $(json user.email) ($ACCOUNT)"
 
 echo "restart the app to pick it up:"
 echo "  pkill -f 'Stint.app/Contents/MacOS/Stint'; open ~/Applications/Stint.app"
