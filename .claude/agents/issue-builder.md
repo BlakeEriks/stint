@@ -95,8 +95,9 @@ leaves them out; only a missing `DB_URL` means it is down.
    `pnpm test:e2e e2e/<spec>.spec.ts`, never the whole suite. They reset the
    local stack as they go, which is why they come after step 2.
 4. A macOS change passes `swift build` and `swift test`, and nothing more.
-   **Never build the bundle, launch the app or click it:** it runs in Blake's
-   menu bar while he works. He sees it with `pnpm try-mac`, so a Mac issue
+   **Never run `bundle.sh`, and never quit, launch or click any Stint app:**
+   Blake's production `Stint.app` runs in his menu bar while he works, and a
+   local bundle installs over it. He sees it with `pnpm try-mac`, so a Mac issue
    never waits on `needs-input` because nobody has looked at it.
 
 Commit, unpushed, and report back. A check that cannot pass without Blake is
