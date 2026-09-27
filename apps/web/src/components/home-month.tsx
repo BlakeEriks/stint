@@ -20,6 +20,13 @@ const PLOT_H = 200;
 const GRIDLINES = 4;
 
 /**
+ * Gridline steps a reader can add up at a glance, per power of ten. No step is
+ * more than 1.25× the one before, so at most a fifth of the plot sits empty
+ * above the peak.
+ */
+const NICE = [1, 1.2, 1.5, 1.8, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 10];
+
+/**
  * This month: three figures beside the cumulative climb.
  *
  * Earned is the screen's subject and the series the projection extrapolates;
@@ -218,10 +225,8 @@ function Climb({
   const proj = month.projection;
   /* The scale takes the projection's endpoint when there is one, so the dashed
      segment lands inside the box rather than leaving the top of it. */
-  const peak = Math.max(
-    ...done.map((p) => p.actual ?? 0),
-    proj?.to.amount ?? 0,
-    1,
+  const peak = scaleTop(
+    Math.max(...done.map((p) => p.actual ?? 0), proj?.to.amount ?? 0),
   );
 
   /* The x axis is the whole month, so the solid line stops where the month
@@ -253,7 +258,7 @@ function Climb({
             aria-label={label(month, currency)}
           >
             {Array.from({ length: GRIDLINES }, (_, i) => {
-              const v = (peak / (GRIDLINES + 1)) * (i + 1);
+              const v = (peak / GRIDLINES) * (i + 1);
               return (
                 <line
                   key={i}
@@ -322,9 +327,9 @@ function Climb({
             ) : null}
           </svg>
 
-          <div className="absolute inset-y-0 -left-11 w-11">
+          <div data-axis="y" className="absolute inset-y-0 -left-11 w-11">
             {Array.from({ length: GRIDLINES }, (_, i) => {
-              const v = (peak / (GRIDLINES + 1)) * (i + 1);
+              const v = (peak / GRIDLINES) * (i + 1);
               return (
                 <span
                   key={i}
@@ -361,15 +366,27 @@ function Climb({
   );
 }
 
-/** `$10k`, `$7.5k` — an axis label, not an amount to be read exactly. */
+/**
+ * The scale's top: `GRIDLINES` round steps that hold `v`. The top gridline sits
+ * at the top, so the highest point — the projection's endpoint — lands on or
+ * below a labeled line instead of in an unlabeled band above the last one.
+ */
+function scaleTop(v: number): number {
+  const raw = Math.max(v / GRIDLINES, 1);
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = (NICE.find((n) => n * mag >= raw) ?? 10) * mag;
+  return step * GRIDLINES;
+}
+
+/**
+ * `$350`, `$1.05k`, `$10.5k` — an axis label. Every label is a multiple of a
+ * `NICE` step, so two decimals hold it exactly; `Number` drops trailing zeros.
+ */
 function compact(v: number, currency: string): string {
-  if (v >= 1000) {
-    const k = v / 1000;
-    return `${formatCurrency(0, currency).replace(/[\d.,]/g, '')}${
-      k >= 10 ? Math.round(k) : k.toFixed(1).replace(/\.0$/, '')
-    }k`;
-  }
-  return formatCurrency(Math.round(v), currency);
+  const symbol = formatCurrency(0, currency).replace(/[\d.,]/g, '');
+  return v >= 1000
+    ? `${symbol}${Number((v / 1000).toFixed(2))}k`
+    : `${symbol}${Number(v.toFixed(2))}`;
 }
 
 function label(month: Stats['month'], currency: string): string {
