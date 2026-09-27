@@ -42,5 +42,6 @@ ACCOUNT="supabase@$HOST"
 /usr/bin/security add-generic-password -U -s dev.stint.session -a "$ACCOUNT" -w "$SESSION"
 echo "signed in as $(json user.email) ($ACCOUNT)"
 
-echo "restart the app to pick it up:"
-echo "  pkill -f 'Stint.app/Contents/MacOS/Stint'; open ~/Applications/Stint.app"
+# The app reads the Keychain once, at launch.
+pkill -f 'Stint.app/Contents/MacOS/Stint' && while pgrep -f 'Stint.app/Contents/MacOS/Stint' >/dev/null; do sleep 0.2; done
+open ~/Applications/Stint.app

@@ -263,6 +263,35 @@ describe('EntryDialog', () => {
     });
   });
 
+  it('opens on the task by default', async () => {
+    serve();
+    open(entry());
+
+    await waitFor(() => expect(screen.getByLabelText('Task')).toHaveFocus());
+  });
+
+  /* A runaway's task name is already right; its end is why the dialog
+     opened. */
+  it('opens on the end when asked to', async () => {
+    serve();
+    render(
+      <EntryDialog
+        open
+        onOpenChange={() => {}}
+        existing={entry()}
+        focus="end"
+        projects={PROJECTS}
+        tz={TZ}
+      />,
+      { wrapper },
+    );
+
+    await waitFor(() => expect(screen.getByLabelText('End')).toHaveFocus());
+    /* Programmatic focus is never `:focus-visible`, so the ring has to come
+       from `focus:` or nothing shows where the cursor is. */
+    expect(screen.getByLabelText('End')).toHaveClass('focus:ring-[3px]');
+  });
+
   it('does not delete until the confirmation is clicked', async () => {
     const calls = serve();
     const user = userEvent.setup();

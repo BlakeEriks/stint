@@ -807,11 +807,12 @@
       <li><strong><code>Empty</code> takes <code>tight</code></strong> for the
         in-page variant: today's entries sit under a heading that already has
         space above it, where a list filling its own panel does not.</li>
-      <li class="warn"><strong><code>back</code> is where the record sits, not
-        where you came from.</strong> The arrow promises "back" while the href
-        means "up", so arriving from the home inbox and clicking it lands on a
-        list you were never on. #73 carries the fix — one change rather than
-        three, which is the argument for the component.</li>
+      <li><strong>The arrow goes back to the section you came from</strong>,
+        named for it and with its filter intact: opened from the home inbox,
+        it reads "← Home". <code>back</code> is where the record sits, and the
+        arrow goes there instead when you came from it (an edit form's
+        record) or from outside the app. A record reached through its own form
+        goes back past the form, to the section the form was opened from.</li>
     </ul>
   </section>
 

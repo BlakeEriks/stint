@@ -263,6 +263,61 @@ describe('the three regions', () => {
     expect(green[0]?.getAttribute('data-projection')).toBe('end');
   });
 
+  /* The scale rounds up to a step a reader can add, and never far past the
+     endpoint: $4,441 reads against $4.8k, not $6k with a quarter left empty. */
+  it.each([
+    [11_817, ['$3k', '$6k', '$9k', '$12k']],
+    [4441, ['$1.2k', '$2.4k', '$3.6k', '$4.8k']],
+    [13_500, ['$3.5k', '$7k', '$10.5k', '$14k']],
+    [1300, ['$350', '$700', '$1.05k', '$1.4k']],
+  ])(
+    'lands a %d endpoint just under the top labeled gridline',
+    async (amount, expected) => {
+      serve(() =>
+        stats({
+          month: month({
+            projected: amount,
+            // A climb to $600, so the endpoint alone sets the scale.
+            series: [
+              { date: '2026-09-01', actual: 200 },
+              { date: '2026-09-02', actual: 600 },
+              { date: '2026-09-03', actual: null },
+            ],
+            projection: {
+              from: { date: '2026-09-02', amount: 600 },
+              to: { date: '2026-09-30', amount },
+            },
+          }),
+        }),
+      );
+      const { container } = render(<HomeCards />, { wrapper });
+
+      const end = await waitFor(() => {
+        const el = container.querySelector('[data-projection="end"]');
+        if (!el) throw new Error('no endpoint');
+        return el;
+      });
+
+      // SVG y grows downward, so the top gridline has the smallest y.
+      const endY = Number(
+        end.getAttribute('d')?.match(/^M[\d.]+,([\d.]+)/)?.[1],
+      );
+      const lines = [...container.querySelectorAll('svg line')];
+      const topY = Math.min(...lines.map((l) => Number(l.getAttribute('y1'))));
+      const bottomY = Math.max(
+        ...lines.map((l) => Number(l.getAttribute('y1'))),
+      );
+      expect(endY).toBeGreaterThanOrEqual(topY);
+      // At most a fifth of the plot (four gridline gaps high) sits above it.
+      expect(endY - topY).toBeLessThanOrEqual(((bottomY - topY) * 4) / 3 / 5);
+
+      const labels = [
+        ...container.querySelectorAll('[data-axis="y"] span'),
+      ].map((el) => el.textContent);
+      expect(labels).toEqual(expected);
+    },
+  );
+
   it('renders the empty state when the projection is null, never NaN', async () => {
     serve(() => stats({ month: month({ projected: null, projection: null }) }));
     const { container } = render(<HomeCards />, { wrapper });

@@ -91,6 +91,11 @@ running as the user. `jwt_expiry` is an hour with rotation on, so refresh is
 mandatory. One in-flight refresh is shared: two pollers racing would each
 spend a rotating token and one would lose.
 
+**Only GoTrue rejecting the refresh token signs out.** A refresh that fails
+any other way — offline, a timeout, a 5xx — keeps the session and shows as a
+failed poll. The wake observer fires before the network is back, so a laptop
+opened after a night shut would otherwise come back signed out.
+
 ## The panel
 
 - **Local tick, reconcile at 60s**, skew-corrected from `serverTime`. Today's

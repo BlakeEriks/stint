@@ -101,6 +101,33 @@ test('start → current → stop round trip', async () => {
   assert.equal(after.body.entry, null, 'no timer running after stop');
 });
 
+test('stop returns Unbilled with the stopped entry counted, as /stats has it', async () => {
+  const { POST: start } = await import(
+    '../src/app/api/v1/timer/start/route.ts'
+  );
+  const { POST: stop } = await import('../src/app/api/v1/timer/stop/route.ts');
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  // An hour at the user default of 100: the stop is what makes it unbilled.
+  const startedAt = new Date(Date.now() - 3600 * 1000).toISOString();
+  await start(req('/timer/start', { taskName: 'Billable', startedAt }));
+  const before = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(
+    before.body.unbilled.total,
+    0,
+    'a running entry is not unbilled',
+  );
+
+  const endedAt = new Date(Date.parse(startedAt) + 3600 * 1000).toISOString();
+  const stopped = await json(await stop(req('/timer/stop', { endedAt })));
+  assert.equal(stopped.status, 200);
+  assert.equal(stopped.body.currency, 'USD');
+  assert.equal(stopped.body.unbilled.total, 100);
+
+  const after = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(stopped.body.unbilled, after.body.unbilled);
+});
+
 test('THE INVARIANT: a second start is rejected with 409 and returns the running entry', async () => {
   const { POST: start } = await import(
     '../src/app/api/v1/timer/start/route.ts'

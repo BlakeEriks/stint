@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ApiError } from '@/lib/client/api';
+import { BackLink } from './back-link';
 
 /**
  * The panel's one spacing number, on all four sides of every region.
@@ -65,7 +66,8 @@ export function Page({
 
 /**
  * A detail screen: a back link, then the content. `back` is where this record
- * sits, not where you came from.
+ * sits, and where the link goes when the reader came from there or from
+ * outside the app; otherwise it returns to the section they came from.
  */
 export function DetailPage({
   back,
@@ -80,9 +82,7 @@ export function DetailPage({
 }) {
   return (
     <Page wide={wide}>
-      <Link href={back} className="type-label text-subtle hover:text-muted">
-        ← {label}
-      </Link>
+      <BackLink up={back} label={label} />
       <div className="mt-4">{children}</div>
     </Page>
   );

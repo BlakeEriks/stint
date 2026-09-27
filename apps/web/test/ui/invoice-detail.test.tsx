@@ -11,6 +11,7 @@ const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
+  usePathname: () => '/invoices/inv-1',
 }));
 
 function invoice(status: InvoiceStatus, sentAt: string | null = null): Invoice {

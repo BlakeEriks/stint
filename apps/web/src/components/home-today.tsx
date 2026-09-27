@@ -1,8 +1,13 @@
 'use client';
 
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { formatCompact, localDateKey } from '@stint/core';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  formatCompact,
+  localDateKey,
+  startOfLocalDate,
+  startOfLocalDayOffset,
+} from '@stint/core';
 import {
   api,
   type Project,
@@ -25,22 +30,18 @@ import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
 export function Today({ stats }: { stats: Stats }) {
   const colors = useProjectColors();
 
-  /* Taken once: read in render, the date would depend on when React happened
-     to re-run — every beat and every refetch. */
-  const today = useMemo(() => localDateKey(new Date(), tz), []);
+  const today = useLocalDay();
 
   /* The day's own entries. `/stats` carries `earnedToday` but no rows, and
-     the list is what makes the figure something the user can account for. */
+     the list is what makes the figure something the user can account for.
+     Local midnight to local midnight: the date read as a UTC day starts the
+     previous evening anywhere west of Greenwich. */
+  const from = startOfLocalDate(today, tz);
+  const to = new Date(startOfLocalDayOffset(from, tz, -1).getTime() - 1);
   const { data } = useQuery({
-    queryKey: keys.entries({ from: today }),
-    /* `ListEntriesQuery` takes ISO datetimes with an offset, not a date key:
-       a bare `2026-09-21` fails validation and the list renders empty on a
-       day that has work in it. */
+    queryKey: keys.entries({ from: from.toISOString(), to: to.toISOString() }),
     queryFn: () =>
-      api.entries({
-        from: `${today}T00:00:00.000Z`,
-        to: `${today}T23:59:59.999Z`,
-      }),
+      api.entries({ from: from.toISOString(), to: to.toISOString() }),
   });
 
   /* Archived included: a project archived since this morning still named
@@ -133,6 +134,29 @@ export function Today({ stats }: { stats: Stats }) {
       </div>
     </div>
   );
+}
+
+/**
+ * Today's local date key, rechecked once a minute so a tab left open past
+ * midnight moves to the new day. Held in state rather than read in render:
+ * the key changes only when the day does, not on every beat and refetch.
+ *
+ * The new day refetches `/stats` too: Earned comes from there, and without
+ * it the new date would sit beside yesterday's earnings.
+ */
+function useLocalDay(): string {
+  const queryClient = useQueryClient();
+  const [day, setDay] = useState(() => localDateKey(new Date(), tz));
+  useEffect(() => {
+    const id = setInterval(() => {
+      const next = localDateKey(new Date(), tz);
+      if (next === day) return;
+      setDay(next);
+      void queryClient.invalidateQueries({ queryKey: keys.stats() });
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [day, queryClient]);
+  return day;
 }
 
 /**

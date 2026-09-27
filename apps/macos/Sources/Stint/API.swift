@@ -176,7 +176,9 @@ actor API {
 
     private struct Empty: Encodable {}
 
-    func stopTimer() async throws -> TimeEntry {
+    /// The response is the stopped entry plus `currency` and `unbilled`,
+    /// counted after the stop; the panel reads only the latter, as `Stats`.
+    func stopTimer() async throws -> Stats {
         try await request("POST", "/timer/stop", body: Empty())
     }
 
@@ -199,7 +201,7 @@ actor API {
         _ path: String,
         body: (any Encodable)? = nil
     ) async throws -> T {
-        guard let token = await tokens.accessToken() else {
+        guard let token = try await tokens.accessToken() else {
             throw APIError(status: 401, code: "UNAUTHORIZED", message: "Not signed in")
         }
 
