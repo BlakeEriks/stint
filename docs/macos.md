@@ -109,8 +109,6 @@ opened after a night shut would otherwise come back signed out.
 - **Colors come from `Tokens.swift`, written by `pnpm tokens`** into the
   app's own sources, because SwiftPM cannot read the gitignored `dist/`. The
   Swift names keep the raw prefixes — `borderSubtle`, not `edgeSubtle`.
-- **The runaway notice surfaces and stops there.** Adjusting needs a date and
-  two times, which this panel has no room for.
 - **`Prefs` is the per-device store, `UserDefaults` not the Keychain** — it
   holds display choices, not credentials. What the menu bar shows is per
   device because a laptop and a desktop can reasonably differ, and reading it

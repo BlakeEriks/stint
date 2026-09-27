@@ -67,7 +67,7 @@ client's rate next year must never retroactively alter an invoice already sent.
 
 ### `user_settings`
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
-global rate fallback, display preferences, `max_timer_hours`, the invoice
+global rate fallback, display preferences, the invoice
 identity block (business name, address, logo, tax id, terms), the invoice
 number sequence, `payment_notice`, and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
@@ -188,7 +188,7 @@ sequence gapless under concurrency rather than merely usually correct.
 - Enumerations are check constraints, not conventions: `status`,
   `grouping_mode`, `time_format`, `account_type`, `fee_allocation`,
   `monthly_target_unit`.
-- Ranges: `week_starts_on` 0–6, `tax_rate` 0–100, `max_timer_hours > 0`,
+- Ranges: `week_starts_on` 0–6, `tax_rate` 0–100,
   `min_entry_seconds > 0`, `max_entry_hours > 0`,
   `next_invoice_number > 0`, `monthly_target > 0`,
   `quantity_seconds >= 0`; client, project and payment-profile names must be

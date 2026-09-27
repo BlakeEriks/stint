@@ -81,7 +81,7 @@ const INTERNAL = 'Admin and invoicing';
  *
  * | Row                 | Condition                                    |
  * |---------------------|----------------------------------------------|
- * | Runaway timer       | a running entry past `max_timer_hours` (8)   |
+ * | Unusual length      | ended, past `max_entry_hours` (12)           |
  * | Overdue invoice     | `sent`, `due_date` more than 7 days past     |
  * | Stale draft         | `draft`, issued more than 7 days ago         |
  * | Unprojected entries | ended, billable, unbilled, no project        |
@@ -91,7 +91,7 @@ const INTERNAL = 'Admin and invoicing';
  */
 const OVERDUE_DAYS = 19; // 12 past a 7-day grace
 const STALE_DRAFT_DAYS = 12; // 5 past the 7-day threshold
-const RUNAWAY_HOURS = 11; // 3 past the 8-hour default
+const LONG_ENTRY_HOURS = 14; // 2 past the 12-hour default
 
 /**
  * Invoices the seed writes, so the inbox has something to be about.
@@ -397,17 +397,27 @@ try {
     entries += 1;
   }
 
-  /* The runaway timer: the running entry above, started far enough back to be past
-     `max_timer_hours`, so the inbox offers keep / adjust / discard.
-
-     `update`, not `insert`: one running timer per user is a partial unique
-     index, so the entry the loop already left running is backdated rather
-     than joined by a second one. */
+  /* A timer left running overnight and stopped the next morning: past
+     `max_entry_hours`, so the inbox asks whether its length is right. 18:00
+     to 08:00, clear of the 09:00 blocks either side, and on a project so it
+     is not the unprojected row instead. */
+  const overnight = new Date();
+  overnight.setDate(overnight.getDate() - 6);
+  overnight.setHours(18, 0, 0, 0);
   await db.query(
-    `update time_entries set started_at = $2
-      where user_id = $1 and ended_at is null`,
-    [userId, new Date(Date.now() - RUNAWAY_HOURS * 3_600_000).toISOString()],
+    `insert into time_entries
+       (id, user_id, project_id, task_name, started_at, ended_at, is_billable)
+     values (gen_random_uuid(), $1, $2, 'Seeded: left running overnight', $3, $4, true)`,
+    [
+      userId,
+      projectIds[0],
+      overnight.toISOString(),
+      new Date(
+        overnight.getTime() + LONG_ENTRY_HOURS * 3_600_000,
+      ).toISOString(),
+    ],
   );
+  entries += 1;
 
   /* Invoices: overdue, awaiting payment, stale draft, and paid. Each carries
      one line item, because an invoice with no lines renders a total of zero
@@ -522,7 +532,7 @@ try {
   );
   console.log(`  ${INVOICES.length} invoices (overdue, sent, draft, paid)`);
   console.log('\n  Inbox:');
-  console.log('    runaway timer      yes');
+  console.log('    unusual length     yes');
   console.log('    overdue invoice    yes');
   console.log('    stale draft        yes');
   console.log(`    unprojected work   yes (${unprojected.length} entries)`);

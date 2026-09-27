@@ -1,11 +1,16 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Inbox } from '@/components/inbox';
 import { useExit } from '@/lib/client/use-exit';
 import type { Stats } from '@/lib/client/api';
+import { keys } from '@/lib/client/query-keys';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
 
@@ -228,10 +233,20 @@ describe('an inbox row leaving', () => {
       }),
     );
 
+    /* Home's stats query, which supplies the inbox its rows: the refetch
+       under test is this one's. */
+    function Home() {
+      useQuery({
+        queryKey: keys.stats(),
+        queryFn: () => fetch('/api/v1/stats').then((r) => r.json()),
+      });
+      return <Inbox stats={stats({ overdueInvoices: [overdue] })} />;
+    }
+
     const user = userEvent.setup();
-    render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
-      wrapper,
-    });
+    render(<Home />, { wrapper });
+    const statsFetches = () => fetched.filter((u) => u.includes('/stats'));
+    await waitFor(() => expect(statsFetches()).toHaveLength(1));
 
     await user.click(
       screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
@@ -246,7 +261,7 @@ describe('an inbox row leaving', () => {
 
     /* Nothing has been invalidated yet. If it had, the refetch would already
        have dropped the row and the animation would be playing over a gap. */
-    expect(fetched.filter((u) => u.includes('/stats'))).toEqual([]);
+    expect(statsFetches()).toHaveLength(1);
 
     await act(async () => {
       animation.finish();
@@ -254,45 +269,5 @@ describe('an inbox row leaving', () => {
 
     // Only once the exit is done does anything go looking for new data.
     await waitFor(() => expect(fetched.length).toBeGreaterThan(before));
-  });
-
-  it('gives the runaway row the same exit as every other row', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              running: {
-                id: 'e1',
-                taskName: 'Writing',
-                projectId: null,
-                startedAt: '2026-09-11T09:00:00.000Z',
-                endedAt: null,
-                isBillable: true,
-                durationSeconds: null,
-              },
-              todaySeconds: 32_400,
-              weekSeconds: 32_400,
-              exceedsThreshold: true,
-              maxTimerHours: 8,
-              serverTime: '2026-09-11T18:00:00.000Z',
-            }),
-            { status: 200 },
-          ),
-      ),
-    );
-
-    const user = userEvent.setup();
-    render(<Inbox stats={stats()} />, { wrapper });
-
-    const row = (await screen.findByText(/9 hours so far/)).closest('li');
-    expect(row).toHaveClass('exit-collapse');
-
-    /* It comes from the timer and has no entry id, but a synthetic one keeps
-       it on the single path rather than giving it a parallel one. Keep is
-       local state and still leaves the same way. */
-    await user.click(screen.getByRole('button', { name: 'Keep' }));
-    await waitFor(() => expect(screen.queryByText(/hours so far/)).toBeNull());
   });
 });

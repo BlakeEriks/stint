@@ -25,8 +25,6 @@ function summary(over: Partial<Summary> = {}): Summary {
     running: null,
     todaySeconds: 0,
     weekSeconds: 0,
-    exceedsThreshold: false,
-    maxTimerHours: 8,
     serverTime: START,
     ...over,
   };
@@ -179,42 +177,5 @@ describe('useTimer', () => {
     for (const key of ['summary', 'entries', 'stats', 'calendar']) {
       expect(invalidated).toContain(key);
     }
-  });
-
-  it('flags a timer past the configured threshold', async () => {
-    // 9h against an 8h threshold.
-    vi.setSystemTime(new Date('2026-09-11T18:00:00.000Z'));
-    serve(
-      summary({
-        running: entry(),
-        maxTimerHours: 8,
-        serverTime: '2026-09-11T18:00:00.000Z',
-        todaySeconds: 32_400,
-      }),
-    );
-
-    const { result } = renderHook(() => useTimer(), { wrapper });
-    await waitFor(() => expect(result.current.running).not.toBeNull());
-
-    expect(result.current.exceedsThreshold).toBe(true);
-    // Surfaced, never trimmed.
-    expect(result.current.seconds).toBe(32_400);
-  });
-
-  it('leaves a timer under the threshold unflagged', async () => {
-    vi.setSystemTime(new Date('2026-09-11T16:59:00.000Z'));
-    serve(
-      summary({
-        running: entry(),
-        maxTimerHours: 8,
-        serverTime: '2026-09-11T16:59:00.000Z',
-        todaySeconds: 28_740,
-      }),
-    );
-
-    const { result } = renderHook(() => useTimer(), { wrapper });
-    await waitFor(() => expect(result.current.running).not.toBeNull());
-
-    expect(result.current.exceedsThreshold).toBe(false);
   });
 });

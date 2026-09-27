@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api, ApiError, type Summary } from './api';
-import { elapsedSeconds, deriveTimerView } from '@stint/core';
+import { elapsedSeconds } from '@stint/core';
 import { keys, invalidateEntryData } from './query-keys';
 
 /**
@@ -93,19 +93,6 @@ export function useTimer() {
       ? new Date(Date.now() + skewMs)
       : new Date(summary.data.serverTime);
 
-  const view = deriveTimerView(
-    running
-      ? {
-          id: running.id,
-          taskName: running.taskName,
-          projectId: running.projectId,
-          startedAt: running.startedAt,
-        }
-      : null,
-    summary.data?.maxTimerHours ?? 8,
-    now,
-  );
-
   // Totals include the running timer, so both menu-bar-style displays agree.
   const liveSeconds = running ? elapsedSeconds(running.startedAt, now) : 0;
   const baseToday =
@@ -140,9 +127,7 @@ export function useTimer() {
 
   return {
     running,
-    state: view.state,
-    seconds: view.seconds,
-    exceedsThreshold: view.exceedsThreshold,
+    seconds: liveSeconds,
     todaySeconds,
     weekSeconds: summary.data?.weekSeconds ?? 0,
     isLoading: summary.isLoading,

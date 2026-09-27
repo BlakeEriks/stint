@@ -23,7 +23,7 @@ behavior depends on global state.
 |---|---|---|
 | `POST` | `/timer/start` | `{ id?, projectId?, taskName?, startedAt?, isBillable? }` — `taskName` defaults to `''`, since a timer started in a hurry can be named later. Returns `201`. **`409 TIMER_ALREADY_RUNNING`** if one is running, with the running entry in `details.running` so the client can display it rather than just reporting a conflict. `startedAt` allows backdating a forgotten start. **`isBillable` omitted leaves the column's `true` default**; it is sent only when starting from a past entry, which carries that entry's own answer so resumed internal work does not come back billable. |
 | `POST` | `/timer/stop` | `{ endedAt? }`, defaults to server `now()`. Returns the entry plus `currency` and `unbilled` — `/stats`'s, counted after the stop, so a client shows the new total without a second request. `409 NO_TIMER_RUNNING` if none; `422 VALIDATION_FAILED` if a backdated `endedAt` is at or before `startedAt`. |
-| `GET` | `/timer/current` | `{ entry, exceedsThreshold, maxTimerHours, serverTime }`. |
+| `GET` | `/timer/current` | `{ entry, serverTime }`. |
 | `PATCH` | `/timer/current` | Edit task name / project mid-run. `409 NO_TIMER_RUNNING` if none; `409 ENTRY_LOCKED` if billed. |
 
 `serverTime` is returned so clients can correct for clock skew rather than
@@ -68,7 +68,7 @@ or one with an unreadable row, before anything is written.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, exceedsThreshold, maxTimerHours, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. |
+| `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. |
 | `GET` | `/calendar` | `?from&to` (**both required**) `&tz&granularity`. Returns `{ days: [...] }`. `400 INVALID_PERIOD` if `to < from`. |
 | `GET` | `/calendar?granularity=day` | Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. A month of full entries is a heavy payload for something drawing one column per day. **Seconds only**, so it carries no money; Home's week bars take both columns from `/stats`'s `week` instead. `byClient` keys by client id with `''` for internal work, and running entries are excluded. |
 | `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call. One request because they render together, and a set that pops in piecemeal reads as broken. Fields and their rules are below. |
@@ -147,12 +147,12 @@ an invoice is overdue at `due_date` + 7 days, a draft stale 7 days after
 issue. The one row whose condition never clears on its own is gated by a
 stored answer instead — `duration_ok` on an entry of unusual length — so it
 cannot return every day once answered. `unprojected` is one row per entry,
-oldest first; `strangeDurations` one per entry of implausible length, and
-both its thresholds default to null, so the row is opt-in. `overlaps` is one
+oldest first; `strangeDurations` one per stopped entry of implausible length.
+The long threshold defaults to 12 hours, which is how a timer left running
+overnight reaches the inbox; the short one defaults to null. `overlaps` is one
 per pair of uninvoiced entries sharing a minute or more (`MIN_OVERLAP_SECONDS`
 in `@stint/core`), naming the later-starting entry; it clears when either is
-edited apart. The runaway timer is the inbox's sixth row and comes from
-`/summary`, not here.
+edited apart.
 
 ## Clients / projects / settings
 

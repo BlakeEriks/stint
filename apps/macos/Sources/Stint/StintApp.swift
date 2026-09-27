@@ -44,11 +44,8 @@ struct StintApp: App {
         _model = State(initialValue: TimerModel(api: api, auth: auth, tokens: tokens))
     }
 
-    /// Amber outranks green: a runaway is still running, and the bar is how
-    /// it reaches someone whose panel is shut.
     private var pipFill: Color {
-        guard model.isRunning else { return Tokens.Dark.timerIdle }
-        return model.exceedsThreshold ? Tokens.Dark.warning : Tokens.Dark.accentDefault
+        model.isRunning ? Tokens.Dark.accentDefault : Tokens.Dark.timerIdle
     }
 
     var body: some Scene {

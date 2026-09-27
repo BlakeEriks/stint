@@ -260,10 +260,6 @@ private struct TimerPanel: View {
     @Bindable var model: TimerModel
     @FocusState private var taskFocused: Bool
 
-    private var timerColor: Color {
-        model.exceedsThreshold ? Tokens.Dark.warning : Tokens.Dark.accentDefault
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if model.isRunning { running } else { idle }
@@ -274,14 +270,9 @@ private struct TimerPanel: View {
                     .padding(.horizontal, 14)
                     .padding(.bottom, 12)
             }
-            if model.exceedsThreshold {
-                RunawayNotice(hours: model.summary?.maxTimerHours ?? 8)
-            }
             rule
             stats
-            // The list drops in a runaway: when something needs deciding the
-            // panel is not also a dashboard.
-            if !model.recent.isEmpty, !model.exceedsThreshold {
+            if !model.recent.isEmpty {
                 rule
                 entries
             }
@@ -317,11 +308,11 @@ private struct TimerPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
                 Circle()
-                    .fill(timerColor)
+                    .fill(Tokens.Dark.accentDefault)
                     .frame(width: 9, height: 9)
                 Text(format(model.elapsedSeconds))
                     .role(.readout)
-                    .foregroundStyle(timerColor)
+                    .foregroundStyle(Tokens.Dark.accentDefault)
                     .contentTransition(.numericText())
                 Spacer(minLength: 8)
                 TransportButton(model: model)
@@ -465,22 +456,6 @@ private struct RenameRow: View {
         editing = false
         canceled = false
         name = model.running?.taskName ?? ""
-    }
-}
-
-private struct RunawayNotice: View {
-    let hours: Double
-
-    var body: some View {
-        Text("Running over \(hours.formatted()) hours. Check it in the app before invoicing.")
-            .role(.body)
-            .foregroundStyle(Tokens.Dark.warning)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Tokens.Dark.bgElevated)
-            .overlay(alignment: .top) { rule }
     }
 }
 

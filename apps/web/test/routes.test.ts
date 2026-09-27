@@ -46,10 +46,10 @@ beforeEach(async () => {
   await pool.query('delete from clients');
   await pool.query('delete from payment_profiles');
   await pool.query(
-    `update user_settings set default_hourly_rate=100, max_timer_hours=8,
+    `update user_settings set default_hourly_rate=100,
                     week_starts_on=1, next_invoice_number=1,
-                    -- Null is the shipped default: the strange-duration row
-                    -- does not exist until a threshold is set.
+                    -- Off, so a long fixture elsewhere does not also raise the
+                    -- strange-duration row; its own tests set a threshold.
                     min_entry_seconds=null, max_entry_hours=null
      where user_id=$1`,
     [USER],
@@ -89,7 +89,6 @@ test('start → current → stop round trip', async () => {
   const now = await json(await current(req('/timer/current')));
   assert.equal(now.status, 200);
   assert.equal(now.body.entry.id, started.body.id);
-  assert.equal(now.body.exceedsThreshold, false);
   assert.ok(now.body.serverTime, 'serverTime lets clients correct clock skew');
 
   const stopped = await json(await stop(req('/timer/stop', {})));
@@ -171,29 +170,6 @@ test('a backdated stop before the start is rejected with a clear message', async
   );
   assert.equal(res.status, 422);
   assert.equal(res.body.code, 'VALIDATION_FAILED');
-});
-
-test('runaway timer past the threshold is flagged but never auto-edited', async () => {
-  const { POST: start } = await import(
-    '../src/app/api/v1/timer/start/route.ts'
-  );
-  const { GET: current } = await import(
-    '../src/app/api/v1/timer/current/route.ts'
-  );
-
-  const long = new Date(Date.now() - 16 * 3600 * 1000).toISOString();
-  const started = await json(
-    await start(req('/timer/start', { taskName: 'Forgot', startedAt: long })),
-  );
-
-  const now = await json(await current(req('/timer/current')));
-  assert.equal(now.body.exceedsThreshold, true, 'surfaced to the client');
-  assert.equal(now.body.entry.id, started.body.id);
-  assert.equal(
-    now.body.entry.startedAt,
-    started.body.startedAt,
-    'the entry is untouched — the app never silently edits billing data',
-  );
 });
 
 test('a running timer can be retitled and reassigned mid-run', async () => {
@@ -741,19 +717,19 @@ test('settings update, and nextInvoiceNumber cannot be moved by a client', async
 
   const before = await json(await get(req('/settings')));
   assert.equal(before.status, 200);
-  assert.equal(before.body.maxTimerHours, 8);
+  assert.equal(before.body.maxEntryHours, null);
 
   const after = await json(
     await patch(
       req(
         '/settings',
-        { maxTimerHours: 10, defaultHourlyRate: 125, nextInvoiceNumber: 9999 },
+        { maxEntryHours: 10, defaultHourlyRate: 125, nextInvoiceNumber: 9999 },
         'PATCH',
       ),
     ),
   );
   assert.equal(after.status, 200);
-  assert.equal(after.body.maxTimerHours, 10);
+  assert.equal(after.body.maxEntryHours, 10);
   assert.equal(after.body.defaultHourlyRate, 125);
   assert.equal(
     after.body.nextInvoiceNumber,
@@ -2077,9 +2053,9 @@ test('unprojected sorts oldest first', async () => {
 });
 
 // ── strange durations ──────────────────────────────────────────────
-// An entry that STOPPED at an implausible length. Not the runaway row: that
-// one is about a timer still running, this is about a record already written.
-// Both thresholds are opt-in, so the row does not exist until asked for.
+// An entry that STOPPED at an implausible length. The long side is on at 12
+// hours by default, which is how a timer left running overnight is caught; the
+// short side is opt-in.
 
 /**
  * A project for the strange-duration fixtures.
@@ -2121,14 +2097,25 @@ const setThresholds = (min: number | null, max: number | null) =>
     [USER, min, max],
   );
 
+test('a new account flags entries over 12 hours, and nothing short', async () => {
+  const { rows } = await pool.query(
+    `select column_name, column_default from information_schema.columns
+      where table_name = 'user_settings'
+        and column_name in ('min_entry_seconds', 'max_entry_hours')
+      order by column_name`,
+  );
+  assert.deepEqual(rows, [
+    { column_name: 'max_entry_hours', column_default: '12' },
+    { column_name: 'min_entry_seconds', column_default: null },
+  ]);
+});
+
 test('no thresholds means no strange-duration rows at all', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   await entrySeconds(S(60), 12); // a 12-second mis-tap
   await entryFor({ id: S(61), projectId: await durProject(), hours: 14 }); // an overnight timer
 
-  /* Both columns default to null, so nobody gets a new inbox row without
-     asking for it. */
   const res = await json(await stats(req('/stats?tz=UTC')));
   assert.deepEqual(res.body.attention.strangeDurations, []);
 });
@@ -2190,7 +2177,7 @@ test('a boundary length is ordinary, not strange', async () => {
   assert.deepEqual(res.body.attention.strangeDurations, []);
 });
 
-test('a running timer is a runaway, never a strange duration', async () => {
+test('a running timer is never a strange duration', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   await setThresholds(60, 8);
 
@@ -2201,7 +2188,11 @@ test('a running timer is a runaway, never a strange duration', async () => {
   );
 
   const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.deepEqual(res.body.attention.strangeDurations, [], 'never both');
+  assert.deepEqual(
+    res.body.attention.strangeDurations,
+    [],
+    'its length is still changing',
+  );
 });
 
 test('answering the row with durationOk silences it', async () => {

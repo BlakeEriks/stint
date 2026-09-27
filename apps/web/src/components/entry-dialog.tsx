@@ -56,9 +56,7 @@ const EMPTY: Draft = {
  *
  * This is the only place a logged entry can be corrected, and correcting one
  * is the whole point: the app promises that the numbers on an invoice are the
- * numbers you worked, which is only true if a mistake can be fixed. It is
- * also what makes the runaway-timer warning honest — "surfaces, never
- * auto-trims" requires somewhere for the user to do the trimming.
+ * numbers you worked, which is only true if a mistake can be fixed.
  *
  * A running entry is not editable here. Its end does not exist yet, and the
  * timer bar already owns retitling and reassigning it mid-run.
@@ -87,10 +85,9 @@ export function EntryDialog({
    * new entry or an ordinary edit starts from — but a caller that opened the
    * dialog to fix ONE field should land the cursor there instead. The inbox's
    * unprojected row is the case: the task name is already correct and the
-   * missing project is the entire reason the row exists. Adjusting a runaway
-   * is the other: the timer ran on, so the end is what the user came to fix.
+   * missing project is the entire reason the row exists.
    */
-  focus?: 'task' | 'project' | 'end';
+  focus?: 'task' | 'project';
   projects: Project[];
   /**
    * Awaited after the dialog closes and before the refetch, so a caller whose
@@ -395,12 +392,6 @@ export function EntryDialog({
                 type="time"
                 required
                 disabled={locked}
-                /* A time input has no `select()`: focus lands on its hour
-                   segment, and typing there already replaces the value.
-                   `focus:` because programmatic focus is never
-                   `:focus-visible` — see the project picker. */
-                autoFocus={focus === 'end'}
-                className="focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus"
                 value={draft.end}
                 onChange={(e) => set('end', e.target.value)}
               />

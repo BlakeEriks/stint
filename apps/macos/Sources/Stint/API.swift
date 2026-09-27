@@ -47,8 +47,6 @@ struct Summary: Codable, Equatable {
     let running: TimeEntry?
     let todaySeconds: Int
     let weekSeconds: Int
-    let exceedsThreshold: Bool
-    let maxTimerHours: Double
     let serverTime: Date
 }
 
