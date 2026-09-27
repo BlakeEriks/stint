@@ -11,7 +11,7 @@ import type { QueryClient } from '@tanstack/react-query';
  */
 export const keys = {
   summary: () => ['summary'] as const,
-  entries: (opts?: { from: string }) =>
+  entries: (opts?: { from: string; to?: string }) =>
     opts ? (['entries', opts] as const) : (['entries'] as const),
   entry: (id: string) => ['entries', id] as const,
   stats: (tz?: string) =>
