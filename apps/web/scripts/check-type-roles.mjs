@@ -16,10 +16,13 @@
  *
  * `src/components/ui/**` is exempt: it is vendored shadcn, policed by
  * shadcn-detox.mjs instead.
+ *
+ * Swift files get the macOS app's version of the rule: a view names a
+ * `TypeRole`, and only the generated `Tokens.swift` builds a font from a size.
  */
 import { readFileSync } from 'node:fs';
 import { globSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -62,16 +65,27 @@ const BANNED = [
   ],
 ];
 
+const BANNED_SWIFT = [
+  [/\.system\(\s*size:/g, 'a font built from a size', 'use a TypeRole'],
+  [
+    /\.font\(\s*\.(largeTitle|title[23]?|headline|subheadline|body|callout|footnote|caption2?)\b/g,
+    'a system text style',
+    'use a TypeRole',
+  ],
+  [/\.tracking\(\s*[\d.]/g, 'literal tracking', 'belongs to the role'],
+];
+
 const patterns = process.argv.slice(2);
 const files = patterns
   .flatMap((p) => globSync(p, { cwd: here + '/..' }))
-  .filter((f) => !f.includes('components/ui/'))
+  .filter((f) => !f.includes('components/ui/') && !f.endsWith('Tokens.swift'))
   .map((f) => join(here, '..', f));
 
 let bad = 0;
 for (const file of [...new Set(files)]) {
   const src = readFileSync(file, 'utf8');
-  const rel = file.replace(/.*apps\/web\//, '');
+  const rel = relative(join(here, '../../..'), file);
+  const swift = file.endsWith('.swift');
 
   /* Prose about the system is not a violation of it, and a block comment
      spans lines — so blank them out first while preserving line numbers. */
@@ -81,13 +95,14 @@ for (const file of [...new Set(files)]) {
 
   scrubbed.split('\n').forEach((line, i) => {
     const code = line.replace(/\/\/.*$/, '');
-    for (const [re, what, fix] of BANNED) {
+    for (const [re, what, fix] of swift ? BANNED_SWIFT : BANNED) {
       for (const m of code.matchAll(re)) {
         console.error(`${rel}:${i + 1}  ${what} \`${m[0]}\` — ${fix}`);
         bad += 1;
       }
     }
     // A role that does not exist renders as nothing, silently.
+    if (swift) return;
     for (const m of code.matchAll(/\btype-([a-z][a-z0-9-]*)\b/g)) {
       if (!ROLES.has(m[1])) {
         console.error(
@@ -103,7 +118,8 @@ for (const file of [...new Set(files)]) {
 if (bad > 0) {
   console.error(
     `\n${bad} typography escape(s). Add a role to packages/design-tokens/` +
-      `tokens.json (with a reason) rather than a one-off at the call site.\n`,
+      `tokens.json (with a reason), or for the macOS panel a TypeRole case, ` +
+      `rather than a one-off at the call site.\n`,
   );
   process.exit(1);
 }

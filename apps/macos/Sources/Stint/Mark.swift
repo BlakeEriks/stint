@@ -5,8 +5,10 @@ import AppKit
 /// the web app's `Wordmark` are one drawing; ratios of the font size, so one
 /// definition serves every placement.
 struct Lockup: View {
-    var size: CGFloat = 17
+    var role: TypeRole = .mark
     var color: Color = Tokens.Dark.textStrong
+
+    private var size: CGFloat { role.token.size }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -14,8 +16,8 @@ struct Lockup: View {
             Text("Stint")
             bound
         }
-        .font(.system(size: size, weight: .semibold, design: .monospaced))
-        .tracking(size * 0.12)
+        .font(role.font)
+        .tracking(role.tracking)
         .foregroundStyle(color)
         .accessibilityElement()
         .accessibilityLabel("Stint")

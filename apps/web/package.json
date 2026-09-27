@@ -10,7 +10,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "detox": "node scripts/shadcn-detox.mjs --check 'src/components/ui/*.tsx'",
-    "check:type": "node scripts/check-type-roles.mjs 'src/**/*.tsx'",
+    "check:type": "node scripts/check-type-roles.mjs 'src/**/*.tsx' '../macos/Sources/**/*.swift'",
     "pretest": "pnpm --filter @stint/design-tokens build",
     "test": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/routes.test.ts test/invoices.test.ts test/rates.test.ts",
     "pretest:ui": "pnpm --filter @stint/design-tokens build",
