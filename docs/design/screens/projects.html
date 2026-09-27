@@ -67,6 +67,15 @@
     text-transform: uppercase; color: var(--text-subtle); padding: 0 8px;
   }
 
+  /* The filter idiom /clients uses: URL-driven pills above the list. */
+  .filters { display: flex; gap: 4px; padding-bottom: 8px; }
+  .filters a {
+    border-radius: 6px; padding: 4px 8px; text-decoration: none;
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--text-subtle);
+  }
+  .filters a.on { background: var(--bg-elevated); color: var(--text-strong); }
+
   /* dialog */
   .dlg {
     width: 420px; max-width: 100%;
@@ -118,6 +127,12 @@
     <div class="sec-head"><span class="eyebrow">/projects — grouped by client</span></div>
 
     <div class="mock">
+      <nav class="filters" aria-label="Filter">
+        <a class="on" href="#x">Active</a>
+        <a href="#x">Archived</a>
+        <a href="#x">All</a>
+      </nav>
+
       <div class="rgn">
         <div class="grouphead">
           <span class="swatch" style="background:var(--proj-6)"></span>
@@ -177,6 +192,10 @@
         its projects under "No client" would be a lie, and they are exactly
         the rows someone checks when reviewing a finished engagement — which
         is why the list fetches clients with <code>includeArchived</code>.</li>
+      <li><strong>The filter is <code>/clients</code>'s, and lives in the
+        URL</strong> — <code>?status=archived</code> — so the view is
+        linkable and Back returns to it. The API adds archived rows to the
+        active ones, so Archived narrows what comes back.</li>
       <li><strong>The row shows the figure alone, not where it came
         from.</strong> Naming the source on each row restated the client
         heading immediately above it. <code>ProjectRate</code> resolves
