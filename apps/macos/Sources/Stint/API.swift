@@ -201,7 +201,7 @@ actor API {
         _ path: String,
         body: (any Encodable)? = nil
     ) async throws -> T {
-        guard let token = await tokens.accessToken() else {
+        guard let token = try await tokens.accessToken() else {
             throw APIError(status: 401, code: "UNAUTHORIZED", message: "Not signed in")
         }
 
