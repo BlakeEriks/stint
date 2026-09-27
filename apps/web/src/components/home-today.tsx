@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   formatCompact,
   localDateKey,
@@ -140,13 +140,22 @@ export function Today({ stats }: { stats: Stats }) {
  * Today's local date key, rechecked once a minute so a tab left open past
  * midnight moves to the new day. Held in state rather than read in render:
  * the key changes only when the day does, not on every beat and refetch.
+ *
+ * The new day refetches `/stats` too: Earned comes from there, and without
+ * it the new date would sit beside yesterday's earnings.
  */
 function useLocalDay(): string {
+  const queryClient = useQueryClient();
   const [day, setDay] = useState(() => localDateKey(new Date(), tz));
   useEffect(() => {
-    const id = setInterval(() => setDay(localDateKey(new Date(), tz)), 60_000);
+    const id = setInterval(() => {
+      const next = localDateKey(new Date(), tz);
+      if (next === day) return;
+      setDay(next);
+      void queryClient.invalidateQueries({ queryKey: keys.stats() });
+    }, 60_000);
     return () => clearInterval(id);
-  }, []);
+  }, [day, queryClient]);
   return day;
 }
 

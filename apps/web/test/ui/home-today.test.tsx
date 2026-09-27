@@ -18,6 +18,7 @@ vi.mock('@/lib/client/use-timer', async (importOriginal) => ({
 const STATS = { currency: 'USD', earnedToday: 0 } as Stats;
 
 let fetchMock: ReturnType<typeof vi.fn>;
+let client: QueryClient;
 
 function entryQueries() {
   return fetchMock.mock.calls
@@ -42,7 +43,7 @@ afterEach(() => {
 });
 
 function renderToday() {
-  const client = new QueryClient({
+  client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
   return render(
@@ -70,6 +71,7 @@ describe('Today', () => {
     vi.setSystemTime(new Date('2026-09-27T03:59:00.000Z'));
     renderToday();
     await waitFor(() => expect(entryQueries()).toHaveLength(1));
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
 
     await act(() => vi.advanceTimersByTimeAsync(60_000));
 
@@ -79,5 +81,19 @@ describe('Today', () => {
         '2026-09-28T03:59:59.999Z',
       ]),
     );
+    // Earned comes from `/stats`, so the new day refetches it too.
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['stats'] });
+  });
+
+  it('leaves stats alone while the day is unchanged', async () => {
+    vi.setSystemTime(new Date('2026-09-27T14:00:00.000Z'));
+    renderToday();
+    await waitFor(() => expect(entryQueries()).toHaveLength(1));
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+
+    expect(invalidate).not.toHaveBeenCalled();
+    expect(entryQueries()).toHaveLength(1);
   });
 });
