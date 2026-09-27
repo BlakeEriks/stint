@@ -68,11 +68,15 @@ const BANNED = [
 const BANNED_SWIFT = [
   [/\.system\(\s*size:/g, 'a font built from a size', 'use a TypeRole'],
   [
-    /\.font\(\s*\.(largeTitle|title[23]?|headline|subheadline|body|callout|footnote|caption2?)\b/g,
+    /\.font\(\s*(?:Font)?\.(?:system\(\s*\.)?(largeTitle|title[23]?|headline|subheadline|body|callout|footnote|caption2?)\b/g,
     'a system text style',
     'use a TypeRole',
   ],
-  [/\.tracking\(\s*[\d.]/g, 'literal tracking', 'belongs to the role'],
+  [
+    /\.(tracking|kerning)\(\s*-?[\d.]/g,
+    'literal tracking',
+    'belongs to the role',
+  ],
 ];
 
 const patterns = process.argv.slice(2);
