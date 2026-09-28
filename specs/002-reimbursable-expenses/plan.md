@@ -49,7 +49,7 @@ to the new-invoice screen, the invoice detail and the PDF.
 | Principle | Status |
 | --- | --- |
 | I. Timer invariant | Untouched. Expenses are not time entries (R1). |
-| II. Schema invariants | Both tables enable RLS with a policy. `produce_recurring_expenses` gets an explicit `grant execute`. `verify:schema` checks both. |
+| II. Schema invariants | Both tables enable RLS with a policy. `create_invoice` and `produce_recurring_expenses` get an explicit `grant execute`. `verify:schema` checks all of them. |
 | III. Server boundary | Everything goes through `/api/v1/*` with `requireSession()` and `ApiError`. No Server Actions. |
 | IV. Parity test for dual-written logic | Not triggered. Expense money is computed only in `buildLineItems`. Recurrence production is only in SQL (R4, R5). |
 | V. No silent modification | A recurrence creates the rows the contractor asked for, and they are visible and editable. Nothing is corrected on their behalf. A double attach fails loudly (R9). |
@@ -79,7 +79,7 @@ specs/002-reimbursable-expenses/
 ### Source Code (repository root)
 
 ```text
-supabase/migrations/00000000000023_expenses.sql      # new: expenses, lock, line-item and invoice columns
+supabase/migrations/00000000000023_expenses.sql      # new: expenses, lock, line-item and invoice columns, create_invoice
 supabase/migrations/00000000000024_recurring_expenses.sql  # new: recurring_expenses, producer
 packages/schema/src/index.ts                          # Expense, RecurringExpense, excludedExpenseIds, expense line fields
 packages/core/src/invoice.ts                          # expenses in buildLineItems; split totals
@@ -91,7 +91,7 @@ apps/web/src/app/api/v1/expenses/route.ts             # new: GET, POST
 apps/web/src/app/api/v1/expenses/[id]/route.ts        # new: PATCH, DELETE
 apps/web/src/app/api/v1/recurring-expenses/route.ts   # new: GET, POST
 apps/web/src/app/api/v1/recurring-expenses/[id]/route.ts  # new: PATCH
-apps/web/src/app/api/v1/invoices/route.ts             # attach expenses, count check, expenses_subtotal
+apps/web/src/app/api/v1/invoices/route.ts             # writes through create_invoice, expenses_subtotal
 apps/web/src/app/api/v1/invoices/preview/route.ts     # expenses in, excluded out
 apps/web/src/app/api/v1/invoices/[id]/route.ts        # release on draft delete
 apps/web/src/app/api/v1/invoices/[id]/status/route.ts # release on void
@@ -105,7 +105,7 @@ docs/api.md, docs/data-model.md, docs/design/screens/invoices.html  # the docs t
 ```
 
 **Structure Decision**: This follows the existing monorepo layout. The
-expenses view is a component the Invoices screen renders under its own tab,
+Expenses tab is a component the Invoices screen renders under its own tab,
 so there is no new route in the navigation (spec FR-003).
 
 ## Complexity Tracking

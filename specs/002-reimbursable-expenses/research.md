@@ -115,16 +115,40 @@ deleting a draft depend on it (FR-010, FR-011).
 The route maps the trigger's `check_violation` to `409 EXPENSE_LOCKED`, the
 way entries map it to `ENTRY_LOCKED`.
 
-## R9. Two generations cannot take one expense
+## R9. Generation writes in one transaction
 
-**Decision**: `POST /invoices` attaches expenses with `update ... where id in
-(...) and invoice_id is null returning id`. If fewer rows come back than it
-billed, it rolls back the invoice, as it already does when attaching fails,
-and returns `409 EXPENSE_ALREADY_INVOICED` (FR-012).
+**Decision**: `POST /invoices` still computes everything with
+`buildLineItems`, then makes one call to a new SQL function,
+`create_invoice(p_user_id uuid, p_invoice jsonb, p_lines jsonb, p_entry_ids
+uuid[], p_expense_ids uuid[])`. In one transaction, the function:
 
-**Rationale**: The existing entry attach skips a claimed row without
-noticing, which would leave that expense's line on two invoices. Counting the
-returned rows makes the conflict visible.
+1. allocates the number;
+2. inserts the invoice and its lines;
+3. attaches the entries, as today, with `invoice_id is null`;
+4. attaches the expenses with `invoice_id is null`.
+
+If fewer expenses attach than were billed, it raises. The whole transaction
+rolls back, including the number, and the route returns
+`409 EXPENSE_ALREADY_INVOICED` (FR-012).
+
+The function is `security invoker` with a pinned `search_path`, and has
+`grant execute` to `authenticated`.
+
+**Rationale**: `allocate_invoice_number` commits in its own PostgREST call.
+Any failure after it, deleting the invoice to compensate, leaves a gap in a
+sequence that `docs/data-model.md` guarantees has none. A race for an expense
+would make that failure reachable. One transaction makes the number, the
+lines and the claims succeed or fail together. It also closes the same gap
+on today's line-item and attach failures.
+
+**Alternatives considered**:
+- Counting attached rows after the fact and deleting the invoice: leaves the
+  gap.
+- Claiming expenses before allocating: impossible, because `invoice_id`
+  needs the invoice row, and the invoice row needs its number.
+
+Entries keep today's attach rule. Making a claimed entry fail generation too
+is a separate fault, filed as its own issue if wanted.
 
 ## R10. The contractor leaves an expense off by excluding it
 

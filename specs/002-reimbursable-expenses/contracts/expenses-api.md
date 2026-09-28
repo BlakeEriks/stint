@@ -68,7 +68,7 @@ Response additions:
 - A period with no unbilled time and no charges, but one expense, generates.
   The `INVALID_PERIOD` "Nothing to invoice" check counts expense lines.
 - `409 EXPENSE_ALREADY_INVOICED` when another invoice took an expense between
-  the load and the attach. Nothing is written.
+  the load and the attach. Nothing is written, and no invoice number is used.
 - `GET /invoices/:id` returns `spentOn` on expense lines and
   `expensesSubtotal` on the invoice.
 - `PATCH /invoices/:id/status` to `void`, and `DELETE /invoices/:id` on a

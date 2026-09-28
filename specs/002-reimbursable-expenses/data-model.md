@@ -75,12 +75,18 @@ recurrence.
 - `total = subtotal + tax_amount + expenses_subtotal`, written by
   `POST /invoices` from `buildLineItems`.
 
-## Function
+## Functions
 
-`produce_recurring_expenses(p_user_id uuid, p_through date) returns void` is
-`security invoker` with `set search_path = public, pg_temp`, and has
-`grant execute` to `authenticated`, so it passes `verify:schema`
-(Principle II). R5 has the algorithm.
+Both are `security invoker` with `set search_path = public, pg_temp`, and
+have `grant execute` to `authenticated`, so they pass `verify:schema`
+(Principle II).
+
+- `create_invoice(p_user_id uuid, p_invoice jsonb, p_lines jsonb,
+  p_entry_ids uuid[], p_expense_ids uuid[]) returns invoices` (migration 23)
+  writes a computed invoice in one transaction. It raises when an expense was
+  already claimed, so no number is used without an invoice. See R9.
+- `produce_recurring_expenses(p_user_id uuid, p_through date) returns void`
+  (migration 24). See R5.
 
 ## Unchanged, on purpose
 

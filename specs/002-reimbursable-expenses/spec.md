@@ -40,7 +40,7 @@ receipt or order number.
 ### Session 2026-09-27
 
 - Q: Should an expense that hasn't been invoiced yet count toward Home's Unbilled figure? → A: No. Unbilled stays work-only; waiting expenses show on the expenses list and in the invoice preview.
-- Q: Where should you record and review expenses that are waiting to be invoiced? → A: An Expenses view on the Invoices screen, beside Open / Paid / All.
+- Q: Where should you record and review expenses that are waiting to be invoiced? → A: An Expenses tab on the Invoices screen, beside Open / Paid / All.
 - Q: When you build a client's invoice for a period, which waiting expenses should the preview pick up? → A: Every waiting expense for that client dated on or before the period's end, including earlier months.
 - Q: Can an expense recur, so a monthly subscription is not re-entered every month? → A: Yes. A recurring expense produces one ordinary waiting expense each month.
 
@@ -95,7 +95,7 @@ waits.
 
 1. **Given** the contractor has a client, **When** they record an expense
    with a client, date, description and amount from the Invoices screen's
-   Expenses view, **Then** it is listed there as unbilled for that client.
+   Expenses tab, **Then** it is listed there as unbilled for that client.
 2. **Given** an unbilled expense, **When** the contractor edits or deletes
    it, **Then** the change is saved.
 3. **Given** the new-invoice screen for a client and period, **When** the
@@ -124,7 +124,8 @@ expense successfully.
 1. **Given** an expense on a sent or paid invoice, **When** anyone edits or
    deletes it, **Then** the change is refused and the expense is unchanged.
 2. **Given** an expense on a draft invoice, **When** the contractor edits it,
-   **Then** the edit is allowed.
+   **Then** the edit is allowed and the draft still shows the amount it was
+   generated with.
 3. **Given** an issued invoice with an expense, **When** the expense record
    is edited after the invoice is voided, **Then** the voided invoice still
    shows the original amount.
@@ -193,9 +194,10 @@ invoice for September and see one expense for 5 August and one for
   belonging to that client and a note.
 - **FR-002**: An expense MUST NOT carry a duration, a quantity or a rate, and
   MUST NOT count toward hours anywhere in the app.
-- **FR-003**: The Invoices screen MUST have an Expenses view beside Open,
+- **FR-003**: The Invoices screen MUST have an Expenses tab beside Open,
   Paid and All, listing unbilled expenses, filterable by client, where the
-  contractor can add, edit and delete them. No new screen is added.
+  contractor can add, edit and delete them. An All filter on the tab also
+  shows billed expenses with their invoice number. No new screen is added.
 - **FR-004**: The invoice preview for a client and period MUST include every
   unbilled expense for that client dated on or before the period's end,
   including ones from earlier months, and the
@@ -215,8 +217,10 @@ invoice for September and see one expense for 5 August and one for
   alter an issued invoice.
 - **FR-010**: An expense on a non-draft invoice MUST be rejected for edit and
   delete by the database, not only by the app. An expense on a draft invoice
-  stays editable.
-- **FR-011**: Voiding an invoice MUST release its expenses back to unbilled.
+  stays editable, but the draft keeps the line frozen at generation. To bill
+  the edited figure, the contractor deletes the draft and generates again.
+- **FR-011**: Voiding an invoice, or deleting a draft, MUST release its
+  expenses back to unbilled.
 - **FR-012**: An expense MUST be on at most one invoice at a time, including
   when two invoices are generated at once.
 - **FR-013**: One contractor's expenses MUST be invisible to every other
@@ -233,7 +237,7 @@ invoice for September and see one expense for 5 August and one for
 
 - **FR-017**: The contractor MUST be able to create, edit and stop a
   monthly recurring expense with a client, a description, an amount, a first
-  date, and optionally a project and a note, from the Expenses view.
+  date, and optionally a project and a note, from the Expenses tab.
 - **FR-018**: A recurrence MUST produce exactly one waiting expense for each
   month from its first date up to today, on that day of the month, until it
   is stopped. Each is an ordinary expense under FR-001 to FR-016.

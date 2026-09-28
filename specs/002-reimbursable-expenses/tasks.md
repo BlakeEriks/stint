@@ -38,6 +38,12 @@ the 30 September slice. User Story 4 can merge after it.
   - `enable row level security` with a `user_id = auth.uid()` policy for all commands, and `grant select, insert, update, delete on expenses to authenticated`, following `00000000000004_api_grants.sql`.
   - On `invoice_line_items`: replace the `unit` check with `unit in ('hour', 'fixed', 'expense')`; add `spent_on date null`; add `expense_line_is_one check (unit <> 'expense' or quantity = 1)` and `expense_line_has_date check ((unit = 'expense') = (spent_on is not null))`.
   - On `invoices`: add `expenses_subtotal numeric(12,2) not null default 0 check (expenses_subtotal >= 0)`.
+  - Function `create_invoice(p_user_id uuid, p_invoice jsonb, p_lines jsonb, p_entry_ids uuid[], p_expense_ids uuid[]) returns invoices`, `language plpgsql security invoker set search_path = public, pg_temp`, with `grant execute` to `authenticated` (`research.md` R9). In one transaction it:
+    1. calls `allocate_invoice_number`;
+    2. inserts the invoice from `p_invoice` with the allocated number;
+    3. inserts `p_lines` with their `sort_order` and `spent_on`;
+    4. attaches `p_entry_ids` where `invoice_id is null`, as today;
+    5. attaches `p_expense_ids` where `invoice_id is null`, and raises with a distinct message if fewer rows attach than it was given.
   - Comment each block with its reason, in the style of the existing migrations.
 - [ ] T003 [P] Add `EXPENSE_LOCKED` and `EXPENSE_ALREADY_INVOICED` to the code union and the status map (both 409) in `apps/web/src/lib/errors.ts`.
 - [ ] T004 [P] Add to `packages/schema/src/index.ts`, per `contracts/expenses-api.md`:
@@ -108,7 +114,8 @@ the 30 September slice. User Story 4 can merge after it.
 - [ ] T015 [P] [US1] Route tests in `apps/web/test/invoices.test.ts`:
   - The preview includes the client's unbilled expenses dated on or before `periodEnd`, including an earlier month's, and excludes one dated after it and one in `excludedExpenseIds`.
   - `POST /invoices` writes `expenses_subtotal`, writes expense line items with `spent_on`, sets `invoice_id` on the billed expenses only, and generates with expenses and no time.
-  - A second generation racing for the same expense gets `409 EXPENSE_ALREADY_INVOICED`, and nothing from it remains.
+  - A second generation racing for the same expense gets `409 EXPENSE_ALREADY_INVOICED`. Nothing from it remains, and `next_invoice_number` is unchanged, so the numbering has no gap.
+  - After an invoice with expenses is marked sent, `/stats` Awaiting payment equals its full total, expenses included (FR-016).
   - `GET /invoices/:id` returns `spentOn` and `expensesSubtotal`.
   - Earned and Unbilled from `/stats` are unchanged by an unbilled expense (FR-015).
 - [ ] T016 [P] [US1] UI tests `apps/web/test/ui/invoice-new.test.tsx` and `apps/web/test/ui/invoice-detail.test.tsx`:
@@ -128,9 +135,9 @@ the 30 September slice. User Story 4 can merge after it.
 - [ ] T018 [US1] Add `loadUnbilledExpenses(db, { clientId, periodEnd, excludedIds })` to `apps/web/src/lib/invoicing.ts`. It selects `invoice_id is null and client_id = … and spent_on <= periodEnd`, drops `excludedIds`, and maps rows to `ExpenseInput`. Have `loadPdfData` return `spentOn` on lines and `expensesSubtotal`.
 - [ ] T019 [US1] In `apps/web/src/app/api/v1/invoices/preview/route.ts`, load the expenses with T018 and pass them to `buildLineItems`.
 - [ ] T020 [US1] In `apps/web/src/app/api/v1/invoices/route.ts`:
-  - Load the expenses as the preview does, and write `expenses_subtotal` and each line's `spent_on`.
-  - After attaching entries, attach expenses with `.update({ invoice_id }).in('id', ids).is('invoice_id', null).select('id')`.
-  - If fewer rows return than were billed, delete the line items and the invoice (the existing rollback path), detach the entries it attached, and throw `409 EXPENSE_ALREADY_INVOICED` (`research.md` R9).
+  - Load the expenses as the preview does.
+  - Replace the separate allocate, insert and attach calls and their compensating deletes with one `db.rpc('create_invoice', …)`. Pass the invoice fields (including `expenses_subtotal`), the lines (including `spent_on`), the entry ids and the expense ids from `buildLineItems`.
+  - Map the function's expense-claim error to `409 EXPENSE_ALREADY_INVOICED` (`research.md` R9).
   - Update the "Nothing to invoice" message to count expenses.
 - [ ] T021 [US1] In `apps/web/src/components/invoice-new.tsx`:
   - Show the preview's expense lines under an Expenses heading after the service lines and charges, each as date, description and amount, with no quantity or rate. Follow them with the expenses subtotal, then the total.
@@ -154,7 +161,7 @@ the 30 September slice. User Story 4 can merge after it.
 
 - [ ] T024 [P] [US3] Route tests in `apps/web/test/invoices.test.ts`:
   - `PATCH` and `DELETE` on an expense billed to a sent or paid invoice return `409 EXPENSE_LOCKED`, and the row is unchanged.
-  - The same on a draft succeed.
+  - The same on a draft succeed, and the draft's line item keeps the amount it was generated with (FR-010).
   - Voiding releases the invoice's expenses to unbilled, and the voided invoice's line items keep the original amount after the expense is edited.
   - Deleting a draft releases its expenses.
   - A direct SQL update of a locked expense's `amount` is rejected, which shows the database enforces the lock.
