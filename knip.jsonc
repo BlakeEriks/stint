@@ -13,6 +13,11 @@
     ".": {
       "entry": ["scripts/**/*.{mjs,js}"]
     },
+    "apps/web": {
+      // Reached through a Vite alias, not an import:
+      // .storybook/vite-mocks.mts swaps it in for the Supabase client.
+      "entry": ["src/mocks/supabase.ts"]
+    },
     "packages/design-tokens": {
       // Run by hand and by validate.js to re-derive the neutral ramps.
       "entry": ["src/derive-*.mjs"]

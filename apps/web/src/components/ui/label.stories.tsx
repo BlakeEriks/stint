@@ -3,6 +3,7 @@ import { Input } from './input';
 import { Label } from './label';
 
 const meta = {
+  title: 'Primitives/Label',
   component: Label,
   args: { htmlFor: 'rate', children: 'Hourly rate' },
   render: (args) => (

@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Kbd } from './kbd';
 
 const meta = {
+  title: 'Primitives/Kbd',
   component: Kbd,
   args: { children: '↵' },
 } satisfies Meta<typeof Kbd>;

@@ -2,6 +2,8 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { storybookNextJsPlugin } from '@storybook/nextjs-vite/vite-plugin';
 import { playwright } from '@vitest/browser-playwright';
+import { storyMocks } from './.storybook/vite-mocks.mts';
+import { ZONE } from './src/mocks/time.mts';
 
 /**
  * Component tests only, in two projects:
@@ -30,12 +32,18 @@ export default defineConfig({
         },
       },
       {
-        plugins: [storybookNextJsPlugin()],
+        plugins: [storybookNextJsPlugin(), storyMocks()],
         // MSW's worker, served as Storybook serves it.
         publicDir: '.storybook/public',
         // The a11y addon fails a test on a violation only in a standalone
         // Vitest run; otherwise it just reports to Storybook's UI.
-        define: { 'import.meta.env.VITEST_STORYBOOK': '"false"' },
+        define: {
+          'import.meta.env.VITEST_STORYBOOK': '"false"',
+          // Pixels only where the baselines were rendered: Linux, in Docker.
+          'import.meta.env.STORY_SCREENSHOTS': JSON.stringify(
+            process.env.STORY_SCREENSHOTS === '1',
+          ),
+        },
         /* Scan every story before the run. A dependency found mid-run makes
            Vite re-bundle and reload, and every test already importing the
            old bundle fails with "Failed to fetch dynamically imported
@@ -49,7 +57,16 @@ export default defineConfig({
           browser: {
             enabled: true,
             headless: true,
-            provider: playwright(),
+            /* The zone and clock the fixtures are written in, and no motion,
+               so a figure lands on its value rather than mid-roll. */
+            provider: playwright({
+              contextOptions: {
+                timezoneId: ZONE,
+                locale: 'en-US',
+                reducedMotion: 'reduce',
+                deviceScaleFactor: 1,
+              },
+            }),
             instances: [{ browser: 'chromium' }],
           },
         },

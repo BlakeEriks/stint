@@ -12,6 +12,7 @@ import { Input } from './input';
 import { Label } from './label';
 
 const meta = {
+  title: 'Primitives/Dialog',
   component: Dialog,
   parameters: { layout: 'fullscreen' },
 } satisfies Meta<typeof Dialog>;

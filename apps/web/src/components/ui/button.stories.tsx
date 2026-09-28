@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from './button';
 
 const meta = {
+  title: 'Primitives/Button',
   component: Button,
   args: { children: 'Add client' },
 } satisfies Meta<typeof Button>;

@@ -13,6 +13,7 @@ import {
 } from './dropdown-menu';
 
 const meta = {
+  title: 'Primitives/DropdownMenu',
   component: DropdownMenu,
   decorators: [
     (Story) => (

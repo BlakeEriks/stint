@@ -9,6 +9,7 @@ import {
 } from './select';
 
 const meta = {
+  title: 'Primitives/Select',
   component: Select,
   args: { defaultValue: 'net30' },
   render: (args) => (

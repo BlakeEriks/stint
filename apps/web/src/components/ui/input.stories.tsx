@@ -3,6 +3,7 @@ import { Input } from './input';
 import { Label } from './label';
 
 const meta = {
+  title: 'Primitives/Input',
   component: Input,
   args: { 'aria-label': 'Client name', placeholder: 'Northwind Studio' },
   decorators: [
