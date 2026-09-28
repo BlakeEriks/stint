@@ -63,12 +63,11 @@ private struct PanelHeader: View {
                 // A view title, not the mark: the bracket bounds are
                 // `|Stint|`'s alone.
                 Text("Settings")
-                    .font(.system(size: 17, weight: .semibold, design: .monospaced))
-                    .tracking(17 * 0.12)
+                    .role(.mark)
                     .foregroundStyle(Tokens.Dark.textMuted)
                     .padding(.leading, 6)
             } else {
-                Lockup(size: 17, color: Tokens.Dark.textMuted)
+                Lockup(color: Tokens.Dark.textMuted)
                 // Which backend this build talks to, when it is not the local
                 // one. Muted, never the accent: the accent is the running timer.
                 if let environment = Config.environmentName {
@@ -182,9 +181,7 @@ private struct SettingsPanel: View {
         Button(action: action) {
             Hovering { on in
                 Text(title)
-                    .font(.system(size: 10.5, weight: .regular, design: .monospaced))
-                    .tracking(0.84)
-                    .textCase(.uppercase)
+                    .role(.link)
                     .foregroundStyle(on ? Tokens.Dark.textPrimary : Tokens.Dark.textSubtle)
                     .contentShape(Rectangle())
             }
@@ -438,7 +435,7 @@ private struct RenameRow: View {
                             .foregroundStyle(name.isEmpty ? Tokens.Dark.textSubtle : Tokens.Dark.textStrong)
                             .lineLimit(1)
                         Image(systemName: "pencil")
-                            .font(.system(size: 10))
+                            .role(.hint)
                             .foregroundStyle(Tokens.Dark.textSubtle)
                             .opacity(on ? 1 : 0)
                     }
@@ -506,7 +503,7 @@ private struct ProjectPicker: View {
                     .foregroundStyle(model.projectID == nil ? Tokens.Dark.textSubtle : Tokens.Dark.textPrimary)
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .medium))
+                    .role(.disclosure)
                     .foregroundStyle(Tokens.Dark.textSubtle)
             }
             .padding(.horizontal, 8)
@@ -544,7 +541,7 @@ private struct EntryRow: View {
                         .lineLimit(1)
                     Spacer(minLength: 8)
                     Image(systemName: "play.fill")
-                        .font(.system(size: 9))
+                        .role(.hint)
                         .foregroundStyle(Tokens.Dark.textSubtle)
                         .opacity(on ? 1 : 0)
                     Text(format(entry.durationSeconds ?? 0))
@@ -575,7 +572,7 @@ private struct TransportButton: View {
             Task { await model.toggle() }
         } label: {
             Image(systemName: model.isRunning ? "stop.fill" : "play.fill")
-                .font(.system(size: 13))
+                .role(.transport)
                 .foregroundStyle(model.isRunning ? Tokens.Dark.textPrimary : Tokens.Dark.textOnAccent)
                 // The triangle's side bearings sit it left of center.
                 .padding(.leading, model.isRunning ? 0 : 2)
@@ -714,7 +711,7 @@ private struct IconGlyph: View {
     var body: some View {
         Hovering { on in
             Image(systemName: symbol)
-                .font(.system(size: 12, weight: .light))
+                .role(.glyph)
                 .foregroundStyle(on ? Tokens.Dark.textPrimary : Tokens.Dark.textSubtle)
                 .frame(width: 28, height: 28)
                 .background(on ? Tokens.Dark.bgHover : .clear)
@@ -857,14 +854,16 @@ private extension View {
 /// The type scale as the panel uses it. A view names a role; it never
 /// assembles one.
 ///
-/// Three cases are a generated role verbatim. The other six are that role
-/// resampled at a panel size: 320pt of menu bar is a denser context than a
-/// web page, so `readout` is 26 where `type.timer` is 24 and `label` is 10
-/// where `type.label` is 11. Tracking is re-derived from the token's own em
-/// ratio rather than restated, so a tracking change in `tokens.json` still
-/// reaches here — only the size is local.
+/// Four cases are a generated role verbatim. The rest are a role resampled
+/// at a panel size: 320pt of menu bar is a denser context than a web page, so
+/// `readout` is 26 where `type.timer` is 24 and `label` is 10 where
+/// `type.label` is 11. Tracking is re-derived from the token's own em ratio
+/// rather than restated, so a tracking change in `tokens.json` still reaches
+/// here — only the size is local. A symbol names a role too: its font is its
+/// size and stroke weight.
 enum TypeRole {
     case readout, text, body, stat, meta, duration, label, button, code
+    case mark, link, glyph, transport, hint, disclosure
 
     var token: Typography.Role {
         switch self {
@@ -879,6 +878,16 @@ enum TypeRole {
         // The six-digit field sets digits apart to be read back aloud, which
         // is wider than any role on the scale.
         case .code: Typography.wordmark.at(17, tracking: 0.218)
+        // The header's lockup, and the view title that takes its place.
+        case .mark: Typography.wordmark.at(17)
+        case .link: Typography.badge.at(10.5)
+        // Symbols: the header's icon buttons, the play/stop button, the
+        // affordances that appear under the pointer, the project menu's
+        // chevron.
+        case .glyph: Typography.control.at(12, weight: .light)
+        case .transport: Typography.support
+        case .hint: Typography.control.at(10)
+        case .disclosure: Typography.control.at(8, weight: .medium)
         }
     }
 
@@ -893,5 +902,11 @@ extension Text {
             .tracking(role.tracking)
             .monospacedDigit()
             .textCase(role.uppercase ? .uppercase : nil)
+    }
+}
+
+extension Image {
+    func role(_ role: TypeRole) -> some View {
+        font(role.font)
     }
 }
