@@ -53,7 +53,8 @@ Nothing changed behavior → go to step 4 with no findings.
 | what a user sees, or how their data is treated | `.specify/memory/constitution.md`, `.claude/rules/web-ui.md` |
 | who it is for, what it costs, what it replaces | `docs/positioning.md` |
 
-Grep `docs/`, `README.md`, the `CLAUDE.md` files and `.claude/` for the
+Grep `docs/`, `README.md`, the `CLAUDE.md` files, `.claude/` and
+`.specify/memory/` for the
 names the diff touched as well: a function, route, column or script named
 there is a claim about it. `specs/` is Spec Kit's record of past features;
 leave it out.

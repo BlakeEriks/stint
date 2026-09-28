@@ -6,14 +6,11 @@
 |---|---|---|
 | Web | Next.js App Router, API-first | The primary product. Every feature lands here first. |
 | macOS | Native Swift menu bar app (`apps/macos`, SwiftPM, no Xcode) | The timer and nothing else: start, stop, task name, project. The menu bar toggles between the running timer and today's total. |
-| iOS + Android | React Native (Expo), `apps/mobile` | Start / stop / view, light editing. |
+| iOS + Android | React Native (Expo) | Start / stop / view, light editing. |
 
-**Scope, not progress** — `feature` issues are where unbuilt capabilities live, and a status
-column here would be a second list that silently disagrees with it. What
-exists on disk is the honest signal: `apps/mobile` has no directory.
-
-Neither native app is a port, and neither should grow into one. The scopes
-above are ceilings, not milestones.
+The scopes are ceilings: a native app does only what only it can do, and
+neither is a port of the web. Web and macOS exist today; what's unbuilt lives
+in `feature` issues.
 
 ## The shape: a client shell over an HTTP API
 

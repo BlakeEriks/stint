@@ -18,7 +18,7 @@ not name, so a field the schema forgets is a 200 that discards the value.
 
 Shared plumbing in `apps/web/src/lib/`:
 
-- `auth.ts` — `requireSession()` accepts both a bearer token (Expo, macOS) and
+- `auth.ts` — `requireSession()` accepts both a bearer token (macOS) and
   a cookie session (web); both yield an RLS-scoped client.
 
   **`getClaims()` must be passed the token explicitly on the bearer path.** It
@@ -55,8 +55,8 @@ omits one.
   translate the unique-violation — a pre-check is a race, the index is not.
 - Numeric columns arrive from PostgREST as **strings**; `rows.ts` converts them.
   Never pass them straight through.
-- Offline replays: a duplicate-key insert with a client-supplied id returns the
-  existing row with 200, not an error.
+- A retried insert: a duplicate-key insert with a client-supplied id returns
+  the existing row with 200, not an error.
 - `nextInvoiceNumber` is not client-settable — gapless numbering depends on
   `allocate_invoice_number()` holding the row lock.
 

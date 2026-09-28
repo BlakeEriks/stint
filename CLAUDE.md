@@ -30,16 +30,16 @@ session.
 Every plan and PR meets `.specify/memory/constitution.md`. The rules that
 bite anywhere in the repo:
 
-- **One running timer per user, enforced by a database index** (VI). Never
+- **One running timer per user, enforced by a database index** (I). Never
   add a code path that could produce overlapping entries.
-- **The app never silently modifies user data** (II). A suspect record goes
+- **The app never silently modifies user data** (III). A suspect record goes
   to the inbox.
-- **Every client goes through `/api/v1/*`; no Server Actions** (XI). The
+- **Every client goes through `/api/v1/*`; no Server Actions** (VIII). The
   server owns timer truth; clients own responsiveness.
-- **`packages/core` does no I/O** (XII).
+- **`packages/core` does no I/O** (IX).
 - **Migrations and API responses stay compatible with a client that hasn't
-  updated** (XIII).
-- **New code ships with its suite** (XV).
+  updated** (X).
+- **New code ships with its suite** (XII).
 
 ## Design tokens
 

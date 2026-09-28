@@ -86,5 +86,8 @@ and the house rules above that a pattern can catch (`.vale/styles/Stint`).
 It annotates the lines a PR adds, and `/copyedit <path>` fixes a doc. An
 alert is a candidate; it never decides.
 
+`scripts/doc-refs.mjs` fails `verify:static` when a foundational doc names a
+path, a `pnpm` script or a story title that does not exist.
+
 **Verify the rendered page, not only the numbers.** Geometry checks here have
 passed while the page read as broken.

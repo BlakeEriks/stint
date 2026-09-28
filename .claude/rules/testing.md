@@ -48,10 +48,6 @@ Storybook story in Chromium. `pnpm verify:static` and
 Node's `--experimental-strip-types` rejects **TypeScript parameter
 properties** — write constructor fields explicitly in any code the tests load.
 
-Zod 4 is used throughout: `z.uuid()`, `z.iso.datetime()`, `z.email()`,
-`z.record(z.string(), z.unknown())`. Keep every workspace package on the same
-Zod major, or `z.infer` degrades to `unknown` across package boundaries.
-
 ## End-to-end tests
 
 `pnpm test:e2e` — Playwright against the local stack, and deliberately outside
@@ -63,7 +59,7 @@ the traps.
 
 **No retries, in CI either.** A retry doubles the time before a real failure
 is reported — a genuine failure is a 30s timeout, so two failures become four.
-At ten tests and ~31s of work, a flaky test going red is the intent.
+A flaky test going red is the intent.
 
 **They sign in for real**, through Mailpit, because sign-in is the flow most
 worth covering and stubbing it would test the stub.

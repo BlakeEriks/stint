@@ -9,7 +9,7 @@ description: "Task list template for feature implementation"
 
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: Required. Each user story gets the suites constitution XV names for the code it touches, and a story that changes what a user sees gets a task for its `*.stories.tsx`, one story export per acceptance scenario the user sees.
+**Tests**: Required. Each user story gets the suites constitution XII names for the code it touches, and a story that changes what a user sees gets a task for its `*.stories.tsx`, one story export per acceptance scenario the user sees.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 

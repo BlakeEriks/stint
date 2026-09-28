@@ -29,8 +29,8 @@ back to UTC, these two return 422. An omitted one still defaults to UTC.
   then summing drifts (3 × 20min would give 99.99 instead of 100.00).
 - **Line items are frozen at generation.** Never recompute a PDF from time
   entries; re-downloading a year later must produce the same document.
-- **Only drafts can be sent or deleted.** Sending is an action, not a status
-  write — the status change happens after delivery succeeds.
+- **Only drafts can be marked sent or deleted.** The user sends the PDF;
+  `PATCH /invoices/:id/status` records it.
 - **Voiding releases entries; it does not remove the number.** Numbering stays
   gapless.
 - Running timers, non-billable entries, and already-invoiced entries never
