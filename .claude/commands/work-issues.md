@@ -123,6 +123,9 @@ is `reviewed`.
     is null). The rest merge themselves (`dependabot-merge.yml`).
 - **Blocked issues:** remove `blocked` from any whose named PR has merged or
   closed — one `gh pr view` each, not a new investigation.
+- **Answered issues:** remove `needs-input` from any issue Blake has
+  commented on since its marked question, so the label says whose move it
+  is while a builder is busy elsewhere.
 
 ## 1. Pick
 
@@ -134,8 +137,7 @@ queue.
 `gh issue list --state open --json number,title,labels`, then skip every
 issue that:
 
-- is labeled `needs-input` with no comment of Blake's since the last marked
-  one
+- is labeled `needs-input`
 - is labeled `blocked`
 - is labeled `feature` — a capability is built through Spec Kit, not here
 - already has an open PR
@@ -146,7 +148,10 @@ issue that:
 `urgent` first, then the worst: `wrong data`, `misleading`, `looks wrong`,
 then `enhancement`; oldest first within a label. None left → step 2.
 
-Otherwise hand it to a builder for triage and build, as a round. It reports
+Otherwise hand it to a builder for triage and build, as a round. An issue a
+builder already triaged — its `agentId` is in the log — goes back to that
+builder by SendMessage, which still holds the reading; a new one only if it
+no longer answers. It reports
 one of: a commit ready for review, `closed` (the issue no longer held),
 `needs-input`, or `blocked` — for any but the first, pick again.
 
