@@ -42,11 +42,17 @@ export function useProjectColors(): Map<string, string | null> {
  * **Archived clients are included.** Work billed to a finished engagement is
  * still in the history, and dropping its color would silently move those
  * hours into the unnamed band.
+ *
+ * **So are clients with no color.** A client is a client whether or not it
+ * has a hue; leaving it out would file its work under internal.
  */
 export function useProjectClients(): {
   colorByProject: Map<string, string | null>;
   /** Project id -> its client, absent for internal work. */
-  clientByProject: Map<string, { id: string; name: string; color: string }>;
+  clientByProject: Map<
+    string,
+    { id: string; name: string; color: string | null }
+  >;
 } {
   const projects = useQuery({
     queryKey: keys.projects(),
@@ -61,19 +67,13 @@ export function useProjectClients(): {
     const colorByProject = new Map<string, string | null>();
     const clientByProject = new Map<
       string,
-      { id: string; name: string; color: string }
+      { id: string; name: string; color: string | null }
     >();
 
     for (const p of projects.data?.projects ?? []) {
       const client = p.clientId ? byId.get(p.clientId) : undefined;
       colorByProject.set(p.id, client?.color ?? null);
-      if (client?.color) {
-        clientByProject.set(p.id, {
-          id: client.id,
-          name: client.name,
-          color: client.color,
-        });
-      }
+      if (client) clientByProject.set(p.id, client);
     }
 
     return { colorByProject, clientByProject };
