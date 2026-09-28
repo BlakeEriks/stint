@@ -48,11 +48,11 @@ None. No schema, API or shared code changes.
   - `ClientWithoutProjects`: `account((db) => { db.projects = db.projects.filter((p) => p.clientId !== <Byrne id>) })`, where the heading stays and has no rows
   - `OnlyClientless`: all clients removed, leaving only the **No client** group
   - `Empty`: `account('empty')`, with copy offering to add a client
-  - `Failed`: `failing('clients')` and `failing('projects')`, whichever the mocks support
+  - `Failed`: `failing('clients', 'projects')`
   - `NoRate`: carried over from `project-list.stories.tsx`
 
   Delete `apps/web/src/components/project-list.stories.tsx`.
-- [ ] T003 [P] [US1] In `apps/web/test/ui/` find the nav test (grep `LINKS` or `Sections`), or add the assertion to the nearest existing nav test: the Sections nav has `Clients` and no `Projects`.
+- [ ] T003 [P] [US1] Add `apps/web/test/ui/nav.test.tsx` (no nav test exists): render the nav from `apps/web/src/components/nav.tsx` and assert the Sections nav has a `Clients` link and no `Projects` link.
 
 ### Implementation for User Story 1
 
@@ -104,14 +104,14 @@ None. No schema, API or shared code changes.
 
 - [ ] T009 [P] [US3] Add cases to `apps/web/test/ui/client-list.test.tsx`:
   - Active hides an archived client and its active project
-  - Archived shows an archived client (badged) with its projects
+  - Archived shows an archived client (badged) with all its projects, active ones included
   - Archived shows an active client's heading, without a badge, above only its archived project
   - Archived leaves out an active client that has no archived projects
   - All shows everything, with archived items badged
 - [ ] T010 [P] [US3] Add stories to `apps/web/src/components/client-list.stories.tsx`:
   - `Archived`: `at('/clients', { status: 'archived' })`, with the db mutated so an active client (Northwind) has one archived project
   - `All`: `at('/clients', { status: 'all' })`
-  - `ArchivedClientActiveProject`: Active, where the seeded archived client is given an active project and does not appear
+  - `ArchivedClientActiveProject`: Active, where the seeded archived client is given an active project, and neither appears (the same db under `Archived` shows both)
 
 ### Implementation for User Story 3
 

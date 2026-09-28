@@ -16,6 +16,7 @@ Closes #158
 
 - Q: Under Active, does an active project under an archived client show? → A: No; it hides with its client and shows under Archived and All.
 - Q: Under Archived, does an active client's heading show above its archived projects? → A: Yes, without an Archived badge, above only its archived projects.
+- Q: Does archiving a client archive its projects? → A: No write to the projects; a project whose client is archived is treated as archived, so the client shows with all its projects under Archived and All. Pickers follow in #165.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -89,9 +90,9 @@ check what each view shows; reload and confirm the filter holds.
 1. **Given** Active, **When** the screen loads, **Then** it shows only
    active clients and their active projects.
 2. **Given** Archived, **When** the screen loads, **Then** it shows archived
-   clients and archived projects, each marked Archived. An archived project
-   under an active client sits under that client's heading, which carries no
-   Archived badge.
+   clients, each marked Archived with all its projects beneath, and archived
+   projects under active clients, beneath that client's heading, which
+   carries no Archived badge.
 3. **Given** All, **When** the screen loads, **Then** it shows everything,
    with archived items marked.
 4. **Given** an active project under an archived client, **When** the filter
@@ -132,7 +133,7 @@ filter, and land on Clients with the same filter.
 
 - **FR-001**: The nav MUST show one **Clients** item and no **Projects** item.
 - **FR-002**: The Clients screen MUST list each client as a heading with its
-  rate and summary line (project count, unbilled amount, email), and its
+  rate and summary line (active project count, unbilled amount, email), and its
   projects beneath it.
 - **FR-003**: Projects with no client MUST appear under a **No client**
   heading that has no rate, detail link or edit action.
@@ -141,8 +142,9 @@ filter, and land on Clients with the same filter.
   project, from the screen itself.
 - **FR-006**: The Active, Archived and All filter MUST live in the address
   and apply to clients and projects together. A project always sits under
-  its own client's heading, whatever either one's archived state; under
-  Active, an archived client hides with all its projects.
+  its own client's heading. A project whose client is archived counts as
+  archived: it hides with its client under Active and shows with it under
+  Archived and All. Nothing is written to the project.
 - **FR-007**: The old Projects address MUST redirect to Clients, keeping any
   filter.
 - **FR-008**: Each project MUST appear exactly once on the screen.

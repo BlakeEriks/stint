@@ -10,10 +10,11 @@
 
 - **Decision**: Groups are clients in name order, then **No client** last.
   - Active: active clients, including ones with no projects, each with its active projects.
-  - Archived: archived clients, plus active clients that have an archived project, each with its archived projects.
+  - Archived: archived clients with all their projects, plus active clients that have an archived project, each with only its archived projects.
   - All: every client with every project.
   - A project whose client id matches no client joins **No client**, as it does today.
-- **Rationale**: Carries the clarified rules; keeps `ProjectList`'s ordering.
+- **Rationale**: Carries the clarified rules; keeps `ProjectList`'s ordering. An archived client's projects count as archived without a write, so unarchiving the client restores exactly what was active (constitution I).
+- **Consequence**: Archived and All need every project, so the projects query is `includeArchived: true` whenever the filter is not Active.
 - **Alternatives considered**: Hiding empty clients, which `ProjectList` does today. Rejected: this is now the only list of clients.
 
 ## Heading
