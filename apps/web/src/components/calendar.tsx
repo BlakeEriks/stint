@@ -259,6 +259,9 @@ export function Calendar() {
             where the scroller is inside the card. */}
           <div
             ref={scroller}
+            // A scroller takes focus, or an empty week cannot be keyboard-scrolled.
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: see above
+            tabIndex={0}
             className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
           >
             <div

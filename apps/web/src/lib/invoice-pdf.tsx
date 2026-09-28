@@ -25,7 +25,7 @@ import { theme } from '@stint/design-tokens';
 const c = {
   ink: '#1A1C21',
   muted: '#626875',
-  faint: '#848B98',
+  faint: '#707784',
   rule: '#D1D5DD',
   band: '#F2F3F6',
   accent: theme.light['accent-default'],

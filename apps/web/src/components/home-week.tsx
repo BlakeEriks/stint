@@ -83,7 +83,7 @@ export function Week({
                 {d.seconds > 0 && longest > 0 ? (
                   <i
                     data-bar={d.date}
-                    className="relative block w-full flex-none rounded-t-[5px] opacity-85"
+                    className="relative block w-full flex-none rounded-t-[5px]"
                     style={{ height: `${(d.seconds / longest) * PEAK}%` }}
                   >
                     {/* The stack, bottom-up in the legend's own order. Each
@@ -91,7 +91,7 @@ export function Week({
                         money: a segment sized by money would make an
                         expensive hour taller than a cheap one and break the
                         ratio the bar exists to show. */}
-                    <span className="absolute inset-0 flex flex-col-reverse overflow-hidden rounded-t-[5px]">
+                    <span className="absolute inset-0 flex flex-col-reverse overflow-hidden rounded-t-[5px] opacity-85">
                       {segments(byDay.get(d.date), hues, d.seconds).map((s) => (
                         <span
                           key={s.id || 'internal'}

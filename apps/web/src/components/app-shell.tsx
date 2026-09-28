@@ -73,8 +73,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {/* THE PANEL. One surface with a subtle edge and the card's
                 shadow — a step above the rail and dock that flank it, because
                 depth increases toward what is being read. Nothing inside it
-                is a card. */}
-              <div className="min-w-0 flex-1 rounded-xl border border-edge-subtle bg-surface-primary shadow-card xl:col-start-2 xl:row-start-1 xl:overflow-y-auto">
+                is a card.
+
+                It scrolls itself at `xl`, so it takes focus: a screen with no
+                control in view is otherwise one Safari's keyboard cannot
+                scroll. */}
+              <div
+                // biome-ignore lint/a11y/noNoninteractiveTabindex: a scroller takes focus
+                tabIndex={0}
+                className="min-w-0 flex-1 rounded-xl border border-edge-subtle bg-surface-primary shadow-card xl:col-start-2 xl:row-start-1 xl:overflow-y-auto"
+              >
                 {children}
               </div>
               <Dock />

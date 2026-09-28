@@ -19,26 +19,15 @@ export function screen(pathname: string, query: Record<string, string> = {}) {
     parameters: {
       layout: 'fullscreen',
       nextjs: { navigation: { pathname, query } },
-      a11y: knownFailures,
     },
     decorators: [decorator],
   };
 }
 
-/* Two known failures across every screen, skipped here rather than per
-   story until #125 fixes them. Every other rule still fails the test. */
-const KNOWN = ['color-contrast', 'scrollable-region-focusable'];
-
-/**
- * The a11y rules a screen story skips: the known failures, plus any a story
- * names. A story's list replaces its screen's, so it passes both.
- */
+/** The a11y rules a story skips. Every other rule still fails the test. */
 const skipping = (...rules: string[]) => ({
-  config: {
-    rules: [...KNOWN, ...rules].map((id) => ({ id, enabled: false })),
-  },
+  config: { rules: rules.map((id) => ({ id, enabled: false })) },
 });
-export const knownFailures = skipping();
 
 /* An open Radix menu or select hides the page behind it with `aria-hidden`
    while it traps focus, and axe reads the controls under it as focusable

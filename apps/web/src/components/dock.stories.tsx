@@ -1,14 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { account } from '@/mocks/db';
 import { expect, userEvent, within } from 'storybook/test';
-import { desktop, expectOpen, knownFailures, tablet } from '@/mocks/screen';
+import { desktop, expectOpen, tablet } from '@/mocks/screen';
 import { Dock } from './dock';
 
 /** The inbox over today's entries: what needs the user, and what they did. */
 const meta = {
   title: 'Parts/Dock',
   component: Dock,
-  parameters: { layout: 'fullscreen', a11y: knownFailures },
+  parameters: { layout: 'fullscreen' },
   decorators: [
     (Story) => (
       <div className="flex h-screen justify-end bg-surface-base p-3">
