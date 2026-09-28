@@ -1,8 +1,8 @@
 name: Docs
 
-# Two checks on every pull request. Both report and neither blocks: Vale
-# annotates the doc lines a PR adds, and Claude checks whether the docs that
-# own what the PR changed still hold.
+# Two checks on every pull request. Vale annotates the doc lines a PR adds
+# and never fails; Claude checks whether the docs that own what the PR
+# changed still hold, and fails on drift.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -73,3 +73,23 @@ jobs:
             --max-turns 40
             --model opus
             --allowedTools "Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*),Bash(gh pr comment:*)"
+
+      # Findings fail the check, and so does a run that posted nothing for this
+      # commit: a missing comment would otherwise read as no drift.
+      - if: steps.skill.outputs.present == 'true'
+        name: No drift at this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          body=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json comments \
+            -q "[.comments[].body | select(startswith(\"<!-- doc-drift:$SHA -->\"))] | last // \"\"")
+          if [ -z "$body" ]; then
+            echo "::error::/doc-drift posted no comment for $SHA"
+            exit 1
+          fi
+          if ! grep -q '^None found\.' <<<"$body"; then
+            echo "::error::Doc drift: see the PR comment"
+            exit 1
+          fi
