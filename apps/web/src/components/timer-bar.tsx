@@ -265,7 +265,7 @@ function Readout({
        right edge and leaves identity on the left. */
     <div className={`ml-auto flex flex-none items-center gap-3 ${className}`}>
       <time
-        className={`type-timer ${running ? 'text-accent-default' : 'text-subtle'}`}
+        className={`type-timer ${running ? 'text-timer-running' : 'text-subtle'}`}
         aria-live="off"
       >
         {formatClock(seconds)}
@@ -318,7 +318,7 @@ function StatusDot({ running }: { running: boolean }) {
       aria-hidden
       className={`size-[7px] flex-none rounded-full ${
         running
-          ? 'bg-accent-default shadow-halo-running motion-safe:animate-pulse'
+          ? 'bg-timer-running shadow-halo-running motion-safe:animate-pulse'
           : 'bg-timer-idle'
       }`}
     />

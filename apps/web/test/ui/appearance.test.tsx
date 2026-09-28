@@ -121,7 +121,29 @@ describe('the readout carries the accent only while running', () => {
     await waitFor(() => expect(screen.getByText(/25:00/)).toBeInTheDocument());
 
     const readout = screen.getByText(/25:00/);
-    expect(readout.className).toContain('text-accent-default');
+    expect(readout.className).toContain('text-timer-running');
+  });
+
+  it("keeps the timer off the Stop button's green", async () => {
+    /* Light has no glow to separate the live timer from the button beside
+       it, so they are two tokens a rung apart. On one token they would be
+       the same ink at the same weight. */
+    serve(summary({ running: entry() }));
+    const { container } = render(<TimerBar projects={PROJECTS} />, {
+      wrapper,
+    });
+    const button = await screen.findByRole('button', { name: /stop timer/i });
+
+    const timer = [
+      screen.getByText(/25:00/),
+      ...container.querySelectorAll<HTMLElement>('.shadow-halo-running'),
+    ];
+    expect(timer).toHaveLength(2);
+    for (const el of timer) {
+      expect(el.className).toMatch(/\b(text|bg)-timer-running\b/);
+      expect(el.className).not.toContain('accent-default');
+    }
+    expect(button.className).toContain('bg-accent-default');
   });
 
   it('withholds the accent from the readout when stopped', async () => {
@@ -131,7 +153,9 @@ describe('the readout carries the accent only while running', () => {
 
     /* A stopped timer is not the primary action in progress, so the accent
        would be spent on nothing. This is the rule that keeps it meaningful. */
-    expect(screen.getByText(/0:00/).className).not.toContain('accent');
+    expect(screen.getByText(/0:00/).className).not.toMatch(
+      /accent|timer-running/,
+    );
   });
 });
 

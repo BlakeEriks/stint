@@ -78,7 +78,7 @@ const primitiveRamp = (group, script, args = []) => ({
  * The light accent is a SEMANTIC ramp, and it drifted unchecked.
  *
  * It is derived by `derive-light-accent.mjs` for the same reason the neutrals
- * are — five hexes kept by hand is the drift this package exists to prevent —
+ * are — six hexes kept by hand is the drift this package exists to prevent —
  * but it lives under `semantic.light` as flat strings rather than in
  * `primitive`, so the loop above never saw it and a hand-edited value passed
  * `pnpm tokens:validate` outright.
