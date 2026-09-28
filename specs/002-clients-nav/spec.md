@@ -10,6 +10,13 @@ Closes #158
 
 **Input**: User description: "Merge Clients and Projects into one Clients nav item" (#158)
 
+## Clarifications
+
+### Session 2026-09-28
+
+- Q: Under Active, does an active project under an archived client show? → A: No; it hides with its client and shows under Archived and All.
+- Q: Under Archived, does an active client's heading show above its archived projects? → A: Yes, without an Archived badge, above only its archived projects.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - See every client and project in one place (Priority: P1)
@@ -82,12 +89,14 @@ check what each view shows; reload and confirm the filter holds.
 1. **Given** Active, **When** the screen loads, **Then** it shows only
    active clients and their active projects.
 2. **Given** Archived, **When** the screen loads, **Then** it shows archived
-   clients and archived projects, each marked Archived.
+   clients and archived projects, each marked Archived. An archived project
+   under an active client sits under that client's heading, which carries no
+   Archived badge.
 3. **Given** All, **When** the screen loads, **Then** it shows everything,
    with archived items marked.
 4. **Given** an active project under an archived client, **When** the filter
-   is Active, **Then** [NEEDS CLARIFICATION: does the project show under
-   Active? Proposed: no, the whole group hides with its client.]
+   is Active, **Then** it is hidden with its client, and shows under
+   Archived and All.
 
 ---
 
@@ -131,7 +140,9 @@ filter, and land on Clients with the same filter.
 - **FR-005**: The screen MUST offer Add client and Add project, and editing a
   project, from the screen itself.
 - **FR-006**: The Active, Archived and All filter MUST live in the address
-  and apply to clients and projects together.
+  and apply to clients and projects together. A project always sits under
+  its own client's heading, whatever either one's archived state; under
+  Active, an archived client hides with all its projects.
 - **FR-007**: The old Projects address MUST redirect to Clients, keeping any
   filter.
 - **FR-008**: Each project MUST appear exactly once on the screen.
