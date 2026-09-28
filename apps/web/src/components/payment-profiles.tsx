@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { PaymentProfileDialog } from './payment-profile-dialog';
@@ -16,7 +17,6 @@ import { keys } from '@/lib/client/query-keys';
  * resolve.
  */
 export function PaymentProfiles() {
-  const queryClient = useQueryClient();
   const [editing, setEditing] = useState<PaymentProfile | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -26,11 +26,22 @@ export function PaymentProfiles() {
   });
   const profiles = (data?.paymentProfiles ?? []).filter((p) => !p.archivedAt);
 
-  const makeDefault = useMutation({
-    mutationFn: (id: string) =>
-      api.updatePaymentProfile(id, { isDefault: true }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: keys.paymentProfiles() }),
+  const makeDefault = useOptimisticMutation<
+    string,
+    unknown,
+    { paymentProfiles: PaymentProfile[] }
+  >({
+    queryKey: () => keys.paymentProfiles(),
+    inline: true,
+    mutationFn: (id) => api.updatePaymentProfile(id, { isDefault: true }),
+    predict: (current, id) =>
+      current && {
+        ...current,
+        paymentProfiles: current.paymentProfiles.map((p) => ({
+          ...p,
+          isDefault: p.id === id,
+        })),
+      },
   });
 
   /* Which profile the failure belongs to. One mutation serves every row, so
@@ -75,7 +86,6 @@ export function PaymentProfiles() {
                     variant="ghost"
                     size="sm"
                     onClick={() => makeDefault.mutate(profile.id)}
-                    disabled={makeDefault.isPending}
                   >
                     Make default
                   </Button>

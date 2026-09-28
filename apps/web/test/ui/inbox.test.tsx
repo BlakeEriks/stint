@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Inbox } from '@/components/inbox';
+import { MutationNotice } from '@/components/mutation-notice';
 import type { Stats } from '@/lib/client/api';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
@@ -478,6 +479,63 @@ describe('entries of unusual length', () => {
         durationOk: true,
       });
     });
+  });
+
+  it('sends the row out on the press, before the server answers', async () => {
+    let answer!: (r: Response) => void;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) =>
+        init?.method === 'PATCH'
+          ? new Promise<Response>((r) => {
+              answer = r;
+            })
+          : Promise.resolve(new Response('{}', { status: 200 })),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<Inbox stats={stats({ strangeDurations: [longEntry] })} />, {
+      wrapper,
+    });
+
+    await user.click(screen.getByRole('button', { name: /as it is/ }));
+
+    expect(
+      screen.getByText('Migration').closest('[data-exiting]'),
+    ).not.toBeNull();
+    answer(new Response(JSON.stringify(ENTRY), { status: 200 }));
+  });
+
+  it('brings the row back and says why when the server refuses', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) =>
+        init?.method === 'PATCH'
+          ? new Response(
+              JSON.stringify({
+                code: 'CONFLICT',
+                message: 'That entry is billed.',
+              }),
+              { status: 409 },
+            )
+          : new Response('{}', { status: 200 }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(
+      <>
+        <Inbox stats={stats({ strangeDurations: [longEntry] })} />
+        <MutationNotice />
+      </>,
+      { wrapper },
+    );
+
+    await user.click(screen.getByRole('button', { name: /as it is/ }));
+
+    expect(
+      await screen.findByText('That entry is billed.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Migration').closest('[data-exiting]')).toBeNull();
   });
 
   it('the check mark belongs to "It\'s correct" alone', () => {

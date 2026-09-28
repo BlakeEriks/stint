@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import { formatCompact, formatCurrency } from '@stint/core';
 import {
   Check,
@@ -72,22 +73,42 @@ export function Inbox({ stats }: { stats: Stats }) {
   /* `EntryDialog` edits a whole entry, which the stats rows do not carry, so
      opening one fetches it by id. The row says which field it is about, and
      the cursor opens there. */
-  const { mutate: openEntry } = useMutation({
-    mutationFn: ({ id }: { id: string; focus: 'task' | 'project' }) =>
-      api.entry(id),
-    onSuccess: (found, { focus }) => {
-      setFocusField(focus);
-      setAssigning(found);
-    },
-  });
+  const openEntry = async ({
+    id,
+    focus,
+  }: {
+    id: string;
+    focus: 'task' | 'project';
+  }) => {
+    const found = await queryClient.fetchQuery({
+      queryKey: keys.entry(id),
+      queryFn: () => api.entry(id),
+    });
+    setFocusField(focus);
+    setAssigning(found);
+  };
+
+  /* An answered row leaves at once. The refetch that drops it from the data
+     waits for its exit, so the animation has a row to play on; a rejection
+     brings it back. */
+  const leaving = useRef(new Map<string, Promise<void>>()).current;
+  const leave = (id: string) => {
+    leaving.set(id, exit.mark(id));
+  };
+  const rowPress = {
+    queryKey: () => keys.stats(),
+    onError: (_e: Error, vars: string | { id: string }) =>
+      exit.unmark(typeof vars === 'string' ? vars : vars.id),
+  };
 
   /* "It's correct" answers the question and nothing else — it never edits the
      times. A trigger clears the answer if they change later. */
-  const confirmLength = useMutation({
+  const confirmLength = useOptimisticMutation({
+    ...rowPress,
     mutationFn: (id: string) => api.updateEntry(id, { durationOk: true }),
-    onSuccess: async (_r, id) => {
-      await exit.mark(id);
-      invalidateEntryData(queryClient);
+    invalidate: async (qc, id) => {
+      await leaving.get(id);
+      return invalidateEntryData(qc);
     },
   });
 
@@ -99,13 +120,16 @@ export function Inbox({ stats }: { stats: Stats }) {
     select: (r) => r.projects,
   });
 
-  const setStatus = useMutation({
+  const setStatus = useOptimisticMutation({
+    ...rowPress,
     mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
       api.updateInvoiceStatus(id, { status }),
-    onSuccess: async (_r, { id }) => {
-      await exit.mark(id);
-      queryClient.invalidateQueries({ queryKey: keys.invoices() });
-      invalidateEntryData(queryClient);
+    invalidate: async (qc, { id }) => {
+      await leaving.get(id);
+      return Promise.all([
+        qc.invalidateQueries({ queryKey: keys.invoices() }),
+        invalidateEntryData(qc),
+      ]);
     },
   });
 
@@ -176,11 +200,15 @@ export function Inbox({ stats }: { stats: Stats }) {
             <Row
               key={r.id}
               entry={r}
-              busy={setStatus.isPending}
-              confirming={confirmLength.isPending}
-              onStatus={setStatus.mutate}
+              onStatus={(v) => {
+                leave(v.id);
+                setStatus.mutate(v);
+              }}
               onOpen={openEntry}
-              onConfirm={confirmLength.mutate}
+              onConfirm={(id) => {
+                leave(id);
+                confirmLength.mutate(id);
+              }}
               exiting={exit.exiting.has(r.id)}
               ref={exit.register(r.id)}
             />
@@ -207,16 +235,12 @@ export function Inbox({ stats }: { stats: Stats }) {
 /** Which `Item` a row becomes — the one place the five kinds differ. */
 function Row({
   entry,
-  busy,
-  confirming,
   onStatus,
   onOpen,
   onConfirm,
   ...leaving
 }: {
   entry: InboxRow;
-  busy: boolean;
-  confirming: boolean;
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
   onConfirm: (id: string) => void;
@@ -243,7 +267,6 @@ function Row({
               label="Mark paid"
               ariaLabel={`Mark ${i.invoiceNumber} paid`}
               icon={<DollarSign aria-hidden className="size-3.5" />}
-              disabled={busy}
               onClick={() => onStatus({ id: i.invoiceId, status: 'paid' })}
             />
             <Action
@@ -274,7 +297,6 @@ function Row({
               label="Mark sent"
               ariaLabel={`Mark ${d.invoiceNumber} sent`}
               icon={<Send aria-hidden className="size-3.5" />}
-              disabled={busy}
               onClick={() => onStatus({ id: d.invoiceId, status: 'sent' })}
             />
             <Action
@@ -371,7 +393,6 @@ function Row({
             label="It's correct"
             ariaLabel={`Keep ${e.taskName || 'this entry'} as it is`}
             icon={<Check aria-hidden className="size-3.5" />}
-            disabled={confirming}
             onClick={() => onConfirm(e.entryId)}
           />
         </>

@@ -96,6 +96,40 @@ describe('PaymentProfiles', () => {
 
   /* A silent refusal here means the next invoice carries the wrong account
      and nobody finds out until a client pays it. */
+  it('moves "Default" on the press, before the server answers', async () => {
+    const profiles = [
+      BASE,
+      { ...BASE, id: 'pp-2', name: 'Wise USD', isDefault: false },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) =>
+        init?.method === 'PATCH'
+          ? new Promise<Response>(() => {})
+          : Promise.resolve(
+              new Response(JSON.stringify({ paymentProfiles: profiles }), {
+                status: 200,
+              }),
+            ),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<PaymentProfiles />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Make default' }),
+    );
+
+    // The button moved to the profile that was default, and only one says so.
+    expect(screen.getAllByText('Default')).toHaveLength(1);
+    expect(
+      screen.getByRole('button', { name: 'Make default' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Wise USD').closest('li')?.textContent).toContain(
+      'Default',
+    );
+  });
+
   it('reports a refused "make default" against the profile it failed on', async () => {
     vi.stubGlobal(
       'fetch',

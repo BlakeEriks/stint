@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import {
   Dialog,
   DialogContent,
@@ -50,8 +51,6 @@ export function ProjectDialog({
   defaultClientId?: string | null;
   onSaved?: (project: Project) => void;
 }) {
-  const queryClient = useQueryClient();
-
   const [name, setName] = useState('');
   const [clientId, setClientId] = useState<string | null>(null);
   const [hourlyRate, setHourlyRate] = useState('');
@@ -80,13 +79,20 @@ export function ProjectDialog({
   });
   const clients = clientData?.clients ?? [];
 
-  const save = useMutation({
+  /* Pending: the server validates the project, and the dialog stays open
+     to say what it refused. */
+  const save = useOptimisticMutation({
+    queryKey: () => keys.projects(),
+    inline: true,
     mutationFn: (body: ProjectInput) =>
       existing ? api.updateProject(existing.id, body) : api.createProject(body),
+    // A project's rate is what its unbilled work is valued at, in every rollup.
+    invalidate: (qc) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.projects() }),
+        invalidateEntryData(qc),
+      ]),
     onSuccess: (saved) => {
-      queryClient.invalidateQueries({ queryKey: keys.projects() });
-      // A project's rate is what its unbilled work is valued at, in every rollup.
-      invalidateEntryData(queryClient);
       onSaved?.(saved);
       onOpenChange(false);
     },

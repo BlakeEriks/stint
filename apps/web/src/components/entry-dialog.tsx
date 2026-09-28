@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import {
   uuidv7,
   addDays,
@@ -98,8 +99,6 @@ export function EntryDialog({
   /** Overridable so a test can pin a zone; production always uses the real one. */
   tz?: string;
 }) {
-  const queryClient = useQueryClient();
-
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -127,16 +126,28 @@ export function EntryDialog({
 
   /* The close, then the caller, then the refetch — in that order. A list that
      animates this entry out needs it still in the query data while it plays,
-     which is only true before the invalidation. */
+     which is only true before the invalidation, which the mutation runs
+     after this. */
   const settle = async () => {
     onOpenChange(false);
     if (existing) await onSaved?.(existing.id);
-    /* `stats` is in there too: editing an entry changes the unbilled total,
-       and giving a loose entry a project is what clears its inbox row. */
-    invalidateEntryData(queryClient);
   };
 
-  const save = useMutation({
+  /* Pending, not predicted: the server decides whether an entry is valid (an
+     overlap, a billed lock), and a form that closed at once would lose what
+     was typed when it said no. The button answers the press instead, and the
+     reason shows here. `stats` is in the refetch too: editing an entry
+     changes the unbilled total, and giving a loose entry a project is what
+     clears its inbox row. */
+  const formPress = {
+    queryKey: () => keys.entries(),
+    invalidate: invalidateEntryData,
+    inline: true,
+    onSuccess: settle,
+  };
+
+  const save = useOptimisticMutation({
+    ...formPress,
     mutationFn: async () => {
       const { date, start, end } = draft;
       const startedAt = localDateTimeToInstant(date, start, tz);
@@ -162,16 +173,15 @@ export function EntryDialog({
         ? api.updateEntry(existing.id, body)
         : api.createEntry({ id: uuidv7(), ...body });
     },
-    onSuccess: settle,
     onError: (e) =>
       setError(
         e instanceof ApiError ? e.message : 'Could not save this entry.',
       ),
   });
 
-  const remove = useMutation({
+  const remove = useOptimisticMutation({
+    ...formPress,
     mutationFn: () => api.deleteEntry(existing!.id),
-    onSuccess: settle,
     onError: (e) =>
       setError(
         e instanceof ApiError ? e.message : 'Could not delete this entry.',

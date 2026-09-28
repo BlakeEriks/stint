@@ -51,13 +51,15 @@ export const keys = {
  * differently — so any one of them refreshed alone disagrees with the rest.
  */
 export function invalidateEntryData(queryClient: QueryClient) {
-  queryClient.invalidateQueries({ queryKey: keys.summary() });
-  queryClient.invalidateQueries({ queryKey: keys.entries() });
-  queryClient.invalidateQueries({ queryKey: keys.stats() });
-  queryClient.invalidateQueries({ queryKey: keys.calendar() });
-  queryClient.invalidateQueries({ queryKey: keys.activity() });
-  queryClient.invalidateQueries({ queryKey: keys.heatmap() });
-  /* Starting a timer or saving an entry mints a task name, so a list held
-     from before it is one suggestion short of what the user just typed. */
-  queryClient.invalidateQueries({ queryKey: keys.taskNames() });
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: keys.summary() }),
+    queryClient.invalidateQueries({ queryKey: keys.entries() }),
+    queryClient.invalidateQueries({ queryKey: keys.stats() }),
+    queryClient.invalidateQueries({ queryKey: keys.calendar() }),
+    queryClient.invalidateQueries({ queryKey: keys.activity() }),
+    queryClient.invalidateQueries({ queryKey: keys.heatmap() }),
+    /* Starting a timer or saving an entry mints a task name, so a list held
+       from before it is one suggestion short of what the user just typed. */
+    queryClient.invalidateQueries({ queryKey: keys.taskNames() }),
+  ]);
 }

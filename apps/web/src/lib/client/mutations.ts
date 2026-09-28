@@ -38,19 +38,32 @@ import { ApiError } from './api';
  */
 export interface OptimisticOptions<TVars, TData, TCache> {
   mutationFn: (vars: TVars) => Promise<TData>;
-  /** The cache entry the press changes, and the scope of "latest press". */
+  /**
+   * What the press changes, and the scope of "latest press". A prefix: the
+   * prediction applies to every cached query under it, so each filtered
+   * variant of a list agrees.
+   */
   queryKey: (vars: TVars) => QueryKey;
-  /** The result to show at once. Omit for pending mode. */
+  /** The result to show at once, per cached query. Omit for pending mode. */
   predict?: (current: TCache | undefined, vars: TVars) => TCache | undefined;
   /** What to refetch once the last overlapping press settles. Defaults to `queryKey`. */
   invalidate?: (queryClient: QueryClient, vars: TVars) => unknown;
-  onSuccess?: (data: TData, vars: TVars) => void;
+  onSuccess?: (data: TData, vars: TVars) => unknown;
+  /** Undo anything the caller showed beyond the cache, such as a row's exit. */
+  onError?: (error: Error, vars: TVars) => void;
+  /** After the refetch, whether the press succeeded or not. */
+  onSettled?: (vars: TVars) => void;
+  /**
+   * The pressing screen explains a failure itself, so the notice stays out
+   * of it. Only for a pending-mode form that stays open until the answer.
+   */
+  inline?: boolean;
   timeoutMs?: number;
 }
 
 interface Context<TCache> {
   key: QueryKey;
-  snapshot: TCache | undefined;
+  snapshot: Array<[QueryKey, TCache | undefined]>;
 }
 
 export const TIMEOUT_MS = 10_000;
@@ -77,6 +90,7 @@ export function useOptimisticMutation<
     });
 
   return useMutation<TData, Error, TVars, Context<TCache>>({
+    meta: { inline: opts.inline ?? false },
     mutationFn: (vars) =>
       withTimeout(opts.mutationFn(vars), opts.timeoutMs ?? TIMEOUT_MS, () =>
         refetch(vars),
@@ -86,22 +100,25 @@ export function useOptimisticMutation<
       // Not awaited: the cancel takes effect at once, and waiting on it
       // would let a frame render before the prediction.
       void queryClient.cancelQueries({ queryKey: key });
-      const snapshot = queryClient.getQueryData<TCache>(key);
+      const snapshot = queryClient.getQueriesData<TCache>({ queryKey: key });
       if (opts.predict) {
-        queryClient.setQueryData<TCache>(key, (current) =>
+        queryClient.setQueriesData<TCache>({ queryKey: key }, (current) =>
           opts.predict!(current, vars),
         );
       }
       return { key, snapshot };
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, vars, ctx) => {
+      opts.onError?.(err, vars);
       if (opts.predict && ctx && inFlight(ctx.key) === 1) {
-        queryClient.setQueryData(ctx.key, ctx.snapshot);
+        for (const [key, data] of ctx.snapshot)
+          queryClient.setQueryData(key, data);
       }
     },
     onSuccess: (data, vars) => opts.onSuccess?.(data, vars),
-    onSettled: (_data, _err, vars, ctx) => {
-      if (!ctx || inFlight(ctx.key) === 1) return refetch(vars);
+    onSettled: async (_data, _err, vars, ctx) => {
+      if (!ctx || inFlight(ctx.key) === 1) await refetch(vars);
+      opts.onSettled?.(vars);
     },
   });
 }

@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Archive, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, ApiError } from '@/lib/client/api';
@@ -14,22 +15,32 @@ import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 
 export function ClientDetail({ id }: { id: string }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: keys.client(id),
     queryFn: () => api.client(id),
   });
 
-  const archive = useMutation({
+  /* Predicted: the list drops the client and the page goes back to it on
+     the press. A rejection puts the client back and says why. */
+  const archive = useOptimisticMutation<void, unknown, unknown>({
+    queryKey: () => keys.clients(),
     mutationFn: () => api.archiveClient(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.clients() });
-      // Archiving withdraws the client's rate from every rollup, not just stats.
-      invalidateEntryData(queryClient);
-      router.push('/clients');
-    },
+    predict: (current) =>
+      isClientList(current)
+        ? { ...current, clients: current.clients.filter((c) => c.id !== id) }
+        : current,
+    // Archiving withdraws the client's rate from every rollup, not just stats.
+    invalidate: (qc) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.clients() }),
+        invalidateEntryData(qc),
+      ]),
   });
+  const archiveNow = () => {
+    archive.mutate();
+    router.push('/clients');
+  };
 
   return (
     <DetailPage back="/clients" label="Clients">
@@ -56,11 +67,7 @@ export function ClientDetail({ id }: { id: string }) {
                   </Link>
                 </Button>
                 {!client.archivedAt ? (
-                  <Button
-                    variant="ghost"
-                    onClick={() => archive.mutate()}
-                    disabled={archive.isPending}
-                  >
+                  <Button variant="ghost" onClick={archiveNow}>
                     <Archive aria-hidden strokeWidth={1.75} />
                     Archive
                   </Button>
@@ -147,4 +154,11 @@ function Detail({
       ) : null}
     </div>
   );
+}
+
+/** A list response under `keys.clients()`, not one client's detail. */
+function isClientList(
+  data: unknown,
+): data is { clients: Array<{ id: string }> } {
+  return typeof data === 'object' && data !== null && 'clients' in data;
 }

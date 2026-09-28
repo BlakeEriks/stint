@@ -7,10 +7,14 @@ import { useState } from 'react';
  * Why the last press didn't take. Read from the mutation cache, not from the
  * component that pressed, so a rollback is explained even after its screen
  * has unmounted (Constitution I). One notice at a time: the newest failure.
+ * A form that stays open to show its own error marks itself `inline`.
  */
 export function MutationNotice() {
   const failures = useMutationState({
-    filters: { status: 'error' },
+    filters: {
+      status: 'error',
+      predicate: (m) => !m.options.meta?.inline,
+    },
     select: (m) => ({
       id: m.mutationId,
       at: m.state.submittedAt,
