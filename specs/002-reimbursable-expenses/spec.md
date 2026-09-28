@@ -1,0 +1,223 @@
+Closes #48
+
+# Feature Specification: Reimbursable expenses on the invoice
+
+**Feature Branch**: `f48-expenses`
+
+**Created**: 2026-09-27
+
+**Status**: Draft
+
+**Input**: GitHub issue #48, "Reimbursable expenses on the invoice". Due
+30 September 2026: the September invoice to the one client is the first that
+has to leave Stint rather than be assembled beside it. A client pre-approved
+a cost (tooling, a license, travel) and reimburses it on the invoice. An
+expense has an amount and no duration, so it is its own subtotal below
+services, never a time entry and never hours × rate. It freezes and locks
+when invoiced, as an entry does. The spec decides whether an expense is a
+row that waits to be invoiced or is typed onto the invoice at generation,
+and whether a receipt attaches.
+
+## Decisions the issue asked for
+
+**An expense is a row that waits to be invoiced**, the way unbilled time
+does. The cost is paid on the day it happens, often weeks before the invoice.
+Typed at generation, it depends on the contractor remembering it at month end,
+and a forgotten reimbursement is money lost. A waiting row is also what "locks
+when invoiced, as an entry does" describes: only a stored record can be
+locked. The flat **charges** the new-invoice screen already takes
+(`docs/design/screens/invoices.html`) stay for what is billed as service: a
+fixed fee, a deposit, a retainer. An expense is no longer entered as a charge.
+
+**No receipt attaches.** The contractor sends the invoice from their own
+address (`docs/design/principles.md`), so receipts travel in the same email.
+Storing files is new infrastructure that the 30 September deadline cannot
+carry. Each expense takes an optional free-text note, which can hold a
+receipt or order number.
+
+## User Scenarios & Testing *(mandatory)*
+
+### User Story 1 - Bill a pre-approved cost on this month's invoice (Priority: P1)
+
+The contractor bought a license the client approved. They record it as an
+expense for that client, with the date and amount. When they build the
+month's invoice, the expense appears under its own heading below the time
+lines, with its own subtotal, and the invoice total covers both.
+
+**Why this priority**: This is the September invoice. Without it the invoice
+is short by the expense or is built outside Stint.
+
+**Independent Test**: Record one expense for a client, dated inside a period
+that also has billable time. Preview and generate the invoice for that client
+and period. The PDF shows services with their subtotal, then expenses with
+theirs, and a total equal to both.
+
+**Acceptance Scenarios**:
+
+1. **Given** an unbilled expense for Acme dated 12 September, **When** the
+   contractor previews Acme's invoice for 1–30 September, **Then** the
+   expense appears under an expenses heading after the services, with its
+   date, description and amount, and no quantity or rate.
+2. **Given** that preview, **When** the contractor generates the invoice,
+   **Then** the invoice shows a services subtotal, an expenses subtotal and a
+   total equal to the services total plus the expenses subtotal.
+3. **Given** a period with expenses and no billable time, **When** the
+   contractor generates, **Then** the invoice is created with only the
+   expenses section.
+4. **Given** a period with no expenses, **When** the contractor generates,
+   **Then** the invoice has no expenses section and looks as it does today.
+
+---
+
+### User Story 2 - Record an expense when it happens (Priority: P1)
+
+The day the contractor pays for a flight, they record it: client, date,
+description, amount, and optionally a project and a note. It waits with the
+client's other unbilled expenses until an invoice takes it. They can
+correct or delete it while it waits.
+
+**Why this priority**: User Story 1 has nothing to bill without it.
+
+**Independent Test**: Record an expense, see it listed as unbilled for its
+client, edit its amount, delete a second one, and confirm the first still
+waits.
+
+**Acceptance Scenarios**:
+
+1. **Given** the contractor has a client, **When** they record an expense
+   with a client, date, description and amount, **Then** it is listed as
+   unbilled for that client.
+2. **Given** an unbilled expense, **When** the contractor edits or deletes
+   it, **Then** the change is saved.
+3. **Given** the new-invoice screen for a client and period, **When** the
+   contractor records an expense there, **Then** it is saved as a waiting
+   expense and, if its date is inside the period, joins the preview.
+
+---
+
+### User Story 3 - An invoiced expense cannot change under the client (Priority: P2)
+
+Once an invoice is issued, the expenses on it are frozen and locked, the same
+as its time entries: the amount the client was asked to reimburse cannot
+change. Voiding the invoice releases them to wait again.
+
+**Why this priority**: This follows the trust rules for entries
+(`docs/data-model.md`, "Billed entries are immutable"), and the same wrong
+number would cost the same credibility.
+
+**Independent Test**: Generate an invoice with an expense, try to edit and
+delete the expense and see both refused, void the invoice, then edit the
+expense successfully.
+
+**Acceptance Scenarios**:
+
+1. **Given** an expense on a sent or paid invoice, **When** anyone edits or
+   deletes it, **Then** the change is refused and the expense is unchanged.
+2. **Given** an expense on a draft invoice, **When** the contractor edits it,
+   **Then** the edit is allowed.
+3. **Given** an issued invoice with an expense, **When** the expense record
+   is edited after the invoice is voided, **Then** the voided invoice still
+   shows the original amount.
+4. **Given** a sent invoice with expenses, **When** it is voided, **Then**
+   its expenses return to unbilled and a later invoice for that client can take them.
+
+### Edge Cases
+
+- An unbilled expense dated outside the chosen period is not on the preview.
+  It keeps waiting, as unbilled time does.
+- The contractor can leave an individual expense off one invoice; it keeps
+  waiting and is not lost.
+- Adding, editing, removing or excluding an expense on the new-invoice screen
+  clears the approved preview, as changing a charge, the client or the period
+  does. The same set that was approved is the set that is generated.
+- An expense for a client with a different currency is billed in that
+  client's currency. Stint does not convert.
+- Two invoices generated at once for the same client cannot both take the
+  same expense.
+- An archived client's unbilled expenses stay unbilled and still reach an
+  invoice for that client.
+
+## Requirements *(mandatory)*
+
+### Functional Requirements
+
+- **FR-001**: The contractor MUST be able to record an expense with a client,
+  a date, a description and an amount above zero, and optionally a project
+  belonging to that client and a note.
+- **FR-002**: An expense MUST NOT carry a duration, a quantity or a rate, and
+  MUST NOT count toward hours anywhere in the app.
+- **FR-003**: The contractor MUST be able to list, edit and delete their
+  unbilled expenses, filtered by client.
+- **FR-004**: The invoice preview for a client and period MUST include every
+  unbilled expense for that client dated within the period, and the
+  contractor MUST be able to leave any of them off that invoice.
+- **FR-005**: The invoice MUST show expenses after all service lines, under
+  their own heading, with their own subtotal. Each expense line MUST show its
+  date, description and amount, and no quantity or rate.
+- **FR-006**: The invoice total MUST equal the services total (including any
+  tax on services) plus the expenses subtotal. Tax MUST NOT apply to
+  expenses.
+- **FR-007**: The preview and the generated invoice MUST come from the same
+  computation, so what was approved is what gets created
+  (`docs/data-model.md`, "Rate resolution").
+- **FR-008**: An invoice whose only lines are expenses MUST be allowed.
+- **FR-009**: At generation, each expense's date, description and amount MUST
+  be frozen onto the invoice, so a later change to the expense record cannot
+  alter an issued invoice.
+- **FR-010**: An expense on a non-draft invoice MUST be rejected for edit and
+  delete by the database, not only by the app. An expense on a draft invoice
+  stays editable.
+- **FR-011**: Voiding an invoice MUST release its expenses back to unbilled.
+- **FR-012**: An expense MUST be on at most one invoice at a time, including
+  when two invoices are generated at once.
+- **FR-013**: One contractor's expenses MUST be invisible to every other
+  user.
+- **FR-014**: The new-invoice screen's charges MUST no longer describe
+  themselves as a place for rebilled expenses.
+- **FR-015**: Unbilled expenses MUST NOT count toward Earned
+  (`docs/design/principles.md`, "Money"): a reimbursement is not money earned
+  from work. Whether they count toward Unbilled: [NEEDS CLARIFICATION: Home's
+  Unbilled is defined as work done and not invoiced. Should a waiting expense
+  add to it, as money the client owes and has not been asked for, or stay out
+  so Unbilled remains a figure about work?]
+- **FR-016**: Awaiting payment and Collected MUST include expenses, because
+  both are read from the invoice total, which is what the client owes and
+  pays.
+
+### Key Entities
+
+- **Expense**: A cost the contractor paid that a client reimburses. It has a
+  client, an optional project, a date, a description, an amount in the
+  client's currency, an optional note, and the invoice it is billed on, if
+  any.
+- **Invoice line (expense)**: The frozen copy of an expense on an issued
+  invoice: its date, description and amount at generation. It is kept apart
+  from service lines so the invoice can subtotal each.
+
+## Success Criteria *(mandatory)*
+
+### Measurable Outcomes
+
+- **SC-001**: The September 2026 invoice to the one client, including its
+  reimbursable expenses, is generated in Stint and sent by 30 September 2026
+  with no figure assembled outside Stint.
+- **SC-002**: On every invoice with expenses, services subtotal plus tax plus
+  expenses subtotal equals the total to the cent.
+- **SC-003**: Recording an expense takes under 30 seconds from opening the
+  form.
+- **SC-004**: No issued invoice's expense amount can be changed by any path.
+  Every attempt is refused.
+
+## Assumptions
+
+- Web app only. The macOS app does not record expenses
+  (`docs/design/principles.md`, "Platform scope").
+- An expense is billed at cost, with no markup.
+- An expense always belongs to a client. A cost with no one to reimburse it
+  is not an expense this feature tracks.
+- The invoice PDF and the invoice screen present expenses the same way.
+- Archive, don't delete applies to clients and projects. An unbilled expense
+  is referenced by nothing, so deleting it is allowed, as for an unbilled
+  entry.
+- No import of expenses from other tools, no receipt storage, no mileage or
+  per-diem calculation, and no recurring expenses.
