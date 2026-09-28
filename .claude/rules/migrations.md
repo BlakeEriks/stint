@@ -31,7 +31,7 @@ approving the release are the whole deploy step: the approval page shows each
 pending migration's SQL. `pnpm migrate` by hand is for a local or throwaway
 database only, and `docs/deploying.md` owns the shape.
 
-**They are additive and forward-only** (constitution X). Each file runs in
+**They are additive and forward-only** (constitution V). Each file runs in
 its own transaction, so one that *fails* rolls back clean; there is no down
 path for one that succeeds and is wrong, so write migrations that cannot need
 reverting:

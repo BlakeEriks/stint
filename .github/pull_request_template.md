@@ -21,7 +21,7 @@ Data back to the seed: re-run this PR's **preview-db** check.
 ## Checks CI cannot make
 
 - [ ] **Migrations and API responses stay compatible** with a macOS app that
-      hasn't updated (constitution X).
+      hasn't updated (constitution V).
 - [ ] **Rates and line items still freeze** onto issued invoices — nothing
       recomputes a sent invoice.
 - [ ] **A screen or state this adds or changes has its story.**

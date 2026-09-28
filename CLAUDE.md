@@ -10,7 +10,7 @@ adding to it, name the doc that owns the claim:
 | The claim is | It goes to |
 | --- | --- |
 | Who this is for, what it competes with, what it costs, and the US point of view | `docs/positioning.md` |
-| A rule every spec, plan and PR is held to | `.specify/memory/constitution.md` |
+| A principle every plan must pass | `.specify/memory/constitution.md` |
 | How work moves from an idea to production | `docs/sdlc.md` |
 | How to run, build, or deploy something | `docs/local-dev.md`, `docs/deploying.md`, `docs/setup.md` |
 | How one screen or part looks, in each state | its `*.stories.tsx`, beside the component |
@@ -27,19 +27,18 @@ session.
 
 ## The constitution
 
-Every plan and PR meets `.specify/memory/constitution.md`. The rules that
-bite anywhere in the repo:
+Every plan passes `.specify/memory/constitution.md` before it's built. Its
+six principles, in brief:
 
-- **One running timer per user, enforced by a database index** (I). Never
-  add a code path that could produce overlapping entries.
-- **The app never silently modifies user data** (III). A suspect record goes
-  to the inbox.
-- **Every client goes through `/api/v1/*`; no Server Actions** (VIII). The
+- **I.** The app never silently modifies user data; a suspect record goes to
+  the inbox.
+- **II.** Logic written twice has a parity test against a real database.
+- **III.** Every client goes through `/api/v1/*`; no Server Actions. The
   server owns timer truth; clients own responsiveness.
-- **`packages/core` does no I/O** (IX).
-- **Migrations and API responses stay compatible with a client that hasn't
-  updated** (X).
-- **New code ships with its suite** (XII).
+- **IV.** `packages/core` does no I/O.
+- **V.** Migrations and API responses stay compatible with a client that
+  hasn't updated.
+- **VI.** Tests first, one suite per kind of code.
 
 ## Design tokens
 
