@@ -29,7 +29,7 @@ the 30 September slice. User Story 4 can merge after it.
 
 ## Phase 2: Foundational (blocks every story)
 
-- [ ] T002 Create `supabase/migrations/00000000000023_expenses.sql` with:
+- [ ] T002 Create `supabase/migrations/00000000000025_expenses.sql` with:
   - `create unique index clients_id_user_idx on clients (id, user_id)`.
   - Table `expenses`: `id uuid primary key default gen_random_uuid()`; `user_id uuid not null references auth.users(id) on delete cascade`; `client_id uuid not null`, with a foreign key `(client_id, user_id) → clients (id, user_id) on update restrict`; `project_id uuid null`, with a foreign key `(project_id, user_id) → projects (id, user_id) on delete set null (project_id) on update restrict`; `spent_on date not null`; `description text not null`, "Non-blank, 200 characters or fewer"; `amount numeric(12,2) not null check (amount > 0)`; `note text null check (char_length(note) <= 500)`; `invoice_id uuid null references invoices(id) on delete set null`; `created_at` and `updated_at timestamptz not null default now()`.
   - A `touch_updated_at` trigger.
@@ -38,10 +38,10 @@ the 30 September slice. User Story 4 can merge after it.
   - `enable row level security` with a `user_id = auth.uid()` policy for all commands, and `grant select, insert, update, delete on expenses to authenticated`, following `00000000000004_api_grants.sql`.
   - On `invoice_line_items`: replace the `unit` check with `unit in ('hour', 'fixed', 'expense')`; add `spent_on date null`; add `expense_line_is_one check (unit <> 'expense' or quantity = 1)` and `expense_line_has_date check ((unit = 'expense') = (spent_on is not null))`.
   - On `invoices`: add `expenses_subtotal numeric(12,2) not null default 0 check (expenses_subtotal >= 0)`.
-  - Function `create_invoice(p_user_id uuid, p_invoice jsonb, p_lines jsonb, p_entry_ids uuid[], p_expense_ids uuid[]) returns invoices`, `language plpgsql security invoker set search_path = public, pg_temp`, with `grant execute` to `authenticated` (`research.md` R9). In one transaction it:
+  - Function `create_invoice(p_user_id uuid, p_invoice jsonb, p_entry_ids uuid[], p_expense_ids uuid[]) returns invoices`, `language plpgsql security invoker set search_path = public, pg_temp`, with `grant execute` to `authenticated` (`research.md` R9). In one transaction it:
     1. calls `allocate_invoice_number`;
     2. inserts the invoice from `p_invoice` with the allocated number;
-    3. inserts `p_lines` with their `sort_order` and `spent_on`;
+    3. inserts `p_invoice.lines` with their `sort_order` and `spent_on`;
     4. attaches `p_entry_ids` where `invoice_id is null`, as today;
     5. attaches `p_expense_ids` where `invoice_id is null`, and raises with a distinct message if fewer rows attach than it was given.
   - Comment each block with its reason, in the style of the existing migrations.
@@ -168,7 +168,7 @@ the 30 September slice. User Story 4 can merge after it.
 
 ### Implementation
 
-- [ ] T025 [US3] Add `guard_billed_expense()` and `guard_billed_expense_delete()` to `supabase/migrations/00000000000023_expenses.sql`, mirroring `guard_billed_entry` in `00000000000002_integrity.sql`. Detaching stays allowed. The guarded fields are `spent_on`, `description`, `amount`, `client_id` and `project_id`. They raise `check_violation`.
+- [ ] T025 [US3] Add `guard_billed_expense()` and `guard_billed_expense_delete()` to `supabase/migrations/00000000000025_expenses.sql`, mirroring `guard_billed_entry` in `00000000000002_integrity.sql`. Detaching stays allowed. The guarded fields are `spent_on`, `description`, `amount`, `client_id` and `project_id`. They raise `check_violation`.
 - [ ] T026 [P] [US3] In `apps/web/src/app/api/v1/invoices/[id]/status/route.ts`, the void branch also runs `db.from('expenses').update({ invoice_id: null }).eq('invoice_id', id)`.
 - [ ] T027 [P] [US3] In `apps/web/src/app/api/v1/invoices/[id]/route.ts`, `DELETE` releases expenses before deleting the draft, beside the entry release.
 - [ ] T028 [US3] In `apps/web/src/components/expense-list.tsx`, add an All filter that shows billed expenses with their invoice number. The edit and delete controls are disabled on an expense whose invoice is not a draft.
@@ -198,7 +198,7 @@ the 30 September slice. User Story 4 can merge after it.
 
 ### Implementation
 
-- [ ] T032 [US4] Create `supabase/migrations/00000000000024_recurring_expenses.sql` with:
+- [ ] T032 [US4] Create `supabase/migrations/00000000000026_recurring_expenses.sql` with:
   - Table `recurring_expenses` per `data-model.md`: `starts_on date not null`, `stopped_on date null`, `produced_through date null`, and the ownership, project, RLS, grant and `touch_updated_at` setup of `expenses`.
   - On `expenses`: add `recurring_expense_id uuid null references recurring_expenses(id) on delete restrict` and `recurrence_month date null`, the check `(recurring_expense_id is null) = (recurrence_month is null)`, and `unique (recurring_expense_id, recurrence_month)`.
   - `produce_recurring_expenses(p_user_id uuid, p_through date) returns void`, `language plpgsql security invoker set search_path = public, pg_temp`. For each live recurrence of the user, under `for update`, it inserts one expense per month after `produced_through` (or from `starts_on`'s month) through `least(p_through, stopped_on)`. Each falls on `starts_on`'s day, clamped to the month's last day, and only if that date is on or before the limit. The insert uses `on conflict do nothing`, and the function then advances `produced_through` (`research.md` R5 to R7).
@@ -240,5 +240,5 @@ the 30 September slice. User Story 4 can merge after it.
 ## Implementation strategy
 
 1. **MVP for 30 September**: Phases 1 to 5. That covers recording, billing, the lock, and the PDF. Merge it, and the September invoice goes out from Stint.
-2. **Then** Phase 6 (recurring) as its own PR, with migration 24.
+2. **Then** Phase 6 (recurring) as its own PR, with migration 26.
 3. Documentation lands with the PR that makes it true.

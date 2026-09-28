@@ -28,6 +28,7 @@ function invoice(status: InvoiceStatus, sentAt: string | null = null): Invoice {
     subtotal: 375,
     taxRate: 0,
     taxAmount: 0,
+    expensesSubtotal: 0,
     total: 375,
     currency: 'USD',
     notes: null,
@@ -300,5 +301,51 @@ describe('shortDate', () => {
   it('still formats a real date', async () => {
     const { shortDate } = await import('@/components/invoice-bits');
     expect(shortDate('2026-07-26')).toBe('Jul 26, 2026');
+  });
+});
+
+describe('InvoiceDetail — expenses', () => {
+  it('shows expenses in their own dated section with their own subtotal', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              ...invoice('sent'),
+              expensesSubtotal: 199,
+              total: 574,
+              client: { id: 'c1', name: 'Acme Corp' },
+              lineItems: [
+                {
+                  description: 'Design review',
+                  unit: 'hour',
+                  quantity: 2.5,
+                  unitPrice: 150,
+                  amount: 375,
+                  spentOn: null,
+                },
+                {
+                  description: 'JetBrains license',
+                  unit: 'expense',
+                  quantity: 1,
+                  unitPrice: 199,
+                  amount: 199,
+                  spentOn: '2026-08-12',
+                },
+              ],
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    show();
+
+    expect(
+      await screen.findByRole('columnheader', { name: 'Expenses' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Aug 12, 2026')).toBeInTheDocument();
+    expect(screen.getByText('Services')).toBeInTheDocument();
+    expect(screen.getByText('$574.00')).toBeInTheDocument();
   });
 });

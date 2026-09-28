@@ -11,6 +11,7 @@ import { StatusBadge, shortDate } from './invoice-bits';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { api, type Invoice, type InvoiceStatus } from '@/lib/client/api';
 import { FilterTabs, Listing, Page, Panel } from './page';
+import { ExpenseList } from './expense-list';
 import { DollarSign, Plus } from 'lucide-react';
 import { keys } from '@/lib/client/query-keys';
 
@@ -36,6 +37,9 @@ export function InvoiceList() {
      `?status=sent` narrows it to what is awaiting payment. */
   const status = params.get('status');
   const showAll = status === 'all';
+  /* Expenses are a tab here rather than a screen: they are what the next
+     invoice will reimburse, and this is where invoices are made. */
+  const showExpenses = status === 'expenses';
 
   const query = useQuery({
     queryKey: keys.invoices(),
@@ -99,10 +103,11 @@ export function InvoiceList() {
             { key: null, label: 'Open' },
             { key: 'paid', label: 'Paid' },
             { key: 'all', label: 'All' },
+            { key: 'expenses', label: 'Expenses' },
           ]}
         />
 
-        {outstanding > 0 ? (
+        {outstanding > 0 && !showExpenses ? (
           <span className="type-support text-subtle">
             <span className="type-meta text-muted">
               {formatCurrency(outstanding, all[0]?.currency)}
@@ -112,42 +117,46 @@ export function InvoiceList() {
         ) : null}
       </div>
 
-      <Panel>
-        {/* The filtered list is what the screen shows, so it decides the
+      {showExpenses ? (
+        <ExpenseList />
+      ) : (
+        <Panel>
+          {/* The filtered list is what the screen shows, so it decides the
             empty state; `all` only chooses which message. */}
-        <Listing
-          query={{ ...query, data: query.data ? invoices : undefined }}
-          empty={
-            all.length === 0
-              ? 'No invoices yet. Preview a period to see what it would bill.'
-              : 'Nothing open. Everything issued has been paid.'
-          }
-        >
-          {(rows) => (
-            <ul className="divide-y divide-edge-subtle">
-              {rows.map((invoice) => (
-                <li key={invoice.id}>
-                  <Row
-                    invoice={invoice}
-                    clientName={names.get(invoice.clientId)}
-                    onMarkPaid={
-                      invoice.status === 'sent'
-                        ? () => {
-                            // A previous invoice's rejection must not carry
-                            // over and read as a rejection of this one.
-                            markPaid.reset();
-                            setPayingId(invoice.id);
-                          }
-                        : undefined
-                    }
-                    busy={markPaid.isPending && payingId === invoice.id}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Listing>
-      </Panel>
+          <Listing
+            query={{ ...query, data: query.data ? invoices : undefined }}
+            empty={
+              all.length === 0
+                ? 'No invoices yet. Preview a period to see what it would bill.'
+                : 'Nothing open. Everything issued has been paid.'
+            }
+          >
+            {(rows) => (
+              <ul className="divide-y divide-edge-subtle">
+                {rows.map((invoice) => (
+                  <li key={invoice.id}>
+                    <Row
+                      invoice={invoice}
+                      clientName={names.get(invoice.clientId)}
+                      onMarkPaid={
+                        invoice.status === 'sent'
+                          ? () => {
+                              // A previous invoice's rejection must not carry
+                              // over and read as a rejection of this one.
+                              markPaid.reset();
+                              setPayingId(invoice.id);
+                            }
+                          : undefined
+                      }
+                      busy={markPaid.isPending && payingId === invoice.id}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Listing>
+        </Panel>
+      )}
 
       <MarkPaidDialog
         open={payingId !== null}

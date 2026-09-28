@@ -68,6 +68,8 @@ after(async () => {
 });
 
 beforeEach(async () => {
+  await admin.query('update expenses set invoice_id = null');
+  await admin.query('delete from expenses');
   await admin.query('delete from invoice_line_items');
   await admin.query('update time_entries set invoice_id = null');
   await admin.query('delete from time_entries');
@@ -124,6 +126,18 @@ async function seedBoth() {
   );
 }
 
+/** One expense each, on each user's client. Call after `seedBoth`. */
+const ALICE_EXPENSE = '018f0000-0000-7000-9000-00000000000a';
+const BOB_EXPENSE = '018f0000-0000-7000-9000-00000000000b';
+async function seedExpenses() {
+  await admin.query(
+    `insert into expenses (id,user_id,client_id,spent_on,description,amount) values
+       ($1,$3,'cc000000-0000-4000-8000-00000000000a','2026-09-12','Alice license',199),
+       ($2,$4,'cc000000-0000-4000-8000-00000000000b','2026-09-12','Bob license',299)`,
+    [ALICE_EXPENSE, BOB_EXPENSE, ALICE, BOB],
+  );
+}
+
 // ── reads ──────────────────────────────────────────────────────────
 test('an unfiltered select returns only the caller’s rows', async () => {
   await seedBoth();
@@ -163,6 +177,8 @@ test('every user-scoped table is isolated', async () => {
     [ALICE, BOB],
   );
 
+  await seedExpenses();
+
   for (const table of [
     'clients',
     'projects',
@@ -170,6 +186,7 @@ test('every user-scoped table is isolated', async () => {
     'invoices',
     'payment_profiles',
     'user_settings',
+    'expenses',
   ]) {
     const seen = await asUser(ALICE, `select count(*)::int n from ${table}`);
     const total = await admin.query(`select count(*)::int n from ${table}`);
@@ -455,4 +472,81 @@ test('a malformed claim fails closed rather than erroring open', async () => {
   } finally {
     client.release();
   }
+});
+
+// ── expenses ───────────────────────────────────────────────────────
+test('another user’s expense is invisible, even by id', async () => {
+  await seedBoth();
+  await seedExpenses();
+
+  const all = await asUser(ALICE, 'select description from expenses');
+  assert.deepEqual(
+    all.map((r) => r.description),
+    ['Alice license'],
+  );
+  const byId = await asUser(ALICE, 'select id from expenses where id = $1', [
+    BOB_EXPENSE,
+  ]);
+  assert.equal(byId.length, 0, 'a known id must not leak');
+});
+
+test('an expense cannot be written, changed or removed across users', async () => {
+  await seedBoth();
+  await seedExpenses();
+
+  await assert.rejects(
+    () =>
+      asUser(
+        ALICE,
+        `insert into expenses (user_id,client_id,spent_on,description,amount)
+         values ($1,'cc000000-0000-4000-8000-00000000000b','2026-09-12','Forged',1)`,
+        [BOB],
+      ),
+    /row-level security/i,
+    'WITH CHECK must reject a forged user_id',
+  );
+
+  const updated = await asUser(
+    ALICE,
+    `update expenses set amount = 1 where id = $1 returning id`,
+    [BOB_EXPENSE],
+  );
+  assert.equal(updated.length, 0);
+  const deleted = await asUser(
+    ALICE,
+    'delete from expenses where id = $1 returning id',
+    [BOB_EXPENSE],
+  );
+  assert.equal(deleted.length, 0);
+
+  await assert.rejects(
+    () =>
+      asUser(ALICE, `update expenses set user_id = $1 where id = $2`, [
+        BOB,
+        ALICE_EXPENSE,
+      ]),
+    /row-level security|expense_client_same_owner/i,
+    'a row cannot be handed to another user',
+  );
+
+  const { rows } = await admin.query(
+    'select amount::float a from expenses where id = $1',
+    [BOB_EXPENSE],
+  );
+  assert.equal(rows[0].a, 299, 'Bob’s expense is untouched');
+});
+
+test('an expense cannot be filed under another user’s client', async () => {
+  await seedBoth();
+
+  await assert.rejects(
+    () =>
+      asUser(
+        ALICE,
+        `insert into expenses (user_id,client_id,spent_on,description,amount)
+         values ($1,'cc000000-0000-4000-8000-00000000000b','2026-09-12','Borrowed',1)`,
+        [ALICE],
+      ),
+    /expense_client_same_owner/,
+  );
 });

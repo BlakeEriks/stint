@@ -31,7 +31,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
  *
  * Only a draft can be deleted. Anything issued must be voided instead, so the
  * numbering stays gapless and the record of what was sent survives.
- * Deleting releases the entries it held.
+ * Deleting releases the entries and expenses it held.
  */
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
@@ -54,13 +54,15 @@ export const DELETE = handle(async (req: Request, ctx: Ctx) => {
     );
   }
 
-  // Release the entries before deleting, or they would be orphaned by the
-  // ON DELETE SET NULL without the intent being explicit.
-  const { error: releaseError } = await db
-    .from('time_entries')
-    .update({ invoice_id: null })
-    .eq('invoice_id', id);
-  if (releaseError) throw releaseError;
+  // Release the entries and expenses before deleting, or they would be
+  // orphaned by the ON DELETE SET NULL without the intent being explicit.
+  for (const table of ['time_entries', 'expenses']) {
+    const { error: releaseError } = await db
+      .from(table)
+      .update({ invoice_id: null })
+      .eq('invoice_id', id);
+    if (releaseError) throw releaseError;
+  }
 
   const { error: deleteError } = await db
     .from('invoices')

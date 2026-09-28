@@ -283,9 +283,10 @@ export const InvoicePreviewRequest = z.object({
    */
   tz: timeZoneStrict,
   /**
-   * Flat charges the user typed: a fixed fee, a deposit, a rebilled expense.
-   * They are priced by the user rather than resolved from a rate, so they
-   * ride on the request instead of being read back from time entries.
+   * Flat charges the user typed: a fixed fee, a deposit, a retainer. They are
+   * priced by the user rather than resolved from a rate, so they ride on the
+   * request instead of being read back from time entries. A cost the client
+   * reimburses is an expense, which is stored and read back instead.
    */
   manualLines: z
     .array(
@@ -296,10 +297,17 @@ export const InvoicePreviewRequest = z.object({
     )
     .max(50)
     .default([]),
+  /**
+   * Unbilled expenses to leave off this invoice. The server loads every
+   * eligible expense and drops these, rather than trusting a list of what to
+   * include sent back from a preview. They keep waiting for a later invoice.
+   */
+  excludedExpenseIds: z.array(uuid).max(200).default([]),
 });
 
-/** What a line's quantity means: billed hours, or a flat charge. */
-export const LineUnit = z.enum(['hour', 'fixed']);
+/** What a line's quantity means: billed hours, a flat charge, or a
+ *  reimbursed expense, which sits in its own section below the services. */
+export const LineUnit = z.enum(['hour', 'fixed', 'expense']);
 
 export const InvoiceLineItem = z.object({
   description: z.string(),
@@ -307,6 +315,8 @@ export const InvoiceLineItem = z.object({
   quantity: z.number().nonnegative(),
   unitPrice: money,
   amount: money,
+  /** The day an expense was paid. Set on expense lines and only there. */
+  spentOn: z.iso.date().nullable().optional(),
 });
 
 /**
@@ -330,6 +340,8 @@ export const ComputedLineItem = InvoiceLineItem.extend({
   ]),
   /** The entries this line merged. Internal ids; see `docs/roadmap.md`. */
   entryIds: z.array(uuid),
+  /** The expense an expense line bills. */
+  expenseId: uuid.optional(),
 });
 
 /**
@@ -351,9 +363,12 @@ export const InvoicePreview = z.object({
   periodEnd: z.iso.date(),
   groupingMode: GroupingMode,
   lineItems: z.array(ComputedLineItem),
+  /** Services: time and charges. The base tax is charged on. */
   subtotal: money,
   taxRate: z.number().min(0).max(100),
   taxAmount: money,
+  /** Reimbursed expenses, never taxed. */
+  expensesSubtotal: money,
   total: money,
   currency,
   entryCount: z.number().int().nonnegative(),
@@ -405,6 +420,7 @@ export const Invoice = z.object({
   subtotal: money,
   taxRate: z.number().min(0).max(100),
   taxAmount: money,
+  expensesSubtotal: money,
   total: money,
   currency,
   notes: z.string().nullable(),
@@ -416,6 +432,52 @@ export const Invoice = z.object({
   sentAt: iso.nullable(),
   paidAt: iso.nullable(),
   createdAt: iso,
+});
+
+// ── expenses ───────────────────────────────────────────────────────
+/**
+ * A cost the contractor paid that a client reimburses on the invoice. It has
+ * an amount and no duration, and the amount is in the client's currency.
+ */
+export const Expense = z.object({
+  id: uuid,
+  clientId: uuid,
+  projectId: uuid.nullable(),
+  spentOn: z.iso.date(),
+  description: z.string(),
+  amount: money,
+  /** A receipt or order number. Never printed on the invoice. */
+  note: z.string().nullable(),
+  /** Set means billed. */
+  invoiceId: uuid.nullable(),
+  /** The billing invoice's number and status, so a list can say where an
+   *  expense went and whether it can still change. Null while unbilled. */
+  invoiceNumber: z.string().nullable(),
+  invoiceStatus: InvoiceStatus.nullable(),
+});
+
+const expenseAmount = money.refine((n) => n > 0, {
+  message: 'an expense is more than zero',
+});
+
+/** The id is client-supplied (UUIDv7) so a retry is idempotent. */
+export const CreateExpense = z.object({
+  id: uuid,
+  clientId: uuid,
+  projectId: uuid.nullable().optional(),
+  spentOn: z.iso.date(),
+  description: z.string().trim().min(1).max(200),
+  amount: expenseAmount,
+  note: z.string().max(500).nullable().optional(),
+});
+
+export const UpdateExpense = CreateExpense.omit({ id: true }).partial();
+
+export const ListExpensesQuery = z.object({
+  /** Today, for producing recurring expenses, is a local-calendar question. */
+  tz: timeZone,
+  clientId: uuid.optional(),
+  status: z.enum(['unbilled', 'all']).default('unbilled'),
 });
 
 export const ListInvoicesQuery = z.object({
@@ -775,6 +837,8 @@ export const ErrorCode = z.enum([
   'TIMER_ALREADY_RUNNING',
   'NO_TIMER_RUNNING',
   'ENTRY_LOCKED',
+  'EXPENSE_LOCKED',
+  'EXPENSE_ALREADY_INVOICED',
   'ENTRY_NOT_FOUND',
   'NO_RATE_CONFIGURED',
   'INVALID_PERIOD',
@@ -806,6 +870,7 @@ export type UnbilledClient = z.infer<typeof UnbilledClient>;
 export type MonthClient = z.infer<typeof MonthClient>;
 export type ClientWithScale = z.infer<typeof ClientWithScale>;
 export type Invoice = z.infer<typeof Invoice>;
+export type Expense = z.infer<typeof Expense>;
 export type CalendarDay = z.infer<typeof CalendarDay>;
 export type CalendarTotalsDay = z.infer<typeof CalendarTotalsDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;

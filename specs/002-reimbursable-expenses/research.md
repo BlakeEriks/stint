@@ -119,11 +119,13 @@ way entries map it to `ENTRY_LOCKED`.
 
 **Decision**: `POST /invoices` still computes everything with
 `buildLineItems`, then makes one call to a new SQL function,
-`create_invoice(p_user_id uuid, p_invoice jsonb, p_lines jsonb, p_entry_ids
-uuid[], p_expense_ids uuid[])`. In one transaction, the function:
+`create_invoice(p_user_id uuid, p_invoice jsonb, p_entry_ids uuid[],
+p_expense_ids uuid[])`, where `p_invoice` carries the invoice's columns and its
+`lines`. In one transaction, the function:
 
 1. allocates the number;
-2. inserts the invoice and its lines;
+2. inserts the invoice and its lines, appending the payment reference to the
+   frozen payment block, since the number exists only from step 1;
 3. attaches the entries, as today, with `invoice_id is null`;
 4. attaches the expenses with `invoice_id is null`.
 

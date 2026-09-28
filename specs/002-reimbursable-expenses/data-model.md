@@ -1,8 +1,8 @@
 # Data model: Reimbursable expenses
 
-Two migrations: `00000000000023_expenses.sql` for one-off expenses and
-`00000000000024_recurring_expenses.sql` for recurrences, so the second can
-merge after the first (`research.md` R12). Migration 24 also adds
+Two migrations: `00000000000025_expenses.sql` for one-off expenses and
+`00000000000026_recurring_expenses.sql` for recurrences, so the second can
+merge after the first (`research.md` R12). Migration 26 also adds
 `recurring_expense_id` and `recurrence_month` to `expenses`. Every change is
 additive (Principle IX). `research.md` gives the reasons. This file gives the
 shapes.
@@ -81,12 +81,12 @@ Both are `security invoker` with `set search_path = public, pg_temp`, and
 have `grant execute` to `authenticated`, so they pass `verify:schema`
 (Principle II).
 
-- `create_invoice(p_user_id uuid, p_invoice jsonb, p_lines jsonb,
-  p_entry_ids uuid[], p_expense_ids uuid[]) returns invoices` (migration 23)
+- `create_invoice(p_user_id uuid, p_invoice jsonb,
+  p_entry_ids uuid[], p_expense_ids uuid[]) returns invoices` (migration 25)
   writes a computed invoice in one transaction. It raises when an expense was
   already claimed, so no number is used without an invoice. See R9.
 - `produce_recurring_expenses(p_user_id uuid, p_through date) returns void`
-  (migration 24). See R5.
+  (migration 26). See R5.
 
 ## Unchanged, on purpose
 

@@ -28,11 +28,14 @@ export interface BillableEntry {
  * What a line's quantity MEANS.
  *
  * `hour` prints its quantity and unit price; `fixed` is a flat amount — a
- * fee, a deposit, a rebilled expense — whose quantity is always 1 and whose
- * quantity and unit-price cells stay blank on the document. A client reading
+ * fee, a deposit, a retainer — whose quantity is always 1 and whose quantity
+ * and unit-price cells stay blank on the document. A client reading
  * "1 x $2,400.00" for a fixed-scope project learns nothing from the 1.
+ * `expense` is flat the same way, and is a reimbursement rather than a
+ * service: it sits in its own section, carries the day it was paid, and is
+ * never taxed.
  */
-export type LineUnit = 'hour' | 'fixed';
+export type LineUnit = 'hour' | 'fixed' | 'expense';
 
 /**
  * One line, whatever it charges for.
@@ -50,6 +53,10 @@ export interface LineItem {
   /** How the rate was derived. `manual` for anything the user typed. */
   rateSource: RateSource | 'manual';
   entryIds: string[];
+  /** The day an expense was paid; expense lines only. */
+  spentOn?: string;
+  /** The expense an expense line bills; expense lines only. */
+  expenseId?: string;
 }
 
 /** A charge the user entered by hand rather than one derived from time. */
@@ -58,11 +65,22 @@ export interface ManualLine {
   amount: number;
 }
 
+/** A cost the client reimburses, as stored and waiting to be billed. */
+export interface ExpenseInput {
+  id: string;
+  spentOn: string;
+  description: string;
+  amount: number;
+}
+
 export interface InvoiceTotals {
   lineItems: LineItem[];
+  /** Services — time and charges — and the base tax is charged on. */
   subtotal: number;
   taxRate: number;
   taxAmount: number;
+  /** Reimbursed expenses. Never taxed. */
+  expensesSubtotal: number;
   total: number;
   entryCount: number;
   /** Billable entries with no rate at any level — these block generation. */
@@ -122,8 +140,10 @@ export function buildLineItems(
     groupingMode: GroupingMode;
     taxRate?: number;
     tz?: string;
-    /** Flat charges the user entered: fees, deposits, rebilled expenses. */
+    /** Flat charges the user entered: fees, deposits, retainers. */
     manualLines?: ManualLine[];
+    /** Unbilled expenses to reimburse on this invoice. */
+    expenses?: ExpenseInput[];
   },
 ): InvoiceTotals {
   const mode = opts.groupingMode;
@@ -199,9 +219,9 @@ export function buildLineItems(
     );
   }
 
-  /* Manual lines go LAST, in the order given, and are never sorted in among
-     the time lines. A fee or a rebilled expense is a separate statement from
-     the work, and interleaving it alphabetically would bury it. */
+  /* Manual lines follow the time lines, in the order given, and are never
+     sorted in among them. A fee is a separate statement from the work, and
+     interleaving it alphabetically would bury it. */
   const manualLines: LineItem[] = (opts.manualLines ?? []).map((m) => ({
     description: m.description,
     unit: 'fixed' as const,
@@ -212,17 +232,41 @@ export function buildLineItems(
     entryIds: [],
   }));
 
-  const lineItems = [...timeLines, ...manualLines];
+  const serviceLines = [...timeLines, ...manualLines];
 
-  const subtotal = cents(lineItems.reduce((sum, li) => sum + li.amount, 0));
+  /* Expenses go after every service line, oldest first, in a section of
+     their own: a reimbursement is a pass-through, not work, so it is
+     subtotalled apart and tax never reaches it. The id breaks a tie so two
+     expenses on one day always print in the same order. */
+  const expenseLines: LineItem[] = [...(opts.expenses ?? [])]
+    .sort(
+      (a, b) => a.spentOn.localeCompare(b.spentOn) || a.id.localeCompare(b.id),
+    )
+    .map((e) => ({
+      description: e.description,
+      unit: 'expense' as const,
+      quantity: 1,
+      unitPrice: cents(e.amount),
+      amount: cents(e.amount),
+      rateSource: 'manual' as const,
+      entryIds: [],
+      spentOn: e.spentOn,
+      expenseId: e.id,
+    }));
+
+  const subtotal = cents(serviceLines.reduce((sum, li) => sum + li.amount, 0));
   const taxAmount = cents(subtotal * (taxRate / 100));
+  const expensesSubtotal = cents(
+    expenseLines.reduce((sum, li) => sum + li.amount, 0),
+  );
 
   return {
-    lineItems,
+    lineItems: [...serviceLines, ...expenseLines],
     subtotal,
     taxRate,
     taxAmount,
-    total: cents(subtotal + taxAmount),
+    expensesSubtotal,
+    total: cents(subtotal + taxAmount + expensesSubtotal),
     entryCount: billable.length - unratedEntryIds.length,
     unratedEntryIds,
   };

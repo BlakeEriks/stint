@@ -79,8 +79,8 @@ specs/002-reimbursable-expenses/
 ### Source Code (repository root)
 
 ```text
-supabase/migrations/00000000000023_expenses.sql      # new: expenses, lock, line-item and invoice columns, create_invoice
-supabase/migrations/00000000000024_recurring_expenses.sql  # new: recurring_expenses, producer
+supabase/migrations/00000000000025_expenses.sql      # new: expenses, lock, line-item and invoice columns, create_invoice
+supabase/migrations/00000000000026_recurring_expenses.sql  # new: recurring_expenses, producer
 packages/schema/src/index.ts                          # Expense, RecurringExpense, excludedExpenseIds, expense line fields
 packages/core/src/invoice.ts                          # expenses in buildLineItems; split totals
 packages/core/test/invoice.test.ts

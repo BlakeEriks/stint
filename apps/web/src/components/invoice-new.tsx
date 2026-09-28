@@ -25,6 +25,8 @@ import {
   type InvoicePreview,
 } from '@/lib/client/api';
 import { DetailPage } from './page';
+import { ExpenseDialog } from './expense-list';
+import { shortDate } from './invoice-bits';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
@@ -38,7 +40,7 @@ const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   { value: 'day', label: 'By day', hint: 'One line per day worked.' },
 ];
 
-/** A charge the user typed: a fee, a deposit, a rebilled expense. */
+/** A charge the user typed: a fee, a deposit, a retainer. */
 interface Charge {
   /** Stable across edits, so React does not remount a row being typed in. */
   key: string;
@@ -56,6 +58,8 @@ interface Draft {
   notes: string;
   dueDate: string;
   charges: Charge[];
+  /** Waiting expenses left off this invoice. They keep waiting. */
+  excludedExpenseIds: string[];
 }
 
 /** Computed on mount, not at import: the default period is "last month". */
@@ -67,6 +71,7 @@ const empty = (): Draft => ({
   notes: '',
   dueDate: '',
   charges: [],
+  excludedExpenseIds: [],
 });
 
 /**
@@ -108,6 +113,23 @@ export function NewInvoice() {
   });
   const clients = clientData?.clients ?? [];
 
+  /* The client's waiting expenses, shown before the preview because they
+     decide what gets billed — the same list the Expenses tab reads. */
+  const { data: expenseData } = useQuery({
+    queryKey: [
+      ...keys.expenses(),
+      { clientId: draft.clientId, showBilled: false },
+    ],
+    queryFn: () =>
+      api.expenses({ tz, clientId: draft.clientId, status: 'unbilled' }),
+    enabled: draft.clientId !== '',
+    select: (r) => r.expenses,
+  });
+  const waiting = (expenseData ?? []).filter(
+    (e) => e.spentOn <= draft.periodEnd,
+  );
+  const [addingExpense, setAddingExpense] = useState(false);
+
   /* Pending: the server computes the lines and assigns the number, so
      there is nothing to predict. Errors show on the page. */
   const runPreview = useOptimisticMutation({
@@ -122,6 +144,7 @@ export function NewInvoice() {
         groupingMode: draft.groupingMode,
         tz,
         manualLines: billableCharges(draft.charges),
+        excludedExpenseIds: draft.excludedExpenseIds,
       }),
     onSuccess: setPreview,
   });
@@ -129,10 +152,12 @@ export function NewInvoice() {
   const generate = useOptimisticMutation({
     queryKey: () => keys.invoices(),
     inline: true,
-    // Generation marks the entries invoiced, so they leave every unbilled view.
+    // Generation marks the entries and expenses invoiced, so they leave
+    // every unbilled view.
     invalidate: (qc) =>
       Promise.all([
         qc.invalidateQueries({ queryKey: keys.invoices() }),
+        qc.invalidateQueries({ queryKey: keys.expenses() }),
         invalidateEntryData(qc),
       ]),
     mutationFn: () =>
@@ -143,6 +168,7 @@ export function NewInvoice() {
         groupingMode: draft.groupingMode,
         tz,
         manualLines: billableCharges(draft.charges),
+        excludedExpenseIds: draft.excludedExpenseIds,
         notes: draft.notes.trim() || undefined,
         dueDate: draft.dueDate || undefined,
       }),
@@ -179,6 +205,16 @@ export function NewInvoice() {
 
   const removeCharge = (key: string) =>
     setCharges(draft.charges.filter((c) => c.key !== key));
+
+  /* Leaving an expense off, or taking it back, changes what would be billed,
+     so it clears an approved preview like any other line. */
+  const toggleExpense = (id: string, bill: boolean) =>
+    setBilled(
+      'excludedExpenseIds',
+      bill
+        ? draft.excludedExpenseIds.filter((x) => x !== id)
+        : [...draft.excludedExpenseIds, id],
+    );
 
   const blocked = (preview?.unratedEntryIds.length ?? 0) > 0;
   const nothingToBill = preview !== null && preview.lineItems.length === 0;
@@ -228,10 +264,25 @@ export function NewInvoice() {
             />
           </Field>
 
-          <Field
-            label="Charges"
-            hint="A fixed fee, a deposit, or an expense you are passing on."
-          >
+          {draft.clientId ? (
+            <Field
+              label="Expenses"
+              hint="Costs this client reimburses, up to the end of the period. Untick one to leave it for a later invoice."
+            >
+              <ExpenseRows
+                expenses={waiting}
+                currency={
+                  clients.find((c) => c.id === draft.clientId)?.currency ??
+                  undefined
+                }
+                excluded={draft.excludedExpenseIds}
+                onToggle={toggleExpense}
+                onAdd={() => setAddingExpense(true)}
+              />
+            </Field>
+          ) : null}
+
+          <Field label="Charges" hint="A fixed fee, a deposit, or a retainer.">
             <ChargeRows
               charges={draft.charges}
               onEdit={editCharge}
@@ -328,7 +379,70 @@ export function NewInvoice() {
           </>
         ) : null}
       </div>
+
+      <ExpenseDialog
+        open={addingExpense}
+        onOpenChange={setAddingExpense}
+        clients={clients}
+        defaultClientId={draft.clientId || null}
+        // A new expense changes what would be billed.
+        onSaved={() => setPreview(null)}
+      />
     </DetailPage>
+  );
+}
+
+/**
+ * The client's waiting expenses, each billed unless unticked. Unticking
+ * leaves it waiting for a later invoice, never deletes it.
+ */
+function ExpenseRows({
+  expenses,
+  currency,
+  excluded,
+  onToggle,
+  onAdd,
+}: {
+  expenses: {
+    id: string;
+    spentOn: string;
+    description: string;
+    amount: number;
+  }[];
+  currency?: string;
+  excluded: string[];
+  onToggle: (id: string, bill: boolean) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      {expenses.map((e) => (
+        <label key={e.id} className="flex items-center gap-3 type-support">
+          <input
+            type="checkbox"
+            checked={!excluded.includes(e.id)}
+            onChange={(ev) => onToggle(e.id, ev.target.checked)}
+            aria-label={`Bill ${e.description}`}
+          />
+          <span className="w-24 flex-none text-subtle">
+            {shortDate(e.spentOn)}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-primary">
+            {e.description}
+          </span>
+          <span className="type-duration text-muted">
+            {formatCurrency(e.amount, currency)}
+          </span>
+        </label>
+      ))}
+
+      <div>
+        <Button type="button" variant="ghost" size="sm" onClick={onAdd}>
+          <Plus className="size-4" />
+          Add an expense
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -392,12 +506,16 @@ function GroupingPicker({
 }
 
 function PreviewTable({ preview }: { preview: InvoicePreview }) {
+  const services = preview.lineItems.filter((li) => li.unit !== 'expense');
+  const expenses = preview.lineItems.filter((li) => li.unit === 'expense');
+
   if (preview.lineItems.length === 0) {
     return (
       <Section title="Nothing to bill">
         <p className="type-support text-subtle">
-          No billable, un-invoiced time in this period. Running timers and
-          non-billable entries never reach an invoice.
+          No billable, un-invoiced time in this period, and no expenses or
+          charges. Running timers and non-billable entries never reach an
+          invoice.
         </p>
       </Section>
     );
@@ -421,7 +539,7 @@ function PreviewTable({ preview }: { preview: InvoicePreview }) {
             </tr>
           </thead>
           <tbody>
-            {preview.lineItems.map((item, i) => (
+            {services.map((item, i) => (
               <tr key={i} className="border-b border-edge-subtle last:border-0">
                 <td className="py-2 pr-3 text-primary">{item.description}</td>
                 <Td>
@@ -436,18 +554,52 @@ function PreviewTable({ preview }: { preview: InvoicePreview }) {
               </tr>
             ))}
           </tbody>
+          {/* Reimbursements follow the services under their own heading.
+              A date where a quantity would be: the day the cost was paid. */}
+          {expenses.length > 0 ? (
+            <tbody>
+              <tr className="border-b border-edge-subtle text-left">
+                <th
+                  scope="colgroup"
+                  colSpan={4}
+                  className="pt-4 pb-2 type-label text-subtle"
+                >
+                  Expenses
+                </th>
+              </tr>
+              {expenses.map((item, i) => (
+                <tr
+                  key={i}
+                  className="border-b border-edge-subtle last:border-0"
+                >
+                  <td className="py-2 pr-3 text-primary">{item.description}</td>
+                  <Td>{shortDate(item.spentOn)}</Td>
+                  <Td>{''}</Td>
+                  <Td strong>
+                    {formatCurrency(item.amount, preview.currency)}
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          ) : null}
         </table>
       </div>
 
       <dl className="ml-auto flex w-full max-w-[16rem] flex-col gap-1 type-support">
         <Total
-          label="Subtotal"
+          label={expenses.length > 0 ? 'Services' : 'Subtotal'}
           value={formatCurrency(preview.subtotal, preview.currency)}
         />
         {preview.taxRate > 0 ? (
           <Total
             label={`Tax (${preview.taxRate}%)`}
             value={formatCurrency(preview.taxAmount, preview.currency)}
+          />
+        ) : null}
+        {expenses.length > 0 ? (
+          <Total
+            label="Expenses"
+            value={formatCurrency(preview.expensesSubtotal, preview.currency)}
           />
         ) : null}
         <Total

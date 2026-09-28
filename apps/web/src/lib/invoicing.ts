@@ -14,7 +14,7 @@ import {
   type PaymentProfileRow,
 } from './rows';
 import { addDays, resolvePaymentProfile, startOfLocalDate } from '@stint/core';
-import type { BillableEntry } from '@stint/core';
+import type { BillableEntry, ExpenseInput } from '@stint/core';
 
 /** numeric columns arrive from PostgREST as strings. */
 const num = (v: string | number | null | undefined): number | null =>
@@ -108,6 +108,39 @@ export async function loadBillableEntries(
       userDefaultRate: opts.userDefaultRate,
     };
   });
+}
+
+/**
+ * The client's unbilled expenses dated on or before the period's end — an
+ * earlier month's included, so one missed invoice does not strand a
+ * reimbursement — less the ones the user left off this invoice.
+ *
+ * `spent_on` is a calendar date, so unlike entries there is no window to
+ * resolve in a zone.
+ */
+export async function loadUnbilledExpenses(
+  db: SupabaseClient,
+  opts: { clientId: string; periodEnd: string; excludedIds: string[] },
+): Promise<ExpenseInput[]> {
+  const { data, error } = await db
+    .from('expenses')
+    .select('id, spent_on, description, amount')
+    .eq('client_id', opts.clientId)
+    .is('invoice_id', null)
+    .lte('spent_on', opts.periodEnd)
+    .order('spent_on', { ascending: true });
+
+  if (error) throw error;
+
+  const excluded = new Set(opts.excludedIds);
+  return (data ?? [])
+    .filter((row) => !excluded.has(row.id as string))
+    .map((row) => ({
+      id: row.id as string,
+      spentOn: row.spent_on as string,
+      description: row.description as string,
+      amount: num(row.amount) ?? 0,
+    }));
 }
 
 export interface InvoiceSettings {
@@ -222,6 +255,7 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
       subtotal: invoice.subtotal ?? 0,
       taxRate: invoice.taxRate ?? 0,
       taxAmount: invoice.taxAmount ?? 0,
+      expensesSubtotal: invoice.expensesSubtotal ?? 0,
       total: invoice.total ?? 0,
       notes: invoice.notes,
       paymentTerms: invoice.paymentTerms,

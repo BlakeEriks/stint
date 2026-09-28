@@ -246,7 +246,7 @@ test('a flat fee bills its amount with no rate arithmetic', () => {
   assert.equal(r.subtotal, 2400);
 });
 
-test('an invoice can carry both time and a rebilled expense', () => {
+test('an invoice can carry both time and a flat charge', () => {
   const r = buildLineItems(
     [entry({ id: 'a', taskName: 'Build', durationSeconds: 3600 })],
     {
@@ -298,6 +298,127 @@ test('tax applies to fees as well as time', () => {
   });
   assert.equal(r.taxAmount, 100);
   assert.equal(r.total, 1100);
+});
+
+// ── expenses ───────────────────────────────────────────────────────
+const expense = (
+  over: Partial<{
+    id: string;
+    spentOn: string;
+    description: string;
+    amount: number;
+  }> = {},
+) => ({
+  id: 'x1',
+  spentOn: '2026-09-12',
+  description: 'JetBrains license',
+  amount: 199,
+  ...over,
+});
+
+test('expenses follow every service line, oldest first', () => {
+  const r = buildLineItems(
+    [entry({ id: 'a', taskName: 'Build', durationSeconds: 3600 })],
+    {
+      groupingMode: 'task',
+      manualLines: [{ description: 'Deposit', amount: 500 }],
+      expenses: [
+        expense({ id: 'x2', spentOn: '2026-09-20', description: 'Flight' }),
+        expense({ id: 'x1', spentOn: '2026-08-05', description: 'Claude' }),
+      ],
+    },
+  );
+
+  assert.deepEqual(
+    r.lineItems.map((li) => [li.description, li.unit]),
+    [
+      ['Build', 'hour'],
+      ['Deposit', 'fixed'],
+      ['Claude', 'expense'],
+      ['Flight', 'expense'],
+    ],
+  );
+});
+
+test('two expenses on one day print in a stable order', () => {
+  const a = expense({ id: 'b', description: 'Second' });
+  const b = expense({ id: 'a', description: 'First' });
+  const r1 = buildLineItems([], { groupingMode: 'task', expenses: [a, b] });
+  const r2 = buildLineItems([], { groupingMode: 'task', expenses: [b, a] });
+  assert.deepEqual(
+    r1.lineItems.map((li) => li.description),
+    ['First', 'Second'],
+  );
+  assert.deepEqual(r1.lineItems, r2.lineItems);
+});
+
+test('an expense line is one of something, dated, and names its expense', () => {
+  const r = buildLineItems([], {
+    groupingMode: 'task',
+    expenses: [expense({ amount: 199 })],
+  });
+  const [line] = r.lineItems;
+  assert.equal(line!.unit, 'expense');
+  assert.equal(line!.quantity, 1);
+  assert.equal(line!.unitPrice, 199);
+  assert.equal(line!.amount, 199);
+  assert.equal(line!.spentOn, '2026-09-12');
+  assert.equal(line!.expenseId, 'x1');
+  assert.deepEqual(line!.entryIds, []);
+  assert.equal(r.entryCount, 0, 'an expense is not a time entry');
+});
+
+test('expenses have their own subtotal and are never taxed', () => {
+  const r = buildLineItems(
+    [entry({ id: 'a', durationSeconds: 3600 })], // 100
+    {
+      groupingMode: 'task',
+      taxRate: 10,
+      manualLines: [{ description: 'Retainer', amount: 1000 }],
+      expenses: [expense({ amount: 200 }), expense({ id: 'x2', amount: 50.5 })],
+    },
+  );
+  assert.equal(r.subtotal, 1100, 'services only');
+  assert.equal(r.taxAmount, 110, 'tax on services only');
+  assert.equal(r.expensesSubtotal, 250.5);
+  assert.equal(r.total, 1460.5);
+});
+
+test('the expenses subtotal rounds once, from rounded lines', () => {
+  const r = buildLineItems([], {
+    groupingMode: 'task',
+    expenses: [
+      expense({ id: 'a', amount: 0.335 }),
+      expense({ id: 'b', amount: 0.335 }),
+    ],
+  });
+  assert.deepEqual(
+    r.lineItems.map((li) => li.amount),
+    [0.34, 0.34],
+  );
+  assert.equal(r.expensesSubtotal, 0.68, 'the sum of what is printed');
+  assert.equal(r.total, 0.68);
+});
+
+test('expenses alone make an invoice', () => {
+  const r = buildLineItems([], {
+    groupingMode: 'task',
+    expenses: [expense()],
+  });
+  assert.equal(r.lineItems.length, 1);
+  assert.equal(r.subtotal, 0);
+  assert.equal(r.expensesSubtotal, 199);
+  assert.equal(r.total, 199);
+});
+
+test('with no expenses, the invoice is what it was before', () => {
+  const r = buildLineItems([entry()], { groupingMode: 'entry', taxRate: 10 });
+  assert.equal(r.expensesSubtotal, 0);
+  assert.equal(r.total, 110);
+  assert.equal(
+    r.lineItems.every((li) => li.unit === 'hour'),
+    true,
+  );
 });
 
 test('invoice numbers pad to four digits and grow beyond', () => {
