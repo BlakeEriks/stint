@@ -25,7 +25,7 @@ Per plan.md's Project Structure: `apps/web/src/lib/client/`,
 dependency this feature needs (TanStack Query v5, Next App Router). This
 phase only confirms the seam that later phases build inside.
 
-- [ ] T001 Confirm `apps/web/src/lib/client/mutations.ts` does not yet
+- [X] T001 Confirm `apps/web/src/lib/client/mutations.ts` does not yet
       exist and `apps/web/src/lib/client/query-keys.ts`'s
       `invalidateEntryData()` is the invalidation entry point every helper
       call will reuse (research.md's decision) — no file change, a
@@ -40,7 +40,7 @@ No user story can start until its platform's mechanism exists.
 
 **CRITICAL**: US1–US3 all depend on this phase.
 
-- [ ] T002 Implement `useOptimisticMutation` in
+- [X] T002 Implement `useOptimisticMutation` in
       `apps/web/src/lib/client/mutations.ts` per
       `contracts/optimistic-mutation.md`'s signature: `mutationFn`,
       `queryKey(vars)`, optional `predict(vars, current)`, optional
@@ -53,33 +53,33 @@ No user story can start until its platform's mechanism exists.
       callers render the mutation's own `isPending` for the pending-state
       UI (FR-004). Return type adds `isPredicted: boolean` to
       `UseMutationResult`.
-- [ ] T003 In the same file, implement rollback: `onError` sets
+- [X] T003 In the same file, implement rollback: `onError` sets
       `rollbackReason` (the server's error message) and restores
       `snapshot` via `setQueryData`, guarded so it only applies if its
       token is still the latest recorded for that `queryKey` (FR-002,
       FR-008, FR-014, research.md's supersession decision).
-- [ ] T004 In the same file, implement the 10s timeout: a timer started in
+- [X] T004 In the same file, implement the 10s timeout: a timer started in
       `onMutate` that, if unresolved by `timeoutMs`, forces the same
       rollback path with reason `"No response — try again"` (FR-013); the
       real request's late settlement becomes a no-op once its token is
       stale (data-model.md's transition rule: superseded settlement never
       re-enters `confirmed`/`rolledBack`).
-- [ ] T005 In the same file, ensure every path (success, error, timeout)
+- [X] T005 In the same file, ensure every path (success, error, timeout)
       calls `onSettled` exactly once per call, guarded by the same token,
       per the contract's "Every path... calls `onSettled` exactly once"
       clause.
-- [ ] T006 [P] Write `apps/web/scripts/check-mutation-usage.mjs`, same
+- [X] T006 [P] Write `apps/web/scripts/check-mutation-usage.mjs`, same
       shape as `apps/web/scripts/check-type-roles.mjs` (glob the source,
       regex/AST-scan for `useMutation` imports from
       `@tanstack/react-query`): fail with the offending file/line and a
       message pointing at `useOptimisticMutation` for any file under
       `apps/web/src/**` other than `lib/client/mutations.ts` itself
       (FR-009, no opt-out, SC-005).
-- [ ] T007 Add `"check:mutation-usage": "node scripts/check-mutation-usage.mjs 'src/**/*.ts' 'src/**/*.tsx'"`
+- [X] T007 Add `"check:mutation-usage": "node scripts/check-mutation-usage.mjs 'src/**/*.ts' 'src/**/*.tsx'"`
       to `apps/web/package.json` `scripts`, following `check:type`'s
       pattern, and wire it into `pretest` (or CI) alongside `check:type` so
       it runs on every check per quickstart.md's automated-coverage list.
-- [ ] T008 [P] Create `apps/macos/Sources/Stint/OptimisticAction.swift`:
+- [X] T008 [P] Create `apps/macos/Sources/Stint/OptimisticAction.swift`:
       the `OptimisticAction` protocol from data-model.md
       (`associatedtype Prediction`, `associatedtype Result`, `predict()`,
       `apply(_:)`, `perform() async throws`, `reconcile(_:)`,
@@ -88,13 +88,13 @@ No user story can start until its platform's mechanism exists.
       monotonic per-action-kind counter so a superseded call's late result
       is dropped (mirrors T003/T004's web guard, FR-006, FR-008, FR-013,
       FR-014).
-- [ ] T009 [P] Vitest: `apps/web/test/ui/mutations.test.ts` covering
+- [X] T009 [P] Vitest: `apps/web/test/ui/mutations.test.ts` covering
       `useOptimisticMutation` — rollback on error restores snapshot and
       sets `rollbackReason`; rollback on 10s timeout with reason
       `"No response — try again"`; supersession (a stale response after a
       newer token is a no-op, latest-press-wins); pending mode (`predict`
       omitted) writes nothing to the cache and only flips `isPending`.
-- [ ] T010 [P] Swift XCTest: `apps/macos/Tests/StintTests/OptimisticActionTests.swift`
+- [X] T010 [P] Swift XCTest: `apps/macos/Tests/StintTests/OptimisticActionTests.swift`
       covering `OptimisticAction.run()` — rollback on thrown error,
       rollback on 10s timeout, supersession (stale result dropped),
       mirroring T009.

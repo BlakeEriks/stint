@@ -87,6 +87,13 @@ jobs:
       - name: Typography uses the scale
         run: pnpm --filter @stint/web check:type
 
+      # FR-009: only lib/client/mutations.ts may import useMutation
+      # directly — every other call site routes through
+      # useOptimisticMutation so rollback/timeout/supersession is never
+      # opted out of.
+      - name: Mutations go through the shared helper
+        run: pnpm --filter @stint/web check:mutation-usage
+
       - name: Typecheck
         run: |
           npx tsc --noEmit -p tsconfig.json
