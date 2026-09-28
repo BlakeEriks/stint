@@ -87,7 +87,7 @@ Every `/api/v1/*` route calls `requireSession()` and answers errors with the
 breaks the build.
 
 **Mechanism**: the required `scan` check runs gitleaks over full history,
-CodeQL scans each PR, and Dependabot raises weekly updates.
+CodeQL scans each PR while the repo is public (`codeql.yml`), and Dependabot raises weekly updates.
 `TODO(#144)`: an unsigned request to every route is
 refused.
 
