@@ -151,7 +151,8 @@ const styles = StyleSheet.create({
   payLabel: {
     fontSize: 7,
     letterSpacing: 0.9,
-    color: c.faint,
+    // Muted, not faint: faint is 4.06:1 on the band this sits on.
+    color: c.muted,
     fontFamily: 'Helvetica-Bold',
   },
   payValue: { fontFamily: 'Courier', fontSize: 9, lineHeight: 1.3 },
