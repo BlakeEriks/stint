@@ -427,6 +427,7 @@ export const handlers = {
       subtotal: preview.subtotal,
       taxRate: preview.taxRate,
       taxAmount: preview.taxAmount,
+      expensesSubtotal: preview.expensesSubtotal,
       total: preview.total,
       currency: preview.currency,
       notes: input.notes ?? null,
@@ -442,8 +443,9 @@ export const handlers = {
     db.invoices.push({
       ...invoice,
       lineItems: preview.lineItems.map(
-        ({ rateSource: _, entryIds: __, ...l }, i) => ({
+        ({ rateSource: _, entryIds: __, expenseId: ___, ...l }, i) => ({
           ...l,
+          spentOn: l.spentOn ?? null,
           id: uuidv7(db.now.getTime()),
           sortOrder: i,
         }),

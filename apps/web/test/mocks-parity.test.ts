@@ -52,6 +52,9 @@ beforeEach(async () => {
   for (const sql of [
     'delete from invoice_line_items where invoice_id in (select id from invoices where user_id = $1)',
     'update time_entries set invoice_id = null where user_id = $1',
+    'update expenses set invoice_id = null where user_id = $1',
+    'delete from expenses where user_id = $1',
+    'delete from recurring_expenses where user_id = $1',
     'delete from time_entries where user_id = $1',
     'delete from invoices where user_id = $1',
     'delete from projects where user_id = $1',

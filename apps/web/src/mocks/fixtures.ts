@@ -495,6 +495,7 @@ function invoicesFor(
       subtotal,
       taxRate: 0,
       taxAmount: 0,
+      expensesSubtotal: 0,
       total: subtotal,
       currency: 'USD',
       notes: null,
@@ -513,8 +514,9 @@ function invoicesFor(
         '09:30',
         ZONE,
       ).toISOString(),
-      lineItems: lineItems.map((l, i) => ({
+      lineItems: lineItems.map(({ spentOn: _, expenseId: __, ...l }, i) => ({
         ...l,
+        spentOn: null,
         id: id(line++),
         sortOrder: i,
       })),

@@ -40,6 +40,7 @@ export const WithCharge: Story = {
       quantity: 1,
       unitPrice: 400,
       amount: 400,
+      spentOn: null,
     });
     draft.subtotal += 400;
     draft.total += 400;
