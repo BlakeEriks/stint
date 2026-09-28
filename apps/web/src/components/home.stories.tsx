@@ -38,3 +38,27 @@ export const PhoneMonth: Story = {
     ).toBeInTheDocument();
   },
 };
+
+/** The month's second day: `Sep 1` gives way to `today` rather than touching it. */
+export const MonthStart: Story = {
+  ...desktop,
+  parameters: { now: '2026-09-02T19:30:00.000Z' },
+  play: async ({ canvasElement }) => {
+    const axis = await within(canvasElement).findByText('today');
+    await expect(
+      within(axis.parentElement as HTMLElement).getByText('Sep 1'),
+    ).not.toBeVisible();
+  },
+};
+
+/** The month's last day: `today` takes `Sep 30`'s place, flush with the axis's end. */
+export const MonthEnd: Story = {
+  ...desktop,
+  parameters: { now: '2026-09-30T19:30:00.000Z' },
+  play: async ({ canvasElement }) => {
+    const axis = await within(canvasElement).findByText('today');
+    await expect(
+      within(axis.parentElement as HTMLElement).getByText('Sep 30'),
+    ).not.toBeVisible();
+  },
+};
