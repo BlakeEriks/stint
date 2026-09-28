@@ -9,7 +9,7 @@
 -- Home's projection survives it and reads no target. It extrapolates EARNED,
 -- which accumulates and so can be extrapolated; unbilled resets when an
 -- invoice goes out, so projecting it would forecast the next invoice date and
--- predict a drop to zero (`docs/design/screens/home.html`).
+-- predict a drop to zero (Storybook's `Screens/Home`).
 --
 -- The constraint goes first: dropping a column drops any check that names it
 -- alone, but `monthly_target_needs_unit` names both and would outlive the

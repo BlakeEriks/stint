@@ -11,8 +11,8 @@ import { Slot } from "radix-ui"
  *   dock, a calendar cell) `xs`; icon-only is `icon`, or `icon-sm` in a row.
  *
  *   The role sets the variant: the one action the screen exists to complete
- *   is `accent`, even with the timer in view; anything else that performs something `default`; beside a
- *   confirm, or any row action, `ghost`; the second step of a destructive pair
+ *   is `accent`, even with the timer in view; anything else that performs
+ *   something `default`; beside a confirm, or any row action, `ghost`; the second step of a destructive pair
  *   `destructive`. The error boundary's "Try again" stays neutral, so green
  *   still means the timer that keeps running under it.
  *

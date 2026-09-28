@@ -1,7 +1,7 @@
 -- `revenue_by_day` grows a `seconds` column, for the week's bars.
 --
 -- The bars plot HOURS as height and print MONEY at each bar's head
--- (`docs/design/screens/home.html`, "The week's bars"), so one row has to
+-- (Storybook's `Screens/Home`), so one row has to
 -- carry both. A second query grouped on the same local date would be a second
 -- definition of the same day.
 --
