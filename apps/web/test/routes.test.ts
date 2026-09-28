@@ -37,6 +37,7 @@ after(async () => {
 beforeEach(async () => {
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
+  await pool.query('delete from recurring_expenses');
   await pool.query('delete from invoice_line_items');
   // Detach first: the immutability trigger refuses to delete an entry that
   // is still billed on a non-draft invoice — which is the behavior under

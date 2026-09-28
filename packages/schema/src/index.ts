@@ -454,6 +454,8 @@ export const Expense = z.object({
    *  expense went and whether it can still change. Null while unbilled. */
   invoiceNumber: z.string().nullable(),
   invoiceStatus: InvoiceStatus.nullable(),
+  /** The monthly rule that produced it, if one did. */
+  recurringExpenseId: uuid.nullable(),
 });
 
 const expenseAmount = money.refine((n) => n > 0, {
@@ -472,6 +474,44 @@ export const CreateExpense = z.object({
 });
 
 export const UpdateExpense = CreateExpense.omit({ id: true }).partial();
+
+/**
+ * A cost the client reimburses every month. It produces one ordinary expense
+ * a month, on `startsOn`'s day, until stopped.
+ */
+export const RecurringExpense = z.object({
+  id: uuid,
+  clientId: uuid,
+  projectId: uuid.nullable(),
+  description: z.string(),
+  amount: money,
+  note: z.string().nullable(),
+  startsOn: z.iso.date(),
+  /** Set means stopped. */
+  stoppedOn: z.iso.date().nullable(),
+});
+
+export const CreateRecurringExpense = z.object({
+  id: uuid,
+  clientId: uuid,
+  projectId: uuid.nullable().optional(),
+  startsOn: z.iso.date(),
+  description: z.string().trim().min(1).max(200),
+  amount: expenseAmount,
+  note: z.string().max(500).nullable().optional(),
+});
+
+/** Changes reach only months not yet produced. `stop` ends it, as of today in
+ *  `tz`, after producing anything already due. */
+export const UpdateRecurringExpense = CreateRecurringExpense.omit({
+  id: true,
+  clientId: true,
+})
+  .partial()
+  .extend({
+    stop: z.literal(true).optional(),
+    tz: timeZoneStrict,
+  });
 
 export const ListExpensesQuery = z.object({
   /** Today, for producing recurring expenses, is a local-calendar question. */
@@ -871,6 +911,7 @@ export type MonthClient = z.infer<typeof MonthClient>;
 export type ClientWithScale = z.infer<typeof ClientWithScale>;
 export type Invoice = z.infer<typeof Invoice>;
 export type Expense = z.infer<typeof Expense>;
+export type RecurringExpense = z.infer<typeof RecurringExpense>;
 export type CalendarDay = z.infer<typeof CalendarDay>;
 export type CalendarTotalsDay = z.infer<typeof CalendarTotalsDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;

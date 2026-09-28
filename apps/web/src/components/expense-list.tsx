@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Pencil, Plus, Repeat, Trash2 } from 'lucide-react';
 import { formatCurrency, localDateKey, uuidv7 } from '@stint/core';
 import {
   Dialog,
@@ -20,7 +20,13 @@ import { ProjectPicker } from './project-picker';
 import { StatusBadge, shortDate } from './invoice-bits';
 import { Listing, Panel } from './page';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import { api, ApiError, type Client, type Expense } from '@/lib/client/api';
+import {
+  api,
+  ApiError,
+  type Client,
+  type Expense,
+  type RecurringExpense,
+} from '@/lib/client/api';
 import { keys } from '@/lib/client/query-keys';
 
 /**
@@ -35,6 +41,9 @@ export function ExpenseList() {
   const [clientId, setClientId] = useState<string | null>(null);
   const [showBilled, setShowBilled] = useState(false);
   const [editing, setEditing] = useState<Expense | 'new' | null>(null);
+  const [editingMonthly, setEditingMonthly] = useState<
+    RecurringExpense | 'new' | null
+  >(null);
 
   const query = useQuery({
     queryKey: [...keys.expenses(), { clientId, showBilled }],
@@ -57,6 +66,24 @@ export function ExpenseList() {
     mutationFn: (id: string) => api.deleteExpense(id),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: keys.expenses() }),
+  });
+
+  const monthly = useQuery({
+    queryKey: keys.recurringExpenses(),
+    queryFn: () => api.recurringExpenses(),
+    select: (r) =>
+      r.recurringExpenses.filter((m) => !clientId || m.clientId === clientId),
+  });
+
+  /* Stopping produces anything already due first, so the list of waiting
+     expenses can grow when a recurrence stops. */
+  const stop = useMutation({
+    mutationFn: (id: string) =>
+      api.updateRecurringExpense(id, { stop: true, tz }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.recurringExpenses() });
+      queryClient.invalidateQueries({ queryKey: keys.expenses() });
+    },
   });
 
   return (
@@ -119,6 +146,56 @@ export function ExpenseList() {
         </Listing>
       </Panel>
 
+      {/* A cost that comes every month is set up once. Each month it adds an
+          ordinary expense to the list above, on the first charge's day. */}
+      <div className="flex items-center justify-between gap-3 pt-8 pb-3">
+        <h2 className="type-region-head text-strong">Monthly</h2>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setEditingMonthly('new')}
+        >
+          <Plus aria-hidden strokeWidth={2.25} />
+          Add monthly expense
+        </Button>
+      </div>
+      <Panel>
+        <Listing
+          query={monthly}
+          empty="Nothing recurring. A subscription the client reimburses can be set up once."
+        >
+          {(rows) => (
+            <ul className="divide-y divide-edge-subtle">
+              {rows.map((m) => (
+                <li key={m.id}>
+                  <MonthlyRow
+                    recurrence={m}
+                    client={byId.get(m.clientId)}
+                    onEdit={() => setEditingMonthly(m)}
+                    onStop={() => stop.mutate(m.id)}
+                    busy={stop.isPending && stop.variables === m.id}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Listing>
+      </Panel>
+
+      <ExpenseDialog
+        open={editingMonthly !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingMonthly(null);
+        }}
+        monthly
+        recurrence={
+          editingMonthly === 'new' ? undefined : (editingMonthly ?? undefined)
+        }
+        clients={clients.filter((c) => !c.archivedAt)}
+        defaultClientId={clientId}
+      />
+
       <ExpenseDialog
         open={editing !== null}
         onOpenChange={(open) => {
@@ -164,6 +241,7 @@ function Row({
         </span>
         <span className="truncate type-support text-subtle">
           {client?.name ?? 'Unknown client'}
+          {expense.recurringExpenseId ? ' · monthly' : ''}
           {expense.invoiceNumber ? ` · ${expense.invoiceNumber}` : ''}
         </span>
       </span>
@@ -202,6 +280,96 @@ function Row({
   );
 }
 
+/** The day of the month, as a person says it: 1st, 2nd, 23rd. */
+function ordinal(n: number) {
+  const tens = n % 100;
+  if (tens >= 11 && tens <= 13) return `${n}th`;
+  return `${n}${{ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] ?? 'th'}`;
+}
+
+function MonthlyRow({
+  recurrence,
+  client,
+  onEdit,
+  onStop,
+  busy,
+}: {
+  recurrence: RecurringExpense;
+  client?: Client;
+  onEdit: () => void;
+  onStop: () => void;
+  busy: boolean;
+}) {
+  /* Stopping is one-way, so it takes a second, explicit click. */
+  const [confirming, setConfirming] = useState(false);
+  const stopped = recurrence.stoppedOn !== null;
+  const day = Number(recurrence.startsOn.slice(8, 10));
+
+  return (
+    <div className="flex items-center gap-3 py-3">
+      <Repeat aria-hidden className="size-4 flex-none text-subtle" />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate type-control text-primary">
+          {recurrence.description}
+        </span>
+        <span className="truncate type-support text-subtle">
+          {client?.name ?? 'Unknown client'} ·{' '}
+          {stopped
+            ? `stopped ${shortDate(recurrence.stoppedOn)}`
+            : `every month on the ${ordinal(day)}`}
+        </span>
+      </span>
+
+      <span className="w-24 flex-none text-right type-duration text-primary">
+        {formatCurrency(recurrence.amount, client?.currency ?? undefined)}
+      </span>
+
+      {stopped ? null : confirming ? (
+        <>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            onClick={onStop}
+          >
+            Stop it
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setConfirming(false)}
+          >
+            Keep
+          </Button>
+        </>
+      ) : (
+        <>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={`Edit ${recurrence.description}`}
+            onClick={onEdit}
+          >
+            <Pencil aria-hidden className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label={`Stop ${recurrence.description}`}
+            onClick={() => setConfirming(true)}
+          >
+            Stop
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /**
  * Records a new expense, or edits one that is still unbilled or on a draft.
  * Used by the Expenses tab and by the new-invoice screen, where a cost
@@ -211,6 +379,8 @@ export function ExpenseDialog({
   open,
   onOpenChange,
   expense,
+  monthly = false,
+  recurrence,
   clients,
   defaultClientId,
   onSaved,
@@ -219,10 +389,14 @@ export function ExpenseDialog({
   onOpenChange: (open: boolean) => void;
   /** Absent to record a new one. */
   expense?: Expense;
+  /** A monthly recurrence rather than one expense; `recurrence` to edit one. */
+  monthly?: boolean;
+  recurrence?: RecurringExpense;
   clients: Client[];
   defaultClientId?: string | null;
-  onSaved?: (expense: Expense) => void;
+  onSaved?: () => void;
 }) {
+  const existing = expense ?? recurrence;
   const queryClient = useQueryClient();
   const [clientId, setClientId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -236,14 +410,16 @@ export function ExpenseDialog({
   // Reset each time it opens, so a previous expense cannot linger.
   useEffect(() => {
     if (!open) return;
-    setClientId(expense?.clientId ?? defaultClientId ?? null);
-    setProjectId(expense?.projectId ?? null);
-    setSpentOn(expense?.spentOn ?? localDateKey(new Date(), tz));
-    setDescription(expense?.description ?? '');
-    setAmount(expense ? String(expense.amount) : '');
-    setNote(expense?.note ?? '');
-    setId(expense?.id ?? uuidv7());
-  }, [open, expense, defaultClientId]);
+    setClientId(existing?.clientId ?? defaultClientId ?? null);
+    setProjectId(existing?.projectId ?? null);
+    setSpentOn(
+      expense?.spentOn ?? recurrence?.startsOn ?? localDateKey(new Date(), tz),
+    );
+    setDescription(existing?.description ?? '');
+    setAmount(existing ? String(existing.amount) : '');
+    setNote(existing?.note ?? '');
+    setId(existing?.id ?? uuidv7());
+  }, [open, existing, expense, recurrence, defaultClientId]);
 
   const { data: projectData } = useQuery({
     queryKey: keys.projects({ clientId: clientId ?? undefined }),
@@ -263,7 +439,7 @@ export function ExpenseDialog({
     parsed > 0;
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async (): Promise<unknown> => {
       const body = {
         clientId: clientId as string,
         projectId,
@@ -272,13 +448,27 @@ export function ExpenseDialog({
         amount: Math.round(parsed * 100) / 100,
         note: note.trim() || null,
       };
+      if (monthly) {
+        const { clientId: owner, spentOn: startsOn, ...fields } = body;
+        /* A change reaches only months not yet produced; the client and the
+           first charge are fixed once set. */
+        return recurrence
+          ? api.updateRecurringExpense(recurrence.id, fields)
+          : api.createRecurringExpense({
+              id,
+              ...fields,
+              clientId: owner,
+              startsOn,
+            });
+      }
       return expense
         ? api.updateExpense(expense.id, body)
         : api.createExpense({ id, ...body });
     },
-    onSuccess: (saved) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.expenses() });
-      onSaved?.(saved);
+      queryClient.invalidateQueries({ queryKey: keys.recurringExpenses() });
+      onSaved?.();
       onOpenChange(false);
     },
   });
@@ -295,10 +485,18 @@ export function ExpenseDialog({
         >
           <DialogHeader>
             <DialogTitle>
-              {expense ? 'Edit expense' : 'Add expense'}
+              {monthly
+                ? recurrence
+                  ? 'Edit monthly expense'
+                  : 'Add monthly expense'
+                : expense
+                  ? 'Edit expense'
+                  : 'Add expense'}
             </DialogTitle>
             <DialogDescription>
-              A cost the client reimburses. It waits for their next invoice.
+              {monthly
+                ? 'A cost the client reimburses every month. Each month’s waits for their next invoice; a change here reaches only months still to come.'
+                : 'A cost the client reimburses. It waits for their next invoice.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -312,6 +510,7 @@ export function ExpenseDialog({
                 setProjectId(null);
               }}
               placeholder="Choose a client…"
+              disabled={recurrence !== undefined}
             />
           </Field>
 
@@ -330,7 +529,7 @@ export function ExpenseDialog({
 
           <div className="flex flex-wrap gap-4">
             <Field
-              label="Date paid"
+              label={monthly ? 'First charge' : 'Date paid'}
               htmlFor="expense-date"
               required
               className="flex-1 basis-40"
@@ -340,6 +539,7 @@ export function ExpenseDialog({
                 type="date"
                 value={spentOn}
                 onChange={(e) => setSpentOn(e.target.value)}
+                disabled={recurrence !== undefined}
                 required
               />
             </Field>
@@ -416,7 +616,11 @@ export function ExpenseDialog({
               {save.isPending ? (
                 <Loader2 aria-hidden className="animate-spin" />
               ) : null}
-              {expense ? 'Save' : 'Add expense'}
+              {existing
+                ? 'Save'
+                : monthly
+                  ? 'Add monthly expense'
+                  : 'Add expense'}
             </Button>
           </DialogFooter>
         </form>

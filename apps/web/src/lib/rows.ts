@@ -359,10 +359,11 @@ export interface ExpenseRow {
   amount: Numeric;
   note: string | null;
   invoice_id: string | null;
+  recurring_expense_id: string | null;
 }
 
 export const EXPENSE_COLUMNS = columns<ExpenseRow>()(
-  'id, client_id, project_id, spent_on, description, amount, note, invoice_id',
+  'id, client_id, project_id, spent_on, description, amount, note, invoice_id, recurring_expense_id',
 );
 
 /** `invoice` is the billing invoice when there is one, looked up separately. */
@@ -381,8 +382,48 @@ export function toExpense(
     invoiceId: r.invoice_id,
     invoiceNumber: invoice?.invoice_number ?? null,
     invoiceStatus: invoice?.status ?? null,
+    recurringExpenseId: r.recurring_expense_id,
   };
 }
+
+export interface RecurringExpenseRow {
+  id: string;
+  client_id: string;
+  project_id: string | null;
+  description: string;
+  amount: Numeric;
+  note: string | null;
+  starts_on: string;
+  stopped_on: string | null;
+  produced_through: string | null;
+}
+
+export const RECURRING_EXPENSE_COLUMNS = columns<RecurringExpenseRow>()(
+  'id, client_id, project_id, description, amount, note, starts_on, stopped_on, produced_through',
+);
+
+/* `produced_through` is internal bookkeeping: the API says what a recurrence
+   is, not how far it has got. */
+export function toRecurringExpense(r: RecurringExpenseRow) {
+  return {
+    id: r.id,
+    clientId: r.client_id,
+    projectId: r.project_id,
+    description: r.description,
+    amount: num(r.amount) ?? 0,
+    note: r.note,
+    startsOn: r.starts_on,
+    stoppedOn: r.stopped_on,
+  };
+}
+
+export const RECURRING_EXPENSE_FIELDS = {
+  projectId: 'project_id',
+  startsOn: 'starts_on',
+  description: 'description',
+  amount: 'amount',
+  note: 'note',
+} as const;
 
 export const EXPENSE_FIELDS = {
   clientId: 'client_id',

@@ -13,7 +13,12 @@ import {
   type LineItemRow,
   type PaymentProfileRow,
 } from './rows';
-import { addDays, resolvePaymentProfile, startOfLocalDate } from '@stint/core';
+import {
+  addDays,
+  localDateKey,
+  resolvePaymentProfile,
+  startOfLocalDate,
+} from '@stint/core';
 import type { BillableEntry, ExpenseInput } from '@stint/core';
 
 /** numeric columns arrive from PostgREST as strings. */
@@ -108,6 +113,25 @@ export async function loadBillableEntries(
       userDefaultRate: opts.userDefaultRate,
     };
   });
+}
+
+/**
+ * Produces every monthly expense that has come due, through today in `tz`.
+ *
+ * Called before anything reads expenses — the list, a preview, generation —
+ * so a recurrence's month is always there by the time someone looks, with no
+ * scheduled job to keep in step. Producing twice produces nothing twice.
+ */
+export async function produceRecurringExpenses(
+  db: SupabaseClient,
+  userId: string,
+  tz: string,
+): Promise<void> {
+  const { error } = await db.rpc('produce_recurring_expenses', {
+    p_user_id: userId,
+    p_through: localDateKey(new Date(), tz),
+  });
+  if (error) throw error;
 }
 
 /**

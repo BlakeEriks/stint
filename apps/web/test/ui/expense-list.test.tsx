@@ -33,8 +33,20 @@ const expense = (over: Record<string, unknown>) => ({
   ...over,
 });
 
+const recurrence = (over: Record<string, unknown> = {}) => ({
+  id: 'r1',
+  clientId: 'c1',
+  projectId: null,
+  description: 'Claude Max',
+  amount: 200,
+  note: null,
+  startsOn: '2026-08-05',
+  stoppedOn: null,
+  ...over,
+});
+
 /** Serves the list and records every request. */
-function serve(expenses = [expense({})]) {
+function serve(expenses = [expense({})], recurring = [recurrence()]) {
   const calls: Array<{ method: string; path: string; body: any }> = [];
   vi.stubGlobal(
     'fetch',
@@ -49,6 +61,11 @@ function serve(expenses = [expense({})]) {
       if (method === 'DELETE') return new Response(null, { status: 204 });
       if (method !== 'GET') {
         return new Response(JSON.stringify(expense({})), { status: 201 });
+      }
+      if (path.startsWith('/recurring-expenses')) {
+        return new Response(JSON.stringify({ recurringExpenses: recurring }), {
+          status: 200,
+        });
       }
       if (path.startsWith('/expenses')) {
         return new Response(JSON.stringify({ expenses }), { status: 200 });
@@ -203,5 +220,114 @@ describe('ExpenseList', () => {
     expect(
       screen.getByRole('button', { name: 'Edit Draft flight' }),
     ).toBeEnabled();
+  });
+});
+
+describe('ExpenseList — monthly', () => {
+  it('shows a recurrence and marks the expenses it produced', async () => {
+    serve([expense({ recurringExpenseId: 'r1', description: 'Claude Max' })]);
+    render(<ExpenseList />, { wrapper });
+
+    expect(
+      await screen.findByText(/every month on the 5th/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Acme Corp · monthly/)).toBeInTheDocument();
+  });
+
+  it('sets up a monthly expense from its first charge', async () => {
+    const calls = serve([], []);
+    const user = userEvent.setup();
+    render(<ExpenseList />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Add monthly expense' }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByLabelText(/First charge/)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Client' }));
+    await user.click(
+      await screen.findByRole('menuitemradio', { name: 'Acme Corp' }),
+    );
+    await user.type(within(dialog).getByLabelText(/Description/), 'Claude Max');
+    await user.type(within(dialog).getByLabelText(/Amount/), '200');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Add monthly expense' }),
+    );
+
+    await waitFor(() => {
+      const post = calls.find(
+        (c) => c.method === 'POST' && c.path === '/recurring-expenses',
+      );
+      expect(post?.body).toMatchObject({
+        clientId: 'c1',
+        description: 'Claude Max',
+        amount: 200,
+      });
+      expect(post?.body.startsOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(post?.body.spentOn).toBeUndefined();
+    });
+  });
+
+  it('edits a recurrence without moving its client or first charge', async () => {
+    const calls = serve([]);
+    const user = userEvent.setup();
+    render(<ExpenseList />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Edit Claude Max' }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByLabelText(/First charge/)).toBeDisabled();
+    expect(
+      within(dialog).getByRole('button', { name: 'Client' }),
+    ).toBeDisabled();
+
+    const amount = within(dialog).getByLabelText(/Amount/);
+    await user.clear(amount);
+    await user.type(amount, '250');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      const patch = calls.find(
+        (c) => c.method === 'PATCH' && c.path === '/recurring-expenses/r1',
+      );
+      expect(patch?.body.amount).toBe(250);
+      expect(patch?.body.startsOn).toBeUndefined();
+      expect(patch?.body.clientId).toBeUndefined();
+    });
+  });
+
+  it('stops only on a second, explicit click', async () => {
+    const calls = serve([]);
+    const user = userEvent.setup();
+    render(<ExpenseList />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Stop Claude Max' }),
+    );
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: 'Stop it' }));
+    await waitFor(() =>
+      expect(
+        calls.find(
+          (c) => c.method === 'PATCH' && c.path === '/recurring-expenses/r1',
+        )?.body.stop,
+      ).toBe(true),
+    );
+  });
+
+  it('shows a stopped recurrence with no way to change it', async () => {
+    serve([], [recurrence({ stoppedOn: '2026-09-28' })]);
+    render(<ExpenseList />, { wrapper });
+
+    expect(await screen.findByText(/stopped Sep 28, 2026/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Edit Claude Max' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Stop Claude Max' }),
+    ).not.toBeInTheDocument();
   });
 });

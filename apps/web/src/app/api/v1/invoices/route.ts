@@ -8,6 +8,7 @@ import {
   loadBillableEntries,
   loadPaymentProfile,
   loadUnbilledExpenses,
+  produceRecurringExpenses,
 } from '@/lib/invoicing';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
 import { buildLineItems, buildPaymentDetails } from '@stint/core';
@@ -66,6 +67,7 @@ export const POST = handle(async (req: Request) => {
   const [client, settings] = await Promise.all([
     loadClient(db, body.clientId),
     loadSettings(db),
+    produceRecurringExpenses(db, userId, body.tz),
   ]);
 
   const clientRate =

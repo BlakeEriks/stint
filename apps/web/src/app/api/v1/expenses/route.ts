@@ -4,14 +4,17 @@ import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import { EXPENSE_COLUMNS, type ExpenseRow } from '@/lib/rows';
 import { expenseWriteError, withInvoices } from '@/lib/expenses';
+import { produceRecurringExpenses } from '@/lib/invoicing';
 import { CreateExpense, ListExpensesQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
 /** GET /api/v1/expenses — unbilled by default, oldest first. */
 export const GET = handle(async (req: Request) => {
-  const { db } = await requireSession(req);
+  const { userId, db } = await requireSession(req);
   const q = parseQuery(req, ListExpensesQuery);
+
+  await produceRecurringExpenses(db, userId, q.tz);
 
   let query = db
     .from('expenses')

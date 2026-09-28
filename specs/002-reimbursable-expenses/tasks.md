@@ -185,7 +185,7 @@ the 30 September slice. User Story 4 can merge after it.
 
 ### Tests
 
-- [ ] T029 [P] [US4] Route tests in `apps/web/test/invoices.test.ts`:
+- [X] T029 [P] [US4] Route tests in `apps/web/test/invoices.test.ts`:
   - `produce_recurring_expenses` creates one expense per month through `p_through`, with a start on the 31st clamped to the month's last day.
   - Running it twice or concurrently produces no duplicates.
   - A deleted occurrence is not produced again.
@@ -193,20 +193,20 @@ the 30 September slice. User Story 4 can merge after it.
   - Editing the amount changes only later months.
   - `startsOn` cannot be edited after the first production (422), and a stopped recurrence rejects edits (422).
   - `GET /expenses` and `POST /invoices/preview` both produce first.
-- [ ] T030 [P] [US4] RLS cases for `recurring_expenses` in `apps/web/test/rls.test.ts`, as in T007.
-- [ ] T031 [P] [US4] UI test in `apps/web/test/ui/expense-list.test.tsx` for the recurring section: create, edit amount, stop, and a produced expense marked as recurring.
+- [X] T030 [P] [US4] RLS cases for `recurring_expenses` in `apps/web/test/rls.test.ts`, as in T007.
+- [X] T031 [P] [US4] UI test in `apps/web/test/ui/expense-list.test.tsx` for the recurring section: create, edit amount, stop, and a produced expense marked as recurring.
 
 ### Implementation
 
-- [ ] T032 [US4] Create `supabase/migrations/00000000000026_recurring_expenses.sql` with:
+- [X] T032 [US4] Create `supabase/migrations/00000000000026_recurring_expenses.sql` with:
   - Table `recurring_expenses` per `data-model.md`: `starts_on date not null`, `stopped_on date null`, `produced_through date null`, and the ownership, project, RLS, grant and `touch_updated_at` setup of `expenses`.
   - On `expenses`: add `recurring_expense_id uuid null references recurring_expenses(id) on delete restrict` and `recurrence_month date null`, the check `(recurring_expense_id is null) = (recurrence_month is null)`, and `unique (recurring_expense_id, recurrence_month)`.
   - `produce_recurring_expenses(p_user_id uuid, p_through date) returns void`, `language plpgsql security invoker set search_path = public, pg_temp`. For each live recurrence of the user, under `for update`, it inserts one expense per month after `produced_through` (or from `starts_on`'s month) through `least(p_through, stopped_on)`. Each falls on `starts_on`'s day, clamped to the month's last day, and only if that date is on or before the limit. The insert uses `on conflict do nothing`, and the function then advances `produced_through` (`research.md` R5 to R7).
   - `grant execute` on the function to `authenticated`.
-- [ ] T033 [US4] Add `RecurringExpense`, `CreateRecurringExpense` and `UpdateRecurringExpense` (`stop?: boolean`, `tz` required when `stop`) to `packages/schema/src/index.ts`, and `recurringExpenseId` to `Expense`. Map them in `apps/web/src/lib/rows.ts`.
-- [ ] T034 [US4] Add `produceRecurringExpenses(db, userId, tz)` to `apps/web/src/lib/invoicing.ts`. It calls the RPC with today's local date in `tz`. Call it first in `GET /expenses`, `POST /invoices/preview` and `POST /invoices`.
-- [ ] T035 [P] [US4] `apps/web/src/app/api/v1/recurring-expenses/route.ts` (`GET`, `POST`) and `apps/web/src/app/api/v1/recurring-expenses/[id]/route.ts` (`PATCH`). `stop: true` produces through today, then sets `stopped_on`. Reject `startsOn` once `produced_through` is set, and any edit to a stopped recurrence, with 422.
-- [ ] T036 [US4] Add the recurring-expense methods to `apps/web/src/lib/client/api.ts`, and a Recurring section to `apps/web/src/components/expense-list.tsx`: list live and stopped recurrences, create, edit, and Stop with a confirm step. A produced expense shows a small "monthly" marker.
+- [X] T033 [US4] Add `RecurringExpense`, `CreateRecurringExpense` and `UpdateRecurringExpense` (`stop?: boolean`, `tz` required when `stop`) to `packages/schema/src/index.ts`, and `recurringExpenseId` to `Expense`. Map them in `apps/web/src/lib/rows.ts`.
+- [X] T034 [US4] Add `produceRecurringExpenses(db, userId, tz)` to `apps/web/src/lib/invoicing.ts`. It calls the RPC with today's local date in `tz`. Call it first in `GET /expenses`, `POST /invoices/preview` and `POST /invoices`.
+- [X] T035 [P] [US4] `apps/web/src/app/api/v1/recurring-expenses/route.ts` (`GET`, `POST`) and `apps/web/src/app/api/v1/recurring-expenses/[id]/route.ts` (`PATCH`). `stop: true` produces through today, then sets `stopped_on`. Reject `startsOn` once `produced_through` is set, and any edit to a stopped recurrence, with 422.
+- [X] T036 [US4] Add the recurring-expense methods to `apps/web/src/lib/client/api.ts`, and a Recurring section to `apps/web/src/components/expense-list.tsx`: list live and stopped recurrences, create, edit, and Stop with a confirm step. A produced expense shows a small "monthly" marker.
 
 **Checkpoint**: All four stories work.
 
@@ -217,7 +217,7 @@ the 30 September slice. User Story 4 can merge after it.
 - [X] T037 [P] Document the `/expenses` and `/recurring-expenses` rows and the invoice request and response changes in `docs/api.md`.
 - [X] T038 [P] Add `expenses`, `recurring_expenses`, the expense lock, `expenses_subtotal` and the `expense` line unit to `docs/data-model.md`, including why expenses stay out of Earned and Unbilled.
 - [X] T039 [P] Update `docs/design/screens/invoices.html`: the Expenses tab, the preview's Expenses section and subtotal, and the charges hint without "an expense you are passing on".
-- [ ] T040 Run `pnpm verify:static` and `pnpm verify:db`, walk through `quickstart.md` in the browser while signed in to local Stint, and take screenshots of the preview and the PDF for the PR's Try it section.
+- [X] T040 Run `pnpm verify:static` and `pnpm verify:db`, walk through `quickstart.md` in the browser while signed in to local Stint, and take screenshots of the preview and the PDF for the PR's Try it section.
 
 ---
 

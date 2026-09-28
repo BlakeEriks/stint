@@ -118,6 +118,7 @@ export type PaymentProfile = Response<schema.PaymentProfile>;
 export type InvoicePreview = Response<schema.InvoicePreview>;
 export type Invoice = Response<schema.Invoice>;
 export type Expense = Response<schema.Expense>;
+export type RecurringExpense = Response<schema.RecurringExpense>;
 export type ManualLine = schema.ManualLine;
 export type TaskNameSuggestion = Response<schema.TaskNameSuggestion>;
 
@@ -419,6 +420,27 @@ export const api = {
     request<Expense>('PATCH', `/expenses/${id}`, body),
 
   deleteExpense: (id: string) => request<void>('DELETE', `/expenses/${id}`),
+
+  /** Live ones first, then stopped. */
+  recurringExpenses: () =>
+    request<{ recurringExpenses: RecurringExpense[] }>(
+      'GET',
+      '/recurring-expenses',
+    ),
+
+  /** `startsOn` is the first charge; later ones fall on its day each month. */
+  createRecurringExpense: (
+    body: Omit<ExpenseInput, 'spentOn'> & { id: string; startsOn: string },
+  ) => request<RecurringExpense>('POST', '/recurring-expenses', body),
+
+  /** Reaches only months not yet produced. `stop` ends it as of today. */
+  updateRecurringExpense: (
+    id: string,
+    body: Partial<Omit<ExpenseInput, 'clientId' | 'spentOn'>> & {
+      stop?: true;
+      tz?: string;
+    },
+  ) => request<RecurringExpense>('PATCH', `/recurring-expenses/${id}`, body),
 
   invoicePdfUrl: (id: string, download = false) =>
     `/api/v1/invoices/${id}/pdf${download ? '?download=1' : ''}`,

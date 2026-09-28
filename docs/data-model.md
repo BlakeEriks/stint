@@ -157,6 +157,23 @@ there is no currency column, because an expense is never converted.
   are readings about work. They reach **awaiting** and **collected** through
   the invoice's `total`.
 
+### `recurring_expenses`
+A cost the client reimburses every month, as a rule: each month it produces
+one ordinary expense, which then waits, bills and locks like any other and is
+edited or deleted on its own. The produced expense carries
+`recurring_expense_id` and `recurrence_month`, unique together.
+
+- `starts_on` is the first charge and fixes the day of the month; a month
+  without that day uses its last. It cannot move once a month is produced.
+- `produced_through` is the first of the last month produced, and it — not
+  which expenses still exist — decides what is produced next, so a month the
+  user deleted stays deleted.
+- `produce_recurring_expenses(user_id, through)` produces every month due by
+  `through`, under a row lock per recurrence. Every read of expenses calls it
+  first, so no scheduled job exists.
+- Stopped, never deleted: `stopped_on` ends it, and the expenses it produced
+  reference it.
+
 ## Integrity rules
 
 ### The timer invariant
@@ -324,7 +341,7 @@ alone must still contain the query.
 | Check | Result |
 |---|---|
 | An unfiltered `select` returns only the caller's rows | isolated |
-| All seven user-scoped tables isolate | isolated |
+| All eight user-scoped tables isolate | isolated |
 | A known-good id belonging to another user returns nothing | no leak |
 | Line items inherit isolation through their invoice | isolated |
 | Insert with a forged `user_id` | rejected by `WITH CHECK` |

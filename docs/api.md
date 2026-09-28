@@ -13,7 +13,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 43 of 43, counting handlers rather than files.
+Every handler is covered — 46 of 46, counting handlers rather than files.
 
 ## Timer
 
@@ -263,10 +263,18 @@ invoice for its client. The amount is in the client's currency.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/expenses` | `?tz&clientId&status` — `status` is `unbilled` (default) or `all`. Oldest `spentOn` first. Each expense carries `invoiceNumber` and `invoiceStatus` once billed. |
+| `GET` | `/expenses` | `?tz&clientId&status` — `status` is `unbilled` (default) or `all`. Oldest `spentOn` first. Each expense carries `invoiceNumber` and `invoiceStatus` once billed, and `recurringExpenseId` when a monthly rule produced it. |
 | `POST` | `/expenses` | `{ id, clientId, projectId?, spentOn, description, amount, note? }`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is above zero; a project must be one of the client's. |
 | `PATCH` | `/expenses/:id` | Any field from `POST` but `id`. **`409 EXPENSE_LOCKED`** once billed on a non-draft invoice. |
 | `DELETE` | `/expenses/:id` | Same lock. |
+| `GET` | `/recurring-expenses` | Live ones first, then stopped. |
+| `POST` | `/recurring-expenses` | `{ id, clientId, projectId?, startsOn, description, amount, note? }`. `startsOn` is the first charge; each later month's falls on its day, or the month's last day when that day does not exist. |
+| `PATCH` | `/recurring-expenses/:id` | `{ projectId?, description?, amount?, note?, startsOn?, stop?, tz? }`. A change reaches only months not yet produced. `stop: true` produces what is already due, then stops it as of today in `tz`. `422 VALIDATION_FAILED` for `startsOn` once a month has been produced, and for any change to a stopped one. No `DELETE`: a recurrence is stopped, because its expenses point at it. |
+
+**A recurrence's months are produced when expenses are read**, not on a
+schedule: `GET /expenses`, `POST /invoices/preview` and `POST /invoices` each
+produce every month that has come due, through today in the request's `tz`,
+before reading. A month the user deleted is not produced again.
 
 ## Payment details
 

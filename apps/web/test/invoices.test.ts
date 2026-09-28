@@ -32,6 +32,7 @@ after(async () => {
 beforeEach(async () => {
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
+  await pool.query('delete from recurring_expenses');
   await pool.query('delete from invoice_line_items');
   await pool.query('update time_entries set invoice_id = null');
   await pool.query('delete from time_entries');
@@ -1735,4 +1736,176 @@ test('deleting a draft releases its expenses', async () => {
   assert.equal(res.status, 204);
   const { rows } = await pool.query('select invoice_id from expenses');
   assert.equal(rows[0].invoice_id, null);
+});
+
+// ── recurring expenses ─────────────────────────────────────────────
+const R = 'aa000000-0000-7000-8000-000000000001';
+
+/** Seeds a monthly recurrence for the main client. */
+async function seedRecurrence(startsOn: string, amount = 200) {
+  await pool.query(
+    `insert into recurring_expenses (id,user_id,client_id,description,amount,starts_on)
+     values ($1,$2,$3,'Claude Max',$4,$5)`,
+    [R, USER, CLIENT, amount, startsOn],
+  );
+}
+
+const produce = (through: string) =>
+  pool.query('select produce_recurring_expenses($1,$2)', [USER, through]);
+
+const produced = async () =>
+  (
+    await pool.query(
+      `select spent_on, amount::float a from expenses
+        where recurring_expense_id=$1 order by spent_on`,
+      [R],
+    )
+  ).rows;
+
+test('a recurrence produces one expense a month, clamped to short months', async () => {
+  await seedRecurrence('2026-01-31');
+  await produce('2026-04-15');
+  assert.deepEqual(
+    (await produced()).map((r) => r.spent_on),
+    ['2026-01-31', '2026-02-28', '2026-03-31'],
+    'April’s 30th has not come yet',
+  );
+
+  await produce('2026-04-30');
+  await produce('2026-04-30');
+  assert.equal((await produced()).length, 4, 'producing twice adds nothing');
+});
+
+test('producing concurrently never doubles a month', async () => {
+  await seedRecurrence('2026-08-05');
+  await Promise.all([produce('2026-09-10'), produce('2026-09-10')]);
+  assert.deepEqual(
+    (await produced()).map((r) => r.spent_on),
+    ['2026-08-05', '2026-09-05'],
+  );
+});
+
+test('a deleted month is not produced again', async () => {
+  const { DELETE } = await import('../src/app/api/v1/expenses/[id]/route.ts');
+  await seedRecurrence('2026-08-05');
+  await produce('2026-09-10');
+  const { rows } = await pool.query(
+    `select id from expenses where spent_on='2026-08-05'`,
+  );
+  const res = await DELETE(
+    req('/e', undefined, 'DELETE'),
+    expenseCtx(rows[0].id),
+  );
+  assert.equal(res.status, 204);
+
+  await produce('2026-09-10');
+  assert.deepEqual(
+    (await produced()).map((r) => r.spent_on),
+    ['2026-09-05'],
+  );
+});
+
+test('editing a recurrence changes only months not yet produced', async () => {
+  const { PATCH } = await import(
+    '../src/app/api/v1/recurring-expenses/[id]/route.ts'
+  );
+  await seedRecurrence('2026-08-05', 200);
+  await produce('2026-08-10');
+
+  const res = await json(
+    await PATCH(req('/r', { amount: 250 }, 'PATCH'), {
+      params: Promise.resolve({ id: R }),
+    }),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.amount, 250);
+
+  await produce('2026-09-10');
+  assert.deepEqual(
+    (await produced()).map((r) => r.a),
+    [200, 250],
+    'August keeps the amount it was produced with',
+  );
+
+  const moved = await json(
+    await PATCH(req('/r', { startsOn: '2026-08-10' }, 'PATCH'), {
+      params: Promise.resolve({ id: R }),
+    }),
+  );
+  assert.equal(moved.status, 422, 'the anchor cannot move once produced');
+});
+
+test('stopping produces what is due, then nothing more, and refuses edits', async () => {
+  const { PATCH } = await import(
+    '../src/app/api/v1/recurring-expenses/[id]/route.ts'
+  );
+  // Started two months back, so two months are due today whatever today is.
+  const today = new Date();
+  const start = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1),
+  )
+    .toISOString()
+    .slice(0, 10);
+  await seedRecurrence(start);
+
+  const stopped = await json(
+    await PATCH(req('/r', { stop: true, tz: 'UTC' }, 'PATCH'), {
+      params: Promise.resolve({ id: R }),
+    }),
+  );
+  assert.equal(stopped.status, 200);
+  assert.equal(stopped.body.stoppedOn, today.toISOString().slice(0, 10));
+  assert.equal((await produced()).length, 2, 'the due months were produced');
+
+  await produce('2099-12-31');
+  assert.equal((await produced()).length, 2, 'nothing after the stop');
+
+  const edit = await json(
+    await PATCH(req('/r', { amount: 1 }, 'PATCH'), {
+      params: Promise.resolve({ id: R }),
+    }),
+  );
+  assert.equal(edit.status, 422);
+});
+
+test('the expense list and the invoice preview produce before they read', async () => {
+  const { POST: create } = await import(
+    '../src/app/api/v1/recurring-expenses/route.ts'
+  );
+  const { GET: list } = await import('../src/app/api/v1/expenses/route.ts');
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const today = new Date().toISOString().slice(0, 10);
+
+  const made = await json(
+    await create(
+      req('/recurring-expenses', {
+        id: R,
+        clientId: CLIENT,
+        startsOn: today,
+        description: 'Claude Max',
+        amount: 200,
+      }),
+    ),
+  );
+  assert.equal(made.status, 201);
+
+  const listed = await json(await list(req('/expenses?tz=UTC')));
+  assert.equal(listed.body.expenses.length, 1);
+  assert.equal(listed.body.expenses[0].recurringExpenseId, R);
+
+  await pool.query('delete from expenses');
+  await pool.query('update recurring_expenses set produced_through = null');
+  const res = await json(
+    await preview(
+      req('/invoices/preview', {
+        clientId: CLIENT,
+        periodStart: today,
+        periodEnd: today,
+        tz: 'UTC',
+      }),
+    ),
+  );
+  assert.equal(res.body.expensesSubtotal, 200);
 });
