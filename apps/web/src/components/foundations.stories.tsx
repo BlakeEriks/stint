@@ -44,7 +44,7 @@ function Swatches({ title, names }: { title: string; names: string[] }) {
 
 /** Depth increases toward what is being read: four planes, then the
     hover and active steps. Green is the one color, and it runs a scale:
-    `accent-default` is live, `success` is one step off it, done. */
+    `timer-running` is live, `accent-default` acts, `success` is done. */
 export const Color: Story = {
   render: () => (
     <>
@@ -73,6 +73,7 @@ export const Color: Story = {
       <Swatches
         title="Green"
         names={[
+          'timer-running',
           'accent-default',
           'accent-hover',
           'accent-subtle',
