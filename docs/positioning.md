@@ -10,6 +10,11 @@ A US contractor who bills by the hour, works alone, and invoices their own
 clients. Not an agency, not a team lead, not a freelancer on a platform that
 already invoices for them.
 
+**US first.** USD, US date and number formats, ACH routing and account numbers,
+1099 and W-9 framing, and no tax line by default (`tax_rate` is 0). Other
+countries are additive, never the baseline, and never inferred from sample
+data or a developer's location.
+
 They are not price-shopping — at $100k+ a year, $40 is what a billable
 minute costs them. **Price is not why they arrive; it is why they distrust
 what they have.** A bill that moved, a rate that went behind a paywall, a tier
@@ -31,18 +36,13 @@ and cannot see money. Clockify moved the same thing out of its free tier in
 Harvest meters projects, clients, invoices and the dollar amount invoiced —
 the bill grows when the month goes well.
 
-**This is a bet on their behavior, not a law.** Any of them could ship a
-solo plan tomorrow and cannibalize nothing, because a one-person account pays
-them nothing today. What is true is that none of them has, and 2026 moved
-them the other way. Where they have a solo path it is a funnel rather than a
-product: Harvest's free tier is two projects, Zoho's is three.
-
 **The invoice is the product; the timer is the input.** Time tracking is a
 commodity given away free by Toggl, Clockify, Zoho, Paymo, and Harvest. The
 numbered, rate-frozen, ACH-bearing PDF is the part that is hard and the part
 worth money. We charge for the document, never for the tracking — so what the
 paid tier sells is that its numbers are right, which is why the trust rules in
-`design/principles.md` are the product rather than engineering taste.
+the constitution (`.specify/memory/constitution.md`) are the product rather
+than engineering taste.
 
 **The price is knowable in advance and stays.** No seats, no usage metering,
 no tier that unlocks a number you already earned. This is a promise the
@@ -78,30 +78,19 @@ exports included. **Downloading an invoice requires the paid tier**, and that
 is the only thing that does — the records get out free, the document is the
 product.
 
-**The price is set to cover the bill, not to return a margin.** Vercel Pro and
-Supabase Pro are $45 a month between them — Vercel's free tier forbids
-commercial use and Supabase's pauses after a week idle, so both are forced the
-moment money changes hands. That is **$555 a year, and it is the whole
-overhead**. At $40 a year, net of Stripe's 4.4% on a single annual charge,
-**fifteen subscribers cover it.**
-
-**Serving one more user costs approximately nothing.** Supabase Pro includes
-8GB and 250GB of egress against a few megabytes of rows per user-year, so the
-bill stays flat to somewhere near a thousand accounts. Nobody has to be
-converted for this to work, which is why the free tier can afford to be whole.
-
-**Annual-only is deliberate.** A third of churn under $10 is involuntary —
-dead cards, not decisions — and one charge a year is one chance to fail. It
-also matches how a tool like this is actually judged: once, at renewal, not
-every month.
+**The price covers the bill, not a margin.** Vercel Pro and Supabase Pro,
+$555 a year, are the whole overhead, and net of Stripe **fifteen subscribers
+cover it.** One more user costs about nothing until roughly a thousand
+accounts, which is why the free tier can be whole. A design that adds a fixed
+cost changes this section first.
 
 ## Scope
 
 **There is no team, so there is nothing to build for one.**
 
-**The app sends no mail** — we render the PDF and the user sends it from their
-own address. Competitors email invoices, so expect the comparison;
-`design/principles.md` has the reasoning.
+**The app sends no mail.** We render the PDF and the user sends it from their
+own address, where their domain's reputation gets it delivered and their Sent
+folder keeps a copy. Competitors email invoices, so expect the comparison.
 
 ## What this is a bet on
 

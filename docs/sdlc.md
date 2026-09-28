@@ -29,9 +29,10 @@ flowchart TD
   end
 
   subgraph Ship
-    release["Release gate<br/>plan → approve + backup if migrating<br/>→ migrate + verify"]
+    release["Release gate<br/>plan → approve + backup if migrating<br/>→ migrate + verify → smoke"]
     live([Live])
     cleanup["git worktree remove<br/>git branch -D"]
+    alert["Sentry alert"]
   end
 
   idea -->|fault or tweak| issue
@@ -53,7 +54,23 @@ flowchart TD
   qa -->|Blake merges| release
   release --> live
   release --> cleanup
+  live --> alert -->|bug · urgent| issue
 ```
+
+## Capture
+
+**Unbuilt work splits on one question: does it need a spec?** A new
+capability or an expansion does. It is assessed with `/speckit-assess-*`,
+filed through the **Feature** issue form, whose four questions are the gate,
+and built through Spec Kit. Everything smaller is a GitHub issue: a fault
+labeled `bug` plus its cost (`wrong data`, `misleading`, `looks wrong`, worst
+first), or an improvement to something that exists, labeled `enhancement`.
+One filed with `gh` answers the form's fields under the same labels. The PR
+that does it closes it.
+
+**Two milestones, and they are gates:** `Alpha`, a handful of friends using
+it for real, and `Launch`, a stranger paying. An issue in neither is wanted
+and not committed to. `urgent` orders within one.
 
 ## Review
 

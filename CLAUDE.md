@@ -1,92 +1,52 @@
 # Time Tracking — working notes
 
 Time tracking and invoicing for one contractor. Tracking is free; the invoice
-is what gets paid for. **`docs/positioning.md` owns the thesis, the
-competitors and the price** — this file and every other doc defer to it.
+is what gets paid for. **`docs/positioning.md` owns who it's for, the
+competitors and the price**, and wins any conflict about the product.
 
-Read `docs/` before changing anything structural — `docs/CLAUDE.md` says how
-those are written.
-
-**This file holds what constrains code anywhere in the repo.** Before adding
-to it, name the doc that owns the claim:
+This file holds what every session needs before touching any file. Before
+adding to it, name the doc that owns the claim:
 
 | The claim is | It goes to |
 | --- | --- |
-| How to run, build, or deploy something | `docs/local-dev.md`, `docs/deploying.md`, `docs/setup.md` |
+| Who this is for, what it competes with, what it costs, and the US point of view | `docs/positioning.md` |
+| A rule every spec, plan and PR is held to | `.specify/memory/constitution.md` |
 | How work moves from an idea to production | `docs/sdlc.md` |
-| About one screen or one app | that screen's doc, `docs/macos.md`, `docs/design/landing.html` |
-| A shape a screen is assembled from | `docs/design/screens/components.html` |
+| How to run, build, or deploy something | `docs/local-dev.md`, `docs/deploying.md`, `docs/setup.md` |
+| How one screen or part looks, in each state | its `*.stories.tsx`, beside the component |
+| A visual or UI convention every screen keeps | `.claude/rules/web-ui.md` |
+| Why one screen or component is the way it is | a comment at the line it governs |
+| About the macOS app | `docs/macos.md`, `docs/design/menubar.html` |
 | Enforced by a check or a config | that script or config, in a comment at the line someone edits |
-| Who this is for, what it competes with, what it costs | `docs/positioning.md` |
-| What we believe about the product | `docs/design/principles.md` |
-| A new capability, built through Spec Kit | a GitHub issue labeled `feature` |
-| A fault, or an improvement to what exists | a GitHub issue |
 | True only under one path | `.claude/rules/<topic>.md`, with `paths:` frontmatter |
+| A new capability, or a fault or improvement | a GitHub issue (`docs/sdlc.md`) |
 
-Only a claim no doc above owns belongs here, and then as one paragraph.
-Proximity is not ownership: a related section already in this file is the
-reason it keeps growing, not a precedent. Say what a thing is, not what it
-was instead of.
+Only a claim no doc in the table owns belongs here, and then as one paragraph. Keep
+this file under 200 lines, Anthropic's target for a file loaded into every
+session.
 
-**Under 200 lines**, which is Anthropic's target for a file loaded into every
-session: past it, adherence drops and the rule you needed is the one that gets
-lost. A section that is true only when editing one part of the tree belongs in
-`.claude/rules/`, where it loads when Claude opens a matching file and costs
-nothing the rest of the time.
+## The constitution
 
-## Non-negotiables
+Every plan and PR meets `.specify/memory/constitution.md`. The rules that
+bite anywhere in the repo:
 
-**One running timer per user, enforced by a database index.** Never add a code
-path that could produce overlapping entries.
+- **One running timer per user, enforced by a database index** (VI). Never
+  add a code path that could produce overlapping entries.
+- **The app never silently modifies user data** (II). A suspect record goes
+  to the inbox.
+- **Every client goes through `/api/v1/*`; no Server Actions** (XI). The
+  server owns timer truth; clients own responsiveness.
+- **`packages/core` does no I/O** (XII).
+- **Migrations and API responses stay compatible with a client that hasn't
+  updated** (XIII).
+- **New code ships with its suite** (XV).
 
-**The app never silently modifies user data.** A suspect record is surfaced
-for the user to resolve, never corrected on their behalf
-(`docs/design/principles.md`).
+## Design tokens
 
-**Server owns timer truth; clients own responsiveness.**
-
-**The accent (green `#52FC43`) marks the running timer and the primary
-confirm action** — the one action a screen or dialog exists to complete. Two
-uses, and a screen gets one of the second kind at most.
-
-**Green is the product's one color, and it runs a scale.** `accent-default`
-is the live thing and the button that acts; `success` is the same hue one step
-off it — toward the ground in dark, toward the paper in light — for an outcome
-that has already happened: paid, saved. The step is what separates them: a
-paid badge must read as green without reaching the weight of a running timer.
-Never white text on the accent — use `--text-on-accent`.
-`docs/design/deriving-color.md` has the step; `docs/design/brand.html` is the
-test, and for focus rings (neutral, never the accent).
-
-**Content floats, chrome recedes — in four planes**, deepest to nearest:
-`bg-surface-recessed`, `bg-surface-base`, `bg-surface-primary`,
-`bg-surface-elevated`.
-
-**Judge adjacent surfaces by OKLCH ΔL, never by WCAG contrast.** Changing
-either ramp means changing `docs/design/deriving-color.md`'s generators,
-never a hex.
-
-## Conventions
-
-- **No Server Actions** for anything Expo or Swift also needs. Everything goes
-  through `/api/v1/*` route handlers.
-- Colors come from **semantic** tokens only; primitives stay in the token
-  package.
-- **Only clients have a color**, resolved through `useProjectColors()`;
-  internal work gets none.
-- Design tokens are **generated** — edit `packages/design-tokens/tokens.json`,
-  then `pnpm tokens`. Never edit files in `dist/`.
-- Both neutral ramps are **derived**: change a parameter in
-  `src/derive-neutrals.mjs` (dark) or `src/derive-light.mjs` (light) and paste
-  the output. A hand-edited hex fails `pnpm tokens:validate`, naming the step.
-- Durations are always mono + `tabular-nums`.
-- Time entry ids are **client-generated UUIDv7** (`uuidv7()` in `@stint/core`) so
-  a retried insert is idempotent — the same id lands on the same row.
-- Rate resolution is written **twice** — `resolveRate()` in TS (the one that
-  actually bills) and `resolve_rate()` in SQL. They must agree;
-  `docs/data-model.md` has the chain.
-- `0` is a valid rate. Use null-coalescing, never truthiness.
-- Archive, don't delete — invoices reference clients and projects.
+Tokens are **generated**: edit `packages/design-tokens/tokens.json`, then run
+`pnpm tokens`. Never edit files in `dist/`. One source feeds CSS, TypeScript
+and Swift, so the clients cannot drift. Text on the accent is always
+`--text-on-accent`; `tokens:validate` rejects anything else.
 
 ## Local development
 
@@ -125,48 +85,7 @@ build machine has only what git tracks. A suite is not exempt — the PDF route
 imports `dist/tokens.ts` and the UI suite resolves `@stint/design-tokens`, so
 both fail on a clone that has never built.
 
-## Dependency versions
-
-**TypeScript stays on 6.x until Next declares TS 7 support.** 6 is the last
-release built on the JavaScript codebase, so it keeps the programmatic API
-that Next's type checking and TS plugin use; 7 ships without one until 7.1.
-The config work is already done, so the move is a version bump.
-
-**`@types/node` tracks the Node major actually in use** (24).
-
-## Jurisdiction
-
-**This product is built from a US point of view.** Default to USD, US date and
-number formats, US banking rails (ACH routing + account number, checks), and
-US tax framing (1099 contracting, W-9, no VAT). A US contractor invoicing
-services usually has no tax line at all — `tax_rate` defaults to 0 and should
-stay there unless a client genuinely owes tax. International support is
-**additive, not the baseline**. Never infer a non-US jurisdiction from sample
-data or a developer's current location.
-
 ## Docs
 
 `docs/CLAUDE.md` says how docs are written; Vale checks prose against the
 Google style guide and those rules, and `/copyedit <path>` fixes a doc.
-
-**Unbuilt work splits on one question: does it need a spec?** A new
-capability or an expansion does — it is assessed with `/speckit-assess-*`,
-filed through the **Feature** issue form, whose four questions are the gate,
-and built through Spec Kit. Everything smaller is a **GitHub issue**: a fault
-labeled `bug` plus its cost (`wrong data`, `misleading`, `looks wrong`, worst
-first), or a tweak or improvement to something that exists, labeled
-`enhancement`. Each kind has a form in `.github/ISSUE_TEMPLATE/`, and one
-filed with `gh` answers the same fields under the same labels. The PR that
-does it closes it.
-
-**Two milestones, and they are gates: `Alpha`**, a handful of friends using it
-for real, **and `Launch`**, a stranger paying. An issue in neither is wanted
-and not committed to. `urgent` orders within one.
-
-**`docs/api.md` marks unimplemented endpoints `(not implemented)`.**
-
-**The app is online-only**, for the reasons `docs/architecture.md` records.
-
-**The mark's geometry is a token.** `brand.mark` in `tokens.json` generates
-`--mark-bound-*` and `Tokens.Mark`, so `|Stint|` is one drawing across both
-apps.

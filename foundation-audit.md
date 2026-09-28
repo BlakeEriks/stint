@@ -165,3 +165,9 @@ version of each file is the baseline, since it merges first.
 1. **The accent rule:** keep it as a changeable `web-ui.md` convention, or drop it entirely and let each design decide?
 2. **Export:** positioning promises free exports and nothing is built. Keep the promise (and file a `feature`), or cut it from positioning?
 3. **API compatibility:** add a Change safety principle with a TODO for a contract check (for example, generate OpenAPI from `packages/schema` and diff it with `oasdiff`), or leave it to review until a second client ships?
+
+## Answers (2026-09-28)
+
+1. Accent: soft convention in `web-ui.md`; no test enforces a count.
+2. Export: keep the promise; file a `feature` issue on the Launch milestone.
+3. API compatibility: principle XIII covers responses; `TODO(API_CONTRACT_CHECK)` becomes an issue.

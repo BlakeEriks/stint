@@ -78,7 +78,8 @@ after that run started reports a miss forever. Use `workflow_dispatch`.
 Repo → Settings → Branches → Add rule for `main`:
 
 - Require a pull request before merging
-- Require status checks to pass → **`static`** and **`database`**
+- Require status checks to pass → `scan`, `static`, `database`, `macos`,
+  `e2e` and `drift`
 - **Leave "Require branches to be up to date" off.** On, every merge puts
   every open PR behind and each needs a rebase and a second CI run. Off, two
   PRs green apart could break together; CI on the push to `main`, Vercel's
@@ -86,11 +87,6 @@ Repo → Settings → Branches → Add rule for `main`:
 - **Leave "include administrators" off.** Solo, you want the gate to hold by
   default but to be bypassable at 2am when you are the only person who can
   fix production.
-
-Once this is on, remove `push: { branches: [main] }` from `ci.yml` — a push
-to main is then always a merge whose PR already ran the suite, and leaving it
-pays for every suite twice. Do it in that order; removing the trigger first
-leaves no gate at all.
 
 Then Settings → General → **Allow auto-merge**: `dependabot-merge.yml` uses
 it to merge Dependabot's bumps once the required checks pass.
@@ -320,22 +316,6 @@ Supabase → Authentication → URL Configuration. Add the production origin to
 **Site URL** and `https://<domain>/auth/callback` to **Redirect URLs**, or
 magic links bounce. Previews sign in through `/preview/signin` (§3d) and need
 no redirect URL.
-
-## Gated behind a paid plan
-
-Two checks exist in the repo but cannot run while it is private on a personal
-account:
-
-- **Branch protection / rulesets** need GitHub Pro. Until then `main` is
-  unprotected: CI still runs on every PR and every push, but nothing *stops*
-  a merge with it red. The workflow is the same either way — open a PR, let
-  it go green, merge.
-- **CodeQL** needs Advanced Security on a private repo. The workflow skips
-  itself unless the repo is public, because a permanently-red check trains
-  you to ignore checks.
-
-Making the repo public enables both, free. The reason not to is that the
-schema models bank details and invoicing.
 
 ## What is deliberately absent
 

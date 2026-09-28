@@ -40,7 +40,7 @@ back to UTC, these two return 422. An omitted one still defaults to UTC.
 
 **The app sends no mail.** Invoices are downloaded and sent by the user from
 their own address; `PATCH /invoices/:id/status` records that it went out.
-`principles.md` says why, and it is not a gap to fill.
+`docs/positioning.md` says why, and it is not a gap to fill.
 
 ### Payment details
 

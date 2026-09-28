@@ -12,7 +12,10 @@ updates:
     # falls outside every group and still opens its own PR. So majors are
     # ignored outright and bumped deliberately instead: TypeScript 5 -> 7 and
     # @types/node 22 -> 26 both arrived unasked on the first run, and a
-    # toolchain major is a decision, not a chore.
+    # toolchain major is a decision, not a chore. The standing ones:
+    # TypeScript stays on 6 until Next declares TS 7 support, since 7 ships
+    # without the programmatic API Next's type checking uses; @types/node
+    # tracks the Node major in use (24).
     ignore:
       - dependency-name: "*"
         update-types: [version-update:semver-major]

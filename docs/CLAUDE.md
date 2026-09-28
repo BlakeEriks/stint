@@ -10,8 +10,7 @@ spec doubles as the visual reference: `design/brand.html`,
 
 **Anything architectural or procedural is Markdown**: `api.md`,
 `data-model.md`, `architecture.md`, `deploying.md`, `local-dev.md`,
-`macos.md`, `positioning.md`, `sdlc.md`,
-`design/principles.md`, `design/deriving-color.md`.
+`macos.md`, `positioning.md`, `sdlc.md`, `design/deriving-color.md`.
 
 `pnpm design` serves them at `localhost:8778`. Start a screen doc by copying
 `design/screens/_shell.html`; the index and nav are built by reading the
@@ -80,7 +79,8 @@ every screen doc belongs there instead.
 
 A new capability is a GitHub issue labeled `feature`, a fault or an
 improvement one labeled `bug` or `enhancement`. A rejection is deleted —
-`principles.md` holds what we believe, never a record of what was turned down.
+the constitution holds what we hold to, never a record of what was turned
+down.
 
 ## Keeping it tight
 

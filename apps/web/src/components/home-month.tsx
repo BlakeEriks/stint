@@ -31,7 +31,9 @@ const NICE = [1, 1.2, 1.5, 1.8, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 10];
  *
  * Earned is the screen's subject and the series the projection extrapolates;
  * On track for and Unbilled are two narrower readings taken from the month's
- * money (`docs/design/screens/home.html`).
+ * money. Earned buckets by when the work was done, never when it was invoiced
+ * or paid, so sending an invoice doesn't move it. Unbilled is a balance that
+ * resets on invoicing, which is why it's a reading rather than the headline.
  */
 export function Month({
   stats,

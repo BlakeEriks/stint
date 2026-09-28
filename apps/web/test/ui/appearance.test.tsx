@@ -114,7 +114,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('the accent marks the running timer, and nothing else', () => {
+describe('the readout carries the accent only while running', () => {
   it('gives the readout the accent while running', async () => {
     serve(summary({ running: entry() }));
     render(<TimerBar projects={PROJECTS} />, { wrapper });

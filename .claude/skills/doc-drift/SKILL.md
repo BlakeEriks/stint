@@ -50,7 +50,7 @@ Nothing changed behavior → go to step 4 with no findings.
 | a skill, agent or command in `.claude/` | `docs/sdlc.md` |
 | a `pnpm` script | `docs/local-dev.md`, `README.md` |
 | a repo-wide constraint | `CLAUDE.md` |
-| what a user sees, or how their data is treated | `docs/design/principles.md` |
+| what a user sees, or how their data is treated | `.specify/memory/constitution.md`, `.claude/rules/web-ui.md` |
 | who it is for, what it costs, what it replaces | `docs/positioning.md` |
 
 Grep `docs/`, `README.md`, the `CLAUDE.md` files and `.claude/` for the
@@ -63,8 +63,8 @@ leave it out.
 For each claim, find a finding when:
 
 - **it is false now**: the doc says something the new code contradicts
-- **it breaks a principle**: the change does what `principles.md`,
-  `positioning.md` or `CLAUDE.md`'s non-negotiables rule out, such as
+- **it breaks a principle**: the change does what the constitution
+  or `positioning.md` rules out, such as
   correcting a suspect record on the user's behalf
 - **it is missing**: a new endpoint absent from `api.md`, or one the PR
   implemented that is still marked `(not implemented)`; a new column absent
