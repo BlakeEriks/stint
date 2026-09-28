@@ -43,4 +43,5 @@ Every PR reaches QA the same way, whether `/work-issues` built it or not:
   `pr-<n>@preview.test`, which `preview-db` seeds from the branch.
 - **`migration` labels a PR that adds one.** The previews share one schema,
   so one such PR is open at a time.
-- **`ready-for-qa` goes on once CI is green.**
+- **`ready-for-qa` goes on once CI is green and nothing is unanswered**: no
+  feedback, doc drift or conflict with `main` left open.
