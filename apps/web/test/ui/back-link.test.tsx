@@ -63,7 +63,7 @@ describe('BackLink', () => {
   });
 
   it('returns to the record a form was opened from', () => {
-    visit('/projects', '/clients/c1');
+    visit('/invoices', '/clients/c1');
     at.pathname = '/clients/c1/edit';
     const link = arrow('/clients/c1', 'Back');
     expect(link).toHaveTextContent('← Back');
@@ -71,10 +71,10 @@ describe('BackLink', () => {
   });
 
   it('goes back past the form a record was saved through', () => {
-    visit('/projects', '/clients/c1', '/clients/c1/edit');
+    visit('/invoices', '/clients/c1', '/clients/c1/edit');
     at.pathname = '/clients/c1';
     const link = arrow('/clients', 'Clients');
-    expect(link).toHaveTextContent('← Projects');
-    expect(link).toHaveAttribute('href', '/projects');
+    expect(link).toHaveTextContent('← Invoices');
+    expect(link).toHaveAttribute('href', '/invoices');
   });
 });

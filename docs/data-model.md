@@ -20,7 +20,7 @@ Implemented **twice**, once per language:
   bills.** `POST /invoices` builds line items in memory and writes
   `resolved_rate` from the value TypeScript computed. The preview and the
   issued invoice therefore come from identical code, which is the property
-  that matters most. `ProjectRate` prints the same figure on `/projects`.
+  that matters most. `ProjectRate` prints the same figure on `/clients`.
 - `resolve_rate(numeric, numeric, numeric, numeric)` in SQL
   (`00000000000010_one_rate_chain.sql`) — the chain over the four columns,
   called by `resolve_entry_rate(uuid)` for a single entry and once per row in

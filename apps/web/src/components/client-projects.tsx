@@ -14,7 +14,7 @@ import { keys, listsArchived } from '@/lib/client/query-keys';
 /**
  * The projects belonging to one client.
  *
- * `/projects` lists them across clients; here they sit under the one they
+ * `/clients` lists them across clients; here they sit under the one they
  * belong to. A project is meaningless without its client — the rate hierarchy
  * runs `project -> client -> default` — and nested under the client, the
  * inherited rate is right there to compare against.

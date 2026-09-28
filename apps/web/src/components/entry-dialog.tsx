@@ -318,7 +318,7 @@ export function EntryDialog({
               autoFocus={focus === 'project'}
               /* This is already a dialog, and Radix mounts no dialog inside
                  one — the item would set its state and nothing would appear.
-                 Projects are created from the timer bar or `/projects`. */
+                 Projects are created from the timer bar or `/clients`. */
               canCreate={false}
             />
           </div>
