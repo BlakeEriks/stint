@@ -93,8 +93,9 @@ test('start → current → stop round trip', async () => {
 
   const stopped = await json(await stop(req('/timer/stop', {})));
   assert.equal(stopped.status, 200);
-  assert.ok(stopped.body.endedAt, 'stopping sets endedAt');
-  assert.ok(stopped.body.durationSeconds >= 0);
+  assert.equal(stopped.body.entry.id, started.body.id);
+  assert.ok(stopped.body.entry.endedAt, 'stopping sets endedAt');
+  assert.ok(stopped.body.entry.durationSeconds >= 0);
 
   const after = await json(await current(req('/timer/current')));
   assert.equal(after.body.entry, null, 'no timer running after stop');
@@ -120,6 +121,11 @@ test('stop returns Unbilled with the stopped entry counted, as /stats has it', a
   const endedAt = new Date(Date.parse(startedAt) + 3600 * 1000).toISOString();
   const stopped = await json(await stop(req('/timer/stop', { endedAt })));
   assert.equal(stopped.status, 200);
+  assert.deepEqual(Object.keys(stopped.body).sort(), [
+    'currency',
+    'entry',
+    'unbilled',
+  ]);
   assert.equal(stopped.body.currency, 'USD');
   assert.equal(stopped.body.unbilled.total, 100);
 
