@@ -44,8 +44,6 @@ never feedback, except the doc-drift comment step 0 reads.
 - `migration` (issue and its PR): the fix needs a database migration.
 - `urgent` (issue): Blake's, to jump the queue.
 
-Adding `ready-for-qa` or `needs-input` posts to Discord.
-
 ## A round
 
 Every build and every fix goes the same way:
@@ -166,5 +164,5 @@ Only under `/loop`: wake again in 15 minutes while an open PR's CI is still
 running, and in 60 while five PRs wait on Blake and issues are left to pick,
 so a merge frees a slot without a restart. Pass the same `/loop` prompt
 back — never a hand-written one, which would skip step 0. Without `/loop`,
-schedule nothing. Otherwise end the loop: Discord tells Blake when
-something needs him, and he starts it again after replying.
+schedule nothing. Otherwise end the loop: Blake finds what needs him by
+label, and starts it again after replying.
