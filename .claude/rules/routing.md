@@ -43,7 +43,7 @@ Consequences worth knowing:
 draws it. The strategy is `docs/positioning.md`'s, and the page is quiet
 because the reader is trusting it with their rates: the invoice is shown
 rather than described, and a competitor's bill is named but never the
-competitor. Rules the page must keep:
+competitor. Its current conventions, which a redesign may change:
 
 **Green marks the hero timer and the CTA**, one fact: start tracking, time
 accruing. The unbilled card, the invoice and the headings are neutral.
@@ -57,7 +57,7 @@ then the price.
 channel, and a stack of red marks reads as "this product is broken" for the
 half-second before it parses.
 
-### The page's other rules
+### The page's other conventions
 
 **Banned words**, because each carries no information or the wrong audience:
 seamless, effortless, powerful, intuitive; beautiful, well-designed;

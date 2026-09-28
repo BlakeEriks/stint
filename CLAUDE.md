@@ -27,19 +27,9 @@ session.
 
 ## The constitution
 
-Every plan passes `.specify/memory/constitution.md` before it's built. Its
-six principles, in brief:
+Every plan and every change passes it:
 
-- **I.** The app never silently modifies user data; a suspect record goes to
-  the inbox.
-- **II.** Logic written twice has a parity test against a real database.
-- **III.** Every client goes through `/api/v1/*`; no Server Actions. The
-  server owns timer truth; clients own responsiveness.
-- **IV.** `packages/core` does no I/O.
-- **V.** Before Launch, a destructive change is fine if the same PR updates
-  the macOS app. From Launch, migrations and API responses stay compatible
-  with a client that hasn't updated.
-- **VI.** Tests first, one suite per kind of code.
+@.specify/memory/constitution.md
 
 ## Design tokens
 
@@ -52,9 +42,8 @@ and Swift, so the clients cannot drift. Text on the accent is always
 
 **Never point local dev at production.** `pnpm dev` reads
 `apps/web/.env.development.local`, and no file on disk holds the production
-database string — **never save it to one**. A merge deploys. Vercel holds the
-build unaliased while `release.yml` verifies it, and a release with a
-migration also waits for your approval and a backup (`docs/deploying.md`).
+database string — **never save it to one**. A merge deploys, through the
+release gate in `docs/deploying.md`.
 
 **A new worktree is made with `pnpm worktree <branch>`**, never
 `git worktree add`. Git carries no `node_modules`, no

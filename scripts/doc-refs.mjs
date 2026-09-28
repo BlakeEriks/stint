@@ -21,16 +21,14 @@ const DOCS = [
   'docs/setup.md',
   'docs/macos.md',
   'docs/design/deriving-color.md',
-  ...[
-    'api-layer',
-    'invoicing',
-    'migrations',
-    'positioning',
-    'routing',
-    'testing',
-    'tooling',
-    'web-ui',
-  ].map((r) => `.claude/rules/${r}.md`),
+  // Everything an agent is handed: rules, subagents, commands.
+  ...['.claude/rules', '.claude/agents', '.claude/commands'].flatMap((dir) =>
+    existsSync(dir)
+      ? readdirSync(dir)
+          .filter((f) => f.endsWith('.md'))
+          .map((f) => `${dir}/${f}`)
+      : [],
+  ),
 ];
 
 // Where a bare name may live, besides the repo root and the doc's own folder.

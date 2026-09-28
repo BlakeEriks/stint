@@ -23,28 +23,15 @@ AND needs a new migration carrying the same change to production — and
 column.
 
 **Production migrates itself — never tell the user to run `pnpm migrate`
-against it.** `.github/workflows/release.yml` is a Vercel deployment check:
-the production build is built but not aliased until that workflow runs
-`pnpm migrate` and `verify:schema` against `PRODUCTION_DB_URL`, so the
-migration lands while the previous build still serves traffic. Merging and
-approving the release are the whole deploy step: the approval page shows each
-pending migration's SQL. `pnpm migrate` by hand is for a local or throwaway
-database only, and `docs/deploying.md` owns the shape.
+against it.** The release gate migrates production on merge
+(`docs/deploying.md`); `pnpm migrate` by hand is for a local or throwaway
+database only.
 
-**From Launch, they are additive and forward-only** (constitution V). Each file runs in
-its own transaction, so one that *fails* rolls back clean; there is no down
-path for one that succeeds and is wrong, so write migrations that cannot need
-reverting:
-
-- **Before Launch, a destructive change is fine.** Drop what a cut feature
-  left behind in a new migration, and update the macOS app in the same PR.
-  Schema that has never reached production folds into its original file
-  instead.
-- Backfills belong in their own migration, separate from the DDL, so a slow
-  one cannot hold a lock on the change that needs to land.
-
-`verify:schema` checks the shape is correct, not that getting there was safe;
-from Launch, #141 checks it.
+Each file runs in its own transaction, so one that fails rolls back clean.
+There is no down path, so a wrong one is fixed by the next. A change the
+macOS app reads updates the app in the same PR. Backfills belong in their own
+migration, separate from the DDL, so a slow one cannot hold a lock on the
+change that needs to land.
 
 **The publishable key is public by design** — it ships in the browser bundle,
 so RLS is the only thing protecting the data. That makes `verify:schema` the

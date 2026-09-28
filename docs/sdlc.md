@@ -8,7 +8,8 @@ with the command that moves it at each step.
 2. **Build.** A feature: `/next-feature`, then `/speckit-clarify` →
    `/speckit-plan` → `/speckit-tasks` → `/speckit-analyze`, then
    `/speckit-implement` in a `pnpm worktree`. An issue: `/work-issues` in
-   `../stint-issues`.
+   `../stint-issues`. A feature merges one user story at a time; a story
+   that can't stand alone stays unlinked in the UI until the rest lands.
 3. **Review.** A PR runs CI and the Docs checks (Vale, `/doc-drift`), then
    goes to QA on its Vercel preview or `pnpm try-mac`. A green Dependabot PR
    outside the framework group merges itself; a red one goes to

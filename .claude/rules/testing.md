@@ -70,10 +70,11 @@ worth covering and stubbing it would test the stub.
 Separate from `pnpm --filter @stint/web test` (route handlers against real
 Postgres under `node --test`); the Vitest config never picks those up.
 
-`test/ui/appearance.test.tsx` covers the design rules that fail **silently**:
-white-on-accent, the accent on a stopped timer, an accent focus
-ring, hand-rolled type instead of a role, and a `type-*` that is not a real
-role. Verify each new assertion fails when its rule is broken.
+`test/ui/appearance.test.tsx` covers the objective design facts that fail
+**silently**: white on the accent, the readout's running state, hand-rolled
+type instead of a role, a `type-*` that is not a real role, and a token one
+theme defines and the other doesn't. Visual conventions stay untested so a
+design can change them. Verify each new assertion fails when its rule is broken.
 
 **Do not add computed-style assertions.** jsdom cannot parse Tailwind 4's
 compiled output (`@layer`, `@property`, `oklch()`, nested `@media`) and

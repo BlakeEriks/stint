@@ -14,26 +14,25 @@ in `feature` issues.
 
 ## The shape: a client shell over an HTTP API
 
-Three clients, only one of which is a browser. That single fact determines the
+A browser and a native app share one backend. That fact determines the
 architecture:
 
-- **Server Actions are not used** for anything mobile or desktop also needs.
-  They are a form-mutation convenience that Swift and Expo cannot call.
+- **No Server Actions** (constitution III). They are a form-mutation
+  convenience a native client cannot call.
 - Every client — including the web app — talks to `/api/v1/*` Route Handlers,
   which are plain Web-standard `Request → Response`.
 - **All business logic lives behind that API.** Timer arbitration, rate
   resolution, and invoice numbering exist in exactly one place.
 - RLS is enabled on every table as a safety net beneath the API, not as the
   primary access path.
-- Plain **REST + Zod**, whose shapes Swift can mirror. Nothing checks the
-  Swift models against them yet (#142).
+- Plain **REST + Zod**, whose shapes Swift mirrors.
 
 ## The timer invariant
 
 > At most one running time entry per user, enforced by a partial unique index
 > (`docs/data-model.md`).
 
-Timer state is **server-authoritative**. Opening the phone app shows the timer
+Timer state is **server-authoritative**. Opening the web app shows the timer
 already running on the Mac, because the server is the source of truth. A
 `POST /timer/start` while one is running returns `409 TIMER_ALREADY_RUNNING`
 along with the running entry, so the client can display it.
@@ -57,7 +56,7 @@ The app is **online-only**, deliberately.
 
 ## Auth
 
-Supabase Auth. All three clients send the same JWT as a bearer token, and the
+Supabase Auth. Every client sends the same JWT as a bearer token, and the
 route handlers verify it identically.
 
 - **Web** — `@supabase/ssr`, cookie-based sessions.
@@ -111,4 +110,4 @@ docs/design/samples     Committed renderer output
 
 `packages/design-tokens` is a **build step, not a copy-paste**. One
 `tokens.json` generates CSS custom properties, a TS object, and a Swift `Color`
-extension, so the three clients cannot drift.
+extension, so the clients cannot drift.

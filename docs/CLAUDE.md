@@ -18,9 +18,7 @@ stale one renders perfectly and quietly misrepresents the app. A surface that
 genuinely is not app chrome — the invoice PDF on white paper — opens its block
 with `not-app-chrome:` and a reason.
 
-**Anything architectural or procedural is Markdown**: `api.md`,
-`data-model.md`, `architecture.md`, `deploying.md`, `local-dev.md`,
-`macos.md`, `positioning.md`, `sdlc.md`, `design/deriving-color.md`.
+**Anything architectural or procedural is Markdown.**
 
 ## A sentence earns its place only if nothing else already says it
 

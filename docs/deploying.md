@@ -58,23 +58,8 @@ to merge. `hygiene.yml` files issues each Monday from `pnpm hygiene`. Both
 spend Claude tokens from the `CLAUDE_CODE_OAUTH_TOKEN` secret, and only for
 the repository owner.
 
-Two narrowings in `e2e` pay for themselves and are easy to undo by accident:
-`supabase start -x studio,postgres-meta` skips 2.25GB of images the browser
-suite never touches, and `playwright install --only-shell` skips the full
-Chrome build that Playwright never launches. Local `dev:up` excludes more
-again; `pnpm dev:up:studio` brings Studio up when the dashboard is what you
-want.
-
-**The Supabase images are pulled, not cached, and that was measured.** A cache
-cost 7s to restore plus 38s for `docker load` against an 18s pull — `docker
-load` decodes a tarball serially on a slow runner disk while a pull fetches
-layers in parallel. It took 6s locally, which is exactly the trap:
-extrapolating from a laptop made it look like a win twice. Do not reintroduce
-it without measuring on a runner.
-
-**`gh run rerun` cannot answer "is the cache hit now?"** A re-run replays the
-original run and keeps its point-in-time view of the caches, so a cache saved
-after that run started reports a miss forever. Use `workflow_dispatch`.
+`ci.yml` carries the reasons for its runner narrowings and caching at the
+lines they govern.
 
 ## 1. Branch protection
 
@@ -322,7 +307,5 @@ no redirect URL.
 
 ## What is deliberately absent
 
-- **No automatic rollback.** Migrations are forward-only and additive by
-  rule — see `.claude/rules/migrations.md`. Reverting a deploy is a Vercel
-  redeploy of the previous build; reverting a *migration* means writing a new
-  additive one.
+- **No automatic rollback.** Reverting a deploy is a Vercel redeploy of the
+  previous build; a wrong migration is fixed by a new one.

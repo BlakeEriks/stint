@@ -36,19 +36,7 @@ Parsing, rates, invoice lines and time math are pure functions in
 `packages/core`: no `next`, no `@supabase/*`, no network or file access. The
 route handler reads and writes; core transforms.
 
-### V. From Launch, a change ships for the client that hasn't updated
-
-Until the `Launch` milestone, the only users are the team, so a change may be
-destructive: what a cut feature leaves behind is dropped, not carried, and
-the same PR updates the macOS app to match.
-
-From Launch, the web deploys on merge while the macOS app updates when its
-user chooses to. A migration is additive: a new column is nullable or
-defaulted, and no shipped column is dropped, renamed or narrowed. Retiring
-one takes two releases. An API response keeps every field a shipped client
-reads, with the same name and type.
-
-### VI. Tests first, one suite per kind of code
+### V. Tests first, one suite per kind of code
 
 Tasks write the test before the code, and each kind of code has its suite:
 
@@ -83,10 +71,8 @@ Facts a design works around:
 
 ## Development Workflow
 
-- A PR merges only with every required check green (`docs/deploying.md`).
-- A screen is designed as stories first; the component is built to them.
-- An unexpected error is never swallowed. A `catch` either handles a failure
-  it expects or lets it reach error reporting.
+An unexpected error is never swallowed: a `catch` handles a failure it
+expects, and rethrows anything else.
 
 ## Governance
 
@@ -97,4 +83,4 @@ change, the plausible design that breaks it, and why no check catches that
 in time. The version follows semver: MAJOR removes or redefines a principle,
 MINOR adds one, PATCH rewords. The reasoning goes in the PR.
 
-**Version**: 6.1.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-28
+**Version**: 7.0.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-28
