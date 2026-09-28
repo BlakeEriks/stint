@@ -14,8 +14,10 @@ to it, name the doc that owns the claim:
 | --- | --- |
 | How to run, build, or deploy something | `docs/local-dev.md`, `docs/deploying.md`, `docs/setup.md` |
 | How work moves from an idea to production | `docs/sdlc.md` |
-| About one screen or one app | that screen's doc, `docs/macos.md`, `docs/design/landing.html` |
-| A shape a screen is assembled from | `docs/design/screens/components.html` |
+| How one screen or part looks, in each state | its `*.stories.tsx`, beside the component |
+| Why one screen or component is the way it is | a comment at the line it governs |
+| A convention every screen keeps | `.claude/rules/web-ui.md` |
+| About the macOS app | `docs/macos.md`, `docs/design/menubar.html` |
 | Enforced by a check or a config | that script or config, in a comment at the line someone edits |
 | Who this is for, what it competes with, what it costs | `docs/positioning.md` |
 | What we believe about the product | `docs/design/principles.md` |
@@ -55,8 +57,8 @@ off it — toward the ground in dark, toward the paper in light — for an outco
 that has already happened: paid, saved. The step is what separates them: a
 paid badge must read as green without reaching the weight of a running timer.
 Never white text on the accent — use `--text-on-accent`.
-`docs/design/deriving-color.md` has the step; `docs/design/brand.html` is the
-test, and for focus rings (neutral, never the accent).
+`docs/design/deriving-color.md` has the step; `docs/design/principles.md` has
+the rule, and for focus rings (neutral, never the accent).
 
 **Content floats, chrome recedes — in four planes**, deepest to nearest:
 `bg-surface-recessed`, `bg-surface-base`, `bg-surface-primary`,

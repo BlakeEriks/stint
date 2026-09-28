@@ -88,13 +88,50 @@ calendar block can be dragged to correct its times — the place you notice a
 mistake should be the place you fix it — so the gesture gets a threshold and a
 snap, and it never re-derives a value it was only asked to move.
 
-## Color and type
+## Color, type and motion
 
-Visual rules live in `design/brand.html`, where they can be seen rather than
-described. One meaning carries into code: **color belongs to the client**,
-resolved through `useProjectColors()`, and internal work gets none. The
-accent's two jobs — the running timer and the one confirm action — are in
-`CLAUDE.md`, which every session loads.
+`Foundations` in Storybook draws the tokens; these are the rules for using
+them. How the palette is computed is `deriving-color.md`.
+
+**Green is the product's one color, and a step down it is the tense.** The
+accent marks what is live and what the user came to finish: the running timer
+and the one confirm per screen, so "which button finishes this?" has one
+answer. `success`, a ramp step down, reports what has already happened — paid,
+saved. The button does not turn green when it succeeds; the outcome is reported
+where it landed. The test: could a user say in one phrase what green means
+here, and would it be true of every green thing in view?
+
+**Weight tracks how often an action is taken, not how much damage it could
+do.** Save is green because nearly every open of a dialog ends in it; Delete is
+a quiet icon because almost none do. Filled red is spent on the step that
+destroys, never on the step that asks. Focus rings stay neutral: a ring is
+constant and involuntary, and the accent there drowns the signal it exists for.
+
+**Depth increases toward what is being read**, in four planes an even ΔL
+apart. A card darker than the surface under it reads as a hole. Only the ink
+inverts between themes; the frame rises toward the card in both.
+
+**Color belongs to the client**, resolved through `useProjectColors()`: it
+answers *whose work is this?*, the question a calendar keeps asking, and the
+project's name answers *which piece?*. Eight hues at one lightness and chroma,
+so no chip out-brights the running timer. Internal work gets none. Charts use
+the two categoricals on the blue/orange axis, the only one dichromats retain.
+
+**A number is a mono role**, tabular: a figure that reflows as its digits
+change is the same defect as a timer that does.
+
+**Motion reports a change; it never announces one.** The timer is the only
+thing that moves on its own, because its number is genuinely changing.
+Nothing pulses, slides in, or draws attention to a figure that has been
+sitting there. `motion-rise` (3px) is the whole vocabulary of travel; height,
+width and margin never animate, except a row leaving, where the gap closing
+is the point. Every duration honors `prefers-reduced-motion`.
+
+**The mark is the word between two bounds**, in one color — a stint is work
+with a start and an end, which is also what a calendar block and an invoice
+line are. `text-strong` where it is the subject (app header, sign-in,
+landing), `text-muted` where it is chrome (the macOS panel header, the landing
+footer). The invoice PDF and the macOS status item carry no mark.
 
 ## Platform scope
 

@@ -35,7 +35,7 @@ first, measurements in tables.
 
 - **Every fact you compress still holds.** Check the file exists, the
   script is in `package.json`, the test is still named that.
-- An HTML doc renders over `pnpm design`: no horizontal overflow, nothing
+- An HTML doc renders when opened from disk: no horizontal overflow, nothing
   wrapped that should not wrap.
 - `vale $ARGUMENTS` and `wc -w` again.
 

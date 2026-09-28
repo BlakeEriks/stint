@@ -354,19 +354,36 @@ pointer-capture methods — without them every DropdownMenu test throws on open.
 
 ## Storybook
 
-`pnpm --filter @stint/web storybook` serves the stories at `localhost:6006`
-with no stack: a story that reads `/api/v1/*` gets it from MSW handlers in
-its `parameters.msw`, and an unhandled request fails. On a browser's first
-visit MSW's service worker installs after the page has loaded, so the first
-story that reads the API gets 404s; reload once. Its MCP server is at
-`localhost:6006/mcp`.
+Every screen is designed and reviewed here: `pnpm --filter @stint/web
+storybook` serves the stories at `localhost:6006` with no stack. They render
+the real components against `src/mocks/`, an in-memory `/api/v1` built from
+one account and parsed by `@stint/schema`, at a pinned instant
+(`src/mocks/time.mts`). A story picks its account with `parameters.db`
+(`'running'`, `'runaway'`, `'empty'`, or `account((db) => …)`) and breaks one
+endpoint with `failing('stats')`; an unhandled request fails. On a browser's
+first visit MSW's service worker installs after the page has loaded, so reload
+once. Its MCP server is at `localhost:6006/mcp`.
 
 `pnpm --filter @stint/web test:stories` runs every story as a test in
-headless Chromium, at the story's viewport, and fails it on an accessibility
+headless Chromium at its viewport, and fails it on an accessibility
 violation. It runs through Vitest's browser mode and Storybook's
 portable-stories API, not Storybook's Vitest addon, which supports Vitest 4 at
 most. The a11y addon fails a test only when `VITEST_STORYBOOK` is `"false"`,
 which `vitest.config.mts` sets.
+
+**Screenshots are compared on Linux only**, in Playwright's container, because
+pixels match only between identical fonts and Chromium:
+
+```bash
+pnpm --filter @stint/web test:stories:docker
+```
+
+checks every story against `test/stories/__screenshots__`, as CI's `stories`
+job does; add `-u` to rewrite the baselines after a change you meant, and read
+the image diff in the PR. The first run installs Linux `node_modules` into
+Docker volumes, so it is slow once. On a Mac, `STORY_SCREENSHOTS=1` on
+`test:stories` with `--update` writes `-darwin.png` renders to look at; they
+are gitignored.
 
 ## The route tests can use it too
 

@@ -4,24 +4,25 @@ Applies to everything under `docs/`, and to `CLAUDE.md`.
 
 ## Format follows content
 
-**Anything visual is HTML**, written in the app's own design system so the
-spec doubles as the visual reference: `design/brand.html`,
-`design/screens/*.html`, `design/menubar.html`, `design/landing.html`.
+**A web screen is a Storybook story, not a doc.** Every screen, part and
+primitive has a `*.stories.tsx` beside its component that renders the real
+thing, so the reference cannot drift from the app; why it is that way is a
+comment at the line. `.claude/rules/web-ui.md` has the conventions and
+`docs/local-dev.md` the commands.
+
+**The macOS panel is HTML**, `design/menubar.html`, written in the app's own
+design system because Storybook cannot render SwiftUI. Open it from disk.
+
+**Its color comes from `design/_mockup.css`**, which `pnpm tokens` generates.
+`tokens:validate` rejects a hex literal in any doc's stylesheet, because a
+stale one renders perfectly and quietly misrepresents the app. A surface that
+genuinely is not app chrome — the invoice PDF on white paper — opens its block
+with `not-app-chrome:` and a reason.
 
 **Anything architectural or procedural is Markdown**: `api.md`,
 `data-model.md`, `architecture.md`, `deploying.md`, `local-dev.md`,
 `macos.md`, `positioning.md`, `sdlc.md`,
 `design/principles.md`, `design/deriving-color.md`.
-
-`pnpm design` serves them at `localhost:8778`. Start a screen doc by copying
-`design/screens/_shell.html`; the index and nav are built by reading the
-directory, so there is no list to update.
-
-**Color comes from `screens/_mockup.css`**, which `pnpm tokens` generates.
-`tokens:validate` rejects a hex literal in any doc's stylesheet, because a
-stale one renders perfectly and quietly misrepresents the app. A surface that
-genuinely is not app chrome — the invoice PDF on white paper — opens its block
-with `not-app-chrome:` and a reason.
 
 ## A sentence earns its place only if nothing else already says it
 
@@ -71,12 +72,9 @@ Git holds the history. A doc states the current final form.
 
 ## One subject, one doc
 
-One screen, one doc; states are sections inside it. A doc never points at its
-siblings — that is the index's job, and a second list drifts.
-
-`screens/components.html` is the exception, and the only one: it is what a
-screen is assembled *from*, so a rule that would otherwise be restated in
-every screen doc belongs there instead.
+One subject, one doc. A doc never points at its siblings — that is the
+index's job, and a second list drifts. A screen's states are its stories,
+not a doc's sections.
 
 A new capability is a GitHub issue labeled `feature`, a fault or an
 improvement one labeled `bug` or `enhancement`. A rejection is deleted —

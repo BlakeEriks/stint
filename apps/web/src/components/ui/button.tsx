@@ -3,6 +3,29 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from '@/lib/cn'
 import { Slot } from "radix-ui"
 
+/*
+ * Three tables decide a button; nothing is a judgment call.
+ *
+ *   The container sets the size: a dialog footer or page-level form is
+ *   `default`; a row action or section header `sm`; a dense repeating row (the
+ *   dock, a calendar cell) `xs`; icon-only takes the matching `icon-*`.
+ *
+ *   The role sets the variant: the one action the screen exists to complete
+ *   is `accent`; anything else that performs something `default`; beside a
+ *   confirm, or any row action, `ghost`; the second step of a destructive pair
+ *   `destructive`. The error boundary's "Try again" stays neutral, so green
+ *   still means the timer that keeps running under it.
+ *
+ *   The verb sets the icon, one meaning each: Create `Plus`, Edit `Pencil`,
+ *   Save `Check` (commits the form it sits in, nothing else), Delete `Trash2`,
+ *   Archive `Archive`, Send `Send` (records that it left; the app mails
+ *   nothing), Download `Download`, Void `Ban`, Retry `RotateCw`, Working
+ *   `Loader2`. A label unique to one screen ("Generate invoice") and Cancel
+ *   take none.
+ *
+ * `secondary`, `outline`, `link` and `lg` are not variants: a third weight is
+ * `ghost`, a link is an `<a>`, and the landing CTA sizes itself.
+ */
 const buttonVariants = cva(
   "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-edge-focus focus-visible:ring-[3px] focus-visible:ring-edge-focus disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-danger aria-invalid:ring-danger [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
@@ -25,7 +48,7 @@ const buttonVariants = cva(
         // CLAUDE.md.
         accent: "bg-accent-default text-on-accent hover:bg-accent-hover",
         // The second step of a destructive pair. The first step is a quiet
-        // ghost icon — see the action-button tables in components.html.
+        // ghost icon — see the tables above.
         destructive:
           "bg-danger text-on-danger hover:bg-danger focus-visible:ring-danger",
         ghost:

@@ -12,14 +12,6 @@
       "port": 3100
     },
     {
-      "name": "design",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "design"
-      ],
-      "port": 8778
-    },
-    {
       "name": "storybook",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [

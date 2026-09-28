@@ -182,7 +182,7 @@ describe('Inbox', () => {
   });
 
   /**
-   * `inbox.html`: severity is one 2px edge inside the card, and half the rows
+   * Severity is one 2px edge inside the card, and half the rows
    * have none. `danger` is the overdue invoice, where money is already late;
    * `timer-warning` is a length that wants a look; a stale draft and an
    * unprojected entry are chores and draw nothing.

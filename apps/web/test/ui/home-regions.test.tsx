@@ -6,8 +6,8 @@ import { HomeCards } from '@/components/home-cards';
 import type { Stats } from '@/lib/client/api';
 
 /**
- * The three regions: Today, this week and the month.
- * `docs/design/screens/home.html` is the spec.
+ * The three regions: Today, this week and the month. `Screens/Home` in
+ * Storybook draws them.
  */
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
@@ -479,8 +479,7 @@ describe('the three regions', () => {
 /**
  * One palette across the bars, the strip and the legend.
  *
- * A hue belongs to the client, never to the position
- * (`docs/design/screens/home.html`, "The strip and the legend").
+ * A hue belongs to the client, never to the position.
  */
 describe('the client split', () => {
   /** A stack segment's height, as the fraction the style carries. */
@@ -727,9 +726,9 @@ describe('the arrival roll', () => {
   });
 
   /**
-   * `home.html`: "Earned and Unbilled read the same for most of a monthly
-   * cycle." Two figures holding one number are still two figures, and a roll
-   * remembered by VALUE would let the first of them speak for the second.
+   * Earned and Unbilled read the same for most of a monthly cycle. Two
+   * figures holding one number are still two figures, and a roll remembered
+   * by VALUE would let the first of them speak for the second.
    */
   it('rolls both figures when two of them hold the same amount', async () => {
     reducedMotion(true);

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { id, seed } from '@/mocks/fixtures';
 import { desktop, knownFailures, phone } from '@/mocks/screen';
 import { NOW, ZONE } from '@/mocks/time.mts';
@@ -65,8 +65,11 @@ export const ConfirmDelete: Story = {
     await userEvent.click(
       await page.findByRole('button', { name: 'Delete entry' }),
     );
-    await expect(
-      await page.findByRole('button', { name: /Delete for good/ }),
-    ).toBeVisible();
+    // Inside a dialog still fading in, so visibility is waited for.
+    await waitFor(async () =>
+      expect(
+        await page.findByRole('button', { name: /Delete for good/ }),
+      ).toBeVisible(),
+    );
   },
 };

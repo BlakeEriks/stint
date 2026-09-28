@@ -31,7 +31,7 @@ const NICE = [1, 1.2, 1.5, 1.8, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 10];
  *
  * Earned is the screen's subject and the series the projection extrapolates;
  * On track for and Unbilled are two narrower readings taken from the month's
- * money (`docs/design/screens/home.html`).
+ * money. They are never summed: each is a different stage of one pipeline.
  */
 export function Month({
   stats,
@@ -122,7 +122,7 @@ export function Month({
  * one from four, are different months to be in.
  *
  * Inset to the plot's own axis so it reads as a footing for the line rather
- * than a second chart (`docs/design/screens/home.html`).
+ * than a second chart.
  */
 function Strip({
   byClient,

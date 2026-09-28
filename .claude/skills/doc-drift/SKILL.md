@@ -43,7 +43,7 @@ Nothing changed behavior → go to step 4 with no findings.
 | --- | --- |
 | a `/api/v1/*` route | `docs/api.md` |
 | a table, column or migration | `docs/data-model.md` |
-| a screen | its doc in `docs/design/screens/` |
+| a screen | its `*.stories.tsx` (a state it no longer shows, or one it lacks) and the comments at the lines |
 | running, building or deploying | `docs/local-dev.md`, `docs/deploying.md`, `docs/setup.md` |
 | a rule true only under one path | the `.claude/rules/*.md` whose `paths:` match |
 | a CI workflow | `docs/deploying.md`, `docs/sdlc.md` |
