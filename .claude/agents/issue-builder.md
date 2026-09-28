@@ -118,32 +118,10 @@ the code; a finding that is wrong is reported back with the reason.
 ## Ship
 
 On `ship` for a new PR: push, and `gh pr create` with `Closes #<n>`, what
-changed, how it was verified, any call Blake might make differently, and:
-
-    ## Try it
-
-    [Open the preview](https://stint-git-<branch>-blakeeriks-projects.vercel.app/preview/signin?pr=<n>&next=<path>)
-    — signs in as this PR's seeded account, on the page this changes.
-
-    1. <an action> — <what you should see>
-
-    Data back to the seed: re-run this PR's **preview-db** check.
-
-A macOS PR opens the section with the command instead:
-
-    ## Try it
-
-    ```bash
-    pnpm try-mac <n>
-    ```
-    Opens Stint Preview in the menu bar, signed in as this PR's seeded account.
-
-    1. <an action> — <what you should see>
-
-`<branch>` is the branch name lowercased, anything else a hyphen. `<n>` is
-the number `gh pr create` prints — never the issue's — so create the PR
-without **Try it**, then add it with `gh pr edit`. Every step says what Blake should see, never just what to do.
-Label the PR `migration` if its issue is.
+changed, how it was verified, any call Blake might make differently, and the
+**Try it** section of `.github/pull_request_template.md`, filled in as its
+comment says. `<n>` there is the number `gh pr create` prints — never the
+issue's. Label the PR `migration` if its issue is.
 
 On `ship` for a round of fixes: push, then one marked comment — what changed,
 and an updated **Try it** for feedback; `Doc drift: <what changed>`, plus
