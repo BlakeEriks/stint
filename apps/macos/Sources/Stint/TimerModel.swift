@@ -173,7 +173,14 @@ final class TimerModel {
             // Every refresh, so a project added, renamed or archived on the
             // web reaches the panel on its next open. A failed fetch keeps
             // the list it had rather than emptying the picker.
-            if let fetched = try? await api.projects() { projects = fetched }
+            if let fetched = try? await api.projects() {
+                projects = fetched
+                // A draft project archived on the web would read "No project"
+                // yet still be sent on start, so the draft drops it too.
+                if let id = draftProjectID, !fetched.contains(where: { $0.id == id }) {
+                    draftProjectID = nil
+                }
+            }
             if let fetched = try? await api.clients() { clients = fetched }
             // `try?`: a failure here hides one number rather than surfacing an
             // error over a working timer.

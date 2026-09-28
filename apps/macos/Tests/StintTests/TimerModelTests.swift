@@ -26,6 +26,24 @@ struct TimerModelTests {
         await model.signOut()
     }
 
+    @Test func archivingTheDraftProjectClearsIt() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website"), ("p2", "Audit")]))
+        APIStub.routes["/clients"] = (200, clients([]))
+        await model.refresh()
+        model.draftProjectID = "p1"
+
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website"), ("p2", "Audit")], archived: ["p2"]))
+        await model.refresh()
+        #expect(model.draftProjectID == "p1")
+
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website"), ("p2", "Audit")], archived: ["p1", "p2"]))
+        await model.refresh()
+        #expect(model.draftProjectID == nil)
+        #expect(model.projectName == "No project")
+        await model.signOut()
+    }
+
     @Test func failedFetchKeepsTheLists() async throws {
         let model = try await signedInModel()
         APIStub.routes["/projects"] = (200, projects([("p1", "Website")]))
