@@ -138,7 +138,6 @@ export function toClient(r: ClientRow) {
 }
 
 // ── projects ───────────────────────────────────────────────────────
-/* No `color`: the column still exists, but nothing reads or writes it. */
 export interface ProjectRow {
   id: string;
   client_id: string | null;

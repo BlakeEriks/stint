@@ -173,7 +173,7 @@ export const handlers = {
     const stopped = stopEntry(running, db.now);
     db.entries[i] = stopped;
     return ok(schema.StoppedTimer, {
-      ...stopped,
+      entry: stopped,
       currency: db.settings.currency,
       unbilled: unbilledSummary(db),
     });

@@ -280,15 +280,9 @@ private struct TimerPanel: View {
                 entries
             }
         }
-        // `.window` keeps this view alive between openings, so focus survives
-        // a dismissal unless it is cleared here. It has to go through the
-        // responder: the field editor is what actually holds focus, and
-        // `@FocusState` reads false throughout, so clearing the binding alone
-        // does nothing.
-        .onDisappear {
-            taskFocused = false
-            NSApp.keyWindow?.makeFirstResponder(nil)
-        }
+        // Opens with nothing focused. Here rather than on `ContentView`, so
+        // sign-in keeps its default focus on the email or code field.
+        .background(FocusReset())
     }
 
     private var idle: some View {
@@ -312,11 +306,11 @@ private struct TimerPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
                 Circle()
-                    .fill(Tokens.Dark.accentDefault)
+                    .fill(Tokens.Dark.timerRunning)
                     .frame(width: 9, height: 9)
                 Text(format(model.elapsedSeconds))
                     .role(.readout)
-                    .foregroundStyle(Tokens.Dark.accentDefault)
+                    .foregroundStyle(Tokens.Dark.timerRunning)
                     .contentTransition(.numericText())
                 Spacer(minLength: 8)
                 TransportButton(model: model)

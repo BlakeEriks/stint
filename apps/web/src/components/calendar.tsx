@@ -416,10 +416,13 @@ function Legend({
   clientByProject,
 }: {
   days: { positioned: PositionedEntry[] }[];
-  clientByProject: Map<string, { id: string; name: string; color: string }>;
+  clientByProject: Map<
+    string,
+    { id: string; name: string; color: string | null }
+  >;
 }) {
   const seconds = new Map<string, number>();
-  const meta = new Map<string, { name: string; color: string }>();
+  const meta = new Map<string, { name: string; color: string | null }>();
   let internalSeconds = 0;
 
   for (const day of days) {
@@ -454,7 +457,7 @@ function Legend({
       {ranked.map(([id]) => (
         <LegendItem
           key={id}
-          color={meta.get(id)?.color}
+          color={meta.get(id)?.color ?? undefined}
           label={meta.get(id)?.name ?? 'Unknown client'}
         />
       ))}
@@ -464,7 +467,8 @@ function Legend({
 }
 
 /**
- * `color` absent means internal work, which carries no stripe on the grid.
+ * `color` absent means work with no stripe on the grid: internal work, or a
+ * client with no color.
  *
  * The swatch is then an outline rather than a fill — it shows what the absence
  * looks like instead of inventing a gray, which would read as a client of its
@@ -755,7 +759,7 @@ function blockClassName({
     'absolute overflow-hidden rounded-[5px] border px-1.5 py-0.5 text-left',
     'focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none',
     running
-      ? 'border-accent-default bg-accent-muted'
+      ? 'border-timer-running bg-accent-muted'
       : 'border-edge-subtle bg-surface-hover',
     adjustable ? 'cursor-grab' : 'cursor-pointer',
     live && 'z-10 shadow-card',

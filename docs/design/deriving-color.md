@@ -203,7 +203,7 @@ what reads as stock rather than as a gray with a cast.
 ## The light accent
 
 `#52FC43` is ~1.6:1 on cream and unusable as anything but a fill, so light
-derives its own five rungs in `src/derive-light-accent.mjs`: a forest green at
+derives its own six rungs in `src/derive-light-accent.mjs`: a forest green at
 `HUE` 138, rotated off dark's 142 toward yellow so it sits with the paper
 rather than on top of it.
 
@@ -212,20 +212,30 @@ accent; across the whole forest/olive range dark ink tops out near 3:1, so
 `accent-default` must stay dark enough to carry white. That caps the ladder —
 an olive lifted much above L 0.5 fails the assertion guarding it.
 
-**`success` is the accent hue one step off `accent-default`, and the direction
+**The running timer and the button are a rung apart in light.** Dark
+separates them for free: the neon glows on near-black, where a filled button
+reads as a solid block. Paper has no glow to spend, so light separates them by
+weight — the button one rung darker than the timer.
+
+| theme | `timer-running` | `accent-default` |
+|---|---|---|
+| dark | `accent.300`, L 0.870 | `accent.300`, L 0.870 |
+| light | `#3A632C`, L 0.455 | `#315424`, L 0.405 |
+
+**`success` is the accent hue one step off `timer-running`, and the direction
 is the theme's** — each moves toward its own ground, so the paid badge recedes
 where the running timer does not. The step is what separates them, not which
 side of it `success` sits on.
 
-| theme | `accent-default` | `success` | step |
+| theme | `timer-running` | `success` | step |
 |---|---|---|---|
 | dark | `accent.300`, L 0.870 | `accent.500`, L 0.720 | down, toward the ground |
 | light | L 0.455 | `#457036`, L 0.499 | up, toward the paper |
 
 Light `success` is a **hand-set literal with no rung in
-`derive-light-accent.mjs`** — the generator prints the five accent rungs, and
-inventing a sixth to cover this one would be the hand-editing the ramp check
-exists to catch, the other way round.
+`derive-light-accent.mjs`** — the generator prints six rungs, `timer` among
+them, and inventing a seventh to cover this one would be the hand-editing the
+ramp check exists to catch, the other way round.
 
 ## Contract assertions
 

@@ -138,7 +138,10 @@ export type Summary = Response<Omit<schema.Summary, 'running'>> & {
   running: TimeEntry | null;
 };
 
-export type StoppedTimer = TimeEntry & Pick<Stats, 'currency' | 'unbilled'>;
+export type StoppedTimer = { entry: TimeEntry } & Pick<
+  Stats,
+  'currency' | 'unbilled'
+>;
 
 export type GroupingMode = z.infer<typeof schema.GroupingMode>;
 export type InvoiceStatus = z.infer<typeof schema.InvoiceStatus>;

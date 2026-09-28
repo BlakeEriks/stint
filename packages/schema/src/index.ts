@@ -79,10 +79,7 @@ export const ListClientsQuery = z.object({
 });
 
 // ── project ────────────────────────────────────────────────────────
-/**
- * No `color` — color identifies a client. The unused database column is
- * dropped separately.
- */
+/** No `color` — color identifies a client. */
 export const Project = z.object({
   id: uuid,
   clientId: uuid.nullable(), // null = internal / unbilled work
@@ -709,11 +706,9 @@ export const Stats = z.object({
  * entry in it — `/stats`'s own figure, so a client shows the new total from
  * the call it already made rather than predicting the delta from its own copy
  * of the rate chain.
- *
- * Additive, the entry's fields at the top level: a client built when this
- * returned the bare entry still decodes it.
  */
-export const StoppedTimer = TimeEntry.extend({
+export const StoppedTimer = z.object({
+  entry: TimeEntry,
   currency,
   unbilled: Stats.shape.unbilled,
 });

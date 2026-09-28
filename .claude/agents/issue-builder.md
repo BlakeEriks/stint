@@ -20,8 +20,13 @@ checkout is `main`, not your branch. One worktree, switched between branches. Ev
 switch: `git fetch --prune`, the switch, `pnpm install` and `pnpm tokens`,
 then restart its dev server, which otherwise serves the last branch's build.
 
-**Every comment you post starts with `<!-- work-issues -->`.** `gh` runs as
-Blake; the marker is how the loop tells your comments from his.
+**Every comment you post starts with two lines:**
+
+    <!-- work-issues -->
+    🤖 **From the /work-issues agent**
+
+`gh` runs as Blake, so his name is on it: the second line tells people it is
+not his, and the hidden marker is how the loop tells.
 
 ## Triage
 
@@ -122,9 +127,10 @@ the code; a finding that is wrong is reported back with the reason.
 ## Ship
 
 On `ship` for a new PR: push, and `gh pr create` with `Closes #<n>`, what
-changed, how it was verified, any call Blake might make differently, and the
-**Try it** section of `.github/pull_request_template.md`, filled in as its
-comment says. `<n>` there is the number `gh pr create` prints — never the
+changed, how it was verified — only commands you ran this round and what
+they showed, and plainly what nobody has seen yet, like the menu bar — any
+call Blake might make differently, and the **Try it** section of
+`.github/pull_request_template.md`, filled in as its comment says. `<n>` there is the number `gh pr create` prints — never the
 issue's. Label the PR `migration` if its issue is.
 
 On `ship` for a round of fixes: push, then one marked comment — what changed,

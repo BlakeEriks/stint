@@ -375,6 +375,19 @@ describe('the calendar legend', () => {
     expect(swatch.style.backgroundColor).toBe('');
   });
 
+  it('names a client with no color, rather than filing its work as internal', async () => {
+    const clients = CLIENTS.map((c) =>
+      c.id === 'c-byrne' ? { ...c, color: null } : c,
+    );
+    serve(week(), { projects: CLIENT_PROJECTS, clients });
+    render(<Calendar />, { wrapper });
+
+    const item = await screen.findByText('Byrne Studio', { selector: 'span' });
+    const swatch = item.querySelector('span[aria-hidden]') as HTMLElement;
+    expect(swatch.style.backgroundColor).toBe('');
+    expect(screen.queryByText('No client')).toBeNull();
+  });
+
   it('renders no strip at all when the week is empty', async () => {
     serve([], { projects: CLIENT_PROJECTS, clients: CLIENTS });
     const { container } = render(<Calendar />, { wrapper });
@@ -727,7 +740,8 @@ describe('an entry block', () => {
 
     const live = await screen.findByRole('button', { name: /Live.*running/ });
     const done = screen.getByRole('button', { name: /Done/ });
-    expect(live.className).toContain('border-accent-default');
+    expect(live.className).toContain('border-timer-running');
+    expect(live.className).not.toContain('accent-default');
     expect(done.className).not.toContain('accent');
   });
 });

@@ -54,11 +54,12 @@ These are the house defaults, not law. A design may change one when the
 change reads better; update the line here in the same PR. The only enforced
 color fact is text on the accent (`--text-on-accent`, `tokens:validate`).
 
-- **Green is the one hue, and the step says the tense.** `accent-default`
-  marks what is live, such as the running timer, and the action a screen
-  exists to complete. `success`, a ramp step off it, reports what has already
-  happened: paid, saved. Test any green by asking whether a user could say in
-  one phrase what it means there.
+- **Green is the one hue, and the step says the tense.** `timer-running`
+  marks what is live, and `accent-default` the action a screen exists to
+  complete — one hex in dark, a rung apart in light, where paper gives the
+  timer no glow to tell it from the button. `success`, a ramp step off the
+  timer, reports what has already happened: paid, saved. Test any green by
+  asking whether a user could say in one phrase what it means there.
 - **Weight tracks how often an action is taken**, not how much damage it can
   do. Filled red is for the step that destroys, never the step that asks.
   Focus rings are neutral.

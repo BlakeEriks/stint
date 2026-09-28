@@ -2,182 +2,113 @@ import Foundation
 import Testing
 @testable import Stint
 
-/// The timer's presses against a stubbed server, including the two races
-/// from #118 and the menu bar's "start again", which it missed.
+/// Serialized: every test answers requests through one stub.
 @MainActor
 @Suite(.serialized)
 struct TimerModelTests {
-    init() async { await FakeServer.shared.reset() }
-
-    @Test func startAgainShowsTheTimerBeforeTheServerAnswers() async throws {
+    @Test func refreshPicksUpProjectAndClientChanges() async throws {
         let model = try await signedInModel()
-        await FakeServer.shared.hold("POST /timer/start")
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website")]))
+        APIStub.routes["/clients"] = (200, clients([("c1", "Acme")]))
+        await model.refresh()
+        #expect(model.projects.map(\.name) == ["Website"])
+        #expect(model.clients.map(\.name) == ["Acme"])
 
-        let press = Task { await model.resume(entry("Design")) }
-        await Task.yield()
-        #expect(model.running?.taskName == "Design")
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website redesign"), ("p2", "Audit")]))
+        APIStub.routes["/clients"] = (200, clients([("c1", "Acme"), ("c2", "Globex")]))
+        await model.refresh()
+        #expect(model.projects.map(\.name) == ["Website redesign", "Audit"])
+        #expect(model.clients.map(\.name) == ["Acme", "Globex"])
 
-        await FakeServer.shared.setRunning(entry("Design"))
-        await FakeServer.shared.release("POST /timer/start")
-        await press.value
-        #expect(model.running?.taskName == "Design")
-        #expect(model.errorMessage == nil)
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website redesign"), ("p2", "Audit")], archived: ["p1"]))
+        await model.refresh()
+        #expect(model.projects.map(\.name) == ["Audit"])
+        await model.signOut()
     }
 
-    @Test func aRejectedStartPutsTheBarBackAndSaysWhy() async throws {
+    @Test func archivingTheDraftProjectClearsIt() async throws {
         let model = try await signedInModel()
-        await FakeServer.shared.reject("POST /timer/start", status: 409, message: "A timer is already running.")
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website"), ("p2", "Audit")]))
+        APIStub.routes["/clients"] = (200, clients([]))
+        await model.refresh()
+        model.draftProjectID = "p1"
 
-        await model.resume(entry("Design"))
-        #expect(model.running == nil)
-        #expect(model.errorMessage == "A timer is already running.")
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website"), ("p2", "Audit")], archived: ["p2"]))
+        await model.refresh()
+        #expect(model.draftProjectID == "p1")
+
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website"), ("p2", "Audit")], archived: ["p1", "p2"]))
+        await model.refresh()
+        #expect(model.draftProjectID == nil)
+        #expect(model.projectName == "No project")
+        await model.signOut()
     }
 
-    @Test func aRenameAnsweringAfterAStopDoesNotRestartTheTimer() async throws {
-        await FakeServer.shared.setRunning(entry("Writing"))
+    @Test func failedFetchKeepsTheLists() async throws {
         let model = try await signedInModel()
-        await FakeServer.shared.hold("PATCH /timer/current")
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website")]))
+        APIStub.routes["/clients"] = (200, clients([("c1", "Acme")]))
+        await model.refresh()
 
-        let rename = Task { await model.rename(to: "Editing") }
-        await Task.yield()
-        #expect(model.running?.taskName == "Editing")
-
-        await FakeServer.shared.setRunning(nil)
-        await model.toggle()
-        #expect(model.running == nil)
-
-        await FakeServer.shared.release("PATCH /timer/current")
-        await rename.value
-        #expect(model.running == nil)
+        APIStub.routes["/projects"] = (500, Data())
+        APIStub.routes["/clients"] = (500, Data())
+        await model.refresh()
+        #expect(model.projects.map(\.name) == ["Website"])
+        #expect(model.clients.map(\.name) == ["Acme"])
+        await model.signOut()
     }
 
-    @Test func aRefreshFromBeforeAPressDoesNotUndoIt() async throws {
-        let model = try await signedInModel()
-        await FakeServer.shared.holdNext("GET /summary")
-        let stale = Task { await model.refresh() }
-        try await Task.sleep(for: .milliseconds(20))
-
-        await FakeServer.shared.setRunning(entry("Design"))
-        await model.resume(entry("Design"))
-        #expect(model.running?.taskName == "Design")
-
-        await FakeServer.shared.release("GET /summary")
-        await stale.value
-        #expect(model.running?.taskName == "Design")
-    }
-}
-
-private func entry(_ name: String) -> TimeEntry {
-    TimeEntry(
-        id: "e-\(name)", projectId: nil, taskName: name,
-        startedAt: Date(timeIntervalSince1970: 1_790_000_000), endedAt: nil,
-        isBillable: true, rateOverride: nil, durationSeconds: nil,
-        durationOk: true, invoiceId: nil
-    )
-}
-
-@MainActor
-private func signedInModel() async throws -> TimerModel {
-    let config = URLSessionConfiguration.ephemeral
-    config.protocolClasses = [FakeProtocol.self]
-    let session = URLSession(configuration: config)
-    let supabase = URL(string: "https://timer-model-tests.test")!
-    let tokens = TokenStore(supabaseURL: supabase, anonKey: "anon", urlSession: session)
-    let at = Date().addingTimeInterval(3600).timeIntervalSince1970
-    await tokens.store(try JSONDecoder().decode(
-        Session.self,
-        from: Data(#"{"access_token":"a","refresh_token":"r","expires_at":\#(at)}"#.utf8)
-    ))
-    let model = TimerModel(
-        api: API(baseURL: URL(string: "https://api.test")!, tokens: tokens, session: session),
-        auth: Auth(supabaseURL: supabase, anonKey: "anon", tokens: tokens),
-        tokens: tokens
-    )
-    await model.refresh()
-    return model
-}
-
-/// One server for the suite: what's running, and which routes to hold,
-/// release or reject.
-private actor FakeServer {
-    static let shared = FakeServer()
-
-    private var running: TimeEntry?
-    private var held: [String: [CheckedContinuation<Void, Never>]] = [:]
-    private var holding: Set<String> = []
-    private var rejections: [String: (Int, String)] = [:]
-    private var holdOnlyFirst: Set<String> = []
-
-    func reset() {
-        running = nil
-        holding = []
-        rejections = [:]
-        holdOnlyFirst = []
+    /// A model over a stubbed backend, signed in with a token that needs no
+    /// refresh. Its own Keychain account, cleared by `signOut()`.
+    private func signedInModel() async throws -> TimerModel {
+        APIStub.routes = [
+            "/summary": (200, Data(#"{"running":null,"todaySeconds":0,"weekSeconds":0,"serverTime":"2026-09-28T12:00:00Z"}"#.utf8)),
+            "/stats": (200, Data(#"{"currency":"USD","unbilled":{"total":0}}"#.utf8)),
+            "/entries": (200, Data(#"{"entries":[]}"#.utf8)),
+        ]
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [APIStub.self]
+        let session = URLSession(configuration: config)
+        let host = URL(string: "http://timermodel.test")!
+        let tokens = TokenStore(supabaseURL: host, anonKey: "anon", urlSession: session)
+        let at = Date().addingTimeInterval(3600).timeIntervalSince1970
+        let json = Data(#"{"access_token":"a","refresh_token":"r","expires_at":\#(at)}"#.utf8)
+        await tokens.store(try JSONDecoder().decode(Session.self, from: json))
+        return TimerModel(
+            api: API(baseURL: host, tokens: tokens, session: session),
+            auth: Auth(supabaseURL: host, anonKey: "anon", tokens: tokens),
+            tokens: tokens
+        )
     }
 
-    func setRunning(_ entry: TimeEntry?) { running = entry }
-    func hold(_ route: String) { holding.insert(route) }
-    func reject(_ route: String, status: Int, message: String) { rejections[route] = (status, message) }
-
-    func release(_ route: String) {
-        holding.remove(route)
-        held.removeValue(forKey: route)?.forEach { $0.resume() }
-    }
-
-    /// Holds only the next call; later ones answer at once.
-    func holdNext(_ route: String) {
-        holding.insert(route)
-        holdOnlyFirst.insert(route)
-    }
-
-    /// Answers with the state as of the request, however long it's held,
-    /// the way a real response is already decided when it's delayed.
-    func answer(_ route: String) async -> (Int, Data) {
-        let response = respond(route)
-        if holding.contains(route) {
-            if holdOnlyFirst.remove(route) != nil { holding.remove(route) }
-            await withCheckedContinuation { held[route, default: []].append($0) }
+    private func projects(_ rows: [(String, String)], archived: Set<String> = []) -> Data {
+        let items = rows.map { id, name in
+            let archivedAt = archived.contains(id) ? #""2026-09-28T12:00:00Z""# : "null"
+            return #"{"id":"\#(id)","clientId":null,"name":"\#(name)","hourlyRate":null,"isBillableDefault":true,"archivedAt":\#(archivedAt)}"#
         }
-        return response
+        return Data(#"{"projects":[\#(items.joined(separator: ","))]}"#.utf8)
     }
 
-    private func respond(_ route: String) -> (Int, Data) {
-        if let (status, message) = rejections.removeValue(forKey: route) {
-            return (status, Data(#"{"code":"TIMER_ALREADY_RUNNING","message":"\#(message)"}"#.utf8))
-        }
-        switch route {
-        case "GET /summary":
-            return (200, json(Summary(running: running, todaySeconds: 0, weekSeconds: 0, serverTime: Date())))
-        case "POST /timer/start", "PATCH /timer/current":
-            return (200, json(running ?? entry("unknown")))
-        case "POST /timer/stop":
-            return (200, Data(#"{"currency":"USD","unbilled":{"total":0}}"#.utf8))
-        default:
-            return (404, Data(#"{"code":"NOT_FOUND","message":"not found"}"#.utf8))
-        }
-    }
-
-    private func json<T: Encodable>(_ value: T) -> Data {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        return try! encoder.encode(value)
+    private func clients(_ rows: [(String, String)]) -> Data {
+        let items = rows.map { id, name in #"{"id":"\#(id)","name":"\#(name)","color":null}"# }
+        return Data(#"{"clients":[\#(items.joined(separator: ","))]}"#.utf8)
     }
 }
 
-private final class FakeProtocol: URLProtocol, @unchecked Sendable {
+/// Answers by path, ignoring the `/api/v1` prefix and the query string.
+private final class APIStub: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var routes: [String: (Int, Data)] = [:]
+
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func stopLoading() {}
 
     override func startLoading() {
         let path = request.url!.path().replacingOccurrences(of: "/api/v1", with: "")
-        let route = "\(request.httpMethod ?? "GET") \(path)"
-        Task {
-            let (status, data) = await FakeServer.shared.answer(route)
-            let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: data)
-            client?.urlProtocolDidFinishLoading(self)
-        }
+        let (status, data) = Self.routes[path] ?? (404, Data())
+        let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        client?.urlProtocolDidFinishLoading(self)
     }
 }

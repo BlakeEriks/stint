@@ -49,10 +49,10 @@ export function DemoTimer() {
                 docs/design/deriving-color.md. */}
             <span
               aria-hidden
-              className="size-2.5 flex-none rounded-full bg-accent-default
+              className="size-2.5 flex-none rounded-full bg-timer-running
                          motion-safe:animate-pulse"
             />
-            <span className="type-timer text-accent-default">
+            <span className="type-timer text-timer-running">
               {formatClock(seconds)}
             </span>
           </div>

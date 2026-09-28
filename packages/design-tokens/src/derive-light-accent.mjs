@@ -6,8 +6,8 @@
  *
  * Dark's accent is a primitive ladder at `accentHue` 142 and light cannot
  * borrow it: `#52FC43` is ~1.6:1 on cream and unusable as anything but a
- * fill. The five light values are these, and they are derived for the same
- * reason the neutrals are — five hexes kept by hand is the drift the token
+ * fill. The six light values are these, and they are derived for the same
+ * reason the neutrals are — six hexes kept by hand is the drift the token
  * package exists to prevent. `docs/design/deriving-color.md` has why.
  */
 import { contrast, hex } from './oklch.mjs';
@@ -24,16 +24,20 @@ const HUE = 138;
  *
  * Dark puts near-black on its accent, and light cannot: across the whole
  * forest/olive range dark ink tops out near 3:1, so white is the only ink
- * that clears AA and `default` must stay dark enough to carry it. L 0.455 is
+ * that clears AA and `default` must stay dark enough to carry it. L 0.405 is
  * inside that ceiling with room to spare — see `verify` below, which fails
  * the build rather than letting a lighter olive through.
  */
 const ON_ACCENT = '#FFFFFF';
 
 /**
- * Five rungs, each with a job:
+ * Six rungs, each with a job:
  *
- * - `default`  the running timer and the primary confirm action.
+ * - `timer`    the running timer, printed as `timer-running`.
+ * - `default`  the primary confirm action, a rung below the timer. Dark
+ *              separates the two for free — the neon glows on near-black
+ *              where a filled button reads as a solid block — and paper has
+ *              no glow to spend, so light separates them by weight instead.
  * - `hover`    and `active`, descending — light darkens under the cursor
  *              where dark brightens, because the ground is paper.
  * - `subtle`   a step UP, for accent-colored text and marks on the card.
@@ -43,9 +47,10 @@ const ON_ACCENT = '#FFFFFF';
  * hard at `muted`, which is a surface rather than a color.
  */
 const RAMP = {
-  default: { L: 0.455, C: 0.095 },
-  hover: { L: 0.405, C: 0.085 },
-  active: { L: 0.37, C: 0.078 },
+  timer: { L: 0.455, C: 0.095 },
+  default: { L: 0.405, C: 0.085 },
+  hover: { L: 0.37, C: 0.078 },
+  active: { L: 0.335, C: 0.07 },
   subtle: { L: 0.525, C: 0.105 },
   muted: { L: 0.935, C: 0.03 },
 };
@@ -63,6 +68,7 @@ function verify(ramp, { card, ink }) {
   for (const [label, fg, bg, min] of [
     ['white on default ', ON_ACCENT, ramp.default.hex, 4.5],
     ['default on card  ', ramp.default.hex, card, 4.5],
+    ['timer on card    ', ramp.timer.hex, card, 4.5],
     ['subtle on card   ', ramp.subtle.hex, card, 4.5],
     ['body ink on muted', ink, ramp.muted.hex, 4.5],
   ]) {
@@ -101,12 +107,7 @@ if (
 console.log('\n// ---- paste into tokens.json semantic.light ----');
 for (const [name, r] of Object.entries(ramp))
   console.log(
-    `"accent-${name}":`.padEnd(20),
+    `"${name === 'timer' ? 'timer-running' : `accent-${name}`}":`.padEnd(20),
     `"${r.hex}",`,
     `// oklch(${r.L.toFixed(4)} ${r.C.toFixed(4)} ${HUE})`,
   );
-console.log(
-  '"timer-running":'.padEnd(20),
-  `"${ramp.default.hex}",`,
-  '// accent-default',
-);

@@ -156,7 +156,7 @@ function Block({
 
   const shape = `absolute overflow-hidden rounded-[5px] border px-1.5 py-0.5 text-left ${
     running
-      ? 'border-accent-default bg-accent-muted'
+      ? 'border-timer-running bg-accent-muted'
       : 'border-edge-subtle bg-surface-hover'
   }`;
 
