@@ -1,8 +1,11 @@
 # Data model: Reimbursable expenses
 
-One migration, `supabase/migrations/00000000000023_expenses.sql`. Every change
-is additive (Principle IX). `research.md` gives the reasons. This file gives
-the shapes.
+Two migrations: `00000000000023_expenses.sql` for one-off expenses and
+`00000000000024_recurring_expenses.sql` for recurrences, so the second can
+merge after the first (`research.md` R12). Migration 24 also adds
+`recurring_expense_id` and `recurrence_month` to `expenses`. Every change is
+additive (Principle IX). `research.md` gives the reasons. This file gives the
+shapes.
 
 ## `expenses` (new)
 

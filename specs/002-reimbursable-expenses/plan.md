@@ -39,7 +39,7 @@ Nothing beyond the existing routes.
 **Constraints**: The September invoice must go out by 30 September 2026.
 One-off expenses ship first (`research.md` R12). All migrations are additive.
 
-**Scale/Scope**: About 5 routes, 1 migration, 1 new list view, and changes
+**Scale/Scope**: About 5 routes, 2 migrations, 1 new list view, and changes
 to the new-invoice screen, the invoice detail and the PDF.
 
 ## Constitution Check
@@ -79,7 +79,8 @@ specs/002-reimbursable-expenses/
 ### Source Code (repository root)
 
 ```text
-supabase/migrations/00000000000023_expenses.sql      # new: tables, lock, producer, line-item and invoice columns
+supabase/migrations/00000000000023_expenses.sql      # new: expenses, lock, line-item and invoice columns
+supabase/migrations/00000000000024_recurring_expenses.sql  # new: recurring_expenses, producer
 packages/schema/src/index.ts                          # Expense, RecurringExpense, excludedExpenseIds, expense line fields
 packages/core/src/invoice.ts                          # expenses in buildLineItems; split totals
 packages/core/test/invoice.test.ts
