@@ -48,10 +48,6 @@ Storybook story in Chromium. `pnpm verify:static` and
 Node's `--experimental-strip-types` rejects **TypeScript parameter
 properties** — write constructor fields explicitly in any code the tests load.
 
-Zod 4 is used throughout: `z.uuid()`, `z.iso.datetime()`, `z.email()`,
-`z.record(z.string(), z.unknown())`. Keep every workspace package on the same
-Zod major, or `z.infer` degrades to `unknown` across package boundaries.
-
 ## End-to-end tests
 
 `pnpm test:e2e` — Playwright against the local stack, and deliberately outside
@@ -63,7 +59,7 @@ the traps.
 
 **No retries, in CI either.** A retry doubles the time before a real failure
 is reported — a genuine failure is a 30s timeout, so two failures become four.
-At ten tests and ~31s of work, a flaky test going red is the intent.
+A flaky test going red is the intent.
 
 **They sign in for real**, through Mailpit, because sign-in is the flow most
 worth covering and stubbing it would test the stub.
@@ -74,10 +70,11 @@ worth covering and stubbing it would test the stub.
 Separate from `pnpm --filter @stint/web test` (route handlers against real
 Postgres under `node --test`); the Vitest config never picks those up.
 
-`test/ui/appearance.test.tsx` covers the design rules that fail **silently**:
-white-on-accent, the accent on a stopped timer, an accent focus
-ring, hand-rolled type instead of a role, and a `type-*` that is not a real
-role. Verify each new assertion fails when its rule is broken.
+`test/ui/appearance.test.tsx` covers the objective design facts that fail
+**silently**: white on the accent, the readout's running state, hand-rolled
+type instead of a role, a `type-*` that is not a real role, and a token one
+theme defines and the other doesn't. Visual conventions stay untested so a
+design can change them. Verify each new assertion fails when its rule is broken.
 
 **Do not add computed-style assertions.** jsdom cannot parse Tailwind 4's
 compiled output (`@layer`, `@property`, `oklch()`, nested `@media`) and

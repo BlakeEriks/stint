@@ -18,10 +18,7 @@ stale one renders perfectly and quietly misrepresents the app. A surface that
 genuinely is not app chrome — the invoice PDF on white paper — opens its block
 with `not-app-chrome:` and a reason.
 
-**Anything architectural or procedural is Markdown**: `api.md`,
-`data-model.md`, `architecture.md`, `deploying.md`, `local-dev.md`,
-`macos.md`, `positioning.md`, `sdlc.md`,
-`design/principles.md`, `design/deriving-color.md`.
+**Anything architectural or procedural is Markdown.**
 
 ## A sentence earns its place only if nothing else already says it
 
@@ -77,7 +74,8 @@ list drifts. A screen's states are its stories, not a doc's sections.
 
 A new capability is a GitHub issue labeled `feature`, a fault or an
 improvement one labeled `bug` or `enhancement`. A rejection is deleted —
-`principles.md` holds what we believe, never a record of what was turned down.
+the constitution holds what we hold to, never a record of what was turned
+down.
 
 ## Keeping it tight
 
@@ -85,6 +83,9 @@ Vale lints prose against the Google developer documentation style guide
 and the house rules above that a pattern can catch (`.vale/styles/Stint`).
 It annotates the lines a PR adds, and `/copyedit <path>` fixes a doc. An
 alert is a candidate; it never decides.
+
+`scripts/doc-refs.mjs` fails `verify:static` when a foundational doc names a
+path, a `pnpm` script or a story title that does not exist.
 
 **Verify the rendered page, not only the numbers.** Geometry checks here have
 passed while the page read as broken.

@@ -1,75 +1,38 @@
 # Architecture
 
-## What this is
-
-Time tracking and invoicing for one contractor: one active timer, clean
-logging, a calendar view, and the invoice that comes out of them. Tracking is
-free and the invoice is the paid artifact, which is why timer arbitration,
-rate resolution and invoice numbering are the parts built to be correct rather
-than merely working. `docs/positioning.md` owns the thesis and the
-competitors.
-
 ## Surfaces
 
 | Surface | Stack | Scope |
 |---|---|---|
 | Web | Next.js App Router, API-first | The primary product. Every feature lands here first. |
 | macOS | Native Swift menu bar app (`apps/macos`, SwiftPM, no Xcode) | The timer and nothing else: start, stop, task name, project. The menu bar toggles between the running timer and today's total. |
-| iOS + Android | React Native (Expo), `apps/mobile` | Start / stop / view, light editing. |
+| iOS + Android | React Native (Expo) | Start / stop / view, light editing. |
 
-**Scope, not progress** — `feature` issues are where unbuilt capabilities live, and a status
-column here would be a second list that silently disagrees with it. What
-exists on disk is the honest signal: `apps/mobile` has no directory.
-
-Neither native app is a port, and neither should grow into one. The scopes
-above are ceilings, not milestones.
+The scopes are ceilings: a native app does only what only it can do, and
+neither is a port of the web. Web and macOS exist today; what's unbuilt lives
+in `feature` issues.
 
 ## The shape: a client shell over an HTTP API
 
-Three clients, only one of which is a browser. That single fact determines the
+A browser and a native app share one backend. That fact determines the
 architecture:
 
-- **Server Actions are not used** for anything mobile or desktop also needs.
-  They are a form-mutation convenience that Swift and Expo cannot call.
+- **No Server Actions** (constitution III). They are a form-mutation
+  convenience a native client cannot call.
 - Every client — including the web app — talks to `/api/v1/*` Route Handlers,
   which are plain Web-standard `Request → Response`.
 - **All business logic lives behind that API.** Timer arbitration, rate
   resolution, and invoice numbering exist in exactly one place.
 - RLS is enabled on every table as a safety net beneath the API, not as the
   primary access path.
-- Plain **REST + Zod, not tRPC** — tRPC's types cannot cross into Swift. An
-  OpenAPI spec generated from the Zod schemas keeps the Swift models honest.
-
-### Why Next.js, and what was rejected
-
-The framework question matters less than it appears: three clients force a
-clean HTTP API regardless of the choice, so the framework becomes mostly a
-client shell. Switching costs weeks and buys nearly nothing.
-
-- **Next.js** *(chosen)* — already the stack in use. Route Handlers are
-  Web-standard `Request → Response`, which *is* the shared API. Best-supported
-  Vercel target.
-- **TanStack Start** — genuinely the best technical fit (client-first data
-  story, SPA-friendly), but still v1-RC in 2026. Wrong risk for a solo
-  product. Worth revisiting in a year.
-- **Vite + Hono** — architecturally cleanest, and the honest version of what
-  API-first Next.js becomes. Costs a migration; pick it only if RSC turns into
-  a persistent fight.
-- **React Router 7/8** — stable, but a moving target with no advantage here.
-- **SvelteKit** — disqualified by Expo: Svelte components cannot be shared with
-  React Native.
-
-Consequences accepted: Server Actions are dead weight and RSC is confined to
-static pages; the app shell renders as client components over a TanStack Query
-cache; two routers coexist (Next for navigation, Query for data), which is a
-known boundary to watch.
+- Plain **REST + Zod**, whose shapes Swift mirrors.
 
 ## The timer invariant
 
 > At most one running time entry per user, enforced by a partial unique index
 > (`docs/data-model.md`).
 
-Timer state is **server-authoritative**. Opening the phone app shows the timer
+Timer state is **server-authoritative**. Opening the web app shows the timer
 already running on the Mac, because the server is the source of truth. A
 `POST /timer/start` while one is running returns `409 TIMER_ALREADY_RUNNING`
 along with the running entry, so the client can display it.
@@ -91,51 +54,9 @@ The app is **online-only**, deliberately.
 - Everything else — starting or stopping a timer, editing an entry, creating
   a client — needs the server.
 
-### Why there is no offline queue
-
-There was one: ~115 lines in `packages/core/src/outbox.ts`, with `POST /sync`
-specified as its server half. **Both were removed**, because nothing imported
-the outbox but its own tests and the server half was never built. Code kept
-for a need that has not arrived is still code that has to be read, understood
-and maintained.
-
-The case for offline is also narrower than it first looks:
-
-- **Starting a timer can never be offline.** The server arbitrates the
-  one-running-timer invariant; that is what makes overlap impossible.
-- **A running timer already survives** a dropped connection without any
-  queue, because it counts from `startedAt`.
-
-What remains is stopping or editing an entry while disconnected — real, but
-rare in a browser tab. It gets interesting on **mobile**, where the app is
-opened specifically to stop a timer and there may be no signal. Revisit it
-there, with evidence.
-
-### If it comes back, still no sync engine
-
-The research that ruled these out holds regardless, so it should not be
-redone:
-
-- **The data model is the trivial case.** One user per dataset, a few dozen
-  writes a day, no concurrent editors. Sync engines solve multi-user conflict
-  resolution and partial replication of large shared datasets — neither
-  problem exists here. Last-write-wins per entry is *correct*, not a
-  compromise.
-- **ElectricSQL is an operational risk** — acquired by Databricks (Aug 2026),
-  Electric Cloud winding down.
-- **Zero needs an always-on `zero-cache`** holding a persistent replication
-  connection to Postgres, which destroys the cheap Vercel + Supabase posture.
-- **Yjs / Replicache are the wrong shape** — CRDTs for collaborative editing.
-- **TinyBase** is the closest lightweight option, but still means modeling the
-  data in its stores.
-
-A small hand-rolled queue was the right shape, and rebuilding one is cheap.
-TanStack DB is the escape hatch if that judgment ever proves wrong: it works
-over plain REST today and can swap in a PowerSync or Electric adapter later.
-
 ## Auth
 
-Supabase Auth. All three clients send the same JWT as a bearer token, and the
+Supabase Auth. Every client sends the same JWT as a bearer token, and the
 route handlers verify it identically.
 
 - **Web** — `@supabase/ssr`, cookie-based sessions.
@@ -148,9 +69,6 @@ route handlers verify it identically.
   POST two endpoints. Sign in with Apple via `signInWithIdToken` would need a
   paid developer account, an App ID with the capability and a signed bundle,
   none of which a SwiftPM executable produces (#69).
-- **Expo** — AsyncStorage session store. **`AppState` must be wired to
-  `startAutoRefresh()` / `stopAutoRefresh()`**, or the refresh timer keeps
-  firing while suspended and sessions go stale on resume. Easy to miss.
 
 ## Live updates
 
@@ -171,8 +89,7 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
   start. Puppeteer is only warranted if pixel-exact HTML fidelity is ever
   needed.
 - **No outbound mail**, so no provider and no domain in the stack. Invoices
-  are downloaded and sent by the user (`design/principles.md`).
-- Note: Supabase free-tier projects pause after 7 days of inactivity.
+  are downloaded and sent by the user (`docs/positioning.md`).
 
 ## Repo layout
 
@@ -193,4 +110,4 @@ docs/design/samples     Committed renderer output
 
 `packages/design-tokens` is a **build step, not a copy-paste**. One
 `tokens.json` generates CSS custom properties, a TS object, and a Swift `Color`
-extension, so the three clients cannot drift.
+extension, so the clients cannot drift.

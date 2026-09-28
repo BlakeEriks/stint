@@ -103,6 +103,11 @@ jobs:
       - name: Hygiene scan tests
         run: node --test scripts/hygiene/*.test.mjs
 
+      # A foundational doc naming a path or script that is gone fails here,
+      # so a rename can't leave the constitution or a rule pointing at nothing.
+      - name: Doc references
+        run: node scripts/doc-refs.mjs
+
       - name: Build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co

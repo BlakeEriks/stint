@@ -40,7 +40,16 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+| Principle (`.specify/memory/constitution.md`) | Applies | How the design meets it |
+| --- | --- | --- |
+| I. Never silently modifies user data | | |
+| II. Logic written twice has a parity test | | |
+| III. Every client through `/api/v1`; server owns timer truth | | |
+| IV. `packages/core` does no I/O | | |
+| V. Tests first, one suite per kind of code | | |
+
+Also check the design against the constitution's Additional Constraints. A
+principle the design must break goes in Complexity Tracking.
 
 ## Project Structure
 
@@ -58,46 +67,19 @@ specs/[###-feature]/
 
 ### Source Code (repository root)
 <!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
+  ACTION REQUIRED: Keep only the directories this feature touches and name the
+  files it adds or changes.
 -->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+apps/web/src/app/api/v1/     # route handlers
+apps/web/src/components/     # screens and parts, each with *.stories.tsx
+apps/web/test/               # routes.test.ts, rls.test.ts, ui/
+apps/web/e2e/                # Playwright
+apps/macos/                  # Swift menu bar app
+packages/core/src/           # pure logic; tests in packages/core/test/
+packages/schema/src/         # Zod: the API contract
+supabase/migrations/         # schema, triggers, RLS
 ```
 
 **Structure Decision**: [Document the selected structure and reference the real

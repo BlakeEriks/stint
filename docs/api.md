@@ -1,6 +1,7 @@
 # API Contract — `/api/v1/*`
 
-All clients (web, Expo, Swift) use these endpoints. Auth is a Supabase JWT as
+Every client (web and the macOS app) uses these endpoints, and an endpoint
+not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
 `Authorization: Bearer <token>`. Request/response shapes are defined in
 `packages/schema/src/index.ts` — that file is the source of truth, and every
 route parses its request against it; this document is the map.
@@ -242,7 +243,7 @@ allocates a gapless number and locks entries — it must never be a surprise.
 
 **There is no send endpoint.** The PDF is downloaded and sent by the user from
 their own address; `PATCH /status` records that it went out.
-`docs/design/principles.md` says why.
+`docs/positioning.md` says why.
 
 `grouping_mode` (`entry | task | project | day`) controls whether the invoice
 lists every entry or sums them. It is frozen onto the invoice.

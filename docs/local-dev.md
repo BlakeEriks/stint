@@ -229,10 +229,9 @@ next invoice collide.
 
 ## Traps found setting this up
 
-**The CLI skips a migration named `init`.** Ours was
-`00000000000001_init.sql`, and `supabase start` printed one line about
-skipping it, then applied the *rest* — so the stack came up with no tables and
-failed confusingly on the second file. Renamed to `..._schema.sql`.
+**The CLI skips a migration named `init`.** `supabase start` prints one line
+about skipping it, applies the rest, and the stack comes up with no tables,
+failing confusingly on the second file.
 
 Never rename a migration that has shipped: `migrate.mjs` keys
 `schema_migrations` on the filename, so production would consider it

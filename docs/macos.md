@@ -127,5 +127,5 @@ opened after a night shut would otherwise come back signed out.
 
 **The API models are hand-written and nothing type-checks them against
 `packages/schema`**, so a renamed field fails at runtime in Swift and nowhere
-else. `architecture.md` wants an OpenAPI spec from the Zod schemas for exactly
-this.
+else. A change to a response the app reads updates its Swift model in the
+same PR.
