@@ -18,6 +18,17 @@ struct TimeEntry: Codable, Identifiable, Equatable {
     let invoiceId: String?
 }
 
+/// `GET /entries/task-names`: a name the user has typed before, with the
+/// project it was last used on. One per name case-insensitively, keeping
+/// the most recent spelling, which is what makes the lowercased name an id.
+struct TaskName: Codable, Identifiable, Equatable {
+    let taskName: String
+    let projectId: String?
+    let lastUsedAt: Date
+
+    var id: String { taskName.lowercased() }
+}
+
 struct Project: Codable, Identifiable, Equatable {
     let id: String
     let clientId: String?
@@ -51,7 +62,7 @@ struct Summary: Codable, Equatable {
 }
 
 private struct ProjectList: Codable { let projects: [Project] }
-private struct EntryList: Codable { let entries: [TimeEntry] }
+private struct TaskNameList: Codable { let taskNames: [TaskName] }
 private struct ClientList: Codable { let clients: [Client] }
 
 struct APIError: LocalizedError, Equatable {
@@ -126,18 +137,10 @@ actor API {
         return list.clients
     }
 
-    func entries(from: Date, to: Date? = nil, limit: Int? = nil) async throws -> [TimeEntry] {
-        var query = ["from=\(Self.stamp(from))"]
-        if let to { query.append("to=\(Self.stamp(to))") }
-        if let limit { query.append("limit=\(limit)") }
-        let list: EntryList = try await request("GET", "/entries?\(query.joined(separator: "&"))")
-        return list.entries
-    }
-
-    /// A bare `+` in a query string decodes as a space on the server.
-    private static func stamp(_ date: Date) -> String {
-        let text = iso8601Fractional.string(from: date)
-        return text.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? text
+    /// Newest first, the server's ranking, which clients must not re-sort.
+    func taskNames(limit: Int) async throws -> [TaskName] {
+        let list: TaskNameList = try await request("GET", "/entries/task-names?limit=\(limit)")
+        return list.taskNames
     }
 
     func projects() async throws -> [Project] {
@@ -149,8 +152,8 @@ actor API {
         let id: String
         let taskName: String
         let projectId: String?
-        /// Nil leaves the column's own default; set, it carries a resumed
-        /// entry's own answer.
+        /// Nil leaves the column's own default; set, it carries the
+        /// project's own default.
         let isBillable: Bool?
     }
 

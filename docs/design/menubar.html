@@ -180,10 +180,6 @@
   .entry { display: flex; align-items: baseline; gap: 8px; padding: 7px 14px; font-size: 13px; }
   .entry:hover { background: var(--bg-hover); }
   .entry .nm { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .entry .tm {
-    margin-left: auto; flex: none; font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums; font-size: 12px; color: var(--text-muted);
-  }
 
   .stats {
     display: flex; align-items: center; justify-content: space-between;
@@ -362,11 +358,11 @@
             <div class="row between" style="padding:0 14px 6px;">
               <span class="label">Recent</span>
             </div>
-            <div class="entry"><span class="nm">Checkout validation fixes</span><span class="tm">2:15:00</span></div>
-            <div class="entry"><span class="nm">Design review</span><span class="tm">1:30:00</span></div>
-            <div class="entry"><span class="nm">Q4 retainer scoping call</span><span class="tm">0:39:32</span></div>
-            <div class="entry"><span class="nm">Invoice chase</span><span class="tm">0:12:04</span></div>
-            <div class="entry"><span class="nm">Staging deploy</span><span class="tm">0:48:11</span></div>
+            <div class="entry"><span class="nm">Checkout validation fixes</span></div>
+            <div class="entry"><span class="nm">Design review</span></div>
+            <div class="entry"><span class="nm">Q4 retainer scoping call</span></div>
+            <div class="entry"><span class="nm">Invoice chase</span></div>
+            <div class="entry"><span class="nm">Staging deploy</span></div>
           </div>
 
           
@@ -437,11 +433,11 @@
             <div class="row between" style="padding:0 14px 6px;">
               <span class="label">Recent</span>
             </div>
-            <div class="entry"><span class="nm">Checkout validation fixes</span><span class="tm">2:15:00</span></div>
-            <div class="entry"><span class="nm">Design review</span><span class="tm">1:30:00</span></div>
-            <div class="entry"><span class="nm">Q4 retainer scoping call</span><span class="tm">0:39:32</span></div>
-            <div class="entry"><span class="nm">Invoice chase</span><span class="tm">0:12:04</span></div>
-            <div class="entry"><span class="nm">Staging deploy</span><span class="tm">0:48:11</span></div>
+            <div class="entry"><span class="nm">Checkout validation fixes</span></div>
+            <div class="entry"><span class="nm">Design review</span></div>
+            <div class="entry"><span class="nm">Q4 retainer scoping call</span></div>
+            <div class="entry"><span class="nm">Invoice chase</span></div>
+            <div class="entry"><span class="nm">Staging deploy</span></div>
           </div>
 
           
@@ -458,7 +454,7 @@
           <li><strong>The green is on the start button, alone.</strong> One
             accent object, and it is the primary action — exactly the rule the
             landing page follows on a screen with no timer.</li>
-          <li><strong>Same stats, same entry list</strong> as the running
+          <li><strong>Same stats, same Recent list</strong> as the running
             state. The two states differ only in their top block, so the
             popover does not appear to restructure itself when you hit start.</li>
           <li>Project picker inline beside the button saves a full row of
@@ -702,7 +698,7 @@
           <tr><td><code>POST /timer/stop</code></td><td>The unbilled total after the stop, so the row updates without a refresh</td></tr>
           <tr><td><code>GET /summary</code></td><td>Today's total, <code>serverTime</code></td></tr>
           <tr><td><code>GET /stats?tz=…</code></td><td>The unbilled total</td></tr>
-          <tr><td><code>GET /entries?from=&amp;to=&amp;limit=</code></td><td>Recent rows &mdash; a two-week window, deduped by task name client-side and capped at five</td></tr>
+          <tr><td><code>GET /entries/task-names?limit=6</code></td><td>Recent &mdash; the names the web suggests, so a row is a name to start again, not a past entry, and carries no duration. The running name is the readout and drops out, leaving five. Fetched on the poll and after a start or stop, not on every open</td></tr>
           <tr><td><code>PATCH /entries/:id</code></td><td>Rename</td></tr>
           <tr><td><code>GET /projects</code>, <code>GET /clients</code></td><td>The picker and client colors</td></tr>
         </tbody>
