@@ -170,8 +170,8 @@ private struct SettingsPanel: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
-            accountLink("Sign out") { Task { await model.signOut() } }
-            accountLink("Quit") { NSApp.terminate(nil) }
+            accountLink("Sign out", id: "sign-out") { Task { await model.signOut() } }
+            accountLink("Quit", id: "quit") { NSApp.terminate(nil) }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -181,7 +181,7 @@ private struct SettingsPanel: View {
         .overlay(alignment: .top) { rule }
     }
 
-    private func accountLink(_ title: String, action: @escaping () -> Void) -> some View {
+    private func accountLink(_ title: String, id: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Hovering { on in
                 Text(title)
@@ -192,7 +192,7 @@ private struct SettingsPanel: View {
         }
         .buttonStyle(.panel)
         .panelFocus(RoundedRectangle(cornerRadius: 4))
-        .accessibilityIdentifier(title.lowercased().replacingOccurrences(of: " ", with: "-"))
+        .accessibilityIdentifier(id)
     }
 }
 
@@ -387,8 +387,9 @@ private struct TimerPanel: View {
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
                 .padding(.bottom, 6)
-            ForEach(model.recent) { entry in
+            ForEach(Array(model.recent.enumerated()), id: \.element.id) { index, entry in
                 EntryRow(entry: entry) { Task { await model.resume(entry) } }
+                    .accessibilityIdentifier("entry-\(index + 1)")
             }
         }
         .padding(.bottom, 6)
@@ -545,7 +546,6 @@ private struct EntryRow: View {
         // over the rows above and below.
         .panelFocus(Rectangle(), inset: -1)
         .accessibilityLabel("Start \(entry.taskName.isEmpty ? "untitled entry" : entry.taskName) again")
-        .accessibilityIdentifier("entry")
     }
 }
 

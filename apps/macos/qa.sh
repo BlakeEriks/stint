@@ -14,14 +14,18 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-BIN=".build/debug/Stint"
-PID=$(pgrep -f "$PWD/$BIN" || true)
+# The pid of the copy this script launched, never a pattern match: `pgrep`
+# would also catch the test runner under the same .build/debug.
+PIDFILE=".build/qa.pid"
+PID=$(cat "$PIDFILE" 2>/dev/null || true)
+[ -n "$PID" ] && ! kill -0 "$PID" 2>/dev/null && PID=""
 
 if [ $# -gt 0 ]; then
     [ -n "$PID" ] || { echo "error: not running — ./qa.sh first" >&2; exit 1; }
     if [ "$1" = "shot" ]; then
         OUT="${2:-${TMPDIR:-/tmp}/stint-qa.png}"
-        screencapture -x -o -l "$(swift qa.swift "$PID" window)" "$OUT"
+        WID=$(swift qa.swift "$PID" window)
+        screencapture -x -o -l "$WID" "$OUT"
         echo "$OUT"
     else
         swift qa.swift "$PID" "$@"
@@ -31,5 +35,6 @@ fi
 
 swift build
 [ -n "$PID" ] && kill "$PID"
-STINT_WINDOW=1 nohup "$PWD/$BIN" >/dev/null 2>&1 &
+STINT_WINDOW=1 nohup .build/debug/Stint >/dev/null 2>&1 &
+echo $! > "$PIDFILE"
 echo "running pid $!"

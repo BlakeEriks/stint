@@ -46,7 +46,11 @@ case "window":
     let panel = windows.first {
         $0[kCGWindowOwnerPID as String] as? pid_t == pid && $0[kCGWindowName as String] as? String == "Stint"
     }
-    print(panel?[kCGWindowNumber as String] as? Int ?? "")
+    // A window's title reads as nil without Screen Recording permission.
+    guard let id = panel?[kCGWindowNumber as String] as? Int else {
+        fatalError("no Stint window — still opening, or this terminal lacks Screen Recording permission")
+    }
+    print(id)
 case "ids":
     controls().compactMap(identifier).forEach { print($0) }
 case "click":
