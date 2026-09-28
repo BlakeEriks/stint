@@ -140,8 +140,7 @@ consequences are baked into the system:
 ## The project hues are authored, not derived
 
 The eight are hand-set literals in `tokens.json`, each a hex and a hue angle
-at **L 0.700, C 0.111**, 40° apart. There is no generator for them, and a
-scale per hue would need one — #66 carries that work.
+at **L 0.700, C 0.111**, 40° apart. There is no generator for them.
 
 ## Warning and danger
 
