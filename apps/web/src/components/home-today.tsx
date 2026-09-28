@@ -24,8 +24,7 @@ import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
  * Today: one figure and the day's tasks.
  *
  * The narrow third of the top row — a figure and a few short rows, against
- * the week's chart which wants the long axis
- * (`docs/design/screens/home.html`).
+ * the week's chart which wants the long axis.
  */
 export function Today({ stats }: { stats: Stats }) {
   const colors = useProjectColors();

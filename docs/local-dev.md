@@ -352,6 +352,27 @@ popper needs, so `test/ui/setup.ts` shims `ResizeObserver`, `DOMRect` and the
 pointer-capture methods — without them every DropdownMenu test throws on open.
 `userEvent.setup()` returns the instance synchronously; it is not a promise.
 
+## Storybook
+
+Every screen is designed and reviewed here: `pnpm --filter @stint/web
+storybook` serves the stories at `localhost:6006` with no stack. They render
+the real components against `src/mocks/`, an in-memory `/api/v1` built from
+one account and parsed by `@stint/schema`, at a pinned instant
+(`src/mocks/time.mts`). A story picks its account with
+`parameters: account('running')` (or `'empty'`, or a function
+that edits the seeded account) and breaks one endpoint with
+`failing('stats')`. A response that fails its schema, an unhandled API
+request or a handler that throws fails the story. On a browser's
+first visit MSW's service worker installs after the page has loaded, so reload
+once. Its MCP server is at `localhost:6006/mcp`.
+
+`pnpm --filter @stint/web test:stories` runs every story as a test in
+headless Chromium at its viewport, and fails it on an accessibility
+violation. Screen stories skip `color-contrast` and
+`scrollable-region-focusable` until #125 fixes them (`src/mocks/screen.tsx`).
+It runs through Vitest's browser mode and Storybook's
+portable-stories API; `vitest.config.mts` says why.
+
 ## The route tests can use it too
 
 `apps/web/test/routes.test.ts` runs the real handlers against real Postgres,

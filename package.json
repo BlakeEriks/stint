@@ -9,7 +9,6 @@
   "scripts": {
     "tokens": "pnpm --filter @stint/design-tokens build",
     "tokens:validate": "pnpm --filter @stint/design-tokens validate",
-    "design": "node scripts/design-server.mjs",
     "worktree": "node scripts/worktree.mjs",
     "lint": "biome check .",
     "dev:up": "supabase stop && supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,studio,postgres-meta",

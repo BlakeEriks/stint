@@ -8,6 +8,9 @@ import type { SaveState } from '@/lib/client/use-autosave';
  * A dot at rest rather than a checkmark: a check that is always there says
  * nothing, and stops being read. The check appears only after a save the
  * user actually caused, so it answers "did that land?" and nothing else.
+ *
+ * "Not saved" is worded, not only colored: it is the one state the user has
+ * to act on.
  */
 export function SaveIndicator({ state }: { state: SaveState }) {
   if (state === 'error') {

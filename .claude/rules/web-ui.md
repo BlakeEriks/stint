@@ -60,13 +60,24 @@ Need something the scale lacks? Add a role, with a reason — `pnpm check:type`
 runs in CI and rejects anything off it. A typo'd role compiles to **no CSS, no
 warning, exit 0**, which is why it is a check rather than a convention.
 
-`docs/design/brand.html` has the roles and what each is for.
+`Foundations/Type` in Storybook sets every role in itself.
+
+### Storybook is the design surface
+
+A screen is designed, reviewed and specified as stories: `pnpm --filter
+@stint/web storybook`. Every screen has a `*.stories.tsx` beside its
+component, as do the parts and primitives worth seeing alone, rendering the
+real component against the in-memory `/api/v1` in `src/mocks/`. A new screen
+or state is a story first. `docs/local-dev.md` has the commands.
+
+A story renders the real component, never a copy. A state it needs comes
+from the account (`parameters.db`, `account((db) => …)`) or one failing
+handler (`failing('stats')`), not from props the app never passes.
 
 ### Layout
 
-Header, rail, content column, dock, timer bar — `screens/frame.html` shows the
-three arrangements and what changes at each breakpoint, plus the account menu
-and the error boundaries.
+Header, rail, content column, dock, timer bar — `Screens/Frame` shows each
+arrangement, from the phone's nav strip to the `2xl` card.
 
 Two things that govern code rather than this frame:
 
@@ -74,13 +85,58 @@ Two things that govern code rather than this frame:
 screen replaces the content column and the running timer keeps counting. Do
 not move it to the root; `e2e/error-boundary.spec.ts` fails if you do.
 
-**`Page` owns the content column**, so no screen sets its own width.
+**`Page` owns the content column**, so no screen sets its own width. It pads
+by the 18px `INSET`; `flush` is for a screen whose regions carry the inset
+themselves (Home, the calendar), so it is never doubled. `wide` is for a
+screen that needs the room (Home, the calendar), not a preference. The page
+title is `type-title`, once.
+
+**Nothing inside the panel is a card.** The panel is the one surface; a
+region is space and a rule (`border-edge-subtle`, stopping at the inset), and
+a record is a plain row.
 
 ### Components
 
-`screens/components.html` is what a screen is assembled from — which
-primitive to reach for, the conventions that repeat across screens, and the
-shapes already duplicated. Read it before adding a component.
+Reach for what exists before writing a div — every screen is these pieces in
+a different order, and the ones that drifted were rebuilt:
+
+| Need | Use |
+|---|---|
+| The content column | `Page`, `DetailPage` |
+| A list's loading, failure and empty states | `Panel` + `Listing` |
+| A titled region with its own save state | `Section` + `useAutosave` + `SaveIndicator` |
+| A labeled control | `Field`, `Input`, `inputClass`, `textareaClass` |
+| Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
+| An invoice's status | `StatusBadge` |
+| Money, dates, durations | `Money`, `formatCurrency`, `shortDate` — never `toLocaleString` at the call site |
+| A client's color | `useProjectColors()`, `Swatch` |
+| A rate, with its source | `ProjectRate` |
+| A key to press | `Kbd` |
+
+`Select` is for choices that are only words; a row carrying a swatch, a
+second line or an `Add…` item is a `DropdownMenu`. Put a component in
+`components/` when a second screen needs it, not in anticipation of one.
+
+**Conventions every screen keeps:**
+
+- **A list filter lives in the URL** (`FilterTabs`), so the view is linkable
+  and Back returns to it. A component reading `useSearchParams` needs a
+  `Suspense` boundary in its `page.tsx`, or `next build` fails while
+  `next dev` passes.
+- **Every action carries a visible label.** Two exceptions, both with an
+  `aria-label`: a destructive first step, and a dense repeating row. A glyph
+  is always `aria-hidden`.
+- **One accent per screen**: the confirm the screen exists to complete.
+- **A destructive action is quiet until it is the confirm**: a ghost trash
+  icon in `text-danger`, pushed away with `mr-auto`, then `destructive`
+  spelling the consequence out.
+- **A failure renders beside the thing that failed**, and a failed load is
+  neutral, never red — it is a condition, and the answer is to try again.
+- **An empty state says what to do**, or what the consequence is.
+- **Archive, never delete**, wherever invoices or entries reference the
+  record.
+- **A picker row is swatch, name, then the client muted.** Internal work gets
+  no client text and no color; the absence is the answer.
 
 `components/ui/` is **vendored shadcn**, rewritten to our tokens at install by
 `apps/web/scripts/shadcn-detox.mjs`. shadcn's palette names are not defined in

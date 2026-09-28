@@ -59,9 +59,9 @@ const ARRIVED = Symbol.for('stint.count-up.arrived');
  * the whole panel mounts in one pass, so figure two would read what figure one
  * just wrote. A timestamp window cannot tell a panel mounting together from a
  * navigation back a second later, which is the case this exists for. A set of
- * bare values collides: `home.html` says Earned and Unbilled read the same for
- * most of a monthly cycle, so the second of the two would find its own amount
- * already there and never roll.
+ * bare values collides: Earned and Unbilled read the same for most of a
+ * monthly cycle, so the second of the two would find its own amount already
+ * there and never roll.
  *
  * Keyed by the figure's own name, the three cases separate. Nothing recorded
  * means a fresh load, so it rolls. The same name at the same value is a

@@ -1,5 +1,5 @@
 /**
- * `|Stint|` — the wordmark. `docs/design/brand.html` is the spec; `mark-bound`
+ * `|Stint|` — the wordmark. `Foundations/Mark` draws it; `mark-bound`
  * carries the geometry so this and `Mark.swift` draw the same mark.
  *
  * `className` is a whole utility (`text-muted`), not a shade, so the bounds

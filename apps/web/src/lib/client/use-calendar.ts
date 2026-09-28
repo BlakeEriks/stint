@@ -97,7 +97,9 @@ export function useCalendar(weekStartsOn = 1, byDay = false) {
 
       /* The hours the column draws. A phone crops to the worked range; the
          week view keeps all 24, since cropping one column would have to crop
-         all seven to the busiest day's range. */
+         all seven to the busiest day's range, and a 03:00 entry or work past
+         midnight would then fall outside it. A week is a bill: an hour that
+         is hard to find goes unbilled. */
       const [from, to] = byDay
         ? workedWindow(day.entries, at, next)
         : [at, next];

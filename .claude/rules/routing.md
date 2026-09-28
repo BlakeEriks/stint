@@ -2,6 +2,7 @@
 paths:
   - "apps/web/src/proxy.ts"
   - "apps/web/src/app/landing/**"
+  - "apps/web/src/components/marketing/**"
   - "apps/web/src/app/(app)/**"
 ---
 
@@ -38,10 +39,11 @@ Consequences worth knowing:
 
 ### The landing page
 
-`app/landing/page.tsx`. The full specification — strategy, verbatim copy, the
-banned-words list and the build notes — is `docs/design/landing.html`, written
-in the app's own design system so it doubles as the visual reference. Two rules
-the page must keep:
+`app/landing/page.tsx` is the copy, verbatim; `Screens/Landing` in Storybook
+draws it. The strategy is `docs/positioning.md`'s, and the page is quiet
+because the reader is trusting it with their rates: the invoice is shown
+rather than described, and a competitor's bill is named but never the
+competitor. Rules the page must keep:
 
 **The accent appears on exactly two objects: the hero timer and the CTA.** They
 are the same fact (start tracking / time accruing), which is what the scarcity
@@ -51,9 +53,35 @@ invoice and every heading are neutral.
 ### The hero is the scope
 
 Three ticked lines for what it does, four struck lines for what it refuses,
-then the price. `landing.html` carries the verbatim copy, the banned words and
-the build rules.
+then the price.
 
 **The struck items are muted and struck, never red.** Red is the danger
 channel, and a stack of red marks reads as "this product is broken" for the
 half-second before it parses.
+
+### The page's other rules
+
+**Banned words**, because each carries no information or the wrong audience:
+seamless, effortless, powerful, intuitive; beautiful, well-designed;
+revolutionary, reimagined, next-generation; earned or revenue for unbilled
+work (it may never be paid); Pro, Premium, Upgrade (one price, no tiers);
+teams, collaborate, workspace.
+
+**The hero timer is the only motion.** It ticks from a plausible mid-session
+seed, never 0:00:00; the dot pulses on a 2s loop; `prefers-reduced-motion`
+stops both and the page is legible at rest. No scroll-triggered reveals —
+the first still frame is what a shared link previews. Hero height is its
+content, never `100vh`.
+
+**The invoice preview's total is near-black, not the light accent**, so the
+page keeps one green meaning; the PDF itself is unchanged. It is billed from
+"Your name here": a public page renders bank-detail labels, not a name.
+
+**Designed dark, with no toggle**: the neon is the brand impression, and the
+light accent is forest green. It renders light only for someone who chose
+light in the app.
+
+**Layout and build.** A static RSC route at `max-w-5xl`, no app shell,
+sections separated by space rather than rules. Every grid needs an explicit
+`grid-cols-[minmax(0,1fr)]` or the timer card's intrinsic width scrolls a
+phone sideways. Nothing on it needs a cookie banner.

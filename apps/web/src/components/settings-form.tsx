@@ -19,9 +19,10 @@ import { Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 /**
- * Settings. No save button: edits persist on their own after a pause, and
- * each section owns its own autosave so the indicator refers to the fields the
- * user is looking at.
+ * Settings. No save button: every field here is a default something else
+ * falls back to, so nothing needs reviewing before it commits. Edits persist
+ * on their own after a pause, and each section owns its own autosave so the
+ * indicator refers to the fields the user is looking at.
  */
 export function SettingsForm() {
   const query = useQuery({

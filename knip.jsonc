@@ -1,13 +1,22 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   // shadcn's vendored components export upstream's full API on purpose.
-  "ignore": ["apps/web/src/components/ui/**"],
+  "ignore": [
+    "apps/web/src/components/ui/**",
+    // MSW's service worker, loaded by URL from Storybook's static dir.
+    "apps/web/.storybook/public/mockServiceWorker.js"
+  ],
   "ignoreBinaries": ["dev", "pkill"],
   // The hygiene scan runs jscpd's binary by path.
   "ignoreDependencies": ["jscpd"],
   "workspaces": {
     ".": {
       "entry": ["scripts/**/*.{mjs,js}"]
+    },
+    "apps/web": {
+      // Reached through a Vite alias, not an import:
+      // .storybook/vite-mocks.mts swaps it in for the Supabase client.
+      "entry": ["src/mocks/supabase.ts"]
     },
     "packages/design-tokens": {
       // Run by hand and by validate.js to re-derive the neutral ramps.

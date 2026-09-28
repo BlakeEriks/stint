@@ -68,7 +68,7 @@ jobs:
           git diff --exit-code \
             apps/macos/Sources/Stint/Tokens.swift \
             apps/web/src/app/icon.svg \
-            docs/design/screens/_mockup.css
+            docs/design/_mockup.css
 
       # Guards white-on-accent (1.37:1) and the AA floors, and re-derives both
       # neutral ramps so a hand-edited hex fails naming its step.
@@ -108,6 +108,33 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
         run: pnpm --filter @stint/web build
+
+  # Every Storybook story renders in Chromium, runs its play, and passes its
+  # a11y check. The browser steps are the e2e job's, which explains them.
+  stories:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with: { node-version: '24', cache: 'pnpm' }
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Playwright version
+        id: pw
+        run: echo "v=$(node -p "require('./apps/web/node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-shell-${{ steps.pw.outputs.v }}
+
+      - name: Install Chromium
+        run: cd apps/web && npx playwright install --only-shell chromium
+
+      - name: Story tests
+        run: pnpm --filter @stint/web test:stories
 
   # Applies the real migrations, then runs the real route handlers against
   # them, so the timer index and immutability triggers are genuinely exercised.

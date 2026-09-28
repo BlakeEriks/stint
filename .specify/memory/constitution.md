@@ -1,6 +1,9 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 2.0.0 → 2.1.0 → 2.2.0 → 2.3.0 → 3.0.0 → 3.0.1 → 3.0.2 → 3.0.3
+- Version change: 1.0.0 → 2.0.0 → 2.1.0 → 2.2.0 → 2.3.0 → 3.0.0 → 3.0.1 → 3.0.2 → 3.0.3 → 3.0.4
+- v3.0.4 (PATCH — Doc Ownership rows and one pointer): a screen is its
+  Storybook stories, and the conventions every screen keeps are
+  .claude/rules/web-ui.md; docs/design/screens/ is gone.
 - v3.0.3 (PATCH — Doc Ownership rows only): capabilities are GitHub issues
   labeled `feature`, gated by the Feature issue form; docs/roadmap.md is gone.
 - v3.0.2 (PATCH — Doc Ownership rows only): unbuilt work splits on whether
@@ -142,7 +145,7 @@ inference is: a feature that would auto-round a rate, guess a missing
 field, or silently adjust a timestamp to resolve a conflict is a violation
 of this principle, not an optimization.
 
-**Mechanism**: the inbox (`docs/design/screens/inbox.html`) is the general
+**Mechanism**: the inbox (`apps/web/src/components/inbox.tsx`) is the general
 surface for this — one row per suspect record, cleared by the user editing
 the record or explicitly confirming it, never by the system deciding on
 their behalf. A feature that invents its own silent-correction path instead
@@ -240,8 +243,9 @@ these already owns — it cites the doc instead.
 | --- | --- |
 | The thesis, competitors, price | `docs/positioning.md` (always wins on conflict) |
 | What we believe about the product, and the trust rule behind Principle V | `docs/design/principles.md` |
-| One screen or one app | that screen's doc under `docs/design/screens/`, or `docs/macos.md` |
-| A shape a screen is assembled from | `docs/design/screens/components.html` |
+| How one screen or part looks, in each state | its `*.stories.tsx`, beside the component |
+| A convention every screen keeps | `.claude/rules/web-ui.md` |
+| The macOS app | `docs/macos.md` |
 | How to run, build, or deploy | `docs/local-dev.md`, `docs/deploying.md`, `docs/setup.md` |
 | The data model and rate/invoice-numbering chains | `docs/data-model.md` |
 | Enforced by a check or config, beyond what's named above | that script or config, commented at the line someone edits |
@@ -312,4 +316,4 @@ constitution — internal consistency, nothing further. Whether a decision
 behind a spec was the right one is settled before a feature reaches this
 workflow at all, by a process this document does not govern.
 
-**Version**: 3.0.3 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-26
+**Version**: 3.0.4 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-28

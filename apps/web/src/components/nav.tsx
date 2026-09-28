@@ -39,7 +39,8 @@ export const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
  *
  * **Below `lg` it is a horizontal strip under the header**, scrolling
  * horizontally rather than wrapping, which keeps the row one row tall however
- * many sections it holds.
+ * many sections it holds. Six sections take about 701px, so each one added is
+ * width a phone scrolls for.
  */
 export function Nav() {
   const pathname = usePathname();

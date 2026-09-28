@@ -502,13 +502,10 @@ ${Object.entries(tokens.type.scale)
 `;
 writeFileSync(join(out, 'mockup.css'), mockup);
 
-/* Also into docs/design/screens/, for the same reason Tokens.swift is written
- * into apps/macos: the consumer opens a file from disk and cannot reach an
- * ignored dist/. */
-const mockupDoc = join(
-  import.meta.dirname,
-  '../../../docs/design/screens/_mockup.css',
-);
+/* Also into docs/design/, for the same reason Tokens.swift is written into
+ * apps/macos: the consumer opens a file from disk and cannot reach an ignored
+ * dist/. */
+const mockupDoc = join(import.meta.dirname, '../../../docs/design/_mockup.css');
 if (existsSync(dirname(mockupDoc))) writeFileSync(mockupDoc, mockup);
 
 // ── Favicon (the mark, cropped to its first letter) ────────────────

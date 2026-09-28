@@ -517,8 +517,7 @@ export interface WeekDay {
  *
  * `amount` stays null where the rollup returned null, because a day of
  * unrated work has a real height and no figure to print: substituting 0 would
- * claim the work was free (`docs/design/screens/home.html`, "The week's
- * bars").
+ * claim the work was free.
  */
 export function buildWeek(rows: DayRow[], dateKeys: string[]): WeekDay[] {
   const byDate = new Map(rows.map((r) => [dayKey(r), r]));
@@ -544,8 +543,7 @@ export interface MonthClient {
  * The month's money split by client — the strip beneath the climb.
  *
  * The strip is MONEY where the week's bars are seconds: the month's subject
- * is Earned, so its split divides what was earned
- * (`docs/design/screens/home.html`, "The strip and the legend").
+ * is Earned, so its split divides what was earned.
  *
  * Each row's two money columns are summed because the split is by client and
  * not by billing state: work already invoiced is still money the month
@@ -618,8 +616,8 @@ export const MIN_PACE_DAYS = 3;
  *
  * Needs no target. Earned accumulates — it climbs all month and settles — so
  * carrying its trailing rate to the last working day is arithmetic on a shape
- * the series already has (`docs/design/screens/home.html`, "What earns a
- * place"). Nothing else on the screen is monotonic enough to deserve one.
+ * the series already has. Nothing else on the screen is monotonic enough to
+ * deserve one.
  *
  * `byDay` is money per local date. Days absent from it contributed nothing,
  * which is not the same as a gap: the cumulative line holds flat.

@@ -12,21 +12,14 @@
       "port": 3100
     },
     {
-      "name": "design",
+      "name": "storybook",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
-        "design"
+        "--filter",
+        "@stint/web",
+        "storybook"
       ],
-      "port": 8778
-    },
-    {
-      "name": "web-storybook-worktree",
-      "runtimeExecutable": "sh",
-      "runtimeArgs": [
-        "-c",
-        "cd /Users/blakeeriks/dev/stint-storybook/apps/web && PORT=3101 pnpm dev"
-      ],
-      "port": 3101
+      "port": 6006
     }
   ]
 }

@@ -33,7 +33,7 @@ export function InvoiceList() {
 
   /* Open by default: a paid invoice is finished, and a list that leads with
      finished work makes you scroll past history to reach what needs doing.
-     The home screen's awaiting-payment line links here with ?status=sent. */
+     `?status=sent` narrows it to what is awaiting payment. */
   const status = params.get('status');
   const showAll = status === 'all';
 

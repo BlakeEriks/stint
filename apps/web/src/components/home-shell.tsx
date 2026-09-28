@@ -39,7 +39,7 @@ export const INTERNAL = '';
  * same color in the week's bars, the month's strip and the legend. Built
  * here rather than per region because two regions each deriving their own
  * order is two orders to keep in agreement, and the moment they disagree the
- * palette means nothing (`docs/design/screens/home.html`).
+ * palette means nothing.
  *
  * The order is the month's money, descending, then any client that worked
  * this week without earning yet, by id. Deterministic either way — a `Map`
@@ -204,7 +204,7 @@ export function Pip({ color }: { color?: string | null }) {
  * The bars and the strip draw from one set of clients, so two keys would be
  * a second thing to keep in agreement. Internal work appears here with its
  * hollow ring, because a reader who sees the treatment needs somewhere to
- * find out what it means (`docs/design/screens/home.html`).
+ * find out what it means.
  */
 export function Legend({ hues }: { hues: Map<string, Hue> }) {
   if (hues.size === 0) return null;
