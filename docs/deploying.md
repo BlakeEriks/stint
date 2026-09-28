@@ -82,7 +82,7 @@ Repo → Settings → Branches → Add rule for `main`:
 
 - Require a pull request before merging
 - Require status checks to pass → `scan`, `static`, `database`, `macos`,
-  `e2e` and `drift`
+  `e2e`, `stories` and `drift`
 - **Leave "Require branches to be up to date" off.** On, every merge puts
   every open PR behind and each needs a rebase and a second CI run. Off, two
   PRs green apart could break together; CI on the push to `main`, Vercel's
