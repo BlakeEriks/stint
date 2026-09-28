@@ -233,9 +233,9 @@ side of it `success` sits on.
 | light | L 0.455 | `#457036`, L 0.499 | up, toward the paper |
 
 Light `success` is a **hand-set literal with no rung in
-`derive-light-accent.mjs`** — the generator prints the six accent rungs, and
-inventing a sixth to cover this one would be the hand-editing the ramp check
-exists to catch, the other way round.
+`derive-light-accent.mjs`** — the generator prints six rungs, `timer` among
+them, and inventing a seventh to cover this one would be the hand-editing the
+ramp check exists to catch, the other way round.
 
 ## Contract assertions
 
