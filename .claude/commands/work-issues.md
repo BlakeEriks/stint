@@ -93,7 +93,8 @@ is `reviewed`.
   2. **Feedback** — a comment or review of Blake's newer than the last push
      and the last marked comment: remove `ready-for-qa`, then a round of
      fixes. Feedback beyond the PR's scope becomes a new issue instead.
-  3. **CI failed** (`gh pr checks <n>`): remove `ready-for-qa`.
+  3. **CI failed** (`gh pr checks <n>`): remove `ready-for-qa`. A red
+     `drift` is doc drift, step 4, not a check to fix here.
      - The same check red on `main`, or on another PR the same way, is not
        this PR's fault: open one `urgent` bug issue for it if none exists —
        or `needs-input`, if only Blake can fix it, like a paused `stint-test`

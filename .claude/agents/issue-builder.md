@@ -64,9 +64,9 @@ Then two checks, each kept as a label so nobody makes it twice:
 
 ## Build
 
-An answered `needs-input` issue: remove the label, and continue its pushed
-branch if it has one. Otherwise branch off `origin/main`, the name under 30
-characters — it becomes the preview's URL, and Vercel hashes longer ones.
+An answered `needs-input` issue — catch-up has already removed the label:
+build on Blake's answer, continuing its pushed branch if it has one.
+Otherwise branch off `origin/main`, the name under 30 characters — it becomes the preview's URL, and Vercel hashes longer ones.
 
 Fix it with tests, following `CLAUDE.md` and the `.claude/rules/` the change
 touches. A migration found only now gets the `migration` label now.
