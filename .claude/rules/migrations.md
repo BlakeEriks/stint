@@ -31,19 +31,20 @@ approving the release are the whole deploy step: the approval page shows each
 pending migration's SQL. `pnpm migrate` by hand is for a local or throwaway
 database only, and `docs/deploying.md` owns the shape.
 
-**They are additive and forward-only** (constitution V). Each file runs in
+**From Launch, they are additive and forward-only** (constitution V). Each file runs in
 its own transaction, so one that *fails* rolls back clean; there is no down
 path for one that succeeds and is wrong, so write migrations that cannot need
 reverting:
 
-- **A destructive change to unreleased schema is fine.** Before anything is
-  live, fold the correction into the original file rather than stacking a
-  fix-up on top.
+- **Before Launch, a destructive change is fine.** Drop what a cut feature
+  left behind in a new migration, and update the macOS app in the same PR.
+  Schema that has never reached production folds into its original file
+  instead.
 - Backfills belong in their own migration, separate from the DDL, so a slow
   one cannot hold a lock on the change that needs to land.
 
 `verify:schema` checks the shape is correct, not that getting there was safe;
-#141 adds that check.
+from Launch, #141 checks it.
 
 **The publishable key is public by design** — it ships in the browser bundle,
 so RLS is the only thing protecting the data. That makes `verify:schema` the
