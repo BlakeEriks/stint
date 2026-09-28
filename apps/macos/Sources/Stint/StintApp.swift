@@ -80,11 +80,8 @@ struct StintApp: App {
             // exist until first opened, so the loops start here.
             HStack(spacing: 7) {
                 Image(nsImage: pipImage(fill: NSColor(pipFill)))
-                // A fixed slot, so the count of digits changing from 9:59:59
-                // to 10:00:00 does not slide the pip. 57pt holds the wider.
                 Text(model.menuBarTitle)
                     .monospacedDigit()
-                    .frame(width: 57, alignment: .trailing)
             }
             .task { model.start() }
         }
