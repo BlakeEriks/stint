@@ -95,8 +95,10 @@ apps/web/src/app/api/v1/invoices/route.ts             # writes through create_in
 apps/web/src/app/api/v1/invoices/preview/route.ts     # expenses in, excluded out
 apps/web/src/app/api/v1/invoices/[id]/route.ts        # release on draft delete
 apps/web/src/app/api/v1/invoices/[id]/status/route.ts # release on void
-apps/web/src/components/invoice-list.tsx              # Expenses tab
-apps/web/src/components/expense-list.tsx              # new: list, add, edit, delete, recurrences
+apps/web/src/components/client-detail.tsx             # Expenses section, with Monthly
+apps/web/src/components/expense-list.tsx              # new: ClientExpenses and ExpenseDialog
+apps/web/src/components/*.stories.tsx                 # one story per acceptance scenario
+apps/web/src/mocks/{fixtures,handlers}.ts             # expenses in the in-memory /api/v1
 apps/web/src/components/invoice-new.tsx               # expenses in preview, exclude, add, charges copy (FR-014)
 apps/web/src/components/invoice-detail.tsx            # expenses section
 apps/web/src/lib/invoice-pdf.tsx                      # expenses section
@@ -104,9 +106,10 @@ apps/web/test/invoices.test.ts, rls.test.ts, ui/*     # tests
 docs/api.md, docs/data-model.md, docs/design/screens/invoices.html  # the docs that own these claims
 ```
 
-**Structure Decision**: This follows the existing monorepo layout. The
-Expenses tab is a component the Invoices screen renders under its own tab,
-so there is no new route in the navigation (spec FR-003).
+**Structure Decision**: This follows the existing monorepo layout.
+Expenses are a section of each client's page, since every expense belongs
+to one client; the Invoices screen's tabs stay filters over invoices (spec
+FR-003).
 
 ## Complexity Tracking
 

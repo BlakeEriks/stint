@@ -90,7 +90,7 @@ the 30 September slice. User Story 4 can merge after it.
   - A client filter, an Add expense form (client, optional project under that client, date defaulting to today, description, amount, optional note), and edit and delete per row.
   - Amounts in mono with `tabular-nums`.
   - An empty state that names the filter, not the account.
-- [X] T013 [US2] In `apps/web/src/components/invoice-list.tsx`, add an `expenses` key to the `FilterTabs` after Open, Paid and All. When it is selected, render `ExpenseList` in place of the invoice listing.
+- [X] T013 [US2] (Superseded by T065.) In `apps/web/src/components/invoice-list.tsx`, add an `expenses` key to the `FilterTabs` after Open, Paid and All. When it is selected, render `ExpenseList` in place of the invoice listing.
 
 **Checkpoint**: Expenses can be recorded and managed. Nothing reaches an invoice yet.
 
@@ -216,8 +216,66 @@ the 30 September slice. User Story 4 can merge after it.
 
 - [X] T037 [P] Document the `/expenses` and `/recurring-expenses` rows and the invoice request and response changes in `docs/api.md`.
 - [X] T038 [P] Add `expenses`, `recurring_expenses`, the expense lock, `expenses_subtotal` and the `expense` line unit to `docs/data-model.md`, including why expenses stay out of Earned and Unbilled.
-- [X] T039 [P] Update `docs/design/screens/invoices.html`: the Expenses tab, the preview's Expenses section and subtotal, and the charges hint without "an expense you are passing on".
+- [X] T039 [P] (Superseded: `main` replaced the HTML docs with Storybook; see Phase 8.) Update `docs/design/screens/invoices.html`: the Expenses tab, the preview's Expenses section and subtotal, and the charges hint without "an expense you are passing on".
 - [X] T040 Run `pnpm verify:static` and `pnpm verify:db`, walk through `quickstart.md` in the browser while signed in to local Stint, and take screenshots of the preview and the PDF for the PR's Try it section.
+
+---
+
+## Phase 8: Expenses move to the client's page
+
+**Why**: The Invoices screen's tabs are filters over invoices; an Expenses tab
+there swapped the whole view for something else. Every expense belongs to one
+client, so it lives on that client's page (spec, Session 2026-09-28). This
+supersedes T013's tab and T039's HTML doc, which `main` has since replaced
+with Storybook.
+
+**Order**: stories first, one per acceptance scenario (constitution V). Each
+story renders the real component against the in-memory `/api/v1`, so the
+fake API learns expenses before any story can pass. Components change last,
+until every story below renders as described.
+
+### Fake API (blocks the stories)
+
+- [ ] T041 Add `expenses: Expense[]` and `recurringExpenses: RecurringExpense[]` to `Db` in `apps/web/src/mocks/fixtures.ts`. Seed Northwind with two waiting expenses (one last month, one produced by a monthly "Claude Max" on the 5th), one billed on its sent invoice, and one on its draft; `empty` clears both lists.
+- [ ] T042 Add handlers to `apps/web/src/mocks/handlers.ts` for `GET|POST /expenses`, `PATCH|DELETE /expenses/:id` (409 `EXPENSE_LOCKED` when its invoice is issued), `GET|POST /recurring-expenses` and `PATCH /recurring-expenses/:id` (with `stop`). Preview and create take the client's waiting expenses up to `periodEnd`, less `excludedExpenseIds`, through `buildLineItems`, as the routes do.
+- [ ] T043 Extend `apps/web/test/mocks-parity.test.ts` so the fake and the routes agree on the new endpoints for each scenario.
+
+### Stories: the client's page — `client-detail.stories.tsx` (US2, US3, US4)
+
+- [ ] T044 [P] `Expenses` — Northwind's page shows an Expenses section: the waiting expenses, oldest first, each with date, description and amount; the monthly one is marked "monthly". (US2 scenario 1)
+- [ ] T045 [P] `NoExpenses` — a client with none reads "Nothing waiting to be billed", with Add expense beside it, never an empty table. (US2)
+- [ ] T046 [P] `AddExpense` — play: Add expense opens the dialog with this client fixed, today's date and no amount; Add stays disabled until description and an amount above zero are in. (US2 scenario 1)
+- [ ] T047 [P] `EditExpense` — play: editing a waiting expense opens the dialog filled in; Save and Delete are offered. (US2 scenario 2)
+- [ ] T048 [P] `ShowBilled` — play: Show billed lists the billed ones with their invoice number; the one on the sent invoice has edit and delete disabled, the one on the draft does not. (US3 scenarios 1–2)
+- [ ] T049 [P] `EditLocked` — `failing('updateExpense')` with `EXPENSE_LOCKED`: the refusal is said beside the row, not in a toast. (US3 scenario 1)
+- [ ] T050 [P] `Monthly` — under Expenses, Monthly lists "Claude Max · every month on the 5th". (US4 scenario 1)
+- [ ] T051 [P] `AddMonthly` — play: the dialog asks for a First charge instead of a Date paid. (US4)
+- [ ] T052 [P] `EditMonthly` — play: the first charge is shown and cannot change; the dialog says a change reaches only months to come. (US4 scenario 3)
+- [ ] T053 [P] `StopMonthly` — play: Stop asks once more ("Stop it" / "Keep"), then the row reads "stopped <date>" with no actions. (US4 scenario 4)
+- [ ] T054 [P] `ArchivedWithExpenses` — the archived client still shows its waiting expenses, so they still reach an invoice. (Edge case)
+- [ ] T055 [P] `ExpensesFailed` — `failing('expenses')`: the section says it could not load, and the rest of the page still renders.
+- [ ] T056 [P] `Phone` covers the section at phone width: one row per expense, the amount never wraps.
+
+### Stories: the new invoice — `invoice-new.stories.tsx` (US1, US2)
+
+- [ ] T057 [P] `WithExpenses` — choosing Northwind lists its waiting expenses up to the period's end, all ticked. (US1 scenario 1)
+- [ ] T058 [P] `ExpensePreview` — play: Preview shows Expenses under their own heading after the services, dated, then Services, Expenses and Total. (US1 scenarios 1–2)
+- [ ] T059 [P] `ExpenseLeftOff` — play: unticking one withdraws the preview; previewing again leaves it out. (Edge case)
+- [ ] T060 [P] `ExpensesOnly` — a period with no time: the preview has no Services row and Generate is offered. (US1 scenario 3)
+- [ ] T061 [P] `AddExpenseHere` — play: Add an expense opens the dialog with the invoice's client; saving it withdraws the preview. (US2 scenario 3)
+- [ ] T062 [P] `ExpenseTakenElsewhere` — `failing('createInvoice')` with `EXPENSE_ALREADY_INVOICED`: the message asks to preview again. (Edge case)
+
+### Stories: the invoice — `invoice-detail.stories.tsx` (US1)
+
+- [ ] T063 [P] `WithExpenses` — an issued invoice shows its Expenses section, dated, with Services, Expenses and Total. (US1 scenario 2)
+- [ ] T064 [P] `ExpensesOnly` — no Services row. (US1 scenario 3)
+
+### Components
+
+- [ ] T065 Remove the `expenses` key from `FilterTabs` and the `ExpenseList` branch in `apps/web/src/components/invoice-list.tsx`; the existing `Screens/Invoices` stories cover the result.
+- [ ] T066 Rework `apps/web/src/components/expense-list.tsx` into `ClientExpenses({ client })`: no client filter; `ExpenseDialog` fixes the client it is opened for. Render it on `apps/web/src/components/client-detail.tsx` after the projects.
+- [ ] T067 Move the Expenses UI tests from `apps/web/test/ui/expense-list.test.tsx` to whatever the stories above don't already prove, then delete what they duplicate.
+- [ ] T068 Every story from T044 to T064 renders as described, in dark and light; `pnpm verify:static` and `pnpm verify:db` pass; update the PR's Try it to start from Clients → Northwind.
 
 ---
 
@@ -228,6 +286,7 @@ the 30 September slice. User Story 4 can merge after it.
 - US3 depends on US1, because it locks what generation attaches.
 - US4 depends on Phase 2 and US2. It can merge after US1 to US3 as a separate PR.
 - Polish comes after the stories it documents. T037 to T039 can run beside the story they describe.
+- Phase 8: T041–T043 block the stories; the stories (T044–T064) come before the components (T065–T067).
 
 ## Parallel examples
 

@@ -40,9 +40,13 @@ receipt or order number.
 ### Session 2026-09-27
 
 - Q: Should an expense that hasn't been invoiced yet count toward Home's Unbilled figure? → A: No. Unbilled stays work-only; waiting expenses show on the expenses list and in the invoice preview.
-- Q: Where should you record and review expenses that are waiting to be invoiced? → A: An Expenses tab on the Invoices screen, beside Open / Paid / All.
+- Q: Where should you record and review expenses that are waiting to be invoiced? → A: An Expenses tab on the Invoices screen, beside Open / Paid / All. (Superseded 2026-09-28: the client's page.)
 - Q: When you build a client's invoice for a period, which waiting expenses should the preview pick up? → A: Every waiting expense for that client dated on or before the period's end, including earlier months.
 - Q: Can an expense recur, so a monthly subscription is not re-entered every month? → A: Yes. A recurring expense produces one ordinary waiting expense each month.
+
+### Session 2026-09-28
+
+- Q: Where should you record and review expenses, now that they're no longer a filter tab on Invoices? → A: On the client's page, in an Expenses section with Monthly beneath it. Invoices' tabs stay filters over invoices. The new-invoice screen keeps its list of the client's waiting expenses and its way to add one.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -94,8 +98,8 @@ waits.
 **Acceptance Scenarios**:
 
 1. **Given** the contractor has a client, **When** they record an expense
-   with a client, date, description and amount from the Invoices screen's
-   Expenses tab, **Then** it is listed there as unbilled for that client.
+   with a date, description and amount from that client's page, **Then** it
+   is listed there as waiting.
 2. **Given** an unbilled expense, **When** the contractor edits or deletes
    it, **Then** the change is saved.
 3. **Given** the new-invoice screen for a client and period, **When** the
@@ -194,10 +198,11 @@ invoice for September and see one expense for 5 August and one for
   belonging to that client and a note.
 - **FR-002**: An expense MUST NOT carry a duration, a quantity or a rate, and
   MUST NOT count toward hours anywhere in the app.
-- **FR-003**: The Invoices screen MUST have an Expenses tab beside Open,
-  Paid and All, listing unbilled expenses, filterable by client, where the
-  contractor can add, edit and delete them. An All filter on the tab also
-  shows billed expenses with their invoice number. No new screen is added.
+- **FR-003**: Each client's page MUST have an Expenses section listing that
+  client's waiting expenses, where the contractor can add, edit and delete
+  them, and a Show billed toggle that also lists billed ones with their
+  invoice number. The Invoices screen's tabs stay filters over invoices. No
+  new screen is added.
 - **FR-004**: The invoice preview for a client and period MUST include every
   unbilled expense for that client dated on or before the period's end,
   including ones from earlier months, and the
@@ -237,7 +242,7 @@ invoice for September and see one expense for 5 August and one for
 
 - **FR-017**: The contractor MUST be able to create, edit and stop a
   monthly recurring expense with a client, a description, an amount, a first
-  date, and optionally a project and a note, from the Expenses tab.
+  date, and optionally a project and a note, from the client's page.
 - **FR-018**: A recurrence MUST produce exactly one waiting expense for each
   month from its first date up to today, on that day of the month, until it
   is stopped. Each is an ordinary expense under FR-001 to FR-016.
