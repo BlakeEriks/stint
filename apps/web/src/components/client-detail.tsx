@@ -141,8 +141,9 @@ function Detail({
       >
         {value || 'Not set'}
       </dd>
+      {/* A `dd` of its own: a list group may hold only `dt` and `dd`. */}
       {hint && !value ? (
-        <p className="mt-0.5 type-support text-subtle">{hint}</p>
+        <dd className="mt-0.5 type-support text-subtle">{hint}</dd>
       ) : null}
     </div>
   );

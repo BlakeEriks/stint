@@ -93,7 +93,7 @@ const preview: Preview = {
     layout: 'padded',
     nextjs: { appDirectory: true },
     msw: { handlers },
-    // The widths the app's layout changes at: below `sm`, `md`, and `xl`.
+    // The widths the app's layout changes at: below `sm`, `md`, `xl` and `2xl`.
     viewport: {
       options: {
         phone: { name: 'Phone', styles: { width: '390px', height: '844px' } },
@@ -105,6 +105,8 @@ const preview: Preview = {
           name: 'Desktop',
           styles: { width: '1280px', height: '800px' },
         },
+        // Past `2xl`: the app becomes a bounded card on the recessed plane.
+        wide: { name: 'Wide', styles: { width: '1600px', height: '1000px' } },
       },
     },
     a11y: { test: 'error' },

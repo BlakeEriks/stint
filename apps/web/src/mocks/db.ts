@@ -63,3 +63,6 @@ export function getDb(): Db {
   if (!db) throw new Error('The fake API has no account: resetDb() first.');
   return db;
 }
+
+/** `parameters` for a story whose account is the seeded one, edited. */
+export const account = (edit: (db: Db) => void) => ({ db: edit });

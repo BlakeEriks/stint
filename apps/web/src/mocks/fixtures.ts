@@ -246,7 +246,7 @@ export function seed(now: Date): Db {
     entry(n++, day(3), '17:00', 60, null, 'Research: carrier APIs'),
     entry(n++, day(9), '17:30', 30, null, 'Quick call with Priya'),
     entry(n++, day(2), '17:10', 0.5, ids.warehouse, 'Sprint planning'),
-    entry(n++, day(6), '08:00', 13.5 * 60, ids.brand, 'Launch day support'),
+    entry(n++, day(4), '08:00', 13.5 * 60, ids.brand, 'Launch day support'),
     entry(n++, day(1), '14:30', 60, ids.rush, 'Client call and follow-ups'),
   );
 

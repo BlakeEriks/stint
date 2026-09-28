@@ -16,8 +16,10 @@ import * as preview from '../../.storybook/preview';
  *
  * In Docker it is also compared, pixel for pixel, with its baseline in
  * `__screenshots__/` (`pnpm test:stories:docker`). Baselines are rendered on
- * Linux only, so a Mac run checks everything but the pixels. The whole body
- * is captured: a dialog or menu renders in a portal outside the story's root.
+ * Linux only, so a Mac run checks everything but the pixels. The viewport is
+ * captured, as a person sees it: that includes a dialog or menu, which
+ * renders in a portal outside the story's root, and stops at the fold on a
+ * page that scrolls.
  */
 const annotations = setProjectAnnotations([a11y, preview]);
 beforeAll(annotations.beforeAll);
@@ -49,9 +51,7 @@ for (const [path, module] of Object.entries(modules)) {
           import.meta.env.STORY_SCREENSHOTS &&
           Story.parameters.screenshot !== false
         )
-          await expect
-            .element(page.elementLocator(document.body))
-            .toMatchScreenshot(Story.id);
+          await expect(page).toMatchScreenshot(Story.id);
       });
     }
   });

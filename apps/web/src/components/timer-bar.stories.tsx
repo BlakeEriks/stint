@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, within } from 'storybook/test';
+import { desktop, phone, tablet } from '@/mocks/screen';
 import { TimerDock } from './timer-dock';
 
 /** The bar under every screen, fed by the shared fake account. */
@@ -21,9 +22,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const running = { parameters: { db: 'running' } };
-const phone = { globals: { viewport: { value: 'phone' } } };
-const tablet = { globals: { viewport: { value: 'tablet' } } };
-const desktop = { globals: { viewport: { value: 'desktop' } } };
 
 /** Below `sm` the idle bar wraps: the task field takes its own row. */
 export const IdlePhone: Story = { ...phone };
@@ -49,3 +47,33 @@ export const Rename: Story = {
     await expect(field).toHaveValue('Checkout timeout fix');
   },
 };
+
+/** Focus alone opens the recent names; nothing is highlighted yet. */
+export const Suggestions: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      await canvas.findByRole('combobox', { name: 'Task name' }),
+    );
+    await expect(await canvas.findByRole('listbox')).toBeVisible();
+  },
+};
+
+/** Typing filters, the match in bold, the keycap on the highlighted row. */
+export const SuggestionsFiltered: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.type(
+      await canvas.findByRole('combobox', { name: 'Task name' }),
+      'pa',
+    );
+    await userEvent.keyboard('{ArrowDown}');
+    await expect(await canvas.findByRole('listbox')).toBeVisible();
+  },
+};
+
+/** Past the limit: the dot pulses and the clock warns; the choice itself
+    is the inbox's. */
+export const Runaway: Story = { ...desktop, parameters: { db: 'runaway' } };
