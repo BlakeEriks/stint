@@ -22,16 +22,19 @@ mode starts an issue while five PRs wait on Blake (step 1).
 work and `pr-review-toolkit:code-reviewer` reviews it, each in its own subagent reporting back
 one paragraph. **One builder per issue**: brief it with the issue or PR
 number and nothing else, and send it everything after — findings, `ship` —
-by SendMessage to its agentId. Never a second builder for that issue, and
-never a status check: its notification is its status. Your context holds a summary per issue, not the work, and a
+by SendMessage to its agentId. Never a second builder for that issue — save
+the one case step 1 names, when its instructions have changed — and never a
+status check: its notification is its status. Your context holds a summary per issue, not the work, and a
 long run survives auto-compaction. Nothing smaller than an issue or a round
 of fixes gets a subagent — each one re-reads the project, and that is the
 cost.
 
 **Blake's comment** means one by `BlakeEriks` without the
-`<!-- work-issues -->` marker every loop comment starts with — `gh` runs as
-Blake, so the marker is the only tell. Bots' comments, Vercel's included, are
-never feedback, except the doc-drift comment step 0 reads.
+`<!-- work-issues -->` marker — `gh` runs as Blake, so the marker is the only
+tell. Every loop comment, yours and the builder's, starts with it and then
+`🤖 **From the /work-issues agent**`, so a reader sees it is not his. Bots'
+comments, Vercel's included, are never feedback, except the doc-drift
+comment step 0 reads.
 
 **Labels are the loop's memory**, so nothing is worked out twice:
 
@@ -149,10 +152,13 @@ then `enhancement`; oldest first within a label. None left → step 2.
 
 Otherwise hand it to a builder for triage and build, as a round. An issue a
 builder already triaged — its `agentId` is in the log — goes back to that
-builder by SendMessage, which still holds the reading; a new one only if it
-no longer answers. It reports
-one of: a commit ready for review, `closed` (the issue no longer held),
-`needs-input`, or `blocked` — for any but the first, pick again.
+builder by SendMessage, which still holds the reading — unless
+`.claude/agents/issue-builder.md` has changed since that builder's first log row
+(`git log -1 --format=%cI origin/main -- .claude/agents/issue-builder.md`),
+since a builder keeps the instructions it started with, or it no longer
+answers: then a new one. It reports one of: a commit ready for review,
+`closed` (the issue no longer held), `needs-input`, or `blocked` — for any
+but the first, pick again.
 
 ## 2. Stop
 
