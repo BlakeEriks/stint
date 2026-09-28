@@ -70,12 +70,14 @@ One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, the invoice
 identity block (business name, address, logo, tax id, terms), the invoice
 number sequence, `payment_notice`, and the entry-length thresholds
-(`min_entry_seconds`, `max_entry_hours`).
+(`min_entry_seconds`, `max_entry_hours`). `max_timer_hours` is unread and
+awaiting removal (#108).
 
-**The length thresholds default to null, and that is the feature.** Null
-retires that side of the inbox's strange-duration row, so an existing account
-gains no new row until it asks for one. Seconds on the short side: an entry
-under a minute was started and stopped without work between it.
+**`max_entry_hours` defaults to 12; `min_entry_seconds` to null.** The long
+side is how a timer left running overnight reaches the inbox once it is
+stopped. Null retires that side of the strange-duration row. Seconds on the
+short side: an entry under a minute was started and stopped without work
+between it.
 
 **The trigger is `security definer` with `set search_path = public, pg_temp`,
 and both halves matter.** It fires inside Supabase's signup transaction, so
@@ -188,7 +190,7 @@ sequence gapless under concurrency rather than merely usually correct.
 - Enumerations are check constraints, not conventions: `status`,
   `grouping_mode`, `time_format`, `account_type`, `fee_allocation`,
   `monthly_target_unit`.
-- Ranges: `week_starts_on` 0–6, `tax_rate` 0–100,
+- Ranges: `week_starts_on` 0–6, `tax_rate` 0–100, `max_timer_hours > 0`,
   `min_entry_seconds > 0`, `max_entry_hours > 0`,
   `next_invoice_number > 0`, `monthly_target > 0`,
   `quantity_seconds >= 0`; client, project and payment-profile names must be
