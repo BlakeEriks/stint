@@ -403,7 +403,8 @@ try {
   /* Unprojected entries: billable, ended, unbilled, and with no project, so
      no rate resolves beyond the user default. Two of them, on different
      days, because one is a special case that hides an off-by-one in the
-     count and they must not all fall on today. */
+     count and they must not all fall on today. At 12:00, where the 09:00
+     block has ended and the 13:30 one has not begun, whatever the day. */
   const unprojected = [
     { daysAgo: 3, hours: 0.75, task: 'Seeded: call with a prospective client' },
     { daysAgo: 9, hours: 1.5, task: 'Seeded: scoping notes, unfiled' },
@@ -411,7 +412,7 @@ try {
   for (const u of unprojected) {
     const start = new Date();
     start.setDate(start.getDate() - u.daysAgo);
-    start.setHours(14, 0, 0, 0);
+    start.setHours(12, 0, 0, 0);
     await db.query(
       `insert into time_entries
          (id, user_id, project_id, task_name, started_at, ended_at, is_billable)
@@ -447,6 +448,22 @@ try {
     ],
   );
   entries += 1;
+
+  /* No two seeded entries overlap: an overlapped hour is counted twice in
+     the day's totals. CI's seeder run fails here rather than on a screen. */
+  const { rows: overlaps } = await db.query(
+    `select a.started_at from time_entries a
+       join time_entries b on b.user_id = a.user_id and b.id > a.id
+        and tstzrange(a.started_at, coalesce(a.ended_at, 'infinity'))
+         && tstzrange(b.started_at, coalesce(b.ended_at, 'infinity'))
+     where a.user_id = $1`,
+    [userId],
+  );
+  if (overlaps.length > 0) {
+    throw new Error(
+      `Seeded entries overlap, starting ${overlaps.map((r) => r.started_at.toISOString()).join(', ')}`,
+    );
+  }
 
   /* Invoices: overdue, awaiting payment, stale draft, and paid. Each carries
      one line item, because an invoice with no lines renders a total of zero
