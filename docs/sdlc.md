@@ -29,10 +29,9 @@ flowchart TD
   end
 
   subgraph Ship
-    release["Release gate<br/>plan → approve + backup if migrating<br/>→ migrate + verify → smoke"]
+    release["Release gate<br/>plan → approve + backup if migrating<br/>→ migrate + verify"]
     live([Live])
     cleanup["git worktree remove<br/>git branch -D"]
-    alert["Sentry alert"]
   end
 
   idea -->|fault or tweak| issue
@@ -54,7 +53,6 @@ flowchart TD
   qa -->|Blake merges| release
   release --> live
   release --> cleanup
-  live --> alert -->|bug · urgent| issue
 ```
 
 ## Capture

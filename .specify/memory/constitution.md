@@ -145,7 +145,7 @@ as an always-on service or a paid vendor tier, changes positioning first.
 | A route handler | `apps/web/test/routes.test.ts`, against real Postgres |
 | A table | `apps/web/test/rls.test.ts` |
 | Logic written twice | `apps/web/test/rates.test.ts` (V) |
-| `packages/core` | `packages/core/test`, above a coverage floor |
+| `packages/core` | `packages/core/test` |
 | A screen, and each state a user can see | its `*.stories.tsx`, one story per acceptance scenario, run by the `stories` check |
 | Sign-in and invoicing, end to end | `apps/web/e2e` |
 
@@ -154,7 +154,7 @@ stories first: the story is where a state is specified and reviewed, and the
 component is built to it.
 
 **Mechanism**: `TODO(#144)`: nothing fails CI when a route,
-table or component has no test. `TODO(#145)`.
+table or component has no test. `TODO(#145)`: no coverage floor on `packages/core` yet.
 
 ## Accessibility
 
