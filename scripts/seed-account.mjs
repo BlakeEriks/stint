@@ -334,7 +334,7 @@ try {
        earned nothing yet, so without the extra the day reads $0.00 on a
        screen whose subject is what you earned. */
     const count = (back % 3 === 0 ? 2 : 1) + (back === lastWorkedBack ? 1 : 0);
-    let blocks = [];
+    const blocks = [];
     for (let b = 0; b < count; b += 1) {
       const start = new Date(day);
       start.setHours(9 + b * 4, b === 0 ? 0 : 30, 0, 0);
@@ -350,14 +350,25 @@ try {
        app opens on a live timer rather than a stopped screen. That day is
        usually today, and a seed run before 17:30 would start it in the
        future — a timer that reads 0:00:00 and that `/timer/stop` refuses. So
-       it starts no later than 45 minutes ago, and a finished block that
-       would end after it is dropped: nothing seeded ends after now. */
+       it starts no later than 45 minutes ago, and each finished block before
+       it moves earlier as far as it must to end 30 minutes before the next
+       one starts. Nothing seeded ends after now, and a morning seed still
+       earns something today; one run in the small hours lays those blocks
+       on the evening before. */
     if (back === lastWorkedBack) {
       const running = blocks.at(-1);
       const latest = new Date(Date.now() - 45 * 60_000);
       if (running.start > latest) running.start = latest;
       running.end = null;
-      blocks = blocks.filter((k) => k === running || k.end <= running.start);
+      let next = running.start;
+      for (const k of blocks.slice(0, -1).reverse()) {
+        const shift = k.end - (next - 30 * 60_000);
+        if (shift > 0) {
+          k.start = new Date(k.start - shift);
+          k.end = new Date(k.end - shift);
+        }
+        next = k.start;
+      }
     }
 
     for (const { b, start, end } of blocks) {
