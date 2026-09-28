@@ -4,14 +4,29 @@
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@stint/web", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@stint/web",
+        "dev"
+      ],
       "port": 3100
     },
     {
       "name": "design",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["design"],
+      "runtimeArgs": [
+        "design"
+      ],
       "port": 8778
+    },
+    {
+      "name": "web-storybook-worktree",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/blakeeriks/dev/stint-storybook/apps/web && PORT=3101 pnpm dev"
+      ],
+      "port": 3101
     }
   ]
 }

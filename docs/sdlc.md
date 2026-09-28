@@ -17,7 +17,7 @@ flowchart TD
   end
 
   subgraph Build
-    spec["/speckit-specify → clarify<br/>→ plan → tasks → analyze"]
+    spec["/next-feature → clarify<br/>→ plan → tasks → analyze"]
     impl["pnpm worktree branch-name<br/>/speckit-implement"]
     wi["/work-issues in ../stint-issues<br/>issue-builder ⇄ code-reviewer"]
   end
