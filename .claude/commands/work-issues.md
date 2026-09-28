@@ -15,7 +15,8 @@ Blake can test from its preview link. Blake merges; merging is the deploy, so
 - `/work-issues` alone works until nothing is left; `/loop /work-issues`
   comes back while CI is still running.
 
-Step 0 runs every time, so open PRs are caught up before anything new. No
+Step 0 runs at every wake and again before every pick, so feedback Blake
+left while a builder worked is answered before anything new. No
 mode starts an issue while five PRs wait on Blake (step 1).
 
 **You orchestrate; subagents build and review.** `issue-builder` does the
@@ -113,7 +114,9 @@ is `reviewed`.
      merges `main` in. Review it only if the conflicts needed resolving. A PR
      merely behind `main` is fine: `main` does not require branches to be up
      to date.
-  6. **CI green and none of the above:** add `ready-for-qa`, once.
+  6. **CI green and none of the above**, all checked in this pass: add
+     `ready-for-qa`, once. Only this step adds it — never a look at CI
+     alone, which cannot see Blake's comments.
   7. **CI still running:** leave it for the next pass.
 - **Each open Dependabot PR** (`gh pr list --author app/dependabot`), the
   same steps, except:
@@ -157,8 +160,8 @@ builder by SendMessage, which still holds the reading — unless
 (`git log -1 --format=%cI origin/main -- .claude/agents/issue-builder.md`),
 since a builder keeps the instructions it started with, or it no longer
 answers: then a new one. It reports one of: a commit ready for review,
-`closed` (the issue no longer held), `needs-input`, or `blocked` — for any
-but the first, pick again.
+`closed` (the issue no longer held), `needs-input`, or `blocked`. Once it
+has shipped, or reported any but the first, step 0 again, then pick again.
 
 ## 2. Stop
 
