@@ -177,10 +177,12 @@ as an always-on service or a paid vendor tier, changes positioning first.
 | A table | `apps/web/test/rls.test.ts` |
 | Logic written twice | `apps/web/test/rates.test.ts` (VIII) |
 | `packages/core` | `packages/core/test`, above a coverage floor |
-| A component | a sibling `*.stories.tsx`, run by the `stories` check |
+| A screen, and each state a user can see | its `*.stories.tsx`, one story per acceptance scenario, run by the `stories` check |
 | Sign-in and invoicing, end to end | `apps/web/e2e` |
 
-A bug fix starts with the test that reproduces it.
+A bug fix starts with the test that reproduces it. A screen is designed as
+stories first: the story is where a state is specified and reviewed, and the
+component is built to it.
 
 **Mechanism**: `TODO(#144)`: nothing fails CI when a route,
 table or component has no test. `TODO(#145)`.
