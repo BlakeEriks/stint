@@ -36,6 +36,13 @@ export default defineConfig({
         // The a11y addon fails a test on a violation only in a standalone
         // Vitest run; otherwise it just reports to Storybook's UI.
         define: { 'import.meta.env.VITEST_STORYBOOK': '"false"' },
+        /* Scan every story before the run. A dependency found mid-run makes
+           Vite re-bundle and reload, and every test already importing the
+           old bundle fails with "Failed to fetch dynamically imported
+           module". */
+        optimizeDeps: {
+          entries: ['src/**/*.stories.tsx', '.storybook/preview.tsx'],
+        },
         test: {
           name: 'stories',
           include: ['test/stories/**/*.test.tsx'],

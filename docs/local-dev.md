@@ -356,7 +356,9 @@ pointer-capture methods — without them every DropdownMenu test throws on open.
 
 `pnpm --filter @stint/web storybook` serves the stories at `localhost:6006`
 with no stack: a story that reads `/api/v1/*` gets it from MSW handlers in
-its `parameters.msw`, and an unhandled request fails. Its MCP server is at
+its `parameters.msw`, and an unhandled request fails. On a browser's first
+visit MSW's service worker installs after the page has loaded, so the first
+story that reads the API gets 404s; reload once. Its MCP server is at
 `localhost:6006/mcp`.
 
 `pnpm --filter @stint/web test:stories` runs every story as a test in
