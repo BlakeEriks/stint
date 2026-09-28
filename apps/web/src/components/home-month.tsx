@@ -1,6 +1,7 @@
 'use client';
 
 import { formatCurrency } from '@stint/core';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { Stats } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 import { Money } from './money';
@@ -352,20 +353,87 @@ function Climb({
           axis: a footing for the line, not a second chart. */}
       <Strip byClient={month.byClient} hues={hues} currency={currency} />
 
-      <div className="relative mt-2.5 mr-3.5 ml-11 h-4">
-        <span className="absolute left-0 type-meta whitespace-nowrap text-subtle">
-          {dayLabel(month.series[0]?.date)}
-        </span>
-        <span
-          style={{ left: `${(last / total) * 100}%` }}
-          className="absolute -translate-x-1/2 type-meta whitespace-nowrap text-primary"
-        >
-          today
-        </span>
-        <span className="absolute left-full -translate-x-full type-meta whitespace-nowrap text-subtle">
-          {dayLabel(month.series.at(-1)?.date)}
-        </span>
-      </div>
+      <DayAxis
+        first={dayLabel(month.series[0]?.date)}
+        end={dayLabel(month.series.at(-1)?.date)}
+        at={last / total}
+      />
+    </div>
+  );
+}
+
+/** The space `today` keeps from a date label, in px. */
+const AXIS_GAP = 8;
+
+/**
+ * The x axis: the month's first and last dates at its ends, and `today` at
+ * its day. A date that `today` would touch gives way to it, so near either end
+ * `today` takes that date's place. Whether they touch is measured, not
+ * since it turns on the axis's width and the locale's dates.
+ */
+function DayAxis({
+  first,
+  end,
+  at,
+}: {
+  first: string;
+  end: string;
+  at: number;
+}) {
+  const row = useRef<HTMLDivElement>(null);
+  const [yields, setYields] = useState({ first: false, end: false });
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the labels move and change without the row resizing, so a new day or locale remeasures
+  useLayoutEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    const measure = () => {
+      const box = (name: string) =>
+        el
+          .querySelector(`[data-axis-label="${name}"]`)
+          ?.getBoundingClientRect();
+      const today = box('today');
+      const a = box('first');
+      const b = box('end');
+      if (!today || !a || !b) return;
+      setYields({
+        first: today.left < a.right + AXIS_GAP,
+        end: today.right > b.left - AXIS_GAP,
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [first, end, at]);
+
+  /* On the last day, `today` anchors where the date's label did rather than
+     hanging half past the axis. The first day has no line, so no axis. */
+  const anchor = at >= 1 ? '-translate-x-full' : '-translate-x-1/2';
+
+  return (
+    <div ref={row} data-axis="x" className="relative mt-2.5 mr-3.5 ml-11 h-4">
+      {/* `invisible`, not removed, so the label is still there to measure
+          once `today` moves off it. */}
+      <span
+        data-axis-label="first"
+        className={`absolute left-0 type-meta whitespace-nowrap text-subtle ${yields.first ? 'invisible' : ''}`}
+      >
+        {first}
+      </span>
+      <span
+        data-axis-label="today"
+        style={{ left: `${at * 100}%` }}
+        className={`absolute ${anchor} type-meta whitespace-nowrap text-primary`}
+      >
+        today
+      </span>
+      <span
+        data-axis-label="end"
+        className={`absolute left-full -translate-x-full type-meta whitespace-nowrap text-subtle ${yields.end ? 'invisible' : ''}`}
+      >
+        {end}
+      </span>
     </div>
   );
 }
