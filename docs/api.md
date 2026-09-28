@@ -80,7 +80,7 @@ or one with an unreadable row, before anything is written.
 `currency`, `unbilled`, `earnedToday`, `week`, `month`, `collected`,
 `awaitingPayment`, `openInvoiceCount` and `attention`. The rollups behind
 them, and the window each one runs, are in `docs/data-model.md`; what the
-screen does with them is `docs/design/screens/home.html`.
+screen does with them is `Screens/Home` in Storybook.
 
 **Three figures are three stages of one pipeline, and no two may be summed** —
 any pair double-counts the same hours. `unbilled` is work done and not

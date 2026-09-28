@@ -22,7 +22,11 @@ import { useAccount } from '@/lib/client/use-account';
  * The account, and the way out of it for good.
  *
  * Typing the email back is the gate: it cannot be clicked through by habit,
- * and it names which account for someone signed in to more than one.
+ * and it names which account for someone signed in to more than one. The
+ * dialog counts what goes before asking. Deletion is all or nothing, which is
+ * what makes "nothing was removed" true when it fails. The fill is red on the
+ * confirm only, there is no accent in the dialog, and success lands on
+ * `/signin`.
  */
 export function DeleteAccount() {
   const { email } = useAccount();

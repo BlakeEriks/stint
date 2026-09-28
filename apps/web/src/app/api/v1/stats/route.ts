@@ -49,6 +49,9 @@ export const dynamic = 'force-dynamic';
  * Everything the home screen's cards need, in ONE call: the cards render
  * together and a set that pops in piecemeal reads as broken.
  *
+ * Derived on every request, the inbox's rows included, never cached: an
+ * invoice still listed as late after its money arrived is a trust failure.
+ *
  * The figures themselves are built in `@stint/core`; this loads the rows.
  */
 export const GET = handle(async (req: Request) => {

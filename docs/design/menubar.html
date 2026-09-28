@@ -1,8 +1,8 @@
 <title>Stint Menu Bar Spec</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="screens/_mockup.css">
+<link rel="stylesheet" href="_mockup.css">
 <style>
-  /* Every color, size and the mark come from screens/_mockup.css, which
+  /* Every color, size and the mark come from _mockup.css, which
      pnpm tokens generates. This file holds only the shapes that are specific
      to the panel — a stale hex renders perfectly and quietly misrepresents
      the app, which is the whole reason nothing here is written by hand. */
@@ -199,9 +199,8 @@
     padding: 8px 12px 8px 14px;
     background: var(--bg-recessed); border-bottom: 1px solid var(--border-subtle);
   }
-  /* The mark, so it keeps its bounds and one color. 17px muted per
-     brand.html's placement table, which owns every size and shade the mark is
-     set at — the header is chrome above the thing being read. */
+  /* The mark, so it keeps its bounds and one color. 17px muted: the header
+     is chrome above the thing being read (.claude/rules/web-ui.md). */
   .wordmark {
     font-family: var(--font-mono); font-size: 17px; font-weight: 600;
     letter-spacing: .12em; color: var(--text-muted);

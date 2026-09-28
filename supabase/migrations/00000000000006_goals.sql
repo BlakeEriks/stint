@@ -4,7 +4,7 @@
 -- invoicing is monthly, and competing progress bars fight for one glance.
 --
 -- Both nullable — no target is the default, and the Pace card then hides
--- (`docs/design/screens/home.html`).
+-- (Storybook's `Screens/Home`).
 alter table user_settings
   add column monthly_target        numeric(12,2)
     check (monthly_target is null or monthly_target > 0),

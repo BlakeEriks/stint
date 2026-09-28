@@ -66,7 +66,7 @@ function Panel({ stats }: { stats: Stats }) {
   /* ONE palette for the whole panel, built once here and passed down. Two
      regions each deriving their own order is two orders to keep in
      agreement, and a palette that reorders between two regions of one panel
-     means nothing (`docs/design/screens/home.html`). */
+     means nothing. */
   const hues = useMemo(() => {
     const weekKeys = new Set<string>();
     for (const day of byDay.values()) {

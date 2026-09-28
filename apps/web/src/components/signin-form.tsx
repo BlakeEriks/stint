@@ -112,8 +112,8 @@ export function SignInForm({
             />
           </label>
 
-          {/* The one screen with no timer in view, so the accent is free to
-              mark its single action. */}
+          {/* The one action this screen exists to complete, so it takes the
+              accent. */}
           <Button type="submit" variant="accent" disabled={state === 'sending'}>
             {state === 'sending' ? 'Sending…' : 'Email me a sign-in link'}
           </Button>

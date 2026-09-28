@@ -3,7 +3,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  children,
+  retry = 1,
+}: {
+  children: React.ReactNode;
+  /** Storybook turns it off, so an error state renders without the wait. */
+  retry?: number | false;
+}) {
   // One client per browser session, created lazily so it is never shared
   // across requests on the server.
   const [client] = useState(
@@ -15,7 +22,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             // was in the background reconciles with the server.
             refetchOnWindowFocus: true,
             staleTime: 10_000,
-            retry: 1,
+            retry,
           },
         },
       }),

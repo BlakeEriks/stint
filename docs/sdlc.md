@@ -24,7 +24,7 @@ flowchart TD
 
   subgraph Review
     pr["Pull request"]
-    ci["CI: static · database · macos · e2e<br/>Docs: Vale · /doc-drift"]
+    ci["CI: static · database · macos · e2e · stories<br/>Docs: Vale · /doc-drift"]
     qa["ready-for-qa<br/>Vercel preview · pnpm try-mac"]
   end
 

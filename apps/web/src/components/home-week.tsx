@@ -27,7 +27,7 @@ const PEAK = 94;
  * This week: a figure and seven bars.
  *
  * The wide two thirds of the top row — seven columns and their captions need
- * the long axis (`docs/design/screens/home.html`).
+ * the long axis.
  */
 export function Week({
   stats,
