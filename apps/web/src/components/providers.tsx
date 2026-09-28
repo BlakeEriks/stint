@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
+import { MutationNotice } from './mutation-notice';
 
 export function Providers({
   children,
@@ -28,5 +29,10 @@ export function Providers({
       }),
   );
 
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={client}>
+      {children}
+      <MutationNotice />
+    </QueryClientProvider>
+  );
 }

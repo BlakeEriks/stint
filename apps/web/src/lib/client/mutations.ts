@@ -1,155 +1,138 @@
 'use client';
 
 import {
+  hashKey,
   useMutation,
   useQueryClient,
+  type QueryClient,
   type QueryKey,
-  type UseMutationResult,
 } from '@tanstack/react-query';
-import { useState } from 'react';
-import type { ApiError } from './api';
+import { ApiError } from './api';
 
 /**
- * The one seam every mutation goes through (Constitution VI).
+ * The one way the web app writes (Constitution VI). Every press answers in
+ * the same frame:
  *
- * Predicted mode (`predict` given): `onMutate` snapshots the current cache
- * value, writes the prediction, and stamps a token — same frame, no
- * `await` between the two (FR-001). A rejection or a 10s silence rolls
- * back to the snapshot with a stated reason (FR-002/FR-013), never
- * silently (Constitution I).
+ * - **Predicted** (`predict` given): the cache entry at `queryKey` shows the
+ *   result at once. A rejection puts the snapshot back.
+ * - **Pending** (`predict` omitted): for a result the client cannot know or
+ *   cannot take back — the caller renders `isPending` on the control.
  *
- * Pending mode (`predict` omitted): no cache write. The caller renders
- * `isPending`/`isPredicted` for its own in-progress UI (FR-004).
+ * This is TanStack Query's own optimistic-update pattern: `onMutate`
+ * snapshots and writes, `onError` restores, `onSettled` refetches. Two
+ * additions:
  *
- * Supersession: tokens are kept per query key. An effect (success, error,
- * timeout) only applies if its token is still the latest recorded for
- * that key — a stale settlement is a no-op (FR-008/FR-014).
+ * - **Latest press wins.** Presses on the same `queryKey` can overlap. Only
+ *   the last one to settle restores or refetches, so an earlier answer never
+ *   overwrites a newer prediction; the refetch then shows the server's truth.
+ * - **A 10s bound.** A silent server fails the press like any rejection.
+ *   The request is not abandoned: if it lands late, what it touched is
+ *   refetched, so a change the server did make is never hidden.
  *
- * `check-mutation-usage.mjs` fails any other file that imports
- * `useMutation` directly (FR-009, SC-005).
+ * A failure is never silent (Constitution I): `MutationNotice` shows the
+ * reason for every failed mutation in the cache, so it still shows after the
+ * component that pressed has unmounted.
+ *
+ * `scripts/check-mutation-usage.mjs` fails any other file that imports
+ * `useMutation`.
  */
-
-const tokensByKey = new Map<string, number>();
-
-function keyString(key: QueryKey): string {
-  return JSON.stringify(key);
-}
-
-function nextToken(key: QueryKey): number {
-  const k = keyString(key);
-  const next = (tokensByKey.get(k) ?? 0) + 1;
-  tokensByKey.set(k, next);
-  return next;
-}
-
-function isLatest(key: QueryKey, token: number): boolean {
-  return tokensByKey.get(keyString(key)) === token;
-}
-
-export interface UseOptimisticMutationOptions<TVariables, TData, TCache> {
-  mutationFn: (vars: TVariables) => Promise<TData>;
-  queryKey: (vars: TVariables) => QueryKey;
-  /** Predicted mode when present; pending mode when omitted. */
-  predict?: (vars: TVariables, current: TCache | undefined) => TCache;
-  onSettled?: (data: TData | undefined, vars: TVariables) => void;
-  /** Default 10s (FR-013). */
+export interface OptimisticOptions<TVars, TData, TCache> {
+  mutationFn: (vars: TVars) => Promise<TData>;
+  /** The cache entry the press changes, and the scope of "latest press". */
+  queryKey: (vars: TVars) => QueryKey;
+  /** The result to show at once. Omit for pending mode. */
+  predict?: (current: TCache | undefined, vars: TVars) => TCache | undefined;
+  /** What to refetch once the last overlapping press settles. Defaults to `queryKey`. */
+  invalidate?: (queryClient: QueryClient, vars: TVars) => Promise<unknown>;
+  onSuccess?: (data: TData, vars: TVars) => void;
   timeoutMs?: number;
 }
 
-export type UseOptimisticMutationResult<TVariables, TData> = UseMutationResult<
-  TData,
-  ApiError,
-  TVariables
-> & {
-  isPredicted: boolean;
-  rollbackReason: string | null;
-};
-
-interface MutationContext<TCache> {
+interface Context<TCache> {
   key: QueryKey;
-  token: number;
   snapshot: TCache | undefined;
-  settled: { done: boolean };
-  timer: ReturnType<typeof setTimeout>;
 }
 
-export function useOptimisticMutation<TVariables, TData, TCache = unknown>(
-  opts: UseOptimisticMutationOptions<TVariables, TData, TCache>,
-): UseOptimisticMutationResult<TVariables, TData> {
+export const TIMEOUT_MS = 10_000;
+
+export function useOptimisticMutation<
+  TVars = void,
+  TData = unknown,
+  TCache = unknown,
+>(opts: OptimisticOptions<TVars, TData, TCache>) {
   const queryClient = useQueryClient();
-  const timeoutMs = opts.timeoutMs ?? 10_000;
-  const [rollbackReason, setRollbackReason] = useState<string | null>(null);
 
-  const settleOnce = (
-    key: QueryKey,
-    token: number,
-    settled: { done: boolean },
-    fn: () => void,
-  ) => {
-    if (settled.done) return;
-    if (!isLatest(key, token)) {
-      settled.done = true;
-      return;
-    }
-    settled.done = true;
-    fn();
-  };
+  const refetch = (vars: TVars) =>
+    opts.invalidate
+      ? opts.invalidate(queryClient, vars)
+      : queryClient.invalidateQueries({ queryKey: opts.queryKey(vars) });
 
-  const mutation = useMutation<
-    TData,
-    ApiError,
-    TVariables,
-    MutationContext<TCache>
-  >({
-    mutationFn: opts.mutationFn,
-    onMutate: async (vars) => {
+  // Presses on this key still in flight, the settling one included.
+  const inFlight = (key: QueryKey) =>
+    queryClient.isMutating({
+      predicate: (m) => {
+        const ctx = m.state.context as Context<TCache> | undefined;
+        return ctx !== undefined && hashKey(ctx.key) === hashKey(key);
+      },
+    });
+
+  return useMutation<TData, Error, TVars, Context<TCache>>({
+    mutationFn: (vars) =>
+      withTimeout(opts.mutationFn(vars), opts.timeoutMs ?? TIMEOUT_MS, () =>
+        refetch(vars),
+      ),
+    onMutate: (vars) => {
       const key = opts.queryKey(vars);
-      await queryClient.cancelQueries({ queryKey: key });
-
+      // Not awaited: the cancel takes effect at once, and waiting on it
+      // would let a frame render before the prediction.
+      void queryClient.cancelQueries({ queryKey: key });
       const snapshot = queryClient.getQueryData<TCache>(key);
-      const token = nextToken(key);
-
       if (opts.predict) {
-        queryClient.setQueryData<TCache>(key, opts.predict(vars, snapshot));
+        queryClient.setQueryData<TCache>(key, (current) =>
+          opts.predict!(current, vars),
+        );
       }
-      setRollbackReason(null);
-
-      const settled = { done: false };
-      const timer = setTimeout(() => {
-        settleOnce(key, token, settled, () => {
-          setRollbackReason('No response — try again');
-          if (opts.predict) {
-            queryClient.setQueryData<TCache>(key, snapshot);
-          }
-        });
-      }, timeoutMs);
-
-      return { key, token, snapshot, settled, timer };
+      return { key, snapshot };
     },
-    onError: (err, _vars, context) => {
-      if (!context) return;
-      clearTimeout(context.timer);
-      settleOnce(context.key, context.token, context.settled, () => {
-        setRollbackReason(err.message);
-        if (opts.predict) {
-          queryClient.setQueryData<TCache>(context.key, context.snapshot);
-        }
-      });
+    onError: (_err, _vars, ctx) => {
+      if (opts.predict && ctx && inFlight(ctx.key) === 1) {
+        queryClient.setQueryData(ctx.key, ctx.snapshot);
+      }
     },
-    onSuccess: (_data, _vars, context) => {
-      if (!context) return;
-      clearTimeout(context.timer);
-      // A confirmed prediction stays as-is; onSettled below invalidates.
-      context.settled.done = true;
-    },
-    onSettled: (data, _error, vars, context) => {
-      if (context) clearTimeout(context.timer);
-      opts.onSettled?.(data, vars);
+    onSuccess: (data, vars) => opts.onSuccess?.(data, vars),
+    onSettled: (_data, _err, vars, ctx) => {
+      if (!ctx || inFlight(ctx.key) === 1) return refetch(vars);
     },
   });
+}
 
-  return Object.assign(mutation, {
-    isPredicted: Boolean(opts.predict) && mutation.isPending,
-    rollbackReason,
+/**
+ * Fails `call` after `ms` without abandoning it: `late` runs if it settles
+ * after that, so whatever it changed on the server gets refetched.
+ */
+function withTimeout<T>(
+  call: Promise<T>,
+  ms: number,
+  late: () => void,
+): Promise<T> {
+  let timedOut = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      timedOut = true;
+      reject(
+        new ApiError(0, {
+          code: 'TIMEOUT',
+          message: 'The server didn’t answer. Try again.',
+        }),
+      );
+    }, ms);
   });
+  call
+    .finally(() => {
+      clearTimeout(timer);
+      if (timedOut) late();
+    })
+    .catch(() => {});
+  return Promise.race([call, timeout]);
 }

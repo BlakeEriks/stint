@@ -1,108 +1,100 @@
 import Foundation
 
-/// The one seam every mutating model action goes through (Constitution VI),
-/// mirroring `useOptimisticMutation` on web.
+/// The one way the macOS app writes (Constitution VI), the same rules as
+/// `useOptimisticMutation` on the web. Every press answers in the same frame:
 ///
-/// Predicted mode: `predict()` returns a value, `apply(_:)` writes it to
-/// published state immediately and returns the snapshot to undo it with.
-/// Pending mode: `predict()` returns `nil` — only `isBusy`-shaped state
-/// flips; nothing is applied or rolled back.
+/// - **Predicted**: `apply` changes published state before anything is
+///   awaited and returns how to undo it.
+/// - **Pending**: `apply` returns nil, for a result the app cannot know or
+///   cannot take back; the caller shows that it is waiting.
 ///
-/// `run()` races `perform()` against a 10s timeout (FR-013) and rolls back
-/// with a reason on either a thrown error or the timeout, never silently
-/// (Constitution I). A monotonic per-action-kind counter drops a superseded
-/// call's late result rather than letting it re-enter `reconcile`/`rollback`
-/// after a newer call already has (FR-008/FR-014).
+/// **Latest press wins.** Presses in one `scope` can overlap; only the last
+/// to settle undoes or refetches, so an earlier answer never overwrites a
+/// newer prediction, and the refetch shows the server's truth.
+///
+/// **A 10s bound.** A silent server fails the press like a rejection. The
+/// request is not abandoned: if it lands late, `refresh()` runs, so a change
+/// the server did make is never hidden.
+///
+/// A failure is never silent (Constitution I): its reason goes to `report`.
 @MainActor
-protocol OptimisticAction {
-    associatedtype Prediction: Sendable
-    associatedtype ActionResult: Sendable
-
-    /// Predicted mode: the value to show immediately. Pending mode: `nil`.
-    func predict() -> Prediction?
-
-    /// Applies `prediction` to published state; returns the snapshot needed
-    /// to undo it.
-    func apply(_ prediction: Prediction) -> Prediction
-
-    /// The actual network call.
-    func perform() async throws -> ActionResult
-
-    /// Reconciles a successful result into published state.
-    func reconcile(_ result: ActionResult)
-
-    /// Restores `snapshot` (if any), setting the model's error to `reason`.
-    func rollback(_ snapshot: Prediction?, reason: String)
+protocol Optimistic: AnyObject {
+    /// Presses still in flight, per scope. Only `press` touches it.
+    var inFlight: [String: Int] { get set }
+    func report(_ reason: String)
+    /// Fetches the server's truth.
+    func refresh() async
 }
 
-/// Shared bookkeeping so `TimerModel`'s action methods call `run()` instead
-/// of hand-writing do/await/catch (contracts/optimistic-mutation.md).
-actor OptimisticActionSupersession {
-    static let shared = OptimisticActionSupersession()
-
-    /// One counter per action kind (start/stop/rename/resume all target the
-    /// same `running` entry, so they share a kind).
-    private var tokens: [String: Int] = [:]
-
-    func next(_ kind: String) -> Int {
-        let token = (tokens[kind] ?? 0) + 1
-        tokens[kind] = token
-        return token
-    }
-
-    func isLatest(_ kind: String, _ token: Int) -> Bool {
-        tokens[kind] == token
-    }
+struct PressTimeout: LocalizedError {
+    var errorDescription: String? { "The server didn’t answer. Try again." }
 }
 
-extension OptimisticAction {
-    /// Runs the predict/apply/perform/reconcile-or-rollback cycle with a
-    /// 10s timeout and supersession guard. `kind` groups actions that target
-    /// the same entity (e.g. `"timer"` for start/stop/rename/resume), so a
-    /// stale result from one is dropped once a newer one of any of them has
-    /// landed.
-    func run(kind: String, timeoutMs: UInt64 = 10_000) async {
-        let token = await OptimisticActionSupersession.shared.next(kind)
-        let snapshot: Prediction?
-        if let prediction = predict() {
-            snapshot = apply(prediction)
-        } else {
-            snapshot = nil
+extension Optimistic {
+    /// Returns the server's answer, or nil when the press failed.
+    @discardableResult
+    func press<T: Sendable>(
+        _ scope: String,
+        timeout: Duration = .seconds(10),
+        apply: () -> (() -> Void)?,
+        perform: @escaping @Sendable () async throws -> T
+    ) async -> T? {
+        let undo = apply()
+        inFlight[scope, default: 0] += 1
+        let result = await race(perform, timeout: timeout) { [weak self] in
+            await self?.refresh()
         }
+        let isLast = inFlight[scope] == 1
+        inFlight[scope, default: 1] -= 1
 
-        let settled = Settled()
-
-        let timeoutTask = Task {
-            try? await Task.sleep(nanoseconds: timeoutMs * 1_000_000)
-            guard !Task.isCancelled else { return }
-            guard await settled.markIfFirst() else { return }
-            guard await OptimisticActionSupersession.shared.isLatest(kind, token) else { return }
-            rollback(snapshot, reason: "No response — try again")
-        }
-
-        do {
-            let result = try await perform()
-            timeoutTask.cancel()
-            guard await settled.markIfFirst() else { return }
-            guard await OptimisticActionSupersession.shared.isLatest(kind, token) else { return }
-            reconcile(result)
-        } catch {
-            timeoutTask.cancel()
-            guard await settled.markIfFirst() else { return }
-            guard await OptimisticActionSupersession.shared.isLatest(kind, token) else { return }
-            rollback(snapshot, reason: error.localizedDescription)
+        switch result {
+        case .success(let value):
+            if isLast { await refresh() }
+            return value
+        case .failure(let error):
+            if isLast {
+                undo?()
+                await refresh()
+            }
+            // After the refresh, which clears the model's last error.
+            report(error.localizedDescription)
+            return nil
         }
     }
 }
 
-/// One-shot latch so the timeout and the real response can race without
-/// both applying their effect.
-private actor Settled {
-    private var done = false
+/// `perform`'s result, or a `PressTimeout` after `timeout`. A late result
+/// runs `late` instead of being dropped.
+@MainActor
+private func race<T: Sendable>(
+    _ perform: @escaping @Sendable () async throws -> T,
+    timeout: Duration,
+    late: @escaping @MainActor () async -> Void
+) async -> Result<T, Error> {
+    await withCheckedContinuation { continuation in
+        let once = Once()
+        let timer = Task { @MainActor in
+            do { try await Task.sleep(for: timeout) } catch { return }
+            if once.claim() { continuation.resume(returning: .failure(PressTimeout())) }
+        }
+        Task { @MainActor in
+            let result: Result<T, Error>
+            do { result = .success(try await perform()) } catch { result = .failure(error) }
+            timer.cancel()
+            if once.claim() {
+                continuation.resume(returning: result)
+            } else {
+                await late()
+            }
+        }
+    }
+}
 
-    func markIfFirst() -> Bool {
-        guard !done else { return false }
-        done = true
-        return true
+@MainActor
+private final class Once {
+    private var claimed = false
+    func claim() -> Bool {
+        defer { claimed = true }
+        return !claimed
     }
 }
