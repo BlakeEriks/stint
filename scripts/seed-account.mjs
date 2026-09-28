@@ -333,16 +333,46 @@ try {
        worked day takes one more: its last block is left running and has
        earned nothing yet, so without the extra the day reads $0.00 on a
        screen whose subject is what you earned. */
-    const blocks = (back % 3 === 0 ? 2 : 1) + (back === lastWorkedBack ? 1 : 0);
-    for (let b = 0; b < blocks; b += 1) {
+    const count = (back % 3 === 0 ? 2 : 1) + (back === lastWorkedBack ? 1 : 0);
+    const blocks = [];
+    for (let b = 0; b < count; b += 1) {
       const start = new Date(day);
       start.setHours(9 + b * 4, b === 0 ? 0 : 30, 0, 0);
       const hours = 1.5 + ((back + b) % 3) * 0.75;
-      const end = new Date(start.getTime() + hours * 3_600_000);
+      blocks.push({
+        b,
+        start,
+        end: new Date(start.getTime() + hours * 3_600_000),
+      });
+    }
 
-      /* The final block of the most recent worked day is left running, so the
-         app opens on a live timer rather than a stopped screen. */
-      const running = back === lastWorkedBack && b === blocks - 1;
+    /* The final block of the most recent worked day is left running, so the
+       app opens on a live timer rather than a stopped screen. That day is
+       usually today, and a seed run before 17:30 would start it in the
+       future — a timer that reads 0:00:00 and that `/timer/stop` refuses. So
+       it starts no later than 45 minutes ago, and each finished block before
+       it moves earlier as far as it must to end 30 minutes before the next
+       one starts. Nothing seeded ends after now, and a morning seed still
+       earns something today; one run in the small hours lays those blocks
+       on the evening before. */
+    if (back === lastWorkedBack) {
+      const running = blocks.at(-1);
+      const latest = new Date(Date.now() - 45 * 60_000);
+      if (running.start > latest) running.start = latest;
+      running.end = null;
+      let next = running.start;
+      for (const k of blocks.slice(0, -1).reverse()) {
+        const shift = k.end - (next - 30 * 60_000);
+        if (shift > 0) {
+          k.start = new Date(k.start - shift);
+          k.end = new Date(k.end - shift);
+        }
+        next = k.start;
+      }
+    }
+
+    for (const { b, start, end } of blocks) {
+      const running = end === null;
       const projectId =
         (back + b) % 5 === 0
           ? internalId
@@ -362,7 +392,6 @@ try {
         ],
       );
       entries += 1;
-      if (running) break;
     }
   }
 

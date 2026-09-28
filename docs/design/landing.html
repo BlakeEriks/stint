@@ -584,7 +584,7 @@
 
   <header class="doc-head">
     <div class="eyebrow">Stint · Landing page specification</div>
-    <h1 class="doc-title">Track hours. Bill clients. Nothing else.</h1>
+    <h1 class="doc-title">Track hours, bill clients, nothing else</h1>
     <p class="doc-standfirst">
       The marketing site for <strong>Stint</strong> — a time tracker and invoicing tool for solo
       contractors. This document is written in the app's own design system, so it doubles as the
@@ -612,8 +612,8 @@
         <li><strong>The claim:</strong> it tracks your hours, knows your rates, and produces an
           invoice your client takes seriously. Tracking is free; the invoice is $40 a year.</li>
         <li><strong>The proof:</strong> the invoice is shown rather than described, and the price is
-          a number rather than an adjective. Never claim it is well-designed — demonstrate it and
-          let the reader draw the conclusion.</li>
+          a number rather than an adjective. The design is demonstrated, never claimed, and the
+          reader draws the conclusion.</li>
         <li><strong>The competitor is never named</strong>, but their bill is. Per-seat pricing,
           usage fees and a figure that moves with the month are what the reader is leaving; let them
           fill in the blank. Naming a company dates the page and invites a comparison the reader
@@ -634,6 +634,9 @@
       below the fold is supporting argument.
     </p>
 
+    <!-- vale off -->
+    <!-- The hero and the copy blocks in section 04 quote the page verbatim: their style is
+         the page's, not the doc's. -->
     <div class="demo-frame">
       <div class="demo-tag">Hero · as specified</div>
 
@@ -658,13 +661,14 @@
         <span class="cta-fine">No card. Email link, no password.</span>
       </div>
     </div>
+    <!-- vale on -->
 
     <h3>Why the timer and nothing else</h3>
     <p>
       A screenshot of the whole app would compete with the headline and date the moment the UI moves.
       The running timer is the product's core sensation, it is the only element permitted the accent,
       and motion is the one thing a competitor's static hero cannot reproduce. It also sets an
-      expectation the app then meets exactly, which is the cheapest trust you will ever buy.
+      expectation the app then meets exactly, which is the cheapest trust a page can buy.
     </p>
 
     <div class="pair">
@@ -674,7 +678,7 @@
           Mono, <span class="mono">tabular-nums</span>, so no digit change reflows the layout.</p>
       </div>
       <div class="rail no">
-        <span class="k">Don't</span>
+        <span class="k">Instead of</span>
         <p>Start at <span class="mono">0:00:00</span> — a two-digit number reads as unimpressive in the
           first frame, and the page's first impression is spent on nothing.</p>
       </div>
@@ -687,7 +691,7 @@
         holds its seeded value. The page must be completely legible at rest.</li>
       <li>No scroll-triggered reveals. Everything is visible on load — that first still frame is what
         a shared link and a search-result preview get.</li>
-      <li>Hero height is set by its content. Never <span class="mono">100vh</span>.</li>
+      <li>Hero height is set by its content, never <span class="mono">100vh</span>.</li>
     </ul>
   </section>
 
@@ -735,7 +739,7 @@
 
     <p class="note" style="margin-top:1.25rem;">
       No testimonials (there are none yet, and fake ones are unrecoverable), no logo wall, no feature
-      grid, no FAQ accordion. If a section cannot be justified by one of the six jobs above, it does
+      grid, no FAQ accordion. If a section cannot be justified by one of these six jobs, it does
       not ship — the same bar <code>docs/design/principles.md</code> applies to the app.
     </p>
   </section>
@@ -746,6 +750,7 @@
 
     <p>Written to be shipped as-is. Sentences stay short; no adjective survives that the page itself could demonstrate instead.</p>
 
+    <!-- vale off -->
     <div class="stack-lg">
 
       <div class="copy">
@@ -798,8 +803,8 @@
           send, or how good the month was.</p>
         <p class="b">One timer, always. It never edits your hours behind your back. Your rates freeze
           onto the invoice the moment you generate it.</p>
-        <p class="b note"><strong>The price is a number, never an adjective.</strong> No "affordable",
-          no "fair", no "a few dollars". The reader is leaving a tool whose bill moved; a figure they
+        <p class="b note"><strong>The price is a number, never an adjective.</strong> No "affordable,"
+          no "fair," no "a few dollars." The reader is leaving a tool whose bill moved; a figure they
           can check is the argument, and a vague one reads as an undecided product.</p>
       </div>
 
@@ -811,11 +816,12 @@
       </div>
 
     </div>
+    <!-- vale on -->
 
     <h3>Words that are banned on this page</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Never write</th><th>Because</th></tr></thead>
+        <thead><tr><th>Word</th><th>Because</th></tr></thead>
         <tbody>
           <tr><td class="tight"><em>seamless, effortless, powerful, intuitive</em></td><td>Every SaaS page claims these, so they carry no information. The page's own speed and quietness is the claim.</td></tr>
           <tr><td class="tight"><em>beautiful, pretty, well-designed</em></td><td>If it's true the reader can see it; if they can't see it, saying it won't help.</td></tr>
@@ -1026,13 +1032,13 @@
     <ul class="plain">
       <li>Single column, <span class="mono">max-width 64rem</span>, generously gutter'd. No sidebar, no sticky header.</li>
       <li><strong>No app nav.</strong> The landing page is not the app shell — no vertical rail. A minimal header with the wordmark and one text link ("Sign in") is all it gets.</li>
-      <li>Panels on <span class="mono">bg-primary</span> with <span class="mono">shadow-card</span> and a 10px radius, floating on <span class="mono">bg-base</span>. <strong>Never a card darker than the ground</strong> — it reads as a hole.</li>
-      <li>Sections separated by space, not by rules or alternating bands. Depth comes from shadow and radius, as it does in the app.</li>
+      <li>Panels on <span class="mono">bg-primary</span> with <span class="mono">shadow-card</span> and a 10px radius, floating on <span class="mono">bg-base</span>. <strong>A card is never darker than the ground</strong> — it reads as a hole.</li>
+      <li>Sections are separated by space alone — no rules, no alternating bands. Depth comes from shadow and radius, as it does in the app.</li>
       <li>Every section is legible at 375px. The invoice image scrolls inside its own container rather than shrinking to illegibility.</li>
       <li>Sections are full-bleed; <span class="mono">Container</span> holds the measure inside them, which is what lets a section carry <span class="mono">bg-surface-recessed</span> edge to edge.</li>
       <li>Every grid needs an explicit <span class="mono">grid-cols-[minmax(0,1fr)]</span>, including at the single-column breakpoint — a grid item defaults to <span class="mono">min-width: auto</span>, so the timer card's intrinsic width sets the column and the page scrolls sideways on a phone.</li>
       <li>The <span class="mono">&lt;h1&gt;</span> carries an <span class="mono">sr-only</span> sentence covering both lists, and the visible ✗ list is <span class="mono">aria-hidden</span>. <span class="mono">line-through</span> is presentational and is not announced, so a screen reader has no other way to know the second list is negated.</li>
-      <li>The invoice preview is billed from "Your name here / you@yourdomain.com". Sample rows show the shape, and a name is not part of the shape — this is a public page that also renders bank-detail labels.</li>
+      <li>The invoice preview is billed from "Your name here / you@yourdomain.com." Sample rows show the shape, and a name is not part of the shape — this is a public page that also renders bank-detail labels.</li>
     </ul>
 
     <h3>Build</h3>
@@ -1046,9 +1052,9 @@
 
     <h3>Search</h3>
     <ul class="plain">
-      <li><span class="mono">&lt;title&gt;</span>: <strong>Stint — time tracking and invoicing for solo contractors</strong>. The H1 keeps its shorter voice; the title carries the search terms.</li>
-      <li>Meta description: <em>Time tracking and invoicing for one contractor. Tracking is free; the invoice is $40 a year. One timer, your rates, and a document your client takes seriously.</em></li>
-      <li>One <span class="mono">h1</span>, then <span class="mono">h2</span> per section, matching the copy above.</li>
+      <li>The <span class="mono">&lt;title&gt;</span> is <strong>Stint — time tracking and invoicing for solo contractors</strong>. The H1 keeps its shorter voice; the title carries the search terms.</li>
+      <li>The meta description reads <em>Time tracking and invoicing for one contractor. Tracking is free; the invoice is $40 a year. One timer, your rates, and a document your client takes seriously.</em></li>
+      <li>One <span class="mono">h1</span>, then <span class="mono">h2</span> per section, matching the copy in section 04.</li>
       <li>OG image: the hero timer card on <span class="mono">bg-base</span> — static, with the accent readout. It is the one image that survives being 600px wide in a chat window.</li>
     </ul>
   </section>
@@ -1057,21 +1063,21 @@
   <section class="sec" id="cta-spec">
     <div class="sec-head"><span class="sec-num">09</span><h2>Open questions</h2></div>
 
-    <p>Not blockers for a build, but each one changes a detail above.</p>
+    <p>Not blockers for a build, but each one changes a detail of this spec.</p>
 
     <ul class="rules">
       <li><strong>The wordmark.</strong> This spec assumes "Stint" set in Plex Sans 600 with tight
         tracking, no logotype. That is honest and quick; a real mark is worth doing once the page
         exists and is earning visits.</li>
-      <li><strong>Domain and sign-in copy.</strong> "Email link, no password" is accurate to the PKCE
+      <li><strong>Domain and sign-in copy.</strong> "<!-- vale Google.WordListCase = NO -->Email link, no password<!-- vale Google.WordListCase = YES -->" is accurate to the PKCE
         magic-link flow, but the button may want to say what actually happens next.</li>
       <li><strong>Whether the page says what the invoice costs, or what it is worth.</strong> "$40 a
         year" is the figure; "about a billable minute" is the same number argued. The second converts
         better and is the kind of sentence this page otherwise refuses. It stays out until there is a
         reason to think the figure alone is not enough.</li>
       <li><strong>What the page says about who it is leaving.</strong> Section 01 says the competitor
-        is never named but their bill is. How pointed that gets — "no usage fees" is a fact, "your
-        bill will not grow because your month did" is an accusation — wants a decision once the page
+        is never named but their bill is. How pointed that gets — "no usage fees" is a fact, "<!-- vale Google.Will = NO -->your
+        bill will not grow because your month did<!-- vale Google.Will = YES -->" is an accusation — wants a decision once the page
         exists and can be read whole.</li>
     </ul>
   </section>
