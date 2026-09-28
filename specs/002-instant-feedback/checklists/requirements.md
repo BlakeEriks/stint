@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [x] No [NEEDS CLARIFICATION] markers remain in Requirements/Success Criteria (one remains, scoped to plan stage, under "Deferred to plan")
+- [x] No [NEEDS CLARIFICATION] markers remain in Requirements/Success Criteria
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,6 +31,6 @@
 
 ## Notes
 
-- One open item (Swift-side enforcement mechanism) is intentionally deferred
-  to `/speckit-plan`, per `.specify/assessments/instant-feedback/decision.md`,
-  which already scoped it out of specify as a concrete-design gap.
+- The Swift-side enforcement mechanism was resolved in clarification
+  (Session 2026-09-28): a shared protocol/base type plus a review checklist
+  item. The concrete protocol/type design is still left to `/speckit-plan`.

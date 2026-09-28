@@ -114,12 +114,28 @@ immediately, never blank or the previous tab's stale content.
   on next foreground) — never silently dropped or left showing a stale
   predicted state.
 - Two predicted changes to the same timer overlap (e.g. rename then stop in
-  quick succession): the final displayed state matches the server's actual
-  final state, not the order responses happen to arrive in.
-- A mutation is added later without going through the shared mechanism: a
-  lint check catches it on web before merge; on macOS, a checklist item and
-  a shared protocol/base type make the non-optimistic path visibly unusual
-  at review time.
+  quick succession): each new prediction overwrites the prior one on screen
+  immediately (latest press wins), and once both responses arrive, the final
+  displayed state matches the server's actual final state, not the order
+  responses happen to arrive in.
+- A mutation is added later without going through the shared mechanism: on
+  web, a lint check blocks any raw `useMutation` call outside the shared
+  helper's own module — no opt-out; on macOS, a shared protocol/base type
+  that models conform to (enforced by the compiler) plus a review checklist
+  item make the non-optimistic path visibly unusual at review time.
+- A predicted action's server response doesn't arrive within 10s: the
+  system treats it as failed and rolls back visibly with a reason, the same
+  as an explicit rejection.
+
+## Clarifications
+
+### Session 2026-09-28
+
+- Q: What counts as the Swift-side "equivalent shared mechanism" enforcement point? → A: A shared protocol/base type that models conform to, so the compiler enforces the conformance shape, plus a review checklist item.
+- Q: What latency does the client wait before treating an in-flight mutation as failed, versus a genuine slow server response? → A: 10s timeout, then treat as failure and roll back with a reason.
+- Q: When two predicted mutations on the same entity overlap (e.g., rename then stop), what does the screen show during the overlap? → A: Each new predicted action overwrites the prior prediction immediately — the latest press wins on screen.
+- Q: For calendar drag, does "predicted result" mean live-follow-the-cursor, or snap-to-final-position only on drop? → A: The entry follows the cursor live during the drag, the standard native drag affordance.
+- Q: Does the CI lint (FR-009) block only call sites that skip the helper, or ban any raw `useMutation` outside the helper's own implementation? → A: Ban raw `useMutation` outside the helper module entirely — no opt-out.
 
 ## Requirements *(mandatory)*
 
@@ -142,16 +158,18 @@ immediately, never blank or the previous tab's stale content.
 - **FR-005**: Web mutations MUST route through one shared optimistic-mutation
   helper, so a new mutation is instant by default rather than requiring a
   one-off implementation.
-- **FR-006**: The macOS model layer MUST have an equivalent shared mechanism
-  for the same purpose, used by `TimerModel` including its `resume` path.
+- **FR-006**: The macOS model layer MUST have an equivalent shared
+  mechanism for the same purpose: a shared protocol/base type that models
+  conform to, so the compiler enforces the conformance shape, used by
+  `TimerModel` including its `resume` path.
 - **FR-007**: Web route segments in the app MUST show a loading boundary
   immediately on navigation when data isn't yet available, and MUST prefetch
   data for tabs likely to be visited next.
 - **FR-008**: When a stale response (from an action superseded by a later
   one on the same entity) arrives after a newer predicted or confirmed
   state, the system MUST NOT let it overwrite that newer state.
-- **FR-009**: A CI/lint check MUST block a new web mutation that bypasses the
-  shared optimistic-mutation helper.
+- **FR-009**: A CI/lint check MUST block any raw `useMutation` call outside
+  the shared optimistic-mutation helper's own module — no opt-out.
 - **FR-010**: The project's principles MUST record responsiveness (every
   press answers in the same frame) as a standing constraint, not a
   one-time fix.
@@ -161,6 +179,13 @@ immediately, never blank or the previous tab's stale content.
 - **FR-012**: A timer's predicted `startedAt` MUST be stamped at the moment
   of the press (client-side) for immediate elapsed-time display; the
   server's own `started_at` value remains authoritative once it responds.
+- **FR-013**: A predicted action MUST roll back with a reason if no server
+  response arrives within 10s, the same as an explicit rejection.
+- **FR-014**: When a new predicted mutation on the same entity is made
+  while a prior prediction on it is still unconfirmed, the new prediction
+  MUST replace the prior one on screen immediately.
+- **FR-015**: A calendar entry being dragged MUST follow the cursor live
+  for the duration of the drag, not only snap to its new time on drop.
 
 ### Key Entities
 
@@ -214,10 +239,7 @@ immediately, never blank or the previous tab's stale content.
   the same element, not two simultaneous green things, so this does not
   conflict with the "one accent use per kind" design principle.
 
-### Deferred to plan
-
-- **[NEEDS CLARIFICATION: concrete Swift-side enforcement mechanism]** — no
-  CI-equivalent lint exists for Swift in this project. The accepted
-  substitute (a review checklist item plus a shared protocol/base type that
-  makes the non-optimistic path visibly unusual) is a convention, not an
-  automated check; a concrete design is deferred to `/speckit-plan`.
+- Swift-side enforcement is a shared protocol/base type (compiler-enforced
+  conformance shape) plus a review checklist item, not an automated
+  CI-equivalent lint — the concrete protocol/type design is left to
+  `/speckit-plan`.
