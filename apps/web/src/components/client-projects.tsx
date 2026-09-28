@@ -13,11 +13,10 @@ import { keys } from '@/lib/client/query-keys';
 /**
  * The projects belonging to one client.
  *
- * There is no `/projects` page and this is why: a project is meaningless
- * without its client — the rate hierarchy runs `project -> client -> default`
- * — so a flat list mixing three clients' work has to be decoded before it can
- * be read. Nested under the client, the inherited rate is right there to
- * compare against.
+ * `/projects` is for finding a project; this is where one is managed. A
+ * project is meaningless without its client — the rate hierarchy runs
+ * `project -> client -> default` — and nested under the client, the inherited
+ * rate is right there to compare against.
  *
  * Archive, never delete: entries and invoices reference projects.
  */

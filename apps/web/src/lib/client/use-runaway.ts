@@ -33,6 +33,12 @@ function setAdjusting(entry: TimeEntry | undefined) {
   for (const notify of listeners) notify();
 }
 
+/** Clears the handoff, so one Storybook story's Adjust never opens the
+    next story's editor. */
+export function resetAdjustingEntry() {
+  setAdjusting(undefined);
+}
+
 /** The entry Adjust just stopped, for whoever renders the editor. */
 export function useAdjustingEntry(): [
   TimeEntry | undefined,
