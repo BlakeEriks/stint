@@ -68,7 +68,7 @@ struct StintApp: App {
     @State private var model = Launch.model()
 
     private var pipFill: Color {
-        model.isRunning ? Tokens.Dark.accentDefault : Tokens.Dark.timerIdle
+        model.isRunning ? Tokens.Dark.timerRunning : Tokens.Dark.timerIdle
     }
 
     var body: some Scene {
