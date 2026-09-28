@@ -242,6 +242,57 @@ describe('TaskSuggest', () => {
     expect(screen.getByLabelText('Task name')).toHaveValue('Invoice');
   });
 
+  it('labels a row by its client and project, internal work, or an archived project', async () => {
+    stubFetch();
+    render(<Host />, { wrapper });
+    await focusField();
+
+    const label = (name: string) =>
+      screen.getByRole('option', { name: new RegExp(name) }).textContent;
+    expect(label('Invoice reconciliation')).toContain('Northwind · Ledger');
+    expect(label('Sprint planning')).toContain('Internal');
+    expect(label('Billing review')).toContain('Archived project');
+  });
+
+  it('stops at the far row when Down is held', async () => {
+    stubFetch();
+    render(<Host />, { wrapper });
+    const user = await focusField();
+    const field = screen.getByLabelText('Task name');
+
+    await user.keyboard('{ArrowDown>6/}');
+    const options = screen.getAllByRole('option');
+    expect(field).toHaveAttribute(
+      'aria-activedescendant',
+      (options[options.length - 1] as HTMLElement).id,
+    );
+  });
+
+  it('reopens on Down after Escape, at the nearest row', async () => {
+    stubFetch();
+    render(<Host />, { wrapper });
+    const user = await focusField();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+
+    await user.keyboard('{ArrowDown}');
+    const first = screen.getAllByRole('option')[0] as HTMLElement;
+    expect(screen.getByLabelText('Task name')).toHaveAttribute(
+      'aria-activedescendant',
+      first.id,
+    );
+  });
+
+  it('closes on Tab', async () => {
+    stubFetch();
+    render(<Host />, { wrapper });
+    const user = await focusField();
+
+    await user.keyboard('{Tab}');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
   it('does not call a row from an archived project internal', async () => {
     stubFetch();
     render(<Host />, { wrapper });
