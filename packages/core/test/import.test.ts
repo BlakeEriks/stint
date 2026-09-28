@@ -141,6 +141,53 @@ test('unknown projects and clients are created once, by name', async () => {
   assert.equal(p.rows[1]?.billable, false, 'the export says No');
 });
 
+test('a client or project is matched active first, and a project only under its client', async () => {
+  const p = await preview({
+    clients: [
+      { id: 'c0', name: 'acme', hourlyRate: 5, color: null, archived: true },
+      { id: 'c1', name: 'Acme', hourlyRate: 80, color: null, archived: false },
+    ],
+    projects: [
+      {
+        id: 'p2',
+        name: 'Site',
+        clientId: 'c2',
+        hourlyRate: 50,
+        isBillableDefault: true,
+        archived: false,
+      },
+      {
+        id: 'p3',
+        name: 'internal',
+        clientId: 'c2',
+        hourlyRate: null,
+        isBillableDefault: false,
+        archived: false,
+      },
+    ],
+  });
+  const [site, admin] = p.rows;
+  assert.equal(site?.clientId, 'c1', 'the active one, not the archived');
+  assert.equal(site?.willCreateClient, false);
+  assert.notEqual(
+    site?.projectId,
+    'p2',
+    "another client's Site is not this one",
+  );
+  assert.equal(site?.willCreateProject, true);
+  assert.equal(site?.resolvedRate, 80);
+  assert.equal(site?.rateSource, 'client');
+  assert.equal(
+    admin?.projectId,
+    'p3',
+    'no client in the export: the name alone',
+  );
+  assert.equal(admin?.willCreateProject, false);
+  assert.deepEqual(p.newProjects, [
+    { id: site?.projectId, name: 'Site', clientId: 'c1' },
+  ]);
+});
+
 test('a row with no end is excluded, never given one', async () => {
   const p = await preview();
   const open = p.rows[3];
