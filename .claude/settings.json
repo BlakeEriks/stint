@@ -2,7 +2,15 @@
   "permissions": {
     "deny": [
       "Read(**/.env.development.local)",
-      "Edit(**/.env.development.local)"
+      "Edit(**/.env.development.local)",
+      "Edit(packages/design-tokens/dist/**)",
+      "Bash(git worktree add)",
+      "Bash(git worktree add *)",
+      "Bash(*bundle.sh*)",
+      "Bash(open *Stint.app*)",
+      "Bash(killall *Stint*)",
+      "Bash(pkill *Stint*)",
+      "Bash(osascript *Stint*)"
     ]
   },
   "enabledPlugins": {

@@ -13,9 +13,7 @@ connection and the flags.
 **Count the rows before proposing anything destructive.** A script under
 `scripts/` importing `connectionString()` from `db-url.mjs` queries the
 hosted database without the secret passing through a command or a log —
-`short(url)` masks it for output, and `docs/local-dev.md` has the shape. A
-reset that looked necessary for M1 was not: the table being altered held
-zero rows and thirteen real time entries sat beside it.
+`short(url)` masks it for output, and `docs/local-dev.md` has the shape.
 
 **Editing an existing migration changes nothing that has already run.**
 `pnpm migrate` records applied files by name, so a database that has seen
@@ -25,33 +23,15 @@ AND needs a new migration carrying the same change to production — and
 column.
 
 **Production migrates itself — never tell the user to run `pnpm migrate`
-against it.** `.github/workflows/release.yml` is a Vercel deployment check:
-the production build is built but not aliased until that workflow runs
-`pnpm migrate` and `verify:schema` against `PRODUCTION_DB_URL`, so the
-migration lands while the previous build still serves traffic. Merging and
-approving the release are the whole deploy step: the approval page shows each
-pending migration's SQL. `pnpm migrate` by hand is for a local or throwaway
-database only, and `docs/deploying.md` owns the shape.
+against it.** The release gate migrates production on merge
+(`docs/deploying.md`); `pnpm migrate` by hand is for a local or throwaway
+database only.
 
-**They are additive and forward-only.** Each file runs in its own
-transaction, so one that *fails* rolls back clean. There is no down path for
-one that *succeeds and is wrong* — and for a billing system that is the right
-trade: a rollback that drops a column takes issued invoices with it. So write
-migrations that cannot need reverting:
-
-- **Add, never destroy.** New columns are nullable or defaulted. Do not drop
-  or rename a column that has shipped, and do not narrow a type.
-- **Retiring a column is two releases.** Stop writing it, ship, confirm
-  nothing reads it, then drop it in a later migration — never in the same one
-  that changes the code.
-- **A destructive change to unreleased schema is fine.** Before anything is
-  live, fold the correction into the original file rather than stacking a
-  fix-up on top.
-- Backfills belong in their own migration, separate from the DDL, so a slow
-  one cannot hold a lock on the change that needs to land.
-
-`verify:schema` checks the shape is correct, not that getting there was safe.
-This one is a review rule.
+Each file runs in its own transaction, so one that fails rolls back clean.
+There is no down path, so a wrong one is fixed by the next. A change the
+macOS app reads updates the app in the same PR. Backfills belong in their own
+migration, separate from the DDL, so a slow one cannot hold a lock on the
+change that needs to land.
 
 **The publishable key is public by design** — it ships in the browser bundle,
 so RLS is the only thing protecting the data. That makes `verify:schema` the

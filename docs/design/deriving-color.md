@@ -1,7 +1,7 @@
 # Deriving the palette
 
 How the colors are computed. The *rules for using them* — what green means,
-the four planes, client colors — are in `principles.md`.
+the four planes, client colors — are in `.claude/rules/web-ui.md`.
 
 Both neutral ramps are **derived, not hand-picked**. Change a parameter in
 `src/derive-neutrals.mjs` (dark) or `src/derive-light.mjs` (light) and paste

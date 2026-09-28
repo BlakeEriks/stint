@@ -48,6 +48,34 @@ the palette was derived for.
 Import the token CSS by **relative path**, not the package export — Tailwind
 does not follow package specifiers when collecting `@theme` values.
 
+### Visual conventions
+
+These are the house defaults, not law. A design may change one when the
+change reads better; update the line here in the same PR. The only enforced
+color fact is text on the accent (`--text-on-accent`, `tokens:validate`).
+
+- **Green is the one hue, and the step says the tense.** `accent-default`
+  marks what is live, such as the running timer, and the action a screen
+  exists to complete. `success`, a ramp step off it, reports what has already
+  happened: paid, saved. Test any green by asking whether a user could say in
+  one phrase what it means there.
+- **Weight tracks how often an action is taken**, not how much damage it can
+  do. Filled red is for the step that destroys, never the step that asks.
+  Focus rings are neutral.
+- **Depth rises toward what is read**, in four planes: `bg-surface-recessed`,
+  `bg-surface-base`, `bg-surface-primary`, `bg-surface-elevated`. A card is
+  never darker than the surface under it. Adjacent surfaces are judged by
+  OKLCH ΔL; the numbers come from the generators in
+  `docs/design/deriving-color.md`, never a hand-edited hex.
+- **Color belongs to the client**, through `useProjectColors()`. Internal
+  work gets none.
+- **A home card ships only with a number the user can't work out in their
+  head, or a row they can act on.**
+- **Motion reports a change; it never announces one.** Every duration honors
+  `prefers-reduced-motion`.
+- **The mark takes one color**: `text-strong` in the app header, `text-muted`
+  where it recedes. The invoice PDF and the macOS status item carry none.
+
 ### Typography comes from the scale
 
 **A component names a role (`type-amount`), never assembles one
@@ -126,7 +154,6 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
 - **Every action carries a visible label.** Two exceptions, both with an
   `aria-label`: a destructive first step, and a dense repeating row. A glyph
   is always `aria-hidden`.
-- **One accent per screen**: the confirm the screen exists to complete.
 - **A destructive action is quiet until it is the confirm**: a ghost trash
   icon in `text-danger`, pushed away with `mr-auto`, then `destructive`
   spelling the consequence out.

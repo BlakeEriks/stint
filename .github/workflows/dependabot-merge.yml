@@ -6,7 +6,8 @@ name: Dependabot merge
 # Turns on auto-merge for Dependabot's bumps, so each merges itself once the
 # required checks pass; a red one stays open for /work-issues to fix. The
 # framework group is left for Blake: Next and React minors change behavior.
-# Nothing goes live unasked either way — the release gate waits for approval.
+# A merged bump deploys like any merge: the release gate asks for approval
+# only when a migration is pending, so the required checks are the gate.
 #
 # Needs "Allow auto-merge" in the repo settings.
 on: pull_request

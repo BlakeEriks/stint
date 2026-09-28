@@ -75,7 +75,7 @@ navigation, redirects and server components — see `docs/local-dev.md`.
 - [docs/api.md](docs/api.md) — endpoint contract
 - [docs/macos.md](docs/macos.md) — the menu bar app: building it, and which backend it talks to
 - [docs/positioning.md](docs/positioning.md) — who this is for, what it competes with, what it costs
-- [docs/design/principles.md](docs/design/principles.md) — what we believe about the product
+- [The constitution](.specify/memory/constitution.md) — the bar every plan and PR is held to
 - [docs/sdlc.md](docs/sdlc.md) — how work moves from an idea to production
 - [Issues labeled `bug`](https://github.com/BlakeEriks/stint/issues?q=is%3Aopen+label%3Abug) — known faults
 
