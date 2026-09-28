@@ -279,16 +279,16 @@ success teaches you to stop reading it.
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
 
 Never posted: a release with no migration going live, a rejection or
-cancellation (you did it), and a backup that worked (healthchecks.io is quiet
-until one does not arrive).
+cancellation (you did it), a backup that worked (healthchecks.io is quiet
+until one does not arrive), and a `ready-for-qa` or `needs-input` label —
+the PR and issue lists are where you look for those.
 
 **A new alert names what you would do when it arrives.** If the answer is
 nothing, it is a log line. One event is one message from one source — never
 the same failure from GitHub and from healthchecks.io.
 
-The webhook is the `DISCORD_ALERTS_WEBHOOK` repository secret, shared by
-`release.yml` and `notify.yml` (§3d), and exists nowhere else: anyone
-holding it can post to the channel.
+The webhook is the `DISCORD_ALERTS_WEBHOOK` repository secret, used by
+`release.yml` and nowhere else: anyone holding it can post to the channel.
 
 ## 3d. Previews
 
@@ -313,11 +313,6 @@ PR at a time may carry a migration**.
   (`docs/macos.md`).
 
 A free project pauses after a week unused; restore it from the dashboard.
-
-**`ready-for-qa`** on a PR — no conflict with `main`, CI green, no feedback
-outstanding — and **`needs-input`** on an issue or PR make
-`.github/workflows/notify.yml` post it to Discord, through the alerts webhook
-(§3c).
 
 ## 4. Auth redirect URLs
 
