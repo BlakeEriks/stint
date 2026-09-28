@@ -449,9 +449,8 @@ try {
   );
   entries += 1;
 
-  /* The app can never write two entries that overlap, so the seed must not
-     either: an overlapped hour is counted twice in the day's totals. CI's
-     seeder run fails here rather than on a screen. */
+  /* No two seeded entries overlap: an overlapped hour is counted twice in
+     the day's totals. CI's seeder run fails here rather than on a screen. */
   const { rows: overlaps } = await db.query(
     `select a.started_at from time_entries a
        join time_entries b on b.user_id = a.user_id and b.id > a.id
