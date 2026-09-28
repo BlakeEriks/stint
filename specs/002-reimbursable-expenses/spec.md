@@ -35,6 +35,14 @@ Storing files is new infrastructure that the 30 September deadline cannot
 carry. Each expense takes an optional free-text note, which can hold a
 receipt or order number.
 
+## Clarifications
+
+### Session 2026-09-27
+
+- Q: Should an expense that hasn't been invoiced yet count toward Home's Unbilled figure? → A: No. Unbilled stays work-only; waiting expenses show on the expenses list and in the invoice preview.
+- Q: Where should you record and review expenses that are waiting to be invoiced? → A: An Expenses view on the Invoices screen, beside Open / Paid / All.
+- Q: When you build a client's invoice for a period, which waiting expenses should the preview pick up? → A: Every waiting expense for that client dated on or before the period's end, including earlier months.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Bill a pre-approved cost on this month's invoice (Priority: P1)
@@ -85,13 +93,14 @@ waits.
 **Acceptance Scenarios**:
 
 1. **Given** the contractor has a client, **When** they record an expense
-   with a client, date, description and amount, **Then** it is listed as
-   unbilled for that client.
+   with a client, date, description and amount from the Invoices screen's
+   Expenses view, **Then** it is listed there as unbilled for that client.
 2. **Given** an unbilled expense, **When** the contractor edits or deletes
    it, **Then** the change is saved.
 3. **Given** the new-invoice screen for a client and period, **When** the
    contractor records an expense there, **Then** it is saved as a waiting
-   expense and, if its date is inside the period, joins the preview.
+   expense and, if it is dated on or before the period's end, joins the
+   preview.
 
 ---
 
@@ -123,8 +132,9 @@ expense successfully.
 
 ### Edge Cases
 
-- An unbilled expense dated outside the chosen period is not on the preview.
-  It keeps waiting, as unbilled time does.
+- An unbilled expense from an earlier month joins the next invoice for its
+  client, so one missed invoice does not strand it. An expense dated after
+  the period's end is not on the preview and keeps waiting.
 - The contractor can leave an individual expense off one invoice; it keeps
   waiting and is not lost.
 - Adding, editing, removing or excluding an expense on the new-invoice screen
@@ -146,10 +156,12 @@ expense successfully.
   belonging to that client and a note.
 - **FR-002**: An expense MUST NOT carry a duration, a quantity or a rate, and
   MUST NOT count toward hours anywhere in the app.
-- **FR-003**: The contractor MUST be able to list, edit and delete their
-  unbilled expenses, filtered by client.
+- **FR-003**: The Invoices screen MUST have an Expenses view beside Open,
+  Paid and All, listing unbilled expenses, filterable by client, where the
+  contractor can add, edit and delete them. No new screen is added.
 - **FR-004**: The invoice preview for a client and period MUST include every
-  unbilled expense for that client dated within the period, and the
+  unbilled expense for that client dated on or before the period's end,
+  including ones from earlier months, and the
   contractor MUST be able to leave any of them off that invoice.
 - **FR-005**: The invoice MUST show expenses after all service lines, under
   their own heading, with their own subtotal. Each expense line MUST show its
@@ -174,12 +186,10 @@ expense successfully.
   user.
 - **FR-014**: The new-invoice screen's charges MUST no longer describe
   themselves as a place for rebilled expenses.
-- **FR-015**: Unbilled expenses MUST NOT count toward Earned
-  (`docs/design/principles.md`, "Money"): a reimbursement is not money earned
-  from work. Whether they count toward Unbilled: [NEEDS CLARIFICATION: Home's
-  Unbilled is defined as work done and not invoiced. Should a waiting expense
-  add to it, as money the client owes and has not been asked for, or stay out
-  so Unbilled remains a figure about work?]
+- **FR-015**: Unbilled expenses MUST NOT count toward Earned or Unbilled
+  (`docs/design/principles.md`, "Money"): both are readings about work, and a
+  reimbursement is not money earned from work. A waiting expense is seen on
+  the expenses list and in the invoice preview.
 - **FR-016**: Awaiting payment and Collected MUST include expenses, because
   both are read from the invoice total, which is what the client owes and
   pays.
