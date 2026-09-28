@@ -603,3 +603,131 @@ describe('the mobile day grid crops to the hours in use', () => {
     expect(hourLabels()).toContain('21');
   });
 });
+
+describe('the line under the grid', () => {
+  it('says the week is loading before it arrives', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise<Response>(() => {})),
+    );
+    render(<Calendar />, { wrapper });
+
+    expect(await screen.findByText('Loading…')).toBeInTheDocument();
+  });
+
+  it('says the entries failed to load rather than that the week is empty', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        String(url).includes('/calendar')
+          ? new Response('{}', { status: 500 })
+          : new Response(JSON.stringify({ projects: [], clients: [] }), {
+              status: 200,
+            }),
+      ),
+    );
+    render(<Calendar />, { wrapper });
+
+    expect(
+      await screen.findByText('Could not load these entries. Try again.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing logged/)).not.toBeInTheDocument();
+  });
+
+  it('says nothing once the week has time in it', async () => {
+    serve([{ date: '2026-09-07', totalSeconds: 7200, entries: [entry({})] }]);
+    render(<Calendar />, { wrapper });
+
+    await screen.findByText('Work');
+    expect(screen.queryByText(/Nothing logged/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
+  });
+});
+
+describe('where the week opens', () => {
+  /** The one scroll container, and the height of the grid it scrolls. */
+  function scroller(container: HTMLElement) {
+    const gutter = container.querySelector<HTMLElement>(
+      '[style*="height"]',
+    ) as HTMLElement;
+    return {
+      el: gutter.parentElement?.parentElement as HTMLElement,
+      gridHeight: Number.parseFloat(gutter.style.height),
+    };
+  }
+
+  it('opens an hour above the earliest entry', async () => {
+    serve([
+      {
+        date: '2026-09-07',
+        totalSeconds: 3600,
+        entries: [
+          entry({
+            id: 'late',
+            taskName: 'Late',
+            startedAt: '2026-09-07T15:00:00.000Z',
+            endedAt: '2026-09-07T16:00:00.000Z',
+          }),
+        ],
+      },
+      {
+        date: '2026-09-08',
+        totalSeconds: 3600,
+        entries: [
+          entry({
+            id: 'early',
+            taskName: 'Early',
+            startedAt: '2026-09-08T11:00:00.000Z',
+            endedAt: '2026-09-08T12:00:00.000Z',
+          }),
+        ],
+      },
+    ]);
+    const { container } = render(<Calendar />, { wrapper });
+
+    const early = await screen.findByRole('button', { name: /Early/ });
+    const { el, gridHeight } = scroller(container);
+    const top = Number.parseFloat(early.style.top) / 100;
+    expect(el.scrollTop).toBeCloseTo(Math.max(0, top * gridHeight - 44));
+  });
+
+  it('stays at the top of the window when nothing is logged', async () => {
+    serve([]);
+    const { container } = render(<Calendar />, { wrapper });
+
+    await screen.findByText(/Nothing logged/);
+    expect(scroller(container).el.scrollTop).toBe(0);
+  });
+});
+
+describe('an entry block', () => {
+  it('marks the running entry with the accent, and a stopped one without it', async () => {
+    serve([
+      {
+        date: '2026-09-09',
+        totalSeconds: 3600,
+        entries: [
+          entry({
+            id: 'done',
+            taskName: 'Done',
+            startedAt: '2026-09-09T08:00:00.000Z',
+            endedAt: '2026-09-09T09:00:00.000Z',
+          }),
+          entry({
+            id: 'live',
+            taskName: 'Live',
+            startedAt: '2026-09-09T11:00:00.000Z',
+            endedAt: null,
+            durationSeconds: null,
+          }),
+        ],
+      },
+    ]);
+    render(<Calendar />, { wrapper });
+
+    const live = await screen.findByRole('button', { name: /Live.*running/ });
+    const done = screen.getByRole('button', { name: /Done/ });
+    expect(live.className).toContain('border-accent-default');
+    expect(done.className).not.toContain('accent');
+  });
+});
