@@ -3,7 +3,7 @@
 // exists. /doc-drift judges prose on each PR; this is the deterministic half,
 // so a rename that forgets a doc fails `verify:static` instead of rotting.
 
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -103,6 +103,9 @@ const looksLikePath = (t) =>
 // Named to say it is not used: "`proxy.ts`, not `middleware.ts`".
 const NAMED_AS_ABSENT = new Set(['middleware.ts']);
 
+const ignored = (path) =>
+  spawnSync('git', ['check-ignore', '-q', '--no-index', path]).status === 0;
+
 const missing = [];
 for (const doc of DOCS) {
   if (!existsSync(doc)) {
@@ -132,7 +135,10 @@ for (const doc of DOCS) {
       ...ROOTS.map((r) => r + bare),
       join(dirname(doc), bare),
     ].some((p) => existsSync(p));
-    if (!found) missing.push(`${doc}: \`${token}\` — not found`);
+    // A gitignored file (an env file, a build output) exists on a dev machine
+    // and never in CI, so its absence here proves nothing.
+    if (!found && !ignored(bare))
+      missing.push(`${doc}: \`${token}\` — not found`);
   }
 }
 

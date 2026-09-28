@@ -16,6 +16,8 @@ const run = (claude) => {
     JSON.stringify({ scripts: { lint: 'x' } }),
   );
   writeFileSync(join(dir, 'CLAUDE.md'), claude);
+  spawnSync('git', ['init', '-q'], { cwd: dir });
+  writeFileSync(join(dir, '.gitignore'), '*.local\n');
   return spawnSync('node', [script], { cwd: dir, encoding: 'utf8' });
 };
 
@@ -35,4 +37,12 @@ test('names a pnpm script that no longer exists', () => {
 test('leaves package specifiers and utilities alone', () => {
   const r = run('Use `next/link`, not `bg-black/50` or `application/pdf`.');
   assert.doesNotMatch(r.stderr, /next\/link|bg-black|application/);
+});
+
+test('skips a gitignored file, which CI never has', () => {
+  const r = run(
+    'Set `apps/web/.env.development.local`, not `apps/web/gone.ts`.',
+  );
+  assert.doesNotMatch(r.stderr, /env\.development\.local/);
+  assert.match(r.stderr, /`apps\/web\/gone\.ts` — not found/);
 });
