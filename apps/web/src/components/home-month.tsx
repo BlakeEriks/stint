@@ -369,7 +369,7 @@ const AXIS_GAP = 8;
  * The x axis: the month's first and last dates at its ends, and `today` at
  * its day. A date that `today` would touch gives way to it, so near either end
  * `today` takes that date's place. Whether they touch is measured, not
- * since it turns on the axis's width and the locale's dates.
+ * computed, since it turns on the axis's width and the locale's dates.
  */
 function DayAxis({
   first,
