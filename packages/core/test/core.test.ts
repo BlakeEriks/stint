@@ -7,7 +7,6 @@ import {
   elapsedSeconds,
 } from '../src/duration.ts';
 import { resolveRate, resolveRateSource, lineAmount } from '../src/rates.ts';
-import { deriveTimerView } from '../src/timer.ts';
 import { uuidv7 } from '../src/uuid.ts';
 import { formatCurrency, formatHours, formatLocalTime } from '../src/format.ts';
 
@@ -76,45 +75,6 @@ test('lineAmount rounds money once', () => {
   assert.equal(lineAmount(3600, 150), 150);
   assert.equal(lineAmount(5400, 150), 225);
   assert.equal(lineAmount(1000, 175), 48.61);
-});
-
-test('timer view: idle', () => {
-  const v = deriveTimerView(null, 8);
-  assert.equal(v.state, 'idle');
-  assert.equal(v.seconds, 0);
-});
-
-test('timer view: running below threshold', () => {
-  const now = new Date('2026-09-11T12:00:00Z');
-  const v = deriveTimerView(
-    {
-      id: 'x',
-      taskName: 't',
-      projectId: null,
-      startedAt: '2026-09-11T10:00:00Z',
-    },
-    8,
-    now,
-  );
-  assert.equal(v.state, 'running');
-  assert.equal(v.seconds, 7200);
-  assert.equal(v.exceedsThreshold, false);
-});
-
-test('timer view: exceeded threshold switches to warning', () => {
-  const now = new Date('2026-09-12T04:00:00Z'); // 16h later
-  const v = deriveTimerView(
-    {
-      id: 'x',
-      taskName: 't',
-      projectId: null,
-      startedAt: '2026-09-11T12:00:00Z',
-    },
-    8,
-    now,
-  );
-  assert.equal(v.state, 'exceeded');
-  assert.equal(v.exceedsThreshold, true);
 });
 
 test('uuidv7 is time-ordered and well-formed', () => {

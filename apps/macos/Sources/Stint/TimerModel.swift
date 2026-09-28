@@ -51,7 +51,6 @@ final class TimerModel {
 
     var running: TimeEntry? { summary?.running }
     var isRunning: Bool { summary?.running != nil }
-    var exceedsThreshold: Bool { summary?.exceedsThreshold ?? false }
 
     var elapsedSeconds: Int {
         guard let running = summary?.running else { return 0 }

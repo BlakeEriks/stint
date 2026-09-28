@@ -189,11 +189,11 @@
     background: var(--border-control);
   }
   /* The qualifier WRAPS rather than truncating. It names the threshold that
-     was tripped, and color only ranks — an ellipsis eating "over 8h" takes
+     was tripped, and color only ranks — an ellipsis eating "over 12h" takes
      the half of the signal that says which way. The title truncates because
      a long name is still recognisable from its start; this is not. */
   .iqual { min-width: 0; }
-  /* Only the clause that IS the fault takes color — "over 8h", never the
+  /* Only the clause that IS the fault takes color — "over 12h", never the
      client name beside it. */
   .tone-warn { color: var(--timer-warning); }
   .tone-danger { color: var(--danger); }
@@ -216,7 +216,6 @@
                 border-color var(--motion-quick) var(--ease-standard);
   }
   .btn-quiet:hover { background: var(--bg-hover); color: var(--text-strong); border-color: var(--border-control); }
-  .btn-quiet.destructive:hover { color: var(--danger); border-color: var(--danger); }
   .btn-quiet:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
 
   @media (prefers-reduced-motion: reduce) {
@@ -242,21 +241,7 @@
       <div class="dock">
         <div class="dock-head">
           <span class="type-label">Inbox</span>
-          <span class="count">7</span>
-        </div>
-
-        <div class="irow flag warn">
-          <span class="type-control ittl">Timer still running</span>
-          <div class="imeta">
-            <span class="type-duration ival">31h 04m</span>
-            <span class="isep"></span>
-            <span class="type-support iqual">Website redesign · Acme Corp</span>
-          </div>
-          <div class="iact">
-            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Keep</button>
-            <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Adjust</button>
-            <button class="btn-quiet destructive type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Discard</button>
-          </div>
+          <span class="count">6</span>
         </div>
 
         <div class="irow flag danger">
@@ -312,9 +297,9 @@
         <div class="irow flag warn">
           <span class="type-control ittl">Migration</span>
           <div class="imeta">
-            <span class="type-duration ival">11h 40m</span>
+            <span class="type-duration ival">14h 40m</span>
             <span class="isep"></span>
-            <span class="type-support iqual">Acme Corp · 11 Sep · <span class="tone-warn">over 8h</span></span>
+            <span class="type-support iqual">Acme Corp · 11 Sep · <span class="tone-warn">over 12h</span></span>
           </div>
           <div class="iact">
             <button class="btn-quiet type-support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Edit entry</button>
@@ -335,17 +320,11 @@
           </div>
         </div>
       </div>
-      <span class="caption">Seven rows, two flagged</span>
+      <span class="caption">Six rows</span>
     </div>
 
     <table>
       <tr><th>Row</th><th>Condition</th><th>Shows</th><th>Actions</th></tr>
-      <tr>
-        <td>Runaway timer</td>
-        <td><code>exceedsThreshold</code> from <code>/summary</code></td>
-        <td>Elapsed, in warning</td>
-        <td>Keep · Adjust · Discard</td>
-      </tr>
       <tr>
         <td>Overdue invoice</td>
         <td><code>sent</code> and <code>due_date</code> more than <strong>7 days</strong> past</td>
@@ -415,7 +394,7 @@
       <li><strong>The words carry the direction; color only ranks.</strong>
         The same amber means "too long" on one card and "too short" on the
         next, so the qualifier always names the threshold it tripped —
-        <code>over 8h</code>, <code>under 1m</code>, <code>20 days late</code>
+        <code>over 12h</code>, <code>under 1m</code>, <code>20 days late</code>
         — and only that clause takes the color, never the client name beside
         it.</li>
       <li><strong>The title is always <code>text-strong</code>.</strong> A
@@ -496,14 +475,10 @@
         crushed.</li>
       <li><strong>Every kind leaves the same way.</strong> An inline write
         (<code>Mark paid</code>, <code>Mark sent</code>,
-        <code>It's correct</code>), a save or a delete in the entry editor, and
-        the runaway's <code>Keep</code> all play the one exit — one way for a
-        row to go, not five. The editor holds its refetch until the row has
+        <code>It's correct</code>) and a save or a delete in the entry editor
+        all play the one exit — one way for a row to go. The editor holds its refetch until the row has
         finished, so an entry given a project collapses rather than blinking
         out from under the closing dialog.</li>
-      <li><strong>The runaway row rides a synthetic id</strong>, because it
-        comes from the timer and has no record of its own. <code>Keep</code> is
-        local state and still plays the exit.</li>
       <li><strong><code>prefers-reduced-motion</code> removes the
         animation</strong>, and the row goes at once.</li>
     </ul>
@@ -517,12 +492,6 @@
       <li><strong>The rows write, narrowly.</strong> Marking an invoice paid or
         sent is offered inline, because that is the action that legitimately
         clears a row — the underlying fact changed.</li>
-      <li><strong>The runaway row surfaces; it does not correct.</strong> Keep
-        touches nothing and dismisses the notice — stopping the timer would be
-        the app editing billable work. Adjust stops first, then opens the
-        editor. Discard asks once. <code>dismissed</code> resets when the
-        overrun ends, so Keep silences that overrun rather than the
-        feature.</li>
       <li><strong>An unprojected row opens the entry dialog in place.</strong>
         These entries scatter across days, so the column below — which is
         today alone — would not reach them.</li>
@@ -531,14 +500,12 @@
         editing hours.</li>
     </ul>
 
-    <h3>The two flags</h3>
+    <h3>The one flag</h3>
     <p>
-      A long timer stays long and an entry of unusual length keeps that length
-      forever, so those two rows cannot clear the ordinary way. Each carries a
-      flag instead — <code>dismissed</code> on the running timer,
-      <code>duration_ok</code> on the entry. Both record an answer the user
-      gave about one object and die with it, which is what separates them from
-      a snooze.
+      An entry of unusual length keeps that length forever, so its row cannot
+      clear the ordinary way. It carries a flag instead,
+      <code>duration_ok</code> on the entry: an answer the user gave about one
+      record that dies with it, which is what separates it from a snooze.
     </p>
   </section>
 
@@ -548,10 +515,11 @@
 
     <p>
       A stopped entry whose length is implausible. Thresholds live on
-      <code>user_settings</code> as <code>min_entry_seconds</code> (60) and
-      <code>max_entry_hours</code> (8). Both are nullable and default to null,
-      so the row is opt-in: null switches off that side, and null on both
-      retires the row. <code>duration_ok</code> is a column on the entry.
+      <code>user_settings</code> as <code>min_entry_seconds</code>, default
+      null, and <code>max_entry_hours</code>, default 12. Null switches off
+      that side. The long side is on from the start because it is how a timer
+      left running overnight reaches the inbox. <code>duration_ok</code> is a
+      column on the entry.
     </p>
     <p>
       <strong>A minute is the short threshold, not an hour.</strong> An entry
@@ -561,9 +529,8 @@
     </p>
 
     <ul class="rule">
-      <li><strong>It is about a record, not a timer.</strong> A running timer
-        past the long threshold is a runaway and shows that row — never
-        both.</li>
+      <li><strong>It is about a record, not a timer.</strong> A running
+        timer's length is still changing; the row fires once it stops.</li>
       <li><strong>A billed entry never fires it.</strong> An issued invoice
         locks the entry, so the row would offer an edit that cannot
         happen.</li>
@@ -590,10 +557,7 @@
     <div class="sec-head"><span class="eyebrow">Ordering and presence</span></div>
 
     <p>
-      The runaway timer sorts first — the one row about time being recorded
-      <em>wrongly right now</em>, where an overdue invoice is equally late in
-      an hour, and the only row whose subject changes while you read it.
-      Overdue invoices sort next and carry <code>danger</code>; the rest carry
+      Overdue invoices sort first and carry <code>danger</code>; the rest carry
       <code>warning</code>. Never the accent.
     </p>
     <p>
@@ -783,8 +747,7 @@
       <li><strong>No snooze.</strong> Hiding a row whose condition is still
         true and unanswered makes the inbox something dismissed reflexively
         rather than read.</li>
-      <li><strong>No inbox row is green</strong>, including the runaway row,
-        whose subject <em>is</em> the running timer.
+      <li><strong>No inbox row is green.</strong>
         <code>test/ui/inbox.test.tsx</code> asserts it. In the column below,
         the accent belongs to the now-line and the block it terminates — the
         live thing, which a row about a problem is not.</li>

@@ -130,9 +130,9 @@ function Cards({ loaded }: { loaded: Settings }) {
           </Field>
 
           <Field
-            label="Runaway timer after"
+            label="Flag entries over"
             htmlFor="max-hours"
-            hint="Flagged, never trimmed."
+            hint="Hours. Blank turns it off."
             className="flex-1 basis-44"
           >
             <Input
@@ -141,9 +141,12 @@ function Cards({ loaded }: { loaded: Settings }) {
               min="1"
               max="24"
               step="1"
-              value={form.maxTimerHours}
+              value={form.maxEntryHours ?? ''}
               onChange={(e) =>
-                setBilling('maxTimerHours', Number(e.target.value))
+                setBilling(
+                  'maxEntryHours',
+                  e.target.value === '' ? null : Number(e.target.value),
+                )
               }
             />
           </Field>

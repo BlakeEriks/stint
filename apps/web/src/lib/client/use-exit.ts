@@ -22,8 +22,8 @@ export function useExit() {
 
   /**
    * Ref callback for a row: `mark` needs the element to wait on, and the
-   * unmount drops the id — so a row whose condition still holds, like a
-   * runaway timer left running, comes back visible rather than collapsed.
+   * unmount drops the id — so a row whose condition still holds comes back
+   * visible rather than collapsed.
    *
    * **Cached per id**, because React detaches and reattaches a ref whose
    * identity changed — which would clear the mark on the render that set it.

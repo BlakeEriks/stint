@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { TimerBar } from '@/components/timer-bar';
-import { useAdjustingEntry } from '@/lib/client/use-runaway';
 import type {
   Project,
   Summary,
@@ -38,8 +37,6 @@ function summary(over: Partial<Summary> = {}): Summary {
     running: null,
     todaySeconds: 0,
     weekSeconds: 0,
-    exceedsThreshold: false,
-    maxTimerHours: 8,
     serverTime: NOW,
     ...over,
   };
@@ -433,37 +430,5 @@ describe('TimerBar — running', () => {
 
     expect(pill.className).toContain('hidden');
     expect(pill.className).toContain('sm:flex');
-  });
-});
-
-/* Adjust hands the stopped runaway to the bar's dialog. Its task name is the
-   one field already right; the end is the reason the dialog opened. */
-describe('TimerBar — adjusting a runaway', () => {
-  let handOff!: (e: TimeEntry | undefined) => void;
-  function Inbox({ stopped }: { stopped: TimeEntry }) {
-    const [, setAdjusting] = useAdjustingEntry();
-    handOff = setAdjusting;
-    useEffect(() => setAdjusting(stopped), [setAdjusting, stopped]);
-    return null;
-  }
-
-  afterEach(() => act(() => handOff(undefined)));
-
-  it('opens the dialog on the end time', async () => {
-    serve(summary());
-    render(
-      <>
-        <TimerBar projects={PROJECTS} />
-        <Inbox
-          stopped={entry({
-            endedAt: '2026-09-11T19:00:00.000Z',
-            durationSeconds: 36000,
-          })}
-        />
-      </>,
-      { wrapper },
-    );
-
-    await waitFor(() => expect(screen.getByLabelText('End')).toHaveFocus());
   });
 });

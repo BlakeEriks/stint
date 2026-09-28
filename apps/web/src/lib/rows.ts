@@ -169,7 +169,6 @@ export interface SettingsRow {
   currency: string;
   week_starts_on: number;
   time_format: z.infer<typeof Settings>['timeFormat'];
-  max_timer_hours: Numeric;
   min_entry_seconds: number | null;
   max_entry_hours: Numeric;
   business_name: string | null;
@@ -184,7 +183,7 @@ export interface SettingsRow {
 }
 
 export const SETTINGS_COLUMNS = columns<SettingsRow>()(
-  'default_hourly_rate, currency, week_starts_on, time_format, max_timer_hours, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, tax_id, default_payment_terms, invoice_number_prefix, next_invoice_number, payment_notice',
+  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, tax_id, default_payment_terms, invoice_number_prefix, next_invoice_number, payment_notice',
 );
 
 export function toSettings(r: SettingsRow) {
@@ -193,7 +192,6 @@ export function toSettings(r: SettingsRow) {
     currency: r.currency,
     weekStartsOn: r.week_starts_on,
     timeFormat: r.time_format,
-    maxTimerHours: Number(r.max_timer_hours),
     minEntrySeconds: r.min_entry_seconds,
     maxEntryHours: num(r.max_entry_hours),
     businessName: r.business_name,
@@ -393,7 +391,6 @@ export const SETTINGS_FIELDS = {
   currency: 'currency',
   weekStartsOn: 'week_starts_on',
   timeFormat: 'time_format',
-  maxTimerHours: 'max_timer_hours',
   minEntrySeconds: 'min_entry_seconds',
   maxEntryHours: 'max_entry_hours',
   businessName: 'business_name',

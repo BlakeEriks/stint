@@ -176,7 +176,7 @@ pnpm --filter @stint/web dev
 
 Open `http://localhost:3100`, enter your email, click the link. First sign-in
 creates the `auth.users` row, and a trigger creates your `user_settings`
-with USD, an 8-hour runaway threshold, and `INV-1` — verified.
+with USD, a 12-hour long-entry threshold, and `INV-1` — verified.
 
 Then: **Settings** (rate and business identity, since everything falls back
 to them) → **Clients** → a project from the timer's picker.

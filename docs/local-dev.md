@@ -208,8 +208,8 @@ in. Sign in afterwards at `/signin` and click the link in Mailpit
 is a typo, not a request.
 
 **It creates one of every inbox row**, which is the part that cannot be
-produced by using the app for ten minutes: a runaway timer needs 8 hours to
-elapse, an overdue invoice 37 days, a stale draft 7. The script backdates them
+produced by using the app for ten minutes: an overdue invoice needs 37 days
+to elapse, a stale draft 7. The script backdates them
 instead. `SCENARIOS` at the top of `scripts/seed-account.mjs` lists the four
 conditions and the thresholds each is checked against — and it overshoots each
 one, so the seed never sits on a boundary a timezone could round the wrong
@@ -218,10 +218,6 @@ way.
 It gives the most recent worked day an extra block, because that day's last
 block is the one left running: without it Home opens on a day that has earned
 nothing, which is the one figure the screen exists to show.
-
-The runaway timer is an **update**, not an insert: one running timer per user
-is a database index, so the entry the script already left running is backdated
-rather than joined by a second one.
 
 `next_invoice_number` advances past whatever the seed used. Numbering is
 gapless and allocated from that counter, so leaving it behind would make the

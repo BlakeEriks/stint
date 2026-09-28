@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { handle, ApiError, isBilledLock } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
-import { findRunning, maxTimerHours, exceeds } from '@/lib/timer';
+import { findRunning } from '@/lib/timer';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { UpdateRunningTimer } from '@stint/schema';
 
@@ -17,15 +17,10 @@ export const dynamic = 'force-dynamic';
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
 
-  const [entry, hours] = await Promise.all([
-    findRunning(db),
-    maxTimerHours(db),
-  ]);
+  const entry = await findRunning(db);
 
   return NextResponse.json({
     entry,
-    exceedsThreshold: entry ? exceeds(entry.startedAt, hours) : false,
-    maxTimerHours: hours,
     serverTime: new Date().toISOString(),
   });
 });

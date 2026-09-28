@@ -6,14 +6,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatCompact, formatCurrency } from '@stint/core';
 import {
   Check,
-  Clock,
   DollarSign,
   Download,
   FolderInput,
   Inbox as InboxIcon,
   Pencil,
   Send,
-  Trash2,
 } from 'lucide-react';
 import {
   api,
@@ -22,7 +20,6 @@ import {
   type TimeEntry,
 } from '@/lib/client/api';
 import { useExit } from '@/lib/client/use-exit';
-import { RUNAWAY_ROW_ID, useRunaway } from '@/lib/client/use-runaway';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
@@ -57,7 +54,6 @@ export function Inbox({ stats }: { stats: Stats }) {
   const queryClient = useQueryClient();
 
   const exit = useExit();
-  const runaway = useRunaway(exit.mark);
 
   /* The ENTRY being edited, not its id: saving moves the entry out of the
      query that supplied it, so an id would still say "open" over nothing and
@@ -138,7 +134,7 @@ export function Inbox({ stats }: { stats: Stats }) {
     })),
   ];
 
-  const count = rows.length + (runaway.showing ? 1 : 0);
+  const count = rows.length;
 
   return (
     <section aria-label="Inbox">
@@ -168,16 +164,6 @@ export function Inbox({ stats }: { stats: Stats }) {
            list: a flex gap belongs to the container and survives a row
            collapsing, so a departing card would leave its gap behind. */
         <ul className="flex flex-col">
-          {/* The runaway sorts first: it is the only row whose subject is still
-              changing while you read it. */}
-          {runaway.showing ? (
-            <RunawayItem
-              runaway={runaway}
-              exiting={exit.exiting.has(RUNAWAY_ROW_ID)}
-              ref={exit.register(RUNAWAY_ROW_ID)}
-            />
-          ) : null}
-
           {rows.map((r) => (
             <Row
               key={r.id}
@@ -194,8 +180,6 @@ export function Inbox({ stats }: { stats: Stats }) {
         </ul>
       )}
 
-      {/* Its own instance: this and the timer bar open the dialog on different
-          subjects and never open together. */}
       <EntryDialog
         open={assigning !== undefined}
         onOpenChange={(o) => {
@@ -386,75 +370,6 @@ function Row({
   );
 }
 
-/**
- * The runaway timer's row: surfaced here, decided here. Keep / Adjust /
- * Discard stay labeled — three judgments about billable work, and an icon
- * meaning "discard 52 hours" is not one to decode.
- */
-function RunawayItem({
-  runaway,
-  ...leaving
-}: {
-  runaway: ReturnType<typeof useRunaway>;
-  exiting: boolean;
-  ref: React.Ref<HTMLLIElement>;
-}) {
-  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
-
-  return (
-    <Item
-      {...leaving}
-      label="Timer still running"
-      detail={`${runaway.hours} hours so far`}
-      value={`${runaway.hours}h`}
-      tone="warning"
-      actions={
-        confirmingDiscard ? (
-          <>
-            <span className="px-2 type-support text-muted">Delete it?</span>
-            <Action
-              label="Discard"
-              icon={<Trash2 aria-hidden className="size-3.5" />}
-              destructive
-              disabled={runaway.busy}
-              onClick={runaway.discard}
-            />
-            <Action
-              label="Cancel"
-              onClick={() => setConfirmingDiscard(false)}
-            />
-          </>
-        ) : (
-          <>
-            {/* Keep is first and plainest: a long timer is often correct, and
-                the app must not imply otherwise. */}
-            <Action
-              label="Keep"
-              icon={<Clock aria-hidden className="size-3.5" />}
-              onClick={runaway.keep}
-            />
-            <Action
-              label="Adjust"
-              icon={<Pencil aria-hidden className="size-3.5" />}
-              disabled={runaway.busy}
-              onClick={runaway.adjust}
-            />
-            {/* Destructive, so it asks. Discarding a 16-hour entry you
-                actually worked is not recoverable. */}
-            <Action
-              label="Discard"
-              icon={<Trash2 aria-hidden className="size-3.5" />}
-              destructive
-              disabled={runaway.busy}
-              onClick={() => setConfirmingDiscard(true)}
-            />
-          </>
-        )
-      }
-    />
-  );
-}
-
 /** The entry's own day, in the user's zone. */
 function dayLabel(iso: string, tz: string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -611,25 +526,19 @@ function Action({
   onClick,
   href,
   disabled,
-  destructive,
 }: {
   label: string;
   ariaLabel?: string;
-  /** Omitted by Cancel, which undoes an intent rather than performing one. */
-  icon?: React.ReactNode;
+  icon: React.ReactNode;
   onClick?: () => void;
   href?: string;
   disabled?: boolean;
-  destructive?: boolean;
 }) {
   /* Outlined, because the card underneath it is a surface of its own: a bare
      label on a raised card has nothing to read as a control against. The
      border and the label move together on hover, so nothing reflows. */
-  const className = `inline-flex items-center gap-1.5 rounded border border-edge-default px-2 py-0.5 type-support whitespace-nowrap text-muted transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none disabled:opacity-50 ${
-    destructive
-      ? 'hover:border-danger hover:text-danger'
-      : 'hover:border-edge-control hover:text-strong'
-  }`;
+  const className =
+    'inline-flex items-center gap-1.5 rounded border border-edge-default px-2 py-0.5 type-support whitespace-nowrap text-muted transition-colors hover:border-edge-control hover:bg-surface-hover hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none disabled:opacity-50';
 
   return href ? (
     <a
