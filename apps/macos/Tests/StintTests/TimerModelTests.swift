@@ -71,6 +71,45 @@ struct TimerModelTests {
         await model.signOut()
     }
 
+    /// Pressing Stop mid-rename commits the rename: both go out, and the
+    /// rename can answer last.
+    @Test func renameAnsweringAfterAStopLeavesItStopped() async throws {
+        let model = try await signedIn(running: entryJSON)
+        TimerStub.hold("/api/v1/timer/current")
+
+        let rename = Task { await model.rename(to: "Editing") }
+        try await until { TimerStub.isWaiting("/api/v1/timer/current") }
+        TimerStub.summary = summaryJSON(running: nil)
+        await model.toggle()
+        #expect(!model.isRunning)
+
+        // Held, so what shows is the rename's answer and not a refresh after it.
+        TimerStub.hold("/api/v1/summary")
+        TimerStub.release("/api/v1/timer/current")
+        try await until { TimerStub.isWaiting("/api/v1/summary") }
+        #expect(!model.isRunning)
+
+        TimerStub.release("/api/v1/summary")
+        await rename.value
+        await model.signOut()
+    }
+
+    @Test func pickingAProjectWhileStoppingLeavesTheEntryAlone() async throws {
+        let model = try await signedIn(running: entryJSON)
+        TimerStub.hold("/api/v1/timer/stop")
+
+        let press = Task { await model.toggle() }
+        try await until { model.pending != nil }
+        model.projectID = "p1"
+        #expect(model.draftProjectID == "p1")
+
+        TimerStub.summary = summaryJSON(running: nil)
+        TimerStub.release("/api/v1/timer/stop")
+        await press.value
+        #expect(!TimerStub.requested.contains("PATCH /api/v1/timer/current"))
+        await model.signOut()
+    }
+
     /// A model signed in to its own Keychain account, having fetched a
     /// summary with `running`. `signOut()` clears the account.
     private func signedIn(running: String?) async throws -> TimerModel {
@@ -119,13 +158,16 @@ private func summaryJSON(running: String?) -> Data {
 private final class TimerStub: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var summary = Data()
     nonisolated(unsafe) static var status: [String: Int] = [:]
+    nonisolated(unsafe) static var requested: [String] = []
     nonisolated(unsafe) private static var held: Set<String> = []
     nonisolated(unsafe) private static var waiting: [String: TimerStub] = [:]
     private static let lock = NSLock()
 
     static func reset() {
-        lock.withLock { held = []; waiting = [:]; status = [:] }
+        lock.withLock { held = []; waiting = [:]; status = [:]; requested = [] }
     }
+
+    static func isWaiting(_ path: String) -> Bool { lock.withLock { waiting[path] != nil } }
 
     static func hold(_ path: String) { lock.withLock { _ = held.insert(path) } }
 
@@ -144,6 +186,7 @@ private final class TimerStub: URLProtocol, @unchecked Sendable {
     override func startLoading() {
         let path = request.url!.path
         let wait = Self.lock.withLock { () -> Bool in
+            Self.requested.append("\(request.httpMethod ?? "GET") \(path)")
             guard Self.held.contains(path) else { return false }
             Self.waiting[path] = self
             return true
@@ -157,7 +200,7 @@ private final class TimerStub: URLProtocol, @unchecked Sendable {
         let body: Data = switch path {
         case _ where status >= 400: Data(#"{"code":"INTERNAL","message":"Down"}"#.utf8)
         case "/api/v1/summary": Self.summary
-        case "/api/v1/timer/start": Data(entryJSON.utf8)
+        case "/api/v1/timer/start", "/api/v1/timer/current": Data(entryJSON.utf8)
         case "/api/v1/timer/stop", "/api/v1/stats": Data(#"{"currency":"USD","unbilled":{"total":0}}"#.utf8)
         case "/api/v1/projects": Data(#"{"projects":[]}"#.utf8)
         case "/api/v1/clients": Data(#"{"clients":[]}"#.utf8)

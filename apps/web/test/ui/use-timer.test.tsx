@@ -316,6 +316,36 @@ describe('useTimer — between a press and the answer', () => {
     expect(result.current.todaySeconds).toBe(3600 + 1500);
   });
 
+  /* Pressing Stop mid-rename blurs the field, which commits the rename:
+     both go out together, and the rename can answer last. */
+  it('keeps a stopped timer stopped when a rename answers after the stop', async () => {
+    vi.setSystemTime(new Date(NOW_RUNNING));
+    const rename = deferred();
+    serveWrites(
+      summary({ running: entry(), serverTime: NOW_RUNNING }),
+      (path) =>
+        path === '/timer/current'
+          ? rename.promise
+          : Promise.resolve(json(entry({ endedAt: NOW_RUNNING }))),
+    );
+    const { result } = renderHook(() => useTimer(), { wrapper });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    act(() => result.current.update.mutate({ taskName: 'Editing' }));
+    await act(async () => {
+      await result.current.stop.mutateAsync();
+    });
+    await waitFor(() => expect(result.current.phase).toBe('idle'));
+
+    await act(async () =>
+      rename.resolve(
+        json(entry({ taskName: 'Editing', endedAt: NOW_RUNNING })),
+      ),
+    );
+    await waitFor(() => expect(result.current.update.isSuccess).toBe(true));
+    expect(result.current.running).toBeNull();
+  });
+
   it('renames on its response, counting the running timer once', async () => {
     vi.setSystemTime(new Date(NOW_RUNNING));
     serveWrites(

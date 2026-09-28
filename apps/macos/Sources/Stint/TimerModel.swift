@@ -107,9 +107,11 @@ final class TimerModel {
     /// The running entry's project, or the draft's. Setting it reassigns the
     /// running entry or updates the draft.
     var projectID: String? {
-        get { isRunning ? running?.projectId : draftProjectID }
+        // `isLive`: while a stop is pending the idle picker shows, and must
+        // not reassign the entry being stopped.
+        get { isLive ? running?.projectId : draftProjectID }
         set {
-            if isRunning {
+            if isLive {
                 Task { await patch(.init(taskName: nil, projectId: newValue)) }
             } else {
                 draftProjectID = newValue
@@ -332,7 +334,10 @@ final class TimerModel {
 
     private func patch(_ update: API.UpdateTimer) async {
         do {
-            settle(running: try await api.updateTimer(update))
+            let entry = try await api.updateTimer(update)
+            // Only onto the entry it changed: a rename answering after a stop
+            // would otherwise put the stopped entry back as running.
+            if pending == nil, running?.id == entry.id { settle(running: entry) }
             await refresh()
         } catch {
             errorMessage = error.localizedDescription

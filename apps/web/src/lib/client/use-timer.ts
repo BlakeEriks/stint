@@ -161,7 +161,11 @@ export function useTimer() {
       api.updateRunning(body),
     onMutate: hold,
     onSuccess: (entry) => {
-      settle(queryClient, entry);
+      /* Only onto the entry it changed: a rename committed by the blur of
+         pressing Stop can answer after the stop, and would otherwise put
+         the stopped entry back as running. */
+      const shown = queryClient.getQueryData<Summary>(keys.summary());
+      if (shown?.running?.id === entry.id) settle(queryClient, entry);
       invalidate();
     },
   });
