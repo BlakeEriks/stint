@@ -50,7 +50,8 @@ the domain until required checks pass, so the migration runs while the
 
 Two more workflows. `docs.yml` runs Vale on the doc lines a PR adds, which
 only reports, and `/doc-drift` on the owner's PRs, whose `drift` check fails
-on drift or when it posted no comment for the head commit. `hygiene.yml`
+on drift or when it posted no comment for the head commit, and is required
+to merge. `hygiene.yml`
 files issues each Monday from `pnpm hygiene`. Both spend Claude tokens from the
 `CLAUDE_CODE_OAUTH_TOKEN` secret, and only for the repository owner.
 
