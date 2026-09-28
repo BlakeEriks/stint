@@ -121,7 +121,8 @@ failed magic link is diagnosed, why everything speaks `localhost` and never
 ## Generated files and a fresh clone
 
 `packages/design-tokens/dist/` is gitignored but two of its outputs are needed
-to build, so `apps/web` has `prebuild`, `predev`, `pretest` and `pretest:ui`.
+to build, so every `apps/web` script that needs them has a `pre` script
+that builds them.
 **Anything generated and gitignored needs the same treatment**: assume the
 build machine has only what git tracks. A suite is not exempt — the PDF route
 imports `dist/tokens.ts` and the UI suite resolves `@stint/design-tokens`, so
