@@ -97,4 +97,4 @@ change, the plausible design that breaks it, and why no check catches that
 in time. The version follows semver: MAJOR removes or redefines a principle,
 MINOR adds one, PATCH rewords. The reasoning goes in the PR.
 
-**Version**: 6.0.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-28
+**Version**: 6.1.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-28
