@@ -767,7 +767,7 @@ function blockClassName({
     'absolute overflow-hidden rounded-[5px] border px-1.5 py-0.5 text-left',
     'focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none',
     running
-      ? 'border-accent-default bg-accent-muted'
+      ? 'border-timer-running bg-accent-muted'
       : 'border-edge-subtle bg-surface-hover',
     adjustable ? 'cursor-grab' : 'cursor-pointer',
     live && 'z-10 shadow-card',

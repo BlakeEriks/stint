@@ -132,6 +132,14 @@ describe('Today as a day column', () => {
     expect(
       screen.queryByRole('button', { name: /Schema review/ }),
     ).not.toBeInTheDocument();
+
+    /* It wears the timer's green, not the button's: in light they are a
+       rung apart, and the live timer reads as one color. */
+    const block = screen
+      .getByText(/Schema review, /)
+      .closest('[class*="border-"]');
+    expect(block?.className).toContain('border-timer-running');
+    expect(block?.className).not.toContain('accent-default');
   });
 
   it('keeps the running entry out of the list view', async () => {
