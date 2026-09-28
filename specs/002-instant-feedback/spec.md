@@ -16,9 +16,10 @@ Closes #127
 ### User Story 1 - Timer actions answer at the press (Priority: P1)
 
 Blake presses Start, Stop, rename, or resume-a-recent-task (web or the macOS
-menu bar) and the screen shows the expected result in the same frame, before
-the server responds. If the server rejects the action, the screen rolls back
-visibly and says why.
+menu bar) and the screen answers in the same frame: for these actions the
+result is predictable and reversible, so the screen shows the predicted
+result before the server responds. If the server rejects the action, the
+screen rolls back visibly and says why.
 
 **Why this priority**: The timer is the one moment the app exists for; a lag
 here is the exact failure issue #11 and #118 already named, and menu-bar
@@ -136,15 +137,21 @@ immediately, never blank or the previous tab's stale content.
 - Q: When two predicted mutations on the same entity overlap (e.g., rename then stop), what does the screen show during the overlap? → A: Each new predicted action overwrites the prior prediction immediately — the latest press wins on screen.
 - Q: For calendar drag, does "predicted result" mean live-follow-the-cursor, or snap-to-final-position only on drop? → A: The entry follows the cursor live during the drag, the standard native drag affordance.
 - Q: Does the CI lint (FR-009) block only call sites that skip the helper, or ban any raw `useMutation` outside the helper's own implementation? → A: Ban raw `useMutation` outside the helper module entirely — no opt-out.
+- Q: Does "every press answers at once" mean every press shows its expected result immediately, even where the result can't be predicted or can't be taken back? → A: No — the rule is two-part. (a) Predictable and reversible actions (timer start/stop/rename/resume, calendar drag, inbox resolve, client and payment-profile edits, marking an invoice paid) show the predicted result immediately, rolling back visibly with a reason on rejection. (b) Actions whose result can't be predicted client-side, or can't be taken back (generating an invoice — server assigns number/totals; sending an invoice — an email can't be recalled; anything that moves money), show an immediate pending state on the pressed control instead, with the result appearing when the server answers. Navigation keeps its own answer: loading boundaries and prefetch, so the screen answers with its layout at once. The shared helper (web) and shared mechanism (macOS) offer both modes, so every mutation still goes through it — no opt-out.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST show the predicted result of a user action in
-  the same frame the action is taken, for: timer start, stop, rename, and
+- **FR-001**: Every mutating press MUST answer in the same frame. When the
+  result is predictable and reversible — timer start, stop, rename, and
   resume (including macOS menu-bar resume of a recent task); inbox actions;
-  client edits; payment profile edits; calendar drag.
+  invoice-paid marking; client edits; payment profile edits; calendar
+  drag — the system MUST show the predicted result immediately. When the
+  result can't be predicted client-side, or can't be taken back (invoice
+  generation, sending an invoice, anything that moves money), the system
+  MUST instead show an immediate pending state on the pressed control and
+  reveal the result when the server answers.
 - **FR-002**: The system MUST treat the server's response as the source of
   truth: when it disagrees with the prediction, the displayed state MUST be
   corrected to match the server, visibly and with a stated reason — never
@@ -152,16 +159,18 @@ immediately, never blank or the previous tab's stale content.
 - **FR-003**: A predicted timer start MUST display in the accent color
   (the running-timer color), matching a server-confirmed running timer —
   they are the same displayed element, not two distinct ones shown at once.
-- **FR-004**: Invoice generation MUST show an immediate in-progress
-  acknowledgment on press; it is exempt from showing a predicted result,
-  since the result (invoice number, document) cannot be known client-side.
-- **FR-005**: Web mutations MUST route through one shared optimistic-mutation
-  helper, so a new mutation is instant by default rather than requiring a
-  one-off implementation.
+- **FR-004**: Invoice generation, sending an invoice, and any action that
+  moves money MUST show an immediate pending state on press; they are
+  exempt from showing a predicted result, since the result can't be known
+  client-side or, once sent, can't be taken back.
+- **FR-005**: Web mutations MUST route through one shared mutation helper
+  that offers both the predicted-result mode and the pending-state mode, so
+  a new mutation is instant by default in whichever mode it needs, rather
+  than requiring a one-off implementation.
 - **FR-006**: The macOS model layer MUST have an equivalent shared
-  mechanism for the same purpose: a shared protocol/base type that models
-  conform to, so the compiler enforces the conformance shape, used by
-  `TimerModel` including its `resume` path.
+  mechanism for the same purpose, covering both modes: a shared
+  protocol/base type that models conform to, so the compiler enforces the
+  conformance shape, used by `TimerModel` including its `resume` path.
 - **FR-007**: Web route segments in the app MUST show a loading boundary
   immediately on navigation when data isn't yet available, and MUST prefetch
   data for tabs likely to be visited next.
@@ -202,8 +211,9 @@ immediately, never blank or the previous tab's stale content.
 ### Measurable Outcomes
 
 - **SC-001**: At ~1s and ~3s of added latency, every mutation listed in
-  FR-001 shows its predicted result in the same frame as the press, verified
-  by manual walkthrough of each surface.
+  FR-001 answers in the same frame as the press — a predicted result for the
+  predictable/reversible ones, an immediate pending state for the rest —
+  verified by manual walkthrough of each surface.
 - **SC-002**: At the same added latency, a rejected action always shows a
   visible rollback with a stated reason — never a silent revert — verified
   across all surfaces in FR-001.
