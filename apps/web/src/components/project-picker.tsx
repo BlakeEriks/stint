@@ -95,9 +95,7 @@ export function ProjectPicker({
   const [creating, setCreating] = useState(false);
   const colors = useProjectColors();
   /* The same two queries the swatch already resolves through, so naming the
-     client costs no fetch. Keyed by client rather than by project because
-     `clientByProject` drops a client that has no color, and that project is
-     billed work whose client still has a name. */
+     client costs no fetch. */
   const clients = useClients();
 
   /* Before the menu, not inside it: a `DropdownMenu` that renders a plain
