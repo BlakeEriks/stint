@@ -176,6 +176,12 @@ function instant(date: string, time: string, tz: string): Date {
   );
 }
 
+type NewClients = Map<string, { id: string; name: string }>;
+type NewProjects = Map<
+  string,
+  { id: string; name: string; clientId: string | null }
+>;
+
 /**
  * The one computation behind both the preview a contractor reviews and the
  * rows the confirm route writes, so the two cannot disagree.
@@ -185,121 +191,11 @@ export async function buildPreview(
   parsed: ParsedRow[],
   ctx: ImportContext,
 ): Promise<ImportPreview> {
-  const newClients = new Map<string, { id: string; name: string }>();
-  const newProjects = new Map<
-    string,
-    { id: string; name: string; clientId: string | null }
-  >();
+  const newClients: NewClients = new Map();
+  const newProjects: NewProjects = new Map();
   const rows: ImportRow[] = [];
-
-  for (const p of parsed) {
-    const start = instant(p.startDate, p.startTime, ctx.timeZone);
-    const end =
-      p.endDate && p.endTime
-        ? instant(p.endDate, p.endTime, ctx.timeZone)
-        : null;
-
-    let clientId: string | null = null;
-    let clientRate: number | null = null;
-    let willCreateClient = false;
-    const choice = p.clientName ? ctx.choices[norm(p.clientName)] : undefined;
-    if (p.clientName) {
-      const key = norm(p.clientName);
-      const found = pick(ctx.clients.filter((c) => norm(c.name) === key));
-      if (found) {
-        clientId = found.id;
-        clientRate = found.hourlyRate;
-      } else {
-        const known = newClients.get(key);
-        clientId =
-          known?.id ??
-          (await deterministicUuidv7(
-            `${ctx.userId}|client|${key}`,
-            start.getTime(),
-          ));
-        if (!known)
-          newClients.set(key, { id: clientId, name: p.clientName.trim() });
-        clientRate = choice?.hourlyRate ?? null;
-        willCreateClient = true;
-      }
-    }
-
-    let projectId: string | null = null;
-    let projectRate: number | null = null;
-    let billableDefault = true;
-    let willCreateProject = false;
-    if (p.projectName) {
-      const key = norm(p.projectName);
-      // With no client in the export, the name alone identifies the project
-      // — the contractor may have given it a client here since.
-      const found = pick(
-        ctx.projects.filter(
-          (x) =>
-            norm(x.name) === key && (!p.clientName || x.clientId === clientId),
-        ),
-      );
-      if (found) {
-        projectId = found.id;
-        projectRate = found.hourlyRate;
-        billableDefault = found.isBillableDefault;
-      } else {
-        const mapKey = `${clientId ?? ''}|${key}`;
-        const known = newProjects.get(mapKey);
-        projectId =
-          known?.id ??
-          (await deterministicUuidv7(
-            `${ctx.userId}|project|${mapKey}`,
-            start.getTime(),
-          ));
-        if (!known)
-          newProjects.set(mapKey, {
-            id: projectId,
-            name: p.projectName.trim(),
-            clientId,
-          });
-        willCreateProject = true;
-      }
-    }
-
-    const rateCtx = {
-      entryRateOverride: null,
-      projectRate,
-      clientRate,
-      userDefaultRate: ctx.defaultRate,
-    };
-    const excludedReason: ExcludedReason | null = !end
-      ? 'no_end_time'
-      : end <= start
-        ? 'not_after_start'
-        : null;
-    const through = choice?.invoicedThrough ?? null;
-
-    rows.push({
-      id: await deterministicUuidv7(
-        `${ctx.userId}|${source}|${p.sourceRowId}`,
-        start.getTime(),
-      ),
-      sourceRowId: p.sourceRowId,
-      clientName: p.clientName,
-      projectName: p.projectName,
-      clientId,
-      projectId,
-      willCreateClient,
-      willCreateProject,
-      taskName: p.taskName,
-      startedAt: start.toISOString(),
-      endedAt: end?.toISOString() ?? null,
-      billable: ctx.allBillable || (p.billable ?? billableDefault),
-      invoicedElsewhere: through !== null && p.startDate <= through,
-      resolvedRate: resolveRate(rateCtx),
-      rateSource: resolveRateSource(rateCtx),
-      reportedAmount: p.reportedAmount,
-      willWrite: excludedReason === null,
-      alreadyImported: false,
-      excludedReason,
-      excluded: false,
-    });
-  }
+  for (const p of parsed)
+    rows.push(await toRow(source, p, ctx, newClients, newProjects));
 
   /* A row already imported is the same id as its existing copy, so it is
      that copy — in Stint, not in the file. */
@@ -320,46 +216,180 @@ export async function buildPreview(
       r.willWrite = false;
     }
 
-  const written = rows.filter((r) => r.willWrite);
-  const fresh = written.filter((r) => !r.alreadyImported);
-
-  const seconds = new Map<string, number>();
-  for (const r of written)
-    if (r.clientId)
-      seconds.set(
-        r.clientId,
-        (seconds.get(r.clientId) ?? 0) +
-          (Date.parse(r.endedAt as string) - Date.parse(r.startedAt)) / 1000,
-      );
-  const clients: ImportClient[] = [];
-  for (const r of written) {
-    if (!r.clientId || !r.clientName) continue;
-    if (clients.some((c) => c.id === r.clientId)) continue;
-    const key = norm(r.clientName);
-    const choice = ctx.choices[key];
-    const found = ctx.clients.find((c) => c.id === r.clientId);
-    clients.push({
-      id: r.clientId,
-      key,
-      name: found?.name ?? r.clientName.trim(),
-      isNew: !found,
-      hourlyRate: found ? found.hourlyRate : (choice?.hourlyRate ?? null),
-      color: found ? found.color : (choice?.color ?? null),
-      invoicedThrough: choice?.invoicedThrough ?? null,
-      seconds: seconds.get(r.clientId) ?? 0,
-    });
-  }
-  const usedProjects = new Set(written.map((r) => r.projectId));
-
   return {
     source,
     rows,
-    clients,
+    ...summarize(rows, overlaps, parsed, ctx, newProjects),
+    overlaps,
+    defaultRate: ctx.defaultRate,
+  };
+}
+
+async function toRow(
+  source: ImportSource,
+  p: ParsedRow,
+  ctx: ImportContext,
+  newClients: NewClients,
+  newProjects: NewProjects,
+): Promise<ImportRow> {
+  const start = instant(p.startDate, p.startTime, ctx.timeZone);
+  const end =
+    p.endDate && p.endTime ? instant(p.endDate, p.endTime, ctx.timeZone) : null;
+  const { clientId, clientRate, willCreateClient } = await resolveClient(
+    p,
+    ctx,
+    start,
+    newClients,
+  );
+  const { projectId, projectRate, billableDefault, willCreateProject } =
+    await resolveProject(p, ctx, start, clientId, newProjects);
+
+  const rateCtx = {
+    entryRateOverride: null,
+    projectRate,
+    clientRate,
+    userDefaultRate: ctx.defaultRate,
+  };
+  const excludedReason = excludedFor(start, end);
+  const through = p.clientName
+    ? (ctx.choices[norm(p.clientName)]?.invoicedThrough ?? null)
+    : null;
+
+  return {
+    id: await deterministicUuidv7(
+      `${ctx.userId}|${source}|${p.sourceRowId}`,
+      start.getTime(),
+    ),
+    sourceRowId: p.sourceRowId,
+    clientName: p.clientName,
+    projectName: p.projectName,
+    clientId,
+    projectId,
+    willCreateClient,
+    willCreateProject,
+    taskName: p.taskName,
+    startedAt: start.toISOString(),
+    endedAt: end?.toISOString() ?? null,
+    billable: ctx.allBillable || (p.billable ?? billableDefault),
+    invoicedElsewhere: through !== null && p.startDate <= through,
+    resolvedRate: resolveRate(rateCtx),
+    rateSource: resolveRateSource(rateCtx),
+    reportedAmount: p.reportedAmount,
+    willWrite: excludedReason === null,
+    alreadyImported: false,
+    excludedReason,
+    excluded: false,
+  };
+}
+
+function excludedFor(start: Date, end: Date | null): ExcludedReason | null {
+  if (!end) return 'no_end_time';
+  if (end <= start) return 'not_after_start';
+  return null;
+}
+
+/** An existing client by name, or the one the import will create for it. */
+async function resolveClient(
+  p: ParsedRow,
+  ctx: ImportContext,
+  start: Date,
+  newClients: NewClients,
+) {
+  if (!p.clientName)
+    return { clientId: null, clientRate: null, willCreateClient: false };
+  const key = norm(p.clientName);
+  const found = pick(ctx.clients.filter((c) => norm(c.name) === key));
+  if (found)
+    return {
+      clientId: found.id,
+      clientRate: found.hourlyRate,
+      willCreateClient: false,
+    };
+  let created = newClients.get(key);
+  if (!created) {
+    created = {
+      id: await deterministicUuidv7(
+        `${ctx.userId}|client|${key}`,
+        start.getTime(),
+      ),
+      name: p.clientName.trim(),
+    };
+    newClients.set(key, created);
+  }
+  return {
+    clientId: created.id,
+    clientRate: ctx.choices[key]?.hourlyRate ?? null,
+    willCreateClient: true,
+  };
+}
+
+/** An existing project by name under its client, or the one the import will create. */
+async function resolveProject(
+  p: ParsedRow,
+  ctx: ImportContext,
+  start: Date,
+  clientId: string | null,
+  newProjects: NewProjects,
+) {
+  if (!p.projectName)
+    return {
+      projectId: null,
+      projectRate: null,
+      billableDefault: true,
+      willCreateProject: false,
+    };
+  const key = norm(p.projectName);
+  // With no client in the export, the name alone identifies the project
+  // — the contractor may have given it a client here since.
+  const found = pick(
+    ctx.projects.filter(
+      (x) => norm(x.name) === key && (!p.clientName || x.clientId === clientId),
+    ),
+  );
+  if (found)
+    return {
+      projectId: found.id,
+      projectRate: found.hourlyRate,
+      billableDefault: found.isBillableDefault,
+      willCreateProject: false,
+    };
+  const mapKey = `${clientId ?? ''}|${key}`;
+  let created = newProjects.get(mapKey);
+  if (!created) {
+    created = {
+      id: await deterministicUuidv7(
+        `${ctx.userId}|project|${mapKey}`,
+        start.getTime(),
+      ),
+      name: p.projectName.trim(),
+      clientId,
+    };
+    newProjects.set(mapKey, created);
+  }
+  return {
+    projectId: created.id,
+    projectRate: null,
+    billableDefault: true,
+    willCreateProject: true,
+  };
+}
+
+function summarize(
+  rows: ImportRow[],
+  overlaps: ImportOverlap[],
+  parsed: ParsedRow[],
+  ctx: ImportContext,
+  newProjects: NewProjects,
+): Pick<ImportPreview, 'clients' | 'newProjects' | 'summary'> {
+  const written = rows.filter((r) => r.willWrite);
+  const fresh = written.filter((r) => !r.alreadyImported);
+  const usedProjects = new Set(written.map((r) => r.projectId));
+
+  return {
+    clients: clientsOf(written, ctx),
     newProjects: [...newProjects.values()].filter((p) =>
       usedProjects.has(p.id),
     ),
-    overlaps,
-    defaultRate: ctx.defaultRate,
     summary: {
       totalRows: rows.length,
       willWriteCount: written.length,
@@ -382,6 +412,35 @@ export async function buildPreview(
         parsed.length > 0 && parsed.every((p) => p.billable === false),
     },
   };
+}
+
+/** Each client the written rows land in, in first-row order, with its hours. */
+function clientsOf(written: ImportRow[], ctx: ImportContext): ImportClient[] {
+  const clients = new Map<string, ImportClient>();
+  for (const r of written) {
+    if (!r.clientId || !r.clientName) continue;
+    const seconds =
+      (Date.parse(r.endedAt as string) - Date.parse(r.startedAt)) / 1000;
+    const known = clients.get(r.clientId);
+    if (known) {
+      known.seconds += seconds;
+      continue;
+    }
+    const key = norm(r.clientName);
+    const choice = ctx.choices[key];
+    const found = ctx.clients.find((c) => c.id === r.clientId);
+    clients.set(r.clientId, {
+      id: r.clientId,
+      key,
+      name: found?.name ?? r.clientName.trim(),
+      isNew: !found,
+      hourlyRate: found ? found.hourlyRate : (choice?.hourlyRate ?? null),
+      color: found ? found.color : (choice?.color ?? null),
+      invoicedThrough: choice?.invoicedThrough ?? null,
+      seconds,
+    });
+  }
+  return [...clients.values()];
 }
 
 /**
