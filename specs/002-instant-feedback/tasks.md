@@ -116,28 +116,28 @@ Force a rejection and confirm a visible rollback with a reason. Run the
 rename-then-stop and stale-summary-refetch races and confirm the final
 state matches the server's.
 
-- [ ] T011 [US1] Add `startedAtPredicted` handling to
+- [X] T011 [US1] Add `startedAtPredicted` handling to
       `apps/web/src/lib/client/use-timer.ts`: on Start, stamp it at the
       moment of the press (client-side, FR-012) and use it for the
       immediate elapsed-time readout until the server's `summary` response
       replaces it with the real `started_at`; `startedAtPredicted` is
       never sent to the server (data-model.md's Timer entry field).
-- [ ] T012 [US1] Rewrite `start` in `use-timer.ts` onto
+- [X] T012 [US1] Rewrite `start` in `use-timer.ts` onto
       `useOptimisticMutation`: `predict` writes a running `Summary.running`
       entry (accent-green display per FR-003 — the predicted and
       server-confirmed running timer are the same displayed element, not
       two) with `startedAtPredicted` from T011; `queryKey` is
       `keys.summary()`; `onSettled` calls `invalidateEntryData()`
       (Acceptance Scenario 1).
-- [ ] T013 [US1] Rewrite `stop` in `use-timer.ts` onto
+- [X] T013 [US1] Rewrite `stop` in `use-timer.ts` onto
       `useOptimisticMutation`: `predict` writes `running: null` on
       `keys.summary()`; keep the existing timer-conflict reconciliation
       behavior on error (Acceptance Scenario 2).
-- [ ] T014 [US1] Rewrite `update` (rename/project-reassign) in
+- [X] T014 [US1] Rewrite `update` (rename/project-reassign) in
       `use-timer.ts` onto `useOptimisticMutation`: `predict` writes the new
       `taskName`/`projectId` onto the running entry in `keys.summary()`
       (Acceptance Scenario 3).
-- [ ] T015 [US1] In `apps/macos/Sources/Stint/TimerModel.swift`, conform
+- [X] T015 [US1] In `apps/macos/Sources/Stint/TimerModel.swift`, conform
       `TimerModel` to `OptimisticAction` and reimplement `toggle`,
       `resume`, `rename`, and the private `patch` as calls into the
       protocol's `run()` (per data-model.md: `Prediction` is `TimeEntry?`),
@@ -145,7 +145,7 @@ state matches the server's.
       MUST predict a running state immediately, closing the gap named in
       SC-006 and Acceptance Scenario 4 — it did not optimistically update
       before this task.
-- [ ] T016 [US1] [P] Extend
+- [X] T016 [US1] [P] Extend
       `apps/web/e2e/instant-feedback.spec.ts` (new) with route-level
       latency injection (per plan.md's Testing section) covering: Start
       shows predicted running state before the network response resolves;
@@ -153,7 +153,7 @@ state matches the server's.
       immediately; a forced rejection (stop an already-server-stopped
       timer) shows a visible rollback with a reason (Acceptance Scenarios
       1, 2, 3, 5).
-- [ ] T017 [US1] [P] In the same spec file, add the two #118 race
+- [X] T017 [US1] [P] In the same spec file, add the two #118 race
       scenarios: (a) rename a running timer then immediately Stop it —
       once both responses land, the final displayed state matches the
       server's, not response arrival order (Acceptance Scenario 6,
@@ -161,12 +161,12 @@ state matches the server's.
       focus) immediately after a fresh Start press — the stale refetch
       must not overwrite the newer predicted/confirmed state (Acceptance
       Scenario 7, SC-003).
-- [ ] T018 [US1] [P] `.stories.tsx` for each changed timer display state
+- [X] T018 [US1] [P] `.stories.tsx` for each changed timer display state
       (Constitution V): running-predicted (accent green, matches
       server-confirmed per FR-003), rolled-back-with-reason. Add stories
       to whichever component under `apps/web/src/components/` renders the
       running timer (find via `useTimer()` usage).
-- [ ] T019 [US1] Add the macOS PR-checklist item to
+- [X] T019 [US1] Add the macOS PR-checklist item to
       `.github/pull_request_template.md`'s "Checks CI cannot make" list:
       *"A new mutating action on a model conforms to `OptimisticAction`
       rather than hand-writing do/await/catch."* (contracts/
@@ -190,31 +190,31 @@ per surface (inbox action, invoice action, client edit, payment profile
 edit, calendar drag) and confirm each shows its result immediately, or —
 for invoice generation — an immediate in-progress acknowledgment.
 
-- [ ] T020 [P] [US2] Rewrite the inbox action mutation(s) in
+- [X] T020 [P] [US2] Rewrite the inbox action mutation(s) in
       `apps/web/src/components/inbox.tsx` onto `useOptimisticMutation`
       (predicted mode): `predict` reflects the resolved/dismissed state on
       the affected item immediately (Acceptance Scenario 1). Principle I
       still applies unchanged — this only speeds up reflecting the user's
       own action, not the suspect-record surfacing itself.
-- [ ] T021 [P] [US2] In `apps/web/src/components/invoice-detail.tsx`,
+- [X] T021 [P] [US2] In `apps/web/src/components/invoice-detail.tsx`,
       rewrite mark-paid onto `useOptimisticMutation` (predicted mode:
       `predict` writes the paid status immediately) and generate/send onto
       `useOptimisticMutation` with `predict` omitted (pending mode: the
       pressed control shows an immediate in-progress state, no predicted
       invoice number or document — FR-004, Acceptance Scenario 4).
-- [ ] T022 [P] [US2] In `apps/web/src/components/invoice-new.tsx`, rewrite
+- [X] T022 [P] [US2] In `apps/web/src/components/invoice-new.tsx`, rewrite
       the generate-invoice mutation onto `useOptimisticMutation` with
       `predict` omitted (pending mode, same as T021's generate path).
-- [ ] T023 [P] [US2] Rewrite the edit mutation(s) in
+- [X] T023 [P] [US2] Rewrite the edit mutation(s) in
       `apps/web/src/components/client-form.tsx` and
       `apps/web/src/components/edit-client.tsx` onto
       `useOptimisticMutation` (predicted mode): `predict` writes the edited
       field(s) immediately onto the client record (Acceptance Scenario 2).
-- [ ] T024 [P] [US2] Rewrite the edit mutation(s) in
+- [X] T024 [P] [US2] Rewrite the edit mutation(s) in
       `apps/web/src/components/payment-profile-dialog.tsx` onto
       `useOptimisticMutation` (predicted mode): `predict` writes the edited
       field(s) immediately (Acceptance Scenario 2).
-- [ ] T025 [US2] Rewrite the drag-to-reschedule mutation in
+- [X] T025 [US2] Rewrite the drag-to-reschedule mutation in
       `apps/web/src/lib/client/use-calendar.ts` and
       `apps/web/src/components/calendar.tsx` onto `useOptimisticMutation`
       (predicted mode): the dragged entry MUST follow the cursor live for
@@ -228,7 +228,7 @@ for invoice generation — an immediate in-progress acknowledgment.
       no predicted number/document) — and a forced-rejection case showing
       visible rollback with a reason on at least one predicted-mode
       mutation (Acceptance Scenarios 1–5).
-- [ ] T027 [US2] [P] `.stories.tsx` for each changed screen state
+- [X] T027 [US2] [P] `.stories.tsx` for each changed screen state
       (Constitution V): inbox item predicted-resolved, client/payment-
       profile field predicted-edited, invoice pending-in-progress,
       rolled-back-with-reason for at least one US2 surface.
@@ -248,7 +248,7 @@ shortening the wait for likely-next tabs.
 app's tabs and confirm each shows a loading boundary or prefetched content
 immediately, never blank or the previous tab's stale content.
 
-- [ ] T028 [P] [US3] Audit `apps/web/src/app/(app)/**` for route segments
+- [X] T028 [P] [US3] Audit `apps/web/src/app/(app)/**` for route segments
       lacking a `loading.tsx` (none exist today per the current tree —
       `clients`, `clients/new`, `clients/[id]`, `settings`,
       `settings/import`, `calendar`, `invoices`, `invoices/new`,
@@ -274,17 +274,17 @@ immediately, never blank or the previous tab's stale content.
 **Purpose**: Documentation the plan names, and the manual verification
 pass across every surface at real injected latency.
 
-- [ ] T031 [P] Add the standing responsiveness note to
+- [X] T031 [P] Add the standing responsiveness note to
       `docs/design/principles.md` per plan.md's Project Structure ("note
       the standing responsiveness principle") — create the file if it does
       not yet exist, stating the same constraint as constitution.md's
       Principle VI, in the design-docs' final-form voice (no options or
       decision log).
-- [ ] T032 Run `pnpm check:mutation-usage` (T007) against the full
+- [X] T032 Run `pnpm check:mutation-usage` (T007) against the full
       `apps/web/src` tree and confirm it passes with zero bypasses — every
       mutation site touched in Phases 3–5 routes through
       `useOptimisticMutation` (SC-005).
-- [ ] T033 In local Stint (`pnpm dev`, signed in per
+- [X] T033 In local Stint (`pnpm dev`, signed in per
       `docs/local-dev.md`), with latency injected at ~1s and then ~3s,
       manually walk every mutation and tab switch touched by this feature
       per `quickstart.md`'s numbered steps 1–13: web Start/Stop/rename,

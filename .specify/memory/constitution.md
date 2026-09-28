@@ -52,16 +52,26 @@ A bug fix starts with the test that reproduces it.
 
 ### VI. Every press answers in the same frame
 
-A predictable, reversible action shows its predicted result before the
-server responds; an unpredictable or irreversible one shows an immediate
-pending state instead. Never neither. Both modes go through the one shared
-mechanism per platform — the web mutation helper
-(`apps/web/src/lib/client/mutations.ts`) or the macOS `OptimisticAction`
-protocol — enforced with no opt-out: a lint check on web, a
-compiler-enforced conformance shape plus review checklist item on macOS.
-The server's response remains the source of truth (Principle III); a
-rejected or timed-out prediction rolls back visibly with a reason, never
-silently (Principle I).
+Nothing waits silently on the server. A press whose result is known and
+can be taken back shows that result at once; one the server decides (a
+validated form, a generated invoice) or that can't be taken back (a send, a
+delete, money) shows a pending state on the control instead. Never neither.
+
+Every write goes through one mechanism per platform —
+`useOptimisticMutation` (`apps/web/src/lib/client/mutations.ts`) or the
+`Optimistic` protocol's `press` (`apps/macos/Sources/Stint/Optimistic.swift`)
+— which gives both modes the same rules: overlapping presses let the latest
+win, a silent server fails the press after 10s, and a late answer refetches.
+`apps/web/scripts/check-mutation-usage.mjs` fails a web file that imports `useMutation`, with
+no opt-out; on macOS the PR checklist asks.
+
+The server stays the truth (Principle III): the refetch after the last press
+replaces every prediction. A rejection takes the prediction back and says
+why — in the form that stays open, otherwise in the app-wide notice, which
+outlives the screen that pressed — never silently (Principle I).
+
+A section switches without a server round trip: its route is static, and
+`(app)/loading.tsx` answers any route that isn't.
 
 ## Additional Constraints
 
