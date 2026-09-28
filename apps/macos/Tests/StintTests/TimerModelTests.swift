@@ -84,11 +84,10 @@ struct TimerModelTests {
         await model.signOut()
     }
 
-    @Test func aRestartIsBillableAsItsProjectIs() async throws {
+    @Test func aRestartCarriesTheNameAndProject() async throws {
         let model = try await signedInModel()
-        APIStub.routes["/projects"] = (200, projects([("p1", "Website")], nonBillable: ["p1"]))
         APIStub.routes["/entries/task-names"] = (200, taskNames(["Internal planning"], project: "p1"))
-        APIStub.routes["/timer/start"] = (200, Data(#"{"id":"e1","projectId":"p1","taskName":"Internal planning","startedAt":"2026-09-28T12:00:00Z","endedAt":null,"isBillable":false,"rateOverride":null,"durationSeconds":null,"durationOk":true,"invoiceId":null}"#.utf8))
+        APIStub.routes["/timer/start"] = (200, Data(#"{"id":"e1","projectId":"p1","taskName":"Internal planning","startedAt":"2026-09-28T12:00:00Z","endedAt":null,"isBillable":true,"rateOverride":null,"durationSeconds":null,"durationOk":true,"invoiceId":null}"#.utf8))
         await model.refresh()
         await model.resume(try #require(model.recent.first))
 
@@ -96,7 +95,6 @@ struct TimerModelTests {
         let sent = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         #expect(sent?["taskName"] as? String == "Internal planning")
         #expect(sent?["projectId"] as? String == "p1")
-        #expect(sent?["isBillable"] as? Bool == false)
         await model.signOut()
     }
 
@@ -137,10 +135,10 @@ struct TimerModelTests {
         return Data(#"{"taskNames":[\#(items.joined(separator: ","))]}"#.utf8)
     }
 
-    private func projects(_ rows: [(String, String)], archived: Set<String> = [], nonBillable: Set<String> = []) -> Data {
+    private func projects(_ rows: [(String, String)], archived: Set<String> = []) -> Data {
         let items = rows.map { id, name in
             let archivedAt = archived.contains(id) ? #""2026-09-28T12:00:00Z""# : "null"
-            return #"{"id":"\#(id)","clientId":null,"name":"\#(name)","hourlyRate":null,"isBillableDefault":\#(!nonBillable.contains(id)),"archivedAt":\#(archivedAt)}"#
+            return #"{"id":"\#(id)","clientId":null,"name":"\#(name)","hourlyRate":null,"isBillableDefault":true,"archivedAt":\#(archivedAt)}"#
         }
         return Data(#"{"projects":[\#(items.joined(separator: ","))]}"#.utf8)
     }

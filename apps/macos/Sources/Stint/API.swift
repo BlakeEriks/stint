@@ -152,25 +152,20 @@ actor API {
         let id: String
         let taskName: String
         let projectId: String?
-        /// Nil leaves the column's own default; set, it carries the
-        /// project's own default.
-        let isBillable: Bool?
     }
 
     /// The id is a client-generated UUIDv7, so a retried start lands on the
     /// same row.
     func startTimer(
         taskName: String,
-        projectId: String?,
-        isBillable: Bool? = nil
+        projectId: String?
     ) async throws -> TimeEntry {
         try await request(
             "POST", "/timer/start",
             body: StartTimer(
                 id: uuidv7(),
                 taskName: taskName,
-                projectId: projectId,
-                isBillable: isBillable
+                projectId: projectId
             )
         )
     }

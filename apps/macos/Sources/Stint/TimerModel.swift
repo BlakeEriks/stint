@@ -238,7 +238,7 @@ final class TimerModel {
     }
 
     /// Start fresh work under a name used before, on the project it was last
-    /// used on, billable as that project is by default.
+    /// used on — the same start the Start button makes.
     ///
     /// **Says so rather than doing nothing while a timer runs.** One running
     /// timer is the database's invariant, and a row that highlights and takes
@@ -256,8 +256,7 @@ final class TimerModel {
         do {
             _ = try await api.startTimer(
                 taskName: name.taskName,
-                projectId: name.projectId,
-                isBillable: projects.first { $0.id == name.projectId }?.isBillableDefault
+                projectId: name.projectId
             )
             await refresh()
         } catch let error as APIError where error.isTimerConflict {
