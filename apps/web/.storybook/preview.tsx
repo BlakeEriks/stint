@@ -6,7 +6,6 @@ import { useEffect } from 'react';
 import { fontVariables } from '@/app/fonts';
 import { resetBackTrail } from '@/components/back-link';
 import { Providers } from '@/components/providers';
-import { resetAdjustingEntry } from '@/lib/client/use-runaway';
 import { resetDb, type Scenario } from '@/mocks/db';
 import { handlers } from '@/mocks/handlers';
 import { problems } from '@/mocks/respond';
@@ -61,7 +60,6 @@ const preview: Preview = {
     MockDate.set(now);
     resetDb(now, parameters.db as Scenario | undefined);
     resetBackTrail();
-    resetAdjustingEntry();
     localStorage.clear();
     return () => MockDate.reset();
   },

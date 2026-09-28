@@ -117,14 +117,6 @@ export function Calendar() {
     ? Math.min(DAY_MAX_HEIGHT, Math.round(windowHours * PX_PER_HOUR))
     : Math.round(windowHours * PX_PER_HOUR);
 
-  /* The earliest entry on screen, as a fraction of the window. A week of
-     ordinary days opens on the morning rather than on midnight, which is
-     what makes 24 hours affordable: the empty small hours are above the
-     fold instead of squeezing the worked ones. */
-  const firstTop = Math.min(
-    ...cal.days.flatMap((d) => d.positioned.map((p) => p.top)),
-  );
-
   /* Keyed to the period on screen, not to the data: a refetch must not yank
      the grid back, and neither must a drag. It changes only when the arrows
      move — the day in day view, the week otherwise, matching what the
@@ -132,18 +124,7 @@ export function Calendar() {
   const period = byDay
     ? localDateKey(cal.cursor, tz)
     : localDateKey(cal.weekStart, tz);
-  const scroller = useRef<HTMLDivElement>(null);
-  const landed = useRef<string>('');
-  useEffect(() => {
-    const el = scroller.current;
-    if (!el || landed.current === period) return;
-    /* Nothing logged: the window's own start is already the right place. */
-    if (!Number.isFinite(firstTop)) return;
-    landed.current = period;
-    /* An hour above the first entry, so it does not sit against the top
-       edge and the hour before it stays reachable without scrolling up. */
-    el.scrollTop = Math.max(0, firstTop * gridHeight - PX_PER_HOUR);
-  }, [period, firstTop, gridHeight]);
+  const scroller = useScrollToFirstEntry(period, cal.days, gridHeight);
 
   /* The heading names what is on screen, down to the day in day view. */
   const label = byDay
@@ -337,30 +318,13 @@ export function Calendar() {
           <Legend days={cal.days} clientByProject={clientByProject} />
         </div>
 
-        {error ? (
-          <p
-            role="alert"
-            className="px-4 pt-3 type-support text-danger sm:px-6"
-          >
-            {error}
-          </p>
-        ) : cal.isLoading ? (
-          <p className="px-4 pt-3 type-support text-subtle sm:px-6">Loading…</p>
-        ) : cal.isError ? (
-          /* Neutral: the grid is still drawn and correct, it just has nothing
-           in it — a failed fetch is a condition, not a rejected action. */
-          <p className="px-4 pt-3 type-support text-subtle sm:px-6">
-            Could not load these entries. Try again.
-          </p>
-        ) : cal.visibleSeconds === 0 ? (
-          /* Says what is actually empty. "Nothing logged this week" over a
-           single day's grid would be wrong whenever the rest of the week has
-           hours in it. */
-          <p className="px-4 pt-3 type-support text-subtle sm:px-6">
-            Nothing logged {byDay ? 'this day' : 'this week'}. Click a time to
-            add an entry.
-          </p>
-        ) : null}
+        <CalendarStatus
+          error={error}
+          isLoading={cal.isLoading}
+          isError={cal.isError}
+          visibleSeconds={cal.visibleSeconds}
+          byDay={byDay}
+        />
       </div>
 
       <EntryDialog
@@ -372,6 +336,81 @@ export function Calendar() {
       />
     </Page>
   );
+}
+
+/**
+ * Scrolls the grid to an hour above the earliest entry on screen, once per
+ * `period`. Returns the ref for the scroll container.
+ *
+ * A week of ordinary days opens on the morning rather than on midnight, which
+ * is what makes 24 hours affordable: the empty small hours are above the fold
+ * instead of squeezing the worked ones.
+ */
+function useScrollToFirstEntry(
+  period: string,
+  days: { positioned: PositionedEntry[] }[],
+  gridHeight: number,
+) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const landed = useRef<string>('');
+  // A fraction of the window; Infinity when nothing is logged.
+  const firstTop = Math.min(
+    ...days.flatMap((d) => d.positioned.map((p) => p.top)),
+  );
+
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || landed.current === period) return;
+    /* Nothing logged: the window's own start is already the right place. */
+    if (!Number.isFinite(firstTop)) return;
+    landed.current = period;
+    /* An hour above the first entry, so it does not sit against the top
+       edge and the hour before it stays reachable without scrolling up. */
+    el.scrollTop = Math.max(0, firstTop * gridHeight - PX_PER_HOUR);
+  }, [period, firstTop, gridHeight]);
+
+  return scroller;
+}
+
+/** The line under the grid: a rejected action, then the fetch, then emptiness. */
+function CalendarStatus({
+  error,
+  isLoading,
+  isError,
+  visibleSeconds,
+  byDay,
+}: {
+  error: string | null;
+  isLoading: boolean;
+  isError: boolean;
+  visibleSeconds: number;
+  byDay: boolean;
+}) {
+  const muted = 'px-4 pt-3 type-support text-subtle sm:px-6';
+  if (error) {
+    return (
+      <p role="alert" className="px-4 pt-3 type-support text-danger sm:px-6">
+        {error}
+      </p>
+    );
+  }
+  if (isLoading) return <p className={muted}>Loading…</p>;
+  /* Neutral: the grid is still drawn and correct, it just has nothing in it —
+     a failed fetch is a condition, not a rejected action. */
+  if (isError) {
+    return <p className={muted}>Could not load these entries. Try again.</p>;
+  }
+  /* Says what is actually empty. "Nothing logged this week" over a single
+     day's grid would be wrong whenever the rest of the week has hours in it. */
+  if (visibleSeconds === 0) {
+    return (
+      <p className={muted}>
+        Nothing logged {byDay ? 'this day' : 'this week'}. Click a time to add
+        an entry.
+      </p>
+    );
+  }
+  return null;
 }
 
 /**
@@ -677,14 +716,12 @@ function EntryBlock({
         if (drag.dragging()) return;
         onEdit(entry);
       }}
-      className={`absolute overflow-hidden rounded-[5px] border px-1.5 py-0.5 text-left
-                  focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none ${
-                    running
-                      ? 'border-accent-default bg-accent-muted'
-                      : 'border-edge-subtle bg-surface-hover'
-                  } ${adjustable ? 'cursor-grab' : 'cursor-pointer'} ${
-                    live ? 'z-10 shadow-card' : ''
-                  } ${drag.saving && live ? 'opacity-70' : ''}`}
+      className={blockClassName({
+        running,
+        adjustable,
+        live: live !== null,
+        saving: drag.saving,
+      })}
       style={{
         top: `${top * 100}%`,
         height: `${height * 100}%`,
@@ -712,6 +749,32 @@ function EntryBlock({
       ) : null}
     </button>
   );
+}
+
+function blockClassName({
+  running,
+  adjustable,
+  live,
+  saving,
+}: {
+  running: boolean;
+  adjustable: boolean;
+  /** Being dragged right now. */
+  live: boolean;
+  saving: boolean;
+}) {
+  return [
+    'absolute overflow-hidden rounded-[5px] border px-1.5 py-0.5 text-left',
+    'focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none',
+    running
+      ? 'border-accent-default bg-accent-muted'
+      : 'border-edge-subtle bg-surface-hover',
+    adjustable ? 'cursor-grab' : 'cursor-pointer',
+    live && 'z-10 shadow-card',
+    live && saving && 'opacity-70',
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 /**

@@ -110,6 +110,12 @@ export function TaskSuggest({
     close();
   }
 
+  /** A highlight the keyboard made, so Enter may accept it. */
+  function highlight(i: number | null) {
+    setActive(i);
+    setByKey(true);
+  }
+
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Escape') {
       /* Only when this list is open. A second Escape belongs to the dialog
@@ -126,46 +132,38 @@ export function TaskSuggest({
       return;
     }
 
-    /* The arrows follow the pixels, not the array. A list drawn above the
-       field is entered with Up at the row adjacent to it — the key points at
-       the movement the eye sees. Rows render best-first either way; only
-       which end is "nearest" changes. */
-    const enter = above ? 'ArrowUp' : 'ArrowDown';
-    const leave = above ? 'ArrowDown' : 'ArrowUp';
-    const nearest = above ? rows.length - 1 : 0;
-    const step = above ? -1 : 1;
+    const dir = arrows(above, rows.length);
+    if (shown) moveWithinOpen(e, dir);
+    else openFromClosed(e, dir);
+  }
 
-    if (!shown) {
-      if (e.key === enter && rows.length > 0) {
-        e.preventDefault();
-        setOpen(true);
-        setActive(nearest);
-        setByKey(true);
-      }
-      return;
-    }
+  function openFromClosed(
+    e: KeyboardEvent<HTMLInputElement>,
+    { enter, nearest }: Arrows,
+  ) {
+    if (e.key !== enter || rows.length === 0) return;
+    e.preventDefault();
+    setOpen(true);
+    highlight(nearest);
+  }
 
+  function moveWithinOpen(
+    e: KeyboardEvent<HTMLInputElement>,
+    { enter, leave, nearest, step }: Arrows,
+  ) {
     if (e.key === enter) {
       e.preventDefault();
-      setActive(
+      highlight(
         active === null
           ? nearest
           : Math.max(0, Math.min(active + step, rows.length - 1)),
       );
-      setByKey(true);
-      return;
-    }
-
-    if (e.key === leave) {
+    } else if (e.key === leave) {
       e.preventDefault();
       // Stepping back past the nearest row leaves the list, restoring what was
       // typed — which is still in the field, because nothing was written.
-      setActive(active === null || active === nearest ? null : active - step);
-      setByKey(true);
-      return;
-    }
-
-    if (e.key === 'Enter' && active !== null && byKey) {
+      highlight(active === null || active === nearest ? null : active - step);
+    } else if (e.key === 'Enter' && active !== null && byKey) {
       /* Intercepted ONLY with a row highlighted, and nothing is highlighted
          when the list opens: a timer started by typing and pressing Return
          must never take a name its typist did not finish. */
@@ -217,74 +215,123 @@ export function TaskSuggest({
               Recent
             </div>
           )}
-          {rows.map((row, i) => {
-            const client = row.projectId
-              ? clientByProject.get(row.projectId)
-              : undefined;
-            const project = row.projectId
-              ? projectsById.get(row.projectId)
-              : undefined;
-            /* The client is the disambiguator — the same task name under two
-               of them is the case the label exists for. Only a row with no
-               project at all is internal: a project the lookup cannot see is
-               archived, not unbilled, and saying "Internal" would promise the
-               opposite of the rate it carries. */
-            const label = !row.projectId
-              ? 'Internal'
-              : client
-                ? `${client.name} · ${project ?? ''}`.replace(/ · $/, '')
-                : (project ?? 'Archived project');
-            const color = row.projectId
-              ? colorByProject.get(row.projectId)
-              : null;
-            return (
-              // A row is deliberately not focusable and carries no key
-              // handler: focus never leaves the input, which is what keeps
-              // typing and arrowing one gesture. Down and Enter are handled
-              // there, and `aria-activedescendant` is what announces the row.
-              // biome-ignore lint/a11y/useKeyWithClickEvents: as above
-              // biome-ignore lint/a11y/useFocusableInteractive: as above
-              <div
-                key={`${row.taskName}-${row.projectId ?? ''}`}
-                id={rowId(i)}
-                role="option"
-                aria-selected={i === active}
-                // Without this, mousedown blurs the input and the list closes
-                // before the click can land on anything.
-                onMouseDown={(e) => e.preventDefault()}
-                onMouseEnter={() => {
-                  setActive(i);
-                  setByKey(false);
-                }}
-                onClick={() => choose(i)}
-                className={`flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5
-                            ${i === active ? 'bg-surface-hover' : ''}`}
-              >
-                <span className="min-w-0 flex-[0_1_auto] truncate type-body text-primary">
-                  <Match name={row.taskName} query={query} />
-                </span>
-                {/* A client's color is data, so it stays an inline style. */}
-                {color ? (
-                  <span
-                    aria-hidden
-                    className="ml-auto size-2 flex-none rounded-full"
-                    style={{ background: color }}
-                  />
-                ) : null}
-                <span
-                  className={`min-w-0 flex-[0_1_auto] truncate type-meta text-subtle
-                              ${color ? '' : 'ml-auto'}`}
-                >
-                  {label}
-                </span>
-                {/* On the highlighted row only, so it is on screen exactly
-                    while it is true. */}
-                {i === active ? <Kbd>↵</Kbd> : null}
-              </div>
-            );
-          })}
+          {rows.map((row, i) => (
+            <SuggestionRow
+              key={`${row.taskName}-${row.projectId ?? ''}`}
+              id={rowId(i)}
+              name={row.taskName}
+              query={query}
+              label={rowLabel(row.projectId, clientByProject, projectsById)}
+              color={
+                row.projectId ? colorByProject.get(row.projectId) : undefined
+              }
+              active={i === active}
+              onHover={() => {
+                setActive(i);
+                setByKey(false);
+              }}
+              onChoose={() => choose(i)}
+            />
+          ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** Which arrow enters the list, which leaves it, and the row adjacent to the
+    field. */
+type Arrows = {
+  enter: 'ArrowUp' | 'ArrowDown';
+  leave: 'ArrowUp' | 'ArrowDown';
+  nearest: number;
+  step: 1 | -1;
+};
+
+/* The arrows follow the pixels, not the array. A list drawn above the field
+   is entered with Up at the row adjacent to it — the key points at the
+   movement the eye sees. Rows render best-first either way; only which end
+   is "nearest" changes. */
+function arrows(above: boolean | undefined, count: number): Arrows {
+  return above
+    ? { enter: 'ArrowUp', leave: 'ArrowDown', nearest: count - 1, step: -1 }
+    : { enter: 'ArrowDown', leave: 'ArrowUp', nearest: 0, step: 1 };
+}
+
+/* The client is the disambiguator — the same task name under two of them is
+   the case the label exists for. Only a row with no project at all is
+   internal: a project the lookup cannot see is archived, not unbilled, and
+   saying "Internal" would promise the opposite of the rate it carries. */
+function rowLabel(
+  projectId: string | null,
+  clientByProject: Map<string, { name: string }>,
+  projectsById: Map<string, string>,
+): string {
+  if (!projectId) return 'Internal';
+  const client = clientByProject.get(projectId);
+  const project = projectsById.get(projectId);
+  if (!client) return project ?? 'Archived project';
+  return project ? `${client.name} · ${project}` : client.name;
+}
+
+function SuggestionRow({
+  id,
+  name,
+  query,
+  label,
+  color,
+  active,
+  onHover,
+  onChoose,
+}: {
+  id: string;
+  name: string;
+  query: string;
+  label: string;
+  color: string | null | undefined;
+  active: boolean;
+  onHover: () => void;
+  onChoose: () => void;
+}) {
+  return (
+    // A row is deliberately not focusable and carries no key handler: focus
+    // never leaves the input, which is what keeps typing and arrowing one
+    // gesture. Down and Enter are handled there, and `aria-activedescendant`
+    // is what announces the row.
+    // biome-ignore lint/a11y/useKeyWithClickEvents: as above
+    // biome-ignore lint/a11y/useFocusableInteractive: as above
+    <div
+      id={id}
+      role="option"
+      aria-selected={active}
+      // Without this, mousedown blurs the input and the list closes before
+      // the click can land on anything.
+      onMouseDown={(e) => e.preventDefault()}
+      onMouseEnter={onHover}
+      onClick={onChoose}
+      className={`flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5
+                  ${active ? 'bg-surface-hover' : ''}`}
+    >
+      <span className="min-w-0 flex-[0_1_auto] truncate type-body text-primary">
+        <Match name={name} query={query} />
+      </span>
+      {/* A client's color is data, so it stays an inline style. */}
+      {color ? (
+        <span
+          aria-hidden
+          className="ml-auto size-2 flex-none rounded-full"
+          style={{ background: color }}
+        />
+      ) : null}
+      <span
+        className={`min-w-0 flex-[0_1_auto] truncate type-meta text-subtle
+                    ${color ? '' : 'ml-auto'}`}
+      >
+        {label}
+      </span>
+      {/* On the highlighted row only, so it is on screen exactly while it is
+          true. */}
+      {active ? <Kbd>↵</Kbd> : null}
     </div>
   );
 }

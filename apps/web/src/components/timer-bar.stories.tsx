@@ -74,7 +74,3 @@ export const SuggestionsFiltered: Story = {
     await expect(await canvas.findByRole('listbox')).toBeVisible();
   },
 };
-
-/** Past the limit: the dot pulses and the clock warns; the choice itself
-    is the inbox's. */
-export const Runaway: Story = { ...desktop, parameters: account('runaway') };

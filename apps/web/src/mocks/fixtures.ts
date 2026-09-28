@@ -79,7 +79,6 @@ export const settings = (): Settings => ({
   currency: 'USD',
   weekStartsOn: 1,
   timeFormat: '12h',
-  maxTimerHours: 8,
   minEntrySeconds: 60,
   maxEntryHours: 12,
   businessName: 'Blake Eriks',

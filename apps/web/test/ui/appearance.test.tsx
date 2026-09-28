@@ -65,8 +65,6 @@ function summary(over: Partial<Summary> = {}): Summary {
     running: null,
     todaySeconds: 0,
     weekSeconds: 0,
-    exceedsThreshold: false,
-    maxTimerHours: 8,
     serverTime: NOW,
     ...over,
   };
@@ -134,25 +132,6 @@ describe('the accent marks the running timer, and nothing else', () => {
     /* A stopped timer is not the primary action in progress, so the accent
        would be spent on nothing. This is the rule that keeps it meaningful. */
     expect(screen.getByText(/0:00/).className).not.toContain('accent');
-  });
-
-  it('turns the readout to warning, not accent, past the threshold', async () => {
-    /* `exceedsThreshold` from the server is NOT what drives this: the client
-       recomputes it from elapsed time against maxTimerHours, so the warning
-       appears with no server involvement. A fixture that only sets the flag
-       renders green and proves nothing. */
-    serve(
-      summary({
-        running: entry({ startedAt: '2026-09-10T09:00:00.000Z' }),
-        maxTimerHours: 8,
-      }),
-    );
-    render(<TimerBar projects={PROJECTS} />, { wrapper });
-    const readout = await screen.findByText(/24:25:00/);
-    expect(readout.className).toContain('text-warning');
-    /* A runaway timer is a problem, not the primary action. Leaving it green
-       would say "this is fine" in the one case it is not. */
-    expect(readout.className).not.toContain('accent');
   });
 });
 

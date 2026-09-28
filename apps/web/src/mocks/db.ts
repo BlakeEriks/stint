@@ -6,27 +6,16 @@ import { ZONE } from './time.mts';
  * The account a story starts from. A name for the common ones, or a function
  * that edits the seeded account for anything else.
  */
-export type Scenario =
-  | 'seeded'
-  | 'running'
-  | 'runaway'
-  | 'empty'
-  | ((db: Db) => void);
+export type Scenario = 'seeded' | 'running' | 'empty' | ((db: Db) => void);
 
 const scenarios: Record<
   Exclude<Scenario, (db: Db) => void>,
   (db: Db) => void
 > = {
   seeded: () => {},
-  // A timer started after lunch, well inside the limit.
+  // A timer started after lunch.
   running: (db) => {
     db.entries.push(running(db, '13:45', ids.rush, 'Checkout timeout fix'));
-  },
-  // Left going since the morning: past `maxTimerHours`.
-  runaway: (db) => {
-    db.entries.push(
-      running(db, '04:10', ids.warehouse, 'Query performance pass'),
-    );
   },
   // A new account: settings and nothing else.
   empty: (db) => {

@@ -44,9 +44,6 @@ export const Column: Story = {
 /** Below `xl` the dock is a band that sizes to its content, with no split. */
 export const Band: Story = { ...tablet };
 
-/** A timer left running past the limit leads the inbox with the choice. */
-export const Runaway: Story = { ...desktop, parameters: account('runaway') };
-
 /** Nothing needs the user. */
 export const Clear: Story = {
   ...desktop,

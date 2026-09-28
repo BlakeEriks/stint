@@ -70,15 +70,13 @@ async function write(db: Db) {
   );
   await pool.query(
     `update user_settings set default_hourly_rate=$2, currency=$3,
-       week_starts_on=$4, max_timer_hours=$5, min_entry_seconds=$6,
-       max_entry_hours=$7
+       week_starts_on=$4, min_entry_seconds=$5, max_entry_hours=$6
      where user_id=$1`,
     [
       USER,
       s.defaultHourlyRate,
       s.currency,
       s.weekStartsOn,
-      s.maxTimerHours,
       s.minEntrySeconds,
       s.maxEntryHours,
     ],
@@ -176,7 +174,7 @@ const get = async (route: string, url: string) => {
   return wire(await res.json());
 };
 
-const scenarios: Scenario[] = ['seeded', 'running', 'runaway', 'empty'];
+const scenarios: Scenario[] = ['seeded', 'running', 'empty'];
 
 for (const scenario of scenarios)
   test(`the fake API agrees with the routes: ${scenario}`, async () => {

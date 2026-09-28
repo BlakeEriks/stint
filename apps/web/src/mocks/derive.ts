@@ -184,8 +184,6 @@ export function summary(db: Db, tz: string) {
     running,
     todaySeconds,
     weekSeconds,
-    exceedsThreshold: running ? live > db.settings.maxTimerHours * 3600 : false,
-    maxTimerHours: db.settings.maxTimerHours,
     serverTime: now.toISOString(),
   };
 }

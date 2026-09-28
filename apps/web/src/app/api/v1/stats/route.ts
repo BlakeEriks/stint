@@ -153,9 +153,8 @@ export const GET = handle(async (req: Request) => {
     /* Candidates for the strange-duration row: every stopped, uninvoiced
          entry the user has not already answered for. The thresholds live in
          settings and are fetched in the same batch, so the comparison happens
-         below rather than in the filter. `ended_at is not null` is also what
-         keeps a running timer out of this row — that is the runaway row's
-         subject, and never both. */
+         below rather than in the filter. `ended_at is not null` keeps a
+         running timer out: its length is still changing. */
     db
       .from('time_entries')
       .select('id, task_name, started_at, duration_seconds, project_id')

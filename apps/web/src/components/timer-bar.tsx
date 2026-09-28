@@ -4,9 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { formatClock } from '@stint/core';
 import { useTimer } from '@/lib/client/use-timer';
-import { useAdjustingEntry } from '@/lib/client/use-runaway';
 import { ProjectPicker } from './project-picker';
-import { EntryDialog } from './entry-dialog';
 import { TaskSuggest } from './task-suggest';
 import type { Project } from '@/lib/client/api';
 
@@ -15,8 +13,7 @@ import type { Project } from '@/lib/client/api';
  * timer is the only place the accent appears.
  *
  * **The bar is a fixed readout and never grows** — chrome must not reflow at
- * the moment something needs attention. The runaway choice is an inbox row;
- * what stays here is the `EntryDialog` that Adjust opens on the stopped entry.
+ * the moment something needs attention.
  */
 export function TimerBar({ projects }: { projects: Project[] }) {
   const timer = useTimer();
@@ -57,10 +54,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
     (p) => p.id === (isRunning ? running!.projectId : draftProject),
   );
 
-  const exceeded = timer.exceedsThreshold;
-
-  const [adjusting, setAdjusting] = useAdjustingEntry();
-
   return (
     <section
       /* A quiet fill rather than a plane of its own: at `xl` the bar sits
@@ -85,7 +78,7 @@ export function TimerBar({ projects }: { projects: Project[] }) {
       >
         {isRunning ? (
           <>
-            <StatusDot running exceeded={exceeded} />
+            <StatusDot running />
             <TaskName
               name={running!.taskName}
               editing={editing}
@@ -109,7 +102,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
             </div>
             <Readout
               seconds={timer.seconds}
-              exceeded={exceeded}
               running
               onToggle={toggle}
               busy={timer.start.isPending || timer.stop.isPending}
@@ -117,7 +109,7 @@ export function TimerBar({ projects }: { projects: Project[] }) {
           </>
         ) : (
           <>
-            <StatusDot running={false} exceeded={false} />
+            <StatusDot running={false} />
             {/* `border-edge-default` rather than `border-control`: at rest this
                 is a boundary, not a control needing 3:1.
 
@@ -162,7 +154,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
             />
             <Readout
               seconds={timer.seconds}
-              exceeded={false}
               running={false}
               onToggle={toggle}
               busy={timer.start.isPending || timer.stop.isPending}
@@ -170,17 +161,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
           </>
         )}
       </div>
-
-      {/* Opened by Adjust, on the entry that was just stopped. */}
-      <EntryDialog
-        open={adjusting !== undefined}
-        onOpenChange={(open) => {
-          if (!open) setAdjusting(undefined);
-        }}
-        existing={adjusting}
-        focus="end"
-        projects={projects}
-      />
     </section>
   );
 }
@@ -269,14 +249,12 @@ function TaskName({
  */
 function Readout({
   seconds,
-  exceeded,
   running,
   onToggle,
   busy,
   className = '',
 }: {
   seconds: number;
-  exceeded: boolean;
   running: boolean;
   onToggle: () => void;
   busy: boolean;
@@ -287,8 +265,7 @@ function Readout({
        right edge and leaves identity on the left. */
     <div className={`ml-auto flex flex-none items-center gap-3 ${className}`}>
       <time
-        className={`type-timer
-                    ${exceeded ? 'text-warning' : running ? 'text-accent-default' : 'text-subtle'}`}
+        className={`type-timer ${running ? 'text-accent-default' : 'text-subtle'}`}
         aria-live="off"
       >
         {formatClock(seconds)}
@@ -329,13 +306,7 @@ function Readout({
   );
 }
 
-function StatusDot({
-  running,
-  exceeded,
-}: {
-  running: boolean;
-  exceeded: boolean;
-}) {
+function StatusDot({ running }: { running: boolean }) {
   return (
     /* A status light, not a bullet: 7px with a spread-only ring around it,
        so it reads as lit without another 10px object competing in a row of
@@ -346,11 +317,9 @@ function StatusDot({
     <span
       aria-hidden
       className={`size-[7px] flex-none rounded-full ${
-        exceeded
-          ? 'bg-warning shadow-halo-warning motion-safe:animate-pulse'
-          : running
-            ? 'bg-accent-default shadow-halo-running motion-safe:animate-pulse'
-            : 'bg-timer-idle'
+        running
+          ? 'bg-accent-default shadow-halo-running motion-safe:animate-pulse'
+          : 'bg-timer-idle'
       }`}
     />
   );

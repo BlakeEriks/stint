@@ -17,7 +17,7 @@ flowchart TD
   end
 
   subgraph Build
-    spec["/speckit-specify → clarify<br/>→ plan → tasks → analyze"]
+    spec["/next-feature → clarify<br/>→ plan → tasks → analyze"]
     impl["pnpm worktree branch-name<br/>/speckit-implement"]
     wi["/work-issues in ../stint-issues<br/>issue-builder ⇄ code-reviewer"]
   end
@@ -65,4 +65,4 @@ Every PR reaches QA the same way, whether `/work-issues` built it or not:
   `pr-<n>@preview.test`, which `preview-db` seeds from the branch.
 - **`migration` labels a PR that adds one.** The previews share one schema,
   so one such PR is open at a time.
-- **`ready-for-qa` goes on once CI is green**, and posts to Discord.
+- **`ready-for-qa` goes on once CI is green.**

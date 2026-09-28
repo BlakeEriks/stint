@@ -44,8 +44,6 @@ never feedback, except the doc-drift comment step 0 reads.
 - `migration` (issue and its PR): the fix needs a database migration.
 - `urgent` (issue): Blake's, to jump the queue.
 
-Adding `ready-for-qa` or `needs-input` posts to Discord.
-
 ## A round
 
 Every build and every fix goes the same way:
@@ -93,7 +91,8 @@ is `reviewed`.
   2. **Feedback** — a comment or review of Blake's newer than the last push
      and the last marked comment: remove `ready-for-qa`, then a round of
      fixes. Feedback beyond the PR's scope becomes a new issue instead.
-  3. **CI failed** (`gh pr checks <n>`): remove `ready-for-qa`.
+  3. **CI failed** (`gh pr checks <n>`): remove `ready-for-qa`. A red
+     `drift` is doc drift, step 4, not a check to fix here.
      - The same check red on `main`, or on another PR the same way, is not
        this PR's fault: open one `urgent` bug issue for it if none exists —
        or `needs-input`, if only Blake can fix it, like a paused `stint-test`
@@ -123,6 +122,9 @@ is `reviewed`.
     is null). The rest merge themselves (`dependabot-merge.yml`).
 - **Blocked issues:** remove `blocked` from any whose named PR has merged or
   closed — one `gh pr view` each, not a new investigation.
+- **Answered issues:** remove `needs-input` from any issue Blake has
+  commented on since its marked question, so the label says whose move it
+  is while a builder is busy elsewhere.
 
 ## 1. Pick
 
@@ -134,8 +136,7 @@ queue.
 `gh issue list --state open --json number,title,labels`, then skip every
 issue that:
 
-- is labeled `needs-input` with no comment of Blake's since the last marked
-  one
+- is labeled `needs-input`
 - is labeled `blocked`
 - is labeled `feature` — a capability is built through Spec Kit, not here
 - already has an open PR
@@ -146,7 +147,10 @@ issue that:
 `urgent` first, then the worst: `wrong data`, `misleading`, `looks wrong`,
 then `enhancement`; oldest first within a label. None left → step 2.
 
-Otherwise hand it to a builder for triage and build, as a round. It reports
+Otherwise hand it to a builder for triage and build, as a round. An issue a
+builder already triaged — its `agentId` is in the log — goes back to that
+builder by SendMessage, which still holds the reading; a new one only if it
+no longer answers. It reports
 one of: a commit ready for review, `closed` (the issue no longer held),
 `needs-input`, or `blocked` — for any but the first, pick again.
 
@@ -160,5 +164,5 @@ Only under `/loop`: wake again in 15 minutes while an open PR's CI is still
 running, and in 60 while five PRs wait on Blake and issues are left to pick,
 so a merge frees a slot without a restart. Pass the same `/loop` prompt
 back — never a hand-written one, which would skip step 0. Without `/loop`,
-schedule nothing. Otherwise end the loop: Discord tells Blake when
-something needs him, and he starts it again after replying.
+schedule nothing. Otherwise end the loop: Blake finds what needs him by
+label, and starts it again after replying.

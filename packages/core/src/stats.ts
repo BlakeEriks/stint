@@ -389,9 +389,9 @@ export function buildUnprojected(rows: UnprojectedRow[]) {
 /**
  * Entries whose length is implausible — one row each, short or long.
  *
- * Both thresholds are opt-in: null retires that side, and null on both retires
- * the row entirely, which is the default. Nobody gets a new inbox row without
- * asking for it.
+ * Null retires that side, and null on both retires the row. The long side
+ * defaults to 12 hours, which is how a timer left running overnight reaches
+ * the inbox; the short side defaults to null.
  *
  * `kind` is what the row's qualifier states in words. Color marks severity;
  * it never carries the meaning on its own.

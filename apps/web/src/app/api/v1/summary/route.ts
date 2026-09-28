@@ -25,11 +25,10 @@ export const GET = handle(async (req: Request) => {
 
   const { data: settings } = await db
     .from('user_settings')
-    .select('week_starts_on, max_timer_hours')
+    .select('week_starts_on')
     .maybeSingle();
 
   const weekStartsOn = settings?.week_starts_on ?? 1;
-  const maxHours = Number(settings?.max_timer_hours ?? 8);
 
   const dayStart = startOfLocalDay(now, tz);
   const weekStart = startOfLocalWeek(now, tz, weekStartsOn);
@@ -64,8 +63,6 @@ export const GET = handle(async (req: Request) => {
     running,
     todaySeconds,
     weekSeconds,
-    exceedsThreshold: running ? liveSeconds > maxHours * 3600 : false,
-    maxTimerHours: maxHours,
     serverTime: now.toISOString(),
   });
 });

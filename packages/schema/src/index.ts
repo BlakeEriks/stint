@@ -210,8 +210,6 @@ export const Summary = z.object({
   running: TimeEntry.nullable(),
   todaySeconds: z.number().int().nonnegative(),
   weekSeconds: z.number().int().nonnegative(),
-  exceedsThreshold: z.boolean(),
-  maxTimerHours: z.number().positive(),
   serverTime: iso,
 });
 
@@ -236,11 +234,11 @@ export const Settings = z.object({
   currency,
   weekStartsOn: z.number().int().min(0).max(6),
   timeFormat: z.enum(['12h', '24h']),
-  maxTimerHours: z.number().positive().max(24),
 
   /**
    * Thresholds for the inbox's strange-duration row. Null switches off that
-   * side; null on both retires the row, which is the default.
+   * side. The long side defaults to 12 hours, which is how a timer left
+   * running overnight reaches the inbox once it is stopped.
    *
    * Seconds on the short side, not minutes: an entry under a minute was
    * started and stopped without work between it.

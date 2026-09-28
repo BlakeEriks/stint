@@ -75,7 +75,7 @@ Separate from `pnpm --filter @stint/web test` (route handlers against real
 Postgres under `node --test`); the Vitest config never picks those up.
 
 `test/ui/appearance.test.tsx` covers the design rules that fail **silently**:
-white-on-accent, the accent on a stopped or runaway timer, an accent focus
+white-on-accent, the accent on a stopped timer, an accent focus
 ring, hand-rolled type instead of a role, and a `type-*` that is not a real
 role. Verify each new assertion fails when its rule is broken.
 
