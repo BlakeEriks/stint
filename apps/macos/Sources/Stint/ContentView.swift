@@ -259,7 +259,7 @@ private struct TimerPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if model.isRunning { running } else { idle }
+            if model.showsRunning { running } else { idle }
             if let error = model.errorMessage {
                 Text(error)
                     .role(.body)
@@ -304,12 +304,13 @@ private struct TimerPanel: View {
     private var running: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
+                // Neutral and unstarted until the server confirms the start.
                 Circle()
-                    .fill(Tokens.Dark.accentDefault)
+                    .fill(model.isLive ? Tokens.Dark.accentDefault : Tokens.Dark.timerIdle)
                     .frame(width: 9, height: 9)
-                Text(format(model.elapsedSeconds))
+                Text(format(model.isLive ? model.elapsedSeconds : 0))
                     .role(.readout)
-                    .foregroundStyle(Tokens.Dark.accentDefault)
+                    .foregroundStyle(model.isLive ? Tokens.Dark.accentDefault : Tokens.Dark.textSubtle)
                     .contentTransition(.numericText())
                 Spacer(minLength: 8)
                 TransportButton(model: model)
@@ -415,7 +416,7 @@ private struct RenameRow: View {
                 }
         } else {
             Button {
-                name = model.running?.taskName ?? ""
+                name = model.shownTaskName
                 canceled = false
                 editing = true
             } label: {
@@ -434,9 +435,11 @@ private struct RenameRow: View {
             }
             .buttonStyle(.panel)
             .panelFocus()
+            // Nothing to rename until the server has started it.
+            .disabled(!model.isLive)
             .accessibilityLabel("Rename task")
-            .onAppear { name = model.running?.taskName ?? "" }
-            .onChange(of: model.running?.taskName) { _, new in name = new ?? "" }
+            .onAppear { name = model.shownTaskName }
+            .onChange(of: model.shownTaskName) { _, new in name = new }
         }
     }
 
@@ -452,7 +455,7 @@ private struct RenameRow: View {
         guard editing else { return }
         editing = false
         canceled = false
-        name = model.running?.taskName ?? ""
+        name = model.shownTaskName
     }
 }
 
@@ -546,20 +549,20 @@ private struct TransportButton: View {
         Button {
             Task { await model.toggle() }
         } label: {
-            Image(systemName: model.isRunning ? "stop.fill" : "play.fill")
+            Image(systemName: model.showsRunning ? "stop.fill" : "play.fill")
                 .role(.transport)
-                .foregroundStyle(model.isRunning ? Tokens.Dark.textPrimary : Tokens.Dark.textOnAccent)
+                .foregroundStyle(model.showsRunning ? Tokens.Dark.textPrimary : Tokens.Dark.textOnAccent)
                 // The triangle's side bearings sit it left of center.
-                .padding(.leading, model.isRunning ? 0 : 2)
+                .padding(.leading, model.showsRunning ? 0 : 2)
                 .frame(width: 38, height: 38)
-                .background(model.isRunning ? Tokens.Dark.bgElevated : Tokens.Dark.accentDefault)
+                .background(model.showsRunning ? Tokens.Dark.bgElevated : Tokens.Dark.accentDefault)
                 .clipShape(Circle())
         }
         .buttonStyle(PanelButtonStyle(shape: Circle()))
         .panelFocus(Circle())
-        .disabled(model.isBusy)
-        .opacity(model.isBusy ? 0.6 : 1)
-        .accessibilityLabel(model.isRunning ? "Stop timer" : "Start timer")
+        .disabled(model.isBusy || model.pending != nil)
+        .opacity(model.isBusy || model.pending != nil ? 0.6 : 1)
+        .accessibilityLabel(model.showsRunning ? "Stop timer" : "Start timer")
     }
 }
 

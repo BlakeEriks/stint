@@ -23,6 +23,9 @@ final class TimerModel {
     /// Why a preview build's launch sign-in failed; shown on the sign-in panel.
     private(set) var previewSignInError: String?
     private(set) var isBusy = false
+    /// A start or stop the server has not answered yet. The panel renders it
+    /// at once; a failure takes it back by clearing it.
+    private(set) var pending: Pending?
     /// Ticks once a second so the readout redraws.
     private(set) var now = Date()
 
@@ -40,6 +43,9 @@ final class TimerModel {
     private var ticker: Task<Void, Never>?
     private var poller: Task<Void, Never>?
     private var started = false
+    /// Bumped by every press and every answer, so a refresh asked before
+    /// either cannot land after it and put the old state back.
+    private var writes = 0
 
     init(api: API, auth: Auth, tokens: TokenStore) {
         self.api = api
@@ -49,8 +55,31 @@ final class TimerModel {
 
     // MARK: Derived
 
+    enum Pending: Equatable {
+        case starting(taskName: String, projectId: String?)
+        case stopping
+    }
+
     var running: TimeEntry? { summary?.running }
     var isRunning: Bool { summary?.running != nil }
+
+    /// A timer the server has confirmed and is not being stopped: the only
+    /// state that wears the accent or counts. A start in flight is laid out
+    /// as running but is not live, since a 409 can still take it back.
+    var isLive: Bool { isRunning && pending == nil }
+
+    /// Whether the panel lays out a running timer: a live one, or a start
+    /// awaiting its answer. A stop awaiting its answer is already idle.
+    var showsRunning: Bool {
+        if case .starting = pending { return true }
+        return isLive
+    }
+
+    /// The running task's name, or the one being started.
+    var shownTaskName: String {
+        if case let .starting(name, _) = pending { return name }
+        return running?.taskName ?? ""
+    }
 
     var elapsedSeconds: Int {
         guard let running = summary?.running else { return 0 }
@@ -70,7 +99,7 @@ final class TimerModel {
     /// modes, which is why running-ness is not folded in here.
     var menuBarTitle: String {
         switch Prefs.shared.barReadout {
-        case .runningTimer: isRunning ? format(elapsedSeconds) : format(todaySeconds)
+        case .runningTimer: isLive ? format(elapsedSeconds) : format(todaySeconds)
         case .todaysTotal: format(todaySeconds)
         }
     }
@@ -165,8 +194,12 @@ final class TimerModel {
     func refresh() async {
         guard await tokens.isSignedIn else { return }
         do {
+            let asked = writes
             let fetchedAt = Date()
             let summary = try await api.summary()
+            // A press or its answer came after this was asked, so this is
+            // older than what is shown.
+            guard asked == writes else { return }
             skew = fetchedAt.timeIntervalSince(summary.serverTime)
             self.summary = summary
             errorMessage = nil
@@ -207,20 +240,28 @@ final class TimerModel {
 
     // MARK: Actions
 
+    /// Renders the press at once and settles on the server's answer, one
+    /// round trip later — the refresh after it reconciles the rest, but
+    /// nothing visible waits on it.
     func toggle() async {
-        isBusy = true
-        defer { isBusy = false }
+        guard pending == nil else { return }
         errorMessage = nil
+        writes += 1
         do {
             if isRunning {
+                pending = .stopping
+                defer { pending = nil }
                 // The server counts the stopped entry into Unbilled, so the
                 // row updates now rather than after the refresh below.
                 stats = try await api.stopTimer()
+                settle(running: nil)
             } else {
-                _ = try await api.startTimer(
-                    taskName: draftTaskName.trimmingCharacters(in: .whitespacesAndNewlines),
-                    projectId: draftProjectID
-                )
+                let name = draftTaskName.trimmingCharacters(in: .whitespacesAndNewlines)
+                pending = .starting(taskName: name, projectId: draftProjectID)
+                defer { pending = nil }
+                let entry = try await api.startTimer(taskName: name, projectId: draftProjectID)
+                settle(running: entry)
+                // Cleared only once started: a failed start hands it back.
                 draftTaskName = ""
             }
             await refresh()
@@ -232,6 +273,24 @@ final class TimerModel {
         }
     }
 
+    /// Puts a start or stop's answer into the summary. `serverTime` moves to
+    /// now under the same skew, and today's total is carried at what it
+    /// reads now, so it neither jumps nor counts a stopped timer twice.
+    private func settle(running: TimeEntry?) {
+        guard let old = summary else { return }
+        writes += 1
+        let serverNow = Date().addingTimeInterval(-skew)
+        let today = old.running == nil
+            ? old.todaySeconds
+            : old.todaySeconds + max(0, Int(serverNow.timeIntervalSince(old.serverTime)))
+        summary = Summary(
+            running: running,
+            todaySeconds: today,
+            weekSeconds: old.weekSeconds,
+            serverTime: serverNow
+        )
+    }
+
     /// Start fresh work with a past entry's name, project and billable
     /// answer.
     ///
@@ -240,7 +299,7 @@ final class TimerModel {
     /// focus but silently ignores a click reads as broken. The message is the
     /// same fact the 409 carries.
     func resume(_ entry: TimeEntry) async {
-        guard !isBusy else { return }
+        guard !isBusy, pending == nil else { return }
         guard !isRunning else {
             errorMessage = "A timer is already running. Stop it before starting another."
             return
@@ -273,7 +332,7 @@ final class TimerModel {
 
     private func patch(_ update: API.UpdateTimer) async {
         do {
-            _ = try await api.updateTimer(update)
+            settle(running: try await api.updateTimer(update))
             await refresh()
         } catch {
             errorMessage = error.localizedDescription

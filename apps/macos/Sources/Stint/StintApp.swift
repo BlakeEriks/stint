@@ -45,7 +45,9 @@ struct StintApp: App {
     }
 
     private var pipFill: Color {
-        model.isRunning ? Tokens.Dark.accentDefault : Tokens.Dark.timerIdle
+        // `isLive`, so a start the server has not confirmed stays idle: the
+        // bar has no room for a spinner, and green would claim it too soon.
+        model.isLive ? Tokens.Dark.accentDefault : Tokens.Dark.timerIdle
     }
 
     var body: some Scene {

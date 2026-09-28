@@ -432,3 +432,84 @@ describe('TimerBar — running', () => {
     expect(pill.className).toContain('sm:flex');
   });
 });
+
+/** Summary as given; every write answered by `write`. */
+function serveHeld(data: Summary, write: () => Promise<Response>) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') !== 'GET') return write();
+      if (String(url).includes('/entries/task-names'))
+        return new Response(JSON.stringify({ taskNames: [] }), { status: 200 });
+      return new Response(JSON.stringify(data), { status: 200 });
+    }),
+  );
+}
+
+describe('TimerBar — between a press and the answer', () => {
+  it('shows the typed task at once, with nothing to press again', async () => {
+    serveHeld(summary(), () => new Promise<Response>(() => {}));
+    const user = userEvent.setup();
+    renderBar();
+
+    await user.type(await screen.findByLabelText('Task name'), 'Writing');
+    await user.click(screen.getByRole('button', { name: 'Start timer' }));
+
+    expect(await screen.findByText('Writing')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Stop timer' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Rename task' })).toBeDisabled();
+    expect(screen.getByText('0:00:00')).toBeInTheDocument();
+  });
+
+  it('hands the typed task back when the start fails', async () => {
+    serveHeld(
+      summary(),
+      async () =>
+        new Response(JSON.stringify({ code: 'INTERNAL', message: 'Down' }), {
+          status: 500,
+        }),
+    );
+    const user = userEvent.setup();
+    renderBar();
+
+    await user.type(await screen.findByLabelText('Task name'), 'Writing');
+    await user.click(screen.getByRole('button', { name: 'Start timer' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Start timer' })).toBeEnabled(),
+    );
+    expect(taskInput()).toHaveValue('Writing');
+  });
+
+  it('shows a rename as typed while it saves', async () => {
+    serveHeld(
+      summary({ running: entry() }),
+      () => new Promise<Response>(() => {}),
+    );
+    const user = userEvent.setup();
+    renderBar();
+
+    await screen.findByText('Writing');
+    const field = await startRename(user);
+    await user.clear(field);
+    await user.type(field, 'Editing{Enter}');
+
+    expect(await screen.findByText('Editing')).toBeInTheDocument();
+  });
+
+  it('shows the timer stopped at once, with nothing to press again', async () => {
+    serveHeld(
+      summary({ running: entry() }),
+      () => new Promise<Response>(() => {}),
+    );
+    const user = userEvent.setup();
+    renderBar();
+
+    await user.click(await screen.findByRole('button', { name: 'Stop timer' }));
+
+    expect(
+      await screen.findByRole('button', { name: 'Start timer' }),
+    ).toBeDisabled();
+    expect(screen.getByText('0:00:00')).toBeInTheDocument();
+  });
+});

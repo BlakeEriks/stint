@@ -70,13 +70,14 @@ function summary(over: Partial<Summary> = {}): Summary {
   };
 }
 
-function serve(data: Summary) {
+function serve(
+  data: Summary,
+  write = async () => new Response(JSON.stringify(entry()), { status: 200 }),
+) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
-      if ((init?.method ?? 'GET') !== 'GET') {
-        return new Response(JSON.stringify(entry()), { status: 200 });
-      }
+      if ((init?.method ?? 'GET') !== 'GET') return write();
       if (String(url).includes('/projects')) {
         return new Response(JSON.stringify({ projects: PROJECTS }), {
           status: 200,
@@ -132,6 +133,20 @@ describe('the accent marks the running timer, and nothing else', () => {
     /* A stopped timer is not the primary action in progress, so the accent
        would be spent on nothing. This is the rule that keeps it meaningful. */
     expect(screen.getByText(/0:00/).className).not.toContain('accent');
+  });
+
+  /* A start the server has not answered is not a running timer: a 409 or a
+     failure can still take it back, and green would have claimed it. */
+  it('withholds the accent while a start awaits the server', async () => {
+    serve(summary({ running: null }), () => new Promise<Response>(() => {}));
+    const { container } = render(<TimerBar projects={PROJECTS} />, {
+      wrapper,
+    });
+    const start = await screen.findByRole('button', { name: /start timer/i });
+    start.click();
+
+    await screen.findByRole('button', { name: /stop timer/i });
+    expect(classesIn(container).some((c) => c.includes('accent'))).toBe(false);
   });
 });
 

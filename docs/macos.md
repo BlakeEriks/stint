@@ -101,6 +101,11 @@ opened after a night shut would otherwise come back signed out.
 - **Local tick, reconcile at 60s**, skew-corrected from `serverTime`. Today's
   total adds live seconds **from the fetch**, not from `startedAt` — the route
   already folded the running entry in.
+- **A press answers at once, and green waits for the server.** Start lays
+  the panel out as running with a neutral dot and an unstarted readout; the
+  menu bar pip stays idle, having no room for a spinner. Each answer is
+  written into the summary, so nothing visible waits on the refresh after
+  it. A failure puts back what was there.
 - **A 409 from `/timer/start` refreshes rather than reports.** Another device
   won the race and the invariant held, so showing what *is* running is more
   use than the error.

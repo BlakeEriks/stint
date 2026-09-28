@@ -18,7 +18,9 @@ test('a failed screen keeps the frame, and the timer inside it', async ({
   // Start a timer, so there is something running to lose.
   await page.getByPlaceholder('What are you working on?').fill('Boundary test');
   await page.getByRole('button', { name: 'Start timer' }).click();
-  await expect(page.getByRole('button', { name: 'Stop timer' })).toBeVisible();
+  /* Enabled, not visible: Stop shows at the press and enables when the
+     server answers, and leaving before then would abandon the start. */
+  await expect(page.getByRole('button', { name: 'Stop timer' })).toBeEnabled();
 
   await page.goto('/throw');
 
@@ -36,7 +38,7 @@ test('a failed screen keeps the frame, and the timer inside it', async ({
 
   // Clean up: the timer must not outlive the test.
   await page.getByRole('button', { name: 'Stop timer' }).click();
-  await expect(page.getByRole('button', { name: 'Start timer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start timer' })).toBeEnabled();
 });
 
 test('the boundary offers a way out that is not a dead end', async ({

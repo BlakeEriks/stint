@@ -329,6 +329,16 @@
       <li><strong>Today's total subtracts the running timer's
         elapsed-at-fetch</strong> before adding the live count, or the running
         time is counted twice.</li>
+      <li><strong>A press answers at once, and green waits for the
+        server.</strong> Pressing Start lays the bar out as running — the
+        name, a disabled Stop — with a neutral pip and a clock at
+        <code>0:00:00</code>; the accent and the count arrive with the
+        server's <code>startedAt</code>. Pressing Stop lays it out idle. A
+        failure puts back what was there, typed name included.</li>
+      <li><strong>The answer settles the bar, not the refetch.</strong> Each
+        response is written into the summary, so the bar settles one round
+        trip after the press; the refetch after it reconciles everything else,
+        and nothing visible waits on it.</li>
     </ul>
   </section>
 

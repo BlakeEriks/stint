@@ -21,7 +21,13 @@ export function TimerBar({ projects }: { projects: Project[] }) {
   const [draftProject, setDraftProject] = useState<string | null>(null);
 
   const running = timer.running;
-  const isRunning = Boolean(running);
+  /* `starting` is laid out as running and `stopping` as idle, so the bar
+     answers the press at once. Only a confirmed timer is `live`: that is
+     what wears the accent, counts, and can be renamed. */
+  const live = timer.phase === 'running';
+  const isRunning = live || timer.phase === 'starting';
+  const shown = live ? running : timer.starting;
+  const pending = timer.phase === 'starting' || timer.phase === 'stopping';
 
   /* `null` means "not editing" — the running name is shown as text. Entering
      a rename seeds this with the server's current name, so the draft and the
@@ -29,29 +35,35 @@ export function TimerBar({ projects }: { projects: Project[] }) {
   const [editing, setEditing] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isRunning) setEditing(null);
-  }, [isRunning]);
+    if (!live) setEditing(null);
+  }, [live]);
 
   const commitRename = () => {
-    if (!isRunning || editing === null) return;
+    if (!live || editing === null) return;
     if (editing !== running!.taskName)
       timer.update.mutate({ taskName: editing });
     setEditing(null);
   };
 
   const toggle = () => {
-    if (isRunning) {
+    // One press at a time: Enter in the field reaches here even while the
+    // button is disabled.
+    if (pending) return;
+    if (live) {
       timer.stop.mutate();
     } else {
       /* Trimmed, as the entry dialog trims: a chosen suggestion has to match
-         the stored name exactly or the next list offers it a second time. */
-      timer.start.mutate({ taskName: draft.trim(), projectId: draftProject });
-      setDraft('');
+         the stored name exactly or the next list offers it a second time.
+         Cleared only once started: a failed start hands the typing back. */
+      timer.start.mutate(
+        { taskName: draft.trim(), projectId: draftProject },
+        { onSuccess: () => setDraft('') },
+      );
     }
   };
 
   const project = projects.find(
-    (p) => p.id === (isRunning ? running!.projectId : draftProject),
+    (p) => p.id === (isRunning ? shown?.projectId : draftProject),
   );
 
   return (
@@ -78,9 +90,15 @@ export function TimerBar({ projects }: { projects: Project[] }) {
       >
         {isRunning ? (
           <>
-            <StatusDot running />
+            <StatusDot running={live} />
             <TaskName
-              name={running!.taskName}
+              /* A rename shows as typed while it saves; a failure puts the
+                 server's name back. */
+              name={
+                (timer.update.isPending && timer.update.variables.taskName) ||
+                (shown?.taskName ?? '')
+              }
+              pending={!live}
               editing={editing}
               onEdit={() => setEditing(running!.taskName)}
               onChange={setEditing}
@@ -94,17 +112,18 @@ export function TimerBar({ projects }: { projects: Project[] }) {
             <div className="hidden min-w-0 shrink sm:flex">
               <ProjectPicker
                 projects={projects}
-                value={running!.projectId}
+                value={shown?.projectId ?? null}
                 onChange={(id) => timer.update.mutate({ projectId: id })}
                 selected={project}
                 readOnly
               />
             </div>
             <Readout
-              seconds={timer.seconds}
+              seconds={live ? timer.seconds : 0}
               running
+              live={live}
               onToggle={toggle}
-              busy={timer.start.isPending || timer.stop.isPending}
+              busy={pending}
             />
           </>
         ) : (
@@ -153,10 +172,11 @@ export function TimerBar({ projects }: { projects: Project[] }) {
               selected={project}
             />
             <Readout
-              seconds={timer.seconds}
+              seconds={0}
               running={false}
+              live={false}
               onToggle={toggle}
-              busy={timer.start.isPending || timer.stop.isPending}
+              busy={pending}
             />
           </>
         )}
@@ -176,6 +196,7 @@ export function TimerBar({ projects }: { projects: Project[] }) {
  */
 function TaskName({
   name,
+  pending,
   editing,
   onEdit,
   onChange,
@@ -183,6 +204,8 @@ function TaskName({
   onCancel,
 }: {
   name: string;
+  /** Not started yet, so there is nothing to rename. */
+  pending: boolean;
   editing: string | null;
   onEdit: () => void;
   onChange: (value: string) => void;
@@ -232,9 +255,10 @@ function TaskName({
       <button
         type="button"
         onClick={onEdit}
+        disabled={pending}
         aria-label="Rename task"
         className="grid size-6 flex-none place-items-center rounded-md text-subtle
-                   transition-colors hover:bg-surface-hover hover:text-muted
+                   transition-colors enabled:hover:bg-surface-hover enabled:hover:text-muted
                    focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
       >
         <Pencil aria-hidden className="size-3.5" strokeWidth={2} />
@@ -246,16 +270,22 @@ function TaskName({
 /**
  * The clock and its control, one unit so the button can never wrap away from
  * the number it acts on.
+ *
+ * `running` picks the control, `live` the accent: between the press and the
+ * server's answer the bar shows Stop, but a neutral one, beside a clock that
+ * has not started.
  */
 function Readout({
   seconds,
   running,
+  live,
   onToggle,
   busy,
   className = '',
 }: {
   seconds: number;
   running: boolean;
+  live: boolean;
   onToggle: () => void;
   busy: boolean;
   className?: string;
@@ -265,7 +295,7 @@ function Readout({
        right edge and leaves identity on the left. */
     <div className={`ml-auto flex flex-none items-center gap-3 ${className}`}>
       <time
-        className={`type-timer ${running ? 'text-accent-default' : 'text-subtle'}`}
+        className={`type-timer ${live ? 'text-accent-default' : 'text-subtle'}`}
         aria-live="off"
       >
         {formatClock(seconds)}
@@ -284,9 +314,9 @@ function Readout({
         className={`grid size-9 flex-none place-items-center rounded-[9px]
                     transition-colors disabled:opacity-60
                     ${
-                      running
+                      live
                         ? 'bg-accent-default text-on-accent hover:bg-accent-hover'
-                        : 'border border-edge-default bg-surface-hover text-primary hover:bg-surface-active'
+                        : 'border border-edge-default bg-surface-hover text-primary enabled:hover:bg-surface-active'
                     }`}
       >
         {running ? (
