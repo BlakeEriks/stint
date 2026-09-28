@@ -14,11 +14,17 @@
     "pretest": "pnpm --filter @stint/design-tokens build",
     "test": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/routes.test.ts test/invoices.test.ts test/rates.test.ts",
     "pretest:ui": "pnpm --filter @stint/design-tokens build",
-    "test:ui": "vitest run",
+    "test:ui": "vitest run --project ui",
+    "pretest:stories": "pnpm --filter @stint/design-tokens build",
+    "test:stories": "vitest run --project stories",
     "sample:invoice": "node --experimental-strip-types scripts/render-sample-invoice.mjs",
     "test:rls": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/rls.test.ts",
     "test:auth": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/auth.test.ts test/preview-signin.test.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "prestorybook": "pnpm --filter @stint/design-tokens build",
+    "storybook": "storybook dev --port 6006 --no-open",
+    "prebuild-storybook": "pnpm --filter @stint/design-tokens build",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
@@ -44,6 +50,9 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
+    "@storybook/addon-a11y": "10.6.0",
+    "@storybook/addon-mcp": "10.6.0",
+    "@storybook/nextjs-vite": "10.6.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
@@ -51,9 +60,15 @@
     "@types/pg": "^8.11.10",
     "@types/react": "^19.0.2",
     "@vitejs/plugin-react": "^6.1.1",
+    "@vitest/browser-playwright": "5.0.1",
     "jsdom": "^30.1.0",
+    "msw": "2.15.0",
+    "msw-storybook-addon": "3.0.3",
     "pg": "^8.13.1",
+    "playwright": "1.63.0",
+    "storybook": "10.6.0",
     "typescript": "^6.0.3",
+    "vite": "8.3.0",
     "vitest": "^5.0.1"
   }
 }

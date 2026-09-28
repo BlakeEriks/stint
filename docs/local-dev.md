@@ -352,6 +352,20 @@ popper needs, so `test/ui/setup.ts` shims `ResizeObserver`, `DOMRect` and the
 pointer-capture methods — without them every DropdownMenu test throws on open.
 `userEvent.setup()` returns the instance synchronously; it is not a promise.
 
+## Storybook
+
+`pnpm --filter @stint/web storybook` serves the stories at `localhost:6006`
+with no stack: a story that reads `/api/v1/*` gets it from MSW handlers in
+its `parameters.msw`, and an unhandled request fails. Its MCP server is at
+`localhost:6006/mcp`.
+
+`pnpm --filter @stint/web test:stories` runs every story as a test in
+headless Chromium, at the story's viewport, and fails it on an accessibility
+violation. It runs through Vitest's browser mode and Storybook's
+portable-stories API, not Storybook's Vitest addon, which supports Vitest 4 at
+most. The a11y addon fails a test only when `VITEST_STORYBOOK` is `"false"`,
+which `vitest.config.mts` sets.
+
 ## The route tests can use it too
 
 `apps/web/test/routes.test.ts` runs the real handlers against real Postgres,

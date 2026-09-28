@@ -1,7 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   // shadcn's vendored components export upstream's full API on purpose.
-  "ignore": ["apps/web/src/components/ui/**"],
+  "ignore": [
+    "apps/web/src/components/ui/**",
+    // MSW's service worker, loaded by URL from Storybook's static dir.
+    "apps/web/.storybook/public/mockServiceWorker.js"
+  ],
   "ignoreBinaries": ["dev", "pkill"],
   // The hygiene scan runs jscpd's binary by path.
   "ignoreDependencies": ["jscpd"],

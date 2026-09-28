@@ -4,14 +4,30 @@
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@stint/web", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@stint/web",
+        "dev"
+      ],
       "port": 3100
     },
     {
       "name": "design",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["design"],
+      "runtimeArgs": [
+        "design"
+      ],
       "port": 8778
+    },
+    {
+      "name": "storybook",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@stint/web",
+        "storybook"
+      ],
+      "port": 6006
     }
   ]
 }

@@ -97,6 +97,23 @@ jobs:
       - name: UI component tests
         run: pnpm --filter @stint/web test:ui
 
+      # Every Storybook story renders in Chromium and passes its a11y check.
+      # The browser is cached and installed as the e2e job does; see there.
+      - name: Playwright version
+        id: pw
+        run: echo "v=$(node -p "require('./apps/web/node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-shell-${{ steps.pw.outputs.v }}
+
+      - name: Install Chromium
+        run: cd apps/web && npx playwright install --only-shell chromium
+
+      - name: Story tests
+        run: pnpm --filter @stint/web test:stories
+
       - name: Core logic tests
         run: node --test --experimental-strip-types packages/core/test/*.test.ts
 

@@ -27,6 +27,8 @@
       // would only add bytes to every request — the tab's own text is the
       // accessible name.
       "!apps/web/src/app/icon.svg",
+      // MSW's service worker, written by `msw init` and replaced on upgrade.
+      "!apps/web/.storybook/public/mockServiceWorker.js",
       "!**/dist",
       "!**/.next",
       "!.claude"
