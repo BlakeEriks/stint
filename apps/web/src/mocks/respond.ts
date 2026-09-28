@@ -67,6 +67,8 @@ export const envelopes = {
   invoices: list('invoices', schema.Invoice),
   taskNames: list('taskNames', schema.TaskNameSuggestion),
   paymentProfiles: list('paymentProfiles', schema.PaymentProfile),
+  expenses: list('expenses', schema.Expense),
+  recurringExpenses: list('recurringExpenses', schema.RecurringExpense),
   calendar: list('days', schema.CalendarDay),
   activity: list('days', schema.CalendarTotalsDay),
 };

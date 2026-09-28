@@ -236,9 +236,9 @@ until every story below renders as described.
 
 ### Fake API (blocks the stories)
 
-- [ ] T041 Add `expenses: Expense[]` and `recurringExpenses: RecurringExpense[]` to `Db` in `apps/web/src/mocks/fixtures.ts`. Seed Northwind with two waiting expenses (one last month, one produced by a monthly "Claude Max" on the 5th), one billed on its sent invoice, and one on its draft; `empty` clears both lists.
-- [ ] T042 Add handlers to `apps/web/src/mocks/handlers.ts` for `GET|POST /expenses`, `PATCH|DELETE /expenses/:id` (409 `EXPENSE_LOCKED` when its invoice is issued), `GET|POST /recurring-expenses` and `PATCH /recurring-expenses/:id` (with `stop`). Preview and create take the client's waiting expenses up to `periodEnd`, less `excludedExpenseIds`, through `buildLineItems`, as the routes do.
-- [ ] T043 Extend `apps/web/test/mocks-parity.test.ts` so the fake and the routes agree on the new endpoints for each scenario.
+- [X] T041 Add `expenses: Expense[]` and `recurringExpenses: RecurringExpense[]` to `Db` in `apps/web/src/mocks/fixtures.ts`. Seed Northwind with a monthly "Claude Max" from 5 August (August's billed on its sent INV-13, September's waiting) and a waiting one-off from 20 August; Byrne's draft INV-15 carries one. `empty` clears both lists.
+- [X] T042 Add handlers to `apps/web/src/mocks/handlers.ts` for `GET|POST /expenses`, `PATCH|DELETE /expenses/:id` (409 `EXPENSE_LOCKED` when its invoice is issued), `GET|POST /recurring-expenses` and `PATCH /recurring-expenses/:id` (with `stop`). Preview and create take the client's waiting expenses up to `periodEnd`, less `excludedExpenseIds`, through `buildLineItems`, as the routes do.
+- [X] T043 Extend `apps/web/test/mocks-parity.test.ts` so the fake and the routes agree on the new endpoints for each scenario.
 
 ### Stories: the client's page — `client-detail.stories.tsx` (US2, US3, US4)
 
@@ -246,7 +246,7 @@ until every story below renders as described.
 - [ ] T045 [P] `NoExpenses` — a client with none reads "Nothing waiting to be billed", with Add expense beside it, never an empty table. (US2)
 - [ ] T046 [P] `AddExpense` — play: Add expense opens the dialog with this client fixed, today's date and no amount; Add stays disabled until description and an amount above zero are in. (US2 scenario 1)
 - [ ] T047 [P] `EditExpense` — play: editing a waiting expense opens the dialog filled in; Save and Delete are offered. (US2 scenario 2)
-- [ ] T048 [P] `ShowBilled` — play: Show billed lists the billed ones with their invoice number; the one on the sent invoice has edit and delete disabled, the one on the draft does not. (US3 scenarios 1–2)
+- [ ] T048 [P] `ShowBilled` — play: Show billed lists the billed ones with their invoice number; the one on the sent invoice has edit and delete disabled. A second story on Byrne shows the one on its draft still editable. (US3 scenarios 1–2)
 - [ ] T049 [P] `EditLocked` — `failing('updateExpense')` with `EXPENSE_LOCKED`: the refusal is said beside the row, not in a toast. (US3 scenario 1)
 - [ ] T050 [P] `Monthly` — under Expenses, Monthly lists "Claude Max · every month on the 5th". (US4 scenario 1)
 - [ ] T051 [P] `AddMonthly` — play: the dialog asks for a First charge instead of a Date paid. (US4)

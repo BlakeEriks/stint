@@ -118,8 +118,8 @@ async function write(db: Db) {
   for (const i of db.invoices)
     await pool.query(
       `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,
-         issue_date,due_date,period_start,period_end,subtotal,total,currency)
-       values ($1,$2,$3,$4,$5,'draft',$6,$7,$8,$9,$10,$11,$12)`,
+         issue_date,due_date,period_start,period_end,subtotal,expenses_subtotal,total,currency)
+       values ($1,$2,$3,$4,$5,'draft',$6,$7,$8,$9,$10,$11,$12,$13)`,
       [
         i.id,
         USER,
@@ -131,8 +131,47 @@ async function write(db: Db) {
         i.periodStart,
         i.periodEnd,
         i.subtotal,
+        i.expensesSubtotal,
         i.total,
         i.currency,
+      ],
+    );
+  for (const r of db.recurringExpenses)
+    await pool.query(
+      `insert into recurring_expenses (id,user_id,client_id,project_id,description,
+         amount,note,starts_on,stopped_on,produced_through)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [
+        r.id,
+        USER,
+        r.clientId,
+        r.projectId,
+        r.description,
+        r.amount,
+        r.note,
+        r.startsOn,
+        r.stoppedOn,
+        r.producedThrough,
+      ],
+    );
+  // Billed while its invoice is still a draft, like entries below.
+  for (const e of db.expenses)
+    await pool.query(
+      `insert into expenses (id,user_id,client_id,project_id,spent_on,description,
+         amount,note,invoice_id,recurring_expense_id,recurrence_month)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+         case when $10::uuid is null then null else date_trunc('month', $5::date)::date end)`,
+      [
+        e.id,
+        USER,
+        e.clientId,
+        e.projectId,
+        e.spentOn,
+        e.description,
+        e.amount,
+        e.note,
+        e.invoiceId,
+        e.recurringExpenseId,
       ],
     );
   for (const e of db.entries)
@@ -220,6 +259,30 @@ for (const scenario of scenarios)
         ).taskNames,
         wire(taskNames(db, projectId, 8)),
       );
+
+    // Expenses, monthly ones produced first on both sides.
+    const fake = await import('../src/mocks/handlers.ts');
+    const fakeGet = async (name: keyof typeof fake.handlers, url: string) => {
+      const res = await (fake.handlers[name] as any).resolver({
+        request: new Request(`http://t${url}`),
+        params: {},
+      });
+      return wire(await res.json());
+    };
+    for (const q of [
+      `tz=${tz}`,
+      `tz=${tz}&status=all`,
+      `tz=${tz}&clientId=${ids.northwind}`,
+    ])
+      assert.deepEqual(
+        await get('expenses', `/api/v1/expenses?${q}`),
+        await fakeGet('expenses', `/api/v1/expenses?${q}`),
+        `expenses?${q}`,
+      );
+    assert.deepEqual(
+      await get('recurring-expenses', '/api/v1/recurring-expenses'),
+      await fakeGet('recurringExpenses', '/api/v1/recurring-expenses'),
+    );
 
     if (scenario === 'empty') return;
     const { POST } = await import(

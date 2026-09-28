@@ -9,9 +9,11 @@ import {
 } from '@stint/core';
 import type {
   Client,
+  Expense,
   Invoice,
   PaymentProfile,
   Project,
+  RecurringExpense,
   Settings,
   StoredLineItem,
   TimeEntry,
@@ -30,6 +32,11 @@ import { ZONE } from './time.mts';
 
 type StoredInvoice = Invoice & { lineItems: StoredLineItem[] };
 
+/** The first of the last month produced, which the API never shows. */
+export type StoredRecurrence = RecurringExpense & {
+  producedThrough: string | null;
+};
+
 export interface Db {
   now: Date;
   email: string;
@@ -38,6 +45,8 @@ export interface Db {
   projects: Project[];
   entries: TimeEntry[];
   invoices: StoredInvoice[];
+  expenses: Expense[];
+  recurringExpenses: StoredRecurrence[];
   paymentProfiles: PaymentProfile[];
 }
 
@@ -58,6 +67,11 @@ export const ids = {
   admin: id(206),
   ach: id(401),
   wire: id(402),
+  claudeMonthly: id(601),
+  claudeAugust: id(611),
+  claudeSeptember: id(612),
+  figma: id(613),
+  stockPhotos: id(614),
 } as const;
 
 const TASKS: Record<string, string[]> = {
@@ -250,6 +264,7 @@ export function seed(now: Date): Db {
   );
 
   const invoices = invoicesFor(entries, projects, clients);
+  const { expenses, recurringExpenses } = expensesFor(invoices);
 
   return {
     now,
@@ -259,6 +274,8 @@ export function seed(now: Date): Db {
     projects,
     entries,
     invoices,
+    expenses,
+    recurringExpenses,
     paymentProfiles: [
       {
         id: ids.ach,
@@ -522,6 +539,110 @@ function invoicesFor(
       })),
     };
   });
+}
+
+/**
+ * Costs clients reimburse, one of each state an expense can be in:
+ *
+ * - Northwind pays back a monthly subscription from 5 August. August's is on
+ *   its sent invoice, so it is locked; September's is waiting.
+ * - Northwind also owes a one-off license from last month, waiting.
+ * - Byrne's draft carries one, so it is billed and still editable.
+ *
+ * A billed expense is a line on its invoice, and the invoice's totals say so.
+ */
+function expensesFor(invoices: StoredInvoice[]) {
+  const expense = (over: Partial<Expense> & Pick<Expense, 'id'>): Expense => ({
+    clientId: ids.northwind,
+    projectId: null,
+    spentOn: '2026-09-05',
+    description: '',
+    amount: 0,
+    note: null,
+    invoiceId: null,
+    invoiceNumber: null,
+    invoiceStatus: null,
+    recurringExpenseId: null,
+    ...over,
+  });
+
+  const recurringExpenses: StoredRecurrence[] = [
+    {
+      id: ids.claudeMonthly,
+      clientId: ids.northwind,
+      projectId: null,
+      description: 'Claude Max subscription',
+      amount: 200,
+      note: null,
+      startsOn: '2026-08-05',
+      stoppedOn: null,
+      producedThrough: '2026-09-01',
+    },
+  ];
+
+  const expenses = [
+    expense({
+      id: ids.claudeAugust,
+      spentOn: '2026-08-05',
+      description: 'Claude Max subscription',
+      amount: 200,
+      recurringExpenseId: ids.claudeMonthly,
+    }),
+    expense({
+      id: ids.claudeSeptember,
+      spentOn: '2026-09-05',
+      description: 'Claude Max subscription',
+      amount: 200,
+      recurringExpenseId: ids.claudeMonthly,
+    }),
+    expense({
+      id: ids.figma,
+      spentOn: '2026-08-20',
+      description: 'Figma license, annual',
+      amount: 180,
+      note: 'Order 88213',
+    }),
+    expense({
+      id: ids.stockPhotos,
+      clientId: ids.byrne,
+      projectId: ids.brand,
+      spentOn: '2026-08-18',
+      description: 'Stock photography',
+      amount: 75,
+    }),
+  ];
+
+  bill(invoices, expenses, ids.claudeAugust, 13);
+  bill(invoices, expenses, ids.stockPhotos, 15);
+  return { expenses, recurringExpenses };
+}
+
+/** Puts an expense on an invoice, as generation would have. */
+function bill(
+  invoices: StoredInvoice[],
+  expenses: Expense[],
+  expenseId: string,
+  seq: number,
+) {
+  const invoice = invoices.find((i) => i.sequenceNo === seq) as StoredInvoice;
+  const e = expenses.find((x) => x.id === expenseId) as Expense;
+  Object.assign(e, {
+    invoiceId: invoice.id,
+    invoiceNumber: invoice.invoiceNumber,
+    invoiceStatus: invoice.status,
+  });
+  invoice.lineItems.push({
+    id: id(5900 + seq),
+    sortOrder: invoice.lineItems.length,
+    description: e.description,
+    unit: 'expense',
+    quantity: 1,
+    unitPrice: e.amount,
+    amount: e.amount,
+    spentOn: e.spentOn,
+  });
+  invoice.expensesSubtotal += e.amount;
+  invoice.total += e.amount;
 }
 
 /** Entries as invoicing reads them: each with its whole rate chain. */
