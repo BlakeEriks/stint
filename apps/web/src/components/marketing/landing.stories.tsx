@@ -29,6 +29,7 @@ type Story = StoryObj<typeof meta>;
 export const Desktop: Story = { ...desktop };
 export const Tablet: Story = { ...tablet };
 export const Phone: Story = { ...phone };
+/** Only for someone who chose light in the app; the page has no toggle. */
 export const Light: Story = { ...light };
 
 export const Privacy: Story = { ...desktop, render: () => <PrivacyPage /> };

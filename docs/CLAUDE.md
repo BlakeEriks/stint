@@ -4,9 +4,8 @@ Applies to everything under `docs/`, and to `CLAUDE.md`.
 
 ## Format follows content
 
-**A web screen is a Storybook story, not a doc.** Every screen, part and
-primitive has a `*.stories.tsx` beside its component that renders the real
-thing, so the reference cannot drift from the app; why it is that way is a
+**A web screen is a Storybook story, not a doc.** Every screen has a
+`*.stories.tsx` beside its component that renders the real thing, so the reference cannot drift from the app; why it is that way is a
 comment at the line. `.claude/rules/web-ui.md` has the conventions and
 `docs/local-dev.md` the commands.
 
@@ -41,8 +40,9 @@ tsconfigs carry their own rationale in comments, at the line someone would
 change. A doc repeating it is a second copy that drifts — and the comment is
 better placed, because it is read at the moment of editing.
 
-**A screen doc owns it.** A rule about one screen belongs in that screen's
-doc. `CLAUDE.md` keeps only what constrains code anywhere in the repo.
+**The line it governs owns it.** A rule about one screen is a comment where
+that screen is built, and its look is its stories. `CLAUDE.md` keeps only what
+constrains code anywhere in the repo.
 
 What survives is three things per section: **what it is**, **where it goes**,
 and **the one thing none of those four can say** — usually a meaning. Green
@@ -72,9 +72,8 @@ Git holds the history. A doc states the current final form.
 
 ## One subject, one doc
 
-One subject, one doc. A doc never points at its siblings — that is the
-index's job, and a second list drifts. A screen's states are its stories,
-not a doc's sections.
+One subject, one doc, and a doc never keeps a list of its siblings: a second
+list drifts. A screen's states are its stories, not a doc's sections.
 
 A new capability is a GitHub issue labeled `feature`, a fault or an
 improvement one labeled `bug` or `enhancement`. A rejection is deleted —

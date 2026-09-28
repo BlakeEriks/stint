@@ -9,6 +9,7 @@ import { Providers } from '@/components/providers';
 import { resetAdjustingEntry } from '@/lib/client/use-runaway';
 import { resetDb, type Scenario } from '@/mocks/db';
 import { handlers } from '@/mocks/handlers';
+import { problems } from '@/mocks/respond';
 import { NOW } from '@/mocks/time.mts';
 import '@/styles/globals.css';
 
@@ -36,6 +37,16 @@ const preview: Preview = {
       const worker = setupWorker();
       worker.events.on('request:start', () => track(1));
       worker.events.on('request:end', () => track(-1));
+      // A handler that throws never ends its request, so it is ended here.
+      worker.events.on('unhandledException', ({ request, error }) => {
+        problems.push(`${request.method} ${request.url} threw: ${error}`);
+        track(-1);
+      });
+      // Fonts and modules pass through unhandled by design; the API may not.
+      worker.events.on('request:unhandled', ({ request }) => {
+        if (new URL(request.url).pathname.startsWith('/api/'))
+          problems.push(`Nothing handles ${request.method} ${request.url}`);
+      });
       await worker.start({ onUnhandledRequest: 'error', quiet: true });
       return worker;
     }),
@@ -44,6 +55,8 @@ const preview: Preview = {
      is pinned, the fake account rebuilt, and the stores that outlive a
      render emptied. `parameters.now` and `parameters.db` choose otherwise. */
   beforeEach: ({ parameters }) => {
+    inFlight = 0;
+    problems.length = 0;
     const now = new Date(parameters.now ?? NOW);
     MockDate.set(now);
     resetDb(now, parameters.db as Scenario | undefined);
@@ -59,10 +72,9 @@ const preview: Preview = {
       await frame();
       await frame();
     }
-    /* Every declared face, loaded outright: under `display: swap` text paints
-       in the fallback first, and `fonts.ready` resolves before a face that
-       has not started loading. */
-    await Promise.all([...document.fonts].map((face) => face.load()));
+    /* The fake server answers a problem with a 500, which a screen draws as
+       its error state and would pass. The story fails instead. */
+    if (problems.length) throw new Error(problems.join('\n'));
   },
   decorators: [
     (Story, { globals }) => {
@@ -93,13 +105,19 @@ const preview: Preview = {
     layout: 'padded',
     nextjs: { appDirectory: true },
     msw: { handlers },
-    // The widths the app's layout changes at: below `sm`, `md`, `xl` and `2xl`.
+    // One width inside each arrangement the frame changes between, at `sm`,
+    // `lg`, `xl` and `2xl`.
     viewport: {
       options: {
         phone: { name: 'Phone', styles: { width: '390px', height: '844px' } },
         tablet: {
           name: 'Tablet',
           styles: { width: '768px', height: '1024px' },
+        },
+        // The rail beside the content, the dock still a band below it.
+        laptop: {
+          name: 'Laptop',
+          styles: { width: '1100px', height: '800px' },
         },
         desktop: {
           name: 'Desktop',

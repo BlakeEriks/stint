@@ -45,7 +45,7 @@ export const NothingOpen: Story = {
       if (i.status === 'sent' || i.status === 'draft') i.status = 'paid';
   }),
 };
-export const Empty: Story = { ...desktop, parameters: { db: 'empty' } };
+export const Empty: Story = { ...desktop, parameters: account('empty') };
 export const Failed: Story = { ...desktop, parameters: failing('invoices') };
 
 /** Marking paid asks for the date it arrived. */

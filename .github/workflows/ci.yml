@@ -109,17 +109,10 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
         run: pnpm --filter @stint/web build
 
-  # Every Storybook story renders in Chromium, passes its a11y check, and
-  # matches its screenshot in apps/web/test/stories/__screenshots__.
-  #
-  # In Playwright's own image, on arm64, because that is what
-  # `pnpm test:stories:docker` runs on a Mac: the baselines are pixels, and
-  # pixels only match between identical fonts, Chromium and CPU.
+  # Every Storybook story renders in Chromium, runs its play, and passes its
+  # a11y check. The browser steps are the e2e job's, which explains them.
   stories:
-    runs-on: ubuntu-24.04-arm
-    container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
-      options: --ipc=host
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -128,23 +121,20 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The image's browsers are the ones its Playwright version expects, so
-      # a Dependabot bump that leaves this tag behind fails here by name
-      # rather than as every screenshot at once.
-      - name: Image matches the installed Playwright
-        run: test "$(node -p "require('./apps/web/node_modules/playwright/package.json').version")" = 1.63.0
+      - name: Playwright version
+        id: pw
+        run: echo "v=$(node -p "require('./apps/web/node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-shell-${{ steps.pw.outputs.v }}
+
+      - name: Install Chromium
+        run: cd apps/web && npx playwright install --only-shell chromium
 
       - name: Story tests
         run: pnpm --filter @stint/web test:stories
-        env:
-          STORY_SCREENSHOTS: '1'
-
-      # The expected, actual and diff images of every mismatch.
-      - if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: story-screenshots
-          path: apps/web/.vitest/attachments
 
   # Applies the real migrations, then runs the real route handlers against
   # them, so the timer index and immutability triggers are genuinely exercised.

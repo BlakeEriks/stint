@@ -47,9 +47,6 @@ playwright-report/
 # Spec Kit extension catalog, downloaded by `specify extension`
 .specify/extensions/.cache/
 
-# Storybook: static build, and Vitest browser-mode failure screenshots
+# Storybook: static build, and Vitest browser-mode failure output
 storybook-static/
 .vitest/
-
-# Story screenshots are compared on Linux only; a Mac render is for looking at.
-*-chromium-darwin.png

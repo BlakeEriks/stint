@@ -13,7 +13,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
-/** The one confirm a screen exists to complete, where no timer is in view. */
+/** The one confirm a screen exists to complete. */
 export const Accent: Story = {
   args: { variant: 'accent', children: 'Create invoice' },
 };

@@ -31,7 +31,8 @@ const NICE = [1, 1.2, 1.5, 1.8, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 10];
  *
  * Earned is the screen's subject and the series the projection extrapolates;
  * On track for and Unbilled are two narrower readings taken from the month's
- * money. They are never summed: each is a different stage of one pipeline.
+ * money. They are never summed: Unbilled is part of Earned, and On track for
+ * is Earned projected.
  */
 export function Month({
   stats,

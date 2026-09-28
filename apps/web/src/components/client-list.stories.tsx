@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { account } from '@/mocks/db';
 import { at, desktop, failing, light, phone, screen } from '@/mocks/screen';
 import { ClientList } from './client-list';
 
@@ -26,5 +27,5 @@ export const All: Story = {
   ...desktop,
   parameters: at('/clients', { status: 'all' }),
 };
-export const Empty: Story = { ...desktop, parameters: { db: 'empty' } };
+export const Empty: Story = { ...desktop, parameters: account('empty') };
 export const Failed: Story = { ...desktop, parameters: failing('clients') };

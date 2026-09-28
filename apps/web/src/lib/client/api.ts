@@ -74,8 +74,8 @@ async function request<T>(
      * An expired or cleared session sends the user to sign in, from wherever
      * they were. Without this a signed-out page renders its shell and then
      * sits on "Loading…" forever — a 401 fails every retry React Query
-     * makes, so it never resolves into anything the user can act on. Hitting Back
-     * after signing out did exactly that.
+     * makes, so it never resolves into anything the user can act on.
+     * Hitting Back after signing out did exactly that.
      *
      * A hard assignment rather than the router: this is reachable from any
      * component, including ones with no router in scope, and a full load is

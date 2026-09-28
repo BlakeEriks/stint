@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { account } from '@/mocks/db';
 import { userEvent, within } from 'storybook/test';
 import {
   desktop,
@@ -32,10 +33,10 @@ export const Phone: Story = { ...phone };
 export const Light: Story = { ...light };
 
 /** A running block grows to now and refuses a drag. */
-export const Running: Story = { ...desktop, parameters: { db: 'running' } };
+export const Running: Story = { ...desktop, parameters: account('running') };
 
 /** Nothing logged: the grid still offers a time to click. */
-export const Empty: Story = { ...desktop, parameters: { db: 'empty' } };
+export const Empty: Story = { ...desktop, parameters: account('empty') };
 
 export const Failed: Story = { ...desktop, parameters: failing('calendar') };
 

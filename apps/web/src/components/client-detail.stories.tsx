@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { userEvent, within } from 'storybook/test';
+import { expect, userEvent, within } from 'storybook/test';
 import { id, ids } from '@/mocks/fixtures';
-import { desktop, phone, screen, expectOpen } from '@/mocks/screen';
+import { desktop, expectOpen, failing, phone, screen } from '@/mocks/screen';
 import { ClientDetail } from './client-detail';
 
 const meta = {
@@ -35,5 +35,16 @@ export const AddProject: Story = {
       await page.findByRole('button', { name: /Add project/ }),
     );
     await expectOpen(canvasElement, 'dialog');
+  },
+};
+
+/** A refused archive explains itself on the page, beside the button. */
+export const ArchiveRefused: Story = {
+  ...desktop,
+  parameters: failing('archiveClient'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await page.findByRole('button', { name: 'Archive' }));
+    await expect(await page.findByRole('alert')).toBeVisible();
   },
 };

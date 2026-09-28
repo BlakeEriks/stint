@@ -337,11 +337,17 @@ export function calendar(
     localDateKey(new Date(e.startedAt), q.tz),
   );
 
+  // Totals count stopped work only, so a day holding just a running timer
+  // has no row, as in the route.
   if (q.granularity === 'day')
-    return [...byDay].map(([date, entries]) => {
+    return [
+      ...groupBy(inRange.filter(stopped), (e) =>
+        localDateKey(new Date(e.startedAt), q.tz),
+      ),
+    ].map(([date, entries]) => {
       const byClient: Record<string, number> = {};
       let totalSeconds = 0;
-      for (const e of entries.filter(stopped)) {
+      for (const e of entries) {
         totalSeconds += e.durationSeconds ?? 0;
         if (!e.isBillable) continue;
         const client = clientOf(db, e.projectId) ?? '';
@@ -373,10 +379,15 @@ export function taskNames(db: Db, projectId: string | null, limit: number) {
     )
       latest.set(key, e);
   }
+  /* `coalesce(project_id = p_project_id, false)`: with no project asked for,
+     nothing is preferred. A bare `===` would rank every null-project name
+     first, since null equals null. */
+  const preferred = (e: TimeEntry) =>
+    projectId !== null && e.projectId === projectId;
   return [...latest.values()]
     .sort(
       (a, b) =>
-        Number(b.projectId === projectId) - Number(a.projectId === projectId) ||
+        Number(preferred(b)) - Number(preferred(a)) ||
         at(b.startedAt) - at(a.startedAt),
     )
     .slice(0, limit)

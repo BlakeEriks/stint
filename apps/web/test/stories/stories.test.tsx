@@ -2,7 +2,7 @@
 import * as a11y from '@storybook/addon-a11y/preview';
 import {
   composeStories,
-  type composeStory,
+  composeStory,
   setProjectAnnotations,
 } from '@storybook/nextjs-vite';
 import { beforeAll, describe, expect, test } from 'vitest';
@@ -13,13 +13,6 @@ import * as preview from '../../.storybook/preview';
  * Every story is a test: it renders in Chromium at its own viewport, runs its
  * `play`, and fails on an accessibility violation (`a11y.test: 'error'` in
  * the preview).
- *
- * In Docker it is also compared, pixel for pixel, with its baseline in
- * `__screenshots__/` (`pnpm test:stories:docker`). Baselines are rendered on
- * Linux only, so a Mac run checks everything but the pixels. The viewport is
- * captured, as a person sees it: that includes a dialog or menu, which
- * renders in a portal outside the story's root, and stops at the fold on a
- * page that scrolls.
  */
 const annotations = setProjectAnnotations([a11y, preview]);
 beforeAll(annotations.beforeAll);
@@ -38,21 +31,28 @@ for (const [path, module] of Object.entries(modules)) {
     const stories = Object.entries(composeStories(module)) as [string, Story][];
     for (const [name, Story] of stories) {
       test(name, async () => {
-        // A story's id names its baseline, and without a `title` it is not
-        // unique: every untitled `Default` would share one screenshot.
-        expect(Story.id, `${path} needs a title`).not.toMatch(/^composedstory/);
-        const size = viewports[Story.globals?.viewport?.value]?.styles;
+        const name = Story.globals?.viewport?.value;
+        const size = viewports[name]?.styles;
+        // A misspelled viewport would silently render at desktop.
+        if (name && !size) throw new Error(`No viewport named "${name}"`);
         await page.viewport(
           size ? Number.parseInt(size.width, 10) : 1280,
           size ? Number.parseInt(size.height, 10) : 800,
         );
         await Story.run();
-        if (
-          import.meta.env.STORY_SCREENSHOTS &&
-          Story.parameters.screenshot !== false
-        )
-          await expect(page).toMatchScreenshot(Story.id);
       });
     }
   });
 }
+
+/* The a11y check fails a test only while `VITEST_STORYBOOK` reaches the addon
+   as "false" (`vitest.config.mts`). If an upgrade stopped that, every
+   violation would turn into a report and the suite would stay green, so a
+   known violation has to fail. */
+test('the a11y check fails a story with a violation', async () => {
+  const Unlabeled = composeStory(
+    { render: () => <input /> },
+    { title: 'Canary/A11y', component: () => null },
+  );
+  await expect(Unlabeled.run()).rejects.toThrow(/label/i);
+});

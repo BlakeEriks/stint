@@ -114,23 +114,21 @@ inverts between themes; the frame rises toward the card in both.
 **Color belongs to the client**, resolved through `useProjectColors()`: it
 answers *whose work is this?*, the question a calendar keeps asking, and the
 project's name answers *which piece?*. Eight hues at one lightness and chroma,
-so no chip out-brights the running timer. Internal work gets none. Charts use
-the two categoricals on the blue/orange axis, the only one dichromats retain.
+so no chip out-brights the running timer. Internal work gets none.
 
 **A number is a mono role**, tabular: a figure that reflows as its digits
 change is the same defect as a timer that does.
 
-**Motion reports a change; it never announces one.** The timer is the only
-thing that moves on its own, because its number is genuinely changing.
-Nothing pulses, slides in, or draws attention to a figure that has been
-sitting there. `motion-rise` (3px) is the whole vocabulary of travel; height,
-width and margin never animate, except a row leaving, where the gap closing
-is the point. Every duration honors `prefers-reduced-motion`.
+**Motion reports a change; it never announces one.** The running timer's dot
+is the only thing that pulses, because its number is genuinely changing, and
+nothing animates to draw attention to a figure that has been sitting there.
+Height, width and margin never animate, except a row leaving, where the gap
+closing is the point. Every duration honors `prefers-reduced-motion`.
 
 **The mark is the word between two bounds**, in one color — a stint is work
 with a start and an end, which is also what a calendar block and an invoice
-line are. `text-strong` where it is the subject (app header, sign-in,
-landing), `text-muted` where it is chrome (the macOS panel header, the landing
+line are. `text-strong` in the app header, on sign-in and on the landing
+page; `text-muted` where it recedes (the macOS panel header, the landing
 footer). The invoice PDF and the macOS status item carry no mark.
 
 ## Platform scope

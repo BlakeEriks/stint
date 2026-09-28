@@ -1,6 +1,8 @@
 import {
   buildPreview,
   formatInvoiceNumber,
+  type ImportPreview,
+  type ImportResult,
   parseExport,
   uuidv7,
 } from '@stint/core';
@@ -68,13 +70,17 @@ function withDuration(entry: TimeEntry): TimeEntry {
   };
 }
 
-async function importPreview(request: Request) {
+/** `lib/import.ts`'s `readImport`, against the fake account. */
+async function importPreview(
+  request: Request,
+): Promise<ImportPreview | Response> {
   const db = getDb();
   const form = await request.formData();
   const file = form.get('file');
-  if (!(file instanceof File)) return undefined;
+  if (!(file instanceof File))
+    return fail('VALIDATION_FAILED', 'Send exactly one file as "file"');
   const parsed = parseExport(await file.text());
-  if (!parsed.ok) return parsed.reason;
+  if (!parsed.ok) return fail('IMPORT_FILE_UNRECOGNIZED', parsed.reason);
   const read = (name: string) => {
     const raw = form.get(name);
     return raw ? JSON.parse(String(raw)) : undefined;
@@ -138,7 +144,7 @@ export const handlers = {
     const db = getDb();
     const running = db.entries.find((e) => e.endedAt === null);
     if (running)
-      return fail(409, 'TIMER_ALREADY_RUNNING', 'A timer is already running');
+      return fail('TIMER_ALREADY_RUNNING', 'A timer is already running');
     const input = await body<{ taskName: string; projectId?: string | null }>(
       request,
     );
@@ -163,7 +169,7 @@ export const handlers = {
     const db = getDb();
     const i = db.entries.findIndex((e) => e.endedAt === null);
     const running = db.entries[i];
-    if (!running) return fail(404, 'NO_RUNNING_TIMER', 'No timer is running');
+    if (!running) return fail('NO_TIMER_RUNNING', 'No timer is running');
     const stopped = stopEntry(running, db.now);
     db.entries[i] = stopped;
     return ok(schema.StoppedTimer, {
@@ -177,7 +183,7 @@ export const handlers = {
     const db = getDb();
     const i = db.entries.findIndex((e) => e.endedAt === null);
     const running = db.entries[i];
-    if (!running) return fail(404, 'NO_RUNNING_TIMER', 'No timer is running');
+    if (!running) return fail('NO_TIMER_RUNNING', 'No timer is running');
     db.entries[i] = {
       ...running,
       ...(await body<Partial<TimeEntry>>(request)),
@@ -216,7 +222,7 @@ export const handlers = {
 
   entry: http.get(`${API}/entries/:id`, ({ params }) => {
     const entry = byId(getDb().entries, params.id);
-    return entry ? ok(schema.TimeEntry, entry) : fail(404, 'NOT_FOUND');
+    return entry ? ok(schema.TimeEntry, entry) : fail('ENTRY_NOT_FOUND');
   }),
 
   createEntry: http.post(`${API}/entries`, async ({ request }) => {
@@ -244,10 +250,10 @@ export const handlers = {
     const db = getDb();
     const i = db.entries.findIndex((e) => e.id === params.id);
     const entry = db.entries[i];
-    if (!entry) return fail(404, 'NOT_FOUND');
+    if (!entry) return fail('ENTRY_NOT_FOUND');
     const invoice = byId(db.invoices, entry.invoiceId);
     if (invoice && invoice.status !== 'draft')
-      return fail(409, 'ENTRY_BILLED', 'This entry is on an issued invoice');
+      return fail('ENTRY_LOCKED', 'This entry is billed on an issued invoice');
     db.entries[i] = withDuration({
       ...entry,
       ...(await body<Partial<TimeEntry>>(request)),
@@ -296,7 +302,7 @@ export const handlers = {
       const db = getDb();
       const i = db.projects.findIndex((p) => p.id === params.id);
       const project = db.projects[i];
-      if (!project) return fail(404, 'NOT_FOUND');
+      if (!project) return fail('ENTRY_NOT_FOUND');
       db.projects[i] = {
         ...project,
         ...(await body<Partial<Project>>(request)),
@@ -308,7 +314,7 @@ export const handlers = {
   archiveProject: http.delete(`${API}/projects/:id`, ({ params }) => {
     const db = getDb();
     const project = byId(db.projects, params.id);
-    if (!project) return fail(404, 'NOT_FOUND');
+    if (!project) return fail('ENTRY_NOT_FOUND');
     project.archivedAt = db.now.toISOString();
     return noContent();
   }),
@@ -328,7 +334,7 @@ export const handlers = {
 
   client: http.get(`${API}/clients/:id`, ({ params }) => {
     const client = byId(getDb().clients, params.id);
-    return client ? ok(schema.Client, client) : fail(404, 'NOT_FOUND');
+    return client ? ok(schema.Client, client) : fail('ENTRY_NOT_FOUND');
   }),
 
   createClient: http.post(`${API}/clients`, async ({ request }) => {
@@ -356,7 +362,7 @@ export const handlers = {
       const db = getDb();
       const i = db.clients.findIndex((c) => c.id === params.id);
       const client = db.clients[i];
-      if (!client) return fail(404, 'NOT_FOUND');
+      if (!client) return fail('ENTRY_NOT_FOUND');
       db.clients[i] = { ...client, ...(await body<Partial<Client>>(request)) };
       return ok(schema.Client, db.clients[i]);
     },
@@ -365,7 +371,7 @@ export const handlers = {
   archiveClient: http.delete(`${API}/clients/:id`, ({ params }) => {
     const db = getDb();
     const client = byId(db.clients, params.id);
-    if (!client) return fail(404, 'NOT_FOUND');
+    if (!client) return fail('ENTRY_NOT_FOUND');
     client.archivedAt = db.now.toISOString();
     return noContent();
   }),
@@ -381,7 +387,7 @@ export const handlers = {
     const db = getDb();
     const invoice = byId(db.invoices, params.id);
     const client = byId(db.clients, invoice?.clientId);
-    if (!invoice || !client) return fail(404, 'NOT_FOUND');
+    if (!invoice || !client) return fail('ENTRY_NOT_FOUND');
     const { id, name, email, address } = client;
     return ok(invoiceDetail, {
       ...invoice,
@@ -394,7 +400,7 @@ export const handlers = {
     const preview = invoicePreview(getDb(), input, input.tz ?? ZONE);
     return preview
       ? ok(schema.InvoicePreview, preview)
-      : fail(404, 'NOT_FOUND');
+      : fail('ENTRY_NOT_FOUND');
   }),
 
   createInvoice: http.post(`${API}/invoices`, async ({ request }) => {
@@ -403,9 +409,9 @@ export const handlers = {
       PreviewRequest & { issueDate?: string; dueDate?: string; notes?: string }
     >(request);
     const preview = invoicePreview(db, input, input.tz ?? ZONE);
-    if (!preview) return fail(404, 'NOT_FOUND');
+    if (!preview) return fail('ENTRY_NOT_FOUND');
     if (preview.unratedEntryIds.length > 0)
-      return fail(422, 'UNRATED_ENTRIES', 'Some entries have no rate');
+      return fail('NO_RATE_CONFIGURED', 'Some billable entries have no rate');
     const seq = db.settings.nextInvoiceNumber;
     db.settings.nextInvoiceNumber += 1;
     const invoice = {
@@ -455,7 +461,7 @@ export const handlers = {
     async ({ params, request }) => {
       const db = getDb();
       const invoice = byId(db.invoices, params.id);
-      if (!invoice) return fail(404, 'NOT_FOUND');
+      if (!invoice) return fail('ENTRY_NOT_FOUND');
       const input = await body<{
         status: typeof invoice.status;
         sentAt?: string;
@@ -477,9 +483,12 @@ export const handlers = {
   deleteInvoice: http.delete(`${API}/invoices/:id`, ({ params }) => {
     const db = getDb();
     const invoice = byId(db.invoices, params.id);
-    if (!invoice) return fail(404, 'NOT_FOUND');
+    if (!invoice) return fail('ENTRY_NOT_FOUND');
     if (invoice.status !== 'draft')
-      return fail(409, 'INVOICE_ISSUED', 'An issued invoice is voided');
+      return fail(
+        'VALIDATION_FAILED',
+        'An issued invoice is voided, not deleted',
+      );
     for (const e of db.entries)
       if (e.invoiceId === invoice.id) e.invoiceId = null;
     db.invoices = db.invoices.filter((i) => i !== invoice);
@@ -526,7 +535,7 @@ export const handlers = {
       const db = getDb();
       const i = db.paymentProfiles.findIndex((p) => p.id === params.id);
       const profile = db.paymentProfiles[i];
-      if (!profile) return fail(404, 'NOT_FOUND');
+      if (!profile) return fail('ENTRY_NOT_FOUND');
       const input = await body<Partial<PaymentProfile>>(request);
       // One default, as the partial unique index enforces.
       if (input.isDefault)
@@ -541,7 +550,7 @@ export const handlers = {
     ({ params }) => {
       const db = getDb();
       const profile = byId(db.paymentProfiles, params.id);
-      if (!profile) return fail(404, 'NOT_FOUND');
+      if (!profile) return fail('ENTRY_NOT_FOUND');
       profile.archivedAt = db.now.toISOString();
       return noContent();
     },
@@ -561,26 +570,64 @@ export const handlers = {
 
   importPreview: http.post(`${API}/imports/preview`, async ({ request }) => {
     const preview = await importPreview(request);
-    if (typeof preview === 'string')
-      return fail(422, 'IMPORT_FILE_UNRECOGNIZED', preview);
-    return preview
-      ? Response.json(preview)
-      : fail(400, 'VALIDATION_FAILED', 'Send exactly one file as "file"');
+    return preview instanceof Response ? preview : Response.json(preview);
   }),
 
+  /* `imports/confirm/route.ts`: writes what the preview showed and reports
+     it. Rows billed elsewhere are left out, because the fake has no
+     `invoiced_elsewhere` flag to keep them out of Unbilled. */
   importConfirm: http.post(`${API}/imports/confirm`, async ({ request }) => {
     const preview = await importPreview(request);
-    if (!preview || typeof preview === 'string')
-      return fail(422, 'IMPORT_FILE_UNRECOGNIZED', String(preview));
-    const { summary: s } = preview;
+    if (preview instanceof Response) return preview;
+    const db = getDb();
+    for (const c of preview.clients.filter((c) => c.isNew))
+      db.clients.push({
+        id: c.id,
+        name: c.name,
+        email: null,
+        address: null,
+        hourlyRate: c.hourlyRate,
+        taxRate: null,
+        currency: null,
+        color: c.color,
+        paymentProfileId: null,
+        archivedAt: null,
+      });
+    for (const p of preview.newProjects)
+      db.projects.push({
+        ...p,
+        hourlyRate: null,
+        isBillableDefault: true,
+        archivedAt: null,
+      });
+    const rows = preview.rows.filter((r) => r.willWrite);
+    let written = 0;
+    for (const r of rows) {
+      if (r.invoicedElsewhere || byId(db.entries, r.id)) continue;
+      db.entries.push(
+        withDuration({
+          id: r.id,
+          projectId: r.projectId,
+          taskName: r.taskName,
+          startedAt: r.startedAt,
+          endedAt: r.endedAt,
+          isBillable: r.billable,
+          rateOverride: null,
+          invoiceId: null,
+          durationSeconds: null,
+          durationOk: false,
+        }),
+      );
+      written += 1;
+    }
     return Response.json({
       source: preview.source,
-      written: s.willWriteCount,
-      alreadyImported: s.alreadyImportedCount,
-      unrated: s.unratedCount,
-      overlapping: s.overlappingCount,
-      excluded: s.excludedCount,
-      invoicedElsewhere: s.invoicedElsewhereCount,
-    });
+      written,
+      alreadyImported: rows.length - written,
+      unrated: preview.summary.unratedCount,
+      overlapping: preview.summary.overlappingCount,
+      excluded: preview.summary.excludedCount,
+      invoicedElsewhere: preview.summary.invoicedElsewhereCount,
+    } satisfies ImportResult);
   }),
 };

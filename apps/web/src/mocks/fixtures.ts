@@ -198,7 +198,7 @@ export function seed(now: Date): Db {
   ];
 
   /* Six weeks of weekdays, two blocks a day plus some admin. The durations
-     step with the day so no two days are the same height. */
+     step with the day so neighboring days differ. */
   const entries: TimeEntry[] = [];
   let n = 1000;
   for (let back = 42; back >= 1; back -= 1) {
@@ -333,7 +333,7 @@ interface InvoiceSpec {
 }
 
 /* Fixed dates rather than relative ones: an invoice's period is a month the
-   user can name, and the stories pin the clock to NOW in `time.ts`. */
+   user can name, and the stories pin the clock to NOW in `time.mts`. */
 const INVOICES: InvoiceSpec[] = [
   {
     seq: 5,

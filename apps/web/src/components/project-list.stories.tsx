@@ -6,6 +6,7 @@ import {
   desktop,
   failing,
   light,
+  menuOpen,
   phone,
   screen,
   expectOpen,
@@ -44,7 +45,7 @@ export const NoRate: Story = {
   }),
 };
 
-export const Empty: Story = { ...desktop, parameters: { db: 'empty' } };
+export const Empty: Story = { ...desktop, parameters: account('empty') };
 export const Failed: Story = { ...desktop, parameters: failing('projects') };
 
 export const NewProject: Story = {
@@ -54,5 +55,21 @@ export const NewProject: Story = {
     const [add] = await page.findAllByRole('button', { name: /Add project/ });
     await userEvent.click(add as HTMLElement);
     await expectOpen(canvasElement, 'dialog');
+  },
+};
+
+/** A project's client can be created on the way, in a dialog of its own. */
+export const NewProjectNewClient: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const [add] = await page.findAllByRole('button', { name: /Add project/ });
+    await userEvent.click(add as HTMLElement);
+    await userEvent.click(await page.findByRole('button', { name: 'Client' }));
+    await userEvent.click(
+      await page.findByRole('menuitem', { name: /Add a client/ }),
+    );
+    await expectOpen(canvasElement, 'dialog', 'New client');
   },
 };

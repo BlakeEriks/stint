@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { userEvent, within } from 'storybook/test';
+import { account } from '@/mocks/db';
+import { expect, userEvent, within } from 'storybook/test';
 import AppError from '@/app/(app)/error';
 import {
   desktop,
+  laptop,
   light,
   menuOpen,
   phone,
@@ -30,20 +32,31 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/* One mount of the timer bar serves every arrangement: grid placement moves
+   it, so there is never a second Start button in the accessibility tree. */
+const oneTimer: Story['play'] = async ({ canvasElement }) => {
+  const page = within(canvasElement.ownerDocument.body);
+  await expect(
+    await page.findAllByRole('button', { name: 'Start timer' }),
+  ).toHaveLength(1);
+};
+
 /** Below `lg`: the nav is a strip along the top and scrolls sideways. */
-export const Phone: Story = { ...phone };
+export const Phone: Story = { ...phone, play: oneTimer };
 /** From `sm` the page stops scrolling and the content column scrolls. */
-export const Tablet: Story = { ...tablet };
+export const Tablet: Story = { ...tablet, play: oneTimer };
+/** From `lg` the rail sits beside the content; the dock is still a band. */
+export const Laptop: Story = { ...laptop, play: oneTimer };
 /** At `xl` the dock becomes a third column. */
-export const Desktop: Story = { ...desktop };
+export const Desktop: Story = { ...desktop, play: oneTimer };
 /** At `2xl` the app is a bounded card on the recessed plane. */
-export const Wide: Story = { ...wide };
+export const Wide: Story = { ...wide, play: oneTimer };
 export const Light: Story = { ...light };
 
 /** A failed screen replaces the content column; the timer keeps running. */
 export const ScreenError: Story = {
   ...desktop,
-  parameters: { db: 'running' },
+  parameters: account('running'),
   args: {
     children: (
       <AppError

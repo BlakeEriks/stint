@@ -13,10 +13,10 @@ import { keys } from '@/lib/client/query-keys';
 /**
  * The projects belonging to one client.
  *
- * `/projects` is for finding a project; this is where one is managed. A
- * project is meaningless without its client — the rate hierarchy runs
- * `project -> client -> default` — and nested under the client, the inherited
- * rate is right there to compare against.
+ * `/projects` lists them across clients; here they sit under the one they
+ * belong to. A project is meaningless without its client — the rate hierarchy
+ * runs `project -> client -> default` — and nested under the client, the
+ * inherited rate is right there to compare against.
  *
  * Archive, never delete: entries and invoices reference projects.
  */

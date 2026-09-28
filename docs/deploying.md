@@ -30,7 +30,7 @@ the domain until required checks pass, so the migration runs while the
 
 ## 0. What CI runs
 
-`.github/workflows/ci.yml`, four jobs in parallel:
+`.github/workflows/ci.yml`, five jobs in parallel:
 
 - **`static`** — lint, token drift, the contrast contract, shadcn detox, the
   typography scale, typecheck, the UI suite, core logic, the hygiene scan's
@@ -47,6 +47,8 @@ the domain until required checks pass, so the migration runs while the
   because it needs GoTrue and Mailpit, not the bare Postgres the others use,
   and because keeping it separate means a type error reports without waiting
   behind a Docker pull.
+- **`stories`** — every Storybook story in Chromium: it renders, runs its
+  `play`, and passes its a11y check.
 
 Two more workflows report and never block. `docs.yml` runs Vale on the doc
 lines a PR adds and `/doc-drift` on the owner's PRs. `hygiene.yml` files

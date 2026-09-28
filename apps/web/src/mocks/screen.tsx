@@ -52,6 +52,7 @@ export const at = (pathname: string, query: Record<string, string>) => ({
 
 export const phone = { globals: { viewport: { value: 'phone' } } };
 export const tablet = { globals: { viewport: { value: 'tablet' } } };
+export const laptop = { globals: { viewport: { value: 'laptop' } } };
 export const desktop = { globals: { viewport: { value: 'desktop' } } };
 export const wide = { globals: { viewport: { value: 'wide' } } };
 export const light = {
@@ -66,7 +67,7 @@ export function failing(...keys: (keyof typeof handlers)[]) {
         keys.map((key) => {
           const { method, path } = handlers[key].info;
           const verb = String(method).toLowerCase() as 'get';
-          return [key, http[verb](path, () => fail(500, 'INTERNAL'))];
+          return [key, http[verb](path, () => fail('INTERNAL'))];
         }),
       ),
     },

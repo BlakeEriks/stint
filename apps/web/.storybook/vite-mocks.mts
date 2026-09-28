@@ -12,8 +12,8 @@ const fake = resolve(import.meta.dirname, '../src/mocks/supabase.ts');
  * - The Supabase browser client becomes `src/mocks/supabase.ts`. Matched on
  *   the resolved path, so `@/lib/client/supabase` and `./supabase` both land
  *   on it and the server-side `src/lib/supabase.ts` never does.
- * - The build label reads "storybook" rather than a commit, so it holds
- *   still in a screenshot.
+ * - The build label reads "storybook" rather than a commit, which a
+ *   story has none of.
  */
 export function storyMocks(): Plugin[] {
   return [

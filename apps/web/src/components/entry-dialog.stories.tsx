@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { id, seed } from '@/mocks/fixtures';
-import { desktop, knownFailures, phone } from '@/mocks/screen';
+import { desktop, phone } from '@/mocks/screen';
 import { NOW, ZONE } from '@/mocks/time.mts';
 import { EntryDialog } from './entry-dialog';
 
@@ -27,7 +27,6 @@ const meta = {
     tz: ZONE,
     existing: today,
   },
-  parameters: { a11y: knownFailures },
 } satisfies Meta<typeof EntryDialog>;
 
 export default meta;
@@ -71,5 +70,32 @@ export const ConfirmDelete: Story = {
         await page.findByRole('button', { name: /Delete for good/ }),
       ).toBeVisible(),
     );
+  },
+};
+
+/** An end before the start is the next morning: the strip steps aside. */
+export const Overnight: Story = {
+  ...desktop,
+  args: {
+    existing: today && {
+      ...today,
+      startedAt: '2026-09-17T02:00:00.000Z',
+      endedAt: '2026-09-17T06:00:00.000Z',
+      durationSeconds: 4 * 3600,
+    },
+  },
+};
+
+/** A new entry's task field suggests, and the list overlays the fields. */
+export const Suggestions: Story = {
+  ...desktop,
+  args: { existing: undefined },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.type(
+      await page.findByRole('combobox', { name: /Task/ }),
+      'pa',
+    );
+    await expect(await page.findByRole('listbox')).toBeVisible();
   },
 };

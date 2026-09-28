@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { account } from '@/mocks/db';
 import { expect, userEvent, within } from 'storybook/test';
 import { desktop, phone, tablet } from '@/mocks/screen';
 import { TimerDock } from './timer-dock';
@@ -21,7 +22,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const running = { parameters: { db: 'running' } };
+const running = { parameters: account('running') };
 
 /** Below `sm` the idle bar wraps: the task field takes its own row. */
 export const IdlePhone: Story = { ...phone };
@@ -76,4 +77,4 @@ export const SuggestionsFiltered: Story = {
 
 /** Past the limit: the dot pulses and the clock warns; the choice itself
     is the inbox's. */
-export const Runaway: Story = { ...desktop, parameters: { db: 'runaway' } };
+export const Runaway: Story = { ...desktop, parameters: account('runaway') };

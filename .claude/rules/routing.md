@@ -2,6 +2,7 @@
 paths:
   - "apps/web/src/proxy.ts"
   - "apps/web/src/app/landing/**"
+  - "apps/web/src/components/marketing/**"
   - "apps/web/src/app/(app)/**"
 ---
 
@@ -39,11 +40,10 @@ Consequences worth knowing:
 ### The landing page
 
 `app/landing/page.tsx` is the copy, verbatim; `Screens/Landing` in Storybook
-draws it. The strategy is `docs/positioning.md`'s: one correct invoice sold to
-one person, quiet because the reader is trusting it with their rates. The
-invoice is shown rather than described, the price is a number rather than an
-adjective, and the competitor's bill is named but never the competitor. Rules
-the page must keep:
+draws it. The strategy is `docs/positioning.md`'s, and the page is quiet
+because the reader is trusting it with their rates: the invoice is shown
+rather than described, and a competitor's bill is named but never the
+competitor. Rules the page must keep:
 
 **The accent appears on exactly two objects: the hero timer and the CTA.** They
 are the same fact (start tracking / time accruing), which is what the scarcity
@@ -77,12 +77,11 @@ content, never `100vh`.
 page keeps one green meaning; the PDF itself is unchanged. It is billed from
 "Your name here": a public page renders bank-detail labels, not a name.
 
-**Dark only**, with no toggle: the neon is the brand impression, and the light
-accent is forest green.
+**Designed dark, with no toggle**: the neon is the brand impression, and the
+light accent is forest green. It renders light only for someone who chose
+light in the app.
 
-**Layout and build.** A static RSC route, single column at `max-w-5xl`, no app
-shell, sections separated by space rather than rules. Every grid needs an
-explicit `grid-cols-[minmax(0,1fr)]` or the timer card's intrinsic width
-scrolls a phone sideways. The `h1` carries an `sr-only` sentence covering both
-lists and the struck list is `aria-hidden`, since `line-through` is not
-announced. No third-party script, no cookie banner.
+**Layout and build.** A static RSC route at `max-w-5xl`, no app shell,
+sections separated by space rather than rules. Every grid needs an explicit
+`grid-cols-[minmax(0,1fr)]` or the timer card's intrinsic width scrolls a
+phone sideways. Nothing on it needs a cookie banner.

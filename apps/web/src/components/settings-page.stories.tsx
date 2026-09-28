@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { userEvent, within } from 'storybook/test';
+import { expect, userEvent, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import {
   desktop,
@@ -44,5 +44,50 @@ export const DeleteAccount: Story = {
       await page.findByRole('button', { name: /Delete account/ }),
     );
     await expectOpen(canvasElement, 'dialog');
+  },
+};
+
+/** Payment details: US bank rails first, international additive. */
+export const AddPaymentDetails: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: /Add payment details/ }),
+    );
+    await expectOpen(canvasElement, 'dialog');
+  },
+};
+
+/** A refused "Make default" names the row it refused. */
+export const MakeDefaultRefused: Story = {
+  ...desktop,
+  parameters: failing('updatePaymentProfile'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: /Make default/ }),
+    );
+    await expect(await page.findByRole('alert')).toBeVisible();
+  },
+};
+
+/** All or nothing: a failed delete says nothing was removed. */
+export const DeleteAccountFailed: Story = {
+  ...desktop,
+  parameters: failing('deleteAccount'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: /Delete account/ }),
+    );
+    await userEvent.type(
+      await page.findByRole('textbox', { name: /Type your email/ }),
+      'dev@localhost.test',
+    );
+    await userEvent.click(
+      page.getByRole('button', { name: 'Delete account and data' }),
+    );
+    await expect(await page.findByText(/nothing was removed/i)).toBeVisible();
   },
 };

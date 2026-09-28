@@ -9,7 +9,6 @@ const meta = {
   parameters: {
     layout: 'fullscreen',
     nextjs: { navigation: { pathname: '/signin' } },
-    a11y: knownFailures,
   },
 } satisfies Meta<typeof SignInForm>;
 
@@ -18,7 +17,11 @@ type Story = StoryObj<typeof meta>;
 
 export const Desktop: Story = { ...desktop };
 export const Phone: Story = { ...phone };
-export const Light: Story = { ...light };
+/* Light only: #125's contrast failures reach the sign-in page in light. */
+export const Light: Story = {
+  ...light,
+  parameters: { a11y: knownFailures },
+};
 
 /** A link that failed at the callback. */
 export const LinkFailed: Story = { ...desktop, args: { error: 'auth' } };

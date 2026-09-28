@@ -40,8 +40,10 @@ Postgres with the real migrations. `requireSession` has a `__TEST_DB__` seam;
 **CI splits by what a check needs**: `static` for everything that needs no
 database, `database` for the route and RLS suites over a Postgres service
 container built by `scripts/ci-db.sh`, `macos` for `swift build` and
-`swift test`, and `e2e` for the browser. `pnpm verify:static` and `pnpm verify:db` run the first two
-locally, the latter against the databases `pnpm db:setup` builds.
+`swift test`, `e2e` for the browser against the stack, and `stories` for every
+Storybook story in Chromium. `pnpm verify:static` and
+`pnpm verify:db` run the first two locally, the latter against the databases
+`pnpm db:setup` builds.
 
 Node's `--experimental-strip-types` rejects **TypeScript parameter
 properties** — write constructor fields explicitly in any code the tests load.
@@ -54,7 +56,9 @@ Zod major, or `z.infer` degrades to `unknown` across package boundaries.
 
 `pnpm test:e2e` — Playwright against the local stack, and deliberately outside
 `verify:static` and `verify:db`: a browser download must not become a
-prerequisite for the unit suites. `docs/local-dev.md` has how to run them and
+prerequisite for the unit suites. The story suite
+(`pnpm --filter @stint/web test:stories`) stays outside them for the same
+reason. `docs/local-dev.md` has how to run them and
 the traps.
 
 **No retries, in CI either.** A retry doubles the time before a real failure

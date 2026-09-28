@@ -34,13 +34,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           the only edge in the frame belongs to the panel. */}
       {/* At `2xl` the app becomes a bounded card on `bg-surface-recessed` —
           the plane the frame otherwise leaves unused, since the ground inside
-          the card is `bg-surface-base`. Below it the app fills the window. */}
+          the card is `bg-surface-base`. Below it the app fills the window.
+          Past `2xl` the content's measure is capped anyway, so the surplus
+          is better spent as ground than as a stretched frame; it is
+          top-aligned because the header and rail are reached by muscle
+          memory. */}
       <div className="flex min-h-dvh flex-col bg-surface-base sm:h-dvh sm:min-h-0 sm:overflow-hidden 2xl:items-center 2xl:bg-surface-recessed 2xl:p-6">
         <div className="flex min-h-dvh w-full flex-col bg-surface-base sm:h-full sm:min-h-0 sm:overflow-hidden 2xl:mx-auto 2xl:max-h-[900px] 2xl:max-w-[1440px] 2xl:rounded-2xl 2xl:border 2xl:border-edge-subtle 2xl:shadow-float">
           <AppHeader />
           {/* The rail and the dock change axis at different widths, so they are
             not siblings in one row: the rail moves beside the content at
-            `lg`, the dock becomes a third column at `xl`. Below `xl` the
+            `lg`, the width where the content's own regions go two-column and
+            a strip across the top would eat their height; the dock becomes a third column at `xl`. Below `xl` the
             scroller is the wrapper around content + dock, so the dock scrolls
             with the page it summarizes. `Screens/Frame` shows each arrangement.
 

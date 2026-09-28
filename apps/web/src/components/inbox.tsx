@@ -45,6 +45,14 @@ type InboxRow =
  *
  * **Not a card.** The dock is already the container; a second one inside it
  * spends the column's width on nesting.
+ *
+ * **No snooze.** A row hidden while its condition still holds teaches
+ * dismissal by reflex. "It's correct" is not a snooze: it is an answer about
+ * one record, stored on it as `duration_ok`.
+ *
+ * **Nothing destructive but the timer's Discard.** Voiding or deleting an
+ * invoice happens on its page, where the whole document is in view; Mark paid
+ * and Mark sent are here because they are what legitimately clears a row.
  */
 export function Inbox({ stats }: { stats: Stats }) {
   const {
@@ -298,7 +306,9 @@ function Row({
   }
 
   /* One row per entry, not a rollup: the work is done an entry at a time —
-     open it, assign a project, move to the next. */
+     open it, assign a project, move to the next. It edits in place because
+     these entries scatter across days, and a trip to the calendar for each
+     would lose the list. */
   if (r.kind === 'unprojected') {
     const u = r.row;
     return (
@@ -505,6 +515,8 @@ function Item({
   exiting?: boolean;
   ref?: React.Ref<HTMLLIElement>;
 }) {
+  /* Always `text-strong`: the edge ranks the row, and a column of colored
+     headlines reads as an outage. */
   const titleClass =
     'block truncate text-left rounded-sm type-control text-strong hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
 

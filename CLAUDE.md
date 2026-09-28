@@ -58,7 +58,7 @@ that has already happened: paid, saved. The step is what separates them: a
 paid badge must read as green without reaching the weight of a running timer.
 Never white text on the accent — use `--text-on-accent`.
 `docs/design/deriving-color.md` has the step; `docs/design/principles.md` has
-the rule, and for focus rings (neutral, never the accent).
+the rule, including focus rings (neutral, never the accent).
 
 **Content floats, chrome recedes — in four planes**, deepest to nearest:
 `bg-surface-recessed`, `bg-surface-base`, `bg-surface-primary`,

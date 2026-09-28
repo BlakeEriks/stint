@@ -65,12 +65,10 @@ warning, exit 0**, which is why it is a check rather than a convention.
 ### Storybook is the design surface
 
 A screen is designed, reviewed and specified as stories: `pnpm --filter
-@stint/web storybook`. Every screen, part and primitive has a
-`*.stories.tsx` beside its component, rendering the real component against
-the in-memory `/api/v1` in `src/mocks/`. A new screen or state is a story
-first; a changed look is a changed screenshot in the PR
-(`pnpm test:stories:docker -u`, then read the diff). `docs/local-dev.md` has
-the commands.
+@stint/web storybook`. Every screen has a `*.stories.tsx` beside its
+component, as do the parts and primitives worth seeing alone, rendering the
+real component against the in-memory `/api/v1` in `src/mocks/`. A new screen
+or state is a story first. `docs/local-dev.md` has the commands.
 
 A story renders the real component, never a copy. A state it needs comes
 from the account (`parameters.db`, `account((db) => …)`) or one failing
@@ -87,11 +85,11 @@ Two things that govern code rather than this frame:
 screen replaces the content column and the running timer keeps counting. Do
 not move it to the root; `e2e/error-boundary.spec.ts` fails if you do.
 
-**`Page` owns the content column**, so no screen sets its own width. Inside
-the panel it is flush: the regions carry the 18px `INSET`, so padding the
-column too doubles it. `wide` is for a grid (the calendar), not a preference.
-The page title is `type-title`, once; a region's heading is
-`type-region-head`.
+**`Page` owns the content column**, so no screen sets its own width. It pads
+by the 18px `INSET`; `flush` is for a screen whose regions carry the inset
+themselves (Home, the calendar), so it is never doubled. `wide` is for a
+screen that needs the room (Home, the calendar), not a preference. The page
+title is `type-title`, once.
 
 **Nothing inside the panel is a card.** The panel is the one surface; a
 region is space and a rule (`border-edge-subtle`, stopping at the inset), and

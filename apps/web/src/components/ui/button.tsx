@@ -8,10 +8,10 @@ import { Slot } from "radix-ui"
  *
  *   The container sets the size: a dialog footer or page-level form is
  *   `default`; a row action or section header `sm`; a dense repeating row (the
- *   dock, a calendar cell) `xs`; icon-only takes the matching `icon-*`.
+ *   dock, a calendar cell) `xs`; icon-only is `icon`, or `icon-sm` in a row.
  *
  *   The role sets the variant: the one action the screen exists to complete
- *   is `accent`; anything else that performs something `default`; beside a
+ *   is `accent`, even with the timer in view; anything else that performs something `default`; beside a
  *   confirm, or any row action, `ghost`; the second step of a destructive pair
  *   `destructive`. The error boundary's "Try again" stays neutral, so green
  *   still means the timer that keeps running under it.
@@ -43,9 +43,8 @@ const buttonVariants = cva(
            that. */
         default:
           "border border-edge-default bg-surface-elevated text-strong hover:bg-surface-active",
-        // The one primary action on a screen that genuinely has one — and
-        // only where no running timer is in view. See the accent rule in
-        // CLAUDE.md.
+        // The one primary action on a screen that genuinely has one. See the
+        // accent rule in CLAUDE.md.
         accent: "bg-accent-default text-on-accent hover:bg-accent-hover",
         // The second step of a destructive pair. The first step is a quiet
         // ghost icon — see the tables above.

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, within } from 'storybook/test';
+import { account } from '@/mocks/db';
 import { desktop, phone, screen } from '@/mocks/screen';
 import { ImportPage } from './import-page';
 
@@ -111,6 +112,36 @@ export const Unreadable: Story = {
       new File(['not,an,export'], 'notes.csv', { type: 'text/csv' }),
     );
     await expect(await page.findByText(/Nothing was imported/)).toBeVisible();
+  },
+};
+
+/** An excluded overlap stays in the list, dimmed, with an Undo. */
+export const Excluded: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = await upload(canvasElement);
+    await userEvent.click(
+      await page.findByRole('button', { name: /^Exclude Print proofs/ }),
+    );
+    await expect(
+      await page.findByRole('button', { name: /Undo excluding/ }),
+    ).toBeVisible();
+  },
+};
+
+/** No default rate: a new client's rate is asked for, and the result leads
+    with the work that has none. */
+export const NoDefaultRate: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.settings.defaultHourlyRate = null;
+  }),
+  play: async ({ canvasElement }) => {
+    const page = await upload(canvasElement);
+    await userEvent.click(await page.findByRole('button', { name: /Import/ }));
+    await expect(
+      await page.findByRole('link', { name: /Set a rate/i }),
+    ).toBeVisible();
   },
 };
 

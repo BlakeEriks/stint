@@ -56,7 +56,9 @@ let db: Db | undefined;
 /** Called before every story, so no story sees another's clicks. */
 export function resetDb(now: Date, scenario: Scenario = 'seeded') {
   db = seed(now);
-  (typeof scenario === 'function' ? scenario : scenarios[scenario])(db);
+  const apply = typeof scenario === 'function' ? scenario : scenarios[scenario];
+  if (!apply) throw new Error(`No account scenario named "${scenario}"`);
+  apply(db);
 }
 
 export function getDb(): Db {
@@ -64,5 +66,8 @@ export function getDb(): Db {
   return db;
 }
 
-/** `parameters` for a story whose account is the seeded one, edited. */
-export const account = (edit: (db: Db) => void) => ({ db: edit });
+/**
+ * `parameters` choosing a story's account: a scenario by name, or the seeded
+ * account edited. Typed, where a bare `db:` key would take a typo silently.
+ */
+export const account = (scenario: Scenario) => ({ db: scenario });

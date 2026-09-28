@@ -1,6 +1,6 @@
 /**
- * The instant and zone every story renders at, so a screenshot taken today
- * matches one taken next month. No imports: `vitest.config.mts` reads `ZONE`
+ * The instant and zone every story renders at, so a story shows the same
+ * figures today as next month. No imports: `vitest.config.mts` reads `ZONE`
  * on the Node side to pin the browser's.
  *
  * A Thursday afternoon in mid-September: the week has days behind and ahead

@@ -8,7 +8,7 @@ import { ZONE } from './src/mocks/time.mts';
 /**
  * Component tests only, in two projects:
  *
- * - `ui`: behaviour tests in jsdom.
+ * - `ui`: behavior tests in jsdom.
  * - `stories`: every Storybook story rendered in real Chromium, with its
  *   accessibility check. Storybook's own Vitest addon supports Vitest 4 at
  *   most, so the stories run through its portable-stories API instead.
@@ -39,10 +39,6 @@ export default defineConfig({
         // Vitest run; otherwise it just reports to Storybook's UI.
         define: {
           'import.meta.env.VITEST_STORYBOOK': '"false"',
-          // Pixels only where the baselines were rendered: Linux, in Docker.
-          'import.meta.env.STORY_SCREENSHOTS': JSON.stringify(
-            process.env.STORY_SCREENSHOTS === '1',
-          ),
         },
         /* Scan every story before the run. A dependency found mid-run makes
            Vite re-bundle and reload, and every test already importing the
@@ -64,7 +60,6 @@ export default defineConfig({
                 timezoneId: ZONE,
                 locale: 'en-US',
                 reducedMotion: 'reduce',
-                deviceScaleFactor: 1,
               },
             }),
             instances: [{ browser: 'chromium' }],

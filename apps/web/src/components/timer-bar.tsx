@@ -339,7 +339,9 @@ function StatusDot({
   return (
     /* A status light, not a bullet: 7px with a spread-only ring around it,
        so it reads as lit without another 10px object competing in a row of
-       small ones. The ring is an elevation token because it needs an alpha
+       small ones. Its pulse is the only motion in the frame's chrome — the
+       digits never animate — and it is round where a client's swatch is
+       square, because both are often green. The ring is an elevation token because it needs an alpha
        and a semantic color token may not carry one. */
     <span
       aria-hidden
