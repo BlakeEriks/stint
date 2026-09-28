@@ -179,3 +179,83 @@ describe('useTimer', () => {
     }
   });
 });
+
+/**
+ * A server whose answers the test releases by hand. `state` is what
+ * `/summary` reports; each held request keeps the answer it would have
+ * given when it arrived, the way a slow response is already decided.
+ */
+function slowServer(initial: Summary) {
+  let state = initial;
+  const held: Array<{ path: string; release: () => void }> = [];
+  const holding = new Set<string>();
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const path = `${init?.method ?? 'GET'} ${new URL(url, 'http://x').pathname.replace('/api/v1', '')}`;
+      const body = path.startsWith('GET /summary')
+        ? state
+        : (state.running ?? {});
+      if (holding.has(path)) {
+        await new Promise<void>((release) => held.push({ path, release }));
+      }
+      return new Response(JSON.stringify(body), { status: 200 });
+    }),
+  );
+  return {
+    set: (next: Partial<Summary>) => {
+      state = { ...state, ...next };
+    },
+    hold: (path: string) => holding.add(path),
+    release: (path: string) => {
+      holding.delete(path);
+      for (const h of held.filter((h) => h.path === path)) h.release();
+    },
+  };
+}
+
+describe('useTimer — every press answers at once', () => {
+  it('shows a start as running before the server answers', async () => {
+    const server = slowServer(summary());
+    const { result } = renderHook(() => useTimer(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    server.hold('POST /timer/start');
+    act(() =>
+      result.current.start.mutate({
+        id: 'new',
+        taskName: 'Design',
+        projectId: null,
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.running?.taskName).toBe('Design'),
+    );
+
+    server.set({ running: entry({ id: 'new', taskName: 'Design' }) });
+    server.release('POST /timer/start');
+    await waitFor(() => expect(result.current.start.isSuccess).toBe(true));
+    expect(result.current.running?.id).toBe('new');
+  });
+
+  it('keeps a stopped timer stopped when a rename answers after the stop', async () => {
+    const server = slowServer(summary({ running: entry() }));
+    const { result } = renderHook(() => useTimer(), { wrapper });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    server.hold('PATCH /timer/current');
+    act(() => result.current.update.mutate({ taskName: 'Editing' }));
+    await waitFor(() =>
+      expect(result.current.running?.taskName).toBe('Editing'),
+    );
+
+    server.set({ running: null });
+    act(() => result.current.stop.mutate());
+    await waitFor(() => expect(result.current.stop.isSuccess).toBe(true));
+    expect(result.current.running).toBeNull();
+
+    server.release('PATCH /timer/current');
+    await waitFor(() => expect(result.current.update.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.running).toBeNull());
+  });
+});

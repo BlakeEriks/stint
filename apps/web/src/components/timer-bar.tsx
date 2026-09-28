@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
-import { formatClock } from '@stint/core';
+import { formatClock, uuidv7 } from '@stint/core';
 import { useTimer } from '@/lib/client/use-timer';
 import { ProjectPicker } from './project-picker';
 import { TaskSuggest } from './task-suggest';
@@ -45,7 +45,11 @@ export function TimerBar({ projects }: { projects: Project[] }) {
     } else {
       /* Trimmed, as the entry dialog trims: a chosen suggestion has to match
          the stored name exactly or the next list offers it a second time. */
-      timer.start.mutate({ taskName: draft.trim(), projectId: draftProject });
+      timer.start.mutate({
+        id: uuidv7(),
+        taskName: draft.trim(),
+        projectId: draftProject,
+      });
       setDraft('');
     }
   };
@@ -100,12 +104,7 @@ export function TimerBar({ projects }: { projects: Project[] }) {
                 readOnly
               />
             </div>
-            <Readout
-              seconds={timer.seconds}
-              running
-              onToggle={toggle}
-              busy={timer.start.isPending || timer.stop.isPending}
-            />
+            <Readout seconds={timer.seconds} running onToggle={toggle} />
           </>
         ) : (
           <>
@@ -156,7 +155,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
               seconds={timer.seconds}
               running={false}
               onToggle={toggle}
-              busy={timer.start.isPending || timer.stop.isPending}
             />
           </>
         )}
@@ -251,13 +249,11 @@ function Readout({
   seconds,
   running,
   onToggle,
-  busy,
   className = '',
 }: {
   seconds: number;
   running: boolean;
   onToggle: () => void;
-  busy: boolean;
   className?: string;
 }) {
   return (
@@ -276,13 +272,12 @@ function Readout({
         // an input that submits on Enter.
         type="button"
         onClick={onToggle}
-        disabled={busy}
         aria-label={running ? 'Stop timer' : 'Start timer'}
         /* The accent marks the one action the bar exists to complete, which
            while running is stopping — so Stop is accent and Start is neutral.
            text-on-accent is n-0 (13.61:1). Never white here — 1.37:1. */
         className={`grid size-9 flex-none place-items-center rounded-[9px]
-                    transition-colors disabled:opacity-60
+                    transition-colors
                     ${
                       running
                         ? 'bg-accent-default text-on-accent hover:bg-accent-hover'

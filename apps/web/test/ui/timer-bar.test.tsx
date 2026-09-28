@@ -134,7 +134,11 @@ describe('TimerBar — idle', () => {
       expect(calls).toContainEqual({
         method: 'POST',
         path: '/timer/start',
-        body: { taskName: 'Invoicing', projectId: 'p1' },
+        body: {
+          id: expect.any(String),
+          taskName: 'Invoicing',
+          projectId: 'p1',
+        },
       }),
     );
   });
@@ -166,7 +170,11 @@ describe('TimerBar — idle', () => {
       expect(calls).toContainEqual({
         method: 'POST',
         path: '/timer/start',
-        body: { taskName: 'Invoicing', projectId: null },
+        body: {
+          id: expect.any(String),
+          taskName: 'Invoicing',
+          projectId: null,
+        },
       }),
     );
   });
@@ -225,7 +233,11 @@ describe('TimerBar — task suggestions', () => {
       expect(calls).toContainEqual({
         method: 'POST',
         path: '/timer/start',
-        body: { taskName: 'Invoice reconciliation', projectId: 'p1' },
+        body: {
+          id: expect.any(String),
+          taskName: 'Invoice reconciliation',
+          projectId: 'p1',
+        },
       }),
     );
   });
@@ -251,7 +263,11 @@ describe('TimerBar — task suggestions', () => {
         method: 'POST',
         path: '/timer/start',
         // p2, the one that was picked — not the row's p1.
-        body: { taskName: 'Invoice reconciliation', projectId: 'p2' },
+        body: {
+          id: expect.any(String),
+          taskName: 'Invoice reconciliation',
+          projectId: 'p2',
+        },
       }),
     );
   });
@@ -270,7 +286,7 @@ describe('TimerBar — task suggestions', () => {
         method: 'POST',
         path: '/timer/start',
         // The typed name, not the row the list is showing underneath it.
-        body: { taskName: 'Invoice', projectId: null },
+        body: { id: expect.any(String), taskName: 'Invoice', projectId: null },
       }),
     );
   });

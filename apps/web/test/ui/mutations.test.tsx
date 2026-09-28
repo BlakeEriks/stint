@@ -109,10 +109,10 @@ describe('useOptimisticMutation', () => {
   });
 
   it('lets the latest press win: an earlier failure does not undo a newer prediction', async () => {
-    const calls = [deferred<Cache>(), deferred<Cache>()];
+    const calls = [deferred<Cache>(), deferred<Cache>()] as const;
     let n = 0;
     const { queryClient, invalidate, hook } = setup({
-      mutationFn: () => calls[n++].promise,
+      mutationFn: () => calls[n++ as 0 | 1].promise,
     });
 
     act(() => hook.result.current.mutate({ value: 'first' }));

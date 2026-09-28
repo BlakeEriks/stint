@@ -43,7 +43,7 @@ export interface OptimisticOptions<TVars, TData, TCache> {
   /** The result to show at once. Omit for pending mode. */
   predict?: (current: TCache | undefined, vars: TVars) => TCache | undefined;
   /** What to refetch once the last overlapping press settles. Defaults to `queryKey`. */
-  invalidate?: (queryClient: QueryClient, vars: TVars) => Promise<unknown>;
+  invalidate?: (queryClient: QueryClient, vars: TVars) => unknown;
   onSuccess?: (data: TData, vars: TVars) => void;
   timeoutMs?: number;
 }
