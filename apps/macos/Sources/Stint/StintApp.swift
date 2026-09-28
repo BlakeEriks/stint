@@ -28,21 +28,44 @@ enum Config {
     /// Vercel's protection bypass, which a preview deployment asks of every request.
     static let vercelBypass = ProcessInfo.processInfo.environment["STINT_VERCEL_BYPASS"]
 
+    /// The panel in an ordinary window instead of the menu bar, for QA that
+    /// never opens the menu bar. `./qa.sh` sets it.
+    static let windowed = ProcessInfo.processInfo.environment["STINT_WINDOW"] != nil
+
     private static func url(_ key: String, default fallback: String) -> URL {
         URL(string: ProcessInfo.processInfo.environment[key] ?? fallback)!
     }
 }
 
 @main
-struct StintApp: App {
-    @State private var model: TimerModel
+enum Launch {
+    static func main() {
+        Config.windowed ? WindowedApp.main() : StintApp.main()
+    }
 
-    init() {
+    @MainActor static func model() -> TimerModel {
         let tokens = TokenStore(supabaseURL: Config.supabaseURL, anonKey: Config.anonKey)
         let api = API(baseURL: Config.appURL, tokens: tokens)
         let auth = Auth(supabaseURL: Config.supabaseURL, anonKey: Config.anonKey, tokens: tokens)
-        _model = State(initialValue: TimerModel(api: api, auth: auth, tokens: tokens))
+        return TimerModel(api: api, auth: auth, tokens: tokens)
     }
+}
+
+/// The same panel in an ordinary window, so QA never has to open the menu bar.
+struct WindowedApp: App {
+    @State private var model = Launch.model()
+
+    var body: some Scene {
+        Window("Stint", id: "panel") {
+            ContentView(model: model)
+                .task { model.start() }
+        }
+        .windowResizability(.contentSize)
+    }
+}
+
+struct StintApp: App {
+    @State private var model = Launch.model()
 
     private var pipFill: Color {
         model.isRunning ? Tokens.Dark.accentDefault : Tokens.Dark.timerIdle

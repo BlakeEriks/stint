@@ -95,11 +95,14 @@ leaves them out; only a missing `DB_URL` means it is down.
 3. Last, the `apps/web/e2e` specs that drive a changed screen:
    `pnpm test:e2e e2e/<spec>.spec.ts`, never the whole suite. They reset the
    local stack as they go, which is why they come after step 2.
-4. A macOS change passes `swift build` and `swift test`, and nothing more.
-   **Never run `bundle.sh`, and never quit, launch or click any Stint app:**
-   Blake's production `Stint.app` runs in his menu bar while he works, and a
-   local bundle installs over it. He sees it with `pnpm try-mac`, so a Mac issue
-   never waits on `needs-input` because nobody has looked at it.
+4. A macOS change passes `swift build` and `swift test`, and a visible one is
+   seen with `apps/macos/qa.sh`: the panel in a plain window, screenshotted
+   with `qa.sh shot` and driven with `qa.sh click` and `qa.sh type`.
+   **Never run `bundle.sh`, and never quit, launch or click the installed
+   Stint.app or the menu bar:** Blake's production `Stint.app` runs there while
+   he works, and a local bundle installs over it. He sees it with
+   `pnpm try-mac`, so a Mac issue never waits on `needs-input` because nobody
+   has looked at it.
 
 Commit, unpushed, and report back. A check that cannot pass without Blake is
 `needs-input`, with the branch pushed so the work survives.
