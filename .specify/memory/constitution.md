@@ -50,6 +50,19 @@ Tasks write the test before the code, and each kind of code has its suite:
 
 A bug fix starts with the test that reproduces it.
 
+### VI. Every press answers in the same frame
+
+A predictable, reversible action shows its predicted result before the
+server responds; an unpredictable or irreversible one shows an immediate
+pending state instead. Never neither. Both modes go through the one shared
+mechanism per platform — the web mutation helper
+(`apps/web/src/lib/client/mutations.ts`) or the macOS `OptimisticAction`
+protocol — enforced with no opt-out: a lint check on web, a
+compiler-enforced conformance shape plus review checklist item on macOS.
+The server's response remains the source of truth (Principle III); a
+rejected or timed-out prediction rolls back visibly with a reason, never
+silently (Principle I).
+
 ## Additional Constraints
 
 Facts a design works around:
@@ -83,4 +96,4 @@ change, the plausible design that breaks it, and why no check catches that
 in time. The version follows semver: MAJOR removes or redefines a principle,
 MINOR adds one, PATCH rewords. The reasoning goes in the PR.
 
-**Version**: 7.0.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-28
+**Version**: 7.1.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-28
