@@ -36,8 +36,9 @@ six principles, in brief:
 - **III.** Every client goes through `/api/v1/*`; no Server Actions. The
   server owns timer truth; clients own responsiveness.
 - **IV.** `packages/core` does no I/O.
-- **V.** Migrations and API responses stay compatible with a client that
-  hasn't updated.
+- **V.** Before Launch, a destructive change is fine if the same PR updates
+  the macOS app. From Launch, migrations and API responses stay compatible
+  with a client that hasn't updated.
 - **VI.** Tests first, one suite per kind of code.
 
 ## Design tokens

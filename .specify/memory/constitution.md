@@ -36,13 +36,17 @@ Parsing, rates, invoice lines and time math are pure functions in
 `packages/core`: no `next`, no `@supabase/*`, no network or file access. The
 route handler reads and writes; core transforms.
 
-### V. A change ships for the client that hasn't updated
+### V. From Launch, a change ships for the client that hasn't updated
 
-The web deploys on merge; the macOS app updates when its user chooses to. A
-migration is additive: a new column is nullable or defaulted, and no shipped
-column is dropped, renamed or narrowed. Retiring one takes two releases. An
-API response keeps every field a shipped client reads, with the same name
-and type.
+Until the `Launch` milestone, the only users are the team, so a change may be
+destructive: what a cut feature leaves behind is dropped, not carried, and
+the same PR updates the macOS app to match.
+
+From Launch, the web deploys on merge while the macOS app updates when its
+user chooses to. A migration is additive: a new column is nullable or
+defaulted, and no shipped column is dropped, renamed or narrowed. Retiring
+one takes two releases. An API response keeps every field a shipped client
+reads, with the same name and type.
 
 ### VI. Tests first, one suite per kind of code
 
