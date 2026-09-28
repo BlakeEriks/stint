@@ -217,7 +217,11 @@ way.
 
 It gives the most recent worked day an extra block, because that day's last
 block is the one left running: without it Home opens on a day that has earned
-nothing, which is the one figure the screen exists to show.
+nothing, which is the one figure the screen exists to show. Nothing seeded
+starts or ends after now: the running block starts 45 minutes ago at the
+latest, and the day's finished blocks move earlier to end before it. A
+morning seed still earns something today; one run in the small hours lays
+those blocks on the evening before.
 
 `next_invoice_number` advances past whatever the seed used. Numbering is
 gapless and allocated from that counter, so leaving it behind would make the
