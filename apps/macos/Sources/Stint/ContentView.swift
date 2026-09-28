@@ -60,6 +60,7 @@ private struct PanelHeader: View {
                 .buttonStyle(.panel)
                 .panelFocus(RoundedRectangle(cornerRadius: 6), inset: 1)
                 .accessibilityLabel("Back")
+                .accessibilityIdentifier("back")
                 // A view title, not the mark: the bracket bounds are
                 // `|Stint|`'s alone.
                 Text("Settings")
@@ -91,6 +92,7 @@ private struct PanelHeader: View {
                 // has before the panel's top edge clips it.
                 .panelFocus(RoundedRectangle(cornerRadius: 6), inset: 1)
                 .accessibilityLabel("Open Stint")
+                .accessibilityIdentifier("open-web")
 
                 Button { showingSettings = true } label: {
                     IconGlyph("gearshape")
@@ -98,6 +100,7 @@ private struct PanelHeader: View {
                 .buttonStyle(.panel)
                 .panelFocus(RoundedRectangle(cornerRadius: 6), inset: 1)
                 .accessibilityLabel("Settings")
+                .accessibilityIdentifier("settings")
             }
         }
         .padding(.leading, 14)
@@ -140,6 +143,7 @@ private struct SettingsPanel: View {
                 )
                 .fixedSize()
                 .panelFocus(RoundedRectangle(cornerRadius: 7))
+                .accessibilityIdentifier("bar-readout")
             }
             SettingsRow("Launch at login") {
                 LaunchAtLoginToggle()
@@ -188,6 +192,7 @@ private struct SettingsPanel: View {
         }
         .buttonStyle(.panel)
         .panelFocus(RoundedRectangle(cornerRadius: 4))
+        .accessibilityIdentifier(title.lowercased().replacingOccurrences(of: " ", with: "-"))
     }
 }
 
@@ -248,6 +253,7 @@ private struct LaunchAtLoginToggle: View {
         .panelFocus(Capsule())
         .animation(.easeOut(duration: 0.12), value: enabled)
         .accessibilityLabel("Launch at login")
+        .accessibilityIdentifier("launch-at-login")
         .accessibilityValue(enabled ? "On" : "Off")
         .onAppear { enabled = SMAppService.mainApp.status == .enabled }
     }
@@ -291,6 +297,7 @@ private struct TimerPanel: View {
                 .textFieldStyle(.plain)
                 .focused($taskFocused)
                 .field(focused: taskFocused)
+                .accessibilityIdentifier("task")
                 .onSubmit { Task { await model.toggle() } }
             HStack(spacing: 8) {
                 ProjectPicker(model: model)
@@ -402,6 +409,7 @@ private struct RenameRow: View {
                 .textFieldStyle(.plain)
                 .focused($focused)
                 .field(focused: focused)
+                .accessibilityIdentifier("rename-field")
                 .onAppear { focused = true }
                 .onSubmit(finish)
                 // Escape dismisses the whole panel, and the blur that follows
@@ -435,6 +443,7 @@ private struct RenameRow: View {
             .buttonStyle(.panel)
             .panelFocus()
             .accessibilityLabel("Rename task")
+            .accessibilityIdentifier("rename")
             .onAppear { name = model.running?.taskName ?? "" }
             .onChange(of: model.running?.taskName) { _, new in name = new ?? "" }
         }
@@ -492,6 +501,7 @@ private struct ProjectPicker: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .panelFocus(RoundedRectangle(cornerRadius: 7))
+        .accessibilityIdentifier("project")
     }
 }
 
@@ -535,6 +545,7 @@ private struct EntryRow: View {
         // over the rows above and below.
         .panelFocus(Rectangle(), inset: -1)
         .accessibilityLabel("Start \(entry.taskName.isEmpty ? "untitled entry" : entry.taskName) again")
+        .accessibilityIdentifier("entry")
     }
 }
 
@@ -560,6 +571,7 @@ private struct TransportButton: View {
         .disabled(model.isBusy)
         .opacity(model.isBusy ? 0.6 : 1)
         .accessibilityLabel(model.isRunning ? "Stop timer" : "Start timer")
+        .accessibilityIdentifier("transport")
     }
 }
 
@@ -589,6 +601,7 @@ private struct SignInPanel: View {
                     .focused($focus, equals: .code)
                     .multilineTextAlignment(.center)
                     .field(focused: focus == .code, role: .code)
+                    .accessibilityIdentifier("code")
                     .onChange(of: code) { _, entered in
                         // Shown as xxx-xxx; the hyphen is display only, so a
                         // pasted 392481 lands as 392-481.
@@ -604,6 +617,7 @@ private struct SignInPanel: View {
                     .buttonStyle(.primary)
                     .panelFocus(RoundedRectangle(cornerRadius: 8))
                     .disabled(busy || !codeReady)
+                    .accessibilityIdentifier("sign-in")
                 Button("Use a different email") {
                     sent = false
                     code = ""
@@ -611,16 +625,19 @@ private struct SignInPanel: View {
                 }
                 .buttonStyle(.tertiary)
                 .panelFocus(RoundedRectangle(cornerRadius: 4))
+                .accessibilityIdentifier("different-email")
             } else {
                 TextField("you@example.com", text: $email)
                     .textFieldStyle(.plain)
                     .focused($focus, equals: .email)
                     .field(focused: focus == .email)
+                    .accessibilityIdentifier("email")
                     .onSubmit(request)
                 Button(busy ? "Sending…" : "Email me a code", action: request)
                     .buttonStyle(.primary)
                     .panelFocus(RoundedRectangle(cornerRadius: 8))
                     .disabled(busy || email.isEmpty)
+                    .accessibilityIdentifier("send-code")
             }
 
             if let error = error ?? model.previewSignInError {
@@ -633,6 +650,7 @@ private struct SignInPanel: View {
             rule
             Button("Quit") { NSApp.terminate(nil) }
                 .buttonStyle(.tertiary)
+                .accessibilityIdentifier("quit")
                 .panelFocus(RoundedRectangle(cornerRadius: 4))
         }
         .padding(14)

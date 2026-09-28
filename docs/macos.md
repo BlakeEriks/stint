@@ -24,6 +24,15 @@ pkill -f 'Stint.app/Contents/MacOS/Stint'
 
 Quit first — `bundle.sh` always overwrites the installed copy.
 
+**QA runs it in a window, never in the menu bar.** `./qa.sh` builds the
+debug binary and launches it with `STINT_WINDOW` set, which serves the same
+panel as an ordinary window against the local stack; a worktree's server
+takes `STINT_APP_URL=http://localhost:<port>`. It runs beside the installed
+Stint.app and takes no focus. `./qa.sh shot` screenshots it, and `ids`,
+`click <id>` and `type <id> <text>` drive it by accessibility, so nothing
+moves the mouse. **Every control carries an `.accessibilityIdentifier`**,
+which is what those commands address.
+
 ## Which backend it talks to
 
 `bundle.sh` takes a target. `local` is the default and omits the keys, so
