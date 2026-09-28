@@ -29,7 +29,7 @@ architecture:
 - RLS is enabled on every table as a safety net beneath the API, not as the
   primary access path.
 - Plain **REST + Zod**, whose shapes Swift can mirror. Nothing checks the
-  Swift models against them yet (`TODO(API_CONTRACT_CHECK)` in the
+  Swift models against them yet (`TODO(#142)` in the
   constitution).
 
 ## The timer invariant

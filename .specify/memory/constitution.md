@@ -85,7 +85,7 @@ deleted, because invoices reference them.
 
 **Mechanism**: the immutability triggers in
 `supabase/migrations/00000000000002_integrity.sql`, exercised by
-`apps/web/test/invoices.test.ts`. `TODO(MONEY_TYPE_CHECK)`: `verify:schema`
+`apps/web/test/invoices.test.ts`. `TODO(#143)`: `verify:schema`
 doesn't check column types yet.
 
 #### VIII. Logic written twice has a parity test against a real database
@@ -119,7 +119,7 @@ breaks the build.
 
 **Mechanism**: the required `scan` check runs gitleaks over full history,
 CodeQL scans each PR, and Dependabot raises weekly updates.
-`TODO(TEST_OBLIGATIONS_CHECK)`: an unsigned request to every route is
+`TODO(#144)`: an unsigned request to every route is
 refused.
 
 ### Boundaries
@@ -131,7 +131,7 @@ share one implementation. There are no Server Actions. The server owns
 timer truth, and clients own responsiveness: a client may show a predicted
 result at once, but the server's answer wins.
 
-**Mechanism**: `TODO(SERVER_ACTIONS_CHECK)`: nothing fails on `'use server'`
+**Mechanism**: `TODO(#139)`: nothing fails on `'use server'`
 yet.
 
 #### XII. `packages/core` does no I/O
@@ -141,7 +141,7 @@ Everything in `packages/core/src` is pure: it never imports `next`,
 expected absence returns `null` rather than throwing. That purity is what
 lets VIII run the same logic against SQL in one test.
 
-**Mechanism**: `TODO(CORE_PURITY_LINT)`.
+**Mechanism**: `TODO(#140)`.
 
 ### Change safety
 
@@ -154,8 +154,8 @@ column takes two releases. API responses follow the same rule: a field a
 shipped client reads isn't removed, renamed or retyped.
 
 **Mechanism**: `release.yml` flags destructive SQL before approval.
-`TODO(MIGRATION_ROLLOUT_CHECK)`: CI doesn't fail on it yet.
-`TODO(API_CONTRACT_CHECK)`: no OpenAPI diff guards responses yet.
+`TODO(#141)`: CI doesn't fail on it yet.
+`TODO(#142)`: no OpenAPI diff guards responses yet.
 
 ### Cost posture
 
@@ -182,8 +182,8 @@ as an always-on service or a paid vendor tier, changes positioning first.
 
 A bug fix starts with the test that reproduces it.
 
-**Mechanism**: `TODO(TEST_OBLIGATIONS_CHECK)`: nothing fails CI when a route,
-table or component has no test. `TODO(CORE_COVERAGE_FLOOR)`.
+**Mechanism**: `TODO(#144)`: nothing fails CI when a route,
+table or component has no test. `TODO(#145)`.
 
 ### Accessibility
 
@@ -202,7 +202,7 @@ release with a migration waits for approval and a backup. Backups run
 nightly, and the restore has been rehearsed (`docs/deploying.md`).
 
 **Mechanism**: branch protection, `release.yml` and `backup.yml`.
-`TODO(RELEASE_SMOKE)`: the gate doesn't yet hit the candidate build before
+`TODO(#146)`: the gate doesn't yet hit the candidate build before
 promoting it.
 
 ### Observability
@@ -213,7 +213,7 @@ Expected failures answer with `ApiError`. An unexpected one, on the web or
 in the macOS app, is reported with its stack and alerts `#alerts`. The app's
 health is checked from outside.
 
-**Mechanism**: `TODO(ERROR_TRACKING)`: Sentry and an uptime monitor.
+**Mechanism**: `TODO(#147)`: Sentry and an uptime monitor.
 
 ## Governance
 
