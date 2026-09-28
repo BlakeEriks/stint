@@ -13,7 +13,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 39 of 39, counting handlers rather than files.
+Every handler is covered — 43 of 43, counting handlers rather than files.
 
 ## Timer
 
@@ -221,10 +221,10 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/invoices` | `?clientId&status&limit` (1–200, default 50), newest first — ordered by invoice sequence, not issue date. |
-| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, tz? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `total`, `entryCount`, `unratedEntryIds`, plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
-| `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries. Also accepts `issueDate`, `dueDate`, `notes`, `paymentTerms`, `tz`. Returns the `Invoice` plus `lineItems` and `entryCount`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if the period holds no billable time; `422 VALIDATION_FAILED` on an invalid `tz`. |
+| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, tz?, manualLines?, excludedExpenseIds? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `expensesSubtotal`, `total`, `entryCount`, `unratedEntryIds`, plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
+| `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries and expenses, in one transaction. Also accepts `issueDate`, `dueDate`, `notes`, `paymentTerms`, `tz`. Returns the `Invoice` plus `lineItems` and `entryCount`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if there is nothing to bill: no time, no expense and no charge; `409 EXPENSE_ALREADY_INVOICED` if another invoice took one of its expenses first, which writes nothing and uses no number; `422 VALIDATION_FAILED` on an invalid `tz`. |
 | `GET` | `/invoices/:id` | Invoice + frozen line items + the client's `{ id, name, email, address }` (not the full client row). Returned **flat**, like every other detail route. These `lineItems` carry `id` and `sortOrder`; the ones a preview or a generation returns carry `rateSource` and `entryIds` instead. |
-| `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Releases its entries. |
+| `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Releases its entries and expenses. |
 | `GET` | `/invoices/:id/pdf` | Streams `application/pdf` from the frozen line items. `?download=1` for `attachment` rather than an inline preview. |
 | `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent. `422 VALIDATION_FAILED` on a transition the table below forbids, or if `paidAt` is later than now or earlier than the invoice's `sentAt`. |
 
@@ -233,10 +233,18 @@ paid→void. `void` is terminal, and setting a status to its current value is a
 no-op rather than an error.
 Nothing returns to draft — leaving `draft` is what locked the entries, and
 reopening would let billed time change after the client saw it. Voiding
-releases the entries for re-billing while the number stays on record.
+releases the entries and expenses for re-billing while the number stays on
+record.
 
 **Excluded from billing:** running timers (you cannot bill time still
 accruing), non-billable entries, and entries already attached to an invoice.
+
+**Expenses are billed from what is stored, never from the request.** An
+invoice takes every unbilled expense for its client dated on or before
+`periodEnd`, an earlier month's included, less any in `excludedExpenseIds`.
+They follow the service lines as `unit: "expense"` lines carrying `spentOn`,
+and `total` is `subtotal + taxAmount + expensesSubtotal`: tax never applies to
+a reimbursement.
 
 **Preview before generate is mandatory in the UI.** Generation is the step that
 allocates a gapless number and locks entries — it must never be a surprise.
@@ -247,6 +255,18 @@ their own address; `PATCH /status` records that it went out.
 
 `grouping_mode` (`entry | task | project | day`) controls whether the invoice
 lists every entry or sums them. It is frozen onto the invoice.
+
+## Expenses
+
+A cost the client reimburses, recorded when it is paid and billed by the next
+invoice for its client. The amount is in the client's currency.
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/expenses` | `?tz&clientId&status` — `status` is `unbilled` (default) or `all`. Oldest `spentOn` first. Each expense carries `invoiceNumber` and `invoiceStatus` once billed. |
+| `POST` | `/expenses` | `{ id, clientId, projectId?, spentOn, description, amount, note? }`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is above zero; a project must be one of the client's. |
+| `PATCH` | `/expenses/:id` | Any field from `POST` but `id`. **`409 EXPENSE_LOCKED`** once billed on a non-draft invoice. |
+| `DELETE` | `/expenses/:id` | Same lock. |
 
 ## Payment details
 
@@ -279,6 +299,8 @@ verified by phone.
 | `TIMER_ALREADY_RUNNING` | 409 | Stop the running timer first. |
 | `NO_TIMER_RUNNING` | 409 | Nothing to stop. |
 | `ENTRY_LOCKED` | 409 | Billed on a non-draft invoice. |
+| `EXPENSE_LOCKED` | 409 | An expense billed on a non-draft invoice. |
+| `EXPENSE_ALREADY_INVOICED` | 409 | Another invoice took one of this invoice's expenses first. Preview again. |
 | `ENTRY_NOT_FOUND` | 404 | |
 | `NO_RATE_CONFIGURED` | 400 | No rate at any level for a billable entry. |
 | `INVALID_PERIOD` | 400 | |
@@ -288,7 +310,7 @@ verified by phone.
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 
 `ENTRY_NOT_FOUND` is the generic 404 across resources — clients, projects,
-invoices, payment profiles and settings, not only time entries.
+invoices, expenses, payment profiles and settings, not only time entries.
 
 **Success statuses:** `201` on a create, `200` on an idempotent replay of one
 (a duplicate-key insert with a client-supplied id), `204` on a delete, `200`

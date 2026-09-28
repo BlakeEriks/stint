@@ -201,10 +201,13 @@ function Loaded({
         </div>
 
         <dl className="ml-auto flex w-full max-w-[16rem] flex-col gap-1 type-support">
-          <Row
-            label={expenses.length > 0 ? 'Services' : 'Subtotal'}
-            value={formatCurrency(invoice.subtotal, invoice.currency)}
-          />
+          {/* An invoice of expenses alone has no services to subtotal. */}
+          {services.length > 0 || expenses.length === 0 ? (
+            <Row
+              label={expenses.length > 0 ? 'Services' : 'Subtotal'}
+              value={formatCurrency(invoice.subtotal, invoice.currency)}
+            />
+          ) : null}
           {invoice.taxRate > 0 ? (
             <Row
               label={`Tax (${invoice.taxRate}%)`}

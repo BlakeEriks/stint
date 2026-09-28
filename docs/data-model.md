@@ -1,6 +1,7 @@
 # Data Model
 
-Hierarchy: **Client → Project → Time Entry**
+Hierarchy: **Client → Project → Time Entry**, and **Client → Expense** for
+costs the client reimburses.
 
 Schema lives in `supabase/migrations/`. Every rule below is enforced by the
 database, not by convention.
@@ -124,6 +125,38 @@ financial record, not a live view over time entries.
 the same reason rates freeze: editing a profile must never alter an invoice
 already sent.
 
+**Three kinds of line, one arithmetic.** `unit` is `hour`, `fixed` (a fee, a
+deposit, a retainer) or `expense` (a reimbursement), and every line is
+`quantity × unit_price = amount`. An expense line is one of something, like a
+fee, and is the only kind carrying `spent_on`. `subtotal` is the **services**
+subtotal — time and fees — and the base tax is charged on; the reimbursements
+sit in `expenses_subtotal`, never taxed, and `total = subtotal + tax_amount +
+expenses_subtotal`.
+
+**Generation is one transaction.** `create_invoice()` allocates the number,
+writes the invoice and its lines, and attaches the entries and expenses it
+bills. The call succeeds or fails as a whole. It writes what `buildLineItems` computed and computes
+nothing itself, except the payment reference it appends to the frozen
+payment block once the number exists. An expense another invoice already took
+raises, so a race for one never uses up a number.
+
+### `expenses`
+A cost the contractor paid that a client reimburses. It has an amount and no
+duration, so it lives apart from `time_entries`: the timer index, the rate
+chain and every earned and unbilled rollup read that table, and none of them
+should count a reimbursement as work. The amount is in the client's currency;
+there is no currency column, because an expense is never converted.
+
+- `client_id` is required and `project_id` optional; both reference their row
+  **with `user_id`**, as `time_entries.project_id` does, and a trigger rejects
+  a project that is not the expense's client's.
+- `invoice_id` set means billed. An invoice takes every unbilled expense for
+  its client dated on or before the period's end, so one missed invoice does
+  not strand a reimbursement.
+- Unbilled expenses count toward neither **earned** nor **unbilled**, which
+  are readings about work. They reach **awaiting** and **collected** through
+  the invoice's `total`.
+
 ## Integrity rules
 
 ### The timer invariant
@@ -167,6 +200,11 @@ Two deliberate exceptions:
 - Entries on a **draft** invoice remain editable.
 - **Detaching** an entry (`invoice_id → null`) stays allowed, so a voided
   invoice can release its entries.
+
+`guard_billed_expense` holds the same lock on an expense, over `spent_on`,
+`description`, `amount`, `client_id` and `project_id`, with the same two
+exceptions. An edit to an expense on a draft does not reach the draft's
+frozen line; the draft is deleted and generated again to bill it.
 
 ### Work invoiced elsewhere
 `time_entries.invoiced_elsewhere` marks work already billed from another tool,
@@ -270,6 +308,10 @@ hold; this list is the record of *what* must.
   path voiding depends on.
 - Rates are frozen onto line items at generation: changing a client's rate
   later leaves an issued invoice at its original total.
+- Editing or deleting an expense billed to a **non-draft** invoice is
+  rejected, and voiding or deleting a draft releases it.
+- A generation that loses a race for an expense writes nothing and leaves
+  `next_invoice_number` where it was.
 
 ### RLS, verified against live policies
 
@@ -282,12 +324,13 @@ alone must still contain the query.
 | Check | Result |
 |---|---|
 | An unfiltered `select` returns only the caller's rows | isolated |
-| All six user-scoped tables isolate | isolated |
+| All seven user-scoped tables isolate | isolated |
 | A known-good id belonging to another user returns nothing | no leak |
 | Line items inherit isolation through their invoice | isolated |
 | Insert with a forged `user_id` | rejected by `WITH CHECK` |
 | Update or delete targeting another user's row | matches nothing |
 | Reassigning a row to another user | rejected by `WITH CHECK` |
+| An expense filed under another user's client | rejected by `expense_client_same_owner` |
 | An unqualified `delete from time_entries` | removes only the caller's |
 | Two users may each run a timer; neither may run two | per-user, as designed |
 | No JWT claim, or a malformed one | fails closed |

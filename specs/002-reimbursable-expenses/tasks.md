@@ -23,13 +23,13 @@ the 30 September slice. User Story 4 can merge after it.
 
 ## Phase 1: Setup
 
-- [ ] T001 Start the local stack and the dev server in the worktree, and sign in to the seeded account (`docs/local-dev.md`). Confirm `pnpm verify:static` and `pnpm verify:db` pass before any change.
+- [X] T001 Start the local stack and the dev server in the worktree, and sign in to the seeded account (`docs/local-dev.md`). Confirm `pnpm verify:static` and `pnpm verify:db` pass before any change.
 
 ---
 
 ## Phase 2: Foundational (blocks every story)
 
-- [ ] T002 Create `supabase/migrations/00000000000025_expenses.sql` with:
+- [X] T002 Create `supabase/migrations/00000000000025_expenses.sql` with:
   - `create unique index clients_id_user_idx on clients (id, user_id)`.
   - Table `expenses`: `id uuid primary key default gen_random_uuid()`; `user_id uuid not null references auth.users(id) on delete cascade`; `client_id uuid not null`, with a foreign key `(client_id, user_id) → clients (id, user_id) on update restrict`; `project_id uuid null`, with a foreign key `(project_id, user_id) → projects (id, user_id) on delete set null (project_id) on update restrict`; `spent_on date not null`; `description text not null`, "Non-blank, 200 characters or fewer"; `amount numeric(12,2) not null check (amount > 0)`; `note text null check (char_length(note) <= 500)`; `invoice_id uuid null references invoices(id) on delete set null`; `created_at` and `updated_at timestamptz not null default now()`.
   - A `touch_updated_at` trigger.
@@ -45,15 +45,15 @@ the 30 September slice. User Story 4 can merge after it.
     4. attaches `p_entry_ids` where `invoice_id is null`, as today;
     5. attaches `p_expense_ids` where `invoice_id is null`, and raises with a distinct message if fewer rows attach than it was given.
   - Comment each block with its reason, in the style of the existing migrations.
-- [ ] T003 [P] Add `EXPENSE_LOCKED` and `EXPENSE_ALREADY_INVOICED` to the code union and the status map (both 409) in `apps/web/src/lib/errors.ts`.
-- [ ] T004 [P] Add to `packages/schema/src/index.ts`, per `contracts/expenses-api.md`:
+- [X] T003 [P] Add `EXPENSE_LOCKED` and `EXPENSE_ALREADY_INVOICED` to the code union and the status map (both 409) in `apps/web/src/lib/errors.ts`.
+- [X] T004 [P] Add to `packages/schema/src/index.ts`, per `contracts/expenses-api.md`:
   - `Expense`, `CreateExpense` and `UpdateExpense` (description trimmed, 1 to 200 characters; `amount` is `money` and above 0; `note` 500 characters or fewer; `spentOn` is `z.iso.date()`), and `ListExpensesQuery` (`tz` via `timeZoneStrict`, `clientId?`, `status` `unbilled|all`, default `unbilled`).
   - `LineUnit` widened with `'expense'`, and `spentOn?: date` on `InvoiceLineItem`.
   - `expenseId?: uuid` on `ComputedLineItem`.
   - `expensesSubtotal: money` on `InvoicePreview` and on the stored invoice shape.
   - `excludedExpenseIds: z.array(uuid).max(200).default([])` on `InvoicePreviewRequest`.
   - Remove "a rebilled expense" from the `manualLines` doc comment (FR-014).
-- [ ] T005 [P] Map the new columns in `apps/web/src/lib/rows.ts`: an expense row to `Expense`, `expenses_subtotal` to `expensesSubtotal` in `INVOICE_COLUMNS` and `toInvoice`, and `spent_on` on line items.
+- [X] T005 [P] Map the new columns in `apps/web/src/lib/rows.ts`: an expense row to `Expense`, `expenses_subtotal` to `expensesSubtotal` in `INVOICE_COLUMNS` and `toInvoice`, and `spent_on` on line items.
 
 **Checkpoint**: `pnpm verify:db` still passes, and `verify:schema` accepts the new table.
 
@@ -67,14 +67,14 @@ the 30 September slice. User Story 4 can merge after it.
 
 ### Tests
 
-- [ ] T006 [P] [US2] Route tests in `apps/web/test/invoices.test.ts`:
+- [X] T006 [P] [US2] Route tests in `apps/web/test/invoices.test.ts`:
   - `POST /expenses` returns 201, and a retry with the same id returns the same row.
   - A zero or negative amount, a blank description, and a project under another client each return 422.
   - `GET /expenses` lists only unbilled expenses by default, filters by `clientId`, and orders by `spentOn` ascending.
   - `PATCH` and `DELETE` on an unbilled expense succeed.
   - Another user's id returns 404.
-- [ ] T007 [P] [US2] RLS cases for `expenses` in `apps/web/test/rls.test.ts`: an unfiltered select, a known foreign id, an insert with a forged `user_id`, an update or delete of another user's row, and reassigning a row to another user. Add the table to the "all user-scoped tables isolate" case.
-- [ ] T008 [P] [US2] UI test `apps/web/test/ui/expense-list.test.tsx`:
+- [X] T007 [P] [US2] RLS cases for `expenses` in `apps/web/test/rls.test.ts`: an unfiltered select, a known foreign id, an insert with a forged `user_id`, an update or delete of another user's row, and reassigning a row to another user. Add the table to the "all user-scoped tables isolate" case.
+- [X] T008 [P] [US2] UI test `apps/web/test/ui/expense-list.test.tsx`:
   - The Expenses tab lists unbilled expenses with date, client, description and amount in the client's currency.
   - The Add form requires client, date, description, and an amount above 0.
   - Editing and deleting call the API.
@@ -82,15 +82,15 @@ the 30 September slice. User Story 4 can merge after it.
 
 ### Implementation
 
-- [ ] T009 [P] [US2] `apps/web/src/app/api/v1/expenses/route.ts`: `GET` (`ListExpensesQuery`) and `POST` (`CreateExpense`, upsert-on-conflict-do-nothing by `id`, then return the row), using `requireSession()` and `handle()`.
-- [ ] T010 [P] [US2] `apps/web/src/app/api/v1/expenses/[id]/route.ts`: `PATCH` (`UpdateExpense`) and `DELETE` (204). `ENTRY_NOT_FOUND` for a missing row. Catch the trigger's `check_violation` (`23514`) and throw `EXPENSE_LOCKED`, as `apps/web/src/app/api/v1/entries/[id]/route.ts` does for `ENTRY_LOCKED`.
-- [ ] T011 [US2] Add `listExpenses`, `createExpense` (generates `uuidv7()` from `@stint/core`), `updateExpense` and `deleteExpense` to `apps/web/src/lib/client/api.ts`, following the existing invoice methods.
-- [ ] T012 [US2] Create `apps/web/src/components/expense-list.tsx`:
+- [X] T009 [P] [US2] `apps/web/src/app/api/v1/expenses/route.ts`: `GET` (`ListExpensesQuery`) and `POST` (`CreateExpense`, upsert-on-conflict-do-nothing by `id`, then return the row), using `requireSession()` and `handle()`.
+- [X] T010 [P] [US2] `apps/web/src/app/api/v1/expenses/[id]/route.ts`: `PATCH` (`UpdateExpense`) and `DELETE` (204). `ENTRY_NOT_FOUND` for a missing row. Catch the trigger's `check_violation` (`23514`) and throw `EXPENSE_LOCKED`, as `apps/web/src/app/api/v1/entries/[id]/route.ts` does for `ENTRY_LOCKED`.
+- [X] T011 [US2] Add `listExpenses`, `createExpense` (generates `uuidv7()` from `@stint/core`), `updateExpense` and `deleteExpense` to `apps/web/src/lib/client/api.ts`, following the existing invoice methods.
+- [X] T012 [US2] Create `apps/web/src/components/expense-list.tsx`:
   - Rows divided by the region rule, per `docs/design/screens/invoices.html`.
   - A client filter, an Add expense form (client, optional project under that client, date defaulting to today, description, amount, optional note), and edit and delete per row.
   - Amounts in mono with `tabular-nums`.
   - An empty state that names the filter, not the account.
-- [ ] T013 [US2] In `apps/web/src/components/invoice-list.tsx`, add an `expenses` key to the `FilterTabs` after Open, Paid and All. When it is selected, render `ExpenseList` in place of the invoice listing.
+- [X] T013 [US2] In `apps/web/src/components/invoice-list.tsx`, add an `expenses` key to the `FilterTabs` after Open, Paid and All. When it is selected, render `ExpenseList` in place of the invoice listing.
 
 **Checkpoint**: Expenses can be recorded and managed. Nothing reaches an invoice yet.
 
@@ -104,21 +104,21 @@ the 30 September slice. User Story 4 can merge after it.
 
 ### Tests
 
-- [ ] T014 [P] [US1] Core tests in `packages/core/test/invoice.test.ts`:
+- [X] T014 [P] [US1] Core tests in `packages/core/test/invoice.test.ts`:
   - Expense lines come after service lines and charges, ordered by `spentOn` then `id`.
   - Each has `unit: 'expense'`, `quantity: 1`, `unitPrice = amount`, `spentOn` and `expenseId`.
   - `subtotal` excludes expenses, and tax applies only to `subtotal`.
   - `expensesSubtotal` is rounded once, and `total = subtotal + taxAmount + expensesSubtotal` to the cent.
   - With no expenses, output is identical to today's.
   - Expenses alone produce lines.
-- [ ] T015 [P] [US1] Route tests in `apps/web/test/invoices.test.ts`:
+- [X] T015 [P] [US1] Route tests in `apps/web/test/invoices.test.ts`:
   - The preview includes the client's unbilled expenses dated on or before `periodEnd`, including an earlier month's, and excludes one dated after it and one in `excludedExpenseIds`.
   - `POST /invoices` writes `expenses_subtotal`, writes expense line items with `spent_on`, sets `invoice_id` on the billed expenses only, and generates with expenses and no time.
   - A second generation racing for the same expense gets `409 EXPENSE_ALREADY_INVOICED`. Nothing from it remains, and `next_invoice_number` is unchanged, so the numbering has no gap.
   - After an invoice with expenses is marked sent, `/stats` Awaiting payment equals its full total, expenses included (FR-016).
   - `GET /invoices/:id` returns `spentOn` and `expensesSubtotal`.
   - Earned and Unbilled from `/stats` are unchanged by an unbilled expense (FR-015).
-- [ ] T016 [P] [US1] UI tests `apps/web/test/ui/invoice-new.test.tsx` and `apps/web/test/ui/invoice-detail.test.tsx`:
+- [X] T016 [P] [US1] UI tests `apps/web/test/ui/invoice-new.test.tsx` and `apps/web/test/ui/invoice-detail.test.tsx`:
   - The preview's Expenses section and its subtotal.
   - Excluding an expense clears the approved preview and hides Generate.
   - Adding an expense from the screen clears it too.
@@ -127,25 +127,25 @@ the 30 September slice. User Story 4 can merge after it.
 
 ### Implementation
 
-- [ ] T017 [US1] In `packages/core/src/invoice.ts`:
+- [X] T017 [US1] In `packages/core/src/invoice.ts`:
   - Add an `ExpenseInput` type `{ id, spentOn, description, amount }` and an `expenses` option to `buildLineItems`.
   - Append expense lines after the manual lines (`research.md` R4).
   - Return `expensesSubtotal` and include it in `total`, leaving `subtotal` and `taxAmount` as the services figures.
   - Remove "rebilled expense" from the `LineUnit` and `manualLines` comments. Export the new type from `packages/core/src/index.ts`.
-- [ ] T018 [US1] Add `loadUnbilledExpenses(db, { clientId, periodEnd, excludedIds })` to `apps/web/src/lib/invoicing.ts`. It selects `invoice_id is null and client_id = … and spent_on <= periodEnd`, drops `excludedIds`, and maps rows to `ExpenseInput`. Have `loadPdfData` return `spentOn` on lines and `expensesSubtotal`.
-- [ ] T019 [US1] In `apps/web/src/app/api/v1/invoices/preview/route.ts`, load the expenses with T018 and pass them to `buildLineItems`.
-- [ ] T020 [US1] In `apps/web/src/app/api/v1/invoices/route.ts`:
+- [X] T018 [US1] Add `loadUnbilledExpenses(db, { clientId, periodEnd, excludedIds })` to `apps/web/src/lib/invoicing.ts`. It selects `invoice_id is null and client_id = … and spent_on <= periodEnd`, drops `excludedIds`, and maps rows to `ExpenseInput`. Have `loadPdfData` return `spentOn` on lines and `expensesSubtotal`.
+- [X] T019 [US1] In `apps/web/src/app/api/v1/invoices/preview/route.ts`, load the expenses with T018 and pass them to `buildLineItems`.
+- [X] T020 [US1] In `apps/web/src/app/api/v1/invoices/route.ts`:
   - Load the expenses as the preview does.
   - Replace the separate allocate, insert and attach calls and their compensating deletes with one `db.rpc('create_invoice', …)`. Pass the invoice fields (including `expenses_subtotal`), the lines (including `spent_on`), the entry ids and the expense ids from `buildLineItems`.
   - Map the function's expense-claim error to `409 EXPENSE_ALREADY_INVOICED` (`research.md` R9).
   - Update the "Nothing to invoice" message to count expenses.
-- [ ] T021 [US1] In `apps/web/src/components/invoice-new.tsx`:
+- [X] T021 [US1] In `apps/web/src/components/invoice-new.tsx`:
   - Show the preview's expense lines under an Expenses heading after the service lines and charges, each as date, description and amount, with no quantity or rate. Follow them with the expenses subtotal, then the total.
   - Add a per-expense "Leave off" toggle that feeds `excludedExpenseIds`, and an inline Add expense that uses `createExpense`.
   - Make excluding, adding and removing clear the approved preview, as changing a charge does.
   - Change the charges hint to "A fixed fee, a deposit, or a retainer" (FR-014).
-- [ ] T022 [P] [US1] In `apps/web/src/components/invoice-detail.tsx`, render lines with `unit === 'expense'` in their own section after the service lines, with the date, and show the services subtotal, tax, the expenses subtotal, then the total.
-- [ ] T023 [P] [US1] Make the same split in `apps/web/src/lib/invoice-pdf.tsx`. Services come first with their subtotal and tax, then an "Expenses" heading and its lines (date, description, amount; blank quantity and rate cells), then the expenses subtotal and the total.
+- [X] T022 [P] [US1] In `apps/web/src/components/invoice-detail.tsx`, render lines with `unit === 'expense'` in their own section after the service lines, with the date, and show the services subtotal, tax, the expenses subtotal, then the total.
+- [X] T023 [P] [US1] Make the same split in `apps/web/src/lib/invoice-pdf.tsx`. Services come first with their subtotal and tax, then an "Expenses" heading and its lines (date, description, amount; blank quantity and rate cells), then the expenses subtotal and the total.
 
 **Checkpoint**: The September invoice can be built and sent from Stint.
 
@@ -159,7 +159,7 @@ the 30 September slice. User Story 4 can merge after it.
 
 ### Tests
 
-- [ ] T024 [P] [US3] Route tests in `apps/web/test/invoices.test.ts`:
+- [X] T024 [P] [US3] Route tests in `apps/web/test/invoices.test.ts`:
   - `PATCH` and `DELETE` on an expense billed to a sent or paid invoice return `409 EXPENSE_LOCKED`, and the row is unchanged.
   - The same on a draft succeed, and the draft's line item keeps the amount it was generated with (FR-010).
   - Voiding releases the invoice's expenses to unbilled, and the voided invoice's line items keep the original amount after the expense is edited.
@@ -168,10 +168,10 @@ the 30 September slice. User Story 4 can merge after it.
 
 ### Implementation
 
-- [ ] T025 [US3] Add `guard_billed_expense()` and `guard_billed_expense_delete()` to `supabase/migrations/00000000000025_expenses.sql`, mirroring `guard_billed_entry` in `00000000000002_integrity.sql`. Detaching stays allowed. The guarded fields are `spent_on`, `description`, `amount`, `client_id` and `project_id`. They raise `check_violation`.
-- [ ] T026 [P] [US3] In `apps/web/src/app/api/v1/invoices/[id]/status/route.ts`, the void branch also runs `db.from('expenses').update({ invoice_id: null }).eq('invoice_id', id)`.
-- [ ] T027 [P] [US3] In `apps/web/src/app/api/v1/invoices/[id]/route.ts`, `DELETE` releases expenses before deleting the draft, beside the entry release.
-- [ ] T028 [US3] In `apps/web/src/components/expense-list.tsx`, add an All filter that shows billed expenses with their invoice number. The edit and delete controls are disabled on an expense whose invoice is not a draft.
+- [X] T025 [US3] Add `guard_billed_expense()` and `guard_billed_expense_delete()` to `supabase/migrations/00000000000025_expenses.sql`, mirroring `guard_billed_entry` in `00000000000002_integrity.sql`. Detaching stays allowed. The guarded fields are `spent_on`, `description`, `amount`, `client_id` and `project_id`. They raise `check_violation`.
+- [X] T026 [P] [US3] In `apps/web/src/app/api/v1/invoices/[id]/status/route.ts`, the void branch also runs `db.from('expenses').update({ invoice_id: null }).eq('invoice_id', id)`.
+- [X] T027 [P] [US3] In `apps/web/src/app/api/v1/invoices/[id]/route.ts`, `DELETE` releases expenses before deleting the draft, beside the entry release.
+- [X] T028 [US3] In `apps/web/src/components/expense-list.tsx`, add an All filter that shows billed expenses with their invoice number. The edit and delete controls are disabled on an expense whose invoice is not a draft.
 
 **Checkpoint**: Stories 1 to 3 are complete. This is the 30 September slice.
 
@@ -214,9 +214,9 @@ the 30 September slice. User Story 4 can merge after it.
 
 ## Phase 7: Polish
 
-- [ ] T037 [P] Document the `/expenses` and `/recurring-expenses` rows and the invoice request and response changes in `docs/api.md`.
-- [ ] T038 [P] Add `expenses`, `recurring_expenses`, the expense lock, `expenses_subtotal` and the `expense` line unit to `docs/data-model.md`, including why expenses stay out of Earned and Unbilled.
-- [ ] T039 [P] Update `docs/design/screens/invoices.html`: the Expenses tab, the preview's Expenses section and subtotal, and the charges hint without "an expense you are passing on".
+- [X] T037 [P] Document the `/expenses` and `/recurring-expenses` rows and the invoice request and response changes in `docs/api.md`.
+- [X] T038 [P] Add `expenses`, `recurring_expenses`, the expense lock, `expenses_subtotal` and the `expense` line unit to `docs/data-model.md`, including why expenses stay out of Earned and Unbilled.
+- [X] T039 [P] Update `docs/design/screens/invoices.html`: the Expenses tab, the preview's Expenses section and subtotal, and the charges hint without "an expense you are passing on".
 - [ ] T040 Run `pnpm verify:static` and `pnpm verify:db`, walk through `quickstart.md` in the browser while signed in to local Stint, and take screenshots of the preview and the PDF for the PR's Try it section.
 
 ---
