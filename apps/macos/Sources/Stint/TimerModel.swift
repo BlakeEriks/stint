@@ -170,8 +170,11 @@ final class TimerModel {
             skew = fetchedAt.timeIntervalSince(summary.serverTime)
             self.summary = summary
             errorMessage = nil
-            if projects.isEmpty { projects = (try? await api.projects()) ?? [] }
-            if clients.isEmpty { clients = (try? await api.clients()) ?? [] }
+            // Every refresh, so a project added, renamed or archived on the
+            // web reaches the panel on its next open. A failed fetch keeps
+            // the list it had rather than emptying the picker.
+            if let fetched = try? await api.projects() { projects = fetched }
+            if let fetched = try? await api.clients() { clients = fetched }
             // `try?`: a failure here hides one number rather than surfacing an
             // error over a working timer.
             if let fetched = try? await api.stats() { stats = fetched }
