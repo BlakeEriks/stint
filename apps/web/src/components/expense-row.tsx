@@ -50,6 +50,9 @@ export function ExpenseRow({
   const cells = (
     <>
       {leading}
+      {/* On a phone the labels give way to the name, as a project's rate
+          source does: Recurring keeps its icon, and a billed row still reads
+          as billed by its shade and its arrow. */}
       <span className="flex min-w-0 flex-1 items-center gap-2">
         <span
           className={`truncate type-control ${billed ? 'text-muted' : 'text-strong'}`}
@@ -59,19 +62,19 @@ export function ExpenseRow({
         {expense.recurring ? (
           <span className="flex flex-none items-center gap-1 type-badge text-subtle">
             <Repeat aria-hidden strokeWidth={1.75} className="size-3" />
-            Recurring
+            <span className="max-sm:sr-only">Recurring</span>
           </span>
         ) : expense.invoiceNumber ? (
-          <span className="flex-none type-badge text-subtle">
+          <span className="flex-none type-badge text-subtle max-sm:hidden">
             {expense.invoiceNumber}
           </span>
         ) : null}
       </span>
-      <span className="w-14 flex-none text-right type-meta text-subtle">
+      <span className="w-14 flex-none text-right type-meta text-subtle max-sm:w-12">
         {expense.spentOn ? monthDay(expense.spentOn) : ''}
       </span>
       <span
-        className={`w-24 flex-none text-right type-duration ${billed ? 'text-muted' : 'text-strong'}`}
+        className={`w-24 flex-none text-right type-duration max-sm:w-20 ${billed ? 'text-muted' : 'text-strong'}`}
       >
         {formatCurrency(expense.amount, currency)}
       </span>
