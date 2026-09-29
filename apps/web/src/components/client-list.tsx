@@ -299,6 +299,7 @@ function Row({
     userDefaultRate: defaultRate,
   };
   const rate = resolveRate(ctx);
+  const archived = project.archivedAt != null;
   /* The row is the button, so a card has one Edit (the client's) rather
      than one per project; the pencil says it opens where there's no hover
      (.claude/rules/web-ui.md). */
@@ -311,12 +312,18 @@ function Row({
         className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-2.5 text-left
                    hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
       >
-        <span className="min-w-0 flex-1 truncate type-control text-strong">
-          {project.name}
+        {/* An archived row recedes: it bills nothing new, so its name and
+            rate step down a shade and the badge sits with the name. */}
+        <span className="flex min-w-0 flex-1 items-center gap-2">
+          <span
+            className={`truncate type-control ${archived ? 'text-muted' : 'text-strong'}`}
+          >
+            {project.name}
+          </span>
+          {archived ? (
+            <span className="flex-none type-badge text-subtle">Archived</span>
+          ) : null}
         </span>
-        {project.archivedAt ? (
-          <span className="flex-none type-badge text-subtle">Archived</span>
-        ) : null}
         <span className="flex-none text-right">
           {!project.isBillableDefault ? (
             <span className="type-support text-subtle">Non-billable</span>
@@ -327,7 +334,7 @@ function Row({
           ) : (
             <>
               <span
-                className={`block type-duration ${project.hourlyRate != null ? 'text-primary' : 'text-muted'}`}
+                className={`block type-duration ${archived ? 'text-subtle' : project.hourlyRate != null ? 'text-primary' : 'text-muted'}`}
               >
                 {rateLabel(rate, client)}
               </span>
