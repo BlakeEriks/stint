@@ -1,65 +1,41 @@
 # Data model: Reimbursable expenses
 
-Two migrations: `00000000000025_expenses.sql` for one-off expenses and
-`00000000000026_recurring_expenses.sql` for recurrences, so the second can
-merge after the first (`research.md` R12). Migration 26 also adds
-`recurring_expense_id` and `recurrence_month` to `expenses`. Every change is
-additive (Principle IX). `research.md` gives the reasons. This file gives the
-shapes.
+One migration, `00000000000025_expenses.sql` (`research.md` R11). Every change
+is additive to production (Principle IX). `research.md` gives the reasons.
+This file gives the shapes.
 
 ## `expenses` (new)
 
 | Column | Type | Rule |
 | --- | --- | --- |
-| `id` | `uuid` pk | Client-generated UUIDv7 on `POST`, so a retry is idempotent. Default `gen_random_uuid()` for produced rows. |
+| `id` | `uuid` pk | Client-generated UUIDv7, so a retried `POST` is idempotent |
 | `user_id` | `uuid not null` | → `auth.users` on delete cascade |
-| `client_id` | `uuid not null` | → `clients (id, user_id)`: same owner. The migration adds `clients_id_user_idx`, the unique key that foreign key needs, the way `projects_id_user_idx` exists for entries. |
-| `project_id` | `uuid null` | → `projects (id, user_id)`, `on delete set null (project_id)`. Must belong to `client_id` (trigger). |
-| `spent_on` | `date not null` | |
+| `client_id` | `uuid not null` | → `clients (id, user_id)`: same owner. The migration adds `clients_id_user_idx`, the unique key that foreign key needs. |
+| `recurring` | `boolean not null default false` | Billed on every invoice for the client (R5) |
+| `spent_on` | `date null` | Set exactly when not recurring |
 | `description` | `text not null` | Non-blank, 200 characters or fewer, matching a charge |
 | `amount` | `numeric(12,2) not null` | `> 0` |
 | `note` | `text null` | 500 characters or fewer. Never printed on the invoice. |
-| `invoice_id` | `uuid null` | → `invoices` on delete set null. Set means billed. |
-| `recurring_expense_id` | `uuid null` | → `recurring_expenses` on delete restrict |
-| `recurrence_month` | `date null` | First of the month the recurrence produced it for |
+| `invoice_id` | `uuid null` | → `invoices` on delete set null. Set means billed. Always null when recurring. |
 | `created_at`, `updated_at` | `timestamptz` | `touch_updated_at` trigger |
 
-- `unique (recurring_expense_id, recurrence_month)`
-- check: `(recurring_expense_id is null) = (recurrence_month is null)`, the
-  repo's paired-nullability pattern
-- index: `(user_id, client_id, spent_on) where invoice_id is null`, the
-  unbilled path
-- triggers: `guard_billed_expense` (update and delete, `research.md` R8) and
-  the project-belongs-to-client check (R11)
+- check `expense_dated`: `recurring = (spent_on is null)`
+- check `recurring_never_billed`: `not recurring or invoice_id is null`
+- index: `(user_id, client_id) where invoice_id is null`, the path every
+  preview and the card read
+- trigger `guard_billed_expense` (update and delete, `research.md` R8)
 - RLS: `user_id = auth.uid()`, plus the explicit grant to `authenticated`
   (`00000000000004_api_grants.sql` pattern)
 
-The amount is in the client's currency. The table has no currency column,
-because an expense is billed in its client's currency and never converted.
+The amount is in the client's currency. There is no currency column, because
+an expense is billed in its client's currency and never converted.
 
-**Lifecycle**: unbilled (`invoice_id` null) → on a draft (editable) → on an
-issued invoice (locked) → released by void or by deleting the draft →
-unbilled again.
+**Lifecycle, one-off**: unbilled → on a draft (editable) → on an issued
+invoice (locked) → released by void or by deleting the draft → unbilled
+again. Off the client's card once its invoice is paid (R7).
 
-## `recurring_expenses` (new)
-
-| Column | Type | Rule |
-| --- | --- | --- |
-| `id` | `uuid` pk | Client-generated UUIDv7 |
-| `user_id` | `uuid not null` | → `auth.users` on delete cascade |
-| `client_id` | `uuid not null` | → `clients (id, user_id)` |
-| `project_id` | `uuid null` | as on `expenses` |
-| `description`, `amount`, `note` | | as on `expenses` |
-| `starts_on` | `date not null` | Anchors the day of the month. Cannot be edited once `produced_through` is set. |
-| `stopped_on` | `date null` | Set means stopped. Nothing after it is produced. |
-| `produced_through` | `date null` | First of the last month produced: the watermark (R6) |
-| `created_at`, `updated_at` | `timestamptz` | |
-
-RLS, grant, and the ownership and project checks match `expenses`. There is
-no delete route: a recurrence is stopped. Produced expenses reference it.
-
-**Lifecycle**: live → stopped. Stopping is one-way. To resume, create a new
-recurrence.
+**Lifecycle, recurring**: live until deleted. Never attached, so never locked
+or released. Each invoice holds its own frozen line.
 
 ## `invoice_line_items` (changed)
 
@@ -75,22 +51,18 @@ recurrence.
 - `total = subtotal + tax_amount + expenses_subtotal`, written by
   `POST /invoices` from `buildLineItems`.
 
-## Functions
+## Function
 
-Both are `security invoker` with `set search_path = public, pg_temp`, and
-have `grant execute` to `authenticated`, so they pass `verify:schema`
-(Principle II).
-
-- `create_invoice(p_user_id uuid, p_invoice jsonb,
-  p_entry_ids uuid[], p_expense_ids uuid[]) returns invoices` (migration 25)
-  writes a computed invoice in one transaction. It raises when an expense was
-  already claimed, so no number is used without an invoice. See R9.
-- `produce_recurring_expenses(p_user_id uuid, p_through date) returns void`
-  (migration 26). See R5.
+`create_invoice(p_user_id uuid, p_invoice jsonb, p_entry_ids uuid[],
+p_expense_ids uuid[]) returns invoices` writes a computed invoice in one
+transaction and raises when a one-off was already claimed, so no number is
+used without an invoice (R9). `security invoker`, `set search_path = public,
+pg_temp`, and `grant execute` to `authenticated`, so it passes
+`verify:schema` (Principle II).
 
 ## Unchanged, on purpose
 
 `unbilled_by_client`, `month_revenue`, `revenue_by_*` and the rate functions
 read `time_entries` only, so expenses stay out of Earned and Unbilled
 (FR-015). `collected_by_month` and awaiting payment read `invoices.total`,
-which now includes expenses (FR-016).
+which includes expenses (FR-016).

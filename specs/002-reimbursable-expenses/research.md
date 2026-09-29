@@ -61,54 +61,52 @@ preview and `POST /invoices` both call it (FR-007).
 function (Principle VI). Nothing in SQL computes expense money, so there is
 no second implementation and Principle IV does not apply.
 
-## R5. Recurring expenses are produced when read, by one SQL function
+## R5. Recurring is a flag on the expense, not a second table
 
-**Decision**: `produce_recurring_expenses(p_user_id uuid, p_through date)`,
-`security invoker` with a pinned `search_path`. Under a `for update` lock on
-each live recurrence, it inserts one expense for every month after the
-recurrence's `produced_through` and up to `least(p_through,
-stopped_on)`, then advances `produced_through`. It is called by `GET
-/expenses`, `POST /invoices/preview` and `POST /invoices`, with `p_through`
-set to today in the request's time zone.
+**Decision**: `expenses.recurring boolean not null default false`. A recurring
+expense has no `spent_on` and never takes an `invoice_id`. Every preview and
+invoice for its client offers it. On the invoice it is frozen as an expense
+line dated the period's last day. It stays on the client's card until the
+contractor deletes it.
 
-**Rationale**: Nothing needs a produced row before someone opens the
-Expenses tab or previews an invoice, and both of those call the function
-first. A scheduled job would be new infrastructure (Vercel Cron or pg_cron)
-and would still need the same idempotent insert. The row lock serializes two
-tabs producing at once. A unique index on `(recurring_expense_id,
-recurrence_month)` backs the lock, so a double insert fails rather than bills
-twice.
+**Rationale**: The spec's 2026-09-29 clarification makes a recurring expense
+"billed on every invoice", with no schedule. Nothing has to be produced ahead
+of time, so there is no producer function, watermark, month key or
+recurrence table. Because the row is never attached, it is never locked or
+released. Editing it changes the next invoice; issued invoices hold frozen
+copies (FR-009, FR-019).
 
-**Alternatives considered**: A daily cron. Rejected as more infrastructure
-for the same guarantee. Producing in TypeScript. Rejected because its
-check-then-insert is a race that the row lock does not have.
+**Alternatives considered**: A `recurring_expenses` table that produces one
+expense per month when read. Rejected: it adds a table, a function, a
+watermark and a second dialog, and bills by calendar where the contractor
+thinks in invoices.
 
-## R6. A deleted occurrence stays deleted
+## R6. A recurring expense is dated the period's last day on the invoice
 
-**Decision**: The `produced_through` watermark, not the presence of a row,
-decides what is produced (FR-019).
+**Decision**: The loader gives a recurring expense `spentOn = periodEnd` when
+it hands it to `buildLineItems`. The frozen line's `spent_on` is that date.
 
-**Rationale**: Deleting a produced expense removes its row but not the
-watermark, so the month is never produced again. Without the watermark, the
-unique index alone would let a deleted month come back.
+**Rationale**: `expense_line_has_date` keeps every expense line dated, and the
+PDF's date column needs one. The period's end is the date the invoice claims
+to cover.
 
-## R7. The day of the month comes from `starts_on`, clamped to the month
+## R7. The client card lists what is still open
 
-**Decision**: An occurrence falls on `starts_on`'s day, or on the month's
-last day when that day does not exist. For example, a 31 January start
-produces 28 February. `starts_on` cannot be edited once anything has been
-produced.
+**Decision**: `GET /expenses?status=open` returns recurring expenses, unbilled
+one-offs, and one-offs on a draft or sent invoice, each with its invoice's
+number and status. A one-off on a paid invoice is left out. The Clients
+screen loads it once and groups by client.
 
-**Rationale**: Changing the anchor after production would make the watermark
-refer to days that moved. A contractor who wants a different day stops the
-recurrence and starts a new one.
+**Rationale**: The design keeps a billed one-off on the card until its
+invoice is paid, then drops it. Void releases the expense, so it comes back
+as unbilled.
 
 ## R8. Invoiced expenses are locked by a trigger, as entries are
 
 **Decision**: `guard_billed_expense()` runs before update and before delete.
 It mirrors `guard_billed_entry()` in `00000000000002_integrity.sql`: while an
 expense's invoice is not a draft, changes to `spent_on`, `description`,
-`amount`, `client_id` and `project_id` are rejected, and so is delete.
+`amount`, `client_id` and `recurring` are rejected, and so is delete.
 Detaching (`invoice_id` set to null) stays allowed, because voiding and
 deleting a draft depend on it (FR-010, FR-011).
 
@@ -127,7 +125,9 @@ p_expense_ids uuid[])`, where `p_invoice` carries the invoice's columns and its
 2. inserts the invoice and its lines, appending the payment reference to the
    frozen payment block, since the number exists only from step 1;
 3. attaches the entries, as today, with `invoice_id is null`;
-4. attaches the expenses with `invoice_id is null`.
+4. attaches the one-off expenses with `invoice_id is null`. The route passes
+   only one-off ids; recurring expenses are billed without being attached
+   (R5).
 
 If fewer expenses attach than were billed, it raises. The whole transaction
 rolls back, including the number, and the route returns
@@ -157,25 +157,55 @@ is a separate fault, filed as its own issue if wanted.
 **Decision**: The preview and create requests carry `excludedExpenseIds`.
 The server loads every eligible expense and drops the excluded ones.
 
-**Rationale**: The server re-derives the set rather than trusting a list the
-client sent back, the same approach the import's `excluded` takes. A new
+**Rationale**: It covers recurring expenses too, so the
+contractor can leave one off an invoice (spec, Edge Cases). The server
+re-derives the set rather than trusting a list the client sent back, the same approach the import's `excluded` takes. A new
 expense recorded after the preview still reaches the next preview, and
 recording one clears the approval (spec, Edge Cases).
 
-## R11. Project ownership uses the composite key the entries use
+## R11. Migration 25 is edited in place; 26 is deleted
 
-**Decision**: `expenses (project_id, user_id)` and `recurring_expenses
-(project_id, user_id)` reference `projects (id, user_id)`, with `on delete
-set null (project_id)` and `on update restrict`, as
-`00000000000016_entry_project_same_owner.sql` does. A trigger rejects a
-project whose `client_id` is not the expense's `client_id`.
+**Decision**: `00000000000025_expenses.sql` gains `recurring` and loses
+`project_id`, its foreign key and `check_expense_project()`.
+`00000000000026_recurring_expenses.sql` is deleted.
 
-## R12. Build order for the 30 September deadline
+**Rationale**: Neither has reached production, so both are still new tables
+to it and Principle IX holds. `scripts/migrate.mjs` applies every file not in
+`schema_migrations`, so 25 still applies after main's 27. The spec dropped
+the project (FR-001), since the dialog has none and the card already sits
+under its client.
 
-**Decision**: Ship one-off expenses first: the table, the lock, the invoice
-and PDF changes, and the Expenses tab (User Stories 1 to 3). Recurring
-expenses (User Story 4) follow as a second change on the same branch, or on
-a follow-up branch if the first has to merge before the 30th.
+## R12. One slice, recurring included
 
-**Rationale**: The September invoice needs only the first slice (spec,
-User Story 4, "Why this priority").
+**Decision**: One-off and recurring expenses ship together.
+
+**Rationale**: R5 makes recurring a column and one branch in the loader, not
+a second slice. The September invoice (due 30 September) needs User Stories 1
+to 3; recurring adds almost nothing to them.
+
+## R13. The Clients screen drops its archived filter
+
+**Decision**: `client-list.tsx` loses `FilterTabs` and the `status` search
+param. It loads every client and project, archived included. An archived one
+keeps its Archived badge. The card's footer holds **+ Project** and
+**+ Expense** side by side. "No client" has no expenses and keeps only
+**+ Project**.
+
+**Rationale**: The design (spec, Design). How archiving affects expenses is
+not decided, so the filter goes rather than guess.
+
+## R14. The UI is three components
+
+**Decision**:
+
+- `ExpenseRow`: one line, as in the design. Used on the card and, with a
+  checkbox in front and no pencil, on New invoice.
+- `ExpenseDialog`: add and edit, with the Recurring checkbox. It hides the
+  date when checked. Editing adds Delete.
+- `ClientExpenses`: a card's Expenses label and rows.
+
+`invoice-list.tsx` loses its Expenses tab, and `expense-list.tsx` is replaced
+by the three above. `invoice-new.tsx` moves the preview into its own `Panel`
+below the inputs (spec, Design).
+
+**Rationale**: The design has one row shape in two places, and one dialog.

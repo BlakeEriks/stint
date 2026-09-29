@@ -17,31 +17,33 @@ pnpm verify:db
 ```
 
 `verify:static` runs `packages/core/test/invoice.test.ts` (split totals, no
-tax on expenses, ordering) and the UI suite (`invoice-new`, `invoice-detail`,
-the Expenses tab). `verify:db` runs `invoices.test.ts` (the invoice with
-expenses, the lock, void release, the double-attach conflict, recurrence
-production), `rls.test.ts` (both new tables isolate) and `verify:schema`
-(RLS, grants, and the function grant).
+tax on expenses, ordering), the UI suite and the stories, one per acceptance
+scenario. `verify:db` runs `invoices.test.ts` (the invoice with expenses,
+recurring billed twice, the lock, void release, the double-attach conflict),
+`rls.test.ts` and `verify:schema`.
 
 ## By hand, in the browser
 
-1. **Record** (User Story 2). Go to Invoices, then Expenses, then Add
-   expense: the client, 12 Sep, "JetBrains license", $249. It is listed as
-   unbilled. Edit it to $199.
-2. **Bill** (User Story 1). Go to New invoice with that client and period
-   1–30 Sep. The preview shows the service lines and their subtotal, then an
-   Expenses heading with "12 Sep · JetBrains license · $199.00" and its own
-   subtotal. The total is both. Generate, then download the PDF: it has the
-   same sections.
-3. **Lock** (User Story 3). Mark the invoice sent. Editing or deleting the
-   expense from the Expenses tab (with the All filter) is refused. Void the
-   invoice: the expense is unbilled again and editable.
-4. **Leave one off.** Add a second expense and exclude it in the preview.
-   The approval clears. Generate: the excluded one is still unbilled.
-5. **Earlier month.** Add an expense dated 20 Aug. A September invoice picks
-   it up.
-6. **Recurring** (User Story 4). Add a recurring expense starting 5 Aug,
-   "Claude Max", $200. The Expenses tab shows 5 Aug and 5 Sep. Delete the
-   5 Aug one and reload: it does not come back. Stop the recurrence: nothing
-   more is produced.
-7. **Home.** Earned and Unbilled are unchanged by any expense.
+1. **Record** (User Story 2). On Clients, press **+ Expense** on a client's
+   card: 12 Sep, "JetBrains license", $249. It shows under Expenses. Click
+   the row and change it to $199.
+2. **Bill** (User Story 1). New invoice for that client, 1–30 Sep. The
+   expense is ticked under Expenses. Preview: the Preview card shows the
+   service lines, then Expenses with "JetBrains license · Sep 12 · $199.00",
+   then Services, Expenses and Total. Generate, then open the PDF: the same
+   sections.
+3. **Lock** (User Story 3). Mark the invoice sent. On the card the expense is
+   muted with the invoice number, and clicking it opens the invoice. Void the
+   invoice: the expense is unbilled again and opens its dialog.
+4. **Leave one off.** Add a second expense and untick it. The preview clears.
+   Generate: the unticked one still waits on the card.
+5. **Earlier month.** An expense dated 20 Aug joins a September invoice.
+6. **Recurring** (User Story 4). Add "Claude Max subscription", $200, and
+   check Recurring: the date field hides and the row shows ↻ Recurring.
+   Generate September: its line is dated Sep 30. Start another invoice for
+   the client: it is ticked again. Delete it: the next invoice does not offer
+   it, and September's keeps its line.
+7. **Paid.** Mark the invoice from step 2 paid: the expense leaves the card.
+8. **Clients.** No Active / Archived / All filter; an archived project shows
+   with its badge.
+9. **Home.** Earned and Unbilled are unchanged by any expense.
