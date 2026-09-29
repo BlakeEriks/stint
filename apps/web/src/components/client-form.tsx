@@ -29,10 +29,14 @@ export function ClientForm({
   existing,
   onSaved,
   onCancel,
+  footer,
 }: {
   existing?: Client;
   onSaved?: (client: Client) => void;
   onCancel?: () => void;
+  /** A secondary action, at the far left from Save, e.g. the dialog's
+      Archive. */
+  footer?: React.ReactNode;
 }) {
   const router = useRouter();
 
@@ -173,7 +177,21 @@ export function ClientForm({
         </p>
       ) : null}
 
-      <div className="flex items-center gap-2">
+      {/* The one order for every dialog's and form's actions: a secondary
+          one (Archive) at the far left, then Cancel, then Save at the
+          bottom right (.claude/rules/web-ui.md). */}
+      <div className="flex items-center justify-end gap-2">
+        {footer ? <div className="mr-auto">{footer}</div> : null}
+        {/* No icon: Cancel undoes the intent rather than performing one, and
+            a glyph would give a dismissal the same weight as the save it
+            sits beside. */}
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => (onCancel ? onCancel() : router.back())}
+        >
+          Cancel
+        </Button>
         <Button
           type="submit"
           variant="accent"
@@ -189,16 +207,6 @@ export function ClientForm({
             : existing
               ? 'Save changes'
               : 'Add client'}
-        </Button>
-        {/* No icon: Cancel undoes the intent rather than performing one, and
-            a glyph would give a dismissal the same weight as the save it
-            sits beside. */}
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => (onCancel ? onCancel() : router.back())}
-        >
-          Cancel
         </Button>
       </div>
     </form>

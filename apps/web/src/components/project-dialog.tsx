@@ -11,19 +11,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Check, Loader2, Plus } from 'lucide-react';
+import { Archive, Check, Plus } from 'lucide-react';
+import { uuidv7 } from '@stint/core';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  api,
-  ApiError,
-  type Project,
-  type ProjectInput,
-} from '@/lib/client/api';
+import { api, type Project } from '@/lib/client/api';
 import { ClientForm } from './client-form';
 import { ClientPicker } from './client-picker';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
+import {
+  keys,
+  invalidateEntryData,
+  predictArchive,
+  predictSave,
+} from '@/lib/client/query-keys';
 
 /**
  * A dialog rather than a page: a project is four fields, and it is created
@@ -79,33 +80,53 @@ export function ProjectDialog({
   });
   const clients = clientData?.clients ?? [];
 
-  /* Pending: the server validates the project, and the dialog stays open
-     to say what it refused. */
-  const save = useOptimisticMutation({
+  /* Predicted: the dialog closes and the row shows on the press, in every
+     project list it belongs in. The id is minted here (`uuidv7`), so the
+     row is the real one and a caller such as the picker can select it at
+     once. A refusal takes it back and the notice says why. */
+  const save = useOptimisticMutation<Project, Project, unknown>({
     queryKey: () => keys.projects(),
-    inline: true,
-    mutationFn: (body: ProjectInput) =>
-      existing ? api.updateProject(existing.id, body) : api.createProject(body),
+    mutationFn: ({ id, archivedAt: _, ...body }) =>
+      existing
+        ? api.updateProject(id, body)
+        : api.createProject({ id, ...body }),
+    predict: (current, project, key) => predictSave(project, current, key),
     // A project's rate is what its unbilled work is valued at, in every rollup.
     invalidate: (qc) =>
       Promise.all([
         qc.invalidateQueries({ queryKey: keys.projects() }),
         invalidateEntryData(qc),
       ]),
-    onSuccess: (saved) => {
-      onSaved?.(saved);
-      onOpenChange(false);
-    },
+  });
+
+  /* Archive lives here rather than on the row: it's rare, and the list's
+     only row action is Edit. Predicted: the dialog closes and the row goes
+     on the press; a refusal puts it back and the notice says why. Archive,
+     never delete: entries and invoices reference the project. */
+  const archive = useOptimisticMutation<string, unknown, unknown>({
+    queryKey: () => keys.projects(),
+    mutationFn: (id) => api.archiveProject(id),
+    predict: (current, id, key) => predictArchive('projects', id, current, key),
+    invalidate: (qc) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.projects() }),
+        invalidateEntryData(qc),
+      ]),
   });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    save.mutate({
+    const project: Project = {
+      id: existing?.id ?? uuidv7(),
       name: name.trim(),
       clientId,
       hourlyRate: hourlyRate.trim() === '' ? null : Number(hourlyRate),
       isBillableDefault: billable,
-    });
+      archivedAt: existing?.archivedAt ?? null,
+    };
+    save.mutate(project);
+    onSaved?.(project);
+    onOpenChange(false);
   };
 
   if (addingClient) {
@@ -201,15 +222,22 @@ export function ProjectDialog({
             Billable by default
           </label>
 
-          {save.error ? (
-            <p role="alert" className="type-support text-danger">
-              {save.error instanceof ApiError
-                ? save.error.message
-                : 'Could not save this project.'}
-            </p>
-          ) : null}
-
           <DialogFooter>
+            {/* At the far end from Save, so it is never hit by habit. */}
+            {existing && !existing.archivedAt ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="mr-auto"
+                onClick={() => {
+                  archive.mutate(existing.id);
+                  onOpenChange(false);
+                }}
+              >
+                <Archive aria-hidden strokeWidth={1.75} />
+                Archive
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="ghost"
@@ -223,20 +251,10 @@ export function ProjectDialog({
             <Button
               type="submit"
               variant="accent"
-              disabled={save.isPending || name.trim() === ''}
+              disabled={name.trim() === ''}
             >
-              {save.isPending ? (
-                <Loader2 aria-hidden className="animate-spin" />
-              ) : existing ? (
-                <Check aria-hidden />
-              ) : (
-                <Plus aria-hidden />
-              )}
-              {save.isPending
-                ? 'Saving…'
-                : existing
-                  ? 'Save changes'
-                  : 'Add project'}
+              {existing ? <Check aria-hidden /> : <Plus aria-hidden />}
+              {existing ? 'Save changes' : 'Add project'}
             </Button>
           </DialogFooter>
         </form>

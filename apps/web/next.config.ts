@@ -29,6 +29,11 @@ const config: NextConfig = {
      is the question a version in the corner is there to answer. A commit SHA
      answers it; `package.json`'s number does not move between releases. */
   env: { NEXT_PUBLIC_APP_VERSION: buildVersion() },
+
+  // Projects moved under Clients; old bookmarks land there, query and all.
+  async redirects() {
+    return [{ source: '/projects', destination: '/clients', permanent: true }];
+  },
 };
 
 export default config;
