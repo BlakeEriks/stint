@@ -50,3 +50,6 @@ playwright-report/
 # Storybook: static build, and Vitest browser-mode failure output
 storybook-static/
 .vitest/
+
+# Built into the preview only (apps/web/scripts/preview-storybook.sh)
+apps/web/public/storybook/

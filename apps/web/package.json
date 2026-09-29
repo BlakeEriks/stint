@@ -6,7 +6,7 @@
     "dev": "next dev --port ${PORT:-3100}",
     "predev": "pnpm --filter @stint/design-tokens build",
     "build": "next build",
-    "prebuild": "pnpm --filter @stint/design-tokens build",
+    "prebuild": "pnpm --filter @stint/design-tokens build && bash scripts/preview-storybook.sh",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "detox": "node scripts/shadcn-detox.mjs --check 'src/components/ui/*.tsx'",
