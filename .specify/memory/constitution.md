@@ -60,8 +60,10 @@ delete, money) shows a pending state on the control instead. Never neither.
 Every write goes through one mechanism per platform —
 `useOptimisticMutation` (`apps/web/src/lib/client/mutations.ts`) or the
 `Optimistic` protocol's `press` (`apps/macos/Sources/Stint/Optimistic.swift`)
-— which gives both modes the same rules: overlapping presses let the latest
-win, a silent server fails the press after 10s, and a late answer refetches.
+— which gives both the same rules: overlapping presses let the latest win,
+a timer's presses reach the server in press order, a silent server fails a
+prediction after 10s, and a late answer refetches. A pending press has no
+bound, because "try again" on a write that landed could make it twice.
 `apps/web/scripts/check-mutation-usage.mjs` fails a web file that imports `useMutation`, with
 no opt-out; on macOS the PR checklist asks.
 
