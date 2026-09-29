@@ -328,7 +328,7 @@ alone must still contain the query.
 | Check | Result |
 |---|---|
 | An unfiltered `select` returns only the caller's rows | isolated |
-| All eight user-scoped tables isolate | isolated |
+| All seven user-scoped tables isolate | isolated |
 | A known-good id belonging to another user returns nothing | no leak |
 | Line items inherit isolation through their invoice | isolated |
 | Insert with a forged `user_id` | rejected by `WITH CHECK` |
