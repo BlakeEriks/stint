@@ -56,8 +56,8 @@ export function ClientForm({
       existing ? api.updateClient(existing.id, body) : api.createClient(body),
     /* The client's rate is what unbilled work is valued at — and every
        other rollup reads the same entries through the same rate chain, so
-       refreshing `stats` alone leaves the heatmap and the activity list
-       disagreeing with the figure above them. */
+       refreshing `stats` alone leaves the activity list disagreeing with
+       the figure above it. */
     invalidate: (qc) =>
       Promise.all([
         qc.invalidateQueries({ queryKey: keys.clients() }),
