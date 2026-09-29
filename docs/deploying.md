@@ -33,7 +33,8 @@ the domain until required checks pass, so the migration runs while the
 `.github/workflows/ci.yml`, five jobs in parallel:
 
 - **`static`** — lint, token drift, the contrast contract, shadcn detox, the
-  typography scale, typecheck, the UI suite, core logic, the hygiene scan's
+  typography scale, writes through the shared mutation helper, typecheck,
+  the UI suite, core logic, the hygiene scan's
   tests, the doc references check, then a build.
   Needs no database, so an obvious slip fails in seconds.
 - **`database`** — the route and RLS suites against a real Postgres service
