@@ -16,7 +16,9 @@ decimal places, as `money` is everywhere else.
   "description": "string",
   "amount": 199.00,
   "note": "string | null",
-  "invoice": { "id": "uuid", "number": "STINT-0013", "status": "sent" } // or null
+  "invoiceId": "uuid | null",
+  "invoiceNumber": "STINT-0013 | null",
+  "invoiceStatus": "draft | sent | paid | void | null"
 }
 ```
 

@@ -240,8 +240,10 @@ record.
 accruing), non-billable entries, and entries already attached to an invoice.
 
 **Expenses are billed from what is stored, never from the request.** An
-invoice takes every unbilled expense for its client dated on or before
-`periodEnd`, an earlier month's included, less any in `excludedExpenseIds`.
+invoice takes every recurring expense for its client, dated `periodEnd`, and
+every unbilled one dated on or before `periodEnd`, an earlier month's
+included, less any in `excludedExpenseIds`. Only the dated ones are attached;
+a recurring one bills again on the next invoice.
 They follow the service lines as `unit: "expense"` lines carrying `spentOn`,
 and `total` is `subtotal + taxAmount + expensesSubtotal`: tax never applies to
 a reimbursement.
@@ -258,23 +260,15 @@ lists every entry or sums them. It is frozen onto the invoice.
 
 ## Expenses
 
-A cost the client reimburses, recorded when it is paid and billed by the next
-invoice for its client. The amount is in the client's currency.
+A cost the client reimburses, billed by the next invoice for its client, or
+by every one when `recurring`. The amount is in the client's currency.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/expenses` | `?tz&clientId&status` — `status` is `unbilled` (default) or `all`. Oldest `spentOn` first. Each expense carries `invoiceNumber` and `invoiceStatus` once billed, and `recurringExpenseId` when a monthly rule produced it. |
-| `POST` | `/expenses` | `{ id, clientId, projectId?, spentOn, description, amount, note? }`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is above zero; a project must be one of the client's. |
-| `PATCH` | `/expenses/:id` | Any field from `POST` but `id`. **`409 EXPENSE_LOCKED`** once billed on a non-draft invoice. |
-| `DELETE` | `/expenses/:id` | Same lock. |
-| `GET` | `/recurring-expenses` | Live ones first, then stopped. |
-| `POST` | `/recurring-expenses` | `{ id, clientId, projectId?, startsOn, description, amount, note? }`. `startsOn` is the first charge; each later month's falls on its day, or the month's last day when that day does not exist. |
-| `PATCH` | `/recurring-expenses/:id` | `{ projectId?, description?, amount?, note?, startsOn?, stop?, tz? }`. A change reaches only months not yet produced. `stop: true` produces what is already due, then stops it as of today in `tz`. `422 VALIDATION_FAILED` for `startsOn` once a month has been produced, and for any change to a stopped one. No `DELETE`: a recurrence is stopped, because its expenses point at it. |
-
-**A recurrence's months are produced when expenses are read**, not on a
-schedule: `GET /expenses`, `POST /invoices/preview` and `POST /invoices` each
-produce every month that has come due, through today in the request's `tz`,
-before reading. A month the user deleted is not produced again.
+| `GET` | `/expenses` | `?clientId&status` — `status` is `open` (default: recurring, unbilled, and on a draft or sent invoice) or `unbilled` (recurring and unbilled). Recurring first, then oldest `spentOn`. Each expense carries `invoiceNumber` and `invoiceStatus` once billed. |
+| `POST` | `/expenses` | `{ id, clientId, recurring?, spentOn?, description, amount, note? }`. `spentOn` is required for a one-off and refused with `recurring: true`. `id` is a client-generated UUIDv7, so a retry returns the stored row with `200`. `amount` is above zero. |
+| `PATCH` | `/expenses/:id` | Any field from `POST` but `id` and `clientId`. `recurring: true` clears `spentOn`; `false` needs one. **`409 EXPENSE_LOCKED`** once billed on a non-draft invoice; `422` to make a billed one recurring. |
+| `DELETE` | `/expenses/:id` | Same lock. A recurring one can always go; invoices that billed it keep their line. |
 
 ## Payment details
 

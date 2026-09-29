@@ -147,32 +147,19 @@ chain and every earned and unbilled rollup read that table, and none of them
 should count a reimbursement as work. The amount is in the client's currency;
 there is no currency column, because an expense is never converted.
 
-- `client_id` is required and `project_id` optional; both reference their row
-  **with `user_id`**, as `time_entries.project_id` does, and a trigger rejects
-  a project that is not the expense's client's.
+- `client_id` is required, and references its row **with `user_id`**, as
+  `time_entries.project_id` does.
 - `invoice_id` set means billed. An invoice takes every unbilled expense for
   its client dated on or before the period's end, so one missed invoice does
   not strand a reimbursement.
+- `recurring` bills it on **every** invoice for the client instead of once: a
+  subscription the client reimburses. It has no `spent_on`
+  (`expense_dated`), is never attached (`recurring_never_billed`), and so is
+  never locked or released. Each invoice freezes its own line, dated the
+  period's end; editing or deleting it reaches only later invoices.
 - Unbilled expenses count toward neither **earned** nor **unbilled**, which
   are readings about work. They reach **awaiting** and **collected** through
   the invoice's `total`.
-
-### `recurring_expenses`
-A cost the client reimburses every month, as a rule: each month it produces
-one ordinary expense, which then waits, bills and locks like any other and is
-edited or deleted on its own. The produced expense carries
-`recurring_expense_id` and `recurrence_month`, unique together.
-
-- `starts_on` is the first charge and fixes the day of the month; a month
-  without that day uses its last. It cannot move once a month is produced.
-- `produced_through` is the first of the last month produced, and it — not
-  which expenses still exist — decides what is produced next, so a month the
-  user deleted stays deleted.
-- `produce_recurring_expenses(user_id, through)` produces every month due by
-  `through`, under a row lock per recurrence. Every read of expenses calls it
-  first, so no scheduled job exists.
-- Stopped, never deleted: `stopped_on` ends it, and the expenses it produced
-  reference it.
 
 ## Integrity rules
 
@@ -219,7 +206,7 @@ Two deliberate exceptions:
   invoice can release its entries.
 
 `guard_billed_expense` holds the same lock on an expense, over `spent_on`,
-`description`, `amount`, `client_id` and `project_id`, with the same two
+`description`, `amount`, `client_id` and `recurring`, with the same two
 exceptions. An edit to an expense on a draft does not reach the draft's
 frozen line; the draft is deleted and generated again to bill it.
 
