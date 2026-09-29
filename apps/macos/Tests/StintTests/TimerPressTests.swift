@@ -170,14 +170,27 @@ private final class FakeProtocol: URLProtocol, @unchecked Sendable {
     override func stopLoading() {}
 
     override func startLoading() {
-        let path = request.url!.path().replacingOccurrences(of: "/api/v1", with: "")
+        let url = request.url!
+        let path = url.path().replacingOccurrences(of: "/api/v1", with: "")
         let route = "\(request.httpMethod ?? "GET") \(path)"
+        let reply = Reply(to: self)
         Task {
             let (status, data) = await FakeServer.shared.answer(route)
-            let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: data)
-            client?.urlProtocolDidFinishLoading(self)
+            reply.send(url: url, status: status, data: data)
         }
+    }
+}
+
+/// Carries the protocol into the task that answers it later, which a held
+/// response needs. URLProtocol isn't Sendable; URLSession keeps it alive and
+/// expects its client called once, which `send` does.
+private struct Reply: @unchecked Sendable {
+    let to: FakeProtocol
+
+    func send(url: URL, status: Int, data: Data) {
+        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil)!
+        to.client?.urlProtocol(to, didReceive: response, cacheStoragePolicy: .notAllowed)
+        to.client?.urlProtocol(to, didLoad: data)
+        to.client?.urlProtocolDidFinishLoading(to)
     }
 }
