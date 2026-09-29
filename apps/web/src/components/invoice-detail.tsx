@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Ban, DollarSign, Download, Eye, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Section } from './field';
@@ -15,7 +16,6 @@ import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: keys.invoice(id),
@@ -24,23 +24,28 @@ export function InvoiceDetail({ id }: { id: string }) {
 
   /* Voiding releases the entries and deleting a draft frees them, so every
      view of that work moves with the invoice. */
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: keys.invoices() });
-    invalidateEntryData(queryClient);
+  /* Pending, not predicted: issuing assigns the number, and voiding or
+     deleting can't be taken back. The page says what was refused. */
+  const invoicePress = {
+    queryKey: () => keys.invoices(),
+    inline: true,
+    invalidate: (qc: QueryClient) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.invoices() }),
+        invalidateEntryData(qc),
+      ]),
   };
 
-  const setStatus = useMutation({
+  const setStatus = useOptimisticMutation({
+    ...invoicePress,
     mutationFn: (args: { status: InvoiceStatus; paidAt?: string }) =>
       api.updateInvoiceStatus(id, args),
-    onSuccess: invalidate,
   });
 
-  const remove = useMutation({
+  const remove = useOptimisticMutation({
+    ...invoicePress,
     mutationFn: () => api.deleteInvoice(id),
-    onSuccess: () => {
-      invalidate();
-      router.push('/invoices');
-    },
+    onSuccess: () => router.push('/invoices'),
   });
 
   return (

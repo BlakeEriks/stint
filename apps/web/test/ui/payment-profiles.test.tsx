@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { MutationNotice } from '@/components/mutation-notice';
 import { PaymentProfiles } from '@/components/payment-profiles';
 import type { PaymentProfile } from '@/lib/client/api';
 
@@ -96,7 +97,41 @@ describe('PaymentProfiles', () => {
 
   /* A silent refusal here means the next invoice carries the wrong account
      and nobody finds out until a client pays it. */
-  it('reports a refused "make default" against the profile it failed on', async () => {
+  it('moves "Default" on the press, before the server answers', async () => {
+    const profiles = [
+      BASE,
+      { ...BASE, id: 'pp-2', name: 'Wise USD', isDefault: false },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) =>
+        init?.method === 'PATCH'
+          ? new Promise<Response>(() => {})
+          : Promise.resolve(
+              new Response(JSON.stringify({ paymentProfiles: profiles }), {
+                status: 200,
+              }),
+            ),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<PaymentProfiles />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Make default' }),
+    );
+
+    // The button moved to the profile that was default, and only one says so.
+    expect(screen.getAllByText('Default')).toHaveLength(1);
+    expect(
+      screen.getByRole('button', { name: 'Make default' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Wise USD').closest('li')?.textContent).toContain(
+      'Default',
+    );
+  });
+
+  it('says a refused "make default" by name, even after Settings closes', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_url: string, init?: RequestInit) => {
@@ -121,17 +156,29 @@ describe('PaymentProfiles', () => {
       }),
     );
     const user = userEvent.setup();
-    render(<PaymentProfiles />, { wrapper });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const tree = (settings: boolean) => (
+      <QueryClientProvider client={client}>
+        {settings ? <PaymentProfiles /> : null}
+        <MutationNotice />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tree(true));
 
     await user.click(
       await screen.findByRole('button', { name: 'Make default' }),
     );
+    // Settings closed before the answer: the refusal must still be said.
+    rerender(tree(false));
 
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('Archived details cannot be made default');
-    // In the row that failed, not at the foot of the card: one mutation
-    // serves every row, so a shared message could not say which.
-    expect(alert.closest('li')).toHaveTextContent('Wise USD');
+    // Named: one mutation serves every row, so the message says which.
+    expect(
+      await screen.findByText(
+        'Couldn’t make Wise USD the default. Archived details cannot be made default',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('hides an archived profile', async () => {

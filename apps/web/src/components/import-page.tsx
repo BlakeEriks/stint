@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import {
   type ClientChoice,
   formatCompact,
@@ -77,7 +77,6 @@ function form({ file, zone, allBillable, clients, excluded }: Upload) {
  * settle what needs settling, confirm. Nothing is written until the confirm.
  */
 export function ImportPage() {
-  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   /* The export's times are wall clock in the zone of the account that
      exported them, which is not always where this browser is today. */
@@ -98,7 +97,12 @@ export function ImportPage() {
      newer one. */
   const [shown, setShown] = useState<ImportPreview | null>(null);
   const latest = useRef(0);
-  const preview = useMutation({
+  /* Pending: the server reads the file, and a bulk import can't be taken
+     back. Both say what went wrong on the page. */
+  const preview = useOptimisticMutation({
+    queryKey: () => ['import-preview'],
+    inline: true,
+    invalidate: () => undefined,
     mutationFn: async (u: Upload) => {
       const n = ++latest.current;
       return { n, preview: await api.importPreview(form(u)) };
@@ -107,13 +111,16 @@ export function ImportPage() {
       if (n === latest.current) setShown(preview);
     },
   });
-  const confirm = useMutation({
+  const confirm = useOptimisticMutation({
+    queryKey: () => keys.entries(),
+    inline: true,
     mutationFn: (u: Upload) => api.importConfirm(form(u)),
-    onSuccess: () => {
-      invalidateEntryData(queryClient);
-      queryClient.invalidateQueries({ queryKey: keys.projects() });
-      queryClient.invalidateQueries({ queryKey: keys.clients() });
-    },
+    invalidate: (qc) =>
+      Promise.all([
+        invalidateEntryData(qc),
+        qc.invalidateQueries({ queryKey: keys.projects() }),
+        qc.invalidateQueries({ queryKey: keys.clients() }),
+      ]),
   });
 
   const upload = { zone, allBillable, clients, excluded };

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Inbox } from '@/components/inbox';
+import { MutationNotice } from '@/components/mutation-notice';
 import type { Stats } from '@/lib/client/api';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
@@ -327,6 +328,37 @@ describe('entries with no project', () => {
     expect(screen.queryByRole('link', { name: /Client call/ })).toBeNull();
   });
 
+  it('says why when the entry cannot be opened', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        /\/entries\/[^/]/.test(String(url))
+          ? new Response(
+              JSON.stringify({
+                code: 'NOT_FOUND',
+                message: 'That entry no longer exists.',
+              }),
+              { status: 404 },
+            )
+          : new Response(JSON.stringify({ projects: [] }), { status: 200 }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(
+      <>
+        <Inbox stats={withRow()} />
+        <MutationNotice />
+      </>,
+      { wrapper },
+    );
+
+    await user.click(screen.getByText('Client call'));
+
+    expect(
+      await screen.findByText('That entry no longer exists.'),
+    ).toBeInTheDocument();
+  });
+
   it('opens the editor on the entry, so a project can be assigned', async () => {
     serve();
     const user = userEvent.setup();
@@ -478,6 +510,63 @@ describe('entries of unusual length', () => {
         durationOk: true,
       });
     });
+  });
+
+  it('sends the row out on the press, before the server answers', async () => {
+    let answer!: (r: Response) => void;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) =>
+        init?.method === 'PATCH'
+          ? new Promise<Response>((r) => {
+              answer = r;
+            })
+          : Promise.resolve(new Response('{}', { status: 200 })),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<Inbox stats={stats({ strangeDurations: [longEntry] })} />, {
+      wrapper,
+    });
+
+    await user.click(screen.getByRole('button', { name: /as it is/ }));
+
+    expect(
+      screen.getByText('Migration').closest('[data-exiting]'),
+    ).not.toBeNull();
+    answer(new Response(JSON.stringify(ENTRY), { status: 200 }));
+  });
+
+  it('brings the row back and says why when the server refuses', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) =>
+        init?.method === 'PATCH'
+          ? new Response(
+              JSON.stringify({
+                code: 'CONFLICT',
+                message: 'That entry is billed.',
+              }),
+              { status: 409 },
+            )
+          : new Response('{}', { status: 200 }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(
+      <>
+        <Inbox stats={stats({ strangeDurations: [longEntry] })} />
+        <MutationNotice />
+      </>,
+      { wrapper },
+    );
+
+    await user.click(screen.getByRole('button', { name: /as it is/ }));
+
+    expect(
+      await screen.findByText('That entry is billed.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Migration').closest('[data-exiting]')).toBeNull();
   });
 
   it('the check mark belongs to "It\'s correct" alone', () => {

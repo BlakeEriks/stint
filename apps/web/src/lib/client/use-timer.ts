@@ -1,10 +1,11 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { api, ApiError, type Summary } from './api';
+import { api, type Summary, type TimeEntry } from './api';
 import { elapsedSeconds } from '@stint/core';
 import { keys, invalidateEntryData } from './query-keys';
+import { useOptimisticMutation } from './mutations';
 
 /**
  * The zone this render is happening in. "Today" is a local question the
@@ -56,8 +57,6 @@ function useTick(active: boolean): boolean {
  * laptop several minutes off would otherwise show a wrong elapsed time.
  */
 export function useTimer() {
-  const queryClient = useQueryClient();
-
   const summary = useQuery({
     queryKey: keys.summary(),
     queryFn: () => api.summary(timeZone),
@@ -100,29 +99,69 @@ export function useTimer() {
     (summary.data ? liveAtFetch(summary.data) : 0);
   const todaySeconds = Math.max(0, baseToday + liveSeconds);
 
-  const invalidate = () => invalidateEntryData(queryClient);
+  /* Every timer press changes the summary: its prediction shows at once,
+     with today's total frozen at its live value so the readout neither
+     jumps nor double counts. The refetch that follows replaces all of it,
+     the server's own `startedAt` included. */
+  const serverNow = () => new Date(Date.now() + skewMs).toISOString();
+  const showing = (
+    current: Summary | undefined,
+    running: TimeEntry | null,
+  ): Summary | undefined =>
+    current && {
+      ...current,
+      running,
+      todaySeconds,
+      serverTime: serverNow(),
+    };
+  // One lane: Start then Stop must reach the server in that order.
+  const timerPress = {
+    queryKey: () => keys.summary(),
+    invalidate: invalidateEntryData,
+    serial: 'timer',
+  };
 
-  const start = useMutation({
-    mutationFn: (body: { taskName: string; projectId?: string | null }) =>
-      api.startTimer(body),
-    onSuccess: invalidate,
-    onError: (err) => {
-      // Another device started one first. Reconcile rather than surfacing
-      // a failure the user cannot act on.
-      if (err instanceof ApiError && err.isTimerConflict) invalidate();
-    },
+  /* `id` comes from the caller so the prediction and the row the server
+     writes are the same entry. */
+  const start = useOptimisticMutation<
+    { id: string; taskName: string; projectId?: string | null },
+    TimeEntry,
+    Summary
+  >({
+    ...timerPress,
+    mutationFn: (body) => api.startTimer(body),
+    predict: (current, body) =>
+      showing(current, {
+        id: body.id,
+        taskName: body.taskName,
+        projectId: body.projectId ?? null,
+        startedAt: serverNow(),
+        endedAt: null,
+        isBillable: true,
+        durationSeconds: null,
+        durationOk: false,
+        rateOverride: null,
+        invoiceId: null,
+      }),
   });
 
-  const stop = useMutation({
+  const stop = useOptimisticMutation<void, unknown, Summary>({
+    ...timerPress,
     mutationFn: () => api.stopTimer(),
-    onSuccess: invalidate,
-    onError: () => invalidate(),
+    predict: (current) => showing(current, null),
   });
 
-  const update = useMutation({
-    mutationFn: (body: { taskName?: string; projectId?: string | null }) =>
-      api.updateRunning(body),
-    onSuccess: invalidate,
+  const update = useOptimisticMutation<
+    { taskName?: string; projectId?: string | null },
+    TimeEntry,
+    Summary
+  >({
+    ...timerPress,
+    mutationFn: (body) => api.updateRunning(body),
+    predict: (current, body) =>
+      current?.running
+        ? showing(current, { ...current.running, ...body })
+        : current,
   });
 
   return {

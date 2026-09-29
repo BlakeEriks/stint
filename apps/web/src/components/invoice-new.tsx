@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, Section, inputClass, textareaClass } from './field';
@@ -97,7 +98,6 @@ function billableCharges(charges: Charge[]) {
  */
 export function NewInvoice() {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const [draft, setDraft] = useState<Draft>(empty);
   const [preview, setPreview] = useState<InvoicePreview | null>(null);
@@ -108,7 +108,12 @@ export function NewInvoice() {
   });
   const clients = clientData?.clients ?? [];
 
-  const runPreview = useMutation({
+  /* Pending: the server computes the lines and assigns the number, so
+     there is nothing to predict. Errors show on the page. */
+  const runPreview = useOptimisticMutation({
+    queryKey: () => ['invoice-preview'],
+    inline: true,
+    invalidate: () => undefined,
     mutationFn: () =>
       api.previewInvoice({
         clientId: draft.clientId,
@@ -121,7 +126,15 @@ export function NewInvoice() {
     onSuccess: setPreview,
   });
 
-  const generate = useMutation({
+  const generate = useOptimisticMutation({
+    queryKey: () => keys.invoices(),
+    inline: true,
+    // Generation marks the entries invoiced, so they leave every unbilled view.
+    invalidate: (qc) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.invoices() }),
+        invalidateEntryData(qc),
+      ]),
     mutationFn: () =>
       api.createInvoice({
         clientId: draft.clientId,
@@ -134,9 +147,6 @@ export function NewInvoice() {
         dueDate: draft.dueDate || undefined,
       }),
     onSuccess: (invoice) => {
-      queryClient.invalidateQueries({ queryKey: keys.invoices() });
-      // Generation marks the entries invoiced, so they leave every unbilled view.
-      invalidateEntryData(queryClient);
       router.push(`/invoices/${invoice.id}`);
     },
   });

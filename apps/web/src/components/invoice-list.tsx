@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@stint/core';
 import { StatusBadge, shortDate } from './invoice-bits';
@@ -29,7 +30,6 @@ const OPEN: InvoiceStatus[] = ['draft', 'sent'];
  */
 export function InvoiceList() {
   const params = useSearchParams();
-  const queryClient = useQueryClient();
 
   /* Open by default: a paid invoice is finished, and a list that leads with
      finished work makes you scroll past history to reach what needs doing.
@@ -43,7 +43,7 @@ export function InvoiceList() {
     select: (r) => r.invoices,
   });
   const { data: clientData } = useQuery({
-    queryKey: keys.clients(),
+    queryKey: keys.clients({ archived: true }),
     queryFn: () => api.clients({ includeArchived: true }),
   });
 
@@ -64,14 +64,19 @@ export function InvoiceList() {
 
   const [payingId, setPayingId] = useState<string | null>(null);
 
-  const markPaid = useMutation({
+  /* Pending: the dialog that asks for the paid date stays open to say what
+     the server refused. */
+  const markPaid = useOptimisticMutation({
+    queryKey: () => keys.invoices(),
+    inline: true,
     mutationFn: (args: { id: string; paidAt: string | undefined }) =>
       api.updateInvoiceStatus(args.id, { status: 'paid', paidAt: args.paidAt }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.invoices() });
-      queryClient.invalidateQueries({ queryKey: keys.stats() });
-      setPayingId(null);
-    },
+    invalidate: (qc) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.invoices() }),
+        qc.invalidateQueries({ queryKey: keys.stats() }),
+      ]),
+    onSuccess: () => setPayingId(null),
   });
 
   return (

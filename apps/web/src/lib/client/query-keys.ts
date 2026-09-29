@@ -1,4 +1,4 @@
-import type { QueryClient } from '@tanstack/react-query';
+import type { QueryClient, QueryKey } from '@tanstack/react-query';
 
 /**
  * Every cache key in one place.
@@ -37,6 +37,18 @@ export const keys = {
 };
 
 /**
+ * Whether a cached list under `keys.clients()` or `keys.projects()` holds
+ * archived rows too. An archive's prediction drops the row from every other
+ * list and leaves these alone.
+ */
+export function listsArchived(key: QueryKey): boolean {
+  const opts = key[1];
+  return typeof opts === 'object' && opts !== null && 'archived' in opts
+    ? opts.archived === true
+    : false;
+}
+
+/**
  * Everything derived from time entries.
  *
  * A timer stop, an edited entry, a generated invoice and an inbox action all
@@ -44,12 +56,14 @@ export const keys = {
  * differently — so any one of them refreshed alone disagrees with the rest.
  */
 export function invalidateEntryData(queryClient: QueryClient) {
-  queryClient.invalidateQueries({ queryKey: keys.summary() });
-  queryClient.invalidateQueries({ queryKey: keys.entries() });
-  queryClient.invalidateQueries({ queryKey: keys.stats() });
-  queryClient.invalidateQueries({ queryKey: keys.calendar() });
-  queryClient.invalidateQueries({ queryKey: keys.activity() });
-  /* Starting a timer or saving an entry mints a task name, so a list held
-     from before it is one suggestion short of what the user just typed. */
-  queryClient.invalidateQueries({ queryKey: keys.taskNames() });
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: keys.summary() }),
+    queryClient.invalidateQueries({ queryKey: keys.entries() }),
+    queryClient.invalidateQueries({ queryKey: keys.stats() }),
+    queryClient.invalidateQueries({ queryKey: keys.calendar() }),
+    queryClient.invalidateQueries({ queryKey: keys.activity() }),
+    /* Starting a timer or saving an entry mints a task name, so a list held
+       from before it is one suggestion short of what the user just typed. */
+    queryClient.invalidateQueries({ queryKey: keys.taskNames() }),
+  ]);
 }

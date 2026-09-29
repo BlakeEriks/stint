@@ -50,6 +50,31 @@ Tasks write the test before the code, and each kind of code has its suite:
 
 A bug fix starts with the test that reproduces it.
 
+### VI. Every press answers in the same frame
+
+Nothing waits silently on the server. A press whose result is known and
+can be taken back shows that result at once; one the server decides (a
+validated form, a generated invoice) or that can't be taken back (a send, a
+delete, money) shows a pending state on the control instead. Never neither.
+
+Every write goes through one mechanism per platform —
+`useOptimisticMutation` (`apps/web/src/lib/client/mutations.ts`) or the
+`Optimistic` protocol's `press` (`apps/macos/Sources/Stint/Optimistic.swift`)
+— which gives both the same rules: overlapping presses let the latest win,
+a timer's presses reach the server in press order, a silent server fails a
+prediction after 10s, and a late answer refetches. A pending press has no
+bound, because "try again" on a write that landed could make it twice.
+`apps/web/scripts/check-mutation-usage.mjs` fails a web file that imports `useMutation`, with
+no opt-out; on macOS the PR checklist asks.
+
+The server stays the truth (Principle III): the refetch after the last press
+replaces every prediction. A rejection takes the prediction back and says
+why — in the form that stays open, otherwise in the app-wide notice, which
+outlives the screen that pressed — never silently (Principle I).
+
+A section switches without a server round trip: its route is static, and
+`(app)/loading.tsx` answers any route that isn't.
+
 ## Additional Constraints
 
 Facts a design works around:
@@ -83,4 +108,4 @@ change, the plausible design that breaks it, and why no check catches that
 in time. The version follows semver: MAJOR removes or redefines a principle,
 MINOR adds one, PATCH rewords. The reasoning goes in the PR.
 
-**Version**: 7.0.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-28
+**Version**: 7.1.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-28

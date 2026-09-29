@@ -33,8 +33,9 @@ the domain until required checks pass, so the migration runs while the
 `.github/workflows/ci.yml`, five jobs in parallel:
 
 - **`static`** — lint, token drift, the contrast contract, shadcn detox, the
-  typography scale, typecheck, the UI suite, core logic, the hygiene scan's
-  tests, the build script tests, the doc references check, then a build.
+  typography scale, writes through the shared mutation helper, typecheck,
+  the UI suite, core logic, the hygiene scan's tests, the build script
+  tests, the doc references check, then a build.
   Needs no database, so an obvious slip fails in seconds.
 - **`database`** — the route and RLS suites against a real Postgres service
   container. `scripts/ci-db.sh` builds both databases, applying migrations
@@ -188,8 +189,9 @@ a private project, so an unauthenticated request 302s to `vercel.com/sso-api`.
 That is protection on the *deployment* URL, not a broken app — test a real
 domain instead.
 
-The app's own redirect looks similar but is not the same thing: on the app
-host, `/` returns 307 to `/signin` when signed out.
+The app's own redirect is a different thing: every app page is static and
+returns 200, and a signed-out visitor is sent to `/signin` in the browser
+when the first API call returns 401.
 
 ## 3b. Backups
 

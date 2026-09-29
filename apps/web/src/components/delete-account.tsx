@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import {
   Dialog,
   DialogContent,
@@ -71,8 +72,11 @@ function DeleteAccountDialog({
     enabled: open,
   });
 
-  const remove = useMutation({
-    mutationFn: api.deleteAccount,
+  // Pending: it can't be taken back.
+  const remove = useOptimisticMutation({
+    queryKey: () => keys.account(),
+    inline: true,
+    mutationFn: () => api.deleteAccount(),
     onSuccess: async () => {
       // The auth user is gone, but this browser's JWT still verifies until it
       // expires, so /signin would send it home. Clear it here first.

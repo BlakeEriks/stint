@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,7 +35,6 @@ export function ClientForm({
   onCancel?: () => void;
 }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const [name, setName] = useState(existing?.name ?? '');
   const [email, setEmail] = useState(existing?.email ?? '');
@@ -48,16 +47,23 @@ export function ClientForm({
   );
   const [color, setColor] = useState<string | null>(existing?.color ?? null);
 
-  const save = useMutation({
+  /* Pending: the server validates the client, and the form stays to say
+     what it refused. */
+  const save = useOptimisticMutation({
+    queryKey: () => keys.clients(),
+    inline: true,
     mutationFn: (body: ClientInput) =>
       existing ? api.updateClient(existing.id, body) : api.createClient(body),
+    /* The client's rate is what unbilled work is valued at — and every
+       other rollup reads the same entries through the same rate chain, so
+       refreshing `stats` alone leaves the activity list disagreeing with
+       the figure above it. */
+    invalidate: (qc) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.clients() }),
+        invalidateEntryData(qc),
+      ]),
     onSuccess: (saved) => {
-      queryClient.invalidateQueries({ queryKey: keys.clients() });
-      /* The client's rate is what unbilled work is valued at — and every
-         other rollup reads the same entries through the same rate chain, so
-         refreshing `stats` alone leaves the activity list disagreeing with
-         the figure above it. */
-      invalidateEntryData(queryClient);
       if (onSaved) onSaved(saved);
       else router.push(`/clients/${saved.id}`);
     },

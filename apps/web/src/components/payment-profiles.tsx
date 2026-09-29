@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { PaymentProfileDialog } from './payment-profile-dialog';
-import { api, ApiError, type PaymentProfile } from '@/lib/client/api';
+import { api, type PaymentProfile } from '@/lib/client/api';
 import { keys } from '@/lib/client/query-keys';
 
 /**
@@ -16,7 +17,6 @@ import { keys } from '@/lib/client/query-keys';
  * resolve.
  */
 export function PaymentProfiles() {
-  const queryClient = useQueryClient();
   const [editing, setEditing] = useState<PaymentProfile | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -26,20 +26,29 @@ export function PaymentProfiles() {
   });
   const profiles = (data?.paymentProfiles ?? []).filter((p) => !p.archivedAt);
 
-  const makeDefault = useMutation({
-    mutationFn: (id: string) =>
-      api.updatePaymentProfile(id, { isDefault: true }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: keys.paymentProfiles() }),
+  const makeDefault = useOptimisticMutation<
+    string,
+    unknown,
+    { paymentProfiles: PaymentProfile[] }
+  >({
+    queryKey: () => keys.paymentProfiles(),
+    /* Named, and explained by the notice rather than this row: it decides
+       which bank details print on an invoice, so a refusal must say so even
+       after Settings has closed. */
+    mutationFn: (id) =>
+      api.updatePaymentProfile(id, { isDefault: true }).catch((e: Error) => {
+        const name = profiles.find((p) => p.id === id)?.name ?? 'that profile';
+        throw new Error(`Couldn’t make ${name} the default. ${e.message}`);
+      }),
+    predict: (current, id) =>
+      current && {
+        ...current,
+        paymentProfiles: current.paymentProfiles.map((p) => ({
+          ...p,
+          isDefault: p.id === id,
+        })),
+      },
   });
-
-  /* Which profile the failure belongs to. One mutation serves every row, so
-     without this the message would have to sit at the foot of the section and
-     could not say which "Make default" was refused — and this one decides
-     which bank details print on an invoice, so a silent refusal means the
-     next invoice carries the wrong account. */
-  const failedOn =
-    makeDefault.error != null ? (makeDefault.variables ?? null) : null;
 
   return (
     <Section
@@ -75,7 +84,6 @@ export function PaymentProfiles() {
                     variant="ghost"
                     size="sm"
                     onClick={() => makeDefault.mutate(profile.id)}
-                    disabled={makeDefault.isPending}
                   >
                     Make default
                   </Button>
@@ -90,14 +98,6 @@ export function PaymentProfiles() {
                   Edit
                 </Button>
               </div>
-
-              {failedOn === profile.id ? (
-                <p role="alert" className="mt-2 type-support text-danger">
-                  {makeDefault.error instanceof ApiError
-                    ? makeDefault.error.message
-                    : 'Could not make this the default.'}
-                </p>
-              ) : null}
             </li>
           ))}
         </ul>

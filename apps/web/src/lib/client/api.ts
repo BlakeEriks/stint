@@ -196,8 +196,11 @@ export const api = {
     );
   },
 
-  startTimer: (body: { taskName: string; projectId?: string | null }) =>
-    request<TimeEntry>('POST', '/timer/start', body),
+  startTimer: (body: {
+    id?: string;
+    taskName: string;
+    projectId?: string | null;
+  }) => request<TimeEntry>('POST', '/timer/start', body),
 
   stopTimer: () => request<StoppedTimer>('POST', '/timer/stop', {}),
 
