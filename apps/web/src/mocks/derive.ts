@@ -430,54 +430,26 @@ export function expenseView(db: Db, e: Expense): Expense {
   };
 }
 
-const firstOf = (date: string) => `${date.slice(0, 7)}-01`;
-const nextMonth = (month: string) => {
-  const [y, m] = month.split('-').map(Number) as [number, number];
-  return m === 12
-    ? `${y + 1}-01-01`
-    : `${y}-${String(m + 1).padStart(2, '0')}-01`;
-};
-const lastDay = (month: string) => addDays(nextMonth(month), -1);
-
 /**
- * `produce_recurring_expenses`: every month due through today in `tz`, on
- * the first charge's day or the month's last, never one the watermark has
- * passed — so a deleted month stays deleted.
+ * `loadBillableExpenses`: every recurring expense, dated the period's end,
+ * and every unbilled one-off dated on or before it, less the excluded.
  */
-export function produceRecurring(db: Db, tz: string) {
-  const today = localDateKey(db.now, tz);
-  for (const r of db.recurringExpenses) {
-    const limit = r.stoppedOn && r.stoppedOn < today ? r.stoppedOn : today;
-    const day = Number(r.startsOn.slice(8, 10));
-    let month = r.producedThrough
-      ? nextMonth(r.producedThrough)
-      : firstOf(r.startsOn);
-    while (month <= limit) {
-      const candidate = `${month.slice(0, 8)}${String(day).padStart(2, '0')}`;
-      const spentOn = candidate > lastDay(month) ? lastDay(month) : candidate;
-      if (spentOn > limit) break;
-      if (
-        !db.expenses.some(
-          (e) => e.recurringExpenseId === r.id && firstOf(e.spentOn) === month,
-        )
-      )
-        db.expenses.push({
-          id: uuidv7(db.now.getTime()),
-          clientId: r.clientId,
-          projectId: r.projectId,
-          spentOn,
-          description: r.description,
-          amount: r.amount,
-          note: r.note,
-          invoiceId: null,
-          invoiceNumber: null,
-          invoiceStatus: null,
-          recurringExpenseId: r.id,
-        });
-      r.producedThrough = month;
-      month = nextMonth(month);
-    }
-  }
+export function billableExpenses(db: Db, body: PreviewRequest) {
+  return db.expenses
+    .filter(
+      (e) =>
+        e.clientId === body.clientId &&
+        e.invoiceId === null &&
+        (e.recurring || (e.spentOn as string) <= body.periodEnd) &&
+        !body.excludedExpenseIds?.includes(e.id),
+    )
+    .map(({ id, recurring, spentOn, description, amount }) => ({
+      id,
+      recurring,
+      spentOn: spentOn ?? body.periodEnd,
+      description,
+      amount,
+    }));
 }
 
 /** `POST /invoices/preview`: the client's unbilled work in the period. */
@@ -509,20 +481,7 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
         taxRate: client.taxRate ?? 0,
         tz,
         manualLines: body.manualLines,
-        expenses: db.expenses
-          .filter(
-            (e) =>
-              e.clientId === client.id &&
-              e.invoiceId === null &&
-              e.spentOn <= body.periodEnd &&
-              !body.excludedExpenseIds?.includes(e.id),
-          )
-          .map(({ id, spentOn, description, amount }) => ({
-            id,
-            spentOn,
-            description,
-            amount,
-          })),
+        expenses: billableExpenses(db, body),
       },
     ),
   };

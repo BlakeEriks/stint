@@ -4,21 +4,25 @@ import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import { EXPENSE_COLUMNS, type ExpenseRow } from '@/lib/rows';
 import { expenseWriteError, withInvoices } from '@/lib/expenses';
-import { produceRecurringExpenses } from '@/lib/invoicing';
 import { CreateExpense, ListExpensesQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
-/** GET /api/v1/expenses — unbilled by default, oldest first. */
+/**
+ * GET /api/v1/expenses — recurring first, then oldest first.
+ *
+ * `open` is what a client's card lists: recurring, unbilled, and on an
+ * invoice not yet paid, so a billed expense stays in view until the money
+ * arrives. `unbilled` is what an invoice can take.
+ */
 export const GET = handle(async (req: Request) => {
-  const { userId, db } = await requireSession(req);
+  const { db } = await requireSession(req);
   const q = parseQuery(req, ListExpensesQuery);
-
-  await produceRecurringExpenses(db, userId, q.tz);
 
   let query = db
     .from('expenses')
     .select(EXPENSE_COLUMNS)
+    .order('recurring', { ascending: false })
     .order('spent_on', { ascending: true })
     .order('created_at', { ascending: true });
 
@@ -28,8 +32,14 @@ export const GET = handle(async (req: Request) => {
   const { data, error } = await query;
   if (error) throw error;
 
+  const expenses = await withInvoices(db, (data ?? []) as ExpenseRow[]);
   return NextResponse.json({
-    expenses: await withInvoices(db, (data ?? []) as ExpenseRow[]),
+    expenses:
+      q.status === 'open'
+        ? expenses.filter(
+            (e) => e.invoiceStatus !== 'paid' && e.invoiceStatus !== 'void',
+          )
+        : expenses,
   });
 });
 
@@ -49,8 +59,8 @@ export const POST = handle(async (req: Request) => {
       id: body.id,
       user_id: userId,
       client_id: body.clientId,
-      project_id: body.projectId ?? null,
-      spent_on: body.spentOn,
+      recurring: body.recurring,
+      spent_on: body.spentOn ?? null,
       description: body.description,
       amount: body.amount,
       note: body.note ?? null,

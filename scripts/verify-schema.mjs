@@ -19,7 +19,6 @@ const EXPECTED = [
   'invoices',
   'payment_profiles',
   'projects',
-  'recurring_expenses',
   'time_entries',
   'user_settings',
 ];

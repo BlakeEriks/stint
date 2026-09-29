@@ -68,7 +68,6 @@ async function seed(defaultRate: number | null): Promise<void> {
 
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
-  await pool.query('delete from recurring_expenses');
   await pool.query('delete from invoice_line_items');
   // Detach before deleting: the immutability trigger refuses to delete an
   // entry still billed on a non-draft invoice.

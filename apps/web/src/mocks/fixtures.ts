@@ -13,7 +13,6 @@ import type {
   Invoice,
   PaymentProfile,
   Project,
-  RecurringExpense,
   Settings,
   StoredLineItem,
   TimeEntry,
@@ -32,11 +31,6 @@ import { ZONE } from './time.mts';
 
 type StoredInvoice = Invoice & { lineItems: StoredLineItem[] };
 
-/** The first of the last month produced, which the API never shows. */
-export type StoredRecurrence = RecurringExpense & {
-  producedThrough: string | null;
-};
-
 export interface Db {
   now: Date;
   email: string;
@@ -46,7 +40,6 @@ export interface Db {
   entries: TimeEntry[];
   invoices: StoredInvoice[];
   expenses: Expense[];
-  recurringExpenses: StoredRecurrence[];
   paymentProfiles: PaymentProfile[];
 }
 
@@ -67,9 +60,7 @@ export const ids = {
   admin: id(206),
   ach: id(401),
   wire: id(402),
-  claudeMonthly: id(601),
-  claudeAugust: id(611),
-  claudeSeptember: id(612),
+  claudeMax: id(601),
   figma: id(613),
   stockPhotos: id(614),
 } as const;
@@ -264,7 +255,7 @@ export function seed(now: Date): Db {
   );
 
   const invoices = invoicesFor(entries, projects, clients);
-  const { expenses, recurringExpenses } = expensesFor(invoices);
+  const expenses = expensesFor(invoices);
 
   return {
     now,
@@ -275,7 +266,6 @@ export function seed(now: Date): Db {
     entries,
     invoices,
     expenses,
-    recurringExpenses,
     paymentProfiles: [
       {
         id: ids.ach,
@@ -544,8 +534,8 @@ function invoicesFor(
 /**
  * Costs clients reimburse, one of each state an expense can be in:
  *
- * - Northwind pays back a monthly subscription from 5 August. August's is on
- *   its sent invoice, so it is locked; September's is waiting.
+ * - Northwind reimburses a subscription on every invoice. August's sent
+ *   invoice froze a copy of it; the expense itself is never attached.
  * - Northwind also owes a one-off license from last month, waiting.
  * - Byrne's draft carries one, so it is billed and still editable.
  *
@@ -554,7 +544,7 @@ function invoicesFor(
 function expensesFor(invoices: StoredInvoice[]) {
   const expense = (over: Partial<Expense> & Pick<Expense, 'id'>): Expense => ({
     clientId: ids.northwind,
-    projectId: null,
+    recurring: false,
     spentOn: '2026-09-05',
     description: '',
     amount: 0,
@@ -562,38 +552,16 @@ function expensesFor(invoices: StoredInvoice[]) {
     invoiceId: null,
     invoiceNumber: null,
     invoiceStatus: null,
-    recurringExpenseId: null,
     ...over,
   });
 
-  const recurringExpenses: StoredRecurrence[] = [
-    {
-      id: ids.claudeMonthly,
-      clientId: ids.northwind,
-      projectId: null,
-      description: 'Claude Max subscription',
-      amount: 200,
-      note: null,
-      startsOn: '2026-08-05',
-      stoppedOn: null,
-      producedThrough: '2026-09-01',
-    },
-  ];
-
   const expenses = [
     expense({
-      id: ids.claudeAugust,
-      spentOn: '2026-08-05',
+      id: ids.claudeMax,
+      recurring: true,
+      spentOn: null,
       description: 'Claude Max subscription',
       amount: 200,
-      recurringExpenseId: ids.claudeMonthly,
-    }),
-    expense({
-      id: ids.claudeSeptember,
-      spentOn: '2026-09-05',
-      description: 'Claude Max subscription',
-      amount: 200,
-      recurringExpenseId: ids.claudeMonthly,
     }),
     expense({
       id: ids.figma,
@@ -605,32 +573,33 @@ function expensesFor(invoices: StoredInvoice[]) {
     expense({
       id: ids.stockPhotos,
       clientId: ids.byrne,
-      projectId: ids.brand,
       spentOn: '2026-08-18',
       description: 'Stock photography',
       amount: 75,
     }),
   ];
 
-  bill(invoices, expenses, ids.claudeAugust, 13);
-  bill(invoices, expenses, ids.stockPhotos, 15);
-  return { expenses, recurringExpenses };
+  const claude = expenses[0] as Expense;
+  freeze(invoices, 13, claude, '2026-08-31');
+  const photos = expenses[2] as Expense;
+  const draft = freeze(invoices, 15, photos, photos.spentOn as string);
+  Object.assign(photos, {
+    invoiceId: draft.id,
+    invoiceNumber: draft.invoiceNumber,
+    invoiceStatus: draft.status,
+  });
+  return expenses;
 }
 
-/** Puts an expense on an invoice, as generation would have. */
-function bill(
+/** An expense's frozen line on an invoice, as generation would have written
+ *  it. Attaching the expense is the caller's: a recurring one never is. */
+function freeze(
   invoices: StoredInvoice[],
-  expenses: Expense[],
-  expenseId: string,
   seq: number,
+  e: Expense,
+  spentOn: string,
 ) {
   const invoice = invoices.find((i) => i.sequenceNo === seq) as StoredInvoice;
-  const e = expenses.find((x) => x.id === expenseId) as Expense;
-  Object.assign(e, {
-    invoiceId: invoice.id,
-    invoiceNumber: invoice.invoiceNumber,
-    invoiceStatus: invoice.status,
-  });
   invoice.lineItems.push({
     id: id(5900 + seq),
     sortOrder: invoice.lineItems.length,
@@ -639,10 +608,11 @@ function bill(
     quantity: 1,
     unitPrice: e.amount,
     amount: e.amount,
-    spentOn: e.spentOn,
+    spentOn,
   });
   invoice.expensesSubtotal += e.amount;
   invoice.total += e.amount;
+  return invoice;
 }
 
 /** Entries as invoicing reads them: each with its whole rate chain. */

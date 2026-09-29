@@ -7,8 +7,7 @@ import {
   loadSettings,
   loadBillableEntries,
   loadPaymentProfile,
-  loadUnbilledExpenses,
-  produceRecurringExpenses,
+  loadBillableExpenses,
 } from '@/lib/invoicing';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
 import { buildLineItems, buildPaymentDetails } from '@stint/core';
@@ -67,7 +66,6 @@ export const POST = handle(async (req: Request) => {
   const [client, settings] = await Promise.all([
     loadClient(db, body.clientId),
     loadSettings(db),
-    produceRecurringExpenses(db, userId, body.tz),
   ]);
 
   const clientRate =
@@ -83,7 +81,7 @@ export const POST = handle(async (req: Request) => {
       userDefaultRate: settings.defaultHourlyRate,
       clientRate,
     }),
-    loadUnbilledExpenses(db, {
+    loadBillableExpenses(db, {
       clientId: body.clientId,
       periodEnd: body.periodEnd,
       excludedIds: body.excludedExpenseIds,
@@ -155,9 +153,9 @@ export const POST = handle(async (req: Request) => {
       })),
     },
     p_entry_ids: totals.lineItems.flatMap((li) => li.entryIds),
-    p_expense_ids: totals.lineItems.flatMap((li) =>
-      li.expenseId ? [li.expenseId] : [],
-    ),
+    // One-offs only: a recurring expense is frozen onto this invoice but
+    // stays unattached, to bill again on the next.
+    p_expense_ids: expenses.filter((e) => !e.recurring).map((e) => e.id),
   });
 
   if (error) {

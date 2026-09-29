@@ -15,7 +15,6 @@ import {
 } from './rows';
 import {
   addDays,
-  localDateKey,
   resolvePaymentProfile,
   startOfLocalDate,
 } from '@stint/core';
@@ -116,52 +115,40 @@ export async function loadBillableEntries(
 }
 
 /**
- * Produces every monthly expense that has come due, through today in `tz`.
+ * What this invoice can bill of the client's expenses: every recurring one,
+ * and every unbilled one-off dated on or before the period's end — an earlier
+ * month's included, so one missed invoice does not strand a reimbursement —
+ * less the ones the user left off.
  *
- * Called before anything reads expenses — the list, a preview, generation —
- * so a recurrence's month is always there by the time someone looks, with no
- * scheduled job to keep in step. Producing twice produces nothing twice.
+ * A recurring expense has no date of its own, so its line takes the period's
+ * last day: the date the invoice claims to cover. `recurring` tells the
+ * caller not to attach it, since it bills again on the next invoice.
  */
-export async function produceRecurringExpenses(
-  db: SupabaseClient,
-  userId: string,
-  tz: string,
-): Promise<void> {
-  const { error } = await db.rpc('produce_recurring_expenses', {
-    p_user_id: userId,
-    p_through: localDateKey(new Date(), tz),
-  });
-  if (error) throw error;
-}
-
-/**
- * The client's unbilled expenses dated on or before the period's end — an
- * earlier month's included, so one missed invoice does not strand a
- * reimbursement — less the ones the user left off this invoice.
- *
- * `spent_on` is a calendar date, so unlike entries there is no window to
- * resolve in a zone.
- */
-export async function loadUnbilledExpenses(
+export async function loadBillableExpenses(
   db: SupabaseClient,
   opts: { clientId: string; periodEnd: string; excludedIds: string[] },
-): Promise<ExpenseInput[]> {
+): Promise<Array<ExpenseInput & { recurring: boolean }>> {
   const { data, error } = await db
     .from('expenses')
-    .select('id, spent_on, description, amount')
+    .select('id, recurring, spent_on, description, amount')
     .eq('client_id', opts.clientId)
     .is('invoice_id', null)
-    .lte('spent_on', opts.periodEnd)
-    .order('spent_on', { ascending: true });
+    .order('spent_on', { ascending: true })
+    .order('created_at', { ascending: true });
 
   if (error) throw error;
 
   const excluded = new Set(opts.excludedIds);
   return (data ?? [])
-    .filter((row) => !excluded.has(row.id as string))
+    .filter(
+      (row) =>
+        (row.recurring || (row.spent_on as string) <= opts.periodEnd) &&
+        !excluded.has(row.id as string),
+    )
     .map((row) => ({
       id: row.id as string,
-      spentOn: row.spent_on as string,
+      recurring: row.recurring as boolean,
+      spentOn: (row.spent_on as string | null) ?? opts.periodEnd,
       description: row.description as string,
       amount: num(row.amount) ?? 0,
     }));

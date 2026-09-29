@@ -33,25 +33,25 @@ bill needs something to bill. Both are P1. User Stories 1 to 3 are the
 
 ## Phase 1: Setup
 
-- [ ] T001 In `/Users/blakeeriks/dev/stint-f48-expenses`, run `pnpm dev:up`, `pnpm db:setup`, the dev server and Storybook (port 6007), and sign in to the seeded account (`docs/local-dev.md`). Confirm `pnpm verify:static` and `pnpm verify:db` pass before any change.
+- [X] T001 In `/Users/blakeeriks/dev/stint-f48-expenses`, run `pnpm dev:up`, `pnpm db:setup`, the dev server and Storybook (port 6007), and sign in to the seeded account (`docs/local-dev.md`). Confirm `pnpm verify:static` and `pnpm verify:db` pass before any change.
 
 ---
 
 ## Phase 2: Foundational (blocks every story)
 
-- [ ] T002 Edit `supabase/migrations/00000000000025_expenses.sql` in place (`research.md` R11), per `data-model.md`:
+- [X] T002 Edit `supabase/migrations/00000000000025_expenses.sql` in place (`research.md` R11), per `data-model.md`:
   - Remove `project_id`, the `expense_project_same_owner` foreign key, `check_expense_project()` and `t_expenses_project_client`.
   - Add `recurring boolean not null default false`. Make `spent_on date null`.
   - Add `constraint expense_dated check (recurring = (spent_on is null))` and `constraint recurring_never_billed check (not recurring or invoice_id is null)`.
   - Replace the unbilled index with `create index expenses_unbilled_idx on expenses (user_id, client_id) where invoice_id is null`.
   - In `guard_billed_expense`, lock `recurring` with `spent_on`, `description`, `amount` and `client_id`; drop `project_id` from it.
   - Comment each change with its reason, in the file's style.
-- [ ] T003 Delete `supabase/migrations/00000000000026_recurring_expenses.sql`, and remove `recurring_expenses` and `produce_recurring_expenses` from `EXPECTED` in `scripts/verify-schema.mjs`. Run `pnpm db:setup` and `pnpm verify:schema`.
-- [ ] T004 [P] In `packages/schema/src/index.ts`: add `recurring: z.boolean()` to `Expense` and `CreateExpense` (default `false`); make `spentOn` nullable on `Expense`, and on `CreateExpense`/`UpdateExpense` required exactly when not recurring and refused when recurring (`contracts/expenses-api.md`); remove `projectId` from all three; change `ListExpensesQuery.status` to `open|unbilled`, default `open`, and drop `tz`; delete the `RecurringExpense`, `CreateRecurringExpense` and `UpdateRecurringExpense` schemas.
-- [ ] T005 [P] In `apps/web/src/lib/rows.ts`, map `recurring` and drop `project_id` and `recurring_expense_id` from the expense row and `toExpense`; delete the recurring-expense row mapping.
-- [ ] T006 Delete `apps/web/src/app/api/v1/recurring-expenses/` (both routes), `produceRecurringExpenses` in `apps/web/src/lib/invoicing.ts` and every call to it (`expenses/route.ts`, `invoices/route.ts`, `invoices/preview/route.ts`), and the recurring calls and keys in `apps/web/src/lib/client/api.ts` and `apps/web/src/lib/client/query-keys.ts`.
-- [ ] T007 In `apps/web/src/mocks/` (`fixtures.ts`, `derive.ts`, `handlers.ts`, `respond.ts`, `db.ts`): remove `recurringExpenses`, `StoredRecurrence`, `produceRecurring` and the recurring handlers; add `recurring` to stored expenses; drop `projectId`. Reseed per the design: Northwind has "Claude Max subscription", $200, recurring, and "Figma license, annual", $180, 20 Aug 2026, waiting; Byrne has "Stock photography", $75, 18 Aug 2026, on draft INV-15. INV-13 keeps its frozen Claude Max line with no expense attached.
-- [ ] T008 Update `apps/web/test/mocks-parity.test.ts` to write a recurring and a one-off expense and compare `GET /expenses` (`status=open` and `unbilled`) between the mock and the real routes; drop its recurrence steps. In `apps/web/test/rls.test.ts`, remove the `recurring_expenses` cases and keep the `expenses` ones.
+- [X] T003 Delete `supabase/migrations/00000000000026_recurring_expenses.sql`, and remove `recurring_expenses` and `produce_recurring_expenses` from `EXPECTED` in `scripts/verify-schema.mjs`. Run `pnpm db:setup` and `pnpm verify:schema`.
+- [X] T004 [P] In `packages/schema/src/index.ts`: add `recurring: z.boolean()` to `Expense` and `CreateExpense` (default `false`); make `spentOn` nullable on `Expense`, and on `CreateExpense`/`UpdateExpense` required exactly when not recurring and refused when recurring (`contracts/expenses-api.md`); remove `projectId` from all three; change `ListExpensesQuery.status` to `open|unbilled`, default `open`, and drop `tz`; delete the `RecurringExpense`, `CreateRecurringExpense` and `UpdateRecurringExpense` schemas.
+- [X] T005 [P] In `apps/web/src/lib/rows.ts`, map `recurring` and drop `project_id` and `recurring_expense_id` from the expense row and `toExpense`; delete the recurring-expense row mapping.
+- [X] T006 Delete `apps/web/src/app/api/v1/recurring-expenses/` (both routes), `produceRecurringExpenses` in `apps/web/src/lib/invoicing.ts` and every call to it (`expenses/route.ts`, `invoices/route.ts`, `invoices/preview/route.ts`), and the recurring calls and keys in `apps/web/src/lib/client/api.ts` and `apps/web/src/lib/client/query-keys.ts`.
+- [X] T007 In `apps/web/src/mocks/` (`fixtures.ts`, `derive.ts`, `handlers.ts`, `respond.ts`, `db.ts`): remove `recurringExpenses`, `StoredRecurrence`, `produceRecurring` and the recurring handlers; add `recurring` to stored expenses; drop `projectId`. Reseed per the design: Northwind has "Claude Max subscription", $200, recurring, and "Figma license, annual", $180, 20 Aug 2026, waiting; Byrne has "Stock photography", $75, 18 Aug 2026, on draft INV-15. INV-13 keeps its frozen Claude Max line with no expense attached.
+- [X] T008 Update `apps/web/test/mocks-parity.test.ts` to write a recurring and a one-off expense and compare `GET /expenses` (`status=open` and `unbilled`) between the mock and the real routes; drop its recurrence steps. In `apps/web/test/rls.test.ts`, remove the `recurring_expenses` cases and keep the `expenses` ones.
 
 **Checkpoint**: `pnpm verify:db` and `pnpm verify:static` pass with no recurring table or route left.
 
@@ -65,7 +65,7 @@ bill needs something to bill. Both are P1. User Stories 1 to 3 are the
 
 ### Tests
 
-- [ ] T009 [P] [US2] In `apps/web/test/routes.test.ts`, test `POST /expenses` with `recurring: false` and a `spentOn`, and the `422 VALIDATION_FAILED` cases: no `spentOn` on a one-off, a `spentOn` on a recurring one, amount `0`, blank description. Test `GET /expenses?status=open` returns recurring first, then by `spentOn`.
+- [X] T009 [P] [US2] In `apps/web/test/invoices.test.ts`, beside the other expense route tests,, test `POST /expenses` with `recurring: false` and a `spentOn`, and the `422 VALIDATION_FAILED` cases: no `spentOn` on a one-off, a `spentOn` on a recurring one, amount `0`, blank description. Test `GET /expenses?status=open` returns recurring first, then by `spentOn`.
 - [ ] T010 [P] [US2] In `apps/web/src/components/client-list.stories.tsx`, one story per scenario, each with a `play` that asserts it:
   - `AddExpense` (US2 scenario 1): press **+ Expense** on Northwind, fill the dialog, save; the row shows under Expenses.
   - `EditExpense` (US2 scenario 2): click Figma, change the amount to 150, save; the row shows $150.00.
@@ -75,7 +75,7 @@ bill needs something to bill. Both are P1. User Stories 1 to 3 are the
 
 ### Implementation
 
-- [ ] T011 [US2] In `apps/web/src/app/api/v1/expenses/route.ts` and `[id]/route.ts`: accept `recurring`; implement `status=open` (recurring, unbilled, and on a `draft` or `sent` invoice) and `unbilled` (recurring and unbilled), ordered recurring first then `spent_on`, with each row's invoice via `withInvoices` (`research.md` R7); `PATCH` with `recurring: true` clears `spent_on`, and returns `422` when the expense has an invoice.
+- [X] T011 [US2] In `apps/web/src/app/api/v1/expenses/route.ts` and `[id]/route.ts`: accept `recurring`; implement `status=open` (recurring, unbilled, and on a `draft` or `sent` invoice) and `unbilled` (recurring and unbilled), ordered recurring first then `spent_on`, with each row's invoice via `withInvoices` (`research.md` R7); `PATCH` with `recurring: true` clears `spent_on`, and returns `422` when the expense has an invoice.
 - [ ] T012 [P] [US2] Create `apps/web/src/components/expense-row.tsx`: `ExpenseRow`, one line per the design: name (`type-control text-strong`, truncating), a `type-badge` label (**↻ Recurring**, or the invoice number when billed), the date (`type-meta text-subtle`, blank when recurring), the amount (`type-duration`), then a Pencil, or an arrow when billed. A billed row's name and amount step down to `text-muted`. The row is a button like `client-list.tsx`'s project `Row`; an optional `leading` slot takes New invoice's checkbox and hides the trailing icon.
 - [ ] T013 [P] [US2] Create `apps/web/src/components/expense-dialog.tsx`: `ExpenseDialog` for add and edit, per the design: Description, Amount and Date paid, a **Recurring** checkbox with "Billed on every invoice to {client} until unchecked.", and Note. Checking Recurring hides Date paid. Editing adds Delete on the left. Writes go through `useOptimisticMutation` (Principle VI): save predicts the row into `keys.expenses()`, delete predicts its removal; errors stay in the open dialog.
 - [ ] T014 [US2] Create `apps/web/src/components/client-expenses.tsx`: `ClientExpenses`, given a client and its expenses, renders the **Expenses** `type-label` and the rows, or nothing when there are none. A row opens `ExpenseDialog`; a billed row links to `/invoices/{id}`.
@@ -120,7 +120,7 @@ bill needs something to bill. Both are P1. User Stories 1 to 3 are the
 
 ### Tests
 
-- [ ] T021 [P] [US3] In `apps/web/test/invoices.test.ts`, keep the lock and void cases and add: `status=open` includes a one-off on a `sent` invoice with its number, and leaves it out once the invoice is `paid`.
+- [X] T021 [P] [US3] In `apps/web/test/invoices.test.ts`, keep the lock and void cases and add: `status=open` includes a one-off on a `sent` invoice with its number, and leaves it out once the invoice is `paid`.
 - [ ] T022 [P] [US3] In `apps/web/src/components/client-list.stories.tsx`: `BilledExpense` (US3 scenario 1): Byrne's Stock photography shows muted with `STINT-0015` and links to the invoice; `PaidExpenseGone`: once INV-15 is paid, the row is gone.
 
 ### Implementation
@@ -137,7 +137,7 @@ bill needs something to bill. Both are P1. User Stories 1 to 3 are the
 
 ### Tests
 
-- [ ] T024 [P] [US4] In `apps/web/test/invoices.test.ts`, replace the recurrence cases with:
+- [X] T024 [P] [US4] In `apps/web/test/invoices.test.ts`, replace the recurrence cases with:
   - US4 scenario 1: a recurring expense is on the September preview, its line dated `2026-09-30`.
   - US4 scenario 2: after generating September, the October preview includes it again, and the expense's `invoice_id` is still null.
   - US4 scenario 3: changing its amount changes the next preview; September's line keeps the old amount.
@@ -148,9 +148,9 @@ bill needs something to bill. Both are P1. User Stories 1 to 3 are the
 
 ### Implementation
 
-- [ ] T026 [US4] In `apps/web/src/lib/invoicing.ts`, rename `loadUnbilledExpenses` to `loadBillableExpenses`: it returns the client's recurring expenses with `spentOn` set to `periodEnd`, plus unbilled one-offs with `spent_on <= periodEnd` (`research.md` R6), minus `excludedExpenseIds`, each marked recurring or not.
-- [ ] T027 [US4] In `apps/web/src/app/api/v1/invoices/route.ts`, pass only one-off ids as `p_expense_ids` to `create_invoice`; recurring lines are frozen but not attached (`research.md` R5, R9).
-- [ ] T028 [US4] Mirror T026 and T027 in `apps/web/src/mocks/derive.ts` (`invoicePreview`) and `apps/web/src/mocks/handlers.ts` (create), so `mocks-parity.test.ts` holds.
+- [X] T026 [US4] In `apps/web/src/lib/invoicing.ts`, rename `loadUnbilledExpenses` to `loadBillableExpenses`: it returns the client's recurring expenses with `spentOn` set to `periodEnd`, plus unbilled one-offs with `spent_on <= periodEnd` (`research.md` R6), minus `excludedExpenseIds`, each marked recurring or not.
+- [X] T027 [US4] In `apps/web/src/app/api/v1/invoices/route.ts`, pass only one-off ids as `p_expense_ids` to `create_invoice`; recurring lines are frozen but not attached (`research.md` R5, R9).
+- [X] T028 [US4] Mirror T026 and T027 in `apps/web/src/mocks/derive.ts` (`invoicePreview`) and `apps/web/src/mocks/handlers.ts` (create), so `mocks-parity.test.ts` holds.
 
 ---
 

@@ -70,7 +70,6 @@ after(async () => {
 beforeEach(async () => {
   await admin.query('update expenses set invoice_id = null');
   await admin.query('delete from expenses');
-  await admin.query('delete from recurring_expenses');
   await admin.query('delete from invoice_line_items');
   await admin.query('update time_entries set invoice_id = null');
   await admin.query('delete from time_entries');
@@ -130,20 +129,12 @@ async function seedBoth() {
 /** One expense each, on each user's client. Call after `seedBoth`. */
 const ALICE_EXPENSE = '018f0000-0000-7000-9000-00000000000a';
 const BOB_EXPENSE = '018f0000-0000-7000-9000-00000000000b';
-const ALICE_RECURRENCE = 'aa000000-0000-7000-8000-00000000000a';
-const BOB_RECURRENCE = 'aa000000-0000-7000-8000-00000000000b';
 async function seedExpenses() {
   await admin.query(
     `insert into expenses (id,user_id,client_id,spent_on,description,amount) values
        ($1,$3,'cc000000-0000-4000-8000-00000000000a','2026-09-12','Alice license',199),
        ($2,$4,'cc000000-0000-4000-8000-00000000000b','2026-09-12','Bob license',299)`,
     [ALICE_EXPENSE, BOB_EXPENSE, ALICE, BOB],
-  );
-  await admin.query(
-    `insert into recurring_expenses (id,user_id,client_id,description,amount,starts_on) values
-       ($1,$3,'cc000000-0000-4000-8000-00000000000a','Alice monthly',20,'2026-09-01'),
-       ($2,$4,'cc000000-0000-4000-8000-00000000000b','Bob monthly',30,'2026-09-01')`,
-    [ALICE_RECURRENCE, BOB_RECURRENCE, ALICE, BOB],
   );
 }
 
@@ -196,7 +187,6 @@ test('every user-scoped table is isolated', async () => {
     'payment_profiles',
     'user_settings',
     'expenses',
-    'recurring_expenses',
   ]) {
     const seen = await asUser(ALICE, `select count(*)::int n from ${table}`);
     const total = await admin.query(`select count(*)::int n from ${table}`);
@@ -558,65 +548,5 @@ test('an expense cannot be filed under another user’s client', async () => {
         [ALICE],
       ),
     /expense_client_same_owner/,
-  );
-});
-
-test('another user’s recurring expense can be neither seen nor changed', async () => {
-  await seedBoth();
-  await seedExpenses();
-
-  const seen = await asUser(
-    ALICE,
-    'select description from recurring_expenses',
-  );
-  assert.deepEqual(
-    seen.map((r) => r.description),
-    ['Alice monthly'],
-  );
-
-  const updated = await asUser(
-    ALICE,
-    'update recurring_expenses set amount = 1 where id = $1 returning id',
-    [BOB_RECURRENCE],
-  );
-  assert.equal(updated.length, 0);
-
-  await assert.rejects(
-    () =>
-      asUser(
-        ALICE,
-        `insert into recurring_expenses (user_id,client_id,description,amount,starts_on)
-         values ($1,'cc000000-0000-4000-8000-00000000000b','Forged',1,'2026-09-01')`,
-        [BOB],
-      ),
-    /row-level security/i,
-  );
-});
-
-test('producing reaches only the caller’s own recurrences', async () => {
-  await seedBoth();
-  await seedExpenses();
-
-  // Alice names Bob as the user: RLS hides his recurrences from her call.
-  await asUser(ALICE, 'select produce_recurring_expenses($1, $2)', [
-    BOB,
-    '2026-09-30',
-  ]);
-  const { rows } = await admin.query(
-    'select count(*)::int n from expenses where recurring_expense_id is not null',
-  );
-  assert.equal(rows[0].n, 0, 'nothing was produced for Bob');
-
-  await asUser(ALICE, 'select produce_recurring_expenses($1, $2)', [
-    ALICE,
-    '2026-09-30',
-  ]);
-  const mine = await asUser(
-    ALICE,
-    'select description from expenses where recurring_expense_id is not null',
-  );
-  assert.deepEqual(
-    mine.map((r) => r.description),
-    ['Alice monthly'],
   );
 });

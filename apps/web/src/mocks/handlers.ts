@@ -21,7 +21,6 @@ import {
   calendar,
   expenseView,
   invoicePreview,
-  produceRecurring,
   type PreviewRequest,
   stats,
   summary,
@@ -401,7 +400,6 @@ export const handlers = {
 
   previewInvoice: http.post(`${API}/invoices/preview`, async ({ request }) => {
     const input = await body<PreviewRequest>(request);
-    produceRecurring(getDb(), input.tz ?? ZONE);
     const preview = invoicePreview(getDb(), input, input.tz ?? ZONE);
     return preview
       ? ok(schema.InvoicePreview, preview)
@@ -413,7 +411,6 @@ export const handlers = {
     const input = await body<
       PreviewRequest & { issueDate?: string; dueDate?: string; notes?: string }
     >(request);
-    produceRecurring(db, input.tz ?? ZONE);
     const preview = invoicePreview(db, input, input.tz ?? ZONE);
     if (!preview) return fail('ENTRY_NOT_FOUND');
     if (preview.unratedEntryIds.length > 0)
@@ -446,8 +443,10 @@ export const handlers = {
     };
     const claimed = new Set(preview.lineItems.flatMap((l) => l.entryIds));
     for (const e of db.entries) if (claimed.has(e.id)) e.invoiceId = invoice.id;
+    // One-offs only: a recurring expense bills again on the next invoice.
     const billed = new Set(preview.lineItems.map((l) => l.expenseId));
-    for (const e of db.expenses) if (billed.has(e.id)) e.invoiceId = invoice.id;
+    for (const e of db.expenses)
+      if (billed.has(e.id) && !e.recurring) e.invoiceId = invoice.id;
     db.invoices.push({
       ...invoice,
       lineItems: preview.lineItems.map(
@@ -508,39 +507,50 @@ export const handlers = {
   expenses: http.get(`${API}/expenses`, ({ request }) => {
     const db = getDb();
     const q = query(request);
-    produceRecurring(db, q.get('tz') ?? ZONE);
     const clientId = q.get('clientId');
-    const all = q.get('status') === 'all';
+    const unbilled = q.get('status') === 'unbilled';
     const rows = db.expenses
+      .map((e) => expenseView(db, e))
       .filter(
-        (e) => (!clientId || e.clientId === clientId) && (all || !e.invoiceId),
+        (e) =>
+          (!clientId || e.clientId === clientId) &&
+          (unbilled
+            ? !e.invoiceId
+            : e.invoiceStatus !== 'paid' && e.invoiceStatus !== 'void'),
       )
-      .sort((a, b) => a.spentOn.localeCompare(b.spentOn))
-      .map((e) => expenseView(db, e));
+      // Recurring first, then oldest first, as the route orders them.
+      .sort(
+        (a, b) =>
+          Number(b.recurring) - Number(a.recurring) ||
+          (a.spentOn ?? '').localeCompare(b.spentOn ?? ''),
+      );
     return ok(envelopes.expenses, { expenses: rows });
   }),
 
   createExpense: http.post(`${API}/expenses`, async ({ request }) => {
     const db = getDb();
     const input = await body<
-      Pick<Expense, 'id' | 'clientId' | 'spentOn' | 'description' | 'amount'> &
-        Partial<Pick<Expense, 'projectId' | 'note'>>
+      Pick<Expense, 'id' | 'clientId' | 'description' | 'amount'> &
+        Partial<Pick<Expense, 'recurring' | 'spentOn' | 'note'>>
     >(request);
     const existing = byId(db.expenses, input.id);
     if (existing) return ok(schema.Expense, expenseView(db, existing));
     if (!byId(db.clients, input.clientId))
-      return fail('VALIDATION_FAILED', 'No such client or project');
-    const project = byId(db.projects, input.projectId);
-    if (input.projectId && project?.clientId !== input.clientId)
-      return fail('VALIDATION_FAILED', 'That project is another client’s');
+      return fail('VALIDATION_FAILED', 'No such client');
+    const recurring = input.recurring ?? false;
+    if (recurring === (input.spentOn != null))
+      return fail(
+        'VALIDATION_FAILED',
+        'a one-off expense has a date and a recurring one has none',
+      );
     const expense: Expense = {
-      projectId: null,
       note: null,
       ...input,
+      recurring,
+      spentOn: input.spentOn ?? null,
       invoiceId: null,
       invoiceNumber: null,
       invoiceStatus: null,
-      recurringExpenseId: null,
     };
     db.expenses.push(expense);
     return ok(schema.Expense, expenseView(db, expense));
@@ -557,7 +567,20 @@ export const handlers = {
           'EXPENSE_LOCKED',
           'This expense is billed on an issued invoice and cannot be modified',
         );
-      Object.assign(expense, await body<Partial<Expense>>(request));
+      const patch = await body<Partial<Expense>>(request);
+      const next = { ...expense, ...patch };
+      if (patch.recurring === true) next.spentOn = null;
+      if (next.recurring && next.invoiceId)
+        return fail(
+          'VALIDATION_FAILED',
+          'An expense on an invoice cannot become recurring',
+        );
+      if (!next.recurring && next.spentOn == null)
+        return fail(
+          'VALIDATION_FAILED',
+          'A one-off expense needs the date it was paid',
+        );
+      Object.assign(expense, next);
       return ok(schema.Expense, expenseView(db, expense));
     },
   ),
@@ -574,74 +597,6 @@ export const handlers = {
     db.expenses = db.expenses.filter((e) => e !== expense);
     return noContent();
   }),
-
-  recurringExpenses: http.get(`${API}/recurring-expenses`, ({ request }) => {
-    const clientId = query(request).get('clientId');
-    // Live first, then the most recently stopped, as the route orders them.
-    const rows = getDb()
-      .recurringExpenses.filter((r) => !clientId || r.clientId === clientId)
-      .sort((a, b) =>
-        (b.stoppedOn ?? '9999').localeCompare(a.stoppedOn ?? '9999'),
-      );
-    return ok(envelopes.recurringExpenses, { recurringExpenses: rows });
-  }),
-
-  createRecurringExpense: http.post(
-    `${API}/recurring-expenses`,
-    async ({ request }) => {
-      const db = getDb();
-      const input = await body<{
-        id: string;
-        clientId: string;
-        projectId?: string | null;
-        startsOn: string;
-        description: string;
-        amount: number;
-        note?: string | null;
-      }>(request);
-      const existing = byId(db.recurringExpenses, input.id);
-      if (existing) return ok(schema.RecurringExpense, existing);
-      const recurrence = {
-        projectId: null,
-        note: null,
-        ...input,
-        stoppedOn: null,
-        producedThrough: null,
-      };
-      db.recurringExpenses.push(recurrence);
-      return ok(schema.RecurringExpense, recurrence);
-    },
-  ),
-
-  updateRecurringExpense: http.patch(
-    `${API}/recurring-expenses/:id`,
-    async ({ params, request }) => {
-      const db = getDb();
-      const recurrence = byId(db.recurringExpenses, params.id);
-      if (!recurrence) return fail('ENTRY_NOT_FOUND');
-      const { stop, tz, ...patch } = await body<{
-        stop?: true;
-        tz?: string;
-        startsOn?: string;
-      }>(request);
-      if (recurrence.stoppedOn)
-        return fail(
-          'VALIDATION_FAILED',
-          'A stopped recurring expense cannot change. Start a new one instead.',
-        );
-      if (patch.startsOn !== undefined && recurrence.producedThrough)
-        return fail(
-          'VALIDATION_FAILED',
-          'The first charge cannot move once a month has been produced.',
-        );
-      Object.assign(recurrence, patch);
-      if (stop) {
-        produceRecurring(db, tz ?? 'UTC');
-        recurrence.stoppedOn = localDateKey(db.now, tz ?? 'UTC');
-      }
-      return ok(schema.RecurringExpense, recurrence);
-    },
-  ),
 
   settings: http.get(`${API}/settings`, () =>
     ok(schema.Settings, getDb().settings),

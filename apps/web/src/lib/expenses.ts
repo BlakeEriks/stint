@@ -41,11 +41,23 @@ export function expenseWriteError(
       `This expense is billed on an issued invoice and cannot be ${verb}`,
     );
   }
-  // A client or project that is not the caller's fails the same-owner key.
+  // A client that is not the caller's fails the same-owner key.
   if (error.code === '23503') {
-    return new ApiError('VALIDATION_FAILED', 'No such client or project', {
+    return new ApiError('VALIDATION_FAILED', 'No such client', {
       constraint: error.message,
     });
+  }
+  if (/expense_dated/.test(error.message ?? '')) {
+    return new ApiError(
+      'VALIDATION_FAILED',
+      'A one-off expense needs the date it was paid',
+    );
+  }
+  if (/recurring_never_billed/.test(error.message ?? '')) {
+    return new ApiError(
+      'VALIDATION_FAILED',
+      'An expense on an invoice cannot become recurring',
+    );
   }
   return error as Error;
 }

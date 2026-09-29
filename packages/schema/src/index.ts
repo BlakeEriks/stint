@@ -442,8 +442,10 @@ export const Invoice = z.object({
 export const Expense = z.object({
   id: uuid,
   clientId: uuid,
-  projectId: uuid.nullable(),
-  spentOn: z.iso.date(),
+  /** Billed on every invoice for the client, and never attached to one. */
+  recurring: z.boolean(),
+  /** Null exactly when recurring: its line takes the period's last day. */
+  spentOn: z.iso.date().nullable(),
   description: z.string(),
   amount: money,
   /** A receipt or order number. Never printed on the invoice. */
@@ -454,70 +456,51 @@ export const Expense = z.object({
    *  expense went and whether it can still change. Null while unbilled. */
   invoiceNumber: z.string().nullable(),
   invoiceStatus: InvoiceStatus.nullable(),
-  /** The monthly rule that produced it, if one did. */
-  recurringExpenseId: uuid.nullable(),
 });
 
 const expenseAmount = money.refine((n) => n > 0, {
   message: 'an expense is more than zero',
 });
 
+/** A one-off has the day it was paid; a recurring expense has none. */
+const datedUnlessRecurring = (e: {
+  recurring?: boolean;
+  spentOn?: string | null;
+}) => (e.recurring ?? false) === (e.spentOn == null);
+
 /** The id is client-supplied (UUIDv7) so a retry is idempotent. */
-export const CreateExpense = z.object({
-  id: uuid,
-  clientId: uuid,
-  projectId: uuid.nullable().optional(),
-  spentOn: z.iso.date(),
-  description: z.string().trim().min(1).max(200),
-  amount: expenseAmount,
-  note: z.string().max(500).nullable().optional(),
-});
-
-export const UpdateExpense = CreateExpense.omit({ id: true }).partial();
-
-/**
- * A cost the client reimburses every month. It produces one ordinary expense
- * a month, on `startsOn`'s day, until stopped.
- */
-export const RecurringExpense = z.object({
-  id: uuid,
-  clientId: uuid,
-  projectId: uuid.nullable(),
-  description: z.string(),
-  amount: money,
-  note: z.string().nullable(),
-  startsOn: z.iso.date(),
-  /** Set means stopped. */
-  stoppedOn: z.iso.date().nullable(),
-});
-
-export const CreateRecurringExpense = z.object({
-  id: uuid,
-  clientId: uuid,
-  projectId: uuid.nullable().optional(),
-  startsOn: z.iso.date(),
-  description: z.string().trim().min(1).max(200),
-  amount: expenseAmount,
-  note: z.string().max(500).nullable().optional(),
-});
-
-/** Changes reach only months not yet produced. `stop` ends it, as of today in
- *  `tz`, after producing anything already due. */
-export const UpdateRecurringExpense = CreateRecurringExpense.omit({
-  id: true,
-  clientId: true,
-})
-  .partial()
-  .extend({
-    stop: z.literal(true).optional(),
-    tz: timeZoneStrict,
+export const CreateExpense = z
+  .object({
+    id: uuid,
+    clientId: uuid,
+    recurring: z.boolean().default(false),
+    spentOn: z.iso.date().nullable().optional(),
+    description: z.string().trim().min(1).max(200),
+    amount: expenseAmount,
+    note: z.string().max(500).nullable().optional(),
+  })
+  .refine(datedUnlessRecurring, {
+    message: 'a one-off expense has a date and a recurring one has none',
+    path: ['spentOn'],
   });
 
+/** Checked against the stored row in the route: `recurring: true` clears the
+ *  date, and `false` needs one. */
+export const UpdateExpense = z
+  .object({
+    recurring: z.boolean(),
+    spentOn: z.iso.date().nullable(),
+    description: z.string().trim().min(1).max(200),
+    amount: expenseAmount,
+    note: z.string().max(500).nullable(),
+  })
+  .partial();
+
 export const ListExpensesQuery = z.object({
-  /** Today, for producing recurring expenses, is a local-calendar question. */
-  tz: timeZone,
   clientId: uuid.optional(),
-  status: z.enum(['unbilled', 'all']).default('unbilled'),
+  /** `open` is what a client card lists: recurring, unbilled, and on an
+   *  invoice not yet paid. `unbilled` is what an invoice can take. */
+  status: z.enum(['open', 'unbilled']).default('open'),
 });
 
 export const ListInvoicesQuery = z.object({
@@ -911,7 +894,6 @@ export type MonthClient = z.infer<typeof MonthClient>;
 export type ClientWithScale = z.infer<typeof ClientWithScale>;
 export type Invoice = z.infer<typeof Invoice>;
 export type Expense = z.infer<typeof Expense>;
-export type RecurringExpense = z.infer<typeof RecurringExpense>;
 export type CalendarDay = z.infer<typeof CalendarDay>;
 export type CalendarTotalsDay = z.infer<typeof CalendarTotalsDay>;
 export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;

@@ -6,8 +6,7 @@ import {
   loadClient,
   loadSettings,
   loadBillableEntries,
-  loadUnbilledExpenses,
-  produceRecurringExpenses,
+  loadBillableExpenses,
 } from '@/lib/invoicing';
 import { buildLineItems } from '@stint/core';
 import { InvoicePreviewRequest } from '@stint/schema';
@@ -25,7 +24,7 @@ export const dynamic = 'force-dynamic';
  * generation, rather than failing with a bare error.
  */
 export const POST = handle(async (req: Request) => {
-  const { userId, db } = await requireSession(req);
+  const { db } = await requireSession(req);
   const body = await parseBody(req, InvoicePreviewRequest);
 
   if (body.periodEnd < body.periodStart) {
@@ -38,7 +37,6 @@ export const POST = handle(async (req: Request) => {
   const [client, settings] = await Promise.all([
     loadClient(db, body.clientId),
     loadSettings(db),
-    produceRecurringExpenses(db, userId, body.tz),
   ]);
 
   const clientRate =
@@ -54,7 +52,7 @@ export const POST = handle(async (req: Request) => {
       userDefaultRate: settings.defaultHourlyRate,
       clientRate,
     }),
-    loadUnbilledExpenses(db, {
+    loadBillableExpenses(db, {
       clientId: body.clientId,
       periodEnd: body.periodEnd,
       excludedIds: body.excludedExpenseIds,

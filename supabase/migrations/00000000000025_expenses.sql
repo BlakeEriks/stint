@@ -18,8 +18,13 @@ create table expenses (
   id           uuid primary key default gen_random_uuid(),
   user_id      uuid not null references auth.users(id) on delete cascade,
   client_id    uuid not null,
-  project_id   uuid,
-  spent_on     date not null,
+  -- Billed on every invoice for the client instead of once: a subscription
+  -- the client reimburses. It is never attached to an invoice, so it is never
+  -- locked or released; each invoice freezes its own copy of it.
+  recurring    boolean not null default false,
+  -- A recurring expense has no single date; its line is dated the period's
+  -- last day on each invoice.
+  spent_on     date,
   -- Becomes the invoice line, so it is held to a charge's limits.
   description  text not null check (btrim(description) <> '' and char_length(description) <= 200),
   -- A reimbursement of nothing is not a line; a credit is a different feature.
@@ -40,37 +45,18 @@ create table expenses (
   constraint expense_client_same_owner
     foreign key (client_id, user_id) references clients (id, user_id)
     on update restrict,
-  constraint expense_project_same_owner
-    foreign key (project_id, user_id) references projects (id, user_id)
-    on delete set null (project_id)
-    on update restrict
+  constraint expense_dated check (recurring = (spent_on is null)),
+  -- Enforced here, not only in the route: a recurring expense attached to one
+  -- invoice would silently drop off every later one.
+  constraint recurring_never_billed check (not recurring or invoice_id is null)
 );
 
--- The unbilled path: the Expenses tab and every invoice preview.
-create index expenses_unbilled_idx on expenses (user_id, client_id, spent_on)
+-- The unbilled path: the client card and every invoice preview.
+create index expenses_unbilled_idx on expenses (user_id, client_id)
   where invoice_id is null;
 
 create trigger t_expenses_touch before update on expenses
   for each row execute function touch_updated_at();
-
--- A project is optional, and when given it must be one of the expense's
--- client's projects: an expense filed under another client's project would
--- bill one client for work the invoice names as another's.
-create or replace function check_expense_project() returns trigger
-language plpgsql as $$
-begin
-  if new.project_id is not null and not exists (
-    select 1 from projects where id = new.project_id and client_id = new.client_id
-  ) then
-    raise exception 'Project % does not belong to client %', new.project_id, new.client_id
-      using errcode = 'check_violation';
-  end if;
-  return new;
-end $$;
-
-create trigger t_expenses_project_client
-  before insert or update of project_id, client_id on expenses
-  for each row execute function check_expense_project();
 
 -- ── invoiced expenses are immutable ────────────────────────────────
 -- The same lock `guard_billed_entry` holds on entries: once an expense is on
@@ -100,7 +86,7 @@ begin
      or new.description is distinct from old.description
      or new.amount      is distinct from old.amount
      or new.client_id   is distinct from old.client_id
-     or new.project_id  is distinct from old.project_id then
+     or new.recurring   is distinct from old.recurring then
     raise exception 'Expense % is billed on a % invoice and cannot be modified', old.id, inv_status
       using errcode = 'check_violation';
   end if;
@@ -173,7 +159,8 @@ alter table invoices
 -- one and the reference is appended here — last, where it would have gone.
 --
 -- Entries keep their existing attach rule. An expense another invoice already
--- took raises, and the whole call rolls back — number included.
+-- took raises, and the whole call rolls back — number included. Only one-offs
+-- are passed: a recurring expense is billed without being attached.
 create or replace function create_invoice(
   p_user_id     uuid,
   p_invoice     jsonb,

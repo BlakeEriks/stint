@@ -27,6 +27,9 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   const patch = await parseBody(req, UpdateExpense);
 
   const update = toColumns(patch, EXPENSE_FIELDS);
+  // A recurring expense has no date; checking the box drops the one it had.
+  // Unchecking needs a date, which the database's `expense_dated` insists on.
+  if (patch.recurring === true) update.spent_on = null;
   if (Object.keys(update).length === 0) {
     throw new ApiError('VALIDATION_FAILED', 'No fields to update');
   }

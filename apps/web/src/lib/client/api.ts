@@ -118,7 +118,6 @@ export type PaymentProfile = Response<schema.PaymentProfile>;
 export type InvoicePreview = Response<schema.InvoicePreview>;
 export type Invoice = Response<schema.Invoice>;
 export type Expense = Response<schema.Expense>;
-export type RecurringExpense = Response<schema.RecurringExpense>;
 export type ManualLine = schema.ManualLine;
 export type TaskNameSuggestion = Response<schema.TaskNameSuggestion>;
 
@@ -163,9 +162,9 @@ export type SettingsInput = Partial<Omit<Settings, 'nextInvoiceNumber'>>;
 /** Everything an expense is recorded or edited with. */
 export type ExpenseInput = Pick<
   Expense,
-  'clientId' | 'spentOn' | 'description' | 'amount'
+  'clientId' | 'recurring' | 'spentOn' | 'description' | 'amount'
 > &
-  Partial<Pick<Expense, 'projectId' | 'note'>>;
+  Partial<Pick<Expense, 'note'>>;
 
 export type PaymentProfileInput = Partial<
   Omit<PaymentProfile, 'id' | 'archivedAt'>
@@ -401,12 +400,9 @@ export const api = {
   /** Drafts only. An issued invoice must be voided so numbering stays gapless. */
   deleteInvoice: (id: string) => request<void>('DELETE', `/invoices/${id}`),
 
-  /** Unbilled by default, oldest first. */
-  expenses: (params: {
-    tz: string;
-    clientId?: string;
-    status?: 'unbilled' | 'all';
-  }) => {
+  /** Recurring first, then oldest first. `open` (the default) is what a
+   *  client's card lists; `unbilled` is what an invoice can take. */
+  expenses: (params: { clientId?: string; status?: 'open' | 'unbilled' } = {}) => {
     const q = new URLSearchParams(params as Record<string, string>);
     return request<{ expenses: Expense[] }>('GET', `/expenses?${q}`);
   },
@@ -420,27 +416,6 @@ export const api = {
     request<Expense>('PATCH', `/expenses/${id}`, body),
 
   deleteExpense: (id: string) => request<void>('DELETE', `/expenses/${id}`),
-
-  /** Live ones first, then stopped. */
-  recurringExpenses: () =>
-    request<{ recurringExpenses: RecurringExpense[] }>(
-      'GET',
-      '/recurring-expenses',
-    ),
-
-  /** `startsOn` is the first charge; later ones fall on its day each month. */
-  createRecurringExpense: (
-    body: Omit<ExpenseInput, 'spentOn'> & { id: string; startsOn: string },
-  ) => request<RecurringExpense>('POST', '/recurring-expenses', body),
-
-  /** Reaches only months not yet produced. `stop` ends it as of today. */
-  updateRecurringExpense: (
-    id: string,
-    body: Partial<Omit<ExpenseInput, 'clientId' | 'spentOn'>> & {
-      stop?: true;
-      tz?: string;
-    },
-  ) => request<RecurringExpense>('PATCH', `/recurring-expenses/${id}`, body),
 
   invoicePdfUrl: (id: string, download = false) =>
     `/api/v1/invoices/${id}/pdf${download ? '?download=1' : ''}`,

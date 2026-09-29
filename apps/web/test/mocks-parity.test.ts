@@ -54,7 +54,6 @@ beforeEach(async () => {
     'update time_entries set invoice_id = null where user_id = $1',
     'update expenses set invoice_id = null where user_id = $1',
     'delete from expenses where user_id = $1',
-    'delete from recurring_expenses where user_id = $1',
     'delete from time_entries where user_id = $1',
     'delete from invoices where user_id = $1',
     'delete from projects where user_id = $1',
@@ -136,42 +135,22 @@ async function write(db: Db) {
         i.currency,
       ],
     );
-  for (const r of db.recurringExpenses)
-    await pool.query(
-      `insert into recurring_expenses (id,user_id,client_id,project_id,description,
-         amount,note,starts_on,stopped_on,produced_through)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [
-        r.id,
-        USER,
-        r.clientId,
-        r.projectId,
-        r.description,
-        r.amount,
-        r.note,
-        r.startsOn,
-        r.stoppedOn,
-        r.producedThrough,
-      ],
-    );
   // Billed while its invoice is still a draft, like entries below.
   for (const e of db.expenses)
     await pool.query(
-      `insert into expenses (id,user_id,client_id,project_id,spent_on,description,
-         amount,note,invoice_id,recurring_expense_id,recurrence_month)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
-         case when $10::uuid is null then null else date_trunc('month', $5::date)::date end)`,
+      `insert into expenses (id,user_id,client_id,recurring,spent_on,description,
+         amount,note,invoice_id)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
       [
         e.id,
         USER,
         e.clientId,
-        e.projectId,
+        e.recurring,
         e.spentOn,
         e.description,
         e.amount,
         e.note,
         e.invoiceId,
-        e.recurringExpenseId,
       ],
     );
   for (const e of db.entries)
@@ -270,19 +249,15 @@ for (const scenario of scenarios)
       return wire(await res.json());
     };
     for (const q of [
-      `tz=${tz}`,
-      `tz=${tz}&status=all`,
-      `tz=${tz}&clientId=${ids.northwind}`,
+      '',
+      'status=unbilled',
+      `clientId=${ids.northwind}`,
     ])
       assert.deepEqual(
         await get('expenses', `/api/v1/expenses?${q}`),
         await fakeGet('expenses', `/api/v1/expenses?${q}`),
         `expenses?${q}`,
       );
-    assert.deepEqual(
-      await get('recurring-expenses', '/api/v1/recurring-expenses'),
-      await fakeGet('recurringExpenses', '/api/v1/recurring-expenses'),
-    );
 
     if (scenario === 'empty') return;
     const { POST } = await import(
