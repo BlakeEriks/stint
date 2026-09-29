@@ -93,11 +93,13 @@ warning, exit 0**, which is why it is a check rather than a convention.
 
 ### Storybook is the design surface
 
-A screen is designed, reviewed and specified as stories: `pnpm --filter
+A screen's look is picked in `/design-review`, before planning; from then
+on it is built, reviewed and specified as stories: `pnpm --filter
 @stint/web storybook`. Every screen has a `*.stories.tsx` beside its
 component, as do the parts and primitives worth seeing alone, rendering the
 real component against the in-memory `/api/v1` in `src/mocks/`. A new screen
-or state is a story first. `docs/local-dev.md` has the commands.
+or state is a story first, built to the pick in the spec's `## Design`.
+`docs/local-dev.md` has the commands.
 
 A story renders the real component, never a copy. A state it needs comes
 from the account (`parameters.db`, `account((db) => …)`) or one failing
