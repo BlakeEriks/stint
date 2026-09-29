@@ -49,6 +49,31 @@ export function listsArchived(key: QueryKey): boolean {
 }
 
 /**
+ * An archive's prediction for one cached list under `keys.clients()` or
+ * `keys.projects()` (`rows` names which): the row leaves a list of active
+ * rows, and is marked archived in a list that holds archived rows too —
+ * so a screen reading that list, such as Clients, hides it at once as well.
+ */
+export function predictArchive(
+  rows: 'clients' | 'projects',
+  id: string,
+  current: unknown,
+  key: QueryKey,
+): unknown {
+  if (typeof current !== 'object' || current === null || !(rows in current))
+    return current;
+  const list = (current as Record<typeof rows, Array<{ id: string }>>)[rows];
+  return {
+    ...current,
+    [rows]: listsArchived(key)
+      ? list.map((r) =>
+          r.id === id ? { ...r, archivedAt: new Date().toISOString() } : r,
+        )
+      : list.filter((r) => r.id !== id),
+  };
+}
+
+/**
  * Everything derived from time entries.
  *
  * A timer stop, an edited entry, a generated invoice and an inbox action all

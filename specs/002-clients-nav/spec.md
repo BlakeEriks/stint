@@ -44,7 +44,8 @@ Chosen from four rounds of variations; the pick is `design/clients.html`
   editing reads the same from any screen. Each dialog carries **Archive**, a
   ghost button at the far end of its footer from Save; moving a project to
   another client is its Client field. An archived record's dialog has no
-  Archive.
+  Archive. Archive is predicted (Constitution VI): the dialog closes and the
+  card or row goes on the press; a refusal brings it back with the reason.
 - Money keeps its cents everywhere.
 
 ## User Scenarios & Testing *(mandatory)*

@@ -1,6 +1,5 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Archive } from 'lucide-react';
 import {
   Dialog,
@@ -10,9 +9,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { api, ApiError, type Client } from '@/lib/client/api';
+import { api, type Client } from '@/lib/client/api';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import { ClientForm } from './client-form';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
+import {
+  keys,
+  invalidateEntryData,
+  predictArchive,
+} from '@/lib/client/query-keys';
 
 /**
  * Edits a client where the contractor already is, as `ProjectDialog` does a
@@ -31,16 +35,18 @@ export function ClientDialog({
   onOpenChange: (open: boolean) => void;
   client: Client;
 }) {
-  const queryClient = useQueryClient();
-
-  const archive = useMutation({
-    mutationFn: () => api.archiveClient(client.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.clients() });
-      // Archiving withdraws the client's rate from every rollup.
-      invalidateEntryData(queryClient);
-      onOpenChange(false);
-    },
+  /* Predicted: the dialog closes and the client goes on the press; a
+     refusal puts it back and the notice says why. */
+  const archive = useOptimisticMutation<string, unknown, unknown>({
+    queryKey: () => keys.clients(),
+    mutationFn: (id) => api.archiveClient(id),
+    predict: (current, id, key) => predictArchive('clients', id, current, key),
+    // Archiving withdraws the client's rate from every rollup.
+    invalidate: (qc) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.clients() }),
+        invalidateEntryData(qc),
+      ]),
   });
 
   return (
@@ -65,8 +71,10 @@ export function ClientDialog({
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => archive.mutate()}
-                disabled={archive.isPending}
+                onClick={() => {
+                  archive.mutate(client.id);
+                  onOpenChange(false);
+                }}
               >
                 <Archive aria-hidden strokeWidth={1.75} />
                 Archive
@@ -74,14 +82,6 @@ export function ClientDialog({
             )
           }
         />
-
-        {archive.error ? (
-          <p role="alert" className="type-support text-danger">
-            {archive.error instanceof ApiError
-              ? archive.error.message
-              : 'Could not archive this client.'}
-          </p>
-        ) : null}
       </DialogContent>
     </Dialog>
   );

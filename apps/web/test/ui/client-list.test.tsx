@@ -56,9 +56,12 @@ function serve(clients: ClientWithScale[], projects: Project[] = []) {
   const urls: string[] = [];
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (url: string) => {
+    vi.fn(async (url: string, init?: RequestInit) => {
       urls.push(String(url));
       const path = String(url).replace('/api/v1', '');
+      /* A write never answers, so a test sees only what the press predicted
+         (Constitution VI) — never the refetch after it. */
+      if (init?.method && init.method !== 'GET') return new Promise(() => {});
       /* A real server EXCLUDES archived rows unless asked. Returning them
          regardless would make every archived-grouping test unfalsifiable. */
       const asked = path.includes('includeArchived=true');
@@ -288,6 +291,23 @@ describe('ClientList', () => {
     expect(
       await screen.findByRole('heading', { name: 'Edit client' }),
     ).toBeInTheDocument();
+  });
+
+  it('hides a client archived from its dialog before the server answers', async () => {
+    serve([NORTHWIND, BYRNE], [project({ clientId: 'c1', name: 'Warehouse' })]);
+    const user = userEvent.setup();
+    render(<ClientList />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Edit Northwind' }),
+    );
+    await user.click(await screen.findByRole('button', { name: 'Archive' }));
+
+    /* This screen holds its clients in a list that includes archived ones,
+       so the prediction marks the client archived there rather than
+       dropping it — and Active hides it, with its project, on the press. */
+    await waitFor(() => expect(headings()).toEqual(['Byrne Studio']));
+    expect(screen.queryByText('Warehouse')).toBeNull();
   });
 
   /* The filter lives in the URL rather than component state, so the view is

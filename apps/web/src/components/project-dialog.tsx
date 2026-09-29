@@ -23,7 +23,11 @@ import {
 } from '@/lib/client/api';
 import { ClientForm } from './client-form';
 import { ClientPicker } from './client-picker';
-import { keys, invalidateEntryData } from '@/lib/client/query-keys';
+import {
+  keys,
+  invalidateEntryData,
+  predictArchive,
+} from '@/lib/client/query-keys';
 
 /**
  * A dialog rather than a page: a project is four fields, and it is created
@@ -99,17 +103,19 @@ export function ProjectDialog({
   });
 
   /* Archive lives here rather than on the row: it's rare, and the list's
-     only row action is Edit. Archive, never delete: entries and invoices
-     reference the project. */
-  const archive = useMutation({
-    mutationFn: () => api.archiveProject(existing!.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.projects() });
-      invalidateEntryData(queryClient);
-      onOpenChange(false);
-    },
+     only row action is Edit. Predicted: the dialog closes and the row goes
+     on the press; a refusal puts it back and the notice says why. Archive,
+     never delete: entries and invoices reference the project. */
+  const archive = useOptimisticMutation<string, unknown, unknown>({
+    queryKey: () => keys.projects(),
+    mutationFn: (id) => api.archiveProject(id),
+    predict: (current, id, key) => predictArchive('projects', id, current, key),
+    invalidate: (qc) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.projects() }),
+        invalidateEntryData(qc),
+      ]),
   });
-  const failed = save.error ?? archive.error;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,13 +220,11 @@ export function ProjectDialog({
             Billable by default
           </label>
 
-          {failed ? (
+          {save.error ? (
             <p role="alert" className="type-support text-danger">
-              {failed instanceof ApiError
-                ? failed.message
-                : save.error
-                  ? 'Could not save this project.'
-                  : 'Could not archive this project.'}
+              {save.error instanceof ApiError
+                ? save.error.message
+                : 'Could not save this project.'}
             </p>
           ) : null}
 
@@ -231,8 +235,10 @@ export function ProjectDialog({
                 type="button"
                 variant="ghost"
                 className="mr-auto"
-                onClick={() => archive.mutate()}
-                disabled={archive.isPending}
+                onClick={() => {
+                  archive.mutate(existing.id);
+                  onOpenChange(false);
+                }}
               >
                 <Archive aria-hidden strokeWidth={1.75} />
                 Archive
