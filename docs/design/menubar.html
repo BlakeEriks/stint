@@ -713,9 +713,8 @@
       <ul>
         <li><strong>Never pre-check the running timer.</strong> Attempt the
           insert and translate the conflict — a pre-check is a race, the index
-          is not. A 409 refreshes rather than reports: another device won and
-          the invariant held, so showing what <em>is</em> running is more use
-          than the error.</li>
+          is not. A 409 takes back the predicted start and says why, then the
+          refresh shows what <em>is</em> running.</li>
         <li><strong>Tick locally, reconcile at 60s</strong> and on open,
           skew-corrected from <code>serverTime</code>. A Mac with a wrong clock
           would otherwise show a wrong elapsed time, which in this app is a
