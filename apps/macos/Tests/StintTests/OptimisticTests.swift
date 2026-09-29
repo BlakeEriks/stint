@@ -13,8 +13,14 @@ private final class Model: Optimistic {
     func report(_ reason: String) { reasons.append(reason) }
     func refresh() async { refreshes += 1 }
 
-    func set(_ new: String, perform: @escaping @Sendable () async throws -> String) async -> String? {
-        await press("value", timeout: .milliseconds(100)) {
+    /// The real 10s bound unless a test is about the bound itself: a slow CI
+    /// runner otherwise times out presses that were meant to answer.
+    func set(
+        _ new: String,
+        timeout: Duration = .seconds(10),
+        perform: @escaping @Sendable () async throws -> String
+    ) async -> String? {
+        await press("value", timeout: timeout) {
             let old = value
             value = new
             return { self.value = old }
@@ -71,14 +77,19 @@ struct OptimisticTests {
     @Test func failsAfterSilenceAndRefreshesWhenTheAnswerLandsLate() async {
         let model = Model()
         let gate = Gate()
-        let answer = await model.set("predicted") { await gate.wait(); return "ok" }
+        let answer = await model.set("predicted", timeout: .milliseconds(100)) {
+            await gate.wait()
+            return "ok"
+        }
         #expect(answer == nil)
         #expect(model.value == "original")
         #expect(model.reasons == [PressTimeout().localizedDescription])
         let refreshesAfterTimeout = model.refreshes
 
         await gate.release()
-        try? await Task.sleep(for: .milliseconds(50))
+        for _ in 0..<200 where model.refreshes == refreshesAfterTimeout {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
         #expect(model.refreshes == refreshesAfterTimeout + 1)
     }
 
