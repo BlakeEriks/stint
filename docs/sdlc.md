@@ -40,7 +40,9 @@ Every PR reaches QA the same way, whether `/work-issues` built it or not:
 - **The branch name is under 30 characters.** It becomes the preview's URL,
   and Vercel hashes a longer one.
 - **The body fills the template's Try it**, linking the preview signed in as
-  `pr-<n>@preview.test`, which `preview-db` seeds from the branch.
+  `pr-<n>@preview.test`, which `preview-db` seeds from the branch, and
+  each story the PR adds or changes in the same preview's Storybook at
+  `/storybook/`.
 - **`migration` labels a PR that adds one.** The previews share one schema,
   so one such PR is open at a time.
 - **`ready-for-qa` goes on once CI is green and nothing is unanswered**: no

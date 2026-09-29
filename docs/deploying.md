@@ -34,7 +34,7 @@ the domain until required checks pass, so the migration runs while the
 
 - **`static`** — lint, token drift, the contrast contract, shadcn detox, the
   typography scale, writes through the shared mutation helper, typecheck,
-  the UI suite, core logic, the hygiene scan's
+  the UI suite, core logic, the hygiene scan's tests, the build script
   tests, the doc references check, then a build.
   Needs no database, so an obvious slip fails in seconds.
 - **`database`** — the route and RLS suites against a real Postgres service
@@ -283,6 +283,11 @@ the free plan holding only seeded data. Each open PR has its own account
 there, `pr-<n>@preview.test`, and `/preview/signin?pr=<n>&next=<path>` signs
 into it and lands on `next` — the link a PR's **Try it** section opens. The
 route is a 404 anywhere `VERCEL_ENV` is not `preview`.
+
+Each preview also serves the branch's Storybook at `/storybook/index.html`,
+on its mock API rather than `stint-test` — the links in **Try it**'s
+**Stories** list. `prebuild` builds it (`apps/web/scripts/preview-storybook.sh`)
+only when `VERCEL_ENV` is `preview`, so production never ships it.
 
 `.github/workflows/preview-db.yml` keeps the project in step: it seeds a PR's
 account from that branch's `scripts/seed-account.mjs` on every push, and when

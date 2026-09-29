@@ -29,7 +29,7 @@
     "check:type": "pnpm --filter @stint/web check:type",
     "detox": "pnpm --filter @stint/web detox",
     "typecheck": "npx tsc --noEmit -p tsconfig.json && pnpm --filter @stint/web typecheck",
-    "verify:static": "pnpm lint && pnpm tokens:validate && pnpm detox && pnpm check:type && pnpm --filter @stint/web check:mutation-usage && pnpm typecheck && pnpm test:ui && pnpm --filter @stint/core test && node --test scripts/hygiene/*.test.mjs && node scripts/doc-refs.mjs",
+    "verify:static": "pnpm lint && pnpm tokens:validate && pnpm detox && pnpm check:type && pnpm --filter @stint/web check:mutation-usage && pnpm typecheck && pnpm test:ui && pnpm --filter @stint/core test && node --test scripts/hygiene/*.test.mjs apps/web/scripts/*.test.mjs && node scripts/doc-refs.mjs",
     "db:setup": "PGPORT=54322 bash scripts/ci-db.sh tt && PGPORT=54322 bash scripts/ci-db.sh tt_rls --rls",
     "verify:db": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:54322/tt} pnpm --filter @stint/web test && DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:54322/tt_rls} RLS_DATABASE_URL=${RLS_DATABASE_URL:-postgresql://authenticated:test@localhost:54322/tt_rls} pnpm --filter @stint/web test:rls && pnpm verify:schema --url ${SUPABASE_DB_URL:-postgresql://postgres:postgres@localhost:54322/tt_rls}",
     "verify:all": "pnpm verify:static && pnpm verify:db && pnpm test:auth && pnpm test:e2e",
