@@ -46,8 +46,10 @@ export function ClientList() {
     queryFn: () => api.clients({ includeArchived: true }),
   });
   const projectQuery = useQuery({
-    queryKey: keys.projects({ archived: status !== null }),
-    queryFn: () => api.projects({ includeArchived: status !== null }),
+    /* Archived projects always too, so switching tabs never fetches:
+       group() decides what each tab shows. */
+    queryKey: keys.projects({ archived: true }),
+    queryFn: () => api.projects({ includeArchived: true }),
   });
   const { data: settings } = useQuery({
     queryKey: keys.settings(),

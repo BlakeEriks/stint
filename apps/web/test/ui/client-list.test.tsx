@@ -350,18 +350,29 @@ describe('ClientList', () => {
   describe('filters', () => {
     const OLD_CO = client({ id: 'c3', name: 'Old Co', archivedAt: ARCHIVED });
 
-    it('asks only for active projects until a filter says otherwise', async () => {
-      const urls = serve([NORTHWIND], [project()]);
-      render(<ClientList />, { wrapper });
-
+    it('switches tabs without asking the server again', async () => {
+      const urls = serve(
+        [NORTHWIND],
+        [
+          project({ id: 'p1', name: 'Website redesign' }),
+          project({ id: 'p2', name: 'Old site', archivedAt: ARCHIVED }),
+        ],
+      );
+      const { rerender } = render(<ClientList />, { wrapper });
       await waitFor(() =>
         expect(screen.getByText('Website redesign')).toBeInTheDocument(),
       );
-      const projectUrls = urls.filter((u) => u.includes('/projects'));
-      expect(projectUrls.length).toBeGreaterThan(0);
-      expect(projectUrls.some((u) => u.includes('includeArchived'))).toBe(
-        false,
-      );
+      const asked = urls.length;
+
+      for (const status of ['archived', 'all', '']) {
+        search.value = new URLSearchParams(status && `status=${status}`);
+        rerender(<ClientList />);
+        // Synchronously: a tab that waited on a fetch would not have it yet.
+        expect(
+          screen.getByText(status ? 'Old site' : 'Website redesign'),
+        ).toBeInTheDocument();
+      }
+      expect(urls).toHaveLength(asked);
     });
 
     it('hides an archived client under Active, with its active project', async () => {
