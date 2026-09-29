@@ -328,6 +328,37 @@ describe('entries with no project', () => {
     expect(screen.queryByRole('link', { name: /Client call/ })).toBeNull();
   });
 
+  it('says why when the entry cannot be opened', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        /\/entries\/[^/]/.test(String(url))
+          ? new Response(
+              JSON.stringify({
+                code: 'NOT_FOUND',
+                message: 'That entry no longer exists.',
+              }),
+              { status: 404 },
+            )
+          : new Response(JSON.stringify({ projects: [] }), { status: 200 }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(
+      <>
+        <Inbox stats={withRow()} />
+        <MutationNotice />
+      </>,
+      { wrapper },
+    );
+
+    await user.click(screen.getByText('Client call'));
+
+    expect(
+      await screen.findByText('That entry no longer exists.'),
+    ).toBeInTheDocument();
+  });
+
   it('opens the editor on the entry, so a project can be assigned', async () => {
     serve();
     const user = userEvent.setup();

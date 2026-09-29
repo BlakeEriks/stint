@@ -43,12 +43,16 @@ struct TimerPressTests {
         #expect(model.running?.taskName == "Editing")
 
         await FakeServer.shared.setRunning(nil)
-        await model.toggle()
+        let stop = Task { await model.toggle() }
+        await Task.yield()
+        // Stopped at once, though the stop waits in the lane behind the rename.
         #expect(model.running == nil)
 
         await FakeServer.shared.release("PATCH /timer/current")
         await rename.value
+        await stop.value
         #expect(model.running == nil)
+        #expect(model.errorMessage == nil)
     }
 
     @Test func aRefreshFromBeforeAPressDoesNotUndoIt() async throws {

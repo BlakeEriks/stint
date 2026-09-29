@@ -114,9 +114,11 @@ export function useTimer() {
       todaySeconds,
       serverTime: serverNow(),
     };
+  // One lane: Start then Stop must reach the server in that order.
   const timerPress = {
     queryKey: () => keys.summary(),
     invalidate: invalidateEntryData,
+    serial: 'timer',
   };
 
   /* `id` comes from the caller so the prediction and the row the server

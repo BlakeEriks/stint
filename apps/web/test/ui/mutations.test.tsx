@@ -159,6 +159,86 @@ describe('useOptimisticMutation', () => {
   });
 });
 
+describe('useOptimisticMutation — review fixes', () => {
+  it('gives a pending press no timeout: a slow write is not "try again"', async () => {
+    vi.useFakeTimers();
+    const call = deferred<Cache>();
+    const { hook } = setup({
+      mutationFn: () => call.promise,
+      predict: undefined,
+    });
+
+    act(() => hook.result.current.mutate({ value: 'x' }));
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+
+    expect(hook.result.current.isPending).toBe(true);
+    expect(hook.result.current.isError).toBe(false);
+  });
+
+  it('predicts each cached query under the key with that query’s own key', async () => {
+    const { queryClient, hook } = setup({
+      mutationFn: () => new Promise(() => {}),
+      queryKey: () => ['list'],
+      predict: (current, vars, k) =>
+        k[1] === 'keep' ? current : { value: vars.value },
+    });
+    queryClient.setQueryData(['list', 'keep'], { value: 'kept' });
+    queryClient.setQueryData(['list', 'change'], { value: 'old' });
+
+    act(() => hook.result.current.mutate({ value: 'new' }));
+
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['list', 'change'])).toEqual({
+        value: 'new',
+      }),
+    );
+    expect(queryClient.getQueryData(['list', 'keep'])).toEqual({
+      value: 'kept',
+    });
+  });
+
+  it('sends a serial lane in press order while predicting each press at once', async () => {
+    const calls = [deferred<Cache>(), deferred<Cache>()] as const;
+    const started: string[] = [];
+    let n = 0;
+    const { queryClient, hook } = setup({
+      serial: 'lane',
+      mutationFn: (vars) => {
+        started.push(vars.value);
+        return calls[n++ as 0 | 1].promise;
+      },
+    });
+
+    act(() => hook.result.current.mutate({ value: 'start' }));
+    act(() => hook.result.current.mutate({ value: 'stop' }));
+
+    await waitFor(() => expect(cached(queryClient)).toBe('stop'));
+    expect(started).toEqual(['start']);
+
+    await act(async () => calls[0].resolve({ value: 'start' }));
+    await waitFor(() => expect(started).toEqual(['start', 'stop']));
+    await act(async () => calls[1].resolve({ value: 'stop' }));
+  });
+
+  it('runs onSettled once, after the last overlapping press', async () => {
+    const calls = [deferred<Cache>(), deferred<Cache>()] as const;
+    let n = 0;
+    const onSettled = vi.fn();
+    const { hook } = setup({
+      mutationFn: () => calls[n++ as 0 | 1].promise,
+      onSettled,
+    });
+
+    act(() => hook.result.current.mutate({ value: 'a' }));
+    act(() => hook.result.current.mutate({ value: 'b' }));
+    await act(async () => calls[0].resolve({ value: 'a' }));
+    expect(onSettled).not.toHaveBeenCalled();
+
+    await act(async () => calls[1].resolve({ value: 'b' }));
+    await waitFor(() => expect(onSettled).toHaveBeenCalledTimes(1));
+  });
+});
+
 describe('MutationNotice', () => {
   it('explains a rollback after the screen that pressed has gone', async () => {
     const call = deferred<Cache>();
@@ -174,5 +254,25 @@ describe('MutationNotice', () => {
     expect(await screen.findByText('Entry was deleted elsewhere')).toBeTruthy();
     act(() => screen.getByRole('button', { name: 'Dismiss' }).click());
     expect(screen.queryByText('Entry was deleted elsewhere')).toBeNull();
+  });
+
+  it('clears a failure once the same press succeeds', async () => {
+    let fail = true;
+    const { hook, wrapper } = setup({
+      mutationFn: () =>
+        fail
+          ? Promise.reject(rejection('The server didn’t answer.'))
+          : Promise.resolve({ value: 'ok' }),
+    });
+    render(<MutationNotice />, { wrapper });
+
+    act(() => hook.result.current.mutate({ value: 'x' }));
+    expect(await screen.findByText('The server didn’t answer.')).toBeTruthy();
+
+    fail = false;
+    act(() => hook.result.current.mutate({ value: 'x' }));
+    await waitFor(() =>
+      expect(screen.queryByText('The server didn’t answer.')).toBeNull(),
+    );
   });
 });

@@ -251,11 +251,12 @@ describe('useTimer — every press answers at once', () => {
 
     server.set({ running: null });
     act(() => result.current.stop.mutate());
-    await waitFor(() => expect(result.current.stop.isSuccess).toBe(true));
-    expect(result.current.running).toBeNull();
+    // Stopped at once, though the stop waits in the lane behind the rename.
+    await waitFor(() => expect(result.current.running).toBeNull());
 
     server.release('PATCH /timer/current');
-    await waitFor(() => expect(result.current.update.isSuccess).toBe(true));
-    await waitFor(() => expect(result.current.running).toBeNull());
+    await waitFor(() => expect(result.current.stop.isSuccess).toBe(true));
+    expect(result.current.update.isSuccess).toBe(true);
+    expect(result.current.running).toBeNull();
   });
 });

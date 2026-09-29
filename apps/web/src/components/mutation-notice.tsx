@@ -1,6 +1,10 @@
 'use client';
 
-import { useMutationState } from '@tanstack/react-query';
+import {
+  hashKey,
+  type QueryKey,
+  useMutationState,
+} from '@tanstack/react-query';
 import { useState } from 'react';
 import { X } from 'lucide-react';
 
@@ -8,27 +12,27 @@ import { X } from 'lucide-react';
  * Why the last press didn't take. Read from the mutation cache, not from the
  * component that pressed, so a rollback is explained even after its screen
  * has unmounted (Constitution I). One notice at a time: the newest failure.
- * A form that stays open to show its own error marks itself `inline`.
+ * A later success on the same thing clears it. A form that stays open to show
+ * its own error marks itself `inline`.
  */
 export function MutationNotice() {
-  const failures = useMutationState({
-    filters: {
-      status: 'error',
-      predicate: (m) => !m.options.meta?.inline,
-    },
+  const presses = useMutationState({
+    filters: { predicate: (m) => !m.options.meta?.inline },
     select: (m) => ({
       id: m.mutationId,
-      at: m.state.submittedAt,
+      status: m.state.status,
+      // What it pressed on: a later success there makes a failure old news.
+      on: hashKey((m.state.context as { key?: QueryKey })?.key ?? []),
       message: m.state.error?.message ?? 'That didn’t save.',
     }),
   });
   const [dismissed, setDismissed] = useState(0);
 
-  const latest = failures.reduce<(typeof failures)[number] | undefined>(
-    (a, b) => (!a || b.at > a.at ? b : a),
-    undefined,
-  );
-  const shown = latest && latest.id > dismissed ? latest : undefined;
+  const retried = (f: (typeof presses)[number]) =>
+    presses.some((p) => p.status === 'success' && p.on === f.on && p.id > f.id);
+  const shown = presses
+    .filter((p) => p.status === 'error' && p.id > dismissed && !retried(p))
+    .at(-1);
 
   return (
     <div

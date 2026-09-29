@@ -43,7 +43,7 @@ export function InvoiceList() {
     select: (r) => r.invoices,
   });
   const { data: clientData } = useQuery({
-    queryKey: keys.clients(),
+    queryKey: keys.clients({ archived: true }),
     queryFn: () => api.clients({ includeArchived: true }),
   });
 

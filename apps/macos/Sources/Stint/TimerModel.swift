@@ -40,6 +40,7 @@ final class TimerModel: Optimistic {
     private var poller: Task<Void, Never>?
     private var started = false
     @ObservationIgnored var inFlight: [String: Int] = [:]
+    @ObservationIgnored var lanes: [String: Task<Void, Never>] = [:]
     /// Bumped by every prediction, so a fetch that began before one knows
     /// its answer is older than the screen.
     @ObservationIgnored private var predictions = 0

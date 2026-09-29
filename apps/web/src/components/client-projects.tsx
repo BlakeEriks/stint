@@ -9,7 +9,7 @@ import { api, type Client, type Project } from '@/lib/client/api';
 import { Listing } from './page';
 import { ProjectDialog } from './project-dialog';
 import { ProjectRate } from './project-rate';
-import { keys } from '@/lib/client/query-keys';
+import { keys, listsArchived } from '@/lib/client/query-keys';
 
 /**
  * The projects belonging to one client.
@@ -113,8 +113,8 @@ function Row({
       api.archiveProject(project.id).catch((e: Error) => {
         throw new Error(`Couldn’t archive ${project.name}. ${e.message}`);
       }),
-    predict: (current) =>
-      isProjectList(current)
+    predict: (current, _vars, key) =>
+      isProjectList(current) && !listsArchived(key)
         ? {
             ...current,
             projects: current.projects.filter((p) => p.id !== project.id),

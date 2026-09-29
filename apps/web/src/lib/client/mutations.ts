@@ -25,9 +25,14 @@ import { ApiError } from './api';
  * - **Latest press wins.** Presses on the same `queryKey` can overlap. Only
  *   the last one to settle restores or refetches, so an earlier answer never
  *   overwrites a newer prediction; the refetch then shows the server's truth.
- * - **A 10s bound.** A silent server fails the press like any rejection.
- *   The request is not abandoned: if it lands late, what it touched is
- *   refetched, so a change the server did make is never hidden.
+ * - **A 10s bound on a prediction.** A silent server fails a predicted press
+ *   like any rejection. The request is not abandoned: if it lands late, what
+ *   it touched is refetched, so a change the server did make is never hidden.
+ *   A pending press has no bound: it already shows it is waiting, and "try
+ *   again" on a write that did land could make it twice (an invoice).
+ * - **`serial`** sends presses in one lane to the server in press order,
+ *   while each still shows its prediction at once — Start then Stop must
+ *   reach the server in that order (TanStack's mutation `scope`).
  *
  * A failure is never silent (Constitution I): `MutationNotice` shows the
  * reason for every failed mutation in the cache, so it still shows after the
@@ -44,20 +49,29 @@ export interface OptimisticOptions<TVars, TData, TCache> {
    * variant of a list agrees.
    */
   queryKey: (vars: TVars) => QueryKey;
-  /** The result to show at once, per cached query. Omit for pending mode. */
-  predict?: (current: TCache | undefined, vars: TVars) => TCache | undefined;
+  /**
+   * The result to show at once, for each cached query under `queryKey`,
+   * given that query's own key. Omit for pending mode.
+   */
+  predict?: (
+    current: TCache | undefined,
+    vars: TVars,
+    key: QueryKey,
+  ) => TCache | undefined;
   /** What to refetch once the last overlapping press settles. Defaults to `queryKey`. */
   invalidate?: (queryClient: QueryClient, vars: TVars) => unknown;
   onSuccess?: (data: TData, vars: TVars) => unknown;
   /** Undo anything the caller showed beyond the cache, such as a row's exit. */
   onError?: (error: Error, vars: TVars) => void;
-  /** After the refetch, whether the press succeeded or not. */
+  /** After the last overlapping press settles and its refetch lands. */
   onSettled?: (vars: TVars) => void;
   /**
    * The pressing screen explains a failure itself, so the notice stays out
    * of it. Only for a pending-mode form that stays open until the answer.
    */
   inline?: boolean;
+  /** A lane whose presses reach the server one at a time, in press order. */
+  serial?: string;
   timeoutMs?: number;
 }
 
@@ -91,10 +105,13 @@ export function useOptimisticMutation<
 
   return useMutation<TData, Error, TVars, Context<TCache>>({
     meta: { inline: opts.inline ?? false },
+    scope: opts.serial ? { id: opts.serial } : undefined,
     mutationFn: (vars) =>
-      withTimeout(opts.mutationFn(vars), opts.timeoutMs ?? TIMEOUT_MS, () =>
-        refetch(vars),
-      ),
+      opts.predict
+        ? withTimeout(opts.mutationFn(vars), opts.timeoutMs ?? TIMEOUT_MS, () =>
+            refetch(vars),
+          )
+        : opts.mutationFn(vars),
     onMutate: (vars) => {
       const key = opts.queryKey(vars);
       // Not awaited: the cancel takes effect at once, and waiting on it
@@ -102,9 +119,8 @@ export function useOptimisticMutation<
       void queryClient.cancelQueries({ queryKey: key });
       const snapshot = queryClient.getQueriesData<TCache>({ queryKey: key });
       if (opts.predict) {
-        queryClient.setQueriesData<TCache>({ queryKey: key }, (current) =>
-          opts.predict!(current, vars),
-        );
+        for (const [cached, data] of snapshot)
+          queryClient.setQueryData(cached, opts.predict(data, vars, cached));
       }
       return { key, snapshot };
     },
@@ -117,7 +133,8 @@ export function useOptimisticMutation<
     },
     onSuccess: (data, vars) => opts.onSuccess?.(data, vars),
     onSettled: async (_data, _err, vars, ctx) => {
-      if (!ctx || inFlight(ctx.key) === 1) await refetch(vars);
+      if (ctx && inFlight(ctx.key) > 1) return;
+      await refetch(vars);
       opts.onSettled?.(vars);
     },
   });

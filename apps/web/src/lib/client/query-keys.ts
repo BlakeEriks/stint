@@ -1,4 +1,4 @@
-import type { QueryClient } from '@tanstack/react-query';
+import type { QueryClient, QueryKey } from '@tanstack/react-query';
 
 /**
  * Every cache key in one place.
@@ -35,6 +35,18 @@ export const keys = {
   settings: () => ['settings'] as const,
   paymentProfiles: () => ['payment-profiles'] as const,
 };
+
+/**
+ * Whether a cached list under `keys.clients()` or `keys.projects()` holds
+ * archived rows too. An archive's prediction drops the row from every other
+ * list and leaves these alone.
+ */
+export function listsArchived(key: QueryKey): boolean {
+  const opts = key[1];
+  return typeof opts === 'object' && opts !== null && 'archived' in opts
+    ? opts.archived === true
+    : false;
+}
 
 /**
  * Everything derived from time entries.

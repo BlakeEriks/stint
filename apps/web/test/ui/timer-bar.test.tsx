@@ -119,6 +119,39 @@ describe('TimerBar — idle', () => {
     expect(taskInput()).toHaveValue('');
   });
 
+  it('gives back the typed task when the server refuses the start', async () => {
+    serve(summary());
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) =>
+        (init?.method ?? 'GET') !== 'GET'
+          ? new Response(
+              JSON.stringify({
+                code: 'TIMER_ALREADY_RUNNING',
+                message: 'A timer is already running.',
+              }),
+              { status: 409 },
+            )
+          : new Response(
+              JSON.stringify(
+                String(url).includes('task-names')
+                  ? { taskNames: [] }
+                  : summary(),
+              ),
+              { status: 200 },
+            ),
+      ),
+    );
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderBar();
+
+    await screen.findByRole('button', { name: 'Start timer' });
+    await user.type(taskInput(), 'Invoicing');
+    await user.click(screen.getByRole('button', { name: 'Start timer' }));
+
+    await waitFor(() => expect(taskInput()).toHaveValue('Invoicing'));
+  });
+
   it('starts with the typed task and chosen project', async () => {
     const calls = serve(summary());
     const user = userEvent.setup();

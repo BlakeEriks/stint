@@ -45,11 +45,12 @@ export function TimerBar({ projects }: { projects: Project[] }) {
     } else {
       /* Trimmed, as the entry dialog trims: a chosen suggestion has to match
          the stored name exactly or the next list offers it a second time. */
-      timer.start.mutate({
-        id: uuidv7(),
-        taskName: draft.trim(),
-        projectId: draftProject,
-      });
+      const typed = draft;
+      timer.start.mutate(
+        { id: uuidv7(), taskName: draft.trim(), projectId: draftProject },
+        // A refused start gives back what was typed, unless something new was.
+        { onError: () => setDraft((d) => (d === '' ? typed : d)) },
+      );
       setDraft('');
     }
   };

@@ -73,20 +73,23 @@ export function Inbox({ stats }: { stats: Stats }) {
   /* `EntryDialog` edits a whole entry, which the stats rows do not carry, so
      opening one fetches it by id. The row says which field it is about, and
      the cursor opens there. */
-  const openEntry = async ({
-    id,
-    focus,
-  }: {
-    id: string;
-    focus: 'task' | 'project';
-  }) => {
-    const found = await queryClient.fetchQuery({
-      queryKey: keys.entry(id),
-      queryFn: () => api.entry(id),
-    });
-    setFocusField(focus);
-    setAssigning(found);
-  };
+  /* A read, but through the helper so a failure (the entry deleted
+     elsewhere, the network gone) is explained rather than a click that does
+     nothing. */
+  const { mutate: openEntry } = useOptimisticMutation({
+    queryKey: ({ id }: { id: string; focus: 'task' | 'project' }) =>
+      keys.entry(id),
+    mutationFn: ({ id }) =>
+      queryClient.fetchQuery({
+        queryKey: keys.entry(id),
+        queryFn: () => api.entry(id),
+      }),
+    invalidate: () => undefined,
+    onSuccess: (found, { focus }) => {
+      setFocusField(focus);
+      setAssigning(found);
+    },
+  });
 
   /* An answered row leaves at once. The refetch that drops it from the data
      waits for its exit, so the animation has a row to play on; a rejection

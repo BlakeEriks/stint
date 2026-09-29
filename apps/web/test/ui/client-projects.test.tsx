@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { MutationNotice } from '@/components/mutation-notice';
+import { keys } from '@/lib/client/query-keys';
 import { ClientProjects } from '@/components/client-projects';
 import type { Client, Project } from '@/lib/client/api';
 
@@ -179,6 +180,27 @@ describe('ClientProjects', () => {
 
   /* A refused archive left the button live and the row unchanged, which reads
      as the click not registering. */
+  it('leaves lists of archived projects alone when predicting an archive', async () => {
+    serve([project()]);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const withArchived = keys.projects({ archived: true });
+    client.setQueryData(withArchived, { projects: [project()] });
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={client}>
+        <ClientProjects client={NORTHWIND} />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByLabelText('Archive Website redesign'));
+
+    expect(
+      (client.getQueryData(withArchived) as { projects: unknown[] }).projects,
+    ).toHaveLength(1);
+  });
+
   it('drops the row on the press, before the server answers', async () => {
     vi.stubGlobal(
       'fetch',

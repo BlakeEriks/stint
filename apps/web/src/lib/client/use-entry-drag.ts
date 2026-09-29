@@ -68,7 +68,10 @@ export function useEntryDrag() {
         endedAt: v.endedAt.toISOString(),
       }),
     invalidate: invalidateEntryData,
-    onSettled: () => setPreview(null),
+    // Not over a drag still in the user's hand.
+    onSettled: () => {
+      if (!active.current) setPreview(null);
+    },
   });
 
   function begin(

@@ -6,6 +6,7 @@ import Testing
 @MainActor
 private final class Model: Optimistic {
     var inFlight: [String: Int] = [:]
+    var lanes: [String: Task<Void, Never>] = [:]
     var value = "original"
     var reasons: [String] = []
     var refreshes = 0
@@ -113,4 +114,38 @@ struct OptimisticTests {
         _ = await b.value
         #expect(model.refreshes == 1)
     }
+
+    @Test func pressesInOneScopeReachTheServerInOrder() async {
+        let model = Model()
+        let first = Gate()
+        let log = Log()
+        let a = Task {
+            await model.set("start") {
+                await log.add("start began")
+                await first.wait()
+                return "ok"
+            }
+        }
+        while await log.entries.isEmpty { await Task.yield() }
+        let b = Task {
+            await model.set("stop") {
+                await log.add("stop began")
+                return "ok"
+            }
+        }
+        await Task.yield()
+        #expect(model.value == "stop")
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(await log.entries == ["start began"])
+
+        await first.release()
+        _ = await a.value
+        _ = await b.value
+        #expect(await log.entries == ["start began", "stop began"])
+    }
+}
+
+private actor Log {
+    private(set) var entries: [String] = []
+    func add(_ entry: String) { entries.append(entry) }
 }
