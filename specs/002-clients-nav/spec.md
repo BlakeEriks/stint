@@ -32,12 +32,12 @@ Chosen from four rounds of variations; the pick is `design/clients.html`
   none). The header holds the client's dot, its name (links to the client),
   its rate — or the default rate, marked as such — and billing email, and
   **Edit**.
-- **Project rows inside the card**: the client's dot, the name, the resolved
+- **Project rows inside the card**: the name, the resolved
   rate with its source beneath (`own rate`, `from client`, `from default`),
   or `Non-billable`, and a faint pencil. **The row is the button**: it
   highlights on hover and opens the project's dialog, so a card has one Edit
-  (the client's). No subheader: the card, spine and dots say they are the
-  client's. A client with none says `No projects yet.`
+  (the client's). No subheader: the card and spine say they are the client's;
+  the dot is the client's alone. A client with none says `No projects yet.`
 - **`+ Project for <client>`** closes each card and opens the project dialog
   with that client chosen. **No client** is the last card, dashed, with no
   rate, link or Edit, and its own `+ Project`.
@@ -46,7 +46,7 @@ Chosen from four rounds of variations; the pick is `design/clients.html`
   editing reads the same from any screen. Every dialog's footer runs
   **Archive** (ghost, far left), Cancel, then Save at the bottom right; moving a project to
   another client is its Client field. An archived record's dialog has no
-  Archive. Archive is predicted (Constitution VI): the dialog closes and the
+  Archive. Saving a project and archive are predicted (Constitution VI): the dialog closes and the
   card or row goes on the press; a refusal brings it back with the reason.
 - Money keeps its cents everywhere.
 

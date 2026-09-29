@@ -265,7 +265,7 @@ export const api = {
     return request<{ projects: Project[] }>('GET', `/projects${query}`);
   },
 
-  createProject: (body: ProjectInput) =>
+  createProject: (body: ProjectInput & { id?: string }) =>
     request<Project>('POST', '/projects', body),
 
   updateProject: (id: string, body: Partial<ProjectInput>) =>

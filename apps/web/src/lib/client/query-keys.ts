@@ -74,6 +74,36 @@ export function predictArchive(
 }
 
 /**
+ * A saved project's prediction for one cached list under `keys.projects()`:
+ * added if new, replaced if not, and dropped from a list filtered to a
+ * client it no longer belongs to.
+ */
+export function predictSave(
+  project: { id: string; clientId: string | null },
+  current: unknown,
+  key: QueryKey,
+): unknown {
+  if (
+    typeof current !== 'object' ||
+    current === null ||
+    !('projects' in current)
+  )
+    return current;
+  const list = (current as { projects: Array<{ id: string }> }).projects;
+  const rest = list.filter((p) => p.id !== project.id);
+  const opts = key[1] as { clientId?: string } | undefined;
+  const belongs = !opts?.clientId || opts.clientId === project.clientId;
+  return {
+    ...current,
+    projects: !belongs
+      ? rest
+      : list.length === rest.length
+        ? [...list, project]
+        : list.map((p) => (p.id === project.id ? project : p)),
+  };
+}
+
+/**
  * Everything derived from time entries.
  *
  * A timer stop, an edited entry, a generated invoice and an inbox action all

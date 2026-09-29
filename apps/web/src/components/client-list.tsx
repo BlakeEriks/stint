@@ -311,7 +311,6 @@ function Row({
         className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-2.5 text-left
                    hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
       >
-        <Pip color={client?.color} />
         <span className="min-w-0 flex-1 truncate type-control text-strong">
           {project.name}
         </span>

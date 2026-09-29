@@ -280,6 +280,23 @@ describe('ClientList', () => {
     );
   });
 
+  it('shows a new project under its client before the server answers', async () => {
+    serve([NORTHWIND, BYRNE]);
+    const user = userEvent.setup();
+    render(<ClientList />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Project for Northwind' }),
+    );
+    await user.type(await screen.findByLabelText('Name'), 'Warehouse');
+    await user.click(screen.getByRole('button', { name: /Add project/ }));
+
+    // Writes never answer here, so this is the prediction alone.
+    const row = await screen.findByRole('button', { name: 'Edit Warehouse' });
+    expect(row.closest('section')).toHaveTextContent('Northwind');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('edits a project from its row, which is the one button', async () => {
     serve([NORTHWIND], [project({ clientId: 'c1', name: 'Warehouse' })]);
     const user = userEvent.setup();
