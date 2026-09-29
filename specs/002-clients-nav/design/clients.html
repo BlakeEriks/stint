@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clients round 4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* GENERATED from tokens.json — do not edit by hand. Run `pnpm tokens`. */
+/* The palette for docs/design mockups. Token names are the RAW ones
+   (--bg-primary, --text-muted, --border-subtle), not the Tailwind-stripped
+   utilities the app uses — a mockup writes plain CSS, so there is no prefix
+   collision to work around. */
+
+:root {
+    --bg-recessed: #0A0B0E;
+    --bg-base: #111316;
+    --bg-primary: #181B1F;
+    --bg-elevated: #202328;
+    --bg-hover: #272A30;
+    --bg-active: #2F333A;
+    --text-strong: #F9FAFD;
+    --text-primary: #CACED7;
+    --text-muted: #9299A6;
+    --text-subtle: #838A97;
+    --text-on-accent: #111316;
+    --text-on-danger: #111316;
+    --overlay: #05060899;
+    --border-grid: #272A30;
+    --border-subtle: #2F333A;
+    --border-default: #393E48;
+    --border-control: #666D79;
+    --border-focus: #9DA3AF;
+    --accent-default: #52FC43;
+    --accent-hover: #8EFD83;
+    --accent-active: #3FE231;
+    --accent-subtle: #0E4B09;
+    --accent-muted: #1B3518;
+    --timer-running: #52FC43;
+    --timer-idle: #666D79;
+    --timer-warning: #5CABF2;
+    --success: #36C52A;
+    --warning: #5CABF2;
+    --danger: #F64B66;
+    --danger-muted: #471F23;
+    --info: #6D7FAE;
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.40), 0 2px 10px rgba(0,0,0,0.34);
+    --shadow-float: 0 2px 4px rgba(0,0,0,0.44), 0 8px 24px rgba(0,0,0,0.40);
+    --shadow-halo-running: 0 0 0 3px color-mix(in oklab, var(--accent-default) 18%, transparent);
+    --shadow-halo-warning: 0 0 0 3px color-mix(in oklab, var(--timer-warning) 18%, transparent);
+
+    --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --motion-instant: 90ms;
+    --motion-quick: 160ms;
+    --motion-count: 900ms;
+    --motion-rise: 3px;
+    --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+    --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+
+    --mark-bound-width: 0.09em;
+    --mark-bound-height: 1.05em;
+    --mark-bound-gap: 0.18em;
+    --mark-bound-radius: 999px;
+
+    --proj-1: #DA8188;
+    --proj-2: #D38B59;
+    --proj-3: #B49D46;
+    --proj-4: #42B59A;
+    --proj-5: #35AFC9;
+    --proj-6: #6EA1E2;
+    --proj-7: #A390DC;
+    --proj-8: #C984BA;
+
+    --cat-1: #64A3E3;
+    --cat-2: #F6964E;
+}
+
+[data-theme="light"] {
+    --bg-recessed: #E8E2D8;
+    --bg-base: #EEE9E0;
+    --bg-primary: #F4F0E8;
+    --bg-elevated: #FAF6EF;
+    --bg-hover: #DED8CD;
+    --bg-active: #D1CABE;
+    --text-strong: #0B0A09;
+    --text-primary: #2D2A25;
+    --text-muted: #68635B;
+    --text-subtle: #767068;
+    --text-on-accent: #FFFFFF;
+    --text-on-danger: #FFFFFF;
+    --overlay: #1B1E2799;
+    --border-grid: #DED8CD;
+    --border-subtle: #D1CABE;
+    --border-default: #C1BDB5;
+    --border-control: #938E86;
+    --border-focus: #58544C;
+    --accent-default: #3A632C;
+    --accent-hover: #315424;
+    --accent-active: #2A491E;
+    --accent-subtle: #4A783A;
+    --accent-muted: #E0EFDB;
+    --timer-running: #3A632C;
+    --timer-idle: #938E86;
+    --timer-warning: #1C6DAD;
+    --success: #457036;
+    --warning: #1C6DAD;
+    --danger: #C21F43;
+    --danger-muted: #FFEBEB;
+    --info: #4A5A85;
+
+    --shadow-card: 0 1px 2px rgba(16,18,26,0.06), 0 2px 8px rgba(16,18,26,0.07);
+    --shadow-float: 0 2px 4px rgba(16,18,26,0.08), 0 8px 24px rgba(16,18,26,0.10);
+    --shadow-halo-running: 0 0 0 3px color-mix(in oklab, var(--accent-default) 22%, transparent);
+    --shadow-halo-warning: 0 0 0 3px color-mix(in oklab, var(--timer-warning) 22%, transparent);
+}
+
+/* ── The type scale ────────────────────────────────────────────────
+   One class per role, same as the app's @utility set. A mockup names a
+   role (type-amount) and never assembles one, so a doc cannot invent a
+   size the product does not have. */
+.type-timer {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 30px; }
+    font-variant-numeric: tabular-nums;
+}
+
+.type-title {
+    font-family: var(--font-sans);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+.type-hero {
+    font-family: var(--font-sans);
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    @media (width >= 40rem) { font-size: 44px; }
+}
+
+.type-figure {
+    font-family: var(--font-mono);
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-figure-hero {
+    font-family: var(--font-mono);
+    font-size: 40px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-lede {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+    @media (width >= 40rem) { font-size: 17px; }
+}
+
+.type-display {
+    font-family: var(--font-sans);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 28px; }
+}
+
+.type-section {
+    font-family: var(--font-sans);
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.type-heading {
+    font-family: var(--font-sans);
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.type-body {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+}
+
+.type-control {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.type-support {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.type-amount {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-amount-hero {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-duration {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-meta {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-meta-strong {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-wordmark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.type-wordmark-small {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.type-nav {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.type-region-head {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+.type-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.type-badge {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ── The mark ──────────────────────────────────────────────────────
+   `|Stint|` — one color, bounds included, inherited via currentColor.
+   Set a font-size on .mark and everything scales from it. */
+.mark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+.mark::before,
+.mark::after {
+    content: '';
+    display: inline-block;
+    flex: none;
+    width: var(--mark-bound-width);
+    height: var(--mark-bound-height);
+    margin: 0 var(--mark-bound-gap);
+    border-radius: var(--mark-bound-radius);
+    background: currentColor;
+}
+
+
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--bg-recessed); color: var(--text-primary); font-family: var(--font-sans); padding: 20px 16px 60px; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+/* Chooser */
+.bar { max-width: 1100px; margin: 0 auto 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bar .spacer { flex: 1; }
+.chip { padding: 6px 10px; border-radius: 6px; color: var(--text-subtle); }
+.chip[aria-pressed="true"] { background: var(--bg-elevated); color: var(--text-strong); }
+.note { max-width: 1100px; margin: 0 auto 16px; padding: 12px 14px; border-left: 2px solid var(--border-default); }
+.note b { color: var(--text-strong); font-weight: 600; }
+
+/* The app frame, simplified: rail + content card */
+.frame { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 180px 1fr; gap: 16px; background: var(--bg-base); border-radius: 12px; padding: 16px; }
+.frame.phone { max-width: 390px; grid-template-columns: 1fr; }
+.frame.phone .rail { display: none; }
+.rail { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; }
+.rail a { padding: 8px 10px; border-radius: 6px; color: var(--text-muted); text-decoration: none; }
+.rail a.on { background: var(--bg-elevated); color: var(--text-strong); }
+.page { background: var(--bg-primary); border-radius: 10px; padding: 18px; box-shadow: var(--shadow-card); min-width: 0; }
+.head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 14px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 1px solid var(--border-default); background: var(--bg-elevated); color: var(--text-strong); border-radius: 6px; }
+.btn.sm { height: 30px; padding: 0 10px; }
+.btn.ghost { border-color: transparent; background: none; color: var(--text-muted); }
+.btn.ghost:hover { background: var(--bg-hover); color: var(--text-strong); }
+.tabs { display: flex; gap: 4px; padding-bottom: 12px; }
+.tabs span { padding: 4px 8px; border-radius: 6px; color: var(--text-subtle); }
+.tabs span.on { background: var(--bg-elevated); color: var(--text-strong); }
+.pip { width: 9px; height: 9px; border-radius: 999px; flex: none; display: inline-block; }
+.pip.none { border: 1.5px solid var(--text-subtle); }
+.pip.lg { width: 12px; height: 12px; }
+.primary { color: var(--text-primary); } .muted { color: var(--text-muted); } .subtle { color: var(--text-subtle); } .strong { color: var(--text-strong); }
+.right { text-align: right; }
+.row { display: flex; align-items: center; gap: 10px; }
+.grow { flex: 1; min-width: 0; }
+.trunc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+a.name { color: inherit; text-decoration: none; } a.name:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* A — client cards */
+.a-list { display: grid; gap: 12px; }
+.a-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; }
+.a-top { padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
+.a-projects { border-top: 1px solid var(--border-subtle); padding: 6px 16px 10px; }
+.a-proj { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border-grid); }
+.a-proj:last-of-type { border-bottom: 0; }
+.a-add { margin-top: 4px; }
+.a-plain { background: none; border-style: dashed; }
+
+/* B — outline */
+.b-group { padding: 14px 0; border-top: 1px solid var(--border-subtle); }
+.b-group:first-child { border-top: 0; }
+.b-client { display: flex; gap: 12px; align-items: baseline; }
+.b-kids { margin: 8px 0 0 4px; padding-left: 18px; border-left: 2px solid var(--c, var(--border-default)); }
+.b-proj { display: flex; gap: 12px; align-items: center; padding: 7px 0; }
+
+/* C — ledger */
+.c-table { width: 100%; border-collapse: collapse; }
+.c-table th { text-align: left; padding: 0 10px 8px; color: var(--text-subtle); border-bottom: 1px solid var(--border-default); }
+.c-table td { padding: 10px; border-bottom: 1px solid var(--border-grid); vertical-align: middle; }
+.c-table th.num, .c-table td.num { text-align: right; white-space: nowrap; }
+.c-client td { background: var(--bg-elevated); border-bottom: 1px solid var(--border-subtle); }
+.c-client td:first-child { border-radius: 6px 0 0 6px; } .c-client td:last-child { border-radius: 0 6px 6px 0; }
+.c-proj td:first-child { padding-left: 34px; }
+.c-gap td { border: 0; padding: 5px; background: none; }
+.c-tree { color: var(--text-subtle); margin-right: 6px; }
+
+/* D — master/detail */
+.d-wrap { display: grid; grid-template-columns: 260px 1fr; gap: 16px; }
+.phone .d-wrap { grid-template-columns: 1fr; }
+.d-list { display: flex; flex-direction: column; gap: 2px; }
+.d-item { text-align: left; padding: 10px 12px; border-radius: 8px; display: flex; gap: 10px; align-items: flex-start; width: 100%; }
+.d-item:hover { background: var(--bg-hover); }
+.d-item[aria-current="true"] { background: var(--bg-elevated); box-shadow: inset 2px 0 0 var(--c, var(--border-focus)); }
+.d-detail { background: var(--bg-elevated); border-radius: 10px; padding: 18px; border: 1px solid var(--border-subtle); }
+.d-stats { display: flex; gap: 28px; padding: 14px 0; border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
+.d-proj { display: flex; gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border-grid); }
+
+/* E — tiles */
+.e-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.e-tile { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-top: 3px solid var(--c, var(--border-default)); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.e-projs { display: flex; flex-direction: column; gap: 6px; }
+.e-proj { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; background: var(--bg-primary); border-radius: 6px; }
+.e-tile.nocl { border-top-color: var(--border-default); background: none; border-style: dashed; }
+/* Round 4 */
+.a-list > * { min-width: 0; }
+.a-proj { gap: 12px; }
+.rate { width: 110px; line-height: 1.25; }
+.a-spine { box-shadow: inset 3px 0 0 var(--c); }
+.page { position: relative; }
+.scrim { position: absolute; inset: 0; background: var(--overlay); border-radius: 10px; display: flex; align-items: flex-start; justify-content: center; padding-top: 90px; }
+.dialog { width: min(440px, 92%); background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 12px; box-shadow: var(--shadow-float); padding: 22px; }
+.field { background: var(--bg-base); border: 1px solid var(--border-control); color: var(--text-strong); border-radius: 6px; height: 36px; padding: 0 10px; font: inherit; width: 100%; }
+span.field { display: flex; align-items: center; gap: 8px; }
+.form-row { display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; }
+.check { width: 18px; height: 18px; border: 1.5px solid var(--border-control); border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; }
+.check.on { background: var(--text-muted); color: var(--bg-base); border-color: var(--text-muted); }
+.btn.accent { background: var(--accent-default); color: var(--text-on-accent); border-color: transparent; }
+.phone .rate { display: none; }
+.phone .btn.ghost.sm:not(.a-add) { font-size: 0; gap: 0; padding: 0 8px; }
+</style>
+</head>
+<body>
+
+<div class="bar" id="variants"></div>
+<div class="bar">
+  <span class="type-label subtle">View</span>
+  <button class="chip type-label" data-w="desktop" aria-pressed="true">Desktop</button>
+  <button class="chip type-label" data-w="phone" aria-pressed="false">Phone</button>
+  <span class="spacer"></span>
+  <span class="type-label subtle">Theme</span>
+  <button class="chip type-label" data-t="dark" aria-pressed="true">Dark</button>
+  <button class="chip type-label" data-t="light" aria-pressed="false">Light</button>
+</div>
+<p class="note type-support muted" id="note"></p>
+
+<div class="frame" id="frame">
+  <nav class="rail type-nav">
+    <a>Home</a><a>Calendar</a><a class="on">Clients</a><a>Invoices</a><a>Settings</a>
+  </nav>
+  <main class="page">
+    <header class="head">
+      <h1 class="type-title strong">Clients</h1>
+      <div class="row" id="actions"></div>
+    </header>
+    <div class="tabs type-label"><span class="on">Active</span><span>Archived</span><span>All</span></div>
+    <div id="view"></div>
+  </main>
+</div>
+
+<script>
+/* The seeded account (apps/web/src/mocks/fixtures.ts). */
+const DEFAULT_RATE = 125;
+const clients = [
+  { id: 'meridian', name: 'Meridian Labs', color: '#A390DC', rate: null, email: 'billing@meridian.test',
+    projects: [{ id: 'p1', name: 'Data pipeline audit', rate: null, billable: true }] },
+  { id: 'northwind', name: 'Northwind Trading', color: '#6EA1E2', rate: 150, email: 'ap@northwind.test',
+    projects: [
+      { id: 'p2', name: 'Rush: peak season fixes', rate: 195, billable: true },
+      { id: 'p3', name: 'Warehouse dashboard', rate: null, billable: true }] },
+  { id: 'byrne', name: 'Byrne Studio', color: null, rate: 110, email: null, projects: [] },
+];
+const noClient = { id: 'none', name: 'No client', none: true, color: null, projects: [{ id: 'p4', name: 'Admin and invoicing', rate: null, billable: false }] };
+const all = [...clients, noClient];
+
+const $ = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pip = (c, lg) => c ? `<span class="pip${lg ? ' lg' : ''}" style="background:${c}"></span>` : `<span class="pip none${lg ? ' lg' : ''}"></span>`;
+const clientRate = (c) => c.rate ?? DEFAULT_RATE;
+const projRate = (c, p) => p.rate ?? (c.none ? DEFAULT_RATE : clientRate(c));
+const source = (c, p) => p.rate != null ? 'own rate' : c.rate != null ? 'from client' : 'from default';
+const clientRateLabel = (c) => c.rate != null ? `${$(c.rate)}/h` : `${$(DEFAULT_RATE)}/h · default`;
+const colorOf = (c) => c.color ?? 'var(--border-default)';
+const I = {
+  pencil: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
+  plus: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25"><path d="M12 5v14M5 12h14"/></svg>',
+  archive: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/></svg>',
+  check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>',
+  chevron: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="m6 9 6 6 6-6"/></svg>',
+};
+const edit = (label) => `<button class="btn ghost sm type-control" aria-label="Edit ${label}">${I.pencil}Edit</button>`;
+const rateCell = (c, p) => p.billable
+  ? `<span class="rate right"><span class="type-duration ${p.rate != null ? 'primary' : 'muted'}">${$(projRate(c, p))}/h</span><br><span class="type-meta subtle">${source(c, p)}</span></span>`
+  : `<span class="rate right"><span class="type-support subtle">Non-billable</span></span>`;
+
+/* The page. `dots` decides whether the pips stay beside the spine. */
+const page = (dots) => `<div class="a-list">${all.map((c) => `
+  <section class="a-card a-spine ${c.none ? 'a-plain' : ''}" style="--c:${colorOf(c)}">
+    <div class="a-top">
+      ${dots ? `<div style="padding-top:5px">${pip(c.color, true)}</div>` : ''}
+      <div class="grow">
+        <h2 class="type-heading ${c.none ? 'muted' : 'strong'}">${c.none ? 'No client' : `<a class="name" href="#">${c.name}</a>`}</h2>
+        <p class="type-support subtle trunc">${c.none ? 'Internal or unassigned work' : clientRateLabel(c) + (c.email ? ' · ' + c.email : '')}</p>
+      </div>
+      ${c.none ? '' : edit(c.name)}
+    </div>
+    <div class="a-projects">
+      ${c.projects.length ? c.projects.map((p) => `
+        <div class="a-proj">
+          ${dots ? pip(c.color) : ''}
+          <span class="type-control strong grow trunc">${p.name}</span>
+          ${rateCell(c, p)}
+          ${edit(p.name)}
+        </div>`).join('') : `<p class="type-support subtle" style="padding:10px 0 2px">No projects yet.</p>`}
+      <button class="btn ghost sm type-control a-add">${I.plus}Project${c.none ? '' : ` for ${c.name.split(' ')[0]}`}</button>
+    </div>
+  </section>`).join('')}</div>`;
+
+/* ProjectDialog as it is (apps/web/src/components/project-dialog.tsx),
+   plus Archive: the rare action, kept out of the row, at the footer's far
+   end from Save so it's never hit by habit. */
+const dialog = () => {
+  const c = clients[1], p = c.projects[1];
+  const row = (label, control, hint) => `<label class="form-row"><span class="type-label subtle">${label}</span>${control}${hint ? `<span class="type-meta subtle">${hint}</span>` : ''}</label>`;
+  return `<div class="scrim"><div class="dialog" role="dialog">
+    <h2 class="type-section strong">Edit project</h2>
+    <p class="type-support muted" style="padding:4px 0 18px">Projects group time entries and set the rate they bill at.</p>
+    ${row('Name', `<input class="field type-control" value="${p.name}">`)}
+    ${row('Client', `<span class="field row type-control">${pip(c.color)}<span class="grow">${c.name}</span>${I.chevron}</span>`, 'Move it to another client here.')}
+    ${row('Hourly rate', `<input class="field type-control" placeholder="Defaults to the client's rate — $150.00">`)}
+    <label class="row type-control primary" style="padding:2px 0 22px"><span class="check on">${I.check}</span>Billable by default</label>
+    <div class="row">
+      <button class="btn ghost type-control">${I.archive}Archive</button>
+      <span class="grow"></span>
+      <button class="btn ghost type-control">Cancel</button>
+      <button class="btn accent type-control">${I.check}Save</button>
+    </div>
+  </div></div>`;
+};
+
+const variants = {
+  S1: {
+    title: 'S1 · Spine + dots',
+    note: '<b>Round 3\'s M1 without the ⋯ menus:</b> Edit is the only row action, and archive and move live in the dialog. The dots stay: they carry the color into each row and, on the client, match the dot the timer and calendar use for that client.',
+    actions: `<a class="btn type-control">${I.plus}Add client</a>`,
+    render: () => page(true),
+  },
+  S2: {
+    title: 'S2 · Spine only',
+    note: '<b>The same, with the dots dropped:</b> the spine alone carries the color. Calmer, and the names line up flush. Cost: a client with no color (Byrne) and "No client" differ only by the grey spine, and a row\'s color is only at the card\'s edge.',
+    actions: `<a class="btn type-control">${I.plus}Add client</a>`,
+    render: () => page(false),
+  },
+  S3: {
+    title: 'S3 · Edit dialog',
+    note: '<b>Edit on Warehouse dashboard opens this.</b> The real ProjectDialog\'s fields, with Archive added at the footer\'s far left, away from Save. Moving to another client is its Client field. A client\'s Edit would open the same shape of dialog (name, rate, email, color) with Archive client in the same place.',
+    actions: `<a class="btn type-control">${I.plus}Add client</a>`,
+    render: () => page(true) + dialog(),
+  },
+};
+
+let current = 'S1';
+let phone = false;
+function draw() {
+  const v = variants[current];
+  document.getElementById('note').innerHTML = v.note;
+  document.getElementById('actions').innerHTML = v.actions;
+  document.getElementById('view').innerHTML = v.render(phone, v.state);
+  document.getElementById('frame').classList.toggle('phone', phone);
+  document.querySelectorAll('[data-v]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.v === current));
+}
+document.getElementById('variants').innerHTML = Object.entries(variants)
+  .map(([k, v]) => `<button class="chip type-control" data-v="${k}">${v.title}</button>`).join('');
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.v) { current = b.dataset.v; draw(); }
+  
+  if (b.dataset.w) { phone = b.dataset.w === 'phone'; document.querySelectorAll('[data-w]').forEach((x) => x.setAttribute('aria-pressed', x === b)); draw(); }
+  if (b.dataset.t) { document.documentElement.dataset.theme = b.dataset.t; document.querySelectorAll('[data-t]').forEach((x) => x.setAttribute('aria-pressed', x === b)); }
+});
+draw();
+</script>
+</body>
+</html>

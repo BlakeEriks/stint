@@ -18,13 +18,41 @@ Closes #158
 - Q: Under Archived, does an active client's heading show above its archived projects? → A: Yes, without an Archived badge, above only its archived projects.
 - Q: Does archiving a client archive its projects? → A: No write to the projects; a project whose client is archived is treated as archived, so the client shows with all its projects under Archived and All. Pickers follow in #165.
 
+### Session 2026-09-29
+
+- Q: What should the screen show, having shipped a first cut that didn't read well? → A: Chosen in a design review (#180): client cards, as below. The screen manages clients and projects; unbilled figures and hours belong to a reports screen.
+
+## Design
+
+Chosen from four rounds of variations; the pick is `design/clients.html`
+(tabs S1 and S3).
+
+- **A card per client**, on the elevated surface, with a 3px spine down its
+  left edge in the client's color (the default edge color for a client with
+  none). The header holds the client's dot, its name (links to the client),
+  its rate — or the default rate, marked as such — and billing email, and
+  **Edit**.
+- **Project rows inside the card**: the client's dot, the name, the resolved
+  rate with its source beneath (`own rate`, `from client`, `from default`),
+  or `Non-billable`, and **Edit**. No subheader: the card, spine and dots say
+  they are the client's. A client with none says `No projects yet.`
+- **`+ Project for <client>`** closes each card and opens the project dialog
+  with that client chosen. **No client** is the last card, dashed, with no
+  rate, link or Edit, and its own `+ Project`.
+- **Add client** is the page's one header action.
+- **Edit opens a dialog, never a page**, for a client as for a project, so
+  editing reads the same from any screen. Each dialog carries **Archive**, a
+  ghost button at the far end of its footer from Save; moving a project to
+  another client is its Client field. An archived record's dialog has no
+  Archive.
+- Money keeps its cents everywhere.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - See every client and project in one place (Priority: P1)
 
-A contractor opens **Clients** and sees each client as a heading with its
-rate and a summary line (project count, unbilled amount, email), and that
-client's projects beneath it. Projects with no client sit under a **No
+A contractor opens **Clients** and sees each client as a card with its
+rate and billing email, and that client's projects inside it. Projects with no client sit under a **No
 client** heading. There is no separate **Projects** item in the nav.
 
 **Why this priority**: This is the merge. Without it nothing else here
@@ -37,40 +65,48 @@ under **No client**, and the nav has no **Projects** item.
 **Acceptance Scenarios**:
 
 1. **Given** two clients with projects, **When** the contractor opens
-   Clients, **Then** each client is a heading showing its rate and summary
-   line, with its projects listed under it.
+   Clients, **Then** each client is a card showing its rate and billing email,
+   with its projects inside it at their resolved rates and where each comes
+   from.
 2. **Given** a project with no client, **When** the contractor opens
    Clients, **Then** it appears under a **No client** heading.
 3. **Given** a client with no projects, **When** the contractor opens
-   Clients, **Then** the client heading still appears, with no project rows.
+   Clients, **Then** the client's card still appears, saying it has no
+   projects yet.
 4. **Given** no clients and no projects, **When** the contractor opens
    Clients, **Then** they see an empty state offering to add a client.
 5. **Given** any page in the app, **When** the contractor looks at the nav,
    **Then** it shows Clients and no Projects item.
-6. **Given** a client heading, **When** the contractor selects it, **Then**
-   the client's detail page opens.
+6. **Given** a client's card, **When** the contractor selects its name,
+   **Then** the client's detail page opens.
 
 ---
 
 ### User Story 2 - Add and edit from the same screen (Priority: P2)
 
-From the Clients screen the contractor can add a client, add a project, and
-edit a project, without going anywhere else.
+From the Clients screen the contractor can add a client, add a project to a
+client, and edit or archive a client or a project, in dialogs, without going
+anywhere else.
 
 **Why this priority**: The merged screen has to do what both old screens
 did, or the contractor loses a path.
 
-**Independent Test**: From Clients, add a client, add a project to it, and
-edit that project's rate; each change shows on the screen.
+**Independent Test**: From Clients, add a client, add a project to it, edit
+that project's rate, and archive it; each change shows on the screen.
 
 **Acceptance Scenarios**:
 
 1. **Given** the Clients screen, **When** the contractor chooses Add client,
    **Then** the new-client form opens.
-2. **Given** the Clients screen, **When** the contractor chooses Add project
-   and saves one, **Then** it appears under its client (or under No client).
+2. **Given** a client's card, **When** the contractor chooses `+ Project for
+   <client>`, **Then** the project dialog opens with that client chosen, and
+   the saved project appears in that card.
 3. **Given** a project row, **When** the contractor edits it and saves,
    **Then** the row shows the change.
+4. **Given** a client's card, **When** the contractor chooses Edit, **Then**
+   a client dialog opens, and a saved change shows on the card.
+5. **Given** an edit dialog for an active client or project, **When** the
+   contractor chooses Archive, **Then** it leaves the Active view.
 
 ---
 
@@ -132,14 +168,15 @@ filter, and land on Clients with the same filter.
 ### Functional Requirements
 
 - **FR-001**: The nav MUST show one **Clients** item and no **Projects** item.
-- **FR-002**: The Clients screen MUST list each client as a heading with its
-  rate and summary line (active project count, unbilled amount, email), and its
-  projects beneath it.
+- **FR-002**: The Clients screen MUST list each client as a card (see
+  Design) with its rate and billing email, and its projects inside it, each
+  with its resolved rate and that rate's source.
 - **FR-003**: Projects with no client MUST appear under a **No client**
-  heading that has no rate, detail link or edit action.
-- **FR-004**: Each client heading MUST open that client's detail page.
-- **FR-005**: The screen MUST offer Add client and Add project, and editing a
-  project, from the screen itself.
+  card that has no rate, detail link or edit action.
+- **FR-004**: Each client's name MUST open that client's detail page.
+- **FR-005**: The screen MUST offer Add client, a project for each client
+  (and for No client), and editing a client or a project in a dialog that can
+  also archive it.
 - **FR-006**: The Active, Archived and All filter MUST live in the address
   and apply to clients and projects together. A project always sits under
   its own client's heading. A project whose client is archived counts as
@@ -165,7 +202,7 @@ filter, and land on Clients with the same filter.
 
 ## Assumptions
 
-- The client detail page keeps its own project list; this feature changes
-  only the list screen and the nav.
+- The client detail page keeps its own project list and edit page; slimming
+  it to what a card can't hold is later work.
 - The macOS app has no Clients or Projects screen, so it is untouched.
 - No data changes: clients and projects stay as they are.
