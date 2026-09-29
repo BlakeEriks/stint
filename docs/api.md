@@ -13,7 +13,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 46 of 46, counting handlers rather than files.
+Every handler is covered — 45 of 45, counting handlers rather than files.
 
 ## Timer
 
