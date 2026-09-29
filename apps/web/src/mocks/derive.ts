@@ -37,7 +37,6 @@ import {
   startOfLocalWeek,
   startOfNextLocalMonth,
   type UnbilledRow,
-  uuidv7,
 } from '@stint/core';
 import type { Expense, TimeEntry } from '@/lib/client/api';
 import { billable, type Db } from './fixtures';

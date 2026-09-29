@@ -1,9 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
-import { id, ids } from '@/mocks/fixtures';
+import { ids } from '@/mocks/fixtures';
 import {
-  at,
   desktop,
   expectOpen,
   failing,
@@ -55,39 +54,20 @@ export const NoRate: Story = {
   }),
 };
 
-/** An archived client with all its projects, badged; an active client's
-    archived project sits under that client, which carries no badge. */
-export const Archived: Story = {
-  ...desktop,
-  parameters: {
-    ...at('/clients', { status: 'archived' }),
-    ...account((db) => {
-      const warehouse = db.projects.find((p) => p.id === ids.warehouse)!;
-      warehouse.archivedAt = '2026-06-30T16:00:00.000Z';
-      // Active itself, but its client is archived, so it shows here too.
-      db.projects.push({
-        ...warehouse,
-        id: id(207),
-        name: 'Final handover',
-        clientId: ids.oldEngagement,
-        archivedAt: null,
-      });
-    }),
-  },
-};
-export const All: Story = {
-  ...desktop,
-  parameters: at('/clients', { status: 'all' }),
-};
-
-/** An archived client's active project counts as archived: under Active,
-    neither shows. */
-export const ArchivedClientActiveProject: Story = {
+/** No Active / Archived / All filter: an archived client and an archived
+    project show where they belong, each with its badge. */
+export const ArchivedShown: Story = {
   ...desktop,
   parameters: account((db) => {
-    const legacy = db.projects.find((p) => p.id === ids.legacy)!;
-    legacy.archivedAt = null;
+    const warehouse = db.projects.find((p) => p.id === ids.warehouse)!;
+    warehouse.archivedAt = '2026-06-30T16:00:00.000Z';
   }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findByText('Warehouse dashboard');
+    await expect(page.getAllByText('Archived').length).toBeGreaterThan(1);
+    await expect(page.queryByRole('tab')).toBeNull();
+  },
 };
 
 export const Empty: Story = { ...desktop, parameters: account('empty') };
@@ -148,5 +128,118 @@ export const EditClient: Story = {
       await page.findByRole('button', { name: 'Edit Northwind Trading' }),
     );
     await expectOpen(canvasElement, 'dialog', 'Edit client');
+  },
+};
+
+// ── expenses ───────────────────────────────────────────────────────
+
+/** Recorded from the client's card (US2 scenario 1): it waits there. */
+export const AddExpense: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', {
+        name: 'Expense for Northwind Trading',
+      }),
+    );
+    await expectOpen(canvasElement, 'dialog', 'Add expense');
+    await userEvent.type(
+      page.getByLabelText(/Description/),
+      'Flight to Denver',
+    );
+    await userEvent.type(page.getByLabelText(/Amount/), '412');
+    await userEvent.click(page.getByRole('button', { name: 'Add expense' }));
+    await expect(await page.findByText('Flight to Denver')).toBeVisible();
+    await expect(page.getByText('$412.00')).toBeVisible();
+  },
+};
+
+/** A waiting expense opens its dialog from the row (US2 scenario 2). */
+export const EditExpense: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+    );
+    await expectOpen(canvasElement, 'dialog', 'Edit expense');
+    const amount = page.getByLabelText(/Amount/);
+    await userEvent.clear(amount);
+    await userEvent.type(amount, '150');
+    await userEvent.click(page.getByRole('button', { name: 'Save' }));
+    await expect(await page.findByText('$150.00')).toBeVisible();
+  },
+};
+
+/** Delete lives in the dialog, not on the row (US2 scenario 2). */
+export const DeleteExpense: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+    );
+    await userEvent.click(await page.findByRole('button', { name: 'Delete' }));
+    await waitFor(() =>
+      expect(page.queryByText('Figma license, annual')).toBeNull(),
+    );
+  },
+};
+
+/** No expenses: no Expenses label, only the two buttons. */
+export const NoExpenses: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.expenses = [];
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findByRole('button', { name: 'Expense for Northwind Trading' });
+    await expect(page.queryByText('Expenses')).toBeNull();
+  },
+};
+
+/** Recurring comes first, labeled and undated; its dialog has no date
+    (US4). */
+export const RecurringExpense: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Claude Max subscription' }),
+    );
+    await expectOpen(canvasElement, 'dialog', 'Edit expense');
+    await expect(
+      page.getByRole('checkbox', { name: /Recurring/ }),
+    ).toBeChecked();
+    await expect(page.queryByLabelText(/Date paid/)).toBeNull();
+  },
+};
+
+/** On an unpaid invoice (US3 scenario 1): muted, labeled with the invoice,
+    and it opens the invoice rather than a dialog, since it is locked. */
+export const BilledExpense: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const row = await page.findByRole('link', { name: /Stock photography/ });
+    await expect(row).toHaveAccessibleName(/on STINT-0015/);
+    await expect(row.getAttribute('href')).toMatch(/^\/invoices\//);
+  },
+};
+
+/** Once its invoice is paid, a billed expense leaves the card. */
+export const PaidExpenseGone: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const draft = db.invoices.find((i) => i.sequenceNo === 15)!;
+    draft.status = 'paid';
+    draft.paidAt = '2026-09-16T15:00:00.000Z';
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findByText('Figma license, annual');
+    await expect(page.queryByText('Stock photography')).toBeNull();
   },
 };

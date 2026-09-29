@@ -402,7 +402,9 @@ export const api = {
 
   /** Recurring first, then oldest first. `open` (the default) is what a
    *  client's card lists; `unbilled` is what an invoice can take. */
-  expenses: (params: { clientId?: string; status?: 'open' | 'unbilled' } = {}) => {
+  expenses: (
+    params: { clientId?: string; status?: 'open' | 'unbilled' } = {},
+  ) => {
     const q = new URLSearchParams(params as Record<string, string>);
     return request<{ expenses: Expense[] }>('GET', `/expenses?${q}`);
   },

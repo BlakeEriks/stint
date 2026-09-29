@@ -13,11 +13,7 @@ import {
   type LineItemRow,
   type PaymentProfileRow,
 } from './rows';
-import {
-  addDays,
-  resolvePaymentProfile,
-  startOfLocalDate,
-} from '@stint/core';
+import { addDays, resolvePaymentProfile, startOfLocalDate } from '@stint/core';
 import type { BillableEntry, ExpenseInput } from '@stint/core';
 
 /** numeric columns arrive from PostgREST as strings. */

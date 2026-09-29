@@ -1426,7 +1426,12 @@ test('the expense list is open by default: recurring first, then oldest, by clie
     body.expenses.map((e) => e.description);
 
   const all = await json(await list(req('/expenses')));
-  assert.deepEqual(names(all.body), ['Claude', 'Figma', 'Acme license', 'Flight']);
+  assert.deepEqual(names(all.body), [
+    'Claude',
+    'Figma',
+    'Acme license',
+    'Flight',
+  ]);
   assert.equal(all.body.expenses[0].spentOn, null);
 
   const one = await json(await list(req(`/expenses?clientId=${CLIENT}`)));
@@ -1839,7 +1844,10 @@ test('changing or deleting a recurring expense reaches only later invoices', asy
   const next = await json(
     await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
   );
-  assert.deepEqual(expenseLines(next.body).map((l) => l.amount), [250]);
+  assert.deepEqual(
+    expenseLines(next.body).map((l) => l.amount),
+    [250],
+  );
   assert.deepEqual(await frozen(), [200], 'the sent invoice keeps its line');
 
   await DELETE(req('/e', undefined, 'DELETE'), expenseCtx(X(1)));

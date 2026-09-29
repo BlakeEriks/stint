@@ -211,7 +211,7 @@ describe('NewInvoice', () => {
     await chooseClient(user);
     await user.click(screen.getByRole('button', { name: 'Preview' }));
 
-    expect(await screen.findByText('Nothing to bill')).toBeInTheDocument();
+    expect(await screen.findByText(/^Nothing to bill/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Generate/ })).toBeDisabled();
   });
 

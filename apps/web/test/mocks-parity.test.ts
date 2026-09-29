@@ -248,11 +248,7 @@ for (const scenario of scenarios)
       });
       return wire(await res.json());
     };
-    for (const q of [
-      '',
-      'status=unbilled',
-      `clientId=${ids.northwind}`,
-    ])
+    for (const q of ['', 'status=unbilled', `clientId=${ids.northwind}`])
       assert.deepEqual(
         await get('expenses', `/api/v1/expenses?${q}`),
         await fakeGet('expenses', `/api/v1/expenses?${q}`),

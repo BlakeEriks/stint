@@ -85,3 +85,149 @@ export const WithCharge: Story = {
     ).toBeVisible();
   },
 };
+
+// ── expenses ───────────────────────────────────────────────────────
+
+const chooseNorthwind = async (canvasElement: HTMLElement) => {
+  const page = within(canvasElement.ownerDocument.body);
+  await userEvent.click(await page.findByRole('button', { name: 'Client' }));
+  await userEvent.click(
+    await page.findByRole('menuitemradio', { name: /Northwind/ }),
+  );
+  return page;
+};
+
+/** Waiting expenses land in the Preview card under their own heading, with
+    a date and no quantity or rate (US1 scenario 1). */
+export const WithExpenses: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await previewFor(canvasElement);
+    await expect(
+      await page.findByRole('heading', { name: 'Preview' }),
+    ).toBeVisible();
+    await expect(
+      await page.findByRole('cell', { name: 'Figma license, annual' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('cell', { name: 'Aug 20, 2026' }),
+    ).toBeVisible();
+  },
+};
+
+/** Services, Expenses and a Total that is both (US1 scenario 2). */
+export const GenerateWithExpenses: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await previewFor(canvasElement);
+    await expect(await page.findByText('$380.00')).toBeVisible();
+    await expect(page.getByText('Total')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeEnabled();
+  },
+};
+
+/** A period with no time bills its expenses alone (US1 scenario 3). */
+export const OnlyExpenses: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      for (const e of db.entries) e.isBillable = false;
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await previewFor(canvasElement);
+    await expect(
+      await page.findByRole('cell', { name: 'Figma license, annual' }),
+    ).toBeVisible();
+    await expect(page.queryByText('Services')).toBeNull();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeEnabled();
+  },
+};
+
+/** No expenses: no Expenses section, as before (US1 scenario 4). */
+export const NoExpenses: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      db.expenses = [];
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await previewFor(canvasElement);
+    await page.findByRole('heading', { name: 'Preview' });
+    await expect(page.queryByRole('checkbox', { name: /^Bill / })).toBeNull();
+    await expect(page.queryByText('$380.00')).toBeNull();
+  },
+};
+
+/** Unticking one clears the approved preview; the next leaves it out. */
+export const UntickExpense: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await previewFor(canvasElement);
+    await page.findByRole('cell', { name: 'Figma license, annual' });
+    await userEvent.click(
+      page.getByRole('checkbox', { name: 'Bill Figma license, annual' }),
+    );
+    await expect(page.queryByRole('heading', { name: 'Preview' })).toBeNull();
+    await userEvent.click(page.getByRole('button', { name: 'Preview' }));
+    await page.findByRole('heading', { name: 'Preview' });
+    await expect(
+      page.queryByRole('cell', { name: 'Figma license, annual' }),
+    ).toBeNull();
+  },
+};
+
+/** Recorded here, it is saved for the client and joins the list, ticked
+    (US2 scenario 3). */
+export const AddExpenseHere: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.click(await page.findByRole('button', { name: 'Expense' }));
+    await expect(
+      await page.findByRole('dialog', { name: 'Add expense' }),
+    ).toHaveTextContent('Northwind Trading');
+    await userEvent.type(
+      page.getByLabelText(/Description/),
+      'Flight to Denver',
+    );
+    await userEvent.type(page.getByLabelText(/Amount/), '412');
+    await userEvent.clear(page.getByLabelText(/Date paid/));
+    await userEvent.type(page.getByLabelText(/Date paid/), '2026-08-12');
+    await userEvent.click(page.getByRole('button', { name: 'Add expense' }));
+    await expect(
+      await page.findByRole('checkbox', { name: 'Bill Flight to Denver' }),
+    ).toBeChecked();
+  },
+};
+
+/** A recurring expense is ticked on every invoice, dated the period's last
+    day (US4). */
+export const RecurringTicked: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(
+      await page.findByRole('checkbox', {
+        name: 'Bill Claude Max subscription',
+      }),
+    ).toBeChecked();
+    await userEvent.click(page.getByRole('button', { name: 'Preview' }));
+    await page.findByRole('cell', { name: 'Claude Max subscription' });
+    await expect(
+      page.getByRole('cell', { name: 'Aug 31, 2026' }),
+    ).toBeVisible();
+  },
+};
