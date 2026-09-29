@@ -299,45 +299,51 @@ function Row({
     userDefaultRate: defaultRate,
   };
   const rate = resolveRate(ctx);
+  /* The row is the button, so a card has one Edit (the client's) rather
+     than one per project; the pencil says it opens where there's no hover
+     (.claude/rules/web-ui.md). */
   return (
-    <li className="flex items-center gap-3 py-2.5">
-      <Pip color={client?.color} />
-      <span className="min-w-0 flex-1 truncate type-control text-strong">
-        {project.name}
-      </span>
-      {project.archivedAt ? (
-        <span className="flex-none type-badge text-subtle">Archived</span>
-      ) : null}
-      <span className="flex-none text-right">
-        {!project.isBillableDefault ? (
-          <span className="type-support text-subtle">Non-billable</span>
-        ) : rate == null ? (
-          /* Not cosmetic: invoicing refuses unrated entries, so this is
-             found here rather than at billing. */
-          <span className="type-support text-danger">No rate</span>
-        ) : (
-          <>
-            <span
-              className={`block type-duration ${project.hourlyRate != null ? 'text-primary' : 'text-muted'}`}
-            >
-              {rateLabel(rate, client)}
-            </span>
-            <span className="block type-meta text-subtle max-sm:hidden">
-              {SOURCE[resolveRateSource(ctx)]}
-            </span>
-          </>
-        )}
-      </span>
-      <Button
-        variant="ghost"
-        size="sm"
+    <li>
+      <button
+        type="button"
         onClick={onEdit}
         aria-label={`Edit ${project.name}`}
-        className="flex-none"
+        className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-2.5 text-left
+                   hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
       >
-        <Pencil aria-hidden strokeWidth={1.75} />
-        <span className="max-sm:hidden">Edit</span>
-      </Button>
+        <Pip color={client?.color} />
+        <span className="min-w-0 flex-1 truncate type-control text-strong">
+          {project.name}
+        </span>
+        {project.archivedAt ? (
+          <span className="flex-none type-badge text-subtle">Archived</span>
+        ) : null}
+        <span className="flex-none text-right">
+          {!project.isBillableDefault ? (
+            <span className="type-support text-subtle">Non-billable</span>
+          ) : rate == null ? (
+            /* Not cosmetic: invoicing refuses unrated entries, so this is
+               found here rather than at billing. */
+            <span className="type-support text-danger">No rate</span>
+          ) : (
+            <>
+              <span
+                className={`block type-duration ${project.hourlyRate != null ? 'text-primary' : 'text-muted'}`}
+              >
+                {rateLabel(rate, client)}
+              </span>
+              <span className="block type-meta text-subtle max-sm:hidden">
+                {SOURCE[resolveRateSource(ctx)]}
+              </span>
+            </>
+          )}
+        </span>
+        <Pencil
+          aria-hidden
+          strokeWidth={1.75}
+          className="size-3.5 flex-none text-subtle group-hover:text-strong"
+        />
+      </button>
     </li>
   );
 }

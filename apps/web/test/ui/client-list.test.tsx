@@ -280,6 +280,22 @@ describe('ClientList', () => {
     );
   });
 
+  it('edits a project from its row, which is the one button', async () => {
+    serve([NORTHWIND], [project({ clientId: 'c1', name: 'Warehouse' })]);
+    const user = userEvent.setup();
+    render(<ClientList />, { wrapper });
+
+    const row = await screen.findByRole('button', { name: 'Edit Warehouse' });
+    // No Edit button inside the row: the card's one Edit is the client's.
+    expect(within(row).queryByRole('button')).toBeNull();
+    expect(screen.getAllByRole('button', { name: /^Edit/ })).toHaveLength(2);
+
+    await user.click(screen.getByText('Warehouse'));
+    expect(
+      await screen.findByRole('heading', { name: 'Edit project' }),
+    ).toBeInTheDocument();
+  });
+
   it('edits a client in a dialog, as a project is', async () => {
     serve([NORTHWIND]);
     const user = userEvent.setup();

@@ -160,6 +160,12 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
 - **A destructive action is quiet until it is the confirm**: a ghost trash
   icon in `text-danger`, pushed away with `mr-auto`, then `destructive`
   spelling the consequence out.
+- **A dialog's or form's actions run secondary, Cancel, Save**: Save
+  (`accent`) at the bottom right, Cancel beside it, and a secondary action
+  (Archive, Delete) pushed to the far left with `mr-auto`.
+- **A row that opens an editor is itself the button**: the whole row
+  highlights on hover, and a faint pencil at its end says so where there is
+  no hover. Its `aria-label` is `Edit <name>`.
 - **A failure renders beside the thing that failed**, and a failed load is
   neutral, never red — it is a condition, and the answer is to try again.
 - **An empty state says what to do**, or what the consequence is.
