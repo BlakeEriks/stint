@@ -78,13 +78,16 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   if (updateError) throw updateError;
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
 
-  // A voided invoice releases its entries so they can be re-billed.
+  // A voided invoice releases its entries and expenses so they can be
+  // re-billed. Its own lines stay frozen: the record of what was sent.
   if (body.status === 'void') {
-    const { error: releaseError } = await db
-      .from('time_entries')
-      .update({ invoice_id: null })
-      .eq('invoice_id', id);
-    if (releaseError) throw releaseError;
+    for (const table of ['time_entries', 'expenses']) {
+      const { error: releaseError } = await db
+        .from(table)
+        .update({ invoice_id: null })
+        .eq('invoice_id', id);
+      if (releaseError) throw releaseError;
+    }
   }
 
   return NextResponse.json(toInvoice(data as InvoiceRow));

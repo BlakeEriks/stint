@@ -14,7 +14,7 @@ import {
   type PaymentProfileRow,
 } from './rows';
 import { addDays, resolvePaymentProfile, startOfLocalDate } from '@stint/core';
-import type { BillableEntry } from '@stint/core';
+import type { BillableEntry, ExpenseInput } from '@stint/core';
 
 /** numeric columns arrive from PostgREST as strings. */
 const num = (v: string | number | null | undefined): number | null =>
@@ -108,6 +108,46 @@ export async function loadBillableEntries(
       userDefaultRate: opts.userDefaultRate,
     };
   });
+}
+
+/**
+ * What this invoice can bill of the client's expenses: every recurring one,
+ * and every unbilled one-off dated on or before the period's end — an earlier
+ * month's included, so one missed invoice does not strand a reimbursement —
+ * less the ones the user left off.
+ *
+ * A recurring expense has no date of its own, so its line takes the period's
+ * last day: the date the invoice claims to cover. `recurring` tells the
+ * caller not to attach it, since it bills again on the next invoice.
+ */
+export async function loadBillableExpenses(
+  db: SupabaseClient,
+  opts: { clientId: string; periodEnd: string; excludedIds: string[] },
+): Promise<Array<ExpenseInput & { recurring: boolean }>> {
+  const { data, error } = await db
+    .from('expenses')
+    .select('id, recurring, spent_on, description, amount')
+    .eq('client_id', opts.clientId)
+    .is('invoice_id', null)
+    .order('spent_on', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+
+  const excluded = new Set(opts.excludedIds);
+  return (data ?? [])
+    .filter(
+      (row) =>
+        (row.recurring || (row.spent_on as string) <= opts.periodEnd) &&
+        !excluded.has(row.id as string),
+    )
+    .map((row) => ({
+      id: row.id as string,
+      recurring: row.recurring as boolean,
+      spentOn: (row.spent_on as string | null) ?? opts.periodEnd,
+      description: row.description as string,
+      amount: num(row.amount) ?? 0,
+    }));
 }
 
 export interface InvoiceSettings {
@@ -222,6 +262,7 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
       subtotal: invoice.subtotal ?? 0,
       taxRate: invoice.taxRate ?? 0,
       taxAmount: invoice.taxAmount ?? 0,
+      expensesSubtotal: invoice.expensesSubtotal ?? 0,
       total: invoice.total ?? 0,
       notes: invoice.notes,
       paymentTerms: invoice.paymentTerms,

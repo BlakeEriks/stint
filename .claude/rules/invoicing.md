@@ -31,8 +31,8 @@ back to UTC, these two return 422. An omitted one still defaults to UTC.
   entries; re-downloading a year later must produce the same document.
 - **Only drafts can be marked sent or deleted.** The user sends the PDF;
   `PATCH /invoices/:id/status` records it.
-- **Voiding releases entries; it does not remove the number.** Numbering stays
-  gapless.
+- **Voiding releases entries and expenses; it does not remove the number.**
+  Numbering stays gapless. Deleting a draft releases them too.
 - Running timers, non-billable entries, and already-invoiced entries never
   reach an invoice.
 

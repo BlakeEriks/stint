@@ -2,65 +2,72 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Pencil, Plus } from 'lucide-react';
 import { formatCurrency, resolveRate, resolveRateSource } from '@stint/core';
 import { Button } from '@/components/ui/button';
-import { api, type Client, type Project } from '@/lib/client/api';
+import { api, type Client, type Expense, type Project } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
-import { FilterTabs, Listing, Page } from './page';
+import { Listing, Page } from './page';
 import { Pip } from './home-shell';
 import { ClientDialog } from './client-dialog';
 import { ProjectDialog } from './project-dialog';
+import { ClientExpenses } from './client-expenses';
+import { ExpenseDialog } from './expense-dialog';
 import { keys } from '@/lib/client/query-keys';
 
-type Status = 'archived' | 'all' | null;
-
 /**
- * Every client as a card holding its projects — the one place both are
- * managed, and the only screen that reaches a project with no client, since
- * there is no client page to open for one.
+ * Every client as a card holding its projects and the expenses it owes back
+ * — the one place all three are managed, and the only screen that reaches a
+ * project with no client, since there is no client page to open for one.
  *
  * It is for editing, not reporting: what is owed and how many hours went in
  * belong to a reports screen. Every action is the Edit on the thing it
- * changes, opening a dialog that also archives; a project is added from the
- * card it belongs to. The design is `specs/002-clients-nav/design/`.
+ * changes, opening a dialog; a project or an expense is added from the card
+ * it belongs to. Archived clients and projects show with their badge: there
+ * is no filter. The designs are `specs/002-clients-nav/design/` and
+ * `specs/002-reimbursable-expenses/design/`.
  */
 export function ClientList() {
   /* `null` is a new project for no client; a string, for that client. */
   const [creating, setCreating] = useState<string | null | undefined>();
   const [editing, setEditing] = useState<Project | undefined>();
   const [editingClient, setEditingClient] = useState<Client | undefined>();
-  /* The filter lives in the URL: the view is linkable and Back returns to
-     it, where a local toggle was neither. */
-  const params = useSearchParams();
-  const raw = params.get('status');
-  const status: Status = raw === 'archived' || raw === 'all' ? raw : null;
+  const [addingExpense, setAddingExpense] = useState<Client | undefined>();
 
   const clientQuery = useQuery({
     queryKey: keys.clients({ archived: true }),
-    /* Archived clients always: under Active they decide which projects are
-       hidden, and otherwise their projects would fall into "No client",
-       which would be a lie. */
+    /* Archived clients too: otherwise their projects would fall into
+       "No client", which would be a lie. */
     queryFn: () => api.clients({ includeArchived: true }),
   });
   const projectQuery = useQuery({
-    queryKey: keys.projects({ archived: status !== null }),
-    queryFn: () => api.projects({ includeArchived: status !== null }),
+    queryKey: keys.projects({ archived: true }),
+    queryFn: () => api.projects({ includeArchived: true }),
   });
   const { data: settings } = useQuery({
     queryKey: keys.settings(),
     queryFn: () => api.settings(),
   });
   const defaultRate = settings?.defaultHourlyRate ?? null;
+  /* One read for every card: recurring, waiting, and on an unpaid invoice. */
+  const { data: expenseData } = useQuery({
+    queryKey: keys.expenses(),
+    queryFn: () => api.expenses(),
+  });
+  const expensesOf = useMemo(() => {
+    const by = new Map<string, Expense[]>();
+    for (const e of expenseData?.expenses ?? [])
+      by.set(e.clientId, [...(by.get(e.clientId) ?? []), e]);
+    return by;
+  }, [expenseData]);
 
   const groups = useMemo(
     () =>
       clientQuery.data && projectQuery.data
-        ? group(projectQuery.data.projects, clientQuery.data.clients, status)
+        ? group(projectQuery.data.projects, clientQuery.data.clients)
         : undefined,
-    [clientQuery.data, projectQuery.data, status],
+    [clientQuery.data, projectQuery.data],
   );
 
   return (
@@ -75,31 +82,13 @@ export function ClientList() {
         </Button>
       </header>
 
-      <div className="pb-3">
-        <FilterTabs
-          base="/clients"
-          active={status}
-          tabs={[
-            { key: null, label: 'Active' },
-            { key: 'archived', label: 'Archived' },
-            { key: 'all', label: 'All' },
-          ]}
-        />
-      </div>
-
       <Listing
         query={{
           data: groups,
           error: clientQuery.error ?? projectQuery.error,
           isLoading: clientQuery.isLoading || projectQuery.isLoading,
         }}
-        empty={
-          status === 'archived'
-            ? 'Nothing archived.'
-            : status === 'all'
-              ? 'No clients yet.'
-              : 'No clients yet. Add one to set a rate and bill against it.'
-        }
+        empty="No clients yet. Add one to set a rate and bill against it."
       >
         {(shown) => (
           <div className="flex flex-col gap-3">
@@ -110,6 +99,15 @@ export function ClientList() {
                 defaultRate={defaultRate}
                 onEditClient={setEditingClient}
                 onAdd={() => setCreating(g.client?.id ?? null)}
+                onAddExpense={() => g.client && setAddingExpense(g.client)}
+                expenses={
+                  g.client ? (
+                    <ClientExpenses
+                      client={g.client}
+                      expenses={expensesOf.get(g.client.id) ?? []}
+                    />
+                  ) : null
+                }
               >
                 {g.projects.map((project) => (
                   <Row
@@ -136,6 +134,13 @@ export function ClientList() {
         onOpenChange={(open) => !open && setEditing(undefined)}
         existing={editing}
       />
+      {addingExpense ? (
+        <ExpenseDialog
+          open
+          onOpenChange={(open) => !open && setAddingExpense(undefined)}
+          client={addingExpense}
+        />
+      ) : null}
       {editingClient ? (
         <ClientDialog
           open
@@ -165,12 +170,18 @@ function Card({
   defaultRate,
   onEditClient,
   onAdd,
+  onAddExpense,
+  expenses,
   children,
 }: {
   client: Client | null;
   defaultRate: number | null;
   onEditClient: (client: Client) => void;
   onAdd: () => void;
+  onAddExpense: () => void;
+  /** The card's Expenses, below its projects. "No client" has none: an
+   *  expense is always some client's to pay back. */
+  expenses: React.ReactNode;
   children: React.ReactNode[];
 }) {
   const spine = client?.color ?? INTERNAL_SWATCH;
@@ -240,7 +251,10 @@ function Card({
         ) : null}
       </div>
 
-      <div className="border-t border-edge-subtle px-4 pt-1 pb-2">
+      {/* Rows start where the client's name does — the header's padding,
+          its 9px pip and the gap after it — so they read as the client's,
+          not its siblings. Only the left edge moves; amounts stay right. */}
+      <div className="border-t border-edge-subtle pt-1 pr-4 pb-2 pl-[calc(1rem+9px+0.75rem)]">
         {children.length > 0 ? (
           <ul className="divide-y divide-edge-grid">{children}</ul>
         ) : (
@@ -248,22 +262,35 @@ function Card({
             No projects yet.
           </p>
         )}
-        {/* Says where the new project lands; its dialog opens with this
-            client chosen. */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onAdd}
-          aria-label={
-            client ? `Project for ${client.name}` : 'Project with no client'
-          }
-          className="mt-1 max-w-full text-muted"
-        >
-          <Plus aria-hidden strokeWidth={2.25} />
-          <span className="truncate">
-            {client ? `Project for ${client.name}` : 'Project'}
-          </span>
-        </Button>
+        {expenses}
+        {/* Side by side at the card's foot. Each names where it lands; its
+            dialog opens with this client chosen. */}
+        <div className="-mx-2 mt-1 flex flex-wrap gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onAdd}
+            aria-label={
+              client ? `Project for ${client.name}` : 'Project with no client'
+            }
+            className="text-muted"
+          >
+            <Plus aria-hidden strokeWidth={2.25} />
+            Project
+          </Button>
+          {client ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAddExpense}
+              aria-label={`Expense for ${client.name}`}
+              className="text-muted"
+            >
+              <Plus aria-hidden strokeWidth={2.25} />
+              Expense
+            </Button>
+          ) : null}
+        </div>
       </div>
     </section>
   );
@@ -363,44 +390,23 @@ interface Group {
  * Clients in name order, then "No client" last.
  *
  * Last because it is the residue, not a peer: everything above is a named
- * engagement and this is what did not belong to one.
- *
- * A project whose client is archived counts as archived, without a write to
- * the project: unarchiving the client then restores exactly what was active
- * before. So under Active an archived client hides with all its projects,
- * and under Archived it shows with all of them.
+ * engagement and this is what did not belong to one. Every client shows,
+ * even one with no projects: this is the only list of clients.
  */
-function group(
-  projects: Project[],
-  clients: Client[],
-  status: Status,
-): Group[] {
+function group(projects: Project[], clients: Client[]): Group[] {
   const byId = new Map(clients.map((c) => [c.id, c]));
-  const archived = (p: Project) =>
-    p.archivedAt != null || byId.get(p.clientId ?? '')?.archivedAt != null;
-  const wanted = (p: Project) =>
-    status === 'all' || (status === 'archived') === archived(p);
 
   const named: Group[] = [...clients]
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((client) => ({
       client,
-      projects: projects.filter((p) => p.clientId === client.id && wanted(p)),
-    }))
-    /* Every client in the view, even one with no projects: this is the only
-       list of clients. An active client under Archived shows only when it
-       has an archived project to hold. */
-    .filter(
-      ({ client, projects }) =>
-        projects.length > 0 ||
-        status === 'all' ||
-        (status === 'archived') === (client!.archivedAt != null),
-    );
+      projects: projects.filter((p) => p.clientId === client.id),
+    }));
 
   /* A project whose client is missing (not merely archived) would otherwise
      vanish. Keep it visible under "No client" rather than dropping a row. */
   const orphaned = projects.filter(
-    (p) => (p.clientId == null || !byId.has(p.clientId)) && wanted(p),
+    (p) => p.clientId == null || !byId.has(p.clientId),
   );
   return orphaned.length > 0
     ? [...named, { client: null, projects: orphaned }]

@@ -22,8 +22,8 @@ export function InvoiceDetail({ id }: { id: string }) {
     queryFn: () => api.invoice(id),
   });
 
-  /* Voiding releases the entries and deleting a draft frees them, so every
-     view of that work moves with the invoice. */
+  /* Voiding releases the entries and expenses and deleting a draft frees
+     them, so every view of that work moves with the invoice. */
   /* Pending, not predicted: issuing assigns the number, and voiding or
      deleting can't be taken back. The page says what was refused. */
   const invoicePress = {
@@ -32,6 +32,7 @@ export function InvoiceDetail({ id }: { id: string }) {
     invalidate: (qc: QueryClient) =>
       Promise.all([
         qc.invalidateQueries({ queryKey: keys.invoices() }),
+        qc.invalidateQueries({ queryKey: keys.expenses() }),
         invalidateEntryData(qc),
       ]),
   };
@@ -84,6 +85,8 @@ function Loaded({
   error: unknown;
 }) {
   const { lineItems, client, ...invoice } = data;
+  const services = lineItems.filter((li) => li.unit !== 'expense');
+  const expenses = lineItems.filter((li) => li.unit === 'expense');
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
   const [markingPaid, setMarkingPaid] = useState(false);
@@ -146,7 +149,7 @@ function Loaded({
               </tr>
             </thead>
             <tbody>
-              {lineItems.map((item, i) => (
+              {services.map((item, i) => (
                 <tr
                   key={i}
                   className="border-b border-edge-subtle last:border-0"
@@ -167,18 +170,54 @@ function Loaded({
                 </tr>
               ))}
             </tbody>
+            {/* Reimbursements under their own heading, dated, as on the PDF. */}
+            {expenses.length > 0 ? (
+              <tbody>
+                <tr className="border-b border-edge-subtle text-left">
+                  <th scope="colgroup" colSpan={4} className={`${TH} pt-4`}>
+                    Expenses
+                  </th>
+                </tr>
+                {expenses.map((item, i) => (
+                  <tr
+                    key={i}
+                    className="border-b border-edge-subtle last:border-0"
+                  >
+                    <td className="py-2 pr-3 text-primary">
+                      {item.description}
+                    </td>
+                    <td className="type-duration py-2 pl-3 text-right text-muted">
+                      {shortDate(item.spentOn)}
+                    </td>
+                    <td />
+                    <td className="type-duration py-2 pl-3 text-right text-strong">
+                      {formatCurrency(item.amount, invoice.currency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            ) : null}
           </table>
         </div>
 
         <dl className="ml-auto flex w-full max-w-[16rem] flex-col gap-1 type-support">
-          <Row
-            label="Subtotal"
-            value={formatCurrency(invoice.subtotal, invoice.currency)}
-          />
+          {/* An invoice of expenses alone has no services to subtotal. */}
+          {services.length > 0 || expenses.length === 0 ? (
+            <Row
+              label={expenses.length > 0 ? 'Services' : 'Subtotal'}
+              value={formatCurrency(invoice.subtotal, invoice.currency)}
+            />
+          ) : null}
           {invoice.taxRate > 0 ? (
             <Row
               label={`Tax (${invoice.taxRate}%)`}
               value={formatCurrency(invoice.taxAmount, invoice.currency)}
+            />
+          ) : null}
+          {expenses.length > 0 ? (
+            <Row
+              label="Expenses"
+              value={formatCurrency(invoice.expensesSubtotal, invoice.currency)}
             />
           ) : null}
           <Row

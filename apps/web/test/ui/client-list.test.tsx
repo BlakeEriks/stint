@@ -326,7 +326,7 @@ describe('ClientList', () => {
     ).toBeInTheDocument();
   });
 
-  it('hides a client archived from its dialog before the server answers', async () => {
+  it('badges a client archived from its dialog before the server answers', async () => {
     serve([NORTHWIND, BYRNE], [project({ clientId: 'c1', name: 'Warehouse' })]);
     const user = userEvent.setup();
     render(<ClientList />, { wrapper });
@@ -336,21 +336,23 @@ describe('ClientList', () => {
     );
     await user.click(await screen.findByRole('button', { name: 'Archive' }));
 
-    /* This screen holds its clients in a list that includes archived ones,
-       so the prediction marks the client archived there rather than
-       dropping it — and Active hides it, with its project, on the press. */
-    await waitFor(() => expect(headings()).toEqual(['Byrne Studio']));
-    expect(screen.queryByText('Warehouse')).toBeNull();
+    /* No filter hides it: the prediction marks the client archived in the
+       list that holds every client, and its card shows the badge on the
+       press, its project still under it. */
+    await waitFor(() =>
+      expect(screen.getByText('Archived', { selector: 'span' })).toBeVisible(),
+    );
+    expect(headings()).toEqual(['Byrne Studio', 'Northwind']);
+    expect(screen.getByText('Warehouse')).toBeInTheDocument();
   });
 
-  /* The filter lives in the URL rather than component state, so the view is
-     linkable and Back returns to it. A project whose client is archived
-     counts as archived, without a write to the project: unarchiving the
-     client then restores exactly what was active before. */
-  describe('filters', () => {
+  /* No Active / Archived / All: archived clients and projects show where
+     they belong, badged. How archiving should hide things is undecided, so
+     nothing is hidden. */
+  describe('archived', () => {
     const OLD_CO = client({ id: 'c3', name: 'Old Co', archivedAt: ARCHIVED });
 
-    it('asks only for active projects until a filter says otherwise', async () => {
+    it('asks for archived clients and projects', async () => {
       const urls = serve([NORTHWIND], [project()]);
       render(<ClientList />, { wrapper });
 
@@ -359,69 +361,12 @@ describe('ClientList', () => {
       );
       const projectUrls = urls.filter((u) => u.includes('/projects'));
       expect(projectUrls.length).toBeGreaterThan(0);
-      expect(projectUrls.some((u) => u.includes('includeArchived'))).toBe(
-        false,
+      expect(projectUrls.every((u) => u.includes('includeArchived=true'))).toBe(
+        true,
       );
     });
 
-    it('hides an archived client under Active, with its active project', async () => {
-      serve(
-        [NORTHWIND, OLD_CO],
-        [project({ id: 'p9', clientId: 'c3', name: 'Old work' })],
-      );
-      render(<ClientList />, { wrapper });
-
-      await waitFor(() => expect(headings()).toEqual(['Northwind']));
-      // Not re-filed under "No client" either: that would be a lie.
-      expect(screen.queryByText('Old work')).toBeNull();
-    });
-
-    it('shows an archived client under Archived with all its projects', async () => {
-      search.value = new URLSearchParams('status=archived');
-      serve(
-        [NORTHWIND, OLD_CO],
-        [
-          project({ id: 'p8', clientId: 'c1', name: 'Warehouse' }),
-          project({ id: 'p9', clientId: 'c3', name: 'Old work' }),
-          project({
-            id: 'p10',
-            clientId: 'c3',
-            name: 'Older work',
-            archivedAt: ARCHIVED,
-          }),
-        ],
-      );
-      render(<ClientList />, { wrapper });
-
-      await waitFor(() => expect(headings()).toEqual(['Old Co']));
-      expect(screen.getByText('Old work')).toBeInTheDocument();
-      expect(screen.getByText('Older work')).toBeInTheDocument();
-      // An active client with nothing archived has no place here.
-      expect(screen.queryByText('Warehouse')).toBeNull();
-    });
-
-    it('files an archived project under its active client, unbadged', async () => {
-      search.value = new URLSearchParams('status=archived');
-      serve(
-        [NORTHWIND],
-        [
-          project({ id: 'p1', name: 'Website redesign' }),
-          project({ id: 'p2', name: 'Old site', archivedAt: ARCHIVED }),
-        ],
-      );
-      render(<ClientList />, { wrapper });
-
-      await waitFor(() => expect(headings()).toEqual(['Northwind']));
-      expect(screen.getByText('Old site')).toBeInTheDocument();
-      expect(screen.queryByText('Website redesign')).toBeNull();
-      // The one Archived badge is the project's; the client is active.
-      expect(
-        screen.getAllByText('Archived', { selector: 'span' }),
-      ).toHaveLength(1);
-    });
-
-    it('keeps everything under All', async () => {
-      search.value = new URLSearchParams('status=all');
+    it('shows everything, each archived one badged, with no filter', async () => {
       serve(
         [NORTHWIND, OLD_CO],
         [
@@ -436,30 +381,11 @@ describe('ClientList', () => {
       expect(screen.getByText('Website redesign')).toBeInTheDocument();
       expect(screen.getByText('Old site')).toBeInTheDocument();
       expect(screen.getByText('Old work')).toBeInTheDocument();
-    });
-
-    it('filters with linked tabs, not a local toggle', async () => {
-      search.value = new URLSearchParams('status=archived');
-      serve([]);
-      render(<ClientList />, { wrapper });
-
-      const nav = await screen.findByRole('navigation', { name: 'Filter' });
-      const links = Array.from(nav.querySelectorAll('a')).map((a) => [
-        a.textContent,
-        a.getAttribute('href'),
-      ]);
-      expect(links).toEqual([
-        ['Active', '/clients'],
-        ['Archived', '/clients?status=archived'],
-        ['All', '/clients?status=all'],
-      ]);
-      expect(screen.getByRole('link', { name: 'Archived' })).toHaveAttribute(
-        'aria-current',
-        'page',
-      );
-      await waitFor(() =>
-        expect(screen.getByText('Nothing archived.')).toBeInTheDocument(),
-      );
+      // Old Co's badge and Old site's.
+      expect(
+        screen.getAllByText('Archived', { selector: 'span' }),
+      ).toHaveLength(2);
+      expect(screen.queryByRole('navigation', { name: 'Filter' })).toBeNull();
     });
   });
 

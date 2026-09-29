@@ -30,6 +30,8 @@ after(async () => {
 });
 
 beforeEach(async () => {
+  await pool.query('update expenses set invoice_id = null');
+  await pool.query('delete from expenses');
   await pool.query('delete from invoice_line_items');
   await pool.query('update time_entries set invoice_id = null');
   await pool.query('delete from time_entries');
@@ -1315,4 +1317,583 @@ test('the invoice detail response matches what the browser expects', async () =>
      difference keeps that honest. */
   assert.equal(res.body.lineItems[0].rateSource, undefined);
   assert.equal(res.body.lineItems[0].unitPrice, 150);
+});
+
+// ── expenses ───────────────────────────────────────────────────────
+const X = (n: number) => `018f0000-0000-7000-9000-00000000000${n}`;
+const OTHER_CLIENT = 'cc000000-0000-4000-8000-000000000002';
+
+/** Seeds an unbilled expense for the main client; a recurring one is undated. */
+async function seedExpense(opts: {
+  id: string;
+  spentOn?: string;
+  description?: string;
+  amount?: number;
+  clientId?: string;
+  recurring?: boolean;
+}) {
+  const recurring = opts.recurring ?? false;
+  await pool.query(
+    `insert into expenses (id,user_id,client_id,recurring,spent_on,description,amount)
+     values ($1,$2,$3,$4,$5,$6,$7)`,
+    [
+      opts.id,
+      USER,
+      opts.clientId ?? CLIENT,
+      recurring,
+      recurring ? null : (opts.spentOn ?? '2026-09-12'),
+      opts.description ?? 'JetBrains license',
+      opts.amount ?? 199,
+    ],
+  );
+}
+
+const expenseCtx = (id: string) => ({ params: Promise.resolve({ id }) });
+
+test('recording an expense is idempotent on its id', async () => {
+  const { POST: create } = await import('../src/app/api/v1/expenses/route.ts');
+  const body = {
+    id: X(1),
+    clientId: CLIENT,
+    spentOn: '2026-09-12',
+    description: 'JetBrains license',
+    amount: 249,
+    note: 'Order 88213',
+  };
+
+  const first = await json(await create(req('/expenses', body)));
+  assert.equal(first.status, 201);
+  assert.equal(first.body.amount, 249);
+  assert.equal(first.body.invoiceId, null);
+  assert.equal(first.body.invoiceNumber, null);
+
+  const retry = await json(await create(req('/expenses', body)));
+  assert.equal(retry.status, 200, 'a retry returns what is stored');
+  assert.equal(retry.body.id, X(1));
+  const { rows } = await pool.query('select count(*)::int n from expenses');
+  assert.equal(rows[0].n, 1, 'the cost is recorded once');
+});
+
+test('an expense is more than zero, described, and dated unless recurring', async () => {
+  const { POST: create } = await import('../src/app/api/v1/expenses/route.ts');
+  const base = {
+    clientId: CLIENT,
+    spentOn: '2026-09-12',
+    description: 'License',
+    amount: 10,
+  };
+  const status = async (body: object) =>
+    (await json(await create(req('/expenses', body)))).status;
+
+  assert.equal(await status({ ...base, id: X(1), amount: 0 }), 422);
+  assert.equal(await status({ ...base, id: X(2), description: '  ' }), 422);
+  assert.equal(
+    await status({ ...base, id: X(3), spentOn: undefined }),
+    422,
+    'a one-off needs the day it was paid',
+  );
+  assert.equal(
+    await status({ ...base, id: X(4), recurring: true }),
+    422,
+    'a recurring expense has no single date',
+  );
+
+  const { rows } = await pool.query('select count(*)::int n from expenses');
+  assert.equal(rows[0].n, 0);
+
+  assert.equal(
+    await status({ ...base, id: X(5), recurring: true, spentOn: null }),
+    201,
+  );
+});
+
+test('the expense list is open by default: recurring first, then oldest, by client', async () => {
+  const { GET: list } = await import('../src/app/api/v1/expenses/route.ts');
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Acme')`,
+    [OTHER_CLIENT, USER],
+  );
+  await seedExpense({ id: X(1), spentOn: '2026-09-20', description: 'Flight' });
+  await seedExpense({ id: X(2), spentOn: '2026-08-05', description: 'Figma' });
+  await seedExpense({
+    id: X(3),
+    clientId: OTHER_CLIENT,
+    description: 'Acme license',
+  });
+  await seedExpense({ id: X(4), recurring: true, description: 'Claude' });
+
+  const names = (body: { expenses: { description: string }[] }) =>
+    body.expenses.map((e) => e.description);
+
+  const all = await json(await list(req('/expenses')));
+  assert.deepEqual(names(all.body), [
+    'Claude',
+    'Figma',
+    'Acme license',
+    'Flight',
+  ]);
+  assert.equal(all.body.expenses[0].spentOn, null);
+
+  const one = await json(await list(req(`/expenses?clientId=${CLIENT}`)));
+  assert.deepEqual(names(one.body), ['Claude', 'Figma', 'Flight']);
+});
+
+test('an unbilled expense can be edited and deleted; a missing one is 404', async () => {
+  const { PATCH, DELETE } = await import(
+    '../src/app/api/v1/expenses/[id]/route.ts'
+  );
+  await seedExpense({ id: X(1) });
+
+  const edited = await json(
+    await PATCH(req('/e', { amount: 199.5 }, 'PATCH'), expenseCtx(X(1))),
+  );
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.amount, 199.5);
+
+  const recurring = await json(
+    await PATCH(req('/e', { recurring: true }, 'PATCH'), expenseCtx(X(1))),
+  );
+  assert.equal(recurring.status, 200);
+  assert.equal(recurring.body.spentOn, null, 'checking the box drops the date');
+  const undated = await json(
+    await PATCH(req('/e', { recurring: false }, 'PATCH'), expenseCtx(X(1))),
+  );
+  assert.equal(undated.status, 422, 'a one-off needs a date back');
+
+  const gone = await DELETE(req('/e', undefined, 'DELETE'), expenseCtx(X(1)));
+  assert.equal(gone.status, 204);
+
+  const missing = await json(
+    await PATCH(req('/e', { amount: 5 }, 'PATCH'), expenseCtx(X(1))),
+  );
+  assert.equal(missing.status, 404);
+});
+
+test('the preview takes every unbilled expense up to the period end, less the excluded', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  await seedEntry({ id: E(1), task: 'Design', hours: 2 }); // 300
+  await seedExpense({ id: X(1), spentOn: '2026-08-20', description: 'August' });
+  await seedExpense({ id: X(2), spentOn: '2026-09-12', amount: 50 });
+  await seedExpense({ id: X(3), spentOn: '2026-10-01', description: 'After' });
+  await seedExpense({
+    id: X(4),
+    spentOn: '2026-09-15',
+    description: 'Left off',
+  });
+
+  const res = await json(
+    await preview(
+      req('/invoices/preview', {
+        clientId: CLIENT,
+        ...PERIOD,
+        excludedExpenseIds: [X(4)],
+      }),
+    ),
+  );
+  assert.equal(res.status, 200);
+  const expenseLines = res.body.lineItems.filter(
+    (li: { unit: string }) => li.unit === 'expense',
+  );
+  assert.deepEqual(
+    expenseLines.map((li: { expenseId: string }) => li.expenseId),
+    [X(1), X(2)],
+    'an earlier month joins; after the period and excluded do not',
+  );
+  assert.equal(expenseLines[0].spentOn, '2026-08-20');
+  assert.equal(res.body.subtotal, 300, 'services only');
+  assert.equal(res.body.expensesSubtotal, 249);
+  assert.equal(res.body.total, 549);
+});
+
+test('generation freezes expense lines, attaches only what it billed, and needs no time', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: getInvoice } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  await seedExpense({
+    id: X(1),
+    spentOn: '2026-09-05',
+    description: 'Claude',
+    amount: 200,
+  });
+  await seedExpense({
+    id: X(2),
+    spentOn: '2026-09-15',
+    description: 'Left off',
+  });
+
+  const made = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        excludedExpenseIds: [X(2)],
+      }),
+    ),
+  );
+  assert.equal(made.status, 201, 'an invoice of expenses alone generates');
+  assert.equal(made.body.expensesSubtotal, 200);
+  assert.equal(made.body.subtotal, 0);
+  assert.equal(made.body.total, 200);
+
+  const { rows: lines } = await pool.query(
+    `select unit, quantity::float q, amount::float a, spent_on
+       from invoice_line_items where invoice_id=$1`,
+    [made.body.id],
+  );
+  assert.deepEqual(lines, [
+    { unit: 'expense', q: 1, a: 200, spent_on: '2026-09-05' },
+  ]);
+
+  const { rows: billed } = await pool.query(
+    'select id, invoice_id from expenses order by id',
+  );
+  assert.equal(billed[0].invoice_id, made.body.id);
+  assert.equal(billed[1].invoice_id, null, 'the excluded one keeps waiting');
+
+  const read = await json(
+    await getInvoice(req(`/invoices/${made.body.id}`), {
+      params: Promise.resolve({ id: made.body.id }),
+    }),
+  );
+  assert.equal(read.body.expensesSubtotal, 200);
+  assert.equal(read.body.lineItems[0].spentOn, '2026-09-05');
+});
+
+test('an expense another invoice took rolls generation back, number included', async () => {
+  await seedExpense({ id: X(1) });
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no)
+     values ('ff000000-0000-4000-8000-000000000009',$1,$2,'INV-0900',900)`,
+    [USER, CLIENT],
+  );
+  // The race, frozen at its worst moment: loaded as unbilled, claimed since.
+  await pool.query(
+    `update expenses set invoice_id='ff000000-0000-4000-8000-000000000009'`,
+  );
+
+  const db = (globalThis as any).__TEST_DB__;
+  const { error } = await db.rpc('create_invoice', {
+    p_user_id: USER,
+    p_invoice: {
+      client_id: CLIENT,
+      issue_date: '2026-09-30',
+      subtotal: 0,
+      tax_rate: 0,
+      tax_amount: 0,
+      expenses_subtotal: 199,
+      total: 199,
+      currency: 'USD',
+      grouping_mode: 'entry',
+      payment_details: null,
+      lines: [
+        {
+          description: 'JetBrains license',
+          unit: 'expense',
+          quantity: 1,
+          unit_price: 199,
+          amount: 199,
+          spent_on: '2026-09-12',
+        },
+      ],
+    },
+    p_entry_ids: [],
+    p_expense_ids: [X(1)],
+  });
+
+  const { isExpenseClaimConflict } = await import('../src/lib/errors.ts');
+  assert.ok(isExpenseClaimConflict(error), 'the route maps this to 409');
+  const { rows: seq } = await pool.query(
+    'select next_invoice_number n from user_settings where user_id=$1',
+    [USER],
+  );
+  assert.equal(seq[0].n, 1, 'no number was used, so the sequence has no gap');
+  const { rows } = await pool.query(
+    `select count(*)::int n from invoices where invoice_number <> 'INV-0900'`,
+  );
+  assert.equal(rows[0].n, 0, 'nothing from the losing call remains');
+});
+
+test('an expense never counts as earned or unbilled work; awaiting includes it', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  await seedEntry({ id: E(1), hours: 1 }); // 150 unbilled
+
+  const before = await json(await stats(req('/stats?tz=UTC')));
+  await seedExpense({ id: X(1), amount: 199 });
+  const after = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(after.body.unbilled, before.body.unbilled);
+  assert.deepEqual(after.body.month, before.body.month);
+  assert.equal(after.body.earnedToday, before.body.earnedToday);
+
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), {
+    params: Promise.resolve({ id: inv.body.id }),
+  });
+  const sent = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(sent.body.awaitingPayment, 349, 'the client owes both');
+});
+
+test('an expense on an issued invoice is locked; on a draft it is not', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  const { PATCH, DELETE } = await import(
+    '../src/app/api/v1/expenses/[id]/route.ts'
+  );
+  await seedExpense({ id: X(1), amount: 199 });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+
+  // A draft: the expense stays editable, and the draft keeps its frozen line.
+  const draftEdit = await json(
+    await PATCH(req('/e', { amount: 210 }, 'PATCH'), expenseCtx(X(1))),
+  );
+  assert.equal(draftEdit.status, 200);
+  const { rows: draftLine } = await pool.query(
+    'select amount::float a from invoice_line_items where invoice_id=$1',
+    [inv.body.id],
+  );
+  assert.equal(
+    draftLine[0].a,
+    199,
+    'the draft shows what it was generated with',
+  );
+
+  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), {
+    params: Promise.resolve({ id: inv.body.id }),
+  });
+
+  const edit = await json(
+    await PATCH(req('/e', { amount: 1 }, 'PATCH'), expenseCtx(X(1))),
+  );
+  assert.equal(edit.status, 409);
+  assert.equal(edit.body.code, 'EXPENSE_LOCKED');
+  const del = await json(
+    await DELETE(req('/e', undefined, 'DELETE'), expenseCtx(X(1))),
+  );
+  assert.equal(del.status, 409);
+  assert.equal(del.body.code, 'EXPENSE_LOCKED');
+
+  // The database holds the lock, not the route.
+  await assert.rejects(
+    pool.query('update expenses set amount = 1 where id=$1', [X(1)]),
+    /billed on a sent invoice/,
+  );
+  const { rows } = await pool.query(
+    'select amount::float a from expenses where id=$1',
+    [X(1)],
+  );
+  assert.equal(rows[0].a, 210);
+});
+
+test('voiding releases expenses and keeps the voided lines as sent', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  const { PATCH } = await import('../src/app/api/v1/expenses/[id]/route.ts');
+  await seedExpense({ id: X(1), amount: 199 });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const ctx = { params: Promise.resolve({ id: inv.body.id }) };
+  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), ctx);
+  await setStatus(req('/s', { status: 'void' }, 'PATCH'), {
+    params: Promise.resolve({ id: inv.body.id }),
+  });
+
+  const edited = await json(
+    await PATCH(req('/e', { amount: 5 }, 'PATCH'), expenseCtx(X(1))),
+  );
+  assert.equal(edited.status, 200, 'released, so editable again');
+  assert.equal(edited.body.invoiceId, null);
+
+  const { rows } = await pool.query(
+    'select amount::float a from invoice_line_items where invoice_id=$1',
+    [inv.body.id],
+  );
+  assert.equal(rows[0].a, 199, 'the voided record keeps what was sent');
+});
+
+test('deleting a draft releases its expenses', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { DELETE: remove } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  await seedExpense({ id: X(1) });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+
+  const res = await remove(req('/i', undefined, 'DELETE'), {
+    params: Promise.resolve({ id: inv.body.id }),
+  });
+  assert.equal(res.status, 204);
+  const { rows } = await pool.query('select invoice_id from expenses');
+  assert.equal(rows[0].invoice_id, null);
+});
+
+test('the open list keeps a billed expense until its invoice is paid', async () => {
+  const { GET: list } = await import('../src/app/api/v1/expenses/route.ts');
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  await seedExpense({ id: X(1) });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const ctx = () => ({ params: Promise.resolve({ id: inv.body.id }) });
+  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), ctx());
+
+  const sent = await json(await list(req('/expenses')));
+  assert.equal(sent.body.expenses.length, 1);
+  assert.equal(sent.body.expenses[0].invoiceNumber, inv.body.invoiceNumber);
+  assert.equal(sent.body.expenses[0].invoiceStatus, 'sent');
+  const unbilled = await json(await list(req('/expenses?status=unbilled')));
+  assert.equal(unbilled.body.expenses.length, 0);
+
+  await setStatus(req('/s', { status: 'paid' }, 'PATCH'), ctx());
+  const paid = await json(await list(req('/expenses')));
+  assert.equal(paid.body.expenses.length, 0, 'paid, it leaves the card');
+});
+
+// ── recurring expenses ─────────────────────────────────────────────
+const expenseLines = (body: {
+  lineItems: { unit: string; spentOn?: string; amount: number }[];
+}) => body.lineItems.filter((li) => li.unit === 'expense');
+
+test('a recurring expense is on every invoice, dated the period end, never attached', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedExpense({ id: X(1), recurring: true, amount: 200 });
+
+  const sept = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.deepEqual(
+    expenseLines(sept.body).map((l) => [l.spentOn, l.amount]),
+    [['2026-09-30', 200]],
+  );
+
+  const made = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(made.status, 201);
+  const { rows } = await pool.query('select invoice_id from expenses');
+  assert.equal(rows[0].invoice_id, null, 'it bills again next time');
+
+  const oct = await json(
+    await preview(
+      req('/invoices/preview', {
+        clientId: CLIENT,
+        periodStart: '2026-10-01',
+        periodEnd: '2026-10-31',
+      }),
+    ),
+  );
+  assert.deepEqual(
+    expenseLines(oct.body).map((l) => l.spentOn),
+    ['2026-10-31'],
+  );
+});
+
+test('changing or deleting a recurring expense reaches only later invoices', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { PATCH, DELETE } = await import(
+    '../src/app/api/v1/expenses/[id]/route.ts'
+  );
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  await seedExpense({ id: X(1), recurring: true, amount: 200 });
+  const made = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), {
+    params: Promise.resolve({ id: made.body.id }),
+  });
+  const frozen = async () =>
+    (
+      await pool.query(
+        `select amount::float a from invoice_line_items
+          where invoice_id=$1 and unit='expense'`,
+        [made.body.id],
+      )
+    ).rows.map((r) => r.a);
+
+  const edited = await json(
+    await PATCH(req('/e', { amount: 250 }, 'PATCH'), expenseCtx(X(1))),
+  );
+  assert.equal(edited.status, 200, 'never locked: it was never attached');
+  const next = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.deepEqual(
+    expenseLines(next.body).map((l) => l.amount),
+    [250],
+  );
+  assert.deepEqual(await frozen(), [200], 'the sent invoice keeps its line');
+
+  await DELETE(req('/e', undefined, 'DELETE'), expenseCtx(X(1)));
+  const after = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(expenseLines(after.body).length, 0);
+  assert.deepEqual(await frozen(), [200]);
+
+  await setStatus(req('/s', { status: 'void' }, 'PATCH'), {
+    params: Promise.resolve({ id: made.body.id }),
+  });
+  assert.deepEqual(await frozen(), [200], 'voiding keeps the record');
+});
+
+test('a recurring expense can be left off one invoice', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  await seedExpense({ id: X(1), recurring: true });
+  const res = await json(
+    await preview(
+      req('/invoices/preview', {
+        clientId: CLIENT,
+        ...PERIOD,
+        excludedExpenseIds: [X(1)],
+      }),
+    ),
+  );
+  assert.equal(expenseLines(res.body).length, 0);
+});
+
+test('the database refuses to attach a recurring expense', async () => {
+  await seedExpense({ id: X(1), recurring: true });
+  const { rows } = await pool.query(
+    `insert into invoices (user_id,client_id,invoice_number,sequence_no,status,
+       issue_date,period_start,period_end,subtotal,total,currency)
+     values ($1,$2,'T-1',1,'draft','2026-09-30','2026-09-01','2026-09-30',0,0,'USD')
+     returning id`,
+    [USER, CLIENT],
+  );
+  await assert.rejects(
+    pool.query('update expenses set invoice_id=$1 where id=$2', [
+      rows[0].id,
+      X(1),
+    ]),
+    /recurring_never_billed/,
+  );
 });

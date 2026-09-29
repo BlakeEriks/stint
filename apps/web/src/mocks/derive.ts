@@ -38,7 +38,7 @@ import {
   startOfNextLocalMonth,
   type UnbilledRow,
 } from '@stint/core';
-import type { TimeEntry } from '@/lib/client/api';
+import type { Expense, TimeEntry } from '@/lib/client/api';
 import { billable, type Db } from './fixtures';
 
 /**
@@ -415,6 +415,40 @@ export interface PreviewRequest {
   groupingMode?: GroupingMode;
   tz?: string;
   manualLines?: ManualLine[];
+  excludedExpenseIds?: string[];
+}
+
+/** An expense as the API returns it: its invoice's number and status are
+    read now, so sending or voiding the invoice is never out of date here. */
+export function expenseView(db: Db, e: Expense): Expense {
+  const invoice = db.invoices.find((i) => i.id === e.invoiceId);
+  return {
+    ...e,
+    invoiceNumber: invoice?.invoiceNumber ?? null,
+    invoiceStatus: invoice?.status ?? null,
+  };
+}
+
+/**
+ * `loadBillableExpenses`: every recurring expense, dated the period's end,
+ * and every unbilled one-off dated on or before it, less the excluded.
+ */
+export function billableExpenses(db: Db, body: PreviewRequest) {
+  return db.expenses
+    .filter(
+      (e) =>
+        e.clientId === body.clientId &&
+        e.invoiceId === null &&
+        (e.recurring || (e.spentOn as string) <= body.periodEnd) &&
+        !body.excludedExpenseIds?.includes(e.id),
+    )
+    .map(({ id, recurring, spentOn, description, amount }) => ({
+      id,
+      recurring,
+      spentOn: spentOn ?? body.periodEnd,
+      description,
+      amount,
+    }));
 }
 
 /** `POST /invoices/preview`: the client's unbilled work in the period. */
@@ -446,6 +480,7 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
         taxRate: client.taxRate ?? 0,
         tz,
         manualLines: body.manualLines,
+        expenses: billableExpenses(db, body),
       },
     ),
   };

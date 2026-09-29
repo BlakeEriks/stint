@@ -211,7 +211,7 @@ describe('NewInvoice', () => {
     await chooseClient(user);
     await user.click(screen.getByRole('button', { name: 'Preview' }));
 
-    expect(await screen.findByText('Nothing to bill')).toBeInTheDocument();
+    expect(await screen.findByText(/^Nothing to bill/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Generate/ })).toBeDisabled();
   });
 
@@ -252,5 +252,147 @@ describe('NewInvoice', () => {
     for (const key of ['summary', 'entries', 'stats', 'calendar']) {
       expect(invalidated).toContain(key);
     }
+  });
+});
+
+// ── expenses ───────────────────────────────────────────────────────
+/* Dates far either side of any "last month" the default period picks, so
+   these tests do not depend on the day they run. */
+const EXPENSES = [
+  {
+    id: 'x1',
+    clientId: 'c1',
+    projectId: null,
+    spentOn: '2000-01-12',
+    description: 'JetBrains license',
+    amount: 199,
+    note: null,
+    invoiceId: null,
+    invoiceNumber: null,
+    invoiceStatus: null,
+  },
+  {
+    id: 'x2',
+    clientId: 'c1',
+    projectId: null,
+    spentOn: '2999-01-05',
+    description: 'Next year flight',
+    amount: 400,
+    note: null,
+    invoiceId: null,
+    invoiceNumber: null,
+    invoiceStatus: null,
+  },
+];
+
+const WITH_EXPENSE = {
+  ...PREVIEW,
+  lineItems: [
+    ...PREVIEW.lineItems,
+    {
+      description: 'JetBrains license',
+      unit: 'expense' as const,
+      quantity: 1,
+      unitPrice: 199,
+      amount: 199,
+      rateSource: 'manual' as const,
+      spentOn: '2000-01-12',
+      expenseId: 'x1',
+    },
+  ],
+  expensesSubtotal: 199,
+  total: 574,
+};
+
+/** Serves waiting expenses too, and records every POST body. */
+function serveExpenses(preview: unknown = WITH_EXPENSE) {
+  const bodies: { path: string; body: any }[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const path = String(url);
+      if (init?.method === 'POST') {
+        bodies.push({ path, body: JSON.parse(String(init.body ?? '{}')) });
+      }
+      if (path.includes('/invoices/preview')) {
+        return new Response(JSON.stringify(preview), { status: 200 });
+      }
+      if (path.includes('/expenses')) {
+        return new Response(JSON.stringify({ expenses: EXPENSES }), {
+          status: 200,
+        });
+      }
+      if (path.includes('/clients')) {
+        return new Response(JSON.stringify({ clients: CLIENTS }), {
+          status: 200,
+        });
+      }
+      return new Response('{}', { status: 200 });
+    }),
+  );
+  return bodies;
+}
+
+describe('NewInvoice — expenses', () => {
+  it('lists the client’s waiting expenses up to the period end', async () => {
+    serveExpenses();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await chooseClient(user);
+
+    expect(
+      await screen.findByRole('checkbox', { name: 'Bill JetBrains license' }),
+    ).toBeChecked();
+    expect(screen.queryByText('Next year flight')).not.toBeInTheDocument();
+  });
+
+  it('shows expenses in their own section with their own subtotal', async () => {
+    serveExpenses();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await chooseClient(user);
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+
+    expect(
+      await screen.findByRole('columnheader', { name: 'Expenses' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Services')).toBeInTheDocument();
+    expect(screen.getByText('$199.00', { selector: 'dd' })).toBeInTheDocument();
+    expect(screen.getByText('$574.00')).toBeInTheDocument();
+  });
+
+  it('leaving an expense off withdraws the preview and is sent with the next one', async () => {
+    const bodies = serveExpenses();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await chooseClient(user);
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await screen.findByRole('button', { name: /Generate/ });
+
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Bill JetBrains license' }),
+    );
+    expect(
+      screen.queryByRole('button', { name: /Generate/ }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await screen.findByRole('button', { name: /Generate/ });
+    const last = bodies
+      .filter((b) => b.path.includes('/invoices/preview'))
+      .at(-1);
+    expect(last?.body.excludedExpenseIds).toEqual(['x1']);
+  });
+
+  it('describes charges as fees, never as expenses passed on', async () => {
+    serveExpenses();
+    render(<NewInvoice />, { wrapper });
+    expect(
+      await screen.findByText('A fixed fee, a deposit, or a retainer.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/expense you are passing on/)).toBeNull();
   });
 });

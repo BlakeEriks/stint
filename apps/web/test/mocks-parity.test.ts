@@ -52,6 +52,8 @@ beforeEach(async () => {
   for (const sql of [
     'delete from invoice_line_items where invoice_id in (select id from invoices where user_id = $1)',
     'update time_entries set invoice_id = null where user_id = $1',
+    'update expenses set invoice_id = null where user_id = $1',
+    'delete from expenses where user_id = $1',
     'delete from time_entries where user_id = $1',
     'delete from invoices where user_id = $1',
     'delete from projects where user_id = $1',
@@ -115,8 +117,8 @@ async function write(db: Db) {
   for (const i of db.invoices)
     await pool.query(
       `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,
-         issue_date,due_date,period_start,period_end,subtotal,total,currency)
-       values ($1,$2,$3,$4,$5,'draft',$6,$7,$8,$9,$10,$11,$12)`,
+         issue_date,due_date,period_start,period_end,subtotal,expenses_subtotal,total,currency)
+       values ($1,$2,$3,$4,$5,'draft',$6,$7,$8,$9,$10,$11,$12,$13)`,
       [
         i.id,
         USER,
@@ -128,8 +130,27 @@ async function write(db: Db) {
         i.periodStart,
         i.periodEnd,
         i.subtotal,
+        i.expensesSubtotal,
         i.total,
         i.currency,
+      ],
+    );
+  // Billed while its invoice is still a draft, like entries below.
+  for (const e of db.expenses)
+    await pool.query(
+      `insert into expenses (id,user_id,client_id,recurring,spent_on,description,
+         amount,note,invoice_id)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [
+        e.id,
+        USER,
+        e.clientId,
+        e.recurring,
+        e.spentOn,
+        e.description,
+        e.amount,
+        e.note,
+        e.invoiceId,
       ],
     );
   for (const e of db.entries)
@@ -216,6 +237,22 @@ for (const scenario of scenarios)
           )
         ).taskNames,
         wire(taskNames(db, projectId, 8)),
+      );
+
+    // Expenses, monthly ones produced first on both sides.
+    const fake = await import('../src/mocks/handlers.ts');
+    const fakeGet = async (name: keyof typeof fake.handlers, url: string) => {
+      const res = await (fake.handlers[name] as any).resolver({
+        request: new Request(`http://t${url}`),
+        params: {},
+      });
+      return wire(await res.json());
+    };
+    for (const q of ['', 'status=unbilled', `clientId=${ids.northwind}`])
+      assert.deepEqual(
+        await get('expenses', `/api/v1/expenses?${q}`),
+        await fakeGet('expenses', `/api/v1/expenses?${q}`),
+        `expenses?${q}`,
       );
 
     if (scenario === 'empty') return;

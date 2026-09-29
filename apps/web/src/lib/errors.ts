@@ -4,6 +4,8 @@ export type Code =
   | 'TIMER_ALREADY_RUNNING'
   | 'NO_TIMER_RUNNING'
   | 'ENTRY_LOCKED'
+  | 'EXPENSE_LOCKED'
+  | 'EXPENSE_ALREADY_INVOICED'
   | 'ENTRY_NOT_FOUND'
   | 'NO_RATE_CONFIGURED'
   | 'INVALID_PERIOD'
@@ -15,6 +17,8 @@ const STATUS: Record<Code, number> = {
   TIMER_ALREADY_RUNNING: 409,
   NO_TIMER_RUNNING: 409,
   ENTRY_LOCKED: 409,
+  EXPENSE_LOCKED: 409,
+  EXPENSE_ALREADY_INVOICED: 409,
   ENTRY_NOT_FOUND: 404,
   NO_RATE_CONFIGURED: 400,
   INVALID_PERIOD: 400,
@@ -98,7 +102,7 @@ export function isCheckViolation(err: unknown): boolean {
   return (err as { code?: string } | null)?.code === PG.CHECK_VIOLATION;
 }
 
-/** The trigger guarding entries billed on a non-draft invoice. */
+/** The triggers guarding entries and expenses billed on a non-draft invoice. */
 export function isBilledLock(
   err: { code?: string; message?: string } | null,
 ): boolean {
@@ -106,6 +110,13 @@ export function isBilledLock(
     err?.code === PG.CHECK_VIOLATION &&
     /billed on a .* invoice/.test(err.message ?? '')
   );
+}
+
+/** `create_invoice` found an expense another invoice had already taken. */
+export function isExpenseClaimConflict(
+  err: { code?: string; message?: string } | null,
+): boolean {
+  return (err?.message ?? '').includes('EXPENSE_ALREADY_INVOICED');
 }
 
 // ── drift guard ────────────────────────────────────────────────────

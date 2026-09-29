@@ -100,6 +100,9 @@ const styles = StyleSheet.create({
   cQty: { width: 62, textAlign: 'right', fontFamily: 'Courier' },
   cRate: { width: 74, textAlign: 'right', fontFamily: 'Courier' },
   cAmt: { width: 86, textAlign: 'right', fontFamily: 'Courier' },
+  /* An expense's date spans the quantity and rate columns it has no use
+     for: at the quantity's width alone, a full date wraps. */
+  cDate: { width: 136, textAlign: 'right', fontFamily: 'Courier' },
   headCell: {
     fontSize: 7.5,
     letterSpacing: 1.1,
@@ -208,6 +211,8 @@ export interface InvoicePdfData {
   subtotal: number;
   taxRate: number;
   taxAmount: number;
+  /** Reimbursed expenses, never taxed; 0 when there are none. */
+  expensesSubtotal: number;
   total: number;
   notes: string | null;
   paymentTerms: string | null;
@@ -221,10 +226,12 @@ export interface InvoicePdfData {
   client: { name: string; email: string | null; address: string | null };
   lineItems: Array<{
     description: string;
-    unit: 'hour' | 'fixed';
+    unit: 'hour' | 'fixed' | 'expense';
     quantity: number | null;
     unitPrice: number | null;
     amount: number | null;
+    /** The day an expense was paid; expense lines only. */
+    spentOn?: string | null;
   }>;
   /** Frozen payment snapshot from the invoice; null when none was set. */
   payment?: {
@@ -268,6 +275,8 @@ function Lines({ text, style }: { text: string | null; style?: TextStyle }) {
 
 export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
   const cur = data.currency;
+  const services = data.lineItems.filter((li) => li.unit !== 'expense');
+  const expenses = data.lineItems.filter((li) => li.unit === 'expense');
 
   return (
     <Document
@@ -341,7 +350,7 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
           <Text style={[styles.cAmt, styles.headCell]}>AMOUNT</Text>
         </View>
 
-        {data.lineItems.map((li, i) => (
+        {services.map((li, i) => (
           <View key={i} style={styles.row} wrap={false}>
             <Text style={styles.cDesc}>{li.description}</Text>
             {/* A flat charge leaves both cells blank. "1 x $2,400.00" tells
@@ -357,19 +366,56 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
           </View>
         ))}
 
+        {/* Reimbursements follow the services under their own heading, so a
+            client's accounts team can see what is pass-through. The date
+            takes the quantity's place: an expense is one of something, and
+            when it was paid is what a reviewer checks it against. */}
+        {expenses.length > 0 ? (
+          <>
+            <View style={[styles.tHead, { marginTop: 14 }]} wrap={false}>
+              <Text style={[styles.cDesc, styles.headCell]}>EXPENSES</Text>
+              <Text style={[styles.cDate, styles.headCell]}>DATE</Text>
+              <Text style={[styles.cAmt, styles.headCell]}>AMOUNT</Text>
+            </View>
+            {expenses.map((li, i) => (
+              <View key={i} style={styles.row} wrap={false}>
+                <Text style={styles.cDesc}>{li.description}</Text>
+                <Text style={styles.cDate}>{date(li.spentOn ?? null)}</Text>
+                <Text style={styles.cAmt}>
+                  {formatCurrency(li.amount, cur)}
+                </Text>
+              </View>
+            ))}
+          </>
+        ) : null}
+
         <View style={styles.totals}>
-          <View style={styles.totalRow}>
-            <Text style={{ color: c.muted }}>Subtotal</Text>
-            <Text style={{ fontFamily: 'Courier' }}>
-              {formatCurrency(data.subtotal, cur)}
-            </Text>
-          </View>
+          {/* An invoice of expenses alone has no services to subtotal. */}
+          {services.length > 0 || expenses.length === 0 ? (
+            <View style={styles.totalRow}>
+              <Text style={{ color: c.muted }}>
+                {expenses.length > 0 ? 'Services' : 'Subtotal'}
+              </Text>
+              <Text style={{ fontFamily: 'Courier' }}>
+                {formatCurrency(data.subtotal, cur)}
+              </Text>
+            </View>
+          ) : null}
 
           {data.taxRate > 0 ? (
             <View style={styles.totalRow}>
               <Text style={{ color: c.muted }}>Tax ({data.taxRate}%)</Text>
               <Text style={{ fontFamily: 'Courier' }}>
                 {formatCurrency(data.taxAmount, cur)}
+              </Text>
+            </View>
+          ) : null}
+
+          {expenses.length > 0 ? (
+            <View style={styles.totalRow}>
+              <Text style={{ color: c.muted }}>Expenses</Text>
+              <Text style={{ fontFamily: 'Courier' }}>
+                {formatCurrency(data.expensesSubtotal, cur)}
               </Text>
             </View>
           ) : null}

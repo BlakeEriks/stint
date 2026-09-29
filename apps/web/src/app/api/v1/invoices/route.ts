@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError } from '@/lib/errors';
+import { handle, ApiError, isExpenseClaimConflict } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import {
@@ -7,6 +7,7 @@ import {
   loadSettings,
   loadBillableEntries,
   loadPaymentProfile,
+  loadBillableExpenses,
 } from '@/lib/invoicing';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
 import { buildLineItems, buildPaymentDetails } from '@stint/core';
@@ -39,15 +40,17 @@ export const GET = handle(async (req: Request) => {
  * POST /api/v1/invoices
  *
  * The irreversible step. In order:
- *   1. Recompute line items from database-resolved rates (never trusting a
- *      preview the client may have cached).
+ *   1. Recompute line items from database-resolved rates and the stored
+ *      expenses (never trusting a preview the client may have cached).
  *   2. Refuse if any billable entry has no resolvable rate.
- *   3. Allocate a gapless number under a row lock.
- *   4. Write the invoice, then its frozen line items.
- *   5. Attach the entries, which locks them via the immutability trigger.
+ *   3. Write it all through `create_invoice`, in one transaction: the gapless
+ *      number, the invoice, its frozen lines, and the entries and expenses it
+ *      bills. Attaching locks them via the immutability triggers.
  *
- * Step 5 is last on purpose: if attachment fails, the invoice is rolled back
- * rather than leaving entries pointing at a half-written record.
+ * One transaction is the point of step 3. Allocating a number is not
+ * undoable, so a failure after a separate allocation left a gap in a
+ * sequence promised to have none — and an expense another invoice took in
+ * the meantime is exactly such a failure.
  */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
@@ -69,20 +72,28 @@ export const POST = handle(async (req: Request) => {
     client.hourly_rate == null ? null : Number(client.hourly_rate);
   const taxRate = client.tax_rate == null ? 0 : Number(client.tax_rate);
 
-  const entries = await loadBillableEntries(db, {
-    clientId: body.clientId,
-    periodStart: body.periodStart,
-    periodEnd: body.periodEnd,
-    tz: body.tz,
-    userDefaultRate: settings.defaultHourlyRate,
-    clientRate,
-  });
+  const [entries, expenses] = await Promise.all([
+    loadBillableEntries(db, {
+      clientId: body.clientId,
+      periodStart: body.periodStart,
+      periodEnd: body.periodEnd,
+      tz: body.tz,
+      userDefaultRate: settings.defaultHourlyRate,
+      clientRate,
+    }),
+    loadBillableExpenses(db, {
+      clientId: body.clientId,
+      periodEnd: body.periodEnd,
+      excludedIds: body.excludedExpenseIds,
+    }),
+  ]);
 
   const totals = buildLineItems(entries, {
     groupingMode: body.groupingMode,
     taxRate,
     tz: body.tz,
     manualLines: body.manualLines,
+    expenses,
   });
 
   if (totals.unratedEntryIds.length > 0) {
@@ -95,49 +106,27 @@ export const POST = handle(async (req: Request) => {
     );
   }
 
-  // A fee alone is a valid invoice — a deposit before any work is done is
-  // the ordinary case — so this asks for LINES, not for time.
+  // A fee or an expense alone is a valid invoice — a deposit before any work
+  // is done is the ordinary case — so this asks for LINES, not for time.
   if (totals.lineItems.length === 0) {
     throw new ApiError(
       'INVALID_PERIOD',
-      'Nothing to invoice: no unbilled, billable time in this period and no charges added',
+      'Nothing to invoice: no unbilled, billable time in this period, no unbilled expenses, and no charges added',
       { periodStart: body.periodStart, periodEnd: body.periodEnd },
     );
   }
 
-  // Gapless allocation happens inside the database under a row lock, so
-  // concurrent requests cannot claim the same number.
-  const { data: allocated, error: allocError } = await db.rpc(
-    'allocate_invoice_number',
-    {
-      p_user_id: userId,
-    },
-  );
-  if (allocError) throw allocError;
-
-  const allocation = Array.isArray(allocated) ? allocated[0] : allocated;
-  if (!allocation)
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      'Could not allocate an invoice number',
-    );
-
-  // Freeze the payment details alongside the rates. If the profile changes
-  // or is deleted later, an issued invoice must still show what the client
-  // was actually given.
+  // Frozen alongside the rates: if the profile changes or is deleted later,
+  // an issued invoice must still show what the client was actually given.
+  // Rendered before the number exists, so `create_invoice` appends the
+  // payment reference once it has allocated one.
   const profile = await loadPaymentProfile(db, client.payment_profile_id);
-  const paymentDetails = buildPaymentDetails(profile, {
-    invoiceNumber: allocation.invoice_number,
-  });
+  const paymentDetails = buildPaymentDetails(profile);
 
-  const { data: invoice, error: invoiceError } = await db
-    .from('invoices')
-    .insert({
-      user_id: userId,
+  const { data, error } = await db.rpc('create_invoice', {
+    p_user_id: userId,
+    p_invoice: {
       client_id: body.clientId,
-      invoice_number: allocation.invoice_number,
-      sequence_no: allocation.sequence_no,
-      status: 'draft',
       issue_date: body.issueDate ?? new Date().toISOString().slice(0, 10),
       due_date: body.dueDate ?? null,
       period_start: body.periodStart,
@@ -145,56 +134,41 @@ export const POST = handle(async (req: Request) => {
       subtotal: totals.subtotal,
       tax_rate: totals.taxRate,
       tax_amount: totals.taxAmount,
+      expenses_subtotal: totals.expensesSubtotal,
       total: totals.total,
       currency: client.currency ?? settings.currency,
       notes: body.notes ?? null,
       payment_terms: body.paymentTerms ?? settings.defaultPaymentTerms,
       grouping_mode: body.groupingMode,
       payment_details: paymentDetails,
-    })
-    .select(INVOICE_COLUMNS)
-    .single();
+      // Frozen lines: an issued invoice is a financial record, not a live
+      // view over time entries and expenses.
+      lines: totals.lineItems.map((li) => ({
+        description: li.description,
+        unit: li.unit,
+        quantity: li.quantity,
+        unit_price: li.unitPrice,
+        amount: li.amount,
+        spent_on: li.spentOn ?? null,
+      })),
+    },
+    p_entry_ids: totals.lineItems.flatMap((li) => li.entryIds),
+    // One-offs only: a recurring expense is frozen onto this invoice but
+    // stays unattached, to bill again on the next.
+    p_expense_ids: expenses.filter((e) => !e.recurring).map((e) => e.id),
+  });
 
-  if (invoiceError) throw invoiceError;
-
-  const invoiceId = invoice.id as string;
-
-  // Frozen line items: an issued invoice is a financial record, not a live
-  // view over time entries.
-  const { error: itemsError } = await db.from('invoice_line_items').insert(
-    totals.lineItems.map((li, i) => ({
-      invoice_id: invoiceId,
-      description: li.description,
-      unit: li.unit,
-      quantity: li.quantity,
-      unit_price: li.unitPrice,
-      amount: li.amount,
-      sort_order: i,
-    })),
-  );
-
-  if (itemsError) {
-    await db.from('invoices').delete().eq('id', invoiceId);
-    throw itemsError;
+  if (error) {
+    if (isExpenseClaimConflict(error)) {
+      throw new ApiError(
+        'EXPENSE_ALREADY_INVOICED',
+        'An expense on this invoice was billed on another one first. Preview again.',
+      );
+    }
+    throw error;
   }
 
-  // An invoice of only fees attaches nothing: `.in('id', [])` would be a
-  // pointless round trip, and PostgREST's empty-list handling is not worth
-  // depending on for a call with no work to do.
-  const entryIds = totals.lineItems.flatMap((li) => li.entryIds);
-  const { error: attachError } = entryIds.length
-    ? await db
-        .from('time_entries')
-        .update({ invoice_id: invoiceId })
-        .in('id', entryIds)
-        .is('invoice_id', null) // never steal an entry another invoice claimed
-    : { error: null };
-
-  if (attachError) {
-    await db.from('invoice_line_items').delete().eq('invoice_id', invoiceId);
-    await db.from('invoices').delete().eq('id', invoiceId);
-    throw attachError;
-  }
+  const invoice = Array.isArray(data) ? data[0] : data;
 
   return NextResponse.json(
     {

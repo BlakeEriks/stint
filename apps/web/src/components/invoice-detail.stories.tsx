@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { expect, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { id } from '@/mocks/fixtures';
 import { desktop, phone, screen } from '@/mocks/screen';
@@ -40,8 +41,19 @@ export const WithCharge: Story = {
       quantity: 1,
       unitPrice: 400,
       amount: 400,
+      spentOn: null,
     });
     draft.subtotal += 400;
     draft.total += 400;
   }),
+};
+
+/** Expenses print after the services with their own subtotal. */
+export const WithExpenses: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(await page.findByText('Stock photography')).toBeVisible();
+    await expect(page.getAllByText('Expenses').length).toBeGreaterThan(0);
+  },
 };

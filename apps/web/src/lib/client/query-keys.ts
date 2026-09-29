@@ -32,6 +32,7 @@ export const keys = {
   account: () => ['account'] as const,
   invoices: () => ['invoices'] as const,
   invoice: (id: string | null | undefined) => ['invoices', id] as const,
+  expenses: () => ['expenses'] as const,
   settings: () => ['settings'] as const,
   paymentProfiles: () => ['payment-profiles'] as const,
 };

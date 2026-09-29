@@ -25,6 +25,7 @@ const scenarios: Record<
       projects: [],
       entries: [],
       invoices: [],
+      expenses: [],
       paymentProfiles: [],
     });
   },
