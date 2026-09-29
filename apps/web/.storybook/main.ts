@@ -13,7 +13,11 @@ const config: StorybookConfig = {
   /* MSW's service worker, kept out of the app's `public/`: only a preview's
      Storybook under /storybook/ serves it (scripts/preview-storybook.sh). */
   staticDirs: ['./public'],
-  viteFinal: (config) => mergeConfig(config, { plugins: storyMocks() }),
+  /* `publicDir: false`: Vite's default is the app's `public/`, which holds
+     the preview build's own output, so it would copy Storybook into itself.
+     `staticDirs` above is what Storybook serves. */
+  viteFinal: (config) =>
+    mergeConfig(config, { plugins: storyMocks(), publicDir: false }),
 };
 
 export default config;
