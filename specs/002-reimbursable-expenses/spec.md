@@ -42,11 +42,51 @@ receipt or order number.
 - Q: Should an expense that hasn't been invoiced yet count toward Home's Unbilled figure? → A: No. Unbilled stays work-only; waiting expenses show on the expenses list and in the invoice preview.
 - Q: Where should you record and review expenses that are waiting to be invoiced? → A: An Expenses tab on the Invoices screen, beside Open / Paid / All. (Superseded 2026-09-28: the client's page.)
 - Q: When you build a client's invoice for a period, which waiting expenses should the preview pick up? → A: Every waiting expense for that client dated on or before the period's end, including earlier months.
-- Q: Can an expense recur, so a monthly subscription is not re-entered every month? → A: Yes. A recurring expense produces one ordinary waiting expense each month.
+- Q: Can an expense recur, so a monthly subscription is not re-entered every month? → A: Yes. (Refined 2026-09-29: a recurring expense is billed on every invoice.)
 
 ### Session 2026-09-28
 
 - Q: Where should you record and review expenses, now that they're no longer a filter tab on Invoices? → A: On the client's page, in an Expenses section with Monthly beneath it. Invoices' tabs stay filters over invoices. The new-invoice screen keeps its list of the client's waiting expenses and its way to add one.
+
+### Session 2026-09-29
+
+- Q: Where are expenses added and managed? → A: On each client's card on the Clients screen, and on the new-invoice screen. Nowhere on the Invoices list.
+- Q: How does an expense recur? → A: One Recurring checkbox on the expense. A recurring expense is never used up: it stays on the client's card and is ticked on every new invoice for that client. There is no schedule and no separate recurrence form.
+- Q: What happens to a one-off expense once billed? → A: It stays on the client's card, muted and tagged with its invoice, until that invoice is paid, then leaves the card.
+
+## Design
+
+The picked design is [`design/expenses.html`](design/expenses.html).
+
+- **Client card, Clients screen**: the card's projects, then an Expenses
+  label and the client's expenses, then a **+ Project** and a **+ Expense**
+  button side by side. The label and its rows show only when the client has
+  an expense. The screen has no Active, Archived or All filter: every client
+  and project shows, an archived one with its Archived badge.
+- **Expense row**: one line, name first, then a label, the date and the
+  amount, then a pencil. Recurring expenses come first, labeled
+  **↻ Recurring** and undated. Waiting one-off expenses follow, dated. A
+  one-off on an unpaid invoice comes last, muted and labeled with the
+  invoice number, and ends in an arrow instead of the pencil.
+- **Clicking a row** opens the expense dialog. A billed one-off opens its
+  invoice instead, since it is locked. A one-off leaves the card when its
+  invoice is paid.
+- **Expense dialog**: one dialog for adding and editing, with a
+  description, an amount, the date paid, a **Recurring** checkbox ("Billed
+  on every invoice to <client> until unchecked") and a note. Checking
+  Recurring hides the date. Editing adds **Delete**.
+- **New invoice, inputs card**: client, period, then Expenses listing the
+  client's recurring and waiting expenses in the same rows, each ticked,
+  with a checkbox in front and no pencil. Unticking leaves one off this
+  invoice. **+ Expense** under the list opens the expense dialog with the
+  client chosen. Charges and the Preview button follow.
+- **New invoice, Preview card**: a separate card below the inputs, headed
+  Preview with the period. It holds the services lines, then the Expenses
+  lines with their dates, then the Services, Expenses and Total figures and
+  **Generate invoice**. A recurring expense is dated the period's last day.
+- **Empty**: a client with no expenses shows no Expenses label, only the two
+  buttons. New invoice with nothing waiting shows only **+ Expense** under
+  Expenses, and the preview has no Expenses section.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -85,7 +125,7 @@ theirs, and a total equal to both.
 ### User Story 2 - Record an expense when it happens (Priority: P1)
 
 The day the contractor pays for a flight, they record it: client, date,
-description, amount, and optionally a project and a note. It waits with the
+description, amount, and optionally a note. It waits with the
 client's other unbilled expenses until an invoice takes it. They can
 correct or delete it while it waits.
 
@@ -98,7 +138,7 @@ waits.
 **Acceptance Scenarios**:
 
 1. **Given** the contractor has a client, **When** they record an expense
-   with a date, description and amount from that client's page, **Then** it
+   with a date, description and amount from that client's card, **Then** it
    is listed there as waiting.
 2. **Given** an unbilled expense, **When** the contractor edits or deletes
    it, **Then** the change is saved.
@@ -138,34 +178,31 @@ expense successfully.
 
 ---
 
-### User Story 4 - A monthly subscription the client reimburses (Priority: P2)
+### User Story 4 - A subscription the client reimburses on every invoice (Priority: P2)
 
 The contractor pays for a tool every month that the client reimburses. They
-set it up once as a recurring expense: client, description, amount and the
-date of the first charge. Each month on that day, a waiting expense appears
-for it, the same as one they recorded by hand, and the month's invoice takes
-it.
+record it once and check Recurring. It stays on the client's card and is
+ticked on every invoice they build for that client, without being entered
+again.
 
 **Why this priority**: It saves re-entering the same line every month, but
 the September invoice can be built without it.
 
-**Independent Test**: Create a recurring expense starting 5 August. Build an
-invoice for September and see one expense for 5 August and one for
-5 September. Stop the recurrence and see no expense appear for 5 October.
+**Independent Test**: Record a recurring expense. Generate an invoice for
+the client and see it on the invoice. Build the next invoice and see it
+ticked again. Uncheck Recurring and see it offered no more after that.
 
 **Acceptance Scenarios**:
 
-1. **Given** a recurring expense starting 5 August, **When** the contractor
-   previews the client's invoice for September, **Then** there is one
-   waiting expense for each of 5 August and 5 September, each editable like
-   any other.
-2. **Given** that recurrence, **When** the contractor changes one month's
-   amount, **Then** only that month's expense changes.
-3. **Given** that recurrence, **When** the contractor changes its amount,
-   **Then** months not yet produced use the new amount, and expenses already
-   produced keep theirs.
-4. **Given** a stopped recurrence, **When** its day passes, **Then** no new
-   expense is produced, and those already produced stay.
+1. **Given** a recurring expense for Northwind, **When** the contractor
+   previews Northwind's invoice for September, **Then** the expense is on it,
+   dated 30 September.
+2. **Given** that expense was billed on August's invoice, **When** the
+   contractor builds September's, **Then** it is offered and ticked again.
+3. **Given** a recurring expense, **When** the contractor changes its amount,
+   **Then** later invoices use the new amount and issued ones keep theirs.
+4. **Given** a recurring expense, **When** the contractor deletes it, **Then**
+   no later invoice offers it and invoices that billed it keep their line.
 
 ### Edge Cases
 
@@ -181,11 +218,11 @@ invoice for September and see one expense for 5 August and one for
   client's currency. Stint does not convert.
 - Two invoices generated at once for the same client cannot both take the
   same expense.
-- A recurrence on the 29th, 30th or 31st produces its expense on the last
-  day of a shorter month.
-- A month's expense that the contractor deleted is not produced again.
-- A recurrence produces nothing before its day in the month, and never more
-  than one expense per month.
+- A recurring expense bills once per invoice, not per month. Two invoices
+  to one client in a month each offer it, ticked; the contractor unticks it
+  on the second.
+- Voiding an invoice leaves its recurring expenses as they were: they were
+  never used up.
 - An archived client's unbilled expenses stay unbilled and still reach an
   invoice for that client.
 
@@ -194,18 +231,17 @@ invoice for September and see one expense for 5 August and one for
 ### Functional Requirements
 
 - **FR-001**: The contractor MUST be able to record an expense with a client,
-  a date, a description and an amount above zero, and optionally a project
-  belonging to that client and a note.
+  a date, a description and an amount above zero, and optionally a note.
 - **FR-002**: An expense MUST NOT carry a duration, a quantity or a rate, and
   MUST NOT count toward hours anywhere in the app.
-- **FR-003**: Each client's page MUST have an Expenses section listing that
-  client's waiting expenses, where the contractor can add, edit and delete
-  them, and a Show billed toggle that also lists billed ones with their
-  invoice number. The Invoices screen's tabs stay filters over invoices. No
-  new screen is added.
+- **FR-003**: Each client's card on the Clients screen MUST list that
+  client's recurring expenses, waiting expenses, and expenses on an unpaid
+  invoice with its number, and the contractor MUST be able to add, edit and
+  delete them there. The new-invoice screen MUST let the contractor add one.
+  The Invoices list has no expenses. No new screen is added.
 - **FR-004**: The invoice preview for a client and period MUST include every
-  unbilled expense for that client dated on or before the period's end,
-  including ones from earlier months, and the
+  recurring expense for that client and every unbilled expense dated on or
+  before the period's end, including ones from earlier months, and the
   contractor MUST be able to leave any of them off that invoice.
 - **FR-005**: The invoice MUST show expenses after all service lines, under
   their own heading, with their own subtotal. Each expense line MUST show its
@@ -226,8 +262,8 @@ invoice for September and see one expense for 5 August and one for
   the edited figure, the contractor deletes the draft and generates again.
 - **FR-011**: Voiding an invoice, or deleting a draft, MUST release its
   expenses back to unbilled.
-- **FR-012**: An expense MUST be on at most one invoice at a time, including
-  when two invoices are generated at once.
+- **FR-012**: A one-off expense MUST be on at most one invoice at a time,
+  including when two invoices are generated at once.
 - **FR-013**: One contractor's expenses MUST be invisible to every other
   user.
 - **FR-014**: The new-invoice screen's charges MUST no longer describe
@@ -240,26 +276,21 @@ invoice for September and see one expense for 5 August and one for
   both are read from the invoice total, which is what the client owes and
   pays.
 
-- **FR-017**: The contractor MUST be able to create, edit and stop a
-  monthly recurring expense with a client, a description, an amount, a first
-  date, and optionally a project and a note, from the client's page.
-- **FR-018**: A recurrence MUST produce exactly one waiting expense for each
-  month from its first date up to today, on that day of the month, until it
-  is stopped. Each is an ordinary expense under FR-001 to FR-016.
-- **FR-019**: Editing a recurrence MUST change only the expenses it has not
-  yet produced. Editing or deleting a produced expense MUST NOT change the
-  recurrence, and a deleted one MUST NOT be produced again.
+- **FR-017**: The contractor MUST be able to mark an expense recurring, and
+  unmark it, in the same dialog that adds and edits it. A recurring expense
+  has no date.
+- **FR-018**: A recurring expense MUST be offered on every invoice for its
+  client and MUST never be billed away, locked or released. On each invoice
+  it is frozen as a line dated the period's last day, under FR-009.
+- **FR-019**: Editing or deleting a recurring expense MUST change only
+  invoices generated afterward.
 
 ### Key Entities
 
 - **Expense**: A cost the contractor paid that a client reimburses. It has a
-  client, an optional project, a date, a description, an amount in the
-  client's currency, an optional note, and the invoice it is billed on, if
-  any.
-- **Recurring expense**: A rule that produces one expense a month. It has a
-  client, an optional project, a description, an amount, an optional note, a
-  first date, and whether it has been stopped. Each expense it produces
-  records which recurrence and month it came from.
+  client, a description, an amount in the client's currency, an optional
+  note, and whether it recurs. A one-off also has a date and the invoice it
+  is billed on, if any.
 - **Invoice line (expense)**: The frozen copy of an expense on an issued
   invoice: its date, description and amount at generation. It is kept apart
   from service lines so the invoice can subtotal each.
@@ -290,4 +321,4 @@ invoice for September and see one expense for 5 August and one for
   is referenced by nothing, so deleting it is allowed, as for an unbilled
   entry.
 - No import of expenses from other tools, no receipt storage, no mileage or
-  per-diem calculation, and no recurrence other than monthly.
+  per-diem calculation, and no recurrence schedule.
