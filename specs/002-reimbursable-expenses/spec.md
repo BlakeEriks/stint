@@ -63,6 +63,9 @@ The picked design is [`design/expenses.html`](design/expenses.html).
   button side by side. The label and its rows show only when the client has
   an expense. The screen has no Active, Archived or All filter: every client
   and project shows, an archived one with its Archived badge.
+- **Card body indent**: the rows, the Expenses label and the two buttons
+  start where the client's name does, past its dot, with no bullet; amounts
+  and pencils stay on the right edge.
 - **Expense row**: one line, name first, then a label, the date and the
   amount, then a pencil. Recurring expenses come first, labeled
   **↻ Recurring** and undated. Waiting one-off expenses follow, dated. A

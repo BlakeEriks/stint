@@ -251,7 +251,10 @@ function Card({
         ) : null}
       </div>
 
-      <div className="border-t border-edge-subtle px-4 pt-1 pb-2">
+      {/* Rows start where the client's name does — the header's padding,
+          its 9px pip and the gap after it — so they read as the client's,
+          not its siblings. Only the left edge moves; amounts stay right. */}
+      <div className="border-t border-edge-subtle pt-1 pr-4 pb-2 pl-[calc(1rem+9px+0.75rem)]">
         {children.length > 0 ? (
           <ul className="divide-y divide-edge-grid">{children}</ul>
         ) : (
