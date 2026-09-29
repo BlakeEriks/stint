@@ -5,29 +5,33 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Pencil, Plus } from 'lucide-react';
+import { formatCurrency, resolveRate, resolveRateSource } from '@stint/core';
 import { Button } from '@/components/ui/button';
-import { api, type ClientWithScale, type Project } from '@/lib/client/api';
+import { api, type Client, type Project } from '@/lib/client/api';
+import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 import { FilterTabs, Listing, Page } from './page';
 import { Pip } from './home-shell';
+import { ClientDialog } from './client-dialog';
 import { ProjectDialog } from './project-dialog';
-import { ProjectRate } from './project-rate';
-import { formatCurrency } from '@stint/core';
 import { keys } from '@/lib/client/query-keys';
 
 type Status = 'archived' | 'all' | null;
 
 /**
- * Every client, with its projects beneath it — the one place both are
- * listed, and the only screen that reaches a project with no client, since
+ * Every client as a card holding its projects — the one place both are
+ * managed, and the only screen that reaches a project with no client, since
  * there is no client page to open for one.
  *
- * The heading carries the client's own rate, so each row's inherited figure
- * has something to be read against. "No client" is a heading rather than an
- * entity, so it needs no detail page, rate or link.
+ * It is for editing, not reporting: what is owed and how many hours went in
+ * belong to a reports screen. Every action is the Edit on the thing it
+ * changes, opening a dialog that also archives; a project is added from the
+ * card it belongs to. The design is `specs/002-clients-nav/design/`.
  */
 export function ClientList() {
-  const [creating, setCreating] = useState(false);
+  /* `null` is a new project for no client; a string, for that client. */
+  const [creating, setCreating] = useState<string | null | undefined>();
   const [editing, setEditing] = useState<Project | undefined>();
+  const [editingClient, setEditingClient] = useState<Client | undefined>();
   /* The filter lives in the URL: the view is linkable and Back returns to
      it, where a local toggle was neither. */
   const params = useSearchParams();
@@ -35,11 +39,11 @@ export function ClientList() {
   const status: Status = raw === 'archived' || raw === 'all' ? raw : null;
 
   const clientQuery = useQuery({
-    queryKey: keys.clients({ archived: true, scale: true }),
+    queryKey: keys.clients({ archived: true }),
     /* Archived clients always: under Active they decide which projects are
        hidden, and otherwise their projects would fall into "No client",
        which would be a lie. */
-    queryFn: () => api.clients({ includeArchived: true, withScale: true }),
+    queryFn: () => api.clients({ includeArchived: true }),
   });
   const projectQuery = useQuery({
     queryKey: keys.projects({ archived: status !== null }),
@@ -49,6 +53,7 @@ export function ClientList() {
     queryKey: keys.settings(),
     queryFn: () => api.settings(),
   });
+  const defaultRate = settings?.defaultHourlyRate ?? null;
 
   const groups = useMemo(
     () =>
@@ -62,21 +67,15 @@ export function ClientList() {
     <Page>
       <header className="flex items-center justify-between gap-3 pb-4">
         <h1 className="type-title text-strong">Clients</h1>
-        <div className="flex gap-2">
-          <Button onClick={() => setCreating(true)}>
+        <Button asChild>
+          <Link href="/clients/new">
             <Plus aria-hidden strokeWidth={2.25} />
-            Add project
-          </Button>
-          <Button asChild>
-            <Link href="/clients/new">
-              <Plus aria-hidden strokeWidth={2.25} />
-              Add client
-            </Link>
-          </Button>
-        </div>
+            Add client
+          </Link>
+        </Button>
       </header>
 
-      <div className="pb-2">
+      <div className="pb-3">
         <FilterTabs
           base="/clients"
           active={status}
@@ -103,150 +102,232 @@ export function ClientList() {
         }
       >
         {(shown) => (
-          <div>
+          <div className="flex flex-col gap-3">
             {shown.map((g) => (
-              <section
+              <Card
                 key={g.client?.id ?? '__none__'}
-                className="border-t border-edge-subtle py-[18px]"
+                client={g.client}
+                defaultRate={defaultRate}
+                onEditClient={setEditingClient}
+                onAdd={() => setCreating(g.client?.id ?? null)}
               >
-                <GroupHeading client={g.client} count={g.projects.length} />
-                <ul className="divide-y divide-edge-subtle">
-                  {g.projects.map((project) => (
-                    <li key={project.id}>
-                      <Row
-                        project={project}
-                        client={g.client}
-                        userDefaultRate={settings?.defaultHourlyRate ?? null}
-                        onEdit={() => setEditing(project)}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </section>
+                {g.projects.map((project) => (
+                  <Row
+                    key={project.id}
+                    project={project}
+                    client={g.client}
+                    defaultRate={defaultRate}
+                    onEdit={() => setEditing(project)}
+                  />
+                ))}
+              </Card>
             ))}
           </div>
         )}
       </Listing>
 
-      <ProjectDialog open={creating} onOpenChange={setCreating} />
+      <ProjectDialog
+        open={creating !== undefined}
+        onOpenChange={(open) => !open && setCreating(undefined)}
+        defaultClientId={creating}
+      />
       <ProjectDialog
         open={editing !== undefined}
         onOpenChange={(open) => !open && setEditing(undefined)}
         existing={editing}
       />
+      {editingClient ? (
+        <ClientDialog
+          open
+          onOpenChange={(open) => !open && setEditingClient(undefined)}
+          client={editingClient}
+        />
+      ) : null}
     </Page>
   );
 }
 
+const rateLabel = (rate: number, client: Client | null) =>
+  `${formatCurrency(rate, client?.currency ?? undefined)}/h`;
+
 /**
- * The client's name, linking to it, its summary line and its own rate.
+ * One client and its projects. The spine down the left edge is the client's
+ * color, repeated as each row's dot, so the belonging is drawn rather than
+ * labeled — no "Projects" subheader.
  *
- * "No client" gets none of those: it is a grouping, not a record. Nor is it
- * "Internal work" — null also covers work not yet assigned to a client and
- * speculative work, and only `isBillableDefault` distinguishes them.
+ * "No client" is a grouping, not a record: dashed, with no rate, link or
+ * Edit. Nor is it "Internal work" — null also covers work not yet assigned
+ * to a client and speculative work, and only `isBillableDefault` tells them
+ * apart.
  */
-function GroupHeading({
+function Card({
   client,
-  count,
+  defaultRate,
+  onEditClient,
+  onAdd,
+  children,
 }: {
-  client: ClientWithScale | null;
-  count: number;
+  client: Client | null;
+  defaultRate: number | null;
+  onEditClient: (client: Client) => void;
+  onAdd: () => void;
+  children: React.ReactNode[];
 }) {
+  const spine = client?.color ?? INTERNAL_SWATCH;
   return (
-    <div className="flex items-baseline justify-between gap-3 pb-2">
-      <div className="min-w-0">
-        <div className="flex min-w-0 items-center gap-2">
+    <section
+      className={`rounded-lg border ${
+        client
+          ? 'border-edge-subtle bg-surface-elevated'
+          : 'border-dashed border-edge-default'
+      }`}
+      style={client ? { boxShadow: `inset 3px 0 0 ${spine}` } : undefined}
+    >
+      <div className="flex items-start gap-3 px-4 py-3.5">
+        {/* A flex box, not bare inline: the dot sizes itself only as a flex
+            or block item. */}
+        <span className="flex pt-[7px]">
           <Pip color={client?.color} />
-          <h2 className="truncate type-region-head text-muted">
-            {client ? (
-              <Link
-                href={`/clients/${client.id}`}
-                className="hover:text-strong"
-              >
-                {client.name}
-              </Link>
-            ) : (
-              'No client'
-            )}
-          </h2>
-          {client?.archivedAt ? (
-            <span className="flex-none type-badge text-subtle">Archived</span>
-          ) : null}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2
+              className={`truncate type-heading ${client ? 'text-strong' : 'text-muted'}`}
+            >
+              {client ? (
+                <Link
+                  href={`/clients/${client.id}`}
+                  className="hover:underline hover:underline-offset-4"
+                >
+                  {client.name}
+                </Link>
+              ) : (
+                'No client'
+              )}
+            </h2>
+            {client?.archivedAt ? (
+              <span className="flex-none type-badge text-subtle">Archived</span>
+            ) : null}
+          </div>
+          <p className="truncate type-support text-subtle">
+            {client
+              ? [
+                  client.hourlyRate != null
+                    ? rateLabel(client.hourlyRate, client)
+                    : defaultRate != null
+                      ? `${rateLabel(defaultRate, client)} · default`
+                      : 'No rate',
+                  client.email,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+              : 'Not assigned to a client'}
+          </p>
         </div>
-        {client ? <Detail client={client} /> : null}
+        {client ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEditClient(client)}
+            aria-label={`Edit ${client.name}`}
+            className="flex-none"
+          >
+            <Pencil aria-hidden strokeWidth={1.75} />
+            {/* The pencil alone on a phone, where the name needs the width;
+                the button's aria-label names it either way. */}
+            <span className="max-sm:hidden">Edit</span>
+          </Button>
+        ) : null}
       </div>
 
-      {/* The heading's rate is what each row's "from …" refers to, so it
-          belongs here rather than being repeated on every row. */}
-      <span className="flex-none type-support text-subtle">
-        {client
-          ? client.hourlyRate != null
-            ? `${formatCurrency(client.hourlyRate, client.currency ?? undefined)}/h`
-            : 'no rate'
-          : `${count} ${count === 1 ? 'project' : 'projects'}`}
-      </span>
-    </div>
+      <div className="border-t border-edge-subtle px-4 pt-1 pb-2">
+        {children.length > 0 ? (
+          <ul className="divide-y divide-edge-grid">{children}</ul>
+        ) : (
+          <p className="pt-2.5 pb-0.5 type-support text-subtle">
+            No projects yet.
+          </p>
+        )}
+        {/* Says where the new project lands; its dialog opens with this
+            client chosen. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onAdd}
+          aria-label={
+            client ? `Project for ${client.name}` : 'Project with no client'
+          }
+          className="mt-1 max-w-full text-muted"
+        >
+          <Plus aria-hidden strokeWidth={2.25} />
+          <span className="truncate">
+            {client ? `Project for ${client.name}` : 'Project'}
+          </span>
+        </Button>
+      </div>
+    </section>
   );
 }
+
+const SOURCE = {
+  entry: 'own rate',
+  project: 'own rate',
+  client: 'from client',
+  default: 'from default',
+  none: '',
+} as const;
 
 /**
- * How much work sits under this client: its active projects and what is
- * unbilled, in one line with no interaction. The count is active projects
- * whatever the filter, so under Archived it describes the client, not the
- * rows beneath.
+ * A project: its name, and the rate it bills at with where that rate comes
+ * from, so it's plain whether changing the client's rate would move it.
+ * `resolveRate` is the function that bills (`@stint/core`).
  */
-function Detail({ client }: { client: ClientWithScale }) {
-  const { projectCount, unbilledAmount } = client;
-
-  const parts: string[] = [];
-  if (projectCount > 0) {
-    parts.push(
-      `${projectCount} ${projectCount === 1 ? 'project' : 'projects'}`,
-    );
-  }
-  /* `0` unbilled is omitted rather than shown: it means everything is
-     invoiced, which is the quiet good state and does not need a figure. */
-  if (unbilledAmount > 0) {
-    parts.push(
-      `${formatCurrency(unbilledAmount, client.currency ?? undefined)} unbilled`,
-    );
-  }
-  if (client.email) parts.push(client.email);
-
-  // Nothing to say about an empty client, and a row of zeroes is noise.
-  if (parts.length === 0) return null;
-
-  return (
-    <span className="mt-0.5 block truncate type-support text-subtle">
-      {parts.join(' · ')}
-    </span>
-  );
-}
-
 function Row({
   project,
   client,
-  userDefaultRate,
+  defaultRate,
   onEdit,
 }: {
   project: Project;
-  client: ClientWithScale | null;
-  userDefaultRate: number | null;
+  client: Client | null;
+  defaultRate: number | null;
   onEdit: () => void;
 }) {
+  const ctx = {
+    projectRate: project.hourlyRate,
+    clientRate: client?.hourlyRate ?? null,
+    userDefaultRate: defaultRate,
+  };
+  const rate = resolveRate(ctx);
   return (
-    <div className="flex items-center gap-3 py-3">
-      <div className="min-w-0 flex-1">
-        <p className="truncate type-body text-strong">{project.name}</p>
-        <ProjectRate
-          project={project}
-          client={client}
-          userDefaultRate={userDefaultRate}
-        />
-      </div>
+    <li className="flex items-center gap-3 py-2.5">
+      <Pip color={client?.color} />
+      <span className="min-w-0 flex-1 truncate type-control text-strong">
+        {project.name}
+      </span>
       {project.archivedAt ? (
-        <span className="flex-none px-2 type-badge text-subtle">Archived</span>
+        <span className="flex-none type-badge text-subtle">Archived</span>
       ) : null}
+      <span className="flex-none text-right">
+        {!project.isBillableDefault ? (
+          <span className="type-support text-subtle">Non-billable</span>
+        ) : rate == null ? (
+          /* Not cosmetic: invoicing refuses unrated entries, so this is
+             found here rather than at billing. */
+          <span className="type-support text-danger">No rate</span>
+        ) : (
+          <>
+            <span
+              className={`block type-duration ${project.hourlyRate != null ? 'text-primary' : 'text-muted'}`}
+            >
+              {rateLabel(rate, client)}
+            </span>
+            <span className="block type-meta text-subtle max-sm:hidden">
+              {SOURCE[resolveRateSource(ctx)]}
+            </span>
+          </>
+        )}
+      </span>
       <Button
         variant="ghost"
         size="sm"
@@ -255,14 +336,14 @@ function Row({
         className="flex-none"
       >
         <Pencil aria-hidden strokeWidth={1.75} />
-        Edit
+        <span className="max-sm:hidden">Edit</span>
       </Button>
-    </div>
+    </li>
   );
 }
 
 interface Group {
-  client: ClientWithScale | null;
+  client: Client | null;
   projects: Project[];
 }
 
@@ -279,7 +360,7 @@ interface Group {
  */
 function group(
   projects: Project[],
-  clients: ClientWithScale[],
+  clients: Client[],
   status: Status,
 ): Group[] {
   const byId = new Map(clients.map((c) => [c.id, c]));

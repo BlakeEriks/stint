@@ -29,10 +29,14 @@ export function ClientForm({
   existing,
   onSaved,
   onCancel,
+  footer,
 }: {
   existing?: Client;
   onSaved?: (client: Client) => void;
   onCancel?: () => void;
+  /** An action at the far end of the buttons from Save, e.g. the dialog's
+      Archive. */
+  footer?: React.ReactNode;
 }) {
   const router = useRouter();
 
@@ -200,6 +204,7 @@ export function ClientForm({
         >
           Cancel
         </Button>
+        {footer ? <div className="ml-auto">{footer}</div> : null}
       </div>
     </form>
   );

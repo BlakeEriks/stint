@@ -485,7 +485,7 @@ const page = (dots) => `<div class="a-list">${all.map((c) => `
       ${dots ? `<div style="padding-top:5px">${pip(c.color, true)}</div>` : ''}
       <div class="grow">
         <h2 class="type-heading ${c.none ? 'muted' : 'strong'}">${c.none ? 'No client' : `<a class="name" href="#">${c.name}</a>`}</h2>
-        <p class="type-support subtle trunc">${c.none ? 'Internal or unassigned work' : clientRateLabel(c) + (c.email ? ' · ' + c.email : '')}</p>
+        <p class="type-support subtle trunc">${c.none ? 'Not assigned to a client' : clientRateLabel(c) + (c.email ? ' · ' + c.email : '')}</p>
       </div>
       ${c.none ? '' : edit(c.name)}
     </div>

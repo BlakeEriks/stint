@@ -96,12 +96,16 @@ export const Failed: Story = {
   parameters: failing('clients', 'projects'),
 };
 
-export const NewProject: Story = {
+/** A project is added from its client's card, with that client chosen. */
+export const NewProjectForClient: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    const [add] = await page.findAllByRole('button', { name: /Add project/ });
-    await userEvent.click(add as HTMLElement);
+    await userEvent.click(
+      await page.findByRole('button', {
+        name: 'Project for Northwind Trading',
+      }),
+    );
     await expectOpen(canvasElement, 'dialog');
   },
 };
@@ -112,8 +116,9 @@ export const NewProjectNewClient: Story = {
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    const [add] = await page.findAllByRole('button', { name: /Add project/ });
-    await userEvent.click(add as HTMLElement);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Project with no client' }),
+    );
     await userEvent.click(await page.findByRole('button', { name: 'Client' }));
     await userEvent.click(
       await page.findByRole('menuitem', { name: /Add a client/ }),
@@ -122,6 +127,7 @@ export const NewProjectNewClient: Story = {
   },
 };
 
+/** Edit opens the project's dialog, which also archives it. */
 export const EditProject: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -130,5 +136,17 @@ export const EditProject: Story = {
       await page.findByRole('button', { name: 'Edit Warehouse dashboard' }),
     );
     await expectOpen(canvasElement, 'dialog');
+  },
+};
+
+/** A client edits in a dialog too, never a page, with Archive client. */
+export const EditClient: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Northwind Trading' }),
+    );
+    await expectOpen(canvasElement, 'dialog', 'Edit client');
   },
 };

@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ClientList } from '@/components/client-list';
@@ -190,112 +191,102 @@ describe('ClientList', () => {
     expect(headings()).toContain('No client');
   });
 
-  it('states the client rate on the heading, so an inherited row reads against it', async () => {
-    serve([NORTHWIND], [project({ hourlyRate: null })]);
-    render(<ClientList />, { wrapper });
-
-    /* The row shows the resolved figure and nothing about where it came
-       from. The hierarchy is legible from the grouping instead, which only
-       works if the heading carries the client's own rate. */
-    await waitFor(() =>
-      expect(screen.getAllByText('$150.00/h').length).toBe(2),
-    );
-  });
-
-  describe('the summary line', () => {
-    it('asks the server for scale rather than deriving it in the browser', async () => {
-      const urls = serve([NORTHWIND]);
-      render(<ClientList />, { wrapper });
-
-      /* The unbilled figure comes from the SQL rollup, whose coalesce chain
-         matches resolve_entry_rate. Recomputing it here would be a third
-         implementation of rate resolution. */
-      await waitFor(() =>
-        expect(urls.some((u) => u.includes('withScale=true'))).toBe(true),
-      );
-    });
-
-    it('shows the count and the money', async () => {
-      serve([client({ projectCount: 3, unbilledAmount: 1462.5 })]);
-      render(<ClientList />, { wrapper });
-
-      await waitFor(() =>
-        expect(
-          screen.getByText('3 projects · $1,462.50 unbilled'),
-        ).toBeInTheDocument(),
-      );
-    });
-
-    it('says "1 project", not "1 projects"', async () => {
-      serve([client({ projectCount: 1 })]);
-      render(<ClientList />, { wrapper });
-      await waitFor(() =>
-        expect(screen.getByText('1 project')).toBeInTheDocument(),
-      );
-    });
-
-    it('omits a zero unbilled total rather than printing $0.00', async () => {
-      serve([client({ projectCount: 2 })]);
-      render(<ClientList />, { wrapper });
-
-      /* Everything invoiced is the quiet good state. "$0.00 unbilled" reads
-         as a figure worth checking when it is the absence of one. */
-      await waitFor(() =>
-        expect(screen.getByText('2 projects')).toBeInTheDocument(),
-      );
-      expect(screen.queryByText(/\$0\.00/)).toBeNull();
-    });
-
-    it('renders no summary at all for an empty client', async () => {
-      serve([NORTHWIND]);
-      render(<ClientList />, { wrapper });
-
-      // A row of zeroes is noise; the name alone is the whole truth here.
-      await screen.findByRole('link', { name: 'Northwind' });
-      expect(screen.queryByText(/\d+ projects?/)).toBeNull();
-      expect(screen.queryByText(/unbilled/)).toBeNull();
-    });
-
-    it('carries the email', async () => {
+  describe('the card', () => {
+    it('carries the client’s rate and billing email, and no report figures', async () => {
       serve([
         client({
+          email: 'ap@northwind.test',
           projectCount: 3,
           unbilledAmount: 1462.5,
-          email: 'ap@northwind.test',
         }),
       ]);
       render(<ClientList />, { wrapper });
 
+      /* This screen manages clients and projects. What is owed and how many
+         hours went in belong to a reports screen, so the server isn't even
+         asked for them. */
       await waitFor(() =>
-        expect(
-          screen.getByText(
-            /3 projects · \$1,462\.50 unbilled · ap@northwind\.test/,
-          ),
-        ).toBeInTheDocument(),
+        expect(screen.getByText(/ap@northwind\.test/)).toBeInTheDocument(),
+      );
+      expect(screen.getByText(/\$150\.00\/h/)).toBeInTheDocument();
+      expect(screen.queryByText(/unbilled/)).toBeNull();
+      expect(screen.queryByText(/\d+ projects?/)).toBeNull();
+    });
+
+    it('marks a rate the client inherits as the default', async () => {
+      serve([BYRNE]);
+      render(<ClientList />, { wrapper });
+      await waitFor(() =>
+        expect(screen.getByText(/\$125\.00\/h · default/)).toBeInTheDocument(),
       );
     });
 
-    it('shows money owed by a client with no projects', async () => {
-      serve([client({ unbilledAmount: 187.5 })]);
+    it('gives each project its resolved rate and where that rate comes from', async () => {
+      serve(
+        [NORTHWIND, BYRNE],
+        [
+          project({ id: 'p1', clientId: 'c1', name: 'Rush', hourlyRate: 195 }),
+          project({ id: 'p2', clientId: 'c1', name: 'Warehouse' }),
+          project({ id: 'p3', clientId: 'c2', name: 'Brand' }),
+        ],
+      );
       render(<ClientList />, { wrapper });
 
-      /* Time can be tracked against a client directly, so unbilled work with
-         no project is real and must not be hidden by the count being zero. */
+      /* A bare figure hides whether changing the client's rate would move
+         it. Money keeps its cents, as it does everywhere. */
       await waitFor(() =>
-        expect(screen.getByText('$187.50 unbilled')).toBeInTheDocument(),
+        expect(screen.getByText('own rate')).toBeInTheDocument(),
       );
+      expect(screen.getByText('$195.00/h')).toBeInTheDocument();
+      expect(screen.getByText('from client')).toBeInTheDocument();
+      expect(screen.getByText('from default')).toBeInTheDocument();
+    });
+
+    it('says when a client has no projects yet', async () => {
+      serve([NORTHWIND]);
+      render(<ClientList />, { wrapper });
+      expect(await screen.findByText('No projects yet.')).toBeInTheDocument();
     });
   });
 
-  it('adds a client on a page of its own and a project in a dialog', async () => {
+  it('adds a client from the header, and nothing else', async () => {
     serve([]);
     render(<ClientList />, { wrapper });
 
     expect(
       await screen.findByRole('link', { name: /Add client/ }),
     ).toHaveAttribute('href', '/clients/new');
+    // A project is added from the card it belongs to.
+    expect(screen.queryByRole('button', { name: /Add project/ })).toBeNull();
+  });
+
+  it('adds a project to the client whose card it was asked from', async () => {
+    serve([NORTHWIND, BYRNE]);
+    const user = userEvent.setup();
+    render(<ClientList />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Project for Northwind' }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole('button', { name: 'Client' }),
+      ).toHaveTextContent('Northwind'),
+    );
+  });
+
+  it('edits a client in a dialog, as a project is', async () => {
+    serve([NORTHWIND]);
+    const user = userEvent.setup();
+    render(<ClientList />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Edit Northwind' }),
+    );
     expect(
-      screen.getByRole('button', { name: /Add project/ }),
+      await screen.findByRole('heading', { name: 'Edit client' }),
     ).toBeInTheDocument();
   });
 

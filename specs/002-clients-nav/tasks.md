@@ -172,16 +172,16 @@ PR.
 
 ### Tests ⚠️
 
-- [ ] T017 [P] [US1] In `apps/web/test/ui/client-list.test.tsx`, replace the summary-line cases with: the card shows the client's rate and email; no unbilled figure or project count; each project row shows its resolved rate and source (`own rate` / `from client` / `from default`); a client with none says `No projects yet.`; money keeps its cents.
-- [ ] T018 [P] [US2] In the same file: `+ Project for Northwind` opens the project dialog with Northwind chosen; a client's Edit opens a dialog titled `Edit client`; the page header has Add client and no Add project.
-- [ ] T019 [P] [US2] In `apps/web/test/ui/project-dialog.test.tsx`: an existing active project's dialog has Archive, which calls `DELETE /projects/:id` and closes; a new or archived project's dialog has none.
-- [ ] T020 [P] [US2] Add `apps/web/test/ui/client-dialog.test.tsx`: the dialog edits through `ClientForm`; Archive calls `DELETE /clients/:id` and closes; an archived client's dialog has none.
-- [ ] T021 [P] [US2] Stories in `apps/web/src/components/client-list.stories.tsx`: `EditClient` (plays Edit on Northwind, expects the dialog), `NewProjectForClient` (plays `+ Project for Northwind`, expects the dialog with Northwind chosen); drop `NewProject`'s header button. Add a `client-dialog.stories.tsx` for `ClientDialog` (open, and with an archive error).
+- [X] T017 [P] [US1] In `apps/web/test/ui/client-list.test.tsx`, replace the summary-line cases with: the card shows the client's rate and email; no unbilled figure or project count; each project row shows its resolved rate and source (`own rate` / `from client` / `from default`); a client with none says `No projects yet.`; money keeps its cents.
+- [X] T018 [P] [US2] In the same file: `+ Project for Northwind` opens the project dialog with Northwind chosen; a client's Edit opens a dialog titled `Edit client`; the page header has Add client and no Add project.
+- [X] T019 [P] [US2] In `apps/web/test/ui/project-dialog.test.tsx`: an existing active project's dialog has Archive, which calls `DELETE /projects/:id` and closes; a new or archived project's dialog has none.
+- [X] T020 [P] [US2] Add `apps/web/test/ui/client-dialog.test.tsx`: the dialog edits through `ClientForm`; Archive calls `DELETE /clients/:id` and closes; an archived client's dialog has none.
+- [X] T021 [P] [US2] Stories in `apps/web/src/components/client-list.stories.tsx`: `EditClient` (plays Edit on Northwind, expects the dialog), `NewProjectForClient` (plays `+ Project for Northwind`, expects the dialog with Northwind chosen); drop `NewProject`'s header button. Dialogs show through their screen's stories, as `ProjectDialog` does.
 
 ### Implementation
 
-- [ ] T022 [US2] `apps/web/src/components/project-dialog.tsx`: Archive (ghost, `Archive` icon) at the footer's far end from Save when `existing` is active; archives via `api.archiveProject`, invalidates projects and entry data, closes; shows an error like the save's.
-- [ ] T023 [US2] Add `apps/web/src/components/client-dialog.tsx`: a dialog around `ClientForm` for an existing client, with Archive at the far end from Save, archiving via `api.archiveClient`. `ClientForm` gains an optional footer slot for it.
-- [ ] T024 [US1] Rebuild the list in `apps/web/src/components/client-list.tsx` as cards (spine, dot, name link, rate, email, Edit), project rows with `resolveRateSource` from `@stint/core`, `No projects yet.`, `+ Project for <client>`, and a dashed No client card; drop `withScale` and the summary line; header has Add client only.
+- [X] T022 [US2] `apps/web/src/components/project-dialog.tsx`: Archive (ghost, `Archive` icon) at the footer's far end from Save when `existing` is active; archives via `api.archiveProject`, invalidates projects and entry data, closes; shows an error like the save's.
+- [X] T023 [US2] Add `apps/web/src/components/client-dialog.tsx`: a dialog around `ClientForm` for an existing client, with Archive at the far end from Save, archiving via `api.archiveClient`. `ClientForm` gains an optional footer slot for it.
+- [X] T024 [US1] Rebuild the list in `apps/web/src/components/client-list.tsx` as cards (spine, dot, name link, rate, email, Edit), project rows with `resolveRateSource` from `@stint/core`, `No projects yet.`, `+ Project for <client>`, and a dashed No client card; drop `withScale` and the summary line; header has Add client only.
 
 **Checkpoint**: UI and stories suites pass; the screen matches `design/clients.html` S1 in the running app.

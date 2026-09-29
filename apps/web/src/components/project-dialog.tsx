@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Check, Loader2, Plus } from 'lucide-react';
+import { Archive, Check, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -97,6 +97,19 @@ export function ProjectDialog({
       onOpenChange(false);
     },
   });
+
+  /* Archive lives here rather than on the row: it's rare, and the list's
+     only row action is Edit. Archive, never delete: entries and invoices
+     reference the project. */
+  const archive = useMutation({
+    mutationFn: () => api.archiveProject(existing!.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: keys.projects() });
+      invalidateEntryData(queryClient);
+      onOpenChange(false);
+    },
+  });
+  const failed = save.error ?? archive.error;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,15 +214,30 @@ export function ProjectDialog({
             Billable by default
           </label>
 
-          {save.error ? (
+          {failed ? (
             <p role="alert" className="type-support text-danger">
-              {save.error instanceof ApiError
-                ? save.error.message
-                : 'Could not save this project.'}
+              {failed instanceof ApiError
+                ? failed.message
+                : save.error
+                  ? 'Could not save this project.'
+                  : 'Could not archive this project.'}
             </p>
           ) : null}
 
           <DialogFooter>
+            {/* At the far end from Save, so it is never hit by habit. */}
+            {existing && !existing.archivedAt ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="mr-auto"
+                onClick={() => archive.mutate()}
+                disabled={archive.isPending}
+              >
+                <Archive aria-hidden strokeWidth={1.75} />
+                Archive
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="ghost"
