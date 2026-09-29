@@ -4,15 +4,25 @@ description: "Tasks for reimbursable expenses on the invoice"
 
 # Tasks: Reimbursable expenses on the invoice
 
-**Input**: `specs/002-reimbursable-expenses/`: plan.md, spec.md, research.md,
-data-model.md, contracts/expenses-api.md, quickstart.md
+**Input**: `specs/002-reimbursable-expenses/`: spec.md (with its Design),
+design/expenses.html, plan.md, research.md, data-model.md,
+contracts/expenses-api.md, quickstart.md
 
-**Tests**: Included. New behavior ships with its own tests, and Principle VII
-requires a cross-user RLS case for every new table.
+**Starting point**: the branch already has one-off expenses end to end:
+migration 25, `create_invoice`, the lock, the `/expenses` routes, expenses in
+`buildLineItems`, the preview, generation, invoice detail and the PDF, and
+the in-memory `/api/v1`. It also has a monthly recurrence (migration 26,
+`/recurring-expenses`) and an Expenses tab on Invoices, which this plan
+replaces. These tasks are the change from there to `plan.md`.
 
-**Organization**: User Story 2 (record) comes before User Story 1 (bill),
-because a bill needs something to bill. Both are P1. User Stories 1 to 3 are
-the 30 September slice. User Story 4 can merge after it.
+**Tests**: Included, per Principle V: routes and the lock against real
+Postgres, a cross-user case for the table, and one story per acceptance
+scenario. Each test task comes before the code it covers.
+
+**Organization**: User Story 2 (record) before User Story 1 (bill), since a
+bill needs something to bill. Both are P1. User Stories 1 to 3 are the
+30 September slice; User Story 4 is small enough to ride with it
+(`research.md` R12).
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -23,281 +33,153 @@ the 30 September slice. User Story 4 can merge after it.
 
 ## Phase 1: Setup
 
-- [X] T001 Start the local stack and the dev server in the worktree, and sign in to the seeded account (`docs/local-dev.md`). Confirm `pnpm verify:static` and `pnpm verify:db` pass before any change.
+- [ ] T001 In `/Users/blakeeriks/dev/stint-f48-expenses`, run `pnpm dev:up`, `pnpm db:setup`, the dev server and Storybook (port 6007), and sign in to the seeded account (`docs/local-dev.md`). Confirm `pnpm verify:static` and `pnpm verify:db` pass before any change.
 
 ---
 
 ## Phase 2: Foundational (blocks every story)
 
-- [X] T002 Create `supabase/migrations/00000000000025_expenses.sql` with:
-  - `create unique index clients_id_user_idx on clients (id, user_id)`.
-  - Table `expenses`: `id uuid primary key default gen_random_uuid()`; `user_id uuid not null references auth.users(id) on delete cascade`; `client_id uuid not null`, with a foreign key `(client_id, user_id) → clients (id, user_id) on update restrict`; `project_id uuid null`, with a foreign key `(project_id, user_id) → projects (id, user_id) on delete set null (project_id) on update restrict`; `spent_on date not null`; `description text not null`, "Non-blank, 200 characters or fewer"; `amount numeric(12,2) not null check (amount > 0)`; `note text null check (char_length(note) <= 500)`; `invoice_id uuid null references invoices(id) on delete set null`; `created_at` and `updated_at timestamptz not null default now()`.
-  - A `touch_updated_at` trigger.
-  - A trigger rejecting a `project_id` whose project's `client_id` differs from the expense's `client_id` (`research.md` R11).
-  - `create index expenses_unbilled_idx on expenses (user_id, client_id, spent_on) where invoice_id is null`.
-  - `enable row level security` with a `user_id = auth.uid()` policy for all commands, and `grant select, insert, update, delete on expenses to authenticated`, following `00000000000004_api_grants.sql`.
-  - On `invoice_line_items`: replace the `unit` check with `unit in ('hour', 'fixed', 'expense')`; add `spent_on date null`; add `expense_line_is_one check (unit <> 'expense' or quantity = 1)` and `expense_line_has_date check ((unit = 'expense') = (spent_on is not null))`.
-  - On `invoices`: add `expenses_subtotal numeric(12,2) not null default 0 check (expenses_subtotal >= 0)`.
-  - Function `create_invoice(p_user_id uuid, p_invoice jsonb, p_entry_ids uuid[], p_expense_ids uuid[]) returns invoices`, `language plpgsql security invoker set search_path = public, pg_temp`, with `grant execute` to `authenticated` (`research.md` R9). In one transaction it:
-    1. calls `allocate_invoice_number`;
-    2. inserts the invoice from `p_invoice` with the allocated number;
-    3. inserts `p_invoice.lines` with their `sort_order` and `spent_on`;
-    4. attaches `p_entry_ids` where `invoice_id is null`, as today;
-    5. attaches `p_expense_ids` where `invoice_id is null`, and raises with a distinct message if fewer rows attach than it was given.
-  - Comment each block with its reason, in the style of the existing migrations.
-- [X] T003 [P] Add `EXPENSE_LOCKED` and `EXPENSE_ALREADY_INVOICED` to the code union and the status map (both 409) in `apps/web/src/lib/errors.ts`.
-- [X] T004 [P] Add to `packages/schema/src/index.ts`, per `contracts/expenses-api.md`:
-  - `Expense`, `CreateExpense` and `UpdateExpense` (description trimmed, 1 to 200 characters; `amount` is `money` and above 0; `note` 500 characters or fewer; `spentOn` is `z.iso.date()`), and `ListExpensesQuery` (`tz` via `timeZoneStrict`, `clientId?`, `status` `unbilled|all`, default `unbilled`).
-  - `LineUnit` widened with `'expense'`, and `spentOn?: date` on `InvoiceLineItem`.
-  - `expenseId?: uuid` on `ComputedLineItem`.
-  - `expensesSubtotal: money` on `InvoicePreview` and on the stored invoice shape.
-  - `excludedExpenseIds: z.array(uuid).max(200).default([])` on `InvoicePreviewRequest`.
-  - Remove "a rebilled expense" from the `manualLines` doc comment (FR-014).
-- [X] T005 [P] Map the new columns in `apps/web/src/lib/rows.ts`: an expense row to `Expense`, `expenses_subtotal` to `expensesSubtotal` in `INVOICE_COLUMNS` and `toInvoice`, and `spent_on` on line items.
+- [ ] T002 Edit `supabase/migrations/00000000000025_expenses.sql` in place (`research.md` R11), per `data-model.md`:
+  - Remove `project_id`, the `expense_project_same_owner` foreign key, `check_expense_project()` and `t_expenses_project_client`.
+  - Add `recurring boolean not null default false`. Make `spent_on date null`.
+  - Add `constraint expense_dated check (recurring = (spent_on is null))` and `constraint recurring_never_billed check (not recurring or invoice_id is null)`.
+  - Replace the unbilled index with `create index expenses_unbilled_idx on expenses (user_id, client_id) where invoice_id is null`.
+  - In `guard_billed_expense`, lock `recurring` with `spent_on`, `description`, `amount` and `client_id`; drop `project_id` from it.
+  - Comment each change with its reason, in the file's style.
+- [ ] T003 Delete `supabase/migrations/00000000000026_recurring_expenses.sql`, and remove `recurring_expenses` and `produce_recurring_expenses` from `EXPECTED` in `scripts/verify-schema.mjs`. Run `pnpm db:setup` and `pnpm verify:schema`.
+- [ ] T004 [P] In `packages/schema/src/index.ts`: add `recurring: z.boolean()` to `Expense` and `CreateExpense` (default `false`); make `spentOn` nullable on `Expense`, and on `CreateExpense`/`UpdateExpense` required exactly when not recurring and refused when recurring (`contracts/expenses-api.md`); remove `projectId` from all three; change `ListExpensesQuery.status` to `open|unbilled`, default `open`, and drop `tz`; delete the `RecurringExpense`, `CreateRecurringExpense` and `UpdateRecurringExpense` schemas.
+- [ ] T005 [P] In `apps/web/src/lib/rows.ts`, map `recurring` and drop `project_id` and `recurring_expense_id` from the expense row and `toExpense`; delete the recurring-expense row mapping.
+- [ ] T006 Delete `apps/web/src/app/api/v1/recurring-expenses/` (both routes), `produceRecurringExpenses` in `apps/web/src/lib/invoicing.ts` and every call to it (`expenses/route.ts`, `invoices/route.ts`, `invoices/preview/route.ts`), and the recurring calls and keys in `apps/web/src/lib/client/api.ts` and `apps/web/src/lib/client/query-keys.ts`.
+- [ ] T007 In `apps/web/src/mocks/` (`fixtures.ts`, `derive.ts`, `handlers.ts`, `respond.ts`, `db.ts`): remove `recurringExpenses`, `StoredRecurrence`, `produceRecurring` and the recurring handlers; add `recurring` to stored expenses; drop `projectId`. Reseed per the design: Northwind has "Claude Max subscription", $200, recurring, and "Figma license, annual", $180, 20 Aug 2026, waiting; Byrne has "Stock photography", $75, 18 Aug 2026, on draft INV-15. INV-13 keeps its frozen Claude Max line with no expense attached.
+- [ ] T008 Update `apps/web/test/mocks-parity.test.ts` to write a recurring and a one-off expense and compare `GET /expenses` (`status=open` and `unbilled`) between the mock and the real routes; drop its recurrence steps. In `apps/web/test/rls.test.ts`, remove the `recurring_expenses` cases and keep the `expenses` ones.
 
-**Checkpoint**: `pnpm verify:db` still passes, and `verify:schema` accepts the new table.
+**Checkpoint**: `pnpm verify:db` and `pnpm verify:static` pass with no recurring table or route left.
 
 ---
 
 ## Phase 3: User Story 2 - Record an expense when it happens (P1)
 
-**Goal**: The contractor can add, list, edit and delete unbilled expenses from an Expenses tab on the Invoices screen.
+**Goal**: Add, edit and delete expenses from a client's card on Clients, with no archived filter on that screen.
 
-**Independent Test**: Record an expense, see it listed as unbilled for its client, edit its amount, delete a second one, and see the first still waiting.
+**Independent test**: On Clients, add an expense to a client, see it on the card, click it to change the amount, delete another.
 
 ### Tests
 
-- [X] T006 [P] [US2] Route tests in `apps/web/test/invoices.test.ts`:
-  - `POST /expenses` returns 201, and a retry with the same id returns the same row.
-  - A zero or negative amount, a blank description, and a project under another client each return 422.
-  - `GET /expenses` lists only unbilled expenses by default, filters by `clientId`, and orders by `spentOn` ascending.
-  - `PATCH` and `DELETE` on an unbilled expense succeed.
-  - Another user's id returns 404.
-- [X] T007 [P] [US2] RLS cases for `expenses` in `apps/web/test/rls.test.ts`: an unfiltered select, a known foreign id, an insert with a forged `user_id`, an update or delete of another user's row, and reassigning a row to another user. Add the table to the "all user-scoped tables isolate" case.
-- [X] T008 [P] [US2] UI test `apps/web/test/ui/expense-list.test.tsx`:
-  - The Expenses tab lists unbilled expenses with date, client, description and amount in the client's currency.
-  - The Add form requires client, date, description, and an amount above 0.
-  - Editing and deleting call the API.
-  - The client filter narrows the list.
+- [ ] T009 [P] [US2] In `apps/web/test/routes.test.ts`, test `POST /expenses` with `recurring: false` and a `spentOn`, and the `422 VALIDATION_FAILED` cases: no `spentOn` on a one-off, a `spentOn` on a recurring one, amount `0`, blank description. Test `GET /expenses?status=open` returns recurring first, then by `spentOn`.
+- [ ] T010 [P] [US2] In `apps/web/src/components/client-list.stories.tsx`, one story per scenario, each with a `play` that asserts it:
+  - `AddExpense` (US2 scenario 1): press **+ Expense** on Northwind, fill the dialog, save; the row shows under Expenses.
+  - `EditExpense` (US2 scenario 2): click Figma, change the amount to 150, save; the row shows $150.00.
+  - `DeleteExpense` (US2 scenario 2): click Figma, press Delete; the row is gone.
+  - `NoExpenses`: a client with none shows no Expenses label, only **+ Project** and **+ Expense**.
+  - Remove the `Archived`, `All` and `ArchivedClientActiveProject` filter stories; add `ArchivedShown`: an archived client and project show with their Archived badges.
 
 ### Implementation
 
-- [X] T009 [P] [US2] `apps/web/src/app/api/v1/expenses/route.ts`: `GET` (`ListExpensesQuery`) and `POST` (`CreateExpense`, upsert-on-conflict-do-nothing by `id`, then return the row), using `requireSession()` and `handle()`.
-- [X] T010 [P] [US2] `apps/web/src/app/api/v1/expenses/[id]/route.ts`: `PATCH` (`UpdateExpense`) and `DELETE` (204). `ENTRY_NOT_FOUND` for a missing row. Catch the trigger's `check_violation` (`23514`) and throw `EXPENSE_LOCKED`, as `apps/web/src/app/api/v1/entries/[id]/route.ts` does for `ENTRY_LOCKED`.
-- [X] T011 [US2] Add `listExpenses`, `createExpense` (generates `uuidv7()` from `@stint/core`), `updateExpense` and `deleteExpense` to `apps/web/src/lib/client/api.ts`, following the existing invoice methods.
-- [X] T012 [US2] Create `apps/web/src/components/expense-list.tsx`:
-  - Rows divided by the region rule, per `docs/design/screens/invoices.html`.
-  - A client filter, an Add expense form (client, optional project under that client, date defaulting to today, description, amount, optional note), and edit and delete per row.
-  - Amounts in mono with `tabular-nums`.
-  - An empty state that names the filter, not the account.
-- [X] T013 [US2] (Superseded by T065.) In `apps/web/src/components/invoice-list.tsx`, add an `expenses` key to the `FilterTabs` after Open, Paid and All. When it is selected, render `ExpenseList` in place of the invoice listing.
+- [ ] T011 [US2] In `apps/web/src/app/api/v1/expenses/route.ts` and `[id]/route.ts`: accept `recurring`; implement `status=open` (recurring, unbilled, and on a `draft` or `sent` invoice) and `unbilled` (recurring and unbilled), ordered recurring first then `spent_on`, with each row's invoice via `withInvoices` (`research.md` R7); `PATCH` with `recurring: true` clears `spent_on`, and returns `422` when the expense has an invoice.
+- [ ] T012 [P] [US2] Create `apps/web/src/components/expense-row.tsx`: `ExpenseRow`, one line per the design: name (`type-control text-strong`, truncating), a `type-badge` label (**↻ Recurring**, or the invoice number when billed), the date (`type-meta text-subtle`, blank when recurring), the amount (`type-duration`), then a Pencil, or an arrow when billed. A billed row's name and amount step down to `text-muted`. The row is a button like `client-list.tsx`'s project `Row`; an optional `leading` slot takes New invoice's checkbox and hides the trailing icon.
+- [ ] T013 [P] [US2] Create `apps/web/src/components/expense-dialog.tsx`: `ExpenseDialog` for add and edit, per the design: Description, Amount and Date paid, a **Recurring** checkbox with "Billed on every invoice to {client} until unchecked.", and Note. Checking Recurring hides Date paid. Editing adds Delete on the left. Writes go through `useOptimisticMutation` (Principle VI): save predicts the row into `keys.expenses()`, delete predicts its removal; errors stay in the open dialog.
+- [ ] T014 [US2] Create `apps/web/src/components/client-expenses.tsx`: `ClientExpenses`, given a client and its expenses, renders the **Expenses** `type-label` and the rows, or nothing when there are none. A row opens `ExpenseDialog`; a billed row links to `/invoices/{id}`.
+- [ ] T015 [US2] In `apps/web/src/components/client-list.tsx`: remove `FilterTabs`, the `status` param and its empty-state branches; load clients and projects with archived included; load `GET /expenses?status=open` once and group by `clientId`; render `ClientExpenses` under each card's projects; replace the footer button with **+ Project** and **+ Expense** side by side (ghost, `size="sm"`). "No client" keeps only **+ Project**. Update the doc comment to say what the card holds.
+- [ ] T016 [US2] Delete `apps/web/src/components/expense-list.tsx` and `apps/web/test/ui/expense-list.test.tsx`. In `apps/web/src/components/invoice-list.tsx`, remove the Expenses tab and its branch, and its story in `invoice-list.stories.tsx`.
 
-**Checkpoint**: Expenses can be recorded and managed. Nothing reaches an invoice yet.
+**Checkpoint**: T010's stories pass in `pnpm --filter @stint/web test:stories`; on local Stint, Clients matches the design's Clients screen.
 
 ---
 
-## Phase 4: User Story 1 - Bill a pre-approved cost on this month's invoice (P1) 🎯 MVP
+## Phase 4: User Story 1 - Bill a pre-approved cost on this month's invoice (P1)
 
-**Goal**: The preview and the generated invoice include unbilled expenses after the services, under their own heading and subtotal, untaxed. The PDF matches.
+**Goal**: New invoice lists the client's expenses as ticked rows, shows its preview in its own card, and bills them.
 
-**Independent Test**: Record an expense inside a period that has billable time, preview and generate, and check that the PDF shows the services subtotal, the expenses subtotal, and a total of both.
+**Independent test**: New invoice for Northwind, September: Figma is ticked; Preview shows services, then Expenses, then Services, Expenses and Total; generate.
 
 ### Tests
 
-- [X] T014 [P] [US1] Core tests in `packages/core/test/invoice.test.ts`:
-  - Expense lines come after service lines and charges, ordered by `spentOn` then `id`.
-  - Each has `unit: 'expense'`, `quantity: 1`, `unitPrice = amount`, `spentOn` and `expenseId`.
-  - `subtotal` excludes expenses, and tax applies only to `subtotal`.
-  - `expensesSubtotal` is rounded once, and `total = subtotal + taxAmount + expensesSubtotal` to the cent.
-  - With no expenses, output is identical to today's.
-  - Expenses alone produce lines.
-- [X] T015 [P] [US1] Route tests in `apps/web/test/invoices.test.ts`:
-  - The preview includes the client's unbilled expenses dated on or before `periodEnd`, including an earlier month's, and excludes one dated after it and one in `excludedExpenseIds`.
-  - `POST /invoices` writes `expenses_subtotal`, writes expense line items with `spent_on`, sets `invoice_id` on the billed expenses only, and generates with expenses and no time.
-  - A second generation racing for the same expense gets `409 EXPENSE_ALREADY_INVOICED`. Nothing from it remains, and `next_invoice_number` is unchanged, so the numbering has no gap.
-  - After an invoice with expenses is marked sent, `/stats` Awaiting payment equals its full total, expenses included (FR-016).
-  - `GET /invoices/:id` returns `spentOn` and `expensesSubtotal`.
-  - Earned and Unbilled from `/stats` are unchanged by an unbilled expense (FR-015).
-- [X] T016 [P] [US1] UI tests `apps/web/test/ui/invoice-new.test.tsx` and `apps/web/test/ui/invoice-detail.test.tsx`:
-  - The preview's Expenses section and its subtotal.
-  - Excluding an expense clears the approved preview and hides Generate.
-  - Adding an expense from the screen clears it too.
-  - The charges hint no longer mentions expenses.
-  - The detail view renders the Expenses section.
+- [ ] T017 [P] [US1] In `apps/web/src/components/invoice-new.stories.tsx`, one story per scenario with a `play`:
+  - `WithExpenses` (US1 scenario 1): the Preview card lists Figma under Expenses with its date and amount, and no quantity or rate.
+  - `GenerateWithExpenses` (US1 scenario 2): generating shows Services, Expenses and a Total equal to both.
+  - `OnlyExpenses` (US1 scenario 3): a period with no time generates with only Expenses.
+  - `NoExpenses` (US1 scenario 4): no Expenses section anywhere.
+  - `UntickExpense` (edge case): unticking Figma clears the preview, and the next preview leaves it out.
+  - `AddExpenseHere` (US2 scenario 3): **+ Expense** opens the dialog with Northwind chosen; the saved expense joins the list, ticked.
+- [ ] T018 [P] [US1] In `apps/web/src/components/invoice-detail.stories.tsx`, `WithExpenses`: an issued invoice shows the Expenses section and `expensesSubtotal`.
 
 ### Implementation
 
-- [X] T017 [US1] In `packages/core/src/invoice.ts`:
-  - Add an `ExpenseInput` type `{ id, spentOn, description, amount }` and an `expenses` option to `buildLineItems`.
-  - Append expense lines after the manual lines (`research.md` R4).
-  - Return `expensesSubtotal` and include it in `total`, leaving `subtotal` and `taxAmount` as the services figures.
-  - Remove "rebilled expense" from the `LineUnit` and `manualLines` comments. Export the new type from `packages/core/src/index.ts`.
-- [X] T018 [US1] Add `loadUnbilledExpenses(db, { clientId, periodEnd, excludedIds })` to `apps/web/src/lib/invoicing.ts`. It selects `invoice_id is null and client_id = … and spent_on <= periodEnd`, drops `excludedIds`, and maps rows to `ExpenseInput`. Have `loadPdfData` return `spentOn` on lines and `expensesSubtotal`.
-- [X] T019 [US1] In `apps/web/src/app/api/v1/invoices/preview/route.ts`, load the expenses with T018 and pass them to `buildLineItems`.
-- [X] T020 [US1] In `apps/web/src/app/api/v1/invoices/route.ts`:
-  - Load the expenses as the preview does.
-  - Replace the separate allocate, insert and attach calls and their compensating deletes with one `db.rpc('create_invoice', …)`. Pass the invoice fields (including `expenses_subtotal`), the lines (including `spent_on`), the entry ids and the expense ids from `buildLineItems`.
-  - Map the function's expense-claim error to `409 EXPENSE_ALREADY_INVOICED` (`research.md` R9).
-  - Update the "Nothing to invoice" message to count expenses.
-- [X] T021 [US1] In `apps/web/src/components/invoice-new.tsx`:
-  - Show the preview's expense lines under an Expenses heading after the service lines and charges, each as date, description and amount, with no quantity or rate. Follow them with the expenses subtotal, then the total.
-  - Add a per-expense "Leave off" toggle that feeds `excludedExpenseIds`, and an inline Add expense that uses `createExpense`.
-  - Make excluding, adding and removing clear the approved preview, as changing a charge does.
-  - Change the charges hint to "A fixed fee, a deposit, or a retainer" (FR-014).
-- [X] T022 [P] [US1] In `apps/web/src/components/invoice-detail.tsx`, render lines with `unit === 'expense'` in their own section after the service lines, with the date, and show the services subtotal, tax, the expenses subtotal, then the total.
-- [X] T023 [P] [US1] Make the same split in `apps/web/src/lib/invoice-pdf.tsx`. Services come first with their subtotal and tax, then an "Expenses" heading and its lines (date, description, amount; blank quantity and rate cells), then the expenses subtotal and the total.
+- [ ] T019 [US1] In `apps/web/src/components/invoice-new.tsx`: under Expenses, render the client's `GET /expenses?status=unbilled&clientId` as `ExpenseRow`s with a ticked checkbox in `leading`; unticking adds the id to `excludedExpenseIds` and clears the approved preview; **+ Expense** under the list opens `ExpenseDialog` with the client chosen. Remove `ExpenseRows` and its old markup.
+- [ ] T020 [US1] In `apps/web/src/components/invoice-new.tsx`, move the preview into its own `Panel` below the inputs, headed **Preview** (`type-section`) with the period on the right (`type-support text-subtle`). The inputs keep the Preview button; **Generate invoice** moves to the preview card, under the totals.
 
-**Checkpoint**: The September invoice can be built and sent from Stint.
+**Checkpoint**: T017 and T018 pass; the September invoice can be built on local Stint.
 
 ---
 
 ## Phase 5: User Story 3 - An invoiced expense cannot change under the client (P2)
 
-**Goal**: Expenses on an issued invoice are locked by the database. Voiding the invoice or deleting the draft releases them.
+**Goal**: A billed one-off is locked, shown muted on its card with its invoice, and released by void.
 
-**Independent Test**: Generate an invoice with an expense and mark it sent. Editing and deleting the expense are refused. Void the invoice, then edit the expense.
+**Independent test**: Generate and send; the card shows the expense muted with the invoice number and it opens the invoice; void; it opens its dialog again.
 
 ### Tests
 
-- [X] T024 [P] [US3] Route tests in `apps/web/test/invoices.test.ts`:
-  - `PATCH` and `DELETE` on an expense billed to a sent or paid invoice return `409 EXPENSE_LOCKED`, and the row is unchanged.
-  - The same on a draft succeed, and the draft's line item keeps the amount it was generated with (FR-010).
-  - Voiding releases the invoice's expenses to unbilled, and the voided invoice's line items keep the original amount after the expense is edited.
-  - Deleting a draft releases its expenses.
-  - A direct SQL update of a locked expense's `amount` is rejected, which shows the database enforces the lock.
+- [ ] T021 [P] [US3] In `apps/web/test/invoices.test.ts`, keep the lock and void cases and add: `status=open` includes a one-off on a `sent` invoice with its number, and leaves it out once the invoice is `paid`.
+- [ ] T022 [P] [US3] In `apps/web/src/components/client-list.stories.tsx`: `BilledExpense` (US3 scenario 1): Byrne's Stock photography shows muted with `STINT-0015` and links to the invoice; `PaidExpenseGone`: once INV-15 is paid, the row is gone.
 
 ### Implementation
 
-- [X] T025 [US3] Add `guard_billed_expense()` and `guard_billed_expense_delete()` to `supabase/migrations/00000000000025_expenses.sql`, mirroring `guard_billed_entry` in `00000000000002_integrity.sql`. Detaching stays allowed. The guarded fields are `spent_on`, `description`, `amount`, `client_id` and `project_id`. They raise `check_violation`.
-- [X] T026 [P] [US3] In `apps/web/src/app/api/v1/invoices/[id]/status/route.ts`, the void branch also runs `db.from('expenses').update({ invoice_id: null }).eq('invoice_id', id)`.
-- [X] T027 [P] [US3] In `apps/web/src/app/api/v1/invoices/[id]/route.ts`, `DELETE` releases expenses before deleting the draft, beside the entry release.
-- [X] T028 [US3] In `apps/web/src/components/expense-list.tsx`, add an All filter that shows billed expenses with their invoice number. The edit and delete controls are disabled on an expense whose invoice is not a draft.
-
-**Checkpoint**: Stories 1 to 3 are complete. This is the 30 September slice.
+- [ ] T023 [US3] Make T021 and T022 pass on the work from T011 and T012, and show `EXPENSE_LOCKED` in `apps/web/src/components/expense-dialog.tsx` when a stale card opens an expense that was just billed.
 
 ---
 
-## Phase 6: User Story 4 - A monthly subscription the client reimburses (P2)
+## Phase 6: User Story 4 - A subscription the client reimburses on every invoice (P2)
 
-**Goal**: A recurrence produces one waiting expense a month, from its first date up to today, until stopped.
+**Goal**: A recurring expense is offered, ticked, on every invoice for its client, dated the period's end, and never locked.
 
-**Independent Test**: A recurrence starting 5 August shows expenses for 5 August and 5 September. A deleted month does not return. Stopping the recurrence produces nothing further.
+**Independent test**: Mark Claude Max recurring; generate September (line dated Sep 30); start another invoice: it is ticked again; delete it: later invoices do not offer it, September keeps its line.
 
 ### Tests
 
-- [X] T029 [P] [US4] Route tests in `apps/web/test/invoices.test.ts`:
-  - `produce_recurring_expenses` creates one expense per month through `p_through`, with a start on the 31st clamped to the month's last day.
-  - Running it twice or concurrently produces no duplicates.
-  - A deleted occurrence is not produced again.
-  - Nothing is produced after `stopped_on`.
-  - Editing the amount changes only later months.
-  - `startsOn` cannot be edited after the first production (422), and a stopped recurrence rejects edits (422).
-  - `GET /expenses` and `POST /invoices/preview` both produce first.
-- [X] T030 [P] [US4] RLS cases for `recurring_expenses` in `apps/web/test/rls.test.ts`, as in T007.
-- [X] T031 [P] [US4] UI test in `apps/web/test/ui/expense-list.test.tsx` for the recurring section: create, edit amount, stop, and a produced expense marked as recurring.
+- [ ] T024 [P] [US4] In `apps/web/test/invoices.test.ts`, replace the recurrence cases with:
+  - US4 scenario 1: a recurring expense is on the September preview, its line dated `2026-09-30`.
+  - US4 scenario 2: after generating September, the October preview includes it again, and the expense's `invoice_id` is still null.
+  - US4 scenario 3: changing its amount changes the next preview; September's line keeps the old amount.
+  - US4 scenario 4: deleting it removes it from the next preview; September's line stays.
+  - Voiding an invoice that billed it leaves the expense unchanged.
+  - The database refuses `invoice_id` on a recurring row (`recurring_never_billed`).
+- [ ] T025 [P] [US4] In `apps/web/src/components/client-list.stories.tsx`, `RecurringExpense`: Northwind's Claude Max shows **↻ Recurring** and no date; clicking it opens the dialog with Recurring checked and no date field. In `apps/web/src/components/invoice-new.stories.tsx`, `RecurringTicked`: Claude Max is ticked and its preview line is dated Sep 30, 2026.
 
 ### Implementation
 
-- [X] T032 [US4] Create `supabase/migrations/00000000000026_recurring_expenses.sql` with:
-  - Table `recurring_expenses` per `data-model.md`: `starts_on date not null`, `stopped_on date null`, `produced_through date null`, and the ownership, project, RLS, grant and `touch_updated_at` setup of `expenses`.
-  - On `expenses`: add `recurring_expense_id uuid null references recurring_expenses(id) on delete restrict` and `recurrence_month date null`, the check `(recurring_expense_id is null) = (recurrence_month is null)`, and `unique (recurring_expense_id, recurrence_month)`.
-  - `produce_recurring_expenses(p_user_id uuid, p_through date) returns void`, `language plpgsql security invoker set search_path = public, pg_temp`. For each live recurrence of the user, under `for update`, it inserts one expense per month after `produced_through` (or from `starts_on`'s month) through `least(p_through, stopped_on)`. Each falls on `starts_on`'s day, clamped to the month's last day, and only if that date is on or before the limit. The insert uses `on conflict do nothing`, and the function then advances `produced_through` (`research.md` R5 to R7).
-  - `grant execute` on the function to `authenticated`.
-- [X] T033 [US4] Add `RecurringExpense`, `CreateRecurringExpense` and `UpdateRecurringExpense` (`stop?: boolean`, `tz` required when `stop`) to `packages/schema/src/index.ts`, and `recurringExpenseId` to `Expense`. Map them in `apps/web/src/lib/rows.ts`.
-- [X] T034 [US4] Add `produceRecurringExpenses(db, userId, tz)` to `apps/web/src/lib/invoicing.ts`. It calls the RPC with today's local date in `tz`. Call it first in `GET /expenses`, `POST /invoices/preview` and `POST /invoices`.
-- [X] T035 [P] [US4] `apps/web/src/app/api/v1/recurring-expenses/route.ts` (`GET`, `POST`) and `apps/web/src/app/api/v1/recurring-expenses/[id]/route.ts` (`PATCH`). `stop: true` produces through today, then sets `stopped_on`. Reject `startsOn` once `produced_through` is set, and any edit to a stopped recurrence, with 422.
-- [X] T036 [US4] Add the recurring-expense methods to `apps/web/src/lib/client/api.ts`, and a Recurring section to `apps/web/src/components/expense-list.tsx`: list live and stopped recurrences, create, edit, and Stop with a confirm step. A produced expense shows a small "monthly" marker.
-
-**Checkpoint**: All four stories work.
+- [ ] T026 [US4] In `apps/web/src/lib/invoicing.ts`, rename `loadUnbilledExpenses` to `loadBillableExpenses`: it returns the client's recurring expenses with `spentOn` set to `periodEnd`, plus unbilled one-offs with `spent_on <= periodEnd` (`research.md` R6), minus `excludedExpenseIds`, each marked recurring or not.
+- [ ] T027 [US4] In `apps/web/src/app/api/v1/invoices/route.ts`, pass only one-off ids as `p_expense_ids` to `create_invoice`; recurring lines are frozen but not attached (`research.md` R5, R9).
+- [ ] T028 [US4] Mirror T026 and T027 in `apps/web/src/mocks/derive.ts` (`invoicePreview`) and `apps/web/src/mocks/handlers.ts` (create), so `mocks-parity.test.ts` holds.
 
 ---
 
 ## Phase 7: Polish
 
-- [X] T037 [P] Document the `/expenses` and `/recurring-expenses` rows and the invoice request and response changes in `docs/api.md`.
-- [X] T038 [P] Add `expenses`, `recurring_expenses`, the expense lock, `expenses_subtotal` and the `expense` line unit to `docs/data-model.md`, including why expenses stay out of Earned and Unbilled.
-- [X] T039 [P] (Superseded: `main` replaced the HTML docs with Storybook; see Phase 8.) Update `docs/design/screens/invoices.html`: the Expenses tab, the preview's Expenses section and subtotal, and the charges hint without "an expense you are passing on".
-- [X] T040 Run `pnpm verify:static` and `pnpm verify:db`, walk through `quickstart.md` in the browser while signed in to local Stint, and take screenshots of the preview and the PDF for the PR's Try it section.
-
----
-
-## Phase 8: Expenses move to the client's page
-
-**Why**: The Invoices screen's tabs are filters over invoices; an Expenses tab
-there swapped the whole view for something else. Every expense belongs to one
-client, so it lives on that client's page (spec, Session 2026-09-28). This
-supersedes T013's tab and T039's HTML doc, which `main` has since replaced
-with Storybook.
-
-**Order**: stories first, one per acceptance scenario (constitution V). Each
-story renders the real component against the in-memory `/api/v1`, so the
-fake API learns expenses before any story can pass. Components change last,
-until every story below renders as described.
-
-### Fake API (blocks the stories)
-
-- [X] T041 Add `expenses: Expense[]` and `recurringExpenses: RecurringExpense[]` to `Db` in `apps/web/src/mocks/fixtures.ts`. Seed Northwind with a monthly "Claude Max" from 5 August (August's billed on its sent INV-13, September's waiting) and a waiting one-off from 20 August; Byrne's draft INV-15 carries one. `empty` clears both lists.
-- [X] T042 Add handlers to `apps/web/src/mocks/handlers.ts` for `GET|POST /expenses`, `PATCH|DELETE /expenses/:id` (409 `EXPENSE_LOCKED` when its invoice is issued), `GET|POST /recurring-expenses` and `PATCH /recurring-expenses/:id` (with `stop`). Preview and create take the client's waiting expenses up to `periodEnd`, less `excludedExpenseIds`, through `buildLineItems`, as the routes do.
-- [X] T043 Extend `apps/web/test/mocks-parity.test.ts` so the fake and the routes agree on the new endpoints for each scenario.
-
-### Stories: the client's page — `client-detail.stories.tsx` (US2, US3, US4)
-
-- [ ] T044 [P] `Expenses` — Northwind's page shows an Expenses section: the waiting expenses, oldest first, each with date, description and amount; the monthly one is marked "monthly". (US2 scenario 1)
-- [ ] T045 [P] `NoExpenses` — a client with none reads "Nothing waiting to be billed", with Add expense beside it, never an empty table. (US2)
-- [ ] T046 [P] `AddExpense` — play: Add expense opens the dialog with this client fixed, today's date and no amount; Add stays disabled until description and an amount above zero are in. (US2 scenario 1)
-- [ ] T047 [P] `EditExpense` — play: editing a waiting expense opens the dialog filled in; Save and Delete are offered. (US2 scenario 2)
-- [ ] T048 [P] `ShowBilled` — play: Show billed lists the billed ones with their invoice number; the one on the sent invoice has edit and delete disabled. A second story on Byrne shows the one on its draft still editable. (US3 scenarios 1–2)
-- [ ] T049 [P] `EditLocked` — `failing('updateExpense')` with `EXPENSE_LOCKED`: the refusal is said beside the row, not in a toast. (US3 scenario 1)
-- [ ] T050 [P] `Monthly` — under Expenses, Monthly lists "Claude Max · every month on the 5th". (US4 scenario 1)
-- [ ] T051 [P] `AddMonthly` — play: the dialog asks for a First charge instead of a Date paid. (US4)
-- [ ] T052 [P] `EditMonthly` — play: the first charge is shown and cannot change; the dialog says a change reaches only months to come. (US4 scenario 3)
-- [ ] T053 [P] `StopMonthly` — play: Stop asks once more ("Stop it" / "Keep"), then the row reads "stopped <date>" with no actions. (US4 scenario 4)
-- [ ] T054 [P] `ArchivedWithExpenses` — the archived client still shows its waiting expenses, so they still reach an invoice. (Edge case)
-- [ ] T055 [P] `ExpensesFailed` — `failing('expenses')`: the section says it could not load, and the rest of the page still renders.
-- [ ] T056 [P] `Phone` covers the section at phone width: one row per expense, the amount never wraps.
-
-### Stories: the new invoice — `invoice-new.stories.tsx` (US1, US2)
-
-- [ ] T057 [P] `WithExpenses` — choosing Northwind lists its waiting expenses up to the period's end, all ticked. (US1 scenario 1)
-- [ ] T058 [P] `ExpensePreview` — play: Preview shows Expenses under their own heading after the services, dated, then Services, Expenses and Total. (US1 scenarios 1–2)
-- [ ] T059 [P] `ExpenseLeftOff` — play: unticking one withdraws the preview; previewing again leaves it out. (Edge case)
-- [ ] T060 [P] `ExpensesOnly` — a period with no time: the preview has no Services row and Generate is offered. (US1 scenario 3)
-- [ ] T061 [P] `AddExpenseHere` — play: Add an expense opens the dialog with the invoice's client; saving it withdraws the preview. (US2 scenario 3)
-- [ ] T062 [P] `ExpenseTakenElsewhere` — `failing('createInvoice')` with `EXPENSE_ALREADY_INVOICED`: the message asks to preview again. (Edge case)
-
-### Stories: the invoice — `invoice-detail.stories.tsx` (US1)
-
-- [ ] T063 [P] `WithExpenses` — an issued invoice shows its Expenses section, dated, with Services, Expenses and Total. (US1 scenario 2)
-- [ ] T064 [P] `ExpensesOnly` — no Services row. (US1 scenario 3)
-
-### Components
-
-- [ ] T065 Remove the `expenses` key from `FilterTabs` and the `ExpenseList` branch in `apps/web/src/components/invoice-list.tsx`; the existing `Screens/Invoices` stories cover the result.
-- [ ] T066 Rework `apps/web/src/components/expense-list.tsx` into `ClientExpenses({ client })`: no client filter; `ExpenseDialog` fixes the client it is opened for. Render it on `apps/web/src/components/client-detail.tsx` after the projects.
-- [ ] T067 Move the Expenses UI tests from `apps/web/test/ui/expense-list.test.tsx` to whatever the stories above don't already prove, then delete what they duplicate.
-- [ ] T068 Every story from T044 to T064 renders as described, in dark and light; `pnpm verify:static` and `pnpm verify:db` pass; update the PR's Try it to start from Clients → Northwind.
+- [ ] T029 [P] Update `docs/api.md`: `/expenses` with `recurring`, `status=open|unbilled` and the invoice reference; remove `/recurring-expenses`.
+- [ ] T030 [P] Update `docs/data-model.md`: `expenses.recurring`, its two checks, and recurring lines dated the period's end; remove the recurrence table and producer.
+- [ ] T031 Run `pnpm verify:static`, `pnpm verify:db` and `pnpm --filter @stint/web test:stories`. Walk `quickstart.md` on local Stint, signed in to the seeded account, in dark and light and at phone width, and compare each screen with `design/expenses.html`. Screenshot Clients, New invoice and the PDF for the PR's Try it.
+- [ ] T032 Ask Blake before force-pushing `f48-expenses`; then update the Try it section of BlakeEriks/stint#126 and add `ready-for-qa` once CI is green.
 
 ---
 
 ## Dependencies
 
-- Phase 2 blocks everything.
-- US2 (Phase 3) comes before US1 (Phase 4), because US1's UI records and lists expenses through US2's API. US1's route tests can seed rows directly and run in parallel with Phase 3.
-- US3 depends on US1, because it locks what generation attaches.
-- US4 depends on Phase 2 and US2. It can merge after US1 to US3 as a separate PR.
-- Polish comes after the stories it documents. T037 to T039 can run beside the story they describe.
-- Phase 8: T041–T043 block the stories; the stories (T044–T064) come before the components (T065–T067).
+- Phase 2 blocks everything. T002 before T003; T004 and T005 before T006 and T011.
+- US2 (Phase 3) before US1 (Phase 4): New invoice reuses `ExpenseRow` and `ExpenseDialog`.
+- US3 and US4 depend on Phase 3's route and components, not on each other.
+- Polish last.
 
 ## Parallel examples
 
-- Phase 2: T003, T004 and T005 alongside T002.
-- US2: T006, T007 and T008 together, then T009 and T010 together.
-- US1: T014, T015 and T016 together. T022 and T023 together after T017.
-- US3: T026 and T027 together after T025.
-- US4: T029, T030 and T031 together. T035 alongside T034.
+- Phase 2: T004 and T005 together, then T007 beside T006.
+- US2: T009 and T010 together; then T012 and T013 together.
+- US1: T017 and T018 together.
+- US3 and US4 side by side once US1 lands.
 
 ## Implementation strategy
 
-1. **MVP for 30 September**: Phases 1 to 5. That covers recording, billing, the lock, and the PDF. Merge it, and the September invoice goes out from Stint.
-2. **Then** Phase 6 (recurring) as its own PR, with migration 26.
-3. Documentation lands with the PR that makes it true.
+The September invoice needs Phases 2 to 4: record on the card, bill on New
+invoice. Phase 5 mostly verifies work already built. Phase 6 is three small
+changes behind its tests. If time runs short, stop at the Phase 4 checkpoint
+and send the September invoice.
