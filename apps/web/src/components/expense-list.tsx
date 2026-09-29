@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Loader2, Pencil, Plus, Repeat, Trash2 } from 'lucide-react';
 import { formatCurrency, localDateKey, uuidv7 } from '@stint/core';
 import {
@@ -37,7 +38,6 @@ import { keys } from '@/lib/client/query-keys';
  * until the next invoice for its client takes it.
  */
 export function ExpenseList() {
-  const queryClient = useQueryClient();
   const [clientId, setClientId] = useState<string | null>(null);
   const [showBilled, setShowBilled] = useState(false);
   const [editing, setEditing] = useState<Expense | 'new' | null>(null);
@@ -62,10 +62,19 @@ export function ExpenseList() {
   const clients = clientData?.clients ?? [];
   const byId = new Map(clients.map((c) => [c.id, c]));
 
-  const remove = useMutation({
-    mutationFn: (id: string) => api.deleteExpense(id),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: keys.expenses() }),
+  // The row leaves at once; a refusal puts it back.
+  const remove = useOptimisticMutation<
+    string,
+    unknown,
+    { expenses: Expense[] }
+  >({
+    queryKey: () => keys.expenses(),
+    mutationFn: (id) => api.deleteExpense(id),
+    predict: (current, id) =>
+      current && {
+        ...current,
+        expenses: current.expenses.filter((e) => e.id !== id),
+      },
   });
 
   const monthly = useQuery({
@@ -77,13 +86,15 @@ export function ExpenseList() {
 
   /* Stopping produces anything already due first, so the list of waiting
      expenses can grow when a recurrence stops. */
-  const stop = useMutation({
+  const stop = useOptimisticMutation({
+    queryKey: () => keys.recurringExpenses(),
     mutationFn: (id: string) =>
       api.updateRecurringExpense(id, { stop: true, tz }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.recurringExpenses() });
-      queryClient.invalidateQueries({ queryKey: keys.expenses() });
-    },
+    invalidate: (qc) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.recurringExpenses() }),
+        qc.invalidateQueries({ queryKey: keys.expenses() }),
+      ]),
   });
 
   return (
@@ -397,7 +408,6 @@ export function ExpenseDialog({
   onSaved?: () => void;
 }) {
   const existing = expense ?? recurrence;
-  const queryClient = useQueryClient();
   const [clientId, setClientId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [spentOn, setSpentOn] = useState('');
@@ -438,7 +448,15 @@ export function ExpenseDialog({
     Number.isFinite(parsed) &&
     parsed > 0;
 
-  const save = useMutation({
+  // Pending: the dialog stays open and says what was refused.
+  const save = useOptimisticMutation({
+    queryKey: () => keys.expenses(),
+    inline: true,
+    invalidate: (qc) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.expenses() }),
+        qc.invalidateQueries({ queryKey: keys.recurringExpenses() }),
+      ]),
     mutationFn: async (): Promise<unknown> => {
       const body = {
         clientId: clientId as string,
@@ -466,8 +484,6 @@ export function ExpenseDialog({
         : api.createExpense({ id, ...body });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.expenses() });
-      queryClient.invalidateQueries({ queryKey: keys.recurringExpenses() });
       onSaved?.();
       onOpenChange(false);
     },
