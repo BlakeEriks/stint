@@ -432,3 +432,23 @@ test('invoice numbers pad to four digits and grow beyond', () => {
   );
   assert.equal(formatInvoiceNumber('2026-', 7), '2026-0007');
 });
+
+// ── audit: the invoice is always right ─────────────────────────────
+// Reproduces a finding from the 2026-09-30 correctness audit. Expected to
+// FAIL until its issue is fixed.
+
+test('AUDIT: a time line’s printed arithmetic holds — quantity × unit price = amount', () => {
+  // 7h 29m 56s. The document prints 7.50 h × $100.00 and then charges
+  // $749.89, because the amount is computed from seconds and the quantity is
+  // rounded separately. A client with a calculator sees a wrong invoice.
+  const r = buildLineItems([entry({ durationSeconds: 26_996 })], {
+    groupingMode: 'entry',
+  });
+  const li = r.lineItems[0]!;
+  assert.equal(li.quantity, 7.5);
+  assert.equal(
+    li.amount,
+    Math.round(li.quantity * li.unitPrice * 100) / 100,
+    `the document says ${li.quantity} × ${li.unitPrice} = ${li.amount}`,
+  );
+});

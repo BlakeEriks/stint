@@ -550,3 +550,69 @@ test('an expense cannot be filed under another user’s client', async () => {
     /expense_client_same_owner/,
   );
 });
+
+// ── audit: the invoice is always right ─────────────────────────────
+// Each test below reproduces a finding from the 2026-09-30 correctness
+// audit. It is expected to FAIL until its issue is fixed.
+
+test('AUDIT: an issued invoice and its lines cannot be rewritten in the database', async () => {
+  await seedBoth();
+  const INV = 'ff000000-0000-4000-8000-00000000000a';
+  await admin.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,total,sent_at)
+     values ($1,$2,'cc000000-0000-4000-8000-00000000000a','INV-0001',1,'sent',150,now())`,
+    [INV, ALICE],
+  );
+  await admin.query(
+    `insert into invoice_line_items (invoice_id,description,unit,quantity,unit_price,amount)
+     values ($1,'Alice line','hour',1,150,150)`,
+    [INV],
+  );
+  await admin.query(
+    `update time_entries set invoice_id=$1 where id='018f0000-0000-7000-8000-00000000000a'`,
+    [INV],
+  );
+
+  // The entries a sent invoice bills are locked by a trigger. The invoice
+  // itself, its lines and its status are not: RLS grants the owner update
+  // on all three, and nothing stands between a PostgREST call and the frozen
+  // record. Flipping the status back to draft also unlocks the entries,
+  // since the entry guard reads the invoice's status.
+  await assert.rejects(
+    () => asUser(ALICE, `update invoices set total = 0 where id = $1`, [INV]),
+    'a sent invoice’s total was rewritten',
+  );
+  await assert.rejects(
+    () =>
+      asUser(
+        ALICE,
+        `update invoice_line_items set amount = 0 where invoice_id = $1`,
+        [INV],
+      ),
+    'a sent invoice’s line was rewritten',
+  );
+  await assert.rejects(
+    () =>
+      asUser(ALICE, `update invoices set status = 'draft' where id = $1`, [
+        INV,
+      ]),
+    'a sent invoice went back to draft, unlocking what it billed',
+  );
+});
+
+test('AUDIT: an invoice cannot reference another user’s client', async () => {
+  await seedBoth();
+  // Same hole `entry_project_same_owner` closed for entries and
+  // `expense_client_same_owner` for expenses. A foreign-key check does not
+  // consult RLS, so the row lands; every read of it then 404s on the client.
+  await assert.rejects(
+    () =>
+      asUser(
+        ALICE,
+        `insert into invoices (id,user_id,client_id,invoice_number,sequence_no)
+         values ('ff000000-0000-4000-8000-0000000000ab',$1,'cc000000-0000-4000-8000-00000000000b','INV-0001',1)`,
+        [ALICE],
+      ),
+    'an invoice was written against a client Alice cannot see',
+  );
+});

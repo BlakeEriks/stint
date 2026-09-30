@@ -5,7 +5,7 @@
  * with the real migrations, so gapless numbering, the immutability trigger
  * and rate resolution are genuinely exercised.
  */
-import { test, before, after, beforeEach } from 'node:test';
+import { test, before, after, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import { makeDb } from './shim.mjs';
@@ -1896,4 +1896,146 @@ test('the database refuses to attach a recurring expense', async () => {
     ]),
     /recurring_never_billed/,
   );
+});
+
+// ── audit: the invoice is always right ─────────────────────────────
+// Each test below reproduces a finding from the 2026-09-30 correctness
+// audit. It is expected to FAIL until its issue is fixed.
+
+test('AUDIT: a half-cent entry bills a different cent than the Unbilled card shows', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  // 3603 s at $150/h is exactly $150.125. Postgres numeric rounds it to
+  // 150.13; JS floating point lands a hair under and rounds to 150.12 — or
+  // the reverse, depending on the pair. One in six timer durations at $150
+  // is a half-cent case, so this is the common path, not a corner.
+  await seedEntry({ id: E(1), hours: 3603 / 3600 });
+
+  const res = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(res.status, 200);
+
+  const { rows } = await pool.query(
+    'select amount from unbilled_by_client($1)',
+    [USER],
+  );
+  assert.equal(
+    res.body.total,
+    Number(rows[0].amount),
+    'the invoice and the home screen disagree about the same work',
+  );
+});
+
+test('AUDIT: the default grouping totals what the Unbilled card shows', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  // Three 20-minute entries at $100 under distinct names: the rollup rounds
+  // once per (client, rate) and says $100.00; the invoice rounds once per
+  // LINE, and in the default `entry` grouping (or `task`, with distinct
+  // names) every entry is its own line: 3 × $33.33 = $99.99. The parity test
+  // never sees this because it groups by project under one task name.
+  for (const [n, task] of [
+    [1, 'Design'],
+    [2, 'Review'],
+    [3, 'Deploy'],
+  ] as const) {
+    await seedEntry({ id: E(n), task, hours: 1 / 3, rateOverride: 100 });
+  }
+
+  const res = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  const { rows } = await pool.query(
+    'select amount from unbilled_by_client($1)',
+    [USER],
+  );
+  assert.equal(
+    res.body.total,
+    Number(rows[0].amount),
+    'grouping mode changed the total; Unbilled could not have known',
+  );
+});
+
+test('AUDIT: create_invoice refuses entries another invoice already holds', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), hours: 2 });
+
+  const first = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(first.status, 201);
+
+  // What a second, concurrent POST sends after loading the same unbilled
+  // entries a moment before the first one attached them. An expense in this
+  // position raises and rolls the number back; an entry is silently skipped
+  // and the invoice — lines, total, number — is issued anyway.
+  const invoice = {
+    client_id: CLIENT,
+    issue_date: '2026-09-30',
+    period_start: PERIOD.periodStart,
+    period_end: PERIOD.periodEnd,
+    subtotal: 300,
+    tax_rate: 0,
+    tax_amount: 0,
+    expenses_subtotal: 0,
+    total: 300,
+    currency: 'USD',
+    grouping_mode: 'entry',
+    lines: [
+      {
+        description: 'Work',
+        unit: 'hour',
+        quantity: 2,
+        unit_price: 150,
+        amount: 300,
+      },
+    ],
+  };
+  await assert.rejects(
+    () =>
+      pool.query('select create_invoice($1,$2,$3,$4)', [
+        USER,
+        JSON.stringify(invoice),
+        [E(1)],
+        [],
+      ]),
+    /already/i,
+    'the same two hours were billed on a second invoice',
+  );
+
+  const { rows } = await pool.query('select count(*)::int n from invoices');
+  assert.equal(rows[0].n, 1, 'only one invoice holds this work');
+});
+
+test('AUDIT: the issue date is the user’s calendar day, not UTC’s', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), hours: 1 });
+
+  // 8pm on the 29th in Los Angeles is already the 30th in UTC.
+  mock.timers.enable({
+    apis: ['Date'],
+    now: new Date('2026-09-30T03:00:00Z'),
+  });
+  try {
+    const res = await json(
+      await create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          tz: 'America/Los_Angeles',
+        }),
+      ),
+    );
+    assert.equal(res.status, 201);
+    assert.equal(
+      res.body.issueDate,
+      '2026-09-29',
+      'the invoice is dated a day the user has not reached',
+    );
+  } finally {
+    mock.timers.reset();
+  }
 });
