@@ -27,7 +27,6 @@ import {
   projectNamesFrom,
   resolveRate,
   revenueByDay,
-  roundMoney,
   STALE_DRAFT_DAYS,
   startOfLocalDate,
   startOfLocalDay,
@@ -67,19 +66,32 @@ function rateOf(db: Db, e: TimeEntry) {
   });
 }
 
-/** `sum(seconds) / 3600 * rate`, rounded once per rate as the SQL does. */
+/**
+ * `round(sum(hours) * rate, 2)` per rate, where each entry's hours are its
+ * printed two decimals, as the SQL rollups and `buildLineItems` do.
+ */
 function earned(db: Db, entries: TimeEntry[]) {
-  const byRate = new Map<number | null, number>();
+  const byRate = new Map<
+    number | null,
+    { seconds: number; hundredths: number }
+  >();
   for (const e of entries) {
     const rate = rateOf(db, e);
-    byRate.set(rate, (byRate.get(rate) ?? 0) + (e.durationSeconds ?? 0));
+    const seconds = e.durationSeconds ?? 0;
+    const acc = byRate.get(rate) ?? { seconds: 0, hundredths: 0 };
+    byRate.set(rate, {
+      seconds: acc.seconds + seconds,
+      hundredths: acc.hundredths + Math.round(seconds / 36),
+    });
   }
   let amount: number | null = null;
-  for (const [rate, seconds] of byRate)
+  for (const [rate, { hundredths }] of byRate)
     if (rate !== null)
-      amount = (amount ?? 0) + roundMoney((seconds / 3600) * rate);
+      amount =
+        (amount ?? 0) +
+        Math.round((hundredths * Math.round(rate * 100)) / 100) / 100;
   return {
-    seconds: [...byRate.values()].reduce((a, b) => a + b, 0),
+    seconds: [...byRate.values()].reduce((a, b) => a + b.seconds, 0),
     amount,
     unrated: entries.filter((e) => rateOf(db, e) === null).length,
   };

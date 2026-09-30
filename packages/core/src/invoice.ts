@@ -90,9 +90,24 @@ export interface InvoiceTotals {
 /** Money is rounded to cents exactly once, here. */
 const cents = (n: number): number => Math.round(n * 100) / 100;
 
-/** Decimal hours, 2dp — what appears on the invoice as the quantity. */
-const toHours = (seconds: number): number =>
-  Math.round((seconds / 3600) * 100) / 100;
+/**
+ * Hundredths of an hour: the unit the document prints, and so the unit that
+ * is billed. Rounded per entry, half up, which is what `round(s / 3600.0, 2)`
+ * does in every rollup; `s / 36` is a correctly rounded division and its
+ * halves are exact, so the two agree for every duration.
+ */
+const hundredths = (seconds: number): number =>
+  Math.round(Math.max(0, seconds) / 36);
+
+/**
+ * `quantity x unitPrice`, in integers until the last division, so a half
+ * cent is exact rather than a float's guess. 3603 s at $150 is 1.00 h at
+ * $150.00 = $150.00 here; from raw seconds it was $150.125, which JS rounded
+ * to .12 and Postgres to .13 (#191).
+ */
+const priced = (quantityHundredths: number, unitPrice: number): number =>
+  // hundredths x cents = amount x 10,000; the first division leaves cents.
+  Math.round((quantityHundredths * Math.round(unitPrice * 100)) / 100) / 100;
 
 function describe(
   entry: BillableEntry,
@@ -153,10 +168,11 @@ export function buildLineItems(
   const billable = entries.filter((e) => e.isBillable);
   const unratedEntryIds: string[] = [];
   const groups = new Map<string, LineItem>();
-  /* Seconds are summed here rather than on the line, because the line stores
-     decimal hours and adding those would round per entry. A 20-minute entry
-     is 0.33h; three of them are 1.00h, not 0.99h. */
-  const secondsByKey = new Map<string, number>();
+  /* Hours are rounded per ENTRY and summed in hundredths, so a line's
+     quantity is exactly the sum of what each entry prints, and the total is
+     the same however the lines are grouped: three 20-minute entries are
+     0.33 h each and 0.99 h together, on one line or three. */
+  const hundredthsByKey = new Map<string, number>();
 
   for (const entry of billable) {
     const ctx = {
@@ -175,7 +191,10 @@ export function buildLineItems(
     const key = groupKey(entry, mode, rate, tz);
     const existing = groups.get(key);
 
-    secondsByKey.set(key, (secondsByKey.get(key) ?? 0) + entry.durationSeconds);
+    hundredthsByKey.set(
+      key,
+      (hundredthsByKey.get(key) ?? 0) + hundredths(entry.durationSeconds),
+    );
 
     if (existing) {
       existing.entryIds.push(entry.id);
@@ -192,21 +211,19 @@ export function buildLineItems(
     }
   }
 
-  /* Amounts come from the SUMMED seconds, so rounding happens once per line
-     rather than accumulating: rounding per entry and adding drifts — 3 x
-     20min at 100/h gives 99.99 rather than 100.00. Every rollup that reports
-     the same money rounds once per bucket for this reason.
-
-     The amount is computed from seconds, NOT from the rounded hours the line
-     carries: 7.499h at 100/h bills 749.90, not 749.90 from a displayed 7.50.
-     The printed quantity and the charge are derived from the same source, in
-     that order. */
+  /* The amount is the printed quantity times the printed rate, to the cent:
+     the arithmetic a client checks on the document is the arithmetic that
+     produced it (#195). Every rollup prices its bucket the same way, from
+     the same per-entry hours, so the home screen and the invoice state one
+     figure for the same work (#192). A rate carrying cents can still put a
+     grouped line a cent from its bucket, since rounding once over 0.66 h is
+     not rounding twice over 0.33 h; `rates.test.ts` bounds that. */
   const timeLines = [...groups.entries()].map(([key, li]) => {
-    const seconds = secondsByKey.get(key) ?? 0;
+    const quantityHundredths = hundredthsByKey.get(key) ?? 0;
     return {
       ...li,
-      quantity: toHours(seconds),
-      amount: cents((seconds / 3600) * li.unitPrice),
+      quantity: quantityHundredths / 100,
+      amount: priced(quantityHundredths, li.unitPrice),
     };
   });
 

@@ -1897,3 +1897,62 @@ test('the database refuses to attach a recurring expense', async () => {
     /recurring_never_billed/,
   );
 });
+
+// ── rounding: the invoice and the home screen state the same cent ──
+
+test('a half-cent entry bills the cent the Unbilled card shows', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  // 3603 s at $150/h is exactly $150.125. Postgres numeric rounds it to
+  // 150.13; JS floating point lands a hair under and rounds to 150.12 — or
+  // the reverse, depending on the pair. One in six timer durations at $150
+  // is a half-cent case, so this is the common path, not a corner.
+  await seedEntry({ id: E(1), hours: 3603 / 3600 });
+
+  const res = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(res.status, 200);
+
+  const { rows } = await pool.query(
+    'select amount from unbilled_by_client($1)',
+    [USER],
+  );
+  assert.equal(
+    res.body.total,
+    Number(rows[0].amount),
+    'the invoice and the home screen disagree about the same work',
+  );
+});
+
+test('the default grouping totals what the Unbilled card shows', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  // Three 20-minute entries at $100 under distinct names: the rollup rounds
+  // once per (client, rate) and says $100.00; the invoice rounds once per
+  // LINE, and in the default `entry` grouping (or `task`, with distinct
+  // names) every entry is its own line: 3 × $33.33 = $99.99. The parity test
+  // never sees this because it groups by project under one task name.
+  for (const [n, task] of [
+    [1, 'Design'],
+    [2, 'Review'],
+    [3, 'Deploy'],
+  ] as const) {
+    await seedEntry({ id: E(n), task, hours: 1 / 3, rateOverride: 100 });
+  }
+
+  const res = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  const { rows } = await pool.query(
+    'select amount from unbilled_by_client($1)',
+    [USER],
+  );
+  assert.equal(
+    res.body.total,
+    Number(rows[0].amount),
+    'grouping mode changed the total; Unbilled could not have known',
+  );
+});

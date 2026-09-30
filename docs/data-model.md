@@ -127,7 +127,12 @@ already sent.
 
 **Three kinds of line, one arithmetic.** `unit` is `hour`, `fixed` (a fee, a
 deposit, a retainer) or `expense` (a reimbursement), and every line is
-`quantity × unit_price = amount`. An expense line is one of something, like a
+`quantity × unit_price = amount`, to the cent. A time line's quantity is the
+sum of its entries' hours, each rounded to two decimals first, so the invoice
+bills exactly what it prints and its total is the same however the lines are
+grouped. Every rollup prices the same per-entry hours
+(`00000000000028_bill_printed_hours.sql`), which is what keeps the home
+screen and the invoice on one figure. An expense line is one of something, like a
 fee, and is the only kind carrying `spent_on`. `subtotal` is the **services**
 subtotal — time and fees — and the base tax is charged on; the reimbursements
 sit in `expenses_subtotal`, never taxed, and `total = subtotal + tax_amount +
