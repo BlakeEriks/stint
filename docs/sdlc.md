@@ -9,7 +9,7 @@ with the command that moves it at each step.
    `/design-review` → `/speckit-plan` → `/speckit-tasks` →
    `/speckit-analyze`, then `/speckit-implement` in a `pnpm worktree`.
    `/design-review` is offered to every feature that adds or changes UI,
-   never assumed. Blake picks the look from variations of each screen
+   never assumed. Blake settles the look from a draft of each screen
    before anything is built, or skips it when the change has no visible UI
    or a trivial one. Planning waits for the spec to record either. An
    issue: `/work-issues` in `../stint-issues`. A feature merges one user story at a time; a story

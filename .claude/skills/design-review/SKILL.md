@@ -1,15 +1,15 @@
 ---
 name: design-review
-description: Offer a design review for a feature that adds or changes UI - draft 3-5 variations of each screen as one HTML page, iterate with Blake until he picks, then record the pick in the spec. Use after /speckit-clarify and before /speckit-plan.
+description: Offer a design review for a feature that adds or changes UI - draft each screen as one HTML page, iterate with Blake until he says it's right, then record the design in the spec. Use after /speckit-clarify and before /speckit-plan.
 argument-hint: "[screen or guidance]"
 # Follows the official `playground` plugin's design-playground template: one
-# self-contained HTML file, 3-5 named presets, a live preview. Custom because
-# nothing fits whole. Spec Kit's catalog has `wireframe` (grey SVG wireframes,
-# one design, not variations), `preview` (one preview of the spec) and
+# self-contained HTML file, named presets, a live preview. Custom because
+# nothing fits whole. Spec Kit's catalog has `wireframe` (grey SVG
+# wireframes), `preview` (one preview of the spec) and
 # `design-system` (implements autonomously); all are discovery-only and
 # unvetted. `playground` tunes one component through controls and invents its
 # own theme; `frontend-design` invents a new look. Stint has a design system,
-# and the review picks between whole presentations of a screen in it.
+# and the review drafts whole presentations of a screen in it.
 ---
 
 Take the current feature from a clarified spec to a chosen look, before
@@ -28,15 +28,16 @@ gives `FEATURE_SPEC` and `FEATURE_DIR`.
 - **On a skip**, add `## Design` above `## User Scenarios & Testing` holding
   `No design review: <why>.`, commit it, and stop.
 
-## 1. Draft the variations
+## 1. Draft
 
-One scratch HTML page in the session's scratchpad, holding 3-5 distinct
-presentations of each new or changed screen. Distinct means a different
-layout or hierarchy, never the same layout recolored.
+One scratch HTML page in the session's scratchpad, holding a draft of each
+new or changed screen. One draft is the default. Add variations only when
+the screen has a real choice of layout or hierarchy that Blake should see
+side by side; a variation is never the same layout recolored.
 
 | The page has | From |
 | --- | --- |
-| A switcher between variations, and between the states the spec's scenarios name (empty, one record, many) | the page's own script |
+| A switcher between the states the spec's scenarios name (empty, one record, many), and between variations when there are any | the page's own script |
 | Desktop and Phone toggles; Phone is 390px wide | the page's own script |
 | Dark and Light toggles, setting `data-theme` on `<html>` | `mockup.css` defines both |
 | The seeded account's data: its clients, projects, rates and money | `apps/web/src/mocks/fixtures.ts` |
@@ -44,25 +45,25 @@ layout or hierarchy, never the same layout recolored.
 
 Style only with the design system: a `var(--…)` token for every color and a
 `type-*` class for every piece of text. The app's rail and page header frame
-each variation, so it reads as the app. Under the switcher, each variation
+each screen, so it reads as the app. Under the switcher, each variation
 says in one line what it is best at and what it costs.
 
 Open it in the browser pane (`preview_start` with its `file://` URL) and ask
-Blake to pick.
+Blake for changes, or a pick when there are variations.
 
-## 2. Pick and refine
+## 2. Refine
 
-Blake picks one, mixes ("A's cards with B's color"), or asks for changes.
-Redraft the same file with the next round's variations, bump the round in its
+Blake asks for changes, or picks or mixes variations ("A's cards with B's
+color"). Redraft the same file, bump the round in its
 `<title>`, and reload. Repeat until he says it's right.
 
 A token or type role the pick needs that the system lacks is named in that
 round, as a change to `packages/design-tokens/tokens.json` the plan carries.
 It is never a literal in the page.
 
-## 3. Record the pick
+## 3. Record the design
 
-1. Cut the page down to the pick and its states, and save it as
+1. Cut the page down to the final design and its states, and save it as
    `specs/<feature>/design/<screen>.html`.
 2. Add `## Design` to the spec, above `## User Scenarios & Testing`. The
    first line points at the file; then one bullet per region of the layout
