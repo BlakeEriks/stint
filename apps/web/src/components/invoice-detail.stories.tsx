@@ -57,3 +57,27 @@ export const WithExpenses: Story = {
     await expect(page.getAllByText('Expenses').length).toBeGreaterThan(0);
   },
 };
+
+/** A summary invoice names the detail it carries from page 2 (US2
+    scenario 8). */
+export const WithSupportingDetail: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const draft = db.invoices.find((i) => i.id === invoice(15));
+    if (!draft) return;
+    draft.groupingMode = 'summary';
+    draft.summaryText = 'Software consulting services';
+    draft.supportingDetail = {
+      project: [{ project: 'Warehouse dashboard', hours: 12 }],
+      week: [{ start: '2026-08-03', end: '2026-08-09', hours: 12 }],
+      totalHours: 12,
+    };
+  }),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText(
+        'Supporting detail from page 2: Hours by project, Hours by week',
+      ),
+    ).toBeVisible();
+  },
+};

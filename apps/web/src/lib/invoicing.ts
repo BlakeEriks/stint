@@ -283,6 +283,7 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
       // invoice must show the details the client was actually given.
       payment: invoice.paymentDetails ?? null,
       paymentNotice: settings.paymentNotice,
+      supportingDetail: invoice.supportingDetail,
     },
   };
 }

@@ -100,7 +100,7 @@ const cents = (n: number): number => Math.round(n * 100) / 100;
  * does in every rollup; `s / 36` is a correctly rounded division and its
  * halves are exact, so the two agree for every duration.
  */
-const hundredths = (seconds: number): number =>
+export const hundredths = (seconds: number): number =>
   Math.round(Math.max(0, seconds) / 36);
 
 /**

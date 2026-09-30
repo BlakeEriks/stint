@@ -9,7 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { StatusBadge, shortDate } from './invoice-bits';
 import { MarkPaidDialog } from './mark-paid-dialog';
-import { formatCurrency, formatHours } from '@stint/core';
+import {
+  attachedSchedules,
+  formatCurrency,
+  formatHours,
+  SCHEDULE_TITLES,
+} from '@stint/core';
 import { api, ApiError, type InvoiceStatus } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
@@ -226,6 +231,15 @@ function Loaded({
             strong
           />
         </dl>
+
+        {invoice.supportingDetail ? (
+          <p className="type-support text-muted">
+            Supporting detail from page 2:{' '}
+            {attachedSchedules(invoice.supportingDetail)
+              .map((k) => SCHEDULE_TITLES[k])
+              .join(', ')}
+          </p>
+        ) : null}
 
         <p className="type-support text-subtle">
           Rates are frozen at generation — editing a client or project later

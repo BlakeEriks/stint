@@ -1,6 +1,8 @@
 import {
   buildPreview,
   formatInvoiceNumber,
+  pickSchedules,
+  type ScheduleKind,
   type ImportPreview,
   type ImportResult,
   parseExport,
@@ -408,11 +410,21 @@ export const handlers = {
   createInvoice: http.post(`${API}/invoices`, async ({ request }) => {
     const db = getDb();
     const input = await body<
-      PreviewRequest & { issueDate?: string; dueDate?: string; notes?: string }
+      PreviewRequest & {
+        issueDate?: string;
+        dueDate?: string;
+        notes?: string;
+        schedules?: ScheduleKind[];
+      }
     >(request);
     const summaryText = input.summaryText?.trim() ?? '';
     if (input.groupingMode === 'summary' && !summaryText)
       return fail('VALIDATION_FAILED', 'A summary line needs its text');
+    if (input.groupingMode !== 'summary' && input.schedules?.length)
+      return fail(
+        'VALIDATION_FAILED',
+        'Supporting detail comes with a summary line only',
+      );
     const preview = invoicePreview(db, input, input.tz ?? ZONE);
     if (!preview) return fail('ENTRY_NOT_FOUND');
     if (preview.unratedEntryIds.length > 0)
@@ -439,6 +451,9 @@ export const handlers = {
       paymentTerms: db.settings.defaultPaymentTerms,
       groupingMode: preview.groupingMode,
       summaryText: preview.groupingMode === 'summary' ? summaryText : null,
+      supportingDetail: preview.schedules
+        ? pickSchedules(preview.schedules, input.schedules ?? [])
+        : null,
       paymentDetails: null,
       sentAt: null,
       paidAt: null,

@@ -16,7 +16,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChevronDown, Plus, X } from 'lucide-react';
-import { formatCurrency, formatHours } from '@stint/core';
+import {
+  formatCurrency,
+  formatHours,
+  SCHEDULE_KINDS,
+  SCHEDULE_TITLES,
+  type ScheduleKind,
+} from '@stint/core';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   api,
@@ -64,6 +70,8 @@ interface Draft {
   groupingMode: GroupingMode;
   /** The one line's text with `summary`. Fresh on every invoice. */
   summaryText: string;
+  /** Supporting detail to attach, with `summary` only. */
+  schedules: ScheduleKind[];
   notes: string;
   dueDate: string;
   charges: Charge[];
@@ -78,6 +86,7 @@ const empty = (): Draft => ({
   periodEnd: defaultEnd(),
   groupingMode: 'entry',
   summaryText: '',
+  schedules: [],
   notes: '',
   dueDate: '',
   charges: [],
@@ -181,6 +190,7 @@ export function NewInvoice() {
         periodEnd: draft.periodEnd,
         groupingMode: draft.groupingMode,
         summaryText: draft.summaryText,
+        schedules: draft.groupingMode === 'summary' ? draft.schedules : [],
         tz,
         manualLines: billableCharges(draft.charges),
         excludedExpenseIds: draft.excludedExpenseIds,
@@ -332,6 +342,38 @@ export function NewInvoice() {
               onAdd={addCharge}
             />
           </Field>
+
+          {/* Only a summary has detail to support: every other grouping
+              already breaks the time down on the invoice. Ticking changes no
+              line, so it leaves an approved preview standing. */}
+          {draft.groupingMode === 'summary' ? (
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="mb-1.5 type-label text-subtle">Attach</legend>
+              {SCHEDULE_KINDS.map((kind) => (
+                <label
+                  key={kind}
+                  className="flex items-center gap-2 type-control text-primary"
+                >
+                  <input
+                    type="checkbox"
+                    checked={draft.schedules.includes(kind)}
+                    onChange={(e) =>
+                      set(
+                        'schedules',
+                        SCHEDULE_KINDS.filter((k) =>
+                          k === kind
+                            ? e.target.checked
+                            : draft.schedules.includes(k),
+                        ),
+                      )
+                    }
+                    className="size-4 flex-none accent-[var(--text-muted)]"
+                  />
+                  {SCHEDULE_TITLES[kind]}
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
         </Section>
 
         <Section title="Invoice details">

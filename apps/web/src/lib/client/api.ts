@@ -145,6 +145,7 @@ export type StoppedTimer = { entry: TimeEntry } & Pick<
 >;
 
 export type GroupingMode = z.infer<typeof schema.GroupingMode>;
+export type ScheduleKind = z.infer<typeof schema.ScheduleKind>;
 export type InvoiceStatus = z.infer<typeof schema.InvoiceStatus>;
 export type ComputedLineItem = Response<schema.ComputedLineItem>;
 export type StoredLineItem = Response<schema.StoredLineItem>;
@@ -383,6 +384,7 @@ export const api = {
     tz?: string;
     manualLines?: ManualLine[];
     excludedExpenseIds?: string[];
+    schedules?: ScheduleKind[];
     issueDate?: string;
     dueDate?: string;
     notes?: string;

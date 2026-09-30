@@ -470,3 +470,47 @@ describe('NewInvoice — one summary line', () => {
     }
   });
 });
+
+describe('NewInvoice — supporting detail', () => {
+  it('offers Attach only with One summary line, all unticked', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await screen.findByText('New invoice');
+    expect(screen.queryByText('Attach')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Show time as' }));
+    await user.click(
+      await screen.findByRole('menuitemradio', { name: /One summary line/ }),
+    );
+    for (const name of ['Hours by project', 'Hours by week', 'Hours by date'])
+      expect(screen.getByRole('checkbox', { name })).not.toBeChecked();
+  });
+
+  it('sends the ticked schedules in print order, and keeps the preview', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await chooseClient(user);
+    await user.click(screen.getByRole('button', { name: 'Show time as' }));
+    await user.click(
+      await screen.findByRole('menuitemradio', { name: /One summary line/ }),
+    );
+    await user.type(screen.getByLabelText(/Summary line/), 'Services');
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await screen.findByText('Design review');
+
+    await user.click(screen.getByRole('checkbox', { name: 'Hours by date' }));
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Hours by project' }),
+    );
+    // Ticking changes no line, so the approved preview stands.
+    await user.click(screen.getByRole('button', { name: /Generate/ }));
+    await waitFor(() => expect(push).toHaveBeenCalled());
+
+    const sent = bodies.find((b) => b.path.endsWith('/invoices'))!.body;
+    expect(sent.schedules).toEqual(['project', 'date']);
+  });
+});

@@ -162,6 +162,38 @@ export const NoSummaryLine: Story = {
   },
 };
 
+/** With a summary, the detail to attach from page 2, all unticked to start
+    (US2 scenario 1). */
+export const AttachDetail: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await summaryFor(
+      canvasElement,
+      'Software consulting services',
+    );
+    await userEvent.click(
+      await page.findByRole('checkbox', { name: 'Hours by project' }),
+    );
+    await expect(
+      page.getByRole('checkbox', { name: 'Hours by project' }),
+    ).toBeChecked();
+    await expect(
+      page.getByRole('checkbox', { name: 'Hours by week' }),
+    ).not.toBeChecked();
+  },
+};
+
+/** Any other grouping has no Attach (US2 scenario 6). */
+export const NoAttachWithoutSummary: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await page.findByRole('button', { name: 'Show time as' });
+    await expect(page.queryByText('Attach')).toBeNull();
+  },
+};
+
 // ── expenses ───────────────────────────────────────────────────────
 
 const chooseNorthwind = async (canvasElement: HTMLElement) => {

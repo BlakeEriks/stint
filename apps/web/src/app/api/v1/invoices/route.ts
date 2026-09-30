@@ -10,7 +10,12 @@ import {
   loadBillableExpenses,
 } from '@/lib/invoicing';
 import { INVOICE_COLUMNS, toInvoice, type InvoiceRow } from '@/lib/rows';
-import { buildLineItems, buildPaymentDetails } from '@stint/core';
+import {
+  buildLineItems,
+  buildPaymentDetails,
+  buildSchedules,
+  pickSchedules,
+} from '@stint/core';
 import { CreateInvoice, ListInvoicesQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -121,6 +126,17 @@ export const POST = handle(async (req: Request) => {
   // an issued invoice must still show what the client was actually given.
   // Rendered before the number exists, so `create_invoice` appends the
   // payment reference once it has allocated one.
+  // Frozen too: bucketed now, a project renamed or an invoice voided later
+  // cannot change what the client was sent.
+  const supportingDetail = pickSchedules(
+    buildSchedules(entries, {
+      tz: body.tz,
+      periodStart: body.periodStart,
+      periodEnd: body.periodEnd,
+    }),
+    body.schedules,
+  );
+
   const profile = await loadPaymentProfile(db, client.payment_profile_id);
   const paymentDetails = buildPaymentDetails(profile);
 
@@ -142,6 +158,7 @@ export const POST = handle(async (req: Request) => {
       payment_terms: body.paymentTerms ?? settings.defaultPaymentTerms,
       grouping_mode: body.groupingMode,
       summary_text: body.groupingMode === 'summary' ? body.summaryText : null,
+      supporting_detail: supportingDetail,
       payment_details: paymentDetails,
       // Frozen lines: an issued invoice is a financial record, not a live
       // view over time entries and expenses.

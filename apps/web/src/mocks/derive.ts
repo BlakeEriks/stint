@@ -4,6 +4,7 @@ import {
   buildCollected,
   buildEarnedPace,
   buildLineItems,
+  buildSchedules,
   buildMonthByClient,
   buildOpenInvoiceCount,
   buildOverdueInvoices,
@@ -482,6 +483,12 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
     // `loadBillableEntries` reads them oldest first, which orders a line's entries.
     .sort((a, b) => at(a.startedAt) - at(b.startedAt));
   const groupingMode = body.groupingMode ?? 'entry';
+  const rated = billable(
+    entries,
+    db.projects,
+    db.clients,
+    db.settings.defaultHourlyRate,
+  );
   return {
     clientId: client.id,
     clientName: client.name,
@@ -489,16 +496,21 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
     periodEnd: body.periodEnd,
     groupingMode,
     currency: client.currency ?? db.settings.currency,
-    ...buildLineItems(
-      billable(entries, db.projects, db.clients, db.settings.defaultHourlyRate),
-      {
-        groupingMode,
-        summaryText: body.summaryText?.trim() ?? '',
-        taxRate: client.taxRate ?? 0,
-        tz,
-        manualLines: body.manualLines,
-        expenses: billableExpenses(db, body),
-      },
-    ),
+    ...buildLineItems(rated, {
+      groupingMode,
+      summaryText: body.summaryText?.trim() ?? '',
+      taxRate: client.taxRate ?? 0,
+      tz,
+      manualLines: body.manualLines,
+      expenses: billableExpenses(db, body),
+    }),
+    schedules:
+      groupingMode === 'summary'
+        ? buildSchedules(rated, {
+            tz,
+            periodStart: body.periodStart,
+            periodEnd: body.periodEnd,
+          })
+        : null,
   };
 }
