@@ -21,7 +21,7 @@ Rejected.
 
 ## R2. One migration, in the first story's PR
 
-**Decision**: `supabase/migrations/00000000000028_invoice_summary.sql` adds
+**Decision**: `supabase/migrations/00000000000029_invoice_summary.sql` adds
 everything the feature stores: `'summary'` in the `grouping_mode` check, and
 `summary_text`, `reference` and `supporting_detail` on `invoices`. It
 replaces `create_invoice` to write the three columns. It ships with User Story 1

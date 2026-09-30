@@ -1,6 +1,6 @@
 # Data model: Invoice summary with supporting detail
 
-One migration, `supabase/migrations/00000000000028_invoice_summary.sql`
+One migration, `supabase/migrations/00000000000029_invoice_summary.sql`
 (`research.md` R2). No new table, so `rls.test.ts` and `verify-schema.mjs`
 need no new table. `own_invoices` already covers the new columns.
 

@@ -84,7 +84,7 @@ releasable alone, with its tests and stories.
 
 | # | Story | What it ships | Label |
 | --- | --- | --- | --- |
-| 1 | US1 One summary line | Migration 28 (R2). `GroupingMode` `'summary'` and `summaryText` in schema, core and routes. "Group lines" becomes "Show time as", One summary line first, and the Summary line field and its error. Generate disabled on an empty line. `summary_text` stored. Mocks. | `migration` |
+| 1 | US1 One summary line | Migration 29 (R2). `GroupingMode` `'summary'` and `summaryText` in schema, core and routes. "Group lines" becomes "Show time as", One summary line first, and the Summary line field and its error. Generate disabled on an empty line. `summary_text` stored. Mocks. | `migration` |
 | 2 | US2 Supporting detail | `schedule.ts` (`buildSchedules`, `paginateSchedules`). Attach ticks, only with a summary. `POST /invoices` freezes the ticked tables in `supporting_detail`, and the PDF draws detail pages from it. The detail screen names them. | |
 | 3 | US3 Live preview | The preview as a debounced `useQuery` (R6), with `schedules` in its response. The card mirrors the PDF (R7): business block, number, Issued, Due, Bill to, Engagement, lines, totals, payment block, and page 2 detail. The title row is sticky. The form becomes bands, the Preview button and Notes go, and the layout follows the panel (R11). `issueDate` is sent in `tz`. UI and e2e tests move off the Preview button. | |
 | 4 | US4 Reference | A Reference field, stored in `reference`. The PDF labels "Service period" and adds "Reference" beneath it. The card's Engagement row. | |
@@ -109,7 +109,7 @@ specs/003-invoice-summary-detail/
 ### Source Code (repository root)
 
 ```text
-supabase/migrations/00000000000028_invoice_summary.sql  # new (PR 1): columns, checks, create_invoice
+supabase/migrations/00000000000029_invoice_summary.sql  # new (PR 1): columns, checks, create_invoice
 packages/schema/src/index.ts                  # GroupingMode, summaryText, schedules, reference, paymentProfileId, Invoice fields
 packages/core/src/invoice.ts                  # 'summary' mode, summaryText (PR 1)
 packages/core/src/schedule.ts                 # new (PR 2): buildSchedules, paginateSchedules
