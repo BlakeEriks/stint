@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { desktop, menuOpen, phone, screen } from '@/mocks/screen';
 import { NewInvoice } from './invoice-new';
@@ -83,6 +83,82 @@ export const WithCharge: Story = {
     await expect(
       await page.findByRole('cell', { name: 'Hosting, September' }),
     ).toBeVisible();
+  },
+};
+
+// ── one summary line ───────────────────────────────────────────────
+
+const summaryFor = async (canvasElement: HTMLElement, text: string) => {
+  const page = await chooseNorthwind(canvasElement);
+  await userEvent.click(
+    await page.findByRole('button', { name: 'Show time as' }),
+  );
+  await userEvent.click(
+    await page.findByRole('menuitemradio', { name: /One summary line/ }),
+  );
+  // The menu hides the page from queries until it has closed.
+  await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
+  if (text)
+    await userEvent.type(await page.findByLabelText(/Summary line/), text);
+  await userEvent.click(await page.findByRole('button', { name: 'Preview' }));
+  return page;
+};
+
+/** All the time at one rate is one line of Blake's text (US1 scenario 1). */
+export const OneSummaryLine: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      for (const p of db.projects) p.hourlyRate = null;
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await summaryFor(
+      canvasElement,
+      'Software consulting services',
+    );
+    await expect(
+      await page.findAllByRole('cell', {
+        name: 'Software consulting services',
+      }),
+    ).toHaveLength(1);
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeEnabled();
+  },
+};
+
+/** Two rates are two lines of the same text (US1 scenario 2). */
+export const SummaryTwoRates: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await summaryFor(
+      canvasElement,
+      'Software consulting services',
+    );
+    await expect(
+      await page.findAllByRole('cell', {
+        name: 'Software consulting services',
+      }),
+    ).toHaveLength(2);
+  },
+};
+
+/** An empty summary line is an error at the field, and Generate waits
+    (US1 scenario 3). */
+export const NoSummaryLine: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await summaryFor(canvasElement, '');
+    await expect(
+      await page.findByText('Give the summary line its text.'),
+    ).toBeVisible();
+    await expect(
+      await page.findByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
   },
 };
 

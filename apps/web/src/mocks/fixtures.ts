@@ -508,6 +508,7 @@ function invoicesFor(
       notes: null,
       paymentTerms: 'Net 30',
       groupingMode: 'task',
+      summaryText: null,
       paymentDetails: null,
       sentAt:
         spec.status === 'draft'

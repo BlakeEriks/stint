@@ -61,6 +61,7 @@ export const POST = handle(async (req: Request) => {
 
   const totals = buildLineItems(entries, {
     groupingMode: body.groupingMode,
+    summaryText: body.summaryText,
     taxRate,
     tz: body.tz,
     manualLines: body.manualLines,

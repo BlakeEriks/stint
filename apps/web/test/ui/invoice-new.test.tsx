@@ -51,15 +51,22 @@ const PREVIEW = {
   unratedEntryIds: [] as string[],
 };
 
+/** What each POST sent, newest last. */
+const bodies: { path: string; body: any }[] = [];
+
 /** Records POSTs so a test can assert generation did or did not happen. */
 function serve(preview = PREVIEW) {
   const posts: string[] = [];
+  bodies.length = 0;
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
       const path = String(url);
       const method = init?.method ?? 'GET';
-      if (method === 'POST') posts.push(path);
+      if (method === 'POST') {
+        posts.push(path);
+        bodies.push({ path, body: JSON.parse(String(init?.body ?? '{}')) });
+      }
       if (path.includes('/invoices/preview')) {
         return new Response(JSON.stringify(preview), { status: 200 });
       }
@@ -178,9 +185,9 @@ describe('NewInvoice', () => {
     await user.click(screen.getByRole('button', { name: 'Preview' }));
     await screen.findByText('Design review');
 
-    await user.click(screen.getByRole('button', { name: 'Group lines' }));
+    await user.click(screen.getByRole('button', { name: 'Show time as' }));
     await user.click(
-      await screen.findByRole('menuitemradio', { name: /By task name/ }),
+      await screen.findByRole('menuitemradio', { name: /By task/ }),
     );
 
     expect(
@@ -394,5 +401,72 @@ describe('NewInvoice — expenses', () => {
       await screen.findByText('A fixed fee, a deposit, or a retainer.'),
     ).toBeInTheDocument();
     expect(screen.queryByText(/expense you are passing on/)).toBeNull();
+  });
+});
+
+describe('NewInvoice — one summary line', () => {
+  const pickSummary = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole('button', { name: 'Show time as' }));
+    await user.click(
+      await screen.findByRole('menuitemradio', { name: /One summary line/ }),
+    );
+  };
+
+  it('offers One summary line first under "Show time as"', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Show time as' }),
+    );
+    const options = await screen.findAllByRole('menuitemradio');
+    expect(options[0]).toHaveTextContent('One summary line');
+    expect(options.map((o) => o.textContent)).toHaveLength(5);
+  });
+
+  it('asks for the line text, empty to start, and blocks generation without it', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await chooseClient(user);
+    await pickSummary(user);
+
+    const field = screen.getByLabelText(/Summary line/);
+    expect(field).toHaveValue('');
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Give the summary line its text.',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await screen.findByText('Design review');
+    expect(screen.getByRole('button', { name: /Generate/ })).toBeDisabled();
+  });
+
+  it('sends the text with the preview and the invoice', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await chooseClient(user);
+    await pickSummary(user);
+    await user.type(
+      screen.getByLabelText(/Summary line/),
+      'Software consulting services',
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await screen.findByText('Design review');
+    await user.click(screen.getByRole('button', { name: /Generate/ }));
+    await waitFor(() => expect(push).toHaveBeenCalled());
+
+    for (const path of ['/invoices/preview', '/invoices']) {
+      const sent = bodies.find((b) => b.path.endsWith(path))!.body;
+      expect(sent.groupingMode).toBe('summary');
+      expect(sent.summaryText).toBe('Software consulting services');
+    }
   });
 });

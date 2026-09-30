@@ -269,13 +269,22 @@ export const Account = z.object({
 });
 
 // ── invoicing ──────────────────────────────────────────────────────
-export const GroupingMode = z.enum(['entry', 'task', 'project', 'day']);
+export const GroupingMode = z.enum([
+  'summary',
+  'entry',
+  'task',
+  'project',
+  'day',
+]);
 
 export const InvoicePreviewRequest = z.object({
   clientId: uuid,
   periodStart: z.iso.date(),
   periodEnd: z.iso.date(),
   groupingMode: GroupingMode.default('entry'),
+  /** The one line's text with `summary`; the other modes ignore it. Empty
+   *  previews the line blank, and generation refuses it. */
+  summaryText: z.string().trim().max(200).default(''),
   /**
    * The period is local dates, so the window is resolved in this zone — and
    * it decides which entries land on the invoice. Rejected rather than
@@ -386,6 +395,9 @@ export const CreateInvoice = InvoicePreviewRequest.extend({
   dueDate: z.iso.date().optional(),
   notes: z.string().max(2000).optional(),
   paymentTerms: z.string().max(200).optional(),
+}).refine((b) => b.groupingMode !== 'summary' || b.summaryText !== '', {
+  message: 'A summary line needs its text',
+  path: ['summaryText'],
 });
 
 /** The frozen snapshot stored on an invoice. */
@@ -426,6 +438,8 @@ export const Invoice = z.object({
   notes: z.string().nullable(),
   paymentTerms: z.string().nullable(),
   groupingMode: GroupingMode,
+  /** The summary line's text; set exactly when `groupingMode` is `summary`. */
+  summaryText: z.string().nullable(),
   /** The payment block as rendered at generation. Editing a profile later
    *  never alters an issued invoice, so this is a snapshot, not a reference. */
   paymentDetails: PaymentDetailsSnapshot.nullable(),

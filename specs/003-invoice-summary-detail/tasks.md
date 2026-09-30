@@ -28,7 +28,7 @@ time.
 
 ## Phase 1: Setup
 
-- [ ] T001 Confirm the worktree runs: `pnpm install`, `pnpm dev:up`, and the dev server started in the background from `/Users/blakeeriks/dev/stint-f188-invoice-summary`
+- [X] T001 Confirm the worktree runs: `pnpm install`, `pnpm dev:up`, and the dev server started in the background from `/Users/blakeeriks/dev/stint-f188-invoice-summary`
 
 ---
 
@@ -46,22 +46,22 @@ None. The migration ships with US1 (research R2); every later story builds on it
 
 ### Tests first
 
-- [ ] T002 [P] [US1] Core tests in `packages/core/test/invoice.test.ts`: `'summary'` with `summaryText` gives one `hour` line per distinct rate, each described by the text; two rates sort cheapest first; entries across projects and tasks at one rate collapse to one line; `entryIds` covers every billed entry; charges and expenses follow as in other modes
-- [ ] T003 [P] [US1] Route tests in `apps/web/test/invoices.test.ts`: preview with `'summary'` returns one line per rate with `description = summaryText`; `POST /invoices` with `'summary'` and an empty `summaryText` is `422 VALIDATION_FAILED`; a generated summary invoice stores `summary_text` and returns `summaryText`, and `GET /invoices/:id` reads the line exactly as issued; the DB check rejects `summary_text` set on a non-summary invoice
-- [ ] T004 [P] [US1] Mock parity in `apps/web/test/mocks-parity.test.ts`: the mock `/invoices/preview` and `POST /invoices` agree with the real routes for `'summary'`
-- [ ] T005 [P] [US1] UI tests in `apps/web/test/ui/invoice-new.test.tsx`: the picker is labeled "Show time as" and lists One summary line first; choosing it shows a required "Summary line" field, empty; empty, it shows "Give the summary line its text." as `role="alert"` with `aria-invalid` on the input, and Generate is disabled; typing text enables it and sends `summaryText`
-- [ ] T006 [P] [US1] Stories in `apps/web/src/components/invoice-new.stories.tsx`: "One summary line" (scenario 1), "Two rates" (scenario 2), "No summary line" (scenario 3)
+- [X] T002 [P] [US1] Core tests in `packages/core/test/invoice.test.ts`: `'summary'` with `summaryText` gives one `hour` line per distinct rate, each described by the text; two rates sort cheapest first; entries across projects and tasks at one rate collapse to one line; `entryIds` covers every billed entry; charges and expenses follow as in other modes
+- [X] T003 [P] [US1] Route tests in `apps/web/test/invoices.test.ts`: preview with `'summary'` returns one line per rate with `description = summaryText`; `POST /invoices` with `'summary'` and an empty `summaryText` is `422 VALIDATION_FAILED`; a generated summary invoice stores `summary_text` and returns `summaryText`, and `GET /invoices/:id` reads the line exactly as issued; the DB check rejects `summary_text` set on a non-summary invoice
+- [X] T004 [P] [US1] Mock parity in `apps/web/test/mocks-parity.test.ts`: the mock `/invoices/preview` and `POST /invoices` agree with the real routes for `'summary'`
+- [X] T005 [P] [US1] UI tests in `apps/web/test/ui/invoice-new.test.tsx`: the picker is labeled "Show time as" and lists One summary line first; choosing it shows a required "Summary line" field, empty; empty, it shows "Give the summary line its text." as `role="alert"` with `aria-invalid` on the input, and Generate is disabled; typing text enables it and sends `summaryText`
+- [X] T006 [P] [US1] Stories in `apps/web/src/components/invoice-new.stories.tsx`: "One summary line" (scenario 1), "Two rates" (scenario 2), "No summary line" (scenario 3)
 
 ### Implementation
 
-- [ ] T007 [US1] Migration `supabase/migrations/00000000000029_invoice_summary.sql`: widen the `grouping_mode` check to `('summary','entry','task','project','day')`; add `summary_text text` with `(grouping_mode = 'summary') = (summary_text is not null)` and "`btrim(summary_text) <> ''` and at most 200 characters"; add `reference text` with "`btrim(reference) <> ''` and at most 200 characters"; add `supporting_detail jsonb` with `grouping_mode = 'summary' or supporting_detail is null`; replace `create_invoice(uuid, jsonb, uuid[], uuid[])` from `00000000000025_expenses.sql` to also insert `p_invoice->>'summary_text'`, `nullif(p_invoice->>'reference','')` and `nullif(p_invoice->'supporting_detail','null'::jsonb)`, keeping its grants
-- [ ] T008 [P] [US1] `packages/core/src/invoice.ts`: `GroupingMode` adds `'summary'`; `buildLineItems` takes `summaryText?: string`, and `describe()` returns it for `'summary'`
-- [ ] T009 [P] [US1] `packages/schema/src/index.ts`: `GroupingMode` adds `'summary'`; `InvoicePreviewRequest.summaryText` "trimmed, at most 200 characters, default `''`"; `CreateInvoice` refines "`summaryText` is required and non-empty when `groupingMode = 'summary'`"; `Invoice.summaryText: string | null`
-- [ ] T010 [US1] `apps/web/src/lib/rows.ts` (`INVOICE_COLUMNS`, `InvoiceRow`, `toInvoice`), `apps/web/src/app/api/v1/invoices/preview/route.ts` and `apps/web/src/app/api/v1/invoices/route.ts`: pass `summaryText` to `buildLineItems`, write `summary_text` (null unless `'summary'`)
-- [ ] T011 [US1] Mock API in `apps/web/src/mocks/handlers.ts` and `apps/web/src/mocks/derive.ts`: `summaryText` through preview and create, `summaryText` on stored invoices
-- [ ] T012 [US1] `apps/web/src/components/invoice-new.tsx`: "Group lines" becomes "Show time as", One summary line first with its one-line description; with it, a "Summary line" field under the picker, indented on a left rule, empty to start, its error and Generate's disabled state as in T005; `summaryText` on preview and generate
-- [ ] T013 [US1] `apps/web/src/components/invoice-detail.tsx`: name the grouping "One summary line" wherever the mode is named
-- [ ] T014 [US1] `docs/api.md` and `docs/data-model.md`: `'summary'`, `summaryText`, and the three new columns
+- [X] T007 [US1] Migration `supabase/migrations/00000000000029_invoice_summary.sql`: widen the `grouping_mode` check to `('summary','entry','task','project','day')`; add `summary_text text` with `(grouping_mode = 'summary') = (summary_text is not null)` and "`btrim(summary_text) <> ''` and at most 200 characters"; add `reference text` with "`btrim(reference) <> ''` and at most 200 characters"; add `supporting_detail jsonb` with `grouping_mode = 'summary' or supporting_detail is null`; replace `create_invoice(uuid, jsonb, uuid[], uuid[])` from `00000000000025_expenses.sql` to also insert `p_invoice->>'summary_text'`, `nullif(p_invoice->>'reference','')` and `nullif(p_invoice->'supporting_detail','null'::jsonb)`, keeping its grants
+- [X] T008 [P] [US1] `packages/core/src/invoice.ts`: `GroupingMode` adds `'summary'`; `buildLineItems` takes `summaryText?: string`, and `describe()` returns it for `'summary'`
+- [X] T009 [P] [US1] `packages/schema/src/index.ts`: `GroupingMode` adds `'summary'`; `InvoicePreviewRequest.summaryText` "trimmed, at most 200 characters, default `''`"; `CreateInvoice` refines "`summaryText` is required and non-empty when `groupingMode = 'summary'`"; `Invoice.summaryText: string | null`
+- [X] T010 [US1] `apps/web/src/lib/rows.ts` (`INVOICE_COLUMNS`, `InvoiceRow`, `toInvoice`), `apps/web/src/app/api/v1/invoices/preview/route.ts` and `apps/web/src/app/api/v1/invoices/route.ts`: pass `summaryText` to `buildLineItems`, write `summary_text` (null unless `'summary'`)
+- [X] T011 [US1] Mock API in `apps/web/src/mocks/handlers.ts` and `apps/web/src/mocks/derive.ts`: `summaryText` through preview and create, `summaryText` on stored invoices
+- [X] T012 [US1] `apps/web/src/components/invoice-new.tsx`: "Group lines" becomes "Show time as", One summary line first with its one-line description; with it, a "Summary line" field under the picker, indented on a left rule, empty to start, its error and Generate's disabled state as in T005; `summaryText` on preview and generate
+- [X] T013 [US1] `apps/web/src/components/invoice-detail.tsx`: name the grouping "One summary line" wherever the mode is named (none does: the detail screen and PDF print lines, never the mode)
+- [X] T014 [US1] `docs/api.md` and `docs/data-model.md`: `'summary'`, `summaryText`, and the three new columns
 - [ ] T015 [US1] Run `pnpm verify:static` and `pnpm verify:db`, check New invoice signed in locally, commit, and hold the PR until #199 merges; then rebase, open it with Try it and the `migration` label
 
 **Checkpoint**: US1 is releasable alone.

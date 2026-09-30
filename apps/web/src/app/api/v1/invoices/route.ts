@@ -90,6 +90,7 @@ export const POST = handle(async (req: Request) => {
 
   const totals = buildLineItems(entries, {
     groupingMode: body.groupingMode,
+    summaryText: body.summaryText,
     taxRate,
     tz: body.tz,
     manualLines: body.manualLines,
@@ -140,6 +141,7 @@ export const POST = handle(async (req: Request) => {
       notes: body.notes ?? null,
       payment_terms: body.paymentTerms ?? settings.defaultPaymentTerms,
       grouping_mode: body.groupingMode,
+      summary_text: body.groupingMode === 'summary' ? body.summaryText : null,
       payment_details: paymentDetails,
       // Frozen lines: an issued invoice is a financial record, not a live
       // view over time entries and expenses.

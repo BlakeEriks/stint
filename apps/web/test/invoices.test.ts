@@ -551,6 +551,121 @@ test('grouping mode is applied and frozen onto the invoice', async () => {
   assert.equal(res.body.total, 450);
 });
 
+test('a summary previews one line per rate, carrying its text', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  await seedEntry({ id: E(1), task: 'Design', hours: 2 });
+  await seedEntry({ id: E(2), task: 'Build', start: '2026-09-11T09:00:00Z' });
+  await seedEntry({
+    id: E(3),
+    task: 'Build',
+    start: '2026-09-12T09:00:00Z',
+    rateOverride: 200,
+  });
+
+  const res = await json(
+    await preview(
+      req('/invoices/preview', {
+        clientId: CLIENT,
+        ...PERIOD,
+        groupingMode: 'summary',
+        summaryText: '  Software consulting services ',
+      }),
+    ),
+  );
+  assert.equal(res.status, 200);
+  assert.deepEqual(
+    res.body.lineItems.map((li: any) => [
+      li.description,
+      li.quantity,
+      li.unitPrice,
+    ]),
+    [
+      ['Software consulting services', 3, 150],
+      ['Software consulting services', 1, 200],
+    ],
+  );
+});
+
+test('a summary is refused without its text', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1) });
+
+  for (const summaryText of [undefined, '   ']) {
+    const res = await json(
+      await create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          groupingMode: 'summary',
+          summaryText,
+        }),
+      ),
+    );
+    assert.equal(res.status, 422);
+    assert.equal(res.body.code, 'VALIDATION_FAILED');
+  }
+  const { rows } = await pool.query('select count(*)::int n from invoices');
+  assert.equal(rows[0].n, 0);
+});
+
+test('a summary invoice stores its text and reads back as issued', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  await seedEntry({ id: E(1), hours: 2 });
+
+  const res = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        groupingMode: 'summary',
+        summaryText: 'Professional services',
+      }),
+    ),
+  );
+  assert.equal(res.status, 201);
+  assert.equal(res.body.groupingMode, 'summary');
+  assert.equal(res.body.summaryText, 'Professional services');
+
+  const read = await json(
+    await detail(req(`/invoices/${res.body.id}`), {
+      params: Promise.resolve({ id: res.body.id }),
+    }),
+  );
+  assert.equal(read.body.summaryText, 'Professional services');
+  assert.deepEqual(
+    read.body.lineItems.map((li: any) => li.description),
+    ['Professional services'],
+  );
+});
+
+test('the summary text belongs to a summary invoice only', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1) });
+
+  const res = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        groupingMode: 'task',
+        summaryText: 'Ignored',
+      }),
+    ),
+  );
+  assert.equal(res.body.summaryText, null);
+  await assert.rejects(
+    pool.query(`update invoices set summary_text = 'X' where id = $1`, [
+      res.body.id,
+    ]),
+    /invoices_summary_text/,
+  );
+});
+
 // ── status ─────────────────────────────────────────────────────────
 test('status moves draft -> sent -> paid', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');

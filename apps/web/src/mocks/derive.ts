@@ -425,6 +425,7 @@ export interface PreviewRequest {
   periodStart: string;
   periodEnd: string;
   groupingMode?: GroupingMode;
+  summaryText?: string;
   tz?: string;
   manualLines?: ManualLine[];
   excludedExpenseIds?: string[];
@@ -469,14 +470,17 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
   if (!client) return undefined;
   const from = startOfLocalDate(body.periodStart, tz).getTime();
   const to = startOfLocalDate(addDays(body.periodEnd, 1), tz).getTime();
-  const entries = db.entries.filter(
-    (e) =>
-      clientOf(db, e.projectId) === client.id &&
-      e.invoiceId === null &&
-      stopped(e) &&
-      at(e.startedAt) >= from &&
-      at(e.startedAt) < to,
-  );
+  const entries = db.entries
+    .filter(
+      (e) =>
+        clientOf(db, e.projectId) === client.id &&
+        e.invoiceId === null &&
+        stopped(e) &&
+        at(e.startedAt) >= from &&
+        at(e.startedAt) < to,
+    )
+    // `loadBillableEntries` reads them oldest first, which orders a line's entries.
+    .sort((a, b) => at(a.startedAt) - at(b.startedAt));
   const groupingMode = body.groupingMode ?? 'entry';
   return {
     clientId: client.id,
@@ -489,6 +493,7 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
       billable(entries, db.projects, db.clients, db.settings.defaultHourlyRate),
       {
         groupingMode,
+        summaryText: body.summaryText?.trim() ?? '',
         taxRate: client.taxRate ?? 0,
         tz,
         manualLines: body.manualLines,

@@ -367,6 +367,7 @@ export const api = {
     periodStart: string;
     periodEnd: string;
     groupingMode?: GroupingMode;
+    summaryText?: string;
     tz?: string;
     manualLines?: ManualLine[];
     excludedExpenseIds?: string[];
@@ -378,6 +379,7 @@ export const api = {
     periodStart: string;
     periodEnd: string;
     groupingMode?: GroupingMode;
+    summaryText?: string;
     tz?: string;
     manualLines?: ManualLine[];
     excludedExpenseIds?: string[];

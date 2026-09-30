@@ -34,6 +34,7 @@ function invoice(status: InvoiceStatus, sentAt: string | null = null): Invoice {
     notes: null,
     paymentTerms: 'Net 30',
     groupingMode: 'entry',
+    summaryText: null,
     paymentDetails: null,
     sentAt,
     paidAt: null,

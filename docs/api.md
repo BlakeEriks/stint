@@ -221,8 +221,8 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/invoices` | `?clientId&status&limit` (1–200, default 50), newest first — ordered by invoice sequence, not issue date. |
-| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, tz?, manualLines?, excludedExpenseIds? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `expensesSubtotal`, `total`, `entryCount`, `unratedEntryIds`, plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
-| `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries and expenses, in one transaction. Also accepts `issueDate`, `dueDate`, `notes`, `paymentTerms`, `tz`. Returns the `Invoice` plus `lineItems` and `entryCount`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if there is nothing to bill: no time, no expense and no charge; `409 EXPENSE_ALREADY_INVOICED` if another invoice took one of its expenses first, which writes nothing and uses no number; `422 VALIDATION_FAILED` on an invalid `tz`. |
+| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, summaryText?, tz?, manualLines?, excludedExpenseIds? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `expensesSubtotal`, `total`, `entryCount`, `unratedEntryIds`, plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
+| `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries and expenses, in one transaction. Also accepts `issueDate`, `dueDate`, `notes`, `paymentTerms`, `tz`. Returns the `Invoice` plus `lineItems` and `entryCount`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if there is nothing to bill: no time, no expense and no charge; `422 VALIDATION_FAILED` for `summary` with an empty `summaryText`; `409 EXPENSE_ALREADY_INVOICED` if another invoice took one of its expenses first, which writes nothing and uses no number; `422 VALIDATION_FAILED` on an invalid `tz`. |
 | `GET` | `/invoices/:id` | Invoice + frozen line items + the client's `{ id, name, email, address }` (not the full client row). Returned **flat**, like every other detail route. These `lineItems` carry `id` and `sortOrder`; the ones a preview or a generation returns carry `rateSource` and `entryIds` instead. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Releases its entries and expenses. |
 | `GET` | `/invoices/:id/pdf` | Streams `application/pdf` from the frozen line items. `?download=1` for `attachment` rather than an inline preview. |
@@ -255,8 +255,10 @@ allocates a gapless number and locks entries — it must never be a surprise.
 their own address; `PATCH /status` records that it went out.
 `docs/positioning.md` says why.
 
-`grouping_mode` (`entry | task | project | day`) controls whether the invoice
-lists every entry or sums them. It is frozen onto the invoice.
+`grouping_mode` (`summary | entry | task | project | day`) controls whether the
+invoice lists every entry or sums them. `summary` is one line per rate
+carrying `summaryText`, which the invoice keeps as `summaryText`. Both are
+frozen onto the invoice.
 
 ## Expenses
 

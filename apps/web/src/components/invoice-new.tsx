@@ -32,10 +32,15 @@ import { shortDate } from './invoice-bits';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
+  {
+    value: 'summary',
+    label: 'One summary line',
+    hint: 'One line per rate, with your own text.',
+  },
   { value: 'entry', label: 'Every entry', hint: 'One line per time entry.' },
   {
     value: 'task',
-    label: 'By task name',
+    label: 'By task',
     hint: 'Entries with the same name and rate are summed.',
   },
   { value: 'project', label: 'By project', hint: 'One line per project.' },
@@ -57,6 +62,8 @@ interface Draft {
   periodStart: string;
   periodEnd: string;
   groupingMode: GroupingMode;
+  /** The one line's text with `summary`. Fresh on every invoice. */
+  summaryText: string;
   notes: string;
   dueDate: string;
   charges: Charge[];
@@ -70,6 +77,7 @@ const empty = (): Draft => ({
   periodStart: defaultStart(),
   periodEnd: defaultEnd(),
   groupingMode: 'entry',
+  summaryText: '',
   notes: '',
   dueDate: '',
   charges: [],
@@ -147,6 +155,7 @@ export function NewInvoice() {
         periodStart: draft.periodStart,
         periodEnd: draft.periodEnd,
         groupingMode: draft.groupingMode,
+        summaryText: draft.summaryText,
         tz,
         manualLines: billableCharges(draft.charges),
         excludedExpenseIds: draft.excludedExpenseIds,
@@ -171,6 +180,7 @@ export function NewInvoice() {
         periodStart: draft.periodStart,
         periodEnd: draft.periodEnd,
         groupingMode: draft.groupingMode,
+        summaryText: draft.summaryText,
         tz,
         manualLines: billableCharges(draft.charges),
         excludedExpenseIds: draft.excludedExpenseIds,
@@ -222,6 +232,8 @@ export function NewInvoice() {
     );
 
   const blocked = (preview?.unratedEntryIds.length ?? 0) > 0;
+  const noSummaryText =
+    draft.groupingMode === 'summary' && draft.summaryText.trim() === '';
   const nothingToBill = preview !== null && preview.lineItems.length === 0;
 
   return (
@@ -262,11 +274,39 @@ export function NewInvoice() {
           {/* No `hint` on the Field: each mode's hint is in its own menu row,
               where it describes the choice being weighed rather than the one
               already made. */}
-          <Field label="Group lines" htmlFor="inv-group">
+          <Field label="Show time as" htmlFor="inv-group">
             <GroupingPicker
               value={draft.groupingMode}
               onChange={(mode) => setBilled('groupingMode', mode)}
             />
+            {/* Under the picker on a rule of its own, so the text reads as
+                part of this choice rather than a field of the invoice. */}
+            {draft.groupingMode === 'summary' ? (
+              <div className="mt-1.5 ml-3 border-l-2 border-edge-subtle pl-3">
+                <Field label="Summary line" htmlFor="inv-summary" required>
+                  <Input
+                    id="inv-summary"
+                    value={draft.summaryText}
+                    onChange={(e) => setBilled('summaryText', e.target.value)}
+                    placeholder="Professional services"
+                    maxLength={200}
+                    aria-invalid={noSummaryText}
+                    aria-describedby={
+                      noSummaryText ? 'inv-summary-error' : undefined
+                    }
+                  />
+                  {noSummaryText ? (
+                    <p
+                      id="inv-summary-error"
+                      role="alert"
+                      className="type-support text-danger"
+                    >
+                      Give the summary line its text.
+                    </p>
+                  ) : null}
+                </Field>
+              </div>
+            ) : null}
           </Field>
 
           {client ? (
@@ -370,7 +410,9 @@ export function NewInvoice() {
               type="button"
               variant="accent"
               onClick={() => generate.mutate()}
-              disabled={generate.isPending || blocked || nothingToBill}
+              disabled={
+                generate.isPending || blocked || nothingToBill || noSummaryText
+              }
             >
               {generate.isPending ? 'Generating…' : 'Generate invoice'}
             </Button>
@@ -469,7 +511,7 @@ function GroupingPicker({
     <DropdownMenu>
       <DropdownMenuTrigger
         id="inv-group"
-        aria-label="Group lines"
+        aria-label="Show time as"
         className={`${inputClass} flex items-center justify-between gap-2 text-left
                     focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
       >

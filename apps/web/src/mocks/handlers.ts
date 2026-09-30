@@ -410,6 +410,9 @@ export const handlers = {
     const input = await body<
       PreviewRequest & { issueDate?: string; dueDate?: string; notes?: string }
     >(request);
+    const summaryText = input.summaryText?.trim() ?? '';
+    if (input.groupingMode === 'summary' && !summaryText)
+      return fail('VALIDATION_FAILED', 'A summary line needs its text');
     const preview = invoicePreview(db, input, input.tz ?? ZONE);
     if (!preview) return fail('ENTRY_NOT_FOUND');
     if (preview.unratedEntryIds.length > 0)
@@ -435,6 +438,7 @@ export const handlers = {
       notes: input.notes ?? null,
       paymentTerms: db.settings.defaultPaymentTerms,
       groupingMode: preview.groupingMode,
+      summaryText: preview.groupingMode === 'summary' ? summaryText : null,
       paymentDetails: null,
       sentAt: null,
       paidAt: null,

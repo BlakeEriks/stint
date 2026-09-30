@@ -8,7 +8,11 @@
 import { resolveRate, resolveRateSource, type RateSource } from './rates.ts';
 import { localDateKey } from './calendar.ts';
 
-export type GroupingMode = 'entry' | 'task' | 'project' | 'day';
+/**
+ * `summary` is one line of the user's own text for all the time, split only
+ * by rate, so accounts payable reads a total rather than a breakdown.
+ */
+export type GroupingMode = 'summary' | 'entry' | 'task' | 'project' | 'day';
 
 export interface BillableEntry {
   id: string;
@@ -113,8 +117,11 @@ function describe(
   entry: BillableEntry,
   mode: GroupingMode,
   tz: string,
+  summaryText: string,
 ): string {
   switch (mode) {
+    case 'summary':
+      return summaryText;
     case 'entry':
     case 'task':
       return entry.taskName || 'Untitled';
@@ -137,9 +144,10 @@ function groupKey(
   mode: GroupingMode,
   rate: number,
   tz: string,
+  summaryText: string,
 ): string {
   if (mode === 'entry') return entry.id;
-  return `${describe(entry, mode, tz)}\0${rate}`;
+  return `${describe(entry, mode, tz, summaryText)}\0${rate}`;
 }
 
 /**
@@ -153,6 +161,8 @@ export function buildLineItems(
   entries: BillableEntry[],
   opts: {
     groupingMode: GroupingMode;
+    /** The one line's text in `summary` mode; ignored by the others. */
+    summaryText?: string;
     taxRate?: number;
     tz?: string;
     /** Flat charges the user entered: fees, deposits, retainers. */
@@ -164,6 +174,7 @@ export function buildLineItems(
   const mode = opts.groupingMode;
   const tz = opts.tz ?? 'UTC';
   const taxRate = opts.taxRate ?? 0;
+  const summaryText = opts.summaryText ?? '';
 
   const billable = entries.filter((e) => e.isBillable);
   const unratedEntryIds: string[] = [];
@@ -188,7 +199,7 @@ export function buildLineItems(
       continue;
     }
 
-    const key = groupKey(entry, mode, rate, tz);
+    const key = groupKey(entry, mode, rate, tz, summaryText);
     const existing = groups.get(key);
 
     hundredthsByKey.set(
@@ -200,7 +211,7 @@ export function buildLineItems(
       existing.entryIds.push(entry.id);
     } else {
       groups.set(key, {
-        description: describe(entry, mode, tz),
+        description: describe(entry, mode, tz, summaryText),
         unit: 'hour',
         quantity: 0, // computed once the group is complete
         unitPrice: rate,
