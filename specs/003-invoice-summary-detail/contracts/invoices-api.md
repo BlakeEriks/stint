@@ -32,7 +32,6 @@ Request, added:
 | --- | --- | --- |
 | `summaryText` | `string` | Required, non-empty, with `'summary'`. |
 | `schedules` | `('project' \| 'week' \| 'date')[]` | Unique. Allowed only with `'summary'`. The route computes the tables with `tz` and freezes them in `supporting_detail`, in print order. |
-| `tz` | IANA zone | Required with `schedules`; the zone weeks and dates are bucketed in. |
 | `reference` | `string`, ≤ 200, optional | Blank becomes null. |
 | `paymentProfileId` | `uuid`, optional | The profile to freeze. When absent, the client's profile, else the default, as today. |
 | `issueDate` | already accepted | New invoice now sends the local date. |

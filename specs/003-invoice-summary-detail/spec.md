@@ -273,9 +273,8 @@ payment profile; the generated invoice bills both and prints that profile.
 
 - **FR-012**: One summary line MUST produce one time line per distinct rate,
   each with the summary text.
-- **FR-013**: A summary line's hours and amount MUST be computed from the
-  summed time, rounded once, as every other grouping is, and that amount is
-  authoritative.
+- **FR-013**: A summary line's hours and amount MUST follow the same hours
+  rule as every other grouping, and that amount is authoritative.
 
 **Preview**
 

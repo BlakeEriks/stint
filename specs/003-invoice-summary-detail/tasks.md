@@ -62,7 +62,7 @@ None. The migration ships with US1 (research R2); every later story builds on it
 - [ ] T012 [US1] `apps/web/src/components/invoice-new.tsx`: "Group lines" becomes "Show time as", One summary line first with its one-line description; with it, a "Summary line" field under the picker, indented on a left rule, empty to start, its error and Generate's disabled state as in T005; `summaryText` on preview and generate
 - [ ] T013 [US1] `apps/web/src/components/invoice-detail.tsx`: name the grouping "One summary line" wherever the mode is named
 - [ ] T014 [US1] `docs/api.md` and `docs/data-model.md`: `'summary'`, `summaryText`, and the three new columns
-- [ ] T015 [US1] Run `pnpm verify` (or the suites above), check New invoice signed in locally, commit, and hold the PR until #199 merges; then rebase, open it with Try it and the `migration` label
+- [ ] T015 [US1] Run `pnpm verify:static` and `pnpm verify:db`, check New invoice signed in locally, commit, and hold the PR until #199 merges; then rebase, open it with Try it and the `migration` label
 
 **Checkpoint**: US1 is releasable alone.
 
