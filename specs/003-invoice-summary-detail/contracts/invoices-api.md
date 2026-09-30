@@ -31,7 +31,8 @@ Request, added:
 | Field | Type | Notes |
 | --- | --- | --- |
 | `summaryText` | `string` | Required, non-empty, with `'summary'`. |
-| `schedules` | `('project' \| 'week' \| 'date')[]` | Unique. Allowed only with `'summary'`. Stored in print order. |
+| `schedules` | `('project' \| 'week' \| 'date')[]` | Unique. Allowed only with `'summary'`. The route computes the tables with `tz` and freezes them in `supporting_detail`, in print order. |
+| `tz` | IANA zone | Required with `schedules`; the zone weeks and dates are bucketed in. |
 | `reference` | `string`, ≤ 200, optional | Blank becomes null. |
 | `paymentProfileId` | `uuid`, optional | The profile to freeze. When absent, the client's profile, else the default, as today. |
 | `issueDate` | already accepted | New invoice now sends the local date. |
@@ -46,19 +47,19 @@ Response: the `Invoice` below, plus `lineItems` and `entryCount` as today.
 ## `Invoice` (every route that returns one)
 
 Added: `summaryText: string | null`, `reference: string | null`,
-`schedules: ('project' | 'week' | 'date')[]`. `groupingMode` adds `'summary'`.
+`supportingDetail: Schedules | null` (only the ticked tables). `groupingMode` adds `'summary'`.
 
 ## `GET /invoices/:id/pdf`
 
 - Page 1: "Service period" replaces "Period", with "Reference" beneath it when
   one is set.
-- When `schedules` is non-empty and the invoice's entries are still attached,
-  the chosen tables follow from page 2, in the order project, week, date. Each
+- When `supporting_detail` is set, its tables follow from page 2, in the order project, week, date. Each
   detail page carries the running header "Supporting detail · {number} ·
   {client} · {period}". A table that runs over a page repeats its heading
   with "(continued)" and its column headings. Every table ends in a Total row.
   Tables show hours only.
-- The detail is derived on each download (`research.md` R4).
+- The detail is read from `supporting_detail`, frozen at generation
+  (`research.md` R4).
 
 ## UI contract: New invoice
 

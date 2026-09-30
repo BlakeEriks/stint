@@ -11,11 +11,10 @@ need no new table. `own_invoices` already covers the new columns.
 | `grouping_mode` | `text` | Check widened to `('summary','entry','task','project','day')`. |
 | `summary_text` | `text` | `(grouping_mode = 'summary') = (summary_text is not null)`; `btrim(summary_text) <> ''` and at most 200 characters, the limit on a line description. |
 | `reference` | `text` | Null when blank; `btrim(reference) <> ''` and at most 200 characters. |
-| `schedules` | `text[] not null default '{}'` | `schedules <@ '{project,week,date}'`; `grouping_mode = 'summary' or schedules = '{}'`. Stored in print order: project, week, date. |
-| `tz` | `text` | The IANA zone the period was resolved in. `schedules = '{}' or tz is not null`. Null on invoices issued before this migration. |
+| `supporting_detail` | `jsonb` | The ticked schedules, frozen at generation (R4). Null when none; `grouping_mode = 'summary' or supporting_detail is null`. |
 
 Every existing row satisfies every check: its mode is one of the old four,
-`summary_text` is null and `schedules` is empty.
+and `summary_text` and `supporting_detail` are null.
 
 The payment profile the user chose needs no column. `payment_details`
 already freezes the rendered block (R8).
@@ -23,24 +22,24 @@ already freezes the rendered block (R8).
 ## `create_invoice(p_user_id, p_invoice, p_entry_ids, p_expense_ids)`
 
 Replaced with the same signature. The insert also writes
-`p_invoice->>'summary_text'`, `p_invoice->>'reference'`, `p_invoice->>'tz'` and
-`schedules` from `p_invoice->'schedules'` (a JSON array, read with
-`jsonb_array_elements_text`). The number, lines, entry and expense claims and
+`p_invoice->>'summary_text'`, `p_invoice->>'reference'` and
+`p_invoice->'supporting_detail'`. The number, lines, entry and expense claims and
 payment reference are unchanged.
 
-## Derived, never stored: a schedule
+## A schedule, frozen at generation
 
 `buildSchedules` in `packages/core/src/schedule.ts` works from the entries the
-invoice bills (`time_entries.invoice_id = invoice.id`), their projects' names,
-`invoices.tz` and the period (R4).
+invoice bills, their projects' names, the user's zone and the period (R4).
+`supporting_detail` stores the ticked tables of its result, in print order,
+with `totalHours`.
 
 ```ts
 interface ScheduleEntry { startedAt: string; durationSeconds: number; projectName: string | null }
 
 interface Schedules {
-  project: Array<{ project: string; hours: number }>;
-  week:    Array<{ start: string; end: string; hours: number }>;   // ISO dates, clipped to the period
-  date:    Array<{ date: string; project: string; hours: number }>;
+  project?: Array<{ project: string; hours: number }>;
+  week?:    Array<{ start: string; end: string; hours: number }>;   // ISO dates, clipped to the period
+  date?:    Array<{ date: string; project: string; hours: number }>;
   totalHours: number;
 }
 ```
@@ -58,10 +57,11 @@ pages. Each page lists `{ kind, continued, rows }` blocks (R5).
   `project | week | date`, allowed only with `'summary'`. `reference` is
   optional, trimmed, at most 200 characters, and blank becomes null.
   `paymentProfileId` is an optional uuid. A breach is `422 VALIDATION_FAILED`.
-- `Invoice` gains `summaryText`, `reference` and `schedules`.
+- `Invoice` gains `summaryText`, `reference` and `supportingDetail`
+  (`Schedules | null`).
 
 ## State
 
 No new transitions. A generated invoice is a draft, and the columns above are
-written once, by `create_invoice`. No route updates them afterwards. Voiding
-releases the entries, which empties a derived schedule (R4, known limits).
+written once, by `create_invoice`. No route updates them afterwards, and
+voiding leaves them in place.

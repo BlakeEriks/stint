@@ -23,8 +23,8 @@ Rejected.
 
 **Decision**: `supabase/migrations/00000000000028_invoice_summary.sql` adds
 everything the feature stores: `'summary'` in the `grouping_mode` check, and
-`summary_text`, `reference`, `schedules` and `tz` on `invoices`. It replaces
-`create_invoice` to write the four columns. It ships with User Story 1
+`summary_text`, `reference` and `supporting_detail` on `invoices`. It
+replaces `create_invoice` to write the three columns. It ships with User Story 1
 (`data-model.md`).
 
 **Rationale**: The release gate waits for approval and a backup for each
@@ -48,15 +48,15 @@ last invoice) read the choice from the invoice, not by guessing it back from
 a line. A check constraint ties the two columns together, so they cannot
 disagree about the mode.
 
-## R4. Schedules are derived from the billed entries when the PDF renders
+## R4. Schedules are computed at generation and frozen with the invoice
 
-**Decision**: `invoices.schedules text[]` stores only the choice
-(`project`, `week`, `date`), and `invoices.tz` stores the zone the period was
-resolved in. `loadPdfData` reads `time_entries where invoice_id = :id` with
-their projects' names. A new pure function, `buildSchedules(entries, { tz,
-periodStart, periodEnd })` in `packages/core/src/schedule.ts`, returns all
-three tables. The preview calls the same function on the entries it would
-attach (FR-023, SC-005).
+**Decision**: `invoices.supporting_detail jsonb` holds the ticked tables,
+computed when the invoice is generated, like `payment_details`. A new pure
+function, `buildSchedules(entries, { tz, periodStart, periodEnd })` in
+`packages/core/src/schedule.ts`, returns all three tables. `POST /invoices`
+keeps the ticked ones and `create_invoice` writes them; the preview calls the
+same function on the same entries (FR-023, SC-005). The PDF reads the column
+and derives nothing.
 
 - **By project**: one row per project (`Unassigned` for none), hours
   descending, then name.
@@ -68,26 +68,13 @@ attach (FR-023, SC-005).
   rounded once from all the seconds, so it equals a one-rate summary line's
   quantity.
 
-**Rationale**: FR-023 says only the choice is stored. The zone must be stored
-with it: Blake travels, and a week or a date bucketed in the zone of whoever
-downloads would move entries between rows.
+**Rationale**: An issued invoice is immutable. Derived at render, a schedule
+would change on a project rename, lose its entries on void (voiding releases
+them), and drift while a draft's entries stay editable. Frozen, it is fixed
+like the lines, and the zone it was bucketed in never needs storing.
 
-**Known limits**: A derived schedule is only as fixed as its inputs. Three
-things can change it after generation:
-
-1. **Renaming a project.** The line descriptions are frozen, but a project's
-   name is read when the PDF renders.
-2. **Voiding.** Voiding releases the entries (`status/route.ts`), so a void
-   invoice's PDF has nothing to derive from. It prints without its schedules.
-3. **Editing an entry while the invoice is a draft.** `guard_billed_entry`
-   locks entries only once the invoice leaves draft, so a schedule can drift
-   from the frozen lines before it is sent.
-
-A sent or paid invoice's entries are locked, so only a rename can reach one.
-If any of the three is unacceptable, the alternative is a `supporting_detail
-jsonb` snapshot frozen at generation, like `payment_details`. That drops `tz`
-and the PDF-time query, but it stores the schedules, which FR-023 rules out.
-This is left for Blake.
+**Alternatives considered**: Storing only the choice and deriving at render.
+Rejected for the three drifts above.
 
 ## R5. Detail pages are laid out in `packages/core`, not by the renderer
 

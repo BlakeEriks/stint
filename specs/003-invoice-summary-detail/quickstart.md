@@ -18,7 +18,7 @@ pnpm verify:db
 rate), `schedule.test.ts` (buckets, week clipping, Unassigned, the midnight
 entry, rounding, pagination and "(continued)"), the UI suite and the stories.
 `verify:db` runs `invoices.test.ts` (summary validation, stored choice,
-schedules derived identically on every download, the chosen payment profile
+schedules frozen at generation, the chosen payment profile
 frozen, reference), `mocks-parity.test.ts` (the fake preview's `schedules`)
 and `verify:schema`.
 

@@ -305,9 +305,10 @@ payment profile; the generated invoice bills both and prints that profile.
 - **FR-022**: Each detail page MUST carry the running header "Supporting
   detail · Invoice no · client · period"; a schedule that runs over a page
   MUST repeat its heading with "(continued)" and its column headings.
-- **FR-023**: Schedules MUST derive from the entries the invoice freezes, so
-  only the choice is stored, and an issued invoice's schedules MUST be the
-  same on every download.
+- **FR-023**: Schedules MUST be computed from the entries the invoice bills
+  when it is generated and frozen with it, so a project rename, a void or an
+  entry edited on a draft never changes them; every download prints the same
+  schedules.
 - **FR-024**: The invoice detail screen MUST name the schedules an invoice
   carries.
 
@@ -323,8 +324,8 @@ payment profile; the generated invoice bills both and prints that profile.
 - **Invoice**: gains the One summary line grouping, the summary text, the
   schedules it carries, an optional reference, and the payment profile the
   user chose.
-- **Schedule**: the invoice's frozen entries bucketed by project, week or
-  date, in hours. Derived, never stored.
+- **Schedule**: the invoice's entries bucketed by project, week or date, in
+  hours, computed and frozen at generation.
 
 ## Success Criteria *(mandatory)*
 
