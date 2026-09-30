@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New invoice</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* GENERATED from tokens.json — do not edit by hand. Run `pnpm tokens`. */
+/* The palette for docs/design mockups. Token names are the RAW ones
+   (--bg-primary, --text-muted, --border-subtle), not the Tailwind-stripped
+   utilities the app uses — a mockup writes plain CSS, so there is no prefix
+   collision to work around. */
+
+:root {
+    --bg-recessed: #0A0B0E;
+    --bg-base: #111316;
+    --bg-primary: #181B1F;
+    --bg-elevated: #202328;
+    --bg-hover: #272A30;
+    --bg-active: #2F333A;
+    --text-strong: #F9FAFD;
+    --text-primary: #CACED7;
+    --text-muted: #9299A6;
+    --text-subtle: #838A97;
+    --text-on-accent: #111316;
+    --text-on-danger: #111316;
+    --overlay: #05060899;
+    --border-grid: #272A30;
+    --border-subtle: #2F333A;
+    --border-default: #393E48;
+    --border-control: #666D79;
+    --border-focus: #9DA3AF;
+    --accent-default: #52FC43;
+    --accent-hover: #8EFD83;
+    --accent-active: #3FE231;
+    --accent-subtle: #0E4B09;
+    --accent-muted: #1B3518;
+    --timer-running: #52FC43;
+    --timer-idle: #666D79;
+    --timer-warning: #5CABF2;
+    --success: #36C52A;
+    --warning: #5CABF2;
+    --danger: #F64B66;
+    --danger-muted: #471F23;
+    --info: #6D7FAE;
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.40), 0 2px 10px rgba(0,0,0,0.34);
+    --shadow-float: 0 2px 4px rgba(0,0,0,0.44), 0 8px 24px rgba(0,0,0,0.40);
+    --shadow-halo-running: 0 0 0 3px color-mix(in oklab, var(--timer-running) 18%, transparent);
+
+    --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --motion-instant: 90ms;
+    --motion-quick: 160ms;
+    --motion-count: 900ms;
+    --motion-rise: 3px;
+    --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+    --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+
+    --mark-bound-width: 0.09em;
+    --mark-bound-height: 1.05em;
+    --mark-bound-gap: 0.18em;
+    --mark-bound-radius: 999px;
+
+    --proj-1: #DA8188;
+    --proj-2: #D38B59;
+    --proj-3: #B49D46;
+    --proj-4: #42B59A;
+    --proj-5: #35AFC9;
+    --proj-6: #6EA1E2;
+    --proj-7: #A390DC;
+    --proj-8: #C984BA;
+
+    --cat-1: #64A3E3;
+    --cat-2: #F6964E;
+}
+
+[data-theme="light"] {
+    --bg-recessed: #E8E2D8;
+    --bg-base: #EEE9E0;
+    --bg-primary: #F4F0E8;
+    --bg-elevated: #FAF6EF;
+    --bg-hover: #DED8CD;
+    --bg-active: #D1CABE;
+    --text-strong: #0B0A09;
+    --text-primary: #2D2A25;
+    --text-muted: #68635B;
+    --text-subtle: #767068;
+    --text-on-accent: #FFFFFF;
+    --text-on-danger: #FFFFFF;
+    --overlay: #1B1E2799;
+    --border-grid: #DED8CD;
+    --border-subtle: #D1CABE;
+    --border-default: #C1BDB5;
+    --border-control: #938E86;
+    --border-focus: #58544C;
+    --accent-default: #315424;
+    --accent-hover: #2A491E;
+    --accent-active: #233F19;
+    --accent-subtle: #4A783A;
+    --accent-muted: #E0EFDB;
+    --timer-running: #3A632C;
+    --timer-idle: #938E86;
+    --timer-warning: #1C6DAD;
+    --success: #457036;
+    --warning: #1C6DAD;
+    --danger: #C21F43;
+    --danger-muted: #FFEBEB;
+    --info: #4A5A85;
+
+    --shadow-card: 0 1px 2px rgba(16,18,26,0.06), 0 2px 8px rgba(16,18,26,0.07);
+    --shadow-float: 0 2px 4px rgba(16,18,26,0.08), 0 8px 24px rgba(16,18,26,0.10);
+    --shadow-halo-running: 0 0 0 3px color-mix(in oklab, var(--timer-running) 22%, transparent);
+}
+
+/* ── The type scale ────────────────────────────────────────────────
+   One class per role, same as the app's @utility set. A mockup names a
+   role (type-amount) and never assembles one, so a doc cannot invent a
+   size the product does not have. */
+.type-timer {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 30px; }
+    font-variant-numeric: tabular-nums;
+}
+
+.type-title {
+    font-family: var(--font-sans);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+.type-hero {
+    font-family: var(--font-sans);
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    @media (width >= 40rem) { font-size: 44px; }
+}
+
+.type-figure {
+    font-family: var(--font-mono);
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-figure-hero {
+    font-family: var(--font-mono);
+    font-size: 40px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-lede {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+    @media (width >= 40rem) { font-size: 17px; }
+}
+
+.type-display {
+    font-family: var(--font-sans);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 28px; }
+}
+
+.type-section {
+    font-family: var(--font-sans);
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.type-heading {
+    font-family: var(--font-sans);
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.type-body {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+}
+
+.type-control {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.type-support {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.type-amount {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-amount-hero {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-duration {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-meta {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-meta-strong {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-wordmark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.type-wordmark-small {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.type-nav {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.type-region-head {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+.type-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.type-badge {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ── The mark ──────────────────────────────────────────────────────
+   `|Stint|` — one color, bounds included, inherited via currentColor.
+   Set a font-size on .mark and everything scales from it. */
+.mark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+.mark::before,
+.mark::after {
+    content: '';
+    display: inline-block;
+    flex: none;
+    width: var(--mark-bound-width);
+    height: var(--mark-bound-height);
+    margin: 0 var(--mark-bound-gap);
+    border-radius: var(--mark-bound-radius);
+    background: currentColor;
+}
+
+</style>
+<style>
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--bg-recessed); color: var(--text-primary); padding: 16px; }
+button, input, textarea { font: inherit; color: inherit; }
+
+/* ── The review's own controls ─────────────────────────────────── */
+.bar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin-bottom: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--border-default); border-radius: 6px; overflow: hidden; }
+.seg button { background: transparent; border: 0; padding: 6px 10px; color: var(--text-muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--bg-active); color: var(--text-strong); }
+.caption { color: var(--text-muted); margin-bottom: 16px; min-height: 20px; }
+
+/* ── The app frame ─────────────────────────────────────────────── */
+.frame { margin: 0 auto; max-width: 1400px; background: var(--bg-base); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px; }
+.frame.phone { max-width: 390px; }
+.top { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px 12px; color: var(--text-strong); }
+.top .mark { font-size: 14px; }
+.top .who { color: var(--text-muted); }
+.shell { display: grid; grid-template-columns: 192px 1fr; gap: 12px; }
+.rail { display: flex; flex-direction: column; gap: 4px; padding: 16px 4px 0; }
+.rail a { position: relative; flex: none; padding: 8px 12px; border-radius: 6px; color: var(--text-muted); text-decoration: none; }
+.rail a[aria-current] { background: var(--bg-elevated); color: var(--text-strong); }
+.rail a[aria-current]::before { content: ''; position: absolute; left: -1px; top: 50%; width: 2px; height: 14px; transform: translateY(-50%); border-radius: 999px; background: var(--border-control); }
+/* Below the app's `lg`, the rail is a row above the panel. */
+.frame.phone .shell, .frame.bare .shell { grid-template-columns: 1fr; }
+.frame.phone .rail { flex-direction: row; overflow-x: auto; padding: 0 4px; }
+@media (max-width: 1023px) {
+  .shell { grid-template-columns: 1fr; }
+  .rail { flex-direction: row; overflow-x: auto; padding: 0 4px; }
+}
+/* The PDF is a download, not a screen: it is shown without the app around it. */
+.frame.bare { background: transparent; border: 0; padding: 0; }
+.frame.bare .top, .frame.bare .rail { display: none; }
+.frame.bare .panel { background: transparent; box-shadow: none; }
+.frame.bare .col { padding: 0; max-width: none; }
+.panel { background: var(--bg-primary); border-radius: 8px; box-shadow: var(--shadow-card); min-width: 0; container-type: inline-size; }
+/* Wide enough, the preview stands beside the fields it answers, and stays
+   in view while they scroll. Narrower, it follows them. */
+.work { display: grid; gap: 0 32px; }
+.work > * { min-width: 0; }
+@container (min-width: 900px) {
+  .panel .col { max-width: 1152px; }
+  .work { grid-template-columns: minmax(320px, 400px) 1fr; align-items: start; }
+  .work .pvwrap { margin-top: 0; position: sticky; top: 84px; max-height: calc(100vh - 132px); display: flex; flex-direction: column; }
+  .work .card { min-height: 0; overflow-y: auto; }
+}
+.col { max-width: 768px; margin: 0 auto; padding: 18px; }
+.back { color: var(--text-subtle); }
+/* The title row holds the one action the page has, and stays put while
+   the fields scroll under it. */
+.head { position: sticky; top: 0; z-index: 3; display: flex; justify-content: space-between; align-items: center; gap: 16px; background: var(--bg-primary); padding: 16px 0 14px; margin-bottom: 4px; }
+.head h1 { color: var(--text-strong); white-space: nowrap; }
+
+/* ── Form parts, as field.tsx draws them ───────────────────────── */
+.stack { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+/* Each group of fields is its own band, so where one ends is read at a
+   glance. */
+.stack.form { margin-top: 0; gap: 0; }
+.stack.form > * { padding: 20px 0; border-top: 1px solid var(--border-subtle); }
+.stack.form > *:first-child { padding-top: 4px; border-top: 0; }
+.fgrp { display: flex; flex-direction: column; gap: 16px; }
+.explist { border: 1px solid var(--border-subtle); border-radius: 6px; }
+/* The card holds what the page will: the two parties, the numbers and
+   dates, the lines, the totals and the payment details, in that order. */
+.cmeta { display: flex; flex-direction: column; gap: 4px; }
+.cmeta div { display: flex; gap: 12px; }
+.cmeta dt { width: 104px; flex: none; color: var(--text-subtle); }
+.cmeta dd { margin: 0; color: var(--text-primary); }
+.cmeta.r div { justify-content: flex-end; }
+.cmeta.r dt { width: auto; }
+.cmeta.r dd { min-width: 96px; text-align: right; }
+.chead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 32px; }
+.chead > * { flex: 1 1 200px; }
+.party { color: var(--text-muted); white-space: pre-line; line-height: 1.5; }
+.party b { display: block; color: var(--text-strong); font-weight: 500; }
+.cl { color: var(--text-subtle); display: block; margin-bottom: 8px; }
+.pay-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px 16px; }
+.pay-grid div span { display: block; color: var(--text-subtle); }
+.pay-grid div b { font-weight: 500; color: var(--text-primary); }
+.cdetail { display: flex; flex-direction: column; gap: 20px; border-top: 1px dashed var(--border-default); padding-top: 16px; }
+.cdetail > span { color: var(--text-subtle); }
+.cdetail h4 { color: var(--text-strong); margin-bottom: 4px; }
+.cblock { display: flex; flex-direction: column; gap: 4px; }
+.cblock span { color: var(--text-subtle); }
+.cblock p { color: var(--text-primary); white-space: pre-wrap; }
+.field { display: flex; flex-direction: column; gap: 6px; position: relative; }
+.field > label, .field > .lab { color: var(--text-muted); }
+/* A field that belongs to the choice above it: indented under it, tight. */
+.field .nested { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 0 12px; padding-left: 12px; border-left: 2px solid var(--border-subtle); }
+.err { color: var(--danger); }
+.in { height: 36px; width: 100%; border: 1px solid var(--border-default); border-radius: 6px; background: transparent; padding: 0 12px; color: var(--text-strong); display: flex; align-items: center; justify-content: space-between; text-align: left; }
+button.in { cursor: pointer; }
+.in.bad { border-color: var(--danger); }
+.in::placeholder { color: var(--text-subtle); }
+textarea.in { height: auto; padding: 8px 12px; display: block; }
+.two { display: flex; flex-wrap: wrap; gap: 16px; }
+.two > * { flex: 1 1 160px; }
+/* From, To and Due on one row: the three dates read together. */
+.three { display: flex; flex-wrap: wrap; gap: 16px; }
+.three > * { flex: 1 1 104px; }
+.chev { color: var(--text-muted); }
+.menu { position: absolute; top: 66px; left: 0; z-index: 2; width: 288px; max-width: 100%; background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 8px; box-shadow: var(--shadow-float); padding: 4px; }
+.menu div { padding: 6px 8px 6px 32px; border-radius: 4px; position: relative; color: var(--text-primary); cursor: pointer; }
+.menu div:hover, .menu div.on { background: var(--bg-hover); }
+.menu div.on::before { content: '✓'; position: absolute; left: 10px; color: var(--text-strong); }
+.menu div.new { border-top: 1px solid var(--border-subtle); margin-top: 4px; padding-top: 8px; border-radius: 0; color: var(--text-muted); }
+.menu small { display: block; color: var(--text-subtle); }
+.check { display: inline-flex; align-items: center; gap: 8px; color: var(--text-primary); cursor: pointer; }
+.check input, .exp input { width: 16px; height: 16px; accent-color: var(--text-muted); margin: 0; flex: none; }
+/* An expense row, as expense-row.tsx draws it: the tick is one control and
+   the rest of the row, ending in the pencil, opens the expense. */
+.exp { display: flex; align-items: center; gap: 12px; padding-left: 12px; border-bottom: 1px solid var(--border-grid); }
+.exp:last-child { border-bottom: 0; }
+.exp input { margin: 0; }
+.exp button { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 0; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.exp button:hover { background: var(--bg-hover); }
+.exp button:hover svg { color: var(--text-strong); }
+.exp .n { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; color: var(--text-strong); }
+.exp .n small { display: flex; align-items: center; gap: 4px; color: var(--text-subtle); }
+.exp .a { flex: none; text-align: right; color: var(--text-strong); }
+.exp svg { width: 14px; height: 14px; flex: none; color: var(--text-subtle); }
+.ghost { align-self: flex-start; border: 0; background: transparent; color: var(--text-muted); padding: 6px 8px; margin-left: -8px; border-radius: 6px; cursor: pointer; }
+.btn { height: 36px; padding: 0 16px; border-radius: 6px; border: 1px solid var(--border-default); background: var(--bg-elevated); color: var(--text-strong); flex: none; cursor: pointer; }
+.btn.accent { background: var(--accent-default); border-color: var(--accent-default); color: var(--text-on-accent); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ── The dialog, as ui/dialog.tsx draws it ─────────────────────── */
+.overlay { position: fixed; inset: 0; z-index: 50; background: var(--overlay); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.dialog { width: 100%; max-width: 576px; max-height: 85vh; overflow-y: auto; background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 8px; box-shadow: var(--shadow-float); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.dialog h2 { color: var(--text-strong); }
+.dialog .dsub { color: var(--text-muted); margin-top: 4px; }
+.dialog .foot { display: flex; justify-content: flex-end; gap: 8px; padding-top: 8px; }
+.dialog .foot #ch-remove { margin-right: auto; }
+
+/* ── The preview card, as PreviewCard draws it ─────────────────── */
+/* The caption sits above the card, so the card is only the page. */
+.pvwrap { margin-top: 24px; }
+.pvhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; padding: 0 4px 10px; }
+.pvhead h2 { color: var(--text-strong); }
+.pvhead span { color: var(--text-subtle); }
+.card { display: flex; flex-direction: column; gap: 20px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-elevated); padding: 24px; overflow-x: auto; }
+.card .live { display: flex; flex-direction: column; gap: 20px; transition: opacity var(--motion-quick) var(--ease-standard); }
+.csec { border-top: 1px solid var(--border-subtle); padding-top: 16px; }
+.card.busy .live { opacity: 0.5; }
+.card .msg { color: var(--text-subtle); }
+.card .locks { color: var(--text-subtle); border-top: 1px solid var(--border-subtle); padding-top: 12px; }
+table.pv { width: 100%; border-collapse: collapse; }
+.pv th { text-align: left; color: var(--text-subtle); padding-bottom: 10px; border-bottom: 1px solid var(--border-default); }
+.pv th.r { text-align: right; }
+.pv th.grp { padding-top: 24px; }
+.pv td { padding: 10px 0 10px 12px; border-bottom: 1px solid var(--border-subtle); text-align: right; color: var(--text-muted); vertical-align: top; white-space: nowrap; }
+.pv tbody tr:last-child td { border-bottom: 0; }
+.pv td:first-child { text-align: left; padding-left: 0; color: var(--text-primary); white-space: normal; }
+.pv td.amt { color: var(--text-strong); }
+.pv td.wrap { text-align: left; white-space: normal; }
+/* On a phone the rate column gives way, so the amount stays in view. */
+.card { container-type: inline-size; }
+@container (max-width: 360px) { #pv th:nth-child(3), #pv td:nth-child(3) { display: none; } }
+.pv .period { display: block; color: var(--text-subtle); }
+.totals { margin-left: auto; width: 100%; max-width: 256px; display: flex; flex-direction: column; gap: 6px; }
+.totals div { display: flex; justify-content: space-between; gap: 16px; color: var(--text-muted); }
+.totals div.t { border-top: 1px solid var(--border-default); padding-top: 8px; margin-top: 2px; color: var(--text-primary); }
+.totals div.t span:last-child { color: var(--text-strong); }
+
+/* ── The PDF. Ink on white paper, whatever the app's theme: these are the
+   ramp and the faces of invoice-pdf.tsx, not the app's tokens. ──────── */
+.pages { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+.sheet {
+  --pdf-ink: #1A1C21; --pdf-muted: #626875; --pdf-faint: #848B98;
+  --pdf-rule: #D1D5DD; --pdf-band: #F2F3F6; --pdf-accent: #315424; --pdf-paper: #FFFFFF;
+  width: 612px; height: 792px; flex: none; position: relative; overflow: hidden;
+  background: var(--pdf-paper); color: var(--pdf-ink); box-shadow: var(--shadow-card);
+  padding: 40px 44px 48px; font: 9.5px/1.5 Helvetica, Arial, sans-serif; zoom: var(--z, 1);
+}
+.sheet .body { height: 688px; overflow: hidden; }
+.sheet b { font-weight: 700; }
+.sheet .mono { font-family: Courier, monospace; }
+.sheet .mu { color: var(--pdf-muted); }
+.sheet .lb { font-size: 7.5px; letter-spacing: 1.1px; color: var(--pdf-faint); font-weight: 700; margin-bottom: 5px; text-transform: uppercase; }
+.sheet .hd { display: flex; justify-content: space-between; margin-bottom: 24px; }
+.sheet .biz { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+.sheet .ttl { font-size: 22px; font-weight: 700; text-align: right; letter-spacing: -0.4px; line-height: 1.15; }
+.sheet .num { font: 11px Courier, monospace; text-align: right; color: var(--pdf-muted); margin-top: 5px; }
+.sheet .meta { display: flex; justify-content: space-between; margin-bottom: 20px; }
+.sheet .dates { display: flex; justify-content: flex-end; gap: 28px; }
+.sheet .dc { text-align: right; margin-bottom: 8px; }
+.sheet .th, .sheet .tr { display: flex; }
+.sheet .th { border-bottom: 1px solid var(--pdf-ink); padding-bottom: 6px; margin-bottom: 2px; }
+.sheet .th.ex { padding-top: 14px; }
+.sheet .th span { font-family: Helvetica, Arial, sans-serif; font-size: 7.5px; letter-spacing: 1.1px; color: var(--pdf-faint); font-weight: 700; }
+.sheet .tr { padding: 5.5px 0; border-bottom: 0.5px solid var(--pdf-rule); }
+.sheet .tr.sum { border-bottom: 0; font-weight: 700; }
+.sheet .c1 { flex: 1; padding-right: 12px; }
+.sheet .cq { width: 62px; text-align: right; font-family: Courier, monospace; }
+.sheet .cr { width: 74px; text-align: right; font-family: Courier, monospace; }
+.sheet .ca { width: 86px; text-align: right; font-family: Courier, monospace; }
+.sheet .cx { width: 136px; text-align: right; font-family: Courier, monospace; }
+.sheet .cd { width: 92px; font-family: Courier, monospace; }
+.sheet .cw { width: 40px; color: var(--pdf-muted); }
+.sheet .tot { padding-top: 12px; display: flex; flex-direction: column; align-items: flex-end; }
+.sheet .tot div { display: flex; width: 250px; justify-content: space-between; padding: 3px 0; }
+.sheet .tot .g { margin-top: 7px; padding-top: 9px; border-top: 1px solid var(--pdf-ink); }
+.sheet .tot .g span:first-child { font-size: 11px; font-weight: 700; }
+.sheet .tot .g span:last-child { font: 700 13px Courier, monospace; color: var(--pdf-accent); }
+.sheet .payw { padding-top: 16px; }
+.sheet .pay { padding: 11px; background: var(--pdf-band); border-left: 2px solid var(--pdf-ink); }
+.sheet .pay .grid { display: flex; flex-wrap: wrap; margin-top: 7px; }
+.sheet .pay .grid > div { width: 33.33%; margin-bottom: 5px; }
+.sheet .pay .pl { font-size: 7px; letter-spacing: 0.9px; color: var(--pdf-faint); font-weight: 700; text-transform: uppercase; }
+.sheet .pay .pvv { font: 9px/1.3 Courier, monospace; }
+.sheet .notice { margin-top: 10px; font-size: 7.5px; color: var(--pdf-faint); }
+.sheet .notes { padding-top: 12px; }
+.sheet .ft { position: absolute; bottom: 24px; left: 44px; right: 44px; display: flex; justify-content: space-between; font-size: 8px; color: var(--pdf-faint); }
+.sheet .run { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--pdf-ink); padding-bottom: 8px; margin-bottom: 18px; }
+.sheet .run .t { font-size: 13px; font-weight: 700; }
+.sheet h3 { font-size: 10.5px; font-weight: 700; margin-bottom: 8px; }
+.sheet h3 i { font-style: normal; font-weight: 400; color: var(--pdf-muted); }
+.sheet .gap { height: 22px; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="bar type-meta">
+  <div class="seg" data-group="screen">
+    <button data-v="form">New invoice</button><button data-v="pdf">The PDF it makes</button>
+  </div>
+  <div class="seg" data-group="state" id="states">
+    <button data-v="ready">Client chosen</button><button data-v="noclient">No client yet</button><button data-v="busy">Updating</button><button data-v="nodesc">No summary line</button><button data-v="newpay">New payment details</button><button data-v="editexp">Editing an expense</button><button data-v="newcharge">New charge</button>
+  </div>
+  <div class="seg" data-group="size">
+    <button data-v="desktop">Desktop</button><button data-v="phone">Phone</button>
+  </div>
+  <div class="seg" data-group="theme">
+    <button data-v="dark">Dark</button><button data-v="light">Light</button>
+  </div>
+</div>
+<p class="caption type-support" id="caption"></p>
+
+<div class="frame" id="frame">
+  <div class="top"><span class="mark">Stint</span><span class="who type-meta">dev@localhost.test</span></div>
+  <div class="shell">
+    <nav class="rail type-label">
+      <a href="#">Home</a><a href="#">Calendar</a><a href="#">Clients</a><a href="#" aria-current="page">Invoices</a><a href="#">Settings</a>
+    </nav>
+
+    <div class="panel">
+      <main class="col" id="form">
+        <a class="back type-label">← Invoices</a>
+        <div class="head">
+          <h1 class="type-title">New invoice</h1>
+          <button class="btn accent type-control" id="gen">Generate invoice</button>
+        </div>
+
+        <div class="work"><div>
+        <!-- One list, in the order the invoice reads: who, when, how the
+             time is shown, what else is billed, and what is printed. -->
+        <div class="stack form">
+            <div class="fgrp">
+            <div class="field">
+              <label class="type-label">Client *</label>
+              <div class="in type-control"><span id="client"></span><span class="chev">⌄</span></div>
+            </div>
+            <div class="three">
+              <div class="field"><label class="type-label">From</label><div class="in type-control">09/01/2026</div></div>
+              <div class="field"><label class="type-label">To</label><div class="in type-control">09/30/2026</div></div>
+              <div class="field"><label class="type-label">Due</label><div class="in type-control">10/30/2026</div></div>
+            </div>
+            <div class="field">
+              <label class="type-label" for="ref">Reference</label>
+              <input class="in type-control" id="ref" placeholder="PO number, contract or SOW">
+            </div>
+            </div>
+
+            <div class="field">
+              <label class="type-label">Show time as</label>
+              <button class="in type-control" id="trigger"><span id="mode"></span><span class="chev">⌄</span></button>
+              <div class="menu type-control" id="menu" hidden></div>
+              <div class="nested" id="descfield">
+                <label class="type-label" for="desc">Summary line *</label>
+                <input class="in type-control" id="desc" placeholder="Professional services">
+                <p class="err type-support" id="descerr" role="alert">Give the summary line its text.</p>
+              </div>
+            </div>
+
+            <div class="field" id="expfield">
+              <span class="lab type-label">Expenses</span>
+              <div class="explist" id="exprows"></div>
+              <button class="ghost type-control" id="expadd">+ Add an expense</button>
+            </div>
+
+            <div class="field">
+              <span class="lab type-label">Charges</span>
+              <div class="explist" id="chargerows" hidden></div>
+              <button class="ghost type-control" id="chargeadd">+ Add a charge</button>
+            </div>
+
+            <div class="field">
+              <span class="lab type-label">Payment details</span>
+              <button class="in type-control" id="paytrigger"><span id="payname"></span><span class="chev">⌄</span></button>
+              <div class="menu type-control" id="paymenu" hidden></div>
+            </div>
+
+            <div class="field" id="detfield">
+              <span class="lab type-label">Attach</span>
+              <label class="check type-control"><input type="checkbox" id="detP"> Hours by project</label>
+              <label class="check type-control"><input type="checkbox" id="detW"> Hours by week</label>
+              <label class="check type-control"><input type="checkbox" id="detD"> Hours by date</label>
+            </div>
+        </div>
+        </div>
+
+        <div class="pvwrap">
+        <div class="pvhead"><h2 class="type-section">Preview</h2><span class="type-support" id="cardmeta"></span></div>
+        <section class="card" id="card">
+          <p class="msg type-support" id="cardmsg">Choose a client to see what this invoice will say.</p>
+          <div class="live" id="live">
+            <div class="chead">
+              <p class="party type-support"><b class="type-control">Blake Eriks</b>1200 Pine St, Suite 4
+Seattle, WA 98101
+dev@localhost.test</p>
+              <dl class="cmeta r type-support"><div><dt>No.</dt><dd class="type-duration">STINT-0016</dd></div><div><dt>Issued</dt><dd>Sep 30, 2026</dd></div><div><dt>Due</dt><dd>Oct 30, 2026</dd></div></dl>
+            </div>
+            <div class="chead">
+              <p class="party type-support"><span class="cl type-label">Bill to</span><b class="type-control">Northwind Trading</b>400 Market St
+San Francisco, CA 94105
+ap@northwind.test</p>
+              <div><span class="cl type-label">Engagement</span><dl class="cmeta type-support"><div><dt>Service period</dt><dd>Sep 1, 2026 – Sep 30, 2026</dd></div><div id="crefrow"><dt>Reference</dt><dd id="cref"></dd></div></dl></div>
+            </div>
+            <table class="pv" id="pv"></table>
+            <div class="totals type-support" id="totals"></div>
+            <div class="csec"><span class="cl type-label">Payment details</span><div class="pay-grid type-support" id="cpay"></div></div>
+            <div class="cdetail" id="cdetail"></div>
+          </div>
+          <p class="locks type-support" id="locks">Generating assigns a number and locks these entries. Voiding later keeps the number on record.</p>
+        </section>
+        </div>
+        </div>
+      </main>
+
+      <div class="col" id="pdf" hidden><div class="pages" id="pages"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- A charge's dialog, like the expense's: opened from a row or "+ Add a charge". -->
+<div class="overlay" id="chdialog" hidden>
+  <div class="dialog" role="dialog" aria-labelledby="chtitle">
+    <div><h2 class="type-section" id="chtitle">Charge</h2><p class="dsub type-support">A fixed fee, a deposit or a retainer, on this invoice only.</p></div>
+    <div class="field"><label class="type-label" for="ch-desc">Description *</label><input class="in type-control" id="ch-desc" placeholder="Onboarding fee"></div>
+    <div class="field"><label class="type-label" for="ch-amt">Amount *</label><input class="in type-duration" id="ch-amt" placeholder="0.00"></div>
+    <div class="foot"><button class="btn type-control" id="ch-remove" hidden>Remove</button><button class="btn type-control" id="ch-cancel">Cancel</button><button class="btn accent type-control" id="ch-save">Save</button></div>
+  </div>
+</div>
+
+<!-- expense-dialog.tsx, opened from a row or "+ Add an expense". -->
+<div class="overlay" id="expdialog" hidden>
+  <div class="dialog" role="dialog" aria-labelledby="edtitle">
+    <div><h2 class="type-section" id="edtitle">Expense</h2><p class="dsub type-support">A cost this client reimburses.</p></div>
+    <div class="field"><label class="type-label" for="ed-desc">Description *</label><input class="in type-control" id="ed-desc"></div>
+    <div class="two">
+      <div class="field"><label class="type-label" for="ed-amt">Amount *</label><input class="in type-duration" id="ed-amt"></div>
+      <div class="field"><label class="type-label" for="ed-date">Date</label><input class="in type-control" id="ed-date" placeholder="mm/dd/yyyy"></div>
+    </div>
+    <label class="check type-control"><input type="checkbox" id="ed-rec"> Recurring: on every invoice until it's archived</label>
+    <div class="foot"><button class="btn type-control" id="ed-cancel">Cancel</button><button class="btn accent type-control" id="ed-save">Save</button></div>
+  </div>
+</div>
+
+<!-- payment-profile-dialog.tsx, opened from the picker. -->
+<div class="overlay" id="paydialog" hidden>
+  <div class="dialog" role="dialog" aria-labelledby="pdtitle">
+    <div><h2 class="type-section" id="pdtitle">New payment details</h2><p class="dsub type-support">Printed on every invoice that uses them.</p></div>
+    <div class="field"><label class="type-label" for="pp-name">Name *</label><input class="in type-control" id="pp-name" placeholder="Business checking"></div>
+    <div class="field"><label class="type-label" for="pp-holder">Account holder</label><input class="in type-control" id="pp-holder" value="Blake Eriks"></div>
+    <div class="field"><label class="type-label" for="pp-bank">Bank name</label><input class="in type-control" id="pp-bank" placeholder="First Federal Bank"></div>
+    <div class="two">
+      <div class="field"><label class="type-label" for="pp-acct">Account number</label><input class="in type-control" id="pp-acct"></div>
+      <div class="field"><label class="type-label" for="pp-routing">Routing number (ACH)</label><input class="in type-control" id="pp-routing"></div>
+    </div>
+    <div class="field"><label class="type-label">Account type</label><div class="in type-control"><span>Checking</span><span class="chev">⌄</span></div></div>
+    <label class="check type-control"><input type="checkbox" id="pp-default"> Use for new invoices unless a client says otherwise</label>
+    <div class="foot"><button class="btn type-control" id="pp-cancel">Cancel</button><button class="btn accent type-control" id="pp-save">Save</button></div>
+  </div>
+</div>
+
+<script>
+const CAPTIONS = {
+  ready: 'Labels stand alone; each group of fields is its own band. The caption sits above the card, so the card is only the page. An expense row is ticked to bill it and pressed to edit it. Every control is live: try the grouping, the summary line, an expense, a charge, a payment profile, the ticks under Attach.',
+  noclient: 'Before a client is chosen the card says what it is waiting for, and Generate waits.',
+  busy: 'The server computes the lines, so a change is never predicted: the card says Updating, its figures dim, and Generate waits for the answer.',
+  nodesc: 'An empty summary line is an error at the field, and Generate waits.',
+  newpay: '“+ New payment details” in the picker opens the same dialog Settings uses. Saving selects the new profile for this invoice.',
+  editexp: 'Pressing an expense row, or “+ Add an expense”, opens the expense dialog the Clients page uses. Saving updates the row and the card.',
+  newcharge: '“+ Add a charge” opens a dialog like the expense’s: a description and an amount. A saved charge is a row that opens the same dialog, where Remove takes it off.',
+  pdf: 'The document the form above would make. Page 1 is the invoice and nothing else; each Attach tick adds its table from page 2.',
+};
+const GROUPINGS = [
+  ['summary', 'One summary line', 'One line per rate, with your own text.'],
+  ['entry', 'Every entry', 'One line per time entry.'],
+  ['task', 'By task', 'Entries with the same name and rate are summed.'],
+  ['project', 'By project', 'One line per project.'],
+  ['day', 'By day', 'One line per day worked.'],
+];
+/* Payment profiles, as Settings holds them (fixtures.ts). */
+const PROFILES = [
+  { id: 'ach', name: 'Business checking', holder: 'Blake Eriks', bank: 'First Federal Bank', acct: '000123456789', routing: '011000015', type: 'Checking', def: true },
+  { id: 'wire', name: 'International wire', holder: 'Blake Eriks', bank: 'First Federal Bank', acct: '000123456789', swift: 'FFBKUS33', fee: 'SHA' },
+];
+
+/* One list of billed entries; every figure is summed from it. */
+const W = 'Warehouse dashboard', R = 'Rush: peak season fixes';
+const RATE = { [W]: 150, [R]: 195 };
+const T = { [W]: ['Inventory table filters', 'Dock scheduling view', 'Sprint planning', 'Barcode scan flow'], [R]: ['Carrier label outage', 'Peak load tuning'] };
+const ENTRIES = [
+  [1,W,4.25],[2,W,3.5],[3,W,2.75],[3,R,1.5],[4,W,2.25],
+  [8,W,4],[9,W,3.75],[9,R,2],[10,W,4.5],[11,W,2.25],[11,R,2],
+  [14,W,3.5],[15,W,4.25],[16,W,1.5],[16,R,3],[17,W,3.25],[18,W,2.25],
+  [21,W,4],[22,W,3.5],[22,R,2.5],[23,W,4.25],[24,W,2.75],[25,R,2],
+  [28,W,3.25],[29,W,1.5],[29,R,1.5],[30,W,2.5],
+].map(([d, p, n], i) => ({ d, p, n, task: T[p][i % T[p].length] }));
+const EXPENSES = [{ desc: 'Claude Max subscription', date: '', rec: true, amt: 200 }, { desc: 'Figma license, annual', date: 'Aug 20', rec: false, amt: 180 }];
+const PENCIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>';
+const REPEAT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:12px;height:12px"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>';
+const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']; // Sep 1, 2026 is a Tuesday
+const PERIOD = 'Sep 1, 2026 – Sep 30, 2026';
+const h = (n) => n.toFixed(2);
+const usd = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+const last4 = (s) => '····' + s.slice(-4);
+const $ = (id) => document.getElementById(id);
+
+const st = { client: true, mode: 'summary', desc: 'Software consulting services', exp: [true, true], charges: [], chEditing: null, ref: 'ICA dated Aug 5, 2026 · Exhibit A SOW', pay: 'ach', dialog: false, editing: null, detP: true, detW: false, detD: true };
+const pick = { screen: 'form', state: 'ready', size: 'desktop', theme: 'dark' };
+
+/* buildLineItems(), in miniature: the rate is always part of the key. */
+function lines() {
+  const groups = new Map();
+  ENTRIES.forEach((e, i) => {
+    const rate = RATE[e.p];
+    const desc = { summary: st.desc, entry: e.task, task: e.task, project: e.p, day: `2026-09-${String(e.d).padStart(2, '0')}` }[st.mode];
+    const key = st.mode === 'entry' ? i : desc + '\0' + rate;
+    const g = groups.get(key) ?? { desc, rate, hrs: 0 };
+    g.hrs += e.n;
+    groups.set(key, g);
+  });
+  const out = [...groups.values()];
+  if (st.mode !== 'entry') out.sort((a, b) => a.desc.localeCompare(b.desc) || a.rate - b.rate);
+  return out;
+}
+function model() {
+  const ls = lines();
+  const chargeTotal = st.charges.reduce((t, c) => t + c.amt, 0);
+  const expenses = EXPENSES.filter((_, i) => st.exp[i]);
+  const services = ls.reduce((t, l) => t + l.hrs * l.rate, 0) + chargeTotal;
+  const expTotal = expenses.reduce((t, e) => t + e.amt, 0);
+  const profile = PROFILES.find((p) => p.id === st.pay);
+  return { ls, expenses, services, expTotal, profile, detP: st.mode === 'summary' && st.detP, detW: st.mode === 'summary' && st.detW, detD: st.mode === 'summary' && st.detD };
+}
+
+/* Weeks start on Monday; Sep 1, 2026 is a Tuesday, so the first is short. */
+function byWeek() {
+  const weeks = [[1, 6], [7, 13], [14, 20], [21, 27], [28, 30]];
+  return weeks.map(([a, b]) => [`Sep ${a} – ${b}`, ENTRIES.filter((e) => e.d >= a && e.d <= b).reduce((t, e) => t + e.n, 0)]).filter((w) => w[1] > 0);
+}
+function byProject() {
+  return [W, R].map((p) => [p, ENTRIES.filter((e) => e.p === p).reduce((t, e) => t + e.n, 0)]).sort((a, b) => b[1] - a[1]);
+}
+function drawCard(m) {
+  let rows = m.ls.map((l) => `<tr><td class="type-support">${esc(l.desc)}</td><td class="type-duration">${h(l.hrs)}</td><td class="type-duration">${usd(l.rate)}</td><td class="type-duration amt">${usd(l.hrs * l.rate)}</td></tr>`).join('');
+  rows += st.charges.map((c) => `<tr><td class="type-support">${esc(c.desc)}</td><td></td><td></td><td class="type-duration amt">${usd(c.amt)}</td></tr>`).join('');
+  let html = `<thead><tr class="type-label"><th>Description</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead><tbody>${rows}</tbody>`;
+  if (m.expenses.length) html += `<tbody><tr class="type-label"><th class="grp" colspan="4">Expenses</th></tr>${m.expenses.map((e) => `<tr><td class="type-support">${esc(e.desc)}</td><td class="type-duration">${e.rec ? 'Sep 30' : e.date}</td><td></td><td class="type-duration amt">${usd(e.amt)}</td></tr>`).join('')}</tbody>`;
+  $('pv').innerHTML = html;
+  $('totals').innerHTML = `<div><span>${m.expenses.length ? 'Services' : 'Subtotal'}</span><span class="type-duration">${usd(m.services)}</span></div>`
+    + (m.expenses.length ? `<div><span>Expenses</span><span class="type-duration">${usd(m.expTotal)}</span></div>` : '')
+    + `<div class="t"><span>Amount due</span><span class="type-amount">${usd(m.services + m.expTotal)}</span></div>`;
+  $('cpay').innerHTML = [['Method', m.profile.name], ...payFields(m.profile).filter(([l]) => l !== 'Payment reference')]
+    .map(([l, v]) => `<div><span>${l}</span><b class="${/number|SWIFT/.test(l) ? 'type-duration' : ''}">${esc(l === 'Account number' ? last4(v) : v)}</b></div>`).join('');
+  $('crefrow').hidden = !st.ref.trim();
+  $('cref').textContent = st.ref.trim();
+  const total = ENTRIES.reduce((t, e) => t + e.n, 0);
+  const table = (head, rows) => `<table class="pv"><thead><tr class="type-label">${head}</tr></thead><tbody>${rows}<tr><td class="type-support"><b>Total</b></td>${'<td></td>'.repeat(head.split('<th').length - 3)}<td class="type-duration amt">${h(total)}</td></tr></tbody></table>`;
+  let det = '';
+  if (m.detP) det += `<div><h4 class="type-control">Hours by project</h4>${table('<th>Project</th><th class="r">Hours</th>', byProject().map(([p, v]) => `<tr><td class="type-support">${p}</td><td class="type-duration">${h(v)}</td></tr>`).join(''))}</div>`;
+  if (m.detW) det += `<div><h4 class="type-control">Hours by week</h4>${table('<th>Week</th><th class="r">Hours</th>', byWeek().map(([w, v]) => `<tr><td class="type-support">${w}</td><td class="type-duration">${h(v)}</td></tr>`).join(''))}</div>`;
+  if (m.detD) det += `<div><h4 class="type-control">Hours by date</h4>${table('<th>Date</th><th>Project</th><th class="r">Hours</th>', ENTRIES.map((e) => `<tr><td class="type-support">${DOW[e.d % 7]}, Sep ${e.d}</td><td class="type-support wrap">${e.p}</td><td class="type-duration">${h(e.n)}</td></tr>`).join(''))}</div>`;
+  $('cdetail').hidden = !det;
+  $('cdetail').innerHTML = det && `<span class="type-label">Page 2 · supporting detail</span>${det}`;
+}
+
+/* Lays blocks onto sheets, starting a new sheet when one will not fit, and
+   repeating a table's headings on the sheet it continues on. */
+const RUNNING = `<div class="run"><span class="t">Supporting detail</span><span class="mu">Invoice STINT-0016 · Northwind Trading · ${PERIOD}</span></div>`;
+function paginate(pagesEl, parts) {
+  pagesEl.innerHTML = '';
+  let body, detail = false;
+  const sheet = () => {
+    const s = document.createElement('div');
+    s.className = 'sheet';
+    s.innerHTML = `<div class="body">${detail ? RUNNING : ''}</div><div class="ft"><span>STINT-0016</span><span class="pn"></span></div>`;
+    pagesEl.appendChild(s);
+    body = s.firstChild;
+  };
+  sheet();
+  for (const part of parts) {
+    if (part.detailStart) { detail = true; sheet(); continue; }
+    const el = document.createElement('div');
+    el.innerHTML = part.html;
+    body.appendChild(el);
+    if (body.scrollHeight > body.clientHeight) {
+      el.remove();
+      sheet();
+      if (part.cont) { const c = document.createElement('div'); c.innerHTML = part.cont; body.appendChild(c); }
+      body.appendChild(el);
+    }
+  }
+  const n = pagesEl.children.length;
+  [...pagesEl.children].forEach((s, i) => (s.querySelector('.pn').textContent = `Page ${i + 1} of ${n}`));
+}
+function schedule(title, head, rows, total) {
+  const th = `<div class="th">${head}</div>`;
+  const cont = `<h3>${title} <i>(continued)</i></h3>${th}`;
+  const parts = rows.map((r, i) => ({ html: (i === 0 ? `<h3>${title}</h3>${th}` : '') + `<div class="tr">${r}</div>`, cont: i === 0 ? '' : cont }));
+  parts.push({ html: `<div class="tr sum"><span class="c1">Total</span><span class="cq">${h(total)}</span></div><div class="gap"></div>`, cont });
+  return parts;
+}
+/* buildPaymentDetails(): the labelled fields a profile prints. */
+function payFields(p) {
+  const f = [['Account holder', p.holder], ['Bank', p.bank], ['Account number', p.acct]];
+  if (p.routing) f.push(['Routing number (ACH)', p.routing]);
+  if (p.type) f.push(['Account type', p.type]);
+  if (p.swift) f.push(['SWIFT / BIC', p.swift], ['Bank fees', p.fee]);
+  f.push(['Payment reference', 'STINT-0016']);
+  return f;
+}
+function drawPdf(m) {
+  const LINE_HEAD = `<div class="th"><span class="c1">DESCRIPTION</span><span class="cq">HOURS</span><span class="cr">RATE</span><span class="ca">AMOUNT</span></div>`;
+  const EXP_HEAD = `<div class="th ex"><span class="c1">EXPENSES</span><span class="cx">DATE</span><span class="ca">AMOUNT</span></div>`;
+  const totalHours = ENTRIES.reduce((t, e) => t + e.n, 0);
+  const parts = [{
+    html: `<div class="hd">
+      <div><div class="biz">Blake Eriks</div><div class="mu">1200 Pine St, Suite 4<br>Seattle, WA 98101<br>billing@blakeeriks.test</div></div>
+      <div><div class="ttl">INVOICE</div><div class="num">STINT-0016</div></div></div>
+    <div class="meta">
+      <div><div class="lb">Bill to</div><b>Northwind Trading</b><div class="mu">400 Market St<br>San Francisco, CA 94105<br>ap@northwind.test</div></div>
+      <div><div class="dates"><div class="dc"><div class="lb">Issued</div>Sep 30, 2026</div><div class="dc"><div class="lb">Due</div>Oct 30, 2026</div></div>
+        <div class="dc"><div class="lb">Service period</div>${PERIOD}</div>
+        ${st.ref.trim() ? `<div class="dc"><div class="lb">Reference</div>${esc(st.ref)}</div>` : ''}</div></div>`,
+  }];
+  m.ls.forEach((l, i) => parts.push({
+    html: (i === 0 ? LINE_HEAD : '') + `<div class="tr"><span class="c1">${esc(l.desc) || '&nbsp;'}</span><span class="cq">${h(l.hrs)}</span><span class="cr">${usd(l.rate)}</span><span class="ca">${usd(l.hrs * l.rate)}</span></div>`,
+    cont: i === 0 ? '' : LINE_HEAD,
+  }));
+  st.charges.forEach((c) => parts.push({ html: `<div class="tr"><span class="c1">${esc(c.desc)}</span><span class="cq"></span><span class="cr"></span><span class="ca">${usd(c.amt)}</span></div>`, cont: LINE_HEAD }));
+  m.expenses.forEach((e, i) => parts.push({
+    html: (i === 0 ? EXP_HEAD : '') + `<div class="tr"><span class="c1">${esc(e.desc)}</span><span class="cx">${e.rec ? 'Sep 30' : e.date}, 2026</span><span class="ca">${usd(e.amt)}</span></div>`,
+    cont: i === 0 ? '' : EXP_HEAD,
+  }));
+  parts.push({
+    html: `<div class="tot"><div><span class="mu">${m.expenses.length ? 'Services' : 'Subtotal'}</span><span class="mono">${usd(m.services)}</span></div>
+      ${m.expenses.length ? `<div><span class="mu">Expenses</span><span class="mono">${usd(m.expTotal)}</span></div>` : ''}
+      <div class="g"><span>Amount due</span><span>${usd(m.services + m.expTotal)}</span></div>
+      <div style="justify-content:flex-end" class="mu">Net 30</div></div>`,
+  });
+  parts.push({
+    html: `<div class="payw"><div class="pay"><b>Payment — ${esc(m.profile.name)}</b><div class="grid">
+      ${payFields(m.profile).map(([l, v]) => `<div><div class="pl">${l}</div><div class="pvv">${esc(v)}</div></div>`).join('')}</div>
+      <div class="notice">Our bank details never change by email. Call before paying new ones.</div></div></div>`,
+  });
+
+  if (m.detP || m.detW || m.detD) parts.push({ detailStart: true });
+  if (m.detP) parts.push(...schedule('Hours by project', `<span class="c1">PROJECT</span><span class="cq">HOURS</span>`, byProject().map(([n, v]) => `<span class="c1">${n}</span><span class="cq">${h(v)}</span>`), totalHours));
+  if (m.detW) parts.push(...schedule('Hours by week', `<span class="c1">WEEK</span><span class="cq">HOURS</span>`, byWeek().map(([w, v]) => `<span class="c1">${w}</span><span class="cq">${h(v)}</span>`), totalHours));
+  if (m.detD) {
+    parts.push(...schedule('Hours by date', `<span class="cd">DATE</span><span class="cw">DAY</span><span class="c1">PROJECT</span><span class="cq">HOURS</span>`, ENTRIES.map((e) => `<span class="cd">Sep ${String(e.d).padStart(2, '0')}, 2026</span><span class="cw">${DOW[e.d % 7]}</span><span class="c1">${e.p}</span><span class="cq">${h(e.n)}</span>`), totalHours));
+  }
+  paginate($('pages'), parts);
+}
+
+let timer;
+function render(changed) {
+  document.documentElement.dataset.theme = pick.theme;
+  const pdf = pick.screen === 'pdf';
+  $('frame').classList.toggle('phone', pick.size === 'phone');
+  $('frame').classList.toggle('bare', pdf);
+  $('form').hidden = pdf;
+  $('pdf').hidden = !pdf;
+  $('states').hidden = pdf;
+  document.querySelectorAll('.seg').forEach((seg) =>
+    seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(pick[seg.dataset.group] === b.dataset.v))),
+  );
+  $('caption').textContent = CAPTIONS[pdf ? 'pdf' : pick.state];
+
+  const summary = st.mode === 'summary';
+  const noDesc = summary && !st.desc.trim();
+  const profile = PROFILES.find((p) => p.id === st.pay);
+  $('client').textContent = st.client ? 'Northwind Trading' : 'Choose a client…';
+  $('mode').textContent = GROUPINGS.find((x) => x[0] === st.mode)[1];
+  $('menu').innerHTML = GROUPINGS.map(([v, label, hint]) => `<div data-mode="${v}" class="${v === st.mode ? 'on' : ''}">${label}<small class="type-support">${hint}</small></div>`).join('');
+  $('payname').textContent = profile.name;
+  $('paymenu').innerHTML = PROFILES.map((p) => `<div data-pay="${p.id}" class="${p.id === st.pay ? 'on' : ''}">${esc(p.name)}${p.def ? ' <small class="type-badge" style="display:inline">Default</small>' : ''}<small class="type-support">${p.bank} · ${p.swift ? 'SWIFT ' + p.swift : last4(p.acct)}</small></div>`).join('')
+    + `<div data-pay="new" class="new">+ New payment details</div>`;
+  $('descfield').hidden = !summary;
+  $('detfield').hidden = !summary;
+  $('expfield').hidden = !st.client;
+  $('descerr').hidden = !noDesc;
+  $('desc').classList.toggle('bad', noDesc);
+  $('chdialog').hidden = st.chEditing === null;
+  $('chargerows').hidden = !st.charges.length;
+  $('chargerows').innerHTML = st.charges.map((c, i) => `<div class="exp"><button type="button" data-chedit="${i}" aria-label="Edit ${esc(c.desc)}" style="padding-left:12px"><span class="n"><span class="type-control">${esc(c.desc)}</span></span><span class="a type-duration">${usd(c.amt)}</span>${PENCIL}</button></div>`).join('');
+  $('paydialog').hidden = !st.dialog;
+  $('expdialog').hidden = st.editing === null;
+  $('exprows').innerHTML = EXPENSES.map((e, i) => `<div class="exp"><input type="checkbox" data-exp="${i}" aria-label="Bill ${esc(e.desc)}"${st.exp[i] ? ' checked' : ''}><button type="button" data-edit="${i}" aria-label="Edit ${esc(e.desc)}"><span class="n"><span class="type-control">${esc(e.desc)}</span><small class="type-badge">${e.rec ? REPEAT + 'Recurring' : e.date}</small></span><span class="a type-duration">${usd(e.amt)}</span>${PENCIL}</button></div>`).join('');
+  for (const id of ['desc', 'ref']) if ($(id).value !== st[id]) $(id).value = st[id];
+  $('detP').checked = st.detP;
+  $('detW').checked = st.detW;
+  $('detD').checked = st.detD;
+
+  // The server owns the lines: the card waits for its answer, never predicts it.
+  if (changed) { clearTimeout(timer); timer = setTimeout(() => render(), 450); }
+  const busy = !!changed || pick.state === 'busy';
+  $('card').classList.toggle('busy', busy);
+  $('cardmeta').textContent = !st.client ? '' : busy ? 'Updating…' : '27 entries';
+  $('cardmsg').hidden = st.client;
+  $('live').hidden = !st.client;
+  $('locks').hidden = !st.client;
+  $('gen').disabled = !st.client || busy || noDesc;
+
+  const m = model();
+  if (st.client && !changed) drawCard(m);
+  if (pdf) {
+    $('pages').style.setProperty('--z', Math.min(1.3, Math.max(0.3, $('pdf').clientWidth / 612)).toFixed(3));
+    drawPdf(m);
+  }
+}
+
+document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+  const group = b.parentElement.dataset.group;
+  pick[group] = b.dataset.v;
+  if (group === 'state') {
+    st.client = pick.state !== 'noclient';
+    st.mode = 'summary';
+    st.desc = pick.state === 'nodesc' ? '' : 'Software consulting services';
+    st.dialog = pick.state === 'newpay';
+    if (pick.state === 'editexp') openExpense(1); else st.editing = null;
+    if (pick.state === 'newcharge') openCharge(-1); else st.chEditing = null;
+  }
+  render();
+}));
+$('trigger').addEventListener('click', () => ($('menu').hidden = !$('menu').hidden));
+$('menu').addEventListener('click', (e) => {
+  const row = e.target.closest('[data-mode]');
+  if (!row) return;
+  st.mode = row.dataset.mode;
+  $('menu').hidden = true;
+  render(true);
+});
+$('paytrigger').addEventListener('click', () => ($('paymenu').hidden = !$('paymenu').hidden));
+$('paymenu').addEventListener('click', (e) => {
+  const row = e.target.closest('[data-pay]');
+  if (!row) return;
+  $('paymenu').hidden = true;
+  if (row.dataset.pay === 'new') { st.dialog = true; $('pp-name').value = ''; }
+  else st.pay = row.dataset.pay;
+  render();
+});
+$('pp-cancel').addEventListener('click', () => { st.dialog = false; render(); });
+$('pp-save').addEventListener('click', () => {
+  const p = { id: 'p' + PROFILES.length, name: $('pp-name').value.trim() || 'New profile', holder: $('pp-holder').value, bank: $('pp-bank').value || 'First Federal Bank', acct: $('pp-acct').value || '000987654321', routing: $('pp-routing').value || '011000015', type: 'Checking' };
+  if ($('pp-default').checked) { PROFILES.forEach((x) => (x.def = false)); p.def = true; }
+  PROFILES.push(p);
+  st.pay = p.id;
+  st.dialog = false;
+  render();
+});
+function openCharge(i) {
+  st.chEditing = i;
+  const c = i === -1 ? { desc: '', amt: '' } : st.charges[i];
+  $('chtitle').textContent = i === -1 ? 'New charge' : 'Charge';
+  $('ch-remove').hidden = i === -1;
+  $('ch-desc').value = c.desc; $('ch-amt').value = c.amt === '' ? '' : c.amt.toFixed(2);
+}
+$('chargeadd').addEventListener('click', () => { openCharge(-1); render(); });
+$('chargerows').addEventListener('click', (e) => { const b = e.target.closest('[data-chedit]'); if (b) { openCharge(+b.dataset.chedit); render(); } });
+$('ch-cancel').addEventListener('click', () => { st.chEditing = null; render(); });
+$('ch-remove').addEventListener('click', () => { st.charges.splice(st.chEditing, 1); st.chEditing = null; render(true); });
+$('ch-save').addEventListener('click', () => {
+  const c = { desc: $('ch-desc').value.trim() || 'Charge', amt: parseFloat($('ch-amt').value) || 0 };
+  if (st.chEditing === -1) st.charges.push(c); else st.charges[st.chEditing] = c;
+  st.chEditing = null;
+  render(true);
+});
+$('desc').addEventListener('input', (e) => { st.desc = e.target.value; render(true); });
+$('detP').addEventListener('change', (e) => { st.detP = e.target.checked; render(); });
+$('detD').addEventListener('change', (e) => { st.detD = e.target.checked; render(); });
+$('detW').addEventListener('change', (e) => { st.detW = e.target.checked; render(); });
+$('ref').addEventListener('input', (e) => { st.ref = e.target.value; render(); });
+function openExpense(i) {
+  st.editing = i;
+  const e = i === -1 ? { desc: '', amt: '', date: '', rec: false } : EXPENSES[i];
+  $('edtitle').textContent = i === -1 ? 'New expense' : 'Expense';
+  $('ed-desc').value = e.desc; $('ed-amt').value = e.amt === '' ? '' : e.amt.toFixed(2); $('ed-date').value = e.date; $('ed-rec').checked = e.rec;
+}
+$('exprows').addEventListener('change', (e) => { const c = e.target.closest('[data-exp]'); if (c) { st.exp[c.dataset.exp] = c.checked; render(true); } });
+$('exprows').addEventListener('click', (e) => { const b = e.target.closest('[data-edit]'); if (b) { openExpense(+b.dataset.edit); render(); } });
+$('expadd').addEventListener('click', () => { openExpense(-1); render(); });
+$('ed-cancel').addEventListener('click', () => { st.editing = null; render(); });
+$('ed-save').addEventListener('click', () => {
+  const e = { desc: $('ed-desc').value.trim() || 'Expense', amt: parseFloat($('ed-amt').value) || 0, date: $('ed-date').value.trim() || 'Sep 30', rec: $('ed-rec').checked };
+  if (st.editing === -1) { EXPENSES.push(e); st.exp.push(true); } else EXPENSES[st.editing] = e;
+  st.editing = null;
+  render(true);
+});
+window.addEventListener('resize', () => render());
+render();
+</script>
+</body>
+</html>

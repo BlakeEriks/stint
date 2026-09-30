@@ -31,5 +31,7 @@
 
 ## Notes
 
-- Clarified 2026-09-30: schedules only with Summary (FR-008), hours only
-  (FR-012), no prefill of description or schedules, deferred to #190 (FR-022).
+- Rewritten 2026-09-30 to the recorded design (`design/new-invoice.html`):
+  New invoice with a live preview, the summary line and supporting detail by
+  project, week and date, hours only, from page 2. Expenses are #126's; prefill
+  is deferred to #190.
