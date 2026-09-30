@@ -2732,3 +2732,51 @@ test('/stats lists entries sharing a minute or more, and editing one clears it',
   const after = await json(await stats(req('/stats?tz=UTC')));
   assert.deepEqual(after.body.attention.overlaps, []);
 });
+
+// ── audit: the invoice is always right ─────────────────────────────
+// Reproduces a finding from the 2026-09-30 correctness audit. Expected to
+// FAIL until its issue is fixed.
+
+test('AUDIT: /stats flags an entry that overlaps time already billed', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const c = '33333333-0000-4000-8000-0000000000c1';
+  const p = '33333333-0000-4000-8000-0000000000c2';
+  const inv = 'ff000000-0000-4000-8000-0000000000c3';
+  const billed = '018f0000-0000-7000-8000-00000000c0c1';
+  const fresh = '018f0000-0000-7000-8000-00000000c0c2';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Northwind',150)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,sent_at)
+     values ($1,$2,$3,'INV-0001',1,'sent',now())`,
+    [inv, USER, c],
+  );
+  // 9-10 was billed on that invoice; 9:30-10:30 was added afterwards. The
+  // new entry is the one to fix, and it can be — only the billed one is
+  // locked. Left unflagged, the next invoice charges 9:30-10:00 twice.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,invoice_id) values
+       ($1,$3,$4,'Billed', '2026-08-19T09:00:00Z','2026-08-19T10:00:00Z',$5),
+       ($2,$3,$4,'Added',  '2026-08-19T09:30:00Z','2026-08-19T10:30:00Z',null)`,
+    [billed, fresh, USER, p, inv],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(
+    res.body.attention.overlaps.map(
+      (o: { entryId: string; otherEntryId: string; seconds: number }) => [
+        o.entryId,
+        o.otherEntryId,
+        o.seconds,
+      ],
+    ),
+    [[fresh, billed, 1800]],
+    'the half hour already invoiced is about to be billed again',
+  );
+});

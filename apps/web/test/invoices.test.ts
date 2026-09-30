@@ -2039,3 +2039,30 @@ test('AUDIT: the issue date is the user’s calendar day, not UTC’s', async ()
     mock.timers.reset();
   }
 });
+
+test('AUDIT: an invoice bills every entry in its period, past a thousand', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  // 1,001 six-minute entries across the period. PostgREST returns at most
+  // 1,000 rows to a read that sets no limit or range, and
+  // `loadBillableEntries` sets neither, so the invoice quietly drops the
+  // rest — after an import of a year of history, "bill the backlog" is
+  // exactly this shape.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
+     select gen_random_uuid(), $1, $2, 'Work',
+            '2026-09-01T08:00:00Z'::timestamptz + (n * interval '7 minutes'),
+            '2026-09-01T08:06:00Z'::timestamptz + (n * interval '7 minutes')
+     from generate_series(0, 1000) n`,
+    [USER, PROJECT],
+  );
+
+  const res = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.entryCount, 1001, 'entries past the cap were dropped');
+  // 1001 x 0.1 h x $150.
+  assert.equal(res.body.total, 15015);
+});

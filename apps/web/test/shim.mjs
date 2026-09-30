@@ -18,6 +18,9 @@ pg.types.setTypeParser(1184, (v) => v);
 // via RLS, so the shim must not add a user scope to them.
 const NO_USER_SCOPE = new Set(['invoice_line_items']);
 
+/** PostgREST's `max_rows`: the most any one select returns. */
+const MAX_ROWS = 1000;
+
 export function makeDb(pool, userId) {
   const run = async (sql, params) => {
     try {
@@ -157,7 +160,10 @@ export function makeDb(pool, userId) {
         } else {
           sql = `select ${st.cols} from ${st.table} where ${whereSql()}`;
           if (st.order.length) sql += ` order by ${st.order.join(', ')}`;
-          if (st.lim) sql += ` limit ${st.lim}`;
+          // PostgREST answers at most `max_rows` (1000, in supabase/config.toml
+          // and Supabase's default) whatever the query asked, so a read with
+          // no limit or range of its own is capped here the same way.
+          sql += ` limit ${st.lim ?? MAX_ROWS}`;
         }
         return run(sql, st.params);
       },
