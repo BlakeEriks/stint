@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,6 +31,5 @@
 
 ## Notes
 
-- Three markers are open for `/speckit-clarify`: FR-008 (schedules in every
-  grouping or only Summary), FR-012 (amounts on schedule rows or hours only),
-  FR-022 (description and schedule choice remembered per client).
+- Clarified 2026-09-30: schedules only with Summary (FR-008), hours only
+  (FR-012), no prefill of description or schedules, deferred to #190 (FR-022).

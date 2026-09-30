@@ -149,8 +149,8 @@ total, and the two parts sum to the total.
 
 ### Edge Cases
 
-- A schedule row's amount is rounded once for that row, so a schedule's rows
-  can sum to a cent more or less than the invoice line. The rows are never
+- A schedule row's hours are rounded once for that row, so a schedule's rows
+  can sum to 0.01 h more or less than the invoice line. The rows are never
   adjusted to match.
 - A week that the period cuts short prints only its days inside the period
   ("Aug 31").
@@ -188,16 +188,16 @@ total, and the two parts sum to the total.
 
 - **FR-007**: Users MUST be able to attach any of four schedules: by project,
   by task, by week, by date.
-- **FR-008**: Schedules MUST be offered
-  [NEEDS CLARIFICATION: in every grouping, or only with Summary?].
+- **FR-008**: Schedules MUST be offered only with the Summary grouping;
+  every other grouping has no schedule choice.
 - **FR-009**: The first schedule MUST start on a new page; page one MUST hold
   only the invoice itself, however much room it has left.
 - **FR-010**: Schedules MUST NOT change any line, subtotal, tax or total.
 - **FR-011**: Each schedule MUST cover exactly the entries the invoice bills.
-- **FR-012**: By project, by task and by week MUST print hours per row
-  [NEEDS CLARIFICATION: and an amount per row, which can differ from the
-  invoice line by a cent, or hours only?]; by date prints date, day, project
-  and hours.
+- **FR-012**: Schedules MUST print hours only, never a rate or an amount, so
+  the only money on the document is on page one. By project, by task and by
+  week print a name and hours per row; by date prints date, day, project and
+  hours.
 - **FR-013**: A schedule that continues onto another page MUST repeat its
   title and column headings, and MUST NOT split a row.
 - **FR-014**: An issued invoice's schedules MUST be the same on every
@@ -224,9 +224,8 @@ total, and the two parts sum to the total.
 
 - **FR-021**: Everything a user chose (grouping, description, schedules,
   reference, expense marks) MUST be frozen when the invoice is issued.
-- **FR-022**: The summary description and schedule choice MUST be
-  [NEEDS CLARIFICATION: prefilled from the client's last invoice, as the
-  reference is, or chosen fresh each time?].
+- **FR-022**: The summary description and schedule choice MUST start fresh
+  on every new invoice: the default description and no schedules.
 - **FR-023**: An invoice that uses none of these MUST be identical to what is
   produced today.
 
@@ -262,10 +261,12 @@ total, and the two parts sum to the total.
   The default rate is 0; excluding expenses from tax is out of scope.
 - A week runs Monday through Sunday, in the user's time zone, as elsewhere in
   the app.
-- The rows of a schedule that carries amounts use each entry's resolved rate,
-  the same rates the invoice lines use.
 - Schedules by project and by task sort by hours descending, then by name;
   by week and by date sort chronologically.
+- Schedules under the other groupings are out of scope; Summary is the
+  simplest case and the only one solved here.
+- Prefilling the summary description and schedule choice from the client's
+  last invoice is out of scope, deferred to #190.
 - An "Attn:" line is out of scope: the client address is free text and
   already holds one. Invoice number formats are out of scope.
 - The web app is the only place invoices are created; the macOS app is
