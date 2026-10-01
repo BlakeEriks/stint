@@ -497,9 +497,12 @@ try {
       'No rate resolves for the seeded client — an invoice line needs one.',
     );
   }
-  /** Cents, once, at the end — as `lineAmount()` does. */
+  /** The printed hundredths of an hour times the rate, in integers until the
+      cents — as `priced()` in `packages/core/src/invoice.ts` does. */
   const lineAmount = (seconds) =>
-    Math.round((seconds / 3600) * Number(resolvedRate) * 100) / 100;
+    Math.round(
+      (Math.round(seconds / 36) * Math.round(Number(resolvedRate) * 100)) / 100,
+    ) / 100;
 
   for (const inv of INVOICES) {
     /* Seconds first, then money: the line's amount is what those seconds are
