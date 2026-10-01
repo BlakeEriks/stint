@@ -176,13 +176,16 @@ generated, so the dialog has no server write to wait on.
 
 ## R11. Layout follows the panel, not the viewport
 
-**Decision**: The screen root is an `@container`. At 800px of content (a
-840px panel, which the app's frame reaches beside the dock) the form
-column is `minmax(320px, 400px)` and the card column is sticky beside it.
+**Decision**: The screen root is an `@container`. At 800px of content (an
+840px panel) the form column is 360px and the card column, up to 816px, is
+sticky beside it, the pair centered.
 Below that the card follows the form. The card is its own `@container`, and
 below `@[360px]` the Rate column is hidden (FR-017). The title row ("New
 invoice", Generate) is `sticky top-0` in the panel (FR-011). The screen uses
-`DetailPage wide`.
+`DetailPage workspace`: `data-workspace` on its `<main>` makes `AppShell`
+drop the dock's column and the `2xl` card's 1440 × 900 cap through CSS
+`:has()`, so the frame never checks a route. On a 16" laptop (1728px) that
+takes the preview from 426px to 816px. A dock that folds instead is #207.
 
 **Rationale**: The dock and the sidebar change the panel's width without
 changing the viewport's, which is why `home-cards.tsx` already sizes off its

@@ -268,7 +268,7 @@ export function NewInvoice() {
     !generate.isPending;
 
   return (
-    <DetailPage back="/invoices" label="Invoices" wide>
+    <DetailPage back="/invoices" label="Invoices" workspace>
       <div className="@container/new">
         {/* The screen's one action stays in reach while the form scrolls
             under it. */}
@@ -286,7 +286,10 @@ export function NewInvoice() {
           </Button>
         </div>
 
-        <div className="grid gap-x-8 @min-[800px]/new:grid-cols-[minmax(320px,400px)_minmax(0,1fr)] @min-[800px]/new:items-start">
+        {/* A fixed form, and the page up to a Letter page's width (816px):
+            more would stretch the lines apart, not show more of them, so
+            any room past that is margin around the pair. */}
+        <div className="grid gap-x-10 @min-[800px]/new:grid-cols-[360px_minmax(0,816px)] @min-[800px]/new:items-start @min-[800px]/new:justify-center">
           {/* One list, in the order the invoice reads: who and when, how the
               time is shown, what else is billed, what is attached. */}
           <div className="flex min-w-0 flex-col [&>*]:border-t [&>*]:border-edge-subtle [&>*]:py-5 [&>*:first-child]:border-0 [&>*:first-child]:pt-1">

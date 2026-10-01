@@ -3,7 +3,7 @@ import { delay, http } from 'msw';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { handlers } from '@/mocks/handlers';
-import { desktop, menuOpen, phone, screen } from '@/mocks/screen';
+import { desktop, menuOpen, phone, screen, wide } from '@/mocks/screen';
 import { NewInvoice } from './invoice-new';
 
 const meta = {
@@ -76,6 +76,24 @@ export const ClientChosen: Story = {
   },
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
+
+/** Past 2xl the screen is a workspace: no dock, the card as large as the
+    window, and the preview a Letter page's width beside the form. */
+export const Workspace: Story = {
+  ...ClientChosen,
+  ...wide,
+  play: async (ctx) => {
+    await ClientChosen.play?.(ctx);
+    const page = within(ctx.canvasElement.ownerDocument.body);
+    await expect(
+      page.queryByRole('complementary', { name: 'At a glance' }),
+    ).toBeNull();
+    const width = page
+      .getByRole('region', { name: 'Preview' })
+      .getBoundingClientRect().width;
+    await expect(width).toBeGreaterThan(800);
+  },
+};
 
 /** A change the server computes dims the figures and holds Generate until
     the answer lands; this one never does (US3 scenario 3). */

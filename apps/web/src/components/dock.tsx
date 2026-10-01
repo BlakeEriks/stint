@@ -61,8 +61,11 @@ export function Dock() {
          a sliver is one you cannot read.
 
          Where it divides is the user's, dragged on the handle between them
-         and kept per device. */
-      className="flex min-h-0 flex-none flex-col xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]"
+         and kept per device.
+
+         A workspace screen hides it: that screen is a tool and takes the
+         room (`Page`'s `workspace`). */
+      className="flex min-h-0 flex-none flex-col group-has-[[data-workspace]]/app:hidden xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]"
     >
       {/* Today has its own `/entries` query, so it waits on stats for nothing.
 
