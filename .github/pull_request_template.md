@@ -18,15 +18,6 @@
 
 Data back to the seed: re-run this PR's **preview-db** check.
 
-<!-- One link per story this PR adds or changes, at the same preview. The
-     id is the story's title and export name in kebab case, as Storybook's
-     URL shows it: `Screens/Clients` + `Archived` → `screens-clients--archived`.
-     Delete the list when no story changed. -->
-
-**Stories**
-
-- [<Title> › <Story>](https://stint-git-<branch>-blakeeriks-projects.vercel.app/storybook/index.html?path=/story/<id>) — <what you should see>
-
 ## Checks CI cannot make
 
 - [ ] **Rates and line items still freeze** onto issued invoices — nothing

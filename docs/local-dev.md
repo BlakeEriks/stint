@@ -363,7 +363,7 @@ that edits the seeded account) and breaks one endpoint with
 `failing('stats')`. A response that fails its schema, an unhandled API
 request or a handler that throws fails the story. On a browser's
 first visit MSW's service worker installs after the page has loaded, so reload
-once. Its MCP server is at `localhost:6006/mcp`.
+once.
 
 `pnpm --filter @stint/web test:stories` runs every story as a test in
 headless Chromium at its viewport, and fails it on an accessibility
