@@ -110,9 +110,10 @@ async function seed(defaultRate: number | null): Promise<void> {
         for (const rateOverride of LEVELS.entry) {
           for (const isBillable of [true, false]) {
             const id = uuidv7();
-            // Not an even fraction of an hour: rounding per entry rather
-            // than per line shows up as a mismatch.
-            const durationSeconds = 1200 + (minute % 7) * 60;
+            // Not an even fraction of an hour, and not a whole number of
+            // minutes either: 3603 s at $150 is the half-cent case that
+            // split the two languages before hours were priced as printed.
+            const durationSeconds = 1200 + (minute % 7) * 60 + (minute % 5) * 3;
             const startedAt = new Date(
               Date.parse(FROM) + minute * 3_600_000,
             ).toISOString();

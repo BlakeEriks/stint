@@ -164,32 +164,52 @@ test('tax rounds to cents', () => {
     groupingMode: 'entry',
     taxRate: 8.25,
   });
-  // 3730s @ 100/h = 103.611... -> 103.61
-  assert.equal(r.subtotal, 103.61);
-  assert.equal(r.taxAmount, 8.55);
-  assert.equal(r.total, 112.16);
+  // 3730 s prints as 1.04 h, so it bills 1.04 x 100 = 104.00; 8.25% of that
+  // is 8.58.
+  assert.equal(r.subtotal, 104);
+  assert.equal(r.taxAmount, 8.58);
+  assert.equal(r.total, 112.58);
 });
 
 /**
- * Rounding per-entry then summing drifts from rounding the summed total.
- * Grouped lines must round once, at the line.
+ * Hours are billed as printed, per entry. Three 20-minute entries are 0.33 h
+ * each and 0.99 h together, so their total is the same on one line or
+ * three — and the same on the home screen, which prices the same hours.
  */
-test('grouped amounts round once per line, not per entry', () => {
-  const thirdOfHour = 1200; // 20 min = 33.333... at 100/h
+test('a line bills the sum of its entries’ printed hours, however grouped', () => {
+  const thirdOfHour = 1200; // 20 min = 0.33 h
+  const entries = [
+    entry({ id: 'a', taskName: 'T', durationSeconds: thirdOfHour }),
+    entry({ id: 'b', taskName: 'T', durationSeconds: thirdOfHour }),
+    entry({ id: 'c', taskName: 'T', durationSeconds: thirdOfHour }),
+  ];
+  const grouped = buildLineItems(entries, { groupingMode: 'task' });
+  assert.equal(grouped.lineItems.length, 1);
+  assert.equal(grouped.lineItems[0]!.quantity, 0.99);
+  assert.equal(grouped.lineItems[0]!.amount, 99);
+
+  const split = buildLineItems(entries, { groupingMode: 'entry' });
+  assert.equal(split.lineItems.length, 3);
+  assert.equal(split.total, grouped.total, 'grouping never changes the total');
+});
+
+test('a half cent rounds the way Postgres rounds it', () => {
+  // 3603 s at $150 was $150.125 from raw seconds, which JS rounded to .12
+  // and numeric to .13. Printed, it is 1.00 h at $150.00. And 18 s at $150
+  // prints 0.01 h — the half on the hours side rounds up, as numeric does.
   const r = buildLineItems(
     [
-      entry({ id: 'a', taskName: 'T', durationSeconds: thirdOfHour }),
-      entry({ id: 'b', taskName: 'T', durationSeconds: thirdOfHour }),
-      entry({ id: 'c', taskName: 'T', durationSeconds: thirdOfHour }),
+      entry({ id: 'a', durationSeconds: 3603, rateOverride: 150 }),
+      entry({ id: 'b', durationSeconds: 18, rateOverride: 150 }),
     ],
-    { groupingMode: 'task' },
+    { groupingMode: 'entry' },
   );
-  assert.equal(r.lineItems.length, 1);
-  assert.equal(r.lineItems[0]!.quantity, 1);
-  assert.equal(
-    r.lineItems[0]!.amount,
-    100,
-    'exactly 100, not 99.99 from 3 x 33.33',
+  assert.deepEqual(
+    r.lineItems.map((li) => [li.quantity, li.amount]),
+    [
+      [1, 150],
+      [0.01, 1.5],
+    ],
   );
 });
 
@@ -431,4 +451,20 @@ test('invoice numbers pad to four digits and grow beyond', () => {
     'grows rather than truncating',
   );
   assert.equal(formatInvoiceNumber('2026-', 7), '2026-0007');
+});
+
+test('a time line’s printed arithmetic holds: quantity × unit price = amount', () => {
+  // 7h 29m 56s. The document prints 7.50 h × $100.00 and then charges
+  // $749.89, because the amount is computed from seconds and the quantity is
+  // rounded separately. A client with a calculator sees a wrong invoice.
+  const r = buildLineItems([entry({ durationSeconds: 26_996 })], {
+    groupingMode: 'entry',
+  });
+  const li = r.lineItems[0]!;
+  assert.equal(li.quantity, 7.5);
+  assert.equal(
+    li.amount,
+    Math.round(li.quantity * li.unitPrice * 100) / 100,
+    `the document says ${li.quantity} × ${li.unitPrice} = ${li.amount}`,
+  );
 });

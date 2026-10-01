@@ -1049,7 +1049,7 @@ test('unbilled groups by (client, RATE), not by client alone', async () => {
   assert.equal(res.body.unbilled.byClient[0].seconds, 9 * 3600);
 });
 
-test('unbilled rounds once per (client, rate), not per entry', async () => {
+test('unbilled prices the printed hours, per entry, as an invoice does', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   const c = '33333333-0000-4000-8000-000000000002';
@@ -1063,14 +1063,18 @@ test('unbilled rounds once per (client, rate), not per entry', async () => {
     [p, USER, c],
   );
 
-  // 3 x 20 minutes at 100/h.
+  // 3 x 20 minutes at 100/h: 0.33 h each as printed, 0.99 h billed.
   for (const n of [3, 4, 5]) {
     await entryFor({ id: S(n), projectId: p, hours: 1 / 3 });
   }
 
   const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(res.body.unbilled.total, 100);
-  assert.notEqual(res.body.unbilled.total, 99.99, 'drifted by rounding early');
+  assert.equal(res.body.unbilled.total, 99);
+  assert.notEqual(
+    res.body.unbilled.total,
+    100,
+    'priced the raw seconds, which the invoice never prints',
+  );
 });
 
 test('unbilled resolves rates the same way an invoice does', async () => {
