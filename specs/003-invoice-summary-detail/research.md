@@ -176,7 +176,8 @@ generated, so the dialog has no server write to wait on.
 
 ## R11. Layout follows the panel, not the viewport
 
-**Decision**: The screen root is an `@container`. At `@[900px]` the form
+**Decision**: The screen root is an `@container`. At 800px of content (a
+840px panel, which the app's frame reaches beside the dock) the form
 column is `minmax(320px, 400px)` and the card column is sticky beside it.
 Below that the card follows the form. The card is its own `@container`, and
 below `@[360px]` the Rate column is hidden (FR-017). The title row ("New

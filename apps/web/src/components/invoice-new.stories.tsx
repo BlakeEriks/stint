@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { delay, http } from 'msw';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
+import { handlers } from '@/mocks/handlers';
 import { desktop, menuOpen, phone, screen } from '@/mocks/screen';
 import { NewInvoice } from './invoice-new';
 
@@ -13,48 +15,103 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A client and a period, defaulting to last month. */
-export const Blank: Story = { ...desktop };
-export const Phone: Story = { ...phone };
+type Page = ReturnType<typeof within>;
 
-/** The preview is exactly what generating writes. */
-export const Previewed: Story = {
-  ...desktop,
-  parameters: menuOpen,
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await userEvent.click(await page.findByRole('button', { name: 'Client' }));
-    await userEvent.click(
-      await page.findByRole('menuitemradio', { name: /Northwind/ }),
-    );
-    await userEvent.click(await page.findByRole('button', { name: 'Preview' }));
-    await expect(
-      await page.findByRole('button', { name: /Generate/ }),
-    ).toBeVisible();
-  },
-};
-
-const previewFor = async (canvasElement: HTMLElement, charge?: string) => {
+const chooseNorthwind = async (canvasElement: HTMLElement) => {
   const page = within(canvasElement.ownerDocument.body);
   await userEvent.click(await page.findByRole('button', { name: 'Client' }));
   await userEvent.click(
     await page.findByRole('menuitemradio', { name: /Northwind/ }),
   );
-  if (charge) {
-    await userEvent.click(
-      await page.findByRole('button', { name: /Add a charge/ }),
-    );
-    await userEvent.type(
-      page.getByRole('textbox', { name: 'Charge 1 description' }),
-      charge,
-    );
-    await userEvent.type(
-      page.getByRole('textbox', { name: 'Charge 1 amount' }),
-      '400',
-    );
-  }
-  await userEvent.click(await page.findByRole('button', { name: 'Preview' }));
+  await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
   return page;
+};
+
+/** The card has the server's current answer and Generate is live. */
+const settled = async (page: Page) =>
+  waitFor(
+    () =>
+      expect(
+        page.getByRole('button', { name: 'Generate invoice' }),
+      ).toBeEnabled(),
+    { timeout: 3000 },
+  );
+
+const pickGrouping = async (page: Page, name: RegExp) => {
+  await userEvent.click(
+    await page.findByRole('button', { name: 'Show time as' }),
+  );
+  await userEvent.click(await page.findByRole('menuitemradio', { name }));
+  // The menu hides the page from queries until it has closed.
+  await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
+};
+
+const summaryFor = async (canvasElement: HTMLElement, text: string) => {
+  const page = await chooseNorthwind(canvasElement);
+  await pickGrouping(page, /One summary line/);
+  if (text)
+    await userEvent.type(await page.findByLabelText(/Summary line/), text);
+  return page;
+};
+
+const card = (page: Page) =>
+  within(page.getByRole('region', { name: 'Preview' }));
+
+// ── states ─────────────────────────────────────────────────────────
+
+/** No client yet: Generate waits and the card says what it needs. */
+export const Blank: Story = { ...desktop };
+export const Phone: Story = { ...phone };
+
+/** A client chosen: the card is the invoice as the PDF prints it, and
+    follows the form without a Preview button (US3 scenario 1). */
+export const ClientChosen: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await expect(card(page).getByText('Service period')).toBeVisible();
+    await expect(page.queryByRole('button', { name: 'Preview' })).toBeNull();
+  },
+};
+export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
+
+/** A change the server computes dims the figures and holds Generate until
+    the answer lands; this one never does (US3 scenario 3). */
+export const Updating: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    msw: {
+      handlers: {
+        // The play's By task never answers; every other preview does.
+        previewInvoice: http.post(
+          handlers.previewInvoice.info.path,
+          async (info) => {
+            const body = (await info.request.clone().json()) as {
+              groupingMode?: string;
+            };
+            if (body.groupingMode === 'task') await delay('infinite');
+            // `resolver` is protected in msw's types, and public at runtime.
+            const real = handlers.previewInvoice as unknown as {
+              resolver: (i: typeof info) => Promise<Response>;
+            };
+            return real.resolver(info);
+          },
+        ),
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await pickGrouping(page, /By task/);
+    await expect(await page.findByText('Updating…')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Generate invoice' }),
+    ).toBeDisabled();
+  },
 };
 
 /** Unrated work refuses generation rather than billing it at zero. */
@@ -69,7 +126,7 @@ export const Unrated: Story = {
     }),
   },
   play: async ({ canvasElement }) => {
-    const page = await previewFor(canvasElement);
+    const page = await chooseNorthwind(canvasElement);
     await expect(await page.findByText(/no rate/i)).toBeVisible();
   },
 };
@@ -79,30 +136,25 @@ export const WithCharge: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
-    const page = await previewFor(canvasElement, 'Hosting, September');
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.click(
+      await page.findByRole('button', { name: /Add a charge/ }),
+    );
+    await userEvent.type(
+      page.getByRole('textbox', { name: 'Charge 1 description' }),
+      'Hosting, September',
+    );
+    await userEvent.type(
+      page.getByRole('textbox', { name: 'Charge 1 amount' }),
+      '400',
+    );
     await expect(
-      await page.findByRole('cell', { name: 'Hosting, September' }),
+      await card(page).findByRole('cell', { name: 'Hosting, September' }),
     ).toBeVisible();
   },
 };
 
 // ── one summary line ───────────────────────────────────────────────
-
-const summaryFor = async (canvasElement: HTMLElement, text: string) => {
-  const page = await chooseNorthwind(canvasElement);
-  await userEvent.click(
-    await page.findByRole('button', { name: 'Show time as' }),
-  );
-  await userEvent.click(
-    await page.findByRole('menuitemradio', { name: /One summary line/ }),
-  );
-  // The menu hides the page from queries until it has closed.
-  await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
-  if (text)
-    await userEvent.type(await page.findByLabelText(/Summary line/), text);
-  await userEvent.click(await page.findByRole('button', { name: 'Preview' }));
-  return page;
-};
 
 /** All the time at one rate is one line of Blake's text (US1 scenario 1). */
 export const OneSummaryLine: Story = {
@@ -118,14 +170,10 @@ export const OneSummaryLine: Story = {
       canvasElement,
       'Software consulting services',
     );
+    await settled(page);
     await expect(
-      await page.findAllByRole('cell', {
-        name: 'Software consulting services',
-      }),
+      card(page).getAllByRole('cell', { name: 'Software consulting services' }),
     ).toHaveLength(1);
-    await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
-    ).toBeEnabled();
   },
 };
 
@@ -138,10 +186,9 @@ export const SummaryTwoRates: Story = {
       canvasElement,
       'Software consulting services',
     );
+    await settled(page);
     await expect(
-      await page.findAllByRole('cell', {
-        name: 'Software consulting services',
-      }),
+      card(page).getAllByRole('cell', { name: 'Software consulting services' }),
     ).toHaveLength(2);
   },
 };
@@ -157,13 +204,16 @@ export const NoSummaryLine: Story = {
       await page.findByText('Give the summary line its text.'),
     ).toBeVisible();
     await expect(
-      await page.findByRole('button', { name: 'Generate invoice' }),
+      page.getByRole('button', { name: 'Generate invoice' }),
     ).toBeDisabled();
   },
 };
+export const NoSummaryLinePhone: Story = { ...NoSummaryLine, ...phone };
 
-/** With a summary, the detail to attach from page 2, all unticked to start
-    (US2 scenario 1). */
+// ── supporting detail ──────────────────────────────────────────────
+
+/** Ticked detail shows at once under "Page 2 · supporting detail"
+    (US2 scenario 2, US3 scenario 2). */
 export const AttachDetail: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -172,15 +222,15 @@ export const AttachDetail: Story = {
       canvasElement,
       'Software consulting services',
     );
+    await settled(page);
+    for (const name of ['Hours by project', 'Hours by week', 'Hours by date'])
+      await expect(page.getByRole('checkbox', { name })).not.toBeChecked();
     await userEvent.click(
-      await page.findByRole('checkbox', { name: 'Hours by project' }),
+      page.getByRole('checkbox', { name: 'Hours by project' }),
     );
     await expect(
-      page.getByRole('checkbox', { name: 'Hours by project' }),
-    ).toBeChecked();
-    await expect(
-      page.getByRole('checkbox', { name: 'Hours by week' }),
-    ).not.toBeChecked();
+      card(page).getByText('Page 2 · supporting detail'),
+    ).toBeVisible();
   },
 };
 
@@ -196,49 +246,23 @@ export const NoAttachWithoutSummary: Story = {
 
 // ── expenses ───────────────────────────────────────────────────────
 
-const chooseNorthwind = async (canvasElement: HTMLElement) => {
-  const page = within(canvasElement.ownerDocument.body);
-  await userEvent.click(await page.findByRole('button', { name: 'Client' }));
-  await userEvent.click(
-    await page.findByRole('menuitemradio', { name: /Northwind/ }),
-  );
-  return page;
-};
-
-/** Waiting expenses land in the Preview card under their own heading, with
-    a date and no quantity or rate (US1 scenario 1). */
+/** Waiting expenses land in the card under their own heading, with a date
+    and no quantity or rate. */
 export const WithExpenses: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
-    const page = await previewFor(canvasElement);
+    const page = await chooseNorthwind(canvasElement);
     await expect(
-      await page.findByRole('heading', { name: 'Preview' }),
+      await card(page).findByRole('cell', { name: 'Figma license, annual' }),
     ).toBeVisible();
     await expect(
-      await page.findByRole('cell', { name: 'Figma license, annual' }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('cell', { name: 'Aug 20, 2026' }),
+      card(page).getByRole('cell', { name: 'Aug 20, 2026' }),
     ).toBeVisible();
   },
 };
 
-/** Services, Expenses and a Total that is both (US1 scenario 2). */
-export const GenerateWithExpenses: Story = {
-  ...desktop,
-  parameters: menuOpen,
-  play: async ({ canvasElement }) => {
-    const page = await previewFor(canvasElement);
-    await expect(await page.findByText('$380.00')).toBeVisible();
-    await expect(page.getByText('Total')).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
-    ).toBeEnabled();
-  },
-};
-
-/** A period with no time bills its expenses alone (US1 scenario 3). */
+/** A period with no time bills its expenses alone. */
 export const OnlyExpenses: Story = {
   ...desktop,
   parameters: {
@@ -248,55 +272,33 @@ export const OnlyExpenses: Story = {
     }),
   },
   play: async ({ canvasElement }) => {
-    const page = await previewFor(canvasElement);
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
     await expect(
-      await page.findByRole('cell', { name: 'Figma license, annual' }),
+      card(page).getByRole('cell', { name: 'Figma license, annual' }),
     ).toBeVisible();
-    await expect(page.queryByText('Services')).toBeNull();
-    await expect(
-      page.getByRole('button', { name: 'Generate invoice' }),
-    ).toBeEnabled();
+    await expect(card(page).queryByText('Services')).toBeNull();
   },
 };
 
-/** No expenses: no Expenses section, as before (US1 scenario 4). */
-export const NoExpenses: Story = {
-  ...desktop,
-  parameters: {
-    ...menuOpen,
-    ...account((db) => {
-      db.expenses = [];
-    }),
-  },
-  play: async ({ canvasElement }) => {
-    const page = await previewFor(canvasElement);
-    await page.findByRole('heading', { name: 'Preview' });
-    await expect(page.queryByRole('checkbox', { name: /^Bill / })).toBeNull();
-    await expect(page.queryByText('$380.00')).toBeNull();
-  },
-};
-
-/** Unticking one clears the approved preview; the next leaves it out. */
+/** Unticking one asks the server again and leaves it off. */
 export const UntickExpense: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
-    const page = await previewFor(canvasElement);
-    await page.findByRole('cell', { name: 'Figma license, annual' });
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
     await userEvent.click(
       page.getByRole('checkbox', { name: 'Bill Figma license, annual' }),
     );
-    await expect(page.queryByRole('heading', { name: 'Preview' })).toBeNull();
-    await userEvent.click(page.getByRole('button', { name: 'Preview' }));
-    await page.findByRole('heading', { name: 'Preview' });
+    await settled(page);
     await expect(
-      page.queryByRole('cell', { name: 'Figma license, annual' }),
+      card(page).queryByRole('cell', { name: 'Figma license, annual' }),
     ).toBeNull();
   },
 };
 
-/** Recorded here, it is saved for the client and joins the list, ticked
-    (US2 scenario 3). */
+/** Recorded here, it is saved for the client and joins the list, ticked. */
 export const AddExpenseHere: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -321,7 +323,7 @@ export const AddExpenseHere: Story = {
 };
 
 /** A recurring expense is ticked on every invoice, dated the period's last
-    day (US4). */
+    day. */
 export const RecurringTicked: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -332,10 +334,11 @@ export const RecurringTicked: Story = {
         name: 'Bill Claude Max subscription',
       }),
     ).toBeChecked();
-    await userEvent.click(page.getByRole('button', { name: 'Preview' }));
-    await page.findByRole('cell', { name: 'Claude Max subscription' });
     await expect(
-      page.getByRole('cell', { name: 'Aug 31, 2026' }),
+      await card(page).findByRole('cell', { name: 'Claude Max subscription' }),
+    ).toBeVisible();
+    await expect(
+      card(page).getByRole('cell', { name: 'Aug 31, 2026' }),
     ).toBeVisible();
   },
 };

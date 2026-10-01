@@ -51,7 +51,7 @@ The design is `design/new-invoice.html`: the New invoice screen
   ticked, a dashed rule, "Page 2 · supporting detail" and each ticked schedule
   with a Total row. Its last line reads "Generating assigns a number and locks
   these entries. Voiding later keeps the number on record."
-- **Layout**: at a panel 900px or wider, the form is on the left (320–400px)
+- **Layout**: at a panel 840px or wider, the form is on the left (320–400px)
   and the preview on the right, sticky beside it; narrower, the preview
   follows the form. On a card narrower than 360px the Rate column is hidden.
 - **The PDF it makes**: page 1 is the invoice; each ticked schedule follows
@@ -165,7 +165,7 @@ matches the generated PDF's information.
    then.
 4. **Given** no client is chosen, **When** the screen shows, **Then** Generate
    is disabled.
-5. **Given** a panel 900px or wider, **When** Blake scrolls the form, **Then**
+5. **Given** a panel 840px or wider, **When** Blake scrolls the form, **Then**
    the preview stays beside it; narrower, it follows the form.
 
 ---
@@ -287,7 +287,7 @@ payment profile; the generated invoice bills both and prints that profile.
 - **FR-016**: A change the server computes (grouping, summary text, an expense
   tick, a charge) MUST show "Updating…" with the figures dimmed until the
   server answers; the reference and Attach ticks MUST update at once.
-- **FR-017**: At a panel 900px or wider the preview MUST sit beside the form
+- **FR-017**: At a panel 840px or wider the preview MUST sit beside the form
   and stay in view; narrower, it MUST follow the form. On a card narrower than
   360px the Rate column MUST be hidden.
 

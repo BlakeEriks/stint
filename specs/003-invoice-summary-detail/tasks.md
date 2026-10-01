@@ -103,16 +103,16 @@ None. The migration ships with US1 (research R2); every later story builds on it
 
 ### Tests first
 
-- [ ] T029 [P] [US3] UI tests in `apps/web/test/ui/invoice-new.test.tsx`: with a client chosen the card shows the business block, No. (`formatInvoiceNumber`), Issued (today in `tz`), Due ("—" when unset), Bill to, Engagement, lines, totals and payment details; no Preview button; ticking a schedule changes the card with no request; changing the grouping, summary text, an expense tick or a charge shows "Updating…" and disables Generate until the answer lands (fake timers over the 400ms debounce); no client disables Generate; generation sends `issueDate` as today in `tz`; there is no Notes field
-- [ ] T030 [P] [US3] Stories in `invoice-new.stories.tsx`, Desktop and Phone: "Client chosen", "No client yet", "Updating", each state the Design section names
-- [ ] T031 [P] [US3] `apps/web/e2e/invoices.spec.ts`: generation end to end without the Preview button
+- [X] T029 [P] [US3] UI tests in `apps/web/test/ui/invoice-new.test.tsx`: with a client chosen the card shows the business block, No. (`formatInvoiceNumber`), Issued (today in `tz`), Due ("—" when unset), Bill to, Engagement, lines, totals and payment details; no Preview button; ticking a schedule changes the card with no request; changing the grouping, summary text, an expense tick or a charge shows "Updating…" and disables Generate until the answer lands (fake timers over the 400ms debounce); no client disables Generate; generation sends `issueDate` as today in `tz`; there is no Notes field
+- [X] T030 [P] [US3] Stories in `invoice-new.stories.tsx`, Desktop and Phone: "Client chosen", "No client yet", "Updating", each state the Design section names
+- [X] T031 [P] [US3] `apps/web/e2e/invoices.spec.ts`: generation end to end without the Preview button
 
 ### Implementation
 
-- [ ] T032 [US3] `invoice-new.tsx`: the preview as a `useQuery` on the billed inputs, debounced 400ms, `placeholderData: keepPreviousData`; "Updating…" while the debounced key differs from the settled one or a fetch is in flight (research R6); saving an expense invalidates it
-- [ ] T033 [US3] `invoice-new.tsx`: the card per research R7, from `GET /settings`, `/clients` and `/payment-profiles` through `formatInvoiceNumber`, `resolvePaymentProfile` and `buildPaymentDetails`; caption "Preview · N entries" above it; the dashed "Page 2 · supporting detail" section with the ticked tables; the last line "Generating assigns a number and locks these entries. Voiding later keeps the number on record."
-- [ ] T034 [US3] `invoice-new.tsx`: the banded form (Client; From, To and Due on one row), labels only, no hints, Notes removed; the sticky title row with Generate; the `@container` layout of research R11 (side by side and sticky at 900px, Rate column hidden under 360px); `DetailPage wide`
-- [ ] T035 [US3] Verify at desktop and phone widths in the browser, signed in locally, against `design/new-invoice.html`; commit; open the PR stacked on US2
+- [X] T032 [US3] `invoice-new.tsx`: the preview as a `useQuery` on the billed inputs, debounced 400ms, `placeholderData: keepPreviousData`; "Updating…" while the debounced key differs from the settled one or a fetch is in flight (research R6); saving an expense invalidates it
+- [X] T033 [US3] `invoice-new.tsx`: the card per research R7, from `GET /settings`, `/clients` and `/payment-profiles` through `formatInvoiceNumber`, `resolvePaymentProfile` and `buildPaymentDetails`; caption "Preview · N entries" above it; the dashed "Page 2 · supporting detail" section with the ticked tables; the last line "Generating assigns a number and locks these entries. Voiding later keeps the number on record."
+- [X] T034 [US3] `invoice-new.tsx`: the banded form (Client; From, To and Due on one row), labels only, no hints, Notes removed; the sticky title row with Generate; the `@container` layout of research R11 (side by side and sticky at 800px of content, Rate column hidden under 360px); `DetailPage wide`
+- [X] T035 [US3] Verify at desktop and phone widths in the browser, signed in locally, against `design/new-invoice.html`; commit; open the PR stacked on US2
 
 ---
 
