@@ -203,6 +203,31 @@ export const NoReference: Story = {
   },
 };
 
+/** From `xl` only the form and the preview scroll, each alone: reading
+    the end of the page leaves the form where it was. */
+export const ScrollsApart: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    const main = canvasElement.ownerDocument.querySelector('main');
+    const scrollers = [...(main?.querySelectorAll('*') ?? [])].filter(
+      (el) =>
+        getComputedStyle(el).overflowY === 'auto' &&
+        el.scrollHeight > el.clientHeight,
+    );
+    await expect(scrollers).toHaveLength(2);
+    const [form, preview] = scrollers as [HTMLElement, HTMLElement];
+    preview.scrollTop = preview.scrollHeight;
+    await expect(preview.scrollTop).toBeGreaterThan(0);
+    await expect(form.scrollTop).toBe(0);
+    // The panel itself never scrolls.
+    const panel = main?.parentElement as HTMLElement;
+    await expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
+  },
+};
+
 // ── one summary line ───────────────────────────────────────────────
 
 /** All the time at one rate is one line of Blake's text (US1 scenario 1). */

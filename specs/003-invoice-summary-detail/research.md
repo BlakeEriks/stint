@@ -178,10 +178,14 @@ generated, so the dialog has no server write to wait on.
 
 **Decision**: The screen root is an `@container`. At 800px of content (an
 840px panel) the form column is 360px and the card column, up to 816px, is
-sticky beside it, the pair centered.
+beside it, the pair centered. From `xl`, where the panel is a bounded
+scroller, the screen takes its height (`DetailPage fills`) and the two
+columns are the only scrollers; a sticky card inside a scrolling panel was a
+scroller inside a scroller, and its end scrolled the panel on.
 Below that the card follows the form. The card is its own `@container`, and
 below `@[360px]` the Rate column is hidden (FR-017). The title row ("New
-invoice", Generate) is `sticky top-0` in the panel (FR-011). The screen uses
+invoice", Generate) is pinned with `sticky top-0` below `xl`, and simply
+stays put above it (FR-011). The screen uses
 `DetailPage workspace`: `data-workspace` on its `<main>` makes `AppShell`
 drop the dock's column through CSS `:has()`, so the frame never checks a
 route. On a 16" laptop (1728px) that takes the preview from 426px to 760px.

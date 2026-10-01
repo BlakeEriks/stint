@@ -268,11 +268,14 @@ export function NewInvoice() {
     !generate.isPending;
 
   return (
-    <DetailPage back="/invoices" label="Invoices" workspace>
-      <div className="@container/new">
-        {/* The screen's one action stays in reach while the form scrolls
-            under it. */}
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-surface-primary pt-1 pb-3.5">
+    <DetailPage back="/invoices" label="Invoices" workspace fills>
+      {/* From `xl`, where the panel has a height of its own, nothing scrolls
+          but the two columns: the form and the preview each scroll alone, so
+          reading a long page never moves the field being typed in. Below it
+          the page is one scroll, and the title row is pinned to keep
+          Generate in reach. */}
+      <div className="@container/new xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-surface-primary pt-1 pb-3.5 xl:static">
           <h1 className="type-title whitespace-nowrap text-strong">
             New invoice
           </h1>
@@ -289,10 +292,11 @@ export function NewInvoice() {
         {/* A fixed form, and the page up to a Letter page's width (816px):
             more would stretch the lines apart, not show more of them, so
             any room past that is margin around the pair. */}
-        <div className="grid gap-x-10 @min-[800px]/new:grid-cols-[360px_minmax(0,816px)] @min-[800px]/new:items-start @min-[800px]/new:justify-center">
+        <div className="grid gap-x-10 @min-[800px]/new:grid-cols-[360px_minmax(0,816px)] @min-[800px]/new:justify-center xl:min-h-0 xl:flex-1 xl:grid-rows-[minmax(0,1fr)]">
           {/* One list, in the order the invoice reads: who and when, how the
               time is shown, what else is billed, what is attached. */}
-          <div className="flex min-w-0 flex-col [&>*]:border-t [&>*]:border-edge-subtle [&>*]:py-5 [&>*:first-child]:border-0 [&>*:first-child]:pt-1">
+          {/* The side padding is room for a focus ring, which a scroller clips. */}
+          <div className="flex min-w-0 flex-col xl:-mx-1 xl:min-h-0 xl:overflow-y-auto xl:px-1 [&>*]:border-t [&>*]:border-edge-subtle [&>*]:py-5 [&>*:first-child]:border-0 [&>*:first-child]:pt-1">
             <div className="flex flex-col gap-4">
               <Field label="Client" htmlFor="inv-client" required>
                 <ClientPicker
@@ -445,9 +449,9 @@ export function NewInvoice() {
             ) : null}
           </div>
 
-          {/* Beside the form on a wide panel, held in view while it scrolls;
-              after it on a narrow one. */}
-          <div className="mt-6 min-w-0 @min-[800px]/new:sticky @min-[800px]/new:top-16 @min-[800px]/new:mt-0 @min-[800px]/new:flex @min-[800px]/new:max-h-[calc(100vh-8rem)] @min-[800px]/new:flex-col">
+          {/* Beside the form on a wide panel, after it on a narrow one. From
+              `xl` its caption stays put and the card scrolls under it. */}
+          <div className="mt-6 min-w-0 @min-[800px]/new:mt-0 xl:flex xl:min-h-0 xl:flex-col">
             <InvoicePreviewCard
               preview={current}
               client={client}

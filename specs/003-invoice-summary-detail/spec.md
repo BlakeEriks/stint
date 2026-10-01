@@ -20,7 +20,7 @@ The design is `design/new-invoice.html`: the New invoice screen
 screen in the app's frame on a 16" laptop.
 
 - **Title row**: "New invoice" on the left, "Generate invoice" on the right,
-  sticky at the top of the panel. Generate is disabled with no client, while
+  always in view. Generate is disabled with no client, while
   the preview is updating, or with an empty summary line; pressed, it shows a
   pending state.
 - **Form**: one list in bands separated by a rule, labels only, no hint text.
@@ -55,8 +55,11 @@ screen in the app's frame on a 16" laptop.
 - **Layout**: New invoice is a workspace: it has no dock (Inbox and Today),
   and the app's card keeps its size. At a panel 840px or wider the form
   is on the left (360px) and the preview on the right, up to a Letter page's
-  816px, sticky beside it, the pair centered; narrower, the preview follows
-  the form. On a card narrower than 360px the Rate column is hidden.
+  816px, beside it, the pair centered. Where the panel has a height of its
+  own (the app's `xl`), the panel doesn't scroll: the form and the card each
+  scroll alone, under a title row and a Preview caption that stay put.
+  Narrower, the page is one scroll, the title row is pinned to its top, and
+  the preview follows the form. On a card narrower than 360px the Rate column is hidden.
 - **The PDF it makes**: page 1 is the invoice; each ticked schedule follows
   from page 2, under a running header, hours only.
 - **States**:
@@ -168,8 +171,9 @@ matches the generated PDF's information.
    then.
 4. **Given** no client is chosen, **When** the screen shows, **Then** Generate
    is disabled.
-5. **Given** a panel 840px or wider, **When** Blake scrolls the form, **Then**
-   the preview stays beside it; narrower, it follows the form.
+5. **Given** a panel 840px or wider, **When** Blake scrolls the form or the
+   preview, **Then** the other stays where it was; narrower, the preview
+   follows the form.
 
 ---
 
@@ -292,7 +296,9 @@ payment profile; the generated invoice bills both and prints that profile.
   server answers; the reference and Attach ticks MUST update at once.
 - **FR-017**: New invoice MUST NOT show the dock; its panel takes the dock's
   room. At a panel 840px or wider the preview MUST sit beside the
-  form, up to 816px wide, and stay in view; narrower, it MUST follow the form.
+  form, up to 816px wide; where the panel is bounded, the form and the
+  preview MUST each scroll alone and the panel MUST NOT scroll. Narrower, the
+  preview MUST follow the form.
   On a card narrower than 360px the Rate column MUST be hidden.
 
 **PDF**
