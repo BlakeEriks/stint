@@ -295,8 +295,10 @@ export function NewInvoice() {
         <div className="grid gap-x-10 @min-[800px]/new:grid-cols-[360px_minmax(0,816px)] @min-[800px]/new:justify-center xl:min-h-0 xl:flex-1 xl:grid-rows-[minmax(0,1fr)]">
           {/* One list, in the order the invoice reads: who and when, how the
               time is shown, what else is billed, what is attached. */}
-          {/* The side padding is room for a focus ring, which a scroller clips. */}
-          <div className="flex min-w-0 flex-col xl:-mx-1 xl:min-h-0 xl:overflow-y-auto xl:px-1 [&>*]:border-t [&>*]:border-edge-subtle [&>*]:py-5 [&>*:first-child]:border-0 [&>*:first-child]:pt-1">
+          {/* A scroller clips its sides too, so its padding is room for a
+              focus ring and for the Add buttons' pull to the left, and is
+              taken back with a negative margin so the fields don't move. */}
+          <div className="flex min-w-0 flex-col xl:-mx-2 xl:min-h-0 xl:overflow-y-auto xl:px-2 [&>*]:border-t [&>*]:border-edge-subtle [&>*]:py-5 [&>*:first-child]:border-0 [&>*:first-child]:pt-1">
             <div className="flex flex-col gap-4">
               <Field label="Client" htmlFor="inv-client" required>
                 <ClientPicker
@@ -569,8 +571,9 @@ const LIST =
   'rounded-md border border-edge-subtle px-1.5 divide-y divide-edge-subtle';
 
 function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
+  // Pulled left so the icon lines up with the fields' edge.
   return (
-    <div className="-mx-2 mt-1">
+    <div className="-ml-2 mt-1">
       <Button type="button" variant="ghost" size="sm" onClick={onClick}>
         <Plus aria-hidden strokeWidth={2.25} />
         {label}

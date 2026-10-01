@@ -222,6 +222,8 @@ export const ScrollsApart: Story = {
     preview.scrollTop = preview.scrollHeight;
     await expect(preview.scrollTop).toBeGreaterThan(0);
     await expect(form.scrollTop).toBe(0);
+    // A scroller scrolls sideways too: nothing in the form may spill.
+    await expect(form.scrollWidth).toBeLessThanOrEqual(form.clientWidth);
     // The panel itself never scrolls.
     const panel = main?.parentElement as HTMLElement;
     await expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
