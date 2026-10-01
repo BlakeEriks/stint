@@ -53,6 +53,8 @@ const CLIENTS = [
   {
     name: 'Northwind Trading',
     email: 'ap@northwind.test',
+    address:
+      'Attn: Accounts Payable\n410 Harbor Blvd, Suite 200\nOakland, CA 94607',
     rate: 150,
     color: '#6FA8FF',
     projects: [
@@ -63,6 +65,9 @@ const CLIENTS = [
   {
     name: 'Meridian Labs',
     email: 'billing@meridian.test',
+    address: '88 Canal St\nBoston, MA 02114',
+    // Its own payment details, so the picker has a client profile to prefer.
+    profile: 'savings',
     rate: null, // inherits the user default — worth seeing resolved
     color: '#C58AF9',
     projects: [{ name: 'Data pipeline audit', rate: null }],
@@ -263,11 +268,51 @@ try {
     process.exit(0);
   }
 
-  /* A default rate, so a client with none has something to inherit. */
+  /* A default rate, so a client with none has something to inherit, and the
+     business block every invoice prints, so a new one is complete without a
+     visit to Settings. */
   await db.query(
-    'update user_settings set default_hourly_rate = 125 where user_id = $1',
+    `update user_settings set
+       default_hourly_rate = 125,
+       business_name = 'Harbor Lane Consulting LLC',
+       business_address = '1200 Market St, Suite 400\nDenver, CO 80202',
+       business_email = 'billing@harborlane.test',
+       tax_id = '12-3456789'
+     where user_id = $1`,
     [userId],
   );
+
+  /* Two sets of US bank details: the default, and one a client points at.
+     Fake numbers; the routing number is a published test value. */
+  const profiles = {};
+  for (const [key, p] of Object.entries({
+    checking: {
+      name: 'Business checking',
+      bank: 'First Example Bank',
+      account: '000123456789',
+      type: 'checking',
+      isDefault: true,
+    },
+    savings: {
+      name: 'Reserve savings',
+      bank: 'Example Credit Union',
+      account: '000987654321',
+      type: 'savings',
+      isDefault: false,
+    },
+  })) {
+    const {
+      rows: [{ id }],
+    } = await db.query(
+      `insert into payment_profiles
+         (user_id, name, is_default, account_holder_name, bank_name,
+          account_number, routing_number, account_type)
+       values ($1, $2, $3, 'Harbor Lane Consulting LLC', $4, $5, '011000015', $6)
+       returning id`,
+      [userId, p.name, p.isDefault, p.bank, p.account, p.type],
+    );
+    profiles[key] = id;
+  }
 
   const projectIds = [];
   const clientIds = [];
@@ -275,9 +320,18 @@ try {
     const {
       rows: [{ id: clientId }],
     } = await db.query(
-      `insert into clients (user_id, name, email, hourly_rate, currency, color)
-       values ($1, $2, $3, $4, 'USD', $5) returning id`,
-      [userId, client.name, client.email, client.rate, client.color],
+      `insert into clients
+         (user_id, name, email, address, hourly_rate, currency, color, payment_profile_id)
+       values ($1, $2, $3, $4, $5, 'USD', $6, $7) returning id`,
+      [
+        userId,
+        client.name,
+        client.email,
+        client.address,
+        client.rate,
+        client.color,
+        client.profile ? profiles[client.profile] : null,
+      ],
     );
     clientIds.push(clientId);
     for (const project of client.projects) {
@@ -290,6 +344,21 @@ try {
       );
       projectIds.push(id);
     }
+  }
+
+  /* Expenses waiting on Northwind's next invoice: one billed every time, and
+     one paid ten days ago. */
+  const paid = new Date();
+  paid.setDate(paid.getDate() - 10);
+  for (const [description, amount, recurring, spentOn] of [
+    ['Claude Max subscription', 200, true, null],
+    ['Figma license, annual', 180, false, paid.toLocaleDateString('en-CA')],
+  ]) {
+    await db.query(
+      `insert into expenses (user_id, client_id, description, amount, recurring, spent_on)
+       values ($1, $2, $3, $4, $5, $6)`,
+      [userId, clientIds[0], description, amount, recurring, spentOn],
+    );
   }
 
   const {
@@ -582,6 +651,9 @@ try {
     `  ${CLIENTS.length} clients, ${projectIds.length + 1} projects, ${entries} entries`,
   );
   console.log(`  ${INVOICES.length} invoices (overdue, sent, draft, paid)`);
+  console.log(
+    '  Business identity, 2 payment profiles, 2 expenses for Northwind',
+  );
   console.log('\n  Inbox:');
   console.log('    unusual length     yes');
   console.log('    overdue invoice    yes');
