@@ -56,8 +56,9 @@ screen in the app's frame on a 16" laptop.
   and the app's card keeps its size. At a panel 840px or wider the form
   is on the left (360px) and the preview on the right, up to a Letter page's
   816px, beside it, the pair centered. Where the panel has a height of its
-  own (the app's `xl`), the panel doesn't scroll: the form and the card each
-  scroll alone, under a title row and a Preview caption that stay put.
+  own (the app's `xl`), the panel doesn't scroll: the form and the preview
+  each scroll alone, under a title row and a Preview caption that stay put.
+  The card scrolls as one page, edges and all, never inside its own border.
   Narrower, the page is one scroll, the title row is pinned to its top, and
   the preview follows the form. On a card narrower than 360px the Rate column is hidden.
 - **The PDF it makes**: page 1 is the invoice; each ticked schedule follows

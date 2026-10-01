@@ -67,84 +67,89 @@ export function InvoicePreviewCard({
         ) : null}
       </div>
 
-      <div className="@container/card flex min-h-0 flex-col gap-5 overflow-y-auto rounded-lg border border-edge-subtle bg-surface-elevated p-6">
-        {client ? (
-          <div
-            className={`flex flex-col gap-5 transition-opacity duration-150 ${
-              updating ? 'opacity-50' : ''
-            }`}
-          >
-            <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
-              <Party
-                name={settings?.businessName ?? ''}
-                lines={[settings?.businessAddress, settings?.businessEmail]}
-              />
-              <dl className="flex flex-col gap-1 type-support">
-                <Meta label="No." value={number} mono right />
-                <Meta label="Issued" value={shortDate(issued)} right />
-                <Meta label="Due" value={shortDate(due)} right />
-              </dl>
-            </div>
-
-            <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
-              <div className="min-w-0 flex-[1_1_200px]">
-                <span className={`${LABEL} mb-2`}>Bill to</span>
+      {/* The scroller is around the card, not in it: the card moves as one
+          page, edges and all, while the caption above keeps "Updating…" in
+          view. */}
+      <div className="min-h-0 overflow-y-auto">
+        <div className="@container/card flex flex-col gap-5 rounded-lg border border-edge-subtle bg-surface-elevated p-6">
+          {client ? (
+            <div
+              className={`flex flex-col gap-5 transition-opacity duration-150 ${
+                updating ? 'opacity-50' : ''
+              }`}
+            >
+              <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
                 <Party
-                  name={client.name}
-                  lines={[client.address, client.email]}
+                  name={settings?.businessName ?? ''}
+                  lines={[settings?.businessAddress, settings?.businessEmail]}
                 />
-              </div>
-              <div className="min-w-0 flex-[1_1_200px]">
-                <span className={`${LABEL} mb-2`}>Engagement</span>
                 <dl className="flex flex-col gap-1 type-support">
-                  {/* The period prints here once, never under a line. */}
-                  <Meta
-                    label="Service period"
-                    value={
-                      preview
-                        ? `${shortDate(preview.periodStart)} – ${shortDate(preview.periodEnd)}`
-                        : '—'
-                    }
+                  <Meta label="No." value={number} mono right />
+                  <Meta label="Issued" value={shortDate(issued)} right />
+                  <Meta label="Due" value={shortDate(due)} right />
+                </dl>
+              </div>
+
+              <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
+                <div className="min-w-0 flex-[1_1_200px]">
+                  <span className={`${LABEL} mb-2`}>Bill to</span>
+                  <Party
+                    name={client.name}
+                    lines={[client.address, client.email]}
                   />
-                  {reference ? (
-                    <Meta label="Reference" value={reference} />
-                  ) : null}
-                </dl>
+                </div>
+                <div className="min-w-0 flex-[1_1_200px]">
+                  <span className={`${LABEL} mb-2`}>Engagement</span>
+                  <dl className="flex flex-col gap-1 type-support">
+                    {/* The period prints here once, never under a line. */}
+                    <Meta
+                      label="Service period"
+                      value={
+                        preview
+                          ? `${shortDate(preview.periodStart)} – ${shortDate(preview.periodEnd)}`
+                          : '—'
+                      }
+                    />
+                    {reference ? (
+                      <Meta label="Reference" value={reference} />
+                    ) : null}
+                  </dl>
+                </div>
               </div>
+
+              {preview ? <Lines preview={preview} /> : null}
+
+              {payment ? (
+                <div className="border-t border-edge-subtle pt-4">
+                  <span className={`${LABEL} mb-2`}>Payment details</span>
+                  <dl className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-3 type-support">
+                    {payment.fields.map((f) => (
+                      <div key={f.label}>
+                        <dt className="text-subtle">{f.label}</dt>
+                        <dd className="text-primary">{f.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ) : null}
+
+              {preview?.schedules && schedules.length > 0 ? (
+                <Detail detail={preview.schedules} chosen={schedules} />
+              ) : null}
             </div>
+          ) : (
+            <p className="type-support text-subtle">
+              Choose a client to see what this invoice will say.
+            </p>
+          )}
 
-            {preview ? <Lines preview={preview} /> : null}
+          {children}
 
-            {payment ? (
-              <div className="border-t border-edge-subtle pt-4">
-                <span className={`${LABEL} mb-2`}>Payment details</span>
-                <dl className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-3 type-support">
-                  {payment.fields.map((f) => (
-                    <div key={f.label}>
-                      <dt className="text-subtle">{f.label}</dt>
-                      <dd className="text-primary">{f.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            ) : null}
-
-            {preview?.schedules && schedules.length > 0 ? (
-              <Detail detail={preview.schedules} chosen={schedules} />
-            ) : null}
-          </div>
-        ) : (
-          <p className="type-support text-subtle">
-            Choose a client to see what this invoice will say.
+          <p className="border-t border-edge-subtle pt-3 type-support text-subtle">
+            Generating assigns a number and locks these entries. Voiding later
+            keeps the number on record.
           </p>
-        )}
-
-        {children}
-
-        <p className="border-t border-edge-subtle pt-3 type-support text-subtle">
-          Generating assigns a number and locks these entries. Voiding later
-          keeps the number on record.
-        </p>
+        </div>
       </div>
     </section>
   );
