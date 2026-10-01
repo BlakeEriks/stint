@@ -121,8 +121,9 @@ by the 18px `INSET`; `flush` is for a screen whose regions carry the inset
 themselves (Home, the calendar), so it is never doubled. `wide` is for a
 screen that needs the room (Home, the calendar), not a preference.
 `workspace` is for a screen that is a tool rather than a page to read (New
-invoice): it takes the whole window, with no dock and no `2xl` card cap,
-because the frame reads `data-workspace` through `:has()`. The page
+invoice): it takes the dock's room, because the frame reads
+`data-workspace` through `:has()`. The card keeps its size, so the frame
+never jolts between screens. The page
 title is `type-title`, once.
 
 **Nothing inside the panel is a card.** The panel is the one surface; a

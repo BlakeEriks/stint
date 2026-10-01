@@ -183,9 +183,10 @@ Below that the card follows the form. The card is its own `@container`, and
 below `@[360px]` the Rate column is hidden (FR-017). The title row ("New
 invoice", Generate) is `sticky top-0` in the panel (FR-011). The screen uses
 `DetailPage workspace`: `data-workspace` on its `<main>` makes `AppShell`
-drop the dock's column and the `2xl` card's 1440 × 900 cap through CSS
-`:has()`, so the frame never checks a route. On a 16" laptop (1728px) that
-takes the preview from 426px to 816px. A dock that folds instead is #207.
+drop the dock's column through CSS `:has()`, so the frame never checks a
+route. On a 16" laptop (1728px) that takes the preview from 426px to 760px.
+Growing the card past its 1440 × 900 as well added only 56px, and resized the
+frame between screens. A dock that folds instead is #207.
 
 **Rationale**: The dock and the sidebar change the panel's width without
 changing the viewport's, which is why `home-cards.tsx` already sizes off its

@@ -52,9 +52,8 @@ screen in the app's frame on a 16" laptop.
   ticked, a dashed rule, "Page 2 · supporting detail" and each ticked schedule
   with a Total row. Its last line reads "Generating assigns a number and locks
   these entries. Voiding later keeps the number on record."
-- **Layout**: New invoice is a workspace: it takes the whole window, with no
-  dock (Inbox and Today), and past the app's `2xl` the card grows to the
-  window instead of stopping at 1440 × 900. At a panel 840px or wider the form
+- **Layout**: New invoice is a workspace: it has no dock (Inbox and Today),
+  and the app's card keeps its size. At a panel 840px or wider the form
   is on the left (360px) and the preview on the right, up to a Letter page's
   816px, sticky beside it, the pair centered; narrower, the preview follows
   the form. On a card narrower than 360px the Rate column is hidden.
@@ -291,8 +290,8 @@ payment profile; the generated invoice bills both and prints that profile.
 - **FR-016**: A change the server computes (grouping, summary text, an expense
   tick, a charge) MUST show "Updating…" with the figures dimmed until the
   server answers; the reference and Attach ticks MUST update at once.
-- **FR-017**: New invoice MUST take the whole window, without the dock or the
-  card's size cap. At a panel 840px or wider the preview MUST sit beside the
+- **FR-017**: New invoice MUST NOT show the dock; its panel takes the dock's
+  room. At a panel 840px or wider the preview MUST sit beside the
   form, up to 816px wide, and stay in view; narrower, it MUST follow the form.
   On a card narrower than 360px the Rate column MUST be hidden.
 

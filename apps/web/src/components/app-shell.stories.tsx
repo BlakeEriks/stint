@@ -54,8 +54,7 @@ export const Desktop: Story = { ...desktop, play: oneTimer };
 export const Wide: Story = { ...wide, play: oneTimer };
 export const Light: Story = { ...light };
 
-/** A workspace screen takes the whole window: no dock, and the `2xl` card
-    grows past its 1440 × 900 cap. */
+/** A workspace screen takes the dock's room; the card stays as it is. */
 export const Workspace: Story = {
   ...wide,
   args: {
