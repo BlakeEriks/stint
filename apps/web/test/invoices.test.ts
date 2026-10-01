@@ -714,6 +714,23 @@ test('schedules are refused on any grouping but a summary', async () => {
   assert.equal(res.body.code, 'VALIDATION_FAILED');
 });
 
+test('a summary of charges alone attaches no detail, even ticked', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const res = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        ...SUMMARY,
+        manualLines: [{ description: 'Setup fee', amount: 250 }],
+        schedules: ['project'],
+      }),
+    ),
+  );
+  assert.equal(res.status, 201);
+  assert.equal(res.body.supportingDetail, null);
+});
+
 test('an invoice freezes only the ticked schedules', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   await seedEntry({ id: E(1), hours: 2 });

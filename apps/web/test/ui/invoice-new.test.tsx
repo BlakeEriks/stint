@@ -138,11 +138,14 @@ const WITH_EXPENSE = {
 let bodies: { path: string; body: any }[] = [];
 /** Held previews: a test releases one to watch the card settle. */
 let hold: Promise<void> | null = null;
+/** Held payment-profile lists: a test stops the refetch after a save. */
+let holdProfiles: Promise<void> | null = null;
 
 const DEFAULT_PROFILES = PROFILES;
 
 function serve(preview: unknown = PREVIEW) {
   bodies = [];
+  holdProfiles = null;
   PROFILES = [...DEFAULT_PROFILES];
   vi.stubGlobal(
     'fetch',
@@ -167,6 +170,7 @@ function serve(preview: unknown = PREVIEW) {
           PROFILES.push(made);
           return ok(made);
         }
+        if (holdProfiles) await holdProfiles;
         return ok({ paymentProfiles: PROFILES });
       }
       return ok({});
@@ -650,5 +654,35 @@ describe('NewInvoice — expenses, charges and payment details', () => {
         screen.getByRole('button', { name: 'Payment details' }),
       ).toHaveTextContent('Wire'),
     );
+  });
+
+  it('generates with new payment details before the list refetches', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+
+    await user.click(screen.getByRole('button', { name: 'Payment details' }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: /New payment details/ }),
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Payment details',
+    });
+    await user.type(within(dialog).getByLabelText(/Label/), 'Wire');
+    // The list's refetch after the save never lands.
+    holdProfiles = new Promise(() => {});
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Payment details' }),
+      ).toHaveTextContent('Wire'),
+    );
+    await user.click(generate());
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    expect(
+      bodies.find((b) => b.path.endsWith('/invoices'))!.body.paymentProfileId,
+    ).toBe('pp2');
   });
 });

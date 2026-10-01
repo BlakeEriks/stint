@@ -529,7 +529,19 @@ export function NewInvoice() {
       <PaymentProfileDialog
         open={newProfileOpen}
         onOpenChange={setNewProfileOpen}
-        onSaved={(p) => set('paymentProfileId', p.id)}
+        onSaved={(p) => {
+          /* Into the list at once: until the refetch lands, a pick the list
+             lacks would fall back to another profile, and Generate would
+             freeze that one. */
+          qc.setQueryData<{ paymentProfiles: PaymentProfile[] }>(
+            keys.paymentProfiles(),
+            (d) =>
+              d && !d.paymentProfiles.some((x) => x.id === p.id)
+                ? { ...d, paymentProfiles: [...d.paymentProfiles, p] }
+                : d,
+          );
+          set('paymentProfileId', p.id);
+        }}
       />
     </DetailPage>
   );

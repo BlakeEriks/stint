@@ -188,3 +188,9 @@ test('an invoice keeps only the tables ticked, in print order', () => {
   assert.deepEqual(Object.keys(picked), ['totalHours', 'project', 'date']);
   assert.equal(pickSchedules(all, []), null);
 });
+
+test('no billed time is no detail, ticked or not', () => {
+  // The PDF prints no page for an empty table, so storing one would promise
+  // a page 2 that never comes.
+  assert.equal(pickSchedules(buildSchedules([], SEPT), ['project']), null);
+});

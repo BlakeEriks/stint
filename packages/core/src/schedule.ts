@@ -122,7 +122,9 @@ export function pickSchedules(
   all: Required<Schedules>,
   chosen: ScheduleKind[],
 ): Schedules | null {
-  if (chosen.length === 0) return null;
+  // No time is no table to print, and the PDF skips an empty one: storing it
+  // would promise a page 2 that never comes.
+  if (chosen.length === 0 || all.totalHours === 0) return null;
   const picked: Schedules = { totalHours: all.totalHours };
   for (const kind of SCHEDULE_KINDS)
     if (chosen.includes(kind)) Object.assign(picked, { [kind]: all[kind] });

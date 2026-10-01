@@ -134,7 +134,7 @@ export function InvoicePreviewCard({
                 </div>
               ) : null}
 
-              {preview?.schedules && schedules.length > 0 ? (
+              {preview?.schedules?.totalHours && schedules.length > 0 ? (
                 <Detail detail={preview.schedules} chosen={schedules} />
               ) : null}
             </div>
