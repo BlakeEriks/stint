@@ -808,6 +808,28 @@ test('supporting detail prints from page 2', async () => {
   assert.equal(await pages(['project', 'week', 'date']), 2);
 });
 
+// ── reference ──────────────────────────────────────────────────────
+test('a reference is trimmed and stored, and a blank one is none', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const make = async (reference?: string) => {
+    await pool.query('update time_entries set invoice_id = null');
+    return json(
+      await create(
+        req('/invoices', { clientId: CLIENT, ...PERIOD, reference }),
+      ),
+    );
+  };
+  await seedEntry({ id: E(1) });
+
+  const set = await make('  ICA dated Aug 5, 2026 · Exhibit A SOW ');
+  assert.equal(set.body.reference, 'ICA dated Aug 5, 2026 · Exhibit A SOW');
+  assert.equal((await make('   ')).body.reference, null);
+  assert.equal((await make()).body.reference, null);
+
+  const long = await make('x'.repeat(201));
+  assert.equal(long.status, 422);
+});
+
 // ── status ─────────────────────────────────────────────────────────
 test('status moves draft -> sent -> paid', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');

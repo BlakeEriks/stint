@@ -266,6 +266,7 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
       total: invoice.total ?? 0,
       notes: invoice.notes,
       paymentTerms: invoice.paymentTerms,
+      reference: invoice.reference,
       business: {
         name: settings.businessName,
         address: settings.businessAddress,

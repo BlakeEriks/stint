@@ -30,6 +30,7 @@ export function InvoicePreviewCard({
   number,
   issued,
   due,
+  reference,
   payment,
   schedules,
   updating,
@@ -42,6 +43,7 @@ export function InvoicePreviewCard({
   number: string;
   issued: string;
   due: string;
+  reference: string;
   payment: PaymentDetails | null;
   schedules: ScheduleKind[];
   updating: boolean;
@@ -104,6 +106,9 @@ export function InvoicePreviewCard({
                         : '—'
                     }
                   />
+                  {reference ? (
+                    <Meta label="Reference" value={reference} />
+                  ) : null}
                 </dl>
               </div>
             </div>

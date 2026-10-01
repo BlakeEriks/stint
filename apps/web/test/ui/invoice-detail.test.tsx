@@ -35,6 +35,7 @@ function invoice(status: InvoiceStatus, sentAt: string | null = null): Invoice {
     paymentTerms: 'Net 30',
     groupingMode: 'entry',
     summaryText: null,
+    reference: null,
     supportingDetail: null,
     paymentDetails: null,
     sentAt,
@@ -116,6 +117,12 @@ describe('InvoiceDetail', () => {
         'Supporting detail from page 2: Hours by project, Hours by date',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('shows the reference the invoice was issued with', async () => {
+    serve('sent', '2026-09-02T00:00:00Z', { reference: 'PO 4471' });
+    show();
+    expect(await screen.findByText('Reference PO 4471')).toBeInTheDocument();
   });
 
   it('says nothing of supporting detail when there is none', async () => {

@@ -509,3 +509,27 @@ describe('NewInvoice — supporting detail', () => {
     expect(sent.schedules).toEqual(['project', 'date']);
   });
 });
+
+describe('NewInvoice — reference', () => {
+  it('shows the reference in the card at once, and sends it', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+    const sent = previews().length;
+
+    const field = screen.getByLabelText('Reference');
+    expect(field).toHaveAttribute('placeholder', 'PO number, contract or SOW');
+    expect(within(card()).queryByText('Reference')).toBeNull();
+    await user.type(field, 'PO 4471');
+
+    expect(within(card()).getByText('PO 4471')).toBeInTheDocument();
+    expect(previews()).toHaveLength(sent);
+
+    await user.click(generate());
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    expect(
+      bodies.find((b) => b.path.endsWith('/invoices'))!.body.reference,
+    ).toBe('PO 4471');
+  });
+});

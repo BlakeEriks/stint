@@ -110,6 +110,11 @@ function Loaded({
             {client.name} · {shortDate(invoice.periodStart)} –{' '}
             {shortDate(invoice.periodEnd)}
           </p>
+          {invoice.reference ? (
+            <p className="mt-0.5 type-support text-subtle">
+              Reference {invoice.reference}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-none flex-wrap gap-2">

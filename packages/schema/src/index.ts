@@ -417,6 +417,13 @@ export const CreateInvoice = InvoicePreviewRequest.extend({
   dueDate: z.iso.date().optional(),
   notes: z.string().max(2000).optional(),
   paymentTerms: z.string().max(200).optional(),
+  /** The PO, contract or SOW the client matches the invoice to. */
+  reference: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((r) => r || undefined),
   /** The supporting detail to attach, with `summary` only. */
   schedules: z
     .array(ScheduleKind)
@@ -472,6 +479,8 @@ export const Invoice = z.object({
   groupingMode: GroupingMode,
   /** The summary line's text; set exactly when `groupingMode` is `summary`. */
   summaryText: z.string().nullable(),
+  /** The PO, contract or SOW, printed under the service period. */
+  reference: z.string().nullable(),
   /** The ticked schedules, frozen at generation like the lines. */
   supportingDetail: Schedules.nullable(),
   /** The payment block as rendered at generation. Editing a profile later

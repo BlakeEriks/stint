@@ -154,6 +154,33 @@ export const WithCharge: Story = {
   },
 };
 
+/** A reference prints under the service period, at once (US4 scenario 1). */
+export const WithReference: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.type(
+      page.getByLabelText('Reference'),
+      'ICA dated Aug 5, 2026 · Exhibit A SOW',
+    );
+    await expect(
+      card(page).getByText('ICA dated Aug 5, 2026 · Exhibit A SOW'),
+    ).toBeVisible();
+  },
+};
+
+/** No reference, no Reference row (US4 scenario 2). */
+export const NoReference: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await expect(card(page).queryByText('Reference')).toBeNull();
+  },
+};
+
 // ── one summary line ───────────────────────────────────────────────
 
 /** All the time at one rate is one line of Blake's text (US1 scenario 1). */

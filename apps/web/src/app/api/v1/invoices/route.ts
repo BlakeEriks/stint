@@ -159,6 +159,7 @@ export const POST = handle(async (req: Request) => {
       grouping_mode: body.groupingMode,
       summary_text: body.groupingMode === 'summary' ? body.summaryText : null,
       supporting_detail: supportingDetail,
+      reference: body.reference ?? null,
       payment_details: paymentDetails,
       // Frozen lines: an issued invoice is a financial record, not a live
       // view over time entries and expenses.

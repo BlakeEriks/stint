@@ -122,11 +122,11 @@ None. The migration ships with US1 (research R2); every later story builds on it
 
 **Independent Test**: Generate with a reference; the header shows it. Without one; no Reference row.
 
-- [ ] T036 [P] [US4] Route tests in `apps/web/test/invoices.test.ts`: `reference` "optional, trimmed, at most 200 characters, and blank becomes null" is stored and returned; the PDF labels "Service period" and prints "Reference" only when set
-- [ ] T037 [P] [US4] UI test and story ("With a reference"): the field's placeholder is "PO number, contract or SOW", and typing changes the card's Engagement at once
-- [ ] T038 [US4] `CreateInvoice.reference` and `Invoice.reference` in `packages/schema/src/index.ts`; `route.ts` and `rows.ts`; the mock API
-- [ ] T039 [US4] `invoice-pdf.tsx`: "Period" becomes "Service period", with "Reference" beneath it when set; `invoice-new.tsx`: the Reference field in the first band and the card's Engagement row; `invoice-detail.tsx` shows it
-- [ ] T040 [US4] Docs, verify, commit, open the PR stacked on US3
+- [X] T036 [P] [US4] Route tests in `apps/web/test/invoices.test.ts`: `reference` "optional, trimmed, at most 200 characters, and blank becomes null" is stored and returned; the PDF labels "Service period" and prints "Reference" only when set
+- [X] T037 [P] [US4] UI test and story ("With a reference"): the field's placeholder is "PO number, contract or SOW", and typing changes the card's Engagement at once
+- [X] T038 [US4] `CreateInvoice.reference` and `Invoice.reference` in `packages/schema/src/index.ts`; `route.ts` and `rows.ts`; the mock API
+- [X] T039 [US4] `invoice-pdf.tsx`: "Period" becomes "Service period", with "Reference" beneath it when set; `invoice-new.tsx`: the Reference field in the first band and the card's Engagement row; `invoice-detail.tsx` shows it
+- [X] T040 [US4] Docs, verify, commit, open the PR stacked on US3
 
 ---
 

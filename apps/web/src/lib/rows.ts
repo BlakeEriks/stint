@@ -286,6 +286,7 @@ export interface InvoiceRow {
   payment_terms: string | null;
   grouping_mode: z.infer<typeof GroupingMode>;
   summary_text: string | null;
+  reference: string | null;
   supporting_detail: z.infer<typeof Schedules> | null;
   payment_details: PaymentDetails;
   sent_at: string | null;
@@ -294,7 +295,7 @@ export interface InvoiceRow {
 }
 
 export const INVOICE_COLUMNS = columns<InvoiceRow>()(
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, supporting_detail, payment_details, sent_at, paid_at, created_at',
+  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, supporting_detail, payment_details, sent_at, paid_at, created_at',
 );
 
 export function toInvoice(r: InvoiceRow) {
@@ -318,6 +319,7 @@ export function toInvoice(r: InvoiceRow) {
     paymentTerms: r.payment_terms,
     groupingMode: r.grouping_mode,
     summaryText: r.summary_text,
+    reference: r.reference,
     supportingDetail: r.supporting_detail,
     paymentDetails: r.payment_details ?? null,
     sentAt: r.sent_at,

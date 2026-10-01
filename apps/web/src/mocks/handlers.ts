@@ -415,6 +415,7 @@ export const handlers = {
         dueDate?: string;
         notes?: string;
         schedules?: ScheduleKind[];
+        reference?: string;
       }
     >(request);
     const summaryText = input.summaryText?.trim() ?? '';
@@ -451,6 +452,7 @@ export const handlers = {
       paymentTerms: db.settings.defaultPaymentTerms,
       groupingMode: preview.groupingMode,
       summaryText: preview.groupingMode === 'summary' ? summaryText : null,
+      reference: input.reference?.trim() || null,
       supportingDetail: preview.schedules
         ? pickSchedules(preview.schedules, input.schedules ?? [])
         : null,

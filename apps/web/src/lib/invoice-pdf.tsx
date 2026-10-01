@@ -264,6 +264,8 @@ export interface InvoicePdfData {
   total: number;
   notes: string | null;
   paymentTerms: string | null;
+  /** The PO, contract or SOW; null when none. */
+  reference?: string | null;
   business: {
     name: string | null;
     address: string | null;
@@ -392,9 +394,23 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
             </View>
             {data.periodStart && data.periodEnd ? (
               <View style={[styles.dateCell, { marginTop: 12 }]}>
-                <Text style={styles.label}>PERIOD</Text>
+                <Text style={styles.label}>SERVICE PERIOD</Text>
                 <Text style={styles.bizLine}>
                   {date(data.periodStart)} – {date(data.periodEnd)}
+                </Text>
+              </View>
+            ) : null}
+            {/* What accounts payable matches the invoice to. */}
+            {data.reference ? (
+              <View style={[styles.dateCell, { marginTop: 10 }]}>
+                <Text style={styles.label}>REFERENCE</Text>
+                <Text
+                  style={[
+                    styles.bizLine,
+                    { maxWidth: 240, textAlign: 'right' },
+                  ]}
+                >
+                  {data.reference}
                 </Text>
               </View>
             ) : null}

@@ -76,6 +76,9 @@ interface Draft {
   periodStart: string;
   periodEnd: string;
   dueDate: string;
+  /** The PO, contract or SOW. It decides no line, so it never asks the
+   *  server again. */
+  reference: string;
   groupingMode: GroupingMode;
   /** The one line's text with `summary`. Fresh on every invoice. */
   summaryText: string;
@@ -92,6 +95,7 @@ const empty = (): Draft => ({
   periodStart: defaultStart(),
   periodEnd: defaultEnd(),
   dueDate: '',
+  reference: '',
   groupingMode: 'entry',
   summaryText: '',
   schedules: [],
@@ -229,6 +233,7 @@ export function NewInvoice() {
         // is UTC, a day ahead on a US evening.
         issueDate: issued,
         dueDate: draft.dueDate || undefined,
+        reference: draft.reference.trim() || undefined,
       }),
     onSuccess: (invoice) => {
       router.push(`/invoices/${invoice.id}`);
@@ -321,6 +326,15 @@ export function NewInvoice() {
                   onChange={(v) => set('dueDate', v)}
                 />
               </div>
+              <Field label="Reference" htmlFor="inv-reference">
+                <Input
+                  id="inv-reference"
+                  value={draft.reference}
+                  onChange={(e) => set('reference', e.target.value)}
+                  placeholder="PO number, contract or SOW"
+                  maxLength={200}
+                />
+              </Field>
             </div>
 
             <Field label="Show time as" htmlFor="inv-group">
@@ -425,6 +439,7 @@ export function NewInvoice() {
               number={number}
               issued={issued}
               due={draft.dueDate}
+              reference={draft.reference.trim()}
               payment={payment}
               schedules={
                 draft.groupingMode === 'summary' ? draft.schedules : []

@@ -385,6 +385,7 @@ export const api = {
     manualLines?: ManualLine[];
     excludedExpenseIds?: string[];
     schedules?: ScheduleKind[];
+    reference?: string;
     issueDate?: string;
     dueDate?: string;
     notes?: string;
