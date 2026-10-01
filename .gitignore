@@ -47,9 +47,5 @@ playwright-report/
 # Spec Kit extension catalog, downloaded by `specify extension`
 .specify/extensions/.cache/
 
-# Storybook: static build, and Vitest browser-mode failure output
-storybook-static/
+# Vitest browser-mode failure output
 .vitest/
-
-# Built into the preview only (apps/web/scripts/preview-storybook.sh)
-apps/web/public/storybook/

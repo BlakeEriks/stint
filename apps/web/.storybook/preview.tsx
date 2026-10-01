@@ -49,9 +49,6 @@ const preview: Preview = {
       await worker.start({
         onUnhandledRequest: 'error',
         quiet: true,
-        /* Relative, so a preview's Storybook under /storybook/ finds it, and
-           its scope stays /storybook/: the real app beside it on the same
-           preview never has its API answered by mocks. */
         serviceWorker: { url: './mockServiceWorker.js' },
       });
       return worker;

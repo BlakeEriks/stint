@@ -108,9 +108,6 @@ jobs:
       - name: Hygiene scan tests
         run: node --test scripts/hygiene/*.test.mjs
 
-      - name: Build script tests
-        run: node --test apps/web/scripts/*.test.mjs
-
       # A foundational doc naming a path or script that is gone fails here,
       # so a rename can't leave the constitution or a rule pointing at nothing.
       - name: Doc references

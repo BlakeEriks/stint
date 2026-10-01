@@ -284,11 +284,6 @@ there, `pr-<n>@preview.test`, and `/preview/signin?pr=<n>&next=<path>` signs
 into it and lands on `next` — the link a PR's **Try it** section opens. The
 route is a 404 anywhere `VERCEL_ENV` is not `preview`.
 
-Each preview also serves the branch's Storybook at `/storybook/index.html`,
-on its mock API rather than `stint-test` — the links in **Try it**'s
-**Stories** list. `prebuild` builds it (`apps/web/scripts/preview-storybook.sh`)
-only when `VERCEL_ENV` is `preview`, so production never ships it.
-
 `.github/workflows/preview-db.yml` keeps the project in step: it seeds a PR's
 account from that branch's `scripts/seed-account.mjs` on every push, and when
 a PR's migrations change the schema — or migrations land on main — empties
