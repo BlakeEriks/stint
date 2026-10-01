@@ -32,8 +32,8 @@ const rowClass =
  * it is already asked for; it links to that invoice instead of opening the
  * dialog, because an issued one is locked.
  *
- * `leading` (New invoice's checkbox) makes it a plain row: the checkbox is
- * the control, and the pencil would be a second one.
+ * `leading` (New invoice's checkbox) sits before the button, and the name
+ * takes its meta beneath it, since the form's column is narrow.
  */
 export function ExpenseRow({
   expense,
@@ -82,7 +82,41 @@ export function ExpenseRow({
   );
 
   if (leading) {
-    return <div className="flex items-center gap-3 py-2">{cells}</div>;
+    return (
+      <div className="flex items-center gap-3">
+        {leading}
+        <button
+          type="button"
+          onClick={onOpen}
+          aria-label={`Edit ${expense.description}`}
+          className="group flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+        >
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate type-control text-strong">
+              {expense.description}
+            </span>
+            <span className="flex items-center gap-1 type-meta text-subtle">
+              {expense.recurring ? (
+                <>
+                  <Repeat aria-hidden strokeWidth={1.75} className="size-3" />
+                  Recurring
+                </>
+              ) : expense.spentOn ? (
+                monthDay(expense.spentOn)
+              ) : null}
+            </span>
+          </span>
+          <span className="flex-none text-right type-duration text-strong">
+            {formatCurrency(expense.amount, currency)}
+          </span>
+          <Pencil
+            aria-hidden
+            strokeWidth={1.75}
+            className="size-3.5 flex-none text-subtle group-hover:text-strong"
+          />
+        </button>
+      </div>
+    );
   }
 
   if (billed) {

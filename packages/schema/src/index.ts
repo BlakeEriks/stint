@@ -424,6 +424,9 @@ export const CreateInvoice = InvoicePreviewRequest.extend({
     .max(200)
     .optional()
     .transform((r) => r || undefined),
+  /** The payment details to freeze; absent is the client's, else the
+   *  default. */
+  paymentProfileId: uuid.optional(),
   /** The supporting detail to attach, with `summary` only. */
   schedules: z
     .array(ScheduleKind)

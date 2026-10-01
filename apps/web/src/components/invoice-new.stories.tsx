@@ -138,16 +138,20 @@ export const WithCharge: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await userEvent.click(
-      await page.findByRole('button', { name: /Add a charge/ }),
+      await page.findByRole('button', { name: 'Add a charge' }),
     );
+    const dialog = within(await page.findByRole('dialog'));
     await userEvent.type(
-      page.getByRole('textbox', { name: 'Charge 1 description' }),
+      dialog.getByLabelText(/Description/),
       'Hosting, September',
     );
-    await userEvent.type(
-      page.getByRole('textbox', { name: 'Charge 1 amount' }),
-      '400',
-    );
+    await userEvent.type(dialog.getByLabelText(/Amount/), '400');
+    await userEvent.click(dialog.getByRole('button', { name: 'Save' }));
+    await expect(
+      await page.findByRole('button', {
+        name: 'Edit charge Hosting, September',
+      }),
+    ).toBeVisible();
     await expect(
       await card(page).findByRole('cell', { name: 'Hosting, September' }),
     ).toBeVisible();
@@ -331,7 +335,9 @@ export const AddExpenseHere: Story = {
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
-    await userEvent.click(await page.findByRole('button', { name: 'Expense' }));
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Add an expense' }),
+    );
     await expect(
       await page.findByRole('dialog', { name: 'Add expense' }),
     ).toHaveTextContent('Northwind Trading');
@@ -368,4 +374,63 @@ export const RecurringTicked: Story = {
       card(page).getByRole('cell', { name: 'Aug 31, 2026' }),
     ).toBeVisible();
   },
+};
+
+// ── in-form dialogs ────────────────────────────────────────────────
+
+/** An expense's name opens it, without leaving the invoice (US5
+    scenario 1). */
+export const EditingExpense: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+    );
+    const dialog = await page.findByRole('dialog', { name: 'Edit expense' });
+    // It fades in.
+    await waitFor(() => expect(dialog).toBeVisible());
+  },
+};
+export const EditingExpensePhone: Story = { ...EditingExpense, ...phone };
+
+/** "+ Add a charge" asks for a description and an amount; Save waits for
+    both (US5 scenario 3). */
+export const NewCharge: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Add a charge' }),
+    );
+    const dialog = within(
+      await page.findByRole('dialog', { name: 'New charge' }),
+    );
+    await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+  },
+};
+export const NewChargePhone: Story = { ...NewCharge, ...phone };
+
+/** The picker holds the default; its last item makes new payment details
+    (US5 scenarios 5 and 6). */
+export const NewPaymentDetails: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Payment details' }),
+    );
+    await userEvent.click(
+      await page.findByRole('menuitem', { name: /New payment details/ }),
+    );
+    const dialog = await page.findByRole('dialog', { name: 'Payment details' });
+    await waitFor(() => expect(dialog).toBeVisible());
+  },
+};
+export const NewPaymentDetailsPhone: Story = {
+  ...NewPaymentDetails,
+  ...phone,
 };

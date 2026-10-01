@@ -38,7 +38,7 @@ const SETTINGS = {
   defaultPaymentTerms: 'Net 30',
 };
 
-const PROFILES = [
+let PROFILES = [
   {
     id: 'pp1',
     name: 'Business checking',
@@ -139,8 +139,11 @@ let bodies: { path: string; body: any }[] = [];
 /** Held previews: a test releases one to watch the card settle. */
 let hold: Promise<void> | null = null;
 
+const DEFAULT_PROFILES = PROFILES;
+
 function serve(preview: unknown = PREVIEW) {
   bodies = [];
+  PROFILES = [...DEFAULT_PROFILES];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
@@ -158,8 +161,14 @@ function serve(preview: unknown = PREVIEW) {
       if (path.includes('/expenses')) return ok({ expenses: EXPENSES });
       if (path.includes('/clients')) return ok({ clients: CLIENTS });
       if (path.includes('/settings')) return ok(SETTINGS);
-      if (path.includes('/payment-profiles'))
+      if (path.includes('/payment-profiles')) {
+        if (init?.method === 'POST') {
+          const made = { ...JSON.parse(String(init.body)), id: 'pp2' };
+          PROFILES.push(made);
+          return ok(made);
+        }
         return ok({ paymentProfiles: PROFILES });
+      }
       return ok({});
     }),
   );
@@ -531,5 +540,115 @@ describe('NewInvoice — reference', () => {
     expect(
       bodies.find((b) => b.path.endsWith('/invoices'))!.body.reference,
     ).toBe('PO 4471');
+  });
+});
+
+describe('NewInvoice — expenses, charges and payment details', () => {
+  it('opens an expense from its row, and a new one from Add', async () => {
+    serve(WITH_EXPENSE);
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await chooseClient(user);
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Edit JetBrains license' }),
+    );
+    expect(
+      await screen.findByRole('dialog', { name: 'Edit expense' }),
+    ).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
+    await user.click(screen.getByRole('button', { name: 'Add an expense' }));
+    expect(
+      await screen.findByRole('dialog', { name: 'Add expense' }),
+    ).toBeInTheDocument();
+  });
+
+  it('adds a charge through its dialog, and removes it there', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+
+    await user.click(screen.getByRole('button', { name: 'Add a charge' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New charge' });
+    await user.type(within(dialog).getByLabelText(/Description/), 'Setup fee');
+    await user.type(within(dialog).getByLabelText(/Amount/), '250');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    expect(
+      screen.getByRole('button', { name: 'Edit charge Setup fee' }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(previews().at(-1)?.body.manualLines).toEqual([
+        { description: 'Setup fee', amount: 250 },
+      ]),
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Edit charge Setup fee' }),
+    );
+    await user.click(
+      within(
+        await screen.findByRole('dialog', { name: 'Edit charge' }),
+      ).getByRole('button', { name: 'Remove' }),
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Edit charge Setup fee' }),
+    ).toBeNull();
+    await waitFor(() =>
+      expect(previews().at(-1)?.body.manualLines).toEqual([]),
+    );
+  });
+
+  it('holds a charge back until it has a description and an amount', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await screen.findByText('New invoice');
+
+    await user.click(screen.getByRole('button', { name: 'Add a charge' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New charge' });
+    await user.type(within(dialog).getByLabelText(/Description/), 'Setup fee');
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
+  it('prints the default payment details, and sends the ones chosen', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+
+    expect(
+      screen.getByRole('button', { name: 'Payment details' }),
+    ).toHaveTextContent('Business checking');
+    await user.click(generate());
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    expect(
+      bodies.find((b) => b.path.endsWith('/invoices'))!.body.paymentProfileId,
+    ).toBe('pp1');
+  });
+
+  it('selects new payment details once they are saved', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+
+    await user.click(screen.getByRole('button', { name: 'Payment details' }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: /New payment details/ }),
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Payment details',
+    });
+    await user.type(within(dialog).getByLabelText(/Label/), 'Wire');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Payment details' }),
+      ).toHaveTextContent('Wire'),
+    );
   });
 });

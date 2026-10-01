@@ -137,7 +137,11 @@ export const POST = handle(async (req: Request) => {
     body.schedules,
   );
 
-  const profile = await loadPaymentProfile(db, client.payment_profile_id);
+  const profile = await loadPaymentProfile(
+    db,
+    client.payment_profile_id,
+    body.paymentProfileId,
+  );
   const paymentDetails = buildPaymentDetails(profile);
 
   const { data, error } = await db.rpc('create_invoice', {

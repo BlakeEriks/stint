@@ -416,8 +416,19 @@ export const handlers = {
         notes?: string;
         schedules?: ScheduleKind[];
         reference?: string;
+        paymentProfileId?: string;
       }
     >(request);
+    if (
+      input.paymentProfileId &&
+      !db.paymentProfiles.some(
+        (p) => p.id === input.paymentProfileId && !p.archivedAt,
+      )
+    )
+      return fail(
+        'VALIDATION_FAILED',
+        'Those payment details are archived or gone. Choose others.',
+      );
     const summaryText = input.summaryText?.trim() ?? '';
     if (input.groupingMode === 'summary' && !summaryText)
       return fail('VALIDATION_FAILED', 'A summary line needs its text');

@@ -1184,6 +1184,41 @@ test('a paid date in the future is rejected', async () => {
 });
 
 // ── payment details ────────────────────────────────────────────────
+test('the payment details chosen on the form are the ones frozen', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const DEFAULT = 'dd000000-0000-4000-8000-000000000001';
+  const WIRE = 'dd000000-0000-4000-8000-000000000002';
+  const GONE = 'dd000000-0000-4000-8000-000000000003';
+  await pool.query(
+    `insert into payment_profiles (id,user_id,name,is_default,bank_name,archived_at)
+     values ($1,$4,'USD ACH',true,'First Republic',null),
+            ($2,$4,'International wire',false,'Wise',null),
+            ($3,$4,'Old account',false,'Gone Bank',now())`,
+    [DEFAULT, WIRE, GONE, USER],
+  );
+  await seedEntry({ id: E(1) });
+  const make = async (paymentProfileId?: string) => {
+    await pool.query('update time_entries set invoice_id = null');
+    return json(
+      await create(
+        req('/invoices', { clientId: CLIENT, ...PERIOD, paymentProfileId }),
+      ),
+    );
+  };
+
+  assert.equal(
+    (await make(WIRE)).body.paymentDetails.title,
+    'International wire',
+  );
+  assert.equal((await make()).body.paymentDetails.title, 'USD ACH');
+
+  for (const id of [GONE, 'dd000000-0000-4000-8000-0000000000ff']) {
+    const res = await make(id);
+    assert.equal(res.status, 422);
+    assert.equal(res.body.code, 'VALIDATION_FAILED');
+  }
+});
+
 test('an invoice freezes the payment profile at generation', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const { GET: detail } = await import(

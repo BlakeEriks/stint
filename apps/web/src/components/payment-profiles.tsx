@@ -131,7 +131,7 @@ export function PaymentProfiles() {
  * Never the full account number — a settings list is glanceable and often
  * on a shared screen. The last four is enough to tell two profiles apart.
  */
-function summarize(p: PaymentProfile): string {
+export function summarize(p: PaymentProfile): string {
   const tail = (v: string | null) => (v ? `••••${v.slice(-4)}` : null);
   const parts = [
     p.bankName,

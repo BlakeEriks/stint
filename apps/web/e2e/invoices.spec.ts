@@ -142,11 +142,11 @@ test.describe('invoices', () => {
 
     await page.getByRole('button', { name: 'Client' }).click();
     await page.getByRole('menuitemradio', { name: /Northwind/ }).click();
-    await page.getByRole('button', { name: /Add a charge/ }).click();
-    await page
-      .getByRole('textbox', { name: 'Charge 1 description' })
-      .fill('Onboarding fee');
-    await page.getByRole('textbox', { name: 'Charge 1 amount' }).fill('250');
+    await page.getByRole('button', { name: 'Add a charge' }).click();
+    const charge = page.getByRole('dialog', { name: 'New charge' });
+    await charge.getByLabel(/Description/).fill('Onboarding fee');
+    await charge.getByLabel(/Amount/).fill('250');
+    await charge.getByRole('button', { name: 'Save' }).click();
 
     const preview = page.getByRole('region', { name: 'Preview' });
     await expect(

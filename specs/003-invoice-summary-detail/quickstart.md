@@ -33,7 +33,7 @@ Each step names the story it proves.
 2. **Live** (US3). Each change to the grouping, the text, an expense tick or a
    charge shows **Updating…** with the figures dimmed, then the answer. The
    card shows the business block, the next number, today, Bill to and
-   Payment details. Narrow the window below 900px: the card moves under the
+   Payment details. Narrow the panel below 800px: the card moves under the
    form.
 3. **Reference** (US4). Type "ICA dated Aug 5, 2026 · Exhibit A SOW": it shows
    under Service period at once. Clear it: the row goes.

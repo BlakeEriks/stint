@@ -138,16 +138,16 @@ None. The migration ships with US1 (research R2); every later story builds on it
 
 ### Tests first
 
-- [ ] T041 [P] [US5] Route tests in `apps/web/test/invoices.test.ts`: `paymentProfileId` freezes that profile's block; an archived or unknown id is `422 VALIDATION_FAILED`; absent, the client's profile else the default, as today
-- [ ] T042 [P] [US5] UI tests: pressing an expense row's name opens the expense dialog; a new expense appears ticked; "+ Add a charge" saves a charge into the list and the preview key; Remove takes it out; the picker holds the client's profile else the default; "+ New payment details" selects the saved profile (`apps/web/test/ui/invoice-new.test.tsx`, `payment-profiles.test.tsx` for `onSaved`)
-- [ ] T043 [P] [US5] Stories: "Editing an expense", "New charge", "New payment details", Desktop and Phone
+- [X] T041 [P] [US5] Route tests in `apps/web/test/invoices.test.ts`: `paymentProfileId` freezes that profile's block; an archived or unknown id is `422 VALIDATION_FAILED`; absent, the client's profile else the default, as today
+- [X] T042 [P] [US5] UI tests: pressing an expense row's name opens the expense dialog; a new expense appears ticked; "+ Add a charge" saves a charge into the list and the preview key; Remove takes it out; the picker holds the client's profile else the default; "+ New payment details" selects the saved profile (`apps/web/test/ui/invoice-new.test.tsx`, `payment-profiles.test.tsx` for `onSaved`)
+- [X] T043 [P] [US5] Stories: "Editing an expense", "New charge", "New payment details", Desktop and Phone
 
 ### Implementation
 
-- [ ] T044 [US5] `apps/web/src/components/expense-row.tsx`: `leading` and `onOpen` together, in the design's form (checkbox, then a button with the name over "↻ Recurring" or the date, the amount and a pencil); the Clients card's rows unchanged
-- [ ] T045 [US5] `apps/web/src/components/charge-dialog.tsx`: Description and Amount, both required, Remove on an existing charge; local to the form (research R9); the inline charge rows and the blank row go from `invoice-new.tsx`
-- [ ] T046 [US5] `apps/web/src/components/payment-profile-dialog.tsx`: `onSaved(profile)`; the payment-details picker in `invoice-new.tsx` (name, bank and last four, a Default badge, "+ New payment details"), preselected by `resolvePaymentProfile`, feeding the card
-- [ ] T047 [US5] `CreateInvoice.paymentProfileId` "an optional uuid"; `route.ts` loads it through `loadPaymentProfile` in `apps/web/src/lib/invoicing.ts`; the mock API
+- [X] T044 [US5] `apps/web/src/components/expense-row.tsx`: `leading` and `onOpen` together, in the design's form (checkbox, then a button with the name over "↻ Recurring" or the date, the amount and a pencil); the Clients card's rows unchanged
+- [X] T045 [US5] `apps/web/src/components/charge-dialog.tsx`: Description and Amount, both required, Remove on an existing charge; local to the form (research R9); the inline charge rows and the blank row go from `invoice-new.tsx`
+- [X] T046 [US5] `apps/web/src/components/payment-profile-dialog.tsx`: `onSaved(profile)`; the payment-details picker in `invoice-new.tsx` (name, bank and last four, a Default badge, "+ New payment details"), preselected by `resolvePaymentProfile`, feeding the card
+- [X] T047 [US5] `CreateInvoice.paymentProfileId` "an optional uuid"; `route.ts` loads it through `loadPaymentProfile` in `apps/web/src/lib/invoicing.ts`; the mock API
 - [ ] T048 [US5] Docs, verify, commit, open the PR stacked on US4
 
 ---

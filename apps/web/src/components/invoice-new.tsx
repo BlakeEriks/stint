@@ -15,13 +15,16 @@ import { ClientPicker } from './client-picker';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, Plus, X } from 'lucide-react';
+import { ChevronDown, Pencil, Plus } from 'lucide-react';
 import {
   buildPaymentDetails,
+  formatCurrency,
   formatInvoiceNumber,
   localDateKey,
   resolvePaymentProfile,
@@ -35,10 +38,14 @@ import {
   ApiError,
   type Expense,
   type GroupingMode,
+  type PaymentProfile,
 } from '@/lib/client/api';
 import { DetailPage } from './page';
 import { ExpenseDialog } from './expense-dialog';
 import { ExpenseRow } from './expense-row';
+import { type Charge, ChargeDialog } from './charge-dialog';
+import { PaymentProfileDialog } from './payment-profile-dialog';
+import { summarize } from './payment-profiles';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
@@ -61,15 +68,8 @@ const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
 /** How long typing settles before the server is asked again. */
 const SETTLE_MS = 400;
 
-/** A charge the user typed: a fee, a deposit, a retainer. */
-interface Charge {
-  /** Stable across edits, so React does not remount a row being typed in. */
-  key: string;
-  description: string;
-  /** Held as the raw string: '' and '0' are different, and parsing on every
-   *  keystroke fights the user over a half-typed '2.'. */
-  amount: string;
-}
+/** A charge on this invoice, keyed so the list can say which to edit. */
+type DraftCharge = Charge & { key: string };
 
 interface Draft {
   clientId: string;
@@ -84,9 +84,12 @@ interface Draft {
   summaryText: string;
   /** Supporting detail to attach, with `summary` only. */
   schedules: ScheduleKind[];
-  charges: Charge[];
+  charges: DraftCharge[];
   /** Waiting expenses left off this invoice. They keep waiting. */
   excludedExpenseIds: string[];
+  /** The payment details picked here; '' prints the client's, else the
+   *  default. */
+  paymentProfileId: string;
 }
 
 /** Computed on mount, not at import: the default period is "last month". */
@@ -101,27 +104,8 @@ const empty = (): Draft => ({
   schedules: [],
   charges: [],
   excludedExpenseIds: [],
+  paymentProfileId: '',
 });
-
-/**
- * The charges that are complete enough to bill.
- *
- * A row with a description and no amount is someone mid-thought, not a line —
- * so it is dropped rather than billed at zero, and the same filter runs
- * before the preview and before generation, so what was previewed is what is
- * created.
- */
-function billableCharges(charges: Charge[]) {
-  return charges
-    .map((c) => ({
-      description: c.description.trim(),
-      amount: Number.parseFloat(c.amount),
-    }))
-    .filter(
-      (c) => c.description !== '' && Number.isFinite(c.amount) && c.amount > 0,
-    )
-    .map((c) => ({ ...c, amount: Math.round(c.amount * 100) / 100 }));
-}
 
 /** `value` once it has stopped changing for `ms`. */
 function useSettled<T>(value: T, ms: number): T {
@@ -180,7 +164,10 @@ export function NewInvoice() {
   const waiting = (expenseData ?? []).filter(
     (e) => e.recurring || (e.spentOn as string) <= draft.periodEnd,
   );
-  const [addingExpense, setAddingExpense] = useState(false);
+  /* Which dialog is open, and on what: 'new', or the record being edited. */
+  const [expenseOpen, setExpenseOpen] = useState<Expense | 'new' | null>(null);
+  const [chargeOpen, setChargeOpen] = useState<string | 'new' | null>(null);
+  const [newProfileOpen, setNewProfileOpen] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
@@ -191,7 +178,10 @@ export function NewInvoice() {
     groupingMode: draft.groupingMode,
     summaryText: draft.summaryText,
     tz,
-    manualLines: billableCharges(draft.charges),
+    manualLines: draft.charges.map(({ description, amount }) => ({
+      description,
+      amount,
+    })),
     excludedExpenseIds: draft.excludedExpenseIds,
   };
   const settled = useSettled(billed, SETTLE_MS);
@@ -234,6 +224,8 @@ export function NewInvoice() {
         issueDate: issued,
         dueDate: draft.dueDate || undefined,
         reference: draft.reference.trim() || undefined,
+        // The profile the card shows, frozen as it is now.
+        paymentProfileId: profile?.id,
       }),
     onSuccess: (invoice) => {
       router.push(`/invoices/${invoice.id}`);
@@ -254,10 +246,12 @@ export function NewInvoice() {
         settings.nextInvoiceNumber,
       )
     : '';
-  const profile = resolvePaymentProfile(profiles, {
-    clientProfileId: client?.paymentProfileId,
-    defaultProfileId: profiles.find((p) => p.isDefault)?.id,
-  });
+  const profile =
+    profiles.find((p) => p.id === draft.paymentProfileId) ??
+    resolvePaymentProfile(profiles, {
+      clientProfileId: client?.paymentProfileId,
+      defaultProfileId: profiles.find((p) => p.isDefault)?.id,
+    });
   const payment = buildPaymentDetails(profile, { invoiceNumber: number });
 
   const unrated = current?.unratedEntryIds.length ?? 0;
@@ -302,7 +296,14 @@ export function NewInvoice() {
                   id="inv-client"
                   clients={clients}
                   value={draft.clientId || null}
-                  onChange={(id) => set('clientId', id ?? '')}
+                  // Another client brings its own payment details.
+                  onChange={(id) =>
+                    setDraft((d) => ({
+                      ...d,
+                      clientId: id ?? '',
+                      paymentProfileId: '',
+                    }))
+                  }
                   placeholder="Choose a client…"
                 />
               </Field>
@@ -379,7 +380,8 @@ export function NewInvoice() {
                   currency={client.currency ?? undefined}
                   excluded={draft.excludedExpenseIds}
                   onToggle={toggleExpense}
-                  onAdd={() => setAddingExpense(true)}
+                  onOpen={setExpenseOpen}
+                  onAdd={() => setExpenseOpen('new')}
                 />
               </Field>
             ) : null}
@@ -387,7 +389,18 @@ export function NewInvoice() {
             <Field label="Charges">
               <ChargeRows
                 charges={draft.charges}
-                onChange={(charges) => set('charges', charges)}
+                currency={client?.currency ?? undefined}
+                onOpen={setChargeOpen}
+                onAdd={() => setChargeOpen('new')}
+              />
+            </Field>
+
+            <Field label="Payment details" htmlFor="inv-payment">
+              <PaymentPicker
+                profiles={profiles}
+                value={profile}
+                onChange={(id) => set('paymentProfileId', id)}
+                onNew={() => setNewProfileOpen(true)}
               />
             </Field>
 
@@ -465,15 +478,50 @@ export function NewInvoice() {
 
       {client ? (
         <ExpenseDialog
-          open={addingExpense}
-          onOpenChange={setAddingExpense}
+          open={expenseOpen !== null}
+          onOpenChange={(open) => (open ? null : setExpenseOpen(null))}
           client={client}
-          // A new expense changes what would be billed.
+          expense={
+            expenseOpen !== null && expenseOpen !== 'new'
+              ? expenseOpen
+              : undefined
+          }
+          // A new or changed expense changes what would be billed; a new one
+          // is ticked, since nothing excludes it.
           onSaved={() =>
             qc.invalidateQueries({ queryKey: keys.invoicePreview() })
           }
         />
       ) : null}
+      <ChargeDialog
+        open={chargeOpen !== null}
+        onOpenChange={(open) => (open ? null : setChargeOpen(null))}
+        charge={draft.charges.find((c) => c.key === chargeOpen)}
+        onSave={(charge) =>
+          set(
+            'charges',
+            chargeOpen === 'new'
+              ? [...draft.charges, { ...charge, key: crypto.randomUUID() }]
+              : draft.charges.map((c) =>
+                  c.key === chargeOpen ? { ...charge, key: c.key } : c,
+                ),
+          )
+        }
+        onRemove={
+          chargeOpen !== 'new'
+            ? () =>
+                set(
+                  'charges',
+                  draft.charges.filter((c) => c.key !== chargeOpen),
+                )
+            : undefined
+        }
+      />
+      <PaymentProfileDialog
+        open={newProfileOpen}
+        onOpenChange={setNewProfileOpen}
+        onSaved={(p) => set('paymentProfileId', p.id)}
+      />
     </DetailPage>
   );
 }
@@ -509,33 +557,51 @@ function DateField({
   );
 }
 
+/** The bordered list that expenses and charges share. */
+const LIST =
+  'rounded-md border border-edge-subtle px-1.5 divide-y divide-edge-subtle';
+
+function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <div className="-mx-2 mt-1">
+      <Button type="button" variant="ghost" size="sm" onClick={onClick}>
+        <Plus aria-hidden strokeWidth={2.25} />
+        {label}
+      </Button>
+    </div>
+  );
+}
+
 /**
  * The client's expenses this invoice can bill, each billed unless unticked.
- * Unticking leaves it for a later invoice, never deletes it. The rows are the
- * client card's, with the checkbox as their control.
+ * Unticking leaves it for a later invoice, never deletes it; the name opens
+ * the expense itself.
  */
 function ExpenseRows({
   expenses,
   currency,
   excluded,
   onToggle,
+  onOpen,
   onAdd,
 }: {
   expenses: Expense[];
   currency?: string;
   excluded: string[];
   onToggle: (id: string, bill: boolean) => void;
+  onOpen: (expense: Expense) => void;
   onAdd: () => void;
 }) {
   return (
     <div className="flex flex-col">
       {expenses.length > 0 ? (
-        <ul className="divide-y divide-edge-grid">
+        <ul className={LIST}>
           {expenses.map((e) => (
-            <li key={e.id}>
+            <li key={e.id} className="pl-1.5">
               <ExpenseRow
                 expense={e}
                 currency={currency}
+                onOpen={() => onOpen(e)}
                 leading={
                   <input
                     type="checkbox"
@@ -550,14 +616,123 @@ function ExpenseRows({
           ))}
         </ul>
       ) : null}
-
-      <div className="-mx-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onAdd}>
-          <Plus aria-hidden strokeWidth={2.25} />
-          Expense
-        </Button>
-      </div>
+      <AddButton label="Add an expense" onClick={onAdd} />
     </div>
+  );
+}
+
+/** The charges on this invoice, each opening its dialog. */
+function ChargeRows({
+  charges,
+  currency,
+  onOpen,
+  onAdd,
+}: {
+  charges: DraftCharge[];
+  currency?: string;
+  onOpen: (key: string) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="flex flex-col">
+      {charges.length > 0 ? (
+        <ul className={LIST}>
+          {charges.map((c) => (
+            <li key={c.key}>
+              <button
+                type="button"
+                onClick={() => onOpen(c.key)}
+                aria-label={`Edit charge ${c.description}`}
+                className="group flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+              >
+                <span className="min-w-0 flex-1 truncate type-control text-strong">
+                  {c.description}
+                </span>
+                <span className="flex-none type-duration text-strong">
+                  {formatCurrency(c.amount, currency)}
+                </span>
+                <Pencil
+                  aria-hidden
+                  strokeWidth={1.75}
+                  className="size-3.5 flex-none text-subtle group-hover:text-strong"
+                />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <AddButton label="Add a charge" onClick={onAdd} />
+    </div>
+  );
+}
+
+/**
+ * Which payment details the invoice prints: each profile by name, with its
+ * bank and last four beneath so two at one bank tell apart.
+ */
+function PaymentPicker({
+  profiles,
+  value,
+  onChange,
+  onNew,
+}: {
+  profiles: PaymentProfile[];
+  value: PaymentProfile | null;
+  onChange: (id: string) => void;
+  onNew: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        id="inv-payment"
+        aria-label="Payment details"
+        className={`${inputClass} flex items-center justify-between gap-2 text-left
+                    focus:border-edge-focus focus:ring-[3px] focus:ring-edge-focus`}
+      >
+        <span className="truncate">{value?.name ?? 'None'}</span>
+        <ChevronDown
+          aria-hidden
+          className="size-4 flex-none text-muted opacity-60"
+          strokeWidth={2}
+        />
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="start" className="w-72">
+        {profiles.length > 0 ? (
+          <>
+            <DropdownMenuRadioGroup
+              value={value?.id ?? ''}
+              onValueChange={onChange}
+            >
+              {profiles.map((p) => (
+                <DropdownMenuRadioItem
+                  key={p.id}
+                  value={p.id}
+                  className="items-start pl-8"
+                >
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate">{p.name}</span>
+                      {p.isDefault ? (
+                        <span className="type-badge text-subtle">Default</span>
+                      ) : null}
+                    </span>
+                    <span className="truncate type-support text-subtle">
+                      {summarize(p)}
+                    </span>
+                  </span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
+        <DropdownMenuItem onSelect={onNew}>
+          <Plus aria-hidden strokeWidth={2.25} />
+          New payment details
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -617,72 +792,6 @@ function GroupingPicker({
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-/**
- * The charge editor: rows plus one way to add another. An untouched row costs
- * nothing — `billableCharges` drops anything without both a description and
- * an amount.
- */
-function ChargeRows({
-  charges,
-  onChange,
-}: {
-  charges: Charge[];
-  onChange: (charges: Charge[]) => void;
-}) {
-  const edit = (key: string, patch: Partial<Charge>) =>
-    onChange(charges.map((c) => (c.key === key ? { ...c, ...patch } : c)));
-
-  return (
-    <div className="flex flex-col gap-2">
-      {charges.map((c, i) => (
-        <div key={c.key} className="flex items-center gap-2">
-          <Input
-            value={c.description}
-            onChange={(e) => edit(c.key, { description: e.target.value })}
-            placeholder="What is the charge for?"
-            aria-label={`Charge ${i + 1} description`}
-            className="flex-1"
-          />
-          <Input
-            value={c.amount}
-            onChange={(e) => edit(c.key, { amount: e.target.value })}
-            placeholder="0.00"
-            inputMode="decimal"
-            aria-label={`Charge ${i + 1} amount`}
-            className="w-28 type-duration text-right"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => onChange(charges.filter((x) => x.key !== c.key))}
-            aria-label={`Remove charge ${i + 1}`}
-          >
-            <X className="size-4" />
-          </Button>
-        </div>
-      ))}
-
-      <div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            onChange([
-              ...charges,
-              { key: crypto.randomUUID(), description: '', amount: '' },
-            ])
-          }
-        >
-          <Plus className="size-4" />
-          Add a charge
-        </Button>
-      </div>
-    </div>
   );
 }
 

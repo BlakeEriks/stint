@@ -386,6 +386,7 @@ export const api = {
     excludedExpenseIds?: string[];
     schedules?: ScheduleKind[];
     reference?: string;
+    paymentProfileId?: string;
     issueDate?: string;
     dueDate?: string;
     notes?: string;
