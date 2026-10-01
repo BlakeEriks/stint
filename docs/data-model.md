@@ -114,8 +114,10 @@ account number + ACH routing is the default path; IBAN/SWIFT, a labeled
 national bank code, and intermediary-bank fields are additive and render only
 when set.
 
-Resolution mirrors rates: the client's `payment_profile_id`, else the user's
-default. A dangling reference falls back rather than rendering nothing.
+The invoice freezes the profile picked on New invoice; a pick archived or
+gone is refused, never swapped. Without a pick, resolution mirrors rates: the
+client's `payment_profile_id`, else the user's default, and a dangling client
+reference falls back rather than rendering nothing.
 
 ### `invoices` / `invoice_line_items`
 Line items are **denormalized on purpose**. An issued invoice is an immutable

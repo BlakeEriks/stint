@@ -283,9 +283,11 @@ preference — `.claude/rules/invoicing.md` has the reason.
   has the field order and which are additive.
 - The first profile created becomes the default automatically, and there is
   **one default per user**.
-- A client may point at a specific profile (`paymentProfileId`); otherwise the
-  user's default applies. A dangling reference falls back to the default
-  rather than leaving an invoice with nothing.
+- An invoice prints the profile picked on New invoice (`paymentProfileId` on
+  `POST /invoices`); a pick that is archived or gone is `422`, never swapped
+  for another. Without a pick, the client's profile (`paymentProfileId`),
+  else the user's default; a dangling client reference falls back to the
+  default rather than leaving an invoice with nothing.
 - Deleting is archival, because clients and invoices reference profiles.
 
 `user_settings.payment_notice` is a standing anti-fraud line printed under the
