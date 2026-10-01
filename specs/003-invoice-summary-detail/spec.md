@@ -47,7 +47,7 @@ screen in the app's frame on a 16" laptop.
 - **Preview**: live, under the caption "Preview · N entries". The card
   mirrors the PDF: the user's business block with No., Issued and Due; Bill to
   and Engagement (Service period, and Reference when set); the lines table
-  (Description, Qty, Rate, Amount; a charge is an amount-only row); an
+  (Description, Qty, Rate, Amount; a charge is 1 × its amount); an
   Expenses group; totals; Payment details; then, when any Attach box is
   ticked, a dashed rule, "Page 2 · supporting detail" and each ticked schedule
   with a Total row. Its last line reads "Generating assigns a number and locks

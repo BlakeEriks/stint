@@ -9,6 +9,7 @@ import {
 import {
   formatCurrency,
   formatHours,
+  formatQuantity,
   paginateSchedules,
   type DateRow,
   type DetailBlock,
@@ -427,14 +428,11 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
         {services.map((li, i) => (
           <View key={i} style={styles.row} wrap={false}>
             <Text style={styles.cDesc}>{li.description}</Text>
-            {/* A flat charge leaves both cells blank. "1 x $2,400.00" tells
-                the client nothing the amount does not already say, and the
-                quantity column exists to be read, not filled. */}
             <Text style={styles.cQty}>
-              {li.unit === 'fixed' ? '' : formatHours(li.quantity ?? 0)}
+              {formatQuantity(li.unit, li.quantity ?? 0)}
             </Text>
             <Text style={styles.cRate}>
-              {li.unit === 'fixed' ? '' : formatCurrency(li.unitPrice, cur)}
+              {formatCurrency(li.unitPrice, cur)}
             </Text>
             <Text style={styles.cAmt}>{formatCurrency(li.amount, cur)}</Text>
           </View>

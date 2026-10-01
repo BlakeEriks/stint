@@ -32,9 +32,9 @@ export interface BillableEntry {
  * What a line's quantity MEANS.
  *
  * `hour` prints its quantity and unit price; `fixed` is a flat amount — a
- * fee, a deposit, a retainer — whose quantity is always 1 and whose quantity
- * and unit-price cells stay blank on the document. A client reading
- * "1 x $2,400.00" for a fixed-scope project learns nothing from the 1.
+ * fee, a deposit, a retainer — whose quantity is always 1, printed as `1` x
+ * the amount. Accounts payable checks every row as quantity x rate = amount,
+ * and a row with blank cells is the one it cannot check.
  * `expense` is flat the same way, and is a reimbursement rather than a
  * service: it sits in its own section, carries the day it was paid, and is
  * never taxed.

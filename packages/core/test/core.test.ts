@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import { formatClock, formatCompact, elapsedSeconds } from '../src/duration.ts';
 import { resolveRate, resolveRateSource } from '../src/rates.ts';
 import { uuidv7 } from '../src/uuid.ts';
-import { formatCurrency, formatHours, formatLocalTime } from '../src/format.ts';
+import {
+  formatCurrency,
+  formatHours,
+  formatLocalTime,
+  formatQuantity,
+} from '../src/format.ts';
 
 test('formatClock renders the timer format', () => {
   assert.equal(formatClock(0), '0:00:00');
@@ -78,6 +83,12 @@ test('formatCurrency renders a narrow symbol, defaulting to USD', () => {
   assert.equal(formatCurrency(null), '$0.00');
   // An empty currency falls back rather than throwing on an invalid code.
   assert.equal(formatCurrency(5, ''), '$5.00');
+});
+
+test('formatQuantity prints a charge as a whole 1, and time as hours', () => {
+  assert.equal(formatQuantity('fixed', 1), '1');
+  assert.equal(formatQuantity('hour', 1), '1.00');
+  assert.equal(formatQuantity('hour', 2.25), '2.25');
 });
 
 test('formatHours keeps the 2dp the amount was computed from', () => {

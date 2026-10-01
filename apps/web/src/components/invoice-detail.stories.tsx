@@ -27,7 +27,7 @@ export const Paid: Story = { ...desktop, args: { id: invoice(12) } };
 export const Void: Story = { ...desktop, args: { id: invoice(9) } };
 export const Missing: Story = { ...desktop, args: { id: invoice(99) } };
 
-/** A fixed charge prints its amount alone; its quantity cells stay blank. */
+/** A fixed charge prints as 1 x its amount, so its row checks like the rest. */
 export const WithCharge: Story = {
   ...desktop,
   parameters: account((db) => {

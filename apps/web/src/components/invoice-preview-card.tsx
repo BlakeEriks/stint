@@ -3,6 +3,7 @@
 import {
   formatCurrency,
   formatHours,
+  formatQuantity,
   type PaymentDetails,
   SCHEDULE_KINDS,
   SCHEDULE_TITLES,
@@ -241,12 +242,11 @@ function Lines({ preview }: { preview: InvoicePreview }) {
           {services.map((li, i) => (
             <tr key={i} className="border-b border-edge-subtle last:border-0">
               <td className="py-2.5 text-primary">{li.description}</td>
-              {/* A charge is an amount alone, as on the PDF. */}
               <td className={`${TD} text-muted`}>
-                {li.unit === 'fixed' ? '' : formatHours(li.quantity)}
+                {formatQuantity(li.unit, li.quantity)}
               </td>
               <td className={`${TD} text-muted ${RATE}`}>
-                {li.unit === 'fixed' ? '' : formatCurrency(li.unitPrice, cur)}
+                {formatCurrency(li.unitPrice, cur)}
               </td>
               <td className={`${TD} text-strong`}>
                 {formatCurrency(li.amount, cur)}

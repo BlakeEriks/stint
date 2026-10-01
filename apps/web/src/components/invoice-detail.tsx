@@ -12,7 +12,7 @@ import { MarkPaidDialog } from './mark-paid-dialog';
 import {
   attachedSchedules,
   formatCurrency,
-  formatHours,
+  formatQuantity,
   SCHEDULE_TITLES,
 } from '@stint/core';
 import { api, ApiError, type InvoiceStatus } from '@/lib/client/api';
@@ -165,14 +165,11 @@ function Loaded({
                   className="border-b border-edge-subtle last:border-0"
                 >
                   <td className="py-2 pr-3 text-primary">{item.description}</td>
-                  {/* A flat charge shows neither, matching the PDF. */}
                   <td className="type-duration py-2 pl-3 text-right text-muted">
-                    {item.unit === 'fixed' ? '' : formatHours(item.quantity)}
+                    {formatQuantity(item.unit, item.quantity)}
                   </td>
                   <td className="type-duration py-2 pl-3 text-right text-muted">
-                    {item.unit === 'fixed'
-                      ? ''
-                      : formatCurrency(item.unitPrice, invoice.currency)}
+                    {formatCurrency(item.unitPrice, invoice.currency)}
                   </td>
                   <td className="type-duration py-2 pl-3 text-right text-strong">
                     {formatCurrency(item.amount, invoice.currency)}

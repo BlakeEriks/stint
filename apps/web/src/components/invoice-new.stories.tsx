@@ -149,7 +149,8 @@ export const Unrated: Story = {
   },
 };
 
-/** A charge is a flat amount: no quantity, no rate, after the time lines. */
+/** A charge follows the time lines as 1 x its amount, so its row checks
+    like every other. */
 export const WithCharge: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -170,9 +171,14 @@ export const WithCharge: Story = {
         name: 'Edit charge Hosting, September',
       }),
     ).toBeVisible();
+    const row = (
+      await card(page).findByRole('cell', { name: 'Hosting, September' })
+    ).closest('tr') as HTMLElement;
     await expect(
-      await card(page).findByRole('cell', { name: 'Hosting, September' }),
-    ).toBeVisible();
+      within(row)
+        .getAllByRole('cell')
+        .map((c) => c.textContent),
+    ).toEqual(['Hosting, September', '1', '$400.00', '$400.00']);
   },
 };
 
