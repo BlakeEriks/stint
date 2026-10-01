@@ -740,7 +740,7 @@ const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']; // Sep 1, 2026 is a Tue
 const PERIOD = 'Sep 1, 2026 – Sep 30, 2026';
 const h = (n) => n.toFixed(2);
 const usd = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const last4 = (s) => '····' + s.slice(-4);
 const $ = (id) => document.getElementById(id);
 
