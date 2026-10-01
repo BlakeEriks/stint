@@ -241,10 +241,12 @@ try {
   }
 
   /* Invoices first: a billed entry cannot be deleted while its invoice
-     stands, and deleting the invoice releases it. Clients before payment
-     profiles, which they reference. */
+     stands, and deleting the invoice releases it. Expenses before the
+     clients they belong to. Clients before payment profiles, which they
+     reference. */
   for (const table of [
     'invoices',
+    'expenses',
     'time_entries',
     'projects',
     'clients',
