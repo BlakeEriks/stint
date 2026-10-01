@@ -52,10 +52,12 @@ export function PaymentProfileDialog({
   open,
   onOpenChange,
   existing,
+  onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   existing?: PaymentProfile;
+  onSaved?: (profile: PaymentProfile) => void;
 }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [showInternational, setShowInternational] = useState(false);
@@ -81,7 +83,10 @@ export function PaymentProfileDialog({
       existing
         ? api.updatePaymentProfile(existing.id, body)
         : api.createPaymentProfile(body),
-    onSuccess: () => onOpenChange(false),
+    onSuccess: (profile) => {
+      onSaved?.(profile);
+      onOpenChange(false);
+    },
   });
 
   const submit = (e: React.FormEvent) => {

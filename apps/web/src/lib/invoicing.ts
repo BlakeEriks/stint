@@ -198,6 +198,9 @@ export async function loadSettings(
 export async function loadPaymentProfile(
   db: SupabaseClient,
   clientProfileId: string | null,
+  /** Picked on the form. It must exist and be live, never quietly swapped
+      for another. */
+  chosenId?: string,
 ) {
   const { data, error } = await db
     .from('payment_profiles')
@@ -208,6 +211,15 @@ export async function loadPaymentProfile(
   const profiles = (data ?? []).map((r) =>
     toPaymentProfile(r as PaymentProfileRow),
   );
+  if (chosenId) {
+    const chosen = profiles.find((p) => p.id === chosenId);
+    if (!chosen)
+      throw new ApiError(
+        'VALIDATION_FAILED',
+        'Those payment details are archived or gone. Choose others.',
+      );
+    return chosen;
+  }
   if (profiles.length === 0) return null;
 
   const defaultProfile = profiles.find((p) => p.isDefault);
@@ -266,6 +278,7 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
       total: invoice.total ?? 0,
       notes: invoice.notes,
       paymentTerms: invoice.paymentTerms,
+      reference: invoice.reference,
       business: {
         name: settings.businessName,
         address: settings.businessAddress,
@@ -283,6 +296,7 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
       // invoice must show the details the client was actually given.
       payment: invoice.paymentDetails ?? null,
       paymentNotice: settings.paymentNotice,
+      supportingDetail: invoice.supportingDetail,
     },
   };
 }

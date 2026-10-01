@@ -551,6 +551,302 @@ test('grouping mode is applied and frozen onto the invoice', async () => {
   assert.equal(res.body.total, 450);
 });
 
+test('a summary previews one line per rate, carrying its text', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  await seedEntry({ id: E(1), task: 'Design', hours: 2 });
+  await seedEntry({ id: E(2), task: 'Build', start: '2026-09-11T09:00:00Z' });
+  await seedEntry({
+    id: E(3),
+    task: 'Build',
+    start: '2026-09-12T09:00:00Z',
+    rateOverride: 200,
+  });
+
+  const res = await json(
+    await preview(
+      req('/invoices/preview', {
+        clientId: CLIENT,
+        ...PERIOD,
+        groupingMode: 'summary',
+        summaryText: '  Software consulting services ',
+      }),
+    ),
+  );
+  assert.equal(res.status, 200);
+  assert.deepEqual(
+    res.body.lineItems.map((li: any) => [
+      li.description,
+      li.quantity,
+      li.unitPrice,
+    ]),
+    [
+      ['Software consulting services', 3, 150],
+      ['Software consulting services', 1, 200],
+    ],
+  );
+});
+
+test('a summary is refused without its text', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1) });
+
+  for (const summaryText of [undefined, '   ']) {
+    const res = await json(
+      await create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          groupingMode: 'summary',
+          summaryText,
+        }),
+      ),
+    );
+    assert.equal(res.status, 422);
+    assert.equal(res.body.code, 'VALIDATION_FAILED');
+  }
+  const { rows } = await pool.query('select count(*)::int n from invoices');
+  assert.equal(rows[0].n, 0);
+});
+
+test('a summary invoice stores its text and reads back as issued', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  await seedEntry({ id: E(1), hours: 2 });
+
+  const res = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        groupingMode: 'summary',
+        summaryText: 'Professional services',
+      }),
+    ),
+  );
+  assert.equal(res.status, 201);
+  assert.equal(res.body.groupingMode, 'summary');
+  assert.equal(res.body.summaryText, 'Professional services');
+
+  const read = await json(
+    await detail(req(`/invoices/${res.body.id}`), {
+      params: Promise.resolve({ id: res.body.id }),
+    }),
+  );
+  assert.equal(read.body.summaryText, 'Professional services');
+  assert.deepEqual(
+    read.body.lineItems.map((li: any) => li.description),
+    ['Professional services'],
+  );
+});
+
+test('the summary text belongs to a summary invoice only', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1) });
+
+  const res = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        groupingMode: 'task',
+        summaryText: 'Ignored',
+      }),
+    ),
+  );
+  assert.equal(res.body.summaryText, null);
+  await assert.rejects(
+    pool.query(`update invoices set summary_text = 'X' where id = $1`, [
+      res.body.id,
+    ]),
+    /invoices_summary_text/,
+  );
+});
+
+// ── supporting detail ──────────────────────────────────────────────
+const SUMMARY = {
+  groupingMode: 'summary',
+  summaryText: 'Software consulting services',
+};
+
+test('a summary preview carries every schedule; other groupings none', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  await seedEntry({ id: E(1), hours: 2 });
+  await seedEntry({ id: E(2), start: '2026-09-15T15:00:00Z', hours: 1 });
+
+  const res = await json(
+    await preview(
+      req('/invoices/preview', { clientId: CLIENT, ...PERIOD, ...SUMMARY }),
+    ),
+  );
+  assert.deepEqual(res.body.schedules.project, [
+    { project: 'Lifecycle', hours: 3 },
+  ]);
+  assert.equal(res.body.schedules.week.length, 2);
+  assert.equal(res.body.schedules.date.length, 2);
+  assert.equal(res.body.schedules.totalHours, 3);
+
+  const task = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(task.body.schedules, null);
+});
+
+test('schedules are refused on any grouping but a summary', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1) });
+  const res = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        groupingMode: 'project',
+        schedules: ['project'],
+      }),
+    ),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
+});
+
+test('a summary of charges alone attaches no detail, even ticked', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const res = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        ...SUMMARY,
+        manualLines: [{ description: 'Setup fee', amount: 250 }],
+        schedules: ['project'],
+      }),
+    ),
+  );
+  assert.equal(res.status, 201);
+  assert.equal(res.body.supportingDetail, null);
+});
+
+test('an invoice freezes only the ticked schedules', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), hours: 2 });
+  const res = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        ...SUMMARY,
+        schedules: ['week', 'project'],
+      }),
+    ),
+  );
+  assert.equal(res.status, 201);
+  // jsonb orders keys its own way; the PDF prints project, week, date.
+  assert.deepEqual(Object.keys(res.body.supportingDetail).sort(), [
+    'project',
+    'totalHours',
+    'week',
+  ]);
+  assert.equal(res.body.total, 300, 'the detail never changes the total');
+
+  const { rows } = await pool.query(
+    'select supporting_detail from invoices where id = $1',
+    [res.body.id],
+  );
+  assert.deepEqual(rows[0].supporting_detail.project, [
+    { project: 'Lifecycle', hours: 2 },
+  ]);
+});
+
+test('frozen detail survives a project rename and a void', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  await seedEntry({ id: E(1), hours: 2 });
+  const inv = await json(
+    await create(
+      req('/invoices', {
+        clientId: CLIENT,
+        ...PERIOD,
+        ...SUMMARY,
+        schedules: ['project', 'date'],
+      }),
+    ),
+  );
+  const params = { params: Promise.resolve({ id: inv.body.id }) };
+
+  await pool.query(`update projects set name = 'Renamed' where id = $1`, [
+    PROJECT,
+  ]);
+  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), params);
+  await setStatus(req('/s', { status: 'void' }, 'PATCH'), params);
+
+  const read = await json(
+    await detail(req(`/invoices/${inv.body.id}`), params),
+  );
+  assert.deepEqual(read.body.supportingDetail, inv.body.supportingDetail);
+  assert.equal(read.body.supportingDetail.project[0].project, 'Lifecycle');
+});
+
+test('supporting detail prints from page 2', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: pdf } = await import(
+    '../src/app/api/v1/invoices/[id]/pdf/route.ts'
+  );
+  const pages = async (schedules: string[]) => {
+    await pool.query('update time_entries set invoice_id = null');
+    const inv = await json(
+      await create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          ...SUMMARY,
+          schedules,
+        }),
+      ),
+    );
+    const res = await pdf(req('/pdf'), {
+      params: Promise.resolve({ id: inv.body.id }),
+    });
+    const text = Buffer.from(await res.arrayBuffer()).toString('latin1');
+    return text.match(/\/Type \/Page\b/g)?.length;
+  };
+  await seedEntry({ id: E(1), hours: 2 });
+
+  assert.equal(await pages([]), 1);
+  assert.equal(await pages(['project', 'week', 'date']), 2);
+});
+
+// ── reference ──────────────────────────────────────────────────────
+test('a reference is trimmed and stored, and a blank one is none', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const make = async (reference?: string) => {
+    await pool.query('update time_entries set invoice_id = null');
+    return json(
+      await create(
+        req('/invoices', { clientId: CLIENT, ...PERIOD, reference }),
+      ),
+    );
+  };
+  await seedEntry({ id: E(1) });
+
+  const set = await make('  ICA dated Aug 5, 2026 · Exhibit A SOW ');
+  assert.equal(set.body.reference, 'ICA dated Aug 5, 2026 · Exhibit A SOW');
+  assert.equal((await make('   ')).body.reference, null);
+  assert.equal((await make()).body.reference, null);
+
+  const long = await make('x'.repeat(201));
+  assert.equal(long.status, 422);
+});
+
 // ── status ─────────────────────────────────────────────────────────
 test('status moves draft -> sent -> paid', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
@@ -905,6 +1201,41 @@ test('a paid date in the future is rejected', async () => {
 });
 
 // ── payment details ────────────────────────────────────────────────
+test('the payment details chosen on the form are the ones frozen', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const DEFAULT = 'dd000000-0000-4000-8000-000000000001';
+  const WIRE = 'dd000000-0000-4000-8000-000000000002';
+  const GONE = 'dd000000-0000-4000-8000-000000000003';
+  await pool.query(
+    `insert into payment_profiles (id,user_id,name,is_default,bank_name,archived_at)
+     values ($1,$4,'USD ACH',true,'First Republic',null),
+            ($2,$4,'International wire',false,'Wise',null),
+            ($3,$4,'Old account',false,'Gone Bank',now())`,
+    [DEFAULT, WIRE, GONE, USER],
+  );
+  await seedEntry({ id: E(1) });
+  const make = async (paymentProfileId?: string) => {
+    await pool.query('update time_entries set invoice_id = null');
+    return json(
+      await create(
+        req('/invoices', { clientId: CLIENT, ...PERIOD, paymentProfileId }),
+      ),
+    );
+  };
+
+  assert.equal(
+    (await make(WIRE)).body.paymentDetails.title,
+    'International wire',
+  );
+  assert.equal((await make()).body.paymentDetails.title, 'USD ACH');
+
+  for (const id of [GONE, 'dd000000-0000-4000-8000-0000000000ff']) {
+    const res = await make(id);
+    assert.equal(res.status, 422);
+    assert.equal(res.body.code, 'VALIDATION_FAILED');
+  }
+});
+
 test('an invoice freezes the payment profile at generation', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const { GET: detail } = await import(

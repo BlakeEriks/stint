@@ -32,6 +32,12 @@ export const keys = {
   account: () => ['account'] as const,
   invoices: () => ['invoices'] as const,
   invoice: (id: string | null | undefined) => ['invoices', id] as const,
+  /** Keyed on everything that decides the lines, so a stale answer is
+      never read as current. No argument is every preview. */
+  invoicePreview: (body?: object) =>
+    body
+      ? (['invoice-preview', body] as const)
+      : (['invoice-preview'] as const),
   expenses: () => ['expenses'] as const,
   settings: () => ['settings'] as const,
   paymentProfiles: () => ['payment-profiles'] as const,

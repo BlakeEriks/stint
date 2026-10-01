@@ -269,13 +269,22 @@ export const Account = z.object({
 });
 
 // ── invoicing ──────────────────────────────────────────────────────
-export const GroupingMode = z.enum(['entry', 'task', 'project', 'day']);
+export const GroupingMode = z.enum([
+  'summary',
+  'entry',
+  'task',
+  'project',
+  'day',
+]);
 
 export const InvoicePreviewRequest = z.object({
   clientId: uuid,
   periodStart: z.iso.date(),
   periodEnd: z.iso.date(),
   groupingMode: GroupingMode.default('entry'),
+  /** The one line's text with `summary`; the other modes ignore it. Empty
+   *  previews the line blank, and generation refuses it. */
+  summaryText: z.string().trim().max(200).default(''),
   /**
    * The period is local dates, so the window is resolved in this zone — and
    * it decides which entries land on the invoice. Rejected rather than
@@ -303,6 +312,26 @@ export const InvoicePreviewRequest = z.object({
    * include sent back from a preview. They keep waiting for a later invoice.
    */
   excludedExpenseIds: z.array(uuid).max(200).default([]),
+});
+
+/** A table of supporting detail: hours by project, by week or by date. */
+export const ScheduleKind = z.enum(['project', 'week', 'date']);
+
+const hours = z.number().nonnegative();
+
+/**
+ * Supporting detail, in hours only. Every table on a preview; on an invoice,
+ * only the ticked ones, frozen at generation.
+ */
+export const Schedules = z.object({
+  project: z.array(z.object({ project: z.string(), hours })).optional(),
+  week: z
+    .array(z.object({ start: z.iso.date(), end: z.iso.date(), hours }))
+    .optional(),
+  date: z
+    .array(z.object({ date: z.iso.date(), project: z.string(), hours }))
+    .optional(),
+  totalHours: hours,
 });
 
 /** What a line's quantity means: billed hours, a flat charge, or a
@@ -374,6 +403,8 @@ export const InvoicePreview = z.object({
   entryCount: z.number().int().nonnegative(),
   /** Entries with no resolvable rate — blocks generation until fixed. */
   unratedEntryIds: z.array(uuid),
+  /** With `summary`, every table the invoice could attach; otherwise null. */
+  schedules: Schedules.nullable(),
 });
 
 /** One charge on a request: what `manualLines` carries. */
@@ -386,7 +417,30 @@ export const CreateInvoice = InvoicePreviewRequest.extend({
   dueDate: z.iso.date().optional(),
   notes: z.string().max(2000).optional(),
   paymentTerms: z.string().max(200).optional(),
-});
+  /** The PO, contract or SOW the client matches the invoice to. */
+  reference: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((r) => r || undefined),
+  /** The payment details to freeze; absent is the client's, else the
+   *  default. */
+  paymentProfileId: uuid.optional(),
+  /** The supporting detail to attach, with `summary` only. */
+  schedules: z
+    .array(ScheduleKind)
+    .refine((k) => new Set(k).size === k.length, 'Each schedule once')
+    .default([]),
+})
+  .refine((b) => b.groupingMode !== 'summary' || b.summaryText !== '', {
+    message: 'A summary line needs its text',
+    path: ['summaryText'],
+  })
+  .refine((b) => b.groupingMode === 'summary' || b.schedules.length === 0, {
+    message: 'Supporting detail comes with a summary line only',
+    path: ['schedules'],
+  });
 
 /** The frozen snapshot stored on an invoice. */
 const PaymentDetailsSnapshot = z.object({
@@ -426,6 +480,12 @@ export const Invoice = z.object({
   notes: z.string().nullable(),
   paymentTerms: z.string().nullable(),
   groupingMode: GroupingMode,
+  /** The summary line's text; set exactly when `groupingMode` is `summary`. */
+  summaryText: z.string().nullable(),
+  /** The PO, contract or SOW, printed under the service period. */
+  reference: z.string().nullable(),
+  /** The ticked schedules, frozen at generation like the lines. */
+  supportingDetail: Schedules.nullable(),
   /** The payment block as rendered at generation. Editing a profile later
    *  never alters an issued invoice, so this is a snapshot, not a reference. */
   paymentDetails: PaymentDetailsSnapshot.nullable(),

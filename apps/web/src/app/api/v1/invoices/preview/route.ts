@@ -8,7 +8,7 @@ import {
   loadBillableEntries,
   loadBillableExpenses,
 } from '@/lib/invoicing';
-import { buildLineItems } from '@stint/core';
+import { buildLineItems, buildSchedules } from '@stint/core';
 import { InvoicePreviewRequest } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -61,6 +61,7 @@ export const POST = handle(async (req: Request) => {
 
   const totals = buildLineItems(entries, {
     groupingMode: body.groupingMode,
+    summaryText: body.summaryText,
     taxRate,
     tz: body.tz,
     manualLines: body.manualLines,
@@ -75,5 +76,13 @@ export const POST = handle(async (req: Request) => {
     groupingMode: body.groupingMode,
     currency: client.currency ?? settings.currency,
     ...totals,
+    schedules:
+      body.groupingMode === 'summary'
+        ? buildSchedules(entries, {
+            tz: body.tz,
+            periodStart: body.periodStart,
+            periodEnd: body.periodEnd,
+          })
+        : null,
   });
 });

@@ -6,7 +6,19 @@ import {
   StyleSheet,
   Image,
 } from '@react-pdf/renderer';
-import { formatCurrency, formatHours } from '@stint/core';
+import {
+  formatCurrency,
+  formatHours,
+  formatQuantity,
+  paginateSchedules,
+  type DateRow,
+  type DetailBlock,
+  type ProjectRow,
+  SCHEDULE_TITLES,
+  type ScheduleKind,
+  type Schedules,
+  type WeekRow,
+} from '@stint/core';
 import { theme } from '@stint/design-tokens';
 
 /**
@@ -186,6 +198,43 @@ const styles = StyleSheet.create({
     color: c.faint,
   },
 
+  // Supporting detail. Every row is one line, so a page holds a known number
+  // of them and `paginateSchedules` can decide the breaks.
+  run: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: 8,
+    marginBottom: 18,
+    borderBottomWidth: 0.5,
+    borderBottomColor: c.rule,
+  },
+  runTitle: { fontFamily: 'Helvetica-Bold' },
+  runMeta: { color: c.muted, fontSize: 8.5 },
+  schedule: { marginBottom: 18 },
+  scheduleTitle: {
+    fontSize: 11,
+    fontFamily: 'Helvetica-Bold',
+    marginBottom: 6,
+  },
+  continued: { fontFamily: 'Helvetica-Oblique', color: c.muted },
+  dRow: {
+    flexDirection: 'row',
+    paddingVertical: 3.5,
+    borderBottomWidth: 0.5,
+    borderBottomColor: c.rule,
+  },
+  dSum: {
+    flexDirection: 'row',
+    paddingTop: 5,
+    borderTopWidth: 1,
+    borderTopColor: c.ink,
+    fontFamily: 'Helvetica-Bold',
+  },
+  cText: { flex: 1, paddingRight: 12, maxLines: 1, textOverflow: 'ellipsis' },
+  cDay: { width: 44 },
+  cWhen: { width: 96 },
+  cHours: { width: 62, textAlign: 'right', fontFamily: 'Courier' },
+
   voidMark: {
     position: 'absolute',
     top: 300,
@@ -216,6 +265,8 @@ export interface InvoicePdfData {
   total: number;
   notes: string | null;
   paymentTerms: string | null;
+  /** The PO, contract or SOW; null when none. */
+  reference?: string | null;
   business: {
     name: string | null;
     address: string | null;
@@ -243,7 +294,17 @@ export interface InvoicePdfData {
   } | null;
   /** Standing anti-fraud line, printed under the payment block. */
   paymentNotice?: string | null;
+  /** The frozen supporting detail, printed from page 2; null when none. */
+  supportingDetail?: Schedules | null;
 }
+
+/** One-line rows that fit a detail page under its running header. */
+const DETAIL_ROWS_PER_PAGE = 30;
+
+const DAY = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  timeZone: 'UTC',
+});
 
 const date = (iso: string | null) =>
   iso
@@ -334,9 +395,23 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
             </View>
             {data.periodStart && data.periodEnd ? (
               <View style={[styles.dateCell, { marginTop: 12 }]}>
-                <Text style={styles.label}>PERIOD</Text>
+                <Text style={styles.label}>SERVICE PERIOD</Text>
                 <Text style={styles.bizLine}>
                   {date(data.periodStart)} – {date(data.periodEnd)}
+                </Text>
+              </View>
+            ) : null}
+            {/* What accounts payable matches the invoice to. */}
+            {data.reference ? (
+              <View style={[styles.dateCell, { marginTop: 10 }]}>
+                <Text style={styles.label}>REFERENCE</Text>
+                <Text
+                  style={[
+                    styles.bizLine,
+                    { maxWidth: 240, textAlign: 'right' },
+                  ]}
+                >
+                  {data.reference}
                 </Text>
               </View>
             ) : null}
@@ -353,14 +428,11 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
         {services.map((li, i) => (
           <View key={i} style={styles.row} wrap={false}>
             <Text style={styles.cDesc}>{li.description}</Text>
-            {/* A flat charge leaves both cells blank. "1 x $2,400.00" tells
-                the client nothing the amount does not already say, and the
-                quantity column exists to be read, not filled. */}
             <Text style={styles.cQty}>
-              {li.unit === 'fixed' ? '' : formatHours(li.quantity ?? 0)}
+              {formatQuantity(li.unit, li.quantity ?? 0)}
             </Text>
             <Text style={styles.cRate}>
-              {li.unit === 'fixed' ? '' : formatCurrency(li.unitPrice, cur)}
+              {formatCurrency(li.unitPrice, cur)}
             </Text>
             <Text style={styles.cAmt}>{formatCurrency(li.amount, cur)}</Text>
           </View>
@@ -487,16 +559,112 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
           </View>
         ) : null}
 
-        <View style={styles.footer} fixed>
-          <Text>{data.invoiceNumber}</Text>
-          <Text
-            render={({ pageNumber, totalPages }) =>
-              totalPages > 1 ? `Page ${pageNumber} of ${totalPages}` : ''
-            }
-          />
-        </View>
+        <Footer number={data.invoiceNumber} />
       </Page>
+
+      {/* Each detail page is a page of its own, so the detail starts on page
+          2 however much room page 1 has left, and never sums into it. */}
+      {data.supportingDetail
+        ? paginateSchedules(data.supportingDetail, DETAIL_ROWS_PER_PAGE).map(
+            (blocks, i) => (
+              <Page key={i} size="A4" style={styles.page}>
+                <View style={styles.run}>
+                  <Text style={styles.runTitle}>Supporting detail</Text>
+                  <Text style={styles.runMeta}>
+                    {data.invoiceNumber} · {data.client.name} ·{' '}
+                    {date(data.periodStart)} – {date(data.periodEnd)}
+                  </Text>
+                </View>
+                {blocks.map((block, j) => (
+                  <ScheduleTable key={j} block={block} />
+                ))}
+                <Footer number={data.invoiceNumber} />
+              </Page>
+            ),
+          )
+        : null}
     </Document>
+  );
+}
+
+function Footer({ number }: { number: string }) {
+  return (
+    <View style={styles.footer} fixed>
+      <Text>{number}</Text>
+      <Text
+        render={({ pageNumber, totalPages }) =>
+          totalPages > 1 ? `Page ${pageNumber} of ${totalPages}` : ''
+        }
+      />
+    </View>
+  );
+}
+
+/** Hours only: a schedule shows how the time was spent, never what it cost. */
+function ScheduleTable({ block }: { block: DetailBlock }) {
+  const head = (text: string, style: TextStyle) => (
+    <Text style={[style, styles.headCell]}>{text}</Text>
+  );
+  return (
+    <View style={styles.schedule}>
+      <Text style={styles.scheduleTitle}>
+        {SCHEDULE_TITLES[block.kind]}
+        {block.continued ? (
+          <Text style={styles.continued}> (continued)</Text>
+        ) : null}
+      </Text>
+      <View style={styles.tHead}>
+        {block.kind === 'date' ? (
+          <>
+            {head('DATE', styles.cWhen)}
+            {head('DAY', styles.cDay)}
+          </>
+        ) : null}
+        {head(block.kind === 'week' ? 'WEEK' : 'PROJECT', styles.cText)}
+        {head('HOURS', styles.cHours)}
+      </View>
+      {block.rows.map((row, i) => (
+        <View key={i} style={styles.dRow}>
+          <ScheduleCells kind={block.kind} row={row} />
+          <Text style={styles.cHours}>{formatHours(row.hours)}</Text>
+        </View>
+      ))}
+      {block.total !== null ? (
+        <View style={styles.dSum}>
+          <Text style={styles.cText}>Total</Text>
+          <Text style={styles.cHours}>{formatHours(block.total)}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function ScheduleCells({
+  kind,
+  row,
+}: {
+  kind: ScheduleKind;
+  row: DetailBlock['rows'][number];
+}) {
+  if (kind === 'project')
+    return <Text style={styles.cText}>{(row as ProjectRow).project}</Text>;
+  if (kind === 'week') {
+    const w = row as WeekRow;
+    return (
+      <Text style={styles.cText}>
+        {date(w.start)} – {date(w.end)}
+      </Text>
+    );
+  }
+  const d = row as DateRow;
+  return (
+    <>
+      <Text style={styles.cWhen}>{date(d.date)}</Text>
+      <Text style={styles.cDay}>
+        {DAY.format(new Date(`${d.date}T00:00:00Z`))}
+      </Text>
+      <Text style={styles.cText}>{d.project}</Text>
+    </>
   );
 }
 

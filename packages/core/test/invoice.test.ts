@@ -135,6 +135,66 @@ test('grouping by project, with unassigned work labeled', () => {
   assert.equal(r.lineItems[0]!.quantity, 2);
 });
 
+test('a summary is one line of the given text across projects and tasks', () => {
+  const r = buildLineItems(
+    [
+      entry({ id: 'a', taskName: 'Design', projectName: 'Lifecycle' }),
+      entry({ id: 'b', taskName: 'Build', projectName: 'Portal' }),
+      entry({
+        id: 'c',
+        taskName: 'Review',
+        projectId: null,
+        projectName: null,
+      }),
+    ],
+    { groupingMode: 'summary', summaryText: 'Software consulting services' },
+  );
+  assert.equal(r.lineItems.length, 1);
+  assert.equal(r.lineItems[0]!.description, 'Software consulting services');
+  assert.equal(r.lineItems[0]!.quantity, 3);
+  assert.equal(r.lineItems[0]!.amount, 300);
+  assert.deepEqual(r.lineItems[0]!.entryIds, ['a', 'b', 'c']);
+});
+
+test('a summary keeps one line per rate, cheapest first', () => {
+  const r = buildLineItems(
+    [
+      entry({ id: 'a', rateOverride: 120 }),
+      entry({ id: 'b', rateOverride: 80 }),
+      entry({ id: 'c', rateOverride: 80 }),
+    ],
+    { groupingMode: 'summary', summaryText: 'Services' },
+  );
+  assert.deepEqual(
+    r.lineItems.map((li) => [li.description, li.unitPrice, li.quantity]),
+    [
+      ['Services', 80, 2],
+      ['Services', 120, 1],
+    ],
+  );
+});
+
+test('a summary is followed by charges and expenses as in any grouping', () => {
+  const r = buildLineItems([entry()], {
+    groupingMode: 'summary',
+    summaryText: 'Services',
+    manualLines: [{ description: 'Setup', amount: 50 }],
+    expenses: [
+      { id: 'x', spentOn: '2026-09-02', description: 'Parking', amount: 12 },
+    ],
+  });
+  assert.deepEqual(
+    r.lineItems.map((li) => [li.description, li.unit]),
+    [
+      ['Services', 'hour'],
+      ['Setup', 'fixed'],
+      ['Parking', 'expense'],
+    ],
+  );
+  assert.equal(r.subtotal, 150);
+  assert.equal(r.total, 162);
+});
+
 test('grouping by day uses the LOCAL date', () => {
   // 02:30Z on the 12th is still the 11th in Sao Paulo (UTC-3).
   const r = buildLineItems(

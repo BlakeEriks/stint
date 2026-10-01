@@ -259,22 +259,28 @@ for (const scenario of scenarios)
     const { POST } = await import(
       '../src/app/api/v1/invoices/preview/route.ts'
     );
-    const body = {
-      clientId: ids.northwind,
-      periodStart: addDays(today, -30),
-      periodEnd: today,
-      groupingMode: 'task' as const,
-      tz: ZONE,
-    };
-    const res: Response = await POST(
-      new Request('http://t/api/v1/invoices/preview', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      }),
-    );
-    assert.deepEqual(
-      wire(await res.json()),
-      wire(invoicePreview(db, body, ZONE)),
-    );
+    for (const grouping of [
+      { groupingMode: 'task' as const },
+      { groupingMode: 'summary' as const, summaryText: 'Consulting services' },
+    ]) {
+      const body = {
+        clientId: ids.northwind,
+        periodStart: addDays(today, -30),
+        periodEnd: today,
+        ...grouping,
+        tz: ZONE,
+      };
+      const res: Response = await POST(
+        new Request('http://t/api/v1/invoices/preview', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        }),
+      );
+      assert.deepEqual(
+        wire(await res.json()),
+        wire(invoicePreview(db, body, ZONE)),
+        grouping.groupingMode,
+      );
+    }
   });

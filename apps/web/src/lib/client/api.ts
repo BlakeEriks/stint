@@ -145,6 +145,7 @@ export type StoppedTimer = { entry: TimeEntry } & Pick<
 >;
 
 export type GroupingMode = z.infer<typeof schema.GroupingMode>;
+export type ScheduleKind = z.infer<typeof schema.ScheduleKind>;
 export type InvoiceStatus = z.infer<typeof schema.InvoiceStatus>;
 export type ComputedLineItem = Response<schema.ComputedLineItem>;
 export type StoredLineItem = Response<schema.StoredLineItem>;
@@ -367,6 +368,7 @@ export const api = {
     periodStart: string;
     periodEnd: string;
     groupingMode?: GroupingMode;
+    summaryText?: string;
     tz?: string;
     manualLines?: ManualLine[];
     excludedExpenseIds?: string[];
@@ -378,9 +380,13 @@ export const api = {
     periodStart: string;
     periodEnd: string;
     groupingMode?: GroupingMode;
+    summaryText?: string;
     tz?: string;
     manualLines?: ManualLine[];
     excludedExpenseIds?: string[];
+    schedules?: ScheduleKind[];
+    reference?: string;
+    paymentProfileId?: string;
     issueDate?: string;
     dueDate?: string;
     notes?: string;

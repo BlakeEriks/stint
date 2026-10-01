@@ -9,7 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { StatusBadge, shortDate } from './invoice-bits';
 import { MarkPaidDialog } from './mark-paid-dialog';
-import { formatCurrency, formatHours } from '@stint/core';
+import {
+  attachedSchedules,
+  formatCurrency,
+  formatQuantity,
+  SCHEDULE_TITLES,
+} from '@stint/core';
 import { api, ApiError, type InvoiceStatus } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
@@ -105,6 +110,11 @@ function Loaded({
             {client.name} · {shortDate(invoice.periodStart)} –{' '}
             {shortDate(invoice.periodEnd)}
           </p>
+          {invoice.reference ? (
+            <p className="mt-0.5 type-support text-subtle">
+              Reference {invoice.reference}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-none flex-wrap gap-2">
@@ -155,14 +165,11 @@ function Loaded({
                   className="border-b border-edge-subtle last:border-0"
                 >
                   <td className="py-2 pr-3 text-primary">{item.description}</td>
-                  {/* A flat charge shows neither, matching the PDF. */}
                   <td className="type-duration py-2 pl-3 text-right text-muted">
-                    {item.unit === 'fixed' ? '' : formatHours(item.quantity)}
+                    {formatQuantity(item.unit, item.quantity)}
                   </td>
                   <td className="type-duration py-2 pl-3 text-right text-muted">
-                    {item.unit === 'fixed'
-                      ? ''
-                      : formatCurrency(item.unitPrice, invoice.currency)}
+                    {formatCurrency(item.unitPrice, invoice.currency)}
                   </td>
                   <td className="type-duration py-2 pl-3 text-right text-strong">
                     {formatCurrency(item.amount, invoice.currency)}
@@ -226,6 +233,15 @@ function Loaded({
             strong
           />
         </dl>
+
+        {invoice.supportingDetail ? (
+          <p className="type-support text-muted">
+            Supporting detail from page 2:{' '}
+            {attachedSchedules(invoice.supportingDetail)
+              .map((k) => SCHEDULE_TITLES[k])
+              .join(', ')}
+          </p>
+        ) : null}
 
         <p className="type-support text-subtle">
           Rates are frozen at generation — editing a client or project later

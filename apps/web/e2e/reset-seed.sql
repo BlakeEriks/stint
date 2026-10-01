@@ -26,6 +26,10 @@ delete from invoice_line_items
 delete from invoices
  where user_id = '00000000-0000-4000-8000-000000000001';
 
+-- Expenses before their clients; deleting the invoice released them.
+delete from expenses
+ where user_id = '00000000-0000-4000-8000-000000000001';
+
 delete from time_entries
  where user_id = '00000000-0000-4000-8000-000000000001';
 

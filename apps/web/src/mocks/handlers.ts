@@ -1,6 +1,8 @@
 import {
   buildPreview,
   formatInvoiceNumber,
+  pickSchedules,
+  type ScheduleKind,
   type ImportPreview,
   type ImportResult,
   parseExport,
@@ -408,8 +410,33 @@ export const handlers = {
   createInvoice: http.post(`${API}/invoices`, async ({ request }) => {
     const db = getDb();
     const input = await body<
-      PreviewRequest & { issueDate?: string; dueDate?: string; notes?: string }
+      PreviewRequest & {
+        issueDate?: string;
+        dueDate?: string;
+        notes?: string;
+        schedules?: ScheduleKind[];
+        reference?: string;
+        paymentProfileId?: string;
+      }
     >(request);
+    if (
+      input.paymentProfileId &&
+      !db.paymentProfiles.some(
+        (p) => p.id === input.paymentProfileId && !p.archivedAt,
+      )
+    )
+      return fail(
+        'VALIDATION_FAILED',
+        'Those payment details are archived or gone. Choose others.',
+      );
+    const summaryText = input.summaryText?.trim() ?? '';
+    if (input.groupingMode === 'summary' && !summaryText)
+      return fail('VALIDATION_FAILED', 'A summary line needs its text');
+    if (input.groupingMode !== 'summary' && input.schedules?.length)
+      return fail(
+        'VALIDATION_FAILED',
+        'Supporting detail comes with a summary line only',
+      );
     const preview = invoicePreview(db, input, input.tz ?? ZONE);
     if (!preview) return fail('ENTRY_NOT_FOUND');
     if (preview.unratedEntryIds.length > 0)
@@ -435,6 +462,11 @@ export const handlers = {
       notes: input.notes ?? null,
       paymentTerms: db.settings.defaultPaymentTerms,
       groupingMode: preview.groupingMode,
+      summaryText: preview.groupingMode === 'summary' ? summaryText : null,
+      reference: input.reference?.trim() || null,
+      supportingDetail: preview.schedules
+        ? pickSchedules(preview.schedules, input.schedules ?? [])
+        : null,
       paymentDetails: null,
       sentAt: null,
       paidAt: null,
