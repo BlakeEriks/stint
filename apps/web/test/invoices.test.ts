@@ -1930,11 +1930,12 @@ test('the default grouping totals what the Unbilled card shows', async () => {
   const { POST: preview } = await import(
     '../src/app/api/v1/invoices/preview/route.ts'
   );
-  // Three 20-minute entries at $100 under distinct names: the rollup rounds
-  // once per (client, rate) and says $100.00; the invoice rounds once per
-  // LINE, and in the default `entry` grouping (or `task`, with distinct
-  // names) every entry is its own line: 3 × $33.33 = $99.99. The parity test
-  // never sees this because it groups by project under one task name.
+  // Three 20-minute entries at $100 under distinct names, each its own line
+  // in the default `entry` grouping (or `task`, with distinct names). Both
+  // sides price each entry's printed 0.33 h: 3 × $33.00 = $99.00. This
+  // guards against the rollup rounding once per (client, rate), which said
+  // $100.00 beside an invoice's $99.99. The parity test never sees it because
+  // it groups by project under one task name.
   for (const [n, task] of [
     [1, 'Design'],
     [2, 'Review'],
