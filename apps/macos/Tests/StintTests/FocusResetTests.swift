@@ -39,7 +39,11 @@ struct FocusResetTests {
         window.isReleasedWhenClosed = false
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
         window.contentView?.addSubview(field)
-        if withReset { window.contentView?.addSubview(FocusResetView()) }
+        if withReset {
+            window.contentView?.addSubview(
+                WindowObserverView(names: FocusReset.names, handle: FocusReset.clearFocus)
+            )
+        }
         return (window, field)
     }
 }
