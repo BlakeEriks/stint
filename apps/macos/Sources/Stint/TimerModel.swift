@@ -7,7 +7,7 @@ import Observation
 /// timer is actually running.
 @MainActor
 @Observable
-final class TimerModel {
+final class TimerModel: Optimistic {
     private(set) var summary: Summary?
     /// Nil until the first fetch; the row omits the number rather than
     /// showing a zero that would read as "nothing owed".
@@ -22,7 +22,6 @@ final class TimerModel {
     private(set) var errorMessage: String?
     /// Why a preview build's launch sign-in failed; shown on the sign-in panel.
     private(set) var previewSignInError: String?
-    private(set) var isBusy = false
     /// Ticks once a second so the readout redraws.
     private(set) var now = Date()
 
@@ -40,6 +39,11 @@ final class TimerModel {
     private var ticker: Task<Void, Never>?
     private var poller: Task<Void, Never>?
     private var started = false
+    @ObservationIgnored var inFlight: [String: Int] = [:]
+    @ObservationIgnored var lanes: [String: Task<Void, Never>] = [:]
+    /// Bumped by every prediction, so a fetch that began before one knows
+    /// its answer is older than the screen.
+    @ObservationIgnored private var predictions = 0
 
     init(api: API, auth: Auth, tokens: TokenStore) {
         self.api = api
@@ -166,7 +170,10 @@ final class TimerModel {
         guard await tokens.isSignedIn else { return }
         do {
             let fetchedAt = Date()
+            let generation = predictions
             let summary = try await api.summary()
+            // A press landed while this was in flight; its own refresh follows.
+            guard generation == predictions, inFlight["timer", default: 0] == 0 else { return }
             skew = fetchedAt.timeIntervalSince(summary.serverTime)
             self.summary = summary
             errorMessage = nil
@@ -218,27 +225,16 @@ final class TimerModel {
     // MARK: Actions
 
     func toggle() async {
-        isBusy = true
-        defer { isBusy = false }
         errorMessage = nil
-        do {
-            if isRunning {
-                // The server counts the stopped entry into Unbilled, so the
-                // row updates now rather than after the refresh below.
-                stats = try await api.stopTimer()
-            } else {
-                _ = try await api.startTimer(
-                    taskName: draftTaskName.trimmingCharacters(in: .whitespacesAndNewlines),
-                    projectId: draftProjectID
-                )
-                draftTaskName = ""
+        if isRunning {
+            await stop()
+        } else {
+            let name = draftTaskName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let draft = draftTaskName
+            await begin(taskName: name, projectId: draftProjectID, isBillable: nil) {
+                self.draftTaskName = ""
+                return { self.draftTaskName = draft }
             }
-            await refresh()
-        } catch let error as APIError where error.isTimerConflict {
-            // Another device won the race; show what is running.
-            await refresh()
-        } catch {
-            errorMessage = error.localizedDescription
         }
     }
 
@@ -250,28 +246,12 @@ final class TimerModel {
     /// focus but silently ignores a click reads as broken. The message is the
     /// same fact the 409 carries.
     func resume(_ entry: TimeEntry) async {
-        guard !isBusy else { return }
         guard !isRunning else {
             errorMessage = "A timer is already running. Stop it before starting another."
             return
         }
-        isBusy = true
-        defer { isBusy = false }
         errorMessage = nil
-        do {
-            _ = try await api.startTimer(
-                taskName: entry.taskName,
-                projectId: entry.projectId,
-                isBillable: entry.isBillable
-            )
-            await refresh()
-        } catch let error as APIError where error.isTimerConflict {
-            // Another device won the race; the invariant held either way.
-            errorMessage = error.message
-            await refresh()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+        await begin(taskName: entry.taskName, projectId: entry.projectId, isBillable: entry.isBillable)
     }
 
     func rename(to name: String) async {
@@ -281,13 +261,93 @@ final class TimerModel {
         await patch(.init(taskName: trimmed, projectId: nil))
     }
 
-    private func patch(_ update: API.UpdateTimer) async {
-        do {
-            _ = try await api.updateTimer(update)
-            await refresh()
-        } catch {
-            errorMessage = error.localizedDescription
+    /// Every timer press shares the `timer` scope: they all change the one
+    /// running entry, so the latest of them wins.
+    private func begin(
+        taskName: String,
+        projectId: String?,
+        isBillable: Bool?,
+        alongside: () -> (() -> Void) = { {} }
+    ) async {
+        let id = uuidv7()
+        let api = api
+        // Shown from the press; the server's own `startedAt` replaces it on
+        // the refresh that follows.
+        let entry = TimeEntry(
+            id: id,
+            projectId: projectId,
+            taskName: taskName,
+            startedAt: Date().addingTimeInterval(-skew),
+            endedAt: nil,
+            isBillable: isBillable
+                ?? projects.first { $0.id == projectId }?.isBillableDefault ?? true,
+            rateOverride: nil,
+            durationSeconds: nil,
+            durationOk: true,
+            invoiceId: nil
+        )
+        await press("timer") {
+            let undoSummary = show(running: entry)
+            let undoAlongside = alongside()
+            return {
+                undoSummary()
+                undoAlongside()
+            }
+        } perform: {
+            try await api.startTimer(id: id, taskName: taskName, projectId: projectId, isBillable: isBillable)
         }
+    }
+
+    private func stop() async {
+        let api = api
+        let stopped = await press("timer") {
+            show(running: nil)
+        } perform: {
+            try await api.stopTimer()
+        }
+        // The server counts the stopped entry into Unbilled.
+        if let stopped { stats = stopped }
+    }
+
+    private func patch(_ update: API.UpdateTimer) async {
+        guard let current = running else { return }
+        let api = api
+        let changed = TimeEntry(
+            id: current.id,
+            projectId: update.projectId ?? current.projectId,
+            taskName: update.taskName ?? current.taskName,
+            startedAt: current.startedAt,
+            endedAt: current.endedAt,
+            isBillable: current.isBillable,
+            rateOverride: current.rateOverride,
+            durationSeconds: current.durationSeconds,
+            durationOk: current.durationOk,
+            invoiceId: current.invoiceId
+        )
+        await press("timer") {
+            show(running: changed)
+        } perform: {
+            try await api.updateTimer(update)
+        }
+    }
+
+    /// Replaces the running entry in the summary and returns how to put it
+    /// back. Today's total freezes at its live value, so the readout neither
+    /// jumps nor double counts.
+    private func show(running: TimeEntry?) -> () -> Void {
+        let before = summary
+        predictions += 1
+        summary = Summary(
+            running: running,
+            todaySeconds: todaySeconds,
+            weekSeconds: summary?.weekSeconds ?? 0,
+            serverTime: Date().addingTimeInterval(-skew)
+        )
+        return { self.summary = before }
+    }
+
+    func report(_ reason: String) {
+        errorMessage = reason
     }
 
     // MARK: Auth

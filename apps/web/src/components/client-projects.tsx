@@ -1,19 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Archive, Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { api, ApiError, type Client, type Project } from '@/lib/client/api';
+import { api, type Client, type Project } from '@/lib/client/api';
 import { Listing } from './page';
 import { ProjectDialog } from './project-dialog';
 import { ProjectRate } from './project-rate';
-import { keys } from '@/lib/client/query-keys';
+import { keys, listsArchived } from '@/lib/client/query-keys';
 
 /**
  * The projects belonging to one client.
  *
- * `/projects` lists them across clients; here they sit under the one they
+ * `/clients` lists them across clients; here they sit under the one they
  * belong to. A project is meaningless without its client — the rate hierarchy
  * runs `project -> client -> default` — and nested under the client, the
  * inherited rate is right there to compare against.
@@ -21,7 +22,6 @@ import { keys } from '@/lib/client/query-keys';
  * Archive, never delete: entries and invoices reference projects.
  */
 export function ClientProjects({ client }: { client: Client }) {
-  const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Project | undefined>();
 
@@ -71,11 +71,6 @@ export function ClientProjects({ client }: { client: Client }) {
                   client={client}
                   userDefaultRate={settings?.defaultHourlyRate ?? null}
                   onEdit={() => setEditing(project)}
-                  onArchived={() =>
-                    queryClient.invalidateQueries({
-                      queryKey: keys.projects(),
-                    })
-                  }
                 />
               </li>
             ))}
@@ -102,17 +97,29 @@ function Row({
   client,
   userDefaultRate,
   onEdit,
-  onArchived,
 }: {
   project: Project;
   client: Client;
   userDefaultRate: number | null;
   onEdit: () => void;
-  onArchived: () => void;
 }) {
-  const archive = useMutation({
-    mutationFn: () => api.archiveProject(project.id),
-    onSuccess: onArchived,
+  /* Predicted: the row leaves every project list on the press. A rejection
+     puts it back and the notice says why — not this row, which unmounted
+     with the prediction and so holds no error. */
+  const archive = useOptimisticMutation<void, unknown, unknown>({
+    queryKey: () => keys.projects(),
+    // Named, so the notice says which archive was refused.
+    mutationFn: () =>
+      api.archiveProject(project.id).catch((e: Error) => {
+        throw new Error(`Couldn’t archive ${project.name}. ${e.message}`);
+      }),
+    predict: (current, _vars, key) =>
+      isProjectList(current) && !listsArchived(key)
+        ? {
+            ...current,
+            projects: current.projects.filter((p) => p.id !== project.id),
+          }
+        : current,
   });
 
   return (
@@ -142,7 +149,6 @@ function Row({
               variant="ghost"
               size="sm"
               onClick={() => archive.mutate()}
-              disabled={archive.isPending}
               aria-label={`Archive ${project.name}`}
             >
               <Archive aria-hidden strokeWidth={1.75} />
@@ -153,16 +159,13 @@ function Row({
           )}
         </div>
       </div>
-
-      {/* In the row, naming the project: a list of identical failures at the
-          foot of the card could not say which archive was refused. */}
-      {archive.error ? (
-        <p role="alert" className="pb-3 type-support text-danger">
-          {archive.error instanceof ApiError
-            ? archive.error.message
-            : `Could not archive ${project.name}.`}
-        </p>
-      ) : null}
     </div>
   );
+}
+
+/** A list response under `keys.projects()`. */
+function isProjectList(
+  data: unknown,
+): data is { projects: Array<{ id: string }> } {
+  return typeof data === 'object' && data !== null && 'projects' in data;
 }

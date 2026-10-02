@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "detox": "node scripts/shadcn-detox.mjs --check 'src/components/ui/*.tsx'",
     "check:type": "node scripts/check-type-roles.mjs 'src/**/*.tsx' '../macos/Sources/**/*.swift'",
+    "check:mutation-usage": "node scripts/check-mutation-usage.mjs 'src/**/*.ts' 'src/**/*.tsx'",
     "pretest": "pnpm --filter @stint/design-tokens build",
     "test": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/routes.test.ts test/invoices.test.ts test/rates.test.ts test/mocks-parity.test.ts",
     "pretest:ui": "pnpm --filter @stint/design-tokens build",
@@ -22,9 +23,7 @@
     "test:auth": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/auth.test.ts test/preview-signin.test.ts",
     "test:e2e": "playwright test",
     "prestorybook": "pnpm --filter @stint/design-tokens build",
-    "storybook": "storybook dev --port 6006 --no-open",
-    "prebuild-storybook": "pnpm --filter @stint/design-tokens build",
-    "build-storybook": "storybook build"
+    "storybook": "storybook dev --port 6006 --no-open"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
@@ -51,7 +50,6 @@
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@storybook/addon-a11y": "10.6.0",
-    "@storybook/addon-mcp": "10.6.0",
     "@storybook/nextjs-vite": "10.6.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",

@@ -110,9 +110,12 @@ opened after a night shut would otherwise come back signed out.
 - **Local tick, reconcile at 60s**, skew-corrected from `serverTime`. Today's
   total adds live seconds **from the fetch**, not from `startedAt` — the route
   already folded the running entry in.
-- **A 409 from `/timer/start` refreshes rather than reports.** Another device
-  won the race and the invariant held, so showing what *is* running is more
-  use than the error.
+- **Every press shows its result before the server answers** — start, stop,
+  rename, project, start again — through `press` in `apps/macos/Sources/Stint/Optimistic.swift`. A
+  refusal takes it back and says why in the panel; a 409 from
+  `/timer/start` then shows what *is* running.
+- **A refresh that began before a press is dropped**, so a poll that was in
+  flight can't undo what the press showed.
 - **The task field follows the server only when unfocused**, so it never
   overwrites itself mid-type.
 - **Colors come from `Tokens.swift`, written by `pnpm tokens`** into the

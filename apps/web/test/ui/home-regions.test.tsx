@@ -676,6 +676,75 @@ describe('the client split', () => {
   });
 });
 
+describe('the month axis', () => {
+  /**
+   * jsdom lays nothing out, so each label's box is stubbed on a 300px axis:
+   * the dates at its ends, `today` where its `left` and its anchor put it.
+   */
+  function layOut() {
+    const width = { first: 40, today: 32, end: 44 };
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
+      function (this: Element) {
+        const name = this.getAttribute('data-axis-label') as
+          | keyof typeof width
+          | null;
+        if (!name) return new DOMRect();
+        const w = width[name];
+        if (name === 'first') return new DOMRect(0, 0, w, 16);
+        if (name === 'end') return new DOMRect(300 - w, 0, w, 16);
+        const at = (parseFloat((this as HTMLElement).style.left) / 100) * 300;
+        const shift = this.className.includes('-translate-x-full') ? w : w / 2;
+        return new DOMRect(at - shift, 0, w, 16);
+      },
+    );
+  }
+
+  /** September, worked through day `today` (1-based). */
+  function through(today: number): Stats['month'] {
+    return month({
+      series: Array.from({ length: 30 }, (_, i) => ({
+        date: `2026-09-${String(i + 1).padStart(2, '0')}`,
+        actual: i < today ? (i + 1) * 100 : null,
+      })),
+    });
+  }
+
+  async function labels() {
+    const axis = await waitFor(() => {
+      const el = document.querySelector('[data-axis="x"]');
+      if (!el) throw new Error('no axis');
+      return el;
+    });
+    const shown = (name: string) =>
+      !axis
+        .querySelector(`[data-axis-label="${name}"]`)
+        ?.classList.contains('invisible');
+    return { first: shown('first'), end: shown('end') };
+  }
+
+  it.each([
+    [2, { first: false, end: true }],
+    [15, { first: true, end: true }],
+    [28, { first: true, end: false }],
+    [30, { first: true, end: false }],
+  ])('on day %d, shows the dates today clears', async (today, expected) => {
+    layOut();
+    serve(() => stats({ month: through(today) }));
+    render(<HomeCards />, { wrapper });
+
+    await waitFor(async () => expect(await labels()).toEqual(expected));
+  });
+
+  it('anchors today inside the axis on the last day', async () => {
+    layOut();
+    serve(() => stats({ month: through(30) }));
+    render(<HomeCards />, { wrapper });
+
+    const today = await screen.findByText('today');
+    expect(today.className).toContain('-translate-x-full');
+  });
+});
+
 describe('the arrival roll', () => {
   /**
    * The roll means "this number just moved". Returning to Home from another

@@ -55,7 +55,17 @@ export function useExit() {
     return finished(nodes.current, id);
   }, []);
 
-  return { exiting, register, mark };
+  /** Bring a row back: the press that sent it out was rejected. */
+  const unmark = useCallback((id: string) => {
+    setExiting((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  return { exiting, register, mark, unmark };
 }
 
 async function finished(nodes: Map<string, HTMLElement>, id: string) {

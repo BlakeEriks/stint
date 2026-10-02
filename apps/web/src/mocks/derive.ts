@@ -4,6 +4,7 @@ import {
   buildCollected,
   buildEarnedPace,
   buildLineItems,
+  buildSchedules,
   buildMonthByClient,
   buildOpenInvoiceCount,
   buildOverdueInvoices,
@@ -27,7 +28,6 @@ import {
   projectNamesFrom,
   resolveRate,
   revenueByDay,
-  roundMoney,
   STALE_DRAFT_DAYS,
   startOfLocalDate,
   startOfLocalDay,
@@ -38,7 +38,7 @@ import {
   startOfNextLocalMonth,
   type UnbilledRow,
 } from '@stint/core';
-import type { TimeEntry } from '@/lib/client/api';
+import type { Expense, TimeEntry } from '@/lib/client/api';
 import { billable, type Db } from './fixtures';
 
 /**
@@ -67,19 +67,32 @@ function rateOf(db: Db, e: TimeEntry) {
   });
 }
 
-/** `sum(seconds) / 3600 * rate`, rounded once per rate as the SQL does. */
+/**
+ * `round(sum(hours) * rate, 2)` per rate, where each entry's hours are its
+ * printed two decimals, as the SQL rollups and `buildLineItems` do.
+ */
 function earned(db: Db, entries: TimeEntry[]) {
-  const byRate = new Map<number | null, number>();
+  const byRate = new Map<
+    number | null,
+    { seconds: number; hundredths: number }
+  >();
   for (const e of entries) {
     const rate = rateOf(db, e);
-    byRate.set(rate, (byRate.get(rate) ?? 0) + (e.durationSeconds ?? 0));
+    const seconds = e.durationSeconds ?? 0;
+    const acc = byRate.get(rate) ?? { seconds: 0, hundredths: 0 };
+    byRate.set(rate, {
+      seconds: acc.seconds + seconds,
+      hundredths: acc.hundredths + Math.round(seconds / 36),
+    });
   }
   let amount: number | null = null;
-  for (const [rate, seconds] of byRate)
+  for (const [rate, { hundredths }] of byRate)
     if (rate !== null)
-      amount = (amount ?? 0) + roundMoney((seconds / 3600) * rate);
+      amount =
+        (amount ?? 0) +
+        Math.round((hundredths * Math.round(rate * 100)) / 100) / 100;
   return {
-    seconds: [...byRate.values()].reduce((a, b) => a + b, 0),
+    seconds: [...byRate.values()].reduce((a, b) => a + b.seconds, 0),
     amount,
     unrated: entries.filter((e) => rateOf(db, e) === null).length,
   };
@@ -413,8 +426,43 @@ export interface PreviewRequest {
   periodStart: string;
   periodEnd: string;
   groupingMode?: GroupingMode;
+  summaryText?: string;
   tz?: string;
   manualLines?: ManualLine[];
+  excludedExpenseIds?: string[];
+}
+
+/** An expense as the API returns it: its invoice's number and status are
+    read now, so sending or voiding the invoice is never out of date here. */
+export function expenseView(db: Db, e: Expense): Expense {
+  const invoice = db.invoices.find((i) => i.id === e.invoiceId);
+  return {
+    ...e,
+    invoiceNumber: invoice?.invoiceNumber ?? null,
+    invoiceStatus: invoice?.status ?? null,
+  };
+}
+
+/**
+ * `loadBillableExpenses`: every recurring expense, dated the period's end,
+ * and every unbilled one-off dated on or before it, less the excluded.
+ */
+export function billableExpenses(db: Db, body: PreviewRequest) {
+  return db.expenses
+    .filter(
+      (e) =>
+        e.clientId === body.clientId &&
+        e.invoiceId === null &&
+        (e.recurring || (e.spentOn as string) <= body.periodEnd) &&
+        !body.excludedExpenseIds?.includes(e.id),
+    )
+    .map(({ id, recurring, spentOn, description, amount }) => ({
+      id,
+      recurring,
+      spentOn: spentOn ?? body.periodEnd,
+      description,
+      amount,
+    }));
 }
 
 /** `POST /invoices/preview`: the client's unbilled work in the period. */
@@ -423,15 +471,24 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
   if (!client) return undefined;
   const from = startOfLocalDate(body.periodStart, tz).getTime();
   const to = startOfLocalDate(addDays(body.periodEnd, 1), tz).getTime();
-  const entries = db.entries.filter(
-    (e) =>
-      clientOf(db, e.projectId) === client.id &&
-      e.invoiceId === null &&
-      stopped(e) &&
-      at(e.startedAt) >= from &&
-      at(e.startedAt) < to,
-  );
+  const entries = db.entries
+    .filter(
+      (e) =>
+        clientOf(db, e.projectId) === client.id &&
+        e.invoiceId === null &&
+        stopped(e) &&
+        at(e.startedAt) >= from &&
+        at(e.startedAt) < to,
+    )
+    // `loadBillableEntries` reads them oldest first, which orders a line's entries.
+    .sort((a, b) => at(a.startedAt) - at(b.startedAt));
   const groupingMode = body.groupingMode ?? 'entry';
+  const rated = billable(
+    entries,
+    db.projects,
+    db.clients,
+    db.settings.defaultHourlyRate,
+  );
   return {
     clientId: client.id,
     clientName: client.name,
@@ -439,14 +496,21 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
     periodEnd: body.periodEnd,
     groupingMode,
     currency: client.currency ?? db.settings.currency,
-    ...buildLineItems(
-      billable(entries, db.projects, db.clients, db.settings.defaultHourlyRate),
-      {
-        groupingMode,
-        taxRate: client.taxRate ?? 0,
-        tz,
-        manualLines: body.manualLines,
-      },
-    ),
+    ...buildLineItems(rated, {
+      groupingMode,
+      summaryText: body.summaryText?.trim() ?? '',
+      taxRate: client.taxRate ?? 0,
+      tz,
+      manualLines: body.manualLines,
+      expenses: billableExpenses(db, body),
+    }),
+    schedules:
+      groupingMode === 'summary'
+        ? buildSchedules(rated, {
+            tz,
+            periodStart: body.periodStart,
+            periodEnd: body.periodEnd,
+          })
+        : null,
   };
 }

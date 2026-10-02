@@ -46,7 +46,11 @@ const preview: Preview = {
         if (new URL(request.url).pathname.startsWith('/api/'))
           problems.push(`Nothing handles ${request.method} ${request.url}`);
       });
-      await worker.start({ onUnhandledRequest: 'error', quiet: true });
+      await worker.start({
+        onUnhandledRequest: 'error',
+        quiet: true,
+        serviceWorker: { url: './mockServiceWorker.js' },
+      });
       return worker;
     }),
   ],

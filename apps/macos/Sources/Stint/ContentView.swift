@@ -562,8 +562,6 @@ private struct TransportButton: View {
         }
         .buttonStyle(PanelButtonStyle(shape: Circle()))
         .panelFocus(Circle())
-        .disabled(model.isBusy)
-        .opacity(model.isBusy ? 0.6 : 1)
         .accessibilityLabel(model.isRunning ? "Stop timer" : "Start timer")
         .accessibilityIdentifier("transport")
     }

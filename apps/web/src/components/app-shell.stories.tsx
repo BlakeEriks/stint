@@ -15,6 +15,7 @@ import {
 } from '@/mocks/screen';
 import { AppShell } from './app-shell';
 import { Home } from './home';
+import { Page } from './page';
 
 /**
  * What every screen renders inside: the header, the rail, the panel, the dock
@@ -52,6 +53,25 @@ export const Desktop: Story = { ...desktop, play: oneTimer };
 /** At `2xl` the app is a bounded card on the recessed plane. */
 export const Wide: Story = { ...wide, play: oneTimer };
 export const Light: Story = { ...light };
+
+/** A workspace screen takes the dock's room; the card stays as it is. */
+export const Workspace: Story = {
+  ...wide,
+  args: {
+    children: (
+      <Page workspace>
+        <h1 className="type-title text-strong">A workspace</h1>
+      </Page>
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await page.findByRole('heading', { name: 'A workspace' });
+    await expect(
+      page.queryByRole('complementary', { name: 'At a glance' }),
+    ).toBeNull();
+  },
+};
 
 /** A failed screen replaces the content column; the timer keeps running. */
 export const ScreenError: Story = {

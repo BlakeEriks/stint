@@ -1,3 +1,5 @@
+import type { LineUnit } from './invoice.ts';
+
 /**
  * Money and quantities, formatted once.
  *
@@ -25,6 +27,15 @@ export function formatCurrency(
 /** `1.50` — a line item's billed hours, at the 2dp the amount was computed from. */
 export function formatHours(hours: number): string {
   return hours.toFixed(2);
+}
+
+/**
+ * A line's Qty cell. A charge is `1`, whole, so it never reads as an hour
+ * beside the time lines' `1.00`; with its rate beside it, every line checks
+ * as quantity x rate = amount.
+ */
+export function formatQuantity(unit: LineUnit, quantity: number): string {
+  return unit === 'fixed' ? String(quantity) : formatHours(quantity);
 }
 
 /**

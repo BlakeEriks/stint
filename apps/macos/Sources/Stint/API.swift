@@ -157,6 +157,7 @@ actor API {
     /// The id is a client-generated UUIDv7, so a retried start lands on the
     /// same row.
     func startTimer(
+        id: String = uuidv7(),
         taskName: String,
         projectId: String?,
         isBillable: Bool? = nil
@@ -164,7 +165,7 @@ actor API {
         try await request(
             "POST", "/timer/start",
             body: StartTimer(
-                id: uuidv7(),
+                id: id,
                 taskName: taskName,
                 projectId: projectId,
                 isBillable: isBillable

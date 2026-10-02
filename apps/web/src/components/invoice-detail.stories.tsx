@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { expect, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { id } from '@/mocks/fixtures';
 import { desktop, phone, screen } from '@/mocks/screen';
@@ -26,7 +27,7 @@ export const Paid: Story = { ...desktop, args: { id: invoice(12) } };
 export const Void: Story = { ...desktop, args: { id: invoice(9) } };
 export const Missing: Story = { ...desktop, args: { id: invoice(99) } };
 
-/** A fixed charge prints its amount alone; its quantity cells stay blank. */
+/** A fixed charge prints as 1 x its amount, so its row checks like the rest. */
 export const WithCharge: Story = {
   ...desktop,
   parameters: account((db) => {
@@ -40,8 +41,43 @@ export const WithCharge: Story = {
       quantity: 1,
       unitPrice: 400,
       amount: 400,
+      spentOn: null,
     });
     draft.subtotal += 400;
     draft.total += 400;
   }),
+};
+
+/** Expenses print after the services with their own subtotal. */
+export const WithExpenses: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(await page.findByText('Stock photography')).toBeVisible();
+    await expect(page.getAllByText('Expenses').length).toBeGreaterThan(0);
+  },
+};
+
+/** A summary invoice names the detail it carries from page 2 (US2
+    scenario 8). */
+export const WithSupportingDetail: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const draft = db.invoices.find((i) => i.id === invoice(15));
+    if (!draft) return;
+    draft.groupingMode = 'summary';
+    draft.summaryText = 'Software consulting services';
+    draft.supportingDetail = {
+      project: [{ project: 'Warehouse dashboard', hours: 12 }],
+      week: [{ start: '2026-08-03', end: '2026-08-09', hours: 12 }],
+      totalHours: 12,
+    };
+  }),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText(
+        'Supporting detail from page 2: Hours by project, Hours by week',
+      ),
+    ).toBeVisible();
+  },
 };

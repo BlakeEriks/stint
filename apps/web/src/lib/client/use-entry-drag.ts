@@ -1,10 +1,10 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { instantAt, movedTo, resized, DRAG_THRESHOLD_PX } from '@stint/core';
-import { api, ApiError, type TimeEntry } from './api';
-import { invalidateEntryData } from './query-keys';
+import { api, type TimeEntry } from './api';
+import { invalidateEntryData, keys } from './query-keys';
+import { useOptimisticMutation } from './mutations';
 
 // A block is fixed where the mistake is noticed, so the gesture that writes is
 // made deliberate rather than removed: a threshold and a snap, and a move never
@@ -48,8 +48,7 @@ interface Active extends Drag {
  * fraction→instant math uses that column's own span, which is what makes it
  * DST-correct.
  */
-export function useEntryDrag(onConflict?: (message: string) => void) {
-  const queryClient = useQueryClient();
+export function useEntryDrag() {
   const active = useRef<Active | null>(null);
   /* A completed drag, kept until the click it produces has been suppressed.
      Asking whether a drag is IN PROGRESS cannot work: the pointer-up that ends
@@ -58,24 +57,21 @@ export function useEntryDrag(onConflict?: (message: string) => void) {
   const justDragged = useRef(false);
   const [preview, setPreview] = useState<Drag | null>(null);
 
-  const save = useMutation({
+  /* The preview is the prediction: it follows the pointer and stays where
+     it was dropped until the refetch lands, so the block never jumps back
+     first. A rejection's reason shows in the mutation notice. */
+  const save = useOptimisticMutation({
+    queryKey: () => keys.calendar(),
     mutationFn: (v: { id: string; startedAt: Date; endedAt: Date }) =>
       api.updateEntry(v.id, {
         startedAt: v.startedAt.toISOString(),
         endedAt: v.endedAt.toISOString(),
       }),
-    onSuccess: () => invalidateEntryData(queryClient),
-    /* A rejected drag must say so. The block springs back to where the server
-       says it is, which without a message reads as the gesture not registering
-       — and the most likely rejection is the billed-entry lock, which the user
-       can act on. */
-    onError: (e) =>
-      onConflict?.(
-        e instanceof ApiError ? e.message : 'Could not move this entry.',
-      ),
-    // The preview clears either way, so a failure cannot leave a block
-    // painted somewhere the server disagrees with.
-    onSettled: () => setPreview(null),
+    invalidate: invalidateEntryData,
+    // Not over a drag still in the user's hand.
+    onSettled: () => {
+      if (!active.current) setPreview(null);
+    },
   });
 
   function begin(

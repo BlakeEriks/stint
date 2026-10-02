@@ -28,11 +28,15 @@ function invoice(status: InvoiceStatus, sentAt: string | null = null): Invoice {
     subtotal: 375,
     taxRate: 0,
     taxAmount: 0,
+    expensesSubtotal: 0,
     total: 375,
     currency: 'USD',
     notes: null,
     paymentTerms: 'Net 30',
     groupingMode: 'entry',
+    summaryText: null,
+    reference: null,
+    supportingDetail: null,
     paymentDetails: null,
     sentAt,
     paidAt: null,
@@ -40,7 +44,11 @@ function invoice(status: InvoiceStatus, sentAt: string | null = null): Invoice {
   };
 }
 
-function serve(status: InvoiceStatus, sentAt: string | null = null) {
+function serve(
+  status: InvoiceStatus,
+  sentAt: string | null = null,
+  extra: Partial<Invoice> = {},
+) {
   const calls: Array<{ method: string; path: string; body: unknown }> = [];
   vi.stubGlobal(
     'fetch',
@@ -59,6 +67,7 @@ function serve(status: InvoiceStatus, sentAt: string | null = null) {
           /* FLAT, matching the route: a stub is only as good as its
              fidelity to the endpoint. */
           ...invoice(status, sentAt),
+          ...extra,
           client: { id: 'c1', name: 'Acme Corp' },
           lineItems: [
             {
@@ -91,6 +100,38 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(() => vi.unstubAllGlobals());
 
 describe('InvoiceDetail', () => {
+  it('names the supporting detail an invoice carries, in print order', async () => {
+    serve('draft', null, {
+      groupingMode: 'summary',
+      summaryText: 'Design review',
+      supportingDetail: {
+        date: [{ date: '2026-08-04', project: 'Portal', hours: 2.5 }],
+        project: [{ project: 'Portal', hours: 2.5 }],
+        totalHours: 2.5,
+      },
+    });
+    show();
+
+    expect(
+      await screen.findByText(
+        'Supporting detail from page 2: Hours by project, Hours by date',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the reference the invoice was issued with', async () => {
+    serve('sent', '2026-09-02T00:00:00Z', { reference: 'PO 4471' });
+    show();
+    expect(await screen.findByText('Reference PO 4471')).toBeInTheDocument();
+  });
+
+  it('says nothing of supporting detail when there is none', async () => {
+    serve('draft');
+    show();
+    await screen.findByText('Design review');
+    expect(screen.queryByText(/Supporting detail/)).not.toBeInTheDocument();
+  });
+
   it('shows the frozen line items and total', async () => {
     serve('draft');
     show();
@@ -300,5 +341,51 @@ describe('shortDate', () => {
   it('still formats a real date', async () => {
     const { shortDate } = await import('@/components/invoice-bits');
     expect(shortDate('2026-07-26')).toBe('Jul 26, 2026');
+  });
+});
+
+describe('InvoiceDetail — expenses', () => {
+  it('shows expenses in their own dated section with their own subtotal', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              ...invoice('sent'),
+              expensesSubtotal: 199,
+              total: 574,
+              client: { id: 'c1', name: 'Acme Corp' },
+              lineItems: [
+                {
+                  description: 'Design review',
+                  unit: 'hour',
+                  quantity: 2.5,
+                  unitPrice: 150,
+                  amount: 375,
+                  spentOn: null,
+                },
+                {
+                  description: 'JetBrains license',
+                  unit: 'expense',
+                  quantity: 1,
+                  unitPrice: 199,
+                  amount: 199,
+                  spentOn: '2026-08-12',
+                },
+              ],
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    show();
+
+    expect(
+      await screen.findByRole('columnheader', { name: 'Expenses' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Aug 12, 2026')).toBeInTheDocument();
+    expect(screen.getByText('Services')).toBeInTheDocument();
+    expect(screen.getByText('$574.00')).toBeInTheDocument();
   });
 });

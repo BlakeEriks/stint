@@ -1,14 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  formatClock,
-  formatCompact,
-  toBillableHours,
-  elapsedSeconds,
-} from '../src/duration.ts';
-import { resolveRate, resolveRateSource, lineAmount } from '../src/rates.ts';
+import { formatClock, formatCompact, elapsedSeconds } from '../src/duration.ts';
+import { resolveRate, resolveRateSource } from '../src/rates.ts';
 import { uuidv7 } from '../src/uuid.ts';
-import { formatCurrency, formatHours, formatLocalTime } from '../src/format.ts';
+import {
+  formatCurrency,
+  formatHours,
+  formatLocalTime,
+  formatQuantity,
+} from '../src/format.ts';
 
 test('formatClock renders the timer format', () => {
   assert.equal(formatClock(0), '0:00:00');
@@ -23,12 +23,6 @@ test('formatCompact for lists', () => {
   assert.equal(formatCompact(3600), '1h');
   assert.equal(formatCompact(120), '2m');
   assert.equal(formatCompact(45), '45s');
-});
-
-test('toBillableHours rounds to 2dp', () => {
-  assert.equal(toBillableHours(3600), 1);
-  assert.equal(toBillableHours(5400), 1.5);
-  assert.equal(toBillableHours(1000), 0.28);
 });
 
 test('elapsedSeconds never goes negative on clock skew', () => {
@@ -71,12 +65,6 @@ test('rate source is reported for the UI', () => {
   assert.equal(resolveRateSource({}), 'none');
 });
 
-test('lineAmount rounds money once', () => {
-  assert.equal(lineAmount(3600, 150), 150);
-  assert.equal(lineAmount(5400, 150), 225);
-  assert.equal(lineAmount(1000, 175), 48.61);
-});
-
 test('uuidv7 is time-ordered and well-formed', () => {
   const a = uuidv7(1000000000000);
   const b = uuidv7(1000000000001);
@@ -95,6 +83,12 @@ test('formatCurrency renders a narrow symbol, defaulting to USD', () => {
   assert.equal(formatCurrency(null), '$0.00');
   // An empty currency falls back rather than throwing on an invalid code.
   assert.equal(formatCurrency(5, ''), '$5.00');
+});
+
+test('formatQuantity prints a charge as a whole 1, and time as hours', () => {
+  assert.equal(formatQuantity('fixed', 1), '1');
+  assert.equal(formatQuantity('hour', 1), '1.00');
+  assert.equal(formatQuantity('hour', 2.25), '2.25');
 });
 
 test('formatHours keeps the 2dp the amount was computed from', () => {

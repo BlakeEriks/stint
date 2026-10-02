@@ -2,4 +2,13 @@ installed:
 - assess
 settings:
   auto_execute_hooks: true
-hooks: {}
+hooks:
+  # Stint's own step, not an extension's: a feature that adds or changes UI
+  # is offered a design review before planning (docs/sdlc.md). The skill
+  # returns at once when the spec already records a pick or a skip.
+  before_plan:
+  - extension: stint
+    command: design-review
+    enabled: true
+    optional: false
+    description: Record a design pick, or a skip, before planning

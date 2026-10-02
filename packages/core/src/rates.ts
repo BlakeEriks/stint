@@ -37,12 +37,3 @@ export function resolveRateSource(ctx: RateContext): RateSource {
   if (ctx.userDefaultRate != null) return 'default';
   return 'none';
 }
-
-/**
- * Line amount for billable seconds at a resolved rate.
- * Rounds to cents once, at the end.
- */
-export function lineAmount(totalSeconds: number, hourlyRate: number): number {
-  const hours = Math.max(0, totalSeconds) / 3600;
-  return Math.round(hours * hourlyRate * 100) / 100;
-}

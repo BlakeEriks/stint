@@ -97,9 +97,8 @@ export function Calendar() {
   const [editing, setEditing] = useState<TimeEntry | undefined>();
   const [seed, setSeed] = useState<{ startedAt: string; endedAt: string }>();
   const [open, setOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const drag = useEntryDrag(setError);
+  const drag = useEntryDrag();
 
   /* The window every column draws. In week view it is the whole day; in day
      view the hook has cropped it to the worked hours. Columns share one
@@ -143,7 +142,6 @@ export function Calendar() {
       }).format(cal.weekStart);
 
   const edit = (entry: TimeEntry) => {
-    setError(null);
     setSeed(undefined);
     setEditing(entry);
     setOpen(true);
@@ -153,7 +151,6 @@ export function Calendar() {
      row. A click on a grid is a cheap gesture and a time entry is a financial
      record; pre-filling gets the time right without committing to it. */
   const create = (startedAt: Date, endedAt: Date) => {
-    setError(null);
     setEditing(undefined);
     setSeed({
       startedAt: startedAt.toISOString(),
@@ -323,7 +320,6 @@ export function Calendar() {
         </div>
 
         <CalendarStatus
-          error={error}
           isLoading={cal.isLoading}
           isError={cal.isError}
           visibleSeconds={cal.visibleSeconds}
@@ -376,28 +372,20 @@ function useScrollToFirstEntry(
   return scroller;
 }
 
-/** The line under the grid: a rejected action, then the fetch, then emptiness. */
+/** The line under the grid: the fetch, then emptiness. A rejected action
+    is the mutation notice's to explain. */
 function CalendarStatus({
-  error,
   isLoading,
   isError,
   visibleSeconds,
   byDay,
 }: {
-  error: string | null;
   isLoading: boolean;
   isError: boolean;
   visibleSeconds: number;
   byDay: boolean;
 }) {
   const muted = 'px-4 pt-3 type-support text-subtle sm:px-6';
-  if (error) {
-    return (
-      <p role="alert" className="px-4 pt-3 type-support text-danger sm:px-6">
-        {error}
-      </p>
-    );
-  }
   if (isLoading) return <p className={muted}>Loading…</p>;
   /* Neutral: the grid is still drawn and correct, it just has nothing in it —
      a failed fetch is a condition, not a rejected action. */

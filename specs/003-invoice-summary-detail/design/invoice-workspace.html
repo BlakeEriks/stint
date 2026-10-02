@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice workspace</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* GENERATED from tokens.json — do not edit by hand. Run `pnpm tokens`. */
+/* The palette for docs/design mockups. Token names are the RAW ones
+   (--bg-primary, --text-muted, --border-subtle), not the Tailwind-stripped
+   utilities the app uses — a mockup writes plain CSS, so there is no prefix
+   collision to work around. */
+
+:root {
+    --bg-recessed: #0A0B0E;
+    --bg-base: #111316;
+    --bg-primary: #181B1F;
+    --bg-elevated: #202328;
+    --bg-hover: #272A30;
+    --bg-active: #2F333A;
+    --text-strong: #F9FAFD;
+    --text-primary: #CACED7;
+    --text-muted: #9299A6;
+    --text-subtle: #838A97;
+    --text-on-accent: #111316;
+    --text-on-danger: #111316;
+    --overlay: #05060899;
+    --border-grid: #272A30;
+    --border-subtle: #2F333A;
+    --border-default: #393E48;
+    --border-control: #666D79;
+    --border-focus: #9DA3AF;
+    --accent-default: #52FC43;
+    --accent-hover: #8EFD83;
+    --accent-active: #3FE231;
+    --accent-subtle: #0E4B09;
+    --accent-muted: #1B3518;
+    --timer-running: #52FC43;
+    --timer-idle: #666D79;
+    --timer-warning: #5CABF2;
+    --success: #36C52A;
+    --warning: #5CABF2;
+    --danger: #F64B66;
+    --danger-muted: #471F23;
+    --info: #6D7FAE;
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.40), 0 2px 10px rgba(0,0,0,0.34);
+    --shadow-float: 0 2px 4px rgba(0,0,0,0.44), 0 8px 24px rgba(0,0,0,0.40);
+    --shadow-halo-running: 0 0 0 3px color-mix(in oklab, var(--timer-running) 18%, transparent);
+
+    --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --motion-instant: 90ms;
+    --motion-quick: 160ms;
+    --motion-count: 900ms;
+    --motion-rise: 3px;
+    --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+    --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+
+    --mark-bound-width: 0.09em;
+    --mark-bound-height: 1.05em;
+    --mark-bound-gap: 0.18em;
+    --mark-bound-radius: 999px;
+
+    --proj-1: #DA8188;
+    --proj-2: #D38B59;
+    --proj-3: #B49D46;
+    --proj-4: #42B59A;
+    --proj-5: #35AFC9;
+    --proj-6: #6EA1E2;
+    --proj-7: #A390DC;
+    --proj-8: #C984BA;
+
+    --cat-1: #64A3E3;
+    --cat-2: #F6964E;
+}
+
+[data-theme="light"] {
+    --bg-recessed: #E8E2D8;
+    --bg-base: #EEE9E0;
+    --bg-primary: #F4F0E8;
+    --bg-elevated: #FAF6EF;
+    --bg-hover: #DED8CD;
+    --bg-active: #D1CABE;
+    --text-strong: #0B0A09;
+    --text-primary: #2D2A25;
+    --text-muted: #68635B;
+    --text-subtle: #767068;
+    --text-on-accent: #FFFFFF;
+    --text-on-danger: #FFFFFF;
+    --overlay: #1B1E2799;
+    --border-grid: #DED8CD;
+    --border-subtle: #D1CABE;
+    --border-default: #C1BDB5;
+    --border-control: #938E86;
+    --border-focus: #58544C;
+    --accent-default: #315424;
+    --accent-hover: #2A491E;
+    --accent-active: #233F19;
+    --accent-subtle: #4A783A;
+    --accent-muted: #E0EFDB;
+    --timer-running: #3A632C;
+    --timer-idle: #938E86;
+    --timer-warning: #1C6DAD;
+    --success: #457036;
+    --warning: #1C6DAD;
+    --danger: #C21F43;
+    --danger-muted: #FFEBEB;
+    --info: #4A5A85;
+
+    --shadow-card: 0 1px 2px rgba(16,18,26,0.06), 0 2px 8px rgba(16,18,26,0.07);
+    --shadow-float: 0 2px 4px rgba(16,18,26,0.08), 0 8px 24px rgba(16,18,26,0.10);
+    --shadow-halo-running: 0 0 0 3px color-mix(in oklab, var(--timer-running) 22%, transparent);
+}
+
+/* ── The type scale ────────────────────────────────────────────────
+   One class per role, same as the app's @utility set. A mockup names a
+   role (type-amount) and never assembles one, so a doc cannot invent a
+   size the product does not have. */
+.type-timer {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 30px; }
+    font-variant-numeric: tabular-nums;
+}
+
+.type-title {
+    font-family: var(--font-sans);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+.type-hero {
+    font-family: var(--font-sans);
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    @media (width >= 40rem) { font-size: 44px; }
+}
+
+.type-figure {
+    font-family: var(--font-mono);
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-figure-hero {
+    font-family: var(--font-mono);
+    font-size: 40px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-lede {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+    @media (width >= 40rem) { font-size: 17px; }
+}
+
+.type-display {
+    font-family: var(--font-sans);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 28px; }
+}
+
+.type-section {
+    font-family: var(--font-sans);
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.type-heading {
+    font-family: var(--font-sans);
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.type-body {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+}
+
+.type-control {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.type-support {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.type-amount {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-amount-hero {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-duration {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-meta {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-meta-strong {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-wordmark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.type-wordmark-small {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.type-nav {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.type-region-head {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+.type-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.type-badge {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ── The mark ──────────────────────────────────────────────────────
+   `|Stint|` — one color, bounds included, inherited via currentColor.
+   Set a font-size on .mark and everything scales from it. */
+.mark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+.mark::before,
+.mark::after {
+    content: '';
+    display: inline-block;
+    flex: none;
+    width: var(--mark-bound-width);
+    height: var(--mark-bound-height);
+    margin: 0 var(--mark-bound-gap);
+    border-radius: var(--mark-bound-radius);
+    background: currentColor;
+}
+
+</style>
+<style>
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--bg-recessed); color: var(--text-primary); padding: 16px; }
+button, input { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+
+/* ── The review's own controls ─────────────────────────────────── */
+.bar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin-bottom: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--border-default); border-radius: 6px; overflow: hidden; }
+.seg button { background: transparent; border: 0; padding: 6px 10px; color: var(--text-muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--bg-active); color: var(--text-strong); }
+.caption { color: var(--text-muted); margin-bottom: 12px; min-height: 40px; max-width: 1100px; }
+.caption b { color: var(--text-strong); font-weight: 500; }
+
+/* ── The screen: a 16" MacBook Pro's browser window, 1728 × 1000 ──── */
+.window { width: 1728px; height: 1000px; zoom: var(--z, 1); border: 1px solid var(--border-default); border-radius: 10px; overflow: hidden;
+  background: var(--bg-recessed); padding: 24px; display: flex; justify-content: center; align-items: flex-start; }
+.app { width: 100%; height: 100%; max-width: 1440px; max-height: 900px; display: flex; flex-direction: column;
+  background: var(--bg-base); border: 1px solid var(--border-subtle); border-radius: 16px; box-shadow: var(--shadow-float); overflow: hidden; }
+
+.top { flex: none; display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; }
+.top .who { color: var(--text-subtle); }
+.top .mark { color: var(--text-strong); }
+
+.row { flex: 1; min-height: 0; display: grid; gap: 16px; padding: 0 16px 16px;
+  grid-template-columns: 192px minmax(0, 1fr) 286px; grid-template-rows: minmax(0, 1fr) auto; }
+.v-a .row, .v-c .row { grid-template-columns: 192px minmax(0, 1fr); }
+.v-b .row { grid-template-columns: 192px minmax(0, 1fr) 44px; }
+
+.rail { grid-row: 1 / 3; display: flex; flex-direction: column; gap: 4px; padding-top: 8px; }
+.rail a { padding: 8px 12px; border-radius: 6px; color: var(--text-muted); text-decoration: none; }
+.rail a[aria-current] { background: var(--bg-elevated); color: var(--text-strong); }
+
+.panel { grid-column: 2; grid-row: 1; min-height: 0; overflow-y: auto; background: var(--bg-primary);
+  border: 1px solid var(--border-subtle); border-radius: 12px; box-shadow: var(--shadow-card); container-type: inline-size; }
+.timer { grid-column: 2; grid-row: 2; display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  background: var(--bg-primary); border: 1px solid var(--border-subtle); border-radius: 12px; }
+.timer .in { flex: 0 1 360px; }
+.timer .clock { margin-left: auto; color: var(--text-muted); }
+.timer .play { width: 36px; height: 36px; border-radius: 8px; background: var(--bg-elevated); border: 1px solid var(--border-default); }
+
+/* ── The dock, full and folded ─────────────────────────────────── */
+.dock { grid-column: 3; grid-row: 1 / 3; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 8px; }
+.v-a .dock, .v-c .dock { display: none; }
+.dock .lab { display: flex; justify-content: space-between; color: var(--text-subtle); padding: 0 2px; }
+.icard { background: var(--bg-elevated); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.icard b { font-weight: 500; color: var(--text-strong); }
+.icard span { color: var(--text-muted); }
+.today { margin-top: 12px; border-top: 1px solid var(--border-subtle); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.block { background: var(--bg-elevated); border-left: 2px solid var(--info); border-radius: 4px; padding: 8px 10px; color: var(--text-primary); }
+.full { display: contents; }
+.strip { display: none; }
+.v-b .full { display: none; }
+.v-b .strip { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 8px; }
+.strip button { position: relative; width: 36px; height: 36px; border-radius: 8px; border: 0; background: transparent; color: var(--text-muted); display: grid; place-items: center; cursor: pointer; }
+.strip button:hover { background: var(--bg-hover); color: var(--text-strong); }
+.strip svg { width: 18px; height: 18px; }
+.strip .badge { position: absolute; top: 2px; right: 2px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px; background: var(--bg-active); color: var(--text-strong); font-size: 10px; line-height: 15px; text-align: center; }
+
+/* ── New invoice, inside the panel ─────────────────────────────── */
+main { padding: 18px; margin: 0 auto; max-width: 1152px; }
+.v-a main, .v-b main, .v-c main { max-width: none; }
+.back { color: var(--text-subtle); }
+.head { display: flex; justify-content: space-between; align-items: center; padding: 16px 0 14px; }
+.head h1 { color: var(--text-strong); }
+.btn { height: 36px; padding: 0 16px; border-radius: 6px; border: 1px solid var(--accent-default); background: var(--accent-default); color: var(--text-on-accent); }
+
+.work { display: grid; gap: 0 32px; grid-template-columns: minmax(320px, 400px) minmax(0, 1fr); align-items: start; }
+/* The proposal: a fixed form, and the page at a Letter page's width. */
+.v-a .work, .v-b .work, .v-c .work { grid-template-columns: 360px minmax(0, 816px); gap: 0 40px; justify-content: center; }
+
+.form > * { padding: 18px 0; border-top: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 14px; }
+.form > *:first-child { border-top: 0; padding-top: 2px; }
+.f { display: flex; flex-direction: column; gap: 6px; }
+.f > span { color: var(--text-muted); }
+.in { height: 36px; border: 1px solid var(--border-default); border-radius: 6px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; color: var(--text-strong); min-width: 0; }
+.in.ph { color: var(--text-subtle); }
+.three { display: flex; gap: 12px; }
+.three > * { flex: 1 1 0; min-width: 0; }
+.nested { margin-left: 12px; padding-left: 12px; border-left: 2px solid var(--border-subtle); }
+.list { border: 1px solid var(--border-subtle); border-radius: 6px; }
+.li { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-bottom: 1px solid var(--border-grid); }
+.li:last-child { border-bottom: 0; }
+.li .n { flex: 1; min-width: 0; display: flex; flex-direction: column; color: var(--text-strong); }
+.li .n small { color: var(--text-subtle); }
+.li .a { color: var(--text-strong); }
+.box { width: 15px; height: 15px; border-radius: 3px; background: var(--text-muted); flex: none; }
+.box.off { background: transparent; border: 1px solid var(--border-control); }
+.add { color: var(--text-muted); }
+.check { display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
+
+/* ── The preview ───────────────────────────────────────────────── */
+.pv { position: sticky; top: 0; }
+.pvhead { display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px 10px; }
+.pvhead h2 { color: var(--text-strong); }
+.pvhead span { color: var(--text-subtle); }
+.card { display: flex; flex-direction: column; gap: 20px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-elevated); padding: 24px; container-type: inline-size; }
+.v-a .card, .v-b .card, .v-c .card { padding: 36px 40px; }
+.cols { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 32px; }
+.cols > * { flex: 1 1 200px; min-width: 0; }
+.party { color: var(--text-muted); line-height: 1.5; }
+.party b { display: block; color: var(--text-strong); font-weight: 500; }
+.cl { display: block; color: var(--text-subtle); margin-bottom: 8px; }
+dl.meta { display: flex; flex-direction: column; gap: 4px; }
+dl.meta div { display: flex; gap: 12px; }
+dl.meta dt { color: var(--text-subtle); width: 104px; flex: none; }
+dl.meta dd { margin: 0; color: var(--text-primary); }
+dl.meta.r div { justify-content: flex-end; }
+dl.meta.r dt { width: auto; }
+dl.meta.r dd { min-width: 96px; text-align: right; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; color: var(--text-subtle); padding-bottom: 10px; border-bottom: 1px solid var(--border-default); }
+th.r, td.r { text-align: right; }
+td { padding: 10px 0 10px 12px; border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); white-space: nowrap; vertical-align: top; }
+td:first-child { padding-left: 0; color: var(--text-primary); white-space: normal; }
+td.amt { color: var(--text-strong); }
+th.grp { padding-top: 22px; }
+@container (max-width: 360px) { .rate { display: none; } }
+.totals { margin-left: auto; width: 100%; max-width: 256px; display: flex; flex-direction: column; gap: 6px; }
+.totals div { display: flex; justify-content: space-between; color: var(--text-muted); }
+.totals .t { border-top: 1px solid var(--border-default); padding-top: 8px; color: var(--text-primary); }
+.totals .t span:last-child { color: var(--text-strong); }
+.pay { border-top: 1px solid var(--border-subtle); padding-top: 16px; }
+.pg { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px 16px; }
+.pg span { display: block; color: var(--text-subtle); }
+.detail { border-top: 1px dashed var(--border-default); padding-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+.detail > span { color: var(--text-subtle); }
+.detail h4 { color: var(--text-strong); }
+.locks { color: var(--text-subtle); border-top: 1px solid var(--border-subtle); padding-top: 12px; }
+.width { display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 4px; background: var(--accent-muted); color: var(--text-strong); }
+</style>
+</head>
+<body>
+
+<div class="bar type-meta">
+  <div class="seg" data-group="v">
+    <button data-v="a">New invoice, 1728 × 1000</button>
+  </div>
+  <div class="seg" data-group="theme">
+    <button data-v="dark">Dark</button><button data-v="light">Light</button>
+  </div>
+</div>
+<p class="caption type-support" id="caption"></p>
+
+<div class="window" id="window">
+  <div class="app">
+    <div class="top"><span class="mark type-wordmark-small">Stint</span><span class="who type-meta">dev@localhost.test</span></div>
+    <div class="row">
+      <nav class="rail type-nav">
+        <a href="#">Home</a><a href="#">Calendar</a><a href="#">Clients</a><a href="#" aria-current="page">Invoices</a><a href="#">Settings</a>
+      </nav>
+
+      <div class="panel">
+        <main>
+          <span class="back type-label">← Invoices</span>
+          <div class="head"><h1 class="type-title">New invoice</h1><button class="btn type-control">Generate invoice</button></div>
+          <div class="work">
+            <div class="form">
+              <div>
+                <label class="f"><span class="type-label">Client *</span><div class="in type-control">Northwind Trading <span>⌄</span></div></label>
+                <div class="three">
+                  <label class="f"><span class="type-label">From</span><div class="in type-control">09/01/2026</div></label>
+                  <label class="f"><span class="type-label">To</span><div class="in type-control">09/30/2026</div></label>
+                  <label class="f"><span class="type-label">Due</span><div class="in type-control">10/30/2026</div></label>
+                </div>
+                <label class="f"><span class="type-label">Reference</span><div class="in type-control">ICA dated Aug 5, 2026 · Exhibit A SOW</div></label>
+              </div>
+              <div>
+                <label class="f"><span class="type-label">Show time as</span><div class="in type-control">One summary line <span>⌄</span></div></label>
+                <label class="f nested"><span class="type-label">Summary line *</span><div class="in type-control">Software consulting services</div></label>
+              </div>
+              <div>
+                <span class="f"><span class="type-label">Expenses</span></span>
+                <div class="list">
+                  <div class="li"><span class="box"></span><span class="n type-control">Claude Max subscription<small class="type-meta">↻ Recurring</small></span><span class="a type-duration">$200.00</span></div>
+                  <div class="li"><span class="box"></span><span class="n type-control">Figma license, annual<small class="type-meta">Sep 12</small></span><span class="a type-duration">$180.00</span></div>
+                </div>
+                <span class="add type-control">+ Add an expense</span>
+              </div>
+              <div>
+                <span class="f"><span class="type-label">Charges</span></span>
+                <span class="add type-control">+ Add a charge</span>
+              </div>
+              <div>
+                <label class="f"><span class="type-label">Payment details</span><div class="in type-control">Business checking <span>⌄</span></div></label>
+              </div>
+              <div>
+                <span class="f"><span class="type-label">Attach</span></span>
+                <span class="check type-control"><span class="box"></span>Hours by project</span>
+                <span class="check type-control"><span class="box off"></span>Hours by week</span>
+                <span class="check type-control"><span class="box"></span>Hours by date</span>
+              </div>
+            </div>
+
+            <section class="pv">
+              <div class="pvhead"><h2 class="type-section">Preview</h2><span class="type-support">24 entries</span></div>
+              <div class="card" id="card">
+                <div class="cols">
+                  <p class="party type-support"><b class="type-control">Blake Eriks Consulting</b>1200 Market St, Denver CO<br>blake@eriks.dev</p>
+                  <dl class="meta r type-support"><div><dt>No.</dt><dd class="type-duration">INV-0006</dd></div><div><dt>Issued</dt><dd>Oct 1, 2026</dd></div><div><dt>Due</dt><dd>Oct 30, 2026</dd></div></dl>
+                </div>
+                <div class="cols">
+                  <div><span class="cl type-label">Bill to</span><p class="party type-support"><b class="type-control">Northwind Trading</b>ap@northwind.test</p></div>
+                  <div><span class="cl type-label">Engagement</span><dl class="meta type-support"><div><dt>Service period</dt><dd>Sep 1, 2026 – Sep 30, 2026</dd></div><div><dt>Reference</dt><dd>ICA dated Aug 5, 2026 · Exhibit A SOW</dd></div></dl></div>
+                </div>
+                <table class="type-support">
+                  <thead><tr><th class="type-label">Description</th><th class="r type-label">Qty</th><th class="r type-label rate">Rate</th><th class="r type-label">Amount</th></tr></thead>
+                  <tbody>
+                    <tr><td>Software consulting services</td><td class="r type-duration">18.50</td><td class="r type-duration rate">$150.00</td><td class="r amt type-duration">$2,775.00</td></tr>
+                    <tr><td>Software consulting services</td><td class="r type-duration">13.50</td><td class="r type-duration rate">$195.00</td><td class="r amt type-duration">$2,632.50</td></tr>
+                  </tbody>
+                  <tbody>
+                    <tr><th colspan="4" class="grp type-label">Expenses</th></tr>
+                    <tr><td>Claude Max subscription</td><td class="r type-duration">Sep 30, 2026</td><td class="rate"></td><td class="r amt type-duration">$200.00</td></tr>
+                    <tr><td>Figma license, annual</td><td class="r type-duration">Sep 12, 2026</td><td class="rate"></td><td class="r amt type-duration">$180.00</td></tr>
+                  </tbody>
+                </table>
+                <div class="totals type-support">
+                  <div><span>Services</span><span class="type-duration">$5,407.50</span></div>
+                  <div><span>Expenses</span><span class="type-duration">$380.00</span></div>
+                  <div class="t"><span>Amount due</span><span class="type-amount">$5,787.50</span></div>
+                </div>
+                <div class="pay"><span class="cl type-label">Payment details</span>
+                  <div class="pg type-support"><div><span>Bank</span>Chase</div><div><span>Account</span>••••4417</div><div><span>Routing (ACH)</span>021000021</div><div><span>Reference</span>INV-0006</div></div>
+                </div>
+                <div class="detail type-support">
+                  <span class="type-label">Page 2 · supporting detail</span>
+                  <h4 class="type-control">Hours by project</h4>
+                  <table class="type-support"><tbody>
+                    <tr><td>Warehouse dashboard</td><td class="r type-duration">18.50</td></tr>
+                    <tr><td>Rush: peak season fixes</td><td class="r type-duration">13.50</td></tr>
+                    <tr><td class="type-control">Total</td><td class="r amt type-duration">32.00</td></tr>
+                  </tbody></table>
+                </div>
+                <p class="locks type-support">Generating assigns a number and locks these entries. Voiding later keeps the number on record.</p>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+
+      <div class="timer"><div class="in ph type-control">What are you working on?</div><span class="clock type-timer">0:00:00</span><span class="play"></span></div>
+
+      <aside class="dock">
+        <div class="full">
+          <span class="lab type-label"><span>Inbox</span><span>4</span></span>
+          <div class="icard type-support"><b>Northwind Trading</b><span>$2,340.00 · 18 days late</span></div>
+          <div class="icard type-support"><b>Northwind Trading</b><span>$780.00 · Draft, 11d old</span></div>
+          <div class="icard type-support"><b>Seeded: scoping notes, unfiled</b><span>1h 30m · No project · Sep 21</span></div>
+          <div class="icard type-support"><b>Seeded: call with a prospective client</b><span>45m · No project · Sep 27</span></div>
+          <div class="today">
+            <span class="lab type-label"><span>Today</span><span>$438.75</span></span>
+            <div class="block type-support">Filter panel and saved views · 1h 30m</div>
+            <div class="block type-support">Inventory sync edge cases · 2h 15m</div>
+          </div>
+        </div>
+        <div class="strip">
+          <button title="Inbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg><span class="badge">4</span></button>
+          <button title="Today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<script>
+const CAPTIONS = {
+  now: '<b>As built.</b> The 2xl card stops at 1440 × 900, the rail and the dock flank the panel, and the form keeps 400px of what is left.',
+  a: '<b>Workspace.</b> New invoice has no dock, and the card keeps its 1440 × 900. The form is 360px; the preview is up to a Letter page wide, and the pair is centered.',
+  b: '<b>B · Dock folds.</b> As A, but the dock folds to a 44px strip of icons that opens over the panel. Best at: Inbox and Today stay one press away, with the count in view. Costs: a folded state to build and keep, for things this screen rarely needs.',
+  c: '<b>C · Card stays.</b> The card keeps its 1440 × 900; only the dock goes. Best at: the frame looks the same on every screen. Costs: ~200px less page than A, and the 900px height still clips the card.',
+};
+const state = { v: 'a', theme: 'dark' };
+const win = document.getElementById('window');
+function fit() {
+  const z = Math.min(1, (document.documentElement.clientWidth - 32) / 1730);
+  win.style.setProperty('--z', z);
+}
+function render() {
+  win.className = 'window v-' + state.v;
+  document.documentElement.dataset.theme = state.theme;
+  for (const seg of document.querySelectorAll('.seg'))
+    for (const b of seg.querySelectorAll('button'))
+      b.setAttribute('aria-pressed', String(state[seg.dataset.group] === b.dataset.v));
+  const w = document.getElementById('card').offsetWidth;
+  document.getElementById('caption').innerHTML = CAPTIONS[state.v] + `<span class="width type-meta">preview ${w}px</span>`;
+}
+for (const seg of document.querySelectorAll('.seg'))
+  seg.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    state[seg.dataset.group] = b.dataset.v;
+    render();
+  });
+addEventListener('resize', fit);
+fit();
+render();
+</script>
+</body>
+</html>
