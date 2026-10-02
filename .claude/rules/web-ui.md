@@ -102,8 +102,9 @@ or state is a story first, built to the pick in the spec's `## Design`.
 `docs/local-dev.md` has the commands.
 
 A story renders the real component, never a copy. A state it needs comes
-from the account (`parameters.db`, `account((db) => …)`) or one failing
-handler (`failing('stats')`), not from props the app never passes.
+from the account (`parameters.db`, `account((db) => …)`), one failing
+handler (`failing('stats')`) or one that never answers
+(`stalled('deleteInvoice')`), not from props the app never passes.
 
 ### Layout
 
@@ -161,9 +162,9 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
 - **Every action carries a visible label.** Two exceptions, both with an
   `aria-label`: a destructive first step, and a dense repeating row. A glyph
   is always `aria-hidden`.
-- **A destructive action is quiet until it is the confirm**: a ghost trash
-  icon in `text-danger`, pushed away with `mr-auto`, then `destructive`
-  spelling the consequence out.
+- **A destructive action is quiet until it is the confirm**: a ghost in
+  `text-danger`, then `destructive` spelling the consequence out. In a dialog
+  footer the first step is a trash icon alone, pushed away with `mr-auto`.
 - **A dialog's or form's actions run secondary, Cancel, Save**: Save
   (`accent`) at the bottom right, Cancel beside it, and a secondary action
   (Archive, Delete) pushed to the far left with `mr-auto`.
