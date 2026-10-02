@@ -2,7 +2,7 @@
 
 - **Slug**: live-earned
 - **Created**: 2026-10-02
-- **Recommended option**: B — Live, predicted on the client from a server-given rate
+- **Recommended option**: C — Live, time and money both from the server, refetched each minute
 
 ## Options
 
@@ -13,31 +13,32 @@
 - **Rabbit holes**: Few. The rows would need to point at the running timer so Today doesn't look empty.
 
 ### Option B — Live, predicted on the client from a server-given rate
-- **Sketch**: The server sends the running entry's resolved rate along with the closed totals. Each client adds the running session's value (its hours, rounded the way the invoice rounds, × that rate) to every money figure that covers now, and updates it with the duration each minute. On stop, the refetch replaces the prediction (Principle III). With no rate, nothing is added.
+- **Sketch**: The server sends the running entry's resolved rate along with the closed totals. Each client adds the running session's value (its hours rounded the way the invoice rounds, × that rate) to every figure that covers now, and updates it each minute along with the duration it already computes. On stop, the refetch replaces the prediction.
 - **Appetite**: medium
-- **Trade-offs**: Wins: every goal is met. Figures move every minute, stopping causes no jump, and web and macOS match. It fits the existing "show the prediction at once, the server wins" model. Loses: a small amount of pricing arithmetic (round hours to two decimals, × rate) is written in TypeScript, in Swift and in SQL. That needs a parity test (Principle II).
-- **Rabbit holes**: A session that crosses midnight, a week or a month boundary. Splitting the live value across buckets. The month projection taking in a moving value. Unbilled per client on web.
+- **Trade-offs**: Wins: money moves in the same frame as the client-computed duration, with no polling. Loses: pricing arithmetic in TypeScript, Swift and SQL, needing a parity test (Principle II). Each client splits sessions that cross midnight, a week or a month itself. Web and macOS can drift apart.
+- **Rabbit holes**: Splitting sessions that cross midnight, a week or a month, done twice. The month projection taking in a moving value.
 
-### Option C — Live, computed by the server, refetched each minute
-- **Sketch**: The rollups count a running entry up to now, priced by the existing SQL. Clients refetch `/stats` each minute while a timer runs.
+### Option C — Live, time and money both from the server, refetched each minute
+- **Sketch**: The server counts a running entry up to now in every time and money figure it returns, priced and split across days, weeks and months by the existing SQL. Running time goes into separate fields or display-only paths, so nothing that feeds invoicing counts it. While a timer runs, clients refetch the home figures each minute and show what comes back. Only the running timer's own seconds clock stays on the client.
 - **Appetite**: small to medium
-- **Trade-offs**: Wins: one implementation, so no parity test, and the boundary splitting is already handled by the rollups' bucketing. Loses: a full `/stats` request every minute from every open client; the figure updates when the request returns, not with the duration; and the rollups, which also feed billing, treat running time as earned. Unbilled including a running entry is then one change away from an invoice billing it.
-- **Rabbit holes**: Keeping running time out of every rollup that feeds invoicing while including it in display. Cost of polling on Supabase Pro ("No new fixed cost").
+- **Trade-offs**: Wins: one implementation, so no parity test. Time and money come from one answer, so they agree, and they stop together if a refetch fails. Sessions that cross a boundary are already handled. Web and macOS can't drift apart. Loses: one request a minute per open client while a timer runs (negligible for one user, no fixed cost). Today's `h:mm` can lag the timer's seconds clock by under a minute.
+- **Rabbit holes**: Keeping running time out of every path that feeds invoicing while including it in what's displayed. The entries endpoint returning a running entry's length so far, not null. How many queries a refetch triggers on each client.
 
 ## Recommendation
 
-**Option B.** It's the only option that meets all three goals without changing what the billing rollups count. The arithmetic it duplicates is small, and the server's answer still replaces it at stop. Option C is the strongest alternative: if the boundary rabbit holes are too costly, C's server-side bucketing beats re-creating it on two clients.
+**Option C.** It removes the cause, not the symptom: every figure on a screen comes from one server answer, so none can contradict another. It meets all three goals: figures agree while the timer runs, stopping causes no jump, and web and macOS match. It also adds no logic to the clients, keeping the server as the one source of the time it already owns (Principle III). B's advantage (no polling, money moving in the same frame) only matters while the duration is computed on the client, and C stops doing that.
 
 ## Out of Scope (for the recommended option)
 
 - How invoices are priced, and making a running entry billable or invoiceable.
 - Fixing a project's missing or wrong rate. The `$0.00` for 22m is checked separately.
+- The running timer's own seconds clock, which stays on the client.
 - Projection math, beyond taking in the live Earned.
-- Ticking more often than once a minute.
+- Refreshing more often than once a minute.
 
 ## Assumptions to Validate
 
-- The running entry's resolved rate can come from the server without a per-entry rate lookup that `/stats` was built to avoid.
-- Rounding a single running entry's hours to two decimals and × rate reproduces, to the cent, what the rollup charges once the entry stops.
-- A session that crosses a boundary is rare enough to handle simply (for example, counted where it started), or splitting it is cheap.
+- Every rollup that feeds an invoice can keep excluding running time, while what's displayed includes it.
+- A refetch each minute of `/stats` and today's entries is cheap enough for Supabase Pro and doesn't cause the screen to flicker or shift.
+- Today's `h:mm` lagging the seconds clock by under a minute isn't read as a contradiction.
 - Unbilled on the macOS menu bar should go up live too (open question in `problem.md`).
