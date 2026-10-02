@@ -6,6 +6,7 @@
  *   jscpd     duplicated blocks of 100+ tokens (Sonar's default)
  *   Knip      unused files, exports and dependencies
  *   comments  more comment lines than half the code lines
+ *   fixes     three or more merged fixes in 90 days (needs `gh`)
  *   Vale      prose against the Google style guide and our house rules
  *
  * usage: pnpm hygiene [paths...] [--since 30.days] [--top N] [--json]
@@ -20,7 +21,13 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { commentDensity, filedPaths, rank, THRESHOLD } from './rank.mjs';
+import {
+  commentDensity,
+  filedPaths,
+  fixChurn,
+  rank,
+  THRESHOLD,
+} from './rank.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const BIN = join(ROOT, 'node_modules/.bin');
@@ -151,6 +158,38 @@ function comments() {
     .filter(Boolean);
 }
 
+/* The labels `/work-issues` gives a fault a user meets. */
+const FIX_LABELS = ['wrong data', 'misleading', 'looks wrong'];
+
+function fixes() {
+  const since = new Date(Date.now() - 90 * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const json = (args) => JSON.parse(run('gh', [...args, '--limit=500']));
+  const fixIssues = new Set(
+    FIX_LABELS.flatMap((label) =>
+      json([
+        'issue',
+        'list',
+        '--state=all',
+        `--label=${label}`,
+        '--json=number',
+      ]),
+    ).map((i) => i.number),
+  );
+  const prs = json([
+    'pr',
+    'list',
+    '--state=merged',
+    `--search=merged:>=${since}`,
+    '--json=number,files,closingIssuesReferences',
+  ]);
+  // Source only: a doc changes beside a fix, not because of one.
+  return fixChurn(prs, fixIssues).filter((f) =>
+    /\.(ts|tsx|mjs|js|swift)$/.test(f.path),
+  );
+}
+
 function prose() {
   if (!existsSync(join(ROOT, '.vale/styles/Google'))) run('vale', ['sync']);
   const out = run('vale', ['--output=JSON', '--no-exit', ...DOCS]);
@@ -195,7 +234,14 @@ const inScope = (path) =>
   !EXCLUDED.test(path) &&
   (!scope.length || scope.some((p) => path === p || path.startsWith(`${p}/`)));
 
-const findings = [complexity(), duplication(), deadCode(), comments(), prose()]
+const findings = [
+  complexity(),
+  duplication(),
+  deadCode(),
+  comments(),
+  fixes(),
+  prose(),
+]
   .flat()
   .filter((f) => inScope(f.path));
 let files = rank(

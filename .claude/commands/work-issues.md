@@ -59,7 +59,9 @@ Every build and every fix goes the same way:
    commit range in `../stint-issues`, that it is read-only, and to review the
    diff and what it calls — for security too when the commits touch auth, the
    API or data access — and to hold every added or changed comment to
-   `.claude/rules/comments.md`. It reports in one paragraph each finding it
+   `.claude/rules/comments.md`, and to flag a fix that adds a special case
+   where the design should have changed first (`.claude/agents/issue-builder.md`, Build).
+   It reports in one paragraph each finding it
    is confident in, with file:line, the failure and the fix; a comment's fix
    is usually cutting it.
 3. Findings that hold up go back to the same builder (SendMessage); its fix

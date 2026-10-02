@@ -13,9 +13,37 @@ const MINUTES = {
   'dead-code': () => 5,
   prose: () => 1,
   comments: (f) => f.value,
+  fixes: (f) => 15 * f.value,
 };
 
 export const debtOf = (f) => MINUTES[f.kind](f);
+
+/**
+ * Files fixed three times or more, the third time being when Fowler's rule
+ * of three says the design, not the code, wants changing.
+ * @param prs        merged PRs: [{ number, files, closingIssuesReferences }]
+ * @param fixIssues  Set of issue numbers labeled as user-facing faults
+ */
+export function fixChurn(prs, fixIssues) {
+  const byPath = new Map();
+  for (const pr of prs) {
+    if (!pr.closingIssuesReferences.some((i) => fixIssues.has(i.number))) {
+      continue;
+    }
+    for (const { path } of pr.files) {
+      byPath.set(path, [...(byPath.get(path) ?? []), pr.number]);
+    }
+  }
+  return [...byPath]
+    .filter(([, numbers]) => numbers.length >= 3)
+    .map(([path, numbers]) => ({
+      path,
+      kind: 'fixes',
+      line: 1,
+      value: numbers.length,
+      detail: `fixed by ${numbers.length} PRs: ${numbers.map((n) => `#${n}`).join(', ')}`,
+    }));
+}
 
 /**
  * A file with more comment lines than half its code lines, priced at a

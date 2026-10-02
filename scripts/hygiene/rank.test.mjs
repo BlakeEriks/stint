@@ -5,6 +5,7 @@ import {
   commentDensity,
   debtOf,
   filedPaths,
+  fixChurn,
   rank,
 } from './rank.mjs';
 
@@ -30,6 +31,30 @@ describe('commentDensity', () => {
     const f = commentDensity('a.ts', src);
     assert.equal(f.value, 4 - 2);
     assert.equal(debtOf(f), 2);
+  });
+});
+
+describe('fixChurn', () => {
+  const pr = (number, issue, ...paths) => ({
+    number,
+    closingIssuesReferences: [{ number: issue }],
+    files: paths.map((path) => ({ path })),
+  });
+  const bugs = new Set([1, 2, 3]);
+
+  it('finds a file on its third fix, priced at 15 minutes a fix', () => {
+    const [f, ...rest] = fixChurn(
+      [pr(10, 1, 'a.ts', 'b.ts'), pr(11, 2, 'a.ts'), pr(12, 3, 'a.ts')],
+      bugs,
+    );
+    assert.equal(rest.length, 0);
+    assert.equal(f.path, 'a.ts');
+    assert.equal(debtOf(f), 45);
+  });
+
+  it('counts only PRs that close a fix issue', () => {
+    const prs = [pr(10, 1, 'a.ts'), pr(11, 2, 'a.ts'), pr(12, 9, 'a.ts')];
+    assert.deepEqual(fixChurn(prs, bugs), []);
   });
 });
 
