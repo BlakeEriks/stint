@@ -56,21 +56,21 @@ let pipSlot: CGFloat = 7 + 7
 /// label drops every modifier, `.monospacedDigit()` included, so a `Text`
 /// clock is set in proportional digits, changes width each second, and the
 /// bar re-lays out from the right, sliding the pip. Here the clock is set in
-/// tabular digits, trailing-aligned in a slot as wide as `00:00:00`, so the
-/// item keeps one width under 100 hours. Not a template, for the pip's sake:
+/// tabular digits, so the item keeps its width while it ticks and grows only
+/// when the hour gains a digit; no space is held for one ahead of time, which
+/// would strand the pip away from the clock. Not a template, for the pip's sake:
 /// the clock takes `labelColor`, which resolves against the bar's appearance
 /// each time the image draws.
 @MainActor
 func barImage(fill: NSColor, clock: String) -> NSImage {
     let attributes: [NSAttributedString.Key: Any] = [.font: barClockFont, .foregroundColor: NSColor.labelColor]
     let text = (clock as NSString).size(withAttributes: attributes)
-    let slot = max(("00:00:00" as NSString).size(withAttributes: attributes).width, text.width)
     let box = max(17, ceil(text.height))
     let pip = pipImage(fill: fill, box: box)
-    let image = NSImage(size: NSSize(width: ceil(pipSlot + slot), height: box), flipped: false) { rect in
+    let image = NSImage(size: NSSize(width: ceil(pipSlot + text.width), height: box), flipped: false) { _ in
         pip.draw(at: .zero, from: .zero, operation: .sourceOver, fraction: 1)
         (clock as NSString).draw(
-            at: NSPoint(x: rect.width - text.width, y: (box - text.height) / 2), withAttributes: attributes)
+            at: NSPoint(x: pipSlot, y: (box - text.height) / 2), withAttributes: attributes)
         return true
     }
     image.isTemplate = false
