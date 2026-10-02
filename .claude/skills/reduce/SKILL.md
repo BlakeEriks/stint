@@ -19,7 +19,6 @@ minutes:
 | complexity | Biome | SonarSource Cognitive Complexity, 15 per function |
 | duplication | jscpd | blocks of 100+ tokens |
 | dead-code | Knip | unused files, exports, dependencies |
-| comments | line count | more comment lines than half the code lines |
 
 `--json` adds each finding's line. Record the debt: it is the before number.
 

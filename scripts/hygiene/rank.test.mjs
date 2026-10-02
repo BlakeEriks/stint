@@ -1,13 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import {
-  churnWeight,
-  commentDensity,
-  debtOf,
-  filedPaths,
-  fixChurn,
-  rank,
-} from './rank.mjs';
+import { churnWeight, debtOf, filedPaths, fixChurn, rank } from './rank.mjs';
 
 const complex = (path, value) => ({ path, kind: 'complexity', value });
 
@@ -18,34 +11,21 @@ describe('debtOf', () => {
   });
 });
 
-describe('commentDensity', () => {
-  const code = (n) => Array.from({ length: n }, (_, i) => `f(${i});`);
-
-  it('finds nothing while comments stay under half the code', () => {
-    const src = ['// one', '/* two', '   three */', ...code(6)].join('\n');
-    assert.equal(commentDensity('a.ts', src), null);
-  });
-
-  it('prices each comment line over half the code at a minute', () => {
-    const src = ['/**', ' * a', ' */', '// b', '', ...code(4)].join('\n');
-    const f = commentDensity('a.ts', src);
-    assert.equal(f.value, 4 - 2);
-    assert.equal(debtOf(f), 2);
-  });
-});
-
 describe('fixChurn', () => {
   const pr = (number, issue, ...paths) => ({
     number,
+    mergedAt: `2026-09-${String(number).padStart(2, '0')}T00:00:00Z`,
     closingIssuesReferences: [{ number: issue }],
     files: paths.map((path) => ({ path })),
   });
-  const bugs = new Set([1, 2, 3]);
+  const fixes = new Set([1, 2, 3, 4]);
+  const hygiene = new Set([50]);
 
   it('finds a file on its third fix, priced at 15 minutes a fix', () => {
     const [f, ...rest] = fixChurn(
       [pr(10, 1, 'a.ts', 'b.ts'), pr(11, 2, 'a.ts'), pr(12, 3, 'a.ts')],
-      bugs,
+      fixes,
+      hygiene,
     );
     assert.equal(rest.length, 0);
     assert.equal(f.path, 'a.ts');
@@ -54,7 +34,18 @@ describe('fixChurn', () => {
 
   it('counts only PRs that close a fix issue', () => {
     const prs = [pr(10, 1, 'a.ts'), pr(11, 2, 'a.ts'), pr(12, 9, 'a.ts')];
-    assert.deepEqual(fixChurn(prs, bugs), []);
+    assert.deepEqual(fixChurn(prs, fixes, hygiene), []);
+  });
+
+  it('starts over once a hygiene issue on the file closes, in merge order', () => {
+    const prs = [
+      pr(14, 4, 'a.ts'),
+      pr(13, 50, 'a.ts'),
+      pr(10, 1, 'a.ts'),
+      pr(11, 2, 'a.ts'),
+      pr(12, 3, 'a.ts'),
+    ];
+    assert.deepEqual(fixChurn(prs, fixes, hygiene), []);
   });
 });
 

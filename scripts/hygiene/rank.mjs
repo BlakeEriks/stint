@@ -12,7 +12,6 @@ const MINUTES = {
   duplication: () => 10,
   'dead-code': () => 5,
   prose: () => 1,
-  comments: (f) => f.value,
   fixes: (f) => 15 * f.value,
 };
 
@@ -20,18 +19,23 @@ export const debtOf = (f) => MINUTES[f.kind](f);
 
 /**
  * Files fixed three times or more, the third time being when Fowler's rule
- * of three says the design, not the code, wants changing.
- * @param prs        merged PRs: [{ number, files, closingIssuesReferences }]
+ * of three says the design, not the code, wants changing. A PR that closes a
+ * hygiene issue reworked its files, so their count starts over.
+ * @param prs        merged PRs: [{ number, mergedAt, files, closingIssuesReferences }]
  * @param fixIssues  Set of issue numbers labeled as user-facing faults
+ * @param hygieneIssues  Set of issue numbers labeled `hygiene`
  */
-export function fixChurn(prs, fixIssues) {
+export function fixChurn(prs, fixIssues, hygieneIssues) {
   const byPath = new Map();
-  for (const pr of prs) {
-    if (!pr.closingIssuesReferences.some((i) => fixIssues.has(i.number))) {
-      continue;
-    }
+  const closes = (pr, set) =>
+    pr.closingIssuesReferences.some((i) => set.has(i.number));
+  const merged = [...prs].sort((a, b) => a.mergedAt.localeCompare(b.mergedAt));
+  for (const pr of merged) {
     for (const { path } of pr.files) {
-      byPath.set(path, [...(byPath.get(path) ?? []), pr.number]);
+      if (closes(pr, hygieneIssues)) byPath.delete(path);
+      else if (closes(pr, fixIssues)) {
+        byPath.set(path, [...(byPath.get(path) ?? []), pr.number]);
+      }
     }
   }
   return [...byPath]
@@ -43,36 +47,6 @@ export function fixChurn(prs, fixIssues) {
       value: numbers.length,
       detail: `fixed by ${numbers.length} PRs: ${numbers.map((n) => `#${n}`).join(', ')}`,
     }));
-}
-
-/**
- * A file with more comment lines than half its code lines, priced at a
- * minute per line over: about the 90th percentile here, where narration
- * crowds the code. Blank lines count as neither.
- * @returns a finding, or null
- */
-export function commentDensity(path, src) {
-  let comments = 0;
-  let code = 0;
-  let inBlock = false;
-  for (const line of src.split('\n').map((l) => l.trim())) {
-    if (!line) continue;
-    if (inBlock || line.startsWith('//') || line.startsWith('/*')) {
-      comments += 1;
-      inBlock = (inBlock || line.startsWith('/*')) && !line.includes('*/');
-    } else {
-      code += 1;
-    }
-  }
-  const over = comments - Math.floor(code / 2);
-  if (over <= 0) return null;
-  return {
-    path,
-    kind: 'comments',
-    line: 1,
-    value: over,
-    detail: `${comments} comment lines to ${code} of code`,
-  };
 }
 
 /* A file nobody touches keeps its debt at face value; each doubling of

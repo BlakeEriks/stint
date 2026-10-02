@@ -24,6 +24,7 @@ Design*, ch. 12–13):
 | units, invariants, the meaning of a return value | a restatement of a name, a type, a test or a CI check |
 
 A comment cites an issue only as `TODO(#n)`, for work still open;
-`scripts/check-comment-refs.mjs` fails any other citation. A name that says
-what a function does replaces the comment that would. Keep a comment to the
-length of what it has to say.
+`scripts/check-comment-refs.mjs` fails any other citation. A migration is
+the exception: it is a change record, so it may name the issue it answers.
+A name that says what a function does replaces the comment that would. Keep
+a comment to the length of what it has to say.

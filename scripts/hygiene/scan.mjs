@@ -5,8 +5,8 @@
  *   Biome     cognitive complexity over 15 (SonarSource's metric and limit)
  *   jscpd     duplicated blocks of 100+ tokens (Sonar's default)
  *   Knip      unused files, exports and dependencies
- *   comments  more comment lines than half the code lines
- *   fixes     three or more merged fixes in 90 days (needs `gh`)
+ *   fixes     three or more merged fixes in 90 days, on a whole-repo scan
+ *             only, since it needs `gh`
  *   Vale      prose against the Google style guide and our house rules
  *
  * usage: pnpm hygiene [paths...] [--since 30.days] [--top N] [--json]
@@ -21,13 +21,7 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import {
-  commentDensity,
-  filedPaths,
-  fixChurn,
-  rank,
-  THRESHOLD,
-} from './rank.mjs';
+import { filedPaths, fixChurn, rank, THRESHOLD } from './rank.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const BIN = join(ROOT, 'node_modules/.bin');
@@ -150,14 +144,6 @@ function deadCode() {
   );
 }
 
-function comments() {
-  return run('git', ['ls-files', ...CODE])
-    .split('\n')
-    .filter((path) => /\.(ts|tsx|mjs|js)$/.test(path))
-    .map((path) => commentDensity(path, readFileSync(join(ROOT, path), 'utf8')))
-    .filter(Boolean);
-}
-
 /* The labels `/work-issues` gives a fault a user meets. */
 const FIX_LABELS = ['wrong data', 'misleading', 'looks wrong'];
 
@@ -166,26 +152,29 @@ function fixes() {
     .toISOString()
     .slice(0, 10);
   const json = (args) => JSON.parse(run('gh', [...args, '--limit=500']));
-  const fixIssues = new Set(
-    FIX_LABELS.flatMap((label) =>
-      json([
-        'issue',
-        'list',
-        '--state=all',
-        `--label=${label}`,
-        '--json=number',
-      ]),
-    ).map((i) => i.number),
-  );
+  const labeled = (labels) =>
+    new Set(
+      labels
+        .flatMap((label) =>
+          json([
+            'issue',
+            'list',
+            '--state=all',
+            `--label=${label}`,
+            '--json=number',
+          ]),
+        )
+        .map((i) => i.number),
+    );
   const prs = json([
     'pr',
     'list',
     '--state=merged',
     `--search=merged:>=${since}`,
-    '--json=number,files,closingIssuesReferences',
+    '--json=number,mergedAt,files,closingIssuesReferences',
   ]);
   // Source only: a doc changes beside a fix, not because of one.
-  return fixChurn(prs, fixIssues).filter((f) =>
+  return fixChurn(prs, labeled(FIX_LABELS), labeled(['hygiene'])).filter((f) =>
     /\.(ts|tsx|mjs|js|swift)$/.test(f.path),
   );
 }
@@ -238,8 +227,7 @@ const findings = [
   complexity(),
   duplication(),
   deadCode(),
-  comments(),
-  fixes(),
+  scope.length ? [] : fixes(),
   prose(),
 ]
   .flat()
