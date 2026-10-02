@@ -181,7 +181,7 @@ invoices reference these rows. `DELETE` returns `204`.
 
 | Param | On | Effect |
 |---|---|---|
-| `includeArchived=true` | clients, projects, payment-profiles | Return archived rows too. Without it they are hidden. |
+| `includeArchived=true` | clients, projects, payment-profiles | Return archived rows too. Without it they are hidden, and so is a project whose client is archived. |
 | `withScale=true` | clients | Adds `projectCount` and `unbilledAmount` per client. |
 | `clientId=` | projects | Only that client's projects. |
 

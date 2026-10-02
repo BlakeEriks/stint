@@ -34,10 +34,12 @@ export function ClientDetail({ id }: { id: string }) {
       isClientList(current) && !listsArchived(key)
         ? { ...current, clients: current.clients.filter((c) => c.id !== id) }
         : current,
-    // Archiving withdraws the client's rate from every rollup, not just stats.
+    /* Archiving withdraws the client's rate from every rollup, not just
+       stats, and its projects from every picker. */
     invalidate: (qc) =>
       Promise.all([
         qc.invalidateQueries({ queryKey: keys.clients() }),
+        qc.invalidateQueries({ queryKey: keys.projects() }),
         invalidateEntryData(qc),
       ]),
   });

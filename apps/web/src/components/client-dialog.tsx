@@ -41,10 +41,12 @@ export function ClientDialog({
     queryKey: () => keys.clients(),
     mutationFn: (id) => api.archiveClient(id),
     predict: (current, id, key) => predictArchive('clients', id, current, key),
-    // Archiving withdraws the client's rate from every rollup.
+    /* Archiving withdraws the client's rate from every rollup, and its
+       projects from every picker. */
     invalidate: (qc) =>
       Promise.all([
         qc.invalidateQueries({ queryKey: keys.clients() }),
+        qc.invalidateQueries({ queryKey: keys.projects() }),
         invalidateEntryData(qc),
       ]),
   });

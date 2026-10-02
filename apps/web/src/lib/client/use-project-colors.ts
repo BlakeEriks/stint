@@ -39,9 +39,9 @@ export function useProjectColors(): Map<string, string | null> {
  * than a second set of fetches that could disagree with the colors already
  * painted.
  *
- * **Archived clients are included.** Work billed to a finished engagement is
- * still in the history, and dropping its color would silently move those
- * hours into the unnamed band.
+ * **Archived clients and projects are included.** Work billed to a finished
+ * engagement is still in the history, and dropping its color would silently
+ * move those hours into the unnamed band.
  *
  * **So are clients with no color.** A client is a client whether or not it
  * has a hue; leaving it out would file its work under internal.
@@ -55,8 +55,8 @@ export function useProjectClients(): {
   >;
 } {
   const projects = useQuery({
-    queryKey: keys.projects(),
-    queryFn: () => api.projects(),
+    queryKey: keys.projects({ archived: true }),
+    queryFn: () => api.projects({ includeArchived: true }),
   });
   const byId = useClients();
 

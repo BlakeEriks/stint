@@ -291,6 +291,35 @@ describe('ClientProjects', () => {
     expect(screen.queryByRole('button', { name: 'Add project' })).toBeNull();
   });
 
+  it('asks for an archived client’s projects with the archived ones', async () => {
+    const seen: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        seen.push(String(url));
+        return new Response(JSON.stringify({ projects: [] }), { status: 200 });
+      }),
+    );
+    render(
+      <ClientProjects
+        client={{ ...NORTHWIND, archivedAt: '2026-01-01T00:00:00Z' } as Client}
+      />,
+      { wrapper },
+    );
+
+    /* The server counts an archived client's projects as archived, so
+       without it the page would say "No projects." of a client that has
+       some. */
+    await waitFor(() =>
+      expect(
+        seen.some(
+          (u) =>
+            u.includes('clientId=c1') && u.includes('includeArchived=true'),
+        ),
+      ).toBe(true),
+    );
+  });
+
   it('offers to add a project even with none, defaulting to this client', async () => {
     serve([]);
     const user = userEvent.setup();
