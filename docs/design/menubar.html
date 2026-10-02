@@ -663,7 +663,10 @@
       <ul>
         <li><strong>Every number is mono with <code>.monospacedDigit()</code>.</strong>
           A readout that reflows as its digits change is the exact thing the
-          rule exists to prevent.</li>
+          rule exists to prevent. The status item's clock is the exception:
+          a <code>MenuBarExtra</code> label drops the modifier, so
+          <code>barImage</code> draws the clock in <code>barClockFont</code>,
+          the menu bar's font with tabular digits.</li>
         <li><strong>The scale comes from <code>tokens.json</code></strong>
           through the generated <code>Tokens.swift</code>, and the faces fall
           back to the system's.</li>
