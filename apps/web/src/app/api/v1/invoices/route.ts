@@ -197,7 +197,7 @@ export const POST = handle(async (req: Request) => {
     if (isEntryClaimConflict(error)) {
       throw new ApiError(
         'ENTRY_ALREADY_INVOICED',
-        'Time on this invoice was billed on another one first. Preview again.',
+        'Time on this invoice changed since the preview. Preview again.',
       );
     }
     throw error;

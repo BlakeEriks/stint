@@ -4,7 +4,8 @@
 -- anyway, so two racing generations billed the same hours twice and the
 -- second invoice held no entries. It now raises `ENTRY_ALREADY_INVOICED`, as
 -- the expenses update raises `EXPENSE_ALREADY_INVOICED`, which rolls the
--- whole call back, number included.
+-- whole call back, number included. An entry deleted since the route loaded
+-- it raises the same, since the invoice would bill hours no entry holds.
 
 -- As in 00000000000029_invoice_summary.sql, checking the entries update.
 create or replace function create_invoice(
@@ -93,7 +94,7 @@ begin
   get diagnostics v_attached = row_count;
 
   if v_attached <> cardinality(p_entry_ids) then
-    raise exception 'ENTRY_ALREADY_INVOICED: % of % entries were already on another invoice',
+    raise exception 'ENTRY_ALREADY_INVOICED: % of % entries were billed elsewhere or deleted',
       cardinality(p_entry_ids) - v_attached, cardinality(p_entry_ids);
   end if;
 
