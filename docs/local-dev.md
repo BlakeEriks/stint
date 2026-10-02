@@ -207,6 +207,11 @@ in. Sign in afterwards at `/signin` and click the link in Mailpit
 (`:54324`). `--clear` never creates: clearing an account that does not exist
 is a typo, not a request.
 
+**An invoice is complete without a visit to Settings.** The seed writes a
+business name, address, email and EIN, an address for each client, two sets
+of bank details (the default, and the one Meridian Labs points at), and two
+expenses waiting on Northwind's next invoice, one recurring.
+
 **It creates one of every inbox row**, which is the part that cannot be
 produced by using the app for ten minutes: an overdue invoice needs 37 days
 to elapse, a stale draft 7. The script backdates them
@@ -363,7 +368,7 @@ that edits the seeded account) and breaks one endpoint with
 `failing('stats')`. A response that fails its schema, an unhandled API
 request or a handler that throws fails the story. On a browser's
 first visit MSW's service worker installs after the page has loaded, so reload
-once. Its MCP server is at `localhost:6006/mcp`.
+once.
 
 `pnpm --filter @stint/web test:stories` runs every story as a test in
 headless Chromium at its viewport, and fails it on an accessibility

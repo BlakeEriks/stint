@@ -54,11 +54,12 @@ These are the house defaults, not law. A design may change one when the
 change reads better; update the line here in the same PR. The only enforced
 color fact is text on the accent (`--text-on-accent`, `tokens:validate`).
 
-- **Green is the one hue, and the step says the tense.** `accent-default`
-  marks what is live, such as the running timer, and the action a screen
-  exists to complete. `success`, a ramp step off it, reports what has already
-  happened: paid, saved. Test any green by asking whether a user could say in
-  one phrase what it means there.
+- **Green is the one hue, and the step says the tense.** `timer-running`
+  marks what is live, and `accent-default` the action a screen exists to
+  complete — one hex in dark, a rung apart in light, where paper gives the
+  timer no glow to tell it from the button. `success`, a ramp step off the
+  timer, reports what has already happened: paid, saved. Test any green by
+  asking whether a user could say in one phrase what it means there.
 - **Weight tracks how often an action is taken**, not how much damage it can
   do. Filled red is for the step that destroys, never the step that asks.
   Focus rings are neutral.
@@ -92,11 +93,13 @@ warning, exit 0**, which is why it is a check rather than a convention.
 
 ### Storybook is the design surface
 
-A screen is designed, reviewed and specified as stories: `pnpm --filter
+A screen's look is picked in `/design-review`, before planning; from then
+on it is built, reviewed and specified as stories: `pnpm --filter
 @stint/web storybook`. Every screen has a `*.stories.tsx` beside its
 component, as do the parts and primitives worth seeing alone, rendering the
 real component against the in-memory `/api/v1` in `src/mocks/`. A new screen
-or state is a story first. `docs/local-dev.md` has the commands.
+or state is a story first, built to the pick in the spec's `## Design`.
+`docs/local-dev.md` has the commands.
 
 A story renders the real component, never a copy. A state it needs comes
 from the account (`parameters.db`, `account((db) => …)`) or one failing
@@ -116,7 +119,11 @@ not move it to the root; `e2e/error-boundary.spec.ts` fails if you do.
 **`Page` owns the content column**, so no screen sets its own width. It pads
 by the 18px `INSET`; `flush` is for a screen whose regions carry the inset
 themselves (Home, the calendar), so it is never doubled. `wide` is for a
-screen that needs the room (Home, the calendar), not a preference. The page
+screen that needs the room (Home, the calendar), not a preference.
+`workspace` is for a screen that is a tool rather than a page to read (New
+invoice): it takes the dock's room, because the frame reads
+`data-workspace` through `:has()`. The card keeps its size, so the frame
+never jolts between screens. The page
 title is `type-title`, once.
 
 **Nothing inside the panel is a card.** The panel is the one surface; a
@@ -157,6 +164,12 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
 - **A destructive action is quiet until it is the confirm**: a ghost trash
   icon in `text-danger`, pushed away with `mr-auto`, then `destructive`
   spelling the consequence out.
+- **A dialog's or form's actions run secondary, Cancel, Save**: Save
+  (`accent`) at the bottom right, Cancel beside it, and a secondary action
+  (Archive, Delete) pushed to the far left with `mr-auto`.
+- **A row that opens an editor is itself the button**: the whole row
+  highlights on hover, and a faint pencil at its end says so where there is
+  no hover. Its `aria-label` is `Edit <name>`.
 - **A failure renders beside the thing that failed**, and a failed load is
   neutral, never red — it is a condition, and the answer is to try again.
 - **An empty state says what to do**, or what the consequence is.

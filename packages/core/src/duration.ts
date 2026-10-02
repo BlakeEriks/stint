@@ -31,11 +31,3 @@ export function formatCompact(totalSeconds: number): string {
   if (h === 0) return `${m}m`;
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
-
-/**
- * Decimal hours for invoicing, rounded to 2dp.
- * Money is computed from this, so rounding happens once, here.
- */
-export function toBillableHours(totalSeconds: number): number {
-  return Math.round((Math.max(0, totalSeconds) / HOUR) * 100) / 100;
-}

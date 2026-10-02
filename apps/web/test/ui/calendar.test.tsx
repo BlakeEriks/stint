@@ -740,7 +740,8 @@ describe('an entry block', () => {
 
     const live = await screen.findByRole('button', { name: /Live.*running/ });
     const done = screen.getByRole('button', { name: /Done/ });
-    expect(live.className).toContain('border-accent-default');
+    expect(live.className).toContain('border-timer-running');
+    expect(live.className).not.toContain('accent-default');
     expect(done.className).not.toContain('accent');
   });
 });

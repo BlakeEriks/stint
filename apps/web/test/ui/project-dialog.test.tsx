@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ProjectDialog } from '@/components/project-dialog';
+import type { Project } from '@/lib/client/api';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
@@ -132,5 +133,56 @@ describe('ProjectDialog', () => {
     expect(screen.getByRole('button', { name: 'Client' })).toHaveTextContent(
       'No client — internal work',
     );
+  });
+  /* Archive lives in the dialog, not on the row: it is rare, and a row of
+     one Edit button is the whole of the list's chrome. */
+  describe('archive', () => {
+    const PROJECT = {
+      id: 'p1',
+      name: 'Warehouse dashboard',
+      clientId: null,
+      hourlyRate: null,
+      isBillableDefault: true,
+      archivedAt: null,
+    } as unknown as Project;
+
+    it('archives an active project and closes', async () => {
+      const calls = serve([]);
+      const closed = vi.fn();
+      const user = userEvent.setup();
+      render(<ProjectDialog open onOpenChange={closed} existing={PROJECT} />, {
+        wrapper,
+      });
+
+      await user.click(await screen.findByRole('button', { name: 'Archive' }));
+
+      await waitFor(() => expect(closed).toHaveBeenCalledWith(false));
+      expect(calls).toContainEqual({
+        method: 'DELETE',
+        path: '/projects/p1',
+        body: undefined,
+      });
+    });
+
+    it('offers no archive for a new project', async () => {
+      serve([]);
+      render(<ProjectDialog open onOpenChange={() => {}} />, { wrapper });
+      await screen.findByLabelText('Name');
+      expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
+    });
+
+    it('offers no archive for one already archived', async () => {
+      serve([]);
+      render(
+        <ProjectDialog
+          open
+          onOpenChange={() => {}}
+          existing={{ ...PROJECT, archivedAt: '2026-01-04T00:00:00Z' }}
+        />,
+        { wrapper },
+      );
+      await screen.findByLabelText('Name');
+      expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
+    });
   });
 });

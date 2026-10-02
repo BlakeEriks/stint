@@ -119,6 +119,39 @@ describe('TimerBar — idle', () => {
     expect(taskInput()).toHaveValue('');
   });
 
+  it('gives back the typed task when the server refuses the start', async () => {
+    serve(summary());
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) =>
+        (init?.method ?? 'GET') !== 'GET'
+          ? new Response(
+              JSON.stringify({
+                code: 'TIMER_ALREADY_RUNNING',
+                message: 'A timer is already running.',
+              }),
+              { status: 409 },
+            )
+          : new Response(
+              JSON.stringify(
+                String(url).includes('task-names')
+                  ? { taskNames: [] }
+                  : summary(),
+              ),
+              { status: 200 },
+            ),
+      ),
+    );
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderBar();
+
+    await screen.findByRole('button', { name: 'Start timer' });
+    await user.type(taskInput(), 'Invoicing');
+    await user.click(screen.getByRole('button', { name: 'Start timer' }));
+
+    await waitFor(() => expect(taskInput()).toHaveValue('Invoicing'));
+  });
+
   it('starts with the typed task and chosen project', async () => {
     const calls = serve(summary());
     const user = userEvent.setup();
@@ -134,7 +167,11 @@ describe('TimerBar — idle', () => {
       expect(calls).toContainEqual({
         method: 'POST',
         path: '/timer/start',
-        body: { taskName: 'Invoicing', projectId: 'p1' },
+        body: {
+          id: expect.any(String),
+          taskName: 'Invoicing',
+          projectId: 'p1',
+        },
       }),
     );
   });
@@ -166,7 +203,11 @@ describe('TimerBar — idle', () => {
       expect(calls).toContainEqual({
         method: 'POST',
         path: '/timer/start',
-        body: { taskName: 'Invoicing', projectId: null },
+        body: {
+          id: expect.any(String),
+          taskName: 'Invoicing',
+          projectId: null,
+        },
       }),
     );
   });
@@ -225,7 +266,11 @@ describe('TimerBar — task suggestions', () => {
       expect(calls).toContainEqual({
         method: 'POST',
         path: '/timer/start',
-        body: { taskName: 'Invoice reconciliation', projectId: 'p1' },
+        body: {
+          id: expect.any(String),
+          taskName: 'Invoice reconciliation',
+          projectId: 'p1',
+        },
       }),
     );
   });
@@ -251,7 +296,11 @@ describe('TimerBar — task suggestions', () => {
         method: 'POST',
         path: '/timer/start',
         // p2, the one that was picked — not the row's p1.
-        body: { taskName: 'Invoice reconciliation', projectId: 'p2' },
+        body: {
+          id: expect.any(String),
+          taskName: 'Invoice reconciliation',
+          projectId: 'p2',
+        },
       }),
     );
   });
@@ -270,7 +319,7 @@ describe('TimerBar — task suggestions', () => {
         method: 'POST',
         path: '/timer/start',
         // The typed name, not the row the list is showing underneath it.
-        body: { taskName: 'Invoice', projectId: null },
+        body: { id: expect.any(String), taskName: 'Invoice', projectId: null },
       }),
     );
   });

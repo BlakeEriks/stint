@@ -59,7 +59,7 @@ export const AddPaymentDetails: Story = {
   },
 };
 
-/** A refused "Make default" names the row it refused. */
+/** A refused "Make default" is said in the notice, naming the profile. */
 export const MakeDefaultRefused: Story = {
   ...desktop,
   parameters: failing('updatePaymentProfile'),
@@ -68,7 +68,9 @@ export const MakeDefaultRefused: Story = {
     await userEvent.click(
       await page.findByRole('button', { name: /Make default/ }),
     );
-    await expect(await page.findByRole('alert')).toBeVisible();
+    await expect(
+      await page.findByText(/Couldn’t make .+ the default/),
+    ).toBeVisible();
   },
 };
 

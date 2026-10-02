@@ -25,14 +25,18 @@ back to UTC, these two return 422. An omitted one still defaults to UTC.
 - **The rate is always part of the grouping key.** Two entries with the same
   task name but different rates must never merge — the line would misstate
   what the client is charged.
-- **Amounts round once, per line, from summed seconds.** Rounding per entry
-  then summing drifts (3 × 20min would give 99.99 instead of 100.00).
+- **A line bills the hours it prints.** Each entry's hours round to two
+  decimals, a line's quantity is the sum of those, and `amount = quantity ×
+  unit price`, to the cent. 3 × 20 min is 0.99 h and $99.00, on one line or
+  three: the arithmetic a client checks on the page is the arithmetic that
+  produced it, and the total never moves with the grouping. Every rollup
+  prices the same per-entry hours (`00000000000028_bill_printed_hours.sql`).
 - **Line items are frozen at generation.** Never recompute a PDF from time
   entries; re-downloading a year later must produce the same document.
 - **Only drafts can be marked sent or deleted.** The user sends the PDF;
   `PATCH /invoices/:id/status` records it.
-- **Voiding releases entries; it does not remove the number.** Numbering stays
-  gapless.
+- **Voiding releases entries and expenses; it does not remove the number.**
+  Numbering stays gapless. Deleting a draft releases them too.
 - Running timers, non-billable entries, and already-invoiced entries never
   reach an invoice.
 

@@ -29,6 +29,7 @@ export function Page({
   wide = false,
   flush = false,
   fills = false,
+  workspace = false,
   children,
 }: {
   wide?: boolean;
@@ -51,12 +52,19 @@ export function Page({
    * full-height column here would resolve against nothing.
    */
   fills?: boolean;
+  /**
+   * For a screen that is a tool rather than a page to read: it takes the
+   * dock's room too. `AppShell` sees `data-workspace` and drops the dock, so a
+   * screen opts in here and the frame never checks a route.
+   */
+  workspace?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <main
+      data-workspace={workspace || undefined}
       className={`mx-auto ${flush ? '' : `${INSET} py-[18px] `}${
-        wide ? 'max-w-6xl' : 'max-w-3xl'
+        workspace ? 'max-w-none' : wide ? 'max-w-6xl' : 'max-w-3xl'
       }${fills ? ' xl:flex xl:h-full xl:min-h-0 xl:flex-col' : ''}`}
     >
       {children}
@@ -73,17 +81,26 @@ export function DetailPage({
   back,
   label,
   wide = false,
+  workspace = false,
+  fills = false,
   children,
 }: {
   back: string;
   label: string;
   wide?: boolean;
+  workspace?: boolean;
+  /** `Page`'s: the content below the back link takes the rest of the panel. */
+  fills?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <Page wide={wide}>
+    <Page wide={wide} workspace={workspace} fills={fills}>
       <BackLink up={back} label={label} />
-      <div className="mt-4">{children}</div>
+      <div
+        className={`mt-4${fills ? ' xl:flex xl:min-h-0 xl:flex-1 xl:flex-col' : ''}`}
+      >
+        {children}
+      </div>
     </Page>
   );
 }

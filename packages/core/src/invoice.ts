@@ -8,7 +8,11 @@
 import { resolveRate, resolveRateSource, type RateSource } from './rates.ts';
 import { localDateKey } from './calendar.ts';
 
-export type GroupingMode = 'entry' | 'task' | 'project' | 'day';
+/**
+ * `summary` is one line of the user's own text for all the time, split only
+ * by rate, so accounts payable reads a total rather than a breakdown.
+ */
+export type GroupingMode = 'summary' | 'entry' | 'task' | 'project' | 'day';
 
 export interface BillableEntry {
   id: string;
@@ -28,11 +32,14 @@ export interface BillableEntry {
  * What a line's quantity MEANS.
  *
  * `hour` prints its quantity and unit price; `fixed` is a flat amount — a
- * fee, a deposit, a rebilled expense — whose quantity is always 1 and whose
- * quantity and unit-price cells stay blank on the document. A client reading
- * "1 x $2,400.00" for a fixed-scope project learns nothing from the 1.
+ * fee, a deposit, a retainer — whose quantity is always 1, printed as `1` x
+ * the amount. Accounts payable checks every row as quantity x rate = amount,
+ * and a row with blank cells is the one it cannot check.
+ * `expense` is flat the same way, and is a reimbursement rather than a
+ * service: it sits in its own section, carries the day it was paid, and is
+ * never taxed.
  */
-export type LineUnit = 'hour' | 'fixed';
+export type LineUnit = 'hour' | 'fixed' | 'expense';
 
 /**
  * One line, whatever it charges for.
@@ -50,6 +57,10 @@ export interface LineItem {
   /** How the rate was derived. `manual` for anything the user typed. */
   rateSource: RateSource | 'manual';
   entryIds: string[];
+  /** The day an expense was paid; expense lines only. */
+  spentOn?: string;
+  /** The expense an expense line bills; expense lines only. */
+  expenseId?: string;
 }
 
 /** A charge the user entered by hand rather than one derived from time. */
@@ -58,11 +69,22 @@ export interface ManualLine {
   amount: number;
 }
 
+/** A cost the client reimburses, as stored and waiting to be billed. */
+export interface ExpenseInput {
+  id: string;
+  spentOn: string;
+  description: string;
+  amount: number;
+}
+
 export interface InvoiceTotals {
   lineItems: LineItem[];
+  /** Services — time and charges — and the base tax is charged on. */
   subtotal: number;
   taxRate: number;
   taxAmount: number;
+  /** Reimbursed expenses. Never taxed. */
+  expensesSubtotal: number;
   total: number;
   entryCount: number;
   /** Billable entries with no rate at any level — these block generation. */
@@ -72,16 +94,34 @@ export interface InvoiceTotals {
 /** Money is rounded to cents exactly once, here. */
 const cents = (n: number): number => Math.round(n * 100) / 100;
 
-/** Decimal hours, 2dp — what appears on the invoice as the quantity. */
-const toHours = (seconds: number): number =>
-  Math.round((seconds / 3600) * 100) / 100;
+/**
+ * Hundredths of an hour: the unit the document prints, and so the unit that
+ * is billed. Rounded per entry, half up, which is what `round(s / 3600.0, 2)`
+ * does in every rollup; `s / 36` is a correctly rounded division and its
+ * halves are exact, so the two agree for every duration.
+ */
+export const hundredths = (seconds: number): number =>
+  Math.round(Math.max(0, seconds) / 36);
+
+/**
+ * `quantity x unitPrice`, in integers until the last division, so a half
+ * cent is exact rather than a float's guess. 3603 s at $150 is 1.00 h at
+ * $150.00 = $150.00 here; from raw seconds it was $150.125, which JS rounded
+ * to .12 and Postgres to .13 (#191).
+ */
+const priced = (quantityHundredths: number, unitPrice: number): number =>
+  // hundredths x cents = amount x 10,000; the first division leaves cents.
+  Math.round((quantityHundredths * Math.round(unitPrice * 100)) / 100) / 100;
 
 function describe(
   entry: BillableEntry,
   mode: GroupingMode,
   tz: string,
+  summaryText: string,
 ): string {
   switch (mode) {
+    case 'summary':
+      return summaryText;
     case 'entry':
     case 'task':
       return entry.taskName || 'Untitled';
@@ -104,9 +144,10 @@ function groupKey(
   mode: GroupingMode,
   rate: number,
   tz: string,
+  summaryText: string,
 ): string {
   if (mode === 'entry') return entry.id;
-  return `${describe(entry, mode, tz)}\0${rate}`;
+  return `${describe(entry, mode, tz, summaryText)}\0${rate}`;
 }
 
 /**
@@ -120,23 +161,29 @@ export function buildLineItems(
   entries: BillableEntry[],
   opts: {
     groupingMode: GroupingMode;
+    /** The one line's text in `summary` mode; ignored by the others. */
+    summaryText?: string;
     taxRate?: number;
     tz?: string;
-    /** Flat charges the user entered: fees, deposits, rebilled expenses. */
+    /** Flat charges the user entered: fees, deposits, retainers. */
     manualLines?: ManualLine[];
+    /** Unbilled expenses to reimburse on this invoice. */
+    expenses?: ExpenseInput[];
   },
 ): InvoiceTotals {
   const mode = opts.groupingMode;
   const tz = opts.tz ?? 'UTC';
   const taxRate = opts.taxRate ?? 0;
+  const summaryText = opts.summaryText ?? '';
 
   const billable = entries.filter((e) => e.isBillable);
   const unratedEntryIds: string[] = [];
   const groups = new Map<string, LineItem>();
-  /* Seconds are summed here rather than on the line, because the line stores
-     decimal hours and adding those would round per entry. A 20-minute entry
-     is 0.33h; three of them are 1.00h, not 0.99h. */
-  const secondsByKey = new Map<string, number>();
+  /* Hours are rounded per ENTRY and summed in hundredths, so a line's
+     quantity is exactly the sum of what each entry prints, and the total is
+     the same however the lines are grouped: three 20-minute entries are
+     0.33 h each and 0.99 h together, on one line or three. */
+  const hundredthsByKey = new Map<string, number>();
 
   for (const entry of billable) {
     const ctx = {
@@ -152,16 +199,19 @@ export function buildLineItems(
       continue;
     }
 
-    const key = groupKey(entry, mode, rate, tz);
+    const key = groupKey(entry, mode, rate, tz, summaryText);
     const existing = groups.get(key);
 
-    secondsByKey.set(key, (secondsByKey.get(key) ?? 0) + entry.durationSeconds);
+    hundredthsByKey.set(
+      key,
+      (hundredthsByKey.get(key) ?? 0) + hundredths(entry.durationSeconds),
+    );
 
     if (existing) {
       existing.entryIds.push(entry.id);
     } else {
       groups.set(key, {
-        description: describe(entry, mode, tz),
+        description: describe(entry, mode, tz, summaryText),
         unit: 'hour',
         quantity: 0, // computed once the group is complete
         unitPrice: rate,
@@ -172,21 +222,19 @@ export function buildLineItems(
     }
   }
 
-  /* Amounts come from the SUMMED seconds, so rounding happens once per line
-     rather than accumulating: rounding per entry and adding drifts — 3 x
-     20min at 100/h gives 99.99 rather than 100.00. Every rollup that reports
-     the same money rounds once per bucket for this reason.
-
-     The amount is computed from seconds, NOT from the rounded hours the line
-     carries: 7.499h at 100/h bills 749.90, not 749.90 from a displayed 7.50.
-     The printed quantity and the charge are derived from the same source, in
-     that order. */
+  /* The amount is the printed quantity times the printed rate, to the cent:
+     the arithmetic a client checks on the document is the arithmetic that
+     produced it (#195). Every rollup prices its bucket the same way, from
+     the same per-entry hours, so the home screen and the invoice state one
+     figure for the same work (#192). A rate carrying cents can still put a
+     grouped line a cent from its bucket, since rounding once over 0.66 h is
+     not rounding twice over 0.33 h; `rates.test.ts` bounds that. */
   const timeLines = [...groups.entries()].map(([key, li]) => {
-    const seconds = secondsByKey.get(key) ?? 0;
+    const quantityHundredths = hundredthsByKey.get(key) ?? 0;
     return {
       ...li,
-      quantity: toHours(seconds),
-      amount: cents((seconds / 3600) * li.unitPrice),
+      quantity: quantityHundredths / 100,
+      amount: priced(quantityHundredths, li.unitPrice),
     };
   });
 
@@ -199,9 +247,9 @@ export function buildLineItems(
     );
   }
 
-  /* Manual lines go LAST, in the order given, and are never sorted in among
-     the time lines. A fee or a rebilled expense is a separate statement from
-     the work, and interleaving it alphabetically would bury it. */
+  /* Manual lines follow the time lines, in the order given, and are never
+     sorted in among them. A fee is a separate statement from the work, and
+     interleaving it alphabetically would bury it. */
   const manualLines: LineItem[] = (opts.manualLines ?? []).map((m) => ({
     description: m.description,
     unit: 'fixed' as const,
@@ -212,17 +260,41 @@ export function buildLineItems(
     entryIds: [],
   }));
 
-  const lineItems = [...timeLines, ...manualLines];
+  const serviceLines = [...timeLines, ...manualLines];
 
-  const subtotal = cents(lineItems.reduce((sum, li) => sum + li.amount, 0));
+  /* Expenses go after every service line, oldest first, in a section of
+     their own: a reimbursement is a pass-through, not work, so it is
+     subtotalled apart and tax never reaches it. The id breaks a tie so two
+     expenses on one day always print in the same order. */
+  const expenseLines: LineItem[] = [...(opts.expenses ?? [])]
+    .sort(
+      (a, b) => a.spentOn.localeCompare(b.spentOn) || a.id.localeCompare(b.id),
+    )
+    .map((e) => ({
+      description: e.description,
+      unit: 'expense' as const,
+      quantity: 1,
+      unitPrice: cents(e.amount),
+      amount: cents(e.amount),
+      rateSource: 'manual' as const,
+      entryIds: [],
+      spentOn: e.spentOn,
+      expenseId: e.id,
+    }));
+
+  const subtotal = cents(serviceLines.reduce((sum, li) => sum + li.amount, 0));
   const taxAmount = cents(subtotal * (taxRate / 100));
+  const expensesSubtotal = cents(
+    expenseLines.reduce((sum, li) => sum + li.amount, 0),
+  );
 
   return {
-    lineItems,
+    lineItems: [...serviceLines, ...expenseLines],
     subtotal,
     taxRate,
     taxAmount,
-    total: cents(subtotal + taxAmount),
+    expensesSubtotal,
+    total: cents(subtotal + taxAmount + expensesSubtotal),
     entryCount: billable.length - unratedEntryIds.length,
     unratedEntryIds,
   };

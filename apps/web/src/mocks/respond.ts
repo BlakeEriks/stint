@@ -35,6 +35,8 @@ const STATUS: Record<Exclude<Code, 'UNAUTHORIZED'>, number> = {
   TIMER_ALREADY_RUNNING: 409,
   NO_TIMER_RUNNING: 409,
   ENTRY_LOCKED: 409,
+  EXPENSE_LOCKED: 409,
+  EXPENSE_ALREADY_INVOICED: 409,
   ENTRY_NOT_FOUND: 404,
   NO_RATE_CONFIGURED: 400,
   INVALID_PERIOD: 400,
@@ -65,6 +67,7 @@ export const envelopes = {
   invoices: list('invoices', schema.Invoice),
   taskNames: list('taskNames', schema.TaskNameSuggestion),
   paymentProfiles: list('paymentProfiles', schema.PaymentProfile),
+  expenses: list('expenses', schema.Expense),
   calendar: list('days', schema.CalendarDay),
   activity: list('days', schema.CalendarTotalsDay),
 };

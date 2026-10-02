@@ -3,6 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { MutationNotice } from '@/components/mutation-notice';
+import { keys } from '@/lib/client/query-keys';
 import { ClientProjects } from '@/components/client-projects';
 import type { Client, Project } from '@/lib/client/api';
 
@@ -178,7 +180,52 @@ describe('ClientProjects', () => {
 
   /* A refused archive left the button live and the row unchanged, which reads
      as the click not registering. */
-  it('reports a refused archive in the row it failed on', async () => {
+  it('leaves lists of archived projects alone when predicting an archive', async () => {
+    serve([project()]);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const withArchived = keys.projects({ archived: true });
+    client.setQueryData(withArchived, { projects: [project()] });
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={client}>
+        <ClientProjects client={NORTHWIND} />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByLabelText('Archive Website redesign'));
+
+    expect(
+      (client.getQueryData(withArchived) as { projects: unknown[] }).projects,
+    ).toHaveLength(1);
+  });
+
+  it('drops the row on the press, before the server answers', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        const path = String(url).replace('/api/v1', '');
+        if (init?.method === 'DELETE') return new Promise<Response>(() => {});
+        const body = path.startsWith('/projects')
+          ? { projects: [project()] }
+          : path.startsWith('/settings')
+            ? { defaultHourlyRate: 125 }
+            : { clients: [NORTHWIND] };
+        return Promise.resolve(
+          new Response(JSON.stringify(body), { status: 200 }),
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    render(<ClientProjects client={NORTHWIND} />, { wrapper });
+
+    await user.click(await screen.findByLabelText('Archive Website redesign'));
+
+    expect(screen.queryByText('Website redesign')).toBeNull();
+  });
+
+  it('brings a refused archive back and names it in the notice', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
@@ -206,13 +253,23 @@ describe('ClientProjects', () => {
       }),
     );
     const user = userEvent.setup();
-    render(<ClientProjects client={NORTHWIND} />, { wrapper });
+    render(
+      <>
+        <ClientProjects client={NORTHWIND} />
+        <MutationNotice />
+      </>,
+      { wrapper },
+    );
 
     await user.click(await screen.findByLabelText('Archive Website redesign'));
 
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('A running timer is on this project');
-    // Naming the project: a card of identical failures could not say which.
+    // Naming the project: identical failures could not say which.
+    expect(
+      await screen.findByText(
+        'Couldn’t archive Website redesign. A running timer is on this project',
+      ),
+    ).toBeInTheDocument();
+    // And the row is back.
     expect(screen.getByText('Website redesign')).toBeInTheDocument();
   });
 

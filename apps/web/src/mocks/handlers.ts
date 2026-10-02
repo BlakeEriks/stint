@@ -1,6 +1,8 @@
 import {
   buildPreview,
   formatInvoiceNumber,
+  pickSchedules,
+  type ScheduleKind,
   type ImportPreview,
   type ImportResult,
   parseExport,
@@ -9,6 +11,7 @@ import {
 import { http } from 'msw';
 import type {
   Client,
+  Expense,
   PaymentProfile,
   Project,
   Settings,
@@ -17,6 +20,7 @@ import type {
 import { getDb } from './db';
 import {
   calendar,
+  expenseView,
   invoicePreview,
   type PreviewRequest,
   stats,
@@ -406,8 +410,33 @@ export const handlers = {
   createInvoice: http.post(`${API}/invoices`, async ({ request }) => {
     const db = getDb();
     const input = await body<
-      PreviewRequest & { issueDate?: string; dueDate?: string; notes?: string }
+      PreviewRequest & {
+        issueDate?: string;
+        dueDate?: string;
+        notes?: string;
+        schedules?: ScheduleKind[];
+        reference?: string;
+        paymentProfileId?: string;
+      }
     >(request);
+    if (
+      input.paymentProfileId &&
+      !db.paymentProfiles.some(
+        (p) => p.id === input.paymentProfileId && !p.archivedAt,
+      )
+    )
+      return fail(
+        'VALIDATION_FAILED',
+        'Those payment details are archived or gone. Choose others.',
+      );
+    const summaryText = input.summaryText?.trim() ?? '';
+    if (input.groupingMode === 'summary' && !summaryText)
+      return fail('VALIDATION_FAILED', 'A summary line needs its text');
+    if (input.groupingMode !== 'summary' && input.schedules?.length)
+      return fail(
+        'VALIDATION_FAILED',
+        'Supporting detail comes with a summary line only',
+      );
     const preview = invoicePreview(db, input, input.tz ?? ZONE);
     if (!preview) return fail('ENTRY_NOT_FOUND');
     if (preview.unratedEntryIds.length > 0)
@@ -427,11 +456,17 @@ export const handlers = {
       subtotal: preview.subtotal,
       taxRate: preview.taxRate,
       taxAmount: preview.taxAmount,
+      expensesSubtotal: preview.expensesSubtotal,
       total: preview.total,
       currency: preview.currency,
       notes: input.notes ?? null,
       paymentTerms: db.settings.defaultPaymentTerms,
       groupingMode: preview.groupingMode,
+      summaryText: preview.groupingMode === 'summary' ? summaryText : null,
+      reference: input.reference?.trim() || null,
+      supportingDetail: preview.schedules
+        ? pickSchedules(preview.schedules, input.schedules ?? [])
+        : null,
       paymentDetails: null,
       sentAt: null,
       paidAt: null,
@@ -439,11 +474,16 @@ export const handlers = {
     };
     const claimed = new Set(preview.lineItems.flatMap((l) => l.entryIds));
     for (const e of db.entries) if (claimed.has(e.id)) e.invoiceId = invoice.id;
+    // One-offs only: a recurring expense bills again on the next invoice.
+    const billed = new Set(preview.lineItems.map((l) => l.expenseId));
+    for (const e of db.expenses)
+      if (billed.has(e.id) && !e.recurring) e.invoiceId = invoice.id;
     db.invoices.push({
       ...invoice,
       lineItems: preview.lineItems.map(
-        ({ rateSource: _, entryIds: __, ...l }, i) => ({
+        ({ rateSource: _, entryIds: __, expenseId: ___, ...l }, i) => ({
           ...l,
+          spentOn: l.spentOn ?? null,
           id: uuidv7(db.now.getTime()),
           sortOrder: i,
         }),
@@ -473,7 +513,7 @@ export const handlers = {
       if (input.status === 'paid')
         invoice.paidAt = input.paidAt ?? db.now.toISOString();
       if (input.status === 'void')
-        for (const e of db.entries)
+        for (const e of [...db.entries, ...db.expenses])
           if (e.invoiceId === invoice.id) e.invoiceId = null;
       const { lineItems: _, ...rest } = invoice;
       return ok(schema.Invoice, rest);
@@ -489,9 +529,103 @@ export const handlers = {
         'VALIDATION_FAILED',
         'An issued invoice is voided, not deleted',
       );
-    for (const e of db.entries)
+    for (const e of [...db.entries, ...db.expenses])
       if (e.invoiceId === invoice.id) e.invoiceId = null;
     db.invoices = db.invoices.filter((i) => i !== invoice);
+    return noContent();
+  }),
+
+  expenses: http.get(`${API}/expenses`, ({ request }) => {
+    const db = getDb();
+    const q = query(request);
+    const clientId = q.get('clientId');
+    const unbilled = q.get('status') === 'unbilled';
+    const rows = db.expenses
+      .map((e) => expenseView(db, e))
+      .filter(
+        (e) =>
+          (!clientId || e.clientId === clientId) &&
+          (unbilled
+            ? !e.invoiceId
+            : e.invoiceStatus !== 'paid' && e.invoiceStatus !== 'void'),
+      )
+      // Recurring first, then oldest first, as the route orders them.
+      .sort(
+        (a, b) =>
+          Number(b.recurring) - Number(a.recurring) ||
+          (a.spentOn ?? '').localeCompare(b.spentOn ?? ''),
+      );
+    return ok(envelopes.expenses, { expenses: rows });
+  }),
+
+  createExpense: http.post(`${API}/expenses`, async ({ request }) => {
+    const db = getDb();
+    const input = await body<
+      Pick<Expense, 'id' | 'clientId' | 'description' | 'amount'> &
+        Partial<Pick<Expense, 'recurring' | 'spentOn' | 'note'>>
+    >(request);
+    const existing = byId(db.expenses, input.id);
+    if (existing) return ok(schema.Expense, expenseView(db, existing));
+    if (!byId(db.clients, input.clientId))
+      return fail('VALIDATION_FAILED', 'No such client');
+    const recurring = input.recurring ?? false;
+    if (recurring === (input.spentOn != null))
+      return fail(
+        'VALIDATION_FAILED',
+        'a one-off expense has a date and a recurring one has none',
+      );
+    const expense: Expense = {
+      note: null,
+      ...input,
+      recurring,
+      spentOn: input.spentOn ?? null,
+      invoiceId: null,
+      invoiceNumber: null,
+      invoiceStatus: null,
+    };
+    db.expenses.push(expense);
+    return ok(schema.Expense, expenseView(db, expense));
+  }),
+
+  updateExpense: http.patch(
+    `${API}/expenses/:id`,
+    async ({ params, request }) => {
+      const db = getDb();
+      const expense = byId(db.expenses, params.id);
+      if (!expense) return fail('ENTRY_NOT_FOUND');
+      if (expenseView(db, expense).invoiceStatus?.match(/sent|paid|void/))
+        return fail(
+          'EXPENSE_LOCKED',
+          'This expense is billed on an issued invoice and cannot be modified',
+        );
+      const patch = await body<Partial<Expense>>(request);
+      const next = { ...expense, ...patch };
+      if (patch.recurring === true) next.spentOn = null;
+      if (next.recurring && next.invoiceId)
+        return fail(
+          'VALIDATION_FAILED',
+          'An expense on an invoice cannot become recurring',
+        );
+      if (!next.recurring && next.spentOn == null)
+        return fail(
+          'VALIDATION_FAILED',
+          'A one-off expense needs the date it was paid',
+        );
+      Object.assign(expense, next);
+      return ok(schema.Expense, expenseView(db, expense));
+    },
+  ),
+
+  deleteExpense: http.delete(`${API}/expenses/:id`, ({ params }) => {
+    const db = getDb();
+    const expense = byId(db.expenses, params.id);
+    if (!expense) return fail('ENTRY_NOT_FOUND');
+    if (expenseView(db, expense).invoiceStatus?.match(/sent|paid|void/))
+      return fail(
+        'EXPENSE_LOCKED',
+        'This expense is billed on an issued invoice and cannot be deleted',
+      );
+    db.expenses = db.expenses.filter((e) => e !== expense);
     return noContent();
   }),
 

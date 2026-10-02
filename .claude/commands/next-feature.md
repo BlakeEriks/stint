@@ -37,4 +37,6 @@ with why, and go on without waiting.
 
 End with the worktree path, the spec path, the spec's open
 `[NEEDS CLARIFICATION]` markers, and the next step: `/speckit-clarify` in
-that worktree.
+that worktree. When the issue adds or changes a screen, offer
+`/design-review` after it, before `/speckit-plan`; planning waits for a
+recorded pick or skip.

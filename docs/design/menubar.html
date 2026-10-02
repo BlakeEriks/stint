@@ -58,7 +58,7 @@
   /* The status item is a filled dot and the time — no letterform. The dot
      is the state channel; identity lives in the panel header instead. */
   .pip { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--timer-idle); }
-  .pip.running { background: var(--accent-default); }
+  .pip.running { background: var(--timer-running); }
 
   /* ---------- popover ---------- */
   .pop {
@@ -72,13 +72,13 @@
   .grow { min-width: 0; flex: 1; }
   .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--accent-default); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--timer-running); }
   .dot.idle { background: var(--timer-idle); }
 
   .readout {
     font-family: var(--font-mono); font-variant-numeric: tabular-nums;
     font-size: 26px; font-weight: 500; letter-spacing: -.02em;
-    color: var(--accent-default); line-height: 1.1;
+    color: var(--timer-running); line-height: 1.1;
   }
   .readout.idle { color: var(--timer-idle); }
 
@@ -622,7 +622,8 @@
           <tr><td>Input / picker fill</td><td><code>bgPrimary</code></td><td>Task field, project picker</td></tr>
           <tr><td>Stop button fill</td><td><code>bgElevated</code></td><td>The round stop button</td></tr>
           <tr><td>Hover</td><td><code>bgHover</code></td><td>Entry rows under the pointer</td></tr>
-          <tr><td>Running readout, pip, start button</td><td><code>accentDefault</code></td><td><strong>Only these</strong></td></tr>
+          <tr><td>Running readout, pip</td><td><code>timerRunning</code></td><td><strong>Only these</strong></td></tr>
+          <tr><td>Start button fill</td><td><code>accentDefault</code></td><td>The one action the panel exists to complete</td></tr>
           <tr><td>Text on the start button</td><td><code>textOnAccent</code></td><td>Never white — 1.37:1</td></tr>
           <tr><td>Stopped readout and pip</td><td><code>timerIdle</code></td><td>Never the accent</td></tr>
           <tr><td>Dividers</td><td><code>borderSubtle</code></td><td></td></tr>
@@ -671,10 +672,9 @@
           field that changes background on focus reads as a different control.
           AppKit draws its own blue ring unless the field is
           <code>.textFieldStyle(.plain)</code> with an explicit overlay.</li>
-        <li><strong>Something is always focused when the panel opens</strong>
-          — the task field when stopped, the email or code field in sign-in. A
-          panel you must click into wastes the interaction it exists to
-          shorten.</li>
+        <li><strong>The panel opens in its default state</strong>, whatever
+          was focused when it closed: nothing focused on the timer, the email
+          or code field in sign-in.</li>
       </ul>
     </div>
   </section>
@@ -709,9 +709,8 @@
       <ul>
         <li><strong>Never pre-check the running timer.</strong> Attempt the
           insert and translate the conflict — a pre-check is a race, the index
-          is not. A 409 refreshes rather than reports: another device won and
-          the invariant held, so showing what <em>is</em> running is more use
-          than the error.</li>
+          is not. A 409 takes back the predicted start and says why, then the
+          refresh shows what <em>is</em> running.</li>
         <li><strong>Tick locally, reconcile at 60s</strong> and on open,
           skew-corrected from <code>serverTime</code>. A Mac with a wrong clock
           would otherwise show a wrong elapsed time, which in this app is a

@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import {
   CalendarDays,
   FileText,
-  FolderOpen,
   Settings,
   Timer,
   Users,
@@ -19,8 +18,9 @@ import {
 export const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/', label: 'Home', icon: Timer },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
+  /* Projects too: each sits under its client there, so a second section for
+     the same hierarchy would be a choice with no right answer. */
   { href: '/clients', label: 'Clients', icon: Users },
-  { href: '/projects', label: 'Projects', icon: FolderOpen },
   { href: '/invoices', label: 'Invoices', icon: FileText },
   /* Last: the sections above are the work, this is the setup behind it. */
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -39,8 +39,7 @@ export const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
  *
  * **Below `lg` it is a horizontal strip under the header**, scrolling
  * horizontally rather than wrapping, which keeps the row one row tall however
- * many sections it holds. Six sections take about 701px, so each one added is
- * width a phone scrolls for.
+ * many sections it holds. Each section added is width a phone scrolls for.
  */
 export function Nav() {
   const pathname = usePathname();

@@ -3,6 +3,7 @@ import type {
   Invoice,
   InvoiceStatus,
   PaymentProfile,
+  Schedules,
   Settings,
 } from '@stint/schema';
 import type { z } from 'zod';
@@ -278,11 +279,15 @@ export interface InvoiceRow {
   subtotal: Numeric;
   tax_rate: Numeric;
   tax_amount: Numeric;
+  expenses_subtotal: Numeric;
   total: Numeric;
   currency: string;
   notes: string | null;
   payment_terms: string | null;
   grouping_mode: z.infer<typeof GroupingMode>;
+  summary_text: string | null;
+  reference: string | null;
+  supporting_detail: z.infer<typeof Schedules> | null;
   payment_details: PaymentDetails;
   sent_at: string | null;
   paid_at: string | null;
@@ -290,7 +295,7 @@ export interface InvoiceRow {
 }
 
 export const INVOICE_COLUMNS = columns<InvoiceRow>()(
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, total, currency, notes, payment_terms, grouping_mode, payment_details, sent_at, paid_at, created_at',
+  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, supporting_detail, payment_details, sent_at, paid_at, created_at',
 );
 
 export function toInvoice(r: InvoiceRow) {
@@ -307,11 +312,15 @@ export function toInvoice(r: InvoiceRow) {
     subtotal: num(r.subtotal),
     taxRate: num(r.tax_rate),
     taxAmount: num(r.tax_amount),
+    expensesSubtotal: num(r.expenses_subtotal),
     total: num(r.total),
     currency: r.currency,
     notes: r.notes,
     paymentTerms: r.payment_terms,
     groupingMode: r.grouping_mode,
+    summaryText: r.summary_text,
+    reference: r.reference,
+    supportingDetail: r.supporting_detail,
     paymentDetails: r.payment_details ?? null,
     sentAt: r.sent_at,
     paidAt: r.paid_at,
@@ -322,15 +331,16 @@ export function toInvoice(r: InvoiceRow) {
 export interface LineItemRow {
   id: string;
   description: string;
-  unit: 'hour' | 'fixed';
+  unit: 'hour' | 'fixed' | 'expense';
   quantity: Numeric;
   unit_price: Numeric;
   amount: Numeric;
   sort_order: number;
+  spent_on: string | null;
 }
 
 export const LINE_ITEM_COLUMNS = columns<LineItemRow>()(
-  'id, description, unit, quantity, unit_price, amount, sort_order',
+  'id, description, unit, quantity, unit_price, amount, sort_order, spent_on',
 );
 
 export function toLineItem(r: LineItemRow) {
@@ -342,8 +352,53 @@ export function toLineItem(r: LineItemRow) {
     unitPrice: num(r.unit_price),
     amount: num(r.amount),
     sortOrder: r.sort_order,
+    spentOn: r.spent_on,
   };
 }
+
+// ── expenses ───────────────────────────────────────────────────────
+export interface ExpenseRow {
+  id: string;
+  client_id: string;
+  recurring: boolean;
+  spent_on: string | null;
+  description: string;
+  amount: Numeric;
+  note: string | null;
+  invoice_id: string | null;
+}
+
+export const EXPENSE_COLUMNS = columns<ExpenseRow>()(
+  'id, client_id, recurring, spent_on, description, amount, note, invoice_id',
+);
+
+/** `invoice` is the billing invoice when there is one, looked up separately. */
+export function toExpense(
+  r: ExpenseRow,
+  invoice?: { invoice_number: string; status: z.infer<typeof InvoiceStatus> },
+) {
+  return {
+    id: r.id,
+    clientId: r.client_id,
+    recurring: r.recurring,
+    spentOn: r.spent_on,
+    description: r.description,
+    amount: num(r.amount) ?? 0,
+    note: r.note,
+    invoiceId: r.invoice_id,
+    invoiceNumber: invoice?.invoice_number ?? null,
+    invoiceStatus: invoice?.status ?? null,
+  };
+}
+
+export const EXPENSE_FIELDS = {
+  clientId: 'client_id',
+  recurring: 'recurring',
+  spentOn: 'spent_on',
+  description: 'description',
+  amount: 'amount',
+  note: 'note',
+} as const;
 
 /** camelCase patch -> snake_case column update, dropping undefined keys. */
 export function toColumns(

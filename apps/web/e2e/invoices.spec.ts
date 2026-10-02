@@ -130,4 +130,32 @@ test.describe('invoices', () => {
     await list(page).getByRole('link', { name: 'All' }).click();
     await expect(list(page).getByText('STINT-0001')).toBeVisible();
   });
+
+  /* Writes a new invoice, so it runs after everything that reads the list.
+     A charge guarantees a line whatever unbilled time the seed has left. */
+  test('an invoice previews as it is filled, and generates', async ({
+    page,
+  }) => {
+    await page.goto('/invoices/new');
+    const generate = page.getByRole('button', { name: 'Generate invoice' });
+    await expect(generate).toBeDisabled();
+
+    await page.getByRole('button', { name: 'Client' }).click();
+    await page.getByRole('menuitemradio', { name: /Northwind/ }).click();
+    await page.getByRole('button', { name: 'Add a charge' }).click();
+    const charge = page.getByRole('dialog', { name: 'New charge' });
+    await charge.getByLabel(/Description/).fill('Onboarding fee');
+    await charge.getByLabel(/Amount/).fill('250');
+    await charge.getByRole('button', { name: 'Save' }).click();
+
+    const preview = page.getByRole('region', { name: 'Preview' });
+    await expect(
+      preview.getByRole('cell', { name: 'Onboarding fee' }),
+    ).toBeVisible();
+    await expect(generate).toBeEnabled();
+
+    await generate.click();
+    await expect(page).toHaveURL(/\/invoices\/[0-9a-f-]{36}$/);
+    await expect(list(page).getByText('Onboarding fee')).toBeVisible();
+  });
 });

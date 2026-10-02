@@ -9,6 +9,7 @@ import {
 } from '@stint/core';
 import type {
   Client,
+  Expense,
   Invoice,
   PaymentProfile,
   Project,
@@ -38,6 +39,7 @@ export interface Db {
   projects: Project[];
   entries: TimeEntry[];
   invoices: StoredInvoice[];
+  expenses: Expense[];
   paymentProfiles: PaymentProfile[];
 }
 
@@ -58,6 +60,9 @@ export const ids = {
   admin: id(206),
   ach: id(401),
   wire: id(402),
+  claudeMax: id(601),
+  figma: id(613),
+  stockPhotos: id(614),
 } as const;
 
 const TASKS: Record<string, string[]> = {
@@ -250,6 +255,7 @@ export function seed(now: Date): Db {
   );
 
   const invoices = invoicesFor(entries, projects, clients);
+  const expenses = expensesFor(invoices);
 
   return {
     now,
@@ -259,6 +265,7 @@ export function seed(now: Date): Db {
     projects,
     entries,
     invoices,
+    expenses,
     paymentProfiles: [
       {
         id: ids.ach,
@@ -495,11 +502,15 @@ function invoicesFor(
       subtotal,
       taxRate: 0,
       taxAmount: 0,
+      expensesSubtotal: 0,
       total: subtotal,
       currency: 'USD',
       notes: null,
       paymentTerms: 'Net 30',
       groupingMode: 'task',
+      summaryText: null,
+      reference: null,
+      supportingDetail: null,
       paymentDetails: null,
       sentAt:
         spec.status === 'draft'
@@ -513,13 +524,98 @@ function invoicesFor(
         '09:30',
         ZONE,
       ).toISOString(),
-      lineItems: lineItems.map((l, i) => ({
+      lineItems: lineItems.map(({ spentOn: _, expenseId: __, ...l }, i) => ({
         ...l,
+        spentOn: null,
         id: id(line++),
         sortOrder: i,
       })),
     };
   });
+}
+
+/**
+ * Costs clients reimburse, one of each state an expense can be in:
+ *
+ * - Northwind reimburses a subscription on every invoice. August's sent
+ *   invoice froze a copy of it; the expense itself is never attached.
+ * - Northwind also owes a one-off license from last month, waiting.
+ * - Byrne's draft carries one, so it is billed and still editable.
+ *
+ * A billed expense is a line on its invoice, and the invoice's totals say so.
+ */
+function expensesFor(invoices: StoredInvoice[]) {
+  const expense = (over: Partial<Expense> & Pick<Expense, 'id'>): Expense => ({
+    clientId: ids.northwind,
+    recurring: false,
+    spentOn: '2026-09-05',
+    description: '',
+    amount: 0,
+    note: null,
+    invoiceId: null,
+    invoiceNumber: null,
+    invoiceStatus: null,
+    ...over,
+  });
+
+  const expenses = [
+    expense({
+      id: ids.claudeMax,
+      recurring: true,
+      spentOn: null,
+      description: 'Claude Max subscription',
+      amount: 200,
+    }),
+    expense({
+      id: ids.figma,
+      spentOn: '2026-08-20',
+      description: 'Figma license, annual',
+      amount: 180,
+      note: 'Order 88213',
+    }),
+    expense({
+      id: ids.stockPhotos,
+      clientId: ids.byrne,
+      spentOn: '2026-08-18',
+      description: 'Stock photography',
+      amount: 75,
+    }),
+  ];
+
+  const claude = expenses[0] as Expense;
+  freeze(invoices, 13, claude, '2026-08-31');
+  const photos = expenses[2] as Expense;
+  const draft = freeze(invoices, 15, photos, photos.spentOn as string);
+  Object.assign(photos, {
+    invoiceId: draft.id,
+    invoiceNumber: draft.invoiceNumber,
+    invoiceStatus: draft.status,
+  });
+  return expenses;
+}
+
+/** An expense's frozen line on an invoice, as generation would have written
+ *  it. Attaching the expense is the caller's: a recurring one never is. */
+function freeze(
+  invoices: StoredInvoice[],
+  seq: number,
+  e: Expense,
+  spentOn: string,
+) {
+  const invoice = invoices.find((i) => i.sequenceNo === seq) as StoredInvoice;
+  invoice.lineItems.push({
+    id: id(5900 + seq),
+    sortOrder: invoice.lineItems.length,
+    description: e.description,
+    unit: 'expense',
+    quantity: 1,
+    unitPrice: e.amount,
+    amount: e.amount,
+    spentOn,
+  });
+  invoice.expensesSubtotal += e.amount;
+  invoice.total += e.amount;
+  return invoice;
 }
 
 /** Entries as invoicing reads them: each with its whole rate chain. */

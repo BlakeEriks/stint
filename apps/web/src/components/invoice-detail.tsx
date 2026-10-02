@@ -2,45 +2,56 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Ban, DollarSign, Download, Eye, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { StatusBadge, shortDate } from './invoice-bits';
 import { MarkPaidDialog } from './mark-paid-dialog';
-import { formatCurrency, formatHours } from '@stint/core';
+import {
+  attachedSchedules,
+  formatCurrency,
+  formatQuantity,
+  SCHEDULE_TITLES,
+} from '@stint/core';
 import { api, ApiError, type InvoiceStatus } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: keys.invoice(id),
     queryFn: () => api.invoice(id),
   });
 
-  /* Voiding releases the entries and deleting a draft frees them, so every
-     view of that work moves with the invoice. */
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: keys.invoices() });
-    invalidateEntryData(queryClient);
+  /* Voiding releases the entries and expenses and deleting a draft frees
+     them, so every view of that work moves with the invoice. */
+  /* Pending, not predicted: issuing assigns the number, and voiding or
+     deleting can't be taken back. The page says what was refused. */
+  const invoicePress = {
+    queryKey: () => keys.invoices(),
+    inline: true,
+    invalidate: (qc: QueryClient) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.invoices() }),
+        qc.invalidateQueries({ queryKey: keys.expenses() }),
+        invalidateEntryData(qc),
+      ]),
   };
 
-  const setStatus = useMutation({
+  const setStatus = useOptimisticMutation({
+    ...invoicePress,
     mutationFn: (args: { status: InvoiceStatus; paidAt?: string }) =>
       api.updateInvoiceStatus(id, args),
-    onSuccess: invalidate,
   });
 
-  const remove = useMutation({
+  const remove = useOptimisticMutation({
+    ...invoicePress,
     mutationFn: () => api.deleteInvoice(id),
-    onSuccess: () => {
-      invalidate();
-      router.push('/invoices');
-    },
+    onSuccess: () => router.push('/invoices'),
   });
 
   return (
@@ -79,6 +90,8 @@ function Loaded({
   error: unknown;
 }) {
   const { lineItems, client, ...invoice } = data;
+  const services = lineItems.filter((li) => li.unit !== 'expense');
+  const expenses = lineItems.filter((li) => li.unit === 'expense');
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
   const [markingPaid, setMarkingPaid] = useState(false);
@@ -97,6 +110,11 @@ function Loaded({
             {client.name} · {shortDate(invoice.periodStart)} –{' '}
             {shortDate(invoice.periodEnd)}
           </p>
+          {invoice.reference ? (
+            <p className="mt-0.5 type-support text-subtle">
+              Reference {invoice.reference}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-none flex-wrap gap-2">
@@ -141,20 +159,17 @@ function Loaded({
               </tr>
             </thead>
             <tbody>
-              {lineItems.map((item, i) => (
+              {services.map((item, i) => (
                 <tr
                   key={i}
                   className="border-b border-edge-subtle last:border-0"
                 >
                   <td className="py-2 pr-3 text-primary">{item.description}</td>
-                  {/* A flat charge shows neither, matching the PDF. */}
                   <td className="type-duration py-2 pl-3 text-right text-muted">
-                    {item.unit === 'fixed' ? '' : formatHours(item.quantity)}
+                    {formatQuantity(item.unit, item.quantity)}
                   </td>
                   <td className="type-duration py-2 pl-3 text-right text-muted">
-                    {item.unit === 'fixed'
-                      ? ''
-                      : formatCurrency(item.unitPrice, invoice.currency)}
+                    {formatCurrency(item.unitPrice, invoice.currency)}
                   </td>
                   <td className="type-duration py-2 pl-3 text-right text-strong">
                     {formatCurrency(item.amount, invoice.currency)}
@@ -162,18 +177,54 @@ function Loaded({
                 </tr>
               ))}
             </tbody>
+            {/* Reimbursements under their own heading, dated, as on the PDF. */}
+            {expenses.length > 0 ? (
+              <tbody>
+                <tr className="border-b border-edge-subtle text-left">
+                  <th scope="colgroup" colSpan={4} className={`${TH} pt-4`}>
+                    Expenses
+                  </th>
+                </tr>
+                {expenses.map((item, i) => (
+                  <tr
+                    key={i}
+                    className="border-b border-edge-subtle last:border-0"
+                  >
+                    <td className="py-2 pr-3 text-primary">
+                      {item.description}
+                    </td>
+                    <td className="type-duration py-2 pl-3 text-right text-muted">
+                      {shortDate(item.spentOn)}
+                    </td>
+                    <td />
+                    <td className="type-duration py-2 pl-3 text-right text-strong">
+                      {formatCurrency(item.amount, invoice.currency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            ) : null}
           </table>
         </div>
 
         <dl className="ml-auto flex w-full max-w-[16rem] flex-col gap-1 type-support">
-          <Row
-            label="Subtotal"
-            value={formatCurrency(invoice.subtotal, invoice.currency)}
-          />
+          {/* An invoice of expenses alone has no services to subtotal. */}
+          {services.length > 0 || expenses.length === 0 ? (
+            <Row
+              label={expenses.length > 0 ? 'Services' : 'Subtotal'}
+              value={formatCurrency(invoice.subtotal, invoice.currency)}
+            />
+          ) : null}
           {invoice.taxRate > 0 ? (
             <Row
               label={`Tax (${invoice.taxRate}%)`}
               value={formatCurrency(invoice.taxAmount, invoice.currency)}
+            />
+          ) : null}
+          {expenses.length > 0 ? (
+            <Row
+              label="Expenses"
+              value={formatCurrency(invoice.expensesSubtotal, invoice.currency)}
             />
           ) : null}
           <Row
@@ -182,6 +233,15 @@ function Loaded({
             strong
           />
         </dl>
+
+        {invoice.supportingDetail ? (
+          <p className="type-support text-muted">
+            Supporting detail from page 2:{' '}
+            {attachedSchedules(invoice.supportingDetail)
+              .map((k) => SCHEDULE_TITLES[k])
+              .join(', ')}
+          </p>
+        ) : null}
 
         <p className="type-support text-subtle">
           Rates are frozen at generation — editing a client or project later

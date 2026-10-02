@@ -117,6 +117,7 @@ export type Account = Response<schema.Account>;
 export type PaymentProfile = Response<schema.PaymentProfile>;
 export type InvoicePreview = Response<schema.InvoicePreview>;
 export type Invoice = Response<schema.Invoice>;
+export type Expense = Response<schema.Expense>;
 export type ManualLine = schema.ManualLine;
 export type TaskNameSuggestion = Response<schema.TaskNameSuggestion>;
 
@@ -144,6 +145,7 @@ export type StoppedTimer = { entry: TimeEntry } & Pick<
 >;
 
 export type GroupingMode = z.infer<typeof schema.GroupingMode>;
+export type ScheduleKind = z.infer<typeof schema.ScheduleKind>;
 export type InvoiceStatus = z.infer<typeof schema.InvoiceStatus>;
 export type ComputedLineItem = Response<schema.ComputedLineItem>;
 export type StoredLineItem = Response<schema.StoredLineItem>;
@@ -157,6 +159,13 @@ export type ClientInput = Partial<Omit<Client, 'id' | 'archivedAt'>> &
   Pick<Client, 'name'>;
 
 export type SettingsInput = Partial<Omit<Settings, 'nextInvoiceNumber'>>;
+
+/** Everything an expense is recorded or edited with. */
+export type ExpenseInput = Pick<
+  Expense,
+  'clientId' | 'recurring' | 'spentOn' | 'description' | 'amount'
+> &
+  Partial<Pick<Expense, 'note'>>;
 
 export type PaymentProfileInput = Partial<
   Omit<PaymentProfile, 'id' | 'archivedAt'>
@@ -196,8 +205,11 @@ export const api = {
     );
   },
 
-  startTimer: (body: { taskName: string; projectId?: string | null }) =>
-    request<TimeEntry>('POST', '/timer/start', body),
+  startTimer: (body: {
+    id?: string;
+    taskName: string;
+    projectId?: string | null;
+  }) => request<TimeEntry>('POST', '/timer/start', body),
 
   stopTimer: () => request<StoppedTimer>('POST', '/timer/stop', {}),
 
@@ -262,7 +274,7 @@ export const api = {
     return request<{ projects: Project[] }>('GET', `/projects${query}`);
   },
 
-  createProject: (body: ProjectInput) =>
+  createProject: (body: ProjectInput & { id?: string }) =>
     request<Project>('POST', '/projects', body),
 
   updateProject: (id: string, body: Partial<ProjectInput>) =>
@@ -356,8 +368,10 @@ export const api = {
     periodStart: string;
     periodEnd: string;
     groupingMode?: GroupingMode;
+    summaryText?: string;
     tz?: string;
     manualLines?: ManualLine[];
+    excludedExpenseIds?: string[];
   }) => request<InvoicePreview>('POST', '/invoices/preview', body),
 
   /** Allocates the number, freezes line items and rates, locks the entries. */
@@ -366,8 +380,13 @@ export const api = {
     periodStart: string;
     periodEnd: string;
     groupingMode?: GroupingMode;
+    summaryText?: string;
     tz?: string;
     manualLines?: ManualLine[];
+    excludedExpenseIds?: string[];
+    schedules?: ScheduleKind[];
+    reference?: string;
+    paymentProfileId?: string;
     issueDate?: string;
     dueDate?: string;
     notes?: string;
@@ -386,6 +405,25 @@ export const api = {
 
   /** Drafts only. An issued invoice must be voided so numbering stays gapless. */
   deleteInvoice: (id: string) => request<void>('DELETE', `/invoices/${id}`),
+
+  /** Recurring first, then oldest first. `open` (the default) is what a
+   *  client's card lists; `unbilled` is what an invoice can take. */
+  expenses: (
+    params: { clientId?: string; status?: 'open' | 'unbilled' } = {},
+  ) => {
+    const q = new URLSearchParams(params as Record<string, string>);
+    return request<{ expenses: Expense[] }>('GET', `/expenses?${q}`);
+  },
+
+  /** `id` is a client-generated UUIDv7, made once per recording, so a
+   *  retried request lands on the same row rather than recording it twice. */
+  createExpense: (body: ExpenseInput & { id: string }) =>
+    request<Expense>('POST', '/expenses', body),
+
+  updateExpense: (id: string, body: Partial<ExpenseInput>) =>
+    request<Expense>('PATCH', `/expenses/${id}`, body),
+
+  deleteExpense: (id: string) => request<void>('DELETE', `/expenses/${id}`),
 
   invoicePdfUrl: (id: string, download = false) =>
     `/api/v1/invoices/${id}/pdf${download ? '?download=1' : ''}`,

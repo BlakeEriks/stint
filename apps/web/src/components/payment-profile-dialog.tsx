@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useOptimisticMutation } from '@/lib/client/mutations';
 import {
   Dialog,
   DialogContent,
@@ -52,12 +52,13 @@ export function PaymentProfileDialog({
   open,
   onOpenChange,
   existing,
+  onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   existing?: PaymentProfile;
+  onSaved?: (profile: PaymentProfile) => void;
 }) {
-  const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [showInternational, setShowInternational] = useState(false);
 
@@ -73,13 +74,17 @@ export function PaymentProfileDialog({
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
-  const save = useMutation({
+  /* Pending: the server validates the bank details, and the dialog stays
+     open to say what it refused. */
+  const save = useOptimisticMutation({
+    queryKey: () => keys.paymentProfiles(),
+    inline: true,
     mutationFn: (body: PaymentProfileInput) =>
       existing
         ? api.updatePaymentProfile(existing.id, body)
         : api.createPaymentProfile(body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: keys.paymentProfiles() });
+    onSuccess: (profile) => {
+      onSaved?.(profile);
       onOpenChange(false);
     },
   });

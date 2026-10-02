@@ -1,4 +1,4 @@
-import type { QueryClient } from '@tanstack/react-query';
+import type { QueryClient, QueryKey } from '@tanstack/react-query';
 
 /**
  * Every cache key in one place.
@@ -18,13 +18,6 @@ export const keys = {
     tz ? (['stats', tz] as const) : (['stats'] as const),
   activity: (tz?: string, days?: number) =>
     tz ? (['activity', tz, days] as const) : (['activity'] as const),
-  /* Its own key, not a variant of `activity`: the heatmap's range is fixed,
-     so sharing a key with a range the user picks would refetch every day of
-     it each time that picker moved. Fixed is not immutable, though, so
-     `days` is in the key: a payload cached at one length would otherwise be
-     served to a view that draws a different number of cells. */
-  heatmap: (tz?: string, days?: number) =>
-    tz ? (['heatmap', tz, days] as const) : (['heatmap'] as const),
   calendar: (weekStart?: string, tz?: string) =>
     weekStart
       ? (['calendar', weekStart, tz] as const)
@@ -39,9 +32,83 @@ export const keys = {
   account: () => ['account'] as const,
   invoices: () => ['invoices'] as const,
   invoice: (id: string | null | undefined) => ['invoices', id] as const,
+  /** Keyed on everything that decides the lines, so a stale answer is
+      never read as current. No argument is every preview. */
+  invoicePreview: (body?: object) =>
+    body
+      ? (['invoice-preview', body] as const)
+      : (['invoice-preview'] as const),
+  expenses: () => ['expenses'] as const,
   settings: () => ['settings'] as const,
   paymentProfiles: () => ['payment-profiles'] as const,
 };
+
+/**
+ * Whether a cached list under `keys.clients()` or `keys.projects()` holds
+ * archived rows too. An archive's prediction drops the row from every other
+ * list and leaves these alone.
+ */
+export function listsArchived(key: QueryKey): boolean {
+  const opts = key[1];
+  return typeof opts === 'object' && opts !== null && 'archived' in opts
+    ? opts.archived === true
+    : false;
+}
+
+/**
+ * An archive's prediction for one cached list under `keys.clients()` or
+ * `keys.projects()` (`rows` names which): the row leaves a list of active
+ * rows, and is marked archived in a list that holds archived rows too —
+ * so a screen reading that list, such as Clients, hides it at once as well.
+ */
+export function predictArchive(
+  rows: 'clients' | 'projects',
+  id: string,
+  current: unknown,
+  key: QueryKey,
+): unknown {
+  if (typeof current !== 'object' || current === null || !(rows in current))
+    return current;
+  const list = (current as Record<typeof rows, Array<{ id: string }>>)[rows];
+  return {
+    ...current,
+    [rows]: listsArchived(key)
+      ? list.map((r) =>
+          r.id === id ? { ...r, archivedAt: new Date().toISOString() } : r,
+        )
+      : list.filter((r) => r.id !== id),
+  };
+}
+
+/**
+ * A saved project's prediction for one cached list under `keys.projects()`:
+ * added if new, replaced if not, and dropped from a list filtered to a
+ * client it no longer belongs to.
+ */
+export function predictSave(
+  project: { id: string; clientId: string | null },
+  current: unknown,
+  key: QueryKey,
+): unknown {
+  if (
+    typeof current !== 'object' ||
+    current === null ||
+    !('projects' in current)
+  )
+    return current;
+  const list = (current as { projects: Array<{ id: string }> }).projects;
+  const rest = list.filter((p) => p.id !== project.id);
+  const opts = key[1] as { clientId?: string } | undefined;
+  const belongs = !opts?.clientId || opts.clientId === project.clientId;
+  return {
+    ...current,
+    projects: !belongs
+      ? rest
+      : list.length === rest.length
+        ? [...list, project]
+        : list.map((p) => (p.id === project.id ? project : p)),
+  };
+}
 
 /**
  * Everything derived from time entries.
@@ -51,13 +118,14 @@ export const keys = {
  * differently — so any one of them refreshed alone disagrees with the rest.
  */
 export function invalidateEntryData(queryClient: QueryClient) {
-  queryClient.invalidateQueries({ queryKey: keys.summary() });
-  queryClient.invalidateQueries({ queryKey: keys.entries() });
-  queryClient.invalidateQueries({ queryKey: keys.stats() });
-  queryClient.invalidateQueries({ queryKey: keys.calendar() });
-  queryClient.invalidateQueries({ queryKey: keys.activity() });
-  queryClient.invalidateQueries({ queryKey: keys.heatmap() });
-  /* Starting a timer or saving an entry mints a task name, so a list held
-     from before it is one suggestion short of what the user just typed. */
-  queryClient.invalidateQueries({ queryKey: keys.taskNames() });
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: keys.summary() }),
+    queryClient.invalidateQueries({ queryKey: keys.entries() }),
+    queryClient.invalidateQueries({ queryKey: keys.stats() }),
+    queryClient.invalidateQueries({ queryKey: keys.calendar() }),
+    queryClient.invalidateQueries({ queryKey: keys.activity() }),
+    /* Starting a timer or saving an entry mints a task name, so a list held
+       from before it is one suggestion short of what the user just typed. */
+    queryClient.invalidateQueries({ queryKey: keys.taskNames() }),
+  ]);
 }

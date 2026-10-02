@@ -87,6 +87,11 @@ jobs:
       - name: Typography uses the scale
         run: pnpm --filter @stint/web check:type
 
+      # Constitution VI: only lib/client/mutations.ts imports useMutation,
+      # so no write opts out of the prediction, rollback and timeout rules.
+      - name: Mutations go through the shared helper
+        run: pnpm --filter @stint/web check:mutation-usage
+
       - name: Typecheck
         run: |
           npx tsc --noEmit -p tsconfig.json

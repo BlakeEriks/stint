@@ -6,9 +6,13 @@ with the command that moves it at each step.
 1. **Capture**, by the rules in the next section. `pnpm hygiene` and
    Dependabot also file work weekly.
 2. **Build.** A feature: `/next-feature`, then `/speckit-clarify` →
-   `/speckit-plan` → `/speckit-tasks` → `/speckit-analyze`, then
-   `/speckit-implement` in a `pnpm worktree`. An issue: `/work-issues` in
-   `../stint-issues`. A feature merges one user story at a time; a story
+   `/design-review` → `/speckit-plan` → `/speckit-tasks` →
+   `/speckit-analyze`, then `/speckit-implement` in a `pnpm worktree`.
+   `/design-review` is offered to every feature that adds or changes UI,
+   never assumed. Blake picks the look from variations of each screen
+   before anything is built, or skips it when the change has no visible UI
+   or a trivial one. Planning waits for the spec to record either. An
+   issue: `/work-issues` in `../stint-issues`. A feature merges one user story at a time; a story
    that can't stand alone stays unlinked in the UI until the rest lands.
 3. **Review.** A PR runs CI and the Docs checks (Vale, `/doc-drift`), then
    goes to QA on its Vercel preview or `pnpm try-mac`. A green Dependabot PR
@@ -43,4 +47,5 @@ Every PR reaches QA the same way, whether `/work-issues` built it or not:
   `pr-<n>@preview.test`, which `preview-db` seeds from the branch.
 - **`migration` labels a PR that adds one.** The previews share one schema,
   so one such PR is open at a time.
-- **`ready-for-qa` goes on once CI is green.**
+- **`ready-for-qa` goes on once CI is green and nothing is unanswered**: no
+  feedback, doc drift or conflict with `main` left open.

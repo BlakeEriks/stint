@@ -93,4 +93,17 @@ test.describe('authentication', () => {
       page.getByRole('button', { name: /Email me a sign-in link/ }),
     ).toBeVisible();
   });
+
+  /* Projects moved under Clients; a bookmark to the old section still lands,
+     filter and all. Checked before sign-in: the redirect runs ahead of it. */
+  test('the old projects address redirects to clients', async ({ page }) => {
+    for (const [from, to] of [
+      ['/projects', '/clients'],
+      ['/projects?status=all', '/clients?status=all'],
+    ] as const) {
+      const res = await page.request.get(from, { maxRedirects: 0 });
+      expect(res.status()).toBe(308);
+      expect(res.headers().location).toBe(to);
+    }
+  });
 });
