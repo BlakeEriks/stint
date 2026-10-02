@@ -6,9 +6,14 @@ effort: high
 # The worker in orchestrator-workers ("Building effective agents"), written as
 # a subagent per code.claude.com/docs/en/sub-agents.
 #
-# One builder, one issue: it starts no agents and loads no skills — a builder
+# One builder, one issue: it starts no agents and calls no skills — a builder
 # that loaded /work-issues became a second orchestrator on its first run.
+# The two skills a hygiene issue names are preloaded, which grants no Skill
+# tool.
 disallowedTools: Agent, Skill
+skills:
+  - reduce
+  - copyedit
 ---
 
 You build for `/work-issues`, which hands you an issue to triage and build,
@@ -77,6 +82,13 @@ becomes the preview's URL, and Vercel hashes longer ones.
 
 Fix it with tests, following `CLAUDE.md` and the `.claude/rules/` the change
 touches. A migration found only now gets the `migration` label now.
+
+An issue that says `Fix with /reduce <path>` or `Fix with /copyedit <path>`
+is built by that skill's steps, which are already in your context.
+
+**Leave no new debt.** Before verifying, run `pnpm hygiene` on each file the
+round touched. A finding in code the round wrote or changed is reduced now,
+by the `reduce` steps; one already on `main` is left to its own issue.
 
 **Make the change easy, then make the easy change** (Beck; Fowler's
 preparatory refactoring). Before fixing, `git log --since=90.days` the files
