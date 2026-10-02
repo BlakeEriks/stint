@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { churnWeight, debtOf, filedPaths, rank } from './rank.mjs';
+import {
+  churnWeight,
+  commentDensity,
+  debtOf,
+  filedPaths,
+  rank,
+} from './rank.mjs';
 
 const complex = (path, value) => ({ path, kind: 'complexity', value });
 
@@ -8,6 +14,22 @@ describe('debtOf', () => {
   it('prices complexity as Sonar S3776 does: 5 minutes plus 1 per point over 15', () => {
     assert.equal(debtOf(complex('a.ts', 16)), 6);
     assert.equal(debtOf(complex('a.ts', 30)), 20);
+  });
+});
+
+describe('commentDensity', () => {
+  const code = (n) => Array.from({ length: n }, (_, i) => `f(${i});`);
+
+  it('finds nothing while comments stay under half the code', () => {
+    const src = ['// one', '/* two', '   three */', ...code(6)].join('\n');
+    assert.equal(commentDensity('a.ts', src), null);
+  });
+
+  it('prices each comment line over half the code at a minute', () => {
+    const src = ['/**', ' * a', ' */', '// b', '', ...code(4)].join('\n');
+    const f = commentDensity('a.ts', src);
+    assert.equal(f.value, 4 - 2);
+    assert.equal(debtOf(f), 2);
   });
 });
 

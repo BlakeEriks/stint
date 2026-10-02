@@ -5,6 +5,7 @@
  *   Biome     cognitive complexity over 15 (SonarSource's metric and limit)
  *   jscpd     duplicated blocks of 100+ tokens (Sonar's default)
  *   Knip      unused files, exports and dependencies
+ *   comments  more comment lines than half the code lines
  *   Vale      prose against the Google style guide and our house rules
  *
  * usage: pnpm hygiene [paths...] [--since 30.days] [--top N] [--json]
@@ -19,7 +20,7 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { filedPaths, rank, THRESHOLD } from './rank.mjs';
+import { commentDensity, filedPaths, rank, THRESHOLD } from './rank.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const BIN = join(ROOT, 'node_modules/.bin');
@@ -142,6 +143,14 @@ function deadCode() {
   );
 }
 
+function comments() {
+  return run('git', ['ls-files', ...CODE])
+    .split('\n')
+    .filter((path) => /\.(ts|tsx|mjs|js)$/.test(path))
+    .map((path) => commentDensity(path, readFileSync(join(ROOT, path), 'utf8')))
+    .filter(Boolean);
+}
+
 function prose() {
   if (!existsSync(join(ROOT, '.vale/styles/Google'))) run('vale', ['sync']);
   const out = run('vale', ['--output=JSON', '--no-exit', ...DOCS]);
@@ -186,7 +195,7 @@ const inScope = (path) =>
   !EXCLUDED.test(path) &&
   (!scope.length || scope.some((p) => path === p || path.startsWith(`${p}/`)));
 
-const findings = [complexity(), duplication(), deadCode(), prose()]
+const findings = [complexity(), duplication(), deadCode(), comments(), prose()]
   .flat()
   .filter((f) => inScope(f.path));
 let files = rank(

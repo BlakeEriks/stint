@@ -128,19 +128,10 @@ function reducedMotion(on: boolean) {
 const SETTLE = { timeout: 8000 };
 
 /**
- * A rAF the TEST clocks, replacing the browser's.
- *
- * The travel cases used to sample the DOM from a real `setInterval(…, 8)`
- * racing the tween. Whether any sample landed mid-flight was then a question
- * about the machine: on a loaded box the whole 900ms could pass between two
- * ticks, leaving only the endpoints, and "the figure travels" failed on a
- * hook that was working perfectly.
- *
- * So frames are driven rather than awaited. `frame(ms)` advances a clock the
- * hook reads through `performance.now()` and runs whatever it has scheduled,
- * which makes the intermediate frame something the test PERFORMS. A tween
- * that cut straight to its target still schedules nothing to observe, so the
- * claim is unweakened — only its timing is no longer a race.
+ * A rAF the TEST clocks, replacing the browser's, so a mid-flight frame is
+ * one the test performs rather than one a real timer might miss on a loaded
+ * machine. `frame(ms)` advances the clock the hook reads through
+ * `performance.now()` and runs whatever it has scheduled.
  */
 function controlledRaf() {
   let now = 0;

@@ -12,9 +12,40 @@ const MINUTES = {
   duplication: () => 10,
   'dead-code': () => 5,
   prose: () => 1,
+  comments: (f) => f.value,
 };
 
 export const debtOf = (f) => MINUTES[f.kind](f);
+
+/**
+ * A file with more comment lines than half its code lines, priced at a
+ * minute per line over: about the 90th percentile here, where narration
+ * crowds the code. Blank lines count as neither.
+ * @returns a finding, or null
+ */
+export function commentDensity(path, src) {
+  let comments = 0;
+  let code = 0;
+  let inBlock = false;
+  for (const line of src.split('\n').map((l) => l.trim())) {
+    if (!line) continue;
+    if (inBlock || line.startsWith('//') || line.startsWith('/*')) {
+      comments += 1;
+      inBlock = (inBlock || line.startsWith('/*')) && !line.includes('*/');
+    } else {
+      code += 1;
+    }
+  }
+  const over = comments - Math.floor(code / 2);
+  if (over <= 0) return null;
+  return {
+    path,
+    kind: 'comments',
+    line: 1,
+    value: over,
+    detail: `${comments} comment lines to ${code} of code`,
+  };
+}
 
 /* A file nobody touches keeps its debt at face value; each doubling of
    recent commits adds its debt once more. */

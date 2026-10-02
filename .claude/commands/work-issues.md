@@ -58,8 +58,10 @@ Every build and every fix goes the same way:
    and no logic change in auth, the API or data access. Brief it with the
    commit range in `../stint-issues`, that it is read-only, and to review the
    diff and what it calls — for security too when the commits touch auth, the
-   API or data access — and to report in one paragraph: each finding it is
-   confident in, with file:line, the failure and the fix.
+   API or data access — and to hold every added or changed comment to
+   `.claude/rules/comments.md`. It reports in one paragraph each finding it
+   is confident in, with file:line, the failure and the fix; a comment's fix
+   is usually cutting it.
 3. Findings that hold up go back to the same builder (SendMessage); its fix
    is reviewed again only if it is not small — judged from
    `git diff --stat` of the fix once it is committed, never in advance.

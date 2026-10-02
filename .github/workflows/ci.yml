@@ -113,6 +113,9 @@ jobs:
       - name: Doc references
         run: node scripts/doc-refs.mjs
 
+      - name: Comments cite no issues
+        run: node scripts/check-comment-refs.mjs
+
       - name: Build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co

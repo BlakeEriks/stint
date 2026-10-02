@@ -105,9 +105,7 @@ export const hundredths = (seconds: number): number =>
 
 /**
  * `quantity x unitPrice`, in integers until the last division, so a half
- * cent is exact rather than a float's guess. 3603 s at $150 is 1.00 h at
- * $150.00 = $150.00 here; from raw seconds it was $150.125, which JS rounded
- * to .12 and Postgres to .13 (#191).
+ * cent rounds as Postgres's numeric does rather than as a float guesses.
  */
 const priced = (quantityHundredths: number, unitPrice: number): number =>
   // hundredths x cents = amount x 10,000; the first division leaves cents.
@@ -222,11 +220,10 @@ export function buildLineItems(
     }
   }
 
-  /* The amount is the printed quantity times the printed rate, to the cent:
-     the arithmetic a client checks on the document is the arithmetic that
-     produced it (#195). Every rollup prices its bucket the same way, from
-     the same per-entry hours, so the home screen and the invoice state one
-     figure for the same work (#192). A rate carrying cents can still put a
+  /* The amount is the printed quantity times the printed rate, to the cent,
+     so the arithmetic a client checks on the document is the arithmetic that
+     produced it. Every rollup prices its bucket the same way, from the same
+     per-entry hours. A rate carrying cents can still put a
      grouped line a cent from its bucket, since rounding once over 0.66 h is
      not rounding twice over 0.33 h; `rates.test.ts` bounds that. */
   const timeLines = [...groups.entries()].map(([key, li]) => {

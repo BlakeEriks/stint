@@ -52,7 +52,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 const ENTRY_ID = '018f0000-0000-7000-8000-0000000000e1';
 
-/** One unprojected entry, as `/stats` now returns it: a row, not a count. */
+/** One unprojected entry, as `/stats` returns it. */
 const unprojectedEntry = {
   entryId: ENTRY_ID,
   taskName: 'Client call',
