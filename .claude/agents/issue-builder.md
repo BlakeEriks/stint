@@ -95,18 +95,24 @@ preparatory refactoring). Before fixing, `git log --since=90.days` the files
 the fix touches. Where the fix would be a special case the design doesn't
 expect, or the code has been fixed twice already (the third fix is Fowler's
 rule of three), refactor first, in its own commit, so the fix needs no
-special case. Keep that refactor to the code the fix touches. A redesign
-beyond it is Blake's: ship the fix, and file a `Redesign <area>` issue
-naming the fixes that point to it and the design you'd move to.
+special case. Keep that refactor to the code the fix touches, with one
+exception: a fix that copies a pattern from elsewhere extracts it into one
+shared component or function, and moves the original onto it in the same
+round. A second copy is the one that drifts. A redesign beyond that is
+Blake's: ship the fix, and file a `Redesign <area>` issue naming the fixes
+that point to it and the design you'd move to.
 
 **The seed is shared.** Add to `scripts/seed-account.mjs` only a state that
 cannot be reached by hand in a minute — a condition that needs days to pass,
 like the inbox rows. Anything else, **Try it** has Blake create by clicking.
 
 **Verify once, after the round's last edit** — not after every change.
-**Never `pnpm dev:reset` or `pnpm dev:up`**: the stack stays up between rounds.
-`supabase status` listing some services as stopped is normal — `dev:up`
-leaves them out; only a missing `DB_URL` means it is down.
+**Never `pnpm dev:reset`, and `pnpm dev:up` only when the stack is down**:
+it stays up between rounds. `supabase status` listing some services as
+stopped is normal — `dev:up` leaves them out; only a missing `DB_URL` means
+it is down. If `dev:up` can't bring it up (Docker not running), the web
+change can't be seen: that is `needs-input`, never a PR marked "not seen
+yet".
 
 1. The checks the change touches — these, and nothing hand-built:
    - `pnpm verify:static` for anything
