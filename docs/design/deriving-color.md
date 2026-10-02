@@ -81,10 +81,11 @@ silently stop meaning anything when the card moves. Making the threshold the
 constant is what makes "let's try a bigger card step" safe: the ink follows.
 
 **A separation sweep runs after.** Pushing a step to clear a threshold can
-drive it into its neighbor, since both move toward the same card and the one
-owing less catches up. Anything closer than ΔL 0.035 is pushed the rest of the
-way — a floor, never a ceiling, so a step that earned more distance keeps it.
-Without it, `500` and `600` landed 0.0087 apart: two names for one gray.
+drive it into its neighbor, since both move toward the same worst text ground
+and the one owing less catches up. Anything closer than ΔL 0.035 is pushed the
+rest of the way — a floor, never a ceiling, so a step that earned more
+distance keeps it. Without it, `500` and `600` landed 0.0087 apart: two names
+for one gray.
 
 **Lowering `FLOOR` is wrong.** It drags the entire eased curve down, taking the
 text steps with it: muted falls to 4.40 (under AA) and the border to 2.63. Two
@@ -110,8 +111,8 @@ panel and its rows are other steps. `active` is left out: it is only a
 pointer's press on a block.
 
 `600` owes **5.5**, not 4.5: held to the same ratio as 500 against the same
-card, both are pushed to the same place and the curve's own separation is lost
-— they came out ΔL 0.0087 apart, two names for one gray. The hierarchy is
+grounds, both are pushed to the same place and the curve's own separation is
+lost — they came out ΔL 0.0087 apart, two names for one gray. The hierarchy is
 strong > primary > muted > subtle, so muted owes more than subtle.
 
 `400` exists because one primitive cannot owe two ratios: 500 had been

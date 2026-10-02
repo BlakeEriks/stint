@@ -130,7 +130,7 @@ function inkRamp(card, grounds) {
   });
 
   /* Lifting a step to clear a threshold can drive it into the next: they climb
-     away from the same card, so the one owing less catches up. 0.035 is
+     away from the same grounds, so the one owing less catches up. 0.035 is
      roughly where two grays stop reading as the same color, and it is a
      floor — a step that earned more distance by owing a stricter ratio keeps
      it. */

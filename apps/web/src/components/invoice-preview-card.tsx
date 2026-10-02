@@ -11,6 +11,7 @@ import {
   type Schedules,
 } from '@stint/core';
 import type { Client, InvoicePreview, Settings } from '@/lib/client/api';
+import { useMediaQuery } from '@/lib/client/use-media-query';
 import { shortDate } from './invoice-bits';
 
 const LABEL = 'block type-label text-subtle';
@@ -52,6 +53,8 @@ export function InvoicePreviewCard({
   children?: React.ReactNode;
 }) {
   const entries = preview?.entryCount ?? 0;
+  /* The card scrolls itself only at `xl`; below it the page does. */
+  const scrolls = useMediaQuery('(width >= 80rem)');
 
   return (
     <section aria-labelledby="inv-preview" className="flex min-h-0 flex-col">
@@ -70,8 +73,12 @@ export function InvoicePreviewCard({
 
       {/* The scroller is around the card, not in it: the card moves as one
           page, edges and all, while the caption above keeps "Updating…" in
-          view. */}
-      <div className="min-h-0 overflow-y-auto">
+          view. A scroller takes focus where it scrolls, or a keyboard
+          cannot reach the card's foot. */}
+      <div
+        tabIndex={scrolls ? 0 : undefined}
+        className="min-h-0 overflow-y-auto"
+      >
         <div className="@container/card flex flex-col gap-5 rounded-lg border border-edge-subtle bg-surface-elevated p-6">
           {client ? (
             <div

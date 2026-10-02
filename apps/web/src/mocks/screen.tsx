@@ -25,7 +25,7 @@ export function screen(pathname: string, query: Record<string, string> = {}) {
 }
 
 /** The a11y rules a story skips. Every other rule still fails the test. */
-const skipping = (...rules: string[]) => ({
+export const skipping = (...rules: string[]) => ({
   config: { rules: rules.map((id) => ({ id, enabled: false })) },
 });
 
