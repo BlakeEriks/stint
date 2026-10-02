@@ -6,6 +6,7 @@ export type Code =
   | 'ENTRY_LOCKED'
   | 'EXPENSE_LOCKED'
   | 'EXPENSE_ALREADY_INVOICED'
+  | 'ENTRY_ALREADY_INVOICED'
   | 'ENTRY_NOT_FOUND'
   | 'NO_RATE_CONFIGURED'
   | 'INVALID_PERIOD'
@@ -19,6 +20,7 @@ const STATUS: Record<Code, number> = {
   ENTRY_LOCKED: 409,
   EXPENSE_LOCKED: 409,
   EXPENSE_ALREADY_INVOICED: 409,
+  ENTRY_ALREADY_INVOICED: 409,
   ENTRY_NOT_FOUND: 404,
   NO_RATE_CONFIGURED: 400,
   INVALID_PERIOD: 400,
@@ -117,6 +119,13 @@ export function isExpenseClaimConflict(
   err: { code?: string; message?: string } | null,
 ): boolean {
   return (err?.message ?? '').includes('EXPENSE_ALREADY_INVOICED');
+}
+
+/** `create_invoice` found an entry another invoice had already taken. */
+export function isEntryClaimConflict(
+  err: { code?: string; message?: string } | null,
+): boolean {
+  return (err?.message ?? '').includes('ENTRY_ALREADY_INVOICED');
 }
 
 // ── drift guard ────────────────────────────────────────────────────
