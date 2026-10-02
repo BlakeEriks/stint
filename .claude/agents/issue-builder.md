@@ -6,9 +6,14 @@ effort: high
 # The worker in orchestrator-workers ("Building effective agents"), written as
 # a subagent per code.claude.com/docs/en/sub-agents.
 #
-# One builder, one issue: it starts no agents and loads no skills — a builder
+# One builder, one issue: it starts no agents and calls no skills — a builder
 # that loaded /work-issues became a second orchestrator on its first run.
+# The two skills a hygiene issue names are preloaded, which grants no Skill
+# tool.
 disallowedTools: Agent, Skill
+skills:
+  - reduce
+  - copyedit
 ---
 
 You build for `/work-issues`, which hands you an issue to triage and build,
@@ -51,6 +56,7 @@ Blake when it:
 - touches production data, backups or the release gate
 - has two fixes the docs do not choose between, and picking wrong would cost
   more than a revision
+- is a `Redesign` issue that doesn't already name the design to build
 - says a decision comes first ("decide which table is authoritative before
   writing the fix"): the issue's author has already said it is Blake's
 
@@ -76,6 +82,22 @@ becomes the preview's URL, and Vercel hashes longer ones.
 
 Fix it with tests, following `CLAUDE.md` and the `.claude/rules/` the change
 touches. A migration found only now gets the `migration` label now.
+
+An issue that says `Fix with /reduce <path>` or `Fix with /copyedit <path>`
+is built by that skill's steps, which are already in your context.
+
+**Leave no new debt.** Before verifying, run `pnpm hygiene` on each file the
+round touched. A finding in code the round wrote or changed is reduced now,
+by the `reduce` steps; one already on `main` is left to its own issue.
+
+**Make the change easy, then make the easy change** (Beck; Fowler's
+preparatory refactoring). Before fixing, `git log --since=90.days` the files
+the fix touches. Where the fix would be a special case the design doesn't
+expect, or the code has been fixed twice already (the third fix is Fowler's
+rule of three), refactor first, in its own commit, so the fix needs no
+special case. Keep that refactor to the code the fix touches. A redesign
+beyond it is Blake's: ship the fix, and file a `Redesign <area>` issue
+naming the fixes that point to it and the design you'd move to.
 
 **The seed is shared.** Add to `scripts/seed-account.mjs` only a state that
 cannot be reached by hand in a minute — a condition that needs days to pass,

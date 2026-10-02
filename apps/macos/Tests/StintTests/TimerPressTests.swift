@@ -2,8 +2,8 @@ import Foundation
 import Testing
 @testable import Stint
 
-/// The timer's presses against a stubbed server, including the two races
-/// from #118 and the menu bar's "start again", which it missed.
+/// The timer's presses against a stubbed server, races and the menu bar's
+/// "start again" included.
 @MainActor
 @Suite(.serialized)
 struct TimerPressTests {

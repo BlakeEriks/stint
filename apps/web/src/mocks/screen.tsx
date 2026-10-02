@@ -25,8 +25,8 @@ export function screen(pathname: string, query: Record<string, string> = {}) {
   };
 }
 
-/* Two known failures across every screen, skipped here rather than per
-   story until #125 fixes them. Every other rule still fails the test. */
+/* TODO(#125): two known failures across every screen, skipped here rather
+   than per story. Every other rule still fails the test. */
 const KNOWN = ['color-contrast', 'scrollable-region-focusable'];
 
 /**

@@ -3,15 +3,6 @@ import { render, screen } from '@testing-library/react';
 import { Listing } from '@/components/page';
 import { ApiError } from '@/lib/client/api';
 
-/**
- * What a failed query is allowed to replace.
- *
- * Two of these three cases render the failure over content the user was
- * mid-way through, which is the regression: a signed-out 401 is a navigation
- * already in flight, and a failed refetch still holds the data it is
- * refreshing.
- */
-
 const error = (status: number, code: string) =>
   new ApiError(status, { code, message: 'nope' });
 

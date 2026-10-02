@@ -2,7 +2,7 @@
 name: file-hygiene
 description: File one GitHub issue per file in a hygiene scan report. Run by the weekly Hygiene workflow.
 argument-hint: "<report.json>"
-allowed-tools: Read, Grep, Glob, Write, Bash(gh issue create:*)
+allowed-tools: Read, Grep, Glob, Write, Bash(gh issue create:*), Bash(gh pr view:*)
 # A skill per code.claude.com/docs/en/skills, run in CI by
 # anthropics/claude-code-action.
 ---
@@ -20,7 +20,8 @@ body to `issue-body.md`, then:
 A file, not `--body`, because the body is full of backticks the shell would
 run.
 
-**Title:** `Reduce <path>` for code, `Copyedit <path>` for a doc.
+**Title:** `Redesign <path>` for a file with a `fixes` finding, `Reduce
+<path>` for other code, `Copyedit <path>` for a doc.
 
 **Body:**
 
@@ -32,8 +33,12 @@ run.
 3. For each complexity or duplication finding, the reduction you would
    make: which function splits where, or what the two copies share. One line
    each. The fixer decides; this is a head start.
+   For a `fixes` finding, read those PRs (`gh pr view <n>`): what the fixes
+   have in common, and the design that would have made each unnecessary.
+   Blake picks the design before it is built.
 4. `Score <score> · debt <debt> min · <commits> commits in 30 days`
-5. `Fix with /reduce <path>` or `Fix with /copyedit <path>`.
+5. `Fix with /reduce <path>` or `Fix with /copyedit <path>`; nothing for
+   a redesign.
 6. The marker, exactly, as the last line: `<!-- hygiene:<path> -->`
 
 The marker is how next week's scan knows this file is filed. An issue

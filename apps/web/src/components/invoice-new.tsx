@@ -762,10 +762,8 @@ function PaymentPicker({
  * How the lines are rolled up.
  *
  * A menu rather than a `Select`: each mode is a label over its consequence,
- * and the consequence is what the user is actually choosing between. A native
- * option is one line of text, so the hint used to sit under the closed control
- * describing only the mode already picked — the three it is being weighed
- * against were invisible at the moment of choosing.
+ * and the consequence is what the user is choosing between. A native option
+ * is one line of text, which has no room for it.
  */
 function GroupingPicker({
   value,
