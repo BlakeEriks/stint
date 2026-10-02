@@ -143,6 +143,7 @@ a different order, and the ones that drifted were rebuilt:
 | A titled region with its own save state | `Section` + `useAutosave` + `SaveIndicator` |
 | A labeled control | `Field`, `Input`, `inputClass`, `textareaClass` |
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
+| A destructive action | `ConfirmAction` |
 | An invoice's status | `StatusBadge` |
 | Money, dates, durations | `Money`, `formatCurrency`, `shortDate` — never `toLocaleString` at the call site |
 | A client's color | `useProjectColors()`, `Swatch` |
@@ -163,8 +164,10 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
   `aria-label`: a destructive first step, and a dense repeating row. A glyph
   is always `aria-hidden`.
 - **A destructive action is quiet until it is the confirm**: a ghost in
-  `text-danger`, then `destructive` spelling the consequence out. In a dialog
-  footer the first step is a trash icon alone, pushed away with `mr-auto`.
+  `text-danger`, then `destructive` spelling the consequence out, in place.
+  In a dialog footer the first step is a trash icon alone, pushed away with
+  `mr-auto`. A modal confirm is only for what takes many records at once and
+  can't come back, like Delete account.
 - **A dialog's or form's actions run secondary, Cancel, Save**: Save
   (`accent`) at the bottom right, Cancel beside it, and a secondary action
   (Archive, Delete) pushed to the far left with `mr-auto`.

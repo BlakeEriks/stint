@@ -4,16 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
-import {
-  Ban,
-  DollarSign,
-  Download,
-  Eye,
-  Loader2,
-  Send,
-  Trash2,
-} from 'lucide-react';
+import { Ban, DollarSign, Download, Eye, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ConfirmAction } from './confirm-action';
 import { Section } from './field';
 import { StatusBadge, shortDate } from './invoice-bits';
 import { MarkPaidDialog } from './mark-paid-dialog';
@@ -103,7 +96,6 @@ function Loaded({
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
   const [markingPaid, setMarkingPaid] = useState(false);
-  const [confirming, setConfirming] = useState<'void' | 'delete' | null>(null);
 
   return (
     <>
@@ -291,52 +283,31 @@ function Loaded({
             ) : null}
 
             {/* Voiding can't be undone and deleting removes the draft, so
-                each asks first (`.claude/rules/web-ui.md`): a quiet red first
-                step, then the filled confirm that names the invoice. */}
+                each asks first. */}
             {!isVoid && !isDraft ? (
-              confirming === 'void' ? (
-                <Confirm
-                  label={`Void ${invoice.invoiceNumber}`}
-                  pendingLabel="Voiding…"
-                  consequence="The number stays on record, and this invoice can't be reissued."
-                  pending={setStatus.isPending}
-                  onConfirm={() => setStatus.mutate({ status: 'void' })}
-                  onKeep={() => setConfirming(null)}
-                />
-              ) : (
-                <Button
-                  variant="ghost"
-                  className={DANGER_GHOST}
-                  onClick={() => setConfirming('void')}
-                  disabled={setStatus.isPending}
-                >
-                  <Ban aria-hidden strokeWidth={1.75} />
-                  Void
-                </Button>
-              )
+              <ConfirmAction
+                label={`Void ${invoice.invoiceNumber}`}
+                pendingLabel="Voiding…"
+                consequence="The number stays on record, and this invoice can't be reissued."
+                pending={setStatus.isPending}
+                onConfirm={() => setStatus.mutate({ status: 'void' })}
+              >
+                <Ban aria-hidden strokeWidth={1.75} />
+                Void
+              </ConfirmAction>
             ) : null}
 
             {isDraft ? (
-              confirming === 'delete' ? (
-                <Confirm
-                  label={`Delete ${invoice.invoiceNumber} for good`}
-                  pendingLabel="Deleting…"
-                  consequence="Its entries go back to unbilled."
-                  pending={remove.isPending}
-                  onConfirm={() => remove.mutate()}
-                  onKeep={() => setConfirming(null)}
-                />
-              ) : (
-                <Button
-                  variant="ghost"
-                  className={DANGER_GHOST}
-                  onClick={() => setConfirming('delete')}
-                  disabled={remove.isPending}
-                >
-                  <Trash2 aria-hidden strokeWidth={1.75} />
-                  Delete draft
-                </Button>
-              )
+              <ConfirmAction
+                label={`Delete ${invoice.invoiceNumber} for good`}
+                pendingLabel="Deleting…"
+                consequence="Its entries go back to unbilled."
+                pending={remove.isPending}
+                onConfirm={() => remove.mutate()}
+              >
+                <Trash2 aria-hidden strokeWidth={1.75} />
+                Delete draft
+              </ConfirmAction>
             ) : null}
           </div>
 
@@ -359,37 +330,6 @@ function Loaded({
 }
 
 const TH = 'pb-2 type-label text-subtle';
-const DANGER_GHOST = 'text-danger hover:bg-danger-muted hover:text-danger';
-
-/** The second step of a destructive pair: the consequence, spelled out. */
-function Confirm({
-  label,
-  pendingLabel,
-  consequence,
-  pending,
-  onConfirm,
-  onKeep,
-}: {
-  label: string;
-  pendingLabel: string;
-  consequence: string;
-  pending: boolean;
-  onConfirm: () => void;
-  onKeep: () => void;
-}) {
-  return (
-    <>
-      <Button variant="destructive" disabled={pending} onClick={onConfirm}>
-        {pending ? <Loader2 aria-hidden className="animate-spin" /> : null}
-        {pending ? pendingLabel : label}
-      </Button>
-      <Button variant="ghost" disabled={pending} onClick={onKeep}>
-        Keep
-      </Button>
-      <p className="basis-full type-support text-muted">{consequence}</p>
-    </>
-  );
-}
 
 function statusHint(status: InvoiceStatus): string {
   if (status === 'draft')
