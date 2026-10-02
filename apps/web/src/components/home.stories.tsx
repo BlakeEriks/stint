@@ -1,7 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { account } from '@/mocks/db';
 import { expect, within } from 'storybook/test';
-import { desktop, light, phone, screen, tablet, wide } from '@/mocks/screen';
+import {
+  desktop,
+  failing,
+  light,
+  phone,
+  screen,
+  tablet,
+  wide,
+} from '@/mocks/screen';
 import { Home } from './home';
 
 const meta = {
@@ -25,6 +33,9 @@ export const Running: Story = { ...desktop, parameters: account('running') };
 
 /** A new account: every figure is zero and nothing is extrapolated. */
 export const Empty: Story = { ...desktop, parameters: account('empty') };
+
+/** The figures failed to load: the panel says so, never blank. */
+export const Failed: Story = { ...desktop, parameters: failing('stats') };
 
 /** At `2xl` the panel is a bounded card. */
 export const Wide: Story = { ...wide };
