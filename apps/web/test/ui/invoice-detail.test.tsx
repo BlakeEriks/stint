@@ -207,6 +207,68 @@ describe('InvoiceDetail', () => {
     ).not.toBeInTheDocument();
   });
 
+  /* Voiding can't be taken back and deleting removes the draft, so the
+     first press only asks: nothing reaches the server until the second. */
+  it('voids only on the second press, and Keep backs out', async () => {
+    const calls = serve('sent');
+    const user = userEvent.setup();
+    show();
+
+    await user.click(await screen.findByRole('button', { name: 'Void' }));
+    expect(calls).toEqual([]);
+
+    await user.click(screen.getByRole('button', { name: 'Keep' }));
+    expect(
+      screen.queryByRole('button', { name: 'Void INV-13' }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Void' }));
+    await user.click(screen.getByRole('button', { name: 'Void INV-13' }));
+    await waitFor(() => expect(calls.length).toBe(1));
+    expect(calls[0]).toMatchObject({
+      method: 'PATCH',
+      path: '/invoices/inv-1/status',
+      body: { status: 'void' },
+    });
+  });
+
+  it('deletes a draft only on the second press', async () => {
+    const calls = serve('draft');
+    const user = userEvent.setup();
+    show();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Delete draft' }),
+    );
+    expect(calls).toEqual([]);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Delete INV-13 for good' }),
+    );
+    await waitFor(() => expect(calls.length).toBe(1));
+    expect(calls[0]).toMatchObject({
+      method: 'DELETE',
+      path: '/invoices/inv-1',
+    });
+  });
+
+  /* Pending, not predicted: the confirm says it is working until the server
+     answers, and nothing can be pressed twice meanwhile. */
+  it('holds the confirm pending while the server answers', async () => {
+    serve('sent');
+    const user = userEvent.setup();
+    show();
+    await user.click(await screen.findByRole('button', { name: 'Void' }));
+
+    vi.mocked(fetch).mockImplementation(() => new Promise(() => {}));
+    await user.click(screen.getByRole('button', { name: 'Void INV-13' }));
+
+    expect(
+      await screen.findByRole('button', { name: 'Voiding…' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Keep' })).toBeDisabled();
+  });
+
   /** Void is terminal: nothing may move an invoice out of it. */
   it('offers no transitions at all once void', async () => {
     serve('void');
