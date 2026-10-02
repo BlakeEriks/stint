@@ -13,6 +13,7 @@ import {
   type LineItemRow,
   type PaymentProfileRow,
 } from './rows';
+import { selectAll } from './select-all';
 import { addDays, resolvePaymentProfile, startOfLocalDate } from '@stint/core';
 import type { BillableEntry, ExpenseInput } from '@stint/core';
 
@@ -77,22 +78,24 @@ export async function loadBillableEntries(
   const startInstant = startOfLocalDate(opts.periodStart, opts.tz);
   const endExclusive = startOfLocalDate(addDays(opts.periodEnd, 1), opts.tz);
 
-  const { data, error } = await db
-    .from('time_entries')
-    .select(
-      'id, task_name, project_id, started_at, duration_seconds, is_billable, rate_override',
-    )
-    .in('project_id', [...byId.keys()])
-    .is('invoice_id', null)
-    .eq('invoiced_elsewhere', false)
-    .not('ended_at', 'is', null)
-    .gte('started_at', startInstant.toISOString())
-    .lt('started_at', endExclusive.toISOString())
-    .order('started_at', { ascending: true });
+  const rows = await selectAll((from, to) =>
+    db
+      .from('time_entries')
+      .select(
+        'id, task_name, project_id, started_at, duration_seconds, is_billable, rate_override',
+      )
+      .in('project_id', [...byId.keys()])
+      .is('invoice_id', null)
+      .eq('invoiced_elsewhere', false)
+      .not('ended_at', 'is', null)
+      .gte('started_at', startInstant.toISOString())
+      .lt('started_at', endExclusive.toISOString())
+      .order('started_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to),
+  );
 
-  if (error) throw error;
-
-  return (data ?? []).map((row) => {
+  return rows.map((row) => {
     const project = byId.get(row.project_id as string);
     return {
       id: row.id as string,

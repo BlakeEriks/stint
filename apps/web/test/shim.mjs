@@ -18,6 +18,9 @@ pg.types.setTypeParser(1184, (v) => v);
 // via RLS, so the shim must not add a user scope to them.
 const NO_USER_SCOPE = new Set(['invoice_line_items']);
 
+/** PostgREST's `max_rows`: the most any one select returns. */
+const MAX_ROWS = 1000;
+
 export function makeDb(pool, userId) {
   const run = async (sql, params) => {
     try {
@@ -42,6 +45,7 @@ export function makeDb(pool, userId) {
       // sorts by the last key alone, silently.
       order: [],
       lim: null,
+      offset: 0,
       op: 'select',
       payload: null,
     };
@@ -121,6 +125,12 @@ export function makeDb(pool, userId) {
         st.lim = n;
         return api;
       },
+      /** Inclusive at both ends, as supabase-js's is. */
+      range(from, to) {
+        st.offset = from;
+        st.lim = to - from + 1;
+        return api;
+      },
 
       async _exec() {
         const P = (v) => {
@@ -157,7 +167,10 @@ export function makeDb(pool, userId) {
         } else {
           sql = `select ${st.cols} from ${st.table} where ${whereSql()}`;
           if (st.order.length) sql += ` order by ${st.order.join(', ')}`;
-          if (st.lim) sql += ` limit ${st.lim}`;
+          // PostgREST answers at most `max_rows` (supabase/config.toml, and
+          // Supabase's default) whatever the query asked, so the shim caps
+          // every select the same way.
+          sql += ` limit ${Math.min(st.lim ?? MAX_ROWS, MAX_ROWS)} offset ${st.offset}`;
         }
         return run(sql, st.params);
       },

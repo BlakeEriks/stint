@@ -2356,3 +2356,26 @@ test('the default grouping totals what the Unbilled card shows', async () => {
     'grouping mode changed the total; Unbilled could not have known',
   );
 });
+
+test('an invoice bills every entry in its period, past a thousand', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  // One more six-minute entry than PostgREST's `max_rows` returns to one read.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
+     select gen_random_uuid(), $1, $2, 'Work',
+            '2026-09-01T08:00:00Z'::timestamptz + (n * interval '7 minutes'),
+            '2026-09-01T08:06:00Z'::timestamptz + (n * interval '7 minutes')
+     from generate_series(0, 1000) n`,
+    [USER, PROJECT],
+  );
+
+  const res = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.entryCount, 1001);
+  // 1001 x 0.1 h x $150.
+  assert.equal(res.body.total, 15015);
+});

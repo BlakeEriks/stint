@@ -13,7 +13,7 @@
     "check:type": "node scripts/check-type-roles.mjs 'src/**/*.tsx' '../macos/Sources/**/*.swift'",
     "check:mutation-usage": "node scripts/check-mutation-usage.mjs 'src/**/*.ts' 'src/**/*.tsx'",
     "pretest": "pnpm --filter @stint/design-tokens build",
-    "test": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/routes.test.ts test/invoices.test.ts test/rates.test.ts test/mocks-parity.test.ts",
+    "test": "node --test --test-concurrency=1 --experimental-strip-types --import ./test/loader-register.mjs test/routes.test.ts test/invoices.test.ts test/paging.test.ts test/rates.test.ts test/mocks-parity.test.ts",
     "pretest:ui": "pnpm --filter @stint/design-tokens build",
     "test:ui": "vitest run --project ui",
     "pretest:stories": "pnpm --filter @stint/design-tokens build",
