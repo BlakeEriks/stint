@@ -78,12 +78,8 @@ struct StintApp: App {
         } label: {
             // The label exists from launch; the panel's content does not
             // exist until first opened, so the loops start here.
-            HStack(spacing: 7) {
-                Image(nsImage: pipImage(fill: NSColor(pipFill)))
-                Text(model.menuBarTitle)
-                    .monospacedDigit()
-            }
-            .task { model.start() }
+            Image(nsImage: barImage(fill: NSColor(pipFill), clock: model.menuBarTitle))
+                .task { model.start() }
         }
         .menuBarExtraStyle(.window)
     }

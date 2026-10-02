@@ -70,8 +70,8 @@ final class TimerModel {
     /// modes, which is why running-ness is not folded in here.
     var menuBarTitle: String {
         switch Prefs.shared.barReadout {
-        case .runningTimer: barClock(isRunning ? elapsedSeconds : todaySeconds)
-        case .todaysTotal: barClock(todaySeconds)
+        case .runningTimer: isRunning ? format(elapsedSeconds) : format(todaySeconds)
+        case .todaysTotal: format(todaySeconds)
         }
     }
 
@@ -315,15 +315,6 @@ final class TimerModel {
 func format(_ seconds: Int) -> String {
     let s = max(0, seconds)
     return String(format: "%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
-}
-
-/// `format`, padded to `HH:MM:SS` with a figure space, so the menu bar
-/// item keeps one width from 9:59:59 to 10:00:00 and the pip never slides.
-/// A `MenuBarExtra` label sizes to its content, so a frame cannot hold it.
-/// The figure space is a digit's width under `.monospacedDigit()`.
-func barClock(_ seconds: Int) -> String {
-    let clock = format(seconds)
-    return String(repeating: "\u{2007}", count: max(0, 8 - clock.count)) + clock
 }
 
 /// `$1,462.50`, matching `money()` on the web — `en_US` regardless of the
