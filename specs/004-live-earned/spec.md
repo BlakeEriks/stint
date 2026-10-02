@@ -10,6 +10,11 @@
 from Today showing `$0.00` beside `22m` with a timer running, and Blake's
 direction to refresh only while the app is in view
 
+## Design
+
+No design review: no screen changes its layout; existing figures only
+refresh while a timer runs.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Today's money moves with today's time (Priority: P1)
