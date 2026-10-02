@@ -2379,3 +2379,32 @@ test('an invoice bills every entry in its period, past a thousand', async () => 
   // 1001 x 0.1 h x $150.
   assert.equal(res.body.total, 15015);
 });
+
+test('an issued invoice reads back every line, past a thousand', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
+     select gen_random_uuid(), $1, $2, 'Work',
+            '2026-09-01T08:00:00Z'::timestamptz + (n * interval '7 minutes'),
+            '2026-09-01T08:06:00Z'::timestamptz + (n * interval '7 minutes')
+     from generate_series(0, 1000) n`,
+    [USER, PROJECT],
+  );
+
+  const res = await json(
+    await create(
+      req('/invoices', { clientId: CLIENT, ...PERIOD, groupingMode: 'entry' }),
+    ),
+  );
+  assert.equal(res.status, 201);
+
+  const read = await json(
+    await detail(req(`/invoices/${res.body.id}`), {
+      params: Promise.resolve({ id: res.body.id }),
+    }),
+  );
+  assert.equal(read.body.lineItems.length, 1001);
+});

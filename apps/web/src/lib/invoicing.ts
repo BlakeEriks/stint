@@ -251,16 +251,18 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
   const invoice = toInvoice(row as InvoiceRow);
 
   const [items, client, settings] = await Promise.all([
-    db
-      .from('invoice_line_items')
-      .select(LINE_ITEM_COLUMNS)
-      .eq('invoice_id', invoiceId)
-      .order('sort_order', { ascending: true }),
+    selectAll((from, to) =>
+      db
+        .from('invoice_line_items')
+        .select(LINE_ITEM_COLUMNS)
+        .eq('invoice_id', invoiceId)
+        .order('sort_order', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
     loadClient(db, invoice.clientId),
     loadSettings(db),
   ]);
-
-  if (items.error) throw items.error;
 
   return {
     invoice,
@@ -294,7 +296,7 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
         email: client.email,
         address: client.address,
       },
-      lineItems: (items.data ?? []).map((r) => toLineItem(r as LineItemRow)),
+      lineItems: items.map((r) => toLineItem(r as LineItemRow)),
       // The FROZEN snapshot, never a live profile lookup: a re-downloaded
       // invoice must show the details the client was actually given.
       payment: invoice.paymentDetails ?? null,

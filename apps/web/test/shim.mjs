@@ -167,9 +167,6 @@ export function makeDb(pool, userId) {
         } else {
           sql = `select ${st.cols} from ${st.table} where ${whereSql()}`;
           if (st.order.length) sql += ` order by ${st.order.join(', ')}`;
-          // PostgREST answers at most `max_rows` (supabase/config.toml, and
-          // Supabase's default) whatever the query asked, so the shim caps
-          // every select the same way.
           sql += ` limit ${Math.min(st.lim ?? MAX_ROWS, MAX_ROWS)} offset ${st.offset}`;
         }
         return run(sql, st.params);
