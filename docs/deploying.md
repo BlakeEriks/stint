@@ -35,7 +35,8 @@ the domain until required checks pass, so the migration runs while the
 - **`static`** — lint, token drift, the contrast contract, shadcn detox, the
   typography scale, writes through the shared mutation helper, typecheck,
   the UI suite, core logic, the hygiene scan's tests, the build script
-  tests, the doc references check, then a build.
+  tests, the doc references check, the check that comments cite no issues,
+  then a build.
   Needs no database, so an obvious slip fails in seconds.
 - **`database`** — the route and RLS suites against a real Postgres service
   container. `scripts/ci-db.sh` builds both databases, applying migrations

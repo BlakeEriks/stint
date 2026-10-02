@@ -31,16 +31,9 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Neutral by default, on purpose. The accent marks the running timer;
-        // a screen's "Add client" is not competing with that, and before this
-        // every page with a primary action put a second green meaning on
-        // screen beside the nav rail's timer. Opting in is a decision now.
-        /* Carries a border as well as a fill. The fill alone is
-           `bg-surface-elevated`, which is also the dialog surface — so inside
-           a dialog the button was the same color as the panel behind it and
-           read as bare text. A neutral button has to stay legible as a
-           control on any surface it lands on, and the edge is what does
-           that. */
+        // Neutral by default: the accent means the running timer, so a
+        // second green on screen must be opted into. The border keeps the
+        // button legible on `bg-surface-elevated`, which is also a dialog's.
         default:
           "border border-edge-default bg-surface-elevated text-strong hover:bg-surface-active",
         // The one primary action on a screen that genuinely has one. See the

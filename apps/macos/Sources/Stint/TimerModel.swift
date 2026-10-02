@@ -12,9 +12,15 @@ final class TimerModel: Optimistic {
     /// Nil until the first fetch; the row omits the number rather than
     /// showing a zero that would read as "nothing owed".
     private(set) var stats: Stats?
-    /// The last five distinct things worked on, newest first. The running
-    /// one is the readout, not a row.
-    private(set) var recent: [TimeEntry] = []
+    /// The last five names worked on, newest first. The running one is the
+    /// readout, not a row, and is dropped here rather than at fetch time,
+    /// since the readout reconciles more often than the list.
+    var recent: [TaskName] {
+        let running = running?.taskName.lowercased()
+        return Array(taskNames.filter { $0.id != running }.prefix(Self.recentCount))
+    }
+    private static let recentCount = 5
+    private var taskNames: [TaskName] = []
     private(set) var clients: [Client] = []
     private(set) var projects: [Project] = []
     private(set) var email: String?
@@ -120,7 +126,7 @@ final class TimerModel: Optimistic {
     /// call is "reconcile now" rather than a second set of loops.
     func start() {
         guard !started else {
-            Task { await refresh() }
+            Task { await refresh(recent: false) }
             return
         }
         started = true
@@ -166,7 +172,13 @@ final class TimerModel: Optimistic {
         }
     }
 
-    func refresh() async {
+    /// `Optimistic` requires a bare `refresh()`; a defaulted parameter does
+    /// not satisfy it.
+    func refresh() async { await refresh(recent: true) }
+
+    /// `recent: false` on an open: the readout reconciles then, but a list
+    /// of past names can wait for the poll or the next start or stop.
+    func refresh(recent: Bool) async {
         guard await tokens.isSignedIn else { return }
         do {
             let fetchedAt = Date()
@@ -192,11 +204,10 @@ final class TimerModel: Optimistic {
             // `try?`: a failure here hides one number rather than surfacing an
             // error over a working timer.
             if let fetched = try? await api.stats() { stats = fetched }
-            // Two weeks back so Monday still offers Friday's work; a window
-            // this wide does not care where a DST boundary falls.
-            let windowStart = Date(timeIntervalSinceNow: -14 * 86_400)
-            if let fetched = try? await api.entries(from: windowStart, limit: 200) {
-                recent = Self.distinctTasks(in: fetched.filter { $0.endedAt != nil }, limit: 5)
+            // One more than is shown, so dropping the running name still
+            // leaves five.
+            if recent, let fetched = try? await api.taskNames(limit: Self.recentCount + 1) {
+                taskNames = fetched
             }
         } catch let error as APIError where error.isUnauthorized {
             await tokens.signOut()
@@ -210,18 +221,6 @@ final class TimerModel: Optimistic {
         }
     }
 
-    /// One row per task name. The server orders newest first, so the
-    /// occurrence that survives is the most recent one.
-    private static func distinctTasks(in entries: [TimeEntry], limit: Int) -> [TimeEntry] {
-        var seen = Set<String>()
-        var kept: [TimeEntry] = []
-        for entry in entries where seen.insert(entry.taskName).inserted {
-            kept.append(entry)
-            if kept.count == limit { break }
-        }
-        return kept
-    }
-
     // MARK: Actions
 
     func toggle() async {
@@ -231,27 +230,27 @@ final class TimerModel: Optimistic {
         } else {
             let name = draftTaskName.trimmingCharacters(in: .whitespacesAndNewlines)
             let draft = draftTaskName
-            await begin(taskName: name, projectId: draftProjectID, isBillable: nil) {
+            await begin(taskName: name, projectId: draftProjectID) {
                 self.draftTaskName = ""
                 return { self.draftTaskName = draft }
             }
         }
     }
 
-    /// Start fresh work with a past entry's name, project and billable
-    /// answer.
+    /// Start fresh work under a name used before, on the project it was last
+    /// used on — the same start the Start button makes.
     ///
     /// **Says so rather than doing nothing while a timer runs.** One running
     /// timer is the database's invariant, and a row that highlights and takes
     /// focus but silently ignores a click reads as broken. The message is the
     /// same fact the 409 carries.
-    func resume(_ entry: TimeEntry) async {
+    func resume(_ name: TaskName) async {
         guard !isRunning else {
             errorMessage = "A timer is already running. Stop it before starting another."
             return
         }
         errorMessage = nil
-        await begin(taskName: entry.taskName, projectId: entry.projectId, isBillable: entry.isBillable)
+        await begin(taskName: name.taskName, projectId: name.projectId)
     }
 
     func rename(to name: String) async {
@@ -266,7 +265,6 @@ final class TimerModel: Optimistic {
     private func begin(
         taskName: String,
         projectId: String?,
-        isBillable: Bool?,
         alongside: () -> (() -> Void) = { {} }
     ) async {
         let id = uuidv7()
@@ -279,8 +277,7 @@ final class TimerModel: Optimistic {
             taskName: taskName,
             startedAt: Date().addingTimeInterval(-skew),
             endedAt: nil,
-            isBillable: isBillable
-                ?? projects.first { $0.id == projectId }?.isBillableDefault ?? true,
+            isBillable: projects.first { $0.id == projectId }?.isBillableDefault ?? true,
             rateOverride: nil,
             durationSeconds: nil,
             durationOk: true,
@@ -294,7 +291,7 @@ final class TimerModel: Optimistic {
                 undoAlongside()
             }
         } perform: {
-            try await api.startTimer(id: id, taskName: taskName, projectId: projectId, isBillable: isBillable)
+            try await api.startTimer(id: id, taskName: taskName, projectId: projectId)
         }
     }
 
@@ -365,7 +362,7 @@ final class TimerModel: Optimistic {
         await tokens.signOut()
         summary = nil
         stats = nil
-        recent = []
+        taskNames = []
         projects = []
         clients = []
     }

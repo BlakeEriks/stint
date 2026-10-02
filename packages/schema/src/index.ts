@@ -184,9 +184,8 @@ export const StartTimer = z.object({
   taskName: z.string().max(500).default(''),
   startedAt: iso.optional(), // allows backdating a forgotten start
   /**
-   * Omitted, the column's `true` default applies. Sent, it carries a source
-   * entry's own answer — resuming non-billable work must not silently
-   * produce a billable entry.
+   * Optional. Omitted, the entry is stored as billable: the column's `true`
+   * default. TODO(#163): apply the project's default instead.
    */
   isBillable: z.boolean().optional(),
 });
@@ -922,6 +921,7 @@ export const ErrorCode = z.enum([
   'ENTRY_LOCKED',
   'EXPENSE_LOCKED',
   'EXPENSE_ALREADY_INVOICED',
+  'ENTRY_ALREADY_INVOICED',
   'ENTRY_NOT_FOUND',
   'NO_RATE_CONFIGURED',
   'INVALID_PERIOD',
