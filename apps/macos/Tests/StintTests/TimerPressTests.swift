@@ -13,7 +13,7 @@ struct TimerPressTests {
         let model = try await signedInModel()
         await FakeServer.shared.hold("POST /timer/start")
 
-        let press = Task { await model.resume(entry("Design")) }
+        let press = Task { await model.resume(name("Design")) }
         await Task.yield()
         #expect(model.running?.taskName == "Design")
 
@@ -28,7 +28,7 @@ struct TimerPressTests {
         let model = try await signedInModel()
         await FakeServer.shared.reject("POST /timer/start", status: 409, message: "A timer is already running.")
 
-        await model.resume(entry("Design"))
+        await model.resume(name("Design"))
         #expect(model.running == nil)
         #expect(model.errorMessage == "A timer is already running.")
     }
@@ -62,7 +62,7 @@ struct TimerPressTests {
         try await Task.sleep(for: .milliseconds(20))
 
         await FakeServer.shared.setRunning(entry("Design"))
-        await model.resume(entry("Design"))
+        await model.resume(name("Design"))
         #expect(model.running?.taskName == "Design")
 
         await FakeServer.shared.release("GET /summary")
@@ -78,6 +78,10 @@ private func entry(_ name: String) -> TimeEntry {
         isBillable: true, rateOverride: nil, durationSeconds: nil,
         durationOk: true, invoiceId: nil
     )
+}
+
+private func name(_ name: String) -> TaskName {
+    TaskName(taskName: name, projectId: nil, lastUsedAt: Date(timeIntervalSince1970: 1_790_000_000))
 }
 
 @MainActor
