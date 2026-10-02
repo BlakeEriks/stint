@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError, isExpenseClaimConflict } from '@/lib/errors';
+import {
+  handle,
+  ApiError,
+  isEntryClaimConflict,
+  isExpenseClaimConflict,
+} from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import {
@@ -54,8 +59,8 @@ export const GET = handle(async (req: Request) => {
  *
  * One transaction is the point of step 3. Allocating a number is not
  * undoable, so a failure after a separate allocation left a gap in a
- * sequence promised to have none — and an expense another invoice took in
- * the meantime is exactly such a failure.
+ * sequence promised to have none — and an entry or expense another invoice
+ * took in the meantime is exactly such a failure.
  */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
@@ -187,6 +192,12 @@ export const POST = handle(async (req: Request) => {
       throw new ApiError(
         'EXPENSE_ALREADY_INVOICED',
         'An expense on this invoice was billed on another one first. Preview again.',
+      );
+    }
+    if (isEntryClaimConflict(error)) {
+      throw new ApiError(
+        'ENTRY_ALREADY_INVOICED',
+        'Time on this invoice was billed on another one first. Preview again.',
       );
     }
     throw error;

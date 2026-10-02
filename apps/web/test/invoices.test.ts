@@ -1947,6 +1947,57 @@ test('an expense another invoice took rolls generation back, number included', a
   assert.equal(rows[0].n, 0, 'nothing from the losing call remains');
 });
 
+test('an entry another invoice took rolls generation back, number included (#193)', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), hours: 2 });
+  const first = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(first.status, 201);
+
+  // What a second, concurrent POST sends after loading the same unbilled
+  // entry a moment before the first one attached it.
+  const db = (globalThis as any).__TEST_DB__;
+  const { error } = await db.rpc('create_invoice', {
+    p_user_id: USER,
+    p_invoice: {
+      client_id: CLIENT,
+      issue_date: '2026-09-30',
+      period_start: PERIOD.periodStart,
+      period_end: PERIOD.periodEnd,
+      subtotal: 200,
+      tax_rate: 0,
+      tax_amount: 0,
+      expenses_subtotal: 0,
+      total: 200,
+      currency: 'USD',
+      grouping_mode: 'entry',
+      payment_details: null,
+      lines: [
+        {
+          description: 'Work',
+          unit: 'hour',
+          quantity: 2,
+          unit_price: 100,
+          amount: 200,
+        },
+      ],
+    },
+    p_entry_ids: [E(1)],
+    p_expense_ids: [],
+  });
+
+  const { isEntryClaimConflict } = await import('../src/lib/errors.ts');
+  assert.ok(isEntryClaimConflict(error), 'the route maps this to 409');
+  const { rows: seq } = await pool.query(
+    'select next_invoice_number n from user_settings where user_id=$1',
+    [USER],
+  );
+  assert.equal(seq[0].n, 2, 'the losing call used no number');
+  const { rows } = await pool.query('select count(*)::int n from invoices');
+  assert.equal(rows[0].n, 1, 'only one invoice holds this work');
+});
+
 test('an expense never counts as earned or unbilled work; awaiting includes it', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
