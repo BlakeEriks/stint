@@ -204,6 +204,14 @@ sent by the time anyone notices. So the routes hold the other half:
 `PATCH` refuses to demote the last live profile, and archiving the default
 hands it to a survivor. Both are covered in `invoices.test.ts`.
 
+### Issued invoices are immutable
+Once an invoice leaves `draft`, `guard_issued_invoice` refuses a change to
+any column but `status`, `sent_at` and `paid_at`, and moves `status` only
+along draft→sent/void, sent→paid/void, paid→void. `guard_issued_line_item`
+refuses inserting, editing or deleting one of its lines; the lines go only
+with the invoice, by cascade. Voiding releases the invoice's entries and
+expenses in the voiding update itself (`release_voided_invoice`).
+
 ### Billed entries are immutable
 A trigger blocks edits and deletes once an entry belongs to a **non-draft**
 invoice. The guarded fields are `started_at`, `ended_at`, `is_billable`,
@@ -321,8 +329,11 @@ hold; this list is the record of *what* must.
   changing it after issue rewrites what the client was told.
 - Entries on a **draft** invoice stay editable; a draft holds no number and
   has been sent to nobody.
+- Changing a **non-draft** invoice or its lines is rejected, and its status
+  moves only along the transition table, whichever client writes it.
 - Detaching an entry from a voided invoice is allowed — that is the release
   path voiding depends on.
+- Voiding releases what the invoice billed in the same statement.
 - Rates are frozen onto line items at generation: changing a client's rate
   later leaves an issued invoice at its original total.
 - Editing or deleting an expense billed to a **non-draft** invoice is

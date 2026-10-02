@@ -10,6 +10,26 @@ export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string }> };
 
+/* A user-supplied date is a record of when money actually arrived, not a
+   free-text field — it cannot predate the invoice being sent (paid before it
+   was even delivered) or postdate the moment of the request (a payment that
+   has not happened yet). */
+function assertPaidAt(paidAt: string, sentAt: string | null, now: Date) {
+  const paid = new Date(paidAt).getTime();
+  if (paid > now.getTime()) {
+    throw new ApiError('VALIDATION_FAILED', 'paidAt cannot be in the future', {
+      paidAt,
+    });
+  }
+  if (sentAt && paid < new Date(sentAt).getTime()) {
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      'paidAt cannot be earlier than the invoice was sent',
+      { paidAt, sentAt },
+    );
+  }
+}
+
 /**
  * PATCH /api/v1/invoices/:id/status
  *
@@ -20,9 +40,13 @@ type Ctx = { params: Promise<{ id: string }> };
  * Transitions are constrained: draft→sent/void, sent→paid/void, paid→void.
  * Nothing returns to draft, because leaving `sent` is what locked the
  * entries — reopening would let billed time change after the client saw it.
+ * `assertTransition` names what is allowed; `guard_issued_invoice` holds the
+ * same table under the row lock, so of two overlapping requests the later
+ * is checked against what the earlier wrote.
  *
- * Voiding releases the entries so they can be re-billed on a corrected
- * invoice, while the voided number stays on record to keep numbering gapless.
+ * Voiding releases the entries and expenses so they can be re-billed on a
+ * corrected invoice, while the voided number stays on record to keep
+ * numbering gapless. `release_voided_invoice` does it in the voiding update.
  */
 export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
@@ -41,28 +65,8 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   assertTransition(current.status as string, body.status);
 
   const now = new Date();
-  /* A user-supplied date is a record of when money actually arrived, not a
-     free-text field — it cannot predate the invoice being sent (paid before
-     it was even delivered) or postdate the moment of the request (a payment
-     that has not happened yet). */
-  if (body.status === 'paid' && body.paidAt) {
-    const paidAt = new Date(body.paidAt);
-    const sentAt = current.sent_at ? new Date(current.sent_at as string) : null;
-    if (paidAt.getTime() > now.getTime()) {
-      throw new ApiError(
-        'VALIDATION_FAILED',
-        'paidAt cannot be in the future',
-        { paidAt: body.paidAt },
-      );
-    }
-    if (sentAt && paidAt.getTime() < sentAt.getTime()) {
-      throw new ApiError(
-        'VALIDATION_FAILED',
-        'paidAt cannot be earlier than the invoice was sent',
-        { paidAt: body.paidAt, sentAt: current.sent_at },
-      );
-    }
-  }
+  if (body.status === 'paid' && body.paidAt)
+    assertPaidAt(body.paidAt, current.sent_at as string | null, now);
 
   const update: Record<string, unknown> = { status: body.status };
   if (body.status === 'sent') update.sent_at = body.sentAt ?? now.toISOString();
@@ -77,18 +81,6 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
 
   if (updateError) throw updateError;
   if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
-
-  // A voided invoice releases its entries and expenses so they can be
-  // re-billed. Its own lines stay frozen: the record of what was sent.
-  if (body.status === 'void') {
-    for (const table of ['time_entries', 'expenses']) {
-      const { error: releaseError } = await db
-        .from(table)
-        .update({ invoice_id: null })
-        .eq('invoice_id', id);
-      if (releaseError) throw releaseError;
-    }
-  }
 
   return NextResponse.json(toInvoice(data as InvoiceRow));
 });

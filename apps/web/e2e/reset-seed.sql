@@ -8,20 +8,15 @@
 -- an entry billed to a non-draft invoice, so deleting entries first fails
 -- the moment the seed contains any invoiced work — which it does, 118 rows
 -- of it. Deleting the invoice releases its entries by the same FK rule
--- (`on delete set null`) that voiding uses in the app, and the entry delete
--- below then succeeds. `scripts/seed-account.mjs` orders it the same way and
+-- (`on delete set null`), and the entry delete below then succeeds. Its line
+-- items cascade, the one way `guard_issued_line_item` lets an issued
+-- invoice's lines go. `scripts/seed-account.mjs` orders it the same way and
 -- says so for the same reason.
 --
 -- `auth.users` is NOT touched. Removing the row would cascade into
 -- `user_settings` via the signup trigger and invalidate any session.
 
 begin;
-
-delete from invoice_line_items
- where invoice_id in (
-   select id from invoices
-    where user_id = '00000000-0000-4000-8000-000000000001'
- );
 
 delete from invoices
  where user_id = '00000000-0000-4000-8000-000000000001';
