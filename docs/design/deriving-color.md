@@ -62,7 +62,8 @@ The two halves of a neutral ramp want opposite things:
   other, side by side, so every step should feel like the same size move. An
   eased curve deliberately bunches them.
 - **Text and borders** want **resolution where the contrast ratios are**. They
-  are compared to the card behind them, never to each other.
+  are compared to what sits behind them, never to each other: a border to the
+  card, text to every text ground.
 
 So surfaces come off `surfaces()`, a linear ladder, and ink off `inkRamp()`,
 an eased curve: `L(i) = 0.215 + 0.770 · t^1.40`, with steps 600 and 700 lifted
