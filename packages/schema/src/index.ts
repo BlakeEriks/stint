@@ -185,7 +185,7 @@ export const StartTimer = z.object({
   startedAt: iso.optional(), // allows backdating a forgotten start
   /**
    * Optional. Omitted, the entry is stored as billable: the column's `true`
-   * default, not the project's, which #163 is to apply.
+   * default. TODO(#163): apply the project's default instead.
    */
   isBillable: z.boolean().optional(),
 });
