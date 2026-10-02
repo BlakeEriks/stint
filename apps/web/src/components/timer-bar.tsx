@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { formatClock, uuidv7 } from '@stint/core';
 import { useTimer } from '@/lib/client/use-timer';
+import { useProject } from '@/lib/client/use-project-colors';
 import { ProjectPicker } from './project-picker';
 import { TaskSuggest } from './task-suggest';
 import type { Project } from '@/lib/client/api';
@@ -55,9 +56,11 @@ export function TimerBar({ projects }: { projects: Project[] }) {
     }
   };
 
-  const project = projects.find(
-    (p) => p.id === (isRunning ? running!.projectId : draftProject),
-  );
+  /* Resolved from every project, not only those offered: a running timer
+     keeps its project's name after that client is archived. */
+  const projectId = isRunning ? running!.projectId : draftProject;
+  const resolved = useProject(projectId);
+  const project = resolved ?? projects.find((p) => p.id === projectId);
 
   return (
     <section

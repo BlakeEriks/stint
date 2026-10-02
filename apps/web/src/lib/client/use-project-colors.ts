@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from './api';
+import { api, type Project } from './api';
 import { keys } from './query-keys';
 
 /**
@@ -107,4 +107,18 @@ export function useClients(): Map<
       ),
     [clients.data],
   );
+}
+
+/**
+ * The project an entry or a running timer already belongs to, archived ones
+ * and those of an archived client included. A picker offers only active
+ * projects; what work was tracked against is a fact, and naming it "No
+ * project" would misreport it. The same query as the colors, so no fetch.
+ */
+export function useProject(id: string | null | undefined): Project | undefined {
+  const { data } = useQuery({
+    queryKey: keys.projects({ archived: true }),
+    queryFn: () => api.projects({ includeArchived: true }),
+  });
+  return id ? (data?.projects ?? []).find((p) => p.id === id) : undefined;
 }
