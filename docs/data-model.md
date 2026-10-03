@@ -36,6 +36,13 @@ Implemented **twice**, once per language:
   Picking which currency the screen shows is the caller's, as it is for
   `revenue_by_client` and `revenue_by_project`.
 
+  **`unbilled_by_client`, `revenue_by_day` and `revenue_by_client` count a
+  running entry** up to a trailing `p_now` (default `now()`), measured by
+  `entry_seconds()` (`00000000000031_live_running_entry.sql`), so Home and the
+  menu bar move with a timer. The route passes the instant it cuts its windows
+  at. `month_revenue` and `revenue_by_project` still skip a running entry; no
+  screen reads them.
+
   **Each rollup owns its window, and `/stats` reports them rather than
   choosing them.** `unbilled_by_client` groups by (client, rate) and reports a
   client-less row as "No client". `revenue_by_client` and

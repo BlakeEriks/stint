@@ -13,6 +13,17 @@ export function elapsedSeconds(
   return Math.max(0, Math.floor((now.getTime() - start.getTime()) / 1000));
 }
 
+/**
+ * A running entry's length as the server reports it: rounded to the nearest
+ * second, as `entry_seconds()` and the generated `duration_seconds` round, so
+ * a row and the figures beside it agree, and stopping moves neither.
+ * `rates.test.ts` holds it to the SQL.
+ */
+export function entrySeconds(startedAt: Date | string, now: Date): number {
+  const start = typeof startedAt === 'string' ? new Date(startedAt) : startedAt;
+  return Math.max(0, Math.round((now.getTime() - start.getTime()) / 1000));
+}
+
 /** `1:47:22` — the timer and menu bar format. Hours are never zero-padded. */
 export function formatClock(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));

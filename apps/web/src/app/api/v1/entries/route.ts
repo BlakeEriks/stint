@@ -4,6 +4,7 @@ import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { CreateTimeEntry, ListEntriesQuery } from '@stint/schema';
+import { entrySeconds } from '@stint/core';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,8 +40,17 @@ export const GET = handle(async (req: Request) => {
   const { data, error } = await query;
   if (error) throw error;
 
+  /* A running entry's length so far, measured here, so a list shows the
+     server's figure rather than counting on the client's clock. `endedAt`
+     stays null: that, not a null duration, is what marks it running. */
+  const now = new Date();
   return NextResponse.json({
-    entries: (data ?? []).map((r) => toEntry(r as EntryRow)),
+    entries: (data ?? []).map((r) => {
+      const entry = toEntry(r as EntryRow);
+      return entry.endedAt === null
+        ? { ...entry, durationSeconds: entrySeconds(entry.startedAt, now) }
+        : entry;
+    }),
   });
 });
 

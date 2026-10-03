@@ -194,16 +194,12 @@ function groupByTask(entries: TimeEntry[], projects: Project[]) {
 }
 
 /**
- * A running entry has no `durationSeconds`, so its length is measured from
- * its start. Without this the live row reads `0:00` for the whole session.
+ * `/entries` measures a running entry at its response, so the row and the
+ * Earned beside it come from the same refresh rather than the client's clock.
+ * Null only for a timer the client has just started and not yet refetched.
  */
 function secondsOf(e: TimeEntry): number {
-  if (e.durationSeconds != null) return e.durationSeconds;
-  if (e.endedAt !== null) return 0;
-  return Math.max(
-    0,
-    Math.floor((Date.now() - new Date(e.startedAt).getTime()) / 1000),
-  );
+  return e.durationSeconds ?? 0;
 }
 
 /** `4:15` — a task's length, beside `5h 00m` for the day's total. */

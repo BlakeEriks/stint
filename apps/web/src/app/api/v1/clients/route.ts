@@ -27,7 +27,10 @@ export const GET = handle(async (req: Request) => {
      owed" rather than "not shown". */
   const [projects, unbilled] = await Promise.all([
     db.from('projects').select('client_id').is('archived_at', null),
-    db.rpc('unbilled_by_client', { p_user_id: userId }),
+    db.rpc('unbilled_by_client', {
+      p_user_id: userId,
+      p_now: new Date().toISOString(),
+    }),
   ]);
   if (projects.error) throw projects.error;
   if (unbilled.error) throw unbilled.error;

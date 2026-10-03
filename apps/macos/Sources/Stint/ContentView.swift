@@ -37,6 +37,7 @@ struct ContentView: View {
         // panel — without this, signing back in lands in Settings with the
         // timer hidden behind it.
         .onChange(of: model.isSignedIn) { _, _ in showingSettings = false }
+        .background(PanelWatch { model.panel(open: $0) })
         .frame(width: 320)
         // Sized before first paint: the panel hangs from the bar, so a height
         // that settles later moves the whole window.

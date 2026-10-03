@@ -93,7 +93,12 @@ export const GET = handle(async (req: Request) => {
     projectRows,
     collectedRows,
   ] = await Promise.all([
-    db.rpc('unbilled_by_client', { p_user_id: userId }),
+    /* `p_now` on every rollup: a running entry is measured at the same
+       instant the windows are cut at. */
+    db.rpc('unbilled_by_client', {
+      p_user_id: userId,
+      p_now: now.toISOString(),
+    }),
 
     /* The month's money one day at a time. `month_revenue` answers the month
        as a single number, which cannot be summed into a cumulative line. */
@@ -102,6 +107,7 @@ export const GET = handle(async (req: Request) => {
       p_from: monthStart.toISOString(),
       p_to: monthEnd.toISOString(),
       p_tz: tz,
+      p_now: now.toISOString(),
     }),
 
     /* The month's money per client — the strip under the climb. A rollup
@@ -112,6 +118,7 @@ export const GET = handle(async (req: Request) => {
       p_user_id: userId,
       p_from: monthStart.toISOString(),
       p_to: monthEnd.toISOString(),
+      p_now: now.toISOString(),
     }),
 
     /* The week's bars: the same rollup over its own window, because a week
@@ -123,6 +130,7 @@ export const GET = handle(async (req: Request) => {
       p_from: weekWindowStart.toISOString(),
       p_to: weekWindowEnd.toISOString(),
       p_tz: tz,
+      p_now: now.toISOString(),
     }),
 
     db

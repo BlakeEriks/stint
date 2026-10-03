@@ -1,5 +1,6 @@
 import {
   buildPreview,
+  entrySeconds,
   formatInvoiceNumber,
   pickSchedules,
   type ScheduleKind,
@@ -212,15 +213,22 @@ export const handlers = {
     const from = q.get('from');
     const to = q.get('to');
     const projectId = q.get('projectId');
-    const entries = getDb()
-      .entries.filter(
+    const db = getDb();
+    const entries = db.entries
+      .filter(
         (e) =>
           (!from || e.startedAt >= new Date(from).toISOString()) &&
           (!to || e.startedAt <= new Date(to).toISOString()) &&
           (!projectId ||
             e.projectId === (projectId === 'none' ? null : projectId)),
       )
-      .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+      // As the route does: a running entry measured at the response.
+      .map((e) =>
+        e.endedAt === null
+          ? { ...e, durationSeconds: entrySeconds(e.startedAt, db.now) }
+          : e,
+      );
     return ok(envelopes.entries, { entries });
   }),
 
