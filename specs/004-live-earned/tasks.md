@@ -46,21 +46,21 @@ before its code lands.
 
 ### Tests
 
-- [ ] T006 [P] [US1] Failing test in `packages/core/test/stats.test.ts`: `revenueByDay` (or a sibling the route uses) exposes each day's seconds alongside its amount
-- [ ] T007 [P] [US1] Failing route tests in `apps/web/test/routes.test.ts`: with a running entry started today on a rated project, `/stats` returns `earnedToday` priced for its elapsed time and `secondsToday` including it, both from the same row; on an unrated project, `secondsToday` grows and `earnedToday` doesn't (FR-005)
-- [ ] T008 [P] [US1] Failing route test in `apps/web/test/routes.test.ts`: `GET /entries` returns a running entry with `endedAt: null` and `durationSeconds` equal to its elapsed seconds at the response (± 2s)
-- [ ] T009 [P] [US1] Confirm `apps/web/test/invoices.test.ts` `'preview excludes a running timer'` (~216) still passes, and add the same for invoice create in the same file (FR-004)
+- [X] T006 ~~[P] [US1] Failing test in `packages/core/test/stats.test.ts`: `revenueByDay` (or a sibling the route uses) exposes each day's seconds alongside its amount~~ — not needed: Today's total stays the sum of its rows (research R4)
+- [X] T007 [P] [US1] Failing route tests in `apps/web/test/routes.test.ts`: with a running entry started today on a rated project, `/stats` returns `earnedToday` priced for its elapsed time; on an unrated project, `earnedToday` doesn't grow (FR-005)
+- [X] T008 [P] [US1] Failing route test in `apps/web/test/routes.test.ts`: `GET /entries` returns a running entry with `endedAt: null` and `durationSeconds` equal to its elapsed seconds at the response (± 2s)
+- [X] T009 [P] [US1] Confirm `apps/web/test/invoices.test.ts` `'preview excludes a running timer'` (~216) still passes, and add the same for invoice create in the same file (FR-004)
 
 ### Implementation
 
-- [ ] T010 [US1] Add `secondsToday: z.number().int().nonnegative()` to `Stats` in `packages/schema/src/`, with a doc comment: today's worked seconds, the running entry included, from the same row as `earnedToday`
-- [ ] T011 [US1] In `packages/core/src/stats.ts`, carry each day's seconds through `revenueByDay` (or add a sibling map); keep it pure
-- [ ] T012 [US1] In `apps/web/src/app/api/v1/stats/route.ts`, return `secondsToday` from today's `revenue_by_day` row; update the `earnedToday` comment to say a running entry counts
-- [ ] T013 [US1] In `apps/web/src/app/api/v1/entries/route.ts`, set a running entry's `durationSeconds` to its elapsed seconds at the response (`elapsedSeconds` from `@stint/core`), leaving `toEntry` in `apps/web/src/lib/rows.ts` unchanged
-- [ ] T014 [US1] In `apps/web/src/components/home-today.tsx`, show `stats.secondsToday` as the total and remove `secondsOf`'s `Date.now()` branch; rows read `durationSeconds` as given
-- [ ] T015 [US1] In `apps/web/src/components/dock.tsx`, pass `stats.secondsToday` to `EntryList` instead of `timer.todaySeconds`, so the dock's pair comes from one answer
-- [ ] T016 [US1] In `apps/web/src/lib/client/use-timer.ts`, when a `/summary` fetch lands with a running timer, invalidate `keys.stats()` and `keys.entries()` so all three refresh on one beat (research R5); comment why
-- [ ] T017 [US1] Add a story export for Today with a running timer on a rated project and one on an unrated project, in the stories file covering `home-today.tsx` (`apps/web/src/components/home.stories.tsx`), using the mocks' `running` scenario
+- [X] T010 ~~[US1] Add `secondsToday: z.number().int().nonnegative()` to `Stats` in `packages/schema/src/`, with a doc comment: today's worked seconds, the running entry included, from the same row as `earnedToday`~~ — not needed (research R4)
+- [X] T011 ~~[US1] In `packages/core/src/stats.ts`, carry each day's seconds through `revenueByDay` (or add a sibling map); keep it pure~~ — not needed (research R4)
+- [X] T012 ~~[US1] In `apps/web/src/app/api/v1/stats/route.ts`, return `secondsToday` from today's `revenue_by_day` row; update the `earnedToday` comment to say a running entry counts~~ — not needed (research R4)
+- [X] T013 [US1] In `apps/web/src/app/api/v1/entries/route.ts`, set a running entry's `durationSeconds` to its elapsed seconds at the response (`elapsedSeconds` from `@stint/core`), leaving `toEntry` in `apps/web/src/lib/rows.ts` unchanged
+- [X] T014 [US1] In `apps/web/src/components/home-today.tsx`, remove `secondsOf`'s `Date.now()` branch; the rows and their total read `durationSeconds` as `/entries` gives it
+- [X] T015 ~~[US1] In `apps/web/src/components/dock.tsx`, pass `stats.secondsToday` to `EntryList` instead of `timer.todaySeconds`, so the dock's pair comes from one answer~~ — not needed: the dock keeps the timer clock's `todaySeconds` (research R4)
+- [X] T016 [US1] `followRunningTimer` in `apps/web/src/lib/client/query-keys.ts`, subscribed once in `apps/web/src/components/providers.tsx`: when a fetched `/summary` lands with a running timer, invalidate `keys.stats()` and `keys.entries()` so all three refresh on one beat (research R5)
+- [X] T017 [US1] Add a story export for Today with a running timer on a rated project and one on an unrated project, in the stories file covering `home-today.tsx` (`apps/web/src/components/home.stories.tsx`), using the mocks' `running` scenario
 
 **Checkpoint**: US1 independently testable; sign in locally and watch Today for two minutes with a timer running.
 

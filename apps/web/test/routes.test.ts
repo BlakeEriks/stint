@@ -1161,6 +1161,74 @@ test('a running timer is unbilled so far; non-billable work is not', async () =>
   assert.equal(res.body.unbilled.seconds, 7200);
 });
 
+test('Earned today counts a running timer up to the request, priced as it would bill', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-000000000005';
+  const rated = '33333333-0000-4000-8000-0000000000d2';
+  const unrated = '33333333-0000-4000-8000-0000000000d3';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Live',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Rated')`,
+    [rated, USER, c],
+  );
+  // No client, and the user default is unset here: nothing resolves a rate.
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,null,'Unrated')`,
+    [unrated, USER],
+  );
+  await pool.query(
+    'update user_settings set default_hourly_rate = null where user_id = $1',
+    [USER],
+  );
+  const run = (projectId: string) =>
+    pool.query(
+      `insert into time_entries (id,user_id,project_id,task_name,started_at)
+       values ($1,$2,$3,'running',$4)`,
+      // Half an hour, well inside today in UTC unless the suite runs in the
+      // first half hour after midnight.
+      [
+        S(13),
+        USER,
+        projectId,
+        new Date(Date.now() - 1800 * 1000).toISOString(),
+      ],
+    );
+
+  await run(rated);
+  const live = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(live.body.earnedToday, 50, '0.50 h at $100');
+
+  await pool.query('delete from time_entries where id = $1', [S(13)]);
+  await run(unrated);
+  const none = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(
+    none.body.earnedToday,
+    0,
+    'unrated time earns nothing it can name',
+  );
+});
+
+test('the entries list measures a running entry at the response', async () => {
+  const { GET: list } = await import('../src/app/api/v1/entries/route.ts');
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at)
+     values ($1,$2,null,'running',$3)`,
+    [S(14), USER, new Date(Date.now() - 600 * 1000).toISOString()],
+  );
+
+  const res = await json(await list(req('/entries')));
+  const row = res.body.entries.find((e: { id: string }) => e.id === S(14));
+  assert.equal(row.endedAt, null, 'still running');
+  assert.ok(
+    Math.abs(row.durationSeconds - 600) <= 2,
+    `measured at the response, got ${row.durationSeconds}`,
+  );
+});
+
 test('the unbilled total covers every client, even past the row cap', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 

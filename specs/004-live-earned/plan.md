@@ -8,8 +8,8 @@
 
 The three rollups behind the home figures and Unbilled count a running entry
 up to `now()`, priced by the rule they already use for stopped entries.
-`/stats` also returns today's seconds, and `GET /entries` returns a running
-entry's length so far, so Today's figures and rows all come from the server.
+`GET /entries` returns a running entry's length so far, so Today's figures
+and rows all come from the server.
 Web refetches them alongside `/summary`, which already polls each minute
 while a timer runs and pauses when the tab is hidden. macOS refreshes the
 panel's figures only while the panel is open.
@@ -25,7 +25,7 @@ refresh loop on macOS
 **Storage**: Supabase Postgres; one migration replacing three functions
 
 **Testing**: `apps/web/test/routes.test.ts` and `rates.test.ts` against real
-Postgres; `mocks-parity.test.ts`; `packages/core/test`; stories for Today;
+Postgres; `mocks-parity.test.ts`; stories for Today;
 `apps/macos/Tests/StintTests`
 
 **Target Platform**: Web (Vercel) and macOS
@@ -48,8 +48,8 @@ runs: `/summary`, `/stats` and today's `/entries`
 | I. Never silently modifies user data | No | Read-only change to figures; no row is written. |
 | II. Logic written twice has a parity test | Yes | The running session is measured and priced only in SQL. The mock rollups in `apps/web/src/mocks/derive.ts` follow, and `mocks-parity.test.ts` already holds them to the SQL. |
 | III. Every client through `/api/v1`; server owns timer truth | Yes | The server measures and prices the running session; clients only show it. |
-| IV. `packages/core` does no I/O | Yes | `revenueByDay` gains seconds; still pure. |
-| V. Tests first, one suite per kind of code | Yes | Route tests and a pricing test against real Postgres, a core test, a Today story with a running timer, and a Swift test for the panel-only refresh. |
+| IV. `packages/core` does no I/O | No | No core change. |
+| V. Tests first, one suite per kind of code | Yes | Route tests and a pricing test against real Postgres, a Today story with a running timer, and a Swift test for the panel-only refresh. |
 
 Additional Constraints: one running timer (unchanged); issued invoices
 untouched, and `lib/invoicing.ts` keeps its own `ended_at is not null`
@@ -76,18 +76,15 @@ specs/004-live-earned/
 
 ```text
 supabase/migrations/00000000000030_live_running_entry.sql   # new: helper + 3 rollups
-apps/web/src/app/api/v1/stats/route.ts      # adds secondsToday
+apps/web/src/app/api/v1/stats/route.ts      # passes p_now to the rollups
 apps/web/src/app/api/v1/entries/route.ts    # running entry's length so far
 apps/web/src/mocks/derive.ts                # mock rollups count the running entry
 apps/web/src/lib/client/use-timer.ts        # each summary refetch while running refetches stats + entries
-apps/web/src/components/home-today.tsx      # total from /stats; drop the client clock
-apps/web/src/components/dock.tsx            # Today's seconds from /stats
+apps/web/src/components/home-today.tsx      # drop the client clock
 apps/macos/Sources/Stint/TimerModel.swift   # full refresh only while the panel is open
 apps/macos/Sources/Stint/ContentView.swift  # tells the model when the panel opens and closes
-packages/core/src/stats.ts                  # revenueByDay carries seconds
-packages/schema/src/                        # Stats.secondsToday
+packages/schema/src/                        # doc comments only
 apps/web/test/routes.test.ts, rates.test.ts, mocks-parity.test.ts
-packages/core/test/stats.test.ts
 apps/macos/Tests/StintTests/
 ```
 

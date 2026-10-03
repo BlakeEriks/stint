@@ -129,3 +129,26 @@ export function invalidateEntryData(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: keys.taskNames() }),
   ]);
 }
+
+/**
+ * While a timer runs, the figures it moves refresh on the timer's own beat.
+ *
+ * `/summary` refetches each minute while a timer runs, pauses in a hidden
+ * tab and refetches on focus (`use-timer.ts`). Riding that one schedule keeps
+ * Earned, Unbilled and Today's rows on the same minute as the timer, and
+ * quiet whenever it is. Only a fetched answer counts: the first load already
+ * fetches everything, and a prediction (`manual`) is the press's to refresh.
+ *
+ * Returns the unsubscribe.
+ */
+export function followRunningTimer(queryClient: QueryClient) {
+  return queryClient.getQueryCache().subscribe((event) => {
+    if (event.type !== 'updated' || event.action.type !== 'success') return;
+    if (event.action.manual) return;
+    const { queryKey, state } = event.query;
+    if (queryKey[0] !== keys.summary()[0] || state.dataUpdateCount < 2) return;
+    if (!(state.data as { running?: unknown } | undefined)?.running) return;
+    void queryClient.invalidateQueries({ queryKey: keys.stats() });
+    void queryClient.invalidateQueries({ queryKey: keys.entries() });
+  });
+}

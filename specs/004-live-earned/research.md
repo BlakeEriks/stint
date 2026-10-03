@@ -35,19 +35,18 @@
   A route test pins it: an invoice generated during a running timer excludes
   it (FR-004).
 
-## R4. Today's figures from one answer
+## R4. Today's figures from one refresh
 
-- **Decision**: `/stats` adds `secondsToday` from the same `revenue_by_day`
-  row as `earnedToday`. Today's total and the dock's total read it.
-  `GET /entries` returns a running entry's `durationSeconds` measured at the
-  response, so Today's rows need no client clock.
-- **Rationale**: The headline pair (`$x · 22m`) comes from one row of one
-  response, so it cannot disagree (FR-010). The rows come from the same
-  refresh.
-- **Alternatives considered**: Summing the rows on the client for the total:
-  the total and Earned would come from different responses.
-  Changing `toEntry` for every route: wider than needed; only the list feeds
-  Today's rows.
+- **Decision**: `GET /entries` returns a running entry's `durationSeconds`
+  measured at the response, so Today's rows, and the total summed from them,
+  need no client clock. Earned stays `/stats`' `earnedToday`. Both refresh on
+  the same beat (R5). The dock keeps `/summary`'s `todaySeconds`, the timer
+  clock beside it.
+- **Rationale**: Today's total counts all worked time, non-billable included,
+  so it cannot come from `revenue_by_day`, which counts billable seconds.
+- **Alternatives considered**: A `secondsToday` on `/stats` from
+  `revenue_by_day`: billable only, so it would drop non-billable time from
+  the total. Changing `toEntry` for every route: wider than needed.
 
 ## R5. Web refresh
 
