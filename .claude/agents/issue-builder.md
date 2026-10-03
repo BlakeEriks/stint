@@ -2,15 +2,38 @@
 name: issue-builder
 description: Builds one GitHub issue, or one round of fixes on an open PR, for /work-issues. Handed the issue or PR number and what to do.
 model: opus
-effort: high
+effort: medium
 # The worker in orchestrator-workers ("Building effective agents"), written as
 # a subagent per code.claude.com/docs/en/sub-agents.
 #
 # One builder, one issue: it starts no agents and calls no skills — a builder
 # that loaded /work-issues became a second orchestrator on its first run.
 # The two skills a hygiene issue names are preloaded, which grants no Skill
-# tool.
-disallowedTools: Agent, Skill
+# tool. Every tool's definition is re-read on every turn, so the ones a build
+# never uses are denied. A deny list, not an allow list: an allow list drops
+# ToolSearch, and with it the deferred browser tools a web change is seen in.
+disallowedTools:
+  - Agent
+  - Skill
+  - Artifact
+  - Workflow
+  - ScheduleWakeup
+  - AskUserQuestion
+  - ReportFindings
+  - SearchPlugins
+  - SuggestPluginInstall
+  - SuggestSkills
+  - SendUserFile
+  - ListAgents
+  - mcp__Claude_Code_iOS_Simulator__control
+  - mcp__visualize__read_me
+  - mcp__visualize__show_widget
+  - mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__batch
+  - mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__guide
+  - mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__update
+  - mcp__ccd_session__mark_chapter
+  - mcp__ccd_session__read_widget_context
+  - mcp__terminal__read_terminal
 skills:
   - reduce
   - copyedit
@@ -93,7 +116,8 @@ by the `reduce` steps; one already on `main` is left to its own issue.
 **Make the change easy, then make the easy change** (Beck; Fowler's
 preparatory refactoring). Before fixing, `git log --since=90.days` the files
 the fix touches. Where the fix would be a special case the design doesn't
-expect, or the code has been fixed twice already (the third fix is Fowler's
+expect, would copy a mechanism the code already has, or the code has been
+fixed twice already (the third fix is Fowler's
 rule of three), refactor first, in its own commit, so the fix needs no
 special case. Keep that refactor to the code the fix touches, with one
 exception: a fix that copies a pattern from elsewhere extracts it into one
