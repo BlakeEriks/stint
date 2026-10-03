@@ -141,6 +141,20 @@ describe('Inbox', () => {
     expect(pdf).not.toHaveTextContent('STINT-0001');
   });
 
+  it('draws its actions as the xs Button, with no metrics of its own', () => {
+    render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
+      wrapper,
+    });
+
+    for (const action of [
+      screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
+      screen.getByRole('link', { name: 'Download STINT-0001' }),
+    ]) {
+      expect(action).toHaveAttribute('data-slot', 'button');
+      expect(action).toHaveAttribute('data-size', 'xs');
+    }
+  });
+
   it('keeps the actions in the document when the row is not hovered', () => {
     render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
       wrapper,
