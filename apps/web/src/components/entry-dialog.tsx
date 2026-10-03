@@ -445,8 +445,9 @@ export function EntryDialog({
                   none. */}
               {existing ? (
                 <ConfirmAction
-                  /* The one action in the app with no label. The confirm
-                     that follows spells it out before anything is removed. */
+                  /* No visible label, as a destructive first step may be
+                     (`.claude/rules/web-ui.md`): the confirm that follows
+                     spells it out before anything is removed. */
                   aria-label="Delete entry"
                   className="mr-auto"
                   label="Delete for good"
