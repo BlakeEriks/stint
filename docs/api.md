@@ -34,7 +34,7 @@ trusting the device clock.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/entries` | `?from&to&projectId&clientId&limit` (1–500, default 200), newest first. **`projectId=none`** returns entries with no project at all — an absent parameter already means "every entry", so there was otherwise no way to ask for the ones the inbox surfaces. |
+| `GET` | `/entries` | `?from&to&projectId&clientId&limit` (1–500, default 200), newest first. **`projectId=none`** returns entries with no project at all — an absent parameter already means "every entry", so there was otherwise no way to ask for the ones the inbox surfaces. A running entry's `durationSeconds` is its length at the response, not null; `endedAt: null` is what marks it running. |
 | `GET` | `/entries/:id` | |
 | `POST` | `/entries` | Manual entry. `id` is client-supplied (UUIDv7) so a retry is idempotent. Always complete — `endedAt` required, and `422 VALIDATION_FAILED` if it is at or before `startedAt`. |
 | `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice. Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. |
@@ -98,6 +98,10 @@ ever been paid or that `paid_at` is in the future.
 entry's own date in `tz` — a property of the data, so it reads the same on
 every device. Unrated work earns nothing it can name, so it can understate a
 day whose rate chain resolves to null.
+
+**A running timer counts up to the response** in `earnedToday`, `unbilled`,
+`week` and `month`, priced as it would bill if stopped then, so stopping it
+moves no figure. It still never reaches an invoice (see Invoices).
 
 **Rows are capped and the remainder is reported, never dropped.** `unbilled`
 carries 5 rows plus a `moreClients` count. The total still covers every
