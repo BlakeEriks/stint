@@ -26,15 +26,13 @@ export const GET = handle(async (req: Request) => {
     throw new ApiError('INVALID_PERIOD', '`to` must not precede `from`');
   }
 
-  const data = await selectAll((from, to) =>
+  const data = await selectAll(() =>
     db
       .from('time_entries')
       .select(ENTRY_COLUMNS)
       .gte('started_at', q.from)
       .lte('started_at', q.to)
-      .order('started_at', { ascending: true })
-      .order('id', { ascending: true })
-      .range(from, to),
+      .order('started_at', { ascending: true }),
   );
 
   if (q.granularity === 'day') {

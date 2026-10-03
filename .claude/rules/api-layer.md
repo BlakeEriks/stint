@@ -53,9 +53,7 @@ omits one.
 
 ### Conventions
 
-- A read that can match more than 1,000 rows goes through `selectAll()`,
-  ordered to end on a unique column. PostgREST returns only the first
-  `max_rows` and reports no error, so a plain read truncates in silence.
+- A read that can pass 1,000 rows goes through `selectAll()`.
 - Never pre-check the running timer before inserting. Attempt the insert and
   translate the unique-violation — a pre-check is a race, the index is not.
 - Numeric columns arrive from PostgREST as **strings**; `rows.ts` converts them.

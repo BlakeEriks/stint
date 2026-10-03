@@ -78,7 +78,7 @@ export async function loadBillableEntries(
   const startInstant = startOfLocalDate(opts.periodStart, opts.tz);
   const endExclusive = startOfLocalDate(addDays(opts.periodEnd, 1), opts.tz);
 
-  const rows = await selectAll((from, to) =>
+  const rows = await selectAll(() =>
     db
       .from('time_entries')
       .select(
@@ -90,9 +90,7 @@ export async function loadBillableEntries(
       .not('ended_at', 'is', null)
       .gte('started_at', startInstant.toISOString())
       .lt('started_at', endExclusive.toISOString())
-      .order('started_at', { ascending: true })
-      .order('id', { ascending: true })
-      .range(from, to),
+      .order('started_at', { ascending: true }),
   );
 
   return rows.map((row) => {
@@ -251,14 +249,12 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
   const invoice = toInvoice(row as InvoiceRow);
 
   const [items, client, settings] = await Promise.all([
-    selectAll((from, to) =>
+    selectAll(() =>
       db
         .from('invoice_line_items')
         .select(LINE_ITEM_COLUMNS)
         .eq('invoice_id', invoiceId)
-        .order('sort_order', { ascending: true })
-        .order('id', { ascending: true })
-        .range(from, to),
+        .order('sort_order', { ascending: true }),
     ),
     loadClient(db, invoice.clientId),
     loadSettings(db),

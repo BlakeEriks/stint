@@ -121,15 +121,13 @@ export async function readImport(
       .select('id,name,client_id,hourly_rate,is_billable_default,archived_at'),
     db.from('user_settings').select('default_hourly_rate').maybeSingle(),
     dates.length
-      ? selectAll((first, last) =>
+      ? selectAll(() =>
           db
             .from('time_entries')
             .select('id,task_name,started_at,ended_at')
             .not('ended_at', 'is', null)
             .lt('started_at', `${to}T00:00:00Z`)
-            .gt('ended_at', `${from}T00:00:00Z`)
-            .order('id', { ascending: true })
-            .range(first, last),
+            .gt('ended_at', `${from}T00:00:00Z`),
         )
       : Promise.resolve([]),
   ]);

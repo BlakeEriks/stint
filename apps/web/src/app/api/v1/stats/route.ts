@@ -141,7 +141,7 @@ export const GET = handle(async (req: Request) => {
     /* Unbilled work with no project cannot resolve a rate beyond the user
        default. Oldest first: the inbox opens the oldest, which is the closest
        to being invoiced without a rate. */
-    selectAll<UnprojectedRow>((from, to) =>
+    selectAll<UnprojectedRow>(() =>
       db
         .from('time_entries')
         .select('id, task_name, started_at, duration_seconds')
@@ -150,9 +150,7 @@ export const GET = handle(async (req: Request) => {
         .eq('invoiced_elsewhere', false)
         .not('ended_at', 'is', null)
         .eq('is_billable', true)
-        .order('started_at', { ascending: true })
-        .order('id', { ascending: true })
-        .range(from, to),
+        .order('started_at', { ascending: true }),
     ),
 
     /* Candidates for the strange-duration row: every stopped, uninvoiced
@@ -160,7 +158,7 @@ export const GET = handle(async (req: Request) => {
          settings and are fetched in the same batch, so the comparison happens
          below rather than in the filter. `ended_at is not null` keeps a
          running timer out: its length is still changing. */
-    selectAll<DurationRow>((from, to) =>
+    selectAll<DurationRow>(() =>
       db
         .from('time_entries')
         .select('id, task_name, started_at, duration_seconds, project_id')
@@ -168,23 +166,19 @@ export const GET = handle(async (req: Request) => {
         .eq('invoiced_elsewhere', false)
         .not('ended_at', 'is', null)
         .eq('duration_ok', false)
-        .order('started_at', { ascending: true })
-        .order('id', { ascending: true })
-        .range(from, to),
+        .order('started_at', { ascending: true }),
     ),
 
     /* Candidates for the overlap row: the same uninvoiced, stopped set,
        whatever its length. A billed entry is locked, so flagging it would
        ask for an edit nobody can make. */
-    selectAll<SpanRow>((from, to) =>
+    selectAll<SpanRow>(() =>
       db
         .from('time_entries')
         .select('id, task_name, started_at, ended_at')
         .is('invoice_id', null)
         .eq('invoiced_elsewhere', false)
-        .not('ended_at', 'is', null)
-        .order('id', { ascending: true })
-        .range(from, to),
+        .not('ended_at', 'is', null),
     ),
 
     /* Project and client names for whichever of those rows survives the
