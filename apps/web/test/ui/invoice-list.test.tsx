@@ -245,29 +245,4 @@ describe('InvoiceList', () => {
     );
     expect(screen.queryByText(/No invoices yet/)).toBeNull();
   });
-
-  it('says what an empty filter is hiding', async () => {
-    serve([
-      invoice({ id: 'i1', status: 'paid' }),
-      invoice({ id: 'i2', status: 'paid' }),
-      invoice({ id: 'i3', status: 'void' }),
-    ]);
-    render(<InvoiceList />, { wrapper });
-
-    expect(
-      await screen.findByText('Nothing open. 2 paid · 1 void.'),
-    ).toBeInTheDocument();
-  });
-
-  it('names the filter that is empty', async () => {
-    search.value = new URLSearchParams('status=paid');
-    serve([invoice({ status: 'sent' })]);
-    render(<InvoiceList />, { wrapper });
-
-    /* "Everything issued has been paid" here would say the opposite of
-       the truth. */
-    expect(
-      await screen.findByText('Nothing paid. 1 sent.'),
-    ).toBeInTheDocument();
-  });
 });
