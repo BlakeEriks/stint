@@ -12,7 +12,10 @@ import { Slot } from "radix-ui"
  *
  *   The role sets the variant: the one action the screen exists to complete
  *   is `accent`, even with the timer in view; anything else that performs
- *   something `default`; beside a confirm, or any row action, `ghost`; the second step of a destructive pair
+ *   something `default`; beside a confirm, or any row action, `ghost` — but a
+ *   row action on a raised card (`bg-surface-elevated`) is `default`, since a
+ *   borderless label there has nothing to read as a control against; the
+ *   second step of a destructive pair
  *   `destructive`. The error boundary's "Try again" stays neutral, so green
  *   still means the timer that keeps running under it.
  *
