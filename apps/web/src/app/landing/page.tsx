@@ -364,8 +364,9 @@ function Aside({
  * drawing of a printed invoice sitting on a dark marketing page. They are
  * deliberately not the light theme, which is cream — `theme.light` would
  * tint this picture of paper and is what `invoice-pdf.tsx` reads instead.
- * A neutral gray ramp on white: `#1A1C21` ink, `#626875` and `#848B98`
- * secondary, `#D1D5DD` and `#E4E6EC` rules, `#F2F3F6` the banded row.
+ * A neutral gray ramp on white: `#1A1C21` ink, `#626875` and `#707784`
+ * secondary (the lighter still AA on white), `#D1D5DD` and `#E4E6EC` rules,
+ * `#F2F3F6` the banded row.
  */
 function InvoicePreview() {
   const lines = [
@@ -384,7 +385,13 @@ function InvoicePreview() {
        nothing indicating they exist, which loses every persuasive element of
        the page's strongest asset. */
     <div className="mt-2">
-      <div className="overflow-x-auto rounded-lg shadow-float">
+      {/* Focusable, so a keyboard can scroll it too. */}
+      <section
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: a scroller takes focus
+        tabIndex={0}
+        aria-label="Sample invoice"
+        className="overflow-x-auto rounded-lg shadow-float"
+      >
         <div className="min-w-[34rem] bg-white p-6 text-[#1A1C21]">
           <div className="flex items-start justify-between gap-4">
             {/* A generic example, never a real person: this page is public and
@@ -404,16 +411,16 @@ function InvoicePreview() {
           <table className="mt-6 w-full border-collapse">
             <thead>
               <tr className="border-b border-[#D1D5DD]">
-                <th className="type-label pb-2 text-left text-[#848B98]">
+                <th className="type-label pb-2 text-left text-[#707784]">
                   Description
                 </th>
-                <th className="type-label pb-2 text-right text-[#848B98]">
+                <th className="type-label pb-2 text-right text-[#707784]">
                   Hours
                 </th>
-                <th className="type-label pb-2 text-right text-[#848B98]">
+                <th className="type-label pb-2 text-right text-[#707784]">
                   Rate
                 </th>
-                <th className="type-label pb-2 text-right text-[#848B98]">
+                <th className="type-label pb-2 text-right text-[#707784]">
                   Amount
                 </th>
               </tr>
@@ -445,7 +452,7 @@ function InvoicePreview() {
             </p>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Only where the scroll actually happens. `lg:hidden` would be a lie
           on a tablet, where 34rem still overflows. */}

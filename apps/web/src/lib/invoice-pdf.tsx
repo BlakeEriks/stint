@@ -37,7 +37,7 @@ import { theme } from '@stint/design-tokens';
 const c = {
   ink: '#1A1C21',
   muted: '#626875',
-  faint: '#848B98',
+  faint: '#707784',
   rule: '#D1D5DD',
   band: '#F2F3F6',
   accent: theme.light['accent-default'],
@@ -166,7 +166,8 @@ const styles = StyleSheet.create({
   payLabel: {
     fontSize: 7,
     letterSpacing: 0.9,
-    color: c.faint,
+    // Muted, not faint: faint is 4.06:1 on the band this sits on.
+    color: c.muted,
     fontFamily: 'Helvetica-Bold',
   },
   payValue: { fontFamily: 'Courier', fontSize: 9, lineHeight: 1.3 },

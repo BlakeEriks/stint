@@ -140,7 +140,11 @@ export function EntryList({
         </Button>
       </header>
 
-      <div className={grid ? 'min-h-0 flex-1 overflow-y-auto' : undefined}>
+      {/* A scroller takes focus, or an empty day cannot be keyboard-scrolled. */}
+      <div
+        tabIndex={grid ? 0 : undefined}
+        className={grid ? 'min-h-0 flex-1 overflow-y-auto' : undefined}
+      >
         <Listing
           query={query}
           tight

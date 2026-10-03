@@ -372,9 +372,7 @@ once.
 
 `pnpm --filter @stint/web test:stories` runs every story as a test in
 headless Chromium at its viewport, and fails it on an accessibility
-violation. Screen stories skip `color-contrast` and
-`scrollable-region-focusable` until #125 fixes them (`src/mocks/screen.tsx`).
-It runs through Vitest's browser mode and Storybook's
+violation. It runs through Vitest's browser mode and Storybook's
 portable-stories API; `vitest.config.mts` says why.
 
 ## The route tests can use it too

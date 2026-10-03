@@ -50,8 +50,8 @@ the domain until required checks pass, so the migration runs while the
   and because keeping it separate means a type error reports without waiting
   behind a Docker pull.
 - **`stories`** — every Storybook story in Chromium: it renders, runs its
-  `play`, and passes its a11y check (`docs/local-dev.md` has the two rules
-  screen stories skip).
+  `play`, and passes its a11y check. A story that skips a rule passes it to
+  `skipping()` in `apps/web/src/mocks/screen.tsx`, with the reason beside it.
 
 Two more workflows. `docs.yml` runs Vale on the doc lines a PR adds, which
 only reports, and `/doc-drift` on the owner's PRs, whose `drift` check fails

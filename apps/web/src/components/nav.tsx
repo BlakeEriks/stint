@@ -64,8 +64,10 @@ export function Nav() {
           the items half the pill fell outside and was clipped to a flat edge.
           A scroll container cannot let one axis overflow while the other
           scrolls (`overflow-x: visible` computes to `auto` beside
-          `overflow-y: auto`), so the room has to be real. */}
-      <div className="flex gap-1 overflow-x-auto px-1 lg:min-h-0 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
+          `overflow-y: auto`), so the room has to be real. It is room for the
+          focus ring too, which stands 4px off an item: `py-1` keeps the first
+          and last rings whole, and `-my-1` takes it back so nothing moves. */}
+      <div className="-my-1 flex gap-1 overflow-x-auto px-1 py-1 lg:min-h-0 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
         {LINKS.map(({ href, label, icon: Icon }) => {
           const active =
             href === '/' ? pathname === '/' : pathname.startsWith(href);

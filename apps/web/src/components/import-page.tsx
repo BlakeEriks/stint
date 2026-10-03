@@ -519,8 +519,12 @@ function Overlaps({
               key={o.rowId}
               className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-t border-edge-subtle py-2.5 first:border-0"
             >
-              <div className={`min-w-0${o.excluded ? ' opacity-60' : ''}`}>
-                <p className="truncate type-body text-primary">
+              {/* An excluded row recedes by its ink, never by opacity, which
+                  fades text below AA. */}
+              <div className="min-w-0">
+                <p
+                  className={`truncate type-body ${o.excluded ? 'text-muted' : 'text-primary'}`}
+                >
                   {o.taskName || 'No description'}
                 </p>
                 <p className="truncate type-meta text-subtle">
@@ -531,7 +535,7 @@ function Overlaps({
                 </p>
               </div>
               <span
-                className={`type-duration text-warning${o.excluded ? ' opacity-60' : ''}`}
+                className={`type-duration ${o.excluded ? 'text-subtle' : 'text-warning'}`}
               >
                 {formatCompact(o.seconds)}
               </span>
