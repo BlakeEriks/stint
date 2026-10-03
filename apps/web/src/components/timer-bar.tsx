@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { formatClock, uuidv7 } from '@stint/core';
 import { useTimer } from '@/lib/client/use-timer';
-import { useProject } from '@/lib/client/use-project-colors';
 import { ProjectPicker } from './project-picker';
 import { TaskSuggest } from './task-suggest';
 import type { Project } from '@/lib/client/api';
@@ -56,12 +55,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
     }
   };
 
-  /* Resolved from every project, not only those offered: a running timer
-     keeps its project's name after that client is archived. */
-  const projectId = isRunning ? running!.projectId : draftProject;
-  const resolved = useProject(projectId);
-  const project = resolved ?? projects.find((p) => p.id === projectId);
-
   return (
     <section
       /* A quiet fill rather than a plane of its own: at `xl` the bar sits
@@ -104,7 +97,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
                 projects={projects}
                 value={running!.projectId}
                 onChange={(id) => timer.update.mutate({ projectId: id })}
-                selected={project}
                 readOnly
               />
             </div>
@@ -153,7 +145,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
               projects={projects}
               value={draftProject}
               onChange={setDraftProject}
-              selected={project}
             />
             <Readout
               seconds={timer.seconds}

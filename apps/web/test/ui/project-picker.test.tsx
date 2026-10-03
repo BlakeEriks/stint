@@ -55,12 +55,7 @@ describe('ProjectPicker', () => {
    */
   it('names itself by its purpose, not by the project it holds', () => {
     render(
-      <ProjectPicker
-        projects={PROJECTS}
-        value="p2"
-        onChange={() => {}}
-        selected={PROJECTS[1]}
-      />,
+      <ProjectPicker projects={PROJECTS} value="p2" onChange={() => {}} />,
       { wrapper },
     );
 

@@ -27,7 +27,7 @@ import { Label } from '@/components/ui/label';
 import { TaskSuggest } from '@/components/task-suggest';
 import { ProjectPicker } from '@/components/project-picker';
 import { EntryScrubber } from '@/components/entry-scrubber';
-import { useProject, useProjectColors } from '@/lib/client/use-project-colors';
+import { useProjectColors } from '@/lib/client/use-project-colors';
 import { api, ApiError, type Project, type TimeEntry } from '@/lib/client/api';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 import { timeZone } from '@/lib/client/use-timer';
@@ -101,7 +101,6 @@ export function EntryDialog({
   tz?: string;
 }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
-  const selectedProject = useProject(draft.projectId);
   const [error, setError] = useState<string | null>(null);
 
   // Reset each time it opens, so a canceled edit cannot leak into the next.
@@ -313,12 +312,6 @@ export function EntryDialog({
               projects={projects}
               value={draft.projectId}
               onChange={(id) => set('projectId', id)}
-              /* From every project: an entry keeps its project's name after
-                 that client is archived, though the menu no longer offers it. */
-              selected={
-                selectedProject ??
-                projects.find((p) => p.id === draft.projectId)
-              }
               disabled={locked}
               autoFocus={focus === 'project'}
               /* This is already a dialog, and Radix mounts no dialog inside

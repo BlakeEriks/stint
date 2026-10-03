@@ -14,7 +14,11 @@ import { ProjectDialog } from './project-dialog';
 import { inputClass } from './field';
 import { Swatch } from './swatch';
 import type { Project } from '@/lib/client/api';
-import { useClients, useProjectColors } from '@/lib/client/use-project-colors';
+import {
+  useClients,
+  useProject,
+  useProjectColors,
+} from '@/lib/client/use-project-colors';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 
 /** "No project" is a real choice, not an absent one, so it needs a value. */
@@ -48,7 +52,6 @@ export function ProjectPicker({
   projects,
   value,
   onChange,
-  selected,
   trigger = 'tag',
   canCreate = true,
   id,
@@ -59,7 +62,6 @@ export function ProjectPicker({
   projects: Project[];
   value: string | null;
   onChange: (id: string | null) => void;
-  selected?: Project;
   /**
    * `tag` is the pill the timer bar wears beside the running task. `field` is
    * a form control on `inputClass`'s metrics, so it sits level with the
@@ -93,6 +95,10 @@ export function ProjectPicker({
   readOnly?: boolean;
 }) {
   const [creating, setCreating] = useState(false);
+  /* From every project, not only those offered: work keeps its project's
+     name after that client is archived, though the menu no longer offers it.
+     The offered list covers the moment before the full one loads. */
+  const selected = useProject(value) ?? projects.find((p) => p.id === value);
   const colors = useProjectColors();
   /* The same two queries the swatch already resolves through, so naming the
      client costs no fetch. */
