@@ -1,6 +1,6 @@
 import type { Decorator } from '@storybook/nextjs-vite';
 import { expect, waitFor, within } from 'storybook/test';
-import { http } from 'msw';
+import { delay, http } from 'msw';
 import { AppShell } from '@/components/app-shell';
 import { handlers } from './handlers';
 import { fail } from './respond';
@@ -25,8 +25,8 @@ export function screen(pathname: string, query: Record<string, string> = {}) {
   };
 }
 
-/* Two known failures across every screen, skipped here rather than per
-   story until #125 fixes them. Every other rule still fails the test. */
+/* TODO(#125): two known failures across every screen, skipped here rather
+   than per story. Every other rule still fails the test. */
 const KNOWN = ['color-contrast', 'scrollable-region-focusable'];
 
 /**
@@ -68,6 +68,25 @@ export function failing(...keys: (keyof typeof handlers)[]) {
           const { method, path } = handlers[key].info;
           const verb = String(method).toLowerCase() as 'get';
           return [key, http[verb](path, () => fail('INTERNAL'))];
+        }),
+      ),
+    },
+  };
+}
+
+/**
+ * These endpoints never answer, so a story shows a press still pending. Each
+ * is called once; the preview judges the story with that many still open.
+ */
+export function stalled(...keys: (keyof typeof handlers)[]) {
+  return {
+    stalls: keys.length,
+    msw: {
+      handlers: Object.fromEntries(
+        keys.map((key) => {
+          const { method, path } = handlers[key].info;
+          const verb = String(method).toLowerCase() as 'get';
+          return [key, http[verb](path, () => delay('infinite'))];
         }),
       ),
     },

@@ -94,8 +94,8 @@ test.describe('authentication', () => {
     ).toBeVisible();
   });
 
-  /* Projects moved under Clients; a bookmark to the old section still lands,
-     filter and all. Checked before sign-in: the redirect runs ahead of it. */
+  /* A bookmark to /projects lands on Clients, filter and all. Checked before
+     sign-in: the redirect runs ahead of it. */
   test('the old projects address redirects to clients', async ({ page }) => {
     for (const [from, to] of [
       ['/projects', '/clients'],

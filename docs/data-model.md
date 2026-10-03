@@ -149,7 +149,9 @@ writes the invoice and its lines, and attaches the entries and expenses it
 bills. The call succeeds or fails as a whole. It writes what `buildLineItems` computed and computes
 nothing itself, except the payment reference it appends to the frozen
 payment block once the number exists. An expense another invoice already took
-raises, so a race for one never uses up a number.
+raises `EXPENSE_ALREADY_INVOICED`; an entry billed on another invoice or
+deleted since the route loaded it raises `ENTRY_ALREADY_INVOICED`. Either
+rolls the whole call back, so a race never uses up a number.
 
 ### `expenses`
 A cost the contractor paid that a client reimburses. It has an amount and no

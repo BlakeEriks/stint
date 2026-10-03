@@ -13,16 +13,18 @@ import { NOW } from '@/mocks/time.mts';
 import '@/styles/globals.css';
 
 /* Requests in flight, so a story is judged once its screen has loaded and
-   not while it still reads "Loading…". */
+   not while it still reads "Loading…". `stalls` is how many a story leaves
+   unanswered on purpose (`stalled()` in `src/mocks/screen.tsx`). */
 let inFlight = 0;
+let stalls = 0;
 const settled = new Set<() => void>();
 function track(delta: number) {
   inFlight += delta;
-  if (inFlight === 0) for (const done of settled) done();
+  if (inFlight <= stalls) for (const done of settled) done();
 }
 const idle = () =>
   new Promise<void>((done) => {
-    if (inFlight === 0) return done();
+    if (inFlight <= stalls) return done();
     settled.add(done);
   }).then(() => settled.clear());
 const frame = () => new Promise((done) => requestAnimationFrame(done));
@@ -59,6 +61,7 @@ const preview: Preview = {
      render emptied. `parameters.now` and `parameters.db` choose otherwise. */
   beforeEach: ({ parameters }) => {
     inFlight = 0;
+    stalls = (parameters.stalls as number | undefined) ?? 0;
     problems.length = 0;
     const now = new Date(parameters.now ?? NOW);
     MockDate.set(now);

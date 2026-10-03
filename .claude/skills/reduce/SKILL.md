@@ -2,8 +2,8 @@
 name: reduce
 description: Reduce a source file or directory back to a simple form (complexity, duplication, dead code, comments) without changing behavior. Use when a hygiene issue says "Fix with /reduce", or a file has grown hard to follow.
 argument-hint: "<path>"
-# Follows Fowler's Refactoring, Feathers' characterization tests and
-# Ousterhout on comments, each cited below.
+# Follows Fowler's Refactoring and Feathers' characterization tests, each
+# cited below; comments follow .claude/rules/comments.md.
 ---
 
 Reduce `$ARGUMENTS` without changing what it does. If no path is given, ask
@@ -51,17 +51,8 @@ see a dynamic import or a string-keyed lookup.
 
 ## 4. Comments
 
-The standard is Ousterhout, *A Philosophy of Software Design* (ch. 12–13):
-a comment says what the code cannot.
-
-| Keep | Cut |
-| --- | --- |
-| why this approach over the obvious one | what the next line does |
-| a constraint held elsewhere: an index, a trigger, another client | how the code got this way; git holds it |
-| a trap invisible in the source: DST, hydration, a vendor quirk | what the code deliberately does not do |
-| units, invariants, the meaning of a return value | a restatement of a type, a test or a CI check |
-
-A function extracted in step 3 often makes its old comment redundant.
+Hold every comment to `.claude/rules/comments.md`. A function extracted in
+step 3 often makes its old comment redundant.
 
 ## 5. Verify
 
