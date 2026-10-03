@@ -13,6 +13,7 @@ import {
   type LineItemRow,
   type PaymentProfileRow,
 } from './rows';
+import { selectAll } from './select-all';
 import { addDays, resolvePaymentProfile, startOfLocalDate } from '@stint/core';
 import type { BillableEntry, ExpenseInput } from '@stint/core';
 
@@ -77,22 +78,22 @@ export async function loadBillableEntries(
   const startInstant = startOfLocalDate(opts.periodStart, opts.tz);
   const endExclusive = startOfLocalDate(addDays(opts.periodEnd, 1), opts.tz);
 
-  const { data, error } = await db
-    .from('time_entries')
-    .select(
-      'id, task_name, project_id, started_at, duration_seconds, is_billable, rate_override',
-    )
-    .in('project_id', [...byId.keys()])
-    .is('invoice_id', null)
-    .eq('invoiced_elsewhere', false)
-    .not('ended_at', 'is', null)
-    .gte('started_at', startInstant.toISOString())
-    .lt('started_at', endExclusive.toISOString())
-    .order('started_at', { ascending: true });
+  const rows = await selectAll(() =>
+    db
+      .from('time_entries')
+      .select(
+        'id, task_name, project_id, started_at, duration_seconds, is_billable, rate_override',
+      )
+      .in('project_id', [...byId.keys()])
+      .is('invoice_id', null)
+      .eq('invoiced_elsewhere', false)
+      .not('ended_at', 'is', null)
+      .gte('started_at', startInstant.toISOString())
+      .lt('started_at', endExclusive.toISOString())
+      .order('started_at', { ascending: true }),
+  );
 
-  if (error) throw error;
-
-  return (data ?? []).map((row) => {
+  return rows.map((row) => {
     const project = byId.get(row.project_id as string);
     return {
       id: row.id as string,
@@ -248,16 +249,16 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
   const invoice = toInvoice(row as InvoiceRow);
 
   const [items, client, settings] = await Promise.all([
-    db
-      .from('invoice_line_items')
-      .select(LINE_ITEM_COLUMNS)
-      .eq('invoice_id', invoiceId)
-      .order('sort_order', { ascending: true }),
+    selectAll(() =>
+      db
+        .from('invoice_line_items')
+        .select(LINE_ITEM_COLUMNS)
+        .eq('invoice_id', invoiceId)
+        .order('sort_order', { ascending: true }),
+    ),
     loadClient(db, invoice.clientId),
     loadSettings(db),
   ]);
-
-  if (items.error) throw items.error;
 
   return {
     invoice,
@@ -291,7 +292,7 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
         email: client.email,
         address: client.address,
       },
-      lineItems: (items.data ?? []).map((r) => toLineItem(r as LineItemRow)),
+      lineItems: items.map((r) => toLineItem(r as LineItemRow)),
       // The FROZEN snapshot, never a live profile lookup: a re-downloaded
       // invoice must show the details the client was actually given.
       payment: invoice.paymentDetails ?? null,

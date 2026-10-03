@@ -13,6 +13,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import { makeDb } from './shim.mjs';
+import { fill } from './fill.ts';
 
 const USER = '11111111-1111-1111-1111-111111111111';
 const OTHER = '22222222-2222-2222-2222-222222222222';
@@ -2735,4 +2736,105 @@ test('/stats lists entries sharing a minute or more, and editing one clears it',
   );
   const after = await json(await stats(req('/stats?tz=UTC')));
   assert.deepEqual(after.body.attention.overlaps, []);
+});
+
+// ── reads past PostgREST's 1,000 rows ──────────────────────────────
+// The shim caps a select the way PostgREST does, so a read that does not
+// page fails here.
+const fillMe = (n: number, from: string, projectId: string | null) =>
+  fill(pool, { userId: USER, projectId, from, n });
+
+const attention = async () => {
+  const { GET } = await import('../src/app/api/v1/stats/route.ts');
+  return (await json(await GET(req('/stats?tz=UTC')))).body.attention;
+};
+
+test('the inbox lists every unprojected entry', async () => {
+  await fillMe(1001, '2026-08-01T00:00:00Z', null);
+  assert.equal((await attention()).unprojected.length, 1001);
+});
+
+test('the inbox finds a strange duration past the first thousand', async () => {
+  const project = await durProject();
+  await fillMe(1000, '2026-08-01T00:00:00Z', project);
+  // The newest, so the last row of a read ordered oldest first.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
+     values (gen_random_uuid(),$1,$2,'Overnight','2026-08-20T00:00:00Z','2026-08-20T14:00:00Z')`,
+    [USER, project],
+  );
+  await pool.query(
+    'update user_settings set max_entry_hours=8 where user_id=$1',
+    [USER],
+  );
+  const rows = (await attention()).strangeDurations;
+  assert.deepEqual(
+    rows.map((r: { taskName: string }) => r.taskName),
+    ['Overnight'],
+  );
+});
+
+test('the inbox finds an overlap past the first thousand', async () => {
+  const project = await durProject();
+  await fillMe(1000, '2026-08-01T00:00:00Z', project);
+  // Sharing half an hour, and written last.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at) values
+       (gen_random_uuid(),$1,$2,'First', '2026-08-20T20:00:00Z','2026-08-20T21:00:00Z'),
+       (gen_random_uuid(),$1,$2,'Second','2026-08-20T20:30:00Z','2026-08-20T21:30:00Z')`,
+    [USER, project],
+  );
+  assert.equal((await attention()).overlaps.length, 1);
+});
+
+test('the calendar returns every entry in its range', async () => {
+  const { GET } = await import('../src/app/api/v1/calendar/route.ts');
+  await fillMe(1001, '2026-09-01T00:00:00Z', await durProject());
+
+  const res = await json(
+    await GET(
+      req('/calendar?from=2026-09-01T00:00:00Z&to=2026-09-30T00:00:00Z&tz=UTC'),
+    ),
+  );
+  const entries = res.body.days.reduce(
+    (n: number, d: { entries: unknown[] }) => n + d.entries.length,
+    0,
+  );
+  assert.equal(entries, 1001);
+});
+
+test('an import preview sees an overlap with existing work past the first thousand', async () => {
+  const { POST } = await import('../src/app/api/v1/imports/preview/route.ts');
+  const project = await durProject();
+  // Inside the window the preview reads, and over by the hour below.
+  await fillMe(1000, '2026-03-09T00:00:00Z', project);
+  // 20:00Z to 21:00Z, written last.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
+     values (gen_random_uuid(),$1,$2,'Existing','2026-03-10T20:00:00Z','2026-03-10T21:00:00Z')`,
+    [USER, project],
+  );
+
+  // 16:00 in New York, daylight time: the same hour as the entry above.
+  const form = new FormData();
+  form.set(
+    'file',
+    new File(
+      [
+        `User,Email,Client,Project,Task,Description,Billable,Start date,Start time,End date,End time,Duration,Tags,Amount (USD)
+Me,me@x,Acme,Site,,Design,Yes,2026-03-10,16:00:00,2026-03-10,17:00:00,01:00:00,,150.00
+`,
+      ],
+      'export.csv',
+      { type: 'text/csv' },
+    ),
+  );
+  form.set('timeZone', 'America/New_York');
+  const res = await json(
+    await POST(
+      new Request('http://t/imports/preview', { method: 'POST', body: form }),
+    ),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.summary.overlappingCount, 1);
 });
