@@ -103,8 +103,8 @@ build on Blake's answer, continuing its pushed branch if it has one.
 Otherwise branch off `origin/main`, the name under 30 characters — it
 becomes the preview's URL, and Vercel hashes longer ones.
 
-Fix it with tests, following `CLAUDE.md` and the `.claude/rules/` the change
-touches. A migration found only now gets the `migration` label now.
+Fix it with the tests Constitution V asks for, following `CLAUDE.md` and the
+`.claude/rules/` the change touches. A migration found only now gets the `migration` label now.
 
 An issue that says `Fix with /reduce <path>` or `Fix with /copyedit <path>`
 is built by that skill's steps, which are already in your context.
@@ -114,11 +114,9 @@ round touched. A finding in code the round wrote or changed is reduced now,
 by the `reduce` steps; one already on `main` is left to its own issue.
 
 **Make the change easy, then make the easy change** (Beck; Fowler's
-preparatory refactoring). Before fixing, `git log --since=90.days` the files
-the fix touches. Where the fix would be a special case the design doesn't
-expect, would copy a mechanism the code already has, or the code has been
-fixed twice already (the third fix is Fowler's
-rule of three), refactor first, in its own commit, so the fix needs no
+preparatory refactoring). Where the fix would be a special case the design
+doesn't expect, or would copy a mechanism the code already has, refactor
+first, in its own commit, so the fix needs no
 special case. Keep that refactor to the code the fix touches, with one
 exception: a fix that copies a pattern from elsewhere extracts it into one
 shared component or function, and moves the original onto it in the same
@@ -148,11 +146,9 @@ yet".
    clients, entries, and invoices in every state, never built by hand.
    `dev@localhost.test` is `seed.sql`'s and the e2e suite's
    (`docs/local-dev.md`). Read the page as text; take one screenshot only if
-   the change is visual.
-3. Last, the `apps/web/e2e` specs that drive a changed screen:
-   `pnpm test:e2e e2e/<spec>.spec.ts`, never the whole suite. They reset the
-   local stack as they go, which is why they come after step 2.
-4. A macOS change passes `swift build` and `swift test`, and a visible one is
+   the change is visual. The e2e suite is CI's: its failure comes back as a
+   round of fixes.
+3. A macOS change passes `swift build` and `swift test`, and a visible one is
    seen with `apps/macos/qa.sh`: the panel in a plain window, screenshotted
    with `qa.sh shot` and driven with `qa.sh click` and `qa.sh type`.
    **Never run `bundle.sh`, and never quit, launch or click the installed
@@ -166,8 +162,8 @@ Commit, unpushed, and report back. A check that cannot pass without Blake is
 
 ## Fixes
 
-Feedback, doc drift or a failed check on an open PR: fix it on its branch
-with tests, verify as above, commit unpushed, and report back — push and
+Feedback, doc drift or a failed check on an open PR: fix it on its branch,
+with the tests Constitution V asks for, verify as above, commit unpushed, and report back — push and
 comment only on `ship`, as for a new PR.
 
 **Conflicts with `main`:** `git merge origin/main` into the branch — never rebase,

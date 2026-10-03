@@ -36,19 +36,25 @@ Parsing, rates, invoice lines and time math are pure functions in
 `packages/core`: no `next`, no `@supabase/*`, no network or file access. The
 route handler reads and writes; core transforms.
 
-### V. Tests first, one suite per kind of code
+### V. Tests first where a regression is silent, in one suite per kind of code
 
-Tasks write the test before the code, and each kind of code has its suite:
+A test goes before the code wherever a mistake would reach a user unseen:
+money, a write, a route, a policy, sign-in, and the logic in
+`packages/core` and on the client. Each kind of code has its suite:
 
 | Code | Suite |
 | --- | --- |
 | A route handler | `apps/web/test/routes.test.ts`, against real Postgres |
 | A table | RLS enabled with policies, and a cross-user case in `apps/web/test/rls.test.ts` |
 | `packages/core` | `packages/core/test` |
+| Client logic: a hook, a form's rules | `apps/web/test/ui` |
 | A screen, and each state a user can see | its `*.stories.tsx`, one story per acceptance scenario |
 | Sign-in and invoicing, end to end | `apps/web/e2e` |
 
-A bug fix starts with the test that reproduces it.
+A bug fix starts with the test that reproduces it, in its code's suite. How
+a screen looks is reproduced by its story, which CI renders in a real
+browser; no jsdom test asserts it. Tooling, docs, config and dependency
+bumps carry no test of their own unless they carry logic.
 
 ### VI. Every press answers in the same frame
 
@@ -108,4 +114,4 @@ change, the plausible design that breaks it, and why no check catches that
 in time. The version follows semver: MAJOR removes or redefines a principle,
 MINOR adds one, PATCH rewords. The reasoning goes in the PR.
 
-**Version**: 7.1.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-09-28
+**Version**: 8.0.0 | **Ratified**: 2026-09-22 | **Last Amended**: 2026-10-03
