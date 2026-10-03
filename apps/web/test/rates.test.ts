@@ -9,7 +9,7 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
-import { buildLineItems, resolveRate, uuidv7 } from '@stint/core';
+import { buildLineItems, entrySeconds, resolveRate, uuidv7 } from '@stint/core';
 import type { BillableEntry } from '@stint/core';
 
 const USER = '11111111-1111-1111-1111-111111111111';
@@ -399,6 +399,25 @@ test('non-billable entries reach neither rollup', async () => {
     before.unbilledSeconds,
     'unbilled_by_client filters is_billable',
   );
+});
+
+test('a running entry is measured the same in SQL and TypeScript', async () => {
+  /* `entry_seconds` prices the rollups; `entrySeconds` measures the row
+     `GET /entries` returns beside them. Half-second offsets are where a
+     floor and a round part. */
+  const start = '2026-03-18T09:00:00.000Z';
+  for (const ms of [0, 499, 500, 501, 1500, 59_999, 3_600_500, -400]) {
+    const now = new Date(Date.parse(start) + ms).toISOString();
+    const { rows } = await pool.query(
+      'select entry_seconds($1, null, $2) as s',
+      [start, now],
+    );
+    assert.equal(
+      entrySeconds(start, new Date(now)),
+      rows[0].s,
+      `${ms} ms after the start`,
+    );
+  }
 });
 
 test('a running timer counts up to now, priced as it would be stopped now', async () => {

@@ -38,7 +38,9 @@
 ## R4. Today's figures from one refresh
 
 - **Decision**: `GET /entries` returns a running entry's `durationSeconds`
-  measured at the response, so Today's rows, and the total summed from them,
+  measured at the response by `entrySeconds()` in `@stint/core`, which rounds
+  as `entry_seconds()` does; `rates.test.ts` holds the two to each other
+  (Principle II), so Today's rows, and the total summed from them,
   need no client clock. Earned stays `/stats`' `earnedToday`. Both refresh on
   the same beat (R5). The dock keeps `/summary`'s `todaySeconds`, the timer
   clock beside it.

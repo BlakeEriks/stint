@@ -4,7 +4,7 @@ import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { CreateTimeEntry, ListEntriesQuery } from '@stint/schema';
-import { elapsedSeconds } from '@stint/core';
+import { entrySeconds } from '@stint/core';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +48,7 @@ export const GET = handle(async (req: Request) => {
     entries: (data ?? []).map((r) => {
       const entry = toEntry(r as EntryRow);
       return entry.endedAt === null
-        ? { ...entry, durationSeconds: elapsedSeconds(entry.startedAt, now) }
+        ? { ...entry, durationSeconds: entrySeconds(entry.startedAt, now) }
         : entry;
     }),
   });

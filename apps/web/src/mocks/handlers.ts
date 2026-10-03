@@ -1,6 +1,6 @@
 import {
   buildPreview,
-  elapsedSeconds,
+  entrySeconds,
   formatInvoiceNumber,
   pickSchedules,
   type ScheduleKind,
@@ -226,7 +226,7 @@ export const handlers = {
       // As the route does: a running entry measured at the response.
       .map((e) =>
         e.endedAt === null
-          ? { ...e, durationSeconds: elapsedSeconds(e.startedAt, db.now) }
+          ? { ...e, durationSeconds: entrySeconds(e.startedAt, db.now) }
           : e,
       );
     return ok(envelopes.entries, { entries });
