@@ -103,21 +103,21 @@ test('start → current → stop round trip', async () => {
   assert.equal(after.body.entry, null, 'no timer running after stop');
 });
 
-test('stop returns Unbilled with the stopped entry counted, as /stats has it', async () => {
+test('stop leaves Unbilled where the running entry had it, as /stats has it', async () => {
   const { POST: start } = await import(
     '../src/app/api/v1/timer/start/route.ts'
   );
   const { POST: stop } = await import('../src/app/api/v1/timer/stop/route.ts');
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
-  // An hour at the user default of 100: the stop is what makes it unbilled.
+  // An hour at the user default of 100, unbilled while it runs.
   const startedAt = new Date(Date.now() - 3600 * 1000).toISOString();
   await start(req('/timer/start', { taskName: 'Billable', startedAt }));
   const before = await json(await stats(req('/stats?tz=UTC')));
   assert.equal(
     before.body.unbilled.total,
-    0,
-    'a running entry is not unbilled',
+    100,
+    'a running entry is unbilled so far',
   );
 
   const endedAt = new Date(Date.parse(startedAt) + 3600 * 1000).toISOString();
@@ -129,7 +129,7 @@ test('stop returns Unbilled with the stopped entry counted, as /stats has it', a
     'unbilled',
   ]);
   assert.equal(stopped.body.currency, 'USD');
-  assert.equal(stopped.body.unbilled.total, 100);
+  assert.equal(stopped.body.unbilled.total, 100, 'the stop moves nothing');
 
   const after = await json(await stats(req('/stats?tz=UTC')));
   assert.deepEqual(stopped.body.unbilled, after.body.unbilled);
@@ -1128,7 +1128,7 @@ test('unrated work counts but adds no money', async () => {
   assert.equal(row.seconds, 7200, 'while the hours are still real');
 });
 
-test('a running timer and billed work stay out of unbilled', async () => {
+test('a running timer is unbilled so far; non-billable work is not', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   const c = '33333333-0000-4000-8000-000000000004';
@@ -1144,30 +1144,21 @@ test('a running timer and billed work stay out of unbilled', async () => {
 
   await entryFor({ id: S(10), projectId: p, hours: 1 }); // counts
   await entryFor({ id: S(11), projectId: p, hours: 1, billable: false });
-  // A running entry: ended_at is null, so it is not billable work yet.
+  // Running for an hour: counted up to the request, as it would bill if
+  // stopped now.
   await pool.query(
     `insert into time_entries (id,user_id,project_id,task_name,started_at,is_billable)
-     values ($1,$2,$3,'running',now(),true)`,
-    [S(12), USER, p],
+     values ($1,$2,$3,'running',$4,true)`,
+    [S(12), USER, p, new Date(Date.now() - 3600 * 1000).toISOString()],
   );
 
   const res = await json(await stats(req('/stats?tz=UTC')));
   assert.equal(
     res.body.unbilled.total,
-    100,
-    'only the one ended billable hour',
+    200,
+    'the ended hour and the running one, not the non-billable one',
   );
-  assert.equal(res.body.unbilled.seconds, 3600, 'and only its hour');
-
-  /* Note what this does NOT prove. The rollup's `ended_at is not null` clause
-     is currently unobservable: `duration_seconds` is a generated column, so a
-     running entry contributes null seconds and null money, and it does not
-     raise `unratedCount` either because its rate still resolves. Removing the
-     clause produces byte-identical output — verified. The clause is worth
-     keeping as a statement of intent, but no assertion here can pin it, and
-     writing one that passes either way would be decoration. The
-     `is_billable` guard beside it IS load-bearing, and the non-billable entry
-     above covers it. */
+  assert.equal(res.body.unbilled.seconds, 7200);
 });
 
 test('the unbilled total covers every client, even past the row cap', async () => {

@@ -401,23 +401,65 @@ test('non-billable entries reach neither rollup', async () => {
   );
 });
 
-test('a running timer is in neither rollup', async () => {
+test('a running timer counts up to now, priced as it would be stopped now', async () => {
   await seed(100);
 
-  const before = await pool.query(
-    'select coalesce(sum(seconds),0) as s from unbilled_by_client($1)',
-    [USER],
-  );
+  /* One transaction, so `now()` is one instant for every read: the running
+     entry's measure and the stop below land on the same second. The fixtures
+     sit in March, so the window around now holds only the running entry. */
+  const db = await pool.connect();
+  try {
+    await db.query('begin');
+    const figures = async () => {
+      const day = await db.query(
+        `select coalesce(sum(seconds),0) as s, coalesce(sum(amount),0) as a
+         from revenue_by_day($1, now() - interval '1 day', now() + interval '1 day', 'UTC')`,
+        [USER],
+      );
+      const client = await db.query(
+        `select coalesce(sum(unbilled),0) as a
+         from revenue_by_client($1, now() - interval '1 day', now() + interval '1 day')`,
+        [USER],
+      );
+      const unbilled = await db.query(
+        `select coalesce(sum(seconds),0) as s, coalesce(sum(amount),0) as a
+         from unbilled_by_client($1)`,
+        [USER],
+      );
+      return {
+        daySeconds: Number(day.rows[0].s),
+        dayAmount: Number(day.rows[0].a),
+        clientAmount: Number(client.rows[0].a),
+        unbilledSeconds: Number(unbilled.rows[0].s),
+        unbilledAmount: Number(unbilled.rows[0].a),
+      };
+    };
 
-  await pool.query(
-    `insert into time_entries (id,user_id,project_id,task_name,started_at)
-     values ($1,$2,null,'Running',now())`,
-    [uuidv7(), USER],
-  );
+    const before = await figures();
+    const id = uuidv7();
+    // 1234 s is 0.34 h as the invoice prints it: $34.00 at the $100 default.
+    await db.query(
+      `insert into time_entries (id,user_id,project_id,task_name,started_at)
+       values ($1,$2,null,'Running',now() - interval '1234 seconds')`,
+      [id, USER],
+    );
+    const running = await figures();
 
-  const after = await pool.query(
-    'select coalesce(sum(seconds),0) as s from unbilled_by_client($1)',
-    [USER],
-  );
-  assert.equal(Number(after.rows[0].s), Number(before.rows[0].s));
+    assert.equal(running.daySeconds, 1234);
+    assert.equal(running.dayAmount, 34);
+    assert.equal(running.clientAmount, 34);
+    assert.equal(running.unbilledSeconds - before.unbilledSeconds, 1234);
+    assert.equal(
+      Math.round((running.unbilledAmount - before.unbilledAmount) * 100),
+      3400,
+    );
+
+    await db.query('update time_entries set ended_at = now() where id = $1', [
+      id,
+    ]);
+    assert.deepEqual(await figures(), running, 'stopping changes no figure');
+  } finally {
+    await db.query('rollback');
+    db.release();
+  }
 });

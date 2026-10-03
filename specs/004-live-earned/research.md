@@ -2,11 +2,14 @@
 
 ## R1. Where the running session is measured
 
-- **Decision**: One SQL helper, `entry_seconds(started_at, duration_seconds)`,
+- **Decision**: One SQL helper, `entry_seconds(started_at, duration_seconds, now)`,
   returns `duration_seconds` for a stopped entry and
-  `greatest(0, extract(epoch from now() - started_at))::integer` for a running
-  one. The three rollups use it in place of `duration_seconds` and drop
-  `ended_at is not null`.
+  `greatest(0, extract(epoch from now - started_at))::integer` for a running
+  one. The three rollups use it in place of `duration_seconds`, drop
+  `ended_at is not null`, and take a trailing `p_now` (default `now()`) that
+  the routes pass: the same instant they cut the day, week and month windows
+  at, as `/summary` already measures. It also lets `mocks-parity.test.ts`,
+  which fakes the JavaScript clock, agree with the SQL.
 - **Rationale**: `duration_seconds` is generated as
   `extract(epoch from ended_at - started_at)::integer`, so a running entry
   measured at `now()` and the same entry stopped at that moment produce the

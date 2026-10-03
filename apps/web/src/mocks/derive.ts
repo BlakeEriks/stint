@@ -51,6 +51,10 @@ import { billable, type Db } from './fixtures';
 const stopped = (e: TimeEntry) => e.endedAt !== null;
 const at = (iso: string) => new Date(iso).getTime();
 
+/** A stopped entry's length, or a running one's so far: `entry_seconds`. */
+const secondsOf = (db: Db, e: TimeEntry) =>
+  e.durationSeconds ?? elapsedSeconds(e.startedAt, db.now);
+
 function clientOf(db: Db, projectId: string | null) {
   const p = db.projects.find((x) => x.id === projectId);
   return p?.clientId ?? null;
@@ -78,7 +82,7 @@ function earned(db: Db, entries: TimeEntry[]) {
   >();
   for (const e of entries) {
     const rate = rateOf(db, e);
-    const seconds = e.durationSeconds ?? 0;
+    const seconds = secondsOf(db, e);
     const acc = byRate.get(rate) ?? { seconds: 0, hundredths: 0 };
     byRate.set(rate, {
       seconds: acc.seconds + seconds,
@@ -108,7 +112,7 @@ function groupBy<T>(items: T[], key: (item: T) => string) {
 }
 
 const unbilled = (db: Db) =>
-  db.entries.filter((e) => e.invoiceId === null && stopped(e) && e.isBillable);
+  db.entries.filter((e) => e.invoiceId === null && e.isBillable);
 
 /** `unbilled_by_client`. */
 function unbilledRows(db: Db): UnbilledRow[] {
@@ -130,11 +134,11 @@ function unbilledRows(db: Db): UnbilledRow[] {
     .sort((a, b) => b.amount - a.amount);
 }
 
-/** Billable, stopped work in a window, less anything on a void invoice. */
+/** Billable work in a window, running included, less anything on a void
+ *  invoice. */
 function earnedIn(db: Db, from: Date, to: Date) {
   return db.entries.filter(
     (e) =>
-      stopped(e) &&
       e.isBillable &&
       at(e.startedAt) >= from.getTime() &&
       at(e.startedAt) < to.getTime() &&
