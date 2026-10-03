@@ -52,9 +52,11 @@ money, a write, a route, a policy, sign-in, and the logic in
 | Sign-in and invoicing, end to end | `apps/web/e2e` |
 
 A bug fix starts with the test that reproduces it, in its code's suite. How
-a screen looks is reproduced by its story, which CI renders in a real
-browser; no jsdom test asserts it. Tooling, docs, config and dependency
-bumps carry no test of their own unless they carry logic.
+one screen looks is reproduced by its story, which CI renders in a real
+browser. jsdom asserts only the design rules every screen keeps, since a
+broken one fails silently (`apps/web/test/ui/appearance.test.tsx`).
+Tooling, docs, config and dependency bumps carry no test of their own
+unless they carry logic.
 
 ### VI. Every press answers in the same frame
 
