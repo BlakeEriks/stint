@@ -20,7 +20,9 @@ left while a builder worked is answered before anything new. No
 mode starts an issue while five PRs wait on Blake (step 1).
 
 **You orchestrate; subagents build and review.** `issue-builder` does the
-work and `pr-review-toolkit:code-reviewer` reviews it, each in its own subagent reporting back
+work on Opus and `pr-review-toolkit:code-reviewer` reviews it on Sonnet
+(pass `model: "sonnet"`: a subagent that only reads never needs Opus), each
+in its own subagent reporting back
 one paragraph. **One builder per issue**: brief it with the issue or PR
 number and nothing else, and send it everything after — findings, `ship` —
 by SendMessage to its agentId. Never a second builder for that issue — save
