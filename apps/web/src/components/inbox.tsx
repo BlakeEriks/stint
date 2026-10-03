@@ -568,9 +568,6 @@ function Action({
   onClick?: () => void;
   href?: string;
 }) {
-  /* `default`, not the row action's `ghost`: the card underneath is a surface
-     of its own, and a borderless label on it has nothing to read as a control
-     against. */
   return href ? (
     <Button asChild size="xs">
       <a href={href} aria-label={ariaLabel ?? label} download>
