@@ -38,10 +38,9 @@ struct ContentView: View {
         // timer hidden behind it.
         .onChange(of: model.isSignedIn) { _, _ in showingSettings = false }
         .frame(width: 320)
-        // Sized before first paint: the panel hangs from the bar, so a height
-        // that settles later moves the whole window.
         .fixedSize(horizontal: false, vertical: true)
         .background(Tokens.Dark.bgBase)
+        .background(TopAnchor())
     }
 }
 

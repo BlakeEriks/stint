@@ -1,4 +1,4 @@
-@preconcurrency import AppKit
+import AppKit
 import SwiftUI
 
 /// Unfocuses its window each time the window becomes key, so the panel opens
@@ -9,25 +9,14 @@ import SwiftUI
 /// focused, so clearing the binding does nothing. It is cleared through the
 /// window this view holds, on opening rather than closing — by `onDisappear`
 /// the panel is no longer key, so `NSApp.keyWindow` is some other window.
-struct FocusReset: NSViewRepresentable {
-    func makeNSView(context: Context) -> FocusResetView { FocusResetView() }
-    func updateNSView(_ nsView: FocusResetView, context: Context) {}
-}
+struct FocusReset: View {
+    static let names = [NSWindow.didBecomeKeyNotification]
 
-final class FocusResetView: NSView {
-    private var observer: NSObjectProtocol?
+    static func clearFocus(_ window: NSWindow) {
+        _ = window.makeFirstResponder(nil)
+    }
 
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if let observer { NotificationCenter.default.removeObserver(observer) }
-        observer = window.map { window in
-            // No queue: AppKit posts this on the main thread, and delivering
-            // it inline clears focus before the window next draws.
-            NotificationCenter.default.addObserver(
-                forName: NSWindow.didBecomeKeyNotification, object: window, queue: nil
-            ) { [weak window] _ in
-                MainActor.assumeIsolated { _ = window?.makeFirstResponder(nil) }
-            }
-        }
+    var body: some View {
+        WindowObserver(names: Self.names, handle: Self.clearFocus)
     }
 }
