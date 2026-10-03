@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { ConfirmAction } from '@/components/confirm-action';
 import { Input } from '@/components/ui/input';
 import { Field, textareaClass } from './field';
 import { timeZone as tz } from '@/lib/client/use-timer';
@@ -224,18 +225,19 @@ export function ExpenseDialog({
           <DialogFooter>
             {/* At the far end from Save, so it is never hit by habit. */}
             {expense ? (
-              <Button
-                type="button"
-                variant="ghost"
+              <ConfirmAction
+                aria-label="Delete expense"
                 className="mr-auto"
-                onClick={() => {
+                label="Delete for good"
+                pendingLabel="Deleting…"
+                pending={remove.isPending}
+                onConfirm={() => {
                   remove.mutate(expense.id);
                   onOpenChange(false);
                 }}
               >
                 <Trash2 aria-hidden strokeWidth={1.75} />
-                Delete
-              </Button>
+              </ConfirmAction>
             ) : null}
             <Button
               type="button"

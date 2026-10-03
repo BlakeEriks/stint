@@ -12,9 +12,42 @@ const MINUTES = {
   duplication: () => 10,
   'dead-code': () => 5,
   prose: () => 1,
+  fixes: (f) => 15 * f.value,
 };
 
 export const debtOf = (f) => MINUTES[f.kind](f);
+
+/**
+ * Files fixed three times or more, the third time being when Fowler's rule
+ * of three says the design, not the code, wants changing. A PR that closes a
+ * hygiene issue reworked its files, so their count starts over.
+ * @param prs        merged PRs: [{ number, mergedAt, files, closingIssuesReferences }]
+ * @param fixIssues  Set of issue numbers labeled as user-facing faults
+ * @param hygieneIssues  Set of issue numbers labeled `hygiene`
+ */
+export function fixChurn(prs, fixIssues, hygieneIssues) {
+  const byPath = new Map();
+  const closes = (pr, set) =>
+    pr.closingIssuesReferences.some((i) => set.has(i.number));
+  const merged = [...prs].sort((a, b) => a.mergedAt.localeCompare(b.mergedAt));
+  for (const pr of merged) {
+    for (const { path } of pr.files) {
+      if (closes(pr, hygieneIssues)) byPath.delete(path);
+      else if (closes(pr, fixIssues)) {
+        byPath.set(path, [...(byPath.get(path) ?? []), pr.number]);
+      }
+    }
+  }
+  return [...byPath]
+    .filter(([, numbers]) => numbers.length >= 3)
+    .map(([path, numbers]) => ({
+      path,
+      kind: 'fixes',
+      line: 1,
+      value: numbers.length,
+      detail: `fixed by ${numbers.length} PRs: ${numbers.map((n) => `#${n}`).join(', ')}`,
+    }));
+}
 
 /* A file nobody touches keeps its debt at face value; each doubling of
    recent commits adds its debt once more. */

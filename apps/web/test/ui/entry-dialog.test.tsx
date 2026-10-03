@@ -287,6 +287,35 @@ describe('EntryDialog', () => {
     );
   });
 
+  it('moves focus into the delete confirm, and Keep hands it back', async () => {
+    serve();
+    const user = userEvent.setup();
+    open(entry());
+
+    await user.click(screen.getByRole('button', { name: 'Delete entry' }));
+    expect(
+      screen.getByRole('button', { name: 'Delete for good' }),
+    ).toHaveFocus();
+
+    await user.click(screen.getByRole('button', { name: 'Keep' }));
+    expect(screen.getByRole('button', { name: 'Delete entry' })).toHaveFocus();
+  });
+
+  it('holds the delete confirm pending while the server answers', async () => {
+    serve();
+    const user = userEvent.setup();
+    open(entry());
+    await user.click(screen.getByRole('button', { name: 'Delete entry' }));
+
+    vi.mocked(fetch).mockImplementation(() => new Promise(() => {}));
+    await user.click(screen.getByRole('button', { name: 'Delete for good' }));
+
+    expect(
+      await screen.findByRole('button', { name: 'Deleting…' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Keep' })).toBeDisabled();
+  });
+
   it('creates with a client-generated id so a retry is idempotent', async () => {
     const calls = serve();
     const user = userEvent.setup();

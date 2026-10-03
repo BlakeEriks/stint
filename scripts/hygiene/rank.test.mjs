@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { churnWeight, debtOf, filedPaths, rank } from './rank.mjs';
+import { churnWeight, debtOf, filedPaths, fixChurn, rank } from './rank.mjs';
 
 const complex = (path, value) => ({ path, kind: 'complexity', value });
 
@@ -8,6 +8,44 @@ describe('debtOf', () => {
   it('prices complexity as Sonar S3776 does: 5 minutes plus 1 per point over 15', () => {
     assert.equal(debtOf(complex('a.ts', 16)), 6);
     assert.equal(debtOf(complex('a.ts', 30)), 20);
+  });
+});
+
+describe('fixChurn', () => {
+  const pr = (number, issue, ...paths) => ({
+    number,
+    mergedAt: `2026-09-${String(number).padStart(2, '0')}T00:00:00Z`,
+    closingIssuesReferences: [{ number: issue }],
+    files: paths.map((path) => ({ path })),
+  });
+  const fixes = new Set([1, 2, 3, 4]);
+  const hygiene = new Set([50]);
+
+  it('finds a file on its third fix, priced at 15 minutes a fix', () => {
+    const [f, ...rest] = fixChurn(
+      [pr(10, 1, 'a.ts', 'b.ts'), pr(11, 2, 'a.ts'), pr(12, 3, 'a.ts')],
+      fixes,
+      hygiene,
+    );
+    assert.equal(rest.length, 0);
+    assert.equal(f.path, 'a.ts');
+    assert.equal(debtOf(f), 45);
+  });
+
+  it('counts only PRs that close a fix issue', () => {
+    const prs = [pr(10, 1, 'a.ts'), pr(11, 2, 'a.ts'), pr(12, 9, 'a.ts')];
+    assert.deepEqual(fixChurn(prs, fixes, hygiene), []);
+  });
+
+  it('starts over once a hygiene issue on the file closes, in merge order', () => {
+    const prs = [
+      pr(14, 4, 'a.ts'),
+      pr(13, 50, 'a.ts'),
+      pr(10, 1, 'a.ts'),
+      pr(11, 2, 'a.ts'),
+      pr(12, 3, 'a.ts'),
+    ];
+    assert.deepEqual(fixChurn(prs, fixes, hygiene), []);
   });
 });
 

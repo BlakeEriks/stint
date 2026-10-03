@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { id, seed } from '@/mocks/fixtures';
-import { desktop, phone } from '@/mocks/screen';
+import { desktop, phone, stalled } from '@/mocks/screen';
 import { NOW, ZONE } from '@/mocks/time.mts';
 import { EntryDialog } from './entry-dialog';
 
@@ -70,6 +70,26 @@ export const ConfirmDelete: Story = {
         await page.findByRole('button', { name: /Delete for good/ }),
       ).toBeVisible(),
     );
+  },
+};
+
+/** The delete is waiting on the server: the confirm says so, and nothing
+    can be pressed twice. */
+export const Deleting: Story = {
+  ...desktop,
+  parameters: stalled('deleteEntry'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Delete entry' }),
+    );
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Delete for good' }),
+    );
+    await expect(
+      await page.findByRole('button', { name: 'Deleting…' }),
+    ).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Keep' })).toBeDisabled();
   },
 };
 
