@@ -105,6 +105,9 @@ becomes the preview's URL, and Vercel hashes longer ones.
 
 Fix it with the tests Constitution V asks for, following `CLAUDE.md` and the
 `.claude/rules/` the change touches. A migration found only now gets the `migration` label now.
+Before writing a test, name the regression it guards that nobody would see.
+A change to how a screen looks or reads has none: its story is the test,
+with a `play` that fails without the change, and no jsdom test asserts it.
 
 An issue that says `Fix with /reduce <path>` or `Fix with /copyedit <path>`
 is built by that skill's steps, which are already in your context.
