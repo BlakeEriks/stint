@@ -363,7 +363,7 @@ storybook` serves the stories at `localhost:6006` with no stack. They render
 the real components against `src/mocks/`, an in-memory `/api/v1` built from
 one account and parsed by `@stint/schema`, at a pinned instant
 (`src/mocks/time.mts`). A story picks its account with
-`parameters: account('running')` (or `'empty'`, or a function
+`parameters: account('running')` (or `'runningUnrated'`, `'empty'`, or a function
 that edits the seeded account) and breaks one endpoint with
 `failing('stats')`. A response that fails its schema, an unhandled API
 request or a handler that throws fails the story. On a browser's

@@ -186,7 +186,7 @@ invoices reference these rows. `DELETE` returns `204`.
 | Param | On | Effect |
 |---|---|---|
 | `includeArchived=true` | clients, projects, payment-profiles | Return archived rows too. Without it they are hidden. |
-| `withScale=true` | clients | Adds `projectCount` and `unbilledAmount` per client. |
+| `withScale=true` | clients | Adds `projectCount` and `unbilledAmount` per client. `unbilledAmount` counts a running timer's session so far, as `/stats`' `unbilled` does. |
 | `clientId=` | projects | Only that client's projects. |
 
 **`archived` is a PATCH field, and it is the only way back.** `archived: true`
