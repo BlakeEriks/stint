@@ -6,6 +6,7 @@ import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Ban, DollarSign, Download, Eye, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ConfirmAction } from './confirm-action';
 import { Section } from './field';
 import { StatusBadge, shortDate } from './invoice-bits';
 import { MarkPaidDialog } from './mark-paid-dialog';
@@ -281,26 +282,32 @@ function Loaded({
               </Button>
             ) : null}
 
+            {/* Voiding can't be undone and deleting removes the draft, so
+                each asks first. */}
             {!isVoid && !isDraft ? (
-              <Button
-                variant="ghost"
-                onClick={() => setStatus.mutate({ status: 'void' })}
-                disabled={setStatus.isPending}
+              <ConfirmAction
+                label={`Void ${invoice.invoiceNumber}`}
+                pendingLabel="Voiding…"
+                consequence="The number stays on record, and this invoice can't be reissued."
+                pending={setStatus.isPending}
+                onConfirm={() => setStatus.mutate({ status: 'void' })}
               >
                 <Ban aria-hidden strokeWidth={1.75} />
                 Void
-              </Button>
+              </ConfirmAction>
             ) : null}
 
             {isDraft ? (
-              <Button
-                variant="ghost"
-                onClick={() => remove.mutate()}
-                disabled={remove.isPending}
+              <ConfirmAction
+                label={`Delete ${invoice.invoiceNumber} for good`}
+                pendingLabel="Deleting…"
+                consequence="Its entries go back to unbilled."
+                pending={remove.isPending}
+                onConfirm={() => remove.mutate()}
               >
                 <Trash2 aria-hidden strokeWidth={1.75} />
                 Delete draft
-              </Button>
+              </ConfirmAction>
             ) : null}
           </div>
 
