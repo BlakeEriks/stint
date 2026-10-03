@@ -25,9 +25,15 @@ export function ClientProjects({ client }: { client: Client }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Project | undefined>();
 
+  /* An archived client's projects all count as archived, so without them
+     the page would say "No projects." of a client that has some. */
+  const archived = client.archivedAt != null;
   const query = useQuery({
-    queryKey: keys.projects({ clientId: client.id }),
-    queryFn: () => api.projects({ clientId: client.id }),
+    queryKey: keys.projects(
+      archived ? { clientId: client.id, archived } : { clientId: client.id },
+    ),
+    queryFn: () =>
+      api.projects({ clientId: client.id, includeArchived: archived }),
     select: (r) => r.projects,
   });
 

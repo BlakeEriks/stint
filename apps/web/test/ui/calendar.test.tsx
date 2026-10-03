@@ -388,6 +388,32 @@ describe('the calendar legend', () => {
     expect(screen.queryByText('No client')).toBeNull();
   });
 
+  it('still names a client archived since, whose projects the pickers drop', async () => {
+    /* As the server: an archived client's projects come only with
+       `includeArchived`, so the legend must ask for them. */
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const u = String(url);
+        const body = u.includes('/projects')
+          ? {
+              projects: u.includes('includeArchived=true')
+                ? CLIENT_PROJECTS
+                : CLIENT_PROJECTS.filter((p) => p.clientId !== 'c-byrne'),
+            }
+          : u.includes('/clients')
+            ? { clients: CLIENTS }
+            : { days: week() };
+        return new Response(JSON.stringify(body), { status: 200 });
+      }),
+    );
+    render(<Calendar />, { wrapper });
+
+    expect(
+      await screen.findByText('Byrne Studio', { selector: 'span' }),
+    ).toBeInTheDocument();
+  });
+
   it('renders no strip at all when the week is empty', async () => {
     serve([], { projects: CLIENT_PROJECTS, clients: CLIENTS });
     const { container } = render(<Calendar />, { wrapper });

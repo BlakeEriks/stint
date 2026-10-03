@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from './api';
+import { api, type Project } from './api';
 import { keys } from './query-keys';
 
 /**
@@ -39,9 +39,9 @@ export function useProjectColors(): Map<string, string | null> {
  * than a second set of fetches that could disagree with the colors already
  * painted.
  *
- * **Archived clients are included.** Work billed to a finished engagement is
- * still in the history, and dropping its color would silently move those
- * hours into the unnamed band.
+ * **Archived clients and projects are included.** Work billed to a finished
+ * engagement is still in the history, and dropping its color would silently
+ * move those hours into the unnamed band.
  *
  * **So are clients with no color.** A client is a client whether or not it
  * has a hue; leaving it out would file its work under internal.
@@ -55,8 +55,8 @@ export function useProjectClients(): {
   >;
 } {
   const projects = useQuery({
-    queryKey: keys.projects(),
-    queryFn: () => api.projects(),
+    queryKey: keys.projects({ archived: true }),
+    queryFn: () => api.projects({ includeArchived: true }),
   });
   const byId = useClients();
 
@@ -107,4 +107,18 @@ export function useClients(): Map<
       ),
     [clients.data],
   );
+}
+
+/**
+ * The project an entry or a running timer already belongs to, archived ones
+ * and those of an archived client included. A picker offers only active
+ * projects; what work was tracked against is a fact, and naming it "No
+ * project" would misreport it. The same query as the colors, so no fetch.
+ */
+export function useProject(id: string | null | undefined): Project | undefined {
+  const { data } = useQuery({
+    queryKey: keys.projects({ archived: true }),
+    queryFn: () => api.projects({ includeArchived: true }),
+  });
+  return id ? (data?.projects ?? []).find((p) => p.id === id) : undefined;
 }
