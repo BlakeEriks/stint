@@ -40,6 +40,8 @@ Shared plumbing in `apps/web/src/lib/`:
   type; a `join()` over an array degrades every consumer to an error type.
 
 - `validate.ts` — Zod parsing with 422 + `treeifyError` details.
+- `select-all.ts` — `selectAll()` pages a read past PostgREST's 1,000-row
+  `max_rows`.
 
 The browser's types in `lib/client/api.ts` **derive** from `@stint/schema`
 rather than copying it.
@@ -51,6 +53,9 @@ omits one.
 
 ### Conventions
 
+- A read that can match more than 1,000 rows goes through `selectAll()`,
+  ordered to end on a unique column. PostgREST returns only the first
+  `max_rows` and reports no error, so a plain read truncates in silence.
 - Never pre-check the running timer before inserting. Attempt the insert and
   translate the unique-violation — a pre-check is a race, the index is not.
 - Numeric columns arrive from PostgREST as **strings**; `rows.ts` converts them.

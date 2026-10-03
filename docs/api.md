@@ -8,7 +8,8 @@ route parses its request against it; this document is the map.
 
 Handlers are covered by integration tests that run the real route code against
 a real Postgres instance with the real migrations applied
-(`apps/web/test/routes.test.ts`, `apps/web/test/invoices.test.ts`) — so the
+(`apps/web/test/routes.test.ts`, `apps/web/test/invoices.test.ts`,
+`apps/web/test/paging.test.ts`) — so the
 timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
