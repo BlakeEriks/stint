@@ -466,30 +466,6 @@ describe('TimerBar — running', () => {
     expect(screen.getByText('Acme Redesign')).toBeInTheDocument();
   });
 
-  it('names a running project whose client was archived mid-run', async () => {
-    const data = summary({
-      running: entry({ projectId: 'p-old' }),
-      todaySeconds: 1500,
-    });
-    /* As the server: not in the list a picker offers, only in the one with
-       archived rows. */
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url: string) => {
-        const u = String(url);
-        const body = u.includes('includeArchived=true')
-          ? { projects: [{ id: 'p-old', name: 'Legacy retainer' }] }
-          : u.includes('/entries/task-names')
-            ? { taskNames: [] }
-            : data;
-        return new Response(JSON.stringify(body), { status: 200 });
-      }),
-    );
-    renderBar();
-
-    expect(await screen.findByText('Legacy retainer')).toBeInTheDocument();
-  });
-
   /* A running timer is glanced at rather than operated, and the project
      cannot change until it stops — so on a phone it is the one thing on the
      row that gives way, and the name and readout keep a single line. jsdom

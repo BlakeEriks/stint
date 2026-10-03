@@ -122,5 +122,5 @@ export function useAllProjects() {
 /** One project from `useAllProjects`, so naming it costs no fetch. */
 export function useProject(id: string | null | undefined): Project | undefined {
   const { data } = useAllProjects();
-  return id ? data?.projects.find((p) => p.id === id) : undefined;
+  return id ? (data?.projects ?? []).find((p) => p.id === id) : undefined;
 }

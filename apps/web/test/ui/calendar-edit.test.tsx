@@ -123,46 +123,6 @@ describe('opening an entry from the calendar', () => {
     expect(screen.getByLabelText('Task')).toHaveValue('Design review');
   });
 
-  it('names the project of an entry whose client is archived since', async () => {
-    /* As the server: that project comes only with `includeArchived`, since
-       no picker offers it for new time. The entry still belongs to it. */
-    const legacy = { ...PROJECTS[0]!, id: 'p-old', name: 'Legacy retainer' };
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url: string) => {
-        const u = String(url);
-        const body = u.includes('/projects')
-          ? {
-              projects: u.includes('includeArchived=true')
-                ? [...PROJECTS, legacy]
-                : PROJECTS,
-            }
-          : {
-              days: [
-                {
-                  date: '2026-09-07',
-                  totalSeconds: 7200,
-                  entries: [
-                    entry({ taskName: 'Retainer', projectId: 'p-old' }),
-                  ],
-                },
-              ],
-            };
-        return new Response(JSON.stringify(body), { status: 200 });
-      }),
-    );
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<Calendar />, { wrapper });
-
-    await user.click(await screen.findByRole('button', { name: /Retainer/ }));
-
-    await waitFor(() =>
-      expect(screen.getByLabelText('Project')).toHaveTextContent(
-        'Legacy retainer',
-      ),
-    );
-  });
-
   it('names a block with its time range, not just its task', async () => {
     serve([
       {

@@ -307,9 +307,6 @@ describe('ClientProjects', () => {
       { wrapper },
     );
 
-    /* The server counts an archived client's projects as archived, so
-       without it the page would say "No projects." of a client that has
-       some. */
     await waitFor(() =>
       expect(
         seen.some(

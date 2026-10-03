@@ -95,10 +95,7 @@ export function ProjectPicker({
   readOnly?: boolean;
 }) {
   const [creating, setCreating] = useState(false);
-  /* From every project, not only those offered: work keeps its project's
-     name after that client is archived, though the menu no longer offers it.
-     The offered list covers the moment before the full one loads. */
-  const selected = useProject(value) ?? projects.find((p) => p.id === value);
+  const selected = useSelected(projects, value);
   const colors = useProjectColors();
   /* The same two queries the swatch already resolves through, so naming the
      client costs no fetch. */
@@ -265,6 +262,13 @@ export function ProjectPicker({
       />
     </>
   );
+}
+
+/* From every project, not only those offered: work keeps its project's name
+   after that client is archived, though the menu no longer offers it. The
+   offered list covers the moment before the full one loads. */
+function useSelected(projects: Project[], value: string | null) {
+  return useProject(value) ?? projects.find((p) => p.id === value);
 }
 
 /**
