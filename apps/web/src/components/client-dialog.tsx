@@ -9,14 +9,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { api, type Client } from '@/lib/client/api';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import type { Client } from '@/lib/client/api';
+import { useArchiveClient } from '@/lib/client/use-archive-client';
 import { ClientForm } from './client-form';
-import {
-  keys,
-  invalidateEntryData,
-  predictArchive,
-} from '@/lib/client/query-keys';
 
 /**
  * Edits a client where the contractor already is, as `ProjectDialog` does a
@@ -35,21 +30,7 @@ export function ClientDialog({
   onOpenChange: (open: boolean) => void;
   client: Client;
 }) {
-  /* Predicted: the dialog closes and the client goes on the press; a
-     refusal puts it back and the notice says why. */
-  const archive = useOptimisticMutation<string, unknown, unknown>({
-    queryKey: () => keys.clients(),
-    mutationFn: (id) => api.archiveClient(id),
-    predict: (current, id, key) => predictArchive('clients', id, current, key),
-    /* Archiving withdraws the client's rate from every rollup, and its
-       projects from every picker. */
-    invalidate: (qc) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.clients() }),
-        qc.invalidateQueries({ queryKey: keys.projects() }),
-        invalidateEntryData(qc),
-      ]),
-  });
+  const archive = useArchiveClient();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

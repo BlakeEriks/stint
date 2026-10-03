@@ -7,7 +7,10 @@ import { Pencil, Plus } from 'lucide-react';
 import { formatCurrency, resolveRate, resolveRateSource } from '@stint/core';
 import { Button } from '@/components/ui/button';
 import { api, type Client, type Expense, type Project } from '@/lib/client/api';
-import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
+import {
+  INTERNAL_SWATCH,
+  useAllProjects,
+} from '@/lib/client/use-project-colors';
 import { Listing, Page } from './page';
 import { Pip } from './home-shell';
 import { ClientDialog } from './client-dialog';
@@ -41,10 +44,7 @@ export function ClientList() {
        "No client", which would be a lie. */
     queryFn: () => api.clients({ includeArchived: true }),
   });
-  const projectQuery = useQuery({
-    queryKey: keys.projects({ archived: true }),
-    queryFn: () => api.projects({ includeArchived: true }),
-  });
+  const projectQuery = useAllProjects();
   const { data: settings } = useQuery({
     queryKey: keys.settings(),
     queryFn: () => api.settings(),

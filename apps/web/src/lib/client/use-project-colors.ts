@@ -54,10 +54,7 @@ export function useProjectClients(): {
     { id: string; name: string; color: string | null }
   >;
 } {
-  const projects = useQuery({
-    queryKey: keys.projects({ archived: true }),
-    queryFn: () => api.projects({ includeArchived: true }),
-  });
+  const projects = useAllProjects();
   const byId = useClients();
 
   /* Memoized on the query data: these Maps are dependencies of the effects
@@ -110,15 +107,20 @@ export function useClients(): Map<
 }
 
 /**
- * The project an entry or a running timer already belongs to, archived ones
- * and those of an archived client included. A picker offers only active
- * projects; what work was tracked against is a fact, and naming it "No
- * project" would misreport it. The same query as the colors, so no fetch.
+ * Every project, archived ones and those of an archived client included:
+ * what work was tracked against is a fact, so anything naming past work reads
+ * this rather than the active list a picker offers. One query key, so every
+ * caller shares one fetch.
  */
-export function useProject(id: string | null | undefined): Project | undefined {
-  const { data } = useQuery({
+export function useAllProjects() {
+  return useQuery({
     queryKey: keys.projects({ archived: true }),
     queryFn: () => api.projects({ includeArchived: true }),
   });
-  return id ? (data?.projects ?? []).find((p) => p.id === id) : undefined;
+}
+
+/** One project from `useAllProjects`, so naming it costs no fetch. */
+export function useProject(id: string | null | undefined): Project | undefined {
+  const { data } = useAllProjects();
+  return id ? data?.projects.find((p) => p.id === id) : undefined;
 }
