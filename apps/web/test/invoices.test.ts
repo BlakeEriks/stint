@@ -9,6 +9,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import { makeDb } from './shim.mjs';
+import { fill } from './fill.ts';
 
 const USER = '11111111-1111-1111-1111-111111111111';
 const CLIENT = 'cc000000-0000-4000-8000-000000000001';
@@ -2357,19 +2358,21 @@ test('the default grouping totals what the Unbilled card shows', async () => {
   );
 });
 
+/** One more six-minute entry than PostgREST's `max_rows` returns to one read. */
+const fillSeptember = () =>
+  fill(pool, {
+    userId: USER,
+    projectId: PROJECT,
+    from: '2026-09-01T08:00:00Z',
+    n: 1001,
+    minutes: 6,
+  });
+
 test('an invoice bills every entry in its period, past a thousand', async () => {
   const { POST: preview } = await import(
     '../src/app/api/v1/invoices/preview/route.ts'
   );
-  // One more six-minute entry than PostgREST's `max_rows` returns to one read.
-  await pool.query(
-    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
-     select gen_random_uuid(), $1, $2, 'Work',
-            '2026-09-01T08:00:00Z'::timestamptz + (n * interval '7 minutes'),
-            '2026-09-01T08:06:00Z'::timestamptz + (n * interval '7 minutes')
-     from generate_series(0, 1000) n`,
-    [USER, PROJECT],
-  );
+  await fillSeptember();
 
   const res = await json(
     await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
@@ -2385,14 +2388,7 @@ test('an issued invoice reads back every line, past a thousand', async () => {
   const { GET: detail } = await import(
     '../src/app/api/v1/invoices/[id]/route.ts'
   );
-  await pool.query(
-    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
-     select gen_random_uuid(), $1, $2, 'Work',
-            '2026-09-01T08:00:00Z'::timestamptz + (n * interval '7 minutes'),
-            '2026-09-01T08:06:00Z'::timestamptz + (n * interval '7 minutes')
-     from generate_series(0, 1000) n`,
-    [USER, PROJECT],
-  );
+  await fillSeptember();
 
   const res = await json(
     await create(
