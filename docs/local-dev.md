@@ -221,8 +221,8 @@ one, so the seed never sits on a boundary a timezone could round the wrong
 way.
 
 It gives the most recent worked day an extra block, because that day's last
-block is the one left running: without it Home opens on a day that has earned
-nothing, which is the one figure the screen exists to show. Nothing seeded
+block is the one left running: without it Today lists the timer alone, with no
+finished work beside it. Nothing seeded
 starts or ends after now: the running block starts 45 minutes ago at the
 latest, and the day's finished blocks move earlier to end before it. A
 morning seed still earns something today; one run in the small hours lays
