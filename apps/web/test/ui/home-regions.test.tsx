@@ -481,29 +481,6 @@ describe('the three regions', () => {
  *
  * A hue belongs to the client, never to the position.
  */
-describe('when the figures fail to load', () => {
-  it('says so, rather than leaving the panel blank', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              code: 'INTERNAL',
-              message: 'Internal server error',
-            }),
-            { status: 500 },
-          ),
-      ),
-    );
-    render(<HomeCards />, { wrapper });
-
-    expect(
-      await screen.findByText('Could not load this. Try again.'),
-    ).toBeVisible();
-  });
-});
-
 describe('the client split', () => {
   /** A stack segment's height, as the fraction the style carries. */
   function share(el: Element | null): number {

@@ -35,7 +35,15 @@ export const Running: Story = { ...desktop, parameters: account('running') };
 export const Empty: Story = { ...desktop, parameters: account('empty') };
 
 /** The figures failed to load: the panel says so, never blank. */
-export const Failed: Story = { ...desktop, parameters: failing('stats') };
+export const Failed: Story = {
+  ...desktop,
+  parameters: failing('stats'),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText('Could not load this. Try again.'),
+    ).toBeVisible();
+  },
+};
 
 /** At `2xl` the panel is a bounded card. */
 export const Wide: Story = { ...wide };
