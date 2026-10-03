@@ -165,6 +165,8 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
   is always `aria-hidden`.
 - **A destructive action is quiet until it is the confirm**: a ghost in
   `text-danger`, then `destructive` spelling the consequence out, in place.
+  Destructive means it removes something saved; dropping a line from a form
+  not yet submitted (a charge on a new invoice) acts at once.
   In a dialog footer the first step is a trash icon alone, pushed away with
   `mr-auto`. A modal confirm is only for what takes many records at once and
   can't come back, like Delete account.
