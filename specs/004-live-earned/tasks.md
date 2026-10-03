@@ -72,10 +72,10 @@ before its code lands.
 
 **Independent Test**: With a timer running, today's week bar, the month's Earned and the dock's Earned rise with Today's Earned.
 
-- [ ] T018 [P] [US2] Failing route test in `apps/web/test/routes.test.ts`: with a running entry, today's `week[]` bar's `seconds`/`amount`, `month.earned` and `month.byClient` each include it, and `month.earned` minus the same figure without it equals `earnedToday`'s share
-- [ ] T019 [P] [US2] Failing route test in `apps/web/test/routes.test.ts`: a running entry started before local midnight counts toward the day it started, not today (FR-011)
-- [ ] T020 [US2] Make T018–T019 pass; T003 should already cover them. If `buildEarnedPace`'s projection in `packages/core/src/stats.ts` needs no change, say so in a comment on the test
-- [ ] T021 [P] [US2] Story export in `apps/web/src/components/home.stories.tsx` for the week and month regions with a running timer
+- [X] T018 [P] [US2] Failing route test in `apps/web/test/routes.test.ts`: with a running entry, today's `week[]` bar's `seconds`/`amount`, `month.earned` and `month.byClient` each include it, and `month.earned` minus the same figure without it equals `earnedToday`'s share
+- [X] T019 [P] [US2] Failing route test in `apps/web/test/routes.test.ts`: a running entry started before local midnight counts toward the day it started, not today (FR-011)
+- [X] T020 [US2] Make T018–T019 pass; T003 should already cover them. `buildEarnedPace` needed no change: it extrapolates the by-day series, which now holds the session
+- [X] T021 [P] [US2] Story export in `apps/web/src/components/home.stories.tsx` for the week and month regions with a running timer: the existing `Running` story renders them, now counting the session
 
 **Checkpoint**: US1 and US2 pass on their own.
 
@@ -87,9 +87,9 @@ before its code lands.
 
 **Independent Test**: With a timer running, the menu bar panel and the web show the same Unbilled, including the session.
 
-- [ ] T022 [P] [US3] Failing route test in `apps/web/test/routes.test.ts`: `/stats` `unbilled.total` and `/clients` `unbilledAmount` include a running entry; `POST /timer/stop` returns the same Unbilled the next `/stats` does
-- [ ] T023 [US3] Check the inbox: a running unrated entry now counts in `unbilled_by_client.unrated_count`. Confirm in `packages/core/src/stats.ts` (`buildUnbilled`) whether that surfaces an inbox row mid-session; if it does, add a failing test and exclude running entries from that prompt only, with a comment
-- [ ] T024 [US3] No macOS change for the figure itself: `apps/macos/Sources/Stint/API.swift` `Stats.unbilled.total` reads the server's value
+- [X] T022 [P] [US3] Failing route test in `apps/web/test/routes.test.ts`: `/stats` `unbilled.total` and `/clients` `unbilledAmount` include a running entry; `POST /timer/stop` returns the same Unbilled the next `/stats` does
+- [X] T023 [US3] Check the inbox: a running unrated entry now counts in `unbilled_by_client.unrated_count`. Confirm in `packages/core/src/stats.ts` (`buildUnbilled`) whether that surfaces an inbox row mid-session; if it does, add a failing test and exclude running entries from that prompt only, with a comment. Result: `unratedCount` is rendered nowhere, so no change
+- [X] T024 [US3] No macOS change for the figure itself: `apps/macos/Sources/Stint/API.swift` `Stats.unbilled.total` reads the server's value
 
 **Checkpoint**: Unbilled agrees across web and macOS.
 

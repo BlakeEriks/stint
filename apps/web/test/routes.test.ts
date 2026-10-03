@@ -1212,6 +1212,95 @@ test('Earned today counts a running timer up to the request, priced as it would 
   );
 });
 
+test('the week, the month and its client strip count a running timer', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-000000000006';
+  const p = '33333333-0000-4000-8000-0000000000d4';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Week',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  const before = await json(await stats(req('/stats?tz=UTC')));
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at)
+     values ($1,$2,$3,'running',$4)`,
+    [S(15), USER, p, new Date(Date.now() - 1800 * 1000).toISOString()],
+  );
+  const after = await json(await stats(req('/stats?tz=UTC')));
+
+  const today = new Date().toISOString().slice(0, 10);
+  const bar = (r: typeof after) =>
+    r.body.week.find((d: { date: string }) => d.date === today);
+  assert.equal(bar(after).seconds - bar(before).seconds, 1800);
+  assert.equal(
+    Math.round(((bar(after).amount ?? 0) - (bar(before).amount ?? 0)) * 100),
+    5000,
+    "today's bar gains the session's $50",
+  );
+  assert.equal(
+    Math.round((after.body.month.earned - before.body.month.earned) * 100),
+    5000,
+  );
+  const strip = after.body.month.byClient.find(
+    (b: { clientId: string }) => b.clientId === c,
+  );
+  assert.equal(strip.amount, 50);
+});
+
+test('a running timer started before midnight counts toward the day it started', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const midnight = new Date();
+  midnight.setUTCHours(0, 0, 0, 0);
+  // The $100 user default prices it.
+  await pool.query(
+    'update user_settings set default_hourly_rate = 100 where user_id = $1',
+    [USER],
+  );
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at)
+     values ($1,$2,null,'overnight',$3)`,
+    [S(16), USER, new Date(midnight.getTime() - 600 * 1000).toISOString()],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.earnedToday, 0, 'not today');
+  assert.ok(res.body.unbilled.total > 0, 'yet unbilled so far');
+});
+
+test("a client's Unbilled counts its running timer, as /stats does", async () => {
+  const { GET: listClients } = await import(
+    '../src/app/api/v1/clients/route.ts'
+  );
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-000000000007';
+  const p = '33333333-0000-4000-8000-0000000000d5';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Live',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at)
+     values ($1,$2,$3,'running',$4)`,
+    [S(17), USER, p, new Date(Date.now() - 1800 * 1000).toISOString()],
+  );
+
+  const clients = await json(await listClients(req('/clients?withScale=true')));
+  const row = clients.body.clients.find((x: { id: string }) => x.id === c);
+  assert.equal(row.unbilledAmount, 50);
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.unbilled.total, 50);
+});
+
 test('the entries list measures a running entry at the response', async () => {
   const { GET: list } = await import('../src/app/api/v1/entries/route.ts');
   await pool.query(
