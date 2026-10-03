@@ -58,6 +58,26 @@ struct TimerModelTests {
         await model.signOut()
     }
 
+    @Test func aClosedPanelPollsTheTimerAlone() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website")]))
+        APIStub.routes["/clients"] = (200, clients([]))
+        APIStub.requested = []
+        await model.poll()
+        #expect(APIStub.requested == ["/summary"])
+
+        model.panel(open: true)
+        APIStub.requested = []
+        await model.poll()
+        #expect(Set(APIStub.requested) == ["/summary", "/projects", "/clients", "/stats", "/entries"])
+
+        model.panel(open: false)
+        APIStub.requested = []
+        await model.poll()
+        #expect(APIStub.requested == ["/summary"])
+        await model.signOut()
+    }
+
     /// A model over a stubbed backend, signed in with a token that needs no
     /// refresh. Its own Keychain account, cleared by `signOut()`.
     private func signedInModel() async throws -> TimerModel {
@@ -98,6 +118,7 @@ struct TimerModelTests {
 /// Answers by path, ignoring the `/api/v1` prefix and the query string.
 private final class APIStub: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var routes: [String: (Int, Data)] = [:]
+    nonisolated(unsafe) static var requested: [String] = []
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -105,6 +126,7 @@ private final class APIStub: URLProtocol, @unchecked Sendable {
 
     override func startLoading() {
         let path = request.url!.path().replacingOccurrences(of: "/api/v1", with: "")
+        Self.requested.append(path)
         let (status, data) = Self.routes[path] ?? (404, Data())
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)

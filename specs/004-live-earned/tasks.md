@@ -101,11 +101,11 @@ before its code lands.
 
 **Independent Test**: With a timer running, a hidden tab and a closed panel make no scheduled `/stats` requests; showing them refreshes at once.
 
-- [ ] T025 [P] [US4] Failing UI test in `apps/web/test/ui/` (alongside existing `use-*` tests): with a running timer, a summary refetch invalidates stats and entries; with no timer, it doesn't; with `document.visibilityState = 'hidden'`, the interval does not fire
-- [ ] T026 [P] [US4] Failing test in `apps/macos/Tests/StintTests/`: with the panel closed, the poll fetches `/summary` only; on open, a full refresh runs at once; while open, the poll runs the full refresh
-- [ ] T027 [US4] In `apps/macos/Sources/Stint/TimerModel.swift`, add `panelOpen` state and split `refresh()` so the 60s poller fetches only `/summary` while the panel is closed, and the full refresh (stats, projects, clients, recent) when open; `start()`'s refresh-on-open stays. Comment why the title still polls
-- [ ] T028 [US4] In `apps/macos/Sources/Stint/ContentView.swift`, set the model's panel state from `.onAppear` and `.onDisappear`, treating each as a transition (see the comment at line ~29 on which edge fires)
-- [ ] T029 [US4] Verify T016's driver pauses in a hidden tab (TanStack Query's `refetchIntervalInBackground` default) and refetches on focus (`refetchOnWindowFocus: 'always'` on summary); no code if T025 passes
+- [X] T025 [P] [US4] Failing UI test `apps/web/test/ui/follow-running-timer.test.tsx`: with a running timer, a summary refetch invalidates stats and entries; with no timer, or a prediction, it doesn't. The hidden-tab pause is TanStack Query's (T029)
+- [X] T026 [P] [US4] Failing test in `apps/macos/Tests/StintTests/`: with the panel closed, the poll fetches `/summary` only; on open, a full refresh runs at once; while open, the poll runs the full refresh
+- [X] T027 [US4] In `apps/macos/Sources/Stint/TimerModel.swift`, add `panelOpen` state and split `refresh()` so the 60s poller fetches only `/summary` while the panel is closed, and the full refresh (stats, projects, clients, recent) when open; `start()`'s refresh-on-open stays. Comment why the title still polls
+- [X] T028 [US4] In `apps/macos/Sources/Stint/ContentView.swift`, set the model's panel state from `PanelWatch` (`apps/macos/Sources/Stint/PanelWatch.swift`), which reads the window's occlusion state: `.onAppear`/`.onDisappear` fire on either edge (comment at line ~29)
+- [X] T029 [US4] Verify T016's driver pauses in a hidden tab (TanStack Query's `refetchIntervalInBackground` default) and refetches on focus (`refetchOnWindowFocus: 'always'` on summary); no code if T025 passes
 
 **Checkpoint**: All stories pass.
 

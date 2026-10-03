@@ -116,13 +116,10 @@ final class TimerModel: Optimistic {
 
     // MARK: Lifecycle
 
-    /// Idempotent: the panel's content is rebuilt on every open, so a second
-    /// call is "reconcile now" rather than a second set of loops.
+    /// Idempotent: called from the label at launch and from the panel's
+    /// content. Opening the panel refreshes through `panel(open:)`.
     func start() {
-        guard !started else {
-            Task { await refresh() }
-            return
-        }
+        guard !started else { return }
         started = true
 
         Task {
@@ -154,7 +151,7 @@ final class TimerModel: Optimistic {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(60))
                 guard let self, self.isSignedIn else { continue }
-                await self.refresh()
+                await self.poll()
             }
         }
         // A laptop shut overnight would otherwise show a stale readout for up
@@ -162,11 +159,34 @@ final class TimerModel: Optimistic {
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in await self?.refresh() }
+            Task { @MainActor in await self?.poll() }
         }
     }
 
+    /// Whether the panel is on screen, from `PanelWatch`.
+    @ObservationIgnored private(set) var panelOpen = false
+
+    /// Opening refreshes at once; closing stops the poll fetching what only
+    /// the panel shows.
+    func panel(open: Bool) {
+        guard open != panelOpen else { return }
+        panelOpen = open
+        if open { Task { await refresh() } }
+    }
+
+    /// The minute's reconcile. Closed, the panel shows nothing, so only the
+    /// timer is fetched: the menu bar title is the timer, and one started on
+    /// the web must still reach it. Open, everything the panel shows, so
+    /// Unbilled moves with a running timer (`specs/004-live-earned`).
+    func poll() async {
+        await fetch(full: panelOpen)
+    }
+
     func refresh() async {
+        await fetch(full: true)
+    }
+
+    private func fetch(full: Bool) async {
         guard await tokens.isSignedIn else { return }
         do {
             let fetchedAt = Date()
@@ -177,6 +197,7 @@ final class TimerModel: Optimistic {
             skew = fetchedAt.timeIntervalSince(summary.serverTime)
             self.summary = summary
             errorMessage = nil
+            guard full else { return }
             // Every refresh, so a project added, renamed or archived on the
             // web reaches the panel on its next open. A failed fetch keeps
             // the list it had rather than emptying the picker.
