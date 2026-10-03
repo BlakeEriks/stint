@@ -120,7 +120,7 @@ export function InvoiceList() {
           empty={
             all.length === 0
               ? 'No invoices yet. Preview a period to see what it would bill.'
-              : 'Nothing open. Everything issued has been paid.'
+              : `Nothing ${status ?? 'open'}. ${countByStatus(all)}.`
           }
         >
           {(rows) => (
@@ -163,6 +163,17 @@ export function InvoiceList() {
       />
     </Page>
   );
+}
+
+/** "3 paid · 1 void": what the other filters hold, so an empty filter never
+    reads as an empty account. */
+function countByStatus(invoices: Invoice[]) {
+  const order: InvoiceStatus[] = ['draft', 'sent', 'paid', 'void'];
+  return order
+    .map((s) => [invoices.filter((i) => i.status === s).length, s] as const)
+    .filter(([n]) => n > 0)
+    .map(([n, s]) => `${n} ${s}`)
+    .join(' · ');
 }
 
 function Row({
