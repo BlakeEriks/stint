@@ -62,9 +62,7 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 const draw = () =>
-  render(<EntryList grid compact projects={[]} todaySeconds={6300} />, {
-    wrapper,
-  });
+  render(<EntryList projects={[]} todaySeconds={6300} />, { wrapper });
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -140,21 +138,6 @@ describe('Today as a day column', () => {
       .closest('[class*="border-"]');
     expect(block?.className).toContain('border-timer-running');
     expect(block?.className).not.toContain('accent-default');
-  });
-
-  it('keeps the running entry out of the list view', async () => {
-    serve([
-      entry(),
-      entry({ id: 'e2', taskName: 'Schema review', endedAt: null }),
-    ]);
-    render(<EntryList compact projects={[]} todaySeconds={6300} />, {
-      wrapper,
-    });
-
-    /* The list is durations, and the timer bar is already counting this one
-       up — the same fact twice. Only the grid wants it. */
-    expect(await screen.findByText('API integration')).toBeInTheDocument();
-    expect(screen.queryByText('Schema review')).not.toBeInTheDocument();
   });
 
   it('puts the now-line where the clock is', async () => {
