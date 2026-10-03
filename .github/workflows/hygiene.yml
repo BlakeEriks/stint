@@ -29,6 +29,7 @@ jobs:
     permissions:
       contents: read
       issues: write
+      pull-requests: read
     env:
       GH_TOKEN: ${{ github.token }}
       ISSUES: ${{ inputs.issues || '5' }}
@@ -68,4 +69,4 @@ jobs:
           claude_args: >-
             --max-turns 60
             --model opus
-            --allowedTools "Read,Grep,Glob,Write,Bash(gh issue create:*)"
+            --allowedTools "Read,Grep,Glob,Write,Bash(gh issue create:*),Bash(gh pr view:*)"

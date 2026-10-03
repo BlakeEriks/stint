@@ -17,7 +17,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Desktop: Story = { ...desktop };
 export const Phone: Story = { ...phone };
-/* Light only: #125's contrast failures reach the sign-in page in light. */
+/* TODO(#125): light only, where the contrast failures reach sign-in. */
 export const Light: Story = {
   ...light,
   parameters: { a11y: knownFailures },

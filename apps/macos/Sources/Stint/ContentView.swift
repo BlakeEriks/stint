@@ -382,8 +382,8 @@ private struct TimerPanel: View {
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
                 .padding(.bottom, 6)
-            ForEach(Array(model.recent.enumerated()), id: \.element.id) { index, entry in
-                EntryRow(entry: entry) { Task { await model.resume(entry) } }
+            ForEach(Array(model.recent.enumerated()), id: \.element.id) { index, name in
+                RecentRow(name: name) { Task { await model.resume(name) } }
                     .accessibilityIdentifier("entry-\(index + 1)")
             }
         }
@@ -501,34 +501,29 @@ private struct ProjectPicker: View {
     }
 }
 
-/// One finished entry, and the way to pick that work back up.
+/// A name worked under before, and the way to start it again — the same
+/// names the web suggests, so the row carries no duration: it is not one
+/// past entry.
 ///
 /// **The whole row is the control.** The glyph appears under the pointer to
 /// say what the click does, not to be aimed at.
-///
-/// Resuming starts NEW work carrying this entry's name, project and billable
-/// answer. It never reopens the original row: a finished entry is a record.
-private struct EntryRow: View {
-    let entry: TimeEntry
+private struct RecentRow: View {
+    let name: TaskName
     var resume: () -> Void
 
     var body: some View {
         Button(action: resume) {
             Hovering { on in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(entry.taskName.isEmpty ? "Untitled" : entry.taskName)
+                    Text(name.taskName)
                         .role(.body)
-                        .foregroundStyle(entry.taskName.isEmpty ? Tokens.Dark.textSubtle : Tokens.Dark.textPrimary)
+                        .foregroundStyle(Tokens.Dark.textPrimary)
                         .lineLimit(1)
                     Spacer(minLength: 8)
                     Image(systemName: "play.fill")
                         .role(.hint)
                         .foregroundStyle(Tokens.Dark.textSubtle)
                         .opacity(on ? 1 : 0)
-                    Text(format(entry.durationSeconds ?? 0))
-                        .role(.duration)
-                        .foregroundStyle(Tokens.Dark.textMuted)
-                        .layoutPriority(1)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
@@ -540,7 +535,7 @@ private struct EntryRow: View {
         // Flush to the panel's edges, so the ring sits inside rather than
         // over the rows above and below.
         .panelFocus(Rectangle(), inset: -1)
-        .accessibilityLabel("Start \(entry.taskName.isEmpty ? "untitled entry" : entry.taskName) again")
+        .accessibilityLabel("Start \(name.taskName) again")
     }
 }
 

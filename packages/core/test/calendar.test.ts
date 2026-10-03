@@ -52,9 +52,8 @@ test('startOfLocalDay lands on local midnight of the same local date', () => {
 });
 
 /**
- * The regression this module exists for: computing midnight with the
- * CURRENT offset is an hour wrong on DST transition days, which silently
- * files entries under the wrong date twice a year.
+ * Midnight computed with the CURRENT offset is an hour wrong on DST
+ * transition days, filing entries under the wrong date.
  */
 test('startOfLocalDay is correct across DST transitions', () => {
   const dst: Array<[string, string]> = [

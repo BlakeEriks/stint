@@ -410,9 +410,6 @@ describe('ClientList', () => {
     );
     render(<ClientList />, { wrapper });
 
-    /* The regression this exists for: every screen hand-rolled loading and
-       empty and none wrote a failure, so an errored query said "Loading…"
-       for as long as the tab stayed open. */
     await waitFor(() =>
       expect(screen.getByText(/could not load/i)).toBeInTheDocument(),
     );
