@@ -48,6 +48,20 @@ describe('followRunningTimer', () => {
     expect(invalidated()).toEqual([]);
   });
 
+  it('waits out a write in flight, so a refetch cannot undo its prediction', async () => {
+    const { qc, fetchSummary, invalidated } = setup();
+    await fetchSummary(running);
+    let land!: () => void;
+    const pending = qc
+      .getMutationCache()
+      .build(qc, { mutationFn: () => new Promise<void>((r) => (land = r)) })
+      .execute(undefined);
+    await fetchSummary(running);
+    expect(invalidated()).toEqual([]);
+    land();
+    await pending;
+  });
+
   it('stops following when unsubscribed', async () => {
     const { stop, fetchSummary, invalidated } = setup();
     await fetchSummary(running);

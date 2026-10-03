@@ -138,6 +138,9 @@ export function invalidateEntryData(queryClient: QueryClient) {
  * Earned, Unbilled and Today's rows on the same minute as the timer, and
  * quiet whenever it is. Only a fetched answer counts: the first load already
  * fetches everything, and a prediction (`manual`) is the press's to refresh.
+ * A write in flight skips the beat: a refetch landing before the server has
+ * it would put the old row back over the prediction (Principle VI), and the
+ * write's own settle refetches anyway.
  *
  * Returns the unsubscribe.
  */
@@ -148,6 +151,7 @@ export function followRunningTimer(queryClient: QueryClient) {
     const { queryKey, state } = event.query;
     if (queryKey[0] !== keys.summary()[0] || state.dataUpdateCount < 2) return;
     if (!(state.data as { running?: unknown } | undefined)?.running) return;
+    if (queryClient.isMutating() > 0) return;
     void queryClient.invalidateQueries({ queryKey: keys.stats() });
     void queryClient.invalidateQueries({ queryKey: keys.entries() });
   });

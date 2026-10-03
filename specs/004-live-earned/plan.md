@@ -75,7 +75,7 @@ specs/004-live-earned/
 ### Source Code (repository root)
 
 ```text
-supabase/migrations/00000000000030_live_running_entry.sql   # new: helper + 3 rollups
+supabase/migrations/00000000000031_live_running_entry.sql   # new: helper + 3 rollups
 apps/web/src/app/api/v1/stats/route.ts      # passes p_now to the rollups
 apps/web/src/app/api/v1/entries/route.ts    # running entry's length so far
 apps/web/src/mocks/derive.ts                # mock rollups count the running entry
