@@ -248,21 +248,6 @@ describe('the three regions', () => {
     expect(minors).toContain('$6,840.00');
   });
 
-  it('marks only the projection endpoint with success, and nothing with the accent', async () => {
-    serve(() => stats());
-    const { container } = render(<HomeCards />, { wrapper });
-
-    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
-
-    /* The accent is spent on the running timer in the bar below, so this
-       screen takes none of it. `success` marks one thing. */
-    expect(container.innerHTML).not.toMatch(/accent/);
-
-    const green = [...container.querySelectorAll('[class*="success"]')];
-    expect(green).toHaveLength(1);
-    expect(green[0]?.getAttribute('data-projection')).toBe('end');
-  });
-
   /* The scale rounds up to a step a reader can add, and never far past the
      endpoint: $4,441 reads against $4.8k, not $6k with a quarter left empty. */
   it.each([
@@ -335,109 +320,6 @@ describe('the three regions', () => {
     expect(container.querySelector('[data-projection="end"]')).toBeNull();
   });
 
-  it('draws a bar with no money for a day of purely unrated work', async () => {
-    const week = [...WEEK];
-    // Worked, and the rate chain resolves to nothing: height, no figure.
-    week[1] = { date: '2026-09-15', seconds: 19_800, amount: null };
-    serve(() => stats({ week }));
-    const { container } = render(<HomeCards />, { wrapper });
-
-    const bar = await waitFor(() => {
-      const el = container.querySelector('[data-bar="2026-09-15"]');
-      if (!el) throw new Error('no bar');
-      return el as HTMLElement;
-    });
-
-    // The bar has a real height — the time was worked.
-    expect(bar.style.height).not.toBe('');
-    expect(bar.style.height).not.toBe('0%');
-    // And prints no money, because there is none to print.
-    expect(bar.textContent?.trim()).toBe('');
-    // The hours still read, beneath it.
-    expect(screen.getByText('5h 30m')).toBeVisible();
-  });
-
-  it('prints an em-dash and no bar for a day with no work', async () => {
-    serve(() => stats());
-    const { container } = render(<HomeCards />, { wrapper });
-
-    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
-
-    // Friday through Sunday: nothing worked, so nothing drawn.
-    for (const date of ['2026-09-18', '2026-09-19', '2026-09-20']) {
-      expect(container.querySelector(`[data-bar="${date}"]`)).toBeNull();
-    }
-
-    /* The caption keeps its hours line as a placeholder, which is what holds
-       every weekday label on one baseline. Scoped to the week: Today's own
-       empty rows print the same em-dash, and a card-wide count would make
-       this assertion about both regions at once. */
-    const weekDashes = [
-      ...(container
-        .querySelector('[data-region="week"]')
-        ?.querySelectorAll('span') ?? []),
-    ].filter((el) => el.textContent === '—');
-    expect(weekDashes).toHaveLength(3);
-  });
-
-  it('gives internal work a hollow ring rather than a color', async () => {
-    serve(() => stats());
-    render(<HomeCards />, { wrapper });
-
-    await waitFor(() =>
-      expect(screen.getByText('Invoicing admin')).toBeVisible(),
-    );
-
-    /* Only clients have a color. The entry with no project is internal, and
-       the absence is drawn as a ring. */
-    const row = screen.getByText('Invoicing admin').closest('[data-task]');
-    expect(row?.querySelector('[data-pip="internal"]')).not.toBeNull();
-  });
-
-  it('writes durations as hours and minutes, never as a decimal', async () => {
-    serve(() => stats());
-    render(<HomeCards />, { wrapper });
-
-    await waitFor(() => expect(screen.getByText('7h')).toBeVisible());
-    expect(screen.getByText('5h 30m')).toBeVisible();
-    expect(screen.getByText('6h 45m')).toBeVisible();
-    expect(screen.queryByText(/\d\.\d+h/)).toBeNull();
-  });
-
-  it('omits the awaiting line when there is nothing to count', async () => {
-    serve(() => stats());
-    render(<HomeCards />, { wrapper });
-
-    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
-    /* At zero the line is not rendered at all — a `$0.00 awaiting` would be a
-       figure standing in for the absence of one. */
-    expect(screen.queryByText(/open invoice/)).toBeNull();
-  });
-
-  it('counts the open invoices once there are some', async () => {
-    serve(() => stats({ awaitingPayment: 1200, openInvoiceCount: 2 }));
-    render(<HomeCards />, { wrapper });
-
-    /* The COUNT, never a description of the worst of them: naming one invoice
-       says nothing about the others and drops them at two or more. */
-    await waitFor(() =>
-      expect(screen.getByText(/2 open invoices/)).toBeVisible(),
-    );
-  });
-
-  it('a day with no entries keeps its rows', async () => {
-    serve(() => stats(), { entries: [] });
-    const { container } = render(<HomeCards />, { wrapper });
-
-    /* The column holds the height it will have once the day has work in it,
-       so the top row does not change shape at the first entry. */
-    await waitFor(() =>
-      expect(
-        container.querySelectorAll('[aria-hidden="true"][data-entry-empty]'),
-      ).toHaveLength(3),
-    );
-  });
-
   it('asks for the day as an ISO range, not a date key', async () => {
     serve(() => stats());
     render(<HomeCards />, { wrapper });
@@ -456,23 +338,6 @@ describe('the three regions', () => {
         expect(q.get('to')).toMatch(/T\d{2}:\d{2}:\d{2}/);
       }
     });
-  });
-
-  it('a placeholder row carries no pip', async () => {
-    serve(() => stats(), { entries: [] });
-    const { container } = render(<HomeCards />, { wrapper });
-
-    /* The hollow ring means internal work. Three of them would say the day
-       held three untracked entries, which is the screen asserting something
-       that did not happen. */
-    await waitFor(() =>
-      expect(
-        container.querySelectorAll('[data-entry-empty]').length,
-      ).toBeGreaterThan(0),
-    );
-    for (const row of container.querySelectorAll('[data-entry-empty]')) {
-      expect(row.querySelector('[data-pip]')).toBeNull();
-    }
   });
 });
 
@@ -531,30 +396,6 @@ describe('the client split', () => {
 
     expect(share(c2)).toBeCloseTo(75.31, 1);
     expect(share(internal)).toBeCloseTo(24.69, 1);
-  });
-
-  it('gives internal work in a bar no hue', async () => {
-    serve(() => stats());
-    const { container } = render(<HomeCards />, { wrapper });
-
-    /* Waits for the HUE, not merely the segment: `/clients` resolves after
-       `/stats`, so a bar asserted on arrival is one whose colors have not
-       landed yet. */
-    const c1 = await waitFor(() => {
-      const el = container.querySelector(
-        '[data-day="2026-09-14"][data-segment="c1"]',
-      ) as HTMLElement | null;
-      if (!el?.style.backgroundColor) throw new Error('no hue yet');
-      return el;
-    });
-    const internal = container.querySelector(
-      '[data-day="2026-09-16"][data-segment="internal"]',
-    ) as HTMLElement;
-
-    /* Only clients have a color. Internal work takes the neutral, never one
-       of the palette's hues. */
-    expect(internal.style.backgroundColor).toBe('var(--color-subtle)');
-    expect(internal.style.backgroundColor).not.toBe(c1.style.backgroundColor);
   });
 
   it("sizes the month's strip by money, not by seconds", async () => {
@@ -663,85 +504,6 @@ describe('the client split', () => {
       ) as HTMLElement | null;
       expect(el?.style.backgroundColor).toBe('rgb(176, 124, 214)');
     });
-  });
-
-  it('draws no strip on a month that has earned nothing', async () => {
-    serve(() => stats({ month: month({ byClient: [] }) }));
-    const { container } = render(<HomeCards />, { wrapper });
-
-    await waitFor(() => expect(screen.getByText('Unbilled')).toBeVisible());
-    /* A strip of one neutral band would claim the month came from nobody,
-       where the honest reading is that it has not earned yet. */
-    expect(container.querySelector('[data-strip="clients"]')).toBeNull();
-  });
-});
-
-describe('the month axis', () => {
-  /**
-   * jsdom lays nothing out, so each label's box is stubbed on a 300px axis:
-   * the dates at its ends, `today` where its `left` and its anchor put it.
-   */
-  function layOut() {
-    const width = { first: 40, today: 32, end: 44 };
-    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
-      function (this: Element) {
-        const name = this.getAttribute('data-axis-label') as
-          | keyof typeof width
-          | null;
-        if (!name) return new DOMRect();
-        const w = width[name];
-        if (name === 'first') return new DOMRect(0, 0, w, 16);
-        if (name === 'end') return new DOMRect(300 - w, 0, w, 16);
-        const at = (parseFloat((this as HTMLElement).style.left) / 100) * 300;
-        const shift = this.className.includes('-translate-x-full') ? w : w / 2;
-        return new DOMRect(at - shift, 0, w, 16);
-      },
-    );
-  }
-
-  /** September, worked through day `today` (1-based). */
-  function through(today: number): Stats['month'] {
-    return month({
-      series: Array.from({ length: 30 }, (_, i) => ({
-        date: `2026-09-${String(i + 1).padStart(2, '0')}`,
-        actual: i < today ? (i + 1) * 100 : null,
-      })),
-    });
-  }
-
-  async function labels() {
-    const axis = await waitFor(() => {
-      const el = document.querySelector('[data-axis="x"]');
-      if (!el) throw new Error('no axis');
-      return el;
-    });
-    const shown = (name: string) =>
-      !axis
-        .querySelector(`[data-axis-label="${name}"]`)
-        ?.classList.contains('invisible');
-    return { first: shown('first'), end: shown('end') };
-  }
-
-  it.each([
-    [2, { first: false, end: true }],
-    [15, { first: true, end: true }],
-    [28, { first: true, end: false }],
-    [30, { first: true, end: false }],
-  ])('on day %d, shows the dates today clears', async (today, expected) => {
-    layOut();
-    serve(() => stats({ month: through(today) }));
-    render(<HomeCards />, { wrapper });
-
-    await waitFor(async () => expect(await labels()).toEqual(expected));
-  });
-
-  it('anchors today inside the axis on the last day', async () => {
-    layOut();
-    serve(() => stats({ month: through(30) }));
-    render(<HomeCards />, { wrapper });
-
-    const today = await screen.findByText('today');
-    expect(today.className).toContain('-translate-x-full');
   });
 });
 

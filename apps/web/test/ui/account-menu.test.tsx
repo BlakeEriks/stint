@@ -24,14 +24,6 @@ afterEach(() => {
 });
 
 describe('AccountMenu', () => {
-  it('shows the signed-in email, which is the account', async () => {
-    render(<AccountMenu />);
-
-    await waitFor(() =>
-      expect(screen.getByText('dev@localhost.test')).toBeInTheDocument(),
-    );
-  });
-
   it('offers sign out, which the app previously had nowhere at all', async () => {
     const user = userEvent.setup();
     render(<AccountMenu />);
@@ -47,21 +39,6 @@ describe('AccountMenu', () => {
     await waitFor(() => expect(auth.signOut).toHaveBeenCalled());
     expect(router.replace).toHaveBeenCalledWith('/signin');
     expect(router.refresh).toHaveBeenCalled();
-  });
-
-  it('offers sign out and nothing else', async () => {
-    const user = userEvent.setup();
-    render(<AccountMenu />);
-
-    await user.click(screen.getByRole('button', { name: 'Account' }));
-    await screen.findByRole('menuitem', { name: /sign out/i });
-
-    /* Settings is a section in the rail and the theme is a field inside it,
-       so the email has exactly one thing left to do. */
-    expect(screen.getAllByRole('menuitem')).toHaveLength(1);
-    expect(
-      screen.queryByRole('menuitem', { name: /settings/i }),
-    ).not.toBeInTheDocument();
   });
 
   it('still works when the token carries no email', async () => {

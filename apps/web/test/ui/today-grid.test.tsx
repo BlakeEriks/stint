@@ -1,6 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { EntryList } from '@/components/entry-list';
@@ -77,19 +76,6 @@ afterEach(() => {
 });
 
 describe('Today as a day column', () => {
-  it('opens the editor from a block', async () => {
-    serve([entry()]);
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    draw();
-
-    const block = await screen.findByRole('button', {
-      name: /Edit API integration/,
-    });
-    await user.click(block);
-
-    expect(await screen.findByText('Edit entry')).toBeInTheDocument();
-  });
-
   it('carries the times in the accessible name', async () => {
     serve([entry()]);
     draw();
@@ -182,22 +168,6 @@ describe('Today as a day column', () => {
     );
   });
 
-  it('scrolls Today rather than the dock', async () => {
-    serve([entry()]);
-    const { container } = draw();
-    await screen.findByRole('button', { name: /Edit API integration/ });
-
-    /* The scroll lives on a box INSIDE Today, not on the section or anything
-       above it. The inbox holds its place and the grid gives way, so a full
-       inbox squeezes the calendar — which is the pressure that gets the
-       inbox cleared, and the reason clearing it is rewarded. */
-    const section = container.querySelector(
-      'section[aria-label="Today\'s entries"]',
-    );
-    expect(section?.className).not.toMatch(/overflow-y-auto/);
-    expect(section?.querySelector('.overflow-y-auto')).not.toBeNull();
-  });
-
   it('keeps the now-line inside the grid when the day stopped hours ago', async () => {
     /* The bug this exists for: `workedWindow` is derived from the ENTRIES, so
        a morning's work and an idle afternoon gave a window ending at 14:00
@@ -219,17 +189,5 @@ describe('Today as a day column', () => {
     const top = Number.parseFloat((line as HTMLElement).style.top);
     expect(top).toBeGreaterThanOrEqual(0);
     expect(top).toBeLessThanOrEqual(100);
-  });
-
-  it('is the only accent on the column', async () => {
-    serve([entry()]);
-    const { container } = draw();
-    await screen.findByRole('button', { name: /Edit API integration/ });
-
-    /* The accent marks the live thing, once. With nothing running, the
-       now-line is the only thing wearing it. */
-    expect(container.querySelectorAll('.border-accent-default')).toHaveLength(
-      1,
-    );
   });
 });

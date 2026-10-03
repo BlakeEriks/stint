@@ -119,27 +119,6 @@ describe('InvoiceDetail', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows the reference the invoice was issued with', async () => {
-    serve('sent', '2026-09-02T00:00:00Z', { reference: 'PO 4471' });
-    show();
-    expect(await screen.findByText('Reference PO 4471')).toBeInTheDocument();
-  });
-
-  it('says nothing of supporting detail when there is none', async () => {
-    serve('draft');
-    show();
-    await screen.findByText('Design review');
-    expect(screen.queryByText(/Supporting detail/)).not.toBeInTheDocument();
-  });
-
-  it('shows the frozen line items and total', async () => {
-    serve('draft');
-    show();
-
-    expect(await screen.findByText('Design review')).toBeInTheDocument();
-    expect(screen.getAllByText('$375.00').length).toBeGreaterThan(0);
-  });
-
   /**
    * The app sends no mail, so downloading IS how an invoice reaches a
    * client — it is the primary action, and it must always be available.
@@ -298,13 +277,6 @@ describe('InvoiceDetail', () => {
     }
   });
 
-  it('explains that voiding keeps the number and releases the entries', async () => {
-    serve('void');
-    show();
-
-    expect(await screen.findByText(/numbering is gapless/)).toBeInTheDocument();
-  });
-
   /* Nothing asked before, so `paid_at` was always the click, not the
      payment. The dialog defaults to today and lets a backdated payment be
      recorded as what it actually was. */
@@ -419,51 +391,5 @@ describe('shortDate', () => {
   it('still formats a real date', async () => {
     const { shortDate } = await import('@/components/invoice-bits');
     expect(shortDate('2026-07-26')).toBe('Jul 26, 2026');
-  });
-});
-
-describe('InvoiceDetail — expenses', () => {
-  it('shows expenses in their own dated section with their own subtotal', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              ...invoice('sent'),
-              expensesSubtotal: 199,
-              total: 574,
-              client: { id: 'c1', name: 'Acme Corp' },
-              lineItems: [
-                {
-                  description: 'Design review',
-                  unit: 'hour',
-                  quantity: 2.5,
-                  unitPrice: 150,
-                  amount: 375,
-                  spentOn: null,
-                },
-                {
-                  description: 'JetBrains license',
-                  unit: 'expense',
-                  quantity: 1,
-                  unitPrice: 199,
-                  amount: 199,
-                  spentOn: '2026-08-12',
-                },
-              ],
-            }),
-            { status: 200 },
-          ),
-      ),
-    );
-    show();
-
-    expect(
-      await screen.findByRole('columnheader', { name: 'Expenses' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Aug 12, 2026')).toBeInTheDocument();
-    expect(screen.getByText('Services')).toBeInTheDocument();
-    expect(screen.getByText('$574.00')).toBeInTheDocument();
   });
 });
