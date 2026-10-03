@@ -32,7 +32,22 @@ export const IdleDesktop: Story = { ...desktop };
 /** Below `sm` the project pill is dropped so the running bar never wraps. */
 export const RunningPhone: Story = { ...running, ...phone };
 export const RunningTablet: Story = { ...running, ...tablet };
-export const RunningDesktop: Story = { ...running, ...desktop };
+/** The running task reads as text: a live field would make a stray click a
+    rename of billable work. */
+export const RunningDesktop: Story = {
+  ...running,
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await canvas.findByRole('button', { name: 'Stop timer' });
+    await expect(
+      canvas.queryByRole('textbox', { name: 'Task name' }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole('button', { name: 'Rename task' }),
+    ).toBeVisible();
+  },
+};
 
 /** The pencil is the only way to rename, and it opens the name for editing. */
 export const Rename: Story = {

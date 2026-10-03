@@ -481,6 +481,7 @@ function Item({
         /* A card: its own surface, no border on any edge. The dock's ground
            is the plane below it, so depth says where the card ends — which
            is the job the old colored rule was standing in for. */
+        data-tone={tone}
         className={`group relative overflow-hidden rounded-lg bg-surface-elevated px-2.5 py-2.5 shadow-card transition-colors hover:bg-surface-hover ${edge}`}
       >
         {/* The title owns its line. It is the subject of the row, and a

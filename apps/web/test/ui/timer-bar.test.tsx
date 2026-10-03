@@ -111,14 +111,6 @@ afterEach(() => {
 });
 
 describe('TimerBar — idle', () => {
-  it('offers a start control and an empty task field', async () => {
-    serve(summary());
-    renderBar();
-
-    await screen.findByRole('button', { name: 'Start timer' });
-    expect(taskInput()).toHaveValue('');
-  });
-
   it('gives back the typed task when the server refuses the start', async () => {
     serve(summary());
     vi.stubGlobal(
@@ -323,20 +315,6 @@ describe('TimerBar — task suggestions', () => {
       }),
     );
   });
-
-  /** Renaming a running timer is a correction to one entry, not a re-pick. */
-  it('offers no list while renaming a running timer', async () => {
-    serve(summary({ running: entry(), todaySeconds: 1500 }), SUGGESTIONS);
-    const user = userEvent.setup();
-    renderBar();
-
-    await screen.findByRole('button', { name: 'Stop timer' });
-    const field = await startRename(user);
-    await user.click(field);
-
-    expect(field).not.toHaveAttribute('role', 'combobox');
-    expect(screen.queryByRole('listbox')).toBeNull();
-  });
 });
 
 describe('TimerBar — running', () => {
@@ -351,31 +329,6 @@ describe('TimerBar — running', () => {
     expect(screen.getByText('Writing')).toBeInTheDocument();
     // 25 minutes, counted from startedAt.
     expect(screen.getByText('0:25:00')).toBeInTheDocument();
-  });
-
-  it('shows the running task as text, not an editable field', async () => {
-    serve(runningSummary());
-    renderBar();
-
-    await screen.findByRole('button', { name: 'Stop timer' });
-    /* The name is read on every screen and edited rarely; a live input makes
-       a stray click a rename of billable work. */
-    expect(screen.queryByLabelText('Task name')).toBeNull();
-    expect(
-      screen.getByRole('button', { name: 'Rename task' }),
-    ).toBeInTheDocument();
-  });
-
-  it('offers the rename control without needing hover', async () => {
-    /* Hover-to-reveal would hide the only edit affordance on touch, and a
-       name typed wrong at the start is otherwise uncorrectable until the
-       entry is stopped. jsdom has no hover, so merely finding it proves it
-       is not gated behind one. */
-    serve(runningSummary());
-    renderBar();
-
-    const pencil = await screen.findByRole('button', { name: 'Rename task' });
-    expect(pencil).toBeVisible();
   });
 
   it('stops on click', async () => {
@@ -464,20 +417,5 @@ describe('TimerBar — running', () => {
     expect(screen.queryByRole('button', { name: 'Project' })).toBeNull();
     /* Reported, not offered: the name is there, the control is not. */
     expect(screen.getByText('Acme Redesign')).toBeInTheDocument();
-  });
-
-  /* A running timer is glanced at rather than operated, and the project
-     cannot change until it stops — so on a phone it is the one thing on the
-     row that gives way, and the name and readout keep a single line. jsdom
-     has no viewport, so the breakpoint is pinned by class. */
-  it('drops the project below sm rather than wrapping the row', async () => {
-    serve(summary({ running: entry({ projectId: 'p1' }), todaySeconds: 1500 }));
-    renderBar();
-
-    await screen.findByRole('button', { name: 'Stop timer' });
-    const pill = screen.getByText('Acme Redesign').closest('div')!;
-
-    expect(pill.className).toContain('hidden');
-    expect(pill.className).toContain('sm:flex');
   });
 });

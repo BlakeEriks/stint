@@ -13,8 +13,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/* A Toggl detailed export: a client Stint already has, a new one, and a
-   block that overlaps work already logged. */
+/* A Toggl detailed export: a client Stint already has, a new one, a block
+   that overlaps work already logged, and two that overlap each other. */
 const HEAD =
   'User\tEmail\tClient\tProject\tTask\tDescription\tBillable\tStart date\tStart time\tEnd date\tEnd time\tDuration\tTags\tCurrency\tAmount';
 const row = (
@@ -75,6 +75,16 @@ const EXPORT = [
     '11:00:00',
     '01:00:00',
   ),
+  // Overlaps the Picking list redesign above, within the file.
+  row(
+    'Harbor & Co',
+    'Menu board',
+    'Sign mockups',
+    '2026-07-06',
+    '11:00:00',
+    '12:00:00',
+    '01:00:00',
+  ),
 ].join('\n');
 
 const upload = async (canvasElement: HTMLElement) => {
@@ -99,6 +109,9 @@ export const Preview: Story = {
     await expect(
       await page.findByRole('button', { name: /Import/ }),
     ).toBeVisible();
+    // Each overlap names where the other work sits.
+    await expect(page.getByText(/· in Stint/)).toBeVisible();
+    await expect(page.getByText(/· in this file/)).toBeVisible();
   },
 };
 

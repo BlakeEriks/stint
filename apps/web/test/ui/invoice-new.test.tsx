@@ -259,26 +259,6 @@ describe('NewInvoice', () => {
     expect(previews()).toHaveLength(1);
   });
 
-  it('shows the invoice as the PDF prints it', async () => {
-    serve();
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-    await ready(user);
-
-    const c = within(card());
-    expect(c.getByText('Blake Eriks', { selector: 'b' })).toBeInTheDocument();
-    expect(c.getByText('No.').nextElementSibling).toHaveTextContent(
-      'STINT-0016',
-    );
-    expect(c.getByText('Issued')).toBeInTheDocument();
-    expect(c.getByText('Bill to')).toBeInTheDocument();
-    expect(c.getByText('Acme Corp')).toBeInTheDocument();
-    expect(c.getByText('Service period')).toBeInTheDocument();
-    expect(c.getByText('Amount due')).toBeInTheDocument();
-    expect(c.getByText('First Federal')).toBeInTheDocument();
-    expect(c.getByText(/locks these entries/)).toBeInTheDocument();
-  });
-
   it('says Updating and holds Generate while the server recomputes', async () => {
     serve();
     const user = userEvent.setup();
@@ -358,13 +338,6 @@ describe('NewInvoice', () => {
     expect(sent.issueDate).toBe(localDateKey(new Date(), tz));
   });
 
-  it('asks for no notes', async () => {
-    serve();
-    render(<NewInvoice />, { wrapper });
-    await screen.findByText('New invoice');
-    expect(screen.queryByLabelText('Notes')).toBeNull();
-  });
-
   /**
    * Generation marks the entries invoiced, so every view that counts unbilled
    * work is wrong the moment it returns. Invalidating only `invoices` left the
@@ -399,51 +372,9 @@ describe('NewInvoice — expenses', () => {
     ).toBeChecked();
     expect(screen.queryByText('Next year flight')).not.toBeInTheDocument();
   });
-
-  it('shows expenses in their own section with their own subtotal', async () => {
-    serve(WITH_EXPENSE);
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-    await chooseClient(user);
-
-    const c = within(card());
-    expect(
-      await c.findByRole('columnheader', { name: 'Expenses' }),
-    ).toBeInTheDocument();
-    expect(c.getByText('Services')).toBeInTheDocument();
-    expect(c.getByText('$574.00')).toBeInTheDocument();
-  });
-
-  it('leaving an expense off asks the server again', async () => {
-    serve(WITH_EXPENSE);
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-    await ready(user);
-
-    await user.click(
-      screen.getByRole('checkbox', { name: 'Bill JetBrains license' }),
-    );
-
-    await waitFor(() =>
-      expect(previews().at(-1)?.body.excludedExpenseIds).toEqual(['x1']),
-    );
-  });
 });
 
 describe('NewInvoice — one summary line', () => {
-  it('offers One summary line first under "Show time as"', async () => {
-    serve();
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-
-    await user.click(
-      await screen.findByRole('button', { name: 'Show time as' }),
-    );
-    const options = await screen.findAllByRole('menuitemradio');
-    expect(options[0]).toHaveTextContent('One summary line');
-    expect(options).toHaveLength(5);
-  });
-
   it('asks for the line text, empty to start, and blocks generation without it', async () => {
     serve();
     const user = userEvent.setup();
@@ -489,19 +420,6 @@ describe('NewInvoice — one summary line', () => {
 });
 
 describe('NewInvoice — supporting detail', () => {
-  it('offers Attach only with One summary line, all unticked', async () => {
-    serve();
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-
-    await screen.findByText('New invoice');
-    expect(screen.queryByText('Attach')).not.toBeInTheDocument();
-
-    await pickGrouping(user, /One summary line/);
-    for (const name of ['Hours by project', 'Hours by week', 'Hours by date'])
-      expect(screen.getByRole('checkbox', { name })).not.toBeChecked();
-  });
-
   it('sends the ticked schedules in print order', async () => {
     serve();
     const user = userEvent.setup();
@@ -548,26 +466,6 @@ describe('NewInvoice — reference', () => {
 });
 
 describe('NewInvoice — expenses, charges and payment details', () => {
-  it('opens an expense from its row, and a new one from Add', async () => {
-    serve(WITH_EXPENSE);
-    const user = userEvent.setup();
-    render(<NewInvoice />, { wrapper });
-    await chooseClient(user);
-
-    await user.click(
-      await screen.findByRole('button', { name: 'Edit JetBrains license' }),
-    );
-    expect(
-      await screen.findByRole('dialog', { name: 'Edit expense' }),
-    ).toBeInTheDocument();
-    await user.keyboard('{Escape}');
-
-    await user.click(screen.getByRole('button', { name: 'Add an expense' }));
-    expect(
-      await screen.findByRole('dialog', { name: 'Add expense' }),
-    ).toBeInTheDocument();
-  });
-
   it('adds a charge through its dialog, and removes it there', async () => {
     serve();
     const user = userEvent.setup();

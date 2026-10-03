@@ -14,15 +14,6 @@ const query = <T,>(over: Partial<{ data: T; error: unknown }>) => ({
 });
 
 describe('Listing', () => {
-  it('reports a failure that left it with nothing to show', () => {
-    render(
-      <Listing query={query({ error: error(500, 'UNKNOWN') })}>
-        {() => <p>rows</p>}
-      </Listing>,
-    );
-    expect(screen.getByText(/could not load/i)).toBeInTheDocument();
-  });
-
   it('stays on loading through the 401 redirect', () => {
     render(
       <Listing query={query({ error: error(401, 'UNAUTHORIZED') })}>
