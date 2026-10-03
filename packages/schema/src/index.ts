@@ -114,6 +114,8 @@ export const TimeEntry = z.object({
   isBillable: z.boolean().default(true),
   rateOverride: money.nullable().optional(),
   invoiceId: uuid.nullable().optional(),
+  /** A running entry's is null, except in `GET /entries`, which measures it
+   *  at the response. */
   durationSeconds: z.number().int().nonnegative().nullable(),
   /**
    * The user's answer to "is this length correct?". A trigger clears it
@@ -698,14 +700,17 @@ export const WeekDay = z.object({
 export const Stats = z.object({
   currency,
   unbilled: z.object({
-    /** Work done and not yet invoiced. Never "earned" and never "revenue". */
+    /** Work done and not yet invoiced, a running timer's session so far
+     *  included. Never "earned" and never "revenue". */
     total: money,
     seconds: z.number().int().nonnegative(),
     byClient: z.array(UnbilledClient),
     moreClients: z.number().int().nonnegative(),
   }),
   /**
-   * What today's work is worth, bucketed by the entry's own date in `tz`.
+   * What today's work is worth, bucketed by the entry's own date in `tz`. A
+   * running timer counts up to the response, priced as it would bill if
+   * stopped then, so the stop moves nothing.
    *
    * A property of the data, not of this browser: it reads the same at 9am and
    * at midnight, on a laptop and a phone, on a first visit and a fiftieth.

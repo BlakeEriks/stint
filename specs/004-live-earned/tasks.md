@@ -113,7 +113,7 @@ before its code lands.
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T030 Update `Stats` doc comments in `packages/schema/src/` for `unbilled`, `earnedToday`, `week` and `month` to say a running entry counts up to the response
+- [X] T030 Update `Stats` doc comments in `packages/schema/src/` for `unbilled`, `earnedToday`, `week` and `month` to say a running entry counts up to the response
 - [ ] T031 Run `apps/macos/qa.sh` for the panel scenarios in `specs/004-live-earned/quickstart.md` step 7
 - [ ] T032 Sign in to local Stint from this worktree and walk `specs/004-live-earned/quickstart.md` steps 1–6; screenshot Today with a timer running for the PR
 - [ ] T033 Open the PR with the `migration` label (the one open migration PR), the Try it section, preview link and `ready-for-qa`
