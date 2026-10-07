@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { userEvent, within } from 'storybook/test';
+import { expect, userEvent, within } from 'storybook/test';
 import { ids, seed } from '@/mocks/fixtures';
 import { expectOpen, menuOpen } from '@/mocks/screen';
 import { NOW } from '@/mocks/time.mts';
@@ -28,5 +28,22 @@ export const Open: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole('button'));
     await expectOpen(canvasElement, 'menu');
+  },
+};
+
+/** No projects yet: the menu says so, and still offers to add one where it
+    is needed most. */
+export const OpenEmpty: Story = {
+  args: { projects: [], value: null },
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole('button'));
+    await expectOpen(canvasElement, 'menu');
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(page.getByText('No projects yet.')).toBeVisible();
+    // The plus is an aria-hidden icon, so it is no part of the name.
+    await expect(
+      page.getByRole('menuitem', { name: 'New project' }),
+    ).toBeVisible();
   },
 };

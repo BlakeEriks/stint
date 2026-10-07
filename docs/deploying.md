@@ -32,12 +32,8 @@ the domain until required checks pass, so the migration runs while the
 
 `.github/workflows/ci.yml`, five jobs in parallel:
 
-- **`static`** — lint, token drift, the contrast contract, shadcn detox, the
-  typography scale, writes through the shared mutation helper, typecheck,
-  the UI suite, core logic, the hygiene scan's tests, the build script
-  tests, the doc references check, the check that comments cite no issues,
-  then a build.
-  Needs no database, so an obvious slip fails in seconds.
+- **`static`** — every check that needs no database, then a build, so an
+  obvious slip fails in seconds. `ci.yml` names each.
 - **`database`** — the route and RLS suites against a real Postgres service
   container. `scripts/ci-db.sh` builds both databases, applying migrations
   through `pnpm migrate` so the real migration script is what runs: `tt` with

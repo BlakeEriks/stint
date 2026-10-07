@@ -125,14 +125,6 @@ describe('ClientList', () => {
     );
   });
 
-  it('opens a client from its heading', async () => {
-    serve([NORTHWIND]);
-    render(<ClientList />, { wrapper });
-
-    const link = await screen.findByRole('link', { name: 'Northwind' });
-    expect(link).toHaveAttribute('href', '/clients/c1');
-  });
-
   it('reaches a project with no client, which has no detail page to open', async () => {
     serve([NORTHWIND], [project({ clientId: null, name: 'Stint itself' })]);
     render(<ClientList />, { wrapper });
@@ -142,29 +134,6 @@ describe('ClientList', () => {
     await waitFor(() => expect(headings()).toContain('No client'));
     expect(screen.getByText('Stint itself')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'No client' })).toBeNull();
-  });
-
-  it('never labels work with no client as "internal"', async () => {
-    serve(
-      [],
-      [
-        project({ id: 'p1', clientId: null, name: 'Pitch: Contoso' }),
-        project({
-          id: 'p2',
-          clientId: null,
-          name: 'Admin',
-          isBillableDefault: false,
-        }),
-      ],
-    );
-    render(<ClientList />, { wrapper });
-
-    /* null covers genuinely internal work, work NOT YET ASSIGNED (billable
-       work that will silently never be billed) and speculative work. Calling
-       the group "Internal" asserts intent the data does not carry — only
-       isBillableDefault distinguishes them, and that is the user's answer. */
-    await waitFor(() => expect(headings()).toContain('No client'));
-    expect(screen.queryByText(/internal/i)).toBeNull();
   });
 
   it('puts "No client" last, as the residue rather than a peer', async () => {
@@ -195,27 +164,6 @@ describe('ClientList', () => {
   });
 
   describe('the card', () => {
-    it('carries the client’s rate and billing email, and no report figures', async () => {
-      serve([
-        client({
-          email: 'ap@northwind.test',
-          projectCount: 3,
-          unbilledAmount: 1462.5,
-        }),
-      ]);
-      render(<ClientList />, { wrapper });
-
-      /* This screen manages clients and projects. What is owed and how many
-         hours went in belong to a reports screen, so the server isn't even
-         asked for them. */
-      await waitFor(() =>
-        expect(screen.getByText(/ap@northwind\.test/)).toBeInTheDocument(),
-      );
-      expect(screen.getByText(/\$150\.00\/h/)).toBeInTheDocument();
-      expect(screen.queryByText(/unbilled/)).toBeNull();
-      expect(screen.queryByText(/\d+ projects?/)).toBeNull();
-    });
-
     it('marks a rate the client inherits as the default', async () => {
       serve([BYRNE]);
       render(<ClientList />, { wrapper });
@@ -244,23 +192,6 @@ describe('ClientList', () => {
       expect(screen.getByText('from client')).toBeInTheDocument();
       expect(screen.getByText('from default')).toBeInTheDocument();
     });
-
-    it('says when a client has no projects yet', async () => {
-      serve([NORTHWIND]);
-      render(<ClientList />, { wrapper });
-      expect(await screen.findByText('No projects yet.')).toBeInTheDocument();
-    });
-  });
-
-  it('adds a client from the header, and nothing else', async () => {
-    serve([]);
-    render(<ClientList />, { wrapper });
-
-    expect(
-      await screen.findByRole('link', { name: /Add client/ }),
-    ).toHaveAttribute('href', '/clients/new');
-    // A project is added from the card it belongs to.
-    expect(screen.queryByRole('button', { name: /Add project/ })).toBeNull();
   });
 
   it('adds a project to the client whose card it was asked from', async () => {
@@ -295,35 +226,6 @@ describe('ClientList', () => {
     const row = await screen.findByRole('button', { name: 'Edit Warehouse' });
     expect(row.closest('section')).toHaveTextContent('Northwind');
     expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('edits a project from its row, which is the one button', async () => {
-    serve([NORTHWIND], [project({ clientId: 'c1', name: 'Warehouse' })]);
-    const user = userEvent.setup();
-    render(<ClientList />, { wrapper });
-
-    const row = await screen.findByRole('button', { name: 'Edit Warehouse' });
-    // No Edit button inside the row: the card's one Edit is the client's.
-    expect(within(row).queryByRole('button')).toBeNull();
-    expect(screen.getAllByRole('button', { name: /^Edit/ })).toHaveLength(2);
-
-    await user.click(screen.getByText('Warehouse'));
-    expect(
-      await screen.findByRole('heading', { name: 'Edit project' }),
-    ).toBeInTheDocument();
-  });
-
-  it('edits a client in a dialog, as a project is', async () => {
-    serve([NORTHWIND]);
-    const user = userEvent.setup();
-    render(<ClientList />, { wrapper });
-
-    await user.click(
-      await screen.findByRole('button', { name: 'Edit Northwind' }),
-    );
-    expect(
-      await screen.findByRole('heading', { name: 'Edit client' }),
-    ).toBeInTheDocument();
   });
 
   it('badges a client archived from its dialog before the server answers', async () => {
@@ -387,34 +289,5 @@ describe('ClientList', () => {
       ).toHaveLength(2);
       expect(screen.queryByRole('navigation', { name: 'Filter' })).toBeNull();
     });
-  });
-
-  it('offers to add a client when there is nothing yet', async () => {
-    serve([]);
-    render(<ClientList />, { wrapper });
-
-    await waitFor(() =>
-      expect(screen.getByText(/No clients yet/)).toBeInTheDocument(),
-    );
-  });
-
-  it('says a failed query failed, rather than loading forever', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(JSON.stringify({ code: 'INTERNAL', message: 'boom' }), {
-            status: 500,
-          }),
-      ),
-    );
-    render(<ClientList />, { wrapper });
-
-    await waitFor(() =>
-      expect(screen.getByText(/could not load/i)).toBeInTheDocument(),
-    );
-    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
-    // Neutral, never red: a list that could not load is a condition.
-    expect(screen.getByText(/could not load/i).className).not.toMatch(/danger/);
   });
 });

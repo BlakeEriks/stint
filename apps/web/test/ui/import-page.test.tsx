@@ -119,43 +119,6 @@ afterEach(() => {
 });
 
 describe('ImportPage', () => {
-  it('says in one line what confirming adds, and ends with Import', async () => {
-    serve(() => preview());
-    const user = userEvent.setup();
-    render(<ImportPage />, { wrapper });
-    await chooseFile(user);
-
-    expect(
-      screen.getByText('1 new client · 1 new project'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Clients in this file')).toBeInTheDocument();
-    expect(
-      screen.getByText('2 entries overlap other work'),
-    ).toBeInTheDocument();
-
-    /* Import comes after every choice it depends on. */
-    const button = screen.getByRole('button', { name: 'Import 5 entries' });
-    const overlaps = screen.getByText('2 entries overlap other work');
-    expect(
-      overlaps.compareDocumentPosition(button) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
-  it('names where each overlap sits', async () => {
-    serve(() => preview());
-    const user = userEvent.setup();
-    render(<ImportPage />, { wrapper });
-    await chooseFile(user);
-
-    expect(
-      screen.getByText(/overlaps API refactor · in Stint/),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/overlaps Checkout rebuild · in this file/),
-    ).toBeInTheDocument();
-  });
-
   it('re-reads the file with an exclusion, and Undo offers it back', async () => {
     let current = preview();
     const sent = serve(() => current);

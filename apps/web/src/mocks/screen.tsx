@@ -1,6 +1,6 @@
 import type { Decorator } from '@storybook/nextjs-vite';
 import { expect, waitFor, within } from 'storybook/test';
-import { http } from 'msw';
+import { delay, http } from 'msw';
 import { AppShell } from '@/components/app-shell';
 import { handlers } from './handlers';
 import { fail } from './respond';
@@ -57,6 +57,25 @@ export function failing(...keys: (keyof typeof handlers)[]) {
           const { method, path } = handlers[key].info;
           const verb = String(method).toLowerCase() as 'get';
           return [key, http[verb](path, () => fail('INTERNAL'))];
+        }),
+      ),
+    },
+  };
+}
+
+/**
+ * These endpoints never answer, so a story shows a press still pending. Each
+ * is called once; the preview judges the story with that many still open.
+ */
+export function stalled(...keys: (keyof typeof handlers)[]) {
+  return {
+    stalls: keys.length,
+    msw: {
+      handlers: Object.fromEntries(
+        keys.map((key) => {
+          const { method, path } = handlers[key].info;
+          const verb = String(method).toLowerCase() as 'get';
+          return [key, http[verb](path, () => delay('infinite'))];
         }),
       ),
     },

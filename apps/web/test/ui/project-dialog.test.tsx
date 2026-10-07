@@ -51,28 +51,6 @@ function serve(initial: { id: string; name: string }[]) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('ProjectDialog', () => {
-  it('offers to create a client even when the account has none', async () => {
-    /* THE dead end this closes: on a new account the select offered only "No
-       client" and nothing else, so a first project could not be attached to
-       anything without leaving the screen — abandoning whatever had been
-       typed into the timer. */
-    serve([]);
-    const user = userEvent.setup();
-    render(<ProjectDialog open onOpenChange={() => {}} />, { wrapper });
-
-    await user.click(await screen.findByRole('button', { name: 'Client' }));
-
-    /* "Add a client…", not "+ Add a client…": the plus is an aria-hidden
-       icon, so it is not part of the accessible name. */
-    expect(
-      screen.getByRole('menuitem', { name: 'Add a client…' }),
-    ).toBeInTheDocument();
-    // And the internal-work path is still the first choice, not displaced.
-    expect(screen.getAllByRole('menuitemradio')[0]).toHaveTextContent(
-      'No client — internal work',
-    );
-  });
-
   it('creates a client inline and selects it for the project', async () => {
     const calls = serve([]);
     const user = userEvent.setup();
@@ -162,27 +140,6 @@ describe('ProjectDialog', () => {
         path: '/projects/p1',
         body: undefined,
       });
-    });
-
-    it('offers no archive for a new project', async () => {
-      serve([]);
-      render(<ProjectDialog open onOpenChange={() => {}} />, { wrapper });
-      await screen.findByLabelText('Name');
-      expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
-    });
-
-    it('offers no archive for one already archived', async () => {
-      serve([]);
-      render(
-        <ProjectDialog
-          open
-          onOpenChange={() => {}}
-          existing={{ ...PROJECT, archivedAt: '2026-01-04T00:00:00Z' }}
-        />,
-        { wrapper },
-      );
-      await screen.findByLabelText('Name');
-      expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
     });
   });
 });

@@ -115,6 +115,31 @@ export const ScreenError: Story = {
       />
     ),
   },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByRole('button', { name: /try again/i }),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: /go home/i })).toBeVisible();
+    await expect(page.getByText(/tracked time is safe/i)).toBeVisible();
+    // The digest is the only handle on a server error's log.
+    await expect(page.getByText(/2718281828/)).toBeVisible();
+  },
+};
+
+/** A client-side error has no digest, so no empty "Reference". */
+export const ScreenErrorNoDigest: Story = {
+  ...ScreenError,
+  args: {
+    children: (
+      <AppError error={new globalThis.Error('Fixture')} reset={() => {}} />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findByRole('button', { name: /try again/i });
+    await expect(page.queryByText(/reference/i)).toBeNull();
+  },
 };
 
 /** The account menu: who is signed in, the theme, and signing out. */

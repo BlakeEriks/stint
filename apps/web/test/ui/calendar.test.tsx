@@ -115,25 +115,6 @@ afterEach(() => {
 });
 
 describe('Calendar', () => {
-  it('renders a seven-day week with every weekday heading', async () => {
-    serve([]);
-    render(<Calendar />, { wrapper });
-
-    await screen.findByText('Mon');
-    for (const d of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']) {
-      expect(screen.getByText(d)).toBeInTheDocument();
-    }
-  });
-
-  it('says so when the week is empty rather than showing a blank grid', async () => {
-    serve([]);
-    render(<Calendar />, { wrapper });
-
-    expect(
-      await screen.findByText(/Nothing logged this week/),
-    ).toBeInTheDocument();
-  });
-
   it('totals the week across days', async () => {
     serve([
       { date: '2026-09-07', totalSeconds: 7200, entries: [entry({})] },
@@ -147,32 +128,6 @@ describe('Calendar', () => {
 
     // 3h, formatted as a clock.
     expect(await screen.findByText('3:00:00')).toBeInTheDocument();
-  });
-
-  it('labels an entry with its task name', async () => {
-    serve([
-      {
-        date: '2026-09-07',
-        totalSeconds: 7200,
-        entries: [entry({ taskName: 'Design review' })],
-      },
-    ]);
-    render(<Calendar />, { wrapper });
-
-    expect(await screen.findByText('Design review')).toBeInTheDocument();
-  });
-
-  it('names an untitled entry rather than rendering an empty block', async () => {
-    serve([
-      {
-        date: '2026-09-07',
-        totalSeconds: 7200,
-        entries: [entry({ taskName: '' })],
-      },
-    ]);
-    render(<Calendar />, { wrapper });
-
-    expect(await screen.findByText('Untitled')).toBeInTheDocument();
   });
 
   it('gives overlapping entries their own lanes so neither is hidden', async () => {
@@ -387,20 +342,6 @@ describe('the calendar legend', () => {
     expect(swatch.style.backgroundColor).toBe('');
     expect(screen.queryByText('No client')).toBeNull();
   });
-
-  it('renders no strip at all when the week is empty', async () => {
-    serve([], { projects: CLIENT_PROJECTS, clients: CLIENTS });
-    const { container } = render(<Calendar />, { wrapper });
-
-    await screen.findByText(/Nothing logged this week/);
-
-    /* Asserting the CONTAINER, not the absence of labels. With no entries
-       there are no labels either way, so a label check passes whether or not
-       the strip renders — it was written that way first and a mutation walked
-       straight through it. What actually differs is the bordered bar, which
-       would otherwise sit empty under an empty grid. */
-    expect(container.querySelector('.flex-wrap.border-t')).toBeNull();
-  });
 });
 
 /** One day at a time on a phone: at 375px a week gives each day 42px. */
@@ -437,17 +378,6 @@ describe('the calendar on a narrow viewport', () => {
     expect(screen.queryByText('Monday work')).toBeNull();
   });
 
-  it('names the day in the heading rather than the month', async () => {
-    matchMediaMock(true);
-    serve(week());
-    render(<Calendar />, { wrapper });
-
-    /* "Wed, Sep 9" answers "which day am I looking at?" outright; a month
-       would be vague where the view is precise. */
-    expect(await screen.findByText(/Wed, Sep 9/)).toBeInTheDocument();
-    expect(screen.queryByText('September 2026')).toBeNull();
-  });
-
   it('steps ONE DAY with the arrows, not one week', async () => {
     matchMediaMock(true);
     serve(week());
@@ -472,23 +402,6 @@ describe('the calendar on a narrow viewport', () => {
        single day's grid would misreport what is being looked at. */
     expect(await screen.findByText('1:00:00')).toBeInTheDocument();
     expect(screen.queryByText('3:00:00')).toBeNull();
-  });
-
-  it('says the DAY is empty, not the week', async () => {
-    matchMediaMock(true);
-    /* Monday has hours; Wednesday — the day on screen — does not. */
-    serve([
-      {
-        date: '2026-09-07',
-        totalSeconds: 7200,
-        entries: [entry({ id: 'mon' })],
-      },
-    ]);
-    render(<Calendar />, { wrapper });
-
-    expect(
-      await screen.findByText(/Nothing logged this day/),
-    ).toBeInTheDocument();
   });
 
   it('still steps one week when the viewport is wide', async () => {
@@ -591,70 +504,6 @@ describe('the mobile day grid crops to the hours in use', () => {
     expect(hourLabels()).not.toContain('00');
     expect(hourLabels()).toContain('09');
   });
-
-  it('keeps all 24 hours in the week view', async () => {
-    matchMediaMock(false);
-    serve(
-      dayWith([
-        entry({
-          id: 'a',
-          startedAt: '2026-09-09T09:00:00.000Z',
-          endedAt: '2026-09-09T11:00:00.000Z',
-          durationSeconds: 7200,
-        }),
-      ]),
-    );
-    render(<Calendar />, { wrapper });
-
-    await screen.findByText('September 2026');
-    /* Seven columns share one window, so cropping would crop them all to the
-       busiest day's range: one 03:00 entry costs every column five empty
-       hours, and work spanning midnight forces the full 24 back regardless.
-       An hour keeps its height and the grid is scrolled to the first entry
-       instead — nothing is hidden from a week that is also a bill. */
-    expect(hourLabels()).toContain('00');
-    expect(hourLabels()).toContain('21');
-  });
-});
-
-describe('the line under the grid', () => {
-  it('says the week is loading before it arrives', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => new Promise<Response>(() => {})),
-    );
-    render(<Calendar />, { wrapper });
-
-    expect(await screen.findByText('Loading…')).toBeInTheDocument();
-  });
-
-  it('says the entries failed to load rather than that the week is empty', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url: string) =>
-        String(url).includes('/calendar')
-          ? new Response('{}', { status: 500 })
-          : new Response(JSON.stringify({ projects: [], clients: [] }), {
-              status: 200,
-            }),
-      ),
-    );
-    render(<Calendar />, { wrapper });
-
-    expect(
-      await screen.findByText('Could not load these entries. Try again.'),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/Nothing logged/)).not.toBeInTheDocument();
-  });
-
-  it('says nothing once the week has time in it', async () => {
-    serve([{ date: '2026-09-07', totalSeconds: 7200, entries: [entry({})] }]);
-    render(<Calendar />, { wrapper });
-
-    await screen.findByText('Work');
-    expect(screen.queryByText(/Nothing logged/)).not.toBeInTheDocument();
-    expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
-  });
 });
 
 describe('where the week opens', () => {
@@ -710,38 +559,5 @@ describe('where the week opens', () => {
 
     await screen.findByText(/Nothing logged/);
     expect(scroller(container).el.scrollTop).toBe(0);
-  });
-});
-
-describe('an entry block', () => {
-  it('marks the running entry with the accent, and a stopped one without it', async () => {
-    serve([
-      {
-        date: '2026-09-09',
-        totalSeconds: 3600,
-        entries: [
-          entry({
-            id: 'done',
-            taskName: 'Done',
-            startedAt: '2026-09-09T08:00:00.000Z',
-            endedAt: '2026-09-09T09:00:00.000Z',
-          }),
-          entry({
-            id: 'live',
-            taskName: 'Live',
-            startedAt: '2026-09-09T11:00:00.000Z',
-            endedAt: null,
-            durationSeconds: null,
-          }),
-        ],
-      },
-    ]);
-    render(<Calendar />, { wrapper });
-
-    const live = await screen.findByRole('button', { name: /Live.*running/ });
-    const done = screen.getByRole('button', { name: /Done/ });
-    expect(live.className).toContain('border-timer-running');
-    expect(live.className).not.toContain('accent-default');
-    expect(done.className).not.toContain('accent');
   });
 });

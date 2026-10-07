@@ -157,6 +157,12 @@ issue that:
 `urgent` first, then the worst: `wrong data`, `misleading`, `looks wrong`,
 then `enhancement`; oldest first within a label. None left → step 2.
 
+**First, overlap, without a builder.** List the paths the issue names and
+each open PR's files (`gh pr view <n> --json files`). A shared path makes it
+`blocked` with a marked comment ("Blocked by #31: both change the inbox"),
+and you pick again. The builder still checks the files it finds it must
+change.
+
 Otherwise hand it to a builder for triage and build, as a round. An issue a
 builder already triaged — its `agentId` is in the log — goes back to that
 builder by SendMessage, which still holds the reading — unless
