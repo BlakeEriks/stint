@@ -185,7 +185,7 @@ final class TimerModel: Optimistic {
     /// The minute's reconcile. Closed, the panel shows nothing, so only the
     /// timer is fetched: the menu bar title is the timer, and one started on
     /// the web must still reach it. Open, everything the panel shows, so
-    /// Unbilled moves with a running timer (`specs/004-live-earned`).
+    /// Unbilled moves with a running timer.
     func poll() async {
         await fetch(full: panelOpen, recent: true)
     }

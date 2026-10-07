@@ -19,7 +19,7 @@ import {
   COLLECTED_MONTHS,
   type DayRow,
   daysSincePaid,
-  elapsedSeconds,
+  entrySeconds,
   measured,
   type GroupingMode,
   localDateKey,
@@ -193,7 +193,7 @@ export function summary(db: Db, tz: string) {
     weekSeconds += e.durationSeconds ?? 0;
     if (at(e.startedAt) >= dayStart) todaySeconds += e.durationSeconds ?? 0;
   }
-  const live = running ? elapsedSeconds(running.startedAt, now) : 0;
+  const live = running ? entrySeconds(running.startedAt, now) : 0;
   if (running) {
     weekSeconds += live;
     if (at(running.startedAt) >= dayStart) todaySeconds += live;

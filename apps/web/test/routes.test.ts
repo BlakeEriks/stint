@@ -1161,6 +1161,24 @@ test('a running timer is unbilled so far; non-billable work is not', async () =>
   assert.equal(res.body.unbilled.seconds, 7200);
 });
 
+/**
+ * A running entry's start: half an hour ago, or just after UTC midnight when
+ * that is sooner, so it always falls today. `seconds` is whole, so the
+ * request's few milliseconds never round it to another figure.
+ */
+function runningToday() {
+  const now = Date.now();
+  const midnight = new Date(now).setUTCHours(0, 0, 0, 0);
+  const seconds = Math.max(
+    0,
+    Math.min(1800, Math.floor((now - midnight) / 1000) - 1),
+  );
+  return { startedAt: new Date(now - seconds * 1000).toISOString(), seconds };
+}
+
+/** Dollars at $100/h, as the rollups price it: hours rounded to cents. */
+const at100 = (seconds: number) => Math.round(seconds / 36);
+
 test('Earned today counts a running timer up to the request, priced as it would bill', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
@@ -1184,23 +1202,17 @@ test('Earned today counts a running timer up to the request, priced as it would 
     'update user_settings set default_hourly_rate = null where user_id = $1',
     [USER],
   );
+  const { startedAt, seconds } = runningToday();
   const run = (projectId: string) =>
     pool.query(
       `insert into time_entries (id,user_id,project_id,task_name,started_at)
        values ($1,$2,$3,'running',$4)`,
-      // Half an hour, well inside today in UTC unless the suite runs in the
-      // first half hour after midnight.
-      [
-        S(13),
-        USER,
-        projectId,
-        new Date(Date.now() - 1800 * 1000).toISOString(),
-      ],
+      [S(13), USER, projectId, startedAt],
     );
 
   await run(rated);
   const live = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(live.body.earnedToday, 50, '0.50 h at $100');
+  assert.equal(live.body.earnedToday, at100(seconds), 'its hours at $100');
 
   await pool.query('delete from time_entries where id = $1', [S(13)]);
   await run(unrated);
@@ -1226,30 +1238,32 @@ test('the week, the month and its client strip count a running timer', async () 
     [p, USER, c],
   );
   const before = await json(await stats(req('/stats?tz=UTC')));
+  const { startedAt, seconds } = runningToday();
   await pool.query(
     `insert into time_entries (id,user_id,project_id,task_name,started_at)
      values ($1,$2,$3,'running',$4)`,
-    [S(15), USER, p, new Date(Date.now() - 1800 * 1000).toISOString()],
+    [S(15), USER, p, startedAt],
   );
   const after = await json(await stats(req('/stats?tz=UTC')));
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = startedAt.slice(0, 10);
+  const cents = at100(seconds) * 100;
   const bar = (r: typeof after) =>
     r.body.week.find((d: { date: string }) => d.date === today);
-  assert.equal(bar(after).seconds - bar(before).seconds, 1800);
+  assert.equal(bar(after).seconds - bar(before).seconds, seconds);
   assert.equal(
     Math.round(((bar(after).amount ?? 0) - (bar(before).amount ?? 0)) * 100),
-    5000,
-    "today's bar gains the session's $50",
+    cents,
+    "today's bar gains the session's amount",
   );
   assert.equal(
     Math.round((after.body.month.earned - before.body.month.earned) * 100),
-    5000,
+    cents,
   );
   const strip = after.body.month.byClient.find(
     (b: { clientId: string }) => b.clientId === c,
   );
-  assert.equal(strip.amount, 50);
+  assert.equal(strip?.amount ?? 0, at100(seconds));
 });
 
 test('a running timer started before midnight counts toward the day it started', async () => {
