@@ -28,6 +28,14 @@ const idle = () =>
     settled.add(done);
   }).then(() => settled.clear());
 const frame = () => new Promise((done) => requestAnimationFrame(done));
+/* Twice: a response often starts the request that depends on it. */
+async function settle() {
+  for (let i = 0; i < 2; i++) {
+    await idle();
+    await frame();
+    await frame();
+  }
+}
 
 const preview: Preview = {
   /* Components read the server from MSW: `src/mocks/handlers.ts` answers all
@@ -55,6 +63,9 @@ const preview: Preview = {
       });
       return worker;
     }),
+    // A play awaits `loaded.settle()` where a loading render reads like the
+    // empty one, so it judges the answer and not the wait.
+    async () => ({ settle }),
   ],
   /* Every story starts from the same account at the same instant: the clock
      is pinned, the fake account rebuilt, and the stores that outlive a
@@ -71,12 +82,7 @@ const preview: Preview = {
     return () => MockDate.reset();
   },
   afterEach: async () => {
-    // Twice: a response often starts the request that depends on it.
-    for (let i = 0; i < 2; i++) {
-      await idle();
-      await frame();
-      await frame();
-    }
+    await settle();
     /* The fake server answers a problem with a 500, which a screen draws as
        its error state and would pass. The story fails instead. */
     if (problems.length) throw new Error(problems.join('\n'));
