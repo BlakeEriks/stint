@@ -1,7 +1,7 @@
 /**
  * What `derive-neutrals.mjs` and `derive-light.mjs` share: the grounds text is
- * set on, read from the contract CI checks, and the report of how the derived
- * ink fares on them.
+ * set on, read from the contract CI checks, the report of how the derived
+ * ink fares on them, and the ramp printed for tokens.json.
  */
 import { readFileSync } from 'node:fs';
 import { contrast } from './oklch.mjs';
@@ -46,4 +46,15 @@ export function verify(ink, card, grounds) {
     );
   }
   return ok;
+}
+
+/** Each row as a `primitive[group]` entry, to paste into tokens.json. */
+export function printRamp(group, hue, rows) {
+  console.log(`\n// ---- paste into tokens.json primitive.${group} ----`);
+  for (const { step, L, C, hex } of rows) {
+    console.log(
+      `"${step}":`.padEnd(12),
+      `{ "hex": "${hex}", "oklch": [${L.toFixed(4)}, ${C.toFixed(4)}, ${hue}] },`,
+    );
+  }
 }

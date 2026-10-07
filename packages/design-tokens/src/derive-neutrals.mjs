@@ -8,7 +8,7 @@
  * Two independent scales: `surfaces()` is a linear ladder, `inkRamp()` an
  * eased curve. `docs/design/deriving-color.md` has why.
  */
-import { textGrounds, verify } from './grounds.mjs';
+import { printRamp, textGrounds, verify } from './ramp.mjs';
 import { contrast, hex } from './oklch.mjs';
 
 /** The blue-gray the palette was derived for, held across every step. */
@@ -166,17 +166,8 @@ if (arg === '--surfaces') {
   const plan = arg?.replace('--', '') ?? 'pop';
   const { surfaces: s, ink } = printPlan(plan);
 
-  console.log('\n// ---- paste into tokens.json primitive.neutral ----');
-  s.forEach((p, i) => {
-    console.log(
-      `"${SURFACE_KEYS[i]}":`.padEnd(12),
-      `{ "hex": "${p.hex}", "oklch": [${p.L.toFixed(4)}, ${p.C.toFixed(4)}, ${HUE}] },`,
-    );
-  });
-  for (const { step, L, C, hex: h } of ink) {
-    console.log(
-      `"${step}":`.padEnd(12),
-      `{ "hex": "${h}", "oklch": [${L.toFixed(4)}, ${C.toFixed(4)}, ${HUE}] },`,
-    );
-  }
+  printRamp('neutral', HUE, [
+    ...s.map((p, i) => ({ ...p, step: SURFACE_KEYS[i] })),
+    ...ink,
+  ]);
 }
