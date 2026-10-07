@@ -8,7 +8,7 @@
  * Two independent scales: `surfaces()` is a linear ladder, `inkRamp()` an
  * eased curve. `docs/design/deriving-color.md` has why.
  */
-import { readFileSync } from 'node:fs';
+import { textGrounds, verify } from './grounds.mjs';
 import { contrast, hex } from './oklch.mjs';
 
 /** The blue-gray the palette was derived for, held across every step. */
@@ -37,6 +37,9 @@ function surfaces({ floor, steps, chroma: [c0, c1] }) {
     return { name, L: +L.toFixed(4), C, hex: hex(L, C, HUE) };
   });
 }
+
+/** Each plane's step in `primitive.neutral`, in `surfaces()` order. */
+const SURFACE_KEYS = ['recessed', '0', '25', '50', '100', '200'];
 
 /**
  * `gradual` is an even ladder. `pop` holds the frame gradual and spends the
@@ -92,24 +95,6 @@ const CHROMA = {
 const INK_MINIMA = { 400: 3, 500: 4.5, 600: 5.5, 700: 3 };
 const TEXT_STEPS = [500, 600];
 
-/**
- * The accent tint a running calendar block is filled with. Hand-set in
- * tokens.json rather than derived here, and text is set on it.
- */
-const ACCENT_MUTED = JSON.parse(
-  readFileSync(new URL('../tokens.json', import.meta.url), 'utf8'),
-).semantic.dark['accent-muted'];
-
-/**
- * Every surface text is set on: the four planes, `hover` (a calendar block's
- * fill, a hovered row) and the accent tint. `active` is only a pointer's
- * press on a block, and is left out.
- */
-const textGrounds = (s) => [
-  ...s.filter((p) => p.name !== 'active').map((p) => p.hex),
-  ACCENT_MUTED,
-];
-
 /** Smallest lift (to 4dp) that clears `min` against every one of `grounds`. */
 function liftFor(baseL, C, grounds, min) {
   for (let lift = 0; lift <= 0.4; lift += 0.0001) {
@@ -146,27 +131,6 @@ function inkRamp(card, grounds) {
 
 /* ── output ────────────────────────────────────────────────────────────── */
 
-/** Text against the worst ground it is set on; rings and borders the card. */
-function verify(ink, card, grounds) {
-  const at = (s) => ink.find((r) => r.step === s).hex;
-  const worst = (fg) => Math.min(...grounds.map((g) => contrast(fg, g)));
-  console.log(`\n// text on its worst ground, rings and borders on ${card}:`);
-  let ok = true;
-  for (const [label, min, v] of [
-    ['body   (850)', 4.5, worst(at(850))],
-    ['muted  (600)', 4.5, worst(at(600))],
-    ['subtle (500)', 4.5, worst(at(500))],
-    ['focus  (700)', 3, contrast(at(700), card)],
-    ['border (400)', 3, contrast(at(400), card)],
-  ]) {
-    if (v < min) ok = false;
-    console.log(
-      `//   ${label} ${v.toFixed(2)} (min ${min})${v >= min ? '' : '  FAILS'}`,
-    );
-  }
-  return ok;
-}
-
 function printPlan(planName) {
   const plan = SURFACE_PLANS[planName];
   const s = surfaces(plan);
@@ -186,7 +150,8 @@ function printPlan(planName) {
     );
   });
 
-  const grounds = textGrounds(s);
+  const planes = Object.fromEntries(s.map((p, i) => [SURFACE_KEYS[i], p.hex]));
+  const grounds = textGrounds('dark', 'neutral', planes);
   const ink = inkRamp(s[3].hex, grounds);
   const ok = verify(ink, s[3].hex, grounds);
   if (!ok) console.log('//   ^ ink needs re-tuning against this card value');
@@ -202,7 +167,6 @@ if (arg === '--surfaces') {
   const { surfaces: s, ink } = printPlan(plan);
 
   console.log('\n// ---- paste into tokens.json primitive.neutral ----');
-  const SURFACE_KEYS = ['recessed', '0', '25', '50', '100', '200'];
   s.forEach((p, i) => {
     console.log(
       `"${SURFACE_KEYS[i]}":`.padEnd(12),
