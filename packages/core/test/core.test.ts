@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatClock, formatCompact, elapsedSeconds } from '../src/duration.ts';
+import {
+  formatClock,
+  formatCompact,
+  elapsedSeconds,
+  measured,
+} from '../src/duration.ts';
 import { resolveRate, resolveRateSource } from '../src/rates.ts';
 import { uuidv7 } from '../src/uuid.ts';
 import {
@@ -29,6 +34,25 @@ test('elapsedSeconds never goes negative on clock skew', () => {
   const now = new Date('2026-09-11T12:00:00Z');
   assert.equal(elapsedSeconds('2026-09-11T11:00:00Z', now), 3600);
   assert.equal(elapsedSeconds('2026-09-11T13:00:00Z', now), 0);
+});
+
+test('measured fills in a running entry and leaves a stopped one', () => {
+  const now = new Date('2026-09-11T12:00:00.600Z');
+  const running = {
+    startedAt: '2026-09-11T11:00:00Z',
+    endedAt: null,
+    durationSeconds: null,
+  };
+  assert.deepEqual(measured(running, now), {
+    ...running,
+    durationSeconds: 3601, // rounded, as `entry_seconds()` rounds
+  });
+  const stopped = {
+    startedAt: '2026-09-11T10:00:00Z',
+    endedAt: '2026-09-11T10:30:00Z',
+    durationSeconds: 1800,
+  };
+  assert.equal(measured(stopped, now), stopped);
 });
 
 test('rate resolution walks all four levels', () => {

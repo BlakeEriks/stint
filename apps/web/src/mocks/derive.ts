@@ -20,7 +20,7 @@ import {
   type DayRow,
   daysSincePaid,
   elapsedSeconds,
-  entrySeconds,
+  measured,
   type GroupingMode,
   localDateKey,
   localMonthKeys,
@@ -54,7 +54,7 @@ const at = (iso: string) => new Date(iso).getTime();
 
 /** A stopped entry's length, or a running one's so far: `entry_seconds`. */
 const secondsOf = (db: Db, e: TimeEntry) =>
-  e.durationSeconds ?? entrySeconds(e.startedAt, db.now);
+  measured(e, db.now).durationSeconds ?? 0;
 
 function clientOf(db: Db, projectId: string | null) {
   const p = db.projects.find((x) => x.id === projectId);

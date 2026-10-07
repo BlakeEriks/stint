@@ -24,6 +24,22 @@ export function entrySeconds(startedAt: Date | string, now: Date): number {
   return Math.max(0, Math.round((now.getTime() - start.getTime()) / 1000));
 }
 
+/**
+ * An entry with a running one's length so far filled in. `endedAt` stays
+ * null: that, not a null duration, is what marks it running.
+ */
+export function measured<
+  E extends {
+    startedAt: string;
+    endedAt: string | null;
+    durationSeconds: number | null;
+  },
+>(entry: E, now: Date): E {
+  return entry.endedAt === null
+    ? { ...entry, durationSeconds: entrySeconds(entry.startedAt, now) }
+    : entry;
+}
+
 /** `1:47:22` — the timer and menu bar format. Hours are never zero-padded. */
 export function formatClock(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));

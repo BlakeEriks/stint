@@ -1,6 +1,6 @@
 import {
   buildPreview,
-  entrySeconds,
+  measured,
   formatInvoiceNumber,
   pickSchedules,
   type ScheduleKind,
@@ -223,12 +223,7 @@ export const handlers = {
             e.projectId === (projectId === 'none' ? null : projectId)),
       )
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
-      // As the route does: a running entry measured at the response.
-      .map((e) =>
-        e.endedAt === null
-          ? { ...e, durationSeconds: entrySeconds(e.startedAt, db.now) }
-          : e,
-      );
+      .map((e) => measured(e, db.now));
     return ok(envelopes.entries, { entries });
   }),
 
