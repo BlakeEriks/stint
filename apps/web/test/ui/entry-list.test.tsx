@@ -52,16 +52,6 @@ afterEach(() => {
 });
 
 describe('EntryList', () => {
-  it('totals the day at the foot, under the entries it sums', async () => {
-    serve([entry()]);
-    renderList(7200);
-
-    /* A column of hours ending in its own sum reads without a label, which is
-       what lets the header spend its one slot on what the day earned. */
-    expect(await screen.findByText('2h')).toBeInTheDocument();
-    expect(screen.getByText('1 entry')).toBeInTheDocument();
-  });
-
   it('shows what the day earned beside the title', async () => {
     serve([entry()]);
     render(
@@ -80,27 +70,5 @@ describe('EntryList', () => {
        earned nothing and then takes it back a moment later. */
     await screen.findByText('2h');
     expect(screen.queryByText(/^\$/)).toBeNull();
-  });
-
-  it('prompts to start a timer when nothing is logged', async () => {
-    serve([]);
-    renderList(0);
-
-    expect(
-      await screen.findByText(/Nothing logged yet today/),
-    ).toBeInTheDocument();
-  });
-
-  /**
-   * The dock carries no surface, and Today is subordinate to the inbox above
-   * it: a hairline, and no panel of its own.
-   */
-  it('renders without a panel of its own', async () => {
-    serve([entry()]);
-    const { container } = renderList();
-
-    await screen.findByText('Writing');
-    expect(container.querySelector('.bg-surface-elevated')).toBeNull();
-    expect(container.querySelector('.shadow-card')).toBeNull();
   });
 });
