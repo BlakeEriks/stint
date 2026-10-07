@@ -131,12 +131,8 @@ title is `type-title`, once.
 region is space and a rule (`border-edge-subtle`, stopping at the inset), and
 a record is a plain row.
 
-**A region that scrolls itself takes focus, only where it scrolls.**
-`tabIndex={0}` lets a keyboard scroll it, which Safari's otherwise cannot,
-and the stories' a11y check fails a scroller without it
-(`scrollable-region-focusable`). One that scrolls only from a breakpoint up
-gates `tabIndex` on the same `useMediaQuery`, as `ContentPanel` does, so
-below it there is no idle tab stop.
+**A region that scrolls itself takes focus, only where it scrolls:** its
+`tabIndex` is `useScrollerFocus()` (`apps/web/src/lib/client/use-scroller-focus.ts`).
 
 ### Components
 

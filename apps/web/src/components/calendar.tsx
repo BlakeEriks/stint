@@ -17,6 +17,7 @@ import {
 } from '@/lib/client/use-calendar';
 import { useProjectClients } from '@/lib/client/use-project-colors';
 import { useMediaQuery } from '@/lib/client/use-media-query';
+import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import {
   useEntryDrag,
   type Drag,
@@ -84,8 +85,7 @@ export function Calendar() {
   /* One day on a phone. At 375px a week gives each day 42px, under the ~44px a
      finger needs; a single day gets ~295px. */
   const byDay = useMediaQuery('(max-width: 639px)');
-  /* The grid scrolls itself only at `xl`; below it the page does. */
-  const scrolls = useMediaQuery('(width >= 80rem)');
+  const scrollerFocus = useScrollerFocus();
   const cal = useCalendar(1, byDay);
   const { colorByProject, clientByProject } = useProjectClients();
 
@@ -258,8 +258,7 @@ export function Calendar() {
             where the scroller is inside the card. */}
           <div
             ref={scroller}
-            // A scroller takes focus, or an empty week cannot be keyboard-scrolled.
-            tabIndex={scrolls ? 0 : undefined}
+            tabIndex={scrollerFocus}
             className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
           >
             <div

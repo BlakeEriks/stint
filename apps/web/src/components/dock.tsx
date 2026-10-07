@@ -10,6 +10,7 @@ import {
   useDockSplit,
 } from '@/lib/client/use-dock-split';
 import { useMediaQuery } from '@/lib/client/use-media-query';
+import { XL } from '@/lib/client/use-scroller-focus';
 import { EntryList } from './entry-list';
 import { Inbox } from './inbox';
 import { keys } from '@/lib/client/query-keys';
@@ -39,7 +40,7 @@ export function Dock() {
      height to divide and no handle to show. `useMediaQuery` rather than a
      Tailwind `xl:` because this changes BEHAVIOR, not just appearance. */
   const column = useRef<HTMLElement>(null);
-  const wide = useMediaQuery('(width >= 80rem)');
+  const wide = useMediaQuery(XL);
   const { split, dragging, begin, nudge, reset } = useDockSplit(column);
 
   return (

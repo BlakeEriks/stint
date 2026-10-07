@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { ArrowRight, Laptop, Monitor, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DemoTimer } from '@/components/marketing/demo-timer';
+import { ScrollRegion } from '@/components/marketing/scroll-region';
 import { Wordmark } from '@/components/wordmark';
 
 /**
@@ -385,10 +386,7 @@ function InvoicePreview() {
        nothing indicating they exist, which loses every persuasive element of
        the page's strongest asset. */
     <div className="mt-2">
-      {/* Focusable, so a keyboard can scroll it too. */}
-      <section
-        // biome-ignore lint/a11y/noNoninteractiveTabindex: a scroller takes focus
-        tabIndex={0}
+      <ScrollRegion
         aria-label="Sample invoice"
         className="overflow-x-auto rounded-lg shadow-float"
       >
@@ -452,7 +450,7 @@ function InvoicePreview() {
             </p>
           </div>
         </div>
-      </section>
+      </ScrollRegion>
 
       {/* Only where the scroll actually happens. `lg:hidden` would be a lie
           on a tablet, where 34rem still overflows. */}
