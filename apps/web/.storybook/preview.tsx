@@ -28,9 +28,16 @@ const idle = () =>
     settled.add(done);
   }).then(() => settled.clear());
 const frame = () => new Promise((done) => requestAnimationFrame(done));
+/* A region reads `aria-busy` from a debounced change until its answer lands,
+   so it is busy before its request starts. A story that stalls a request
+   leaves its region busy on purpose. */
+const busy = () =>
+  stalls === 0 && document.querySelector('[aria-busy="true"]') !== null;
 /* Twice: a response often starts the request that depends on it. */
 async function settle() {
   for (let i = 0; i < 2; i++) {
+    await idle();
+    while (busy()) await frame();
     await idle();
     await frame();
     await frame();

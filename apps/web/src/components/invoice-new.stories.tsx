@@ -17,15 +17,6 @@ const meta = {
   title: 'Screens/Invoices/New',
   component: NewInvoice,
   ...screen('/invoices/new'),
-  /* A change dims the preview until its answer lands, 400ms on. The a11y
-     check reads the card a user is left with, so it waits for that. */
-  afterEach: async ({ canvasElement, parameters }) => {
-    if (parameters.staysUpdating) return;
-    const page = within(canvasElement.ownerDocument.body);
-    await waitFor(() => expect(page.queryByText('Updating…')).toBeNull(), {
-      timeout: 3000,
-    });
-  },
 } satisfies Meta<typeof NewInvoice>;
 
 export default meta;
@@ -119,7 +110,7 @@ export const Updating: Story = {
     /* The dimmed figures are the ones the next answer replaces, held back on
        purpose; axe reads their half opacity as low contrast. */
     a11y: skipping('aria-hidden-focus', 'color-contrast'),
-    staysUpdating: true,
+    stalls: 1,
     msw: {
       handlers: {
         // The play's By task never answers; every other preview does.

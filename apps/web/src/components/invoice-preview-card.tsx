@@ -56,7 +56,11 @@ export function InvoicePreviewCard({
   const scrollerFocus = useScrollerFocus();
 
   return (
-    <section aria-labelledby="inv-preview" className="flex min-h-0 flex-col">
+    <section
+      aria-labelledby="inv-preview"
+      aria-busy={updating}
+      className="flex min-h-0 flex-col"
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-2 px-1 pb-2.5">
         <h2 id="inv-preview" className="type-section text-strong">
           Preview
