@@ -41,6 +41,15 @@ export const Column: Story = {
       /overlaps/i,
     ])
       await expect((await page.findAllByText(row))[0]).toBeInTheDocument();
+
+    // An overlap names both entries and how long they share.
+    const overlap = within(
+      (await page.findByText(/Overlaps Checkout timeout fix/)).closest(
+        '[data-tone]',
+      ) as HTMLElement,
+    );
+    await expect(overlap.getByText('Client call and follow-ups')).toBeVisible();
+    await expect(overlap.getByText('53m')).toBeVisible();
   },
 };
 
@@ -71,9 +80,14 @@ export const AssignProject: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
+    // Each entry is its own decision: a row and an action, never a count.
     const [assign] = await page.findAllByRole('button', {
       name: /Assign a project/,
     });
+    for (const task of ['Quick call with Priya', 'Research: carrier APIs'])
+      await expect(
+        page.getByRole('button', { name: `Assign a project to ${task}` }),
+      ).toBeVisible();
     await userEvent.click(assign as HTMLElement);
     await expectOpen(canvasElement, 'dialog');
   },

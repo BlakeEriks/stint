@@ -41,7 +41,8 @@ export const RunningDesktop: Story = {
     const canvas = within(canvasElement);
     await canvas.findByRole('button', { name: 'Stop timer' });
     await expect(
-      canvas.queryByRole('textbox', { name: 'Task name' }),
+      // By label, so neither the rename field nor the idle combobox passes.
+      canvas.queryByLabelText('Task name'),
     ).toBeNull();
     await expect(
       canvas.getByRole('button', { name: 'Rename task' }),

@@ -264,7 +264,8 @@ export const EditExpense: Story = {
   },
 };
 
-/** Delete lives in the dialog, not on the row (US2 scenario 2). */
+/** Delete lives in the dialog, not on the row (US2 scenario 2), and asks
+    once: the first press only asks. */
 export const DeleteExpense: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -272,7 +273,15 @@ export const DeleteExpense: Story = {
     await userEvent.click(
       await page.findByRole('button', { name: 'Edit Figma license, annual' }),
     );
-    await userEvent.click(await page.findByRole('button', { name: 'Delete' }));
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Delete expense' }),
+    );
+    expect(page.getAllByText('Figma license, annual').length).toBeGreaterThan(
+      0,
+    );
+    await userEvent.click(
+      page.getByRole('button', { name: 'Delete for good' }),
+    );
     await waitFor(() =>
       expect(page.queryByText('Figma license, annual')).toBeNull(),
     );

@@ -49,9 +49,11 @@ export const Running: Story = { ...desktop, parameters: account('running') };
 export const Empty: Story = {
   ...desktop,
   parameters: account('empty'),
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, loaded }) => {
     const page = within(canvasElement);
     await page.findByText('Unbilled');
+    // Today's entries load after the stats, into the same placeholder rows.
+    await loaded.settle();
     // No `$0.00 awaiting`: a figure standing in for the absence of one.
     await expect(page.queryByText(/open invoice/)).toBeNull();
     // One neutral band would say the month came from nobody.
