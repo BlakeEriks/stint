@@ -8,6 +8,7 @@
  * Two independent scales: `surfaces()` is a linear ladder, `inkRamp()` an
  * eased curve. `docs/design/deriving-color.md` has why.
  */
+import { printRamp, textGrounds, verify } from './ramp.mjs';
 import { contrast, hex } from './oklch.mjs';
 
 /** The blue-gray the palette was derived for, held across every step. */
@@ -36,6 +37,9 @@ function surfaces({ floor, steps, chroma: [c0, c1] }) {
     return { name, L: +L.toFixed(4), C, hex: hex(L, C, HUE) };
   });
 }
+
+/** Each plane's step in `primitive.neutral`, in `surfaces()` order. */
+const SURFACE_KEYS = ['recessed', '0', '25', '50', '100', '200'];
 
 /**
  * `gradual` is an even ladder. `pop` holds the frame gradual and spends the
@@ -77,37 +81,41 @@ const CHROMA = {
 };
 
 /**
- * What each ink step owes the card behind it. The threshold is the constant,
- * so a step follows whatever card the surface plan produced.
+ * What each ink step owes. The threshold is the constant, so a step follows
+ * whatever surfaces the plan produced.
  *
- * - `400` is `border-control`, 1.4.11's 3:1.
- * - `500` is `text-subtle`, AA at 4.5 — it is body copy.
- * - `600` is the muted floor at 5.5: held to 4.5 alongside 500 both land on
- *   the same gray. Muted is stronger than subtle, and the ratios say so.
- * - `700` is the focus ring, 3:1 under WCAG 1.4.11.
+ * - `400` is `border-control`, 1.4.11's 3:1 against the card.
+ * - `500` is `text-subtle`, AA at 4.5 on every ground text is set on — it is
+ *   body copy.
+ * - `600` is the muted floor at 5.5 on the same grounds: held to 4.5
+ *   alongside 500 both land on the same gray. Muted is stronger than subtle,
+ *   and the ratios say so.
+ * - `700` is the focus ring, 3:1 under WCAG 1.4.11 against the card.
  */
 const INK_MINIMA = { 400: 3, 500: 4.5, 600: 5.5, 700: 3 };
+const TEXT_STEPS = [500, 600];
 
-/** Smallest lift (to 4dp) that clears `min` against `card`. */
-function liftFor(baseL, C, card, min) {
+/** Smallest lift (to 4dp) that clears `min` against every one of `grounds`. */
+function liftFor(baseL, C, grounds, min) {
   for (let lift = 0; lift <= 0.4; lift += 0.0001) {
-    if (contrast(hex(baseL + lift, C, HUE), card) >= min)
-      return +lift.toFixed(4);
+    const ink = hex(baseL + lift, C, HUE);
+    if (grounds.every((g) => contrast(ink, g) >= min)) return +lift.toFixed(4);
   }
   return 0;
 }
 
-function inkRamp(card) {
+function inkRamp(card, grounds) {
   const rows = Object.entries(CHROMA).map(([s, C]) => {
     const step = Number(s);
     const base = FLOOR + (TOP - FLOOR) * (step / 975) ** EXPONENT;
     const min = INK_MINIMA[step];
-    const L = base + (min ? liftFor(base, C, card, min) : 0);
+    const against = TEXT_STEPS.includes(step) ? grounds : [card];
+    const L = base + (min ? liftFor(base, C, against, min) : 0);
     return { step, L: +L.toFixed(4), C, hex: hex(L, C, HUE) };
   });
 
   /* Lifting a step to clear a threshold can drive it into the next: they climb
-     away from the same card, so the one owing less catches up. 0.035 is
+     away from the same grounds, so the one owing less catches up. 0.035 is
      roughly where two grays stop reading as the same color, and it is a
      floor — a step that earned more distance by owing a stricter ratio keeps
      it. */
@@ -122,27 +130,6 @@ function inkRamp(card) {
 }
 
 /* ── output ────────────────────────────────────────────────────────────── */
-
-/** Ink is judged against the surface it sits on, which is the card. */
-function verify(ink, card) {
-  const at = (s) => ink.find((r) => r.step === s).hex;
-  console.log(`\n// ink against the card surface (${card}):`);
-  let ok = true;
-  for (const [label, fg, min] of [
-    ['body   (850)', at(850), 4.5],
-    ['muted  (600)', at(600), 4.5],
-    ['subtle (500)', at(500), 4.5],
-    ['focus  (700)', at(700), 3],
-    ['border (400)', at(400), 3],
-  ]) {
-    const v = contrast(fg, card);
-    if (v < min) ok = false;
-    console.log(
-      `//   ${label} ${v.toFixed(2)} (min ${min})${v >= min ? '' : '  FAILS'}`,
-    );
-  }
-  return ok;
-}
 
 function printPlan(planName) {
   const plan = SURFACE_PLANS[planName];
@@ -163,8 +150,10 @@ function printPlan(planName) {
     );
   });
 
-  const ink = inkRamp(s[3].hex);
-  const ok = verify(ink, s[3].hex);
+  const planes = Object.fromEntries(s.map((p, i) => [SURFACE_KEYS[i], p.hex]));
+  const grounds = textGrounds('dark', 'neutral', planes);
+  const ink = inkRamp(s[3].hex, grounds);
+  const ok = verify(ink, s[3].hex, grounds);
   if (!ok) console.log('//   ^ ink needs re-tuning against this card value');
   return { surfaces: s, ink };
 }
@@ -177,18 +166,8 @@ if (arg === '--surfaces') {
   const plan = arg?.replace('--', '') ?? 'pop';
   const { surfaces: s, ink } = printPlan(plan);
 
-  console.log('\n// ---- paste into tokens.json primitive.neutral ----');
-  const SURFACE_KEYS = ['recessed', '0', '25', '50', '100', '200'];
-  s.forEach((p, i) => {
-    console.log(
-      `"${SURFACE_KEYS[i]}":`.padEnd(12),
-      `{ "hex": "${p.hex}", "oklch": [${p.L.toFixed(4)}, ${p.C.toFixed(4)}, ${HUE}] },`,
-    );
-  });
-  for (const { step, L, C, hex: h } of ink) {
-    console.log(
-      `"${step}":`.padEnd(12),
-      `{ "hex": "${h}", "oklch": [${L.toFixed(4)}, ${C.toFixed(4)}, ${HUE}] },`,
-    );
-  }
+  printRamp('neutral', HUE, [
+    ...s.map((p, i) => ({ ...p, step: SURFACE_KEYS[i] })),
+    ...ink,
+  ]);
 }

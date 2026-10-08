@@ -3,7 +3,7 @@ import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
 import type { Db } from '@/mocks/fixtures';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
-import { desktop, expectOpen, knownFailures, tablet } from '@/mocks/screen';
+import { desktop, expectOpen, tablet } from '@/mocks/screen';
 import { ZONE } from '@/mocks/time.mts';
 import { Dock } from './dock';
 
@@ -11,7 +11,7 @@ import { Dock } from './dock';
 const meta = {
   title: 'Parts/Dock',
   component: Dock,
-  parameters: { layout: 'fullscreen', a11y: knownFailures },
+  parameters: { layout: 'fullscreen' },
   decorators: [
     (Story) => (
       <div className="flex h-screen justify-end bg-surface-base p-3">

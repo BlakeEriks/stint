@@ -124,7 +124,7 @@
   }
   /* Disabled is NEUTRAL, not a faded accent: the accent faded computes to
      #285c28 and puts the label at 2.33:1, under the floor. text-muted rather
-     than text-subtle — subtle measures 3.65:1 here, which fails the same
+     than text-subtle — subtle measures 4.27:1 here, which fails the same
      floor this rule exists to hold. */
   .btn.disabled {
     background: var(--bg-active); color: var(--text-muted); cursor: not-allowed;
@@ -592,12 +592,12 @@
     <div class="notes" style="margin-top:1.5rem;">
       <ul>
         <li><strong>Disabled is <code>bgActive</code> + <code>textMuted</code></strong>
-          (4.43:1) — a different, inert control rather than a dimmer version of
+          (5.24:1) — a different, inert control rather than a dimmer version of
           a live one. A faded accent computes to <code>#285c28</code> with its
           label at <strong>2.33:1</strong>, which is the white-on-accent
           pairing CI guards on the web and cannot see here.</li>
         <li><strong>Focus rings are <code>borderFocus</code></strong>
-          (6.82:1), never the accent and never the macOS system blue.</li>
+          (8.03:1), never the accent and never the macOS system blue.</li>
         <li><strong>The code field has no placeholder.</strong>
           <code>000-000</code> reads as a value in a digits-only field and
           puts the caret in the middle of it.</li>

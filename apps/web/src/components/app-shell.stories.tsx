@@ -54,6 +54,34 @@ export const Desktop: Story = { ...desktop, play: oneTimer };
 export const Wide: Story = { ...wide, play: oneTimer };
 export const Light: Story = { ...light };
 
+/* Each section's focus ring is drawn whole: the rail is a scroller, which
+   clips whatever crosses its edge, the first and last items' rings included. */
+const ringsFit: Story['play'] = async ({ canvasElement }) => {
+  const page = within(canvasElement.ownerDocument.body);
+  const nav = await page.findByRole('navigation', { name: 'Sections' });
+  for (const link of within(nav).getAllByRole('link')) {
+    link.focus({ focusVisible: true } as FocusOptions);
+    const style = getComputedStyle(link);
+    const ring =
+      Number.parseFloat(style.outlineWidth) +
+      Number.parseFloat(style.outlineOffset);
+    const scroller = link.parentElement as HTMLElement;
+    const box = scroller.getBoundingClientRect();
+    const at = link.getBoundingClientRect();
+    await expect(at.top - ring).toBeGreaterThanOrEqual(box.top);
+    await expect(at.bottom + ring).toBeLessThanOrEqual(box.bottom);
+    if (scroller.scrollWidth <= scroller.clientWidth) {
+      await expect(at.left - ring).toBeGreaterThanOrEqual(box.left);
+      await expect(at.right + ring).toBeLessThanOrEqual(box.right);
+    }
+  }
+};
+
+/** The rail with a section focused: its ring is not clipped. */
+export const RailFocus: Story = { ...light, play: ringsFit };
+/** The strip with a section focused, on a phone. */
+export const StripFocus: Story = { ...phone, play: ringsFit };
+
 /** A workspace screen takes the dock's room; the card stays as it is. */
 export const Workspace: Story = {
   ...wide,

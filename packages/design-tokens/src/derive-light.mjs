@@ -9,6 +9,7 @@
  * is the anchor here, and ink is pushed DOWN to gain contrast where dark ink
  * is lifted. `docs/design/deriving-color.md` has why.
  */
+import { printRamp, textGrounds, verify } from './ramp.mjs';
 import { contrast, hex } from './oklch.mjs';
 
 /**
@@ -43,6 +44,9 @@ function surfaces({ ceiling, steps, chroma: [c0, c1] }) {
     return { name, L: +L.toFixed(4), C, hex: hex(L, C, HUE) };
   });
 }
+
+/** Each plane's step in `primitive.lightNeutral`, in `surfaces()` order. */
+const SURFACE_KEYS = ['0', '25', '50', '100', '150', '200'];
 
 /**
  * `steps` reads card -> content -> rail+dock -> bars, then hover and active,
@@ -89,36 +93,40 @@ const CHROMA = {
 };
 
 /**
- * What each ink step owes the card behind it, matching dark's.
+ * What each ink step owes, matching dark's.
  *
- * - `400` is `border-control`, 1.4.11's 3:1.
- * - `500` is subtle text, AA at 4.5 — it is body copy.
- * - `600` is the muted floor at 5.5: held to 4.5 alongside 500 both land on
- *   the same gray. Muted is stronger than subtle, and the ratios say so.
- * - `700` is the focus ring, 3:1 under WCAG 1.4.11.
+ * - `400` is `border-control`, 1.4.11's 3:1 against the card.
+ * - `500` is subtle text, AA at 4.5 on every ground text is set on — it is
+ *   body copy.
+ * - `600` is the muted floor at 5.5 on the same grounds: held to 4.5
+ *   alongside 500 both land on the same gray. Muted is stronger than subtle,
+ *   and the ratios say so.
+ * - `700` is the focus ring, 3:1 under WCAG 1.4.11 against the card.
  */
 const INK_MINIMA = { 400: 3, 500: 4.5, 600: 5.5, 700: 3 };
+const TEXT_STEPS = [500, 600];
 
-/** Smallest push DOWN (to 4dp) that clears `min` against `card`. */
-function dropFor(baseL, C, card, min) {
+/** Smallest push DOWN (to 4dp) that clears `min` against every one of `grounds`. */
+function dropFor(baseL, C, grounds, min) {
   for (let drop = 0; drop <= 0.4; drop += 0.0001) {
-    if (contrast(hex(baseL - drop, C, HUE), card) >= min)
-      return +drop.toFixed(4);
+    const ink = hex(baseL - drop, C, HUE);
+    if (grounds.every((g) => contrast(ink, g) >= min)) return +drop.toFixed(4);
   }
   return 0;
 }
 
-function inkRamp(card) {
+function inkRamp(card, grounds) {
   const rows = Object.entries(CHROMA).map(([s, C]) => {
     const step = Number(s);
     const base = TOP - (TOP - FLOOR) * (step / 975) ** EXPONENT;
     const min = INK_MINIMA[step];
-    const L = base - (min ? dropFor(base, C, card, min) : 0);
+    const against = TEXT_STEPS.includes(step) ? grounds : [card];
+    const L = base - (min ? dropFor(base, C, against, min) : 0);
     return { step, L: +L.toFixed(4), C, hex: hex(L, C, HUE) };
   });
 
   /* Pushing a step down to clear a threshold can drive it into the next: they
-     descend toward the same card, so the one owing less catches up. 0.035 is
+     descend toward the same grounds, so the one owing less catches up. 0.035 is
      roughly where two grays stop reading as the same color, and it is a
      floor — a step that earned more distance by owing a stricter ratio keeps
      it. */
@@ -133,26 +141,6 @@ function inkRamp(card) {
 }
 
 /* ── output ────────────────────────────────────────────────────────────── */
-
-function verify(ink, card) {
-  const at = (s) => ink.find((r) => r.step === s).hex;
-  console.log(`\n// ink against the card surface (${card}):`);
-  let ok = true;
-  for (const [label, fg, min] of [
-    ['body   (850)', at(850), 4.5],
-    ['muted  (600)', at(600), 4.5],
-    ['subtle (500)', at(500), 4.5],
-    ['focus  (700)', at(700), 3],
-    ['border (400)', at(400), 3],
-  ]) {
-    const v = contrast(fg, card);
-    if (v < min) ok = false;
-    console.log(
-      `//   ${label} ${v.toFixed(2)} (min ${min})${v >= min ? '' : '  FAILS'}`,
-    );
-  }
-  return ok;
-}
 
 function printPlan() {
   const s = surfaces(SURFACE_PLAN);
@@ -172,8 +160,10 @@ function printPlan() {
     );
   });
 
-  const ink = inkRamp(s[0].hex);
-  if (!verify(ink, s[0].hex))
+  const planes = Object.fromEntries(s.map((p, i) => [SURFACE_KEYS[i], p.hex]));
+  const grounds = textGrounds('light', 'lightNeutral', planes);
+  const ink = inkRamp(s[0].hex, grounds);
+  if (!verify(ink, s[0].hex, grounds))
     console.log('//   ^ ink needs re-tuning against this card value');
   return { surfaces: s, ink };
 }
@@ -183,27 +173,8 @@ if (process.argv[2] === '--surfaces') {
 } else {
   const { surfaces: s, ink } = printPlan();
 
-  console.log('\n// ---- paste into tokens.json primitive.lightNeutral ----');
-  /* The plan runs card-first; the ramp is written light-to-dark, so 0 is the
-     card. */
-  const SURFACE_KEYS = ['0', '25', '50', '100', 'hover', 'active'];
-  const painted = s.map((p, i) => ({ ...p, key: SURFACE_KEYS[i] }));
-  for (const p of painted.filter((p) => !['hover', 'active'].includes(p.key))) {
-    console.log(
-      `"${p.key}":`.padEnd(12),
-      `{ "hex": "${p.hex}", "oklch": [${p.L.toFixed(4)}, ${p.C.toFixed(4)}, ${HUE}] },`,
-    );
-  }
-  for (const p of painted.filter((p) => ['hover', 'active'].includes(p.key))) {
-    console.log(
-      `"${p.key === 'hover' ? '150' : '200'}":`.padEnd(12),
-      `{ "hex": "${p.hex}", "oklch": [${p.L.toFixed(4)}, ${p.C.toFixed(4)}, ${HUE}] },`,
-    );
-  }
-  for (const { step, L, C, hex: h } of ink) {
-    console.log(
-      `"${step}":`.padEnd(12),
-      `{ "hex": "${h}", "oklch": [${L.toFixed(4)}, ${C.toFixed(4)}, ${HUE}] },`,
-    );
-  }
+  printRamp('lightNeutral', HUE, [
+    ...s.map((p, i) => ({ ...p, step: SURFACE_KEYS[i] })),
+    ...ink,
+  ]);
 }

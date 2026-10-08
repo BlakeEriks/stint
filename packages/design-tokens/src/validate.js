@@ -7,6 +7,7 @@ import { globSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { contrast } from './contrast.js';
+import { textAssertions } from './contract.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const tokens = JSON.parse(readFileSync(join(root, 'tokens.json'), 'utf8'));
@@ -24,7 +25,7 @@ const fmt = (n) => n.toFixed(2).padStart(6);
 
 console.log('\n  contrast contract\n');
 
-for (const a of tokens.contract.assertions) {
+for (const a of [...textAssertions(tokens), ...tokens.contract.assertions]) {
   const ratio = contrast(resolve(a.fg), resolve(a.bg));
   const pass = ratio >= a.min;
   if (!pass) failed++;

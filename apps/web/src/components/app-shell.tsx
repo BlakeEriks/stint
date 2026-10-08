@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { BackTrail } from './back-link';
 import { AppHeader } from './app-header';
 import { Nav, Version } from './nav';
+import { ContentPanel } from './content-panel';
 import { Dock } from './dock';
 import { TimerDock } from './timer-dock';
 
@@ -74,13 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Nav />
             <Version />
             <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto lg:col-start-2 lg:row-start-1 xl:contents">
-              {/* THE PANEL. One surface with a subtle edge and the card's
-                shadow — a step above the rail and dock that flank it, because
-                depth increases toward what is being read. Nothing inside it
-                is a card. */}
-              <div className="min-w-0 flex-1 rounded-xl border border-edge-subtle bg-surface-primary shadow-card xl:col-start-2 xl:row-start-1 xl:overflow-y-auto">
-                {children}
-              </div>
+              <ContentPanel>{children}</ContentPanel>
               <Dock />
             </div>
             {/* Full width only while the nav is a strip along the top. From

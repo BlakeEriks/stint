@@ -8,6 +8,7 @@
 // Rendering only. Every value shown is read from tokens.json — no hex, curve
 // or ratio is retyped here.
 import { contrast } from './contrast.js';
+import { textAssertions } from './contract.js';
 
 const esc = (s) =>
   String(s).replace(
@@ -56,17 +57,19 @@ const semantics = (tokens, resolve, theme) => {
  *  `forbidden` must still FAIL — a forbidden pair that starts passing means
  *  the palette moved, which is why validate.js asserts the failure too. */
 const contractRows = (tokens, resolve) => {
-  const rows = tokens.contract.assertions.map((a) => {
-    const ratio = contrast(resolve(a.fg), resolve(a.bg));
-    const ok = ratio >= a.min;
-    return `<tr>
+  const rows = [...textAssertions(tokens), ...tokens.contract.assertions].map(
+    (a) => {
+      const ratio = contrast(resolve(a.fg), resolve(a.bg));
+      const ok = ratio >= a.min;
+      return `<tr>
       <td class="pair"><code>${esc(a.fg)}</code> on <code>${esc(a.bg)}</code></td>
       <td class="note">${esc(a.note ?? '')}</td>
       <td class="num">${ratio.toFixed(2)}</td>
       <td class="num">${a.min.toFixed(1)}</td>
       <td><span class="tag ${ok ? 'ok' : 'no'}">${ok ? 'Pass' : 'FAIL'}</span></td>
     </tr>`;
-  });
+    },
+  );
 
   const forbidden = tokens.contract.forbidden.map((f) => {
     const ratio = contrast(resolve(f.fg), resolve(f.bg));
