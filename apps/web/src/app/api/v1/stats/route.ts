@@ -3,6 +3,7 @@ import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseQuery } from '@/lib/validate';
 import { selectAll } from '@/lib/select-all';
+import { loadBilledSpans } from '@/lib/billed-spans';
 import {
   addDays,
   buildAwaitingPayment,
@@ -178,9 +179,9 @@ export const GET = handle(async (req: Request) => {
     ),
 
     /* Candidates for the overlap row: the same uninvoiced, stopped set,
-       whatever its length. A billed entry is locked, so flagging it would
-       ask for an edit nobody can make. */
-    selectAll<SpanRow>(() =>
+       whatever its length. The billed entries they could overlap are read
+       below, once this set's window is known. */
+    selectAll<Omit<SpanRow, 'invoice_number'>>(() =>
       db
         .from('time_entries')
         .select('id, task_name, started_at, ended_at')
@@ -236,6 +237,15 @@ export const GET = handle(async (req: Request) => {
     .limit(1)
     .maybeSingle();
   if (lastPaid.error) throw lastPaid.error;
+
+  const unbilledSpans = overlapCandidates.map((r) => ({
+    ...r,
+    invoice_number: null,
+  }));
+  const overlapSpans = [
+    ...unbilledSpans,
+    ...(await loadBilledSpans(db, unbilledSpans)),
+  ];
 
   const unbilledRows = (unbilled.data ?? []) as UnbilledRow[];
   const invoiceRows = (invoices.data ?? []) as InvoiceRow[];
@@ -328,7 +338,7 @@ export const GET = handle(async (req: Request) => {
         ),
         new Set(unprojected.map((r) => r.id)),
       ),
-      overlaps: buildOverlaps(overlapCandidates),
+      overlaps: buildOverlaps(overlapSpans),
     },
   });
 });

@@ -397,6 +397,7 @@ describe('overlap row', () => {
     taskName: 'Standup',
     otherEntryId: '018f0000-0000-7000-8000-0000000000a1',
     otherTaskName: 'Foundation POC',
+    otherInvoiceNumber: null,
     startedAt: '2026-08-19T15:00:00.000Z',
     seconds: 180,
   };

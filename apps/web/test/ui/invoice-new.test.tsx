@@ -77,6 +77,7 @@ const PREVIEW = {
   total: 375,
   entryCount: 3,
   unratedEntryIds: [] as string[],
+  overlappingEntryIds: [] as string[],
   schedules: {
     project: [{ project: 'Portal', hours: 2.5 }],
     week: [{ start: '2026-08-03', end: '2026-08-09', hours: 2.5 }],

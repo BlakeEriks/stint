@@ -60,11 +60,15 @@ export interface SpanRow {
   task_name: string;
   started_at: string;
   ended_at: string;
+  /** The invoice holding the entry, or null while it is unbilled. */
+  invoice_number: string | null;
 }
 
 /**
- * One row per overlapping pair, oldest first. The later entry is the one
- * opened: it started inside the other, so it is usually the one to move.
+ * One row per overlapping pair with an entry the user can still edit, oldest
+ * first. The later entry is opened — it started inside the other, so it is
+ * usually the one to move — unless it is billed, which locks it; then the
+ * earlier one is. Two billed entries make no row: neither can change.
  */
 export function buildOverlaps(rows: SpanRow[]) {
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -74,16 +78,23 @@ export function buildOverlaps(rows: SpanRow[]) {
       start: Date.parse(r.started_at),
       end: Date.parse(r.ended_at),
     })),
-  ).map((o) => {
+  ).flatMap((o) => {
+    const earlier = byId.get(o.earlier) as SpanRow;
     const later = byId.get(o.later) as SpanRow;
-    return {
-      entryId: o.later,
-      taskName: later.task_name,
-      otherEntryId: o.earlier,
-      otherTaskName: (byId.get(o.earlier) as SpanRow).task_name,
-      startedAt: later.started_at,
-      seconds: o.seconds,
-    };
+    const [open, other] =
+      later.invoice_number === null ? [later, earlier] : [earlier, later];
+    if (open.invoice_number !== null) return [];
+    return [
+      {
+        entryId: open.id,
+        taskName: open.task_name,
+        otherEntryId: other.id,
+        otherTaskName: other.task_name,
+        otherInvoiceNumber: other.invoice_number,
+        startedAt: open.started_at,
+        seconds: o.seconds,
+      },
+    ];
   });
 }
 

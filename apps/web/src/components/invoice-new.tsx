@@ -255,6 +255,7 @@ export function NewInvoice() {
   const payment = buildPaymentDetails(profile, { invoiceNumber: number });
 
   const unrated = current?.unratedEntryIds.length ?? 0;
+  const overlapping = current?.overlappingEntryIds.length ?? 0;
   const nothingToBill = current !== undefined && current.lineItems.length === 0;
   const noSummaryText =
     draft.groupingMode === 'summary' && draft.summaryText.trim() === '';
@@ -473,6 +474,15 @@ export function NewInvoice() {
                   {unrated} entr{unrated === 1 ? 'y has' : 'ies have'} no rate.
                   Set a rate on the client, the project, or your defaults before
                   generating.
+                </p>
+              ) : null}
+              {/* A warning, not a block: an overlap can be deliberate, and
+                  this is the last place to see it before it bills. */}
+              {overlapping > 0 ? (
+                <p role="alert" className="type-support text-warning">
+                  {overlapping} entr
+                  {overlapping === 1 ? 'y overlaps' : 'ies overlap'} other time,
+                  already billed or on this invoice.
                 </p>
               ) : null}
               {preview.isError || generate.error ? (

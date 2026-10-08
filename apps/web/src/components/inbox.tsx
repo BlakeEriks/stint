@@ -341,9 +341,10 @@ function Row({
     );
   }
 
-  /* The pair's later entry is the one opened — it started inside the other.
-     Resolved by editing either, never by an "it's fine": two entries billing
-     the same minutes cannot both be right. */
+  /* The pair's unbilled entry is opened — the later one when both are, as it
+     started inside the other. A billed other is named by its invoice, since
+     it can't be edited. Resolved by editing, never by an "it's fine": two
+     entries billing the same minutes cannot both be right. */
   if (r.kind === 'overlap') {
     const o = r.row;
     return (
@@ -351,7 +352,7 @@ function Row({
         {...leaving}
         onSelect={() => onOpen({ id: o.entryId, focus: 'task' })}
         label={o.taskName || 'Untitled entry'}
-        detail={`Overlaps ${o.otherTaskName || 'another entry'} · ${dayLabel(o.startedAt, tz)}`}
+        detail={`Overlaps ${o.otherTaskName || 'another entry'}${o.otherInvoiceNumber ? ` on ${o.otherInvoiceNumber}` : ''} · ${dayLabel(o.startedAt, tz)}`}
         value={formatCompact(o.seconds)}
         tone="warning"
         actions={

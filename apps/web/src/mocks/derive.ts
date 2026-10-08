@@ -51,6 +51,25 @@ import { billable, type Db } from './fixtures';
 const stopped = (e: TimeEntry) => e.endedAt !== null;
 const at = (iso: string) => new Date(iso).getTime();
 
+/** `entries`, unbilled, with every billed entry: what `loadBilledSpans`
+    reads beside them, minus a window that changes no overlap. */
+function overlapSpans(db: Db, entries: TimeEntry[]) {
+  const number = new Map(db.invoices.map((i) => [i.id, i.invoiceNumber]));
+  const span = (e: TimeEntry, invoice: string | null) => ({
+    id: e.id,
+    task_name: e.taskName,
+    started_at: e.startedAt,
+    ended_at: e.endedAt as string,
+    invoice_number: invoice,
+  });
+  return [
+    ...entries.map((e) => span(e, null)),
+    ...db.entries
+      .filter((e) => e.invoiceId !== null && stopped(e))
+      .map((e) => span(e, number.get(e.invoiceId as string) as string)),
+  ];
+}
+
 /** A stopped entry's length, or a running one's so far: `entry_seconds`. */
 const secondsOf = (db: Db, e: TimeEntry) =>
   e.durationSeconds ?? entrySeconds(e.startedAt, db.now);
@@ -328,14 +347,7 @@ export function stats(db: Db, tz: string) {
         ),
         new Set(unprojected.map((r) => r.id)),
       ),
-      overlaps: buildOverlaps(
-        candidates.map((e) => ({
-          id: e.id,
-          task_name: e.taskName,
-          started_at: e.startedAt,
-          ended_at: e.endedAt as string,
-        })),
-      ),
+      overlaps: buildOverlaps(overlapSpans(db, candidates)),
     },
   };
 }
@@ -493,6 +505,13 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
     db.clients,
     db.settings.defaultHourlyRate,
   );
+  const toBill = entries.filter((e) => e.isBillable);
+  const overlapping = new Set(
+    buildOverlaps(overlapSpans(db, toBill)).flatMap((o) => [
+      o.entryId,
+      o.otherEntryId,
+    ]),
+  );
   return {
     clientId: client.id,
     clientName: client.name,
@@ -508,6 +527,9 @@ export function invoicePreview(db: Db, body: PreviewRequest, tz: string) {
       manualLines: body.manualLines,
       expenses: billableExpenses(db, body),
     }),
+    overlappingEntryIds: toBill
+      .map((e) => e.id)
+      .filter((id) => overlapping.has(id)),
     schedules:
       groupingMode === 'summary'
         ? buildSchedules(rated, {

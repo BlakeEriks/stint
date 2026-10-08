@@ -155,9 +155,10 @@ cannot return every day once answered. `unprojected` is one row per entry,
 oldest first; `strangeDurations` one per stopped entry of implausible length.
 The long threshold defaults to 12 hours, which is how a timer left running
 overnight reaches the inbox; the short one defaults to null. `overlaps` is one
-per pair of uninvoiced entries sharing a minute or more (`MIN_OVERLAP_SECONDS`
-in `@stint/core`), naming the later-starting entry; it clears when either is
-edited apart.
+per pair of entries sharing a minute or more (`MIN_OVERLAP_SECONDS` in
+`@stint/core`) where at least one is unbilled. It names the unbilled entry,
+the later-starting one when both are, and `otherInvoiceNumber` when the other
+is on an invoice; it clears when either is edited apart.
 
 ## Clients / projects / settings
 
@@ -225,7 +226,7 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/invoices` | `?clientId&status&limit` (1–200, default 50), newest first — ordered by invoice sequence, not issue date. |
-| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, summaryText?, tz?, manualLines?, excludedExpenseIds? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `expensesSubtotal`, `total`, `entryCount`, `unratedEntryIds`, `schedules` (every supporting-detail table with `summary`, else null), plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
+| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, summaryText?, tz?, manualLines?, excludedExpenseIds? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `expensesSubtotal`, `total`, `entryCount`, `unratedEntryIds`, `overlappingEntryIds` (entries to bill that share a minute or more with each other or with billed time), `schedules` (every supporting-detail table with `summary`, else null), plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
 | `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries and expenses, in one transaction. Also accepts `issueDate`, `dueDate`, `notes`, `paymentTerms`, `tz`, `reference` (the PO, contract or SOW, at most 200 characters; blank is none), and `schedules` (`project | week | date`, with `summary` only), which freezes those tables as `supportingDetail`. `paymentProfileId` picks the payment details to freeze; absent, the client's profile, else the default. Returns the `Invoice` plus `lineItems` and `entryCount`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if there is nothing to bill: no time, no expense and no charge; `422 VALIDATION_FAILED` for `summary` with an empty `summaryText`, `schedules` with another grouping, or a `paymentProfileId` archived or not found; `409 EXPENSE_ALREADY_INVOICED` if another invoice took one of its expenses first, or `409 ENTRY_ALREADY_INVOICED` if one of its entries was billed elsewhere or deleted since it was loaded; either writes nothing and uses no number; `422 VALIDATION_FAILED` on an invalid `tz`. |
 | `GET` | `/invoices/:id` | Invoice + frozen line items + the client's `{ id, name, email, address }` (not the full client row). Returned **flat**, like every other detail route. These `lineItems` carry `id` and `sortOrder`; the ones a preview or a generation returns carry `rateSource` and `entryIds` instead. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Releases its entries and expenses. |
