@@ -293,13 +293,13 @@ final class TimerModel: Optimistic {
     /// timer is the database's invariant, and a row that highlights and takes
     /// focus but silently ignores a click reads as broken. The message is the
     /// same fact the 409 carries.
-    func resume(_ name: TaskName) async {
+    func resume(taskName: String, projectId: String?) async {
         guard !isRunning else {
             errorMessage = "A timer is already running. Stop it before starting another."
             return
         }
         errorMessage = nil
-        await begin(taskName: name.taskName, projectId: name.projectId)
+        await begin(taskName: taskName, projectId: projectId)
     }
 
     func rename(to name: String) async {

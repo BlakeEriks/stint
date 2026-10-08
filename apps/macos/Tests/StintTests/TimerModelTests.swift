@@ -146,7 +146,8 @@ struct TimerModelTests {
         APIStub.routes["/entries/task-names"] = (200, taskNames(["Internal planning"], project: "p1"))
         APIStub.routes["/timer/start"] = (200, Data(#"{"id":"e1","projectId":"p1","taskName":"Internal planning","startedAt":"2026-09-28T12:00:00Z","endedAt":null,"isBillable":true,"rateOverride":null,"durationSeconds":null,"durationOk":true,"invoiceId":null}"#.utf8))
         await model.refresh()
-        await model.resume(try #require(model.recent.first))
+        let name = try #require(model.recent.first)
+        await model.resume(taskName: name.taskName, projectId: name.projectId)
 
         let body = try #require(APIStub.bodies["/timer/start"])
         let sent = try JSONSerialization.jsonObject(with: body) as? [String: Any]

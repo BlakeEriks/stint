@@ -400,8 +400,7 @@ private struct TimerPanel: View {
                     project: task.projectId.flatMap { id in model.projects.first { $0.id == id }?.name },
                     duration: compact(task.seconds)
                 ) {
-                    let name = TaskName(taskName: task.taskName, projectId: task.projectId, lastUsedAt: .now)
-                    Task { await model.resume(name) }
+                    Task { await model.resume(taskName: task.taskName, projectId: task.projectId) }
                 }
                 .accessibilityIdentifier("today-\(index + 1)")
             }
@@ -413,7 +412,9 @@ private struct TimerPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             sectionLabel("Recent")
             ForEach(Array(model.recent.enumerated()), id: \.element.id) { index, name in
-                TaskRow(name: name.taskName) { Task { await model.resume(name) } }
+                TaskRow(name: name.taskName) {
+                    Task { await model.resume(taskName: name.taskName, projectId: name.projectId) }
+                }
                     .accessibilityIdentifier("entry-\(index + 1)")
             }
         }
