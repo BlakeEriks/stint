@@ -2,6 +2,7 @@ import {
   buildPreview,
   measured,
   formatInvoiceNumber,
+  localDateKey,
   pickSchedules,
   type ScheduleKind,
   type ImportPreview,
@@ -446,7 +447,8 @@ export const handlers = {
         'VALIDATION_FAILED',
         'Supporting detail comes with a summary line only',
       );
-    const preview = invoicePreview(db, input, input.tz ?? ZONE);
+    const tz = input.tz ?? ZONE;
+    const preview = invoicePreview(db, input, tz);
     if (!preview) return fail('ENTRY_NOT_FOUND');
     if (preview.unratedEntryIds.length > 0)
       return fail('NO_RATE_CONFIGURED', 'Some billable entries have no rate');
@@ -458,7 +460,7 @@ export const handlers = {
       invoiceNumber: formatInvoiceNumber(db.settings.invoiceNumberPrefix, seq),
       sequenceNo: seq,
       status: 'draft' as const,
-      issueDate: input.issueDate ?? db.now.toISOString().slice(0, 10),
+      issueDate: input.issueDate ?? localDateKey(db.now, tz),
       dueDate: input.dueDate ?? null,
       periodStart: preview.periodStart,
       periodEnd: preview.periodEnd,
