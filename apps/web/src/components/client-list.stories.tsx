@@ -309,10 +309,12 @@ export const DeletingExpense: Story = {
       await page.findByRole('button', { name: 'Deleting…' }),
     ).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Keep' })).toBeDisabled();
-    // Closed now, a refusal would show nowhere.
     await expect(page.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     await userEvent.keyboard('{Escape}');
-    await expectOpen(canvasElement, 'dialog', 'Edit expense');
+    await expect(page.getByRole('dialog')).toHaveAttribute(
+      'data-state',
+      'open',
+    );
     // Behind the modal, so out of the accessibility tree but still listed.
     await expect(
       page.getByRole('button', {

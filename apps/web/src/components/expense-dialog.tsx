@@ -110,18 +110,21 @@ export function ExpenseDialog({
         e instanceof ApiError ? e.message : 'Could not delete this expense.',
       ),
   });
+  const busy = save.isPending || remove.isPending;
 
   return (
     <Dialog
       open={open}
-      // Closed mid-delete, a refusal would show nowhere: it is inline.
-      onOpenChange={(next) => remove.isPending || onOpenChange(next)}
+      // Closed while a press waits, its refusal would show nowhere: it is inline.
+      onOpenChange={(next) => busy || onOpenChange(next)}
     >
       <DialogContent>
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (valid) save.mutate();
+            if (!valid) return;
+            setError(null);
+            save.mutate();
           }}
           className="flex flex-col gap-4"
         >
@@ -233,7 +236,10 @@ export function ExpenseDialog({
                 pendingLabel="Deleting…"
                 pending={remove.isPending}
                 disabled={save.isPending}
-                onConfirm={() => remove.mutate(expense.id)}
+                onConfirm={() => {
+                  setError(null);
+                  remove.mutate(expense.id);
+                }}
               >
                 <Trash2 aria-hidden strokeWidth={1.75} />
               </ConfirmAction>
@@ -241,16 +247,12 @@ export function ExpenseDialog({
             <Button
               type="button"
               variant="ghost"
-              disabled={remove.isPending}
+              disabled={busy}
               onClick={() => onOpenChange(false)}
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant="accent"
-              disabled={!valid || save.isPending || remove.isPending}
-            >
+            <Button type="submit" variant="accent" disabled={!valid || busy}>
               {save.isPending ? (
                 <Loader2 aria-hidden className="animate-spin" />
               ) : null}
