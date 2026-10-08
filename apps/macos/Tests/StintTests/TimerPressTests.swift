@@ -159,7 +159,9 @@ private actor FakeServer {
         case "POST /timer/start", "PATCH /timer/current":
             return (200, json(running ?? entry("unknown")))
         case "POST /timer/stop":
-            return (200, Data(#"{"currency":"USD","unbilled":{"total":0}}"#.utf8))
+            // The route's real shape: the stopped entry beside Unbilled.
+            let stopped = String(decoding: json(entry("Stopped")), as: UTF8.self)
+            return (200, Data(#"{"entry":\#(stopped),"currency":"USD","unbilled":{"total":0}}"#.utf8))
         default:
             return (404, Data(#"{"code":"NOT_FOUND","message":"not found"}"#.utf8))
         }

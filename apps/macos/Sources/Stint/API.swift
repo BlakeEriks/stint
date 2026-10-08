@@ -44,14 +44,11 @@ struct Client: Codable, Identifiable, Equatable {
     let color: String?
 }
 
-/// `GET /stats`, narrowed to the one figure the panel shows. Unbilled is
-/// work done and not yet invoiced — never summed with `awaitingPayment`.
+/// `GET /stats`, narrowed to the one figure the panel shows: what today's
+/// entries earn, the web's Today figure.
 struct Stats: Codable, Equatable {
-    struct Unbilled: Codable, Equatable {
-        let total: Double
-    }
     let currency: String
-    let unbilled: Unbilled
+    let earnedToday: Double
 }
 
 struct Summary: Codable, Equatable {
@@ -64,6 +61,8 @@ struct Summary: Codable, Equatable {
 private struct ProjectList: Codable { let projects: [Project] }
 private struct TaskNameList: Codable { let taskNames: [TaskName] }
 private struct ClientList: Codable { let clients: [Client] }
+private struct EntryList: Codable { let entries: [TimeEntry] }
+private struct Stopped: Codable { let entry: TimeEntry }
 
 struct APIError: LocalizedError, Equatable {
     let status: Int
@@ -130,6 +129,15 @@ actor API {
         try await request("GET", "/stats?tz=\(timeZone.identifier)")
     }
 
+    /// Entries started in `[from, to]`, newest first, a running one measured
+    /// as of the response.
+    func entries(from: Date, to: Date) async throws -> [TimeEntry] {
+        let from = Self.iso8601Fractional.string(from: from)
+        let to = Self.iso8601Fractional.string(from: to)
+        let list: EntryList = try await request("GET", "/entries?from=\(from)&to=\(to)")
+        return list.entries
+    }
+
     /// Archived included: a finished engagement still owns the color on
     /// today's entries.
     func clients() async throws -> [Client] {
@@ -173,10 +181,11 @@ actor API {
 
     private struct Empty: Encodable {}
 
-    /// The response is `{ entry, currency, unbilled }`, Unbilled counted
-    /// after the stop; the panel reads only the last two, as `Stats`.
-    func stopTimer() async throws -> Stats {
-        try await request("POST", "/timer/stop", body: Empty())
+    /// The stopped entry. Earned is not in the response; the refresh after
+    /// the press fetches it.
+    func stopTimer() async throws -> TimeEntry {
+        let stopped: Stopped = try await request("POST", "/timer/stop", body: Empty())
+        return stopped.entry
     }
 
     struct UpdateTimer: Encodable {

@@ -69,7 +69,7 @@ struct TimerModelTests {
         model.panel(open: true)
         APIStub.requested = []
         await model.poll()
-        #expect(Set(APIStub.requested) == ["/summary", "/projects", "/clients", "/stats", "/entries/task-names"])
+        #expect(Set(APIStub.requested) == ["/summary", "/projects", "/clients", "/stats", "/entries", "/entries/task-names"])
 
         model.panel(open: false)
         APIStub.requested = []
@@ -104,6 +104,43 @@ struct TimerModelTests {
         await model.signOut()
     }
 
+    @Test func todayIsOneRowPerTaskWithItsTotal() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/entries"] = (200, entries([
+            ("Design", "p1", 600), ("Standup", nil, 300), ("Design", "p1", 1200), ("Design", "p2", 60), ("", nil, 30),
+        ]))
+        await model.refresh()
+        #expect(model.today.map(\.taskName) == ["Design", "Standup", "Design", ""])
+        #expect(model.today.map(\.projectId) == ["p1", nil, "p2", nil])
+        #expect(model.today.map(\.seconds) == [1800, 300, 60, 30])
+        await model.signOut()
+    }
+
+    @Test func recentListsOnlyTasksNotInToday() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/entries"] = (200, entries([("design review", "p1", 600)]))
+        APIStub.routes["/entries/task-names"] = (200, taskNames(["Design review", "Invoice chase", "Staging deploy", "Q4 scoping", "Audit", "Standup", "Retro"]))
+        await model.refresh()
+        #expect(model.recent.map(\.taskName) == ["Invoice chase", "Staging deploy", "Q4 scoping", "Audit", "Standup"])
+        await model.signOut()
+    }
+
+    @Test func earnedIsTodaysEarnings() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/stats"] = (200, Data(#"{"currency":"USD","earnedToday":412.5,"unbilled":{"total":1462.5}}"#.utf8))
+        await model.refresh()
+        #expect(model.stats?.earnedToday == 412.5)
+        await model.signOut()
+    }
+
+    @Test func compactMatchesTheWebsFormatCompact() {
+        #expect(compact(0) == "0s")
+        #expect(compact(59) == "59s")
+        #expect(compact(60) == "1m")
+        #expect(compact(3600) == "1h")
+        #expect(compact(3 * 3600 + 12 * 60 + 40) == "3h 12m")
+    }
+
     @Test func aRestartCarriesTheNameAndProject() async throws {
         let model = try await signedInModel()
         APIStub.routes["/entries/task-names"] = (200, taskNames(["Internal planning"], project: "p1"))
@@ -123,7 +160,8 @@ struct TimerModelTests {
     private func signedInModel() async throws -> TimerModel {
         APIStub.routes = [
             "/summary": (200, Data(#"{"running":null,"todaySeconds":0,"weekSeconds":0,"serverTime":"2026-09-28T12:00:00Z"}"#.utf8)),
-            "/stats": (200, Data(#"{"currency":"USD","unbilled":{"total":0}}"#.utf8)),
+            "/stats": (200, Data(#"{"currency":"USD","earnedToday":0}"#.utf8)),
+            "/entries": (200, Data(#"{"entries":[]}"#.utf8)),
             "/entries/task-names": (200, Data(#"{"taskNames":[]}"#.utf8)),
         ]
         APIStub.bodies = [:]
@@ -147,6 +185,16 @@ struct TimerModelTests {
             #"{"id":"r1","projectId":null,"taskName":"\#($0)","startedAt":"2026-09-28T11:00:00Z","endedAt":null,"isBillable":true,"rateOverride":null,"durationSeconds":null,"durationOk":true,"invoiceId":null}"#
         } ?? "null"
         return Data(#"{"running":\#(running),"todaySeconds":0,"weekSeconds":0,"serverTime":"2026-09-28T12:00:00Z"}"#.utf8)
+    }
+
+    /// Newest first, as `/entries` sends them.
+    private func entries(_ rows: [(String, String?, Int)]) -> Data {
+        let items = rows.enumerated().map { i, row in
+            let (name, project, seconds) = row
+            let projectId = project.map { #""\#($0)""# } ?? "null"
+            return #"{"id":"e\#(i)","projectId":\#(projectId),"taskName":"\#(name)","startedAt":"2026-09-28T10:00:00Z","endedAt":"2026-09-28T11:00:00Z","isBillable":true,"rateOverride":null,"durationSeconds":\#(seconds),"durationOk":true,"invoiceId":null}"#
+        }
+        return Data(#"{"entries":[\#(items.joined(separator: ","))]}"#.utf8)
     }
 
     private func taskNames(_ names: [String], project: String? = nil) -> Data {

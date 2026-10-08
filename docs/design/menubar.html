@@ -180,6 +180,8 @@
   .entry { display: flex; align-items: baseline; gap: 8px; padding: 7px 14px; font-size: 13px; }
   .entry:hover { background: var(--bg-hover); }
   .entry .nm { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .entry .pj, .entry .dur { color: var(--text-subtle); }
+  .entry .dur { margin-left: auto; white-space: nowrap; }
 
   .stats {
     display: flex; align-items: center; justify-content: space-between;
@@ -350,8 +352,19 @@
           <div class="divider"></div>
 
           <div class="stats">
-            <div class="stat"><span class="label">Today</span><span class="v">6:12:04</span></div>
-            <div class="stat" style="align-items:flex-end;"><span class="label">Unbilled</span><span class="v">$1,462.50</span></div>
+            <div class="stat"><span class="label">Today</span><span class="v">6h 12m</span></div>
+            <div class="stat" style="align-items:flex-end;"><span class="label">Earned</span><span class="v">$412.50</span></div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div style="padding:10px 0 6px;">
+            <div class="row between" style="padding:0 14px 6px;">
+              <span class="label">Today</span>
+            </div>
+            <div class="entry"><span class="nm">API integration <span class="pj">· Platform rebuild</span></span><span class="dur">4h 30m</span></div>
+            <div class="entry"><span class="nm">Design review <span class="pj">· Harbour &amp; Co.</span></span><span class="dur">1h 12m</span></div>
+            <div class="entry"><span class="nm">Standup</span><span class="dur">30m</span></div>
           </div>
 
           <div class="divider"></div>
@@ -361,15 +374,15 @@
               <span class="label">Recent</span>
             </div>
             <div class="entry"><span class="nm">Checkout validation fixes</span></div>
-            <div class="entry"><span class="nm">Design review</span></div>
             <div class="entry"><span class="nm">Q4 retainer scoping call</span></div>
             <div class="entry"><span class="nm">Invoice chase</span></div>
             <div class="entry"><span class="nm">Staging deploy</span></div>
+            <div class="entry"><span class="nm">Retainer report</span></div>
           </div>
 
           
         </div>
-        <span class="caption">Running · ~428px tall</span>
+        <span class="caption">Running · ~520px tall</span>
       </div>
 
       <div class="notes" style="flex:1;min-width:20rem;">
@@ -387,8 +400,14 @@
             mid-entry reassigns time already tracked against the old project,
             which is a billing edit wearing a dropdown. Stop the timer to move
             the work.</li>
-          <li><strong>Today and Unbilled are the two numbers</strong> you
-            cannot compute in your head. Same pair the web app leads with.</li>
+          <li><strong>Today and Earned are the two numbers</strong> you
+            cannot compute in your head, the pair the web's Today leads with.
+            Today reads compact, so the readout is the only figure moving by
+            the second.</li>
+          <li><strong>Today lists the day's tasks</strong>, one row per task
+            with its total, the web's Today list. A name under two projects is
+            two rows, so each names its project. Recent lists only names not
+            already in Today; a row in either starts that task again.</li>
           <li>The accent appears exactly twice: the pip and the readout. Same
             fact, shown twice — which the rule permits.</li>
         </ul>
@@ -425,8 +444,19 @@
           <div class="divider"></div>
 
           <div class="stats">
-            <div class="stat"><span class="label">Today</span><span class="v">6:12:04</span></div>
-            <div class="stat" style="align-items:flex-end;"><span class="label">Unbilled</span><span class="v">$1,462.50</span></div>
+            <div class="stat"><span class="label">Today</span><span class="v">6h 12m</span></div>
+            <div class="stat" style="align-items:flex-end;"><span class="label">Earned</span><span class="v">$412.50</span></div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div style="padding:10px 0 6px;">
+            <div class="row between" style="padding:0 14px 6px;">
+              <span class="label">Today</span>
+            </div>
+            <div class="entry"><span class="nm">API integration <span class="pj">· Platform rebuild</span></span><span class="dur">4h 30m</span></div>
+            <div class="entry"><span class="nm">Design review <span class="pj">· Harbour &amp; Co.</span></span><span class="dur">1h 12m</span></div>
+            <div class="entry"><span class="nm">Standup</span><span class="dur">30m</span></div>
           </div>
 
           <div class="divider"></div>
@@ -436,15 +466,15 @@
               <span class="label">Recent</span>
             </div>
             <div class="entry"><span class="nm">Checkout validation fixes</span></div>
-            <div class="entry"><span class="nm">Design review</span></div>
             <div class="entry"><span class="nm">Q4 retainer scoping call</span></div>
             <div class="entry"><span class="nm">Invoice chase</span></div>
             <div class="entry"><span class="nm">Staging deploy</span></div>
+            <div class="entry"><span class="nm">Retainer report</span></div>
           </div>
 
           
         </div>
-        <span class="caption">Stopped · ~425px tall</span>
+        <span class="caption">Stopped · ~517px tall</span>
       </div>
 
       <div class="notes" style="flex:1;min-width:20rem;">
@@ -456,7 +486,7 @@
           <li><strong>The green is on the start button, alone.</strong> One
             accent object, and it is the primary action — exactly the rule the
             landing page follows on a screen with no timer.</li>
-          <li><strong>Same stats, same Recent list</strong> as the running
+          <li><strong>Same stats, same Today and Recent lists</strong> as the running
             state. The two states differ only in their top block, so the
             popover does not appear to restructure itself when you hit start.</li>
           <li>Project picker inline beside the button saves a full row of
@@ -705,10 +735,11 @@
         <tbody>
           <tr><td><code>GET /timer/current</code></td><td>The running entry</td></tr>
           <tr><td><code>POST /timer/start</code></td><td><strong>409 when one is already running</strong></td></tr>
-          <tr><td><code>POST /timer/stop</code></td><td>The unbilled total after the stop, so the row updates without a refresh</td></tr>
+          <tr><td><code>POST /timer/stop</code></td><td>The stopped entry. Earned follows on the refresh after the press</td></tr>
           <tr><td><code>GET /summary</code></td><td>Today's total, <code>serverTime</code></td></tr>
-          <tr><td><code>GET /stats?tz=…</code></td><td>The unbilled total, a running timer's session so far included</td></tr>
-          <tr><td><code>GET /entries/task-names?limit=6</code></td><td>Recent &mdash; the names the web suggests, so a row is a name to start again, not a past entry, and carries no duration. The running name is the readout and drops out, leaving five. Fetched on the poll while the panel is open and after a start or stop, not on every open</td></tr>
+          <tr><td><code>GET /stats?tz=…</code></td><td><code>earnedToday</code>, a running timer's session so far included</td></tr>
+          <tr><td><code>GET /entries?from=…&amp;to=…</code></td><td>Today's entries, local midnight to midnight, rolled up into the Today list. The running task's row counts on from the fetch, as Today's total does</td></tr>
+          <tr><td><code>GET /entries/task-names?limit=20</code></td><td>Recent &mdash; the names the web suggests, so a row is a name to start again, not a past entry, and carries no duration. The running name and the names in Today drop out; the route's most is fetched so five usually remain. Fetched on the poll while the panel is open and after a start or stop, not on every open</td></tr>
           <tr><td><code>PATCH /entries/:id</code></td><td>Rename</td></tr>
           <tr><td><code>GET /projects</code>, <code>GET /clients</code></td><td>The picker and client colors</td></tr>
         </tbody>
@@ -731,11 +762,9 @@
           running entry in, and adding it again counts it twice.</li>
         <li><strong>The task field follows the server only when unfocused</strong>,
           so it never overwrites itself mid-type.</li>
-        <li><strong>Unbilled is never labeled "earned" or "revenue".</strong>
-          It is work done and not yet invoiced — money the user might still
-          never see. Show <code>unbilled.total</code> alone; the per-client
-          breakdown is a web surface. When <code>unratedCount &gt; 0</code> the
-          total is incomplete, and saying so beats a confidently wrong number.</li>
+        <li><strong>Earned is today's entries at their rates</strong>, the
+          web's Today figure. Unbilled and its per-client breakdown are web
+          surfaces.</li>
         <li><strong>The API models are hand-written and nothing type-checks
           them</strong> against <code>packages/schema</code>, so a renamed
           field fails at runtime in Swift and nowhere else.</li>

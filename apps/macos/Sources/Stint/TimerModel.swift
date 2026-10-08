@@ -10,14 +10,36 @@ import Observation
 final class TimerModel: Optimistic {
     private(set) var summary: Summary?
     /// Nil until the first fetch; the row omits the number rather than
-    /// showing a zero that would read as "nothing owed".
+    /// showing a zero that would read as "earned nothing".
     private(set) var stats: Stats?
-    /// The last five names worked on, newest first. The running one is the
-    /// readout, not a row, and is dropped here rather than at fetch time,
-    /// since the readout reconciles more often than the list.
+    /// Today's entries, one row per task, the rollup the web's Today list
+    /// makes. The running task's row counts on from the fetch, as Today's
+    /// total does.
+    var today: [TodayTask] {
+        let sinceFetch = max(0, Int(now.timeIntervalSince(todayFetchedAt)))
+        var tasks: [TodayTask] = []
+        for entry in todayEntries {
+            let name = entry.taskName
+            var seconds = entry.durationSeconds ?? 0
+            if entry.id == running?.id { seconds += sinceFetch }
+            if let i = tasks.firstIndex(where: { $0.taskName == name && $0.projectId == entry.projectId }) {
+                tasks[i].seconds += seconds
+            } else {
+                tasks.append(TodayTask(taskName: name, projectId: entry.projectId, seconds: seconds))
+            }
+        }
+        return tasks
+    }
+    private var todayEntries: [TimeEntry] = []
+    private var todayFetchedAt = Date()
+
+    /// The last five names worked on, newest first, less those already in
+    /// Today. The running one is the readout, not a row, and is dropped here
+    /// too: a start shows before Today is refetched.
     var recent: [TaskName] {
-        let running = running?.taskName.lowercased()
-        return Array(taskNames.filter { $0.id != running }.prefix(Self.recentCount))
+        var shown = Set(today.map { $0.taskName.lowercased() })
+        if let running { shown.insert(running.taskName.lowercased()) }
+        return Array(taskNames.filter { !shown.contains($0.id) }.prefix(Self.recentCount))
     }
     private static let recentCount = 5
     private var taskNames: [TaskName] = []
@@ -80,8 +102,8 @@ final class TimerModel: Optimistic {
     /// modes, which is why running-ness is not folded in here.
     var menuBarTitle: String {
         switch Prefs.shared.barReadout {
-        case .runningTimer: isRunning ? format(elapsedSeconds) : format(todaySeconds)
-        case .todaysTotal: format(todaySeconds)
+        case .runningTimer: isRunning ? format(elapsedSeconds) : compact(todaySeconds)
+        case .todaysTotal: compact(todaySeconds)
         }
     }
 
@@ -185,7 +207,7 @@ final class TimerModel: Optimistic {
     /// The minute's reconcile. Closed, the panel shows nothing, so only the
     /// timer is fetched: the menu bar title is the timer, and one started on
     /// the web must still reach it. Open, everything the panel shows, so
-    /// Unbilled moves with a running timer.
+    /// Earned moves with a running timer.
     func poll() async {
         await fetch(full: panelOpen, recent: true)
     }
@@ -226,9 +248,14 @@ final class TimerModel: Optimistic {
             // `try?`: a failure here hides one number rather than surfacing an
             // error over a working timer.
             if let fetched = try? await api.stats() { stats = fetched }
-            // One more than is shown, so dropping the running name still
-            // leaves five.
-            if recent, let fetched = try? await api.taskNames(limit: Self.recentCount + 1) {
+            let day = Calendar.current.dateInterval(of: .day, for: fetchedAt)!
+            if let fetched = try? await api.entries(from: day.start, to: day.end.addingTimeInterval(-0.001)) {
+                todayEntries = fetched
+                todayFetchedAt = Date()
+            }
+            // The route's most, so dropping the names in Today still leaves
+            // five on most days.
+            if recent, let fetched = try? await api.taskNames(limit: 20) {
                 taskNames = fetched
             }
         } catch let error as APIError where error.isUnauthorized {
@@ -319,13 +346,11 @@ final class TimerModel: Optimistic {
 
     private func stop() async {
         let api = api
-        let stopped = await press("timer") {
+        await press("timer") {
             show(running: nil)
         } perform: {
             try await api.stopTimer()
         }
-        // The server counts the stopped entry into Unbilled.
-        if let stopped { stats = stopped }
     }
 
     private func patch(_ update: API.UpdateTimer) async {
@@ -384,16 +409,35 @@ final class TimerModel: Optimistic {
         await tokens.signOut()
         summary = nil
         stats = nil
+        todayEntries = []
         taskNames = []
         projects = []
         clients = []
     }
 }
 
+/// A row of the panel's Today list: a name under two projects is two tasks.
+struct TodayTask: Identifiable, Equatable {
+    let taskName: String
+    let projectId: String?
+    var seconds: Int
+
+    var id: String { "\(projectId ?? ""):\(taskName)" }
+}
+
 /// `H:MM:SS`, matching `formatClock` in `@stint/core`.
 func format(_ seconds: Int) -> String {
     let s = max(0, seconds)
     return String(format: "%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
+}
+
+/// `3h 12m`, matching `formatCompact` in `@stint/core`.
+func compact(_ seconds: Int) -> String {
+    let s = max(0, seconds)
+    let h = s / 3600, m = (s % 3600) / 60
+    if h == 0 && m == 0 { return "\(s)s" }
+    if h == 0 { return "\(m)m" }
+    return m == 0 ? "\(h)h" : "\(h)h \(m)m"
 }
 
 /// `$1,462.50`, matching `money()` on the web — `en_US` regardless of the
