@@ -94,7 +94,8 @@ export const Deleting: Story = {
   },
 };
 
-/** An end before the start is the next morning: the strip steps aside. */
+/** An end before the start is the next morning: the strip steps aside, and
+    the line under the times says so. */
 export const Overnight: Story = {
   ...desktop,
   args: {
@@ -104,6 +105,10 @@ export const Overnight: Story = {
       endedAt: '2026-09-17T06:00:00.000Z',
       durationSeconds: 4 * 3600,
     },
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(await page.findByText('4h — ends the next day')).toBeVisible();
   },
 };
 

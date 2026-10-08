@@ -6,6 +6,7 @@ import { useOptimisticMutation } from '@/lib/client/mutations';
 import {
   uuidv7,
   addDays,
+  formatCompact,
   localDateKey,
   localDateTimeToInstant,
   startOfLocalDay,
@@ -211,22 +212,8 @@ export function EntryDialog({
      drawn from a default would invite dragging the times into place instead
      of typing the two the user already knows. */
   const colors = useProjectColors();
-  const drawn = (() => {
-    if (!existing) return null;
-    const { date, start, end } = draft;
-    if (!date || !start || !end) return null;
-    const { startedAt, endedAt, overnight } = draftInstants(draft, tz);
-    /* The strip spans one day, so it cannot draw an overnight entry. It hides
-       instead of drawing something false. */
-    if (overnight) return null;
-    const dayStart = startOfLocalDay(startedAt, tz);
-    return {
-      startedAt,
-      endedAt,
-      dayStart,
-      dayEnd: startOfLocalDayOffset(dayStart, tz, -1),
-    };
-  })();
+  const times = completeInstants(draft, tz);
+  const drawn = stripSpan(existing, times, tz);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -392,6 +379,8 @@ export function EntryDialog({
             </div>
           </div>
 
+          <OvernightNote times={times} />
+
           <label className="flex items-center gap-2.5 type-control text-primary">
             <input
               type="checkbox"
@@ -482,6 +471,8 @@ export function EntryDialog({
  * a day: that is what the user meant, and the server would otherwise reject
  * it.
  */
+type DraftInstants = ReturnType<typeof draftInstants>;
+
 function draftInstants({ date, start, end }: Draft, tz: string) {
   const startedAt = localDateTimeToInstant(date, start, tz);
   const sameDay = localDateTimeToInstant(date, end, tz);
@@ -490,6 +481,45 @@ function draftInstants({ date, start, end }: Draft, tz: string) {
     ? localDateTimeToInstant(addDays(date, 1), end, tz)
     : sameDay;
   return { startedAt, endedAt, overnight };
+}
+
+/** `null` while a field is cleared: an incomplete draft has no times. */
+function completeInstants(draft: Draft, tz: string) {
+  const { date, start, end } = draft;
+  return date && start && end ? draftInstants(draft, tz) : null;
+}
+
+/**
+ * The strip spans one day, so it cannot draw an overnight entry. It hides
+ * instead of drawing something false.
+ */
+function stripSpan(
+  existing: TimeEntry | undefined,
+  times: DraftInstants | null,
+  tz: string,
+) {
+  if (!existing || !times || times.overnight) return null;
+  const dayStart = startOfLocalDay(times.startedAt, tz);
+  return {
+    startedAt: times.startedAt,
+    endedAt: times.endedAt,
+    dayStart,
+    dayEnd: startOfLocalDayOffset(dayStart, tz, -1),
+  };
+}
+
+/**
+ * Said, not just done: a typo'd end time rolls forward the same way a real
+ * overnight shift does, and only the length tells them apart.
+ */
+function OvernightNote({ times }: { times: DraftInstants | null }) {
+  if (!times?.overnight) return null;
+  const seconds = (times.endedAt.getTime() - times.startedAt.getTime()) / 1000;
+  return (
+    <p className="-mt-2 type-support text-subtle">
+      {`${formatCompact(seconds)} — ends the next day`}
+    </p>
+  );
 }
 
 /** `14:05` on a wall clock in `tz`. The date half is `localDateKey`. */
