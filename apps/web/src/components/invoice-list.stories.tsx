@@ -22,8 +22,19 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Open by default: drafts and sent. Outstanding counts sent only, and only
-    a sent row can be marked paid. */
-export const Desktop: Story = { ...desktop };
+    a sent row can be marked paid. Nothing destructive: voiding stays on the
+    invoice itself, where the whole document is in view. */
+export const Desktop: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findAllByRole('button', { name: /paid/i });
+    for (const forbidden of [/void/i, /delete/i])
+      await expect(
+        page.queryAllByRole('button', { name: forbidden }),
+      ).toHaveLength(0);
+  },
+};
 export const Phone: Story = { ...phone };
 export const Light: Story = { ...light };
 
@@ -51,6 +62,9 @@ export const NothingOpen: Story = {
         /^Nothing open\. \d+ paid · 1 void\.$/,
       ),
     ).toBeVisible();
+    await expect(
+      within(canvasElement).queryByText(/No invoices yet/),
+    ).toBeNull();
   },
 };
 export const NothingPaid: Story = {

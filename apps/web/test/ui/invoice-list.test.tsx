@@ -220,20 +220,6 @@ describe('InvoiceList', () => {
     );
   });
 
-  it('offers no destructive action in the list', async () => {
-    serve([invoice()]);
-    render(<InvoiceList />, { wrapper });
-
-    /* Voiding stays on the invoice itself, where the whole document is in
-       view — the same rule as the home screen's attention card. */
-    await waitFor(() =>
-      expect(screen.getByText('STINT-0001')).toBeInTheDocument(),
-    );
-    for (const forbidden of [/void/i, /delete/i]) {
-      expect(screen.queryByRole('button', { name: forbidden })).toBeNull();
-    }
-  });
-
   it('distinguishes an empty account from an empty filter', async () => {
     serve([invoice({ status: 'paid' })]);
     render(<InvoiceList />, { wrapper });

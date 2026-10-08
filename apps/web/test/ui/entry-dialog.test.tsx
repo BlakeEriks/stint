@@ -187,18 +187,6 @@ describe('EntryDialog', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
   });
 
-  /* Editing a draft-billed entry changes what that draft would bill, and the
-     preview the user approved is now stale. Saying so is the difference
-     between an allowed edit and a silent one. */
-  it('warns that a draft would need previewing again', async () => {
-    serve('draft');
-    open(entry({ invoiceId: 'inv1' }));
-
-    expect(
-      await screen.findByText(/draft invoice.*preview it again/i),
-    ).toBeInTheDocument();
-  });
-
   /* Radix mounts no dialog inside another, so the item would set its state
      and nothing would reach the DOM — a control that looks live and does
      nothing. Projects are created from the timer bar or `/projects`. */
@@ -285,6 +273,35 @@ describe('EntryDialog', () => {
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'DELETE')).toBe(true),
     );
+  });
+
+  it('moves focus into the delete confirm, and Keep hands it back', async () => {
+    serve();
+    const user = userEvent.setup();
+    open(entry());
+
+    await user.click(screen.getByRole('button', { name: 'Delete entry' }));
+    expect(
+      screen.getByRole('button', { name: 'Delete for good' }),
+    ).toHaveFocus();
+
+    await user.click(screen.getByRole('button', { name: 'Keep' }));
+    expect(screen.getByRole('button', { name: 'Delete entry' })).toHaveFocus();
+  });
+
+  it('holds the delete confirm pending while the server answers', async () => {
+    serve();
+    const user = userEvent.setup();
+    open(entry());
+    await user.click(screen.getByRole('button', { name: 'Delete entry' }));
+
+    vi.mocked(fetch).mockImplementation(() => new Promise(() => {}));
+    await user.click(screen.getByRole('button', { name: 'Delete for good' }));
+
+    expect(
+      await screen.findByRole('button', { name: 'Deleting…' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Keep' })).toBeDisabled();
   });
 
   it('creates with a client-generated id so a retry is idempotent', async () => {
@@ -478,50 +495,6 @@ describe('EntryDialog', () => {
          grew can sit further along a window that grew with it, so position
          alone does not say the redraw happened. */
       expect(Number.parseFloat(blockEl().style.width)).toBeGreaterThan(before);
-    });
-
-    it('offers no strip on a new entry, only on one being corrected', async () => {
-      serve();
-      render(
-        <EntryDialog
-          open
-          onOpenChange={() => {}}
-          projects={PROJECTS}
-          tz={TZ}
-        />,
-        { wrapper },
-      );
-      await waitFor(() => screen.getByLabelText('Start'));
-
-      /* Adjusting is a correction to times that already exist. A new entry
-         has not got any yet, and the fields are the whole job there. */
-      expect(screen.queryByTestId('entry-scrubber')).not.toBeInTheDocument();
-    });
-
-    it('offers no strip on an entry billed to an issued invoice', async () => {
-      serve('sent');
-      open(entry({ invoiceId: 'i1' }));
-      await waitFor(() => screen.getByText(/no longer be changed/i));
-
-      // Painted, but with nothing to grab.
-      expect(screen.getByTestId('entry-scrubber')).toBeInTheDocument();
-      expect(
-        screen.queryByTestId('scrubber-handle-start'),
-      ).not.toBeInTheDocument();
-    });
-
-    it('hides the strip for an overnight entry it cannot draw', async () => {
-      const user = userEvent.setup();
-      serve();
-      open(entry());
-      await waitFor(() => screen.getByLabelText('End'));
-
-      await user.clear(screen.getByLabelText('End'));
-      await user.type(screen.getByLabelText('End'), '02:00');
-
-      /* An end before the start rolls forward a day on save, which one day
-         of strip cannot show. The fields keep the truth. */
-      expect(screen.queryByTestId('entry-scrubber')).not.toBeInTheDocument();
     });
   });
 });

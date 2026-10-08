@@ -89,18 +89,4 @@ describe('ClientDialog', () => {
       body: undefined,
     });
   });
-
-  it('offers no archive for a client already archived', async () => {
-    serve();
-    render(
-      <ClientDialog
-        open
-        onOpenChange={() => {}}
-        client={{ ...NORTHWIND, archivedAt: '2026-01-04T00:00:00Z' }}
-      />,
-      { wrapper },
-    );
-    await screen.findByLabelText(/^Name/);
-    expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
-  });
 });

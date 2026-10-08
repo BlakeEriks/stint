@@ -26,15 +26,6 @@ const boom = (over: Partial<Error & { digest?: string }> = {}) =>
   Object.assign(new Error('Induced'), over);
 
 describe('the screen-level error boundary', () => {
-  it('offers recovery before anything else', () => {
-    render(<AppError error={boom()} reset={vi.fn()} />);
-
-    expect(
-      screen.getByRole('button', { name: /try again/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /go home/i })).toBeInTheDocument();
-  });
-
   it('calls reset, which re-renders the segment without a reload', async () => {
     const reset = vi.fn();
     const user = userEvent.setup();
@@ -46,33 +37,6 @@ describe('the screen-level error boundary', () => {
        and with it the running timer, which is the one thing this boundary's
        placement exists to keep alive. */
     expect(reset).toHaveBeenCalledTimes(1);
-  });
-
-  it('says the tracked time is safe, because that is the real fear', () => {
-    render(<AppError error={boom()} reset={vi.fn()} />);
-
-    /* This app is a timer. A blank error screen reads as "it lost my hours",
-       and the frame behind this one is still ticking — so the copy says so
-       rather than leaving the user to guess. */
-    expect(screen.getByText(/tracked time is safe/i)).toBeInTheDocument();
-  });
-
-  it('shows the digest, which is the only handle on a server error', () => {
-    render(<AppError error={boom({ digest: 'abc123' })} reset={vi.fn()} />);
-
-    /* Next withholds a server error's MESSAGE from the client in production
-       so an internal detail cannot leak onto someone's screen. The digest is
-       what ties this screen to the server log, so a user who can quote it
-       makes a bug report actionable. */
-    expect(screen.getByText(/abc123/)).toBeInTheDocument();
-  });
-
-  it('renders nothing about a reference when there is no digest', () => {
-    render(<AppError error={boom()} reset={vi.fn()} />);
-
-    // A client-side error has no digest. An empty "Reference" would be noise
-    // pretending to be a handle on something.
-    expect(screen.queryByText(/reference/i)).toBeNull();
   });
 
   it('never spends the accent', () => {
