@@ -12,3 +12,11 @@ hooks:
     enabled: true
     optional: false
     description: Record a design pick, or a skip, before planning
+  # Stint's own step: the review /work-issues gives every round, so a
+  # feature's code meets the same standards before its PR opens.
+  after_implement:
+  - extension: stint
+    command: standards-review
+    enabled: true
+    optional: false
+    description: Review the feature's commits against the standards

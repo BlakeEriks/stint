@@ -103,26 +103,13 @@ build on Blake's answer, continuing its pushed branch if it has one.
 Otherwise branch off `origin/main`, the name under 30 characters — it
 becomes the preview's URL, and Vercel hashes longer ones.
 
-Fix it with the tests Constitution V asks for, following `CLAUDE.md` and the
-`.claude/rules/` the change touches. A migration found only now gets the `migration` label now.
+Fix it following `CLAUDE.md` and the `.claude/rules/` the change touches:
+`.claude/rules/changes.md` says how a change is made, Constitution V's tests
+included. A migration found only now gets the `migration` label now. A
+redesign wider than the fix ships the fix first, then its `Redesign` issue.
 
 An issue that says `Fix with /reduce <path>` or `Fix with /copyedit <path>`
 is built by that skill's steps, which are already in your context.
-
-**Leave no new debt.** Before verifying, run `pnpm hygiene` on each file the
-round touched. A finding in code the round wrote or changed is reduced now,
-by the `reduce` steps; one already on `main` is left to its own issue.
-
-**Make the change easy, then make the easy change** (Beck; Fowler's
-preparatory refactoring). Where the fix would be a special case the design
-doesn't expect, or would copy a mechanism the code already has, refactor
-first, in its own commit, so the fix needs no
-special case. Keep that refactor to the code the fix touches, with one
-exception: a fix that copies a pattern from elsewhere extracts it into one
-shared component or function, and moves the original onto it in the same
-round. A second copy is the one that drifts. A redesign beyond that is
-Blake's: ship the fix, and file a `Redesign <area>` issue naming the fixes
-that point to it and the design you'd move to.
 
 **The seed is shared.** Add to `scripts/seed-account.mjs` only a state that
 cannot be reached by hand in a minute — a condition that needs days to pass,
