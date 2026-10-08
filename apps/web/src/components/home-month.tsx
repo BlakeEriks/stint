@@ -75,9 +75,7 @@ export function Month({
             <FigLabel>On track for</FigLabel>
             {/* Null until three business days have elapsed: earned-so-far over
                 one elapsed day carried across twenty-two is a figure that
-                swings by thousands, so it is withheld rather than guessed. A
-                dash at the amount's size holds its place; a sentence there
-                read as a broken value. */}
+                swings by thousands, so it is withheld rather than guessed. */}
             {month.projected != null ? (
               <Money
                 figure="month-projected"
