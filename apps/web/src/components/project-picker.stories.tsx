@@ -31,6 +31,18 @@ export const Open: Story = {
   },
 };
 
+/** Escape closes the menu and it leaves the page at once: under reduced
+    motion nothing waits on an exit animation. */
+export const Closed: Story = {
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole('button'));
+    await expectOpen(canvasElement, 'menu');
+    await userEvent.keyboard('{Escape}');
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(page.queryByRole('menu')).toBeNull();
+  },
+};
+
 /** No projects yet: the menu says so, and still offers to add one where it
     is needed most. */
 export const OpenEmpty: Story = {

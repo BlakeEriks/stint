@@ -56,14 +56,3 @@ test('the a11y check fails a story with a violation', async () => {
   );
   await expect(Unlabeled.run()).rejects.toThrow(/label/i);
 });
-
-/* Radix keeps a closed menu or dialog mounted until its exit animation ends,
-   so an animation here leaves it on the page for the next query to find. */
-test('a closed menu or dialog does not animate under reduced motion', () => {
-  const closed = document.createElement('div');
-  closed.dataset.state = 'closed';
-  closed.className = 'data-[state=closed]:animate-out';
-  document.body.append(closed);
-  expect(getComputedStyle(closed).animationName).toBe('none');
-  closed.remove();
-});
