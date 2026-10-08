@@ -120,7 +120,10 @@ describe('Today — a row starts its task again', () => {
         return new Response('{}', { status: 201 });
       }
       if (path.endsWith('/projects'))
-        return new Response(JSON.stringify({ projects: [] }), { status: 200 });
+        return new Response(
+          JSON.stringify({ projects: [{ id: PROJECT, name: 'Acme' }] }),
+          { status: 200 },
+        );
       if (path.endsWith('/summary'))
         return new Response(
           JSON.stringify({
@@ -145,7 +148,9 @@ describe('Today — a row starts its task again', () => {
     });
     const view = renderToday();
 
-    const row = await view.findByRole('button', { name: 'Start Review' });
+    const row = await view.findByRole('button', {
+      name: 'Start Review · Acme',
+    });
     await waitFor(() => expect(client.getQueryData(['summary'])).toBeDefined());
     fireEvent.click(row);
 

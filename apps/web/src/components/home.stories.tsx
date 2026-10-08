@@ -61,7 +61,7 @@ export const StartFromToday: Story = {
     const page = within(canvasElement);
     await userEvent.click(
       await page.findByRole('button', {
-        name: 'Start Filter panel and saved views',
+        name: /^Start Filter panel and saved views · /,
       }),
     );
     await expect(
@@ -70,7 +70,7 @@ export const StartFromToday: Story = {
   },
 };
 
-/** Pressing a Today row while a timer runs says why nothing started. */
+/** Pressing a Today row while a timer runs: the server's refusal says why. */
 export const StartWhileRunning: Story = {
   ...desktop,
   parameters: account('running'),
@@ -80,9 +80,7 @@ export const StartWhileRunning: Story = {
     const [row] = await page.findAllByRole('button', { name: /^Start / });
     await userEvent.click(row as HTMLElement);
     await expect(
-      await page.findByText(
-        'A timer is already running. Stop it before starting another.',
-      ),
+      await page.findByText('A timer is already running'),
     ).toBeVisible();
   },
 };

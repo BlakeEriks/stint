@@ -33,6 +33,11 @@ import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
 export function Today({ stats }: { stats: Stats }) {
   const colors = useProjectColors();
   const timer = useTimer();
+  const pressed = timer.start.variables;
+  const pending =
+    timer.start.isPending && pressed?.whileRunning
+      ? taskKey(pressed.projectId ?? null, pressed.taskName)
+      : null;
 
   const today = useLocalDay();
 
@@ -106,13 +111,17 @@ export function Today({ stats }: { stats: Stats }) {
               </div>
             ))
           : tasks.map((t) => (
-              /* A row starts the task again as a new entry, as the menu bar's
-                 recent rows do: the day's work is what gets picked back up. */
+              /* Starts the task again as a new entry, as the menu bar's
+                 recent rows do. */
               <button
                 type="button"
                 key={t.key}
                 data-task={t.key}
-                aria-label={`Start ${t.name}`}
+                aria-label={`Start ${t.name}${t.projectName ? ` · ${t.projectName}` : ''}`}
+                /* Pending only while a timer runs: otherwise the timer bar
+                   already shows the start. */
+                aria-busy={pending === t.key}
+                disabled={pending === t.key}
                 onClick={() =>
                   timer.start.mutate({
                     id: uuidv7(),
@@ -121,7 +130,7 @@ export function Today({ stats }: { stats: Stats }) {
                     isBillable: t.isBillable,
                   })
                 }
-                className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 text-left first:border-t-0 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+                className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 text-left first:border-t-0 hover:bg-surface-hover disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
               >
                 {/* Only clients have a color; internal work takes the hollow
                   ring, which is what having none looks like on a screen
@@ -194,7 +203,7 @@ function groupByTask(entries: TimeEntry[], projects: Project[]) {
   >();
   for (const e of entries) {
     const name = e.taskName || 'Untitled';
-    const key = `${e.projectId ?? ''}:${name}`;
+    const key = taskKey(e.projectId, e.taskName);
     const t = tasks.get(key) ?? {
       key,
       name,
@@ -210,6 +219,10 @@ function groupByTask(entries: TimeEntry[], projects: Project[]) {
     tasks.set(key, t);
   }
   return [...tasks.values()];
+}
+
+function taskKey(projectId: string | null, taskName: string): string {
+  return `${projectId ?? ''}:${taskName || 'Untitled'}`;
 }
 
 /**

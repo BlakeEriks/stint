@@ -204,23 +204,31 @@ describe('useTimer', () => {
 
   /* A Today row can be pressed while the timer bar counts. Predicting the
      start would swap the running task out until the 409 put it back. */
-  it('refuses a start while a timer runs, without sending it or swapping the timer', async () => {
-    serve(summary({ running: entry() }));
+  it('a start while running predicts nothing and surfaces the server refusal', async () => {
+    const refusal =
+      'A timer is already running. Stop it before starting another.';
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      init?.method === 'POST'
+        ? new Response(
+            JSON.stringify({ code: 'TIMER_ALREADY_RUNNING', message: refusal }),
+            { status: 409 },
+          )
+        : new Response(JSON.stringify(summary({ running: entry() })), {
+            status: 200,
+          }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() => useTimer(), { wrapper });
     await waitFor(() => expect(result.current.running).not.toBeNull());
-    const fetchMock = vi.mocked(fetch);
-    fetchMock.mockClear();
 
     act(() => result.current.start.mutate({ id: 'new', taskName: 'Design' }));
     expect(result.current.running?.id).toBe('e1');
 
     await waitFor(() => expect(result.current.start.isError).toBe(true));
-    expect(result.current.start.error?.message).toBe(
-      'A timer is already running. Stop it before starting another.',
-    );
+    expect(result.current.start.error?.message).toBe(refusal);
     expect(
       fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST'),
-    ).toHaveLength(0);
+    ).toHaveLength(1);
     expect(result.current.running?.id).toBe('e1');
   });
 });

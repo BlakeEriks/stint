@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { api, ApiError, type Summary, type TimeEntry } from './api';
+import { api, type Summary, type TimeEntry } from './api';
 import { elapsedSeconds, entrySeconds } from '@stint/core';
 import { keys, invalidateEntryData } from './query-keys';
 import { useOptimisticMutation } from './mutations';
@@ -124,27 +124,19 @@ export function useTimer() {
   /* `id` comes from the caller so the prediction and the row the server
      writes are the same entry.
 
-     A start while a timer runs is refused here, with the 409's own words,
-     rather than predicted and taken back: a Today row can be pressed while
-     the timer bar counts, and a press that only flickers reads as broken.
-     Whether one runs is read at the press and carried with it, because the
-     press's own prediction re-renders this hook before its request is made. */
+     A start pressed while a timer runs predicts nothing: the server is
+     likely to refuse it, and a swap the 409 takes back reads as broken. It
+     is still sent, since this tab's `running` can be stale (stopped from the
+     Mac), so the server decides and its refusal reaches the notice. Read at
+     the press and carried with it, because a prediction re-renders this hook
+     before the request is made. */
   const startPress = useOptimisticMutation<
     StartVars & { whileRunning: boolean },
     TimeEntry,
     Summary
   >({
     ...timerPress,
-    mutationFn: ({ whileRunning, ...body }) =>
-      whileRunning
-        ? Promise.reject(
-            new ApiError(409, {
-              code: 'TIMER_ALREADY_RUNNING',
-              message:
-                'A timer is already running. Stop it before starting another.',
-            }),
-          )
-        : api.startTimer(body),
+    mutationFn: ({ whileRunning: _, ...body }) => api.startTimer(body),
     predict: (current, body) =>
       body.whileRunning
         ? current
