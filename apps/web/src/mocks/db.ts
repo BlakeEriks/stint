@@ -31,7 +31,12 @@ const scenarios: Record<
   },
 };
 
-function running(db: Db, time: string, projectId: string, taskName: string) {
+export function running(
+  db: Db,
+  time: string,
+  projectId: string,
+  taskName: string,
+) {
   const today = localDateKey(db.now, ZONE);
   return entry(9000, today, time, 0, projectId, taskName, {
     id: id(9000),

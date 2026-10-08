@@ -3,18 +3,14 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { useOptimisticMutation } from '@/lib/client/mutations';
+import { useArchiveClient } from '@/lib/client/use-archive-client';
 import { Archive, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, ApiError } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
 import { ClientProjects } from './client-projects';
 import { formatCurrency } from '@stint/core';
-import {
-  keys,
-  invalidateEntryData,
-  listsArchived,
-} from '@/lib/client/query-keys';
+import { keys } from '@/lib/client/query-keys';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 
 export function ClientDetail({ id }: { id: string }) {
@@ -25,24 +21,9 @@ export function ClientDetail({ id }: { id: string }) {
     queryFn: () => api.client(id),
   });
 
-  /* Predicted: the list drops the client and the page goes back to it on
-     the press. A rejection puts the client back and says why. */
-  const archive = useOptimisticMutation<void, unknown, unknown>({
-    queryKey: () => keys.clients(),
-    mutationFn: () => api.archiveClient(id),
-    predict: (current, _vars, key) =>
-      isClientList(current) && !listsArchived(key)
-        ? { ...current, clients: current.clients.filter((c) => c.id !== id) }
-        : current,
-    // Archiving withdraws the client's rate from every rollup, not just stats.
-    invalidate: (qc) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.clients() }),
-        invalidateEntryData(qc),
-      ]),
-  });
+  const archive = useArchiveClient();
   const archiveNow = () => {
-    archive.mutate();
+    archive.mutate(id);
     router.push('/clients');
   };
 
@@ -158,11 +139,4 @@ function Detail({
       ) : null}
     </div>
   );
-}
-
-/** A list response under `keys.clients()`, not one client's detail. */
-function isClientList(
-  data: unknown,
-): data is { clients: Array<{ id: string }> } {
-  return typeof data === 'object' && data !== null && 'clients' in data;
 }

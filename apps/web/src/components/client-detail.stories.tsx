@@ -27,8 +27,8 @@ export const Archived: Story = {
   args: { id: ids.oldEngagement },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    // A finished engagement: nothing to add work to.
-    await page.findByText('No projects.');
+    // A finished engagement: its projects still show, and nothing is added.
+    await page.findByText('Legacy retainer');
     await expect(
       page.queryByRole('button', { name: /Add project/ }),
     ).toBeNull();

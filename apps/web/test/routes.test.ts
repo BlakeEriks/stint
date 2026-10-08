@@ -676,6 +676,42 @@ test('archiving a project hides it from the list but keeps the row', async () =>
   assert.ok(rows[0].archived_at, 'the row survives, marked archived');
 });
 
+test("an archived client's projects leave the list, and come back with it", async () => {
+  const clients = await import('../src/app/api/v1/clients/[id]/route.ts');
+  const { GET: list, POST: create } = await import(
+    '../src/app/api/v1/projects/route.ts'
+  );
+  const { clientId, projectId } = await seedClientAndProject();
+  await create(req('/projects', { clientId: null, name: 'Admin' }));
+  const names = async (url: string) =>
+    (await json(await list(req(url)))).body.projects.map(
+      (p: { name: string }) => p.name,
+    );
+
+  await clients.DELETE(req('/clients/x', undefined, 'DELETE'), ctx(clientId));
+
+  // Not offered for new time; a project with no client still is.
+  assert.deepEqual(await names('/projects'), ['Admin']);
+  assert.deepEqual(await names(`/projects?clientId=${clientId}`), []);
+  assert.deepEqual(await names('/projects?includeArchived=true'), [
+    'Admin',
+    'Lifecycle',
+  ]);
+
+  // Counted as archived, not written as archived.
+  const { rows } = await pool.query(
+    'select archived_at from projects where id=$1',
+    [projectId],
+  );
+  assert.equal(rows[0].archived_at, null);
+
+  await clients.PATCH(
+    patchReq('/clients/x', { archived: false }),
+    ctx(clientId),
+  );
+  assert.deepEqual(await names('/projects'), ['Admin', 'Lifecycle']);
+});
+
 test('archiving an unknown project is 404, not a silent 204', async () => {
   const { DELETE } = await import('../src/app/api/v1/projects/[id]/route.ts');
   const res = await DELETE(

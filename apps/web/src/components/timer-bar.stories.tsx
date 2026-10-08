@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { account } from '@/mocks/db';
+import { account, running as runningEntry } from '@/mocks/db';
+import { ids } from '@/mocks/fixtures';
 import { expect, userEvent, within } from 'storybook/test';
 import { desktop, phone, tablet } from '@/mocks/screen';
 import { TimerDock } from './timer-dock';
@@ -46,6 +47,25 @@ export const RunningDesktop: Story = {
     ).toBeNull();
     await expect(
       canvas.getByRole('button', { name: 'Rename task' }),
+    ).toBeVisible();
+  },
+};
+
+/** Its client archived mid-run: the pill still names the project, though no
+    picker offers it for new time. */
+export const RunningArchivedClient: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.entries.push(runningEntry(db, '13:45', ids.brand, 'Homepage hero'));
+    for (const c of db.clients)
+      if (c.id === ids.byrne) c.archivedAt = '2026-09-01T16:00:00.000Z';
+  }),
+  play: async ({ canvasElement }) => {
+    const bar = await within(canvasElement).findByRole('region', {
+      name: 'Timer',
+    });
+    await expect(
+      await within(bar).findByText('Brand site rebuild'),
     ).toBeVisible();
   },
 };
