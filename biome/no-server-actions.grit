@@ -1,5 +1,3 @@
-// Constitution III: every client goes through /api/v1, so a Server Action is
-// business logic only the web can reach.
 language js
 
 JsDirective() as $d where {

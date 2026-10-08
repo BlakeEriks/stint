@@ -51,7 +51,6 @@
       "arrowParentheses": "always"
     }
   },
-  // Lint rules Biome has no built-in for, written in GritQL.
   "plugins": ["./biome/no-server-actions.grit"],
   "linter": {
     "enabled": true,
