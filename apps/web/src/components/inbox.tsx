@@ -23,6 +23,7 @@ import {
 import { useExit } from '@/lib/client/use-exit';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
+import { Button } from '@/components/ui/button';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 type Attention = Stats['attention'];
@@ -269,13 +270,13 @@ function Row({
             <Action
               label="Mark paid"
               ariaLabel={`Mark ${i.invoiceNumber} paid`}
-              icon={<DollarSign aria-hidden className="size-3.5" />}
+              icon={<DollarSign aria-hidden />}
               onClick={() => onStatus({ id: i.invoiceId, status: 'paid' })}
             />
             <Action
               label="Download"
               ariaLabel={`Download ${i.invoiceNumber}`}
-              icon={<Download aria-hidden className="size-3.5" />}
+              icon={<Download aria-hidden />}
               href={`/api/v1/invoices/${i.invoiceId}/pdf`}
             />
           </>
@@ -299,13 +300,13 @@ function Row({
             <Action
               label="Mark sent"
               ariaLabel={`Mark ${d.invoiceNumber} sent`}
-              icon={<Send aria-hidden className="size-3.5" />}
+              icon={<Send aria-hidden />}
               onClick={() => onStatus({ id: d.invoiceId, status: 'sent' })}
             />
             <Action
               label="Download"
               ariaLabel={`Download ${d.invoiceNumber}`}
-              icon={<Download aria-hidden className="size-3.5" />}
+              icon={<Download aria-hidden />}
               href={`/api/v1/invoices/${d.invoiceId}/pdf`}
             />
           </>
@@ -332,7 +333,7 @@ function Row({
           <Action
             label="Assign project"
             ariaLabel={`Assign a project to ${u.taskName || 'this entry'}`}
-            icon={<FolderInput aria-hidden className="size-3.5" />}
+            icon={<FolderInput aria-hidden />}
             onClick={() => onOpen({ id: u.entryId, focus: 'project' })}
           />
         }
@@ -357,7 +358,7 @@ function Row({
           <Action
             label="Edit entry"
             ariaLabel={`Edit ${o.taskName || 'this entry'}`}
-            icon={<Pencil aria-hidden className="size-3.5" />}
+            icon={<Pencil aria-hidden />}
             onClick={() => onOpen({ id: o.entryId, focus: 'task' })}
           />
         }
@@ -387,7 +388,7 @@ function Row({
           <Action
             label="Edit entry"
             ariaLabel={`Edit ${e.taskName || 'this entry'}`}
-            icon={<Pencil aria-hidden className="size-3.5" />}
+            icon={<Pencil aria-hidden />}
             onClick={() => onOpen({ id: e.entryId, focus: 'task' })}
           />
           {/* The one action that means "this is already right", and the only
@@ -395,7 +396,7 @@ function Row({
           <Action
             label="It's correct"
             ariaLabel={`Keep ${e.taskName || 'this entry'} as it is`}
-            icon={<Check aria-hidden className="size-3.5" />}
+            icon={<Check aria-hidden />}
             onClick={() => onConfirm(e.entryId)}
           />
         </>
@@ -542,8 +543,7 @@ function Item({
  *
  * **Nothing fades in.** A slot reserving height for controls nobody can see
  * costs the same space as drawing them, and a touch device has no hover to
- * reveal them with. On a raised card the outline gives each button its own
- * edge, which is what a hover-only control had nothing to sit against.
+ * reveal them with.
  */
 function ActionSlot({ children }: { children: React.ReactNode }) {
   return <div className="mt-2 flex items-center gap-1.5">{children}</div>;
@@ -562,41 +562,29 @@ function Action({
   icon,
   onClick,
   href,
-  disabled,
 }: {
   label: string;
   ariaLabel?: string;
   icon: React.ReactNode;
   onClick?: () => void;
   href?: string;
-  disabled?: boolean;
 }) {
-  /* Outlined, because the card underneath it is a surface of its own: a bare
-     label on a raised card has nothing to read as a control against. The
-     border and the label move together on hover, so nothing reflows. */
-  const className =
-    'inline-flex items-center gap-1.5 rounded border border-edge-default px-2 py-0.5 type-support whitespace-nowrap text-muted transition-colors hover:border-edge-control hover:bg-surface-hover hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none disabled:opacity-50';
-
   return href ? (
-    <a
-      href={href}
-      aria-label={ariaLabel ?? label}
-      download
-      className={className}
-    >
-      {icon}
-      {label}
-    </a>
+    <Button asChild size="xs">
+      <a href={href} aria-label={ariaLabel ?? label} download>
+        {icon}
+        {label}
+      </a>
+    </Button>
   ) : (
-    <button
+    <Button
       type="button"
+      size="xs"
       aria-label={ariaLabel ?? label}
-      disabled={disabled}
       onClick={onClick}
-      className={className}
     >
       {icon}
       {label}
-    </button>
+    </Button>
   );
 }
