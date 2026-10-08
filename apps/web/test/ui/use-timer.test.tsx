@@ -201,6 +201,28 @@ describe('useTimer', () => {
       expect(invalidated).toContain(key);
     }
   });
+
+  /* A Today row can be pressed while the timer bar counts. Predicting the
+     start would swap the running task out until the 409 put it back. */
+  it('refuses a start while a timer runs, without sending it or swapping the timer', async () => {
+    serve(summary({ running: entry() }));
+    const { result } = renderHook(() => useTimer(), { wrapper });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockClear();
+
+    act(() => result.current.start.mutate({ id: 'new', taskName: 'Design' }));
+    expect(result.current.running?.id).toBe('e1');
+
+    await waitFor(() => expect(result.current.start.isError).toBe(true));
+    expect(result.current.start.error?.message).toBe(
+      'A timer is already running. Stop it before starting another.',
+    );
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST'),
+    ).toHaveLength(0);
+    expect(result.current.running?.id).toBe('e1');
+  });
 });
 
 /**

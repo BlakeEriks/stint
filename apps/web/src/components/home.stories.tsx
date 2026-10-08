@@ -3,7 +3,7 @@ import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
 import { entry, ids } from '@/mocks/fixtures';
 import { ZONE } from '@/mocks/time.mts';
-import { expect, waitFor, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import {
   desktop,
   failing,
@@ -53,6 +53,39 @@ export const Light: Story = { ...light };
 /** A timer running: its task leads Today, and the timer bar counts it.
  *  Earned, the week's bar and the month count the session so far. */
 export const Running: Story = { ...desktop, parameters: account('running') };
+
+/** Pressing a Today row starts that task again, as a new entry. */
+export const StartFromToday: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.click(
+      await page.findByRole('button', {
+        name: 'Start Filter panel and saved views',
+      }),
+    );
+    await expect(
+      await page.findByRole('button', { name: 'Stop timer' }),
+    ).toBeVisible();
+  },
+};
+
+/** Pressing a Today row while a timer runs says why nothing started. */
+export const StartWhileRunning: Story = {
+  ...desktop,
+  parameters: account('running'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await page.findByRole('button', { name: 'Stop timer' });
+    const [row] = await page.findAllByRole('button', { name: /^Start / });
+    await userEvent.click(row as HTMLElement);
+    await expect(
+      await page.findByText(
+        'A timer is already running. Stop it before starting another.',
+      ),
+    ).toBeVisible();
+  },
+};
 
 /** A timer on unrated work: its time counts, and Earned does not move. */
 export const RunningUnrated: Story = {

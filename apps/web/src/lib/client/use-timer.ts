@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { api, type Summary, type TimeEntry } from './api';
+import { api, ApiError, type Summary, type TimeEntry } from './api';
 import { elapsedSeconds, entrySeconds } from '@stint/core';
 import { keys, invalidateEntryData } from './query-keys';
 import { useOptimisticMutation } from './mutations';
@@ -122,28 +122,53 @@ export function useTimer() {
   };
 
   /* `id` comes from the caller so the prediction and the row the server
-     writes are the same entry. */
-  const start = useOptimisticMutation<
-    { id: string; taskName: string; projectId?: string | null },
+     writes are the same entry.
+
+     A start while a timer runs is refused here, with the 409's own words,
+     rather than predicted and taken back: a Today row can be pressed while
+     the timer bar counts, and a press that only flickers reads as broken.
+     Whether one runs is read at the press and carried with it, because the
+     press's own prediction re-renders this hook before its request is made. */
+  const startPress = useOptimisticMutation<
+    StartVars & { whileRunning: boolean },
     TimeEntry,
     Summary
   >({
     ...timerPress,
-    mutationFn: (body) => api.startTimer(body),
+    mutationFn: ({ whileRunning, ...body }) =>
+      whileRunning
+        ? Promise.reject(
+            new ApiError(409, {
+              code: 'TIMER_ALREADY_RUNNING',
+              message:
+                'A timer is already running. Stop it before starting another.',
+            }),
+          )
+        : api.startTimer(body),
     predict: (current, body) =>
-      showing(current, {
-        id: body.id,
-        taskName: body.taskName,
-        projectId: body.projectId ?? null,
-        startedAt: serverNow(),
-        endedAt: null,
-        isBillable: true,
-        durationSeconds: null,
-        durationOk: false,
-        rateOverride: null,
-        invoiceId: null,
-      }),
+      body.whileRunning
+        ? current
+        : showing(current, {
+            id: body.id,
+            taskName: body.taskName,
+            projectId: body.projectId ?? null,
+            startedAt: serverNow(),
+            endedAt: null,
+            isBillable: body.isBillable ?? true,
+            durationSeconds: null,
+            durationOk: false,
+            rateOverride: null,
+            invoiceId: null,
+          }),
   });
+  const start = {
+    ...startPress,
+    mutate: (
+      vars: StartVars,
+      options?: Parameters<typeof startPress.mutate>[1],
+    ) =>
+      startPress.mutate({ ...vars, whileRunning: running !== null }, options),
+  };
 
   const stop = useOptimisticMutation<void, unknown, Summary>({
     ...timerPress,
@@ -175,6 +200,13 @@ export function useTimer() {
     stop,
     update,
   };
+}
+
+interface StartVars {
+  id: string;
+  taskName: string;
+  projectId?: string | null;
+  isBillable?: boolean;
 }
 
 /**

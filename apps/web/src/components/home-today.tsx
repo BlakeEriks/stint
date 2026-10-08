@@ -7,6 +7,7 @@ import {
   localDateKey,
   startOfLocalDate,
   startOfLocalDayOffset,
+  uuidv7,
 } from '@stint/core';
 import {
   api,
@@ -15,7 +16,7 @@ import {
   type TimeEntry,
 } from '@/lib/client/api';
 import { keys } from '@/lib/client/query-keys';
-import { timeZone as tz } from '@/lib/client/use-timer';
+import { timeZone as tz, useTimer } from '@/lib/client/use-timer';
 import {
   useAllProjects,
   useProjectColors,
@@ -31,6 +32,7 @@ import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
  */
 export function Today({ stats }: { stats: Stats }) {
   const colors = useProjectColors();
+  const timer = useTimer();
 
   const today = useLocalDay();
 
@@ -104,10 +106,22 @@ export function Today({ stats }: { stats: Stats }) {
               </div>
             ))
           : tasks.map((t) => (
-              <div
+              /* A row starts the task again as a new entry, as the menu bar's
+                 recent rows do: the day's work is what gets picked back up. */
+              <button
+                type="button"
                 key={t.key}
                 data-task={t.key}
-                className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
+                aria-label={`Start ${t.name}`}
+                onClick={() =>
+                  timer.start.mutate({
+                    id: uuidv7(),
+                    taskName: t.taskName,
+                    projectId: t.projectId,
+                    isBillable: t.isBillable,
+                  })
+                }
+                className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 text-left first:border-t-0 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
               >
                 {/* Only clients have a color; internal work takes the hollow
                   ring, which is what having none looks like on a screen
@@ -128,7 +142,7 @@ export function Today({ stats }: { stats: Stats }) {
                 <span className="type-duration text-subtle">
                   {clock(t.seconds)}
                 </span>
-              </div>
+              </button>
             ))}
       </div>
     </div>
@@ -160,7 +174,8 @@ function useLocalDay(): string {
 
 /**
  * One row per task: a name under two projects is two tasks. Entries arrive
- * newest first, so a task sits where its latest entry would.
+ * newest first, so a task sits where its latest entry would, and takes that
+ * entry's billable flag to start with.
  */
 function groupByTask(entries: TimeEntry[], projects: Project[]) {
   const names = new Map(projects.map((p) => [p.id, p.name]));
@@ -169,6 +184,8 @@ function groupByTask(entries: TimeEntry[], projects: Project[]) {
     {
       key: string;
       name: string;
+      taskName: string;
+      isBillable: boolean;
       projectId: string | null;
       projectName: string | null;
       seconds: number;
@@ -181,6 +198,8 @@ function groupByTask(entries: TimeEntry[], projects: Project[]) {
     const t = tasks.get(key) ?? {
       key,
       name,
+      taskName: e.taskName,
+      isBillable: e.isBillable,
       projectId: e.projectId,
       projectName: e.projectId ? (names.get(e.projectId) ?? null) : null,
       seconds: 0,

@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
-import { render, waitFor, act } from '@testing-library/react';
+import { render, waitFor, act, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Today } from '@/components/home-today';
-import type { Stats } from '@/lib/client/api';
+import type { Stats, TimeEntry } from '@/lib/client/api';
 
 /**
  * Today's list is the user's local day, not the UTC one: in New York a UTC
@@ -95,5 +95,65 @@ describe('Today', () => {
 
     expect(invalidate).not.toHaveBeenCalled();
     expect(entryQueries()).toHaveLength(1);
+  });
+});
+
+describe('Today — a row starts its task again', () => {
+  const PROJECT = '01900000-0000-7000-8000-000000000001';
+  const at = (h: number) => `2026-09-27T${h}:00:00.000Z`;
+  const day: Partial<TimeEntry>[] = [
+    // Newest first, as `/entries` answers: the latest says non-billable.
+    { id: 'b', taskName: 'Review', isBillable: false, startedAt: at(15) },
+    { id: 'a', taskName: 'Review', isBillable: true, startedAt: at(13) },
+  ];
+
+  /* The body is what reaches the server, and a wrong one is a new entry on
+     the wrong project or billed when it was not, which nobody sees until the
+     invoice. */
+  it('starts a new entry with the task name, project and latest billable flag', async () => {
+    vi.setSystemTime(new Date('2026-09-27T16:00:00.000Z'));
+    const posts: unknown[] = [];
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      const path = new URL(String(url), 'http://localhost').pathname;
+      if (init?.method === 'POST') {
+        posts.push(JSON.parse(String(init.body)));
+        return new Response('{}', { status: 201 });
+      }
+      if (path.endsWith('/projects'))
+        return new Response(JSON.stringify({ projects: [] }), { status: 200 });
+      if (path.endsWith('/summary'))
+        return new Response(
+          JSON.stringify({
+            running: null,
+            todaySeconds: 0,
+            weekSeconds: 0,
+            serverTime: at(16),
+          }),
+          { status: 200 },
+        );
+      return new Response(
+        JSON.stringify({
+          entries: day.map((e) => ({
+            projectId: PROJECT,
+            endedAt: at(16),
+            durationSeconds: 3600,
+            ...e,
+          })),
+        }),
+        { status: 200 },
+      );
+    });
+    const view = renderToday();
+
+    const row = await view.findByRole('button', { name: 'Start Review' });
+    await waitFor(() => expect(client.getQueryData(['summary'])).toBeDefined());
+    fireEvent.click(row);
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toMatchObject({
+      taskName: 'Review',
+      projectId: PROJECT,
+      isBillable: false,
+    });
   });
 });
