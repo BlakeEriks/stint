@@ -66,9 +66,7 @@ export function Inbox({ stats }: { stats: Stats }) {
 
   const exit = useExit();
 
-  /* The ENTRY being edited, not its id: saving moves the entry out of the
-     query that supplied it, so an id would still say "open" over nothing and
-     the editor would reopen as a blank "Add entry". */
+  // The entry, not its id: saving drops it from the query that supplied it.
   const assigning = useDialog<{
     entry: TimeEntry;
     focus: 'task' | 'project';

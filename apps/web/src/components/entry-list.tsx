@@ -63,7 +63,6 @@ export function EntryList({
 
   /* `undefined` adds an entry; an entry, edits it. */
   const editing = useDialog<TimeEntry | undefined>();
-  const openFor = (entry?: TimeEntry) => editing.show(entry);
 
   return (
     <section
@@ -105,7 +104,7 @@ export function EntryList({
           variant="ghost"
           size="xs"
           className={earnedToday === undefined ? 'ml-auto' : undefined}
-          onClick={() => openFor()}
+          onClick={() => editing.show(undefined)}
         >
           <Plus aria-hidden />
           Add
@@ -122,7 +121,11 @@ export function EntryList({
           empty="Nothing logged yet today. Start a timer above."
         >
           {(entries) => (
-            <TodayGrid entries={entries} colors={colors} onEdit={openFor} />
+            <TodayGrid
+              entries={entries}
+              colors={colors}
+              onEdit={editing.show}
+            />
           )}
         </Listing>
       </div>
