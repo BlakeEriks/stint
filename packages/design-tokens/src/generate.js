@@ -84,8 +84,8 @@ const motionVars = (indent) =>
     .join('\n');
 
 // ── CSS ────────────────────────────────────────────────────────────
-// Dark is the primary theme: the bare :root carries it, so the
-// un-stamped "system" state and an explicit dark choice both resolve.
+// Dark is the primary theme: the bare :root carries it, so a viewer who
+// has not chosen gets dark. A chosen theme, System included, is stamped.
 //
 // Semantic tokens are also registered in Tailwind's @theme, which turns each
 // one into a utility (`bg-primary`, `text-muted`, `border-control`). That is
