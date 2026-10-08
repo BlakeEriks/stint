@@ -92,5 +92,11 @@
     .exit-collapse {
       transition: none;
     }
+    /* tw-animate's enter and exit ignore the preference. With no animation,
+       Radix removes a closed menu or dialog at once instead of waiting on
+       an `animationend`. */
+    [data-state] {
+      animation: none !important;
+    }
   }
 }
