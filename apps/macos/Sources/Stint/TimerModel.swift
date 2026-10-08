@@ -169,7 +169,7 @@ final class TimerModel: Optimistic {
         }
     }
 
-    /// Whether the panel is on screen, from `PanelWatch`.
+    /// Whether the panel is on screen, from `WindowObserver.panelWatch`.
     @ObservationIgnored private(set) var panelOpen = false
 
     /// Opening refreshes at once; closing stops the poll fetching what only
