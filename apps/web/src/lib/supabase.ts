@@ -61,7 +61,7 @@ export function bearerClient(token: string): SupabaseClient {
   );
 }
 
-/** Client for a caller with no session; RLS lets it read no rows. */
+/** Client for a caller with no session, as Postgres's `anon` role. */
 export function anonClient(): SupabaseClient {
   return createClient(
     env('NEXT_PUBLIC_SUPABASE_URL'),

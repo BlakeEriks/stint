@@ -4,7 +4,7 @@ import { anonClient, testDb } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
-/** Postgres refused `anon` the table: the database is up and answering. */
+/** Postgres refused the query, which it can only do while it is up. */
 const PERMISSION_DENIED = '42501';
 
 /**
@@ -12,8 +12,8 @@ const PERMISSION_DENIED = '42501';
  *
  * What the uptime monitor polls (`docs/deploying.md` §3c). It sends Postgres
  * a query, so it fails when the database does, not only when Vercel does.
- * No session: `anon` holds no grant on any table, so a database that is up
- * answers with permission denied. One that is down answers with a PostgREST
+ * No session, so it runs as `anon`: rows, no rows and permission denied all
+ * mean Postgres answered. A database that is down answers with a PostgREST
  * or gateway error instead.
  */
 export const GET = handle(async () => {
