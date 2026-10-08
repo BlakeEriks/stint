@@ -60,6 +60,7 @@ function overlapSpans(db: Db, entries: TimeEntry[]) {
     task_name: e.taskName,
     started_at: e.startedAt,
     ended_at: e.endedAt as string,
+    is_billable: e.isBillable,
     invoice_number: invoice,
   });
   return [

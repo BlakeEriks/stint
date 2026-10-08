@@ -832,6 +832,7 @@ test('an overlap with billed time opens the unbilled entry and names the invoice
     task_name: id,
     started_at: `2026-08-19T${from}:00Z`,
     ended_at: `2026-08-19T${to}:00Z`,
+    is_billable: true,
     invoice_number: invoice,
   });
   assert.deepEqual(
@@ -845,6 +846,9 @@ test('an overlap with billed time opens the unbilled entry and names the invoice
       // Both billed: nothing anyone can edit, so no row.
       span('b1', '14:00', '15:00', 'INV-0001'),
       span('b2', '14:30', '15:30', 'INV-0002'),
+      // Non-billable against billed: it bills nothing twice.
+      { ...span('free', '16:30', '17:30', null), is_billable: false },
+      span('b3', '16:00', '17:00', 'INV-0002'),
     ]).map((o) => [o.entryId, o.otherEntryId, o.otherInvoiceNumber, o.seconds]),
     [
       ['added', 'billed', 'INV-0001', 1800],

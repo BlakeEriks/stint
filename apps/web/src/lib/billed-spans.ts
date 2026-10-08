@@ -28,11 +28,12 @@ export async function loadBilledSpans(
     task_name: string;
     started_at: string;
     ended_at: string;
+    is_billable: boolean;
     invoice_id: string;
   }>(() =>
     db
       .from('time_entries')
-      .select('id, task_name, started_at, ended_at, invoice_id')
+      .select('id, task_name, started_at, ended_at, is_billable, invoice_id')
       .not('invoice_id', 'is', null)
       .lt('started_at', new Date(to).toISOString())
       .gt('ended_at', new Date(from).toISOString()),
@@ -53,6 +54,7 @@ export async function loadBilledSpans(
     task_name: r.task_name,
     started_at: r.started_at,
     ended_at: r.ended_at,
+    is_billable: r.is_billable,
     invoice_number: numbers.get(r.invoice_id) as string,
   }));
 }

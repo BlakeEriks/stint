@@ -179,12 +179,11 @@ export const GET = handle(async (req: Request) => {
     ),
 
     /* Candidates for the overlap row: the same uninvoiced, stopped set,
-       whatever its length. The billed entries they could overlap are read
-       below, once this set's window is known. */
+       whatever its length. */
     selectAll<Omit<SpanRow, 'invoice_number'>>(() =>
       db
         .from('time_entries')
-        .select('id, task_name, started_at, ended_at')
+        .select('id, task_name, started_at, ended_at, is_billable')
         .is('invoice_id', null)
         .eq('invoiced_elsewhere', false)
         .not('ended_at', 'is', null),
@@ -244,7 +243,10 @@ export const GET = handle(async (req: Request) => {
   }));
   const overlapSpans = [
     ...unbilledSpans,
-    ...(await loadBilledSpans(db, unbilledSpans)),
+    ...(await loadBilledSpans(
+      db,
+      unbilledSpans.filter((r) => r.is_billable),
+    )),
   ];
 
   const unbilledRows = (unbilled.data ?? []) as UnbilledRow[];

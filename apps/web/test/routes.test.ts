@@ -2981,6 +2981,49 @@ test('/stats flags an entry that overlaps time already billed', async () => {
   );
 });
 
+test('/stats pairs only billable work against billed time', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const c = '33333333-0000-4000-8000-0000000000d1';
+  const p = '33333333-0000-4000-8000-0000000000d2';
+  const inv = 'ff000000-0000-4000-8000-0000000000d3';
+  const billed = '018f0000-0000-7000-8000-00000000d0d1';
+  const free = '018f0000-0000-7000-8000-00000000d0d2';
+  const also = '018f0000-0000-7000-8000-00000000d0d3';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Northwind',150)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,sent_at)
+     values ($1,$2,$3,'INV-0001',1,'sent',now())`,
+    [inv, USER, c],
+  );
+  // Non-billable work is never invoiced, so overlapping billed time bills
+  // nothing twice; overlapping other unbilled work is still flagged.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,invoice_id,is_billable) values
+       ($1,$4,$5,'Billed','2026-08-19T09:00:00Z','2026-08-19T10:00:00Z',$6,true),
+       ($2,$4,$5,'Free',  '2026-08-19T09:30:00Z','2026-08-19T10:30:00Z',null,false),
+       ($3,$4,$5,'Also',  '2026-08-19T10:00:00Z','2026-08-19T11:00:00Z',null,true)`,
+    [billed, free, also, USER, p, inv],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(
+    res.body.attention.overlaps.map(
+      (o: { entryId: string; otherEntryId: string }) => [
+        o.entryId,
+        o.otherEntryId,
+      ],
+    ),
+    [[also, free]],
+  );
+});
+
 // ── reads past PostgREST's 1,000 rows ──────────────────────────────
 // The shim caps a select the way PostgREST does, so a read that does not
 // page fails here.

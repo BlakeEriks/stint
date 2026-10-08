@@ -80,6 +80,7 @@ export const POST = handle(async (req: Request) => {
       ended_at: new Date(
         Date.parse(e.startedAt) + e.durationSeconds * 1000,
       ).toISOString(),
+      is_billable: true,
       invoice_number: null,
     }));
   const overlapping = new Set(

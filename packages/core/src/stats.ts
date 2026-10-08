@@ -60,6 +60,7 @@ export interface SpanRow {
   task_name: string;
   started_at: string;
   ended_at: string;
+  is_billable: boolean;
   /** The invoice holding the entry, or null while it is unbilled. */
   invoice_number: string | null;
 }
@@ -68,7 +69,8 @@ export interface SpanRow {
  * One row per overlapping pair with an entry the user can still edit, oldest
  * first. The later entry is opened — it started inside the other, so it is
  * usually the one to move — unless it is billed, which locks it; then the
- * earlier one is. Two billed entries make no row: neither can change.
+ * earlier one is. Two billed entries make no row: neither can change. Nor
+ * does non-billable work against billed time: it bills nothing twice.
  */
 export function buildOverlaps(rows: SpanRow[]) {
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -84,6 +86,7 @@ export function buildOverlaps(rows: SpanRow[]) {
     const [open, other] =
       later.invoice_number === null ? [later, earlier] : [earlier, later];
     if (open.invoice_number !== null) return [];
+    if (other.invoice_number !== null && !open.is_billable) return [];
     return [
       {
         entryId: open.id,
