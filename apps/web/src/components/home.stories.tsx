@@ -143,7 +143,6 @@ export const Failed: Story = {
   },
 };
 
-/** At `2xl` the panel is a bounded card. */
 /** Past `2xl` the frame is capped, and Home fits it whole, legend included. */
 export const Wide: Story = {
   ...wide,
