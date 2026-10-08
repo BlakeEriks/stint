@@ -69,6 +69,22 @@ struct TimerPressTests {
         await stale.value
         #expect(model.running?.taskName == "Design")
     }
+
+    @Test func aStopKeepsTheTodayRowItCountedTo() async throws {
+        await FakeServer.shared.setRunning(entry("Design"))
+        let model = try await signedInModel()
+        model.now = Date().addingTimeInterval(120)
+        #expect(model.today.first?.seconds == 720)
+
+        await FakeServer.shared.hold("POST /timer/stop")
+        let stop = Task { await model.toggle() }
+        await Task.yield()
+        #expect(model.running == nil)
+        #expect(model.today.first?.seconds == 720)
+
+        await FakeServer.shared.release("POST /timer/stop")
+        await stop.value
+    }
 }
 
 private func entry(_ name: String) -> TimeEntry {
@@ -154,8 +170,16 @@ private actor FakeServer {
             return (200, json(Summary(running: running, todaySeconds: 0, weekSeconds: 0, serverTime: Date())))
         case "POST /timer/start", "PATCH /timer/current":
             return (200, json(running ?? entry("unknown")))
+        case "GET /entries":
+            let measured = running.map { r in
+                TimeEntry(
+                    id: r.id, projectId: r.projectId, taskName: r.taskName, startedAt: r.startedAt,
+                    endedAt: nil, isBillable: r.isBillable, rateOverride: nil, durationSeconds: 600,
+                    durationOk: true, invoiceId: nil
+                )
+            }
+            return (200, Data(#"{"entries":\#(String(decoding: json(measured.map { [$0] } ?? []), as: UTF8.self))}"#.utf8))
         case "POST /timer/stop":
-            // The route's real shape: the stopped entry beside Unbilled.
             let stopped = String(decoding: json(entry("Stopped")), as: UTF8.self)
             return (200, Data(#"{"entry":\#(stopped),"currency":"USD","unbilled":{"total":0}}"#.utf8))
         default:

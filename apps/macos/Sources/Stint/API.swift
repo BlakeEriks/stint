@@ -181,8 +181,6 @@ actor API {
 
     private struct Empty: Encodable {}
 
-    /// The stopped entry. Earned is not in the response; the refresh after
-    /// the press fetches it.
     func stopTimer() async throws -> TimeEntry {
         let stopped: Stopped = try await request("POST", "/timer/stop", body: Empty())
         return stopped.entry

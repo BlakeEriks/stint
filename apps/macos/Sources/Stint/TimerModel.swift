@@ -51,7 +51,7 @@ final class TimerModel: Optimistic {
     /// Why a preview build's launch sign-in failed; shown on the sign-in panel.
     private(set) var previewSignInError: String?
     /// Ticks once a second so the readout redraws.
-    private(set) var now = Date()
+    var now = Date()
 
     var draftTaskName = ""
     var draftProjectID: String?
@@ -376,10 +376,23 @@ final class TimerModel: Optimistic {
     }
 
     /// Replaces the running entry in the summary and returns how to put it
-    /// back. Today's total freezes at its live value, so the readout neither
-    /// jumps nor double counts.
+    /// back. Today's total and the running task's Today row freeze at their
+    /// live values, so neither jumps nor double counts.
     private func show(running: TimeEntry?) -> () -> Void {
         let before = summary
+        let beforeEntries = todayEntries
+        let beforeFetchedAt = todayFetchedAt
+        let sinceFetch = max(0, Int(now.timeIntervalSince(todayFetchedAt)))
+        todayEntries = todayEntries.map { entry in
+            guard entry.id == self.running?.id else { return entry }
+            return TimeEntry(
+                id: entry.id, projectId: entry.projectId, taskName: entry.taskName,
+                startedAt: entry.startedAt, endedAt: entry.endedAt, isBillable: entry.isBillable,
+                rateOverride: entry.rateOverride, durationSeconds: (entry.durationSeconds ?? 0) + sinceFetch,
+                durationOk: entry.durationOk, invoiceId: entry.invoiceId
+            )
+        }
+        todayFetchedAt = now
         predictions += 1
         summary = Summary(
             running: running,
@@ -387,7 +400,11 @@ final class TimerModel: Optimistic {
             weekSeconds: summary?.weekSeconds ?? 0,
             serverTime: Date().addingTimeInterval(-skew)
         )
-        return { self.summary = before }
+        return {
+            self.summary = before
+            self.todayEntries = beforeEntries
+            self.todayFetchedAt = beforeFetchedAt
+        }
     }
 
     func report(_ reason: String) {
