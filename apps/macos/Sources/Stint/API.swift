@@ -4,18 +4,18 @@ import Foundation
 /// Hand-written and unchecked against `packages/schema`: a renamed field
 /// fails here at runtime.
 struct TimeEntry: Codable, Identifiable, Equatable {
-    let id: String
-    let projectId: String?
-    let taskName: String
-    let startedAt: Date
-    let endedAt: Date?
-    let isBillable: Bool
-    let rateOverride: Double?
-    let durationSeconds: Int?
+    var id: String
+    var projectId: String?
+    var taskName: String
+    var startedAt: Date
+    var endedAt: Date?
+    var isBillable: Bool
+    var rateOverride: Double?
+    var durationSeconds: Int?
     /// False is what puts an entry in the strange-duration row. `0` is a
     /// valid rate, so `rateOverride` is read for null, never for truth.
-    let durationOk: Bool
-    let invoiceId: String?
+    var durationOk: Bool
+    var invoiceId: String?
 }
 
 /// `GET /entries/task-names`: a name the user has typed before, with the

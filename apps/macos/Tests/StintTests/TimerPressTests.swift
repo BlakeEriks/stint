@@ -172,11 +172,9 @@ private actor FakeServer {
             return (200, json(running ?? entry("unknown")))
         case "GET /entries":
             let measured = running.map { r in
-                TimeEntry(
-                    id: r.id, projectId: r.projectId, taskName: r.taskName, startedAt: r.startedAt,
-                    endedAt: nil, isBillable: r.isBillable, rateOverride: nil, durationSeconds: 600,
-                    durationOk: true, invoiceId: nil
-                )
+                var e = r
+                e.durationSeconds = 600
+                return e
             }
             return (200, Data(#"{"entries":\#(String(decoding: json(measured.map { [$0] } ?? []), as: UTF8.self))}"#.utf8))
         case "POST /timer/stop":

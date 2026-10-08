@@ -356,18 +356,9 @@ final class TimerModel: Optimistic {
     private func patch(_ update: API.UpdateTimer) async {
         guard let current = running else { return }
         let api = api
-        let changed = TimeEntry(
-            id: current.id,
-            projectId: update.projectId ?? current.projectId,
-            taskName: update.taskName ?? current.taskName,
-            startedAt: current.startedAt,
-            endedAt: current.endedAt,
-            isBillable: current.isBillable,
-            rateOverride: current.rateOverride,
-            durationSeconds: current.durationSeconds,
-            durationOk: current.durationOk,
-            invoiceId: current.invoiceId
-        )
+        var changed = current
+        changed.projectId = update.projectId ?? current.projectId
+        changed.taskName = update.taskName ?? current.taskName
         await press("timer") {
             show(running: changed)
         } perform: {
@@ -385,12 +376,9 @@ final class TimerModel: Optimistic {
         let sinceFetch = max(0, Int(now.timeIntervalSince(todayFetchedAt)))
         todayEntries = todayEntries.map { entry in
             guard entry.id == self.running?.id else { return entry }
-            return TimeEntry(
-                id: entry.id, projectId: entry.projectId, taskName: entry.taskName,
-                startedAt: entry.startedAt, endedAt: entry.endedAt, isBillable: entry.isBillable,
-                rateOverride: entry.rateOverride, durationSeconds: (entry.durationSeconds ?? 0) + sinceFetch,
-                durationOk: entry.durationOk, invoiceId: entry.invoiceId
-            )
+            var frozen = entry
+            frozen.durationSeconds = (entry.durationSeconds ?? 0) + sinceFetch
+            return frozen
         }
         todayFetchedAt = now
         predictions += 1
