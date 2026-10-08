@@ -471,8 +471,6 @@ export function EntryDialog({
  * a day: that is what the user meant, and the server would otherwise reject
  * it.
  */
-type DraftInstants = ReturnType<typeof draftInstants>;
-
 function draftInstants({ date, start, end }: Draft, tz: string) {
   const startedAt = localDateTimeToInstant(date, start, tz);
   const sameDay = localDateTimeToInstant(date, end, tz);
@@ -482,6 +480,8 @@ function draftInstants({ date, start, end }: Draft, tz: string) {
     : sameDay;
   return { startedAt, endedAt, overnight };
 }
+
+type DraftInstants = ReturnType<typeof draftInstants>;
 
 /** `null` while a field is cleared: an incomplete draft has no times. */
 function completeInstants(draft: Draft, tz: string) {
