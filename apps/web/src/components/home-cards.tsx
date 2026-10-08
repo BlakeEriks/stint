@@ -10,16 +10,15 @@ import { buildHues, Legend } from './home-shell';
 import { Today } from './home-today';
 import { Week } from './home-week';
 import { Month } from './home-month';
+import { Listing } from './page';
 
 export function HomeCards() {
-  const { data } = useQuery({
+  const query = useQuery({
     queryKey: keys.stats(tz),
     queryFn: () => api.stats(tz),
   });
 
-  if (!data) return null;
-
-  return <Panel stats={data} />;
+  return <Listing query={query}>{(stats) => <Panel stats={stats} />}</Listing>;
 }
 
 /**
@@ -33,8 +32,8 @@ export function HomeCards() {
  * **Nothing here writes.** Every region reads, and an action on one is a link
  * to the surface that owns the mutation.
  *
- * Separate from `HomeCards` so its hooks run below the `!data` guard that
- * makes `stats` defined.
+ * Separate from `HomeCards` so its hooks run below the `Listing` that makes
+ * `stats` defined.
  */
 function Panel({ stats }: { stats: Stats }) {
   const clients = useClients();

@@ -20,8 +20,28 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** No save button: every field is a default, saved as it changes. */
-export const Desktop: Story = { ...desktop };
+/** No save button: every field is a default, saved as it changes. One
+    payment profile is the default, and only the other offers Make default. */
+export const Desktop: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const heading = await within(canvasElement).findByRole('heading', {
+      name: 'Payment details',
+    });
+    const payment = within(heading.closest('section') as HTMLElement);
+    const rows = await payment.findAllByRole('listitem');
+    const row = (name: string) =>
+      within(rows.find((r) => r.textContent?.includes(name)) as HTMLElement);
+    await expect(row('Business checking').getByText('Default')).toBeVisible();
+    await expect(payment.getAllByText('Default')).toHaveLength(1);
+    await expect(
+      row('International wire').getByRole('button', { name: 'Make default' }),
+    ).toBeVisible();
+    await expect(
+      payment.getAllByRole('button', { name: 'Make default' }),
+    ).toHaveLength(1);
+  },
+};
 export const Phone: Story = { ...phone };
 export const Light: Story = { ...light };
 
@@ -31,6 +51,13 @@ export const NoPaymentProfiles: Story = {
   parameters: account((db) => {
     db.paymentProfiles = [];
   }),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText(
+        /Invoices will render without a payment block/,
+      ),
+    ).toBeVisible();
+  },
 };
 
 export const Failed: Story = { ...desktop, parameters: failing('settings') };

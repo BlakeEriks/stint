@@ -19,12 +19,34 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Draft: Story = { ...desktop };
+/** Lines and total as frozen at generation; no supporting detail named. */
+export const Draft: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText('Type scale for the brand site'),
+    ).toBeVisible();
+    await expect(page.getByText('Total').nextElementSibling).toHaveTextContent(
+      '$2,787.60',
+    );
+    await expect(page.queryByText(/Supporting detail/)).toBeNull();
+  },
+};
 export const DraftPhone: Story = { ...phone };
 export const Sent: Story = { ...desktop, args: { id: invoice(14) } };
 export const Overdue: Story = { ...desktop, args: { id: invoice(13) } };
 export const Paid: Story = { ...desktop, args: { id: invoice(12) } };
-export const Void: Story = { ...desktop, args: { id: invoice(9) } };
+/** Voiding keeps the number and releases the entries. */
+export const Void: Story = {
+  ...desktop,
+  args: { id: invoice(9) },
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText(/numbering is gapless/),
+    ).toBeVisible();
+  },
+};
 export const Missing: Story = { ...desktop, args: { id: invoice(99) } };
 
 /** The first press of a destructive pair only asks; the second names it. */
@@ -116,6 +138,21 @@ export const WithExpenses: Story = {
     const page = within(canvasElement);
     await expect(await page.findByText('Stock photography')).toBeVisible();
     await expect(page.getAllByText('Expenses').length).toBeGreaterThan(0);
+  },
+};
+
+/** The reference it was issued with, under the client. */
+export const WithReference: Story = {
+  ...desktop,
+  args: { id: invoice(14) },
+  parameters: account((db) => {
+    const sent = db.invoices.find((i) => i.id === invoice(14));
+    if (sent) sent.reference = 'PO 4471';
+  }),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText('Reference PO 4471'),
+    ).toBeVisible();
   },
 };
 

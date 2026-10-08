@@ -24,7 +24,21 @@ type Story = StoryObj<typeof meta>;
 
 /** Each client a heading, with its rate and summary line, its projects
     beneath at their resolved rates; "No client" last. */
-export const Desktop: Story = { ...desktop };
+export const Desktop: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const card = within(
+      (await page.findByRole('heading', { name: 'Northwind Trading' })).closest(
+        'section',
+      )!,
+    );
+    await expect(card.getByText('$150.00/h · ap@northwind.test')).toBeVisible();
+    // This screen manages clients; what is owed belongs to reports.
+    await expect(card.queryByText(/unbilled/)).toBeNull();
+    await expect(card.queryByText(/\d+ projects?/)).toBeNull();
+  },
+};
 export const Phone: Story = { ...phone };
 export const Light: Story = { ...light };
 
@@ -35,6 +49,15 @@ export const ClientWithoutProjects: Story = {
   parameters: account((db) => {
     db.projects = db.projects.filter((p) => p.clientId !== ids.byrne);
   }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const card = within(
+      (await page.findByRole('heading', { name: 'Byrne Studio' })).closest(
+        'section',
+      )!,
+    );
+    await expect(card.getByText('No projects yet.')).toBeVisible();
+  },
 };
 
 /** Only work with no client: the "No client" group alone. */
@@ -70,10 +93,24 @@ export const ArchivedShown: Story = {
   },
 };
 
-export const Empty: Story = { ...desktop, parameters: account('empty') };
+export const Empty: Story = {
+  ...desktop,
+  parameters: account('empty'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(await page.findByText(/No clients yet/)).toBeVisible();
+  },
+};
+
+/** A failed query says so, rather than loading forever. */
 export const Failed: Story = {
   ...desktop,
   parameters: failing('clients', 'projects'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(await page.findByText(/could not load/i)).toBeVisible();
+    await expect(page.queryByText(/loading/i)).toBeNull();
+  },
 };
 
 /** A project is added from its client's card, with that client chosen. */
@@ -87,6 +124,35 @@ export const NewProjectForClient: Story = {
       }),
     );
     await expectOpen(canvasElement, 'dialog');
+    // Nothing to archive yet.
+    await expect(page.queryByRole('button', { name: 'Archive' })).toBeNull();
+  },
+};
+
+/** A new account's first project can still get a client: the menu offers
+    to add one, after the no-client choice. */
+export const NewProjectNoClients: Story = {
+  ...desktop,
+  parameters: {
+    ...account((db) => {
+      db.clients = [];
+      db.projects = db.projects.filter((p) => p.clientId === null);
+    }),
+    ...menuOpen,
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Project with no client' }),
+    );
+    await userEvent.click(await page.findByRole('button', { name: 'Client' }));
+    await expectOpen(canvasElement, 'menu');
+    await expect(
+      page.getByRole('menuitem', { name: 'Add a client…' }),
+    ).toBeVisible();
+    await expect(page.getAllByRole('menuitemradio')[0]).toHaveTextContent(
+      'No client — internal work',
+    );
   },
 };
 
@@ -128,6 +194,32 @@ export const EditClient: Story = {
       await page.findByRole('button', { name: 'Edit Northwind Trading' }),
     );
     await expectOpen(canvasElement, 'dialog', 'Edit client');
+  },
+};
+
+/** An archived client's dialog has nothing left to archive. */
+export const EditArchivedClient: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Old Engagement Co' }),
+    );
+    await expectOpen(canvasElement, 'dialog', 'Edit client');
+    await expect(page.queryByRole('button', { name: 'Archive' })).toBeNull();
+  },
+};
+
+/** Nor does an archived project's. */
+export const EditArchivedProject: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Legacy retainer' }),
+    );
+    await expectOpen(canvasElement, 'dialog');
+    await expect(page.queryByRole('button', { name: 'Archive' })).toBeNull();
   },
 };
 

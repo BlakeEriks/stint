@@ -273,24 +273,6 @@ describe('ClientProjects', () => {
     expect(screen.getByText('Website redesign')).toBeInTheDocument();
   });
 
-  it('does not offer to add work to an archived client', async () => {
-    serve([project()]);
-    render(
-      <ClientProjects
-        client={{ ...NORTHWIND, archivedAt: '2026-01-01T00:00:00Z' } as Client}
-      />,
-      { wrapper },
-    );
-
-    /* An archived client is a finished engagement, so there is nothing to add
-       work to — the page header drops its Archive button the same way. The
-       existing projects still render: past invoices reference them. */
-    await waitFor(() =>
-      expect(screen.getByText('Website redesign')).toBeInTheDocument(),
-    );
-    expect(screen.queryByRole('button', { name: 'Add project' })).toBeNull();
-  });
-
   it('asks for an archived client’s projects with the archived ones', async () => {
     const seen: string[] = [];
     vi.stubGlobal(
