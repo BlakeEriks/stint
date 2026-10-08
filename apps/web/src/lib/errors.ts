@@ -73,6 +73,15 @@ export function handle<T extends unknown[]>(
           { constraint: (err as { message?: string }).message },
         );
       }
+      /* A same-owner key fails as a missing reference: the caller named a
+         record that is not theirs, or not there. */
+      if (isForeignKeyViolation(err)) {
+        return errorResponse(
+          'VALIDATION_FAILED',
+          'This refers to a record that does not exist',
+          { constraint: (err as { message?: string }).message },
+        );
+      }
       console.error('Unhandled API error:', err);
       return NextResponse.json(
         { code: 'INTERNAL', message: 'Internal server error' },
@@ -86,8 +95,14 @@ export function handle<T extends unknown[]>(
 export const PG = {
   UNIQUE_VIOLATION: '23505',
   CHECK_VIOLATION: '23514',
+  FOREIGN_KEY_VIOLATION: '23503',
   NOT_FOUND: 'PGRST116',
 } as const;
+
+/** A foreign key, a same-owner one included, found nothing to point at. */
+export function isForeignKeyViolation(err: unknown): boolean {
+  return (err as { code?: string } | null)?.code === PG.FOREIGN_KEY_VIOLATION;
+}
 
 /** The partial unique index that enforces one running timer per user. */
 export function isTimerConflict(
