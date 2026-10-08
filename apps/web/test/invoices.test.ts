@@ -1112,8 +1112,7 @@ test('every page of a long invoice shows its footer at the bottom', async () => 
   pages.forEach((runs, i) => {
     const page = `Page ${i + 1} of ${pages.length}`;
     for (const text of ['INV-0042', page]) {
-      // The footer sits 24pt above the bottom edge; anything higher than
-      // the bottom margin is drawn somewhere a reader never sees it.
+      // 48 is the page's bottom padding; the footer belongs inside it.
       const lowest = Math.min(
         ...runs.filter((r) => r.text === text).map((r) => r.y),
       );
