@@ -200,9 +200,9 @@ function figure(): string {
   /* Exact, because "Unbilled by client" heads the list below it and a
      substring match would take whichever came first. */
   const label = screen.getByText('Unbilled', { exact: true });
-  /* label -> its swatch+label row -> the column holding the amount. */
-  const column = label.parentElement?.parentElement;
-  return column?.querySelector('.type-amount-hero')?.textContent?.trim() ?? '';
+  /* The label's own group, since On track for's pending dash is an amount too. */
+  const group = label.parentElement;
+  return group?.querySelector('.type-amount-hero')?.textContent?.trim() ?? '';
 }
 
 beforeEach(() => {

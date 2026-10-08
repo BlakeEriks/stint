@@ -168,6 +168,19 @@ export const MonthStart: Story = {
   },
 };
 
+/** The month's first day: no projection yet, so a dash holds On track for's place. */
+export const MonthFirst: Story = {
+  ...desktop,
+  parameters: { now: '2026-10-01T19:30:00.000Z' },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByLabelText('Not projected yet'),
+    ).toHaveTextContent('—');
+    await expect(page.queryByText(/business days/)).toBeNull();
+  },
+};
+
 /** The month's last day: `today` takes `Sep 30`'s place, flush with the axis's end. */
 export const MonthEnd: Story = {
   ...desktop,

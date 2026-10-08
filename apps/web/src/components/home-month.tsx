@@ -75,7 +75,9 @@ export function Month({
             <FigLabel>On track for</FigLabel>
             {/* Null until three business days have elapsed: earned-so-far over
                 one elapsed day carried across twenty-two is a figure that
-                swings by thousands, so it is withheld rather than guessed. */}
+                swings by thousands, so it is withheld rather than guessed. A
+                dash at the amount's size holds its place; a sentence there
+                read as a broken value. */}
             {month.projected != null ? (
               <Money
                 figure="month-projected"
@@ -84,8 +86,13 @@ export function Month({
                 className="type-amount-hero text-strong"
               />
             ) : (
-              <span data-projection="pending" className="type-meta text-subtle">
-                after {month.businessDaysElapsed} of 3 business days
+              <span
+                data-projection="pending"
+                role="img"
+                aria-label="Not projected yet"
+                className="type-amount-hero text-subtle"
+              >
+                —
               </span>
             )}
           </FigGroup>
