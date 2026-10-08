@@ -283,7 +283,7 @@ private struct TimerPanel: View {
         }
         // Opens with nothing focused. Here rather than on `ContentView`, so
         // sign-in keeps its default focus on the email or code field.
-        .background(FocusReset())
+        .background(WindowObserver.focusReset)
     }
 
     private var idle: some View {
