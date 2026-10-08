@@ -42,7 +42,7 @@ pnpm --filter @stint/web dev
 pnpm --filter @stint/web typecheck
 pnpm --filter @stint/web sample:invoice   # regenerate docs/design/samples/
 
-./apps/macos/bundle.sh                    # build and install ~/Applications/Stint.app
+./apps/macos/bundle.sh                    # build and install ~/Applications/Stint Local.app
 ```
 
 Run `pnpm tokens` first on a clean checkout: `@stint/design-tokens` resolves

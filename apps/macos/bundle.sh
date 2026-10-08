@@ -18,20 +18,23 @@ TARGET="${2:-local}"
 # Local is the default and needs no keys: Config.swift already falls back to
 # the local stack. Prod's and preview's Supabase values are public — the publishable key ships in
 # every browser bundle, and RLS is what protects the data.
-NAME="Stint"
-BUNDLE_ID="dev.stint.menubar"
+#
+# Only prod is Stint.app. Local and preview have their own name and bundle id,
+# so they install and run beside it rather than replacing it.
+NAME="Stint Local"
+BUNDLE_ID="dev.stint.menubar.local"
 EXTRA_ENV=""
 ENV_LABEL="$TARGET"
 
 if [ "$TARGET" = "prod" ]; then
+    NAME="Stint"
+    BUNDLE_ID="dev.stint.menubar"
     SUPABASE_URL="https://zwoceqydagxxmqoaqgbf.supabase.co"
     ANON_KEY="sb_publishable_dpZCXx5Z71lOUznVCIleJA__YjyUk4e"
     APP_URL="${STINT_APP_URL:-https://app.runstint.com}"
 elif [ "$TARGET" = "preview" ]; then
     # One PR's Vercel preview and its seeded account on stint-test, signed in
-    # on launch. `pnpm try-mac <pr>` supplies all three variables. Its own
-    # name and bundle id, so it runs beside the installed Stint.app rather
-    # than replacing it.
+    # on launch. `pnpm try-mac <pr>` supplies all three variables.
     PR="${STINT_PREVIEW_PR:?preview needs STINT_PREVIEW_PR — use pnpm try-mac <pr>}"
     SUPABASE_URL="https://aywejkegniljsljdzfrk.supabase.co"
     ANON_KEY="sb_publishable_q79gV5KhfKg05hZMjWVHsg_SqL2HPTH"
