@@ -96,8 +96,6 @@ export function Dock() {
       ) : null}
 
       <EntryList
-        compact
-        grid
         projects={projects?.projects ?? []}
         todaySeconds={timer.todaySeconds}
         earnedToday={data?.earnedToday}
