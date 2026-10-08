@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import pg from 'pg';
 import { makeDb } from './shim.mjs';
 import { fill } from './fill.ts';
+import { pdfText } from './pdf-text.ts';
 
 const USER = '11111111-1111-1111-1111-111111111111';
 const CLIENT = 'cc000000-0000-4000-8000-000000000001';
@@ -1070,6 +1071,55 @@ test('the PDF renders from the frozen line items', async () => {
     [0x25, 0x50, 0x44, 0x46, 0x2d],
     'starts with %PDF-',
   );
+});
+
+test('every page of a long invoice shows its footer at the bottom', async () => {
+  const { renderInvoicePdf } = await import('../src/lib/invoice-pdf.tsx');
+  const pdf = await renderInvoicePdf({
+    invoiceNumber: 'INV-0042',
+    status: 'issued',
+    issueDate: '2026-10-01',
+    dueDate: null,
+    periodStart: null,
+    periodEnd: null,
+    currency: 'USD',
+    subtotal: 6000,
+    taxRate: 0,
+    taxAmount: 0,
+    expensesSubtotal: 0,
+    total: 6000,
+    notes: null,
+    paymentTerms: null,
+    business: {
+      name: 'Blake Eriks',
+      address: null,
+      email: null,
+      logoUrl: null,
+      taxId: null,
+    },
+    client: { name: 'Northwind', email: null, address: null },
+    lineItems: Array.from({ length: 60 }, (_, i) => ({
+      description: `Design work ${i + 1}`,
+      unit: 'hour' as const,
+      quantity: 1,
+      unitPrice: 100,
+      amount: 100,
+    })),
+  });
+
+  const pages = pdfText(pdf);
+  assert.ok(pages.length > 1, `expected several pages, got ${pages.length}`);
+  pages.forEach((runs, i) => {
+    const page = `Page ${i + 1} of ${pages.length}`;
+    for (const text of ['INV-0042', page]) {
+      // The footer sits 24pt above the bottom edge; anything higher than
+      // the bottom margin is drawn somewhere a reader never sees it.
+      const lowest = Math.min(
+        ...runs.filter((r) => r.text === text).map((r) => r.y),
+      );
+      assert.ok(lowest < 48, `${page}: "${text}" drawn at y=${lowest}`);
+    }
+  });
 });
 
 // ── marking sent ───────────────────────────────────────────────────

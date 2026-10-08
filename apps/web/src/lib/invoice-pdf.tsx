@@ -197,6 +197,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     fontSize: 8,
     color: c.faint,
+    // Empty, not inherited: react-pdf re-resolves the page-number Text's
+    // styles on every page and multiplies an inherited line height by the
+    // font size each time, until the footer is drawn far above the page.
+    lineHeight: '',
   },
 
   // Supporting detail. Every row is one line, so a page holds a known number
