@@ -355,6 +355,8 @@ alone must still contain the query.
 | Update or delete targeting another user's row | matches nothing |
 | Reassigning a row to another user | rejected by `WITH CHECK` |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
+| An invoice billed to another user's client | rejected by `invoice_client_same_owner` |
+| A project under another user's client | rejected by `project_client_same_owner` |
 | An unqualified `delete from time_entries` | removes only the caller's |
 | Two users may each run a timer; neither may run two | per-user, as designed |
 | No JWT claim, or a malformed one | fails closed |

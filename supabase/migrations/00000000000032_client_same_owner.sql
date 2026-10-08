@@ -7,10 +7,6 @@
 -- restrict`, never cascade: a cascade would write `user_id` and hand the row
 -- to another account. `clients_id_user_idx` (`00000000000025_expenses.sql`)
 -- is the unique key both point at.
---
--- No row is rewritten to make room. A violation already in the database
--- fails this migration, so someone decides what it should have been
--- (Constitution I).
 
 alter table invoices
   add constraint invoice_client_same_owner
