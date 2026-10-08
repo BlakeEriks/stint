@@ -43,8 +43,10 @@ including one written later — can produce an overlap.
 The cost is that starting a timer needs the network. A running timer keeps
 ticking locally from its known `startedAt` — the client owns responsiveness,
 the server owns truth — but nothing is queued while offline; see *Offline*
-below. A 409 takes back the predicted start and says why; the refetch then
-shows what is running.
+below. A start pressed while the client shows a running timer predicts
+nothing and waits on the server, whose 409 says why. A 409 to a predicted
+start, made while the client's view was stale, takes it back and says why.
+Either way, the refetch then shows what is running.
 
 ## Offline
 
