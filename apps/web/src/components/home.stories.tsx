@@ -10,6 +10,7 @@ import {
   light,
   phone,
   screen,
+  stalled,
   tablet,
   wide,
 } from '@/mocks/screen';
@@ -82,6 +83,21 @@ export const StartWhileRunning: Story = {
     await expect(
       await page.findByText('A timer is already running'),
     ).toBeVisible();
+  },
+};
+
+/** A row pressed while a timer runs waits on the server's answer, shown on
+ *  the row: nothing is predicted for a start the server will likely refuse. */
+export const StartWhileRunningPending: Story = {
+  ...desktop,
+  parameters: { ...account('running'), ...stalled('startTimer') },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findByRole('button', { name: 'Stop timer' });
+    const [row] = await page.findAllByRole('button', { name: /^Start / });
+    await userEvent.click(row as HTMLElement);
+    await waitFor(() => expect(row).toHaveAttribute('aria-busy', 'true'));
+    await expect(row).toBeDisabled();
   },
 };
 
