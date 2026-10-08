@@ -124,12 +124,12 @@ export function useTimer() {
   /* `id` comes from the caller so the prediction and the row the server
      writes are the same entry.
 
-     A start pressed while a timer runs predicts nothing: the server is
-     likely to refuse it, and a swap the 409 takes back reads as broken. It
-     is still sent, since this tab's `running` can be stale (stopped from the
-     Mac), so the server decides and its refusal reaches the notice. Read at
-     the press and carried with it, because a prediction re-renders this hook
-     before the request is made. */
+     A start pressed while a timer runs is pending: the server is likely to
+     refuse it, and a swap the 409 takes back reads as broken. It is still
+     sent, since this tab's `running` can be stale (stopped from the Mac), so
+     the server decides and its refusal reaches the notice. Read at the press
+     and carried with it, because a prediction re-renders this hook before
+     the request is made. */
   const startPress = useOptimisticMutation<
     StartVars & { whileRunning: boolean },
     TimeEntry,
@@ -137,21 +137,20 @@ export function useTimer() {
   >({
     ...timerPress,
     mutationFn: ({ whileRunning: _, ...body }) => api.startTimer(body),
+    pending: (body) => body.whileRunning,
     predict: (current, body) =>
-      body.whileRunning
-        ? current
-        : showing(current, {
-            id: body.id,
-            taskName: body.taskName,
-            projectId: body.projectId ?? null,
-            startedAt: serverNow(),
-            endedAt: null,
-            isBillable: body.isBillable ?? true,
-            durationSeconds: null,
-            durationOk: false,
-            rateOverride: null,
-            invoiceId: null,
-          }),
+      showing(current, {
+        id: body.id,
+        taskName: body.taskName,
+        projectId: body.projectId ?? null,
+        startedAt: serverNow(),
+        endedAt: null,
+        isBillable: body.isBillable ?? true,
+        durationSeconds: null,
+        durationOk: false,
+        rateOverride: null,
+        invoiceId: null,
+      }),
   });
   const start = {
     ...startPress,

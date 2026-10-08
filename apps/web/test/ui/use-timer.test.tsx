@@ -268,6 +268,22 @@ function slowServer(initial: Summary) {
 }
 
 describe('useTimer — every press answers at once', () => {
+  /* Pending, so no 10s bound: "try again" on a start that did land would
+     start a second one. */
+  it('keeps a start pressed while running pending past the timeout', async () => {
+    const server = slowServer(summary({ running: entry() }));
+    const { result } = renderHook(() => useTimer(), { wrapper });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    server.hold('POST /timer/start');
+    act(() => result.current.start.mutate({ id: 'new', taskName: 'Design' }));
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+
+    expect(result.current.start.isPending).toBe(true);
+    expect(result.current.start.isError).toBe(false);
+    expect(result.current.running?.id).toBe('e1');
+  });
+
   it('shows a start as running before the server answers', async () => {
     const server = slowServer(summary());
     const { result } = renderHook(() => useTimer(), { wrapper });
