@@ -45,7 +45,7 @@ export default function RootLayout({
         <script
           // biome-ignore lint/security/noDangerouslySetInnerHtml: must run before paint
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('stint.theme');var d=document.documentElement;if(t==='light'||t==='dark'){d.setAttribute('data-theme',t);d.style.colorScheme=t}}catch(e){}})()`,
+            __html: `(function(){try{var t=localStorage.getItem('stint.theme');var d=document.documentElement;if(t==='system')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';if(t==='light'||t==='dark'){d.setAttribute('data-theme',t);d.style.colorScheme=t}}catch(e){}})()`,
           }}
         />
       </head>
