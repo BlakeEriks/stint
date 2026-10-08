@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery } from '@tanstack/react-query';
 import { formatCompact, formatCurrency, startOfLocalDay } from '@stint/core';
 import { CalendarDays, Plus } from 'lucide-react';
@@ -61,15 +61,9 @@ export function EntryList({
 
   const colors = useProjectColors();
 
-  /* `undefined` means "add", an entry means "edit". A separate boolean would
-     let the two disagree about which is open. */
-  const [editing, setEditing] = useState<TimeEntry | undefined>();
-  const [open, setOpen] = useState(false);
-
-  const openFor = (entry?: TimeEntry) => {
-    setEditing(entry);
-    setOpen(true);
-  };
+  /* `undefined` adds an entry; an entry, edits it. */
+  const editing = useDialog<TimeEntry | undefined>();
+  const openFor = (entry?: TimeEntry) => editing.show(entry);
 
   return (
     <section
@@ -151,9 +145,9 @@ export function EntryList({
       ) : null}
 
       <EntryDialog
-        open={open}
-        onOpenChange={setOpen}
-        existing={editing}
+        open={editing.open}
+        onOpenChange={editing.onOpenChange}
+        existing={editing.subject}
         projects={projects}
       />
     </section>

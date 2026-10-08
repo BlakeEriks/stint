@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useDialog } from '@/lib/client/use-dialog';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Pencil, Plus } from 'lucide-react';
@@ -34,7 +35,7 @@ import { keys } from '@/lib/client/query-keys';
 export function ClientList() {
   /* `null` is a new project for no client; a string, for that client. */
   const [creating, setCreating] = useState<string | null | undefined>();
-  const [editing, setEditing] = useState<Project | undefined>();
+  const editing = useDialog<Project>();
   const [editingClient, setEditingClient] = useState<Client | undefined>();
   const [addingExpense, setAddingExpense] = useState<Client | undefined>();
 
@@ -115,7 +116,7 @@ export function ClientList() {
                     project={project}
                     client={g.client}
                     defaultRate={defaultRate}
-                    onEdit={() => setEditing(project)}
+                    onEdit={() => editing.show(project)}
                   />
                 ))}
               </Card>
@@ -130,9 +131,9 @@ export function ClientList() {
         defaultClientId={creating}
       />
       <ProjectDialog
-        open={editing !== undefined}
-        onOpenChange={(open) => !open && setEditing(undefined)}
-        existing={editing}
+        open={editing.open}
+        onOpenChange={editing.onOpenChange}
+        existing={editing.subject}
       />
       {addingExpense ? (
         <ExpenseDialog
