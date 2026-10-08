@@ -46,8 +46,30 @@ export const Desktop: Story = {
   },
 };
 export const Tablet: Story = { ...tablet };
-/** Below `@2xl` the regions stack into one column. */
-export const Phone: Story = { ...phone };
+/** Below `@2xl` the regions stack into one column, and the week's seven
+ *  columns still keep each day's hours and money apart from its neighbor's. */
+export const Phone: Story = {
+  ...phone,
+  play: async ({ canvasElement }) => {
+    const week = await within(canvasElement).findByRole('img', {
+      name: /This week|MON/,
+    });
+    for (const selector of ['[data-hours]', '[data-money]']) {
+      // The text's own box: a label's element is its column's width, and the
+      // text overflows it.
+      const boxes = [...week.querySelectorAll(selector)].map((el) => {
+        const text = document.createRange();
+        text.selectNodeContents(el);
+        return text.getBoundingClientRect();
+      });
+      await expect(boxes.length).toBeGreaterThan(1);
+      for (const [i, box] of boxes.slice(1).entries())
+        await expect(box.left).toBeGreaterThanOrEqual(
+          (boxes[i] as DOMRect).right,
+        );
+    }
+  },
+};
 export const Light: Story = { ...light };
 
 /** A timer running: its task leads Today, and the timer bar counts it.
