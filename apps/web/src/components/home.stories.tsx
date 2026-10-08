@@ -4,7 +4,15 @@ import { account } from '@/mocks/db';
 import { entry, ids } from '@/mocks/fixtures';
 import { ZONE } from '@/mocks/time.mts';
 import { expect, waitFor, within } from 'storybook/test';
-import { desktop, light, phone, screen, tablet, wide } from '@/mocks/screen';
+import {
+  desktop,
+  failing,
+  light,
+  phone,
+  screen,
+  tablet,
+  wide,
+} from '@/mocks/screen';
 import { Home } from './home';
 
 const meta = {
@@ -114,6 +122,17 @@ export const InternalToday: Story = {
       await expect(ring('Invoicing and bookkeeping')).toBeTruthy();
       await expect(ring('Filter panel and saved views')).toBeNull();
     });
+  },
+};
+
+/** The figures failed to load: the panel says so, never blank. */
+export const Failed: Story = {
+  ...desktop,
+  parameters: failing('stats'),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText('Could not load this. Try again.'),
+    ).toBeVisible();
   },
 };
 
