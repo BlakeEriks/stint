@@ -48,7 +48,8 @@ export const All: Story = {
   parameters: at('/invoices', { status: 'all' }),
 };
 
-/** An empty filter never claims the account is empty. */
+/** An empty filter never claims the account is empty: it counts what the
+    other filters hold. */
 export const NothingOpen: Story = {
   ...desktop,
   parameters: account((db) => {
@@ -56,9 +57,28 @@ export const NothingOpen: Story = {
       if (i.status === 'sent' || i.status === 'draft') i.status = 'paid';
   }),
   play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await expect(await page.findByText(/Nothing open/)).toBeVisible();
-    await expect(page.queryByText(/No invoices yet/)).toBeNull();
+    await expect(
+      await within(canvasElement).findByText(
+        /^Nothing open\. \d+ paid · 1 void\.$/,
+      ),
+    ).toBeVisible();
+    await expect(
+      within(canvasElement).queryByText(/No invoices yet/),
+    ).toBeNull();
+  },
+};
+export const NothingPaid: Story = {
+  ...desktop,
+  parameters: {
+    ...at('/invoices', { status: 'paid' }),
+    ...account((db) => {
+      for (const i of db.invoices) if (i.status === 'paid') i.status = 'sent';
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText(/^Nothing paid\. .*\d+ sent/),
+    ).toBeVisible();
   },
 };
 export const Empty: Story = { ...desktop, parameters: account('empty') };
