@@ -14,11 +14,24 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 0) {
             PanelHeader(model: model, showingSettings: $showingSettings)
             if model.isSignedIn {
-                if showingSettings {
-                    SettingsPanel(model: model, showingSettings: $showingSettings)
-                } else {
-                    TimerPanel(model: model)
-                }
+                // Settings draws over the timer rather than replacing it, so
+                // the panel's height is the timer's alone and swapping screens
+                // never resizes the window. Settings must stay no taller than
+                // the shortest timer: idle, with no recent entries. Disabled
+                // too, so a task field focused before Settings opened takes no
+                // typing behind it.
+                TimerPanel(model: model)
+                    .opacity(showingSettings ? 0 : 1)
+                    .allowsHitTesting(!showingSettings)
+                    .accessibilityHidden(showingSettings)
+                    .disabled(showingSettings)
+                    .overlay(alignment: .top) {
+                        if showingSettings {
+                            SettingsPanel(model: model, showingSettings: $showingSettings)
+                                .frame(maxHeight: .infinity, alignment: .top)
+                                .background(Tokens.Dark.bgBase)
+                        }
+                    }
             } else {
                 SignInPanel(model: model)
             }
@@ -158,7 +171,6 @@ private struct SettingsPanel: View {
             rows
             account
         }
-
     }
 
     private var account: some View {
