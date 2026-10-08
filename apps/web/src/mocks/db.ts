@@ -41,7 +41,7 @@ const scenarios: Record<
   },
 };
 
-function running(
+export function running(
   db: Db,
   time: string,
   projectId: string | null,

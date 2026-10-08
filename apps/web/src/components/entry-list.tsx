@@ -7,6 +7,7 @@ import { CalendarDays, Plus } from 'lucide-react';
 import { api, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { useProjectColors } from '@/lib/client/use-project-colors';
+import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
 import { Listing } from './page';
@@ -117,7 +118,10 @@ export function EntryList({
         </Button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        tabIndex={useScrollerFocus()}
+        className="min-h-0 flex-1 overflow-y-auto"
+      >
         <Listing
           query={query}
           tight

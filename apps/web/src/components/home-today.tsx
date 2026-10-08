@@ -16,7 +16,10 @@ import {
 } from '@/lib/client/api';
 import { keys } from '@/lib/client/query-keys';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import { useProjectColors } from '@/lib/client/use-project-colors';
+import {
+  useAllProjects,
+  useProjectColors,
+} from '@/lib/client/use-project-colors';
 import { Money } from './money';
 import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
 
@@ -45,10 +48,7 @@ export function Today({ stats }: { stats: Stats }) {
 
   /* Archived included: a project archived since this morning still named
      the work done under it. */
-  const { data: projectData } = useQuery({
-    queryKey: keys.projects({ archived: true }),
-    queryFn: () => api.projects({ includeArchived: true }),
-  });
+  const { data: projectData } = useAllProjects();
 
   const entries = data?.entries ?? [];
   const seconds = entries.reduce((sum, e) => sum + secondsOf(e), 0);

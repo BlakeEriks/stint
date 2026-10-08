@@ -9,6 +9,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import { makeDb } from './shim.mjs';
+import { fill } from './fill.ts';
 
 const USER = '11111111-1111-1111-1111-111111111111';
 const CLIENT = 'cc000000-0000-4000-8000-000000000001';
@@ -2376,4 +2377,51 @@ test('the default grouping totals what the Unbilled card shows', async () => {
     Number(rows[0].amount),
     'grouping mode changed the total; Unbilled could not have known',
   );
+});
+
+/** One more six-minute entry than PostgREST's `max_rows` returns to one read. */
+const fillSeptember = () =>
+  fill(pool, {
+    userId: USER,
+    projectId: PROJECT,
+    from: '2026-09-01T08:00:00Z',
+    n: 1001,
+    minutes: 6,
+  });
+
+test('an invoice bills every entry in its period, past a thousand', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  await fillSeptember();
+
+  const res = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.entryCount, 1001);
+  // 1001 x 0.1 h x $150.
+  assert.equal(res.body.total, 15015);
+});
+
+test('an issued invoice reads back every line, past a thousand', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  await fillSeptember();
+
+  const res = await json(
+    await create(
+      req('/invoices', { clientId: CLIENT, ...PERIOD, groupingMode: 'entry' }),
+    ),
+  );
+  assert.equal(res.status, 201);
+
+  const read = await json(
+    await detail(req(`/invoices/${res.body.id}`), {
+      params: Promise.resolve({ id: res.body.id }),
+    }),
+  );
+  assert.equal(read.body.lineItems.length, 1001);
 });

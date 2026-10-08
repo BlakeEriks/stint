@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseQuery } from '@/lib/validate';
+import { selectAll } from '@/lib/select-all';
 import {
   addDays,
   buildAwaitingPayment,
@@ -148,39 +149,45 @@ export const GET = handle(async (req: Request) => {
     /* Unbilled work with no project cannot resolve a rate beyond the user
        default. Oldest first: the inbox opens the oldest, which is the closest
        to being invoiced without a rate. */
-    db
-      .from('time_entries')
-      .select('id, task_name, started_at, duration_seconds')
-      .is('project_id', null)
-      .is('invoice_id', null)
-      .eq('invoiced_elsewhere', false)
-      .not('ended_at', 'is', null)
-      .eq('is_billable', true)
-      .order('started_at', { ascending: true }),
+    selectAll<UnprojectedRow>(() =>
+      db
+        .from('time_entries')
+        .select('id, task_name, started_at, duration_seconds')
+        .is('project_id', null)
+        .is('invoice_id', null)
+        .eq('invoiced_elsewhere', false)
+        .not('ended_at', 'is', null)
+        .eq('is_billable', true)
+        .order('started_at', { ascending: true }),
+    ),
 
     /* Candidates for the strange-duration row: every stopped, uninvoiced
          entry the user has not already answered for. The thresholds live in
          settings and are fetched in the same batch, so the comparison happens
          below rather than in the filter. `ended_at is not null` keeps a
          running timer out: its length is still changing. */
-    db
-      .from('time_entries')
-      .select('id, task_name, started_at, duration_seconds, project_id')
-      .is('invoice_id', null)
-      .eq('invoiced_elsewhere', false)
-      .not('ended_at', 'is', null)
-      .eq('duration_ok', false)
-      .order('started_at', { ascending: true }),
+    selectAll<DurationRow>(() =>
+      db
+        .from('time_entries')
+        .select('id, task_name, started_at, duration_seconds, project_id')
+        .is('invoice_id', null)
+        .eq('invoiced_elsewhere', false)
+        .not('ended_at', 'is', null)
+        .eq('duration_ok', false)
+        .order('started_at', { ascending: true }),
+    ),
 
     /* Candidates for the overlap row: the same uninvoiced, stopped set,
        whatever its length. A billed entry is locked, so flagging it would
        ask for an edit nobody can make. */
-    db
-      .from('time_entries')
-      .select('id, task_name, started_at, ended_at')
-      .is('invoice_id', null)
-      .eq('invoiced_elsewhere', false)
-      .not('ended_at', 'is', null),
+    selectAll<SpanRow>(() =>
+      db
+        .from('time_entries')
+        .select('id, task_name, started_at, ended_at')
+        .is('invoice_id', null)
+        .eq('invoiced_elsewhere', false)
+        .not('ended_at', 'is', null),
+    ),
 
     /* Project and client names for whichever of those rows survives the
          threshold test. Fetched flat rather than as an embedded join: the
@@ -204,9 +211,6 @@ export const GET = handle(async (req: Request) => {
     weekDays,
     settings,
     invoices,
-    unprojected,
-    durationCandidates,
-    overlapCandidates,
     projectRows,
     collectedRows,
   ]) {
@@ -235,7 +239,6 @@ export const GET = handle(async (req: Request) => {
 
   const unbilledRows = (unbilled.data ?? []) as UnbilledRow[];
   const invoiceRows = (invoices.data ?? []) as InvoiceRow[];
-  const unprojectedRows = (unprojected.data ?? []) as UnprojectedRow[];
   const clientNames = clientNamesFrom(unbilledRows);
 
   const todayKey = localDateKey(now, tz);
@@ -308,9 +311,9 @@ export const GET = handle(async (req: Request) => {
         todayKey,
         localDateKey(startOfLocalDayOffset(now, tz, STALE_DRAFT_DAYS), tz),
       ),
-      unprojected: buildUnprojected(unprojectedRows),
+      unprojected: buildUnprojected(unprojected),
       strangeDurations: buildStrangeDurations(
-        (durationCandidates.data ?? []) as DurationRow[],
+        durationCandidates,
         settings.data?.min_entry_seconds ?? null,
         settings.data?.max_entry_hours == null
           ? null
@@ -323,9 +326,9 @@ export const GET = handle(async (req: Request) => {
           }[],
           clientNames,
         ),
-        new Set(unprojectedRows.map((r) => r.id)),
+        new Set(unprojected.map((r) => r.id)),
       ),
-      overlaps: buildOverlaps((overlapCandidates.data ?? []) as SpanRow[]),
+      overlaps: buildOverlaps(overlapCandidates),
     },
   });
 });

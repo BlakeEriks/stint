@@ -312,7 +312,6 @@ export function EntryDialog({
               projects={projects}
               value={draft.projectId}
               onChange={(id) => set('projectId', id)}
-              selected={projects.find((p) => p.id === draft.projectId)}
               disabled={locked}
               autoFocus={focus === 'project'}
               /* This is already a dialog, and Radix mounts no dialog inside

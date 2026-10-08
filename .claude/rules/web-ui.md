@@ -131,6 +131,9 @@ title is `type-title`, once.
 region is space and a rule (`border-edge-subtle`, stopping at the inset), and
 a record is a plain row.
 
+**A region that scrolls itself takes focus, only where it scrolls:** its
+`tabIndex` is `useScrollerFocus()` (`apps/web/src/lib/client/use-scroller-focus.ts`).
+
 ### Components
 
 Reach for what exists before writing a div — every screen is these pieces in

@@ -3,6 +3,7 @@ import { handle, ApiError } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseQuery } from '@/lib/validate';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
+import { selectAll } from '@/lib/select-all';
 import { localDateKey } from '@stint/core';
 import { CalendarQuery } from '@stint/schema';
 
@@ -25,14 +26,14 @@ export const GET = handle(async (req: Request) => {
     throw new ApiError('INVALID_PERIOD', '`to` must not precede `from`');
   }
 
-  const { data, error } = await db
-    .from('time_entries')
-    .select(ENTRY_COLUMNS)
-    .gte('started_at', q.from)
-    .lte('started_at', q.to)
-    .order('started_at', { ascending: true });
-
-  if (error) throw error;
+  const data = await selectAll(() =>
+    db
+      .from('time_entries')
+      .select(ENTRY_COLUMNS)
+      .gte('started_at', q.from)
+      .lte('started_at', q.to)
+      .order('started_at', { ascending: true }),
+  );
 
   if (q.granularity === 'day') {
     /* Which client a day's work belongs to, so the strip can color by
@@ -54,7 +55,7 @@ export const GET = handle(async (req: Request) => {
       { date: string; totalSeconds: number; byClient: Record<string, number> }
     >();
 
-    for (const row of data ?? []) {
+    for (const row of data) {
       const entry = toEntry(row as EntryRow);
       // A running entry has no duration yet and contributes nothing.
       if (entry.endedAt == null) continue;
@@ -94,7 +95,7 @@ export const GET = handle(async (req: Request) => {
     { date: string; totalSeconds: number; entries: unknown[] }
   >();
 
-  for (const row of data ?? []) {
+  for (const row of data) {
     const entry = toEntry(row as EntryRow);
     const key = localDateKey(new Date(entry.startedAt), q.tz);
     const day = days.get(key) ?? { date: key, totalSeconds: 0, entries: [] };

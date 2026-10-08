@@ -16,10 +16,24 @@ export const GET = handle(async (req: Request) => {
   if (!q.includeArchived) query = query.is('archived_at', null);
   if (q.clientId) query = query.eq('client_id', q.clientId);
 
-  const { data, error } = await query;
+  /* A project whose client is archived counts as archived, so nothing offers
+     it for new time. Read, not written: unarchiving the client brings back
+     exactly what was active before. */
+  const [{ data, error }, archived] = await Promise.all([
+    query,
+    q.includeArchived
+      ? null
+      : db.from('clients').select('id').not('archived_at', 'is', null),
+  ]);
   if (error) throw error;
+  if (archived?.error) throw archived.error;
+  const gone = new Set((archived?.data ?? []).map((c) => c.id));
 
-  return NextResponse.json({ projects: (data ?? []).map(toProject) });
+  return NextResponse.json({
+    projects: (data ?? [])
+      .filter((p) => !p.client_id || !gone.has(p.client_id))
+      .map(toProject),
+  });
 });
 
 export const POST = handle(async (req: Request) => {

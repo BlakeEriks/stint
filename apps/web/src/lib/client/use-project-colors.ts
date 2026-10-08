@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from './api';
+import { api, type Project } from './api';
 import { keys } from './query-keys';
 
 /**
@@ -39,9 +39,9 @@ export function useProjectColors(): Map<string, string | null> {
  * than a second set of fetches that could disagree with the colors already
  * painted.
  *
- * **Archived clients are included.** Work billed to a finished engagement is
- * still in the history, and dropping its color would silently move those
- * hours into the unnamed band.
+ * **Archived clients and projects are included.** Work billed to a finished
+ * engagement is still in the history, and dropping its color would silently
+ * move those hours into the unnamed band.
  *
  * **So are clients with no color.** A client is a client whether or not it
  * has a hue; leaving it out would file its work under internal.
@@ -54,10 +54,7 @@ export function useProjectClients(): {
     { id: string; name: string; color: string | null }
   >;
 } {
-  const projects = useQuery({
-    queryKey: keys.projects(),
-    queryFn: () => api.projects(),
-  });
+  const projects = useAllProjects();
   const byId = useClients();
 
   /* Memoized on the query data: these Maps are dependencies of the effects
@@ -107,4 +104,23 @@ export function useClients(): Map<
       ),
     [clients.data],
   );
+}
+
+/**
+ * Every project, archived ones and those of an archived client included:
+ * what work was tracked against is a fact, so anything naming past work reads
+ * this rather than the active list a picker offers. One query key, so every
+ * caller shares one fetch.
+ */
+export function useAllProjects() {
+  return useQuery({
+    queryKey: keys.projects({ archived: true }),
+    queryFn: () => api.projects({ includeArchived: true }),
+  });
+}
+
+/** One project from `useAllProjects`, so naming it costs no fetch. */
+export function useProject(id: string | null | undefined): Project | undefined {
+  const { data } = useAllProjects();
+  return id ? (data?.projects ?? []).find((p) => p.id === id) : undefined;
 }

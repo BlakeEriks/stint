@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, within } from 'storybook/test';
-import { desktop, knownFailures, light, phone } from '@/mocks/screen';
+import { desktop, light, phone } from '@/mocks/screen';
 import { SignInForm } from './signin-form';
 
 /** Signed out: no frame, one field, a link by email. */
@@ -26,11 +26,7 @@ export const Desktop: Story = {
   },
 };
 export const Phone: Story = { ...phone };
-/* TODO(#125): light only, where the contrast failures reach sign-in. */
-export const Light: Story = {
-  ...light,
-  parameters: { a11y: knownFailures },
-};
+export const Light: Story = { ...light };
 
 /** A link that failed at the callback. */
 export const LinkFailed: Story = { ...desktop, args: { error: 'auth' } };

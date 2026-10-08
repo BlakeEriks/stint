@@ -277,10 +277,16 @@ export const handlers = {
   projects: http.get(`${API}/projects`, ({ request }) => {
     const q = query(request);
     const clientId = q.get('clientId');
-    const projects = getDb()
-      .projects.filter(
+    const db = getDb();
+    // As the route: an archived client's projects count as archived.
+    const gone = new Set(
+      db.clients.filter((c) => c.archivedAt !== null).map((c) => c.id),
+    );
+    const projects = db.projects
+      .filter(
         (p) =>
-          (q.get('includeArchived') === 'true' || p.archivedAt === null) &&
+          (q.get('includeArchived') === 'true' ||
+            (p.archivedAt === null && !(p.clientId && gone.has(p.clientId)))) &&
           (!clientId || p.clientId === clientId),
       )
       .sort(byName);

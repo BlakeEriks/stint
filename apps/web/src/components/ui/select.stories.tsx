@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { skipping } from '@/mocks/screen';
 import { Label } from './label';
 import {
   Select,
@@ -37,12 +38,10 @@ export const Closed: Story = {};
 export const Open: Story = {
   args: { defaultOpen: true },
   parameters: {
-    a11y: {
-      /* Open, Radix sets `aria-hidden` on everything outside the list, the
-         trigger included, and traps focus inside the list, so the trigger
-         cannot be reached. axe sees a focusable element under `aria-hidden`
-         and cannot see the trap. */
-      config: { rules: [{ id: 'aria-hidden-focus', enabled: false }] },
-    },
+    /* Open, Radix sets `aria-hidden` on everything outside the list, the
+       trigger included, and traps focus inside the list, so the trigger
+       cannot be reached. axe sees a focusable element under `aria-hidden`
+       and cannot see the trap. */
+    a11y: skipping('aria-hidden-focus'),
   },
 };

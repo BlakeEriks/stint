@@ -3,7 +3,14 @@ import { delay, http } from 'msw';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { handlers } from '@/mocks/handlers';
-import { desktop, menuOpen, phone, screen, wide } from '@/mocks/screen';
+import {
+  desktop,
+  menuOpen,
+  phone,
+  screen,
+  skipping,
+  wide,
+} from '@/mocks/screen';
 import { NewInvoice } from './invoice-new';
 
 const meta = {
@@ -100,7 +107,10 @@ export const Workspace: Story = {
 export const Updating: Story = {
   ...desktop,
   parameters: {
-    ...menuOpen,
+    /* The dimmed figures are the ones the next answer replaces, held back on
+       purpose; axe reads their half opacity as low contrast. */
+    a11y: skipping('aria-hidden-focus', 'color-contrast'),
+    stalls: 1,
     msw: {
       handlers: {
         // The play's By task never answers; every other preview does.

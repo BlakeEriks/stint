@@ -62,7 +62,8 @@ The two halves of a neutral ramp want opposite things:
   other, side by side, so every step should feel like the same size move. An
   eased curve deliberately bunches them.
 - **Text and borders** want **resolution where the contrast ratios are**. They
-  are compared to the card behind them, never to each other.
+  are compared to what sits behind them, never to each other: a border to the
+  card, text to every text ground.
 
 So surfaces come off `surfaces()`, a linear ladder, and ink off `inkRamp()`,
 an eased curve: `L(i) = 0.215 + 0.770 · t^1.40`, with steps 600 and 700 lifted
@@ -74,16 +75,17 @@ surface an override, and the curve still governing only 300, 400, 850, and 975
 — none of which are backgrounds.
 
 **Thresholds, not nudges.** The ink steps that owe a ratio are lifted (dark) or
-dropped (light) by however much it takes to clear it *against whatever card the
-surface plan produced*. Fixed `OFFSET` values tuned against one specific card
+dropped (light) by however much it takes to clear it *against whatever surfaces
+the plan produced*. Fixed `OFFSET` values tuned against one specific card
 silently stop meaning anything when the card moves. Making the threshold the
 constant is what makes "let's try a bigger card step" safe: the ink follows.
 
 **A separation sweep runs after.** Pushing a step to clear a threshold can
-drive it into its neighbor, since both move toward the same card and the one
-owing less catches up. Anything closer than ΔL 0.035 is pushed the rest of the
-way — a floor, never a ceiling, so a step that earned more distance keeps it.
-Without it, `500` and `600` landed 0.0087 apart: two names for one gray.
+drive it into its neighbor, since both move toward the same worst text ground
+and the one owing less catches up. Anything closer than ΔL 0.035 is pushed the
+rest of the way — a floor, never a ceiling, so a step that earned more
+distance keeps it. Without it, `500` and `600` landed 0.0087 apart: two names
+for one gray.
 
 **Lowering `FLOOR` is wrong.** It drags the entire eased curve down, taking the
 text steps with it: muted falls to 4.40 (under AA) and the border to 2.63. Two
@@ -96,14 +98,21 @@ curve, which is what lets the floor stay where the contrast math wants it.
 
 | step | owes | against |
 |---|---|---|
-| `400` | 3:1 | `border-control`, taken off 500 |
-| `500` | 4.5 (AA text) | the card — it is body copy in over a hundred places |
-| `600` | 5.5 | the card |
-| `700` | 3:1, and clear of 600 | the focus ring |
+| `400` | 3:1 | the card: `border-control`, taken off 500 |
+| `500` | 4.5 (AA text) | every text ground — it is body copy in over a hundred places |
+| `600` | 5.5 | every text ground |
+| `700` | 3:1, and clear of 600 | the card: the focus ring |
+
+**A text ground is any surface text is set on**: the four planes, `hover` (a
+calendar block's fill, a hovered row) and `accent-muted` (a running block).
+Text is judged against the worst of them — the nearest to the ink, `hover` or
+`accent-muted` — because the card is only where dialogs and menus sit; the
+panel and its rows are other steps. `active` is left out: it is only a
+pointer's press on a block.
 
 `600` owes **5.5**, not 4.5: held to the same ratio as 500 against the same
-card, both are pushed to the same place and the curve's own separation is lost
-— they came out ΔL 0.0087 apart, two names for one gray. The hierarchy is
+grounds, both are pushed to the same place and the curve's own separation is
+lost — they came out ΔL 0.0087 apart, two names for one gray. The hierarchy is
 strong > primary > muted > subtle, so muted owes more than subtle.
 
 `400` exists because one primitive cannot owe two ratios: 500 had been
@@ -241,9 +250,10 @@ ramp check exists to catch, the other way round.
 
 `pnpm tokens:validate` checks both directions:
 
-- Required pairings that **must** meet AA — muted text, subtle text (it is
-  body copy, so AA not AA-large), control borders, focus rings, text on accent,
-  text on danger.
+- Required pairings that **must** meet AA — every text token on every text
+  ground in both themes (`contract.text`; subtle is body copy, so AA not
+  AA-large), then control borders, focus rings, text on accent, text on
+  danger.
 - Forbidden pairings that **must not** — white on the accent is 1.37:1, and
   the assertion exists so a well-meaning change cannot quietly make it legal.
 - Every generated ramp re-derived and diffed against `tokens.json`: both

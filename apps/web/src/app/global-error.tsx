@@ -62,7 +62,7 @@ export default function GlobalError({
             style={{
               fontSize: '15px',
               lineHeight: 1.5,
-              color: '#9299A6', // text-muted
+              color: '#A0A7B4', // text-muted
               margin: '0 0 20px',
             }}
           >
@@ -94,7 +94,7 @@ export default function GlobalError({
                 fontFamily:
                   'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
                 fontSize: '11.5px',
-                color: '#838A97', // text-subtle
+                color: '#8F96A4', // text-subtle
                 margin: '20px 0 0',
               }}
             >
