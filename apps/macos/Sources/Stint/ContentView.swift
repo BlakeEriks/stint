@@ -50,6 +50,7 @@ struct ContentView: View {
         // panel — without this, signing back in lands in Settings with the
         // timer hidden behind it.
         .onChange(of: model.isSignedIn) { _, _ in showingSettings = false }
+        .background(WindowObserver.panelWatch { model.panel(open: $0) })
         .frame(width: 320)
         // Sized before first paint: the panel hangs from the bar, so a height
         // that settles later moves the whole window.
@@ -294,7 +295,7 @@ private struct TimerPanel: View {
         }
         // Opens with nothing focused. Here rather than on `ContentView`, so
         // sign-in keeps its default focus on the email or code field.
-        .background(FocusReset())
+        .background(WindowObserver.focusReset)
     }
 
     private var idle: some View {

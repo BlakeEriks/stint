@@ -1,7 +1,8 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { followRunningTimer } from '@/lib/client/query-keys';
 import { MutationNotice } from './mutation-notice';
 
 export function Providers({
@@ -28,6 +29,8 @@ export function Providers({
         },
       }),
   );
+
+  useEffect(() => followRunningTimer(client), [client]);
 
   return (
     <QueryClientProvider client={client}>

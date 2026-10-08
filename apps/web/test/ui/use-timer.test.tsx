@@ -104,6 +104,29 @@ describe('useTimer', () => {
     expect(result.current.todaySeconds).toBe(5100);
   });
 
+  /**
+   * The server rounds the running timer into `todaySeconds`; the readout
+   * floors. Subtracting the floored figure leaves the rounding's extra second
+   * in today's total, one ahead of finished work plus the readout.
+   */
+  it('keeps today equal to finished work plus the readout mid-second', async () => {
+    vi.setSystemTime(new Date('2026-09-11T09:25:00.600Z'));
+    serve(
+      summary({
+        running: entry(),
+        // 1h of finished work + 1500.6s running, rounded as the server does.
+        todaySeconds: 3600 + 1501,
+        serverTime: '2026-09-11T09:25:00.600Z',
+      }),
+    );
+
+    const { result } = renderHook(() => useTimer(), { wrapper });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    expect(result.current.seconds).toBe(1500);
+    expect(result.current.todaySeconds).toBe(3600 + result.current.seconds);
+  });
+
   it('advances both the timer and today total as the clock ticks', async () => {
     vi.setSystemTime(new Date('2026-09-11T09:25:00.000Z'));
     serve(

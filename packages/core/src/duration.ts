@@ -4,13 +4,43 @@ export const SECOND = 1;
 export const MINUTE = 60;
 export const HOUR = 3600;
 
-/** Seconds elapsed between two instants, floored at 0. */
+/**
+ * Seconds elapsed between two instants, floored at 0. Only the ticking
+ * readout uses it: flooring turns over each second on the second.
+ */
 export function elapsedSeconds(
   startedAt: Date | string,
   now: Date = new Date(),
 ): number {
   const start = typeof startedAt === 'string' ? new Date(startedAt) : startedAt;
   return Math.max(0, Math.floor((now.getTime() - start.getTime()) / 1000));
+}
+
+/**
+ * A running entry's length as the server reports it: rounded to the nearest
+ * second, as `entry_seconds()` and the generated `duration_seconds` round, so
+ * a row and the figures beside it agree, and stopping moves neither.
+ * `rates.test.ts` holds it to the SQL.
+ */
+export function entrySeconds(startedAt: Date | string, now: Date): number {
+  const start = typeof startedAt === 'string' ? new Date(startedAt) : startedAt;
+  return Math.max(0, Math.round((now.getTime() - start.getTime()) / 1000));
+}
+
+/**
+ * An entry with a running one's length so far filled in. `endedAt` stays
+ * null: that, not a null duration, is what marks it running.
+ */
+export function measured<
+  E extends {
+    startedAt: string;
+    endedAt: string | null;
+    durationSeconds: number | null;
+  },
+>(entry: E, now: Date): E {
+  return entry.endedAt === null
+    ? { ...entry, durationSeconds: entrySeconds(entry.startedAt, now) }
+    : entry;
 }
 
 /** `1:47:22` — the timer and menu bar format. Hours are never zero-padded. */

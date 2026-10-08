@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api, type Summary, type TimeEntry } from './api';
-import { elapsedSeconds } from '@stint/core';
+import { elapsedSeconds, entrySeconds } from '@stint/core';
 import { keys, invalidateEntryData } from './query-keys';
 import { useOptimisticMutation } from './mutations';
 
@@ -183,5 +183,5 @@ export function useTimer() {
  */
 function liveAtFetch(data: Summary): number {
   if (!data.running) return 0;
-  return elapsedSeconds(data.running.startedAt, new Date(data.serverTime));
+  return entrySeconds(data.running.startedAt, new Date(data.serverTime));
 }

@@ -707,12 +707,13 @@
           <tr><td><code>POST /timer/start</code></td><td><strong>409 when one is already running</strong></td></tr>
           <tr><td><code>POST /timer/stop</code></td><td>The unbilled total after the stop, so the row updates without a refresh</td></tr>
           <tr><td><code>GET /summary</code></td><td>Today's total, <code>serverTime</code></td></tr>
-          <tr><td><code>GET /stats?tz=…</code></td><td>The unbilled total</td></tr>
-          <tr><td><code>GET /entries/task-names?limit=6</code></td><td>Recent &mdash; the names the web suggests, so a row is a name to start again, not a past entry, and carries no duration. The running name is the readout and drops out, leaving five. Fetched on the poll and after a start or stop, not on every open</td></tr>
+          <tr><td><code>GET /stats?tz=…</code></td><td>The unbilled total, a running timer's session so far included</td></tr>
+          <tr><td><code>GET /entries/task-names?limit=6</code></td><td>Recent &mdash; the names the web suggests, so a row is a name to start again, not a past entry, and carries no duration. The running name is the readout and drops out, leaving five. Fetched on the poll while the panel is open and after a start or stop, not on every open</td></tr>
           <tr><td><code>PATCH /entries/:id</code></td><td>Rename</td></tr>
           <tr><td><code>GET /projects</code>, <code>GET /clients</code></td><td>The picker and client colors</td></tr>
         </tbody>
       </table>
+      <p>The minute's poll fetches all of these only while the panel is on screen, and at once when it opens. Closed, it fetches <code>/summary</code> alone, which the menu bar title needs.</p>
     </div>
 
     <div class="notes" style="margin-top:1.5rem;">

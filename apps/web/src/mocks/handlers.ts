@@ -1,5 +1,6 @@
 import {
   buildPreview,
+  measured,
   formatInvoiceNumber,
   pickSchedules,
   type ScheduleKind,
@@ -212,15 +213,17 @@ export const handlers = {
     const from = q.get('from');
     const to = q.get('to');
     const projectId = q.get('projectId');
-    const entries = getDb()
-      .entries.filter(
+    const db = getDb();
+    const entries = db.entries
+      .filter(
         (e) =>
           (!from || e.startedAt >= new Date(from).toISOString()) &&
           (!to || e.startedAt <= new Date(to).toISOString()) &&
           (!projectId ||
             e.projectId === (projectId === 'none' ? null : projectId)),
       )
-      .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+      .map((e) => measured(e, db.now));
     return ok(envelopes.entries, { entries });
   }),
 

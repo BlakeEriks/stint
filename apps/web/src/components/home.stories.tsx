@@ -50,8 +50,15 @@ export const Tablet: Story = { ...tablet };
 export const Phone: Story = { ...phone };
 export const Light: Story = { ...light };
 
-/** A timer running: its task leads Today, and the timer bar counts it. */
+/** A timer running: its task leads Today, and the timer bar counts it.
+ *  Earned, the week's bar and the month count the session so far. */
 export const Running: Story = { ...desktop, parameters: account('running') };
+
+/** A timer on unrated work: its time counts, and Earned does not move. */
+export const RunningUnrated: Story = {
+  ...desktop,
+  parameters: account('runningUnrated'),
+};
 
 /** A new account: every figure is zero and nothing is extrapolated. */
 export const Empty: Story = {

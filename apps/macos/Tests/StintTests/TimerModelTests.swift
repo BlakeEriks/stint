@@ -58,6 +58,26 @@ struct TimerModelTests {
         await model.signOut()
     }
 
+    @Test func aClosedPanelPollsTheTimerAlone() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website")]))
+        APIStub.routes["/clients"] = (200, clients([]))
+        APIStub.requested = []
+        await model.poll()
+        #expect(APIStub.requested == ["/summary"])
+
+        model.panel(open: true)
+        APIStub.requested = []
+        await model.poll()
+        #expect(Set(APIStub.requested) == ["/summary", "/projects", "/clients", "/stats", "/entries/task-names"])
+
+        model.panel(open: false)
+        APIStub.requested = []
+        await model.poll()
+        #expect(APIStub.requested == ["/summary"])
+        await model.signOut()
+    }
+
     @Test func recentIsTheServersNamesLessTheRunningOne() async throws {
         let model = try await signedInModel()
         APIStub.routes["/summary"] = (200, summary(running: "standup"))
@@ -152,6 +172,7 @@ struct TimerModelTests {
 /// Answers by path, ignoring the `/api/v1` prefix and the query string.
 private final class APIStub: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var routes: [String: (Int, Data)] = [:]
+    nonisolated(unsafe) static var requested: [String] = []
     /// The last body sent to each path.
     nonisolated(unsafe) static var bodies: [String: Data] = [:]
 
@@ -161,6 +182,7 @@ private final class APIStub: URLProtocol, @unchecked Sendable {
 
     override func startLoading() {
         let path = request.url!.path().replacingOccurrences(of: "/api/v1", with: "")
+        Self.requested.append(path)
         if let body = request.httpBody ?? request.httpBodyStream.map(Self.read) { Self.bodies[path] = body }
         let (status, data) = Self.routes[path] ?? (404, Data())
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!

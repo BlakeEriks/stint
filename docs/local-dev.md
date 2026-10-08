@@ -222,8 +222,8 @@ one, so the seed never sits on a boundary a timezone could round the wrong
 way.
 
 It gives the most recent worked day an extra block, because that day's last
-block is the one left running: without it Home opens on a day that has earned
-nothing, which is the one figure the screen exists to show. Nothing seeded
+block is the one left running: without it Today lists the timer alone, with no
+finished work beside it. Nothing seeded
 starts or ends after now: the running block starts 45 minutes ago at the
 latest, and the day's finished blocks move earlier to end before it. A
 morning seed still earns something today; one run in the small hours lays
@@ -364,8 +364,8 @@ storybook` serves the stories at `localhost:6006` with no stack. They render
 the real components against `src/mocks/`, an in-memory `/api/v1` built from
 one account and parsed by `@stint/schema`, at a pinned instant
 (`src/mocks/time.mts`). A story picks its account with
-`parameters: account('running')` (or `'empty'`, or a function
-that edits the seeded account), breaks one endpoint with
+`parameters: account('running')` (or `'runningUnrated'`, `'empty'`, or a
+function that edits the seeded account), breaks one endpoint with
 `failing('stats')`, or leaves one unanswered with `stalled('deleteInvoice')`
 to show a press still pending. `stalled` sets `parameters.stalls`, so the
 story is judged with that many requests still open instead of waiting on

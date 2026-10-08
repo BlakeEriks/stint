@@ -231,6 +231,27 @@ test('preview excludes a running timer — you cannot bill time still accruing',
   assert.equal(res.body.entryCount, 1);
 });
 
+test('generation leaves a running timer unbilled, though Unbilled counts it', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), hours: 1 });
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
+     values ($1,$2,$3,'Running','2026-09-15T09:00:00Z',null)`,
+    [E(2), USER, PROJECT],
+  );
+
+  const res = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(res.status, 201);
+  assert.equal(res.body.entryCount, 1);
+  const { rows } = await pool.query(
+    'select invoice_id from time_entries where id=$1',
+    [E(2)],
+  );
+  assert.equal(rows[0].invoice_id, null);
+});
+
 test('preview honors the period boundaries inclusively', async () => {
   const { POST: preview } = await import(
     '../src/app/api/v1/invoices/preview/route.ts'
