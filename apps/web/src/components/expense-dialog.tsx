@@ -92,25 +92,15 @@ export function ExpenseDialog({
     },
   });
 
-  // The row leaves at once; a refusal puts it back and says why.
-  const remove = useOptimisticMutation<
-    string,
-    unknown,
-    { expenses: Expense[] }
-  >({
+  // A delete can't be taken back, so the confirm waits on the server and a
+  // refusal stays in the open dialog.
+  const remove = useOptimisticMutation({
     queryKey: () => keys.expenses(),
-    mutationFn: (expenseId) =>
-      api.deleteExpense(expenseId).catch((e: Error) => {
-        throw new Error(
-          `Couldn’t delete ${expense?.description}. ${e.message}`,
-        );
-      }),
-    predict: (current, expenseId) =>
-      current && {
-        ...current,
-        expenses: current.expenses.filter((e) => e.id !== expenseId),
-      },
+    inline: true,
+    mutationFn: (expenseId: string) => api.deleteExpense(expenseId),
+    onSuccess: () => onOpenChange(false),
   });
+  const error = save.error ?? remove.error;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -214,11 +204,11 @@ export function ExpenseDialog({
             />
           </Field>
 
-          {save.error ? (
+          {error ? (
             <p role="alert" className="type-support text-danger">
-              {save.error instanceof ApiError
-                ? save.error.message
-                : 'Could not save this expense.'}
+              {error instanceof ApiError
+                ? error.message
+                : `Could not ${remove.error ? 'delete' : 'save'} this expense.`}
             </p>
           ) : null}
 
@@ -231,10 +221,8 @@ export function ExpenseDialog({
                 label="Delete for good"
                 pendingLabel="Deleting…"
                 pending={remove.isPending}
-                onConfirm={() => {
-                  remove.mutate(expense.id);
-                  onOpenChange(false);
-                }}
+                disabled={save.isPending}
+                onConfirm={() => remove.mutate(expense.id)}
               >
                 <Trash2 aria-hidden strokeWidth={1.75} />
               </ConfirmAction>
@@ -249,7 +237,7 @@ export function ExpenseDialog({
             <Button
               type="submit"
               variant="accent"
-              disabled={!valid || save.isPending}
+              disabled={!valid || save.isPending || remove.isPending}
             >
               {save.isPending ? (
                 <Loader2 aria-hidden className="animate-spin" />

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ClientList } from '@/components/client-list';
-import type { ClientWithScale, Project } from '@/lib/client/api';
+import type { ClientWithScale, Expense, Project } from '@/lib/client/api';
 
 /* Held in a box so a test can set the filter before rendering: the mock
    factory is hoisted above every other statement in this file. */
@@ -52,7 +52,11 @@ function project(over: Partial<Project> = {}): Project {
   } as Project;
 }
 
-function serve(clients: ClientWithScale[], projects: Project[] = []) {
+function serve(
+  clients: ClientWithScale[],
+  projects: Project[] = [],
+  expenses: Expense[] = [],
+) {
   const urls: string[] = [];
   vi.stubGlobal(
     'fetch',
@@ -72,6 +76,9 @@ function serve(clients: ClientWithScale[], projects: Project[] = []) {
         return new Response(JSON.stringify({ projects: visible }), {
           status: 200,
         });
+      }
+      if (path.startsWith('/expenses')) {
+        return new Response(JSON.stringify({ expenses }), { status: 200 });
       }
       if (path.startsWith('/clients')) {
         const visible = asked ? clients : clients.filter((c) => !c.archivedAt);
@@ -289,5 +296,42 @@ describe('ClientList', () => {
       ).toHaveLength(2);
       expect(screen.queryByRole('navigation', { name: 'Filter' })).toBeNull();
     });
+  });
+
+  /* A delete can't be taken back, so the row waits on the server's answer
+     rather than leaving on the press (Constitution VI). */
+  it('keeps a deleted expense listed until the server answers', async () => {
+    serve(
+      [NORTHWIND],
+      [],
+      [
+        {
+          id: 'e1',
+          clientId: 'c1',
+          recurring: false,
+          spentOn: '2026-08-20',
+          description: 'Flight to Denver',
+          amount: 412,
+          note: null,
+          invoiceId: null,
+          invoiceNumber: null,
+          invoiceStatus: null,
+        },
+      ],
+    );
+    const user = userEvent.setup();
+    render(<ClientList />, { wrapper });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Edit Flight to Denver' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Delete expense' }));
+    await user.click(screen.getByRole('button', { name: 'Delete for good' }));
+
+    expect(
+      await screen.findByRole('button', { name: 'Deleting…' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getAllByText('Flight to Denver').length).toBeGreaterThan(0);
   });
 });

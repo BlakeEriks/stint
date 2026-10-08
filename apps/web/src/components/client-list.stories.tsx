@@ -10,6 +10,7 @@ import {
   menuOpen,
   phone,
   screen,
+  stalled,
 } from '@/mocks/screen';
 import { ClientList } from './client-list';
 
@@ -285,6 +286,36 @@ export const DeleteExpense: Story = {
     await waitFor(() =>
       expect(page.queryByText('Figma license, annual')).toBeNull(),
     );
+  },
+};
+
+/** The delete is waiting on the server: the dialog stays open, the confirm
+    says so, and the expense is still listed. */
+export const DeletingExpense: Story = {
+  ...desktop,
+  parameters: stalled('deleteExpense'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+    );
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Delete expense' }),
+    );
+    await userEvent.click(
+      page.getByRole('button', { name: 'Delete for good' }),
+    );
+    await expect(
+      await page.findByRole('button', { name: 'Deleting…' }),
+    ).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Keep' })).toBeDisabled();
+    // Behind the modal, so out of the accessibility tree but still listed.
+    await expect(
+      page.getByRole('button', {
+        name: 'Edit Figma license, annual',
+        hidden: true,
+      }),
+    ).toBeInTheDocument();
   },
 };
 
