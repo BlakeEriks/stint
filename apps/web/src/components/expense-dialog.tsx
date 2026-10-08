@@ -49,6 +49,7 @@ export function ExpenseDialog({
   const [note, setNote] = useState('');
   /* Made once per recording, so a retried save lands on the same row. */
   const [id, setId] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   // Reset each time it opens, so a previous expense cannot linger.
   useEffect(() => {
@@ -59,6 +60,7 @@ export function ExpenseDialog({
     setRecurring(expense?.recurring ?? false);
     setNote(expense?.note ?? '');
     setId(expense?.id ?? uuidv7());
+    setError(null);
   }, [open, expense]);
 
   const parsed = Number.parseFloat(amount);
@@ -90,6 +92,10 @@ export function ExpenseDialog({
       onSaved?.(saved);
       onOpenChange(false);
     },
+    onError: (e) =>
+      setError(
+        e instanceof ApiError ? e.message : 'Could not save this expense.',
+      ),
   });
 
   // A delete can't be taken back, so the confirm waits on the server and a
@@ -99,11 +105,18 @@ export function ExpenseDialog({
     inline: true,
     mutationFn: (expenseId: string) => api.deleteExpense(expenseId),
     onSuccess: () => onOpenChange(false),
+    onError: (e) =>
+      setError(
+        e instanceof ApiError ? e.message : 'Could not delete this expense.',
+      ),
   });
-  const error = save.error ?? remove.error;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      // Closed mid-delete, a refusal would show nowhere: it is inline.
+      onOpenChange={(next) => remove.isPending || onOpenChange(next)}
+    >
       <DialogContent>
         <form
           onSubmit={(e) => {
@@ -206,9 +219,7 @@ export function ExpenseDialog({
 
           {error ? (
             <p role="alert" className="type-support text-danger">
-              {error instanceof ApiError
-                ? error.message
-                : `Could not ${remove.error ? 'delete' : 'save'} this expense.`}
+              {error}
             </p>
           ) : null}
 
@@ -230,6 +241,7 @@ export function ExpenseDialog({
             <Button
               type="button"
               variant="ghost"
+              disabled={remove.isPending}
               onClick={() => onOpenChange(false)}
             >
               Cancel

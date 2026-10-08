@@ -309,6 +309,10 @@ export const DeletingExpense: Story = {
       await page.findByRole('button', { name: 'Deleting…' }),
     ).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Keep' })).toBeDisabled();
+    // Closed now, a refusal would show nowhere.
+    await expect(page.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    await userEvent.keyboard('{Escape}');
+    await expectOpen(canvasElement, 'dialog', 'Edit expense');
     // Behind the modal, so out of the accessibility tree but still listed.
     await expect(
       page.getByRole('button', {
@@ -316,6 +320,34 @@ export const DeletingExpense: Story = {
         hidden: true,
       }),
     ).toBeInTheDocument();
+  },
+};
+
+/** A refused delete says why in the dialog, and is gone when another
+    expense opens. */
+export const DeleteExpenseRefused: Story = {
+  ...desktop,
+  parameters: failing('deleteExpense'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+    );
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Delete expense' }),
+    );
+    await userEvent.click(
+      page.getByRole('button', { name: 'Delete for good' }),
+    );
+    await expect(await page.findByRole('alert')).toHaveTextContent(
+      'Internal server error',
+    );
+    await userEvent.click(page.getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Claude Max subscription' }),
+    );
+    await expectOpen(canvasElement, 'dialog', 'Edit expense');
+    await expect(page.queryByRole('alert')).toBeNull();
   },
 };
 
