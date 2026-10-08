@@ -148,23 +148,12 @@ export function EntryDialog({
   const save = useOptimisticMutation({
     ...formPress,
     mutationFn: async () => {
-      const { date, start, end } = draft;
-      const startedAt = localDateTimeToInstant(date, start, tz);
-      const endedAt = localDateTimeToInstant(date, end, tz);
-
-      /* An entry that ends "before" it starts is almost always an overnight
-         shift — 22:00 to 02:00 — not a typo. Rolling the end forward a day is
-         what the user meant, and the server would otherwise reject it. */
-      const ended =
-        endedAt <= startedAt
-          ? localDateTimeToInstant(addDays(date, 1), end, tz)
-          : endedAt;
-
+      const { startedAt, endedAt } = draftInstants(draft, tz);
       const body = {
         taskName: draft.taskName.trim(),
         projectId: draft.projectId,
         startedAt: startedAt.toISOString(),
-        endedAt: ended.toISOString(),
+        endedAt: endedAt.toISOString(),
         isBillable: draft.billable,
       };
 
@@ -226,13 +215,10 @@ export function EntryDialog({
     if (!existing) return null;
     const { date, start, end } = draft;
     if (!date || !start || !end) return null;
-    const startedAt = localDateTimeToInstant(date, start, tz);
-    const endedAt = localDateTimeToInstant(date, end, tz);
-    /* An overnight entry is the dialog's existing rule — the end rolls
-       forward a day on save — and the strip spans one day, so it cannot draw
-       one. It hides instead of drawing something false; the fields keep the
-       truth and the description already explains the rule. */
-    if (endedAt <= startedAt) return null;
+    const { startedAt, endedAt, overnight } = draftInstants(draft, tz);
+    /* The strip spans one day, so it cannot draw an overnight entry. It hides
+       instead of drawing something false. */
+    if (overnight) return null;
     const dayStart = startOfLocalDay(startedAt, tz);
     return {
       startedAt,
@@ -488,6 +474,22 @@ export function EntryDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * The draft's times as instants. An end "before" the start is almost always
+ * an overnight shift — 22:00 to 02:00 — not a typo, so the end rolls forward
+ * a day: that is what the user meant, and the server would otherwise reject
+ * it.
+ */
+function draftInstants({ date, start, end }: Draft, tz: string) {
+  const startedAt = localDateTimeToInstant(date, start, tz);
+  const sameDay = localDateTimeToInstant(date, end, tz);
+  const overnight = sameDay <= startedAt;
+  const endedAt = overnight
+    ? localDateTimeToInstant(addDays(date, 1), end, tz)
+    : sameDay;
+  return { startedAt, endedAt, overnight };
 }
 
 /** `14:05` on a wall clock in `tz`. The date half is `localDateKey`. */
