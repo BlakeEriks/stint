@@ -60,13 +60,8 @@ export function useTheme() {
   // a hydration mismatch; the effect below corrects it after mount.
   const [theme, setThemeState] = useState<Theme>('dark');
 
-  useEffect(() => {
-    const initial = stored();
-    setThemeState(initial);
-    applyTheme(initial);
-  }, []);
+  useEffect(() => setThemeState(stored()), []);
 
-  // While System is chosen, an OS switch (at sunset, say) repaints the app.
   useEffect(() => {
     if (theme !== 'system') return;
     const os = window.matchMedia(OS_LIGHT);

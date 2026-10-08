@@ -54,9 +54,7 @@ describe('useTheme', () => {
 
   it('restores a stored System choice on mount', () => {
     localStorage.setItem('stint.theme', 'system');
-    osLight = true;
     const { result } = renderHook(() => useTheme());
     expect(result.current.theme).toBe('system');
-    expect(stamped()).toBe('light');
   });
 });

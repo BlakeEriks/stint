@@ -43,7 +43,17 @@ export const Desktop: Story = {
   },
 };
 export const Phone: Story = { ...phone };
-export const Light: Story = { ...light };
+/** The form's theme hook must not restamp the toolbar's light theme. */
+export const Light: Story = {
+  ...light,
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole('combobox', { name: 'Theme' });
+    await expect(canvasElement.ownerDocument.documentElement).toHaveAttribute(
+      'data-theme',
+      'light',
+    );
+  },
+};
 
 /** No payment details: invoices render without a payment block. */
 export const NoPaymentProfiles: Story = {
