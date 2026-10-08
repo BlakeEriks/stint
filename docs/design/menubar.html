@@ -265,7 +265,9 @@
   <p class="standfirst" style="color:var(--text-primary);">
     <strong style="font-weight:500;">This is the spec.</strong>
     The panel is <strong style="font-weight:500;">320pt wide</strong>;
-    heights follow content — running ≈ 428, stopped ≈ 425.
+    the timer's height follows its content — running ≈ 428, stopped ≈ 425 —
+    and Settings takes the timer's height, so opening it never resizes the
+    panel.
     A <code>MenuBarExtra</code> in <code>.menuBarExtraStyle(.window)</code>,
     which is a plain panel hanging from the bar — there is no arrow here.
   </p>
@@ -470,7 +472,7 @@
 
     <div class="states">
       <div class="state">
-        <div class="pop">
+        <div class="pop" style="height:428px;">
           <div class="head">
             <span class="row" style="gap:8px;">
               <button class="icon" aria-label="Back">&larr;</button>
@@ -507,6 +509,11 @@
             Settings window needs a Dock icon to be recoverable — which
             <code>LSUIElement</code> exists to avoid. A pushed view needs
             neither.</li>
+          <li><strong>The timer's height, whatever Settings holds.</strong>
+            Settings draws over the timer, which stays laid out beneath it,
+            so the panel hanging from the bar never changes height and never
+            jumps. Below its last row is the panel's background. A row that
+            would outgrow the timer's shortest state makes Settings scroll.</li>
           <li><strong>The header swaps to a back affordance.</strong> One way
             in, one way out. Escape also returns.</li>
           <li><strong>Reopening the panel returns to the timer</strong>, never
