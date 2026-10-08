@@ -20,13 +20,15 @@ let stalls = 0;
 const settled = new Set<() => void>();
 function track(delta: number) {
   inFlight += delta;
-  if (inFlight <= stalls) for (const done of settled) done();
+  if (inFlight > stalls) return;
+  for (const done of settled) done();
+  settled.clear();
 }
 const idle = () =>
   new Promise<void>((done) => {
-    if (inFlight <= stalls) return done();
-    settled.add(done);
-  }).then(() => settled.clear());
+    if (inFlight <= stalls) done();
+    else settled.add(done);
+  });
 const frame = () => new Promise((done) => requestAnimationFrame(done));
 /* A region reads `aria-busy` from a debounced change until its answer lands,
    so it is busy before its request starts. A story that stalls a request
@@ -34,13 +36,35 @@ const frame = () => new Promise((done) => requestAnimationFrame(done));
 const busy = () =>
   stalls === 0 && document.querySelector('[aria-busy="true"]') !== null;
 /* Twice: a response often starts the request that depends on it. */
-async function settle() {
+async function quiet() {
   for (let i = 0; i < 2; i++) {
     await idle();
     while (busy()) await frame();
     await idle();
     await frame();
     await frame();
+  }
+}
+/* Well inside the test's 15s, so a screen that never settles fails its own
+   story saying why. A test that times out instead leaves its screen mounted,
+   and every story after it fails on what it left behind. */
+const SETTLE_LIMIT_MS = 5000;
+async function settle() {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const limit = new Promise<never>((_, fail) => {
+    timer = setTimeout(() => {
+      const region = busy() ? ', a region still aria-busy' : '';
+      fail(
+        new Error(
+          `Not settled after ${SETTLE_LIMIT_MS}ms: ${inFlight} requests in flight, ${stalls} stalled on purpose${region}`,
+        ),
+      );
+    }, SETTLE_LIMIT_MS);
+  });
+  try {
+    await Promise.race([quiet(), limit]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
