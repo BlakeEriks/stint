@@ -3036,3 +3036,62 @@ Me,me@x,Acme,Site,,Design,Yes,2026-03-10,16:00:00,2026-03-10,17:00:00,01:00:00,,
   assert.equal(res.status, 200);
   assert.equal(res.body.summary.overlappingCount, 1);
 });
+
+// ── health, and errors reaching Sentry ─────────────────────────────
+/** A database client whose every query answers with `error`. */
+const failingDb = (error: { code?: string; message: string }) => ({
+  from: () => ({
+    select: () => ({ limit: async () => ({ data: null, error }) }),
+  }),
+});
+
+test('health answers 200 while the database answers', async () => {
+  const { GET } = await import('../src/app/api/v1/health/route.ts');
+  const res = await json(await GET());
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { ok: true });
+});
+
+test('health answers 200 when Postgres refuses anon, which is Postgres answering', async () => {
+  const { GET } = await import('../src/app/api/v1/health/route.ts');
+  (globalThis as any).__TEST_DB__ = failingDb({
+    code: '42501',
+    message: 'permission denied for table clients',
+  });
+  const res = await json(await GET());
+  assert.equal(res.status, 200);
+});
+
+test('health answers 503 when the database does not, so the monitor alerts', async () => {
+  const { GET } = await import('../src/app/api/v1/health/route.ts');
+  (globalThis as any).__TEST_DB__ = failingDb({
+    code: 'PGRST000',
+    message: 'Could not connect',
+  });
+  const res = await json(await GET());
+  assert.equal(res.status, 503);
+  assert.deepEqual(res.body, { ok: false });
+});
+
+test('an unhandled route error reaches Sentry, not only the log', async () => {
+  const Sentry = await import('@sentry/nextjs');
+  const { close } = await import('@sentry/core');
+  const sent: string[] = [];
+  Sentry.init({
+    dsn: 'https://key@o0.ingest.sentry.io/0',
+    beforeSend(event) {
+      sent.push(event.exception?.values?.[0]?.value ?? '');
+      return null;
+    },
+  });
+  const { GET } = await import('../src/app/api/v1/clients/route.ts');
+  (globalThis as any).__TEST_DB__ = {
+    from() {
+      throw new Error('unexpected');
+    },
+  };
+  const res = await GET(req('/clients'));
+  await close(1000);
+  assert.equal(res.status, 500);
+  assert.deepEqual(sent, ['unexpected']);
+});

@@ -9,6 +9,18 @@ function env(name: string): string {
 }
 
 /**
+ * The client the route tests inject in place of every one below: a
+ * supabase-js-shaped builder over a real Postgres, so the handlers that run
+ * are the ones that ship.
+ */
+export function testDb(): SupabaseClient | null {
+  return (
+    ((globalThis as { __TEST_DB__?: unknown }).__TEST_DB__ as SupabaseClient) ??
+    null
+  );
+}
+
+/**
  * Request-scoped client for browser callers (cookie session).
  * RLS applies, so every query is already scoped to the signed-in user.
  */
@@ -46,5 +58,14 @@ export function bearerClient(token: string): SupabaseClient {
       global: { headers: { Authorization: `Bearer ${token}` } },
       auth: { persistSession: false, autoRefreshToken: false },
     },
+  );
+}
+
+/** Client for a caller with no session; RLS lets it read no rows. */
+export function anonClient(): SupabaseClient {
+  return createClient(
+    env('NEXT_PUBLIC_SUPABASE_URL'),
+    env('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
+    { auth: { persistSession: false, autoRefreshToken: false } },
   );
 }
