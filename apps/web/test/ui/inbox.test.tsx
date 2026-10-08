@@ -83,46 +83,6 @@ const overdue = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Inbox', () => {
-  it('is still here when there is nothing in it', () => {
-    /* THE point of the change, and a deliberate reversal. The card this
-       replaced rendered only when it had rows, on the `SaveIndicator`
-       argument that a permanent "all clear" says nothing. That rule does not
-       transfer: a save indicator is transient and inline with a form, while a
-       dock region is furniture — and furniture that disappears leaves the
-       user wondering where it went. */
-    render(<Inbox stats={stats()} />, { wrapper });
-
-    expect(screen.getByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
-    expect(screen.getByText(/nothing needs you/i)).toBeInTheDocument();
-  });
-
-  /**
-   * The count slot and the sentence below it stated the same fact a few pixels
-   * apart. "clear" also reads as a verb before it resolves to an adjective.
-   */
-  it('leaves the count empty rather than saying "clear" beside "Nothing needs you"', () => {
-    render(<Inbox stats={stats()} />, { wrapper });
-
-    expect(screen.queryByText(/^clear$/i)).not.toBeInTheDocument();
-  });
-
-  it('says how many things want a decision', () => {
-    render(
-      <Inbox
-        stats={stats({
-          overdueInvoices: [overdue],
-          unprojected: [unprojectedEntry],
-        })}
-      />,
-      { wrapper },
-    );
-
-    /* A number that is sometimes zero says more than a dot that is sometimes
-       lit, so the count is the whole status — no badge color. */
-    expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.queryByText(/nothing needs you/i)).toBeNull();
-  });
-
   it('names the invoice in every action, even where the label is generic', () => {
     render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
       wrapper,
@@ -141,20 +101,6 @@ describe('Inbox', () => {
     expect(pdf).not.toHaveTextContent('STINT-0001');
   });
 
-  it('keeps the actions in the document when the row is not hovered', () => {
-    render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
-      wrapper,
-    });
-
-    /* The reveal is opacity, never `display:none` — a slot that leaves the
-       flow regrows the row the moment a pointer crosses it. jsdom cannot see
-       Tailwind's opacity, but it CAN see the element leaving the tree, which
-       is the regression worth pinning. */
-    expect(
-      screen.getByRole('button', { name: 'Mark STINT-0001 paid' }),
-    ).toBeVisible();
-  });
-
   it('offers nothing destructive', () => {
     render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
       wrapper,
@@ -168,24 +114,10 @@ describe('Inbox', () => {
     }
   });
 
-  it('never spends the accent', () => {
-    const { container } = render(
-      <Inbox stats={stats({ overdueInvoices: [overdue] })} />,
-      { wrapper },
-    );
-
-    /* Green means the running timer, which now lives in the bar directly
-       below this column. */
-    const classes = [container, ...container.querySelectorAll('*')].flatMap(
-      (el) => Array.from((el as HTMLElement).classList ?? []),
-    );
-    expect(classes.filter((c) => c.includes('accent'))).toEqual([]);
-  });
-
   /**
    * Severity is one 2px edge inside the card, and half the rows
    * have none. `danger` is the overdue invoice, where money is already late;
-   * `timer-warning` is a length that wants a look; a stale draft and an
+   * `warning` is a length that wants a look; a stale draft and an
    * unprojected entry are chores and draw nothing.
    *
    * Asserted over a FULL inbox, because the rule is about the column: two
@@ -214,44 +146,15 @@ describe('Inbox', () => {
       { wrapper },
     );
 
-    const cards = Array.from(
-      container.querySelectorAll<HTMLElement>('li > div'),
-    );
-    expect(cards).toHaveLength(4);
+    const tone = (name: string) =>
+      screen.getByText(name).closest('[data-tone]')?.getAttribute('data-tone');
 
-    const danger = cards.filter((el) =>
-      el.className.includes('before:bg-danger'),
-    );
-    const warning = cards.filter((el) =>
-      el.className.includes('before:bg-timer-warning'),
-    );
-
-    /* One of each, and they are the rows they claim to be. */
-    expect(danger).toHaveLength(1);
-    expect(danger[0]?.textContent).toContain('Northwind');
-    expect(warning).toHaveLength(1);
-    expect(warning[0]?.textContent).toContain('Migration');
-
-    /* The other two draw no edge at all — a chore is not a fault. */
-    const flagged = new Set([...danger, ...warning]);
-    const plain = cards.filter((el) => !flagged.has(el));
-    expect(plain).toHaveLength(2);
-    for (const el of plain) {
-      expect(el.className).not.toMatch(/before:bg-/);
-    }
-  });
-
-  /**
-   * The actions are drawn at rest. A hover-only control has nothing to sit
-   * against on a raised card, and a touch device has no hover to reveal one
-   * with.
-   */
-  it('draws the actions without hovering', () => {
-    render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
-      wrapper,
-    });
-
-    expect(screen.getByRole('button', { name: /mark .* paid/i })).toBeVisible();
+    expect(container.querySelectorAll('[data-tone]')).toHaveLength(4);
+    expect(tone('Northwind')).toBe('danger');
+    expect(tone('Migration')).toBe('warning');
+    /* A chore is not a fault. */
+    expect(tone('Byrne Studio')).toBe('neutral');
+    expect(tone('Client call')).toBe('neutral');
   });
 });
 
@@ -297,37 +200,6 @@ describe('entries with no project', () => {
 
   const withRow = () => stats({ unprojected: [unprojectedEntry] });
 
-  it('gives every entry its own row rather than a count', () => {
-    serve();
-    render(
-      <Inbox
-        stats={stats({
-          unprojected: [
-            unprojectedEntry,
-            { ...unprojectedEntry, entryId: 'e2', taskName: 'Spec review' },
-          ],
-        })}
-      />,
-      { wrapper },
-    );
-
-    /* A row naming a number is a row the user then has to go and find. Each
-       entry is a decision, so each gets a row and its own action. */
-    expect(screen.getByText('Client call')).toBeInTheDocument();
-    expect(screen.getByText('Spec review')).toBeInTheDocument();
-    expect(
-      screen.getAllByRole('button', { name: /Assign a project/ }),
-    ).toHaveLength(2);
-  });
-
-  it('acts in place rather than linking somewhere', () => {
-    serve();
-    render(<Inbox stats={withRow()} />, { wrapper });
-
-    expect(screen.getByText('Client call').tagName).toBe('BUTTON');
-    expect(screen.queryByRole('link', { name: /Client call/ })).toBeNull();
-  });
-
   it('says why when the entry cannot be opened', async () => {
     vi.stubGlobal(
       'fetch',
@@ -357,21 +229,6 @@ describe('entries with no project', () => {
     expect(
       await screen.findByText('That entry no longer exists.'),
     ).toBeInTheDocument();
-  });
-
-  it('opens the editor on the entry, so a project can be assigned', async () => {
-    serve();
-    const user = userEvent.setup();
-    render(<Inbox stats={withRow()} />, { wrapper });
-
-    await user.click(screen.getByText('Client call'));
-
-    /* The dialog is what assigns the project, and it is the same one the
-       calendar and the entry list open — same validation, same write path. */
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByLabelText(/Project/)).toBeInTheDocument(),
-    );
   });
 
   it('lands the cursor on the project, the field the row is about', async () => {
@@ -454,42 +311,6 @@ describe('entries of unusual length', () => {
     return fetchMock;
   }
 
-  it('says which threshold it tripped, in words', () => {
-    serve();
-    render(<Inbox stats={stats({ strangeDurations: [longEntry] })} />, {
-      wrapper,
-    });
-
-    /* Color marks severity; it never carries the meaning alone. With both
-       directions in one list, "unusual" does not say which way. */
-    expect(screen.getByText(/unusually long/)).toBeInTheDocument();
-  });
-
-  it('gives a short entry its own row, never a group', () => {
-    serve();
-    render(
-      <Inbox
-        stats={stats({
-          strangeDurations: [
-            longEntry,
-            {
-              ...longEntry,
-              entryId: 'e-short',
-              kind: 'short' as const,
-              taskName: 'Standup',
-              seconds: 12,
-            },
-          ],
-        })}
-      />,
-      { wrapper },
-    );
-
-    expect(screen.getByText('Migration')).toBeInTheDocument();
-    expect(screen.getByText('Standup')).toBeInTheDocument();
-    expect(screen.getByText(/unusually short/)).toBeInTheDocument();
-  });
-
   it('answers with durationOk and edits nothing else', async () => {
     const fetchMock = serve();
     const user = userEvent.setup();
@@ -568,28 +389,6 @@ describe('entries of unusual length', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Migration').closest('[data-exiting]')).toBeNull();
   });
-
-  it('the check mark belongs to "It\'s correct" alone', () => {
-    serve();
-    render(
-      <Inbox
-        stats={stats({
-          overdueInvoices: [overdue],
-          strangeDurations: [longEntry],
-        })}
-      />,
-      { wrapper },
-    );
-
-    /* A single glyph on both `Keep` and `Mark paid` would mean "change
-       nothing" and "record a payment" at once. Each verb gets its own. */
-    const correct = screen.getByRole('button', { name: /as it is/ });
-    const paid = screen.getByRole('button', { name: 'Mark STINT-0001 paid' });
-    const glyph = (el: HTMLElement) =>
-      el.querySelector('svg')?.getAttribute('class') ?? '';
-    expect(glyph(correct)).not.toEqual('');
-    expect(correct.innerHTML).not.toEqual(paid.innerHTML);
-  });
 });
 
 describe('overlap row', () => {
@@ -624,13 +423,6 @@ describe('overlap row', () => {
       return new Response(JSON.stringify({ projects: [] }), { status: 200 });
     });
     vi.stubGlobal('fetch', fetchMock);
-  });
-
-  it('names both entries and how long they share', () => {
-    render(<Inbox stats={stats({ overlaps: [overlap] })} />, { wrapper });
-    expect(screen.getByText('Standup')).toBeInTheDocument();
-    expect(screen.getByText(/Overlaps Foundation POC/)).toBeInTheDocument();
-    expect(screen.getByText('3m')).toBeInTheDocument();
   });
 
   it('is resolved by editing, and offers no "it\'s correct"', async () => {

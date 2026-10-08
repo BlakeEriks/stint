@@ -46,7 +46,7 @@
 | II. Logic written twice has a parity test | | |
 | III. Every client through `/api/v1`; server owns timer truth | | |
 | IV. `packages/core` does no I/O | | |
-| V. Tests first, one suite per kind of code | | |
+| V. Tests first where a regression is silent, in one suite per kind of code | | |
 
 Also check the design against the constitution's Additional Constraints. A
 principle the design must break goes in Complexity Tracking.

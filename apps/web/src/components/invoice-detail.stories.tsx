@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, within } from 'storybook/test';
+import { expect, userEvent, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { id } from '@/mocks/fixtures';
-import { desktop, phone, screen } from '@/mocks/screen';
+import { desktop, phone, screen, stalled } from '@/mocks/screen';
 import { InvoiceDetail } from './invoice-detail';
 
 /* Each status offers its own actions: a draft is deleted or sent, an issued
@@ -19,13 +19,96 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Draft: Story = { ...desktop };
+/** Lines and total as frozen at generation; no supporting detail named. */
+export const Draft: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText('Type scale for the brand site'),
+    ).toBeVisible();
+    await expect(page.getByText('Total').nextElementSibling).toHaveTextContent(
+      '$2,787.60',
+    );
+    await expect(page.queryByText(/Supporting detail/)).toBeNull();
+  },
+};
 export const DraftPhone: Story = { ...phone };
 export const Sent: Story = { ...desktop, args: { id: invoice(14) } };
 export const Overdue: Story = { ...desktop, args: { id: invoice(13) } };
 export const Paid: Story = { ...desktop, args: { id: invoice(12) } };
-export const Void: Story = { ...desktop, args: { id: invoice(9) } };
+/** Voiding keeps the number and releases the entries. */
+export const Void: Story = {
+  ...desktop,
+  args: { id: invoice(9) },
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText(/numbering is gapless/),
+    ).toBeVisible();
+  },
+};
 export const Missing: Story = { ...desktop, args: { id: invoice(99) } };
+
+/** The first press of a destructive pair only asks; the second names it. */
+const press =
+  (first: string, then?: string) =>
+  async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const page = within(canvasElement);
+    await userEvent.click(await page.findByRole('button', { name: first }));
+    if (then) await userEvent.click(page.getByRole('button', { name: then }));
+  };
+
+export const ConfirmDelete: Story = {
+  ...desktop,
+  play: async (ctx) => {
+    await press('Delete draft')(ctx);
+    await expect(
+      within(ctx.canvasElement).getByRole('button', {
+        name: 'Delete STINT-0015 for good',
+      }),
+    ).toBeVisible();
+  },
+};
+
+export const Deleting: Story = {
+  ...desktop,
+  parameters: stalled('deleteInvoice'),
+  play: async (ctx) => {
+    await press('Delete draft', 'Delete STINT-0015 for good')(ctx);
+    await expect(
+      await within(ctx.canvasElement).findByRole('button', {
+        name: 'Deleting…',
+      }),
+    ).toBeDisabled();
+  },
+};
+
+export const ConfirmVoid: Story = {
+  ...desktop,
+  args: { id: invoice(14) },
+  play: async (ctx) => {
+    await press('Void')(ctx);
+    await expect(
+      within(ctx.canvasElement).getByRole('button', {
+        name: 'Void STINT-0014',
+      }),
+    ).toBeVisible();
+  },
+};
+
+export const Voiding: Story = {
+  ...desktop,
+  args: { id: invoice(14) },
+  parameters: stalled('updateInvoiceStatus'),
+  play: async (ctx) => {
+    await press('Void', 'Void STINT-0014')(ctx);
+    await expect(
+      await within(ctx.canvasElement).findByRole('button', {
+        name: 'Voiding…',
+      }),
+    ).toBeDisabled();
+  },
+};
 
 /** A fixed charge prints as 1 x its amount, so its row checks like the rest. */
 export const WithCharge: Story = {
@@ -55,6 +138,21 @@ export const WithExpenses: Story = {
     const page = within(canvasElement);
     await expect(await page.findByText('Stock photography')).toBeVisible();
     await expect(page.getAllByText('Expenses').length).toBeGreaterThan(0);
+  },
+};
+
+/** The reference it was issued with, under the client. */
+export const WithReference: Story = {
+  ...desktop,
+  args: { id: invoice(14) },
+  parameters: account((db) => {
+    const sent = db.invoices.find((i) => i.id === invoice(14));
+    if (sent) sent.reference = 'PO 4471';
+  }),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText('Reference PO 4471'),
+    ).toBeVisible();
   },
 };
 

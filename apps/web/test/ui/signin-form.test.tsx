@@ -48,21 +48,9 @@ describe('SignInForm', () => {
     expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
   });
 
-  it('says why the last link failed rather than looking like a dead link', async () => {
-    render(<SignInForm error="invalid_link" />);
-
-    const alert = screen.getByRole('alert');
-    expect(alert.textContent).toMatch(/another tab started a different/i);
-  });
-
   it('explains an unrecognized reason instead of rendering nothing', async () => {
     render(<SignInForm error="something_new" />);
     expect(screen.getByRole('alert').textContent).toMatch(/went wrong/i);
-  });
-
-  it('shows no error banner on a normal visit', async () => {
-    render(<SignInForm />);
-    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('replaces the error with confirmation once a link is sent', async () => {

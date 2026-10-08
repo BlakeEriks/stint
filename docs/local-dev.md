@@ -12,7 +12,8 @@ Verified end to end: seeded, signed in through the real magic-link flow, and
 
 Install a container runtime. Docker Desktop works; so do OrbStack, colima,
 Podman, and Rancher Desktop. `pnpm hygiene` and `/copyedit` also need Vale:
-`brew install vale`. A whole-repo `pnpm hygiene` also needs a signed-in `gh`. `/work-issues` reviews with an official plugin:
+`brew install vale`. A whole-repo `pnpm hygiene` also needs a signed-in `gh`. `/standards-review`, which `/work-issues` and `/speckit-implement` both run,
+reviews with an official plugin:
 `claude plugin install pr-review-toolkit@claude-plugins-official --scope project`.
 
 Then write `apps/web/.env.development.local`:
@@ -364,8 +365,11 @@ the real components against `src/mocks/`, an in-memory `/api/v1` built from
 one account and parsed by `@stint/schema`, at a pinned instant
 (`src/mocks/time.mts`). A story picks its account with
 `parameters: account('running')` (or `'empty'`, or a function
-that edits the seeded account) and breaks one endpoint with
-`failing('stats')`. A response that fails its schema, an unhandled API
+that edits the seeded account), breaks one endpoint with
+`failing('stats')`, or leaves one unanswered with `stalled('deleteInvoice')`
+to show a press still pending. `stalled` sets `parameters.stalls`, so the
+story is judged with that many requests still open instead of waiting on
+them. A response that fails its schema, an unhandled API
 request or a handler that throws fails the story. On a browser's
 first visit MSW's service worker installs after the page has loaded, so reload
 once.

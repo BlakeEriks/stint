@@ -13,19 +13,29 @@ import { NOW } from '@/mocks/time.mts';
 import '@/styles/globals.css';
 
 /* Requests in flight, so a story is judged once its screen has loaded and
-   not while it still reads "Loading…". */
+   not while it still reads "Loading…". `stalls` is how many a story leaves
+   unanswered on purpose (`stalled()` in `src/mocks/screen.tsx`). */
 let inFlight = 0;
+let stalls = 0;
 const settled = new Set<() => void>();
 function track(delta: number) {
   inFlight += delta;
-  if (inFlight === 0) for (const done of settled) done();
+  if (inFlight <= stalls) for (const done of settled) done();
 }
 const idle = () =>
   new Promise<void>((done) => {
-    if (inFlight === 0) return done();
+    if (inFlight <= stalls) return done();
     settled.add(done);
   }).then(() => settled.clear());
 const frame = () => new Promise((done) => requestAnimationFrame(done));
+/* Twice: a response often starts the request that depends on it. */
+async function settle() {
+  for (let i = 0; i < 2; i++) {
+    await idle();
+    await frame();
+    await frame();
+  }
+}
 
 const preview: Preview = {
   /* Components read the server from MSW: `src/mocks/handlers.ts` answers all
@@ -53,12 +63,16 @@ const preview: Preview = {
       });
       return worker;
     }),
+    // A play awaits `loaded.settle()` where a loading render reads like the
+    // empty one, so it judges the answer and not the wait.
+    async () => ({ settle }),
   ],
   /* Every story starts from the same account at the same instant: the clock
      is pinned, the fake account rebuilt, and the stores that outlive a
      render emptied. `parameters.now` and `parameters.db` choose otherwise. */
   beforeEach: ({ parameters }) => {
     inFlight = 0;
+    stalls = (parameters.stalls as number | undefined) ?? 0;
     problems.length = 0;
     const now = new Date(parameters.now ?? NOW);
     MockDate.set(now);
@@ -68,12 +82,7 @@ const preview: Preview = {
     return () => MockDate.reset();
   },
   afterEach: async () => {
-    // Twice: a response often starts the request that depends on it.
-    for (let i = 0; i < 2; i++) {
-      await idle();
-      await frame();
-      await frame();
-    }
+    await settle();
     /* The fake server answers a problem with a 500, which a screen draws as
        its error state and would pass. The story fails instead. */
     if (problems.length) throw new Error(problems.join('\n'));

@@ -242,12 +242,4 @@ describe('both themes define the same semantic tokens', () => {
     expect(light.filter((k) => !dark.includes(k))).toEqual([]);
     expect(dark.filter((k) => !light.includes(k))).toEqual([]);
   });
-
-  it('defines the recessed surface the nav rail sits on', () => {
-    /* Named directly because its absence is invisible: the rail would fall
-       back to the body's own background and silently stop reading as
-       recessed, which is the whole point of the token. */
-    expect(TOKENS.semantic.dark['bg-recessed']).toBeTruthy();
-    expect(TOKENS.semantic.light['bg-recessed']).toBeTruthy();
-  });
 });

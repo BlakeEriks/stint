@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { userEvent, within } from 'storybook/test';
+import { expect, userEvent, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import {
   at,
@@ -22,8 +22,19 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Open by default: drafts and sent. Outstanding counts sent only, and only
-    a sent row can be marked paid. */
-export const Desktop: Story = { ...desktop };
+    a sent row can be marked paid. Nothing destructive: voiding stays on the
+    invoice itself, where the whole document is in view. */
+export const Desktop: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findAllByRole('button', { name: /paid/i });
+    for (const forbidden of [/void/i, /delete/i])
+      await expect(
+        page.queryAllByRole('button', { name: forbidden }),
+      ).toHaveLength(0);
+  },
+};
 export const Phone: Story = { ...phone };
 export const Light: Story = { ...light };
 
@@ -44,6 +55,11 @@ export const NothingOpen: Story = {
     for (const i of db.invoices)
       if (i.status === 'sent' || i.status === 'draft') i.status = 'paid';
   }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(await page.findByText(/Nothing open/)).toBeVisible();
+    await expect(page.queryByText(/No invoices yet/)).toBeNull();
+  },
 };
 export const Empty: Story = { ...desktop, parameters: account('empty') };
 export const Failed: Story = { ...desktop, parameters: failing('invoices') };
