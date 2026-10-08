@@ -156,7 +156,8 @@ oldest first; `strangeDurations` one per stopped entry of implausible length.
 The long threshold defaults to 12 hours, which is how a timer left running
 overnight reaches the inbox; the short one defaults to null. `overlaps` is one
 per pair of entries sharing a minute or more (`MIN_OVERLAP_SECONDS` in
-`@stint/core`) where at least one is unbilled. It names the unbilled entry,
+`@stint/core`) where at least one is unbilled, except non-billable work
+against billed time, which bills nothing twice. It names the unbilled entry,
 the later-starting one when both are, and `otherInvoiceNumber` when the other
 is on an invoice; it clears when either is edited apart.
 

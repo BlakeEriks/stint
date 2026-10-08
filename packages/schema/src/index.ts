@@ -837,7 +837,8 @@ export const Stats = z.object({
       }),
     ),
     /**
-     * Pairs of entries sharing a minute or more, at least one unbilled.
+     * Pairs of entries sharing a minute or more, at least one unbilled —
+     * except non-billable work against billed time, which bills nothing twice.
      * `entryId` is unbilled; `otherInvoiceNumber` names the invoice holding
      * the other, if one does. Derived per request, so editing either entry
      * clears the row.
