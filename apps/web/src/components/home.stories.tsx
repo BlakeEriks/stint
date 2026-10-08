@@ -52,7 +52,7 @@ export const Phone: Story = {
   ...phone,
   play: async ({ canvasElement }) => {
     const week = await within(canvasElement).findByRole('img', {
-      name: /This week|MON/,
+      name: /FRI not yet worked/,
     });
     for (const selector of ['[data-hours]', '[data-money]']) {
       // The text's own box: a label's element is its column's width, and the
