@@ -75,7 +75,7 @@ export function handle<T extends unknown[]>(
       }
       /* A same-owner key fails as a missing reference: the caller named a
          record that is not theirs, or not there. */
-      if (isForeignKeyViolation(err)) {
+      if (isSameOwnerViolation(err as { message?: string })) {
         return errorResponse(
           'VALIDATION_FAILED',
           'This refers to a record that does not exist',
@@ -99,9 +99,13 @@ export const PG = {
   NOT_FOUND: 'PGRST116',
 } as const;
 
-/** A foreign key, a same-owner one included, found nothing to point at. */
-export function isForeignKeyViolation(err: unknown): boolean {
-  return (err as { code?: string } | null)?.code === PG.FOREIGN_KEY_VIOLATION;
+export function isSameOwnerViolation(
+  err: { code?: string; message?: string } | null,
+): boolean {
+  return (
+    err?.code === PG.FOREIGN_KEY_VIOLATION &&
+    /_same_owner\b/.test(err.message ?? '')
+  );
 }
 
 /** The partial unique index that enforces one running timer per user. */

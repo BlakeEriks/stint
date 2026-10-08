@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ApiError, isBilledLock, isForeignKeyViolation } from './errors';
+import { ApiError, isBilledLock, isSameOwnerViolation } from './errors';
 import { toExpense, type ExpenseRow, type InvoiceRow } from './rows';
 
 type InvoiceRef = Pick<InvoiceRow, 'id' | 'invoice_number' | 'status'>;
@@ -42,7 +42,7 @@ export function expenseWriteError(
     );
   }
   // A client that is not the caller's fails the same-owner key.
-  if (isForeignKeyViolation(error)) {
+  if (isSameOwnerViolation(error)) {
     return new ApiError('VALIDATION_FAILED', 'No such client', {
       constraint: error.message,
     });
