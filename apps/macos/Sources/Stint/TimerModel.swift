@@ -13,15 +13,12 @@ final class TimerModel: Optimistic {
     /// showing a zero that would read as "earned nothing".
     private(set) var stats: Stats?
     /// Today's entries, one row per task, the rollup the web's Today list
-    /// makes. The running task's row counts on from the fetch, as Today's
-    /// total does.
+    /// makes. The running entry counts as the readout does.
     var today: [TodayTask] {
-        let sinceFetch = max(0, Int(now.timeIntervalSince(todayFetchedAt)))
         var tasks: [TodayTask] = []
         for entry in todayEntries {
             let name = entry.taskName
-            var seconds = entry.durationSeconds ?? 0
-            if entry.id == running?.id { seconds += sinceFetch }
+            let seconds = entry.id == running?.id ? elapsedSeconds : entry.durationSeconds ?? 0
             if let i = tasks.firstIndex(where: { $0.taskName == name && $0.projectId == entry.projectId }) {
                 tasks[i].seconds += seconds
             } else {
@@ -31,7 +28,6 @@ final class TimerModel: Optimistic {
         return tasks
     }
     private var todayEntries: [TimeEntry] = []
-    private var todayFetchedAt = Date()
 
     /// The last five names worked on, newest first, less those already in
     /// Today. The running one is the readout, not a row, and is dropped here
@@ -51,7 +47,7 @@ final class TimerModel: Optimistic {
     /// Why a preview build's launch sign-in failed; shown on the sign-in panel.
     private(set) var previewSignInError: String?
     /// Ticks once a second so the readout redraws.
-    var now = Date()
+    private(set) var now = Date()
 
     var draftTaskName = ""
     var draftProjectID: String?
@@ -251,7 +247,6 @@ final class TimerModel: Optimistic {
             let day = Calendar.current.dateInterval(of: .day, for: fetchedAt)!
             if let fetched = try? await api.entries(from: day.start, to: day.end.addingTimeInterval(-0.001)) {
                 todayEntries = fetched
-                todayFetchedAt = Date()
             }
             // The route's most, so dropping the names in Today still leaves
             // five on most days.
@@ -372,15 +367,12 @@ final class TimerModel: Optimistic {
     private func show(running: TimeEntry?) -> () -> Void {
         let before = summary
         let beforeEntries = todayEntries
-        let beforeFetchedAt = todayFetchedAt
-        let sinceFetch = max(0, Int(now.timeIntervalSince(todayFetchedAt)))
         todayEntries = todayEntries.map { entry in
             guard entry.id == self.running?.id else { return entry }
             var frozen = entry
-            frozen.durationSeconds = (entry.durationSeconds ?? 0) + sinceFetch
+            frozen.durationSeconds = elapsedSeconds
             return frozen
         }
-        todayFetchedAt = now
         predictions += 1
         summary = Summary(
             running: running,
@@ -391,7 +383,6 @@ final class TimerModel: Optimistic {
         return {
             self.summary = before
             self.todayEntries = beforeEntries
-            self.todayFetchedAt = beforeFetchedAt
         }
     }
 

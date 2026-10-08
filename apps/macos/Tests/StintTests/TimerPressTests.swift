@@ -71,16 +71,19 @@ struct TimerPressTests {
     }
 
     @Test func aStopKeepsTheTodayRowItCountedTo() async throws {
-        await FakeServer.shared.setRunning(entry("Design"))
+        // Started 720s ago; `/entries` measured it at 600.
+        var design = entry("Design")
+        design.startedAt = Date().addingTimeInterval(-720)
+        await FakeServer.shared.setRunning(design)
         let model = try await signedInModel()
-        model.now = Date().addingTimeInterval(120)
-        #expect(model.today.first?.seconds == 720)
+        let live = try #require(model.today.first?.seconds)
+        #expect(live > 600)
 
         await FakeServer.shared.hold("POST /timer/stop")
         let stop = Task { await model.toggle() }
         await Task.yield()
         #expect(model.running == nil)
-        #expect(model.today.first?.seconds == 720)
+        #expect(model.today.first?.seconds == live)
 
         await FakeServer.shared.release("POST /timer/stop")
         await stop.value
