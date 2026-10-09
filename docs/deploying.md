@@ -282,10 +282,10 @@ What each new alert asks of you:
 - **New error.** Read the stack trace, then fix it or open a `bug`. Sentry
   alerts on a new issue only, never on each occurrence.
 
-**UptimeRobot** polls `https://app.runstint.com/api/v1/health` and
-`https://runstint.com` every 5 minutes. The health route asks Postgres for a
-row, so it fails when the database does, not only when Vercel does. Each
-monitor alerts after two failures in a row, and posts the recovery.
+**UptimeRobot** polls `https://app.runstint.com/api/v1/health` every 5
+minutes. The health route asks Postgres for a row, so it fails when the
+database does, not only when Vercel does. The monitor alerts after two
+failures in a row, and posts the recovery.
 
 **Sentry** is the `SENTRY_DSN` (§2), from a Next.js project on the free
 plan, with one alert rule: a new issue posts to Discord.
