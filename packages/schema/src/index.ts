@@ -368,7 +368,7 @@ export const ComputedLineItem = InvoiceLineItem.extend({
     'none',
     'manual',
   ]),
-  /** The entries this line merged. Internal ids; see `docs/roadmap.md`. */
+  /** The entries this line merged. */
   entryIds: z.array(uuid),
   /** The expense an expense line bills. */
   expenseId: uuid.optional(),

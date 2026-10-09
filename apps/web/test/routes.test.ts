@@ -601,6 +601,21 @@ test('a project needs only a name, and is then internal work', async () => {
   assert.equal(res.body.clientId, null);
 });
 
+test('a project under another user’s client is the caller’s error, not a 500', async () => {
+  const { POST } = await import('../src/app/api/v1/projects/route.ts');
+  const theirs = '33333333-0000-4000-8000-0000000000c2';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Theirs')`,
+    [theirs, OTHER],
+  );
+
+  const res = await json(
+    await POST(req('/projects', { name: 'Borrowed', clientId: theirs })),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
+});
+
 test('a project is read back by id, and 404s when unknown', async () => {
   const { GET } = await import('../src/app/api/v1/projects/[id]/route.ts');
   const { clientId, projectId } = await seedClientAndProject();

@@ -138,9 +138,10 @@ yet".
 3. A macOS change passes `swift build` and `swift test`, and a visible one is
    seen with `apps/macos/qa.sh`: the panel in a plain window, screenshotted
    with `qa.sh shot` and driven with `qa.sh click` and `qa.sh type`.
-   **Never run `bundle.sh`, and never quit, launch or click the installed
-   Stint.app or the menu bar:** Blake's production `Stint.app` runs there while
-   he works, and a local bundle installs over it. He sees it with
+   **Never run `bundle.sh`, and never quit, launch or click an installed
+   Stint app or the menu bar:** Blake's production `Stint.app` runs there while
+   he works, a `prod` bundle installs over it, and any other lands in his menu
+   bar beside it. He sees it with
    `pnpm try-mac`, so a Mac issue never waits on `needs-input` because nobody
    has looked at it.
 
