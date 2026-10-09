@@ -180,8 +180,6 @@
   .entry { display: flex; align-items: baseline; gap: 8px; padding: 7px 14px; font-size: 13px; }
   .entry:hover { background: var(--bg-hover); }
   .entry .nm { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .entry .pj, .entry .dur { color: var(--text-subtle); }
-  .entry .dur { margin-left: auto; white-space: nowrap; }
 
   .stats {
     display: flex; align-items: center; justify-content: space-between;
@@ -267,7 +265,7 @@
   <p class="standfirst" style="color:var(--text-primary);">
     <strong style="font-weight:500;">This is the spec.</strong>
     The panel is <strong style="font-weight:500;">320pt wide</strong>;
-    the timer's height follows its content — running ≈ 566, stopped ≈ 562 —
+    the timer's height follows its content — running ≈ 428, stopped ≈ 425 —
     and Settings takes the timer's height, so opening it never resizes the
     panel.
     A <code>MenuBarExtra</code> in <code>.menuBarExtraStyle(.window)</code>,
@@ -362,29 +360,18 @@
 
           <div style="padding:10px 0 6px;">
             <div class="row between" style="padding:0 14px 6px;">
-              <span class="label">Today</span>
-            </div>
-            <div class="entry"><span class="nm">API integration <span class="pj">· Platform rebuild</span></span><span class="dur">4h 30m</span></div>
-            <div class="entry"><span class="nm">Design review <span class="pj">· Harbour &amp; Co.</span></span><span class="dur">1h 12m</span></div>
-            <div class="entry"><span class="nm">Standup</span><span class="dur">30m</span></div>
-          </div>
-
-          <div class="divider"></div>
-
-          <div style="padding:10px 0 6px;">
-            <div class="row between" style="padding:0 14px 6px;">
               <span class="label">Recent</span>
             </div>
             <div class="entry"><span class="nm">Checkout validation fixes</span></div>
+            <div class="entry"><span class="nm">Design review</span></div>
             <div class="entry"><span class="nm">Q4 retainer scoping call</span></div>
             <div class="entry"><span class="nm">Invoice chase</span></div>
             <div class="entry"><span class="nm">Staging deploy</span></div>
-            <div class="entry"><span class="nm">Retainer report</span></div>
           </div>
 
           
         </div>
-        <span class="caption">Running · ~566px tall</span>
+        <span class="caption">Running · ~428px tall</span>
       </div>
 
       <div class="notes" style="flex:1;min-width:20rem;">
@@ -406,10 +393,6 @@
             cannot compute in your head, the pair the web's Today leads with.
             Today reads compact, so the readout is the only figure moving by
             the second.</li>
-          <li><strong>Today lists the day's tasks</strong>, one row per task
-            with its total, the web's Today list. A name under two projects is
-            two rows, so each names its project. Recent lists only names not
-            already in Today; a row in either starts that task again.</li>
           <li>The accent appears exactly twice: the pip and the readout. Same
             fact, shown twice — which the rule permits.</li>
         </ul>
@@ -454,29 +437,18 @@
 
           <div style="padding:10px 0 6px;">
             <div class="row between" style="padding:0 14px 6px;">
-              <span class="label">Today</span>
-            </div>
-            <div class="entry"><span class="nm">API integration <span class="pj">· Platform rebuild</span></span><span class="dur">4h 30m</span></div>
-            <div class="entry"><span class="nm">Design review <span class="pj">· Harbour &amp; Co.</span></span><span class="dur">1h 12m</span></div>
-            <div class="entry"><span class="nm">Standup</span><span class="dur">30m</span></div>
-          </div>
-
-          <div class="divider"></div>
-
-          <div style="padding:10px 0 6px;">
-            <div class="row between" style="padding:0 14px 6px;">
               <span class="label">Recent</span>
             </div>
             <div class="entry"><span class="nm">Checkout validation fixes</span></div>
+            <div class="entry"><span class="nm">Design review</span></div>
             <div class="entry"><span class="nm">Q4 retainer scoping call</span></div>
             <div class="entry"><span class="nm">Invoice chase</span></div>
             <div class="entry"><span class="nm">Staging deploy</span></div>
-            <div class="entry"><span class="nm">Retainer report</span></div>
           </div>
 
           
         </div>
-        <span class="caption">Stopped · ~562px tall</span>
+        <span class="caption">Stopped · ~425px tall</span>
       </div>
 
       <div class="notes" style="flex:1;min-width:20rem;">
@@ -488,7 +460,7 @@
           <li><strong>The green is on the start button, alone.</strong> One
             accent object, and it is the primary action — exactly the rule the
             landing page follows on a screen with no timer.</li>
-          <li><strong>Same stats, same Today and Recent lists</strong> as the running
+          <li><strong>Same stats, same Recent list</strong> as the running
             state. The two states differ only in their top block, so the
             popover does not appear to restructure itself when you hit start.</li>
           <li>Project picker inline beside the button saves a full row of
@@ -504,7 +476,7 @@
 
     <div class="states">
       <div class="state">
-        <div class="pop" style="height:566px;">
+        <div class="pop" style="height:428px;">
           <div class="head">
             <span class="row" style="gap:8px;">
               <button class="icon" aria-label="Back">&larr;</button>
@@ -740,8 +712,7 @@
           <tr><td><code>POST /timer/stop</code></td><td>The stopped entry. Earned follows on the refresh after the press</td></tr>
           <tr><td><code>GET /summary</code></td><td>Today's total, <code>serverTime</code></td></tr>
           <tr><td><code>GET /stats?tz=…</code></td><td><code>earnedToday</code>, a running timer's session so far included</td></tr>
-          <tr><td><code>GET /entries?from=…&amp;to=…</code></td><td>Today's entries, local midnight to midnight, rolled up into the Today list. The running task's row counts on from the fetch, as Today's total does</td></tr>
-          <tr><td><code>GET /entries/task-names?limit=20</code></td><td>Recent &mdash; the names the web suggests, so a row is a name to start again, not a past entry, and carries no duration. The running name and the names in Today drop out; the route's most is fetched so five usually remain. Fetched on the poll while the panel is open and after a start or stop, not on every open</td></tr>
+          <tr><td><code>GET /entries/task-names?limit=6</code></td><td>Recent &mdash; the names the web suggests, so a row is a name to start again, not a past entry, and carries no duration. The running name is the readout and drops out, leaving five. Fetched on the poll while the panel is open and after a start or stop, not on every open</td></tr>
           <tr><td><code>PATCH /entries/:id</code></td><td>Rename</td></tr>
           <tr><td><code>GET /projects</code>, <code>GET /clients</code></td><td>The picker and client colors</td></tr>
         </tbody>

@@ -12,30 +12,12 @@ final class TimerModel: Optimistic {
     /// Nil until the first fetch; the row omits the number rather than
     /// showing a zero that would read as "earned nothing".
     private(set) var stats: Stats?
-    /// Today's entries, one row per task, the rollup the web's Today list
-    /// makes. The running entry counts as the readout does.
-    var today: [TodayTask] {
-        var tasks: [TodayTask] = []
-        for entry in todayEntries {
-            let name = entry.taskName
-            let seconds = entry.id == running?.id ? elapsedSeconds : entry.durationSeconds ?? 0
-            if let i = tasks.firstIndex(where: { $0.taskName == name && $0.projectId == entry.projectId }) {
-                tasks[i].seconds += seconds
-            } else {
-                tasks.append(TodayTask(taskName: name, projectId: entry.projectId, seconds: seconds))
-            }
-        }
-        return tasks
-    }
-    private var todayEntries: [TimeEntry] = []
-
-    /// The last five names worked on, newest first, less those already in
-    /// Today. The running one is the readout, not a row, and is dropped here
-    /// too: a start shows before Today is refetched.
+    /// The last five names worked on, newest first. The running one is the
+    /// readout, not a row, and is dropped here rather than at fetch time,
+    /// since the readout reconciles more often than the list.
     var recent: [TaskName] {
-        var shown = Set(today.map { $0.taskName.lowercased() })
-        if let running { shown.insert(running.taskName.lowercased()) }
-        return Array(taskNames.filter { !shown.contains($0.id) }.prefix(Self.recentCount))
+        let running = running?.taskName.lowercased()
+        return Array(taskNames.filter { $0.id != running }.prefix(Self.recentCount))
     }
     private static let recentCount = 5
     private var taskNames: [TaskName] = []
@@ -244,13 +226,9 @@ final class TimerModel: Optimistic {
             // `try?`: a failure here hides one number rather than surfacing an
             // error over a working timer.
             if let fetched = try? await api.stats() { stats = fetched }
-            let day = Calendar.current.dateInterval(of: .day, for: fetchedAt)!
-            if let fetched = try? await api.entries(from: day.start, to: day.end.addingTimeInterval(-0.001)) {
-                todayEntries = fetched
-            }
-            // The route's most, so dropping the names in Today still leaves
-            // five on most days.
-            if recent, let fetched = try? await api.taskNames(limit: 20) {
+            // One more than is shown, so dropping the running name still
+            // leaves five.
+            if recent, let fetched = try? await api.taskNames(limit: Self.recentCount + 1) {
                 taskNames = fetched
             }
         } catch let error as APIError where error.isUnauthorized {
@@ -288,13 +266,13 @@ final class TimerModel: Optimistic {
     /// timer is the database's invariant, and a row that highlights and takes
     /// focus but silently ignores a click reads as broken. The message is the
     /// same fact the 409 carries.
-    func resume(taskName: String, projectId: String?) async {
+    func resume(_ name: TaskName) async {
         guard !isRunning else {
             errorMessage = "A timer is already running. Stop it before starting another."
             return
         }
         errorMessage = nil
-        await begin(taskName: taskName, projectId: projectId)
+        await begin(taskName: name.taskName, projectId: name.projectId)
     }
 
     func rename(to name: String) async {
@@ -362,17 +340,10 @@ final class TimerModel: Optimistic {
     }
 
     /// Replaces the running entry in the summary and returns how to put it
-    /// back. Today's total and the running task's Today row freeze at their
-    /// live values, so neither jumps nor double counts.
+    /// back. Today's total freezes at its live value, so the readout neither
+    /// jumps nor double counts.
     private func show(running: TimeEntry?) -> () -> Void {
         let before = summary
-        let beforeEntries = todayEntries
-        todayEntries = todayEntries.map { entry in
-            guard entry.id == self.running?.id else { return entry }
-            var frozen = entry
-            frozen.durationSeconds = elapsedSeconds
-            return frozen
-        }
         predictions += 1
         summary = Summary(
             running: running,
@@ -380,10 +351,7 @@ final class TimerModel: Optimistic {
             weekSeconds: summary?.weekSeconds ?? 0,
             serverTime: Date().addingTimeInterval(-skew)
         )
-        return {
-            self.summary = before
-            self.todayEntries = beforeEntries
-        }
+        return { self.summary = before }
     }
 
     func report(_ reason: String) {
@@ -405,20 +373,10 @@ final class TimerModel: Optimistic {
         await tokens.signOut()
         summary = nil
         stats = nil
-        todayEntries = []
         taskNames = []
         projects = []
         clients = []
     }
-}
-
-/// A row of the panel's Today list: a name under two projects is two tasks.
-struct TodayTask: Identifiable, Equatable {
-    let taskName: String
-    let projectId: String?
-    var seconds: Int
-
-    var id: String { "\(projectId ?? ""):\(taskName)" }
 }
 
 /// `H:MM:SS`, matching `formatClock` in `@stint/core`.

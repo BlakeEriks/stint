@@ -61,7 +61,6 @@ struct Summary: Codable, Equatable {
 private struct ProjectList: Codable { let projects: [Project] }
 private struct TaskNameList: Codable { let taskNames: [TaskName] }
 private struct ClientList: Codable { let clients: [Client] }
-private struct EntryList: Codable { let entries: [TimeEntry] }
 private struct Stopped: Codable { let entry: TimeEntry }
 
 struct APIError: LocalizedError, Equatable {
@@ -127,15 +126,6 @@ actor API {
 
     func stats(timeZone: TimeZone = .current) async throws -> Stats {
         try await request("GET", "/stats?tz=\(timeZone.identifier)")
-    }
-
-    /// Entries started in `[from, to]`, newest first, a running one measured
-    /// as of the response.
-    func entries(from: Date, to: Date) async throws -> [TimeEntry] {
-        let from = Self.iso8601Fractional.string(from: from)
-        let to = Self.iso8601Fractional.string(from: to)
-        let list: EntryList = try await request("GET", "/entries?from=\(from)&to=\(to)")
-        return list.entries
     }
 
     /// Archived included: a finished engagement still owns the color on

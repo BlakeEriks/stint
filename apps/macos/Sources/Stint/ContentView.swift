@@ -288,10 +288,6 @@ private struct TimerPanel: View {
             }
             rule
             stats
-            if !model.today.isEmpty {
-                rule
-                todayList
-            }
             if !model.recent.isEmpty {
                 rule
                 entries
@@ -391,43 +387,20 @@ private struct TimerPanel: View {
         }
     }
 
-    private var todayList: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionLabel("Today")
-            ForEach(Array(model.today.enumerated()), id: \.element.id) { index, task in
-                TaskRow(
-                    name: task.taskName,
-                    project: task.projectId.flatMap { id in model.projects.first { $0.id == id }?.name },
-                    duration: compact(task.seconds)
-                ) {
-                    Task { await model.resume(taskName: task.taskName, projectId: task.projectId) }
-                }
-                .accessibilityIdentifier("today-\(index + 1)")
-            }
-        }
-        .padding(.bottom, 6)
-    }
-
     private var entries: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionLabel("Recent")
+            Text("Recent")
+                .role(.label)
+                .foregroundStyle(Tokens.Dark.textSubtle)
+                .padding(.horizontal, 14)
+                .padding(.top, 10)
+                .padding(.bottom, 6)
             ForEach(Array(model.recent.enumerated()), id: \.element.id) { index, name in
-                TaskRow(name: name.taskName) {
-                    Task { await model.resume(taskName: name.taskName, projectId: name.projectId) }
-                }
+                RecentRow(name: name) { Task { await model.resume(name) } }
                     .accessibilityIdentifier("entry-\(index + 1)")
             }
         }
         .padding(.bottom, 6)
-    }
-
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .role(.label)
-            .foregroundStyle(Tokens.Dark.textSubtle)
-            .padding(.horizontal, 14)
-            .padding(.top, 10)
-            .padding(.bottom, 6)
     }
 }
 
@@ -541,39 +514,29 @@ private struct ProjectPicker: View {
     }
 }
 
-/// A task, and the way to start it again. In Today it carries the day's
-/// total and its project, since one name under two projects is two rows. In
-/// Recent it is a name the web suggests, not one past entry, so it carries
-/// neither.
+/// A name worked under before, and the way to start it again — the same
+/// names the web suggests, so the row carries no duration: it is not one
+/// past entry.
 ///
 /// **The whole row is the control.** The glyph appears under the pointer to
 /// say what the click does, not to be aimed at.
-private struct TaskRow: View {
-    let name: String
-    var project: String? = nil
-    var duration: String? = nil
+private struct RecentRow: View {
+    let name: TaskName
     var resume: () -> Void
 
     var body: some View {
         Button(action: resume) {
             Hovering { on in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    (Text(name.isEmpty ? "Untitled" : name)
-                        .foregroundStyle(name.isEmpty ? Tokens.Dark.textSubtle : Tokens.Dark.textPrimary)
-                        + Text(project.map { " · \($0)" } ?? "")
-                        .foregroundStyle(Tokens.Dark.textSubtle))
-                    .role(.body)
-                    .lineLimit(1)
+                    Text(name.taskName)
+                        .role(.body)
+                        .foregroundStyle(Tokens.Dark.textPrimary)
+                        .lineLimit(1)
                     Spacer(minLength: 8)
                     Image(systemName: "play.fill")
                         .role(.hint)
                         .foregroundStyle(Tokens.Dark.textSubtle)
                         .opacity(on ? 1 : 0)
-                    if let duration {
-                        Text(duration)
-                            .role(.body)
-                            .foregroundStyle(Tokens.Dark.textSubtle)
-                    }
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
@@ -585,7 +548,7 @@ private struct TaskRow: View {
         // Flush to the panel's edges, so the ring sits inside rather than
         // over the rows above and below.
         .panelFocus(Rectangle(), inset: -1)
-        .accessibilityLabel("Start \(name.isEmpty ? "Untitled" : name) again")
+        .accessibilityLabel("Start \(name.taskName) again")
     }
 }
 

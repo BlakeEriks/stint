@@ -13,7 +13,7 @@ struct TimerPressTests {
         let model = try await signedInModel()
         await FakeServer.shared.hold("POST /timer/start")
 
-        let press = Task { await model.resume(taskName: "Design", projectId: nil) }
+        let press = Task { await model.resume(name("Design")) }
         await Task.yield()
         #expect(model.running?.taskName == "Design")
 
@@ -28,7 +28,7 @@ struct TimerPressTests {
         let model = try await signedInModel()
         await FakeServer.shared.reject("POST /timer/start", status: 409, message: "A timer is already running.")
 
-        await model.resume(taskName: "Design", projectId: nil)
+        await model.resume(name("Design"))
         #expect(model.running == nil)
         #expect(model.errorMessage == "A timer is already running.")
     }
@@ -62,31 +62,12 @@ struct TimerPressTests {
         try await Task.sleep(for: .milliseconds(20))
 
         await FakeServer.shared.setRunning(entry("Design"))
-        await model.resume(taskName: "Design", projectId: nil)
+        await model.resume(name("Design"))
         #expect(model.running?.taskName == "Design")
 
         await FakeServer.shared.release("GET /summary")
         await stale.value
         #expect(model.running?.taskName == "Design")
-    }
-
-    @Test func aStopKeepsTheTodayRowItCountedTo() async throws {
-        // Started 720s ago; `/entries` measured it at 600.
-        var design = entry("Design")
-        design.startedAt = Date().addingTimeInterval(-720)
-        await FakeServer.shared.setRunning(design)
-        let model = try await signedInModel()
-        let live = try #require(model.today.first?.seconds)
-        #expect(live > 600)
-
-        await FakeServer.shared.hold("POST /timer/stop")
-        let stop = Task { await model.toggle() }
-        await Task.yield()
-        #expect(model.running == nil)
-        #expect(model.today.first?.seconds == live)
-
-        await FakeServer.shared.release("POST /timer/stop")
-        await stop.value
     }
 }
 
@@ -97,6 +78,10 @@ private func entry(_ name: String) -> TimeEntry {
         isBillable: true, rateOverride: nil, durationSeconds: nil,
         durationOk: true, invoiceId: nil
     )
+}
+
+private func name(_ name: String) -> TaskName {
+    TaskName(taskName: name, projectId: nil, lastUsedAt: Date(timeIntervalSince1970: 1_790_000_000))
 }
 
 @MainActor
@@ -173,13 +158,6 @@ private actor FakeServer {
             return (200, json(Summary(running: running, todaySeconds: 0, weekSeconds: 0, serverTime: Date())))
         case "POST /timer/start", "PATCH /timer/current":
             return (200, json(running ?? entry("unknown")))
-        case "GET /entries":
-            let measured = running.map { r in
-                var e = r
-                e.durationSeconds = 600
-                return e
-            }
-            return (200, Data(#"{"entries":\#(String(decoding: json(measured.map { [$0] } ?? []), as: UTF8.self))}"#.utf8))
         case "POST /timer/stop":
             let stopped = String(decoding: json(entry("Stopped")), as: UTF8.self)
             return (200, Data(#"{"entry":\#(stopped),"currency":"USD","unbilled":{"total":0}}"#.utf8))
