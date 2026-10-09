@@ -1727,6 +1727,23 @@ test('recording an expense is idempotent on its id', async () => {
   assert.equal(rows[0].n, 1, 'the cost is recorded once');
 });
 
+test('an expense under a client that is not the caller’s is “No such client”', async () => {
+  const { POST: create } = await import('../src/app/api/v1/expenses/route.ts');
+  const res = await json(
+    await create(
+      req('/expenses', {
+        id: X(9),
+        clientId: 'cc000000-0000-4000-8000-0000000000ff',
+        spentOn: '2026-09-12',
+        description: 'Borrowed',
+        amount: 1,
+      }),
+    ),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.message, 'No such client');
+});
+
 test('an expense is more than zero, described, and dated unless recurring', async () => {
   const { POST: create } = await import('../src/app/api/v1/expenses/route.ts');
   const base = {
