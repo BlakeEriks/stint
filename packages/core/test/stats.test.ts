@@ -8,6 +8,7 @@ import {
   buildMonthTotals,
   buildOpenInvoiceCount,
   buildOverdueInvoices,
+  buildOverlaps,
   buildStaleDrafts,
   buildStrangeDurations,
   buildUnbilled,
@@ -818,4 +819,40 @@ test('scalar reads both rpc shapes and a numeric string', () => {
   assert.equal(scalar([{ month_revenue: '99.00' }]), 99);
   assert.equal(scalar(null), 0);
   assert.equal(scalar([]), 0);
+});
+
+test('an overlap with billed time opens the unbilled entry and names the invoice', () => {
+  const span = (
+    id: string,
+    from: string,
+    to: string,
+    invoice: string | null,
+  ) => ({
+    id,
+    task_name: id,
+    started_at: `2026-08-19T${from}:00Z`,
+    ended_at: `2026-08-19T${to}:00Z`,
+    is_billable: true,
+    invoice_number: invoice,
+  });
+  assert.deepEqual(
+    buildOverlaps([
+      // Billed 9-10; the unbilled entry starts inside it, so it is the later.
+      span('billed', '09:00', '10:00', 'INV-0001'),
+      span('added', '09:30', '10:30', null),
+      // Unbilled 11-12, then billed 11:30-12:30: the earlier one is opened.
+      span('early', '11:00', '12:00', null),
+      span('late-billed', '11:30', '12:30', 'INV-0002'),
+      // Both billed: nothing anyone can edit, so no row.
+      span('b1', '14:00', '15:00', 'INV-0001'),
+      span('b2', '14:30', '15:30', 'INV-0002'),
+      // Non-billable against billed: it bills nothing twice.
+      { ...span('free', '16:30', '17:30', null), is_billable: false },
+      span('b3', '16:00', '17:00', 'INV-0002'),
+    ]).map((o) => [o.entryId, o.otherEntryId, o.otherInvoiceNumber, o.seconds]),
+    [
+      ['added', 'billed', 'INV-0001', 1800],
+      ['early', 'late-billed', 'INV-0002', 1800],
+    ],
+  );
 });

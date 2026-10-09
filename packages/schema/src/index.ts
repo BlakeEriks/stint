@@ -404,6 +404,9 @@ export const InvoicePreview = z.object({
   entryCount: z.number().int().nonnegative(),
   /** Entries with no resolvable rate — blocks generation until fixed. */
   unratedEntryIds: z.array(uuid),
+  /** Entries to bill that share a minute or more with each other or with
+   *  billed time. A warning, not a block: the user decides. */
+  overlappingEntryIds: z.array(uuid),
   /** With `summary`, every table the invoice could attach; otherwise null. */
   schedules: Schedules.nullable(),
 });
@@ -834,8 +837,11 @@ export const Stats = z.object({
       }),
     ),
     /**
-     * Pairs of uninvoiced entries sharing a minute or more. Derived per
-     * request, so editing either entry clears the row.
+     * Pairs of entries sharing a minute or more, at least one unbilled —
+     * except non-billable work against billed time, which bills nothing twice.
+     * `entryId` is unbilled; `otherInvoiceNumber` names the invoice holding
+     * the other, if one does. Derived per request, so editing either entry
+     * clears the row.
      */
     overlaps: z.array(
       z.object({
@@ -843,6 +849,7 @@ export const Stats = z.object({
         taskName: z.string(),
         otherEntryId: uuid,
         otherTaskName: z.string(),
+        otherInvoiceNumber: z.string().nullable(),
         startedAt: z.iso.datetime(),
         seconds: z.number().int().positive(),
       }),

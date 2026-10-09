@@ -136,6 +136,40 @@ test('preview resolves rates and has no side effects', async () => {
   assert.equal(seq[0].n, 1, 'no number was consumed');
 });
 
+test('preview names the entries that overlap each other or billed time', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const inv = 'ff000000-0000-4000-8000-00000000000b';
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
+     values ($1,$2,$3,'INV-0001',1,'sent')`,
+    [inv, USER, CLIENT],
+  );
+  // Billed 9-10, then 9:30-10:30 added: half an hour about to bill twice.
+  await seedEntry({ id: E(1), start: '2026-09-10T09:00:00Z' });
+  await pool.query('update time_entries set invoice_id=$1 where id=$2', [
+    inv,
+    E(1),
+  ]);
+  await seedEntry({ id: E(2), start: '2026-09-10T09:30:00Z' });
+  // Two unbilled entries sharing half an hour with each other.
+  await seedEntry({ id: E(3), start: '2026-09-11T09:00:00Z' });
+  await seedEntry({ id: E(4), start: '2026-09-11T09:30:00Z' });
+  // Clear of everything.
+  await seedEntry({ id: E(5), start: '2026-09-12T09:00:00Z' });
+
+  const res = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(res.status, 200);
+  assert.deepEqual([...res.body.overlappingEntryIds].sort(), [
+    E(2),
+    E(3),
+    E(4),
+  ]);
+});
+
 /* The period is local dates, and the entries are instants. With a UTC window
    these two sit outside a September period for a New York user even though
    both were worked in September on the clock the user read — the late one

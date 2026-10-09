@@ -8,7 +8,8 @@ import {
   loadBillableEntries,
   loadBillableExpenses,
 } from '@/lib/invoicing';
-import { buildLineItems, buildSchedules } from '@stint/core';
+import { loadBilledSpans } from '@/lib/billed-spans';
+import { buildLineItems, buildOverlaps, buildSchedules } from '@stint/core';
 import { InvoicePreviewRequest } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,9 @@ export const dynamic = 'force-dynamic';
  * irreversible step and must never be a surprise.
  *
  * Returns `unratedEntryIds` so the UI can show exactly which entries block
- * generation, rather than failing with a bare error.
+ * generation, rather than failing with a bare error, and
+ * `overlappingEntryIds`: this page is the last chance to catch time about to
+ * be billed twice.
  */
 export const POST = handle(async (req: Request) => {
   const { db } = await requireSession(req);
@@ -68,6 +71,24 @@ export const POST = handle(async (req: Request) => {
     expenses,
   });
 
+  const toBill = entries
+    .filter((e) => e.isBillable)
+    .map((e) => ({
+      id: e.id,
+      task_name: e.taskName,
+      started_at: e.startedAt,
+      ended_at: new Date(
+        Date.parse(e.startedAt) + e.durationSeconds * 1000,
+      ).toISOString(),
+      is_billable: true,
+      invoice_number: null,
+    }));
+  const overlapping = new Set(
+    buildOverlaps([...toBill, ...(await loadBilledSpans(db, toBill))]).flatMap(
+      (o) => [o.entryId, o.otherEntryId],
+    ),
+  );
+
   return NextResponse.json({
     clientId: body.clientId,
     clientName: client.name,
@@ -76,6 +97,9 @@ export const POST = handle(async (req: Request) => {
     groupingMode: body.groupingMode,
     currency: client.currency ?? settings.currency,
     ...totals,
+    overlappingEntryIds: toBill
+      .map((e) => e.id)
+      .filter((id) => overlapping.has(id)),
     schedules:
       body.groupingMode === 'summary'
         ? buildSchedules(entries, {
