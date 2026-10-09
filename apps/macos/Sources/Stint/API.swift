@@ -4,18 +4,18 @@ import Foundation
 /// Hand-written and unchecked against `packages/schema`: a renamed field
 /// fails here at runtime.
 struct TimeEntry: Codable, Identifiable, Equatable {
-    let id: String
-    let projectId: String?
-    let taskName: String
-    let startedAt: Date
-    let endedAt: Date?
-    let isBillable: Bool
-    let rateOverride: Double?
-    let durationSeconds: Int?
+    var id: String
+    var projectId: String?
+    var taskName: String
+    var startedAt: Date
+    var endedAt: Date?
+    var isBillable: Bool
+    var rateOverride: Double?
+    var durationSeconds: Int?
     /// False is what puts an entry in the strange-duration row. `0` is a
     /// valid rate, so `rateOverride` is read for null, never for truth.
-    let durationOk: Bool
-    let invoiceId: String?
+    var durationOk: Bool
+    var invoiceId: String?
 }
 
 /// `GET /entries/task-names`: a name the user has typed before, with the
@@ -44,14 +44,11 @@ struct Client: Codable, Identifiable, Equatable {
     let color: String?
 }
 
-/// `GET /stats`, narrowed to the one figure the panel shows. Unbilled is
-/// work done and not yet invoiced — never summed with `awaitingPayment`.
+/// `GET /stats`, narrowed to the one figure the panel shows: what today's
+/// entries earn, the web's Today figure.
 struct Stats: Codable, Equatable {
-    struct Unbilled: Codable, Equatable {
-        let total: Double
-    }
     let currency: String
-    let unbilled: Unbilled
+    let earnedToday: Double
 }
 
 struct Summary: Codable, Equatable {
@@ -64,6 +61,7 @@ struct Summary: Codable, Equatable {
 private struct ProjectList: Codable { let projects: [Project] }
 private struct TaskNameList: Codable { let taskNames: [TaskName] }
 private struct ClientList: Codable { let clients: [Client] }
+private struct Stopped: Codable { let entry: TimeEntry }
 
 struct APIError: LocalizedError, Equatable {
     let status: Int
@@ -173,10 +171,9 @@ actor API {
 
     private struct Empty: Encodable {}
 
-    /// The response is `{ entry, currency, unbilled }`, Unbilled counted
-    /// after the stop; the panel reads only the last two, as `Stats`.
-    func stopTimer() async throws -> Stats {
-        try await request("POST", "/timer/stop", body: Empty())
+    func stopTimer() async throws -> TimeEntry {
+        let stopped: Stopped = try await request("POST", "/timer/stop", body: Empty())
+        return stopped.entry
     }
 
     struct UpdateTimer: Encodable {

@@ -104,6 +104,22 @@ struct TimerModelTests {
         await model.signOut()
     }
 
+    @Test func earnedIsTodaysEarnings() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/stats"] = (200, Data(#"{"currency":"USD","earnedToday":412.5,"unbilled":{"total":1462.5}}"#.utf8))
+        await model.refresh()
+        #expect(model.stats?.earnedToday == 412.5)
+        await model.signOut()
+    }
+
+    @Test func compactMatchesTheWebsFormatCompact() {
+        #expect(compact(0) == "0s")
+        #expect(compact(59) == "59s")
+        #expect(compact(60) == "1m")
+        #expect(compact(3600) == "1h")
+        #expect(compact(3 * 3600 + 12 * 60 + 40) == "3h 12m")
+    }
+
     @Test func aRestartCarriesTheNameAndProject() async throws {
         let model = try await signedInModel()
         APIStub.routes["/entries/task-names"] = (200, taskNames(["Internal planning"], project: "p1"))
@@ -123,7 +139,7 @@ struct TimerModelTests {
     private func signedInModel() async throws -> TimerModel {
         APIStub.routes = [
             "/summary": (200, Data(#"{"running":null,"todaySeconds":0,"weekSeconds":0,"serverTime":"2026-09-28T12:00:00Z"}"#.utf8)),
-            "/stats": (200, Data(#"{"currency":"USD","unbilled":{"total":0}}"#.utf8)),
+            "/stats": (200, Data(#"{"currency":"USD","earnedToday":0}"#.utf8)),
             "/entries/task-names": (200, Data(#"{"taskNames":[]}"#.utf8)),
         ]
         APIStub.bodies = [:]
