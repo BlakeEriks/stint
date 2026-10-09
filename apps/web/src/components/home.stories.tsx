@@ -165,8 +165,28 @@ export const Failed: Story = {
   },
 };
 
-/** At `2xl` the panel is a bounded card. */
-export const Wide: Story = { ...wide };
+/** Past `2xl` the frame is capped, and Home fits it whole, legend included. */
+export const Wide: Story = {
+  ...wide,
+  play: async ({ canvasElement }) => {
+    const legend = await waitFor(() => {
+      const found = canvasElement.querySelector('[data-legend="clients"]');
+      if (!found) throw new Error('No legend yet');
+      return found;
+    });
+    let panel = legend.parentElement;
+    while (panel && getComputedStyle(panel).overflowY !== 'auto') {
+      panel = panel.parentElement;
+    }
+    if (!panel) throw new Error('Home sits in no scrolling panel');
+    await waitFor(() => {
+      expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
+      expect(legend.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+        panel.getBoundingClientRect().bottom,
+      );
+    });
+  },
+};
 
 /** Below `@2xl` the month stacks under the week rather than dropping out. */
 export const PhoneMonth: Story = {
