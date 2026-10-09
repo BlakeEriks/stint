@@ -848,6 +848,62 @@ test('supporting detail prints from page 2', async () => {
   assert.equal(await pages(['project', 'week', 'date']), 2);
 });
 
+test('every page is US Letter, and no detail page overflows', async () => {
+  const { renderInvoicePdf, DETAIL_ROWS_PER_PAGE } = await import(
+    '../src/lib/invoice-pdf.tsx'
+  );
+  const { paginateSchedules } = await import('@stint/core');
+  // All three tables on one page is the tallest a detail page gets: each
+  // table's margin is room the row count does not charge for.
+  const supportingDetail = {
+    project: [
+      { project: 'Design', hours: 2 },
+      { project: 'Build', hours: 1 },
+    ],
+    week: [{ start: '2026-09-07', end: '2026-09-13', hours: 3 }],
+    date: Array.from({ length: 2 * DETAIL_ROWS_PER_PAGE }, () => ({
+      date: '2026-09-30',
+      project: 'Design',
+      hours: 1,
+    })),
+    totalHours: 3,
+  };
+  const pdf = await renderInvoicePdf({
+    invoiceNumber: 'INV-0042',
+    status: 'issued',
+    issueDate: '2026-10-01',
+    dueDate: null,
+    periodStart: '2026-09-01',
+    periodEnd: '2026-09-30',
+    currency: 'USD',
+    subtotal: 300,
+    taxRate: 0,
+    taxAmount: 0,
+    expensesSubtotal: 0,
+    total: 300,
+    notes: null,
+    paymentTerms: null,
+    business: {
+      name: 'Blake Eriks',
+      address: null,
+      email: null,
+      logoUrl: null,
+      taxId: null,
+    },
+    client: { name: 'Northwind', email: null, address: null },
+    lineItems: [],
+    supportingDetail,
+  });
+  const text = Buffer.from(pdf).toString('latin1');
+  const boxes = text.match(/\/MediaBox \[[^\]]*\]/g) ?? [];
+
+  // A page the renderer adds for an overflowing row is one more than planned.
+  const planned =
+    1 + paginateSchedules(supportingDetail, DETAIL_ROWS_PER_PAGE).length;
+  assert.equal(boxes.length, planned);
+  for (const box of boxes) assert.equal(box, '/MediaBox [0 0 612 792]');
+});
+
 // ── reference ──────────────────────────────────────────────────────
 test('a reference is trimmed and stored, and a blank one is none', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
