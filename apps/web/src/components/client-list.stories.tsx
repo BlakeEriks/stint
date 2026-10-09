@@ -344,7 +344,10 @@ export const DeleteExpenseRefused: Story = {
     await expect(await page.findByRole('alert')).toHaveTextContent(
       'Internal server error',
     );
-    await userEvent.click(page.getByRole('button', { name: 'Cancel' }));
+    // The alert lands a render before the press stops pending.
+    const cancel = page.getByRole('button', { name: 'Cancel' });
+    await waitFor(() => expect(cancel).toBeEnabled());
+    await userEvent.click(cancel);
     await userEvent.click(
       await page.findByRole('button', { name: 'Edit Claude Max subscription' }),
     );
