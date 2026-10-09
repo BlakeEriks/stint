@@ -73,6 +73,9 @@ else
     </dict>"
 fi
 
+# SwiftPM prints "Building for production..." for any release build, so say
+# which app this is before it does.
+echo "bundling $NAME.app ($BUNDLE_ID) for $ENV_LABEL"
 swift build -c "$CONFIG"
 
 APP=".build/$NAME.app"
