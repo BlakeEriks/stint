@@ -155,8 +155,9 @@ actor TokenStore {
 /// identity, so one grant holds across rebuilds.
 ///
 /// The trade: anything running as this user can invoke `security` too, so the
-/// item rests on the login keychain's lock rather than on app identity. A
-/// Developer ID would earn a `teamid:` partition — see `docs/roadmap.md`.
+/// item rests on the login keychain's lock rather than on app identity.
+/// TODO(#53): a Developer ID earns a `teamid:` partition, so a grant would
+/// hold across rebuilds without `/usr/bin/security`.
 private enum Keychain {
     private static let service = "dev.stint.session"
 

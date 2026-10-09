@@ -109,6 +109,12 @@ test('formatCurrency renders a narrow symbol, defaulting to USD', () => {
   assert.equal(formatCurrency(5, ''), '$5.00');
 });
 
+test('formatCurrency rounds to whole units when asked for whole', () => {
+  assert.equal(formatCurrency(1039.5, 'USD', { whole: true }), '$1,040');
+  assert.equal(formatCurrency(1039.49, 'USD', { whole: true }), '$1,039');
+  assert.equal(formatCurrency(0, 'USD', { whole: true }), '$0');
+});
+
 test('formatQuantity prints a charge as a whole 1, and time as hours', () => {
   assert.equal(formatQuantity('fixed', 1), '1');
   assert.equal(formatQuantity('hour', 1), '1.00');

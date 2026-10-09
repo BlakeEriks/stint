@@ -17,8 +17,7 @@ Toggl data, and uploads it. Their history — the actual hours, on the actual
 days, under the actual project names — is now here, so their first invoice
 from this app can be compared against the last one they sent from Toggl.
 
-**Why this priority**: Per `docs/roadmap.md`'s gate — without this, a new
-user does not start. An import is the first thing a contractor arriving with
+**Why this priority**: Without this, a new user does not start. An import is the first thing a contractor arriving with
 years of history tries, before anything else here is worth evaluating.
 
 **Independent Test**: Export a real Toggl account's time entries to CSV,
@@ -142,8 +141,8 @@ same flag appears.
 - **FR-001**: Contractors MUST be able to upload a Toggl time-entry export
   file and see a preview of what will be imported before anything is
   written.
-- **FR-002**: *Deferred.* Harvest import is a separate `docs/roadmap.md`
-  item, gated on a user asking for it.
+- **FR-002**: *Deferred.* Harvest import is issue #59, gated on a user
+  asking for it.
 - **FR-003**: The system MUST NOT require the contractor to authorize an
   OAuth connection or store a Toggl/Harvest API credential to perform an
   import — the export file is the only input.

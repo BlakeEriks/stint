@@ -10,6 +10,7 @@ import {
   menuOpen,
   phone,
   screen,
+  stalled,
 } from '@/mocks/screen';
 import { ClientList } from './client-list';
 
@@ -285,6 +286,73 @@ export const DeleteExpense: Story = {
     await waitFor(() =>
       expect(page.queryByText('Figma license, annual')).toBeNull(),
     );
+  },
+};
+
+/** The delete is waiting on the server: the dialog stays open, the confirm
+    says so, and the expense is still listed. */
+export const DeletingExpense: Story = {
+  ...desktop,
+  parameters: stalled('deleteExpense'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+    );
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Delete expense' }),
+    );
+    await userEvent.click(
+      page.getByRole('button', { name: 'Delete for good' }),
+    );
+    await expect(
+      await page.findByRole('button', { name: 'Deleting…' }),
+    ).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Keep' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    await userEvent.keyboard('{Escape}');
+    await expect(page.getByRole('dialog')).toHaveAttribute(
+      'data-state',
+      'open',
+    );
+    // Behind the modal, so out of the accessibility tree but still listed.
+    await expect(
+      page.getByRole('button', {
+        name: 'Edit Figma license, annual',
+        hidden: true,
+      }),
+    ).toBeInTheDocument();
+  },
+};
+
+/** A refused delete says why in the dialog, and is gone when another
+    expense opens. */
+export const DeleteExpenseRefused: Story = {
+  ...desktop,
+  parameters: failing('deleteExpense'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Figma license, annual' }),
+    );
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Delete expense' }),
+    );
+    await userEvent.click(
+      page.getByRole('button', { name: 'Delete for good' }),
+    );
+    await expect(await page.findByRole('alert')).toHaveTextContent(
+      'Internal server error',
+    );
+    // The alert lands a render before the press stops pending.
+    const cancel = page.getByRole('button', { name: 'Cancel' });
+    await waitFor(() => expect(cancel).toBeEnabled());
+    await userEvent.click(cancel);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Claude Max subscription' }),
+    );
+    await expectOpen(canvasElement, 'dialog', 'Edit expense');
+    await expect(page.queryByRole('alert')).toBeNull();
   },
 };
 
