@@ -113,20 +113,19 @@ export function Today({ stats }: { stats: Stats }) {
               </div>
             ))
           : tasks.map((t) => (
-              /* The rule stays at the column's edge; only the row's
-                 highlight reaches past it, a hair inside the rules. */
+              /* The highlight sits a hair inside the rules. */
               <div
                 key={t.key}
                 className="border-t border-edge-subtle py-0.5 first:border-t-0"
               >
                 {/* Starts the task again as a new entry, as the menu bar's
-                  recent rows do. */}
+                    recent rows do. */}
                 <button
                   type="button"
                   data-task={t.key}
                   aria-label={`Start ${t.name}${t.projectName ? ` · ${t.projectName}` : ''}`}
                   /* Pending only while a timer runs: otherwise the timer bar
-                   already shows the start. */
+                     already shows the start. */
                   aria-busy={pending === t.key}
                   disabled={pending === t.key}
                   onClick={() =>
@@ -137,11 +136,11 @@ export function Today({ stats }: { stats: Stats }) {
                       isBillable: t.isBillable,
                     })
                   }
-                  className={`${rowButton} ${rowBleed} grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 py-2 disabled:opacity-60`}
+                  className={`${rowButton} ${rowBleed} grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 py-2 focus-visible:ring-inset disabled:opacity-60`}
                 >
                   {/* Only clients have a color; internal work takes the hollow
-                  ring, which is what having none looks like on a screen
-                  otherwise keyed by client. */}
+                      ring, which is what having none looks like on a screen
+                      otherwise keyed by client. */}
                   <Pip
                     color={
                       t.projectId ? (colors.get(t.projectId) ?? null) : null
