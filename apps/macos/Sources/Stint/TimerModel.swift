@@ -10,7 +10,7 @@ import Observation
 final class TimerModel: Optimistic {
     private(set) var summary: Summary?
     /// Nil until the first fetch; the row omits the number rather than
-    /// showing a zero that would read as "nothing owed".
+    /// showing a zero that would read as "earned nothing".
     private(set) var stats: Stats?
     /// The last five names worked on, newest first. The running one is the
     /// readout, not a row, and is dropped here rather than at fetch time,
@@ -80,8 +80,8 @@ final class TimerModel: Optimistic {
     /// modes, which is why running-ness is not folded in here.
     var menuBarTitle: String {
         switch Prefs.shared.barReadout {
-        case .runningTimer: isRunning ? format(elapsedSeconds) : format(todaySeconds)
-        case .todaysTotal: format(todaySeconds)
+        case .runningTimer: isRunning ? format(elapsedSeconds) : compact(todaySeconds)
+        case .todaysTotal: compact(todaySeconds)
         }
     }
 
@@ -185,7 +185,7 @@ final class TimerModel: Optimistic {
     /// The minute's reconcile. Closed, the panel shows nothing, so only the
     /// timer is fetched: the menu bar title is the timer, and one started on
     /// the web must still reach it. Open, everything the panel shows, so
-    /// Unbilled moves with a running timer.
+    /// Earned moves with a running timer.
     func poll() async {
         await fetch(full: panelOpen, recent: true)
     }
@@ -319,30 +319,19 @@ final class TimerModel: Optimistic {
 
     private func stop() async {
         let api = api
-        let stopped = await press("timer") {
+        await press("timer") {
             show(running: nil)
         } perform: {
             try await api.stopTimer()
         }
-        // The server counts the stopped entry into Unbilled.
-        if let stopped { stats = stopped }
     }
 
     private func patch(_ update: API.UpdateTimer) async {
         guard let current = running else { return }
         let api = api
-        let changed = TimeEntry(
-            id: current.id,
-            projectId: update.projectId ?? current.projectId,
-            taskName: update.taskName ?? current.taskName,
-            startedAt: current.startedAt,
-            endedAt: current.endedAt,
-            isBillable: current.isBillable,
-            rateOverride: current.rateOverride,
-            durationSeconds: current.durationSeconds,
-            durationOk: current.durationOk,
-            invoiceId: current.invoiceId
-        )
+        var changed = current
+        changed.projectId = update.projectId ?? current.projectId
+        changed.taskName = update.taskName ?? current.taskName
         await press("timer") {
             show(running: changed)
         } perform: {
@@ -394,6 +383,15 @@ final class TimerModel: Optimistic {
 func format(_ seconds: Int) -> String {
     let s = max(0, seconds)
     return String(format: "%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
+}
+
+/// `3h 12m`, matching `formatCompact` in `@stint/core`.
+func compact(_ seconds: Int) -> String {
+    let s = max(0, seconds)
+    let h = s / 3600, m = (s % 3600) / 60
+    if h == 0 && m == 0 { return "\(s)s" }
+    if h == 0 { return "\(m)m" }
+    return m == 0 ? "\(h)h" : "\(h)h \(m)m"
 }
 
 /// `$1,462.50`, matching `money()` on the web — `en_US` regardless of the

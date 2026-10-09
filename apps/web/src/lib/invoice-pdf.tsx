@@ -197,6 +197,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     fontSize: 8,
     color: c.faint,
+    // Empty, not inherited: react-pdf re-resolves the page-number Text's
+    // styles on every page and multiplies an inherited line height by the
+    // font size each time, until the footer is drawn far above the page.
+    lineHeight: '',
   },
 
   // Supporting detail. Every row is one line, so a page holds a known number
@@ -300,7 +304,7 @@ export interface InvoicePdfData {
 }
 
 /** One-line rows that fit a detail page under its running header. */
-const DETAIL_ROWS_PER_PAGE = 30;
+export const DETAIL_ROWS_PER_PAGE = 28;
 
 const DAY = new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
@@ -345,7 +349,7 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
       title={data.invoiceNumber}
       author={data.business.name ?? undefined}
     >
-      <Page size="A4" style={styles.page}>
+      <Page size="LETTER" style={styles.page}>
         {data.status === 'void' && <Text style={styles.voidMark}>VOID</Text>}
 
         <View style={styles.header}>
@@ -568,7 +572,7 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
       {data.supportingDetail
         ? paginateSchedules(data.supportingDetail, DETAIL_ROWS_PER_PAGE).map(
             (blocks, i) => (
-              <Page key={i} size="A4" style={styles.page}>
+              <Page key={i} size="LETTER" style={styles.page}>
                 <View style={styles.run}>
                   <Text style={styles.runTitle}>Supporting detail</Text>
                   <Text style={styles.runMeta}>

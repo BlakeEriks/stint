@@ -19,6 +19,7 @@ import {
   buildLineItems,
   buildPaymentDetails,
   buildSchedules,
+  localDateKey,
   pickSchedules,
 } from '@stint/core';
 import { CreateInvoice, ListInvoicesQuery } from '@stint/schema';
@@ -153,7 +154,7 @@ export const POST = handle(async (req: Request) => {
     p_user_id: userId,
     p_invoice: {
       client_id: body.clientId,
-      issue_date: body.issueDate ?? new Date().toISOString().slice(0, 10),
+      issue_date: body.issueDate ?? localDateKey(new Date(), body.tz),
       due_date: body.dueDate ?? null,
       period_start: body.periodStart,
       period_end: body.periodEnd,
