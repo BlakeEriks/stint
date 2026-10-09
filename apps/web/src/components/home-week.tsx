@@ -73,7 +73,7 @@ export function Week({
         {/* The bars stand on a baseline. There is no ceiling: the axis is
             unlabeled and each bar prints its own money, so every column is
             read on its own terms. */}
-        <div className="flex h-[150px] items-stretch gap-4 border-b border-edge-default">
+        <div className="flex h-[150px] items-stretch gap-1 border-b @md:gap-4 border-edge-default">
           {week.map((d) => (
             <div key={d.date} className="flex min-w-0 flex-1">
               <div className="relative mx-auto flex w-full max-w-[74px] min-h-0 flex-1 flex-col-reverse">
@@ -113,10 +113,15 @@ export function Week({
                         head: inside the column it cannot be misread as
                         belonging to the day beside it, and the caption below
                         stays two lines rather than three. It is the day's
-                        TOTAL — the stack divides hours, not this figure. */}
+                        TOTAL — the stack divides hours, not this figure —
+                        in whole dollars, since at 390px a column is narrower
+                        than `$1,040.00`. */}
                     {d.amount != null ? (
-                      <span className="absolute inset-x-0 bottom-full mb-1.5 text-center type-meta whitespace-nowrap text-subtle">
-                        {formatCurrency(d.amount, currency)}
+                      <span
+                        data-money
+                        className="absolute inset-x-0 bottom-full mb-1.5 text-center type-meta whitespace-nowrap text-subtle"
+                      >
+                        {formatCurrency(d.amount, currency, { whole: true })}
                       </span>
                     ) : null}
                   </i>
@@ -126,20 +131,22 @@ export function Week({
           ))}
         </div>
 
-        <div className="mt-3 flex gap-4">
+        <div className="mt-3 flex gap-1 @md:gap-4">
           {week.map((d) => {
             const rest = d.seconds === 0;
             return (
               <div
                 key={d.date}
-                className="flex min-w-0 flex-1 flex-col items-center gap-[5px]"
+                className="flex min-w-0 flex-1 flex-col items-center justify-between gap-[5px]"
               >
                 {/* Hours LEAD: the bar's height is hours, so the number
                     matching what is drawn takes the weight. A day with no
-                    work keeps this line as an em-dash, which is what holds
-                    every weekday label on one baseline. */}
+                    work keeps this line as an em-dash. A column too narrow
+                    for `6h 30m` breaks it at the space, and `justify-between`
+                    keeps every weekday label on one baseline. */}
                 <span
-                  className={`text-center type-amount whitespace-nowrap ${
+                  data-hours
+                  className={`text-center type-amount ${
                     rest ? 'text-subtle' : 'text-primary'
                   }`}
                 >

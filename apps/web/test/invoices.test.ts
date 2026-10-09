@@ -5,11 +5,12 @@
  * with the real migrations, so gapless numbering, the immutability trigger
  * and rate resolution are genuinely exercised.
  */
-import { test, before, after, beforeEach } from 'node:test';
+import { test, before, after, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import { makeDb } from './shim.mjs';
 import { fill } from './fill.ts';
+import { pdfText } from './pdf-text.ts';
 
 const USER = '11111111-1111-1111-1111-111111111111';
 const CLIENT = 'cc000000-0000-4000-8000-000000000001';
@@ -847,6 +848,62 @@ test('supporting detail prints from page 2', async () => {
   assert.equal(await pages(['project', 'week', 'date']), 2);
 });
 
+test('every page is US Letter, and no detail page overflows', async () => {
+  const { renderInvoicePdf, DETAIL_ROWS_PER_PAGE } = await import(
+    '../src/lib/invoice-pdf.tsx'
+  );
+  const { paginateSchedules } = await import('@stint/core');
+  // All three tables on one page is the tallest a detail page gets: each
+  // table's margin is room the row count does not charge for.
+  const supportingDetail = {
+    project: [
+      { project: 'Design', hours: 2 },
+      { project: 'Build', hours: 1 },
+    ],
+    week: [{ start: '2026-09-07', end: '2026-09-13', hours: 3 }],
+    date: Array.from({ length: 2 * DETAIL_ROWS_PER_PAGE }, () => ({
+      date: '2026-09-30',
+      project: 'Design',
+      hours: 1,
+    })),
+    totalHours: 3,
+  };
+  const pdf = await renderInvoicePdf({
+    invoiceNumber: 'INV-0042',
+    status: 'issued',
+    issueDate: '2026-10-01',
+    dueDate: null,
+    periodStart: '2026-09-01',
+    periodEnd: '2026-09-30',
+    currency: 'USD',
+    subtotal: 300,
+    taxRate: 0,
+    taxAmount: 0,
+    expensesSubtotal: 0,
+    total: 300,
+    notes: null,
+    paymentTerms: null,
+    business: {
+      name: 'Blake Eriks',
+      address: null,
+      email: null,
+      logoUrl: null,
+      taxId: null,
+    },
+    client: { name: 'Northwind', email: null, address: null },
+    lineItems: [],
+    supportingDetail,
+  });
+  const text = Buffer.from(pdf).toString('latin1');
+  const boxes = text.match(/\/MediaBox \[[^\]]*\]/g) ?? [];
+
+  // A page the renderer adds for an overflowing row is one more than planned.
+  const planned =
+    1 + paginateSchedules(supportingDetail, DETAIL_ROWS_PER_PAGE).length;
+  assert.equal(boxes.length, planned);
+  for (const box of boxes) assert.equal(box, '/MediaBox [0 0 612 792]');
+});
+
 // ── reference ──────────────────────────────────────────────────────
 test('a reference is trimmed and stored, and a blank one is none', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
@@ -1070,6 +1127,54 @@ test('the PDF renders from the frozen line items', async () => {
     [0x25, 0x50, 0x44, 0x46, 0x2d],
     'starts with %PDF-',
   );
+});
+
+test('every page of a long invoice shows its footer at the bottom', async () => {
+  const { renderInvoicePdf } = await import('../src/lib/invoice-pdf.tsx');
+  const pdf = await renderInvoicePdf({
+    invoiceNumber: 'INV-0042',
+    status: 'issued',
+    issueDate: '2026-10-01',
+    dueDate: null,
+    periodStart: null,
+    periodEnd: null,
+    currency: 'USD',
+    subtotal: 6000,
+    taxRate: 0,
+    taxAmount: 0,
+    expensesSubtotal: 0,
+    total: 6000,
+    notes: null,
+    paymentTerms: null,
+    business: {
+      name: 'Blake Eriks',
+      address: null,
+      email: null,
+      logoUrl: null,
+      taxId: null,
+    },
+    client: { name: 'Northwind', email: null, address: null },
+    lineItems: Array.from({ length: 60 }, (_, i) => ({
+      description: `Design work ${i + 1}`,
+      unit: 'hour' as const,
+      quantity: 1,
+      unitPrice: 100,
+      amount: 100,
+    })),
+  });
+
+  const pages = pdfText(pdf);
+  assert.ok(pages.length > 1, `expected several pages, got ${pages.length}`);
+  pages.forEach((runs, i) => {
+    const page = `Page ${i + 1} of ${pages.length}`;
+    for (const text of ['INV-0042', page]) {
+      // 48 is the page's bottom padding; the footer belongs inside it.
+      const lowest = Math.min(
+        ...runs.filter((r) => r.text === text).map((r) => r.y),
+      );
+      assert.ok(lowest < 48, `${page}: "${text}" drawn at y=${lowest}`);
+    }
+  });
 });
 
 // ── marking sent ───────────────────────────────────────────────────
@@ -1725,6 +1830,23 @@ test('recording an expense is idempotent on its id', async () => {
   assert.equal(retry.body.id, X(1));
   const { rows } = await pool.query('select count(*)::int n from expenses');
   assert.equal(rows[0].n, 1, 'the cost is recorded once');
+});
+
+test('an expense under a client that is not the caller’s is “No such client”', async () => {
+  const { POST: create } = await import('../src/app/api/v1/expenses/route.ts');
+  const res = await json(
+    await create(
+      req('/expenses', {
+        id: X(9),
+        clientId: 'cc000000-0000-4000-8000-0000000000ff',
+        spentOn: '2026-09-12',
+        description: 'Borrowed',
+        amount: 1,
+      }),
+    ),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.message, 'No such client');
 });
 
 test('an expense is more than zero, described, and dated unless recurring', async () => {
@@ -2424,4 +2546,30 @@ test('an issued invoice reads back every line, past a thousand', async () => {
     }),
   );
   assert.equal(read.body.lineItems.length, 1001);
+});
+
+test('an invoice made in the evening west of UTC is dated today, not tomorrow', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), hours: 1 });
+
+  // 8pm on the 29th in Los Angeles is already the 30th in UTC.
+  mock.timers.enable({
+    apis: ['Date'],
+    now: new Date('2026-09-30T03:00:00Z'),
+  });
+  try {
+    const res = await json(
+      await create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          tz: 'America/Los_Angeles',
+        }),
+      ),
+    );
+    assert.equal(res.status, 201);
+    assert.equal(res.body.issueDate, '2026-09-29');
+  } finally {
+    mock.timers.reset();
+  }
 });

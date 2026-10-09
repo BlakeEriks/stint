@@ -243,7 +243,11 @@ export function EntryDialog({
   })();
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      // Closed while a press waits, its refusal would show nowhere: it is inline.
+      onOpenChange={(next) => busy || onOpenChange(next)}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{existing ? 'Edit entry' : 'Add entry'}</DialogTitle>
@@ -465,6 +469,7 @@ export function EntryDialog({
               <Button
                 type="button"
                 variant="ghost"
+                disabled={busy}
                 onClick={() => onOpenChange(false)}
               >
                 Cancel

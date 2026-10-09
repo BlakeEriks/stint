@@ -39,13 +39,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           Past `2xl` the content's measure is capped anyway, so the surplus
           is better spent as ground than as a stretched frame; it is
           top-aligned because the header and rail are reached by muscle
-          memory.
+          memory. Its 940px max height is Home's, legend included, at the
+          capped width.
 
           A workspace screen (`Page`'s `data-workspace`) drops the dock's
           column and keeps the card as it is: the dock is the room it needs,
           and a card that resized between screens would jolt the frame. */}
       <div className="flex min-h-dvh flex-col bg-surface-base sm:h-dvh sm:min-h-0 sm:overflow-hidden 2xl:items-center 2xl:bg-surface-recessed 2xl:p-6">
-        <div className="group/app flex min-h-dvh w-full flex-col bg-surface-base sm:h-full sm:min-h-0 sm:overflow-hidden 2xl:mx-auto 2xl:max-h-[900px] 2xl:max-w-[1440px] 2xl:rounded-2xl 2xl:border 2xl:border-edge-subtle 2xl:shadow-float">
+        <div className="group/app flex min-h-dvh w-full flex-col bg-surface-base sm:h-full sm:min-h-0 sm:overflow-hidden 2xl:mx-auto 2xl:max-h-[940px] 2xl:max-w-[1440px] 2xl:rounded-2xl 2xl:border 2xl:border-edge-subtle 2xl:shadow-float">
           <AppHeader />
           {/* The rail and the dock change axis at different widths, so they are
             not siblings in one row: the rail moves beside the content at
