@@ -286,7 +286,7 @@
     <div class="states">
       <div class="state">
         <div class="menubar" style="width:210px;">
-          <span class="stint"><span class="pip"></span> 0:00:00</span>
+          <span class="stint"><span class="pip"></span> 6h 12m</span>
           <span>9:41</span>
         </div>
         <span class="caption">Stopped</span>
@@ -308,6 +308,8 @@
           to say whether time is accruing.</li>
         <li><strong>Two fills:</strong> accent running, <code>timerIdle</code>
           stopped.</li>
+        <li><strong>Stopped, it shows today's total</strong>, compact like the
+          panel's Today.</li>
         <li><strong>Findability is the honest cost.</strong> A bare dot is
           harder to pick out of a crowded bar than a letter, and people will
           learn its position rather than recognize its shape. That is how most
@@ -350,8 +352,8 @@
           <div class="divider"></div>
 
           <div class="stats">
-            <div class="stat"><span class="label">Today</span><span class="v">6:12:04</span></div>
-            <div class="stat" style="align-items:flex-end;"><span class="label">Unbilled</span><span class="v">$1,462.50</span></div>
+            <div class="stat"><span class="label">Today</span><span class="v">6h 12m</span></div>
+            <div class="stat" style="align-items:flex-end;"><span class="label">Earned</span><span class="v">$412.50</span></div>
           </div>
 
           <div class="divider"></div>
@@ -387,8 +389,10 @@
             mid-entry reassigns time already tracked against the old project,
             which is a billing edit wearing a dropdown. Stop the timer to move
             the work.</li>
-          <li><strong>Today and Unbilled are the two numbers</strong> you
-            cannot compute in your head. Same pair the web app leads with.</li>
+          <li><strong>Today and Earned are the two numbers</strong> you
+            cannot compute in your head, the pair the web's Today leads with.
+            Today reads compact, so the readout is the only figure moving by
+            the second.</li>
           <li>The accent appears exactly twice: the pip and the readout. Same
             fact, shown twice — which the rule permits.</li>
         </ul>
@@ -425,8 +429,8 @@
           <div class="divider"></div>
 
           <div class="stats">
-            <div class="stat"><span class="label">Today</span><span class="v">6:12:04</span></div>
-            <div class="stat" style="align-items:flex-end;"><span class="label">Unbilled</span><span class="v">$1,462.50</span></div>
+            <div class="stat"><span class="label">Today</span><span class="v">6h 12m</span></div>
+            <div class="stat" style="align-items:flex-end;"><span class="label">Earned</span><span class="v">$412.50</span></div>
           </div>
 
           <div class="divider"></div>
@@ -705,9 +709,9 @@
         <tbody>
           <tr><td><code>GET /timer/current</code></td><td>The running entry</td></tr>
           <tr><td><code>POST /timer/start</code></td><td><strong>409 when one is already running</strong></td></tr>
-          <tr><td><code>POST /timer/stop</code></td><td>The unbilled total after the stop, so the row updates without a refresh</td></tr>
+          <tr><td><code>POST /timer/stop</code></td><td>The stopped entry. Earned follows on the refresh after the press</td></tr>
           <tr><td><code>GET /summary</code></td><td>Today's total, <code>serverTime</code></td></tr>
-          <tr><td><code>GET /stats?tz=…</code></td><td>The unbilled total, a running timer's session so far included</td></tr>
+          <tr><td><code>GET /stats?tz=…</code></td><td><code>earnedToday</code>, a running timer's session so far included</td></tr>
           <tr><td><code>GET /entries/task-names?limit=6</code></td><td>Recent &mdash; the names the web suggests, so a row is a name to start again, not a past entry, and carries no duration. The running name is the readout and drops out, leaving five. Fetched on the poll while the panel is open and after a start or stop, not on every open</td></tr>
           <tr><td><code>PATCH /entries/:id</code></td><td>Rename</td></tr>
           <tr><td><code>GET /projects</code>, <code>GET /clients</code></td><td>The picker and client colors</td></tr>
@@ -731,11 +735,9 @@
           running entry in, and adding it again counts it twice.</li>
         <li><strong>The task field follows the server only when unfocused</strong>,
           so it never overwrites itself mid-type.</li>
-        <li><strong>Unbilled is never labeled "earned" or "revenue".</strong>
-          It is work done and not yet invoiced — money the user might still
-          never see. Show <code>unbilled.total</code> alone; the per-client
-          breakdown is a web surface. When <code>unratedCount &gt; 0</code> the
-          total is incomplete, and saying so beats a confidently wrong number.</li>
+        <li><strong>Earned is today's entries at their rates</strong>, the
+          web's Today figure. Unbilled and its per-client breakdown are web
+          surfaces.</li>
         <li><strong>The API models are hand-written and nothing type-checks
           them</strong> against <code>packages/schema</code>, so a renamed
           field fails at runtime in Swift and nowhere else.</li>

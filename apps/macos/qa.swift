@@ -19,15 +19,22 @@ func attribute(_ element: AXUIElement, _ name: String) -> AnyObject? {
     return value
 }
 
-func elements(_ root: AXUIElement) -> [AXUIElement] {
+/// Each element once. An app's tree can list the app among its own windows
+/// and children, and a walk without `seen` recurses until the stack overflows.
+func elements(_ root: AXUIElement, _ seen: inout Set<AXUIElement>) -> [AXUIElement] {
+    guard seen.insert(root).inserted else { return [] }
     let children = attribute(root, kAXChildrenAttribute) as? [AXUIElement] ?? []
-    return [root] + children.flatMap(elements)
+    return [root] + children.flatMap { elements($0, &seen) }
 }
 
 /// Everything in the window, and not the app's main menu.
 func controls() -> [AXUIElement] {
-    let windows = attribute(AXUIElementCreateApplication(pid), kAXWindowsAttribute) as? [AXUIElement] ?? []
-    return windows.flatMap(elements)
+    let app = AXUIElementCreateApplication(pid)
+    let windows = (attribute(app, kAXWindowsAttribute) as? [AXUIElement] ?? [])
+        .filter { attribute($0, kAXRoleAttribute) as? String == kAXWindowRole }
+    guard !windows.isEmpty else { fatalError("pid \(pid) exposes no window to accessibility") }
+    var seen: Set<AXUIElement> = [app]
+    return windows.flatMap { elements($0, &seen) }
 }
 
 func identifier(_ element: AXUIElement) -> String? {

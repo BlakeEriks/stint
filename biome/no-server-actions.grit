@@ -1,0 +1,6 @@
+language js
+
+JsDirective() as $d where {
+  $d <: r".*use server.*",
+  register_diagnostic(span=$d, message="A Server Action: put this behind a route in /api/v1 (Constitution III).")
+}

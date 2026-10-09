@@ -7,7 +7,7 @@
       "Bash(git worktree add)",
       "Bash(git worktree add *)",
       "Bash(*bundle.sh*)",
-      "Bash(open *Stint.app*)",
+      "Bash(open *Stint*.app*)",
       "Bash(killall *Stint*)",
       "Bash(pkill *Stint*)",
       "Bash(osascript *Stint*)"
