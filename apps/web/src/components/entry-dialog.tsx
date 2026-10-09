@@ -243,15 +243,19 @@ export function EntryDialog({
   })();
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      // Closed while a press waits, its refusal would show nowhere: it is inline.
+      onOpenChange={(next) => busy || onOpenChange(next)}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{existing ? 'Edit entry' : 'Add entry'}</DialogTitle>
           <DialogDescription>
             {locked
-              ? 'This entry is billed on an issued invoice, so it can no longer be changed. Void the invoice to release it.'
+              ? `This entry is billed on ${billedOn.data?.invoiceNumber ?? 'an issued invoice'}, so it can no longer be changed. Void the invoice to release it.`
               : existing?.invoiceId != null
-                ? 'This entry is on a draft invoice. Editing it changes what that draft would bill, so preview it again before issuing.'
+                ? `This entry is on draft ${billedOn.data?.invoiceNumber}. Editing it changes what that draft would bill, so preview it again before issuing.`
                 : 'Times are in your local timezone. An end before the start counts as overnight.'}
           </DialogDescription>
         </DialogHeader>
@@ -465,6 +469,7 @@ export function EntryDialog({
               <Button
                 type="button"
                 variant="ghost"
+                disabled={busy}
                 onClick={() => onOpenChange(false)}
               >
                 Cancel

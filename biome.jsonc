@@ -51,6 +51,7 @@
       "arrowParentheses": "always"
     }
   },
+  "plugins": ["./biome/no-server-actions.grit"],
   "linter": {
     "enabled": true,
     "rules": {

@@ -84,8 +84,13 @@ export function Month({
                 className="type-amount-hero text-strong"
               />
             ) : (
-              <span data-projection="pending" className="type-meta text-subtle">
-                after {month.businessDaysElapsed} of 3 business days
+              <span
+                data-projection="pending"
+                role="img"
+                aria-label="Not projected yet"
+                className="type-amount-hero text-subtle"
+              >
+                —
               </span>
             )}
           </FigGroup>

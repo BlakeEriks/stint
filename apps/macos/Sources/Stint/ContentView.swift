@@ -361,13 +361,14 @@ private struct TimerPanel: View {
 
     private var stats: some View {
         HStack(alignment: .firstTextBaseline) {
-            statistic("Today", value: format(model.todaySeconds))
+            // Compact, so the readout is the only figure moving by the second.
+            statistic("Today", value: compact(model.todaySeconds))
             Spacer(minLength: 12)
-            // Absent until fetched: a zero would claim "nothing owed".
+            // Absent until fetched: a zero would claim "earned nothing".
             if let stats = model.stats {
                 statistic(
-                    "Unbilled",
-                    value: money(stats.unbilled.total, code: stats.currency),
+                    "Earned",
+                    value: money(stats.earnedToday, code: stats.currency),
                     trailing: true
                 )
             }
