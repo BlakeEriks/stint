@@ -1,7 +1,7 @@
 /**
- * A row that is itself the button (`.claude/rules/web-ui.md`): its highlight
- * pads the content and is rounded, so it never hugs the text. Layout, gap
- * and height stay with the row.
+ * A pressable row (`.claude/rules/web-ui.md`): its highlight pads the content
+ * and is rounded, so it never hugs the text. Layout, gap and height stay with
+ * the row.
  */
 export const rowButton =
   'group rounded-md px-2 text-left hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
