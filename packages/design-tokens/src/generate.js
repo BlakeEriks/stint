@@ -165,9 +165,10 @@ ${Object.entries(tokens.brand.mark)
   .join('\n')}
 }
 
-/* The app is DARK-first, so a light OS preference does not flip it — only an
-   explicit [data-theme="light"] does. A viewer who has not chosen gets dark,
-   which is the theme the palette was derived for. */
+/* The app is DARK-first: this CSS never reads the OS preference on its own —
+   only an explicit [data-theme="light"] flips it, which System stamps when
+   the OS prefers light. A viewer who has not chosen gets dark, which is the
+   theme the palette was derived for. */
 @media (prefers-color-scheme: light) {
   :root[data-theme="light"] {
 ${semanticVars('light')}
