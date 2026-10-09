@@ -12,15 +12,22 @@ import type { LineUnit } from './invoice.ts';
  * `$1,200.00` is unambiguous on the page.
  */
 
-/** `$1,200.00`. Currency is an argument because the data carries one. */
+/**
+ * `$1,200.00`. Currency is an argument because the data carries one.
+ *
+ * `whole` rounds to `$1,200`, for a label read at a glance where cents
+ * would not fit; never for a figure that is billed.
+ */
 export function formatCurrency(
   amount: number | null,
   currency = 'USD',
+  { whole = false }: { whole?: boolean } = {},
 ): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency || 'USD',
     currencyDisplay: 'narrowSymbol',
+    ...(whole ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {}),
   }).format(amount ?? 0);
 }
 
