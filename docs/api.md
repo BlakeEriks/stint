@@ -2,7 +2,7 @@
 
 Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
-`Authorization: Bearer <token>`. Request/response shapes are defined in
+`Authorization: Bearer <token>`, on every endpoint except `/health`. Request/response shapes are defined in
 `packages/schema/src/index.ts` — that file is the source of truth, and every
 route parses its request against it; this document is the map.
 
@@ -13,7 +13,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 45 of 45, counting handlers rather than files.
+Every handler is covered — 46 of 46, counting handlers rather than files.
 
 ## Timer
 
@@ -299,6 +299,12 @@ preference — `.claude/rules/invoicing.md` has the reason.
 `user_settings.payment_notice` is a standing anti-fraud line printed under the
 payment block, defaulted to a warning that details never change and should be
 verified by phone.
+
+## Health
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/health` | **No auth.** `{ ok }`: `200` while Postgres answers a query, `503` when it does not. The uptime monitor polls it (`docs/deploying.md` §3c). |
 
 ## Errors
 

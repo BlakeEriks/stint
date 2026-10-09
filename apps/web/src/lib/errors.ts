@@ -1,4 +1,8 @@
 import { NextResponse } from 'next/server';
+/* `@sentry/core`, not `@sentry/nextjs`: the same function, but Node's ESM
+   loader cannot see the named exports `@sentry/nextjs` re-exports from
+   CommonJS, so the route tests would import `undefined`. */
+import { captureException } from '@sentry/core';
 /** Mirrors ErrorCode in @stint/schema. */
 export type Code =
   | 'TIMER_ALREADY_RUNNING'
@@ -83,6 +87,7 @@ export function handle<T extends unknown[]>(
         );
       }
       console.error('Unhandled API error:', err);
+      captureException(err);
       return NextResponse.json(
         { code: 'INTERNAL', message: 'Internal server error' },
         { status: 500 },
