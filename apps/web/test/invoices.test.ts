@@ -5,7 +5,7 @@
  * with the real migrations, so gapless numbering, the immutability trigger
  * and rate resolution are genuinely exercised.
  */
-import { test, before, after, beforeEach } from 'node:test';
+import { test, before, after, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import { makeDb } from './shim.mjs';
@@ -2424,4 +2424,30 @@ test('an issued invoice reads back every line, past a thousand', async () => {
     }),
   );
   assert.equal(read.body.lineItems.length, 1001);
+});
+
+test('an invoice made in the evening west of UTC is dated today, not tomorrow', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), hours: 1 });
+
+  // 8pm on the 29th in Los Angeles is already the 30th in UTC.
+  mock.timers.enable({
+    apis: ['Date'],
+    now: new Date('2026-09-30T03:00:00Z'),
+  });
+  try {
+    const res = await json(
+      await create(
+        req('/invoices', {
+          clientId: CLIENT,
+          ...PERIOD,
+          tz: 'America/Los_Angeles',
+        }),
+      ),
+    );
+    assert.equal(res.status, 201);
+    assert.equal(res.body.issueDate, '2026-09-29');
+  } finally {
+    mock.timers.reset();
+  }
 });
