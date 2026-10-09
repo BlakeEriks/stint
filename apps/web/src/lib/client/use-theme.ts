@@ -8,8 +8,8 @@ import { useCallback, useEffect, useState } from 'react';
  * The palette is **dark-first**: the token file keys its light block to an
  * explicit `[data-theme="light"]`, so System is resolved here, to a stamped
  * `light` or `dark`, rather than left to `prefers-color-scheme` in the CSS
- * (`docs/design/deriving-color.md`). The pre-paint script in `app/layout.tsx`
- * resolves it the same way.
+ * (`docs/design/deriving-color.md`). `THEME_SCRIPT` resolves it the same way
+ * on page load, and follows an OS switch on every screen.
  *
  * Dark is the default for anyone who has not chosen.
  */
@@ -61,14 +61,6 @@ export function useTheme() {
   const [theme, setThemeState] = useState<Theme>('dark');
 
   useEffect(() => setThemeState(stored()), []);
-
-  useEffect(() => {
-    if (theme !== 'system') return;
-    const os = window.matchMedia(OS_LIGHT);
-    const follow = () => applyTheme('system');
-    os.addEventListener('change', follow);
-    return () => os.removeEventListener('change', follow);
-  }, [theme]);
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);

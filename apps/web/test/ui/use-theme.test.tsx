@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTheme } from '@/lib/client/use-theme';
+import { THEME_SCRIPT } from '@/lib/theme-script';
 
 /**
- * "System" follows the OS, including when it switches while the app is open.
- * A regression here is silent: the app keeps whichever palette it last
- * stamped, which looks like a deliberate choice.
+ * "System" follows the OS, including when it switches while the app is open
+ * on any screen, not only Settings. A regression here is silent: the app
+ * keeps whichever palette it last stamped, which looks like a deliberate
+ * choice.
  */
 
 let osLight = false;
@@ -32,19 +34,25 @@ beforeEach(() => {
 
 const stamped = () => document.documentElement.getAttribute('data-theme');
 
+/** What `app/layout.tsx` runs in `<head>` on every page load. */
+const loadPage = () => new Function(THEME_SCRIPT)();
+
 describe('useTheme', () => {
-  it('follows the OS while System is chosen', () => {
+  it('follows the OS while System is chosen, after Settings unmounts', () => {
     osLight = true;
-    const { result } = renderHook(() => useTheme());
+    loadPage();
+    const { result, unmount } = renderHook(() => useTheme());
     act(() => result.current.setTheme('system'));
     expect(stamped()).toBe('light');
     expect(localStorage.getItem('stint.theme')).toBe('system');
 
-    act(() => osSwitches(false));
+    unmount();
+    osSwitches(false);
     expect(stamped()).toBe('dark');
   });
 
   it('stops following the OS once Light or Dark is chosen', () => {
+    loadPage();
     const { result } = renderHook(() => useTheme());
     act(() => result.current.setTheme('system'));
     act(() => result.current.setTheme('dark'));
