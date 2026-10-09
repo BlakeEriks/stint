@@ -18,11 +18,13 @@ running copy is the `.app` in `~/Applications` rather than the build product,
 so `swift build` alone leaves the menu bar on the old binary:
 
 ```bash
-pkill -f 'Stint.app/Contents/MacOS/Stint'
-./apps/macos/bundle.sh && open ~/Applications/Stint.app
+pkill -f 'Stint Local.app/Contents/MacOS/Stint'
+./apps/macos/bundle.sh && open ~/Applications/'Stint Local.app'
 ```
 
-Quit first — `bundle.sh` always overwrites the installed copy.
+Quit first — `bundle.sh` always overwrites the installed copy. The local
+build installs as `Stint Local.app` with its own bundle id, beside Stint.app;
+only the `prod` target writes Stint.app.
 
 **QA runs it in a window, never in the menu bar.** `./qa.sh` builds the
 debug binary and launches it with `STINT_WINDOW` set, which serves the same
@@ -36,7 +38,8 @@ which is what those commands address.
 ## Which backend it talks to
 
 `bundle.sh` takes a target. `local` is the default and omits the keys, so
-`Config` falls back to the local stack:
+`Config` falls back to the local stack. `prod` is the one that installs
+Stint.app:
 
 ```bash
 pkill -f 'Stint.app/Contents/MacOS/Stint'
@@ -91,7 +94,7 @@ unmarshal string into Go struct field OtpParams.create_user of type bool".
 
 **Against a hosted project the email has no code in it** — the template is a
 local file path and editing the hosted one needs custom SMTP, so GoTrue sends
-its default. `apps/macos/signin.sh` takes the link instead, verifying the
+its default. `apps/macos/signin.sh` signs the prod app, Stint.app, in from the link instead, verifying the
 token it carries: the same OTP the digits encode. `docs/setup.md` §4a.
 
 **The session lives in the Keychain**, not `UserDefaults` — a refresh token is

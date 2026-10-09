@@ -150,7 +150,7 @@ type.
 
 **Editing the template needs custom SMTP**, which the dashboard enforces: the
 default provider is a shared sender, so its mail cannot be customized. Until
-there is an SMTP provider, use the link:
+there is an SMTP provider, sign the prod app, Stint.app, in with the link:
 
 ```bash
 ./apps/macos/signin.sh     # paste the link when it asks
