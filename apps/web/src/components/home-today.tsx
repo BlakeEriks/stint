@@ -23,6 +23,7 @@ import {
 } from '@/lib/client/use-project-colors';
 import { Money } from './money';
 import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
+import { rowBleed, rowButton } from './row-button';
 
 /**
  * Today: one figure and the day's tasks.
@@ -87,8 +88,9 @@ export function Today({ stats }: { stats: Stats }) {
 
       {/* A fixed ceiling rather than the panel's height: the page is a column
           sized by its content, so there is no bounded height to measure
-          against. Just under five rows, so the cut-off row says it scrolls. */}
-      <div className="mt-6 flex max-h-48 flex-col overflow-y-auto">
+          against. Just under five rows, so the cut-off row says it scrolls.
+          Padded out by the rows' bleed, since a scroller clips sideways too. */}
+      <div className="-mx-2 mt-6 flex max-h-48 flex-col overflow-y-auto px-2">
         {entries.length === 0
           ? /* An empty day keeps its rows rather than collapsing, the same way
                an unworked day in the week's chart keeps its caption: the
@@ -111,47 +113,55 @@ export function Today({ stats }: { stats: Stats }) {
               </div>
             ))
           : tasks.map((t) => (
-              /* Starts the task again as a new entry, as the menu bar's
-                 recent rows do. */
-              <button
-                type="button"
+              /* The rule stays at the column's edge; only the row's
+                 highlight reaches past it, a hair inside the rules. */
+              <div
                 key={t.key}
-                data-task={t.key}
-                aria-label={`Start ${t.name}${t.projectName ? ` · ${t.projectName}` : ''}`}
-                /* Pending only while a timer runs: otherwise the timer bar
-                   already shows the start. */
-                aria-busy={pending === t.key}
-                disabled={pending === t.key}
-                onClick={() =>
-                  timer.start.mutate({
-                    id: uuidv7(),
-                    taskName: t.taskName,
-                    projectId: t.projectId,
-                    isBillable: t.isBillable,
-                  })
-                }
-                className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 text-left first:border-t-0 hover:bg-surface-hover disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+                className="border-t border-edge-subtle py-0.5 first:border-t-0"
               >
-                {/* Only clients have a color; internal work takes the hollow
+                {/* Starts the task again as a new entry, as the menu bar's
+                  recent rows do. */}
+                <button
+                  type="button"
+                  data-task={t.key}
+                  aria-label={`Start ${t.name}${t.projectName ? ` · ${t.projectName}` : ''}`}
+                  /* Pending only while a timer runs: otherwise the timer bar
+                   already shows the start. */
+                  aria-busy={pending === t.key}
+                  disabled={pending === t.key}
+                  onClick={() =>
+                    timer.start.mutate({
+                      id: uuidv7(),
+                      taskName: t.taskName,
+                      projectId: t.projectId,
+                      isBillable: t.isBillable,
+                    })
+                  }
+                  className={`${rowButton} ${rowBleed} grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 py-2 disabled:opacity-60`}
+                >
+                  {/* Only clients have a color; internal work takes the hollow
                   ring, which is what having none looks like on a screen
                   otherwise keyed by client. */}
-                <Pip
-                  color={t.projectId ? (colors.get(t.projectId) ?? null) : null}
-                />
-                <span
-                  className={`type-support truncate ${
-                    t.live ? 'text-primary' : 'text-muted'
-                  }`}
-                >
-                  {t.name}
-                  {t.projectName ? (
-                    <span className="text-subtle"> · {t.projectName}</span>
-                  ) : null}
-                </span>
-                <span className="type-duration text-subtle">
-                  {clock(t.seconds)}
-                </span>
-              </button>
+                  <Pip
+                    color={
+                      t.projectId ? (colors.get(t.projectId) ?? null) : null
+                    }
+                  />
+                  <span
+                    className={`type-support truncate ${
+                      t.live ? 'text-primary' : 'text-muted'
+                    }`}
+                  >
+                    {t.name}
+                    {t.projectName ? (
+                      <span className="text-subtle"> · {t.projectName}</span>
+                    ) : null}
+                  </span>
+                  <span className="type-duration text-subtle">
+                    {clock(t.seconds)}
+                  </span>
+                </button>
+              </div>
             ))}
       </div>
     </div>

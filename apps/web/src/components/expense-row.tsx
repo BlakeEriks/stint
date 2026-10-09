@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowRight, Pencil, Repeat } from 'lucide-react';
 import { formatCurrency } from '@stint/core';
 import type { Expense } from '@/lib/client/api';
+import { rowBleed, rowButton } from './row-button';
 
 /** "Aug 20": the year is the invoice's business, not the row's. */
 function monthDay(date: string) {
@@ -19,9 +20,7 @@ export function isLocked(expense: Expense) {
   return expense.invoiceStatus !== null && expense.invoiceStatus !== 'draft';
 }
 
-const rowClass =
-  'group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-2 text-left ' +
-  'hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none';
+const rowClass = `${rowButton} ${rowBleed} flex items-center gap-3 py-2`;
 
 /**
  * One expense on one line, name first: the label, the date and the amount
@@ -89,7 +88,7 @@ export function ExpenseRow({
           type="button"
           onClick={onOpen}
           aria-label={`Edit ${expense.description}`}
-          className="group flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+          className={`${rowButton} flex min-w-0 flex-1 items-center gap-3 py-2`}
         >
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate type-control text-strong">

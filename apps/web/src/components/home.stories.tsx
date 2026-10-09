@@ -77,16 +77,23 @@ export const Light: Story = { ...light };
  *  Earned, the week's bar and the month count the session so far. */
 export const Running: Story = { ...desktop, parameters: account('running') };
 
-/** Pressing a Today row starts that task again, as a new entry. */
+/** Pressing a Today row starts that task again, as a new entry. Its
+ *  highlight pads the row and reaches past the column's edge, as every
+ *  pressable row does, so the text keeps its line under the heading. */
 export const StartFromToday: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await userEvent.click(
-      await page.findByRole('button', {
-        name: /^Start Filter panel and saved views · /,
-      }),
-    );
+    const row = await page.findByRole('button', {
+      name: /^Start Filter panel and saved views · /,
+    });
+    const style = getComputedStyle(row);
+    await expect(style.paddingLeft).toBe('8px');
+    await expect(style.paddingRight).toBe('8px');
+    const column = (await page.findByText(/^Today · /)).getBoundingClientRect();
+    await expect(row.getBoundingClientRect().left).toBe(column.left - 8);
+
+    await userEvent.click(row);
     await expect(
       await page.findByRole('button', { name: 'Stop timer' }),
     ).toBeVisible();
