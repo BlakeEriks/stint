@@ -11,6 +11,7 @@
  */
 import pg from 'pg';
 import { connectionString, sslFor } from './db-url.mjs';
+import { moneyColumnProblems } from './money-columns.mjs';
 
 const EXPECTED = [
   'clients',
@@ -187,6 +188,15 @@ try {
   } else {
     console.log('  ✓ anon cannot execute any application function');
   }
+
+  // ── money is numeric(12,2), never a float ───────────────────────
+  const { rows: columns } = await client.query(
+    `select table_name, column_name, data_type, numeric_precision, numeric_scale
+     from information_schema.columns where table_schema = 'public'`,
+  );
+  const money = moneyColumnProblems(columns);
+  for (const problem of money) fail(problem);
+  if (money.length === 0) console.log('  ✓ money columns are numeric(12,2)');
 
   // ── settings are created on signup ───────────────────────────────
   const { rows: trg } = await client.query(
