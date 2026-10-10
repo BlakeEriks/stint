@@ -70,8 +70,8 @@ or one with an unreadable row, before anything is written.
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/summary` | **The menu bar endpoint.** Returns `{ running, todaySeconds, weekSeconds, serverTime }` in one call, so the Mac app can toggle between "current timer" and "today's total" without a second request. |
-| `GET` | `/calendar` | `?from&to` (**both required**) `&tz&granularity`. Returns `{ days: [{ date, totalSeconds, entries }] }` for every entry that overlaps the range, running ones included. An entry that crosses local midnight is listed under each day it touches, so one id can appear on several days, and each day's `totalSeconds` counts only its own part. `400 INVALID_PERIOD` if `to < from`. |
-| `GET` | `/calendar?granularity=day` | Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. A month of full entries is a heavy payload for something drawing one column per day. **Seconds only**, so it carries no money; Home's week bars take both columns from `/stats`'s `week` instead. `byClient` keys by client id with `''` for internal work, and running entries are excluded. Each entry counts whole on the day it started, as `/stats` does, so an entry begun before `from` is left out. |
+| `GET` | `/calendar` | `?from&to` (**both required**) `&tz&granularity`. Returns `{ days: [...] }`. `400 INVALID_PERIOD` if `to < from`. |
+| `GET` | `/calendar?granularity=day` | Day totals only — `{ date, totalSeconds, byClient }` per day, no entries. A month of full entries is a heavy payload for something drawing one column per day. **Seconds only**, so it carries no money; Home's week bars take both columns from `/stats`'s `week` instead. `byClient` keys by client id with `''` for internal work, and running entries are excluded. |
 | `GET` | `/stats` | `?tz` — the home screen cards **and the dock's inbox** in one call. One request because they render together, and a set that pops in piecemeal reads as broken. Fields and their rules are below. |
 | `GET` | `/entries/task-names` | `?projectId&limit` (1–20, default 8). Returns `{ taskNames: [{ taskName, projectId, lastUsedAt }] }` — names the user has typed before, for suggesting one rather than retyping it. One row per name **case-insensitively**, keeping the most recent spelling, since offering both is offering the user their own typo; the empty name is excluded, so a timer started in a hurry never becomes a suggestion. **`projectId` ranks, it does not filter** — names used with that project come first and every other name still follows, so there is no `none` literal as there is on `/entries`: "no project" and "no preference" are one request. Omitting it ranks by recency alone. Ranking is the server's and clients must not re-sort it; filtering as the user types is theirs. Backed by the `recent_task_names` SQL function. |
 
@@ -363,5 +363,5 @@ entries under the wrong date twice a year. Covered by tests across both US
 transitions, Europe/London, Australia/Sydney, and Pacific/Chatham's 45-minute
 offset.
 
-Calendar grouping happens server-side so all three clients agree on which
-days an entry falls on.
+Calendar grouping happens server-side so all three clients agree on which day
+an entry belongs to.
