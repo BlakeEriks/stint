@@ -1007,6 +1007,7 @@ test('an invoice cannot return to draft once issued', async () => {
 
   assert.equal(back.status, 422);
   assert.equal(back.body.code, 'VALIDATION_FAILED');
+  assert.equal(back.body.message, 'An invoice cannot move from sent to draft');
 });
 
 test('voiding releases the entries so they can be re-billed', async () => {

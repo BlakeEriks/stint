@@ -620,6 +620,10 @@ test('an issued invoice and its lines cannot be rewritten in the database', asyn
     () => asAlice(`update invoices set status = 'draft' where id = $1`),
     /cannot move from sent to draft/,
   );
+  await assert.rejects(
+    () => asAlice(`delete from invoices where id = $1`),
+    /is sent and cannot be deleted/,
+  );
 
   const [inv] = (
     await admin.query(

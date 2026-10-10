@@ -1,5 +1,6 @@
 -- An issued invoice, its lines and its status are frozen by the database
--- (#196), as the entries and expenses it bills already were.
+-- (#196), as the entries and expenses it bills already were, and only a
+-- draft can be deleted.
 --
 -- `authenticated` holds `update` on `invoices` and `invoice_line_items`, so
 -- before this a caller with their own JWT could rewrite a sent invoice's
@@ -17,6 +18,8 @@ language plpgsql as $$
 declare
   mutable constant text[] := array['status', 'sent_at', 'paid_at', 'updated_at'];
 begin
+  -- The one copy of the transition table: the status route maps this
+  -- refusal to its 422 rather than checking first.
   if new.status is distinct from old.status
      and (old.status, new.status) not in (
        ('draft', 'sent'), ('draft', 'void'),
@@ -38,6 +41,22 @@ end $$;
 
 create trigger t_invoices_guard_issued before update on invoices
   for each row execute function guard_issued_invoice();
+
+-- Deleting a sent invoice would cascade its lines away, release what it
+-- billed and leave a gap in the numbering. Only `authenticated` is refused:
+-- `delete_account()` runs as its definer, and fixtures as `postgres`.
+create function guard_issued_invoice_delete() returns trigger
+language plpgsql as $$
+begin
+  if old.status <> 'draft' and current_user = 'authenticated' then
+    raise exception 'Invoice % is % and cannot be deleted', old.id, old.status
+      using errcode = 'check_violation';
+  end if;
+  return old;
+end $$;
+
+create trigger t_invoices_guard_issued_delete before delete on invoices
+  for each row execute function guard_issued_invoice_delete();
 
 -- Insert is guarded too: a line added to a sent invoice rewrites it as
 -- surely as one edited. A line whose invoice is gone passes, which is how a

@@ -216,7 +216,8 @@ Once an invoice leaves `draft`, `guard_issued_invoice` refuses a change to
 any column but `status`, `sent_at` and `paid_at`, and moves `status` only
 along draft→sent/void, sent→paid/void, paid→void. `guard_issued_line_item`
 refuses inserting, editing or deleting one of its lines; the lines go only
-with the invoice, by cascade. Voiding releases the invoice's entries and
+with the invoice, by cascade. `guard_issued_invoice_delete` refuses
+deleting it for `authenticated`, so the number stays on record. Voiding releases the invoice's entries and
 expenses in the voiding update itself (`release_voided_invoice`).
 
 ### Billed entries are immutable
