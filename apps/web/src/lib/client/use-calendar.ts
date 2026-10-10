@@ -244,24 +244,14 @@ export function position(
   dayStart: Date,
   dayEnd: Date,
 ): PositionedEntry[] {
-  const midnight = dayStart.getTime();
-  // A DST day is 23 or 25 hours long, so the column's own span is the
-  // denominator rather than a constant.
-  const span = dayEnd.getTime() - midnight;
   const placed: PositionedEntry[] = [];
 
   for (const entry of entries) {
-    const start = new Date(entry.startedAt).getTime();
     // A running entry draws up to now; it has no end yet.
-    const end = entry.endedAt ? new Date(entry.endedAt).getTime() : Date.now();
-
-    const top = clamp((start - midnight) / span);
-    // A minimum height keeps a two-minute entry clickable.
-    const height = Math.max(clamp((end - start) / span), 0.012);
+    const end = entry.endedAt ? new Date(entry.endedAt) : new Date();
     placed.push({
       entry,
-      top,
-      height: Math.min(height, 1 - top),
+      ...placement(new Date(entry.startedAt), end, dayStart, dayEnd),
       lane: 0,
       lanes: 1,
     });
@@ -269,6 +259,26 @@ export function position(
 
   assignLanes(placed);
   return placed;
+}
+
+/**
+ * Where `[start, end)` sits in a column, as fractions of it. Both ends are
+ * clamped to the column first, so an entry from the day before is drawn only
+ * from midnight on.
+ */
+export function placement(
+  start: Date,
+  end: Date,
+  dayStart: Date,
+  dayEnd: Date,
+): { top: number; height: number } {
+  // A DST day is 23 or 25 hours long, so the column's own span is the
+  // denominator rather than a constant.
+  const span = dayEnd.getTime() - dayStart.getTime();
+  const at = (d: Date) => clamp((d.getTime() - dayStart.getTime()) / span);
+  const top = at(start);
+  // A minimum height keeps a two-minute entry clickable.
+  return { top, height: Math.min(Math.max(at(end) - top, 0.012), 1 - top) };
 }
 
 /**

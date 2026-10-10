@@ -190,8 +190,7 @@ export function localDateKey(at: Date, tz: string): string {
 
 /**
  * The seconds of `[start, end)` on each local date, cut at local midnight so
- * no day holds more than it has. The entry stays one record; only its day
- * grouping splits. A zero-length span keeps its one day.
+ * no day holds more than it has. A zero-length span keeps its one day.
  */
 export function splitByLocalDay(
   start: Date,

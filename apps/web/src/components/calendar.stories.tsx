@@ -141,9 +141,13 @@ export const Overnight: Story = {
   }),
   play: async ({ canvasElement }) => {
     const page = await calendar(canvasElement);
-    await expect(
-      await page.findAllByRole('button', { name: /^Overnight deploy/ }),
-    ).toHaveLength(2);
+    const blocks = await page.findAllByRole('button', {
+      name: /^Overnight deploy/,
+    });
+    await expect(blocks).toHaveLength(2);
+    // An hour each side of midnight: the second block ends at 01:00.
+    const [before, after] = blocks.map((b) => b.getBoundingClientRect().height);
+    await expect(after).toBeCloseTo(before ?? 0, 0);
   },
 };
 

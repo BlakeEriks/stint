@@ -4,7 +4,7 @@ import { requireSession } from '@/lib/auth';
 import { parseQuery } from '@/lib/validate';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { selectAll } from '@/lib/select-all';
-import { splitByLocalDay } from '@stint/core';
+import { localDateKey, splitByLocalDay } from '@stint/core';
 import { CalendarQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -18,8 +18,9 @@ export const dynamic = 'force-dynamic';
  * activity strip reuses this endpoint rather than bucketing client-side: the
  * DST-correct grouping already lives here.
  *
- * An entry that crosses local midnight is on every day it touches, and each
- * day counts only its own part, so no day holds more than it has.
+ * In the entry view, an entry that crosses local midnight is on every day it
+ * touches, and each day counts only its own part, so no day holds more than
+ * it has. `day` keeps each entry whole on the day it started.
  */
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
@@ -33,7 +34,6 @@ export const GET = handle(async (req: Request) => {
     db
       .from('time_entries')
       .select(ENTRY_COLUMNS)
-      // Every entry overlapping the range, not only those starting in it.
       .lt('started_at', q.to)
       .or(`ended_at.gt.${q.from},ended_at.is.null`)
       .order('started_at', { ascending: true }),
@@ -63,6 +63,18 @@ export const GET = handle(async (req: Request) => {
       const entry = toEntry(row as EntryRow);
       // A running entry has no duration yet and contributes nothing.
       if (entry.endedAt == null) continue;
+      /* Whole, on the day it started: Home's figures count a session there
+         (specs/004-live-earned FR-011), and this split divides Home's bars. */
+      if (new Date(entry.startedAt) < new Date(q.from)) continue;
+
+      const key = localDateKey(new Date(entry.startedAt), q.tz);
+      const day = days.get(key) ?? {
+        date: key,
+        totalSeconds: 0,
+        byClient: {},
+      };
+      const seconds = entry.durationSeconds ?? 0;
+      day.totalSeconds += seconds;
 
       /* `byClient` counts BILLABLE work only, because its one reader is the
          week's bar stack and that bar's height is billable seconds
@@ -70,25 +82,16 @@ export const GET = handle(async (req: Request) => {
          worked would give non-billable work a share of a bar it did not
          raise. `totalSeconds` is unfiltered and stays that way: the calendar
          draws a day's whole load. */
-      const client = entry.projectId
-        ? (clientOf.get(entry.projectId) ?? '')
-        : '';
-      for (const { date, seconds } of splitByLocalDay(
-        new Date(entry.startedAt),
-        new Date(entry.endedAt),
-        q.tz,
-      )) {
-        const day = days.get(date) ?? { date, totalSeconds: 0, byClient: {} };
-        day.totalSeconds += seconds;
-
-        if (entry.isBillable) {
-          /* Internal work keys as the empty string rather than being dropped:
-             a day spent on unbilled work is not an empty day, and the strip
-             must be able to show it. */
-          day.byClient[client] = (day.byClient[client] ?? 0) + seconds;
-        }
-        days.set(date, day);
+      if (entry.isBillable) {
+        /* Internal work keys as the empty string rather than being dropped: a
+           day spent on unbilled work is not an empty day, and the strip must
+           be able to show it. */
+        const client = entry.projectId
+          ? (clientOf.get(entry.projectId) ?? '')
+          : '';
+        day.byClient[client] = (day.byClient[client] ?? 0) + seconds;
       }
+      days.set(key, day);
     }
 
     return NextResponse.json({ days: [...days.values()] });

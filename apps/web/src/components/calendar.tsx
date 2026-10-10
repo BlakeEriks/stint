@@ -13,17 +13,14 @@ import {
 import { Button } from '@/components/ui/button';
 import {
   PX_PER_HOUR,
+  placement,
   useCalendar,
   type PositionedEntry,
 } from '@/lib/client/use-calendar';
 import { useProjectClients } from '@/lib/client/use-project-colors';
 import { useMediaQuery } from '@/lib/client/use-media-query';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
-import {
-  useEntryDrag,
-  type Drag,
-  type DragMode,
-} from '@/lib/client/use-entry-drag';
+import { useEntryDrag, type DragMode } from '@/lib/client/use-entry-drag';
 import { Plus } from 'lucide-react';
 import { api, type TimeEntry } from '@/lib/client/api';
 import { Page } from './page';
@@ -675,7 +672,7 @@ function EntryBlock({
   // While dragging, the block paints from the gesture rather than the server.
   const live = drag.preview?.entryId === entry.id ? drag.preview : null;
   const { top, height } = live
-    ? span(live, dayStart, dayEnd)
+    ? placement(live.startedAt, live.endedAt, dayStart, dayEnd)
     : { top: item.top, height: item.height };
 
   const time = (iso: string) => formatLocalTime(iso, tz);
@@ -793,15 +790,4 @@ function Handle({
       }`}
     />
   );
-}
-
-/** Where a dragged entry sits in its column, as fractions. */
-function span(drag: Drag, dayStart: Date, dayEnd: Date) {
-  const total = dayEnd.getTime() - dayStart.getTime();
-  const top = (drag.startedAt.getTime() - dayStart.getTime()) / total;
-  const height = (drag.endedAt.getTime() - drag.startedAt.getTime()) / total;
-  return {
-    top: Math.max(0, Math.min(1, top)),
-    height: Math.max(0.012, Math.min(height, 1 - top)),
-  };
 }

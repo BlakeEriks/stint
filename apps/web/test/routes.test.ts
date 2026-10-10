@@ -936,6 +936,8 @@ test('calendar splits an entry that crosses local midnight', async () => {
   ).entries;
   assert.equal(entries.length, 1, 'the entry is drawn on Saturday too');
 
+  /* `day` divides Home's bars, which count a session on the day it started
+     (specs/004-live-earned FR-011), so it keeps the entry whole there. */
   const day = await json(
     await calendar(
       req(
@@ -943,15 +945,7 @@ test('calendar splits an entry that crosses local midnight', async () => {
       ),
     ),
   );
-  assert.deepEqual(
-    totals(day.body.days),
-    { '2026-07-03': 7200, '2026-07-04': 7200 },
-    'each day counts only its own part',
-  );
-  const split = day.body.days.map((d: { byClient: Record<string, number> }) =>
-    Object.values(d.byClient).reduce((s, n) => s + n, 0),
-  );
-  assert.deepEqual(split, [7200, 7200]);
+  assert.deepEqual(totals(day.body.days), { '2026-07-03': 14_400 });
 });
 
 test('calendar rejects an inverted period', async () => {

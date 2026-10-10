@@ -370,24 +370,24 @@ export function calendar(
     splitByLocalDay(new Date(e.startedAt), new Date(e.endedAt ?? db.now), q.tz);
 
   // Totals count stopped work only, so a day holding just a running timer
-  // has no row, as in the route.
-  if (q.granularity === 'day') {
-    const days = new Map<
-      string,
-      { date: string; totalSeconds: number; byClient: Record<string, number> }
-    >();
-    for (const e of inRange.filter(stopped)) {
-      const client = clientOf(db, e.projectId) ?? '';
-      for (const { date, seconds } of pieces(e)) {
-        const day = days.get(date) ?? { date, totalSeconds: 0, byClient: {} };
-        day.totalSeconds += seconds;
-        if (e.isBillable)
-          day.byClient[client] = (day.byClient[client] ?? 0) + seconds;
-        days.set(date, day);
+  // has no row, as in the route; each entry whole, on the day it started.
+  if (q.granularity === 'day')
+    return [
+      ...groupBy(
+        inRange.filter((e) => stopped(e) && at(e.startedAt) >= at(q.from)),
+        (e) => localDateKey(new Date(e.startedAt), q.tz),
+      ),
+    ].map(([date, entries]) => {
+      const byClient: Record<string, number> = {};
+      let totalSeconds = 0;
+      for (const e of entries) {
+        totalSeconds += e.durationSeconds ?? 0;
+        if (!e.isBillable) continue;
+        const client = clientOf(db, e.projectId) ?? '';
+        byClient[client] = (byClient[client] ?? 0) + (e.durationSeconds ?? 0);
       }
-    }
-    return [...days.values()];
-  }
+      return { date, totalSeconds, byClient };
+    });
 
   const days = new Map<
     string,
