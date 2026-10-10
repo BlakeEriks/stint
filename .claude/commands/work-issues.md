@@ -14,8 +14,8 @@ Blake can test from its preview link. Blake merges; merging is the deploy, so
   up, until that PR is `ready-for-qa` or `needs-input`.
 - `/work-issues` alone works until nothing is left; `/loop /work-issues`
   comes back while CI is still running.
-- `--max-prs <n>`, with any of these, raises the cap on open PRs from five
-  to `n` (step 1): `/work-issues --max-prs 20`.
+- `--max-prs <n>`, with any of these, sets the cap on open PRs (step 1),
+  ten by default: `/work-issues --max-prs 20`.
 
 Step 0 runs at every wake and again before every pick, so feedback Blake
 left while a builder worked is answered before anything new. No
@@ -134,7 +134,7 @@ is `reviewed`.
 
 ## 1. Pick
 
-**At most five open PRs wait on Blake**, or `--max-prs` if given. Count the
+**At most ten open PRs wait on Blake**, or `--max-prs` if given. Count the
 open PRs not by Dependabot (`gh pr list --json author`); the cap or more →
 step 2, whatever the mode. Each is his to test and merge, so one more only
 lengthens his queue.
