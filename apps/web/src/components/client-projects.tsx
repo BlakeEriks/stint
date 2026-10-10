@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Archive, Pencil, Plus } from 'lucide-react';
@@ -23,7 +24,7 @@ import { keys, listsArchived } from '@/lib/client/query-keys';
  */
 export function ClientProjects({ client }: { client: Client }) {
   const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState<Project | undefined>();
+  const editing = useDialog<Project>();
 
   /* An archived client's projects all count as archived, so without them
      the page would say "No projects." of a client that has some. */
@@ -76,7 +77,7 @@ export function ClientProjects({ client }: { client: Client }) {
                   project={project}
                   client={client}
                   userDefaultRate={settings?.defaultHourlyRate ?? null}
-                  onEdit={() => setEditing(project)}
+                  onEdit={() => editing.show(project)}
                 />
               </li>
             ))}
@@ -90,9 +91,9 @@ export function ClientProjects({ client }: { client: Client }) {
         defaultClientId={client.id}
       />
       <ProjectDialog
-        open={editing !== undefined}
-        onOpenChange={(open) => !open && setEditing(undefined)}
-        existing={editing}
+        open={editing.open}
+        onOpenChange={editing.onOpenChange}
+        existing={editing.subject}
       />
     </section>
   );

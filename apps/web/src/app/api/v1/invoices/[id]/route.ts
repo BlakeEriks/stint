@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { handle, ApiError } from '@/lib/errors';
+import { handle, ApiError, isCheckViolation } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { loadPdfData } from '@/lib/invoicing';
 
@@ -29,9 +29,10 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
 /**
  * DELETE /api/v1/invoices/:id
  *
- * Only a draft can be deleted. Anything issued must be voided instead, so the
- * numbering stays gapless and the record of what was sent survives.
- * Deleting releases the entries and expenses it held.
+ * Only a draft can be deleted: `guard_issued_invoice_delete` refuses the
+ * rest, which must be voided instead, so the numbering stays gapless and the
+ * record of what was sent survives. Deleting releases the entries and
+ * expenses it held, by their `on delete set null`, in the same statement.
  */
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
@@ -39,35 +40,22 @@ export const DELETE = handle(async (req: Request, ctx: Ctx) => {
 
   const { data: invoice, error } = await db
     .from('invoices')
-    .select('id, status')
+    .select('id')
     .eq('id', id)
     .maybeSingle();
 
   if (error) throw error;
   if (!invoice) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
 
-  if (invoice.status !== 'draft') {
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      `A ${invoice.status} invoice cannot be deleted — void it instead, so the number stays on record`,
-      { status: invoice.status },
-    );
-  }
-
-  // Release the entries and expenses before deleting, or they would be
-  // orphaned by the ON DELETE SET NULL without the intent being explicit.
-  for (const table of ['time_entries', 'expenses']) {
-    const { error: releaseError } = await db
-      .from(table)
-      .update({ invoice_id: null })
-      .eq('invoice_id', id);
-    if (releaseError) throw releaseError;
-  }
-
   const { error: deleteError } = await db
     .from('invoices')
     .delete()
     .eq('id', id);
+  if (isCheckViolation(deleteError))
+    throw new ApiError(
+      'VALIDATION_FAILED',
+      'An issued invoice cannot be deleted — void it instead, so the number stays on record',
+    );
   if (deleteError) throw deleteError;
 
   return new NextResponse(null, { status: 204 });

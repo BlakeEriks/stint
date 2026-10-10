@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery } from '@tanstack/react-query';
 import { formatCompact, formatCurrency, startOfLocalDay } from '@stint/core';
 import { CalendarDays, Plus } from 'lucide-react';
@@ -61,15 +61,8 @@ export function EntryList({
 
   const colors = useProjectColors();
 
-  /* `undefined` means "add", an entry means "edit". A separate boolean would
-     let the two disagree about which is open. */
-  const [editing, setEditing] = useState<TimeEntry | undefined>();
-  const [open, setOpen] = useState(false);
-
-  const openFor = (entry?: TimeEntry) => {
-    setEditing(entry);
-    setOpen(true);
-  };
+  /* `undefined` adds an entry; an entry, edits it. */
+  const editing = useDialog<TimeEntry | undefined>();
 
   return (
     <section
@@ -111,7 +104,7 @@ export function EntryList({
           variant="ghost"
           size="xs"
           className={earnedToday === undefined ? 'ml-auto' : undefined}
-          onClick={() => openFor()}
+          onClick={() => editing.show(undefined)}
         >
           <Plus aria-hidden />
           Add
@@ -128,7 +121,11 @@ export function EntryList({
           empty="Nothing logged yet today. Start a timer above."
         >
           {(entries) => (
-            <TodayGrid entries={entries} colors={colors} onEdit={openFor} />
+            <TodayGrid
+              entries={entries}
+              colors={colors}
+              onEdit={editing.show}
+            />
           )}
         </Listing>
       </div>
@@ -151,9 +148,9 @@ export function EntryList({
       ) : null}
 
       <EntryDialog
-        open={open}
-        onOpenChange={setOpen}
-        existing={editing}
+        open={editing.open}
+        onOpenChange={editing.onOpenChange}
+        existing={editing.subject}
         projects={projects}
       />
     </section>

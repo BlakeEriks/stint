@@ -14,10 +14,12 @@ Blake can test from its preview link. Blake merges; merging is the deploy, so
   up, until that PR is `ready-for-qa` or `needs-input`.
 - `/work-issues` alone works until nothing is left; `/loop /work-issues`
   comes back while CI is still running.
+- `--max-prs <n>`, with any of these, sets the cap on open PRs (step 1),
+  ten by default: `/work-issues --max-prs 20`.
 
 Step 0 runs at every wake and again before every pick, so feedback Blake
 left while a builder worked is answered before anything new. No
-mode starts an issue while five PRs wait on Blake (step 1).
+mode starts an issue while the cap's worth of PRs wait on Blake (step 1).
 
 **You orchestrate; subagents build and review.** `issue-builder` does the
 work and `pr-review-toolkit:code-reviewer` reviews it, each in its own subagent reporting back
@@ -132,10 +134,10 @@ is `reviewed`.
 
 ## 1. Pick
 
-**At most five open PRs wait on Blake.** Count the open PRs not by
-Dependabot (`gh pr list --json author`); five or more → step 2, whatever
-the mode. Each is his to test and merge, so a sixth only lengthens his
-queue.
+**At most ten open PRs wait on Blake**, or `--max-prs` if given. Count the
+open PRs not by Dependabot (`gh pr list --json author`); the cap or more →
+step 2, whatever the mode. Each is his to test and merge, so one more only
+lengthens his queue.
 
 `gh issue list --state open --json number,title,labels`, then skip every
 issue that:
@@ -174,7 +176,7 @@ opened or updated, which are `ready-for-qa`, what is `needs-input` and its
 question, and anything that failed.
 
 Only under `/loop`: wake again in 15 minutes while an open PR's CI is still
-running, and in 60 while five PRs wait on Blake and issues are left to pick,
+running, and in 60 while the cap's worth of PRs wait on Blake and issues are left to pick,
 so a merge frees a slot without a restart. Pass the same `/loop` prompt
 back — never a hand-written one, which would skip step 0. Without `/loop`,
 schedule nothing. Otherwise end the loop: Blake finds what needs him by

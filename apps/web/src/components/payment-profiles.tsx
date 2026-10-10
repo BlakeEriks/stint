@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Button } from '@/components/ui/button';
@@ -17,8 +17,8 @@ import { keys } from '@/lib/client/query-keys';
  * resolve.
  */
 export function PaymentProfiles() {
-  const [editing, setEditing] = useState<PaymentProfile | null>(null);
-  const [creating, setCreating] = useState(false);
+  /* `undefined` adds a profile; a profile, edits it. */
+  const dialog = useDialog<PaymentProfile | undefined>();
 
   const { data } = useQuery({
     queryKey: keys.paymentProfiles(),
@@ -93,7 +93,7 @@ export function PaymentProfiles() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => setEditing(profile)}
+                  onClick={() => dialog.show(profile)}
                 >
                   Edit
                 </Button>
@@ -107,21 +107,16 @@ export function PaymentProfiles() {
         <Button
           type="button"
           variant="default"
-          onClick={() => setCreating(true)}
+          onClick={() => dialog.show(undefined)}
         >
           Add payment details
         </Button>
       </div>
 
       <PaymentProfileDialog
-        open={creating || editing !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setCreating(false);
-            setEditing(null);
-          }
-        }}
-        existing={editing ?? undefined}
+        open={dialog.open}
+        onOpenChange={dialog.onOpenChange}
+        existing={dialog.subject}
       />
     </Section>
   );

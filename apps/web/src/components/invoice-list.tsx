@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useDialog } from '@/lib/client/use-dialog';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -62,7 +62,7 @@ export function InvoiceList() {
     .filter((i) => i.status === 'sent')
     .reduce((a, i) => a + i.total, 0);
 
-  const [payingId, setPayingId] = useState<string | null>(null);
+  const paying = useDialog<string>();
 
   /* Pending: the dialog that asks for the paid date stays open to say what
      the server refused. */
@@ -76,7 +76,7 @@ export function InvoiceList() {
         qc.invalidateQueries({ queryKey: keys.invoices() }),
         qc.invalidateQueries({ queryKey: keys.stats() }),
       ]),
-    onSuccess: () => setPayingId(null),
+    onSuccess: () => paying.onOpenChange(false),
   });
 
   return (
@@ -136,11 +136,11 @@ export function InvoiceList() {
                             // A previous invoice's rejection must not carry
                             // over and read as a rejection of this one.
                             markPaid.reset();
-                            setPayingId(invoice.id);
+                            paying.show(invoice.id);
                           }
                         : undefined
                     }
-                    busy={markPaid.isPending && payingId === invoice.id}
+                    busy={markPaid.isPending && paying.subject === invoice.id}
                   />
                 </li>
               ))}
@@ -150,16 +150,14 @@ export function InvoiceList() {
       </Panel>
 
       <MarkPaidDialog
-        open={payingId !== null}
-        onOpenChange={(open) => {
-          if (!open) setPayingId(null);
-        }}
+        open={paying.open}
+        onOpenChange={paying.onOpenChange}
         onConfirm={(paidAt) => {
-          if (payingId) markPaid.mutate({ id: payingId, paidAt });
+          if (paying.subject) markPaid.mutate({ id: paying.subject, paidAt });
         }}
         pending={markPaid.isPending}
         error={markPaid.error}
-        sentAt={all.find((i) => i.id === payingId)?.sentAt}
+        sentAt={all.find((i) => i.id === paying.subject)?.sentAt}
       />
     </Page>
   );
