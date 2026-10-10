@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useDialog } from '@/lib/client/use-dialog';
 import type { Client, Expense } from '@/lib/client/api';
 import { ExpenseDialog } from './expense-dialog';
 import { ExpenseRow } from './expense-row';
@@ -17,7 +17,7 @@ export function ClientExpenses({
   client: Client;
   expenses: Expense[];
 }) {
-  const [editing, setEditing] = useState<Expense | undefined>();
+  const editing = useDialog<Expense>();
   if (expenses.length === 0) return null;
 
   return (
@@ -29,16 +29,16 @@ export function ClientExpenses({
             <ExpenseRow
               expense={expense}
               currency={client.currency ?? undefined}
-              onOpen={() => setEditing(expense)}
+              onOpen={() => editing.show(expense)}
             />
           </li>
         ))}
       </ul>
       <ExpenseDialog
-        open={editing !== undefined}
-        onOpenChange={(open) => !open && setEditing(undefined)}
+        open={editing.open}
+        onOpenChange={editing.onOpenChange}
         client={client}
-        expense={editing}
+        expense={editing.subject}
       />
     </div>
   );

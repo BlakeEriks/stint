@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useDialog } from '@/lib/client/use-dialog';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Pencil, Plus } from 'lucide-react';
@@ -35,9 +36,9 @@ import { rowBleed, rowButton } from './row-button';
 export function ClientList() {
   /* `null` is a new project for no client; a string, for that client. */
   const [creating, setCreating] = useState<string | null | undefined>();
-  const [editing, setEditing] = useState<Project | undefined>();
-  const [editingClient, setEditingClient] = useState<Client | undefined>();
-  const [addingExpense, setAddingExpense] = useState<Client | undefined>();
+  const editing = useDialog<Project>();
+  const editingClient = useDialog<Client>();
+  const addingExpense = useDialog<Client>();
 
   const clientQuery = useQuery({
     queryKey: keys.clients({ archived: true }),
@@ -98,9 +99,9 @@ export function ClientList() {
                 key={g.client?.id ?? '__none__'}
                 client={g.client}
                 defaultRate={defaultRate}
-                onEditClient={setEditingClient}
+                onEditClient={editingClient.show}
                 onAdd={() => setCreating(g.client?.id ?? null)}
-                onAddExpense={() => g.client && setAddingExpense(g.client)}
+                onAddExpense={() => g.client && addingExpense.show(g.client)}
                 expenses={
                   g.client ? (
                     <ClientExpenses
@@ -116,7 +117,7 @@ export function ClientList() {
                     project={project}
                     client={g.client}
                     defaultRate={defaultRate}
-                    onEdit={() => setEditing(project)}
+                    onEdit={() => editing.show(project)}
                   />
                 ))}
               </Card>
@@ -131,22 +132,22 @@ export function ClientList() {
         defaultClientId={creating}
       />
       <ProjectDialog
-        open={editing !== undefined}
-        onOpenChange={(open) => !open && setEditing(undefined)}
-        existing={editing}
+        open={editing.open}
+        onOpenChange={editing.onOpenChange}
+        existing={editing.subject}
       />
-      {addingExpense ? (
+      {addingExpense.subject ? (
         <ExpenseDialog
-          open
-          onOpenChange={(open) => !open && setAddingExpense(undefined)}
-          client={addingExpense}
+          open={addingExpense.open}
+          onOpenChange={addingExpense.onOpenChange}
+          client={addingExpense.subject}
         />
       ) : null}
-      {editingClient ? (
+      {editingClient.subject ? (
         <ClientDialog
-          open
-          onOpenChange={(open) => !open && setEditingClient(undefined)}
-          client={editingClient}
+          open={editingClient.open}
+          onOpenChange={editingClient.onOpenChange}
+          client={editingClient.subject}
         />
       ) : null}
     </Page>
