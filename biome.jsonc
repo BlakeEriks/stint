@@ -64,24 +64,40 @@
               "options": {
                 "patterns": [
                   {
+                    // Bare names pass useNodejsImportProtocol as info
+                    // only, so they are listed beside node:*.
                     "group": [
+                      "node:*",
+                      "node:*/*",
                       "next",
-                      "next/*",
-                      "@supabase/*",
+                      "next/**",
+                      "@supabase/**",
+                      "undici",
                       "fs",
                       "fs/*",
-                      "node:fs",
-                      "node:fs/*",
                       "net",
-                      "node:net",
                       "http",
-                      "node:http",
+                      "http2",
                       "https",
-                      "node:https"
+                      "dgram",
+                      "dns",
+                      "dns/*",
+                      "tls",
+                      "child_process"
                     ],
                     "message": "packages/core does no I/O (Constitution IV): the route handler reads and writes."
                   }
                 ]
+              }
+            },
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "fetch": "packages/core does no I/O (Constitution IV): the route handler reads and writes.",
+                  "XMLHttpRequest": "packages/core does no I/O (Constitution IV): the route handler reads and writes.",
+                  "WebSocket": "packages/core does no I/O (Constitution IV): the route handler reads and writes."
+                }
               }
             }
           }
