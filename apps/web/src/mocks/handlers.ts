@@ -10,7 +10,7 @@ import {
   parseExport,
   uuidv7,
 } from '@stint/core';
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import type {
   Client,
   Expense,
@@ -598,6 +598,12 @@ export const handlers = {
     };
     db.expenses.push(expense);
     return ok(schema.Expense, expenseView(db, expense));
+  }),
+
+  sendFeedback: http.post(`${API}/feedback`, async ({ request }) => {
+    const input = schema.CreateFeedback.safeParse(await request.json());
+    if (!input.success) return fail('VALIDATION_FAILED');
+    return HttpResponse.json({ id: input.data.id }, { status: 201 });
   }),
 
   updateExpense: http.patch(

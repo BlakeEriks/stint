@@ -548,6 +548,16 @@ export const CreateExpense = z
     path: ['spentOn'],
   });
 
+/** The limits match the `feedback` table's checks. */
+export const FEEDBACK_MAX = 2000;
+export const CreateFeedback = z.object({
+  id: uuid,
+  message: z.string().trim().min(1).max(FEEDBACK_MAX),
+  screen: z.string().min(1).max(200).startsWith('/'),
+  client: z.enum(['web', 'macos']),
+  appVersion: z.string().min(1).max(64),
+});
+
 /** Checked against the stored row in the route: `recurring: true` clears the
  *  date, and `false` needs one. */
 export const UpdateExpense = z
@@ -973,3 +983,4 @@ export type InvoiceLineItem = z.infer<typeof InvoiceLineItem>;
 export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
 export type StoredLineItem = z.infer<typeof StoredLineItem>;
 export type ApiError = z.infer<typeof ApiError>;
+export type CreateFeedback = z.infer<typeof CreateFeedback>;
