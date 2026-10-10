@@ -1,6 +1,7 @@
 // A money column is found by name, so a new one is checked without editing a
-// list. `tax_rate` is a percentage and `quantity` is hours: neither matches.
-const MONEY = /amount|total|price|hourly_rate|rate_override/;
+// list.
+const MONEY =
+  /(^|_)(amount|total|subtotal|price)$|hourly_rate$|^rate_override$/;
 const FLOAT = new Set(['real', 'double precision']);
 
 /**

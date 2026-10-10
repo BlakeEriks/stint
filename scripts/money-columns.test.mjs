@@ -24,6 +24,8 @@ test('money and non-money numeric columns as the schema has them pass', () => {
       col('quantity', 'numeric', 12, 2),
       col('max_timer_hours', 'numeric', 4, 1),
       col('sequence_no', 'integer', 32, 0),
+      col('total_seconds', 'integer', 32, 0),
+      col('default_hourly_rate', 'numeric', 12, 2),
     ]),
     [],
   );
