@@ -188,8 +188,9 @@ Each invitee gets their own account; nothing is shared.
 pnpm --filter @stint/web dev
 ```
 
-Make your account with `pnpm seed you@example.com --clear`, then open
-`http://localhost:3100`, enter your email, click the link. The new
+Make your account with `pnpm seed you@example.com`, which fills it with
+sample data; `--clear` then empties it. Open `http://localhost:3100`, enter
+your email, click the link. The new
 `auth.users` row fires a trigger that creates your `user_settings` with USD, a
 12-hour long-entry threshold, and `INV-1` — verified.
 
