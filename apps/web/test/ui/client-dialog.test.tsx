@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ClientDialog } from '@/components/client-dialog';
 import type { Client } from '@/lib/client/api';
+import { keys } from '@/lib/client/query-keys';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
@@ -90,17 +91,23 @@ describe('ClientDialog', () => {
     });
   });
 
-  it('offers no archive for a client already archived', async () => {
+  it('archiving the client refreshes the projects the pickers offer', async () => {
     serve();
+    const qc = new QueryClient();
+    qc.setQueryData(keys.projects(), { projects: [] });
+    const user = userEvent.setup();
     render(
-      <ClientDialog
-        open
-        onOpenChange={() => {}}
-        client={{ ...NORTHWIND, archivedAt: '2026-01-04T00:00:00Z' }}
-      />,
-      { wrapper },
+      <QueryClientProvider client={qc}>
+        <ClientDialog open onOpenChange={() => {}} client={NORTHWIND} />
+      </QueryClientProvider>,
     );
-    await screen.findByLabelText(/^Name/);
-    expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
+
+    await user.click(await screen.findByRole('button', { name: 'Archive' }));
+
+    /* Its projects now count as archived, so a picker holding them would
+       still offer time against a finished engagement. */
+    await waitFor(() =>
+      expect(qc.getQueryState(keys.projects())?.isInvalidated).toBe(true),
+    );
   });
 });

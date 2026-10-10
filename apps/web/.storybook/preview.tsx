@@ -13,19 +13,60 @@ import { NOW } from '@/mocks/time.mts';
 import '@/styles/globals.css';
 
 /* Requests in flight, so a story is judged once its screen has loaded and
-   not while it still reads "Loading…". */
+   not while it still reads "Loading…". `stalls` is how many a story leaves
+   unanswered on purpose (`stalled()` in `src/mocks/screen.tsx`). */
 let inFlight = 0;
+let stalls = 0;
 const settled = new Set<() => void>();
 function track(delta: number) {
   inFlight += delta;
-  if (inFlight === 0) for (const done of settled) done();
+  if (inFlight > stalls) return;
+  for (const done of settled) done();
+  settled.clear();
 }
 const idle = () =>
   new Promise<void>((done) => {
-    if (inFlight === 0) return done();
-    settled.add(done);
-  }).then(() => settled.clear());
+    if (inFlight <= stalls) done();
+    else settled.add(done);
+  });
 const frame = () => new Promise((done) => requestAnimationFrame(done));
+/* A region reads `aria-busy` from a debounced change until its answer lands,
+   so it is busy before its request starts. A story that stalls a request
+   leaves its region busy on purpose. */
+const busy = () =>
+  stalls === 0 && document.querySelector('[aria-busy="true"]') !== null;
+/* Twice: a response often starts the request that depends on it. */
+async function quiet() {
+  for (let i = 0; i < 2; i++) {
+    await idle();
+    while (busy()) await frame();
+    await idle();
+    await frame();
+    await frame();
+  }
+}
+/* Well inside the test's 15s, so a screen that never settles fails its own
+   story saying why. A test that times out instead leaves its screen mounted,
+   and every story after it fails on what it left behind. */
+const SETTLE_LIMIT_MS = 5000;
+async function settle() {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const limit = new Promise<never>((_, fail) => {
+    timer = setTimeout(() => {
+      const region = busy() ? ', a region still aria-busy' : '';
+      fail(
+        new Error(
+          `Not settled after ${SETTLE_LIMIT_MS}ms: ${inFlight} requests in flight, ${stalls} stalled on purpose${region}`,
+        ),
+      );
+    }, SETTLE_LIMIT_MS);
+  });
+  try {
+    await Promise.race([quiet(), limit]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const preview: Preview = {
   /* Components read the server from MSW: `src/mocks/handlers.ts` answers all
@@ -53,12 +94,16 @@ const preview: Preview = {
       });
       return worker;
     }),
+    // A play awaits `loaded.settle()` where a loading render reads like the
+    // empty one, so it judges the answer and not the wait.
+    async () => ({ settle }),
   ],
   /* Every story starts from the same account at the same instant: the clock
      is pinned, the fake account rebuilt, and the stores that outlive a
      render emptied. `parameters.now` and `parameters.db` choose otherwise. */
   beforeEach: ({ parameters }) => {
     inFlight = 0;
+    stalls = (parameters.stalls as number | undefined) ?? 0;
     problems.length = 0;
     const now = new Date(parameters.now ?? NOW);
     MockDate.set(now);
@@ -68,12 +113,7 @@ const preview: Preview = {
     return () => MockDate.reset();
   },
   afterEach: async () => {
-    // Twice: a response often starts the request that depends on it.
-    for (let i = 0; i < 2; i++) {
-      await idle();
-      await frame();
-      await frame();
-    }
+    await settle();
     /* The fake server answers a problem with a 500, which a screen draws as
        its error state and would pass. The story fails instead. */
     if (problems.length) throw new Error(problems.join('\n'));

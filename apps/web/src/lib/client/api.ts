@@ -209,6 +209,7 @@ export const api = {
     id?: string;
     taskName: string;
     projectId?: string | null;
+    isBillable?: boolean;
   }) => request<TimeEntry>('POST', '/timer/start', body),
 
   stopTimer: () => request<StoppedTimer>('POST', '/timer/stop', {}),

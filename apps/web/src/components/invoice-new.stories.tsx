@@ -2,8 +2,17 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { delay, http } from 'msw';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
+import type { Db } from '@/mocks/fixtures';
+import { ids } from '@/mocks/fixtures';
 import { handlers } from '@/mocks/handlers';
-import { desktop, menuOpen, phone, screen, wide } from '@/mocks/screen';
+import {
+  desktop,
+  menuOpen,
+  phone,
+  screen,
+  skipping,
+  wide,
+} from '@/mocks/screen';
 import { NewInvoice } from './invoice-new';
 
 const meta = {
@@ -100,7 +109,10 @@ export const Workspace: Story = {
 export const Updating: Story = {
   ...desktop,
   parameters: {
-    ...menuOpen,
+    /* The dimmed figures are the ones the next answer replaces, held back on
+       purpose; axe reads their half opacity as low contrast. */
+    a11y: skipping('aria-hidden-focus', 'color-contrast'),
+    stalls: 1,
     msw: {
       handlers: {
         // The play's By task never answers; every other preview does.
@@ -146,6 +158,46 @@ export const Unrated: Story = {
   play: async ({ canvasElement }) => {
     const page = await chooseNorthwind(canvasElement);
     await expect(await page.findByText(/no rate/i)).toBeVisible();
+  },
+};
+
+/** Work that overlaps other time is named before it bills, but the
+    invoice can still be generated: the user decides. */
+export const Overlapping: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      // Half an hour into August's first Northwind block, which the
+      // default period (last month) bills.
+      const northwind = new Set(
+        db.projects
+          .filter((p) => p.clientId === ids.northwind)
+          .map((p) => p.id),
+      );
+      const first = db.entries.find(
+        (e) =>
+          e.startedAt.startsWith('2026-08') &&
+          e.invoiceId === null &&
+          northwind.has(e.projectId as string),
+      ) as Db['entries'][number];
+      const later = (iso: string) =>
+        new Date(Date.parse(iso) + 30 * 60_000).toISOString();
+      db.entries.push({
+        ...first,
+        id: '018f0000-0000-7000-8000-0000000000f1',
+        taskName: 'Follow-up call',
+        startedAt: later(first.startedAt),
+        endedAt: later(first.endedAt as string),
+      });
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await settled(page);
+    await expect(
+      await page.findByText(/entries overlap other time/),
+    ).toBeVisible();
   },
 };
 

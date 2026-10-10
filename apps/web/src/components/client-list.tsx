@@ -7,7 +7,10 @@ import { Pencil, Plus } from 'lucide-react';
 import { formatCurrency, resolveRate, resolveRateSource } from '@stint/core';
 import { Button } from '@/components/ui/button';
 import { api, type Client, type Expense, type Project } from '@/lib/client/api';
-import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
+import {
+  INTERNAL_SWATCH,
+  useAllProjects,
+} from '@/lib/client/use-project-colors';
 import { Listing, Page } from './page';
 import { Pip } from './home-shell';
 import { ClientDialog } from './client-dialog';
@@ -15,6 +18,7 @@ import { ProjectDialog } from './project-dialog';
 import { ClientExpenses } from './client-expenses';
 import { ExpenseDialog } from './expense-dialog';
 import { keys } from '@/lib/client/query-keys';
+import { rowBleed, rowButton } from './row-button';
 
 /**
  * Every client as a card holding its projects and the expenses it owes back
@@ -41,10 +45,7 @@ export function ClientList() {
        "No client", which would be a lie. */
     queryFn: () => api.clients({ includeArchived: true }),
   });
-  const projectQuery = useQuery({
-    queryKey: keys.projects({ archived: true }),
-    queryFn: () => api.projects({ includeArchived: true }),
-  });
+  const projectQuery = useAllProjects();
   const { data: settings } = useQuery({
     queryKey: keys.settings(),
     queryFn: () => api.settings(),
@@ -336,8 +337,7 @@ function Row({
         type="button"
         onClick={onEdit}
         aria-label={`Edit ${project.name}`}
-        className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-2.5 text-left
-                   hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+        className={`${rowButton} ${rowBleed} flex items-center gap-3 py-2.5`}
       >
         {/* An archived row recedes: it bills nothing new, so its name and
             rate step down a shade and the badge sits with the name. */}

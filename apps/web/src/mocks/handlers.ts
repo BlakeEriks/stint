@@ -1,6 +1,8 @@
 import {
   buildPreview,
+  measured,
   formatInvoiceNumber,
+  localDateKey,
   pickSchedules,
   type ScheduleKind,
   type ImportPreview,
@@ -149,9 +151,11 @@ export const handlers = {
     const running = db.entries.find((e) => e.endedAt === null);
     if (running)
       return fail('TIMER_ALREADY_RUNNING', 'A timer is already running');
-    const input = await body<{ taskName: string; projectId?: string | null }>(
-      request,
-    );
+    const input = await body<{
+      taskName: string;
+      projectId?: string | null;
+      isBillable?: boolean;
+    }>(request);
     const project = byId(db.projects, input.projectId);
     const entry: TimeEntry = {
       id: uuidv7(db.now.getTime()),
@@ -159,7 +163,7 @@ export const handlers = {
       taskName: input.taskName,
       startedAt: db.now.toISOString(),
       endedAt: null,
-      isBillable: project?.isBillableDefault ?? true,
+      isBillable: input.isBillable ?? project?.isBillableDefault ?? true,
       rateOverride: null,
       invoiceId: null,
       durationSeconds: null,
@@ -212,15 +216,17 @@ export const handlers = {
     const from = q.get('from');
     const to = q.get('to');
     const projectId = q.get('projectId');
-    const entries = getDb()
-      .entries.filter(
+    const db = getDb();
+    const entries = db.entries
+      .filter(
         (e) =>
           (!from || e.startedAt >= new Date(from).toISOString()) &&
           (!to || e.startedAt <= new Date(to).toISOString()) &&
           (!projectId ||
             e.projectId === (projectId === 'none' ? null : projectId)),
       )
-      .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+      .map((e) => measured(e, db.now));
     return ok(envelopes.entries, { entries });
   }),
 
@@ -274,10 +280,16 @@ export const handlers = {
   projects: http.get(`${API}/projects`, ({ request }) => {
     const q = query(request);
     const clientId = q.get('clientId');
-    const projects = getDb()
-      .projects.filter(
+    const db = getDb();
+    // As the route: an archived client's projects count as archived.
+    const gone = new Set(
+      db.clients.filter((c) => c.archivedAt !== null).map((c) => c.id),
+    );
+    const projects = db.projects
+      .filter(
         (p) =>
-          (q.get('includeArchived') === 'true' || p.archivedAt === null) &&
+          (q.get('includeArchived') === 'true' ||
+            (p.archivedAt === null && !(p.clientId && gone.has(p.clientId)))) &&
           (!clientId || p.clientId === clientId),
       )
       .sort(byName);
@@ -437,7 +449,8 @@ export const handlers = {
         'VALIDATION_FAILED',
         'Supporting detail comes with a summary line only',
       );
-    const preview = invoicePreview(db, input, input.tz ?? ZONE);
+    const tz = input.tz ?? ZONE;
+    const preview = invoicePreview(db, input, tz);
     if (!preview) return fail('ENTRY_NOT_FOUND');
     if (preview.unratedEntryIds.length > 0)
       return fail('NO_RATE_CONFIGURED', 'Some billable entries have no rate');
@@ -449,7 +462,7 @@ export const handlers = {
       invoiceNumber: formatInvoiceNumber(db.settings.invoiceNumberPrefix, seq),
       sequenceNo: seq,
       status: 'draft' as const,
-      issueDate: input.issueDate ?? db.now.toISOString().slice(0, 10),
+      issueDate: input.issueDate ?? localDateKey(db.now, tz),
       dueDate: input.dueDate ?? null,
       periodStart: preview.periodStart,
       periodEnd: preview.periodEnd,

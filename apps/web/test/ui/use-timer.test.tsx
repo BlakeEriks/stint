@@ -104,6 +104,29 @@ describe('useTimer', () => {
     expect(result.current.todaySeconds).toBe(5100);
   });
 
+  /**
+   * The server rounds the running timer into `todaySeconds`; the readout
+   * floors. Subtracting the floored figure leaves the rounding's extra second
+   * in today's total, one ahead of finished work plus the readout.
+   */
+  it('keeps today equal to finished work plus the readout mid-second', async () => {
+    vi.setSystemTime(new Date('2026-09-11T09:25:00.600Z'));
+    serve(
+      summary({
+        running: entry(),
+        // 1h of finished work + 1500.6s running, rounded as the server does.
+        todaySeconds: 3600 + 1501,
+        serverTime: '2026-09-11T09:25:00.600Z',
+      }),
+    );
+
+    const { result } = renderHook(() => useTimer(), { wrapper });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    expect(result.current.seconds).toBe(1500);
+    expect(result.current.todaySeconds).toBe(3600 + result.current.seconds);
+  });
+
   it('advances both the timer and today total as the clock ticks', async () => {
     vi.setSystemTime(new Date('2026-09-11T09:25:00.000Z'));
     serve(
@@ -178,6 +201,36 @@ describe('useTimer', () => {
       expect(invalidated).toContain(key);
     }
   });
+
+  /* A Today row can be pressed while the timer bar counts. Predicting the
+     start would swap the running task out until the 409 put it back. */
+  it('a start while running predicts nothing and surfaces the server refusal', async () => {
+    const refusal =
+      'A timer is already running. Stop it before starting another.';
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      init?.method === 'POST'
+        ? new Response(
+            JSON.stringify({ code: 'TIMER_ALREADY_RUNNING', message: refusal }),
+            { status: 409 },
+          )
+        : new Response(JSON.stringify(summary({ running: entry() })), {
+            status: 200,
+          }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useTimer(), { wrapper });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    act(() => result.current.start.mutate({ id: 'new', taskName: 'Design' }));
+    expect(result.current.running?.id).toBe('e1');
+
+    await waitFor(() => expect(result.current.start.isError).toBe(true));
+    expect(result.current.start.error?.message).toBe(refusal);
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST'),
+    ).toHaveLength(1);
+    expect(result.current.running?.id).toBe('e1');
+  });
 });
 
 /**
@@ -215,6 +268,22 @@ function slowServer(initial: Summary) {
 }
 
 describe('useTimer — every press answers at once', () => {
+  /* Pending, so no 10s bound: "try again" on a start that did land would
+     start a second one. */
+  it('keeps a start pressed while running pending past the timeout', async () => {
+    const server = slowServer(summary({ running: entry() }));
+    const { result } = renderHook(() => useTimer(), { wrapper });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    server.hold('POST /timer/start');
+    act(() => result.current.start.mutate({ id: 'new', taskName: 'Design' }));
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+
+    expect(result.current.start.isPending).toBe(true);
+    expect(result.current.start.isError).toBe(false);
+    expect(result.current.running?.id).toBe('e1');
+  });
+
   it('shows a start as running before the server answers', async () => {
     const server = slowServer(summary());
     const { result } = renderHook(() => useTimer(), { wrapper });

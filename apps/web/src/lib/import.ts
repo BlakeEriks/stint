@@ -8,6 +8,7 @@ import {
   type ImportPreview,
 } from '@stint/core';
 import { ApiError } from './errors';
+import { selectAll } from './select-all';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -120,25 +121,26 @@ export async function readImport(
       .select('id,name,client_id,hourly_rate,is_billable_default,archived_at'),
     db.from('user_settings').select('default_hourly_rate').maybeSingle(),
     dates.length
-      ? db
-          .from('time_entries')
-          .select('id,task_name,started_at,ended_at')
-          .not('ended_at', 'is', null)
-          .lt('started_at', `${to}T00:00:00Z`)
-          .gt('ended_at', `${from}T00:00:00Z`)
-      : Promise.resolve({ data: [], error: null }),
+      ? selectAll(() =>
+          db
+            .from('time_entries')
+            .select('id,task_name,started_at,ended_at')
+            .not('ended_at', 'is', null)
+            .lt('started_at', `${to}T00:00:00Z`)
+            .gt('ended_at', `${from}T00:00:00Z`),
+        )
+      : Promise.resolve([]),
   ]);
   if (clients.error) throw clients.error;
   if (projects.error) throw projects.error;
   if (settings.error) throw settings.error;
-  if (existing.error) throw existing.error;
 
   return buildPreview(parsed.source, parsed.rows, {
     userId,
     allBillable,
     choices,
     excluded,
-    existing: (existing.data ?? []).map((e) => ({
+    existing: existing.map((e) => ({
       id: e.id,
       taskName: e.task_name,
       startedAt: e.started_at,

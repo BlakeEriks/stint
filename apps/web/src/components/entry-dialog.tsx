@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { ConfirmAction } from '@/components/confirm-action';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TaskSuggest } from '@/components/task-suggest';
@@ -101,13 +102,11 @@ export function EntryDialog({
 }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [error, setError] = useState<string | null>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   // Reset each time it opens, so a canceled edit cannot leak into the next.
   useEffect(() => {
     if (!open) return;
     setError(null);
-    setConfirmingDelete(false);
 
     const opened = existing ?? seed;
     const from = opened ? new Date(opened.startedAt) : new Date();
@@ -244,15 +243,19 @@ export function EntryDialog({
   })();
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      // Closed while a press waits, its refusal would show nowhere: it is inline.
+      onOpenChange={(next) => busy || onOpenChange(next)}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{existing ? 'Edit entry' : 'Add entry'}</DialogTitle>
           <DialogDescription>
             {locked
-              ? 'This entry is billed on an issued invoice, so it can no longer be changed. Void the invoice to release it.'
+              ? `This entry is billed on ${billedOn.data?.invoiceNumber ?? 'an issued invoice'}, so it can no longer be changed. Void the invoice to release it.`
               : existing?.invoiceId != null
-                ? 'This entry is on a draft invoice. Editing it changes what that draft would bill, so preview it again before issuing.'
+                ? `This entry is on draft ${billedOn.data?.invoiceNumber}. Editing it changes what that draft would bill, so preview it again before issuing.`
                 : 'Times are in your local timezone. An end before the start counts as overnight.'}
           </DialogDescription>
         </DialogHeader>
@@ -313,7 +316,6 @@ export function EntryDialog({
               projects={projects}
               value={draft.projectId}
               onChange={(id) => set('projectId', id)}
-              selected={projects.find((p) => p.id === draft.projectId)}
               disabled={locked}
               autoFocus={focus === 'project'}
               /* This is already a dialog, and Radix mounts no dialog inside
@@ -445,41 +447,20 @@ export function EntryDialog({
                   on nearly every open of this dialog, Delete on almost
                   none. */}
               {existing ? (
-                confirmingDelete ? (
-                  <span className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      disabled={busy}
-                      onClick={() => remove.mutate()}
-                    >
-                      Delete for good
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setConfirmingDelete(false)}
-                    >
-                      Keep
-                    </Button>
-                  </span>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    /* The one action in the app with no label. Its accessible
-                       name is the tooltip-less `aria-label` below, and the
-                       confirm step that follows spells out the consequence in
-                       words before anything is removed. */
-                    aria-label="Delete entry"
-                    className="mr-auto text-danger hover:bg-danger-muted hover:text-danger"
-                    disabled={busy}
-                    onClick={() => setConfirmingDelete(true)}
-                  >
-                    <Trash2 aria-hidden />
-                  </Button>
-                )
+                <ConfirmAction
+                  /* No visible label, as a destructive first step may be
+                     (`.claude/rules/web-ui.md`): the confirm that follows
+                     spells it out before anything is removed. */
+                  aria-label="Delete entry"
+                  className="mr-auto"
+                  label="Delete for good"
+                  pendingLabel="Deleting…"
+                  pending={remove.isPending}
+                  disabled={busy}
+                  onConfirm={() => remove.mutate()}
+                >
+                  <Trash2 aria-hidden />
+                </ConfirmAction>
               ) : null}
 
               {/* No icon: Cancel undoes the intent rather than performing one,
@@ -488,6 +469,7 @@ export function EntryDialog({
               <Button
                 type="button"
                 variant="ghost"
+                disabled={busy}
                 onClick={() => onOpenChange(false)}
               >
                 Cancel

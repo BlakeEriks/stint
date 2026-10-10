@@ -175,6 +175,25 @@ describe('useOptimisticMutation — review fixes', () => {
     expect(hook.result.current.isError).toBe(false);
   });
 
+  /* A press can be pending on one call and predicted on the next (a start
+     while a timer runs). Pending must mean the same as having no `predict`:
+     no write, no timeout, nothing put back. */
+  it('treats a press its `pending` picks as pending: no write, no timeout', async () => {
+    vi.useFakeTimers();
+    const call = deferred<Cache>();
+    const { queryClient, hook } = setup({
+      mutationFn: () => call.promise,
+      pending: (vars) => vars.value === 'wait',
+    });
+
+    act(() => hook.result.current.mutate({ value: 'wait' }));
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+
+    expect(cached(queryClient)).toBe('original');
+    expect(hook.result.current.isPending).toBe(true);
+    expect(hook.result.current.isError).toBe(false);
+  });
+
   it('predicts each cached query under the key with that query’s own key', async () => {
     const { queryClient, hook } = setup({
       mutationFn: () => new Promise(() => {}),

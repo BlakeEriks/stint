@@ -11,6 +11,7 @@ import {
   type Schedules,
 } from '@stint/core';
 import type { Client, InvoicePreview, Settings } from '@/lib/client/api';
+import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { shortDate } from './invoice-bits';
 
 const LABEL = 'block type-label text-subtle';
@@ -52,9 +53,14 @@ export function InvoicePreviewCard({
   children?: React.ReactNode;
 }) {
   const entries = preview?.entryCount ?? 0;
+  const scrollerFocus = useScrollerFocus();
 
   return (
-    <section aria-labelledby="inv-preview" className="flex min-h-0 flex-col">
+    <section
+      aria-labelledby="inv-preview"
+      aria-busy={updating}
+      className="flex min-h-0 flex-col"
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-2 px-1 pb-2.5">
         <h2 id="inv-preview" className="type-section text-strong">
           Preview
@@ -71,7 +77,7 @@ export function InvoicePreviewCard({
       {/* The scroller is around the card, not in it: the card moves as one
           page, edges and all, while the caption above keeps "Updating…" in
           view. */}
-      <div className="min-h-0 overflow-y-auto">
+      <div tabIndex={scrollerFocus} className="min-h-0 overflow-y-auto">
         <div className="@container/card flex flex-col gap-5 rounded-lg border border-edge-subtle bg-surface-elevated p-6">
           {client ? (
             <div

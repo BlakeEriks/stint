@@ -6,7 +6,12 @@ import { ZONE } from './time.mts';
  * The account a story starts from. A name for the common ones, or a function
  * that edits the seeded account for anything else.
  */
-export type Scenario = 'seeded' | 'running' | 'empty' | ((db: Db) => void);
+export type Scenario =
+  | 'seeded'
+  | 'running'
+  | 'runningUnrated'
+  | 'empty'
+  | ((db: Db) => void);
 
 const scenarios: Record<
   Exclude<Scenario, (db: Db) => void>,
@@ -16,6 +21,11 @@ const scenarios: Record<
   // A timer started after lunch.
   running: (db) => {
     db.entries.push(running(db, '13:45', ids.rush, 'Checkout timeout fix'));
+  },
+  // A timer on work nothing prices: no project, and no default rate.
+  runningUnrated: (db) => {
+    db.settings.defaultHourlyRate = null;
+    db.entries.push(running(db, '13:45', null, 'Reading the RFC'));
   },
   // A new account: settings and nothing else.
   empty: (db) => {
@@ -31,7 +41,12 @@ const scenarios: Record<
   },
 };
 
-function running(db: Db, time: string, projectId: string, taskName: string) {
+export function running(
+  db: Db,
+  time: string,
+  projectId: string | null,
+  taskName: string,
+) {
   const today = localDateKey(db.now, ZONE);
   return entry(9000, today, time, 0, projectId, taskName, {
     id: id(9000),

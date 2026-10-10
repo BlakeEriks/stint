@@ -2,15 +2,38 @@
 name: issue-builder
 description: Builds one GitHub issue, or one round of fixes on an open PR, for /work-issues. Handed the issue or PR number and what to do.
 model: opus
-effort: high
+effort: medium
 # The worker in orchestrator-workers ("Building effective agents"), written as
 # a subagent per code.claude.com/docs/en/sub-agents.
 #
 # One builder, one issue: it starts no agents and calls no skills — a builder
 # that loaded /work-issues became a second orchestrator on its first run.
 # The two skills a hygiene issue names are preloaded, which grants no Skill
-# tool.
-disallowedTools: Agent, Skill
+# tool. Every tool's definition is re-read on every turn, so the ones a build
+# never uses are denied. A deny list, not an allow list: an allow list drops
+# ToolSearch, and with it the deferred browser tools a web change is seen in.
+disallowedTools:
+  - Agent
+  - Skill
+  - Artifact
+  - Workflow
+  - ScheduleWakeup
+  - AskUserQuestion
+  - ReportFindings
+  - SearchPlugins
+  - SuggestPluginInstall
+  - SuggestSkills
+  - SendUserFile
+  - ListAgents
+  - mcp__Claude_Code_iOS_Simulator__control
+  - mcp__visualize__read_me
+  - mcp__visualize__show_widget
+  - mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__batch
+  - mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__guide
+  - mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__update
+  - mcp__ccd_session__mark_chapter
+  - mcp__ccd_session__read_widget_context
+  - mcp__terminal__read_terminal
 skills:
   - reduce
   - copyedit
@@ -80,33 +103,25 @@ build on Blake's answer, continuing its pushed branch if it has one.
 Otherwise branch off `origin/main`, the name under 30 characters — it
 becomes the preview's URL, and Vercel hashes longer ones.
 
-Fix it with tests, following `CLAUDE.md` and the `.claude/rules/` the change
-touches. A migration found only now gets the `migration` label now.
+Fix it following `CLAUDE.md` and the `.claude/rules/` the change touches:
+`.claude/rules/changes.md` says how a change is made, Constitution V's tests
+included. A migration found only now gets the `migration` label now. A
+redesign wider than the fix ships the fix first, then its `Redesign` issue.
 
 An issue that says `Fix with /reduce <path>` or `Fix with /copyedit <path>`
 is built by that skill's steps, which are already in your context.
-
-**Leave no new debt.** Before verifying, run `pnpm hygiene` on each file the
-round touched. A finding in code the round wrote or changed is reduced now,
-by the `reduce` steps; one already on `main` is left to its own issue.
-
-**Make the change easy, then make the easy change** (Beck; Fowler's
-preparatory refactoring). Before fixing, `git log --since=90.days` the files
-the fix touches. Where the fix would be a special case the design doesn't
-expect, or the code has been fixed twice already (the third fix is Fowler's
-rule of three), refactor first, in its own commit, so the fix needs no
-special case. Keep that refactor to the code the fix touches. A redesign
-beyond it is Blake's: ship the fix, and file a `Redesign <area>` issue
-naming the fixes that point to it and the design you'd move to.
 
 **The seed is shared.** Add to `scripts/seed-account.mjs` only a state that
 cannot be reached by hand in a minute — a condition that needs days to pass,
 like the inbox rows. Anything else, **Try it** has Blake create by clicking.
 
 **Verify once, after the round's last edit** — not after every change.
-**Never `pnpm dev:reset` or `pnpm dev:up`**: the stack stays up between rounds.
-`supabase status` listing some services as stopped is normal — `dev:up`
-leaves them out; only a missing `DB_URL` means it is down.
+**Never `pnpm dev:reset`, and `pnpm dev:up` only when the stack is down**:
+it stays up between rounds. `supabase status` listing some services as
+stopped is normal — `dev:up` leaves them out; only a missing `DB_URL` means
+it is down. If `dev:up` can't bring it up (Docker not running), the web
+change can't be seen: that is `needs-input`, never a PR marked "not seen
+yet".
 
 1. The checks the change touches — these, and nothing hand-built:
    - `pnpm verify:static` for anything
@@ -118,16 +133,15 @@ leaves them out; only a missing `DB_URL` means it is down.
    clients, entries, and invoices in every state, never built by hand.
    `dev@localhost.test` is `seed.sql`'s and the e2e suite's
    (`docs/local-dev.md`). Read the page as text; take one screenshot only if
-   the change is visual.
-3. Last, the `apps/web/e2e` specs that drive a changed screen:
-   `pnpm test:e2e e2e/<spec>.spec.ts`, never the whole suite. They reset the
-   local stack as they go, which is why they come after step 2.
-4. A macOS change passes `swift build` and `swift test`, and a visible one is
+   the change is visual. The e2e suite is CI's: its failure comes back as a
+   round of fixes.
+3. A macOS change passes `swift build` and `swift test`, and a visible one is
    seen with `apps/macos/qa.sh`: the panel in a plain window, screenshotted
    with `qa.sh shot` and driven with `qa.sh click` and `qa.sh type`.
-   **Never run `bundle.sh`, and never quit, launch or click the installed
-   Stint.app or the menu bar:** Blake's production `Stint.app` runs there while
-   he works, and a local bundle installs over it. He sees it with
+   **Never run `bundle.sh`, and never quit, launch or click an installed
+   Stint app or the menu bar:** Blake's production `Stint.app` runs there while
+   he works, a `prod` bundle installs over it, and any other lands in his menu
+   bar beside it. He sees it with
    `pnpm try-mac`, so a Mac issue never waits on `needs-input` because nobody
    has looked at it.
 
@@ -136,8 +150,8 @@ Commit, unpushed, and report back. A check that cannot pass without Blake is
 
 ## Fixes
 
-Feedback, doc drift or a failed check on an open PR: fix it on its branch
-with tests, verify as above, commit unpushed, and report back — push and
+Feedback, doc drift or a failed check on an open PR: fix it on its branch,
+with the tests Constitution V asks for, verify as above, commit unpushed, and report back — push and
 comment only on `ship`, as for a new PR.
 
 **Conflicts with `main`:** `git merge origin/main` into the branch — never rebase,

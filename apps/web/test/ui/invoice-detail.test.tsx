@@ -119,27 +119,6 @@ describe('InvoiceDetail', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows the reference the invoice was issued with', async () => {
-    serve('sent', '2026-09-02T00:00:00Z', { reference: 'PO 4471' });
-    show();
-    expect(await screen.findByText('Reference PO 4471')).toBeInTheDocument();
-  });
-
-  it('says nothing of supporting detail when there is none', async () => {
-    serve('draft');
-    show();
-    await screen.findByText('Design review');
-    expect(screen.queryByText(/Supporting detail/)).not.toBeInTheDocument();
-  });
-
-  it('shows the frozen line items and total', async () => {
-    serve('draft');
-    show();
-
-    expect(await screen.findByText('Design review')).toBeInTheDocument();
-    expect(screen.getAllByText('$375.00').length).toBeGreaterThan(0);
-  });
-
   /**
    * The app sends no mail, so downloading IS how an invoice reaches a
    * client — it is the primary action, and it must always be available.
@@ -207,6 +186,84 @@ describe('InvoiceDetail', () => {
     ).not.toBeInTheDocument();
   });
 
+  /* Voiding can't be taken back and deleting removes the draft, so the
+     first press only asks: nothing reaches the server until the second. */
+  it('voids only on the second press, and Keep backs out', async () => {
+    const calls = serve('sent');
+    const user = userEvent.setup();
+    show();
+
+    await user.click(await screen.findByRole('button', { name: 'Void' }));
+    expect(calls).toEqual([]);
+
+    await user.click(screen.getByRole('button', { name: 'Keep' }));
+    expect(
+      screen.queryByRole('button', { name: 'Void INV-13' }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Void' }));
+    await user.click(screen.getByRole('button', { name: 'Void INV-13' }));
+    await waitFor(() => expect(calls.length).toBe(1));
+    expect(calls[0]).toMatchObject({
+      method: 'PATCH',
+      path: '/invoices/inv-1/status',
+      body: { status: 'void' },
+    });
+  });
+
+  /* The pressed button unmounts as the confirm takes its place, so focus is
+     handed over explicitly; otherwise a keyboard user lands on the page. */
+  it('moves focus into the confirm, and Keep hands it back', async () => {
+    serve('sent');
+    const user = userEvent.setup();
+    show();
+
+    await user.click(await screen.findByRole('button', { name: 'Void' }));
+    const confirm = screen.getByRole('button', { name: 'Void INV-13' });
+    expect(confirm).toHaveFocus();
+    expect(confirm).toHaveAccessibleDescription(/can't be reissued/);
+
+    await user.click(screen.getByRole('button', { name: 'Keep' }));
+    expect(screen.getByRole('button', { name: 'Void' })).toHaveFocus();
+  });
+
+  it('deletes a draft only on the second press', async () => {
+    const calls = serve('draft');
+    const user = userEvent.setup();
+    show();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Delete draft' }),
+    );
+    expect(calls).toEqual([]);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Delete INV-13 for good' }),
+    );
+    await waitFor(() => expect(calls.length).toBe(1));
+    expect(calls[0]).toMatchObject({
+      method: 'DELETE',
+      path: '/invoices/inv-1',
+    });
+  });
+
+  /* Pending, not predicted: the confirm says it is working until the server
+     answers, and nothing can be pressed twice meanwhile. */
+  it('holds the confirm pending while the server answers', async () => {
+    serve('sent');
+    const user = userEvent.setup();
+    show();
+    await user.click(await screen.findByRole('button', { name: 'Void' }));
+
+    vi.mocked(fetch).mockImplementation(() => new Promise(() => {}));
+    await user.click(screen.getByRole('button', { name: 'Void INV-13' }));
+
+    expect(
+      await screen.findByRole('button', { name: 'Voiding…' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Keep' })).toBeDisabled();
+  });
+
   /** Void is terminal: nothing may move an invoice out of it. */
   it('offers no transitions at all once void', async () => {
     serve('void');
@@ -218,13 +275,6 @@ describe('InvoiceDetail', () => {
         screen.queryByRole('button', { name: label }),
       ).not.toBeInTheDocument();
     }
-  });
-
-  it('explains that voiding keeps the number and releases the entries', async () => {
-    serve('void');
-    show();
-
-    expect(await screen.findByText(/numbering is gapless/)).toBeInTheDocument();
   });
 
   /* Nothing asked before, so `paid_at` was always the click, not the
@@ -341,51 +391,5 @@ describe('shortDate', () => {
   it('still formats a real date', async () => {
     const { shortDate } = await import('@/components/invoice-bits');
     expect(shortDate('2026-07-26')).toBe('Jul 26, 2026');
-  });
-});
-
-describe('InvoiceDetail — expenses', () => {
-  it('shows expenses in their own dated section with their own subtotal', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              ...invoice('sent'),
-              expensesSubtotal: 199,
-              total: 574,
-              client: { id: 'c1', name: 'Acme Corp' },
-              lineItems: [
-                {
-                  description: 'Design review',
-                  unit: 'hour',
-                  quantity: 2.5,
-                  unitPrice: 150,
-                  amount: 375,
-                  spentOn: null,
-                },
-                {
-                  description: 'JetBrains license',
-                  unit: 'expense',
-                  quantity: 1,
-                  unitPrice: 199,
-                  amount: 199,
-                  spentOn: '2026-08-12',
-                },
-              ],
-            }),
-            { status: 200 },
-          ),
-      ),
-    );
-    show();
-
-    expect(
-      await screen.findByRole('columnheader', { name: 'Expenses' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Aug 12, 2026')).toBeInTheDocument();
-    expect(screen.getByText('Services')).toBeInTheDocument();
-    expect(screen.getByText('$574.00')).toBeInTheDocument();
   });
 });

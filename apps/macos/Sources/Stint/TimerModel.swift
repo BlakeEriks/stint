@@ -10,7 +10,7 @@ import Observation
 final class TimerModel: Optimistic {
     private(set) var summary: Summary?
     /// Nil until the first fetch; the row omits the number rather than
-    /// showing a zero that would read as "nothing owed".
+    /// showing a zero that would read as "earned nothing".
     private(set) var stats: Stats?
     /// The last five names worked on, newest first. The running one is the
     /// readout, not a row, and is dropped here rather than at fetch time,
@@ -80,8 +80,8 @@ final class TimerModel: Optimistic {
     /// modes, which is why running-ness is not folded in here.
     var menuBarTitle: String {
         switch Prefs.shared.barReadout {
-        case .runningTimer: isRunning ? format(elapsedSeconds) : format(todaySeconds)
-        case .todaysTotal: format(todaySeconds)
+        case .runningTimer: isRunning ? format(elapsedSeconds) : compact(todaySeconds)
+        case .todaysTotal: compact(todaySeconds)
         }
     }
 
@@ -122,13 +122,10 @@ final class TimerModel: Optimistic {
 
     // MARK: Lifecycle
 
-    /// Idempotent: the panel's content is rebuilt on every open, so a second
-    /// call is "reconcile now" rather than a second set of loops.
+    /// Idempotent: called from the label at launch and from the panel's
+    /// content. Opening the panel refreshes through `panel(open:)`.
     func start() {
-        guard !started else {
-            Task { await refresh(recent: false) }
-            return
-        }
+        guard !started else { return }
         started = true
 
         Task {
@@ -160,7 +157,7 @@ final class TimerModel: Optimistic {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(60))
                 guard let self, self.isSignedIn else { continue }
-                await self.refresh()
+                await self.poll()
             }
         }
         // A laptop shut overnight would otherwise show a stale readout for up
@@ -168,17 +165,41 @@ final class TimerModel: Optimistic {
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in await self?.refresh() }
+            Task { @MainActor in await self?.poll() }
         }
     }
 
-    /// `Optimistic` requires a bare `refresh()`; a defaulted parameter does
-    /// not satisfy it.
-    func refresh() async { await refresh(recent: true) }
+    /// Whether the panel is on screen, from `WindowObserver.panelWatch`.
+    @ObservationIgnored private(set) var panelOpen = false
 
-    /// `recent: false` on an open: the readout reconciles then, but a list
-    /// of past names can wait for the poll or the next start or stop.
+    /// Opening refreshes at once; closing stops the poll fetching what only
+    /// the panel shows. `recent: false` on an open: the readout reconciles
+    /// then, but a list of past names can wait for the poll or the next start
+    /// or stop.
+    func panel(open: Bool) {
+        guard open != panelOpen else { return }
+        panelOpen = open
+        if open { Task { await refresh(recent: false) } }
+    }
+
+    /// The minute's reconcile. Closed, the panel shows nothing, so only the
+    /// timer is fetched: the menu bar title is the timer, and one started on
+    /// the web must still reach it. Open, everything the panel shows, so
+    /// Earned moves with a running timer.
+    func poll() async {
+        await fetch(full: panelOpen, recent: true)
+    }
+
+    /// `Optimistic` requires a bare `refresh()`.
+    func refresh() async {
+        await refresh(recent: true)
+    }
+
     func refresh(recent: Bool) async {
+        await fetch(full: true, recent: recent)
+    }
+
+    private func fetch(full: Bool, recent: Bool) async {
         guard await tokens.isSignedIn else { return }
         do {
             let fetchedAt = Date()
@@ -189,6 +210,7 @@ final class TimerModel: Optimistic {
             skew = fetchedAt.timeIntervalSince(summary.serverTime)
             self.summary = summary
             errorMessage = nil
+            guard full else { return }
             // Every refresh, so a project added, renamed or archived on the
             // web reaches the panel on its next open. A failed fetch keeps
             // the list it had rather than emptying the picker.
@@ -297,30 +319,19 @@ final class TimerModel: Optimistic {
 
     private func stop() async {
         let api = api
-        let stopped = await press("timer") {
+        await press("timer") {
             show(running: nil)
         } perform: {
             try await api.stopTimer()
         }
-        // The server counts the stopped entry into Unbilled.
-        if let stopped { stats = stopped }
     }
 
     private func patch(_ update: API.UpdateTimer) async {
         guard let current = running else { return }
         let api = api
-        let changed = TimeEntry(
-            id: current.id,
-            projectId: update.projectId ?? current.projectId,
-            taskName: update.taskName ?? current.taskName,
-            startedAt: current.startedAt,
-            endedAt: current.endedAt,
-            isBillable: current.isBillable,
-            rateOverride: current.rateOverride,
-            durationSeconds: current.durationSeconds,
-            durationOk: current.durationOk,
-            invoiceId: current.invoiceId
-        )
+        var changed = current
+        changed.projectId = update.projectId ?? current.projectId
+        changed.taskName = update.taskName ?? current.taskName
         await press("timer") {
             show(running: changed)
         } perform: {
@@ -372,6 +383,15 @@ final class TimerModel: Optimistic {
 func format(_ seconds: Int) -> String {
     let s = max(0, seconds)
     return String(format: "%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
+}
+
+/// `3h 12m`, matching `formatCompact` in `@stint/core`.
+func compact(_ seconds: Int) -> String {
+    let s = max(0, seconds)
+    let h = s / 3600, m = (s % 3600) / 60
+    if h == 0 && m == 0 { return "\(s)s" }
+    if h == 0 { return "\(m)m" }
+    return m == 0 ? "\(h)h" : "\(h)h \(m)m"
 }
 
 /// `$1,462.50`, matching `money()` on the web — `en_US` regardless of the

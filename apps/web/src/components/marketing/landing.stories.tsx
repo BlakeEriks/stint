@@ -3,7 +3,7 @@ import MarketingLayout from '@/app/landing/layout';
 import LandingPage from '@/app/landing/page';
 import PrivacyPage from '@/app/privacy/page';
 import TermsPage from '@/app/terms/page';
-import { desktop, knownFailures, light, phone, tablet } from '@/mocks/screen';
+import { desktop, light, phone, tablet } from '@/mocks/screen';
 
 /** The signed-out site, in its own layout. */
 const meta = {
@@ -12,7 +12,6 @@ const meta = {
   parameters: {
     layout: 'fullscreen',
     nextjs: { navigation: { pathname: '/landing' } },
-    a11y: knownFailures,
   },
   decorators: [
     (Story) => (

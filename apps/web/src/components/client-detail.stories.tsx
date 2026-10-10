@@ -22,7 +22,18 @@ export const Phone: Story = { ...phone };
 export const InheritsRate: Story = { ...desktop, args: { id: ids.meridian } };
 
 /** Past invoices still reference it, so it is archived, never deleted. */
-export const Archived: Story = { ...desktop, args: { id: ids.oldEngagement } };
+export const Archived: Story = {
+  ...desktop,
+  args: { id: ids.oldEngagement },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    // A finished engagement: its projects still show, and nothing is added.
+    await page.findByText('Legacy retainer');
+    await expect(
+      page.queryByRole('button', { name: /Add project/ }),
+    ).toBeNull();
+  },
+};
 
 export const Missing: Story = { ...desktop, args: { id: id(199) } };
 

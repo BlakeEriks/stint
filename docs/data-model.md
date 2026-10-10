@@ -36,6 +36,13 @@ Implemented **twice**, once per language:
   Picking which currency the screen shows is the caller's, as it is for
   `revenue_by_client` and `revenue_by_project`.
 
+  **`unbilled_by_client`, `revenue_by_day` and `revenue_by_client` count a
+  running entry** up to a trailing `p_now` (default `now()`), measured by
+  `entry_seconds()` (`00000000000031_live_running_entry.sql`), so Home and the
+  menu bar move with a timer. The route passes the instant it cuts its windows
+  at. `month_revenue` and `revenue_by_project` still skip a running entry; no
+  screen reads them.
+
   **Each rollup owns its window, and `/stats` reports them rather than
   choosing them.** `unbilled_by_client` groups by (client, rate) and reports a
   client-less row as "No client". `revenue_by_client` and
@@ -359,6 +366,8 @@ alone must still contain the query.
 | Update or delete targeting another user's row | matches nothing |
 | Reassigning a row to another user | rejected by `WITH CHECK` |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
+| An invoice billed to another user's client | rejected by `invoice_client_same_owner` |
+| A project under another user's client | rejected by `project_client_same_owner` |
 | An unqualified `delete from time_entries` | removes only the caller's |
 | Two users may each run a timer; neither may run two | per-user, as designed |
 | No JWT claim, or a malformed one | fails closed |

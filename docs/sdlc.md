@@ -41,6 +41,9 @@ and not committed to. `urgent` orders within one.
 
 Every PR reaches QA the same way, whether `/work-issues` built it or not:
 
+- **`/standards-review` has reviewed its commits** before it opens:
+  `/work-issues` runs it each round, and Spec Kit after `/speckit-implement`.
+
 - **The branch name is under 30 characters.** It becomes the preview's URL,
   and Vercel hashes a longer one.
 - **The body fills the template's Try it**, linking the preview signed in as

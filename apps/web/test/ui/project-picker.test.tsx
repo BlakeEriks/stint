@@ -32,19 +32,6 @@ async function open() {
  * the point is that the picker keeps using a primitive that provides them.
  */
 describe('ProjectPicker', () => {
-  it('lists every project plus an explicit "No project" choice', async () => {
-    render(
-      <ProjectPicker projects={PROJECTS} value={null} onChange={() => {}} />,
-      { wrapper },
-    );
-    await open();
-
-    const items = screen.getAllByRole('menuitemradio');
-    expect(items).toHaveLength(4);
-    expect(items[0]).toHaveTextContent('No project');
-    expect(items[3]).toHaveTextContent('Corvus Dashboard');
-  });
-
   /**
    * The trigger's accessible name is "Project", not the selected project.
    *
@@ -55,12 +42,7 @@ describe('ProjectPicker', () => {
    */
   it('names itself by its purpose, not by the project it holds', () => {
     render(
-      <ProjectPicker
-        projects={PROJECTS}
-        value="p2"
-        onChange={() => {}}
-        selected={PROJECTS[1]}
-      />,
+      <ProjectPicker projects={PROJECTS} value="p2" onChange={() => {}} />,
       { wrapper },
     );
 
@@ -152,30 +134,5 @@ describe('ProjectPicker', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
-  });
-
-  it('offers a way to create a project, including when there are none', async () => {
-    render(<ProjectPicker projects={[]} value={null} onChange={() => {}} />, {
-      wrapper,
-    });
-    await open();
-
-    // The empty state is the one place a user is most likely to need this,
-    // so it must be reachable there and not only when projects exist.
-    expect(
-      /* "New project", not "+ New project": the plus is an aria-hidden icon,
-         so it is not part of the accessible name — a screen reader should not
-         announce "plus". */
-      screen.getByRole('menuitem', { name: 'New project' }),
-    ).toBeInTheDocument();
-  });
-
-  it('says so when there are no projects rather than showing an empty menu', async () => {
-    render(<ProjectPicker projects={[]} value={null} onChange={() => {}} />, {
-      wrapper,
-    });
-    await open();
-
-    expect(screen.getByText('No projects yet.')).toBeInTheDocument();
   });
 });

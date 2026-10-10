@@ -54,6 +54,34 @@ export const Desktop: Story = { ...desktop, play: oneTimer };
 export const Wide: Story = { ...wide, play: oneTimer };
 export const Light: Story = { ...light };
 
+/* Each section's focus ring is drawn whole: the rail is a scroller, which
+   clips whatever crosses its edge, the first and last items' rings included. */
+const ringsFit: Story['play'] = async ({ canvasElement }) => {
+  const page = within(canvasElement.ownerDocument.body);
+  const nav = await page.findByRole('navigation', { name: 'Sections' });
+  for (const link of within(nav).getAllByRole('link')) {
+    link.focus({ focusVisible: true } as FocusOptions);
+    const style = getComputedStyle(link);
+    const ring =
+      Number.parseFloat(style.outlineWidth) +
+      Number.parseFloat(style.outlineOffset);
+    const scroller = link.parentElement as HTMLElement;
+    const box = scroller.getBoundingClientRect();
+    const at = link.getBoundingClientRect();
+    await expect(at.top - ring).toBeGreaterThanOrEqual(box.top);
+    await expect(at.bottom + ring).toBeLessThanOrEqual(box.bottom);
+    if (scroller.scrollWidth <= scroller.clientWidth) {
+      await expect(at.left - ring).toBeGreaterThanOrEqual(box.left);
+      await expect(at.right + ring).toBeLessThanOrEqual(box.right);
+    }
+  }
+};
+
+/** The rail with a section focused: its ring is not clipped. */
+export const RailFocus: Story = { ...light, play: ringsFit };
+/** The strip with a section focused, on a phone. */
+export const StripFocus: Story = { ...phone, play: ringsFit };
+
 /** A workspace screen takes the dock's room; the card stays as it is. */
 export const Workspace: Story = {
   ...wide,
@@ -86,6 +114,31 @@ export const ScreenError: Story = {
         reset={() => {}}
       />
     ),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByRole('button', { name: /try again/i }),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: /go home/i })).toBeVisible();
+    await expect(page.getByText(/tracked time is safe/i)).toBeVisible();
+    // The digest is the only handle on a server error's log.
+    await expect(page.getByText(/2718281828/)).toBeVisible();
+  },
+};
+
+/** A client-side error has no digest, so no empty "Reference". */
+export const ScreenErrorNoDigest: Story = {
+  ...ScreenError,
+  args: {
+    children: (
+      <AppError error={new globalThis.Error('Fixture')} reset={() => {}} />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findByRole('button', { name: /try again/i });
+    await expect(page.queryByText(/reference/i)).toBeNull();
   },
 };
 

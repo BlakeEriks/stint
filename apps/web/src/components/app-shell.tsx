@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { BackTrail } from './back-link';
 import { AppHeader } from './app-header';
 import { Nav, Version } from './nav';
+import { ContentPanel } from './content-panel';
 import { Dock } from './dock';
 import { TimerDock } from './timer-dock';
 
@@ -38,13 +39,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           Past `2xl` the content's measure is capped anyway, so the surplus
           is better spent as ground than as a stretched frame; it is
           top-aligned because the header and rail are reached by muscle
-          memory.
+          memory. Its 940px max height is Home's, legend included, at the
+          capped width.
 
           A workspace screen (`Page`'s `data-workspace`) drops the dock's
           column and keeps the card as it is: the dock is the room it needs,
           and a card that resized between screens would jolt the frame. */}
       <div className="flex min-h-dvh flex-col bg-surface-base sm:h-dvh sm:min-h-0 sm:overflow-hidden 2xl:items-center 2xl:bg-surface-recessed 2xl:p-6">
-        <div className="group/app flex min-h-dvh w-full flex-col bg-surface-base sm:h-full sm:min-h-0 sm:overflow-hidden 2xl:mx-auto 2xl:max-h-[900px] 2xl:max-w-[1440px] 2xl:rounded-2xl 2xl:border 2xl:border-edge-subtle 2xl:shadow-float">
+        <div className="group/app flex min-h-dvh w-full flex-col bg-surface-base sm:h-full sm:min-h-0 sm:overflow-hidden 2xl:mx-auto 2xl:max-h-[940px] 2xl:max-w-[1440px] 2xl:rounded-2xl 2xl:border 2xl:border-edge-subtle 2xl:shadow-float">
           <AppHeader />
           {/* The rail and the dock change axis at different widths, so they are
             not siblings in one row: the rail moves beside the content at
@@ -74,13 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Nav />
             <Version />
             <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto lg:col-start-2 lg:row-start-1 xl:contents">
-              {/* THE PANEL. One surface with a subtle edge and the card's
-                shadow — a step above the rail and dock that flank it, because
-                depth increases toward what is being read. Nothing inside it
-                is a card. */}
-              <div className="min-w-0 flex-1 rounded-xl border border-edge-subtle bg-surface-primary shadow-card xl:col-start-2 xl:row-start-1 xl:overflow-y-auto">
-                {children}
-              </div>
+              <ContentPanel>{children}</ContentPanel>
               <Dock />
             </div>
             {/* Full width only while the nav is a strip along the top. From

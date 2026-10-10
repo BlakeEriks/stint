@@ -55,10 +55,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
     }
   };
 
-  const project = projects.find(
-    (p) => p.id === (isRunning ? running!.projectId : draftProject),
-  );
-
   return (
     <section
       /* A quiet fill rather than a plane of its own: at `xl` the bar sits
@@ -101,7 +97,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
                 projects={projects}
                 value={running!.projectId}
                 onChange={(id) => timer.update.mutate({ projectId: id })}
-                selected={project}
                 readOnly
               />
             </div>
@@ -150,7 +145,6 @@ export function TimerBar({ projects }: { projects: Project[] }) {
               projects={projects}
               value={draftProject}
               onChange={setDraftProject}
-              selected={project}
             />
             <Readout
               seconds={timer.seconds}

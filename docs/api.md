@@ -2,7 +2,7 @@
 
 Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
-`Authorization: Bearer <token>`. Request/response shapes are defined in
+`Authorization: Bearer <token>`, on every endpoint except `/health`. Request/response shapes are defined in
 `packages/schema/src/index.ts` — that file is the source of truth, and every
 route parses its request against it; this document is the map.
 
@@ -13,7 +13,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 45 of 45, counting handlers rather than files.
+Every handler is covered — 46 of 46, counting handlers rather than files.
 
 ## Timer
 
@@ -22,7 +22,7 @@ behavior depends on global state.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/timer/start` | `{ id?, projectId?, taskName?, startedAt?, isBillable? }` — `taskName` defaults to `''`, since a timer started in a hurry can be named later. Returns `201`. **`409 TIMER_ALREADY_RUNNING`** if one is running, with the running entry in `details.running` so the client can display it rather than just reporting a conflict. `startedAt` allows backdating a forgotten start. **`isBillable` omitted is stored as billable**: the column's `true` default, not the project's, which #163 is to apply. No client sends it. |
+| `POST` | `/timer/start` | `{ id?, projectId?, taskName?, startedAt?, isBillable? }` — `taskName` defaults to `''`, since a timer started in a hurry can be named later. Returns `201`. **`409 TIMER_ALREADY_RUNNING`** if one is running, with the running entry in `details.running` so the client can display it rather than just reporting a conflict. `startedAt` allows backdating a forgotten start. **`isBillable` omitted is stored as billable**: the column's `true` default, not the project's, which #163 is to apply. The web sends it when a Today row starts a task again, copying that task's latest entry. |
 | `POST` | `/timer/stop` | `{ endedAt? }`, defaults to server `now()`. Returns `{ entry, currency, unbilled }`, `unbilled` being `/stats`'s, counted after the stop, so a client shows the new total without a second request. `409 NO_TIMER_RUNNING` if none; `422 VALIDATION_FAILED` if a backdated `endedAt` is at or before `startedAt`. |
 | `GET` | `/timer/current` | `{ entry, serverTime }`. |
 | `PATCH` | `/timer/current` | Edit task name / project mid-run. `409 NO_TIMER_RUNNING` if none; `409 ENTRY_LOCKED` if billed. |
@@ -34,7 +34,7 @@ trusting the device clock.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/entries` | `?from&to&projectId&clientId&limit` (1–500, default 200), newest first. **`projectId=none`** returns entries with no project at all — an absent parameter already means "every entry", so there was otherwise no way to ask for the ones the inbox surfaces. |
+| `GET` | `/entries` | `?from&to&projectId&clientId&limit` (1–500, default 200), newest first. **`projectId=none`** returns entries with no project at all — an absent parameter already means "every entry", so there was otherwise no way to ask for the ones the inbox surfaces. A running entry's `durationSeconds` is its length at the response, not null; `endedAt: null` is what marks it running. |
 | `GET` | `/entries/:id` | |
 | `POST` | `/entries` | Manual entry. `id` is client-supplied (UUIDv7) so a retry is idempotent. Always complete — `endedAt` required, and `422 VALIDATION_FAILED` if it is at or before `startedAt`. |
 | `PATCH` | `/entries/:id` | **`409 ENTRY_LOCKED`** if billed on a non-draft invoice. Returns `409 TIMER_ALREADY_RUNNING` if clearing `endedAt` would reopen this entry while another timer runs, and `422 VALIDATION_FAILED` if the patch would leave `endedAt` at or before `startedAt`. |
@@ -99,6 +99,10 @@ entry's own date in `tz` — a property of the data, so it reads the same on
 every device. Unrated work earns nothing it can name, so it can understate a
 day whose rate chain resolves to null.
 
+**A running timer counts up to the response** in `earnedToday`, `unbilled`,
+`week` and `month`, priced as it would bill if stopped then, so stopping it
+moves no figure. It still never reaches an invoice (see Invoices).
+
 **Rows are capped and the remainder is reported, never dropped.** `unbilled`
 carries 5 rows plus a `moreClients` count. The total still covers every
 client.
@@ -151,9 +155,11 @@ cannot return every day once answered. `unprojected` is one row per entry,
 oldest first; `strangeDurations` one per stopped entry of implausible length.
 The long threshold defaults to 12 hours, which is how a timer left running
 overnight reaches the inbox; the short one defaults to null. `overlaps` is one
-per pair of uninvoiced entries sharing a minute or more (`MIN_OVERLAP_SECONDS`
-in `@stint/core`), naming the later-starting entry; it clears when either is
-edited apart.
+per pair of entries sharing a minute or more (`MIN_OVERLAP_SECONDS` in
+`@stint/core`) where at least one is unbilled, except non-billable work
+against billed time, which bills nothing twice. It names the unbilled entry,
+the later-starting one when both are, and `otherInvoiceNumber` when the other
+is on an invoice; it clears when either is edited apart.
 
 ## Clients / projects / settings
 
@@ -181,8 +187,8 @@ invoices reference these rows. `DELETE` returns `204`.
 
 | Param | On | Effect |
 |---|---|---|
-| `includeArchived=true` | clients, projects, payment-profiles | Return archived rows too. Without it they are hidden. |
-| `withScale=true` | clients | Adds `projectCount` and `unbilledAmount` per client. |
+| `includeArchived=true` | clients, projects, payment-profiles | Return archived rows too. Without it they are hidden, and so is a project whose client is archived. |
+| `withScale=true` | clients | Adds `projectCount` and `unbilledAmount` per client. `unbilledAmount` counts a running timer's session so far, as `/stats`' `unbilled` does. |
 | `clientId=` | projects | Only that client's projects. |
 
 **`archived` is a PATCH field, and it is the only way back.** `archived: true`
@@ -221,8 +227,8 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/invoices` | `?clientId&status&limit` (1–200, default 50), newest first — ordered by invoice sequence, not issue date. |
-| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, summaryText?, tz?, manualLines?, excludedExpenseIds? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `expensesSubtotal`, `total`, `entryCount`, `unratedEntryIds`, `schedules` (every supporting-detail table with `summary`, else null), plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
-| `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries and expenses, in one transaction. Also accepts `issueDate`, `dueDate`, `notes`, `paymentTerms`, `tz`, `reference` (the PO, contract or SOW, at most 200 characters; blank is none), and `schedules` (`project | week | date`, with `summary` only), which freezes those tables as `supportingDetail`. `paymentProfileId` picks the payment details to freeze; absent, the client's profile, else the default. Returns the `Invoice` plus `lineItems` and `entryCount`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if there is nothing to bill: no time, no expense and no charge; `422 VALIDATION_FAILED` for `summary` with an empty `summaryText`, `schedules` with another grouping, or a `paymentProfileId` archived or not found; `409 EXPENSE_ALREADY_INVOICED` if another invoice took one of its expenses first, or `409 ENTRY_ALREADY_INVOICED` if one of its entries was billed elsewhere or deleted since it was loaded; either writes nothing and uses no number; `422 VALIDATION_FAILED` on an invalid `tz`. |
+| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, summaryText?, tz?, manualLines?, excludedExpenseIds? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `expensesSubtotal`, `total`, `entryCount`, `unratedEntryIds`, `overlappingEntryIds` (entries to bill that share a minute or more with each other or with billed time), `schedules` (every supporting-detail table with `summary`, else null), plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
+| `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries and expenses, in one transaction. Also accepts `issueDate` (absent, today in `tz`), `dueDate`, `notes`, `paymentTerms`, `tz`, `reference` (the PO, contract or SOW, at most 200 characters; blank is none), and `schedules` (`project | week | date`, with `summary` only), which freezes those tables as `supportingDetail`. `paymentProfileId` picks the payment details to freeze; absent, the client's profile, else the default. Returns the `Invoice` plus `lineItems` and `entryCount`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if there is nothing to bill: no time, no expense and no charge; `422 VALIDATION_FAILED` for `summary` with an empty `summaryText`, `schedules` with another grouping, or a `paymentProfileId` archived or not found; `409 EXPENSE_ALREADY_INVOICED` if another invoice took one of its expenses first, or `409 ENTRY_ALREADY_INVOICED` if one of its entries was billed elsewhere or deleted since it was loaded; either writes nothing and uses no number; `422 VALIDATION_FAILED` on an invalid `tz`. |
 | `GET` | `/invoices/:id` | Invoice + frozen line items + the client's `{ id, name, email, address }` (not the full client row). Returned **flat**, like every other detail route. These `lineItems` carry `id` and `sortOrder`; the ones a preview or a generation returns carry `rateSource` and `entryIds` instead. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Releases its entries and expenses. |
 | `GET` | `/invoices/:id/pdf` | Streams `application/pdf` from the frozen line items, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. |
@@ -294,6 +300,12 @@ preference — `.claude/rules/invoicing.md` has the reason.
 payment block, defaulted to a warning that details never change and should be
 verified by phone.
 
+## Health
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/health` | **No auth.** `{ ok }`: `200` while Postgres answers a query, `503` when it does not. The uptime monitor polls it (`docs/deploying.md` §3c). |
+
 ## Errors
 
 ```json
@@ -313,7 +325,7 @@ verified by phone.
 | `INVALID_PERIOD` | 400 | |
 | `UNAUTHORIZED` | 401 | |
 | `IMPORT_FILE_UNRECOGNIZED` | 422 | Not a Toggl export, or a row in it cannot be read; `message` names the line. |
-| `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, or a `PATCH` body that parses but maps to no column. |
+| `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, a `PATCH` body that parses but maps to no column, or a reference to a record that is missing or another user's, such as a project's `clientId`. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 
 `ENTRY_NOT_FOUND` is the generic 404 across resources — clients, projects,
@@ -337,7 +349,8 @@ it; an invalid zone falls back to UTC rather than failing the request, because
 a view that renders in the wrong zone beats a view that does not render.
 
 **The invoicing routes reject an invalid one instead.** `POST /invoices/preview`
-and `POST /invoices` resolve the billing period in `tz`, so the zone decides
+and `POST /invoices` resolve the billing period in `tz`, and `POST /invoices`
+dates an invoice without an `issueDate` on that zone's today. The zone decides
 which entries are billed — falling back to UTC there would move the boundary by
 hours and put the wrong work on an invoice. An **omitted** `tz` still defaults
 to UTC, so a client that means a local period must send one.

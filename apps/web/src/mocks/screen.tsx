@@ -1,6 +1,6 @@
 import type { Decorator } from '@storybook/nextjs-vite';
 import { expect, waitFor, within } from 'storybook/test';
-import { http } from 'msw';
+import { delay, http } from 'msw';
 import { AppShell } from '@/components/app-shell';
 import { handlers } from './handlers';
 import { fail } from './respond';
@@ -19,26 +19,15 @@ export function screen(pathname: string, query: Record<string, string> = {}) {
     parameters: {
       layout: 'fullscreen',
       nextjs: { navigation: { pathname, query } },
-      a11y: knownFailures,
     },
     decorators: [decorator],
   };
 }
 
-/* TODO(#125): two known failures across every screen, skipped here rather
-   than per story. Every other rule still fails the test. */
-const KNOWN = ['color-contrast', 'scrollable-region-focusable'];
-
-/**
- * The a11y rules a screen story skips: the known failures, plus any a story
- * names. A story's list replaces its screen's, so it passes both.
- */
-const skipping = (...rules: string[]) => ({
-  config: {
-    rules: [...KNOWN, ...rules].map((id) => ({ id, enabled: false })),
-  },
+/** The a11y rules a story skips. Every other rule still fails the test. */
+export const skipping = (...rules: string[]) => ({
+  config: { rules: rules.map((id) => ({ id, enabled: false })) },
 });
-export const knownFailures = skipping();
 
 /* An open Radix menu or select hides the page behind it with `aria-hidden`
    while it traps focus, and axe reads the controls under it as focusable
@@ -68,6 +57,25 @@ export function failing(...keys: (keyof typeof handlers)[]) {
           const { method, path } = handlers[key].info;
           const verb = String(method).toLowerCase() as 'get';
           return [key, http[verb](path, () => fail('INTERNAL'))];
+        }),
+      ),
+    },
+  };
+}
+
+/**
+ * These endpoints never answer, so a story shows a press still pending. Each
+ * is called once; the preview judges the story with that many still open.
+ */
+export function stalled(...keys: (keyof typeof handlers)[]) {
+  return {
+    stalls: keys.length,
+    msw: {
+      handlers: Object.fromEntries(
+        keys.map((key) => {
+          const { method, path } = handlers[key].info;
+          const verb = String(method).toLowerCase() as 'get';
+          return [key, http[verb](path, () => delay('infinite'))];
         }),
       ),
     },

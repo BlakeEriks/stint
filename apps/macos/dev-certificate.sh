@@ -5,8 +5,7 @@
 # It does NOT stop the Keychain password prompts — see `TokenStore.swift`.
 #
 # Self-signed, lives only in YOUR login keychain, trusted by nothing except
-# this machine. Not a Developer ID and cannot distribute an app — see
-# `docs/roadmap.md`. Run it once.
+# this machine. Not a Developer ID and cannot distribute an app. Run it once.
 set -euo pipefail
 
 NAME="Stint Local Dev"

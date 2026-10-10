@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api, type Summary, type TimeEntry } from './api';
-import { elapsedSeconds } from '@stint/core';
+import { elapsedSeconds, entrySeconds } from '@stint/core';
 import { keys, invalidateEntryData } from './query-keys';
 import { useOptimisticMutation } from './mutations';
 
@@ -122,14 +122,22 @@ export function useTimer() {
   };
 
   /* `id` comes from the caller so the prediction and the row the server
-     writes are the same entry. */
-  const start = useOptimisticMutation<
-    { id: string; taskName: string; projectId?: string | null },
+     writes are the same entry.
+
+     A start pressed while a timer runs is pending: the server is likely to
+     refuse it, and a swap the 409 takes back reads as broken. It is still
+     sent, since this tab's `running` can be stale (stopped from the Mac), so
+     the server decides and its refusal reaches the notice. Read at the press
+     and carried with it, because a prediction re-renders this hook before
+     the request is made. */
+  const startPress = useOptimisticMutation<
+    StartVars & { whileRunning: boolean },
     TimeEntry,
     Summary
   >({
     ...timerPress,
-    mutationFn: (body) => api.startTimer(body),
+    mutationFn: ({ whileRunning: _, ...body }) => api.startTimer(body),
+    pending: (body) => body.whileRunning,
     predict: (current, body) =>
       showing(current, {
         id: body.id,
@@ -137,13 +145,21 @@ export function useTimer() {
         projectId: body.projectId ?? null,
         startedAt: serverNow(),
         endedAt: null,
-        isBillable: true,
+        isBillable: body.isBillable ?? true,
         durationSeconds: null,
         durationOk: false,
         rateOverride: null,
         invoiceId: null,
       }),
   });
+  const start = {
+    ...startPress,
+    mutate: (
+      vars: StartVars,
+      options?: Parameters<typeof startPress.mutate>[1],
+    ) =>
+      startPress.mutate({ ...vars, whileRunning: running !== null }, options),
+  };
 
   const stop = useOptimisticMutation<void, unknown, Summary>({
     ...timerPress,
@@ -177,11 +193,18 @@ export function useTimer() {
   };
 }
 
+interface StartVars {
+  id: string;
+  taskName: string;
+  projectId?: string | null;
+  isBillable?: boolean;
+}
+
 /**
  * How much of the fetched `todaySeconds` was the running timer at fetch
  * time — subtracted so the live count replaces it rather than doubling it.
  */
 function liveAtFetch(data: Summary): number {
   if (!data.running) return 0;
-  return elapsedSeconds(data.running.startedAt, new Date(data.serverTime));
+  return entrySeconds(data.running.startedAt, new Date(data.serverTime));
 }

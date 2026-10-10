@@ -32,12 +32,8 @@ the domain until required checks pass, so the migration runs while the
 
 `.github/workflows/ci.yml`, five jobs in parallel:
 
-- **`static`** — lint, token drift, the contrast contract, shadcn detox, the
-  typography scale, writes through the shared mutation helper, typecheck,
-  the UI suite, core logic, the hygiene scan's tests, the build script
-  tests, the doc references check, the check that comments cite no issues,
-  then a build.
-  Needs no database, so an obvious slip fails in seconds.
+- **`static`** — every check that needs no database, then a build, so an
+  obvious slip fails in seconds. `ci.yml` names each.
 - **`database`** — the route and RLS suites against a real Postgres service
   container. `scripts/ci-db.sh` builds both databases, applying migrations
   through `pnpm migrate` so the real migration script is what runs: `tt` with
@@ -50,8 +46,8 @@ the domain until required checks pass, so the migration runs while the
   and because keeping it separate means a type error reports without waiting
   behind a Docker pull.
 - **`stories`** — every Storybook story in Chromium: it renders, runs its
-  `play`, and passes its a11y check (`docs/local-dev.md` has the two rules
-  screen stories skip).
+  `play`, and passes its a11y check. A story that skips a rule passes it to
+  `skipping()` in `apps/web/src/mocks/screen.tsx`, with the reason beside it.
 
 Two more workflows. `docs.yml` runs Vale on the doc lines a PR adds, which
 only reports, and `/doc-drift` on the owner's PRs, whose `drift` check fails
@@ -106,6 +102,8 @@ Still set in the dashboard:
   - `NEXT_PUBLIC_APP_ORIGIN` — `https://app.runstint.com`. The code
     falls back to `''`, so an unset one costs a redirect hop on every landing
     CTA rather than failing the build.
+  - `SENTRY_DSN`, for Production only (§3c). Unset, Sentry stays off, so a
+    preview never reports.
 
 `SUPABASE_DB_URL` does **not** belong here. The app never uses it; only the
 migration scripts do, and they run in Actions.
@@ -264,6 +262,8 @@ success teaches you to stop reading it.
 | Approved release live | ✅ commit and subject | `release.yml`, `report` |
 | Release failed, or its plan failed | ❌ with the run link | `release.yml`, `report` |
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
+| App or database down, and its recovery | UptimeRobot's own | UptimeRobot → Discord |
+| A new unhandled server error | Sentry's own, with the stack trace | Sentry → Discord |
 
 Never posted: a release with no migration going live, a rejection or
 cancellation (you did it), a backup that worked (healthchecks.io is quiet
@@ -273,6 +273,22 @@ the PR and issue lists are where you look for those.
 **A new alert names what you would do when it arrives.** If the answer is
 nothing, it is a log line. One event is one message from one source — never
 the same failure from GitHub and from healthchecks.io.
+
+What each new alert asks of you:
+
+- **Down.** Check the Vercel and Supabase status pages, then roll back or
+  Force Promote (§3). A Supabase project paused for being idle, or an
+  expired certificate or domain, shows up here too.
+- **New error.** Read the stack trace, then fix it or open a `bug`. Sentry
+  alerts on a new issue only, never on each occurrence.
+
+**UptimeRobot** polls `https://app.runstint.com/api/v1/health` every 5
+minutes. The health route asks Postgres for a row, so it fails when the
+database does, not only when Vercel does. The monitor alerts after two
+failures in a row, and posts the recovery.
+
+**Sentry** is the `SENTRY_DSN` (§2), from a Next.js project on the free
+plan, with one alert rule: a new issue posts to Discord.
 
 The webhook is the `DISCORD_ALERTS_WEBHOOK` repository secret, used by
 `release.yml` and nowhere else: anyone holding it can post to the channel.

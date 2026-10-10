@@ -37,13 +37,9 @@ Postgres with the real migrations. `requireSession` has a `__TEST_DB__` seam;
 `test/shim.mjs` is a supabase-js-shaped builder over node-postgres, and
 `test/loader.mjs` resolves `next/*` and the `@/` alias for `node --test`.
 
-**CI splits by what a check needs**: `static` for everything that needs no
-database, `database` for the route and RLS suites over a Postgres service
-container built by `scripts/ci-db.sh`, `macos` for `swift build` and
-`swift test`, `e2e` for the browser against the stack, and `stories` for every
-Storybook story in Chromium. `pnpm verify:static` and
-`pnpm verify:db` run the first two locally, the latter against the databases
-`pnpm db:setup` builds.
+**CI splits by what a check needs**; `docs/deploying.md` §0 has the jobs.
+`pnpm verify:static` and `pnpm verify:db` run the first two locally, the
+latter against the databases `pnpm db:setup` builds.
 
 Node's `--experimental-strip-types` rejects **TypeScript parameter
 properties** — write constructor fields explicitly in any code the tests load.

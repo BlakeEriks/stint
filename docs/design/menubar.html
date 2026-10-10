@@ -124,7 +124,7 @@
   }
   /* Disabled is NEUTRAL, not a faded accent: the accent faded computes to
      #285c28 and puts the label at 2.33:1, under the floor. text-muted rather
-     than text-subtle — subtle measures 3.65:1 here, which fails the same
+     than text-subtle — subtle measures 4.27:1 here, which fails the same
      floor this rule exists to hold. */
   .btn.disabled {
     background: var(--bg-active); color: var(--text-muted); cursor: not-allowed;
@@ -265,7 +265,9 @@
   <p class="standfirst" style="color:var(--text-primary);">
     <strong style="font-weight:500;">This is the spec.</strong>
     The panel is <strong style="font-weight:500;">320pt wide</strong>;
-    heights follow content — running ≈ 428, stopped ≈ 425.
+    the timer's height follows its content — running ≈ 428, stopped ≈ 425 —
+    and Settings takes the timer's height, so opening it never resizes the
+    panel.
     A <code>MenuBarExtra</code> in <code>.menuBarExtraStyle(.window)</code>,
     which is a plain panel hanging from the bar — there is no arrow here.
   </p>
@@ -284,7 +286,7 @@
     <div class="states">
       <div class="state">
         <div class="menubar" style="width:210px;">
-          <span class="stint"><span class="pip"></span> 0:00:00</span>
+          <span class="stint"><span class="pip"></span> 6h 12m</span>
           <span>9:41</span>
         </div>
         <span class="caption">Stopped</span>
@@ -306,6 +308,8 @@
           to say whether time is accruing.</li>
         <li><strong>Two fills:</strong> accent running, <code>timerIdle</code>
           stopped.</li>
+        <li><strong>Stopped, it shows today's total</strong>, compact like the
+          panel's Today.</li>
         <li><strong>Findability is the honest cost.</strong> A bare dot is
           harder to pick out of a crowded bar than a letter, and people will
           learn its position rather than recognize its shape. That is how most
@@ -348,8 +352,8 @@
           <div class="divider"></div>
 
           <div class="stats">
-            <div class="stat"><span class="label">Today</span><span class="v">6:12:04</span></div>
-            <div class="stat" style="align-items:flex-end;"><span class="label">Unbilled</span><span class="v">$1,462.50</span></div>
+            <div class="stat"><span class="label">Today</span><span class="v">6h 12m</span></div>
+            <div class="stat" style="align-items:flex-end;"><span class="label">Earned</span><span class="v">$412.50</span></div>
           </div>
 
           <div class="divider"></div>
@@ -385,8 +389,10 @@
             mid-entry reassigns time already tracked against the old project,
             which is a billing edit wearing a dropdown. Stop the timer to move
             the work.</li>
-          <li><strong>Today and Unbilled are the two numbers</strong> you
-            cannot compute in your head. Same pair the web app leads with.</li>
+          <li><strong>Today and Earned are the two numbers</strong> you
+            cannot compute in your head, the pair the web's Today leads with.
+            Today reads compact, so the readout is the only figure moving by
+            the second.</li>
           <li>The accent appears exactly twice: the pip and the readout. Same
             fact, shown twice — which the rule permits.</li>
         </ul>
@@ -423,8 +429,8 @@
           <div class="divider"></div>
 
           <div class="stats">
-            <div class="stat"><span class="label">Today</span><span class="v">6:12:04</span></div>
-            <div class="stat" style="align-items:flex-end;"><span class="label">Unbilled</span><span class="v">$1,462.50</span></div>
+            <div class="stat"><span class="label">Today</span><span class="v">6h 12m</span></div>
+            <div class="stat" style="align-items:flex-end;"><span class="label">Earned</span><span class="v">$412.50</span></div>
           </div>
 
           <div class="divider"></div>
@@ -470,7 +476,7 @@
 
     <div class="states">
       <div class="state">
-        <div class="pop">
+        <div class="pop" style="height:428px;">
           <div class="head">
             <span class="row" style="gap:8px;">
               <button class="icon" aria-label="Back">&larr;</button>
@@ -507,6 +513,11 @@
             Settings window needs a Dock icon to be recoverable — which
             <code>LSUIElement</code> exists to avoid. A pushed view needs
             neither.</li>
+          <li><strong>The timer's height, whatever Settings holds.</strong>
+            Settings draws over the timer, which stays laid out beneath it,
+            so the panel hanging from the bar never changes height and never
+            jumps. Below its last row is the panel's background. Settings stays
+            no taller than the timer's shortest state, about 148pt.</li>
           <li><strong>The header swaps to a back affordance.</strong> One way
             in, one way out. Escape also returns.</li>
           <li><strong>Reopening the panel returns to the timer</strong>, never
@@ -585,12 +596,12 @@
     <div class="notes" style="margin-top:1.5rem;">
       <ul>
         <li><strong>Disabled is <code>bgActive</code> + <code>textMuted</code></strong>
-          (4.43:1) — a different, inert control rather than a dimmer version of
+          (5.24:1) — a different, inert control rather than a dimmer version of
           a live one. A faded accent computes to <code>#285c28</code> with its
           label at <strong>2.33:1</strong>, which is the white-on-accent
           pairing CI guards on the web and cannot see here.</li>
         <li><strong>Focus rings are <code>borderFocus</code></strong>
-          (6.82:1), never the accent and never the macOS system blue.</li>
+          (8.03:1), never the accent and never the macOS system blue.</li>
         <li><strong>The code field has no placeholder.</strong>
           <code>000-000</code> reads as a value in a digits-only field and
           puts the caret in the middle of it.</li>
@@ -698,14 +709,15 @@
         <tbody>
           <tr><td><code>GET /timer/current</code></td><td>The running entry</td></tr>
           <tr><td><code>POST /timer/start</code></td><td><strong>409 when one is already running</strong></td></tr>
-          <tr><td><code>POST /timer/stop</code></td><td>The unbilled total after the stop, so the row updates without a refresh</td></tr>
+          <tr><td><code>POST /timer/stop</code></td><td>The stopped entry. Earned follows on the refresh after the press</td></tr>
           <tr><td><code>GET /summary</code></td><td>Today's total, <code>serverTime</code></td></tr>
-          <tr><td><code>GET /stats?tz=…</code></td><td>The unbilled total</td></tr>
-          <tr><td><code>GET /entries/task-names?limit=6</code></td><td>Recent &mdash; the names the web suggests, so a row is a name to start again, not a past entry, and carries no duration. The running name is the readout and drops out, leaving five. Fetched on the poll and after a start or stop, not on every open</td></tr>
+          <tr><td><code>GET /stats?tz=…</code></td><td><code>earnedToday</code>, a running timer's session so far included</td></tr>
+          <tr><td><code>GET /entries/task-names?limit=6</code></td><td>Recent &mdash; the names the web suggests, so a row is a name to start again, not a past entry, and carries no duration. The running name is the readout and drops out, leaving five. Fetched on the poll while the panel is open and after a start or stop, not on every open</td></tr>
           <tr><td><code>PATCH /entries/:id</code></td><td>Rename</td></tr>
           <tr><td><code>GET /projects</code>, <code>GET /clients</code></td><td>The picker and client colors</td></tr>
         </tbody>
       </table>
+      <p>The minute's poll fetches all of these only while the panel is on screen, and at once when it opens. Closed, it fetches <code>/summary</code> alone, which the menu bar title needs.</p>
     </div>
 
     <div class="notes" style="margin-top:1.5rem;">
@@ -723,11 +735,9 @@
           running entry in, and adding it again counts it twice.</li>
         <li><strong>The task field follows the server only when unfocused</strong>,
           so it never overwrites itself mid-type.</li>
-        <li><strong>Unbilled is never labeled "earned" or "revenue".</strong>
-          It is work done and not yet invoiced — money the user might still
-          never see. Show <code>unbilled.total</code> alone; the per-client
-          breakdown is a web surface. When <code>unratedCount &gt; 0</code> the
-          total is incomplete, and saying so beats a confidently wrong number.</li>
+        <li><strong>Earned is today's entries at their rates</strong>, the
+          web's Today figure. Unbilled and its per-client breakdown are web
+          surfaces.</li>
         <li><strong>The API models are hand-written and nothing type-checks
           them</strong> against <code>packages/schema</code>, so a renamed
           field fails at runtime in Swift and nowhere else.</li>

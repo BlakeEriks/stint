@@ -3,7 +3,7 @@ import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseQuery } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
-import { elapsedSeconds, startOfLocalDay, startOfLocalWeek } from '@stint/core';
+import { entrySeconds, startOfLocalDay, startOfLocalWeek } from '@stint/core';
 import { SummaryQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -53,7 +53,7 @@ export const GET = handle(async (req: Request) => {
   }
 
   // Fold in the live timer so both menu bar modes stay consistent.
-  const liveSeconds = running ? elapsedSeconds(running.startedAt, now) : 0;
+  const liveSeconds = running ? entrySeconds(running.startedAt, now) : 0;
   if (running) {
     weekSeconds += liveSeconds;
     if (new Date(running.startedAt) >= dayStart) todaySeconds += liveSeconds;

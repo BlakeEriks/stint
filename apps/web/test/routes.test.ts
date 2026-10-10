@@ -13,6 +13,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import { makeDb } from './shim.mjs';
+import { fill } from './fill.ts';
 
 const USER = '11111111-1111-1111-1111-111111111111';
 const OTHER = '22222222-2222-2222-2222-222222222222';
@@ -103,21 +104,21 @@ test('start → current → stop round trip', async () => {
   assert.equal(after.body.entry, null, 'no timer running after stop');
 });
 
-test('stop returns Unbilled with the stopped entry counted, as /stats has it', async () => {
+test('stop leaves Unbilled where the running entry had it, as /stats has it', async () => {
   const { POST: start } = await import(
     '../src/app/api/v1/timer/start/route.ts'
   );
   const { POST: stop } = await import('../src/app/api/v1/timer/stop/route.ts');
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
-  // An hour at the user default of 100: the stop is what makes it unbilled.
+  // An hour at the user default of 100, unbilled while it runs.
   const startedAt = new Date(Date.now() - 3600 * 1000).toISOString();
   await start(req('/timer/start', { taskName: 'Billable', startedAt }));
   const before = await json(await stats(req('/stats?tz=UTC')));
   assert.equal(
     before.body.unbilled.total,
-    0,
-    'a running entry is not unbilled',
+    100,
+    'a running entry is unbilled so far',
   );
 
   const endedAt = new Date(Date.parse(startedAt) + 3600 * 1000).toISOString();
@@ -129,7 +130,7 @@ test('stop returns Unbilled with the stopped entry counted, as /stats has it', a
     'unbilled',
   ]);
   assert.equal(stopped.body.currency, 'USD');
-  assert.equal(stopped.body.unbilled.total, 100);
+  assert.equal(stopped.body.unbilled.total, 100, 'the stop moves nothing');
 
   const after = await json(await stats(req('/stats?tz=UTC')));
   assert.deepEqual(stopped.body.unbilled, after.body.unbilled);
@@ -600,6 +601,21 @@ test('a project needs only a name, and is then internal work', async () => {
   assert.equal(res.body.clientId, null);
 });
 
+test('a project under another user’s client is the caller’s error, not a 500', async () => {
+  const { POST } = await import('../src/app/api/v1/projects/route.ts');
+  const theirs = '33333333-0000-4000-8000-0000000000c2';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Theirs')`,
+    [theirs, OTHER],
+  );
+
+  const res = await json(
+    await POST(req('/projects', { name: 'Borrowed', clientId: theirs })),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
+});
+
 test('a project is read back by id, and 404s when unknown', async () => {
   const { GET } = await import('../src/app/api/v1/projects/[id]/route.ts');
   const { clientId, projectId } = await seedClientAndProject();
@@ -674,6 +690,42 @@ test('archiving a project hides it from the list but keeps the row', async () =>
     [projectId],
   );
   assert.ok(rows[0].archived_at, 'the row survives, marked archived');
+});
+
+test("an archived client's projects leave the list, and come back with it", async () => {
+  const clients = await import('../src/app/api/v1/clients/[id]/route.ts');
+  const { GET: list, POST: create } = await import(
+    '../src/app/api/v1/projects/route.ts'
+  );
+  const { clientId, projectId } = await seedClientAndProject();
+  await create(req('/projects', { clientId: null, name: 'Admin' }));
+  const names = async (url: string) =>
+    (await json(await list(req(url)))).body.projects.map(
+      (p: { name: string }) => p.name,
+    );
+
+  await clients.DELETE(req('/clients/x', undefined, 'DELETE'), ctx(clientId));
+
+  // Not offered for new time; a project with no client still is.
+  assert.deepEqual(await names('/projects'), ['Admin']);
+  assert.deepEqual(await names(`/projects?clientId=${clientId}`), []);
+  assert.deepEqual(await names('/projects?includeArchived=true'), [
+    'Admin',
+    'Lifecycle',
+  ]);
+
+  // Counted as archived, not written as archived.
+  const { rows } = await pool.query(
+    'select archived_at from projects where id=$1',
+    [projectId],
+  );
+  assert.equal(rows[0].archived_at, null);
+
+  await clients.PATCH(
+    patchReq('/clients/x', { archived: false }),
+    ctx(clientId),
+  );
+  assert.deepEqual(await names('/projects'), ['Admin', 'Lifecycle']);
 });
 
 test('archiving an unknown project is 404, not a silent 204', async () => {
@@ -1128,7 +1180,7 @@ test('unrated work counts but adds no money', async () => {
   assert.equal(row.seconds, 7200, 'while the hours are still real');
 });
 
-test('a running timer and billed work stay out of unbilled', async () => {
+test('a running timer is unbilled so far; non-billable work is not', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
   const c = '33333333-0000-4000-8000-000000000004';
@@ -1144,30 +1196,192 @@ test('a running timer and billed work stay out of unbilled', async () => {
 
   await entryFor({ id: S(10), projectId: p, hours: 1 }); // counts
   await entryFor({ id: S(11), projectId: p, hours: 1, billable: false });
-  // A running entry: ended_at is null, so it is not billable work yet.
+  // Running for an hour: counted up to the request, as it would bill if
+  // stopped now.
   await pool.query(
     `insert into time_entries (id,user_id,project_id,task_name,started_at,is_billable)
-     values ($1,$2,$3,'running',now(),true)`,
-    [S(12), USER, p],
+     values ($1,$2,$3,'running',$4,true)`,
+    [S(12), USER, p, new Date(Date.now() - 3600 * 1000).toISOString()],
   );
 
   const res = await json(await stats(req('/stats?tz=UTC')));
   assert.equal(
     res.body.unbilled.total,
-    100,
-    'only the one ended billable hour',
+    200,
+    'the ended hour and the running one, not the non-billable one',
   );
-  assert.equal(res.body.unbilled.seconds, 3600, 'and only its hour');
+  assert.equal(res.body.unbilled.seconds, 7200);
+});
 
-  /* Note what this does NOT prove. The rollup's `ended_at is not null` clause
-     is currently unobservable: `duration_seconds` is a generated column, so a
-     running entry contributes null seconds and null money, and it does not
-     raise `unratedCount` either because its rate still resolves. Removing the
-     clause produces byte-identical output — verified. The clause is worth
-     keeping as a statement of intent, but no assertion here can pin it, and
-     writing one that passes either way would be decoration. The
-     `is_billable` guard beside it IS load-bearing, and the non-billable entry
-     above covers it. */
+/**
+ * A running entry's start: half an hour ago, or just after UTC midnight when
+ * that is sooner, so it always falls today. `seconds` is whole, so the
+ * request's few milliseconds never round it to another figure.
+ */
+function runningToday() {
+  const now = Date.now();
+  const midnight = new Date(now).setUTCHours(0, 0, 0, 0);
+  const seconds = Math.max(
+    0,
+    Math.min(1800, Math.floor((now - midnight) / 1000) - 1),
+  );
+  return { startedAt: new Date(now - seconds * 1000).toISOString(), seconds };
+}
+
+/** Dollars at $100/h, as the rollups price it: hours rounded to cents. */
+const at100 = (seconds: number) => Math.round(seconds / 36);
+
+test('Earned today counts a running timer up to the request, priced as it would bill', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-000000000005';
+  const rated = '33333333-0000-4000-8000-0000000000d2';
+  const unrated = '33333333-0000-4000-8000-0000000000d3';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Live',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'Rated')`,
+    [rated, USER, c],
+  );
+  // No client, and the user default is unset here: nothing resolves a rate.
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,null,'Unrated')`,
+    [unrated, USER],
+  );
+  await pool.query(
+    'update user_settings set default_hourly_rate = null where user_id = $1',
+    [USER],
+  );
+  const { startedAt, seconds } = runningToday();
+  const run = (projectId: string) =>
+    pool.query(
+      `insert into time_entries (id,user_id,project_id,task_name,started_at)
+       values ($1,$2,$3,'running',$4)`,
+      [S(13), USER, projectId, startedAt],
+    );
+
+  await run(rated);
+  const live = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(live.body.earnedToday, at100(seconds), 'its hours at $100');
+
+  await pool.query('delete from time_entries where id = $1', [S(13)]);
+  await run(unrated);
+  const none = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(
+    none.body.earnedToday,
+    0,
+    'unrated time earns nothing it can name',
+  );
+});
+
+test('the week, the month and its client strip count a running timer', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-000000000006';
+  const p = '33333333-0000-4000-8000-0000000000d4';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Week',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  const before = await json(await stats(req('/stats?tz=UTC')));
+  const { startedAt, seconds } = runningToday();
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at)
+     values ($1,$2,$3,'running',$4)`,
+    [S(15), USER, p, startedAt],
+  );
+  const after = await json(await stats(req('/stats?tz=UTC')));
+
+  const today = startedAt.slice(0, 10);
+  const cents = at100(seconds) * 100;
+  const bar = (r: typeof after) =>
+    r.body.week.find((d: { date: string }) => d.date === today);
+  assert.equal(bar(after).seconds - bar(before).seconds, seconds);
+  assert.equal(
+    Math.round(((bar(after).amount ?? 0) - (bar(before).amount ?? 0)) * 100),
+    cents,
+    "today's bar gains the session's amount",
+  );
+  assert.equal(
+    Math.round((after.body.month.earned - before.body.month.earned) * 100),
+    cents,
+  );
+  const strip = after.body.month.byClient.find(
+    (b: { clientId: string }) => b.clientId === c,
+  );
+  assert.equal(strip?.amount ?? 0, at100(seconds));
+});
+
+test('a running timer started before midnight counts toward the day it started', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const midnight = new Date();
+  midnight.setUTCHours(0, 0, 0, 0);
+  // The $100 user default prices it.
+  await pool.query(
+    'update user_settings set default_hourly_rate = 100 where user_id = $1',
+    [USER],
+  );
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at)
+     values ($1,$2,null,'overnight',$3)`,
+    [S(16), USER, new Date(midnight.getTime() - 600 * 1000).toISOString()],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.earnedToday, 0, 'not today');
+  assert.ok(res.body.unbilled.total > 0, 'yet unbilled so far');
+});
+
+test("a client's Unbilled counts its running timer, as /stats does", async () => {
+  const { GET: listClients } = await import(
+    '../src/app/api/v1/clients/route.ts'
+  );
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+
+  const c = '33333333-0000-4000-8000-000000000007';
+  const p = '33333333-0000-4000-8000-0000000000d5';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Live',100)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at)
+     values ($1,$2,$3,'running',$4)`,
+    [S(17), USER, p, new Date(Date.now() - 1800 * 1000).toISOString()],
+  );
+
+  const clients = await json(await listClients(req('/clients?withScale=true')));
+  const row = clients.body.clients.find((x: { id: string }) => x.id === c);
+  assert.equal(row.unbilledAmount, 50);
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.equal(res.body.unbilled.total, 50);
+});
+
+test('the entries list measures a running entry at the response', async () => {
+  const { GET: list } = await import('../src/app/api/v1/entries/route.ts');
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at)
+     values ($1,$2,null,'running',$3)`,
+    [S(14), USER, new Date(Date.now() - 600 * 1000).toISOString()],
+  );
+
+  const res = await json(await list(req('/entries')));
+  const row = res.body.entries.find((e: { id: string }) => e.id === S(14));
+  assert.equal(row.endedAt, null, 'still running');
+  assert.ok(
+    Math.abs(row.durationSeconds - 600) <= 2,
+    `measured at the response, got ${row.durationSeconds}`,
+  );
 });
 
 test('the unbilled total covers every client, even past the row cap', async () => {
@@ -2735,4 +2949,252 @@ test('/stats lists entries sharing a minute or more, and editing one clears it',
   );
   const after = await json(await stats(req('/stats?tz=UTC')));
   assert.deepEqual(after.body.attention.overlaps, []);
+});
+
+test('/stats flags an entry that overlaps time already billed', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const c = '33333333-0000-4000-8000-0000000000c1';
+  const p = '33333333-0000-4000-8000-0000000000c2';
+  const inv = 'ff000000-0000-4000-8000-0000000000c3';
+  const billed = '018f0000-0000-7000-8000-00000000c0c1';
+  const fresh = '018f0000-0000-7000-8000-00000000c0c2';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Northwind',150)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,sent_at)
+     values ($1,$2,$3,'INV-0001',1,'sent',now())`,
+    [inv, USER, c],
+  );
+  // 9-10 was billed on that invoice; 9:30-10:30 was added afterwards. The
+  // new entry is the one to fix, and it can be — only the billed one is
+  // locked. Left unflagged, the next invoice charges 9:30-10:00 twice.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,invoice_id) values
+       ($1,$3,$4,'Billed', '2026-08-19T09:00:00Z','2026-08-19T10:00:00Z',$5),
+       ($2,$3,$4,'Added',  '2026-08-19T09:30:00Z','2026-08-19T10:30:00Z',null)`,
+    [billed, fresh, USER, p, inv],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(
+    res.body.attention.overlaps.map(
+      (o: {
+        entryId: string;
+        otherEntryId: string;
+        otherInvoiceNumber: string | null;
+        seconds: number;
+      }) => [o.entryId, o.otherEntryId, o.otherInvoiceNumber, o.seconds],
+    ),
+    [[fresh, billed, 'INV-0001', 1800]],
+    'the half hour already invoiced is about to be billed again',
+  );
+});
+
+test('/stats pairs only billable work against billed time', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const c = '33333333-0000-4000-8000-0000000000d1';
+  const p = '33333333-0000-4000-8000-0000000000d2';
+  const inv = 'ff000000-0000-4000-8000-0000000000d3';
+  const billed = '018f0000-0000-7000-8000-00000000d0d1';
+  const free = '018f0000-0000-7000-8000-00000000d0d2';
+  const also = '018f0000-0000-7000-8000-00000000d0d3';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Northwind',150)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,sent_at)
+     values ($1,$2,$3,'INV-0001',1,'sent',now())`,
+    [inv, USER, c],
+  );
+  // Non-billable work is never invoiced, so overlapping billed time bills
+  // nothing twice; overlapping other unbilled work is still flagged.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,invoice_id,is_billable) values
+       ($1,$4,$5,'Billed','2026-08-19T09:00:00Z','2026-08-19T10:00:00Z',$6,true),
+       ($2,$4,$5,'Free',  '2026-08-19T09:30:00Z','2026-08-19T10:30:00Z',null,false),
+       ($3,$4,$5,'Also',  '2026-08-19T10:00:00Z','2026-08-19T11:00:00Z',null,true)`,
+    [billed, free, also, USER, p, inv],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(
+    res.body.attention.overlaps.map(
+      (o: { entryId: string; otherEntryId: string }) => [
+        o.entryId,
+        o.otherEntryId,
+      ],
+    ),
+    [[also, free]],
+  );
+});
+
+// ── reads past PostgREST's 1,000 rows ──────────────────────────────
+// The shim caps a select the way PostgREST does, so a read that does not
+// page fails here.
+const fillMe = (n: number, from: string, projectId: string | null) =>
+  fill(pool, { userId: USER, projectId, from, n });
+
+const attention = async () => {
+  const { GET } = await import('../src/app/api/v1/stats/route.ts');
+  return (await json(await GET(req('/stats?tz=UTC')))).body.attention;
+};
+
+test('the inbox lists every unprojected entry', async () => {
+  await fillMe(1001, '2026-08-01T00:00:00Z', null);
+  assert.equal((await attention()).unprojected.length, 1001);
+});
+
+test('the inbox finds a strange duration past the first thousand', async () => {
+  const project = await durProject();
+  await fillMe(1000, '2026-08-01T00:00:00Z', project);
+  // The newest, so the last row of a read ordered oldest first.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
+     values (gen_random_uuid(),$1,$2,'Overnight','2026-08-20T00:00:00Z','2026-08-20T14:00:00Z')`,
+    [USER, project],
+  );
+  await pool.query(
+    'update user_settings set max_entry_hours=8 where user_id=$1',
+    [USER],
+  );
+  const rows = (await attention()).strangeDurations;
+  assert.deepEqual(
+    rows.map((r: { taskName: string }) => r.taskName),
+    ['Overnight'],
+  );
+});
+
+test('the inbox finds an overlap past the first thousand', async () => {
+  const project = await durProject();
+  await fillMe(1000, '2026-08-01T00:00:00Z', project);
+  // Sharing half an hour, and written last.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at) values
+       (gen_random_uuid(),$1,$2,'First', '2026-08-20T20:00:00Z','2026-08-20T21:00:00Z'),
+       (gen_random_uuid(),$1,$2,'Second','2026-08-20T20:30:00Z','2026-08-20T21:30:00Z')`,
+    [USER, project],
+  );
+  assert.equal((await attention()).overlaps.length, 1);
+});
+
+test('the calendar returns every entry in its range', async () => {
+  const { GET } = await import('../src/app/api/v1/calendar/route.ts');
+  await fillMe(1001, '2026-09-01T00:00:00Z', await durProject());
+
+  const res = await json(
+    await GET(
+      req('/calendar?from=2026-09-01T00:00:00Z&to=2026-09-30T00:00:00Z&tz=UTC'),
+    ),
+  );
+  const entries = res.body.days.reduce(
+    (n: number, d: { entries: unknown[] }) => n + d.entries.length,
+    0,
+  );
+  assert.equal(entries, 1001);
+});
+
+test('an import preview sees an overlap with existing work past the first thousand', async () => {
+  const { POST } = await import('../src/app/api/v1/imports/preview/route.ts');
+  const project = await durProject();
+  // Inside the window the preview reads, and over by the hour below.
+  await fillMe(1000, '2026-03-09T00:00:00Z', project);
+  // 20:00Z to 21:00Z, written last.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at)
+     values (gen_random_uuid(),$1,$2,'Existing','2026-03-10T20:00:00Z','2026-03-10T21:00:00Z')`,
+    [USER, project],
+  );
+
+  // 16:00 in New York, daylight time: the same hour as the entry above.
+  const form = new FormData();
+  form.set(
+    'file',
+    new File(
+      [
+        `User,Email,Client,Project,Task,Description,Billable,Start date,Start time,End date,End time,Duration,Tags,Amount (USD)
+Me,me@x,Acme,Site,,Design,Yes,2026-03-10,16:00:00,2026-03-10,17:00:00,01:00:00,,150.00
+`,
+      ],
+      'export.csv',
+      { type: 'text/csv' },
+    ),
+  );
+  form.set('timeZone', 'America/New_York');
+  const res = await json(
+    await POST(
+      new Request('http://t/imports/preview', { method: 'POST', body: form }),
+    ),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.summary.overlappingCount, 1);
+});
+
+// ── health, and errors reaching Sentry ─────────────────────────────
+/** A database client whose every query answers with `error`. */
+const failingDb = (error: { code?: string; message: string }) => ({
+  from: () => ({
+    select: () => ({ limit: async () => ({ data: null, error }) }),
+  }),
+});
+
+test('health answers 200 while the database answers', async () => {
+  const { GET } = await import('../src/app/api/v1/health/route.ts');
+  const res = await json(await GET());
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { ok: true });
+});
+
+test('health answers 200 when Postgres refuses anon, which is Postgres answering', async () => {
+  const { GET } = await import('../src/app/api/v1/health/route.ts');
+  (globalThis as any).__TEST_DB__ = failingDb({
+    code: '42501',
+    message: 'permission denied for table clients',
+  });
+  const res = await json(await GET());
+  assert.equal(res.status, 200);
+});
+
+test('health answers 503 when the database does not, so the monitor alerts', async () => {
+  const { GET } = await import('../src/app/api/v1/health/route.ts');
+  (globalThis as any).__TEST_DB__ = failingDb({
+    code: 'PGRST000',
+    message: 'Could not connect',
+  });
+  const res = await json(await GET());
+  assert.equal(res.status, 503);
+  assert.deepEqual(res.body, { ok: false });
+});
+
+test('an unhandled route error reaches Sentry, not only the log', async () => {
+  const Sentry = await import('@sentry/nextjs');
+  const { close } = await import('@sentry/core');
+  const sent: string[] = [];
+  Sentry.init({
+    dsn: 'https://key@o0.ingest.sentry.io/0',
+    beforeSend(event) {
+      sent.push(event.exception?.values?.[0]?.value ?? '');
+      return null;
+    },
+  });
+  const { GET } = await import('../src/app/api/v1/clients/route.ts');
+  (globalThis as any).__TEST_DB__ = {
+    from() {
+      throw new Error('unexpected');
+    },
+  };
+  const res = await GET(req('/clients'));
+  await close(1000);
+  assert.equal(res.status, 500);
+  assert.deepEqual(sent, ['unexpected']);
 });

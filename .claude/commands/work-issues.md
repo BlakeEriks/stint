@@ -55,15 +55,9 @@ Every build and every fix goes the same way:
 1. A builder does the work and commits, unpushed, and reports back.
 2. `pr-review-toolkit:code-reviewer` reviews the round's commits — the whole
    branch on a first build — unless the round is small: under about 20 lines
-   and no logic change in auth, the API or data access. Brief it with the
-   commit range in `../stint-issues`, that it is read-only, and to review the
-   diff and what it calls — for security too when the commits touch auth, the
-   API or data access — and to hold every added or changed comment to
-   `.claude/rules/comments.md`, and to flag a fix that adds a special case
-   where the design should have changed first (`.claude/agents/issue-builder.md`, Build).
-   It reports in one paragraph each finding it
-   is confident in, with file:line, the failure and the fix; a comment's fix
-   is usually cutting it.
+   and no logic change in auth, the API or data access. Start it on Opus with
+   the brief in `.claude/skills/standards-review/SKILL.md`, the one Spec Kit
+   work gets too, for the commit range in `../stint-issues`.
 3. Findings that hold up go back to the same builder (SendMessage); its fix
    is reviewed again only if it is not small — judged from
    `git diff --stat` of the fix once it is committed, never in advance.
@@ -156,6 +150,12 @@ issue that:
 
 `urgent` first, then the worst: `wrong data`, `misleading`, `looks wrong`,
 then `enhancement`; oldest first within a label. None left → step 2.
+
+**First, overlap, without a builder.** List the paths the issue names and
+each open PR's files (`gh pr view <n> --json files`). A shared path makes it
+`blocked` with a marked comment ("Blocked by #31: both change the inbox"),
+and you pick again. The builder still checks the files it finds it must
+change.
 
 Otherwise hand it to a builder for triage and build, as a round. An issue a
 builder already triaged — its `agentId` is in the log — goes back to that

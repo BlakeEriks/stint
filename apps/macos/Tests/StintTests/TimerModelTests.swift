@@ -58,6 +58,26 @@ struct TimerModelTests {
         await model.signOut()
     }
 
+    @Test func aClosedPanelPollsTheTimerAlone() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/projects"] = (200, projects([("p1", "Website")]))
+        APIStub.routes["/clients"] = (200, clients([]))
+        APIStub.requested = []
+        await model.poll()
+        #expect(APIStub.requested == ["/summary"])
+
+        model.panel(open: true)
+        APIStub.requested = []
+        await model.poll()
+        #expect(Set(APIStub.requested) == ["/summary", "/projects", "/clients", "/stats", "/entries/task-names"])
+
+        model.panel(open: false)
+        APIStub.requested = []
+        await model.poll()
+        #expect(APIStub.requested == ["/summary"])
+        await model.signOut()
+    }
+
     @Test func recentIsTheServersNamesLessTheRunningOne() async throws {
         let model = try await signedInModel()
         APIStub.routes["/summary"] = (200, summary(running: "standup"))
@@ -84,6 +104,22 @@ struct TimerModelTests {
         await model.signOut()
     }
 
+    @Test func earnedIsTodaysEarnings() async throws {
+        let model = try await signedInModel()
+        APIStub.routes["/stats"] = (200, Data(#"{"currency":"USD","earnedToday":412.5,"unbilled":{"total":1462.5}}"#.utf8))
+        await model.refresh()
+        #expect(model.stats?.earnedToday == 412.5)
+        await model.signOut()
+    }
+
+    @Test func compactMatchesTheWebsFormatCompact() {
+        #expect(compact(0) == "0s")
+        #expect(compact(59) == "59s")
+        #expect(compact(60) == "1m")
+        #expect(compact(3600) == "1h")
+        #expect(compact(3 * 3600 + 12 * 60 + 40) == "3h 12m")
+    }
+
     @Test func aRestartCarriesTheNameAndProject() async throws {
         let model = try await signedInModel()
         APIStub.routes["/entries/task-names"] = (200, taskNames(["Internal planning"], project: "p1"))
@@ -103,7 +139,7 @@ struct TimerModelTests {
     private func signedInModel() async throws -> TimerModel {
         APIStub.routes = [
             "/summary": (200, Data(#"{"running":null,"todaySeconds":0,"weekSeconds":0,"serverTime":"2026-09-28T12:00:00Z"}"#.utf8)),
-            "/stats": (200, Data(#"{"currency":"USD","unbilled":{"total":0}}"#.utf8)),
+            "/stats": (200, Data(#"{"currency":"USD","earnedToday":0}"#.utf8)),
             "/entries/task-names": (200, Data(#"{"taskNames":[]}"#.utf8)),
         ]
         APIStub.bodies = [:]
@@ -152,6 +188,7 @@ struct TimerModelTests {
 /// Answers by path, ignoring the `/api/v1` prefix and the query string.
 private final class APIStub: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var routes: [String: (Int, Data)] = [:]
+    nonisolated(unsafe) static var requested: [String] = []
     /// The last body sent to each path.
     nonisolated(unsafe) static var bodies: [String: Data] = [:]
 
@@ -161,6 +198,7 @@ private final class APIStub: URLProtocol, @unchecked Sendable {
 
     override func startLoading() {
         let path = request.url!.path().replacingOccurrences(of: "/api/v1", with: "")
+        Self.requested.append(path)
         if let body = request.httpBody ?? request.httpBodyStream.map(Self.read) { Self.bodies[path] = body }
         let (status, data) = Self.routes[path] ?? (404, Data())
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!

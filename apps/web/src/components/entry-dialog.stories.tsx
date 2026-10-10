@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, userEvent, waitFor, within } from 'storybook/test';
-import { id, seed } from '@/mocks/fixtures';
-import { desktop, phone } from '@/mocks/screen';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { account as scenario } from '@/mocks/db';
+import { id, ids, seed } from '@/mocks/fixtures';
+import { desktop, phone, stalled } from '@/mocks/screen';
 import { NOW, ZONE } from '@/mocks/time.mts';
 import { EntryDialog } from './entry-dialog';
 
@@ -50,11 +51,26 @@ export const AddFromCalendar: Story = {
   },
 };
 
-/** On an issued invoice: read-only, the handles gone. */
-export const Locked: Story = { ...desktop, args: { existing: on(13) } };
+/** On an issued invoice: read-only, the handles gone, and the invoice to
+    void named. */
+export const Locked: Story = {
+  ...desktop,
+  args: { existing: on(13) },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(await page.findByText(/billed on STINT-0013/)).toBeVisible();
+  },
+};
 
-/** On a draft: still editable, with a warning that the draft changes. */
-export const OnDraft: Story = { ...desktop, args: { existing: on(15) } };
+/** On a draft: still editable, with a warning naming the draft that changes. */
+export const OnDraft: Story = {
+  ...desktop,
+  args: { existing: on(15) },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(await page.findByText(/on draft STINT-0015/)).toBeVisible();
+  },
+};
 
 /** Delete asks once. */
 export const ConfirmDelete: Story = {
@@ -70,6 +86,44 @@ export const ConfirmDelete: Story = {
         await page.findByRole('button', { name: /Delete for good/ }),
       ).toBeVisible(),
     );
+  },
+};
+
+/** The delete is waiting on the server: the confirm says so, and nothing
+    can be pressed twice. */
+export const Deleting: Story = {
+  ...desktop,
+  parameters: stalled('deleteEntry'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Delete entry' }),
+    );
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Delete for good' }),
+    );
+    await expect(
+      await page.findByRole('button', { name: 'Deleting…' }),
+    ).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Keep' })).toBeDisabled();
+  },
+};
+
+/** The save is waiting on the server: nothing closes the dialog, so a
+    refusal still has a form to land in. */
+export const Saving: Story = {
+  ...desktop,
+  parameters: stalled('updateEntry'),
+  args: { onOpenChange: fn() },
+  play: async ({ args, canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await page.findByRole('button', { name: 'Save' }));
+    await expect(
+      await page.findByRole('button', { name: 'Saving…' }),
+    ).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    await userEvent.keyboard('{Escape}');
+    await expect(args.onOpenChange).not.toHaveBeenCalled();
   },
 };
 
@@ -97,5 +151,27 @@ export const Suggestions: Story = {
       'pa',
     );
     await expect(await page.findByRole('listbox')).toBeVisible();
+  },
+};
+
+/** An entry whose client was archived since: the field still names its
+    project, though the menu no longer offers it. */
+export const ArchivedClient: Story = {
+  ...desktop,
+  parameters: scenario((db) => {
+    for (const c of db.clients)
+      if (c.id === ids.byrne) c.archivedAt = '2026-09-01T16:00:00.000Z';
+  }),
+  args: {
+    projects: active.filter((p) => p.clientId !== ids.byrne),
+    existing: account.entries.find((e) => e.taskName === 'Launch day support'),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await waitFor(() =>
+      expect(page.getByRole('button', { name: 'Project' })).toHaveTextContent(
+        'Brand site rebuild',
+      ),
+    );
   },
 };

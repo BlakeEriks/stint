@@ -687,3 +687,32 @@ test('voiding releases what the invoice billed, in the same statement', async ()
   );
   assert.deepEqual(rows[0], { entry: null, expense: null });
 });
+
+test('an invoice cannot reference another user’s client', async () => {
+  await seedBoth();
+
+  await assert.rejects(
+    () =>
+      asUser(
+        ALICE,
+        `insert into invoices (user_id,client_id,invoice_number,sequence_no)
+         values ($1,'cc000000-0000-4000-8000-00000000000b','INV-0001',1)`,
+        [ALICE],
+      ),
+    /invoice_client_same_owner/,
+  );
+});
+
+test('a project cannot reference another user’s client', async () => {
+  await seedBoth();
+
+  await assert.rejects(
+    () =>
+      asUser(
+        ALICE,
+        `insert into projects (user_id,client_id,name) values ($1,'cc000000-0000-4000-8000-00000000000b','Borrowed')`,
+        [ALICE],
+      ),
+    /project_client_same_owner/,
+  );
+});

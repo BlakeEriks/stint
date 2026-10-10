@@ -48,6 +48,7 @@ import { PaymentProfileDialog } from './payment-profile-dialog';
 import { summarize } from './payment-profiles';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
+import { rowButton } from './row-button';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   {
@@ -255,6 +256,7 @@ export function NewInvoice() {
   const payment = buildPaymentDetails(profile, { invoiceNumber: number });
 
   const unrated = current?.unratedEntryIds.length ?? 0;
+  const overlapping = current?.overlappingEntryIds.length ?? 0;
   const nothingToBill = current !== undefined && current.lineItems.length === 0;
   const noSummaryText =
     draft.groupingMode === 'summary' && draft.summaryText.trim() === '';
@@ -475,6 +477,15 @@ export function NewInvoice() {
                   generating.
                 </p>
               ) : null}
+              {/* A warning, not a block: an overlap can be deliberate, and
+                  this is the last place to see it before it bills. */}
+              {overlapping > 0 ? (
+                <p role="alert" className="type-support text-warning">
+                  {overlapping} entr
+                  {overlapping === 1 ? 'y overlaps' : 'ies overlap'} other time,
+                  already billed or on this invoice.
+                </p>
+              ) : null}
               {preview.isError || generate.error ? (
                 <p role="alert" className="type-support text-danger">
                   {errorText(generate.error ?? preview.error)}
@@ -665,7 +676,7 @@ function ChargeRows({
                 type="button"
                 onClick={() => onOpen(c.key)}
                 aria-label={`Edit charge ${c.description}`}
-                className="group flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+                className={`${rowButton} flex w-full items-center gap-3 py-2.5`}
               >
                 <span className="min-w-0 flex-1 truncate type-control text-strong">
                   {c.description}

@@ -1,4 +1,8 @@
 import { NextResponse } from 'next/server';
+/* `@sentry/core`, not `@sentry/nextjs`: the same function, but Node's ESM
+   loader cannot see the named exports `@sentry/nextjs` re-exports from
+   CommonJS, so the route tests would import `undefined`. */
+import { captureException } from '@sentry/core';
 /** Mirrors ErrorCode in @stint/schema. */
 export type Code =
   | 'TIMER_ALREADY_RUNNING'
@@ -73,7 +77,17 @@ export function handle<T extends unknown[]>(
           { constraint: (err as { message?: string }).message },
         );
       }
+      /* A same-owner key fails as a missing reference: the caller named a
+         record that is not theirs, or not there. */
+      if (isSameOwnerViolation(err as { message?: string })) {
+        return errorResponse(
+          'VALIDATION_FAILED',
+          'This refers to a record that does not exist',
+          { constraint: (err as { message?: string }).message },
+        );
+      }
       console.error('Unhandled API error:', err);
+      captureException(err);
       return NextResponse.json(
         { code: 'INTERNAL', message: 'Internal server error' },
         { status: 500 },
@@ -86,8 +100,18 @@ export function handle<T extends unknown[]>(
 export const PG = {
   UNIQUE_VIOLATION: '23505',
   CHECK_VIOLATION: '23514',
+  FOREIGN_KEY_VIOLATION: '23503',
   NOT_FOUND: 'PGRST116',
 } as const;
+
+export function isSameOwnerViolation(
+  err: { code?: string; message?: string } | null,
+): boolean {
+  return (
+    err?.code === PG.FOREIGN_KEY_VIOLATION &&
+    /_same_owner\b/.test(err.message ?? '')
+  );
+}
 
 /** The partial unique index that enforces one running timer per user. */
 export function isTimerConflict(

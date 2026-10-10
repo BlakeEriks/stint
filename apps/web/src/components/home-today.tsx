@@ -7,6 +7,7 @@ import {
   localDateKey,
   startOfLocalDate,
   startOfLocalDayOffset,
+  uuidv7,
 } from '@stint/core';
 import {
   api,
@@ -15,10 +16,14 @@ import {
   type TimeEntry,
 } from '@/lib/client/api';
 import { keys } from '@/lib/client/query-keys';
-import { timeZone as tz } from '@/lib/client/use-timer';
-import { useProjectColors } from '@/lib/client/use-project-colors';
+import { timeZone as tz, useTimer } from '@/lib/client/use-timer';
+import {
+  useAllProjects,
+  useProjectColors,
+} from '@/lib/client/use-project-colors';
 import { Money } from './money';
 import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
+import { rowBleed, rowButton } from './row-button';
 
 /**
  * Today: one figure and the day's tasks.
@@ -28,6 +33,12 @@ import { FigGroup, FigLabel, PairLine, RegionHead, Pip } from './home-shell';
  */
 export function Today({ stats }: { stats: Stats }) {
   const colors = useProjectColors();
+  const timer = useTimer();
+  const pressed = timer.start.variables;
+  const pending =
+    timer.start.isPending && pressed?.whileRunning
+      ? taskKey(pressed.projectId ?? null, pressed.taskName)
+      : null;
 
   const today = useLocalDay();
 
@@ -45,10 +56,7 @@ export function Today({ stats }: { stats: Stats }) {
 
   /* Archived included: a project archived since this morning still named
      the work done under it. */
-  const { data: projectData } = useQuery({
-    queryKey: keys.projects({ archived: true }),
-    queryFn: () => api.projects({ includeArchived: true }),
-  });
+  const { data: projectData } = useAllProjects();
 
   const entries = data?.entries ?? [];
   const seconds = entries.reduce((sum, e) => sum + secondsOf(e), 0);
@@ -80,8 +88,9 @@ export function Today({ stats }: { stats: Stats }) {
 
       {/* A fixed ceiling rather than the panel's height: the page is a column
           sized by its content, so there is no bounded height to measure
-          against. Just under five rows, so the cut-off row says it scrolls. */}
-      <div className="mt-6 flex max-h-48 flex-col overflow-y-auto">
+          against. Just under five rows, so the cut-off row says it scrolls.
+          Padded out by the rows' bleed, since a scroller clips sideways too. */}
+      <div className="-mx-2 mt-6 flex max-h-48 flex-col overflow-y-auto px-2">
         {entries.length === 0
           ? /* An empty day keeps its rows rather than collapsing, the same way
                an unworked day in the week's chart keeps its caption: the
@@ -104,30 +113,53 @@ export function Today({ stats }: { stats: Stats }) {
               </div>
             ))
           : tasks.map((t) => (
+              /* The highlight sits a hair inside the rules. */
               <div
                 key={t.key}
-                data-task={t.key}
-                className="grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-edge-subtle py-2.5 first:border-t-0"
+                className="border-t border-edge-subtle py-0.5 first:border-t-0"
               >
-                {/* Only clients have a color; internal work takes the hollow
-                  ring, which is what having none looks like on a screen
-                  otherwise keyed by client. */}
-                <Pip
-                  color={t.projectId ? (colors.get(t.projectId) ?? null) : null}
-                />
-                <span
-                  className={`type-support truncate ${
-                    t.live ? 'text-primary' : 'text-muted'
-                  }`}
+                {/* Starts the task again as a new entry, as the menu bar's
+                    recent rows do. */}
+                <button
+                  type="button"
+                  data-task={t.key}
+                  aria-label={`Start ${t.name}${t.projectName ? ` · ${t.projectName}` : ''}`}
+                  /* Pending only while a timer runs: otherwise the timer bar
+                     already shows the start. */
+                  aria-busy={pending === t.key}
+                  disabled={pending === t.key}
+                  onClick={() =>
+                    timer.start.mutate({
+                      id: uuidv7(),
+                      taskName: t.taskName,
+                      projectId: t.projectId,
+                      isBillable: t.isBillable,
+                    })
+                  }
+                  className={`${rowButton} ${rowBleed} grid grid-cols-[9px_minmax(0,1fr)_auto] items-center gap-2.5 py-2 focus-visible:ring-inset disabled:opacity-60`}
                 >
-                  {t.name}
-                  {t.projectName ? (
-                    <span className="text-subtle"> · {t.projectName}</span>
-                  ) : null}
-                </span>
-                <span className="type-duration text-subtle">
-                  {clock(t.seconds)}
-                </span>
+                  {/* Only clients have a color; internal work takes the hollow
+                      ring, which is what having none looks like on a screen
+                      otherwise keyed by client. */}
+                  <Pip
+                    color={
+                      t.projectId ? (colors.get(t.projectId) ?? null) : null
+                    }
+                  />
+                  <span
+                    className={`type-support truncate ${
+                      t.live ? 'text-primary' : 'text-muted'
+                    }`}
+                  >
+                    {t.name}
+                    {t.projectName ? (
+                      <span className="text-subtle"> · {t.projectName}</span>
+                    ) : null}
+                  </span>
+                  <span className="type-duration text-subtle">
+                    {clock(t.seconds)}
+                  </span>
+                </button>
               </div>
             ))}
       </div>
@@ -160,7 +192,8 @@ function useLocalDay(): string {
 
 /**
  * One row per task: a name under two projects is two tasks. Entries arrive
- * newest first, so a task sits where its latest entry would.
+ * newest first, so a task sits where its latest entry would, and takes that
+ * entry's billable flag to start with.
  */
 function groupByTask(entries: TimeEntry[], projects: Project[]) {
   const names = new Map(projects.map((p) => [p.id, p.name]));
@@ -169,6 +202,8 @@ function groupByTask(entries: TimeEntry[], projects: Project[]) {
     {
       key: string;
       name: string;
+      taskName: string;
+      isBillable: boolean;
       projectId: string | null;
       projectName: string | null;
       seconds: number;
@@ -177,10 +212,12 @@ function groupByTask(entries: TimeEntry[], projects: Project[]) {
   >();
   for (const e of entries) {
     const name = e.taskName || 'Untitled';
-    const key = `${e.projectId ?? ''}:${name}`;
+    const key = taskKey(e.projectId, e.taskName);
     const t = tasks.get(key) ?? {
       key,
       name,
+      taskName: e.taskName,
+      isBillable: e.isBillable,
       projectId: e.projectId,
       projectName: e.projectId ? (names.get(e.projectId) ?? null) : null,
       seconds: 0,
@@ -193,17 +230,17 @@ function groupByTask(entries: TimeEntry[], projects: Project[]) {
   return [...tasks.values()];
 }
 
+function taskKey(projectId: string | null, taskName: string): string {
+  return `${projectId ?? ''}:${taskName || 'Untitled'}`;
+}
+
 /**
- * A running entry has no `durationSeconds`, so its length is measured from
- * its start. Without this the live row reads `0:00` for the whole session.
+ * `/entries` measures a running entry at its response, so the row and the
+ * Earned beside it come from the same refresh rather than the client's clock.
+ * Null only for a timer the client has just started and not yet refetched.
  */
 function secondsOf(e: TimeEntry): number {
-  if (e.durationSeconds != null) return e.durationSeconds;
-  if (e.endedAt !== null) return 0;
-  return Math.max(
-    0,
-    Math.floor((Date.now() - new Date(e.startedAt).getTime()) / 1000),
-  );
+  return e.durationSeconds ?? 0;
 }
 
 /** `4:15` — a task's length, beside `5h 00m` for the day's total. */

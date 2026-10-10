@@ -401,9 +401,9 @@ try {
     if (weekday === 0 || weekday === 6) continue; // weekends stay empty
 
     /* One or two blocks a day, starting at 09:00 local. The most recent
-       worked day takes one more: its last block is left running and has
-       earned nothing yet, so without the extra the day reads $0.00 on a
-       screen whose subject is what you earned. */
+       worked day takes one more: its last block is left running, so without
+       the extra Today lists the timer alone, with no finished work beside
+       it. */
     const count = (back % 3 === 0 ? 2 : 1) + (back === lastWorkedBack ? 1 : 0);
     const blocks = [];
     for (let b = 0; b < count; b += 1) {

@@ -4,6 +4,7 @@ import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { CreateTimeEntry, ListEntriesQuery } from '@stint/schema';
+import { measured } from '@stint/core';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,8 +40,11 @@ export const GET = handle(async (req: Request) => {
   const { data, error } = await query;
   if (error) throw error;
 
+  /* Measured here, so a list shows the server's figure rather than counting
+     on the client's clock. */
+  const now = new Date();
   return NextResponse.json({
-    entries: (data ?? []).map((r) => toEntry(r as EntryRow)),
+    entries: (data ?? []).map((r) => measured(toEntry(r as EntryRow), now)),
   });
 });
 

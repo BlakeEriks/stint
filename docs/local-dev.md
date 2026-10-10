@@ -12,7 +12,8 @@ Verified end to end: seeded, signed in through the real magic-link flow, and
 
 Install a container runtime. Docker Desktop works; so do OrbStack, colima,
 Podman, and Rancher Desktop. `pnpm hygiene` and `/copyedit` also need Vale:
-`brew install vale`. A whole-repo `pnpm hygiene` also needs a signed-in `gh`. `/work-issues` reviews with an official plugin:
+`brew install vale`. A whole-repo `pnpm hygiene` also needs a signed-in `gh`. `/standards-review`, which `/work-issues` and `/speckit-implement` both run,
+reviews with an official plugin:
 `claude plugin install pr-review-toolkit@claude-plugins-official --scope project`.
 
 Then write `apps/web/.env.development.local`:
@@ -221,8 +222,8 @@ one, so the seed never sits on a boundary a timezone could round the wrong
 way.
 
 It gives the most recent worked day an extra block, because that day's last
-block is the one left running: without it Home opens on a day that has earned
-nothing, which is the one figure the screen exists to show. Nothing seeded
+block is the one left running: without it Today lists the timer alone, with no
+finished work beside it. Nothing seeded
 starts or ends after now: the running block starts 45 minutes ago at the
 latest, and the day's finished blocks move earlier to end before it. A
 morning seed still earns something today; one run in the small hours lays
@@ -363,18 +364,19 @@ storybook` serves the stories at `localhost:6006` with no stack. They render
 the real components against `src/mocks/`, an in-memory `/api/v1` built from
 one account and parsed by `@stint/schema`, at a pinned instant
 (`src/mocks/time.mts`). A story picks its account with
-`parameters: account('running')` (or `'empty'`, or a function
-that edits the seeded account) and breaks one endpoint with
-`failing('stats')`. A response that fails its schema, an unhandled API
+`parameters: account('running')` (or `'runningUnrated'`, `'empty'`, or a
+function that edits the seeded account), breaks one endpoint with
+`failing('stats')`, or leaves one unanswered with `stalled('deleteInvoice')`
+to show a press still pending. `stalled` sets `parameters.stalls`, so the
+story is judged with that many requests still open instead of waiting on
+them. A response that fails its schema, an unhandled API
 request or a handler that throws fails the story. On a browser's
 first visit MSW's service worker installs after the page has loaded, so reload
 once.
 
 `pnpm --filter @stint/web test:stories` runs every story as a test in
 headless Chromium at its viewport, and fails it on an accessibility
-violation. Screen stories skip `color-contrast` and
-`scrollable-region-focusable` until #125 fixes them (`src/mocks/screen.tsx`).
-It runs through Vitest's browser mode and Storybook's
+violation. It runs through Vitest's browser mode and Storybook's
 portable-stories API; `vitest.config.mts` says why.
 
 ## The route tests can use it too

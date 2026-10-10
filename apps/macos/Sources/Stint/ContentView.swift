@@ -14,11 +14,24 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 0) {
             PanelHeader(model: model, showingSettings: $showingSettings)
             if model.isSignedIn {
-                if showingSettings {
-                    SettingsPanel(model: model, showingSettings: $showingSettings)
-                } else {
-                    TimerPanel(model: model)
-                }
+                // Settings draws over the timer rather than replacing it, so
+                // the panel's height is the timer's alone and swapping screens
+                // never resizes the window. Settings must stay no taller than
+                // the shortest timer: idle, with no recent entries. Disabled
+                // too, so a task field focused before Settings opened takes no
+                // typing behind it.
+                TimerPanel(model: model)
+                    .opacity(showingSettings ? 0 : 1)
+                    .allowsHitTesting(!showingSettings)
+                    .accessibilityHidden(showingSettings)
+                    .disabled(showingSettings)
+                    .overlay(alignment: .top) {
+                        if showingSettings {
+                            SettingsPanel(model: model, showingSettings: $showingSettings)
+                                .frame(maxHeight: .infinity, alignment: .top)
+                                .background(Tokens.Dark.bgBase)
+                        }
+                    }
             } else {
                 SignInPanel(model: model)
             }
@@ -37,6 +50,7 @@ struct ContentView: View {
         // panel — without this, signing back in lands in Settings with the
         // timer hidden behind it.
         .onChange(of: model.isSignedIn) { _, _ in showingSettings = false }
+        .background(WindowObserver.panelWatch { model.panel(open: $0) })
         .frame(width: 320)
         // Sized before first paint: the panel hangs from the bar, so a height
         // that settles later moves the whole window.
@@ -158,7 +172,6 @@ private struct SettingsPanel: View {
             rows
             account
         }
-
     }
 
     private var account: some View {
@@ -282,7 +295,7 @@ private struct TimerPanel: View {
         }
         // Opens with nothing focused. Here rather than on `ContentView`, so
         // sign-in keeps its default focus on the email or code field.
-        .background(FocusReset())
+        .background(WindowObserver.focusReset)
     }
 
     private var idle: some View {
@@ -348,13 +361,14 @@ private struct TimerPanel: View {
 
     private var stats: some View {
         HStack(alignment: .firstTextBaseline) {
-            statistic("Today", value: format(model.todaySeconds))
+            // Compact, so the readout is the only figure moving by the second.
+            statistic("Today", value: compact(model.todaySeconds))
             Spacer(minLength: 12)
-            // Absent until fetched: a zero would claim "nothing owed".
+            // Absent until fetched: a zero would claim "earned nothing".
             if let stats = model.stats {
                 statistic(
-                    "Unbilled",
-                    value: money(stats.unbilled.total, code: stats.currency),
+                    "Earned",
+                    value: money(stats.earnedToday, code: stats.currency),
                     trailing: true
                 )
             }

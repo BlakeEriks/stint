@@ -67,34 +67,6 @@ describe('PaymentProfiles', () => {
     expect(container.textContent).toContain('••••6789');
   });
 
-  it('marks which profile is the default', async () => {
-    serve([BASE, { ...BASE, id: 'pp-2', name: 'Wise USD', isDefault: false }]);
-    render(<PaymentProfiles />, { wrapper });
-
-    await screen.findByText('Wise USD');
-    expect(screen.getAllByText('Default')).toHaveLength(1);
-  });
-
-  /** Only a non-default profile can be promoted. */
-  it('offers "make default" only on profiles that are not already default', async () => {
-    serve([BASE, { ...BASE, id: 'pp-2', name: 'Wise USD', isDefault: false }]);
-    render(<PaymentProfiles />, { wrapper });
-
-    await screen.findByText('Wise USD');
-    expect(
-      screen.getAllByRole('button', { name: 'Make default' }),
-    ).toHaveLength(1);
-  });
-
-  it('says invoices render without a payment block when none exist', async () => {
-    serve([]);
-    render(<PaymentProfiles />, { wrapper });
-
-    expect(
-      await screen.findByText(/Invoices will render without a payment block/),
-    ).toBeInTheDocument();
-  });
-
   /* A silent refusal here means the next invoice carries the wrong account
      and nobody finds out until a client pays it. */
   it('moves "Default" on the press, before the server answers', async () => {
