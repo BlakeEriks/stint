@@ -20,29 +20,47 @@ import { browserClient } from '@/lib/client/supabase';
 import { useAccount } from '@/lib/client/use-account';
 
 /**
- * The account, and the way out of it for good.
+ * The account: who is signed in, and the two ways out. Sign out is the
+ * everyday one, so it carries the weight; Delete account is the rare one and
+ * stays a quiet ghost in danger.
  *
- * Typing the email back is the gate: it cannot be clicked through by habit,
- * and it names which account for someone signed in to more than one. The
- * dialog counts what goes before asking. Deletion is all or nothing, which is
- * what makes "nothing was removed" true when it fails. The fill is red on the
- * confirm only, there is no accent in the dialog, and success lands on
- * `/signin`.
+ * Deleting: typing the email back is the gate: it cannot be clicked through
+ * by habit, and it names which account for someone signed in to more than
+ * one. The dialog counts what goes before asking. Deletion is all or nothing,
+ * which is what makes "nothing was removed" true when it fails. The fill is
+ * red on the confirm only, there is no accent in the dialog, and success
+ * lands on `/signin`.
  */
-export function DeleteAccount() {
-  const { email } = useAccount();
+export function AccountSection() {
+  const { email, signOut } = useAccount();
   const [open, setOpen] = useState(false);
+  // Stays pending through the redirect: the page is leaving.
+  const [signingOut, setSigningOut] = useState(false);
+
+  // Not confirmed: nothing is lost, as in the account menu.
+  const leave = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+    } catch (error) {
+      setSigningOut(false);
+      throw error;
+    }
+  };
 
   return (
     <Section
       title="Account"
       description={email ? `Signed in as ${email}.` : undefined}
     >
-      <div>
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={!email || signingOut} onClick={() => void leave()}>
+          {signingOut ? 'Signing out…' : 'Sign out'}
+        </Button>
         <Button
           variant="ghost"
-          className="-ml-4 text-danger hover:bg-danger-muted hover:text-danger"
-          disabled={!email}
+          className="text-danger hover:bg-danger-muted hover:text-danger"
+          disabled={!email || signingOut}
           onClick={() => setOpen(true)}
         >
           Delete account
