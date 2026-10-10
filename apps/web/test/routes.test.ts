@@ -575,6 +575,57 @@ test('editing a default profile does not demote it', async () => {
   assert.equal(renamed.body.isDefault, true);
 });
 
+/* Each detail the form sends is a column the insert must name; one left out
+   is dropped without an error, and the invoice prints without it. */
+test('a new payment profile stores every detail it is given', async () => {
+  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
+  const details = {
+    accountHolderName: 'Ada Lovelace',
+    accountHolderAddress: '1 Main St, Springfield, IL',
+    bankName: 'First Bank',
+    bankAddress: '2 Bank St, Chicago, IL',
+    accountNumber: '000123456789',
+    routingNumber: '021000021',
+    accountType: 'checking',
+    iban: 'DE89370400440532013000',
+    swiftBic: 'FBNKUS33',
+    localCodeLabel: 'Sort code',
+    localCode: '12-34-56',
+    intermediaryBankName: 'Middle Bank',
+    intermediarySwiftBic: 'MIDLUS33',
+    intermediaryAccountNumber: '987654321',
+    paymentLinkLabel: 'Pay online',
+    paymentLinkUrl: 'https://pay.example.com/ada',
+    currency: 'USD',
+    feeAllocation: 'SHA',
+    notes: 'Reference the invoice number.',
+  };
+
+  const res = await json(
+    await POST(req('/payment-profiles', { name: 'Checking', ...details })),
+  );
+  assert.equal(res.status, 201);
+  for (const [field, value] of Object.entries(details)) {
+    assert.equal(res.body[field], value, field);
+  }
+});
+
+test('a payment profile replayed with the same id is idempotent', async () => {
+  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
+  const body = {
+    id: '33333333-0000-4000-8000-0000000000a1',
+    name: 'Checking',
+    bankName: 'First Bank',
+  };
+
+  const first = await json(await POST(req('/payment-profiles', body)));
+  const replay = await json(await POST(req('/payment-profiles', body)));
+  assert.equal(first.status, 201);
+  assert.equal(replay.status, 200, 'replay returns the existing profile');
+  assert.equal(replay.body.id, first.body.id);
+  assert.equal(replay.body.bankName, 'First Bank');
+});
+
 /* `money` is `multipleOf(0.01)`. A third decimal is not a rate anyone can be
    billed at, and rounding it silently would misstate an invoice. */
 test('a rate finer than a cent is rejected, not rounded', async () => {
