@@ -311,7 +311,7 @@
         <li><strong>Stopped, it shows today's total</strong>, compact like the
           panel's Today.</li>
         <li><strong>Findability is the honest cost.</strong> A bare dot is
-          harder to pick out of a crowded bar than a letter, and people will
+          harder to pick out of a crowded bar than a letter, and people
           learn its position rather than recognize its shape. That is how most
           menu bar apps are actually found; do not re-add a letterform to
           compensate.</li>
@@ -595,13 +595,13 @@
 
     <div class="notes" style="margin-top:1.5rem;">
       <ul>
-        <li><strong>Disabled is <code>bgActive</code> + <code>textMuted</code></strong>
+        <li><strong>An inert button is <code>bgActive</code> + <code>textMuted</code></strong>
           (5.24:1) — a different, inert control rather than a dimmer version of
           a live one. A faded accent computes to <code>#285c28</code> with its
           label at <strong>2.33:1</strong>, which is the white-on-accent
           pairing CI guards on the web and cannot see here.</li>
         <li><strong>Focus rings are <code>borderFocus</code></strong>
-          (8.03:1), never the accent and never the macOS system blue.</li>
+          (8.03:1) rather than the accent or the macOS system blue.</li>
         <li><strong>The code field has no placeholder.</strong>
           <code>000-000</code> reads as a value in a digits-only field and
           puts the caret in the middle of it.</li>
@@ -635,8 +635,8 @@
           <tr><td>Hover</td><td><code>bgHover</code></td><td>Entry rows under the pointer</td></tr>
           <tr><td>Running readout, pip</td><td><code>timerRunning</code></td><td><strong>Only these</strong></td></tr>
           <tr><td>Start button fill</td><td><code>accentDefault</code></td><td>The one action the panel exists to complete</td></tr>
-          <tr><td>Text on the start button</td><td><code>textOnAccent</code></td><td>Never white — 1.37:1</td></tr>
-          <tr><td>Stopped readout and pip</td><td><code>timerIdle</code></td><td>Never the accent</td></tr>
+          <tr><td>Text on the start button</td><td><code>textOnAccent</code></td><td>White would be 1.37:1</td></tr>
+          <tr><td>Stopped readout and pip</td><td><code>timerIdle</code></td><td></td></tr>
           <tr><td>Dividers</td><td><code>borderSubtle</code></td><td></td></tr>
           <tr><td>Input border</td><td><code>borderDefault</code></td><td><code>borderFocus</code> at 2pt when focused</td></tr>
         </tbody>
@@ -647,9 +647,8 @@
       Green means <strong style="color:var(--text-primary);font-weight:500;">time
       is accruing</strong>, and may appear as many times as that one idea
       occurs: the pip and the readout while running, or the start button while
-      stopped. Never both — a stopped timer with a green readout is the
-      regression to watch for. Never on the stop button, a divider, anything in
-      the header, or a focus ring.
+      stopped. A stopped timer with a green readout is the regression to watch
+      for. The stop button, dividers, the header, and focus rings stay neutral.
     </p>
 
     <div class="table-wrap" style="margin-top:1.75rem">
@@ -722,9 +721,8 @@
 
     <div class="notes" style="margin-top:1.5rem;">
       <ul>
-        <li><strong>Never pre-check the running timer.</strong> Attempt the
-          insert and translate the conflict — a pre-check is a race, the index
-          is not. A 409 takes back the predicted start and says why, then the
+        <li><strong>Attempt the insert and translate the conflict.</strong>
+          A pre-check of the running timer is a race; the index is not. A 409 takes back the predicted start and says why, then the
           refresh shows what <em>is</em> running.</li>
         <li><strong>Tick locally, reconcile at 60s</strong> and on open,
           skew-corrected from <code>serverTime</code>. A Mac with a wrong clock
@@ -748,7 +746,7 @@
   <footer class="doc">
     Colors, type roles and the transport button come from
     <code>packages/design-tokens</code> and <code>timer-bar.tsx</code>. The
-    strip is a mock — macOS spacing and the system font will differ.
+    strip is a mock — macOS spacing and the system font differ.
   </footer>
 
 </div>
