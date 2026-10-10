@@ -16,8 +16,32 @@ import { shortDate } from './invoice-bits';
 
 const LABEL = 'block type-label text-subtle';
 
+/** What the card prints from: a preview, or an issued invoice. Lines are
+    absent while an issued one is still loading them. */
+export type CardFigures = Pick<
+  InvoicePreview,
+  | 'periodStart'
+  | 'periodEnd'
+  | 'subtotal'
+  | 'taxRate'
+  | 'taxAmount'
+  | 'expensesSubtotal'
+  | 'total'
+  | 'currency'
+  | 'schedules'
+> & {
+  lineItems?: Array<
+    Pick<
+      InvoicePreview['lineItems'][number],
+      'description' | 'unit' | 'quantity' | 'unitPrice' | 'amount' | 'spentOn'
+    >
+  >;
+  entryCount?: number;
+};
+
 /**
- * The invoice as its PDF will print it, live beside the form.
+ * The invoice as its PDF prints it, line for line: live beside the New
+ * invoice form, and as issued on its detail page.
  *
  * The lines, totals and schedules are the server's answer; the rest — the
  * business block, the number, the dates, the payment block, which schedules
@@ -36,10 +60,13 @@ export function InvoicePreviewCard({
   payment,
   schedules,
   updating,
+  paymentTerms,
+  notes,
+  footnote = 'Generating assigns a number and locks these entries. Voiding later keeps the number on record.',
   children,
 }: {
-  preview: InvoicePreview | undefined;
-  client: Client | undefined;
+  preview: CardFigures | undefined;
+  client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
   settings: Settings | undefined;
   /** A prediction: generation allocates the number. */
   number: string;
@@ -49,10 +76,15 @@ export function InvoicePreviewCard({
   payment: PaymentDetails | null;
   schedules: ScheduleKind[];
   updating: boolean;
+  /** Undefined prints the default terms generation will freeze. */
+  paymentTerms?: string | null;
+  notes?: string | null;
+  footnote?: string;
   /** Warnings and errors, above the last line. */
   children?: React.ReactNode;
 }) {
-  const entries = preview?.entryCount ?? 0;
+  const terms =
+    paymentTerms === undefined ? settings?.defaultPaymentTerms : paymentTerms;
   const scrollerFocus = useScrollerFocus();
 
   return (
@@ -66,11 +98,7 @@ export function InvoicePreviewCard({
           Preview
         </h2>
         {client ? (
-          <span className="type-support text-subtle">
-            {updating
-              ? 'Updating…'
-              : `${entries} entr${entries === 1 ? 'y' : 'ies'}`}
-          </span>
+          <Caption updating={updating} entries={preview?.entryCount} />
         ) : null}
       </div>
 
@@ -85,60 +113,26 @@ export function InvoicePreviewCard({
                 updating ? 'opacity-50' : ''
               }`}
             >
-              <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
-                <Party
-                  name={settings?.businessName ?? ''}
-                  lines={[settings?.businessAddress, settings?.businessEmail]}
+              <From
+                settings={settings}
+                number={number}
+                issued={issued}
+                due={due}
+              />
+              <To client={client} preview={preview} reference={reference} />
+
+              {preview?.lineItems ? (
+                <Lines
+                  preview={{ ...preview, lineItems: preview.lineItems }}
+                  terms={terms}
                 />
-                <dl className="flex flex-col gap-1 type-support">
-                  <Meta label="No." value={number} mono right />
-                  <Meta label="Issued" value={shortDate(issued)} right />
-                  <Meta label="Due" value={shortDate(due)} right />
-                </dl>
-              </div>
-
-              <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
-                <div className="min-w-0 flex-[1_1_200px]">
-                  <span className={`${LABEL} mb-2`}>Bill to</span>
-                  <Party
-                    name={client.name}
-                    lines={[client.address, client.email]}
-                  />
-                </div>
-                <div className="min-w-0 flex-[1_1_200px]">
-                  <span className={`${LABEL} mb-2`}>Engagement</span>
-                  <dl className="flex flex-col gap-1 type-support">
-                    {/* The period prints here once, never under a line. */}
-                    <Meta
-                      label="Service period"
-                      value={
-                        preview
-                          ? `${shortDate(preview.periodStart)} – ${shortDate(preview.periodEnd)}`
-                          : '—'
-                      }
-                    />
-                    {reference ? (
-                      <Meta label="Reference" value={reference} />
-                    ) : null}
-                  </dl>
-                </div>
-              </div>
-
-              {preview ? <Lines preview={preview} /> : null}
+              ) : null}
 
               {payment ? (
-                <div className="border-t border-edge-subtle pt-4">
-                  <span className={`${LABEL} mb-2`}>Payment details</span>
-                  <dl className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-3 type-support">
-                    {payment.fields.map((f) => (
-                      <div key={f.label}>
-                        <dt className="text-subtle">{f.label}</dt>
-                        <dd className="text-primary">{f.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
+                <Payment payment={payment} notice={settings?.paymentNotice} />
               ) : null}
+
+              {notes ? <Notes notes={notes} /> : null}
 
               {preview?.schedules?.totalHours && schedules.length > 0 ? (
                 <Detail detail={preview.schedules} chosen={schedules} />
@@ -153,12 +147,103 @@ export function InvoicePreviewCard({
           {children}
 
           <p className="border-t border-edge-subtle pt-3 type-support text-subtle">
-            Generating assigns a number and locks these entries. Voiding later
-            keeps the number on record.
+            {footnote}
           </p>
         </div>
       </div>
     </section>
+  );
+}
+
+function Caption({
+  updating,
+  entries,
+}: {
+  updating: boolean;
+  entries: number | undefined;
+}) {
+  if (updating)
+    return <span className="type-support text-subtle">Updating…</span>;
+  if (entries === undefined) return null;
+  return (
+    <span className="type-support text-subtle">
+      {entries} entr{entries === 1 ? 'y' : 'ies'}
+    </span>
+  );
+}
+
+/** The business, and the invoice's number and dates. */
+function From({
+  settings,
+  number,
+  issued,
+  due,
+}: {
+  settings: Settings | undefined;
+  number: string;
+  issued: string;
+  due: string;
+}) {
+  return (
+    <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
+      <Party
+        name={settings ? (settings.businessName ?? 'Invoice') : ''}
+        lines={[
+          settings?.businessAddress,
+          settings?.businessEmail,
+          settings?.taxId ? `Tax ID ${settings.taxId}` : null,
+        ]}
+      />
+      <dl className="flex flex-col gap-1 type-support">
+        <Meta label="No." value={number} mono right />
+        <Meta label="Issued" value={shortDate(issued)} right />
+        <Meta label="Due" value={shortDate(due)} right />
+      </dl>
+    </div>
+  );
+}
+
+/** Who is billed, and for which engagement. */
+function To({
+  client,
+  preview,
+  reference,
+}: {
+  client: Pick<Client, 'name' | 'address' | 'email'>;
+  preview: CardFigures | undefined;
+  reference: string;
+}) {
+  return (
+    <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
+      <div className="min-w-0 flex-[1_1_200px]">
+        <span className={`${LABEL} mb-2`}>Bill to</span>
+        <Party name={client.name} lines={[client.address, client.email]} />
+      </div>
+      <div className="min-w-0 flex-[1_1_200px]">
+        <span className={`${LABEL} mb-2`}>Engagement</span>
+        <dl className="flex flex-col gap-1 type-support">
+          {/* The period prints here once, never under a line. */}
+          <Meta
+            label="Service period"
+            value={
+              preview
+                ? `${shortDate(preview.periodStart)} – ${shortDate(preview.periodEnd)}`
+                : '—'
+            }
+          />
+          {reference ? <Meta label="Reference" value={reference} /> : null}
+        </dl>
+      </div>
+    </div>
+  );
+}
+
+function Notes({ notes }: { notes: string }) {
+  return (
+    <div className="border-t border-edge-subtle pt-4">
+      <span className={`${LABEL} mb-2`}>Notes</span>
+      <p className="whitespace-pre-line type-support text-muted">{notes}</p>
+    </div>
   );
 }
 
@@ -210,7 +295,55 @@ const TD = 'type-duration py-2.5 pl-3 text-right align-top whitespace-nowrap';
    checkable from the amount, and the description keeps its room. */
 const RATE = '@max-[360px]/card:hidden';
 
-function Lines({ preview }: { preview: InvoicePreview }) {
+function Payment({
+  payment,
+  notice,
+}: {
+  payment: PaymentDetails;
+  notice: string | null | undefined;
+}) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-edge-subtle pt-4 type-support">
+      <span className={LABEL}>
+        {payment.title ? `Payment — ${payment.title}` : 'Payment details'}
+      </span>
+      <PaymentFields fields={payment.fields} />
+      {payment.intermediary.length > 0 ? (
+        <PaymentFields fields={payment.intermediary} />
+      ) : null}
+      {payment.link ? (
+        <p className="break-all text-primary">
+          {payment.link.label}: {payment.link.url}
+        </p>
+      ) : null}
+      {payment.notes ? (
+        <p className="whitespace-pre-line text-muted">{payment.notes}</p>
+      ) : null}
+      {notice ? <p className="text-subtle">{notice}</p> : null}
+    </div>
+  );
+}
+
+function PaymentFields({ fields }: { fields: PaymentDetails['fields'] }) {
+  return (
+    <dl className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-3">
+      {fields.map((f) => (
+        <div key={f.label}>
+          <dt className="text-subtle">{f.label}</dt>
+          <dd className="text-primary">{f.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function Lines({
+  preview,
+  terms,
+}: {
+  preview: CardFigures & { lineItems: NonNullable<CardFigures['lineItems']> };
+  terms: string | null | undefined;
+}) {
   const cur = preview.currency;
   const services = preview.lineItems.filter((li) => li.unit !== 'expense');
   const expenses = preview.lineItems.filter((li) => li.unit === 'expense');
@@ -307,6 +440,11 @@ function Lines({ preview }: { preview: InvoicePreview }) {
           strong
         />
       </dl>
+      {terms ? (
+        <p className="-mt-3 ml-auto w-full max-w-64 type-support text-subtle">
+          {terms}
+        </p>
+      ) : null}
     </>
   );
 }
