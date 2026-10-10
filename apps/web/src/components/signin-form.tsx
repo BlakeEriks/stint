@@ -46,12 +46,20 @@ export function SignInForm({
 
     const { error } = await db.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        // Invite-only: an account comes from `pnpm invite`, never this form.
+        shouldCreateUser: false,
+      },
     });
 
     if (error) {
       setState('error');
-      setMessage(error.message);
+      setMessage(
+        error.code === 'otp_disabled'
+          ? 'Stint is invite-only. Ask Blake for an invite.'
+          : error.message,
+      );
       return;
     }
     setState('sent');

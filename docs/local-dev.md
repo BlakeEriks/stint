@@ -276,9 +276,9 @@ here first. Two things worth running against local before a deploy:
 SUPABASE_DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres pnpm verify:schema
 ```
 
-and a signup, which exercises `create_default_settings` — a trigger that runs
-inside Supabase's own signup transaction and once broke production with a
-missing `search_path`. Local reproduces that code path faithfully.
+and an invite (`pnpm invite you@example.com --local`), which exercises
+`create_default_settings` — a trigger that runs inside Supabase's own signup
+transaction and once broke production with a missing `search_path`. Local reproduces that code path faithfully.
 
 `major_version = 17` in `config.toml` matches the hosted project (17.6). If
 you upgrade one, upgrade the other.
