@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   useQuery,
   useQueryClient,
@@ -27,12 +27,6 @@ import {
 import { DetailPage, Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
-/** The route's page: the id is read here, so the route itself is static. */
-export function InvoiceDetailRoute() {
-  const { id } = useParams<{ id: string }>();
-  return <InvoiceDetail id={id} />;
-}
-
 /** An invoice with its client; the lines are absent until they load. */
 type Shown = Invoice & {
   client: Pick<Client, 'name' | 'email' | 'address'>;
@@ -57,16 +51,11 @@ export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const query = useQuery({
+  const query = useQuery<Shown>({
     queryKey: keys.invoice(id),
     queryFn: () => api.invoice(id),
+    placeholderData: () => fromLists(qc, id),
   });
-  const seed = query.data || query.error ? undefined : fromLists(qc, id);
-  const shown = {
-    data: (query.data ?? seed) satisfies Shown | undefined,
-    error: query.error,
-    isLoading: query.isLoading && !seed,
-  };
 
   /* Voiding releases the entries and expenses and deleting a draft frees
      them, so every view of that work moves with the invoice. */
@@ -97,7 +86,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 
   return (
     <DetailPage back="/invoices" label="Invoices" wide>
-      <Listing query={shown} missing="That invoice no longer exists.">
+      <Listing query={query} missing="That invoice no longer exists.">
         {(data) => (
           <Loaded
             data={data}
@@ -160,8 +149,6 @@ function Loaded({
         </Button>
       </header>
 
-      {/* The actions beside the invoice on a wide panel, above it on a
-          narrow one, as New invoice keeps its form beside the same card. */}
       <div className="grid gap-x-10 gap-y-6 @min-[800px]/detail:grid-cols-[260px_minmax(0,816px)]">
         <Section title="Status" description={statusHint(invoice.status)}>
           <div className="flex flex-wrap items-center gap-2">

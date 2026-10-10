@@ -101,8 +101,6 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(() => vi.unstubAllGlobals());
 
 describe('InvoiceDetail', () => {
-  /* Opening from the list answers in the same frame: what the list already
-     holds draws the invoice while its lines load. */
   it('draws the invoice from the cached list while its lines load', () => {
     vi.stubGlobal(
       'fetch',
