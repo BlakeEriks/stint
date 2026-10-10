@@ -151,9 +151,11 @@ export const handlers = {
     const running = db.entries.find((e) => e.endedAt === null);
     if (running)
       return fail('TIMER_ALREADY_RUNNING', 'A timer is already running');
-    const input = await body<{ taskName: string; projectId?: string | null }>(
-      request,
-    );
+    const input = await body<{
+      taskName: string;
+      projectId?: string | null;
+      isBillable?: boolean;
+    }>(request);
     const project = byId(db.projects, input.projectId);
     const entry: TimeEntry = {
       id: uuidv7(db.now.getTime()),
@@ -161,7 +163,7 @@ export const handlers = {
       taskName: input.taskName,
       startedAt: db.now.toISOString(),
       endedAt: null,
-      isBillable: project?.isBillableDefault ?? true,
+      isBillable: input.isBillable ?? project?.isBillableDefault ?? true,
       rateOverride: null,
       invoiceId: null,
       durationSeconds: null,

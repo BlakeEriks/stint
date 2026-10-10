@@ -48,6 +48,7 @@ import { PaymentProfileDialog } from './payment-profile-dialog';
 import { summarize } from './payment-profiles';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
+import { rowButton } from './row-button';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   {
@@ -675,7 +676,7 @@ function ChargeRows({
                 type="button"
                 onClick={() => onOpen(c.key)}
                 aria-label={`Edit charge ${c.description}`}
-                className="group flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+                className={`${rowButton} flex w-full items-center gap-3 py-2.5`}
               >
                 <span className="min-w-0 flex-1 truncate type-control text-strong">
                   {c.description}

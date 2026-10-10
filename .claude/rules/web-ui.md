@@ -179,6 +179,10 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
 - **A row that opens an editor is itself the button**: the whole row
   highlights on hover, and a faint pencil at its end says so where there is
   no hover. Its `aria-label` is `Edit <name>`.
+- **A pressable row highlights with room around its text**, whatever the
+  press does: a rounded, padded highlight that bleeds past the column so the
+  text stays in line with the rest of it (`rowButton` and `rowBleed` in
+  `components/row-button.ts`).
 - **A failure renders beside the thing that failed**, and a failed load is
   neutral, never red — it is a condition, and the answer is to try again.
 - **An empty state says what to do**, or what the consequence is.

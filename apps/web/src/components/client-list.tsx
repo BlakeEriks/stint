@@ -18,6 +18,7 @@ import { ProjectDialog } from './project-dialog';
 import { ClientExpenses } from './client-expenses';
 import { ExpenseDialog } from './expense-dialog';
 import { keys } from '@/lib/client/query-keys';
+import { rowBleed, rowButton } from './row-button';
 
 /**
  * Every client as a card holding its projects and the expenses it owes back
@@ -336,8 +337,7 @@ function Row({
         type="button"
         onClick={onEdit}
         aria-label={`Edit ${project.name}`}
-        className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-2.5 text-left
-                   hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+        className={`${rowButton} ${rowBleed} flex items-center gap-3 py-2.5`}
       >
         {/* An archived row recedes: it bills nothing new, so its name and
             rate step down a shade and the badge sits with the name. */}
