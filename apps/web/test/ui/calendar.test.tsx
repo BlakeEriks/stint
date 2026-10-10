@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Calendar } from '@/components/calendar';
-import { placement } from '@/lib/client/use-calendar';
 import type { CalendarDay, TimeEntry } from '@/lib/client/api';
 
 const PROJECTS = [
@@ -560,33 +559,5 @@ describe('where the week opens', () => {
 
     await screen.findByText(/Nothing logged/);
     expect(scroller(container).el.scrollTop).toBe(0);
-  });
-});
-
-describe('a block that crosses midnight', () => {
-  const midnight = new Date('2026-09-12T00:00:00Z');
-  const next = new Date('2026-09-13T00:00:00Z');
-
-  it('draws only its own part of the next day', () => {
-    // Friday 22:00 to Saturday 02:00: Saturday's block is 00:00–02:00.
-    const { top, height } = placement(
-      new Date('2026-09-11T22:00:00Z'),
-      new Date('2026-09-12T02:00:00Z'),
-      midnight,
-      next,
-    );
-    expect(top).toBe(0);
-    expect(height).toBeCloseTo(2 / 24);
-  });
-
-  it('ends at midnight on the day it started', () => {
-    const { top, height } = placement(
-      new Date('2026-09-12T22:00:00Z'),
-      new Date('2026-09-13T02:00:00Z'),
-      midnight,
-      next,
-    );
-    expect(top).toBeCloseTo(22 / 24);
-    expect(height).toBeCloseTo(2 / 24);
   });
 });

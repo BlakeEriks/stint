@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic';
  *
  * In the entry view, an entry that crosses local midnight is on every day it
  * touches, and each day counts only its own part, so no day holds more than
- * it has. `day` keeps each entry whole on the day it started.
+ * it has.
  */
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
@@ -63,8 +63,8 @@ export const GET = handle(async (req: Request) => {
       const entry = toEntry(row as EntryRow);
       // A running entry has no duration yet and contributes nothing.
       if (entry.endedAt == null) continue;
-      /* Whole, on the day it started: Home's figures count a session there
-         (specs/004-live-earned FR-011), and this split divides Home's bars. */
+      /* Home's bars count a session whole on the day it started (FR-011,
+         `revenue_by_day`). */
       if (new Date(entry.startedAt) < new Date(q.from)) continue;
 
       const key = localDateKey(new Date(entry.startedAt), q.tz);

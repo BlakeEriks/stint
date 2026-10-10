@@ -902,9 +902,7 @@ test('the day split counts billable work only', async () => {
   assert.equal(split, 7200, 'but the split leaves the non-billable hour out');
 });
 
-/* Counted whole on the day it started, a Friday-night entry would give
-   Friday more than 24 hours and Saturday nothing. */
-test('calendar splits an entry that crosses local midnight', async () => {
+test('the entry view splits an entry that crosses local midnight', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
   const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
 
@@ -936,8 +934,6 @@ test('calendar splits an entry that crosses local midnight', async () => {
   ).entries;
   assert.equal(entries.length, 1, 'the entry is drawn on Saturday too');
 
-  /* `day` divides Home's bars, which count a session on the day it started
-     (specs/004-live-earned FR-011), so it keeps the entry whole there. */
   const day = await json(
     await calendar(
       req(
@@ -946,6 +942,15 @@ test('calendar splits an entry that crosses local midnight', async () => {
     ),
   );
   assert.deepEqual(totals(day.body.days), { '2026-07-03': 14_400 });
+
+  const saturdayDay = await json(
+    await calendar(
+      req(
+        `/calendar?from=2026-07-04T04:00:00Z&to=2026-07-05T04:00:00Z&granularity=day&tz=${tz}`,
+      ),
+    ),
+  );
+  assert.deepEqual(saturdayDay.body.days, []);
 });
 
 test('calendar rejects an inverted period', async () => {
