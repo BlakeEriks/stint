@@ -600,7 +600,6 @@ export const handlers = {
     return ok(schema.Expense, expenseView(db, expense));
   }),
 
-  /* Nothing to keep: no screen reads feedback back. */
   sendFeedback: http.post(`${API}/feedback`, async ({ request }) => {
     const input = schema.CreateFeedback.safeParse(await request.json());
     if (!input.success) return fail('VALIDATION_FAILED');

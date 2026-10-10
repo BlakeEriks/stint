@@ -6,13 +6,7 @@ import { CreateFeedback } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * POST /api/v1/feedback — a message from the app's Feedback button.
- *
- * The sender is the session, never the body. The id is client-supplied
- * (UUIDv7), so a retry answers as the first send did instead of storing the
- * message twice.
- */
+/** POST /api/v1/feedback. The sender is the session, never the body. */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);
   const body = await parseBody(req, CreateFeedback);
@@ -33,6 +27,7 @@ export const POST = handle(async (req: Request) => {
       (await db.from('feedback').select('id').eq('id', body.id).maybeSingle())
         .data;
     if (!retried) throw error;
+    return NextResponse.json({ id: body.id });
   }
 
   return NextResponse.json({ id: body.id }, { status: 201 });

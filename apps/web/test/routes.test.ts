@@ -3269,7 +3269,7 @@ test('a retried feedback send stores one message', async () => {
 
   assert.equal((await POST(req('/feedback', FEEDBACK))).status, 201);
   const again = await json(await POST(req('/feedback', FEEDBACK)));
-  assert.equal(again.status, 201);
+  assert.equal(again.status, 200);
   assert.deepEqual(again.body, { id: FEEDBACK.id });
   assert.equal((await feedbackRows()).length, 1);
 });

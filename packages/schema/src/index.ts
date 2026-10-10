@@ -548,11 +548,7 @@ export const CreateExpense = z
     path: ['spentOn'],
   });
 
-/**
- * A message from the app's Feedback button. The user types only `message`;
- * the rest is attached by the client. The id is client-supplied (UUIDv7) so a
- * retry is idempotent. The limits match the table's checks.
- */
+/** The limits match the `feedback` table's checks. */
 export const FEEDBACK_MAX = 2000;
 export const CreateFeedback = z.object({
   id: uuid,
