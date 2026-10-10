@@ -13,10 +13,6 @@ for (const specifier of [
   'node:fs/promises',
   'node:child_process',
   'node:http2',
-  'fs/promises',
-  'net',
-  'dns',
-  'tls',
   'undici',
 ]) {
   test(`core importing ${specifier} fails lint`, () => {
@@ -26,6 +22,17 @@ for (const specifier of [
     );
     assert.equal(run.status, 1);
     assert.match(run.stderr + run.stdout, /does no I\/O/);
+  });
+}
+
+for (const builtin of ['fs/promises', 'net', 'worker_threads']) {
+  test(`core importing bare ${builtin} fails lint`, () => {
+    const run = lint(
+      `import * as m from '${builtin}';\n\nexport { m };\n`,
+      core,
+    );
+    assert.equal(run.status, 1);
+    assert.match(run.stderr + run.stdout, /useNodejsImportProtocol/);
   });
 }
 

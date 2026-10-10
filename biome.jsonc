@@ -59,31 +59,20 @@
       "linter": {
         "rules": {
           "style": {
+            // A bare builtin fails here, so node:* above covers them all.
+            "useNodejsImportProtocol": "error",
             "noRestrictedImports": {
               "level": "error",
               "options": {
                 "patterns": [
                   {
-                    // Bare names pass useNodejsImportProtocol as info
-                    // only, so they are listed beside node:*.
                     "group": [
                       "node:*",
                       "node:*/*",
                       "next",
                       "next/**",
                       "@supabase/**",
-                      "undici",
-                      "fs",
-                      "fs/*",
-                      "net",
-                      "http",
-                      "http2",
-                      "https",
-                      "dgram",
-                      "dns",
-                      "dns/*",
-                      "tls",
-                      "child_process"
+                      "undici"
                     ],
                     "message": "packages/core does no I/O (Constitution IV): the route handler reads and writes."
                   }
