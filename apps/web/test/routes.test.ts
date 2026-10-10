@@ -38,7 +38,6 @@ after(async () => {
 beforeEach(async () => {
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
-  await pool.query('delete from invoice_line_items');
   // Detach first: the immutability trigger refuses to delete an entry that
   // is still billed on a non-draft invoice — which is the behavior under
   // test elsewhere, so the fixture works around it rather than disabling it.
@@ -1453,7 +1452,7 @@ test('the cards that left took their fields with them', async () => {
   assert.equal(res.body.billableRatio, undefined);
 });
 
-test('earned counts invoiced work, and drops it when the invoice is voided', async () => {
+test('earned counts invoiced work, before and after the invoice is voided', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   await entryThisMonth({ id: S(71), hours: 2, rateOverride: 100 });
 
@@ -1488,11 +1487,11 @@ test('earned counts invoiced work, and drops it when the invoice is voided', asy
   const sent = await json(await stats(req('/stats?tz=UTC')));
   assert.equal(sent.body.month.earned, 200, 'invoicing it changes nothing');
 
-  /* Voiding releases the entries, so the work stops counting — otherwise a
-     voided invoice would leave revenue claiming money nobody owes. */
+  /* Voiding releases the entry, so it is unbilled work again: still done,
+     still earned, and free for the corrected invoice to bill. */
   await pool.query(`update invoices set status='void' where id=$1`, [invoice]);
   const voided = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(voided.body.month.earned, 0, 'a voided invoice earns nothing');
+  assert.equal(voided.body.month.earned, 200, 'voiding changes nothing either');
 });
 
 test('an invoice is overdue only after the grace period', async () => {
@@ -2951,6 +2950,94 @@ test('/stats lists entries sharing a minute or more, and editing one clears it',
   assert.deepEqual(after.body.attention.overlaps, []);
 });
 
+test('/stats flags an entry that overlaps time already billed', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const c = '33333333-0000-4000-8000-0000000000c1';
+  const p = '33333333-0000-4000-8000-0000000000c2';
+  const inv = 'ff000000-0000-4000-8000-0000000000c3';
+  const billed = '018f0000-0000-7000-8000-00000000c0c1';
+  const fresh = '018f0000-0000-7000-8000-00000000c0c2';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Northwind',150)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,sent_at)
+     values ($1,$2,$3,'INV-0001',1,'sent',now())`,
+    [inv, USER, c],
+  );
+  // 9-10 was billed on that invoice; 9:30-10:30 was added afterwards. The
+  // new entry is the one to fix, and it can be — only the billed one is
+  // locked. Left unflagged, the next invoice charges 9:30-10:00 twice.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,invoice_id) values
+       ($1,$3,$4,'Billed', '2026-08-19T09:00:00Z','2026-08-19T10:00:00Z',$5),
+       ($2,$3,$4,'Added',  '2026-08-19T09:30:00Z','2026-08-19T10:30:00Z',null)`,
+    [billed, fresh, USER, p, inv],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(
+    res.body.attention.overlaps.map(
+      (o: {
+        entryId: string;
+        otherEntryId: string;
+        otherInvoiceNumber: string | null;
+        seconds: number;
+      }) => [o.entryId, o.otherEntryId, o.otherInvoiceNumber, o.seconds],
+    ),
+    [[fresh, billed, 'INV-0001', 1800]],
+    'the half hour already invoiced is about to be billed again',
+  );
+});
+
+test('/stats pairs only billable work against billed time', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const c = '33333333-0000-4000-8000-0000000000d1';
+  const p = '33333333-0000-4000-8000-0000000000d2';
+  const inv = 'ff000000-0000-4000-8000-0000000000d3';
+  const billed = '018f0000-0000-7000-8000-00000000d0d1';
+  const free = '018f0000-0000-7000-8000-00000000d0d2';
+  const also = '018f0000-0000-7000-8000-00000000d0d3';
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate) values ($1,$2,'Northwind',150)`,
+    [c, USER],
+  );
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name) values ($1,$2,$3,'P')`,
+    [p, USER, c],
+  );
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status,sent_at)
+     values ($1,$2,$3,'INV-0001',1,'sent',now())`,
+    [inv, USER, c],
+  );
+  // Non-billable work is never invoiced, so overlapping billed time bills
+  // nothing twice; overlapping other unbilled work is still flagged.
+  await pool.query(
+    `insert into time_entries (id,user_id,project_id,task_name,started_at,ended_at,invoice_id,is_billable) values
+       ($1,$4,$5,'Billed','2026-08-19T09:00:00Z','2026-08-19T10:00:00Z',$6,true),
+       ($2,$4,$5,'Free',  '2026-08-19T09:30:00Z','2026-08-19T10:30:00Z',null,false),
+       ($3,$4,$5,'Also',  '2026-08-19T10:00:00Z','2026-08-19T11:00:00Z',null,true)`,
+    [billed, free, also, USER, p, inv],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(
+    res.body.attention.overlaps.map(
+      (o: { entryId: string; otherEntryId: string }) => [
+        o.entryId,
+        o.otherEntryId,
+      ],
+    ),
+    [[also, free]],
+  );
+});
+
 // ── reads past PostgREST's 1,000 rows ──────────────────────────────
 // The shim caps a select the way PostgREST does, so a read that does not
 // page fails here.
@@ -3050,4 +3137,63 @@ Me,me@x,Acme,Site,,Design,Yes,2026-03-10,16:00:00,2026-03-10,17:00:00,01:00:00,,
   );
   assert.equal(res.status, 200);
   assert.equal(res.body.summary.overlappingCount, 1);
+});
+
+// ── health, and errors reaching Sentry ─────────────────────────────
+/** A database client whose every query answers with `error`. */
+const failingDb = (error: { code?: string; message: string }) => ({
+  from: () => ({
+    select: () => ({ limit: async () => ({ data: null, error }) }),
+  }),
+});
+
+test('health answers 200 while the database answers', async () => {
+  const { GET } = await import('../src/app/api/v1/health/route.ts');
+  const res = await json(await GET());
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { ok: true });
+});
+
+test('health answers 200 when Postgres refuses anon, which is Postgres answering', async () => {
+  const { GET } = await import('../src/app/api/v1/health/route.ts');
+  (globalThis as any).__TEST_DB__ = failingDb({
+    code: '42501',
+    message: 'permission denied for table clients',
+  });
+  const res = await json(await GET());
+  assert.equal(res.status, 200);
+});
+
+test('health answers 503 when the database does not, so the monitor alerts', async () => {
+  const { GET } = await import('../src/app/api/v1/health/route.ts');
+  (globalThis as any).__TEST_DB__ = failingDb({
+    code: 'PGRST000',
+    message: 'Could not connect',
+  });
+  const res = await json(await GET());
+  assert.equal(res.status, 503);
+  assert.deepEqual(res.body, { ok: false });
+});
+
+test('an unhandled route error reaches Sentry, not only the log', async () => {
+  const Sentry = await import('@sentry/nextjs');
+  const { close } = await import('@sentry/core');
+  const sent: string[] = [];
+  Sentry.init({
+    dsn: 'https://key@o0.ingest.sentry.io/0',
+    beforeSend(event) {
+      sent.push(event.exception?.values?.[0]?.value ?? '');
+      return null;
+    },
+  });
+  const { GET } = await import('../src/app/api/v1/clients/route.ts');
+  (globalThis as any).__TEST_DB__ = {
+    from() {
+      throw new Error('unexpected');
+    },
+  };
+  const res = await GET(req('/clients'));
+  await close(1000);
+  assert.equal(res.status, 500);
+  assert.deepEqual(sent, ['unexpected']);
 });

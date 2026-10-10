@@ -301,22 +301,3 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
     },
   };
 }
-
-/** Which status transitions are allowed, and why the others are not. */
-const TRANSITIONS: Record<string, string[]> = {
-  draft: ['sent', 'void'],
-  sent: ['paid', 'void'],
-  paid: ['void'],
-  void: [],
-};
-
-export function assertTransition(from: string, to: string): void {
-  if (from === to) return;
-  if (!TRANSITIONS[from]?.includes(to)) {
-    throw new ApiError(
-      'VALIDATION_FAILED',
-      `An invoice cannot move from ${from} to ${to}`,
-      { from, to, allowed: TRANSITIONS[from] ?? [] },
-    );
-  }
-}

@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
+import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
 import { formatCompact, formatCurrency } from '@stint/core';
@@ -65,11 +66,11 @@ export function Inbox({ stats }: { stats: Stats }) {
 
   const exit = useExit();
 
-  /* The ENTRY being edited, not its id: saving moves the entry out of the
-     query that supplied it, so an id would still say "open" over nothing and
-     the editor would reopen as a blank "Add entry". */
-  const [assigning, setAssigning] = useState<TimeEntry | undefined>();
-  const [focusField, setFocusField] = useState<'task' | 'project'>('task');
+  // The entry, not its id: saving drops it from the query that supplied it.
+  const assigning = useDialog<{
+    entry: TimeEntry;
+    focus: 'task' | 'project';
+  }>();
 
   /* `EntryDialog` edits a whole entry, which the stats rows do not carry, so
      opening one fetches it by id. The row says which field it is about, and
@@ -87,8 +88,7 @@ export function Inbox({ stats }: { stats: Stats }) {
       }),
     invalidate: () => undefined,
     onSuccess: (found, { focus }) => {
-      setFocusField(focus);
-      setAssigning(found);
+      assigning.show({ entry: found, focus });
     },
   });
 
@@ -221,12 +221,10 @@ export function Inbox({ stats }: { stats: Stats }) {
       )}
 
       <EntryDialog
-        open={assigning !== undefined}
-        onOpenChange={(o) => {
-          if (!o) setAssigning(undefined);
-        }}
-        existing={assigning}
-        focus={focusField}
+        open={assigning.open}
+        onOpenChange={assigning.onOpenChange}
+        existing={assigning.subject?.entry}
+        focus={assigning.subject?.focus}
         projects={projects}
         /* The row's id IS the entry id for both kinds that open this dialog,
            so the mark lands on the row the user just answered. */
@@ -341,9 +339,10 @@ function Row({
     );
   }
 
-  /* The pair's later entry is the one opened — it started inside the other.
-     Resolved by editing either, never by an "it's fine": two entries billing
-     the same minutes cannot both be right. */
+  /* The pair's unbilled entry is opened — the later one when both are, as it
+     started inside the other. A billed other is named by its invoice, since
+     it can't be edited. Resolved by editing, never by an "it's fine": two
+     entries billing the same minutes cannot both be right. */
   if (r.kind === 'overlap') {
     const o = r.row;
     return (
@@ -351,7 +350,7 @@ function Row({
         {...leaving}
         onSelect={() => onOpen({ id: o.entryId, focus: 'task' })}
         label={o.taskName || 'Untitled entry'}
-        detail={`Overlaps ${o.otherTaskName || 'another entry'} · ${dayLabel(o.startedAt, tz)}`}
+        detail={`Overlaps ${o.otherTaskName || 'another entry'}${o.otherInvoiceNumber ? ` on ${o.otherInvoiceNumber}` : ''} · ${dayLabel(o.startedAt, tz)}`}
         value={formatCompact(o.seconds)}
         tone="warning"
         actions={

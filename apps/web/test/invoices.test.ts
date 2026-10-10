@@ -34,7 +34,6 @@ after(async () => {
 beforeEach(async () => {
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
-  await pool.query('delete from invoice_line_items');
   await pool.query('update time_entries set invoice_id = null');
   await pool.query('delete from time_entries');
   await pool.query('delete from invoices');
@@ -134,6 +133,40 @@ test('preview resolves rates and has no side effects', async () => {
     [USER],
   );
   assert.equal(seq[0].n, 1, 'no number was consumed');
+});
+
+test('preview names the entries that overlap each other or billed time', async () => {
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  const inv = 'ff000000-0000-4000-8000-00000000000b';
+  await pool.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,status)
+     values ($1,$2,$3,'INV-0001',1,'sent')`,
+    [inv, USER, CLIENT],
+  );
+  // Billed 9-10, then 9:30-10:30 added: half an hour about to bill twice.
+  await seedEntry({ id: E(1), start: '2026-09-10T09:00:00Z' });
+  await pool.query('update time_entries set invoice_id=$1 where id=$2', [
+    inv,
+    E(1),
+  ]);
+  await seedEntry({ id: E(2), start: '2026-09-10T09:30:00Z' });
+  // Two unbilled entries sharing half an hour with each other.
+  await seedEntry({ id: E(3), start: '2026-09-11T09:00:00Z' });
+  await seedEntry({ id: E(4), start: '2026-09-11T09:30:00Z' });
+  // Clear of everything.
+  await seedEntry({ id: E(5), start: '2026-09-12T09:00:00Z' });
+
+  const res = await json(
+    await preview(req('/invoices/preview', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(res.status, 200);
+  assert.deepEqual([...res.body.overlappingEntryIds].sort(), [
+    E(2),
+    E(3),
+    E(4),
+  ]);
 });
 
 /* The period is local dates, and the entries are instants. With a UTC window
@@ -974,6 +1007,7 @@ test('an invoice cannot return to draft once issued', async () => {
 
   assert.equal(back.status, 422);
   assert.equal(back.body.code, 'VALIDATION_FAILED');
+  assert.equal(back.body.message, 'An invoice cannot move from sent to draft');
 });
 
 test('voiding releases the entries so they can be re-billed', async () => {
@@ -1008,6 +1042,49 @@ test('voiding releases the entries so they can be re-billed', async () => {
     [inv.body.id],
   );
   assert.equal(inv2[0].invoice_number, 'INV-0001');
+});
+
+test('of two overlapping status changes, the later is refused as stale', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { PATCH: setStatus } = await import(
+    '../src/app/api/v1/invoices/[id]/status/route.ts'
+  );
+  await seedEntry({ id: E(1), hours: 1 });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  const ctx = () => ({ params: Promise.resolve({ id: inv.body.id }) });
+  await setStatus(req('/s', { status: 'sent' }, 'PATCH'), ctx());
+
+  // The void holds the row while the route reads `sent`, finds paid allowed
+  // from there, and waits on the lock to write it.
+  const other = await pool.connect();
+  await other.query('begin');
+  await other.query(`update invoices set status = 'void' where id = $1`, [
+    inv.body.id,
+  ]);
+  const paying = setStatus(req('/s', { status: 'paid' }, 'PATCH'), ctx());
+  while (
+    (
+      await pool.query(
+        `select 1 from pg_stat_activity
+          where datname = current_database() and wait_event_type = 'Lock'`,
+      )
+    ).rowCount === 0
+  )
+    await new Promise((r) => setTimeout(r, 10));
+  await other.query('commit');
+  other.release();
+
+  const paid = await json(await paying);
+  assert.equal(paid.status, 409, 'the lost race is reported, not absorbed');
+  assert.equal(paid.body.code, 'INVOICE_STATUS_CHANGED');
+  const { rows } = await pool.query(
+    `select status, (select invoice_id from time_entries where id = $2) as entry
+       from invoices where id = $1`,
+    [inv.body.id, E(1)],
+  );
+  assert.deepEqual(rows[0], { status: 'void', entry: null });
 });
 
 // ── deletion ───────────────────────────────────────────────────────
@@ -1051,14 +1128,27 @@ test('an issued invoice cannot be deleted — it must be voided', async () => {
   await setStatus(req('/s', { status: 'sent' }, 'PATCH'), {
     params: Promise.resolve({ id: inv.body.id }),
   });
+
+  // `guard_issued_invoice_delete` refuses only `authenticated`, the role a
+  // signed-in caller reaches the database as, so the delete runs as it.
+  const asCaller = new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+    options: `-c role=authenticated -c request.jwt.claim.sub=${USER}`,
+  });
+  (globalThis as any).__TEST_DB__ = makeDb(asCaller, USER);
   const res = await json(
     await del(req('/i', undefined, 'DELETE'), {
       params: Promise.resolve({ id: inv.body.id }),
     }),
-  );
+  ).finally(() => asCaller.end());
 
   assert.equal(res.status, 422);
   assert.match(res.body.message, /void it instead/);
+  const { rows } = await pool.query(
+    'select invoice_id from time_entries where id = $1',
+    [E(1)],
+  );
+  assert.equal(rows[0].invoice_id, inv.body.id, 'the entry stays billed');
 });
 
 // ── detail & listing ───────────────────────────────────────────────

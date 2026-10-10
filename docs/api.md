@@ -2,7 +2,7 @@
 
 Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
-`Authorization: Bearer <token>`. Request/response shapes are defined in
+`Authorization: Bearer <token>`, on every endpoint except `/health`. Request/response shapes are defined in
 `packages/schema/src/index.ts` — that file is the source of truth, and every
 route parses its request against it; this document is the map.
 
@@ -13,7 +13,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 45 of 45, counting handlers rather than files.
+Every handler is covered — 46 of 46, counting handlers rather than files.
 
 ## Timer
 
@@ -22,7 +22,7 @@ behavior depends on global state.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/timer/start` | `{ id?, projectId?, taskName?, startedAt?, isBillable? }` — `taskName` defaults to `''`, since a timer started in a hurry can be named later. Returns `201`. **`409 TIMER_ALREADY_RUNNING`** if one is running, with the running entry in `details.running` so the client can display it rather than just reporting a conflict. `startedAt` allows backdating a forgotten start. **`isBillable` omitted is stored as billable**: the column's `true` default, not the project's, which #163 is to apply. No client sends it. |
+| `POST` | `/timer/start` | `{ id?, projectId?, taskName?, startedAt?, isBillable? }` — `taskName` defaults to `''`, since a timer started in a hurry can be named later. Returns `201`. **`409 TIMER_ALREADY_RUNNING`** if one is running, with the running entry in `details.running` so the client can display it rather than just reporting a conflict. `startedAt` allows backdating a forgotten start. **`isBillable` omitted is stored as billable**: the column's `true` default, not the project's, which #163 is to apply. The web sends it when a Today row starts a task again, copying that task's latest entry. |
 | `POST` | `/timer/stop` | `{ endedAt? }`, defaults to server `now()`. Returns `{ entry, currency, unbilled }`, `unbilled` being `/stats`'s, counted after the stop, so a client shows the new total without a second request. `409 NO_TIMER_RUNNING` if none; `422 VALIDATION_FAILED` if a backdated `endedAt` is at or before `startedAt`. |
 | `GET` | `/timer/current` | `{ entry, serverTime }`. |
 | `PATCH` | `/timer/current` | Edit task name / project mid-run. `409 NO_TIMER_RUNNING` if none; `409 ENTRY_LOCKED` if billed. |
@@ -155,9 +155,11 @@ cannot return every day once answered. `unprojected` is one row per entry,
 oldest first; `strangeDurations` one per stopped entry of implausible length.
 The long threshold defaults to 12 hours, which is how a timer left running
 overnight reaches the inbox; the short one defaults to null. `overlaps` is one
-per pair of uninvoiced entries sharing a minute or more (`MIN_OVERLAP_SECONDS`
-in `@stint/core`), naming the later-starting entry; it clears when either is
-edited apart.
+per pair of entries sharing a minute or more (`MIN_OVERLAP_SECONDS` in
+`@stint/core`) where at least one is unbilled, except non-billable work
+against billed time, which bills nothing twice. It names the unbilled entry,
+the later-starting one when both are, and `otherInvoiceNumber` when the other
+is on an invoice; it clears when either is edited apart.
 
 ## Clients / projects / settings
 
@@ -225,12 +227,12 @@ rate. `0` is a real rate, distinct from `null`, which means "fall back".
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/invoices` | `?clientId&status&limit` (1–200, default 50), newest first — ordered by invoice sequence, not issue date. |
-| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, summaryText?, tz?, manualLines?, excludedExpenseIds? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `expensesSubtotal`, `total`, `entryCount`, `unratedEntryIds`, `schedules` (every supporting-detail table with `summary`, else null), plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
+| `POST` | `/invoices/preview` | **No side effects.** `{ clientId, periodStart, periodEnd, groupingMode?, summaryText?, tz?, manualLines?, excludedExpenseIds? }` → `lineItems`, `subtotal`, `taxRate`, `taxAmount`, `expensesSubtotal`, `total`, `entryCount`, `unratedEntryIds`, `overlappingEntryIds` (entries to bill that share a minute or more with each other or with billed time), `schedules` (every supporting-detail table with `summary`, else null), plus `clientId`, `clientName`, `currency`, the echoed period and `groupingMode`. `400 INVALID_PERIOD` if `periodEnd < periodStart`; `422 VALIDATION_FAILED` if `tz` is not an IANA zone. |
 | `POST` | `/invoices` | Allocates the number, freezes line items **and payment details**, locks entries and expenses, in one transaction. Also accepts `issueDate` (absent, today in `tz`), `dueDate`, `notes`, `paymentTerms`, `tz`, `reference` (the PO, contract or SOW, at most 200 characters; blank is none), and `schedules` (`project | week | date`, with `summary` only), which freezes those tables as `supportingDetail`. `paymentProfileId` picks the payment details to freeze; absent, the client's profile, else the default. Returns the `Invoice` plus `lineItems` and `entryCount`. `400 NO_RATE_CONFIGURED` if any entry has no resolvable rate; `400 INVALID_PERIOD` if there is nothing to bill: no time, no expense and no charge; `422 VALIDATION_FAILED` for `summary` with an empty `summaryText`, `schedules` with another grouping, or a `paymentProfileId` archived or not found; `409 EXPENSE_ALREADY_INVOICED` if another invoice took one of its expenses first, or `409 ENTRY_ALREADY_INVOICED` if one of its entries was billed elsewhere or deleted since it was loaded; either writes nothing and uses no number; `422 VALIDATION_FAILED` on an invalid `tz`. |
 | `GET` | `/invoices/:id` | Invoice + frozen line items + the client's `{ id, name, email, address }` (not the full client row). Returned **flat**, like every other detail route. These `lineItems` carry `id` and `sortOrder`; the ones a preview or a generation returns carry `rateSource` and `entryIds` instead. |
 | `DELETE` | `/invoices/:id` | **Drafts only** — `422 VALIDATION_FAILED` otherwise. An issued invoice must be voided, so numbering stays gapless. Releases its entries and expenses. |
 | `GET` | `/invoices/:id/pdf` | Streams `application/pdf` from the frozen line items, then the frozen `supportingDetail` from page 2, in hours. `?download=1` for `attachment` rather than an inline preview. |
-| `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent. `422 VALIDATION_FAILED` on a transition the table below forbids, or if `paidAt` is later than now or earlier than the invoice's `sentAt`. |
+| `PATCH` | `/invoices/:id/status` | `{ status, sentAt?, paidAt? }`. Also how an invoice is marked sent. `422 VALIDATION_FAILED` on a transition the table below forbids, or if `paidAt` is later than now or earlier than the invoice's `sentAt`; `409 INVOICE_STATUS_CHANGED` if another request changed the status since this one read it. |
 
 **Status transitions are constrained:** draft→sent/void, sent→paid/void,
 paid→void. `void` is terminal, and setting a status to its current value is a
@@ -298,6 +300,12 @@ preference — `.claude/rules/invoicing.md` has the reason.
 payment block, defaulted to a warning that details never change and should be
 verified by phone.
 
+## Health
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/health` | **No auth.** `{ ok }`: `200` while Postgres answers a query, `503` when it does not. The uptime monitor polls it (`docs/deploying.md` §3c). |
+
 ## Errors
 
 ```json
@@ -312,6 +320,7 @@ verified by phone.
 | `EXPENSE_LOCKED` | 409 | An expense billed on a non-draft invoice. |
 | `EXPENSE_ALREADY_INVOICED` | 409 | Another invoice took one of this invoice's expenses first. Preview again. |
 | `ENTRY_ALREADY_INVOICED` | 409 | One of this invoice's entries was billed on another invoice or deleted since it was loaded. Preview again. |
+| `INVOICE_STATUS_CHANGED` | 409 | Another request changed the invoice's status first. Read it again. |
 | `ENTRY_NOT_FOUND` | 404 | |
 | `NO_RATE_CONFIGURED` | 400 | No rate at any level for a billable entry. |
 | `INVALID_PERIOD` | 400 | |

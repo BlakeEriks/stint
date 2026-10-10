@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { fontVariables } from './fonts';
+import { THEME_SCRIPT } from '@/lib/theme-script';
 import '@/styles/globals.css';
 
 /* The landing page overrides both of these; the app's own screens inherit
@@ -45,7 +46,7 @@ export default function RootLayout({
         <script
           // biome-ignore lint/security/noDangerouslySetInnerHtml: must run before paint
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('stint.theme');var d=document.documentElement;if(t==='light'||t==='dark'){d.setAttribute('data-theme',t);d.style.colorScheme=t}}catch(e){}})()`,
+            __html: THEME_SCRIPT,
           }}
         />
       </head>

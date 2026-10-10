@@ -27,6 +27,8 @@
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
+    "@sentry/core": "11.6.0",
+    "@sentry/nextjs": "^11.6.0",
     "@stint/core": "workspace:*",
     "@stint/design-tokens": "workspace:^",
     "@stint/schema": "workspace:*",

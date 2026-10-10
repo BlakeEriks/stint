@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useDialog } from '@/lib/client/use-dialog';
 import { useRouter } from 'next/navigation';
 import {
   keepPreviousData,
@@ -48,6 +49,7 @@ import { PaymentProfileDialog } from './payment-profile-dialog';
 import { summarize } from './payment-profiles';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
+import { rowButton } from './row-button';
 
 const GROUPINGS: { value: GroupingMode; label: string; hint: string }[] = [
   {
@@ -164,9 +166,10 @@ export function NewInvoice() {
   const waiting = (expenseData ?? []).filter(
     (e) => e.recurring || (e.spentOn as string) <= draft.periodEnd,
   );
-  /* Which dialog is open, and on what: 'new', or the record being edited. */
-  const [expenseOpen, setExpenseOpen] = useState<Expense | 'new' | null>(null);
-  const [chargeOpen, setChargeOpen] = useState<string | 'new' | null>(null);
+  /* `undefined` adds an expense; an expense, edits it. */
+  const expenseDialog = useDialog<Expense | undefined>();
+  /* `'new'` adds a charge; a key, edits that one. */
+  const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
@@ -255,6 +258,7 @@ export function NewInvoice() {
   const payment = buildPaymentDetails(profile, { invoiceNumber: number });
 
   const unrated = current?.unratedEntryIds.length ?? 0;
+  const overlapping = current?.overlappingEntryIds.length ?? 0;
   const nothingToBill = current !== undefined && current.lineItems.length === 0;
   const noSummaryText =
     draft.groupingMode === 'summary' && draft.summaryText.trim() === '';
@@ -389,8 +393,8 @@ export function NewInvoice() {
                   currency={client.currency ?? undefined}
                   excluded={draft.excludedExpenseIds}
                   onToggle={toggleExpense}
-                  onOpen={setExpenseOpen}
-                  onAdd={() => setExpenseOpen('new')}
+                  onOpen={expenseDialog.show}
+                  onAdd={() => expenseDialog.show(undefined)}
                 />
               </Field>
             ) : null}
@@ -399,8 +403,8 @@ export function NewInvoice() {
               <ChargeRows
                 charges={draft.charges}
                 currency={client?.currency ?? undefined}
-                onOpen={setChargeOpen}
-                onAdd={() => setChargeOpen('new')}
+                onOpen={chargeDialog.show}
+                onAdd={() => chargeDialog.show('new')}
               />
             </Field>
 
@@ -475,6 +479,15 @@ export function NewInvoice() {
                   generating.
                 </p>
               ) : null}
+              {/* A warning, not a block: an overlap can be deliberate, and
+                  this is the last place to see it before it bills. */}
+              {overlapping > 0 ? (
+                <p role="alert" className="type-support text-warning">
+                  {overlapping} entr
+                  {overlapping === 1 ? 'y overlaps' : 'ies overlap'} other time,
+                  already billed or on this invoice.
+                </p>
+              ) : null}
               {preview.isError || generate.error ? (
                 <p role="alert" className="type-support text-danger">
                   {errorText(generate.error ?? preview.error)}
@@ -487,14 +500,10 @@ export function NewInvoice() {
 
       {client ? (
         <ExpenseDialog
-          open={expenseOpen !== null}
-          onOpenChange={(open) => (open ? null : setExpenseOpen(null))}
+          open={expenseDialog.open}
+          onOpenChange={expenseDialog.onOpenChange}
           client={client}
-          expense={
-            expenseOpen !== null && expenseOpen !== 'new'
-              ? expenseOpen
-              : undefined
-          }
+          expense={expenseDialog.subject}
           // A new or changed expense changes what would be billed; a new one
           // is ticked, since nothing excludes it.
           onSaved={() =>
@@ -503,25 +512,27 @@ export function NewInvoice() {
         />
       ) : null}
       <ChargeDialog
-        open={chargeOpen !== null}
-        onOpenChange={(open) => (open ? null : setChargeOpen(null))}
-        charge={draft.charges.find((c) => c.key === chargeOpen)}
+        open={chargeDialog.open}
+        onOpenChange={chargeDialog.onOpenChange}
+        charge={draft.charges.find((c) => c.key === chargeDialog.subject)}
         onSave={(charge) =>
           set(
             'charges',
-            chargeOpen === 'new'
+            chargeDialog.subject === 'new'
               ? [...draft.charges, { ...charge, key: crypto.randomUUID() }]
               : draft.charges.map((c) =>
-                  c.key === chargeOpen ? { ...charge, key: c.key } : c,
+                  c.key === chargeDialog.subject
+                    ? { ...charge, key: c.key }
+                    : c,
                 ),
           )
         }
         onRemove={
-          chargeOpen !== 'new'
+          chargeDialog.subject !== 'new'
             ? () =>
                 set(
                   'charges',
-                  draft.charges.filter((c) => c.key !== chargeOpen),
+                  draft.charges.filter((c) => c.key !== chargeDialog.subject),
                 )
             : undefined
         }
@@ -665,7 +676,7 @@ function ChargeRows({
                 type="button"
                 onClick={() => onOpen(c.key)}
                 aria-label={`Edit charge ${c.description}`}
-                className="group flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+                className={`${rowButton} flex w-full items-center gap-3 py-2.5`}
               >
                 <span className="min-w-0 flex-1 truncate type-control text-strong">
                   {c.description}

@@ -95,6 +95,7 @@ function Cards({ loaded }: { loaded: Settings }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="system">System</SelectItem>
               <SelectItem value="dark">Dark</SelectItem>
               <SelectItem value="light">Light</SelectItem>
             </SelectContent>

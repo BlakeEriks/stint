@@ -70,7 +70,6 @@ after(async () => {
 beforeEach(async () => {
   await admin.query('update expenses set invoice_id = null');
   await admin.query('delete from expenses');
-  await admin.query('delete from invoice_line_items');
   await admin.query('update time_entries set invoice_id = null');
   await admin.query('delete from time_entries');
   await admin.query('delete from invoices');
@@ -549,6 +548,166 @@ test('an expense cannot be filed under another user’s client', async () => {
       ),
     /expense_client_same_owner/,
   );
+});
+
+// ── an issued invoice is frozen ────────────────────────────────────
+// The entry and expense locks read the invoice's status, so these hold
+// only if the invoice itself cannot be rewritten by the path that would
+// rewrite them: a PostgREST call with the user's own JWT.
+const ALICE_INVOICE = 'ff000000-0000-4000-8000-00000000000a';
+const ALICE_ENTRY = '018f0000-0000-7000-8000-00000000000a';
+
+/** Alice's invoice with one line, billing her entry and her expense. */
+async function issueAliceInvoice(status: 'draft' | 'sent') {
+  await seedBoth();
+  await seedExpenses();
+  await admin.query(
+    `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,total)
+     values ($1,$2,'cc000000-0000-4000-8000-00000000000a','INV-0001',1,150)`,
+    [ALICE_INVOICE, ALICE],
+  );
+  await admin.query(
+    `insert into invoice_line_items (invoice_id,description,unit,quantity,unit_price,amount)
+     values ($1,'Alice line','hour',1,150,150)`,
+    [ALICE_INVOICE],
+  );
+  await admin.query(`update time_entries set invoice_id=$1 where id=$2`, [
+    ALICE_INVOICE,
+    ALICE_ENTRY,
+  ]);
+  await admin.query(`update expenses set invoice_id=$1 where id=$2`, [
+    ALICE_INVOICE,
+    ALICE_EXPENSE,
+  ]);
+  if (status === 'sent')
+    await admin.query(
+      `update invoices set status='sent', sent_at=now() where id=$1`,
+      [ALICE_INVOICE],
+    );
+}
+
+const asAlice = (sql: string) => asUser(ALICE, sql, [ALICE_INVOICE]);
+
+test('an issued invoice and its lines cannot be rewritten in the database', async () => {
+  await issueAliceInvoice('sent');
+
+  await assert.rejects(
+    () => asAlice(`update invoices set total = 0 where id = $1`),
+    /is sent and cannot be modified/,
+  );
+  await assert.rejects(
+    () => asAlice(`update invoices set notes = 'Paid in full' where id = $1`),
+    /is sent and cannot be modified/,
+  );
+  await assert.rejects(
+    () =>
+      asAlice(`update invoice_line_items set amount = 0 where invoice_id = $1`),
+    /its lines cannot be modified/,
+  );
+  await assert.rejects(
+    () => asAlice(`delete from invoice_line_items where invoice_id = $1`),
+    /its lines cannot be modified/,
+  );
+  await assert.rejects(
+    () =>
+      asAlice(
+        `insert into invoice_line_items (invoice_id,description,unit,quantity,unit_price,amount)
+         values ($1,'Extra','fixed',1,500,500)`,
+      ),
+    /its lines cannot be modified/,
+  );
+  await assert.rejects(
+    () => asAlice(`update invoices set status = 'draft' where id = $1`),
+    /cannot move from sent to draft/,
+  );
+  await assert.rejects(
+    () => asAlice(`delete from invoices where id = $1`),
+    /is sent and cannot be deleted/,
+  );
+
+  const [inv] = (
+    await admin.query(
+      `select status, total::float from invoices where id = $1`,
+      [ALICE_INVOICE],
+    )
+  ).rows;
+  assert.deepEqual(inv, { status: 'sent', total: 150 });
+  const [entry] = (
+    await admin.query(`select invoice_id from time_entries where id = $1`, [
+      ALICE_ENTRY,
+    ])
+  ).rows;
+  assert.equal(entry.invoice_id, ALICE_INVOICE, 'the entry stays billed');
+});
+
+test('deleting the account takes a sent invoice with it', async () => {
+  await issueAliceInvoice('sent');
+
+  // `delete_account()` runs as its definer, which the delete guard lets by.
+  await asUser(ALICE, 'select delete_account()');
+
+  const { rows } = await admin.query(
+    'select count(*)::int n from invoices where user_id = $1',
+    [ALICE],
+  );
+  assert.equal(rows[0].n, 0);
+  // Alice back, for the tests after this one.
+  await admin.query(
+    `insert into auth.users (id,email) values ($1,'alice@test')`,
+    [ALICE],
+  );
+});
+
+test('a draft invoice and its lines stay editable', async () => {
+  await issueAliceInvoice('draft');
+
+  await asAlice(`update invoices set total = 99 where id = $1`);
+  await asAlice(
+    `update invoice_line_items set amount = 99 where invoice_id = $1`,
+  );
+  const [inv] = (
+    await admin.query(`select total::float from invoices where id = $1`, [
+      ALICE_INVOICE,
+    ])
+  ).rows;
+  assert.equal(inv.total, 99);
+});
+
+test('a status moves only along the transition table', async () => {
+  await issueAliceInvoice('draft');
+
+  await assert.rejects(
+    () =>
+      asAlice(
+        `update invoices set status = 'paid', paid_at = now() where id = $1`,
+      ),
+    /cannot move from draft to paid/,
+  );
+  await asAlice(
+    `update invoices set status = 'sent', sent_at = now() where id = $1`,
+  );
+  await asAlice(
+    `update invoices set status = 'paid', paid_at = now() where id = $1`,
+  );
+  await asAlice(`update invoices set status = 'void' where id = $1`);
+  for (const status of ['draft', 'sent', 'paid'])
+    await assert.rejects(
+      () => asAlice(`update invoices set status = '${status}' where id = $1`),
+      new RegExp(`cannot move from void to ${status}`),
+    );
+});
+
+test('voiding releases what the invoice billed, in the same statement', async () => {
+  await issueAliceInvoice('sent');
+
+  await asAlice(`update invoices set status = 'void' where id = $1`);
+
+  const { rows } = await admin.query(
+    `select (select invoice_id from time_entries where id = $1) as entry,
+            (select invoice_id from expenses where id = $2) as expense`,
+    [ALICE_ENTRY, ALICE_EXPENSE],
+  );
+  assert.deepEqual(rows[0], { entry: null, expense: null });
 });
 
 test('an invoice cannot reference another user’s client', async () => {

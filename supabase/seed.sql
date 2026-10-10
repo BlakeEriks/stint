@@ -301,8 +301,8 @@ select
   '00000000-0000-4000-8000-000000000001',
   '00000000-0000-4000-8000-0000000000c1',
   'STINT-' || lpad((100 + n)::text, 4, '0'), 100 + n,
-  -- The newest of these is still out; the rest were paid.
-  case when n = 1 then 'sent' else 'paid' end,
+  -- Issued below, once its lines and totals are written.
+  'draft',
   (date_trunc('day', now()) - ((n * 30 + 2) || ' days')::interval)::date,
   (date_trunc('day', now()) - ((n * 30 - 28) || ' days')::interval)::date,
   (date_trunc('day', now()) - ((n * 30 + 32) || ' days')::interval)::date,
@@ -373,3 +373,16 @@ update invoices i
  where t.invoice_id = i.id
    and i.user_id = '00000000-0000-4000-8000-000000000001'
    and i.sequence_no >= 101;
+
+-- The newest of these is still out; the rest were paid. Issuing freezes the
+-- lines and totals above (`guard_issued_invoice`), and paid is reached
+-- through sent.
+update invoices
+   set status = 'sent'
+ where user_id = '00000000-0000-4000-8000-000000000001'
+   and sequence_no >= 101;
+update invoices
+   set status = 'paid'
+ where user_id = '00000000-0000-4000-8000-000000000001'
+   and sequence_no >= 101
+   and paid_at is not null;

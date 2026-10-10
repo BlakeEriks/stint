@@ -50,7 +50,6 @@ after(async () => {
 
 beforeEach(async () => {
   for (const sql of [
-    'delete from invoice_line_items where invoice_id in (select id from invoices where user_id = $1)',
     'update time_entries set invoice_id = null where user_id = $1',
     'update expenses set invoice_id = null where user_id = $1',
     'delete from expenses where user_id = $1',
@@ -171,11 +170,19 @@ async function write(db: Db) {
         e.durationOk,
       ],
     );
+  // Along the transitions `guard_issued_invoice` allows: paid is reached
+  // through sent.
+  const path: Record<(typeof db.invoices)[number]['status'], string[]> = {
+    draft: [],
+    sent: ['sent'],
+    paid: ['sent', 'paid'],
+    void: ['void'],
+  };
   for (const i of db.invoices)
-    if (i.status !== 'draft')
+    for (const status of path[i.status])
       await pool.query(
         `update invoices set status=$2, sent_at=$3, paid_at=$4 where id=$1`,
-        [i.id, i.status, i.sentAt, i.paidAt],
+        [i.id, status, i.sentAt, i.paidAt],
       );
 }
 

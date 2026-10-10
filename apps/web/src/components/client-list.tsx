@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useDialog } from '@/lib/client/use-dialog';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Pencil, Plus } from 'lucide-react';
@@ -18,6 +19,7 @@ import { ProjectDialog } from './project-dialog';
 import { ClientExpenses } from './client-expenses';
 import { ExpenseDialog } from './expense-dialog';
 import { keys } from '@/lib/client/query-keys';
+import { rowBleed, rowButton } from './row-button';
 
 /**
  * Every client as a card holding its projects and the expenses it owes back
@@ -34,9 +36,9 @@ import { keys } from '@/lib/client/query-keys';
 export function ClientList() {
   /* `null` is a new project for no client; a string, for that client. */
   const [creating, setCreating] = useState<string | null | undefined>();
-  const [editing, setEditing] = useState<Project | undefined>();
-  const [editingClient, setEditingClient] = useState<Client | undefined>();
-  const [addingExpense, setAddingExpense] = useState<Client | undefined>();
+  const editing = useDialog<Project>();
+  const editingClient = useDialog<Client>();
+  const addingExpense = useDialog<Client>();
 
   const clientQuery = useQuery({
     queryKey: keys.clients({ archived: true }),
@@ -97,9 +99,9 @@ export function ClientList() {
                 key={g.client?.id ?? '__none__'}
                 client={g.client}
                 defaultRate={defaultRate}
-                onEditClient={setEditingClient}
+                onEditClient={editingClient.show}
                 onAdd={() => setCreating(g.client?.id ?? null)}
-                onAddExpense={() => g.client && setAddingExpense(g.client)}
+                onAddExpense={() => g.client && addingExpense.show(g.client)}
                 expenses={
                   g.client ? (
                     <ClientExpenses
@@ -115,7 +117,7 @@ export function ClientList() {
                     project={project}
                     client={g.client}
                     defaultRate={defaultRate}
-                    onEdit={() => setEditing(project)}
+                    onEdit={() => editing.show(project)}
                   />
                 ))}
               </Card>
@@ -130,22 +132,22 @@ export function ClientList() {
         defaultClientId={creating}
       />
       <ProjectDialog
-        open={editing !== undefined}
-        onOpenChange={(open) => !open && setEditing(undefined)}
-        existing={editing}
+        open={editing.open}
+        onOpenChange={editing.onOpenChange}
+        existing={editing.subject}
       />
-      {addingExpense ? (
+      {addingExpense.subject ? (
         <ExpenseDialog
-          open
-          onOpenChange={(open) => !open && setAddingExpense(undefined)}
-          client={addingExpense}
+          open={addingExpense.open}
+          onOpenChange={addingExpense.onOpenChange}
+          client={addingExpense.subject}
         />
       ) : null}
-      {editingClient ? (
+      {editingClient.subject ? (
         <ClientDialog
-          open
-          onOpenChange={(open) => !open && setEditingClient(undefined)}
-          client={editingClient}
+          open={editingClient.open}
+          onOpenChange={editingClient.onOpenChange}
+          client={editingClient.subject}
         />
       ) : null}
     </Page>
@@ -336,8 +338,7 @@ function Row({
         type="button"
         onClick={onEdit}
         aria-label={`Edit ${project.name}`}
-        className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-2.5 text-left
-                   hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+        className={`${rowButton} ${rowBleed} flex items-center gap-3 py-2.5`}
       >
         {/* An archived row recedes: it bills nothing new, so its name and
             rate step down a shade and the badge sits with the name. */}

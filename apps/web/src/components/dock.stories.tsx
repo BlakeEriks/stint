@@ -53,6 +53,35 @@ export const Column: Story = {
   },
 };
 
+/** An overlap with billed time opens the unbilled entry and names the
+    invoice holding the other, which can't be edited. */
+export const BilledOverlap: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const sent = db.invoices.find((i) => i.status === 'sent');
+    const billed = db.entries.find(
+      (e) =>
+        e.taskName === 'Checkout timeout fix' &&
+        db.entries.some(
+          (o) =>
+            o.taskName === 'Client call and follow-ups' &&
+            localDateKey(new Date(o.startedAt), ZONE) ===
+              localDateKey(new Date(e.startedAt), ZONE),
+        ),
+    );
+    if (billed && sent) billed.invoiceId = sent.id;
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByText(/Overlaps Checkout timeout fix on STINT-/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Edit Client call and follow-ups' }),
+    ).toBeVisible();
+  },
+};
+
 /** Below `xl` the dock is a band that sizes to its content, with no split. */
 export const Band: Story = { ...tablet };
 

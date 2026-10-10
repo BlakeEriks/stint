@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
+import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery } from '@tanstack/react-query';
 import {
   formatCompact,
@@ -94,9 +95,10 @@ export function Calendar() {
     queryFn: () => api.projects(),
   });
 
-  const [editing, setEditing] = useState<TimeEntry | undefined>();
-  const [seed, setSeed] = useState<{ startedAt: string; endedAt: string }>();
-  const [open, setOpen] = useState(false);
+  const editor = useDialog<{
+    existing?: TimeEntry;
+    seed?: { startedAt: string; endedAt: string };
+  }>();
 
   const drag = useEntryDrag();
 
@@ -141,22 +143,18 @@ export function Calendar() {
         timeZone: tz,
       }).format(cal.weekStart);
 
-  const edit = (entry: TimeEntry) => {
-    setSeed(undefined);
-    setEditing(entry);
-    setOpen(true);
-  };
+  const edit = (entry: TimeEntry) => editor.show({ existing: entry });
 
   /* Clicking empty grid opens the editor pre-filled, rather than writing a
      row. A click on a grid is a cheap gesture and a time entry is a financial
      record; pre-filling gets the time right without committing to it. */
   const create = (startedAt: Date, endedAt: Date) => {
-    setEditing(undefined);
-    setSeed({
-      startedAt: startedAt.toISOString(),
-      endedAt: endedAt.toISOString(),
+    editor.show({
+      seed: {
+        startedAt: startedAt.toISOString(),
+        endedAt: endedAt.toISOString(),
+      },
     });
-    setOpen(true);
   };
 
   return (
@@ -327,10 +325,10 @@ export function Calendar() {
       </div>
 
       <EntryDialog
-        open={open}
-        onOpenChange={setOpen}
-        existing={editing}
-        seed={seed}
+        open={editor.open}
+        onOpenChange={editor.onOpenChange}
+        existing={editor.subject?.existing}
+        seed={editor.subject?.seed}
         projects={projects.data?.projects ?? []}
       />
     </Page>
