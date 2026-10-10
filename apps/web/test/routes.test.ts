@@ -824,13 +824,13 @@ test('calendar groups entries by LOCAL day', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
   const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
 
-  // 02:30Z on the 12th is still the 11th in São Paulo (UTC-3).
+  // 01:30Z on the 12th is still the 11th in São Paulo (UTC-3).
   await create(
     req('/entries', {
       id: '018f0000-0000-7000-8000-000000000020',
       taskName: 'Late night',
-      startedAt: '2026-09-12T02:30:00Z',
-      endedAt: '2026-09-12T03:30:00Z',
+      startedAt: '2026-09-12T01:30:00Z',
+      endedAt: '2026-09-12T02:30:00Z',
     }),
   );
 
@@ -900,6 +900,58 @@ test('the day split counts billable work only', async () => {
   // The day's whole load stays unfiltered: the calendar draws all of it.
   assert.equal(day.totalSeconds, 10_800);
   assert.equal(split, 7200, 'but the split leaves the non-billable hour out');
+});
+
+/* Counted whole on the day it started, a Friday-night entry would give
+   Friday more than 24 hours and Saturday nothing. */
+test('calendar splits an entry that crosses local midnight', async () => {
+  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
+  const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
+
+  // Friday 22:00 to Saturday 02:00 in New York (EDT, UTC-4).
+  await create(
+    req('/entries', {
+      id: '018f0000-0000-7000-8000-000000000040',
+      taskName: 'Overnight',
+      startedAt: '2026-07-04T02:00:00Z',
+      endedAt: '2026-07-04T06:00:00Z',
+    }),
+  );
+
+  const tz = 'America/New_York';
+  const totals = (days: { date: string; totalSeconds: number }[]) =>
+    Object.fromEntries(days.map((d) => [d.date, d.totalSeconds]));
+
+  // A range that starts Saturday still finds the entry begun Friday.
+  const saturday = await json(
+    await calendar(
+      req(
+        `/calendar?from=2026-07-04T04:00:00Z&to=2026-07-05T04:00:00Z&tz=${tz}`,
+      ),
+    ),
+  );
+  assert.equal(totals(saturday.body.days)['2026-07-04'], 7200);
+  const entries = saturday.body.days.find(
+    (d: { date: string }) => d.date === '2026-07-04',
+  ).entries;
+  assert.equal(entries.length, 1, 'the entry is drawn on Saturday too');
+
+  const day = await json(
+    await calendar(
+      req(
+        `/calendar?from=2026-07-03T04:00:00Z&to=2026-07-05T04:00:00Z&granularity=day&tz=${tz}`,
+      ),
+    ),
+  );
+  assert.deepEqual(
+    totals(day.body.days),
+    { '2026-07-03': 7200, '2026-07-04': 7200 },
+    'each day counts only its own part',
+  );
+  const split = day.body.days.map((d: { byClient: Record<string, number> }) =>
+    Object.values(d.byClient).reduce((s, n) => s + n, 0),
+  );
+  assert.deepEqual(split, [7200, 7200]);
 });
 
 test('calendar rejects an inverted period', async () => {

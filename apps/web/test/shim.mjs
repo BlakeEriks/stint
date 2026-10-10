@@ -109,6 +109,20 @@ export function makeDb(pool, userId) {
         st.wheres.push((P) => `${c} > ${P(v)}`);
         return api;
       },
+      /* PostgREST's `or`, for the `col.op.value` filters routes use: the
+         comparisons above, and `is.null`. */
+      or(filters) {
+        const ops = { eq: '=', gt: '>', gte: '>=', lt: '<', lte: '<=' };
+        const terms = filters.split(',').map((f) => {
+          const [c, op, ...rest] = f.split('.');
+          const v = rest.join('.');
+          if (op === 'is' && v === 'null') return () => `${c} IS NULL`;
+          if (!ops[op]) throw new Error(`shim: unsupported or() filter ${f}`);
+          return (P) => `${c} ${ops[op]} ${P(v)}`;
+        });
+        st.wheres.push((P) => `(${terms.map((t) => t(P)).join(' OR ')})`);
+        return api;
+      },
       in(c, vs) {
         if (!vs.length) {
           st.wheres.push(() => 'false');

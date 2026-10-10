@@ -189,6 +189,28 @@ export function localDateKey(at: Date, tz: string): string {
 }
 
 /**
+ * The seconds of `[start, end)` on each local date, cut at local midnight so
+ * no day holds more than it has. The entry stays one record; only its day
+ * grouping splits. A zero-length span keeps its one day.
+ */
+export function splitByLocalDay(
+  start: Date,
+  end: Date,
+  tz: string,
+): { date: string; seconds: number }[] {
+  const days: { date: string; seconds: number }[] = [];
+  let from = start;
+  do {
+    const midnight = startOfLocalDayOffset(from, tz, -1);
+    const to = midnight < end ? midnight : end;
+    const ms = Math.max(0, to.getTime() - from.getTime());
+    days.push({ date: localDateKey(from, tz), seconds: Math.round(ms / 1000) });
+    from = midnight;
+  } while (from < end);
+  return days;
+}
+
+/**
  * The instant at which a local calendar date begins — the inverse of
  * `localDateKey`.
  *

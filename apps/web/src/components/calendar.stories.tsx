@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { http } from 'msw';
-import { localDateKey } from '@stint/core';
+import { addDays, localDateKey, localDateTimeToInstant } from '@stint/core';
 import { account } from '@/mocks/db';
 import { handlers } from '@/mocks/handlers';
 import { envelopes, ok } from '@/mocks/respond';
@@ -114,6 +114,36 @@ export const UntitledEntry: Story = {
     await expect(
       (await page.findAllByText('Untitled', { exact: true }))[0],
     ).toBeVisible();
+  },
+};
+
+/** An entry past midnight is drawn on both days it touches, each column
+    counting only its own part. */
+export const Overnight: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const today = localDateKey(db.now, ZONE);
+    const [first] = db.entries;
+    if (!first) return;
+    db.entries.push({
+      ...first,
+      id: '018f0000-0000-7000-8000-0000000000ee',
+      taskName: 'Overnight deploy',
+      startedAt: localDateTimeToInstant(
+        addDays(today, -1),
+        '23:00',
+        ZONE,
+      ).toISOString(),
+      endedAt: localDateTimeToInstant(today, '01:00', ZONE).toISOString(),
+      durationSeconds: 7200,
+      invoiceId: null,
+    });
+  }),
+  play: async ({ canvasElement }) => {
+    const page = await calendar(canvasElement);
+    await expect(
+      await page.findAllByRole('button', { name: /^Overnight deploy/ }),
+    ).toHaveLength(2);
   },
 };
 
