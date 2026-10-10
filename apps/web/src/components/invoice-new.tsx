@@ -847,13 +847,6 @@ function GroupingPicker({
 function period(p: { start: string; end: string }) {
   return { periodStart: p.start, periodEnd: p.end };
 }
-
-/**
- * Fills From and To with a whole month: this one and the 11 before it.
- *
- * It only reads the dates, so a range typed by hand shows as Custom and is
- * never rewritten.
- */
 function MonthPicker({
   start,
   end,
