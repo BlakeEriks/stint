@@ -124,9 +124,6 @@ export type TaskNameSuggestion = Response<schema.TaskNameSuggestion>;
 /* Nested objects keep their own optionality, so `Response` is applied only at
    the top level here — every nested field is already required. */
 export type Stats = Response<schema.Stats>;
-export type MonthEarned = schema.MonthEarned;
-export type WeekDay = schema.WeekDay;
-export type UnbilledClient = schema.UnbilledClient;
 
 export type CalendarDay = Response<Omit<schema.CalendarDay, 'entries'>> & {
   entries: TimeEntry[];
