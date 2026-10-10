@@ -27,10 +27,10 @@ export const Draft: Story = {
     await expect(
       await page.findByText('Type scale for the brand site'),
     ).toBeVisible();
-    await expect(page.getByText('Total').nextElementSibling).toHaveTextContent(
-      '$2,787.60',
-    );
-    await expect(page.queryByText(/Supporting detail/)).toBeNull();
+    await expect(
+      page.getByText('Amount due').nextElementSibling,
+    ).toHaveTextContent('$2,787.60');
+    await expect(page.queryByText(/supporting detail/)).toBeNull();
   },
 };
 export const DraftPhone: Story = { ...phone };
@@ -141,7 +141,7 @@ export const WithExpenses: Story = {
   },
 };
 
-/** The reference it was issued with, under the client. */
+/** The reference it was issued with, under the service period. */
 export const WithReference: Story = {
   ...desktop,
   args: { id: invoice(14) },
@@ -151,12 +151,12 @@ export const WithReference: Story = {
   }),
   play: async ({ canvasElement }) => {
     await expect(
-      await within(canvasElement).findByText('Reference PO 4471'),
+      await within(canvasElement).findByText('PO 4471'),
     ).toBeVisible();
   },
 };
 
-/** A summary invoice names the detail it carries from page 2 (US2
+/** A summary invoice shows the detail it carries from page 2 (US2
     scenario 8). */
 export const WithSupportingDetail: Story = {
   ...desktop,
@@ -172,10 +172,48 @@ export const WithSupportingDetail: Story = {
     };
   }),
   play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
     await expect(
-      await within(canvasElement).findByText(
-        'Supporting detail from page 2: Hours by project, Hours by week',
-      ),
+      await page.findByText('Page 2 · supporting detail'),
     ).toBeVisible();
+    await expect(page.getByText('Hours by project')).toBeVisible();
+    await expect(page.getByText('Hours by week')).toBeVisible();
+  },
+};
+
+/** Every line the PDF prints: the Tax ID, the terms, the whole payment
+    block with its notice, and the notes. */
+export const AsPrinted: Story = {
+  ...desktop,
+  args: { id: invoice(14) },
+  parameters: account((db) => {
+    db.settings.taxId = '12-3456789';
+    const sent = db.invoices.find((i) => i.id === invoice(14));
+    if (!sent) return;
+    sent.notes = 'Thank you for the work this month.';
+    sent.paymentDetails = {
+      title: 'USD wire',
+      fields: [
+        { label: 'Account holder', value: 'Blake Eriks' },
+        { label: 'Routing number (ACH)', value: '021000021' },
+      ],
+      intermediary: [],
+      link: { label: 'Pay online', url: 'https://pay.example.test/blake' },
+      notes: 'Include the invoice number in the memo.',
+    };
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    for (const text of [
+      /Tax ID 12-3456789/,
+      'Net 30',
+      'Payment — USD wire',
+      'Pay online: https://pay.example.test/blake',
+      'Include the invoice number in the memo.',
+      /bank details never change by email/,
+      'Thank you for the work this month.',
+    ]) {
+      await expect(await page.findByText(text)).toBeVisible();
+    }
   },
 };

@@ -1,32 +1,72 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useQuery, type QueryClient } from '@tanstack/react-query';
+import { useParams, useRouter } from 'next/navigation';
+import {
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
-import { Ban, DollarSign, Download, Eye, Send, Trash2 } from 'lucide-react';
+import { Ban, DollarSign, Download, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmAction } from './confirm-action';
 import { Section } from './field';
-import { StatusBadge, shortDate } from './invoice-bits';
+import { StatusBadge } from './invoice-bits';
+import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
+import { attachedSchedules } from '@stint/core';
 import {
-  attachedSchedules,
-  formatCurrency,
-  formatQuantity,
-  SCHEDULE_TITLES,
-} from '@stint/core';
-import { api, ApiError, type InvoiceStatus } from '@/lib/client/api';
+  api,
+  ApiError,
+  type Client,
+  type Invoice,
+  type InvoiceStatus,
+  type StoredLineItem,
+} from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
+/** The route's page: the id is read here, so the route itself is static. */
+export function InvoiceDetailRoute() {
+  const { id } = useParams<{ id: string }>();
+  return <InvoiceDetail id={id} />;
+}
+
+/** An invoice with its client; the lines are absent until they load. */
+type Shown = Invoice & {
+  client: Pick<Client, 'name' | 'email' | 'address'>;
+  lineItems?: StoredLineItem[];
+};
+
+/** What the invoice list and a client list already hold about this invoice,
+    so opening it draws at once. Undefined unless both are cached. */
+function fromLists(qc: QueryClient, id: string): Shown | undefined {
+  const invoice = qc
+    .getQueryData<{ invoices: Invoice[] }>(keys.invoices())
+    ?.invoices.find((i) => i.id === id);
+  if (!invoice) return undefined;
+  const client = qc
+    .getQueriesData<{ clients: Client[] }>({ queryKey: keys.clients() })
+    .flatMap(([, data]) => data?.clients ?? [])
+    .find((c) => c.id === invoice.clientId);
+  return client ? { ...invoice, client } : undefined;
+}
+
 export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
+  const qc = useQueryClient();
 
   const query = useQuery({
     queryKey: keys.invoice(id),
     queryFn: () => api.invoice(id),
   });
+  const seed = query.data || query.error ? undefined : fromLists(qc, id);
+  const shown = {
+    data: (query.data ?? seed) satisfies Shown | undefined,
+    error: query.error,
+    isLoading: query.isLoading && !seed,
+  };
 
   /* Voiding releases the entries and expenses and deleting a draft frees
      them, so every view of that work moves with the invoice. */
@@ -56,8 +96,8 @@ export function InvoiceDetail({ id }: { id: string }) {
   });
 
   return (
-    <DetailPage back="/invoices" label="Invoices">
-      <Listing query={query} missing="That invoice no longer exists.">
+    <DetailPage back="/invoices" label="Invoices" wide>
+      <Listing query={shown} missing="That invoice no longer exists.">
         {(data) => (
           <Loaded
             data={data}
@@ -71,14 +111,14 @@ export function InvoiceDetail({ id }: { id: string }) {
   );
 }
 
-/** The invoice itself, once it has arrived. */
+/** The invoice itself, as the PDF prints it, with what can be done to it. */
 function Loaded({
   data,
   setStatus,
   remove,
   error,
 }: {
-  data: Awaited<ReturnType<typeof api.invoice>>;
+  data: Shown;
   setStatus: {
     mutate: (args: { status: InvoiceStatus; paidAt?: string }) => void;
     isPending: boolean;
@@ -90,167 +130,39 @@ function Loaded({
      one — React Query holds the last error until the next success. */
   error: unknown;
 }) {
-  const { lineItems, client, ...invoice } = data;
-  const services = lineItems.filter((li) => li.unit !== 'expense');
-  const expenses = lineItems.filter((li) => li.unit === 'expense');
+  const { client, ...invoice } = data;
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
   const [markingPaid, setMarkingPaid] = useState(false);
+  /* The PDF prints the business block from settings as they are now, so the
+     card does too. */
+  const { data: settings } = useQuery({
+    queryKey: keys.settings(),
+    queryFn: () => api.settings(),
+  });
 
   return (
-    <>
-      <header className="flex flex-wrap items-start justify-between gap-3 pb-6">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2.5">
-            <h1 className="truncate type-title text-strong">
-              {invoice.invoiceNumber}
-            </h1>
-            <StatusBadge status={invoice.status} />
-          </div>
-          <p className="mt-1 type-control text-muted">
-            {client.name} · {shortDate(invoice.periodStart)} –{' '}
-            {shortDate(invoice.periodEnd)}
-          </p>
-          {invoice.reference ? (
-            <p className="mt-0.5 type-support text-subtle">
-              Reference {invoice.reference}
-            </p>
-          ) : null}
+    <div className="@container/detail">
+      <header className="flex flex-wrap items-center justify-between gap-3 pb-6">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <h1 className="truncate type-title text-strong">
+            {invoice.invoiceNumber}
+          </h1>
+          <StatusBadge status={invoice.status} />
         </div>
-
-        <div className="flex flex-none flex-wrap gap-2">
-          {/* Downloading is how an invoice reaches a client: the app sends no
-              mail, so this is the primary action on the screen. */}
-          <Button asChild>
-            <a href={api.invoicePdfUrl(invoice.id, true)}>
-              <Download aria-hidden strokeWidth={1.75} />
-              Download PDF
-            </a>
-          </Button>
-          <Button asChild variant="default">
-            <a
-              href={api.invoicePdfUrl(invoice.id)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Eye aria-hidden strokeWidth={1.75} />
-              Preview
-            </a>
-          </Button>
-        </div>
+        {/* Downloading is how an invoice reaches a client: the app sends no
+            mail, so this is the primary action on the screen. */}
+        <Button asChild>
+          <a href={api.invoicePdfUrl(invoice.id, true)}>
+            <Download aria-hidden strokeWidth={1.75} />
+            Download PDF
+          </a>
+        </Button>
       </header>
 
-      <Section title="Lines">
-        <div className="overflow-x-auto">
-          <table className="w-full type-support">
-            <thead>
-              <tr className="border-b border-edge-subtle text-left">
-                <th scope="col" className={TH}>
-                  Description
-                </th>
-                <th scope="col" className={`${TH} text-right`}>
-                  Qty
-                </th>
-                <th scope="col" className={`${TH} text-right`}>
-                  Rate
-                </th>
-                <th scope="col" className={`${TH} text-right`}>
-                  Amount
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {services.map((item, i) => (
-                <tr
-                  key={i}
-                  className="border-b border-edge-subtle last:border-0"
-                >
-                  <td className="py-2 pr-3 text-primary">{item.description}</td>
-                  <td className="type-duration py-2 pl-3 text-right text-muted">
-                    {formatQuantity(item.unit, item.quantity)}
-                  </td>
-                  <td className="type-duration py-2 pl-3 text-right text-muted">
-                    {formatCurrency(item.unitPrice, invoice.currency)}
-                  </td>
-                  <td className="type-duration py-2 pl-3 text-right text-strong">
-                    {formatCurrency(item.amount, invoice.currency)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            {/* Reimbursements under their own heading, dated, as on the PDF. */}
-            {expenses.length > 0 ? (
-              <tbody>
-                <tr className="border-b border-edge-subtle text-left">
-                  <th scope="colgroup" colSpan={4} className={`${TH} pt-4`}>
-                    Expenses
-                  </th>
-                </tr>
-                {expenses.map((item, i) => (
-                  <tr
-                    key={i}
-                    className="border-b border-edge-subtle last:border-0"
-                  >
-                    <td className="py-2 pr-3 text-primary">
-                      {item.description}
-                    </td>
-                    <td className="type-duration py-2 pl-3 text-right text-muted">
-                      {shortDate(item.spentOn)}
-                    </td>
-                    <td />
-                    <td className="type-duration py-2 pl-3 text-right text-strong">
-                      {formatCurrency(item.amount, invoice.currency)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            ) : null}
-          </table>
-        </div>
-
-        <dl className="ml-auto flex w-full max-w-[16rem] flex-col gap-1 type-support">
-          {/* An invoice of expenses alone has no services to subtotal. */}
-          {services.length > 0 || expenses.length === 0 ? (
-            <Row
-              label={expenses.length > 0 ? 'Services' : 'Subtotal'}
-              value={formatCurrency(invoice.subtotal, invoice.currency)}
-            />
-          ) : null}
-          {invoice.taxRate > 0 ? (
-            <Row
-              label={`Tax (${invoice.taxRate}%)`}
-              value={formatCurrency(invoice.taxAmount, invoice.currency)}
-            />
-          ) : null}
-          {expenses.length > 0 ? (
-            <Row
-              label="Expenses"
-              value={formatCurrency(invoice.expensesSubtotal, invoice.currency)}
-            />
-          ) : null}
-          <Row
-            label="Total"
-            value={formatCurrency(invoice.total, invoice.currency)}
-            strong
-          />
-        </dl>
-
-        {invoice.supportingDetail ? (
-          <p className="type-support text-muted">
-            Supporting detail from page 2:{' '}
-            {attachedSchedules(invoice.supportingDetail)
-              .map((k) => SCHEDULE_TITLES[k])
-              .join(', ')}
-          </p>
-        ) : null}
-
-        <p className="type-support text-subtle">
-          Rates are frozen at generation — editing a client or project later
-          never changes this invoice.
-        </p>
-      </Section>
-
-      <div>
+      {/* The actions beside the invoice on a wide panel, above it on a
+          narrow one, as New invoice keeps its form beside the same card. */}
+      <div className="grid gap-x-10 gap-y-6 @min-[800px]/detail:grid-cols-[260px_minmax(0,816px)]">
         <Section title="Status" description={statusHint(invoice.status)}>
           <div className="flex flex-wrap items-center gap-2">
             {invoice.status === 'draft' ? (
@@ -313,6 +225,26 @@ function Loaded({
 
           <ActionError error={error} />
         </Section>
+
+        <InvoicePreviewCard
+          preview={{ ...invoice, schedules: invoice.supportingDetail }}
+          client={client}
+          settings={settings}
+          number={invoice.invoiceNumber}
+          issued={invoice.issueDate}
+          due={invoice.dueDate ?? ''}
+          reference={invoice.reference ?? ''}
+          payment={invoice.paymentDetails}
+          schedules={
+            invoice.supportingDetail
+              ? attachedSchedules(invoice.supportingDetail)
+              : []
+          }
+          updating={!invoice.lineItems}
+          paymentTerms={invoice.paymentTerms}
+          notes={invoice.notes}
+          footnote="Rates are frozen at generation — editing a client or project later never changes this invoice."
+        />
       </div>
 
       <MarkPaidDialog
@@ -325,11 +257,9 @@ function Loaded({
         error={error}
         sentAt={invoice.sentAt}
       />
-    </>
+    </div>
   );
 }
-
-const TH = 'pb-2 type-label text-subtle';
 
 function statusHint(status: InvoiceStatus): string {
   if (status === 'draft')
@@ -346,30 +276,5 @@ function ActionError({ error }: { error: unknown }) {
     <p role="alert" className="type-support text-danger">
       {error instanceof ApiError ? error.message : 'That change was rejected.'}
     </p>
-  );
-}
-
-function Row({
-  label,
-  value,
-  strong,
-}: {
-  label: string;
-  value: string;
-  strong?: boolean;
-}) {
-  return (
-    <div
-      className={`flex justify-between gap-4 ${
-        strong ? 'border-t border-edge-subtle pt-1.5' : ''
-      }`}
-    >
-      <dt className={strong ? 'text-primary' : 'text-muted'}>{label}</dt>
-      <dd
-        className={`${strong ? 'type-amount text-strong' : 'type-duration text-muted'}`}
-      >
-        {value}
-      </dd>
-    </div>
   );
 }
