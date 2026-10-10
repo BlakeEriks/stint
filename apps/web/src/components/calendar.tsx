@@ -158,7 +158,7 @@ export function Calendar() {
   };
 
   return (
-    <Page wide flush fills workspace>
+    <Page flush fills workspace>
       {/* The screen is a column the height of the panel: the heading takes
           what it needs and the grid takes the rest. `min-h-0` at every link
           is what lets the grid shrink rather than push the column taller than
