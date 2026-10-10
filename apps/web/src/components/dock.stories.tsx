@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
-import type { Db } from '@/mocks/fixtures';
+import { type Db, entry, ids } from '@/mocks/fixtures';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { desktop, expectOpen, tablet } from '@/mocks/screen';
 import { ZONE } from '@/mocks/time.mts';
@@ -79,6 +79,54 @@ export const BilledOverlap: Story = {
     await expect(
       page.getByRole('button', { name: 'Edit Client call and follow-ups' }),
     ).toBeVisible();
+  },
+};
+
+/** Past three overlaps they are one row, so a flood of them buries nothing
+    else. It expands in place to the pairs, longest first, each still
+    opening its entry. */
+export const OverlapRollup: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const call = db.entries.find(
+      (e) => e.taskName === 'Client call and follow-ups',
+    ) as Db['entries'][number];
+    const date = localDateKey(new Date(call.startedAt), ZONE);
+    // Two more, inside a vendor call: four with the seeded two.
+    db.entries.push(
+      entry(9100, date, '19:00', 120, ids.rush, 'Vendor call'),
+      entry(9101, date, '19:15', 20, ids.rush, 'Hotfix review'),
+      entry(9102, date, '20:00', 45, ids.rush, 'Release notes'),
+    );
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const rollup = within(
+      (await page.findByText('4 overlaps')).closest(
+        '[data-tone]',
+      ) as HTMLElement,
+    );
+    await expect(rollup.getByText('2h 28m')).toBeVisible();
+    await expect(page.queryByText(/^Overlaps /)).toBeNull();
+
+    const toggle = rollup.getByRole('button', { name: 'Show overlaps' });
+    await userEvent.click(toggle);
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const pairs = page
+      .getAllByText(/^Overlaps /)
+      .map(
+        (d) => d.closest('[data-tone]')?.querySelector('button')?.textContent,
+      );
+    await expect(pairs).toEqual([
+      'Client call and follow-ups',
+      'Release notes',
+      'Research: carrier APIs',
+      'Hotfix review',
+    ]);
+    await userEvent.click(
+      page.getByRole('button', { name: 'Edit Release notes' }),
+    );
+    await expectOpen(canvasElement, 'dialog');
   },
 };
 
