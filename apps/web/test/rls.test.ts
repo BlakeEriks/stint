@@ -640,6 +640,24 @@ test('an issued invoice and its lines cannot be rewritten in the database', asyn
   assert.equal(entry.invoice_id, ALICE_INVOICE, 'the entry stays billed');
 });
 
+test('deleting the account takes a sent invoice with it', async () => {
+  await issueAliceInvoice('sent');
+
+  // `delete_account()` runs as its definer, which the delete guard lets by.
+  await asUser(ALICE, 'select delete_account()');
+
+  const { rows } = await admin.query(
+    'select count(*)::int n from invoices where user_id = $1',
+    [ALICE],
+  );
+  assert.equal(rows[0].n, 0);
+  // Alice back, for the tests after this one.
+  await admin.query(
+    `insert into auth.users (id,email) values ($1,'alice@test')`,
+    [ALICE],
+  );
+});
+
 test('a draft invoice and its lines stay editable', async () => {
   await issueAliceInvoice('draft');
 

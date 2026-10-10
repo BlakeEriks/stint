@@ -18,8 +18,6 @@ language plpgsql as $$
 declare
   mutable constant text[] := array['status', 'sent_at', 'paid_at', 'updated_at'];
 begin
-  -- The one copy of the transition table: the status route maps this
-  -- refusal to its 422 rather than checking first.
   if new.status is distinct from old.status
      and (old.status, new.status) not in (
        ('draft', 'sent'), ('draft', 'void'),

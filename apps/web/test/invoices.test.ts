@@ -1128,14 +1128,27 @@ test('an issued invoice cannot be deleted — it must be voided', async () => {
   await setStatus(req('/s', { status: 'sent' }, 'PATCH'), {
     params: Promise.resolve({ id: inv.body.id }),
   });
+
+  // `guard_issued_invoice_delete` refuses only `authenticated`, the role a
+  // signed-in caller reaches the database as, so the delete runs as it.
+  const asCaller = new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+    options: `-c role=authenticated -c request.jwt.claim.sub=${USER}`,
+  });
+  (globalThis as any).__TEST_DB__ = makeDb(asCaller, USER);
   const res = await json(
     await del(req('/i', undefined, 'DELETE'), {
       params: Promise.resolve({ id: inv.body.id }),
     }),
-  );
+  ).finally(() => asCaller.end());
 
   assert.equal(res.status, 422);
   assert.match(res.body.message, /void it instead/);
+  const { rows } = await pool.query(
+    'select invoice_id from time_entries where id = $1',
+    [E(1)],
+  );
+  assert.equal(rows[0].invoice_id, inv.body.id, 'the entry stays billed');
 });
 
 // ── detail & listing ───────────────────────────────────────────────
