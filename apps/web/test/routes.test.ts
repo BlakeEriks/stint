@@ -36,6 +36,7 @@ after(async () => {
 });
 
 beforeEach(async () => {
+  await pool.query('delete from feedback');
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
   // Detach first: the immutability trigger refuses to delete an entry that
@@ -3196,4 +3197,79 @@ test('an unhandled route error reaches Sentry, not only the log', async () => {
   await close(1000);
   assert.equal(res.status, 500);
   assert.deepEqual(sent, ['unexpected']);
+});
+
+// ── feedback ───────────────────────────────────────────────────────
+const FEEDBACK = {
+  id: '018f0000-0000-7000-a000-000000000001',
+  message: 'The Northwind total looks short.',
+  screen: '/invoices',
+  client: 'web',
+  appVersion: '0.1.0-alpha.3',
+};
+
+const feedbackRows = async () =>
+  (
+    await pool.query(
+      'select user_id, message, screen, client, app_version from feedback',
+    )
+  ).rows;
+
+test('feedback is stored with the sender and the context it was sent with', async () => {
+  const { POST } = await import('../src/app/api/v1/feedback/route.ts');
+
+  const res = await json(
+    await POST(req('/feedback', { ...FEEDBACK, userId: OTHER })),
+  );
+  assert.equal(res.status, 201);
+  assert.deepEqual(res.body, { id: FEEDBACK.id });
+  assert.deepEqual(await feedbackRows(), [
+    {
+      user_id: USER,
+      message: FEEDBACK.message,
+      screen: '/invoices',
+      client: 'web',
+      app_version: '0.1.0-alpha.3',
+    },
+  ]);
+});
+
+test('feedback trims its message and refuses an empty or overlong one', async () => {
+  const { POST } = await import('../src/app/api/v1/feedback/route.ts');
+
+  for (const message of ['', '   ', 'x'.repeat(2001)]) {
+    const res = await POST(req('/feedback', { ...FEEDBACK, message }));
+    assert.equal(res.status, 422, `"${message.slice(0, 5)}…" is refused`);
+  }
+  const ok = await POST(
+    req('/feedback', { ...FEEDBACK, message: `  ${'x'.repeat(2000)}  ` }),
+  );
+  assert.equal(ok.status, 201, '2,000 characters after trimming is allowed');
+  assert.equal((await feedbackRows())[0].message.length, 2000);
+});
+
+test('feedback refuses a missing screen or version and an unknown client', async () => {
+  const { POST } = await import('../src/app/api/v1/feedback/route.ts');
+
+  const { screen: _s, ...noScreen } = FEEDBACK;
+  const { appVersion: _v, ...noVersion } = FEEDBACK;
+  for (const body of [
+    noScreen,
+    noVersion,
+    { ...FEEDBACK, client: 'ios' },
+    { ...FEEDBACK, screen: 'invoices' },
+  ]) {
+    assert.equal((await POST(req('/feedback', body))).status, 422);
+  }
+  assert.equal((await feedbackRows()).length, 0);
+});
+
+test('a retried feedback send stores one message', async () => {
+  const { POST } = await import('../src/app/api/v1/feedback/route.ts');
+
+  assert.equal((await POST(req('/feedback', FEEDBACK))).status, 201);
+  const again = await json(await POST(req('/feedback', FEEDBACK)));
+  assert.equal(again.status, 201);
+  assert.deepEqual(again.body, { id: FEEDBACK.id });
+  assert.equal((await feedbackRows()).length, 1);
 });

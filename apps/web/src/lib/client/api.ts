@@ -421,6 +421,10 @@ export const api = {
   createExpense: (body: ExpenseInput & { id: string }) =>
     request<Expense>('POST', '/expenses', body),
 
+  /** `id` is made once per message, so a retry stores it once. */
+  sendFeedback: (body: schema.CreateFeedback) =>
+    request<{ id: string }>('POST', '/feedback', body),
+
   updateExpense: (id: string, body: Partial<ExpenseInput>) =>
     request<Expense>('PATCH', `/expenses/${id}`, body),
 

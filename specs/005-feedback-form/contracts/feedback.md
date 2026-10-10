@@ -28,5 +28,5 @@ Requires a session.
 | --- | --- | --- |
 | `201` | Stored | `{ "id": "…" }` |
 | `201` | The same `id` was already stored by this user (a retry) | `{ "id": "…" }` |
-| `400` | Fails the schema: empty or too long, for example | The standard validation error |
+| `422` | Fails the schema: empty or too long, for example | The standard validation error |
 | `401` | No session | The standard auth error |

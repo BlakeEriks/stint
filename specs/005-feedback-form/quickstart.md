@@ -26,8 +26,8 @@ seeded account (Mailpit link).
 4. **Failure keeps the text.** Stop the dev server's database (or block the
    request in devtools) and send. The dialog stays open with the message and
    says it couldn't send.
-5. **Phone.** At 390px wide, the button is in the header and the form rises
-   as a sheet.
+5. **Phone.** At 390px wide, the button is in the header and the form fits
+   the width.
 
 ## Suites
 

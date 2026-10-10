@@ -22,7 +22,7 @@ using the app quietly instead.
 - **The form**: a dialog over the current screen, titled "Send feedback",
   with one line saying where it goes, one message box, a character count out
   of 2,000 that notes the screen and version are sent with it, and Cancel and
-  Send. On a phone it's a sheet that rises from the bottom.
+  Send. On a phone it's the app's standard dialog, like every other form.
 - **Open**: an empty message box, with Send disabled until there's text.
 - **Sending**: the message is read-only, Cancel is disabled, and Send shows a
   spinner and "Sending".

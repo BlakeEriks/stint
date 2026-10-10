@@ -68,6 +68,7 @@ after(async () => {
 });
 
 beforeEach(async () => {
+  await admin.query('delete from feedback');
   await admin.query('update expenses set invoice_id = null');
   await admin.query('delete from expenses');
   await admin.query('update time_entries set invoice_id = null');
@@ -137,6 +138,18 @@ async function seedExpenses() {
   );
 }
 
+/** One feedback message each. */
+const ALICE_FEEDBACK = '018f0000-0000-7000-a000-00000000000a';
+const BOB_FEEDBACK = '018f0000-0000-7000-a000-00000000000b';
+async function seedFeedback() {
+  await admin.query(
+    `insert into feedback (id,user_id,message,screen,client,app_version) values
+       ($1,$3,'Alice says','/','web','0.1.0'),
+       ($2,$4,'Bob says','/','web','0.1.0')`,
+    [ALICE_FEEDBACK, BOB_FEEDBACK, ALICE, BOB],
+  );
+}
+
 // ── reads ──────────────────────────────────────────────────────────
 test('an unfiltered select returns only the caller’s rows', async () => {
   await seedBoth();
@@ -177,6 +190,7 @@ test('every user-scoped table is isolated', async () => {
   );
 
   await seedExpenses();
+  await seedFeedback();
 
   for (const table of [
     'clients',
@@ -186,6 +200,7 @@ test('every user-scoped table is isolated', async () => {
     'payment_profiles',
     'user_settings',
     'expenses',
+    'feedback',
   ]) {
     const seen = await asUser(ALICE, `select count(*)::int n from ${table}`);
     const total = await admin.query(`select count(*)::int n from ${table}`);
@@ -306,6 +321,41 @@ test('an unqualified delete removes only the caller’s rows', async () => {
   const { rows } = await admin.query('select user_id from time_entries');
   assert.equal(rows.length, 1, 'only Alice’s entry was deleted');
   assert.equal(rows[0].user_id, BOB);
+});
+
+test('feedback cannot be sent on another user’s behalf', async () => {
+  await assert.rejects(
+    () =>
+      asUser(
+        ALICE,
+        `insert into feedback (id,user_id,message,screen,client,app_version)
+         values ($1,$2,'Forged','/','web','0.1.0')`,
+        [ALICE_FEEDBACK, BOB],
+      ),
+    /row-level security/i,
+  );
+});
+
+test('sent feedback cannot be changed or deleted, even by its sender', async () => {
+  await seedFeedback();
+
+  await assert.rejects(
+    () =>
+      asUser(ALICE, `update feedback set message = 'Rewritten' where id = $1`, [
+        ALICE_FEEDBACK,
+      ]),
+    /permission denied/i,
+  );
+  await assert.rejects(
+    () => asUser(ALICE, 'delete from feedback where id = $1', [ALICE_FEEDBACK]),
+    /permission denied/i,
+  );
+
+  const { rows } = await admin.query(
+    'select message from feedback where id = $1',
+    [ALICE_FEEDBACK],
+  );
+  assert.equal(rows[0].message, 'Alice says');
 });
 
 // ── references across a tenant boundary ────────────────────────────
