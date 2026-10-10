@@ -259,17 +259,18 @@ function overlapRows(
   expanded: boolean,
   toggle: () => void,
 ): InboxRow[] {
-  const rolled = overlaps.length > OVERLAP_ROLLUP_PAST;
-  const pairs = (
-    rolled ? [...overlaps].sort((a, b) => b.seconds - a.seconds) : overlaps
-  ).map((o) => ({
-    /* Keyed by the pair: one entry can overlap several, and an entry here
+  /* Longest first either way, so a row resolved or arriving never reorders
+     the rest under the cursor. */
+  const pairs = [...overlaps]
+    .sort((a, b) => b.seconds - a.seconds)
+    .map((o) => ({
+      /* Keyed by the pair: one entry can overlap several, and an entry here
        can also be a strange-duration row. */
-    id: `overlap:${o.entryId}:${o.otherEntryId}`,
-    kind: 'overlap' as const,
-    row: o,
-  }));
-  if (!rolled) return pairs;
+      id: `overlap:${o.entryId}:${o.otherEntryId}`,
+      kind: 'overlap' as const,
+      row: o,
+    }));
+  if (overlaps.length <= OVERLAP_ROLLUP_PAST) return pairs;
   return [
     { id: 'overlaps', kind: 'overlaps', row: overlaps, expanded, toggle },
     ...(expanded ? pairs : []),
@@ -448,7 +449,6 @@ function Row({
   );
 }
 
-/** The overlaps as one row: their count, and the time they share. */
 function OverlapRollup({
   rollup,
   ...leaving
@@ -642,7 +642,6 @@ function Action({
   icon: React.ReactNode;
   onClick?: () => void;
   href?: string;
-  /** For an action that shows or hides rows. */
   expanded?: boolean;
 }) {
   return href ? (
