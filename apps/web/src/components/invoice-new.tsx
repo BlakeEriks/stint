@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useDialog } from '@/lib/client/use-dialog';
 import { useRouter } from 'next/navigation';
 import {
   keepPreviousData,
@@ -165,8 +166,10 @@ export function NewInvoice() {
     (e) => e.recurring || (e.spentOn as string) <= draft.periodEnd,
   );
   /* Which dialog is open, and on what: 'new', or the record being edited. */
-  const [expenseOpen, setExpenseOpen] = useState<Expense | 'new' | null>(null);
-  const [chargeOpen, setChargeOpen] = useState<string | 'new' | null>(null);
+  /* `undefined` adds an expense; an expense, edits it. */
+  const expenseDialog = useDialog<Expense | undefined>();
+  /* `'new'` adds a charge; a key, edits that one. */
+  const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
@@ -389,8 +392,8 @@ export function NewInvoice() {
                   currency={client.currency ?? undefined}
                   excluded={draft.excludedExpenseIds}
                   onToggle={toggleExpense}
-                  onOpen={setExpenseOpen}
-                  onAdd={() => setExpenseOpen('new')}
+                  onOpen={expenseDialog.show}
+                  onAdd={() => expenseDialog.show(undefined)}
                 />
               </Field>
             ) : null}
@@ -399,8 +402,8 @@ export function NewInvoice() {
               <ChargeRows
                 charges={draft.charges}
                 currency={client?.currency ?? undefined}
-                onOpen={setChargeOpen}
-                onAdd={() => setChargeOpen('new')}
+                onOpen={chargeDialog.show}
+                onAdd={() => chargeDialog.show('new')}
               />
             </Field>
 
@@ -487,14 +490,10 @@ export function NewInvoice() {
 
       {client ? (
         <ExpenseDialog
-          open={expenseOpen !== null}
-          onOpenChange={(open) => (open ? null : setExpenseOpen(null))}
+          open={expenseDialog.open}
+          onOpenChange={expenseDialog.onOpenChange}
           client={client}
-          expense={
-            expenseOpen !== null && expenseOpen !== 'new'
-              ? expenseOpen
-              : undefined
-          }
+          expense={expenseDialog.subject}
           // A new or changed expense changes what would be billed; a new one
           // is ticked, since nothing excludes it.
           onSaved={() =>
@@ -503,25 +502,27 @@ export function NewInvoice() {
         />
       ) : null}
       <ChargeDialog
-        open={chargeOpen !== null}
-        onOpenChange={(open) => (open ? null : setChargeOpen(null))}
-        charge={draft.charges.find((c) => c.key === chargeOpen)}
+        open={chargeDialog.open}
+        onOpenChange={chargeDialog.onOpenChange}
+        charge={draft.charges.find((c) => c.key === chargeDialog.subject)}
         onSave={(charge) =>
           set(
             'charges',
-            chargeOpen === 'new'
+            chargeDialog.subject === 'new'
               ? [...draft.charges, { ...charge, key: crypto.randomUUID() }]
               : draft.charges.map((c) =>
-                  c.key === chargeOpen ? { ...charge, key: c.key } : c,
+                  c.key === chargeDialog.subject
+                    ? { ...charge, key: c.key }
+                    : c,
                 ),
           )
         }
         onRemove={
-          chargeOpen !== 'new'
+          chargeDialog.subject !== 'new'
             ? () =>
                 set(
                   'charges',
-                  draft.charges.filter((c) => c.key !== chargeOpen),
+                  draft.charges.filter((c) => c.key !== chargeDialog.subject),
                 )
             : undefined
         }
