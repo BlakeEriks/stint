@@ -1,13 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
 import { formatCompact, formatCurrency } from '@stint/core';
 import {
   Check,
+  ChevronDown,
+  ChevronUp,
   DollarSign,
   Download,
   FolderInput,
@@ -35,7 +37,17 @@ type InboxRow =
   | { id: string; kind: 'draft'; row: Attention['staleDrafts'][number] }
   | { id: string; kind: 'unprojected'; row: Attention['unprojected'][number] }
   | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] }
-  | { id: string; kind: 'overlap'; row: Attention['overlaps'][number] };
+  | { id: string; kind: 'overlap'; row: Attention['overlaps'][number] }
+  | {
+      id: string;
+      kind: 'overlaps';
+      row: Attention['overlaps'];
+      expanded: boolean;
+      toggle: () => void;
+    };
+
+/** More overlaps than this become one row. */
+const OVERLAP_ROLLUP_PAST = 3;
 
 /**
  * The dock's inbox: everything that wants a decision, in one fixed place.
@@ -63,6 +75,7 @@ export function Inbox({ stats }: { stats: Stats }) {
     overlaps,
   } = stats.attention;
   const queryClient = useQueryClient();
+  const [overlapsExpanded, setOverlapsExpanded] = useState(false);
 
   const exit = useExit();
 
@@ -161,16 +174,18 @@ export function Inbox({ stats }: { stats: Stats }) {
       kind: 'strange' as const,
       row: e,
     })),
-    /* Keyed by the pair: one entry can overlap several, and an entry here can
-       also be a strange-duration row above. */
-    ...overlaps.map((o) => ({
-      id: `overlap:${o.entryId}:${o.otherEntryId}`,
-      kind: 'overlap' as const,
-      row: o,
-    })),
+    ...overlapRows(overlaps, overlapsExpanded, () =>
+      setOverlapsExpanded((e) => !e),
+    ),
   ];
 
-  const count = rows.length;
+  /* Each overlap counts, rolled up or not: each is its own decision. */
+  const count =
+    overdueInvoices.length +
+    staleDrafts.length +
+    unprojected.length +
+    strangeDurations.length +
+    overlaps.length;
 
   return (
     <section aria-label="Inbox">
@@ -234,7 +249,35 @@ export function Inbox({ stats }: { stats: Stats }) {
   );
 }
 
-/** Which `Item` a row becomes — the one place the five kinds differ. */
+/**
+ * A flood of overlaps — after an import, or weeks of forgotten stops — is one
+ * row, so it buries nothing else. It expands in place rather than linking
+ * away: a count the user then has to go and find is not an inbox row.
+ */
+function overlapRows(
+  overlaps: Attention['overlaps'],
+  expanded: boolean,
+  toggle: () => void,
+): InboxRow[] {
+  /* Longest first either way, so a row resolved or arriving never reorders
+     the rest under the cursor. */
+  const pairs = [...overlaps]
+    .sort((a, b) => b.seconds - a.seconds)
+    .map((o) => ({
+      /* Keyed by the pair: one entry can overlap several, and an entry here
+       can also be a strange-duration row. */
+      id: `overlap:${o.entryId}:${o.otherEntryId}`,
+      kind: 'overlap' as const,
+      row: o,
+    }));
+  if (overlaps.length <= OVERLAP_ROLLUP_PAST) return pairs;
+  return [
+    { id: 'overlaps', kind: 'overlaps', row: overlaps, expanded, toggle },
+    ...(expanded ? pairs : []),
+  ];
+}
+
+/** Which `Item` a row becomes — the one place the kinds differ. */
 function Row({
   entry,
   onStatus,
@@ -339,6 +382,8 @@ function Row({
     );
   }
 
+  if (r.kind === 'overlaps') return <OverlapRollup {...leaving} rollup={r} />;
+
   /* The pair's unbilled entry is opened — the later one when both are, as it
      started inside the other. A billed other is named by its invoice, since
      it can't be edited. Resolved by editing, never by an "it's fine": two
@@ -399,6 +444,35 @@ function Row({
             onClick={() => onConfirm(e.entryId)}
           />
         </>
+      }
+    />
+  );
+}
+
+function OverlapRollup({
+  rollup,
+  ...leaving
+}: {
+  rollup: Extract<InboxRow, { kind: 'overlaps' }>;
+  exiting: boolean;
+  ref: React.Ref<HTMLLIElement>;
+}) {
+  const { row, expanded, toggle } = rollup;
+  const Chevron = expanded ? ChevronUp : ChevronDown;
+  return (
+    <Item
+      {...leaving}
+      label={`${row.length} overlaps`}
+      detail="Time counted twice"
+      value={formatCompact(row.reduce((sum, o) => sum + o.seconds, 0))}
+      tone="warning"
+      actions={
+        <Action
+          label={expanded ? 'Hide overlaps' : 'Show overlaps'}
+          icon={<Chevron aria-hidden />}
+          onClick={toggle}
+          expanded={expanded}
+        />
       }
     />
   );
@@ -496,8 +570,8 @@ function Item({
             {label}
           </button>
         ) : (
-          /* Plain text where there is nothing to open — a running timer has
-             no record yet. */
+          /* Plain text where there is nothing to open: the overlap rollup
+             opens its rows with its action. */
           <span className={`${titleClass} hover:no-underline`}>{label}</span>
         )}
 
@@ -561,12 +635,14 @@ function Action({
   icon,
   onClick,
   href,
+  expanded,
 }: {
   label: string;
   ariaLabel?: string;
   icon: React.ReactNode;
   onClick?: () => void;
   href?: string;
+  expanded?: boolean;
 }) {
   return href ? (
     <Button asChild size="xs">
@@ -580,6 +656,7 @@ function Action({
       type="button"
       size="xs"
       aria-label={ariaLabel ?? label}
+      aria-expanded={expanded}
       onClick={onClick}
     >
       {icon}
