@@ -18,7 +18,6 @@
     "dev:migrate": "supabase migration up --local",
     "dev:status": "supabase status",
     "seed": "node scripts/seed-account.mjs",
-    "invite": "node scripts/invite.mjs",
     "try-mac": "node scripts/try-mac.mjs",
     "migrate": "node scripts/migrate.mjs",
     "verify:schema": "node scripts/verify-schema.mjs",

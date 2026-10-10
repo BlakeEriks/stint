@@ -78,6 +78,8 @@ exports included. **Downloading an invoice requires the paid tier**, and that
 is the only thing that does — the records get out free, the document is the
 product.
 
+**During Alpha, an account comes only by invite**; sign-up is closed.
+
 **The price covers the bill, not a margin.** Vercel Pro and Supabase Pro,
 $555 a year, are the whole overhead, and net of Stripe **fifteen subscribers
 cover it.** One more user costs about nothing until roughly a thousand

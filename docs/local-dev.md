@@ -84,13 +84,11 @@ worktree's own URL and its link returns there.
 
 ## Signing in
 
-**Any email address works** — including your real one. Enter it on `/signin`,
-then open **Mailpit** and click the link. No mail leaves the machine, so
-there is nothing in your actual inbox and nothing to rate-limit.
-
-`auth.email.enable_confirmations` is `false` locally, so a brand-new address
-is usable immediately; `dev@localhost.test` is the one the seed owns, so it is
-the only one that comes with clients, projects, and entries.
+**Sign-up is off, as in production**, so an address works only once it has
+an account: `pnpm seed <email>` makes one with data, `--clear` an empty one.
+Any other address gets "Stint is invite-only." Enter it on `/signin`, then
+open **Mailpit** and click the link. No mail leaves the machine, so there is
+nothing in your actual inbox and nothing to rate-limit.
 
 **One sign-in at a time per browser.** Sign-in is PKCE: the form stores a
 code verifier in localStorage under **one key per origin**, so two tabs on
@@ -276,9 +274,11 @@ here first. Two things worth running against local before a deploy:
 SUPABASE_DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres pnpm verify:schema
 ```
 
-and an invite (`pnpm invite you@example.com --local`), which exercises
+and an invite from Studio (`pnpm dev:up:studio`, then **Authentication →
+Users → Add user → Send invitation**), which exercises
 `create_default_settings` — a trigger that runs inside Supabase's own signup
-transaction and once broke production with a missing `search_path`. Local reproduces that code path faithfully.
+transaction and once broke production with a missing `search_path`. Local
+reproduces that code path faithfully.
 
 `major_version = 17` in `config.toml` matches the hosted project (17.6). If
 you upgrade one, upgrade the other.

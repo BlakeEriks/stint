@@ -23,7 +23,6 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { keychain } from './keys.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pr = process.argv[2];
@@ -45,10 +44,22 @@ const main = dirname(
 );
 const dest = resolve(main, '..', `${basename(main)}-review`);
 
-const bypass = keychain(
-  'dev.stint.vercel-bypass',
-  'Vercel → Settings → Deployment Protection → Protection Bypass for Automation.',
-);
+let bypass;
+try {
+  bypass = out('security', [
+    'find-generic-password',
+    '-s',
+    'dev.stint.vercel-bypass',
+    '-w',
+  ]);
+} catch {
+  console.error(`No Vercel bypass secret in the Keychain. Add it once:
+
+  security add-generic-password -s dev.stint.vercel-bypass -a stint -w <secret>
+
+Vercel → Settings → Deployment Protection → Protection Bypass for Automation.`);
+  process.exit(1);
+}
 
 const branch = out('gh', [
   'pr',

@@ -48,7 +48,7 @@ export function SignInForm({
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
-        // Invite-only: an account comes from `pnpm invite`, never this form.
+        // Invite-only: an account comes from an invite, never this form.
         shouldCreateUser: false,
       },
     });

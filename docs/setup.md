@@ -172,19 +172,13 @@ editing it changes local only.
 
 ## 4b. Invite people
 
-Sign-up is off, so an account exists only once it is invited:
+Sign-up is off, so an account exists only once it is invited: **Authentication
+→ Users → Add user → Send invitation**.
 
-```bash
-pnpm invite friend@example.com
-```
-
-It reads the project URL and a secret key from the Keychain, never a file.
-Store both once:
-
-```bash
-security add-generic-password -s dev.stint.prod-supabase-url -a stint -w https://<ref>.supabase.co
-security add-generic-password -s dev.stint.prod-supabase-secret -a stint -w sb_secret_...
-```
+The invite link signs nobody in. It lands on the **Site URL** with tokens in
+the URL fragment, which the app ignores, and the app sends a signed-out
+visitor to `/signin`. There the invitee enters their email and clicks the
+magic link. The default Invite template works as it is.
 
 Each invitee gets their own account; nothing is shared.
 
@@ -194,9 +188,10 @@ Each invitee gets their own account; nothing is shared.
 pnpm --filter @stint/web dev
 ```
 
-Invite yourself with `pnpm invite you@example.com --local`, then open `http://localhost:3100`, enter your
-email, click the link. The invite creates the `auth.users` row, and a
-trigger creates your `user_settings` with USD, a 12-hour long-entry threshold, and `INV-1` — verified.
+Make your account with `pnpm seed you@example.com --clear`, then open
+`http://localhost:3100`, enter your email, click the link. The new
+`auth.users` row fires a trigger that creates your `user_settings` with USD, a
+12-hour long-entry threshold, and `INV-1` — verified.
 
 Then: **Settings** (rate and business identity, since everything falls back
 to them) → **Clients** → a project from the timer's picker.
