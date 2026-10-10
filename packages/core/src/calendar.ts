@@ -234,6 +234,34 @@ export function addDays(date: string, n: number): string {
   return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
 }
 
+/** The first and last date of a `YYYY-MM` month. */
+export function monthPeriod(month: string): { start: string; end: string } {
+  const [y = 0, m = 1] = month.split('-').map(Number);
+  // Day 0 of the next month is the last day of this one.
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return {
+    start: `${month}-01`,
+    end: `${month}-${String(last).padStart(2, '0')}`,
+  };
+}
+
+/** The `YYYY-MM` month a period covers exactly, or null for any other range. */
+export function wholeMonth(start: string, end: string): string | null {
+  const month = start.slice(0, 7);
+  const p = monthPeriod(month);
+  return p.start === start && p.end === end ? month : null;
+}
+
+/** `2026-09` as "September 2026". */
+export function monthLabel(month: string): string {
+  const [y = 0, m = 1] = month.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(y, m - 1, 1)));
+}
+
 /** Rejects a bad IANA zone before it reaches a query. */
 export function isValidTimeZone(tz: string): boolean {
   try {

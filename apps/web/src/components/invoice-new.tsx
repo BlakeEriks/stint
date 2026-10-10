@@ -12,6 +12,13 @@ import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, inputClass } from './field';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ClientPicker } from './client-picker';
 import {
   DropdownMenu,
@@ -28,10 +35,14 @@ import {
   formatCurrency,
   formatInvoiceNumber,
   localDateKey,
+  localMonthKeys,
+  monthLabel,
+  monthPeriod,
   resolvePaymentProfile,
   SCHEDULE_KINDS,
   SCHEDULE_TITLES,
   type ScheduleKind,
+  wholeMonth,
 } from '@stint/core';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import {
@@ -94,11 +105,11 @@ interface Draft {
   paymentProfileId: string;
 }
 
-/** Computed on mount, not at import: the default period is "last month". */
+/** Computed on mount, not at import: the default period is last month, the
+ *  one a contractor most often bills. */
 const empty = (): Draft => ({
   clientId: '',
-  periodStart: defaultStart(),
-  periodEnd: defaultEnd(),
+  ...period(monthPeriod(localMonthKeys(new Date(), tz, 2)[0] ?? '')),
   dueDate: '',
   reference: '',
   groupingMode: 'entry',
@@ -321,6 +332,13 @@ export function NewInvoice() {
                 />
               </Field>
               <div className="flex flex-wrap gap-4">
+                <MonthPicker
+                  start={draft.periodStart}
+                  end={draft.periodEnd}
+                  onChange={(month) =>
+                    setDraft((d) => ({ ...d, ...period(monthPeriod(month)) }))
+                  }
+                />
                 <DateField
                   id="inv-from"
                   label="From"
@@ -826,15 +844,41 @@ function GroupingPicker({
   );
 }
 
-/** Default to last month, the period a contractor most often bills. */
-function defaultStart() {
-  const d = new Date();
-  return iso(new Date(d.getFullYear(), d.getMonth() - 1, 1));
+function period(p: { start: string; end: string }) {
+  return { periodStart: p.start, periodEnd: p.end };
 }
-function defaultEnd() {
-  const d = new Date();
-  return iso(new Date(d.getFullYear(), d.getMonth(), 0));
-}
-function iso(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function MonthPicker({
+  start,
+  end,
+  onChange,
+}: {
+  start: string;
+  end: string;
+  onChange: (month: string) => void;
+}) {
+  const months = localMonthKeys(new Date(), tz, 12).reverse();
+  const month = wholeMonth(start, end);
+  // '' shows the placeholder: Radix shows nothing for a value with no item.
+  const value = month && months.includes(month) ? month : '';
+
+  return (
+    <Field label="Month" htmlFor="inv-month" className="flex-[1_1_104px]">
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id="inv-month" className={`${inputClass} min-w-0`}>
+          {/* The label given, not read from the items, so it is there
+              before the list first mounts. */}
+          <SelectValue placeholder="Custom">
+            {value ? monthLabel(value) : undefined}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {months.map((m) => (
+            <SelectItem key={m} value={m}>
+              {monthLabel(m)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </Field>
+  );
 }

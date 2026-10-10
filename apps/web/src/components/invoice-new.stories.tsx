@@ -261,6 +261,41 @@ export const NoReference: Story = {
   },
 };
 
+/** Choosing a month fills From and To with its first and last day. The
+    default, last month, shows as chosen. */
+export const MonthChosen: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const month = await page.findByRole('combobox', { name: 'Month' });
+    await expect(month).toHaveTextContent('August 2026');
+    await userEvent.click(month);
+    await userEvent.click(
+      await page.findByRole('option', { name: 'September 2026' }),
+    );
+    await expect(month).toHaveTextContent('September 2026');
+    await expect(page.getByLabelText('From')).toHaveValue('2026-09-01');
+    await expect(page.getByLabelText('To')).toHaveValue('2026-09-30');
+  },
+};
+
+/** A range typed by hand that isn't a whole month shows as Custom, and the
+    dates stay as typed. */
+export const CustomRange: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const to = await page.findByLabelText('To');
+    await userEvent.clear(to);
+    await userEvent.type(to, '2026-08-15');
+    await expect(
+      page.getByRole('combobox', { name: 'Month' }),
+    ).toHaveTextContent('Custom');
+    await expect(page.getByLabelText('From')).toHaveValue('2026-08-01');
+    await expect(to).toHaveValue('2026-08-15');
+  },
+};
+
 /** From `xl` only the form and the preview scroll, each alone: reading
     the end of the page leaves the form where it was. */
 export const ScrollsApart: Story = {
