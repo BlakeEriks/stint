@@ -38,7 +38,6 @@ after(async () => {
 beforeEach(async () => {
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
-  await pool.query('delete from invoice_line_items');
   // Detach first: the immutability trigger refuses to delete an entry that
   // is still billed on a non-draft invoice — which is the behavior under
   // test elsewhere, so the fixture works around it rather than disabling it.
@@ -1453,7 +1452,7 @@ test('the cards that left took their fields with them', async () => {
   assert.equal(res.body.billableRatio, undefined);
 });
 
-test('earned counts invoiced work, and drops it when the invoice is voided', async () => {
+test('earned counts invoiced work, before and after the invoice is voided', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   await entryThisMonth({ id: S(71), hours: 2, rateOverride: 100 });
 
@@ -1488,11 +1487,11 @@ test('earned counts invoiced work, and drops it when the invoice is voided', asy
   const sent = await json(await stats(req('/stats?tz=UTC')));
   assert.equal(sent.body.month.earned, 200, 'invoicing it changes nothing');
 
-  /* Voiding releases the entries, so the work stops counting — otherwise a
-     voided invoice would leave revenue claiming money nobody owes. */
+  /* Voiding releases the entry, so it is unbilled work again: still done,
+     still earned, and free for the corrected invoice to bill. */
   await pool.query(`update invoices set status='void' where id=$1`, [invoice]);
   const voided = await json(await stats(req('/stats?tz=UTC')));
-  assert.equal(voided.body.month.earned, 0, 'a voided invoice earns nothing');
+  assert.equal(voided.body.month.earned, 200, 'voiding changes nothing either');
 });
 
 test('an invoice is overdue only after the grace period', async () => {

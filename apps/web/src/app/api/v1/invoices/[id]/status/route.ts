@@ -40,9 +40,10 @@ function assertPaidAt(paidAt: string, sentAt: string | null, now: Date) {
  * Transitions are constrained: draft→sent/void, sent→paid/void, paid→void.
  * Nothing returns to draft, because leaving `sent` is what locked the
  * entries — reopening would let billed time change after the client saw it.
- * `assertTransition` names what is allowed; `guard_issued_invoice` holds the
- * same table under the row lock, so of two overlapping requests the later
- * is checked against what the earlier wrote.
+ * `assertTransition` names what is allowed, and the update only lands on the
+ * status it checked, so of two overlapping requests the later is refused
+ * rather than absorbed. `guard_issued_invoice` holds the same table for a
+ * write that skips this route.
  *
  * Voiding releases the entries and expenses so they can be re-billed on a
  * corrected invoice, while the voided number stays on record to keep
@@ -76,11 +77,17 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
     .from('invoices')
     .update(update)
     .eq('id', id)
+    .eq('status', current.status)
     .select(INVOICE_COLUMNS)
     .maybeSingle();
 
   if (updateError) throw updateError;
-  if (!data) throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
+  if (!data)
+    throw new ApiError(
+      'INVOICE_STATUS_CHANGED',
+      'The invoice changed status since it was read',
+      { from: current.status },
+    );
 
   return NextResponse.json(toInvoice(data as InvoiceRow));
 });

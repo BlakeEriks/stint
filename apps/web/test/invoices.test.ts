@@ -1043,7 +1043,7 @@ test('voiding releases the entries so they can be re-billed', async () => {
   assert.equal(inv2[0].invoice_number, 'INV-0001');
 });
 
-test('of two overlapping status changes, the later is checked against the earlier', async () => {
+test('of two overlapping status changes, the later is refused as stale', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const { PATCH: setStatus } = await import(
     '../src/app/api/v1/invoices/[id]/status/route.ts'
@@ -1076,7 +1076,8 @@ test('of two overlapping status changes, the later is checked against the earlie
   other.release();
 
   const paid = await json(await paying);
-  assert.equal(paid.status, 422, 'void to paid is refused');
+  assert.equal(paid.status, 409, 'the lost race is reported, not absorbed');
+  assert.equal(paid.body.code, 'INVOICE_STATUS_CHANGED');
   const { rows } = await pool.query(
     `select status, (select invoice_id from time_entries where id = $2) as entry
        from invoices where id = $1`,
