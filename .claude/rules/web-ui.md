@@ -43,7 +43,9 @@ have a name.
 
 The app is dark-first: `prefers-color-scheme: light` only applies under an
 explicit `[data-theme="light"]`, so an un-stamped viewer gets the dark theme
-the palette was derived for.
+the palette was derived for. The System theme follows the OS by stamping
+`light` or `dark` from script (`apps/web/src/lib/theme-script.ts`), never
+through the CSS.
 
 Import the token CSS by **relative path**, not the package export — Tailwind
 does not follow package specifiers when collecting `@theme` values.
