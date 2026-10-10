@@ -122,7 +122,8 @@ not move it to the root; `e2e/error-boundary.spec.ts` fails if you do.
 **`Page` owns the content column**, so no screen sets its own width. It pads
 by the 18px `INSET`; `flush` is for a screen whose regions carry the inset
 themselves (Home, the calendar), so it is never doubled. `wide` is for a
-screen that needs the room (Home, the calendar), not a preference.
+screen that needs the room (Home, the calendar, an invoice beside its
+actions), not a preference.
 `workspace` is for a screen that is a tool rather than a page to read (New
 invoice): it takes the dock's room, because the frame reads
 `data-workspace` through `:has()`. The card keeps its size, so the frame

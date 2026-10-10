@@ -1,8 +1,11 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/client/api';
+import { keys } from '@/lib/client/query-keys';
 import { expect, userEvent, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { id } from '@/mocks/fixtures';
-import { desktop, phone, screen, stalled } from '@/mocks/screen';
+import { desktop, phone, screen, skipping, stalled } from '@/mocks/screen';
 import { InvoiceDetail } from './invoice-detail';
 
 /* Each status offers its own actions: a draft is deleted or sent, an issued
@@ -215,5 +218,42 @@ export const AsPrinted: Story = {
     ]) {
       await expect(await page.findByText(text)).toBeVisible();
     }
+  },
+};
+
+/* Mounts the page only once the lists it was opened from are cached, as
+   they are after a click in Invoices. */
+const fromTheList: Decorator = (Story) => {
+  const invoices = useQuery({
+    queryKey: keys.invoices(),
+    queryFn: () => api.invoices(),
+  });
+  const clients = useQuery({
+    queryKey: keys.clients({ archived: true }),
+    queryFn: () => api.clients({ includeArchived: true }),
+  });
+  return invoices.data && clients.data ? <Story /> : <></>;
+};
+
+/** Opened from the list: the invoice draws from what the list holds, and
+    the card says it is updating until its lines arrive. */
+export const OpenedFromList: Story = {
+  ...desktop,
+  args: { id: invoice(14) },
+  decorators: [fromTheList],
+  parameters: {
+    ...stalled('invoice'),
+    /* The card dims until its lines land; axe reads the half opacity as low
+       contrast. */
+    a11y: skipping('color-contrast'),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByRole('heading', { name: 'STINT-0014' }),
+    ).toBeVisible();
+    await expect(page.getByText('Updating…')).toBeVisible();
+    await expect(page.queryByText('Loading…')).toBeNull();
+    await expect(page.queryByText('Amount due')).toBeNull();
   },
 };
