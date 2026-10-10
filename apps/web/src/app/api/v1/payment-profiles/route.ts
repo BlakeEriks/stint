@@ -6,6 +6,7 @@ import { parseBody, parseQuery } from '@/lib/validate';
 import {
   PAYMENT_PROFILE_COLUMNS,
   PAYMENT_PROFILE_FIELDS,
+  toColumns,
   toPaymentProfile,
   type PaymentProfileRow,
 } from '@/lib/rows';
@@ -62,7 +63,7 @@ export const POST = handle(async (req: Request) => {
   const { data, error } = await db
     .from('payment_profiles')
     .insert({
-      ...insertColumns(body),
+      ...toColumns(body, PAYMENT_PROFILE_FIELDS, { nullMissing: true }),
       id: body.id ?? uuidv7(),
       user_id: userId,
       is_default: isDefault,
@@ -83,15 +84,6 @@ export const POST = handle(async (req: Request) => {
     status: 201,
   });
 });
-
-/** Every detail column, `null` where the body omits it. */
-function insertColumns(body: Record<string, unknown>) {
-  const columns: Record<string, unknown> = {};
-  for (const [field, column] of Object.entries(PAYMENT_PROFILE_FIELDS)) {
-    columns[column] = body[field] ?? null;
-  }
-  return columns;
-}
 
 /** The row a retried create already wrote, or `null` if the id is not ours. */
 async function existingOnRetry(db: SupabaseClient, id: string) {

@@ -400,14 +400,17 @@ export const EXPENSE_FIELDS = {
   note: 'note',
 } as const;
 
-/** camelCase patch -> snake_case column update, dropping undefined keys. */
+/** camelCase patch -> snake_case columns. A missing key is dropped from an
+    update, and written as `null` by an insert. */
 export function toColumns(
   patch: Record<string, unknown>,
   map: Record<string, string>,
+  { nullMissing = false } = {},
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, column] of Object.entries(map)) {
     if (patch[key] !== undefined) out[column] = patch[key];
+    else if (nullMissing) out[column] = null;
   }
   return out;
 }
