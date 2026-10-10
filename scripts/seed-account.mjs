@@ -605,14 +605,13 @@ try {
          (user_id, client_id, invoice_number, sequence_no, status, issue_date,
           due_date, period_start, period_end, subtotal, tax_rate, tax_amount,
           total, currency, grouping_mode, sent_at, paid_at)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0,0,$10,'USD','entry',$11,$12)
+       values ($1,$2,$3,$4,'draft',$5,$6,$7,$8,$9,0,0,$9,'USD','entry',$10,$11)
        returning id`,
       [
         userId,
         firstClientId,
         `${prefix}${String(seq).padStart(4, '0')}`,
         seq,
-        inv.status,
         issued.toISOString().slice(0, 10),
         due.toISOString().slice(0, 10),
         periodStart.toISOString().slice(0, 10),
@@ -634,6 +633,15 @@ try {
         total,
       ],
     );
+    /* Issued once its line is written: `guard_issued_line_item` refuses a
+       line on a sent invoice, and paid is reached through sent. */
+    for (const status of { draft: [], sent: ['sent'], paid: ['sent', 'paid'] }[
+      inv.status
+    ])
+      await db.query('update invoices set status = $2 where id = $1', [
+        invoiceId,
+        status,
+      ]);
     invoiceNo += 1;
   }
 
