@@ -11,6 +11,9 @@ import {
   localMonthKeys,
   localDateTimeToInstant,
   addDays,
+  monthPeriod,
+  wholeMonth,
+  monthLabel,
 } from '../src/calendar.ts';
 
 /** Renders an instant in a zone, for asserting it really is local midnight. */
@@ -249,4 +252,44 @@ test('localMonthKeys reads the local month and is unmoved by DST', () => {
     localMonthKeys(new Date('2026-04-15T12:00:00Z'), 'America/New_York', 6),
     ['2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04'],
   );
+});
+
+// ── the invoice period's Month control ──────────────────────────────
+
+test('monthPeriod is the first and last day, February and December included', () => {
+  assert.deepEqual(monthPeriod('2026-09'), {
+    start: '2026-09-01',
+    end: '2026-09-30',
+  });
+  assert.deepEqual(monthPeriod('2028-02'), {
+    start: '2028-02-01',
+    end: '2028-02-29',
+  });
+  assert.deepEqual(monthPeriod('2026-02'), {
+    start: '2026-02-01',
+    end: '2026-02-28',
+  });
+  assert.deepEqual(monthPeriod('2026-12'), {
+    start: '2026-12-01',
+    end: '2026-12-31',
+  });
+  assert.deepEqual(monthPeriod('2027-01'), {
+    start: '2027-01-01',
+    end: '2027-01-31',
+  });
+});
+
+test('wholeMonth names the month a range covers exactly, else null', () => {
+  assert.equal(wholeMonth('2028-02-01', '2028-02-29'), '2028-02');
+  assert.equal(wholeMonth('2026-12-01', '2026-12-31'), '2026-12');
+  assert.equal(wholeMonth('2026-02-01', '2026-02-29'), null);
+  assert.equal(wholeMonth('2026-09-01', '2026-09-29'), null);
+  assert.equal(wholeMonth('2026-09-02', '2026-09-30'), null);
+  assert.equal(wholeMonth('2026-12-01', '2027-01-31'), null);
+  assert.equal(wholeMonth('', ''), null);
+});
+
+test('monthLabel reads like a calendar heading', () => {
+  assert.equal(monthLabel('2026-09'), 'September 2026');
+  assert.equal(monthLabel('2027-01'), 'January 2027');
 });
