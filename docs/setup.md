@@ -186,10 +186,7 @@ security add-generic-password -s dev.stint.prod-supabase-url -a stint -w https:/
 security add-generic-password -s dev.stint.prod-supabase-secret -a stint -w sb_secret_...
 ```
 
-The invite link lands on `https://app.runstint.com/signin`, where the
-invitee asks for a normal magic link. It skips `/auth/callback` because
-GoTrue's invite link uses the implicit flow, which the callback doesn't
-handle. Each invitee gets their own account; nothing is shared.
+Each invitee gets their own account; nothing is shared.
 
 ## 5. Sign in
 
@@ -197,7 +194,7 @@ handle. Each invitee gets their own account; nothing is shared.
 pnpm --filter @stint/web dev
 ```
 
-Invite yourself (section 4b), then open `http://localhost:3100`, enter your
+Invite yourself with `pnpm invite you@example.com --local`, then open `http://localhost:3100`, enter your
 email, click the link. The invite creates the `auth.users` row, and a
 trigger creates your `user_settings` with USD, a 12-hour long-entry threshold, and `INV-1` — verified.
 

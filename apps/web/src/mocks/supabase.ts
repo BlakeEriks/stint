@@ -1,12 +1,13 @@
 import { getDb } from './db';
 
+/** An address nobody invited, for the sign-in story that shows it. */
+export const NOT_INVITED = 'stranger@example.com';
+
 /**
  * Stands in for `src/lib/client/supabase.ts` in Storybook: the signed-in
  * account is the fake one, and every auth call succeeds without a network.
  * `.storybook/vite-mocks.mts` swaps it in.
  */
-export const NOT_INVITED = 'stranger@example.com';
-
 export function browserClient() {
   return {
     auth: {
@@ -15,7 +16,6 @@ export function browserClient() {
         error: null,
       }),
       signOut: async () => ({ error: null }),
-      // An address nobody invited, for the sign-in story that shows it.
       signInWithOtp: async ({ email }: { email: string }) =>
         email === NOT_INVITED
           ? {
