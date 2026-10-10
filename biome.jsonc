@@ -52,6 +52,43 @@
     }
   },
   "plugins": ["./biome/no-server-actions.grit"],
+  "overrides": [
+    {
+      // Constitution IV: packages/core does no I/O.
+      "includes": ["packages/core/src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "next",
+                      "next/*",
+                      "@supabase/*",
+                      "fs",
+                      "fs/*",
+                      "node:fs",
+                      "node:fs/*",
+                      "net",
+                      "node:net",
+                      "http",
+                      "node:http",
+                      "https",
+                      "node:https"
+                    ],
+                    "message": "packages/core does no I/O (Constitution IV): the route handler reads and writes."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "linter": {
     "enabled": true,
     "rules": {
