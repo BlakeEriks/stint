@@ -24,8 +24,6 @@ export function useAccount() {
     };
   }, []);
 
-  /* A mutation, so a failure reaches the app-wide notice (Constitution I)
-     and `signingOut` gives a button its pending state. */
   const signOutMutation = useOptimisticMutation({
     mutationFn: async () => {
       // Supabase reports a failed sign-out in the result; it does not throw.

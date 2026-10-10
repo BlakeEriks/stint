@@ -70,7 +70,6 @@ describe('AccountMenu', () => {
   });
 
   it('stays put and says why when sign-out fails', async () => {
-    // Supabase reports a failed sign-out in the result; it does not throw.
     auth.signOut.mockResolvedValueOnce({
       error: { message: 'Network request failed' },
     } as never);
