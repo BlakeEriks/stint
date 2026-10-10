@@ -52,6 +52,48 @@
     }
   },
   "plugins": ["./biome/no-server-actions.grit"],
+  "overrides": [
+    {
+      // Constitution IV: packages/core does no I/O.
+      "includes": ["packages/core/src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            // A bare builtin fails here, so node:* above covers them all.
+            "useNodejsImportProtocol": "error",
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "node:*",
+                      "node:*/*",
+                      "next",
+                      "next/**",
+                      "@supabase/**",
+                      "undici"
+                    ],
+                    "message": "packages/core does no I/O (Constitution IV): the route handler reads and writes."
+                  }
+                ]
+              }
+            },
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "fetch": "packages/core does no I/O (Constitution IV): the route handler reads and writes.",
+                  "XMLHttpRequest": "packages/core does no I/O (Constitution IV): the route handler reads and writes.",
+                  "WebSocket": "packages/core does no I/O (Constitution IV): the route handler reads and writes."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "linter": {
     "enabled": true,
     "rules": {
