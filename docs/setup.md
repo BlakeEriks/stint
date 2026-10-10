@@ -25,6 +25,8 @@ far:
 - **Auto-enable RLS on new tables — ON.** This installs an `rls_auto_enable`
   event trigger in `public`. It is a backstop only: every table still declares
   its own RLS and policy in its migration (`docs/data-model.md`).
+- **Authentication → Sign In / Providers → Allow new users to sign up — OFF.**
+  Stint is invite-only (section 4b).
 
 A setting left out of this list is one the next person cannot know about. It
 also breaks tooling that reads the schema — `verify:schema` failed a release
@@ -168,15 +170,35 @@ code for every magic link whether a template shows it or not, and those two
 calls are what put it in front of the user. That copy does not track the file;
 editing it changes local only.
 
+## 4b. Invite people
+
+Sign-up is off, so an account exists only once it is invited: **Authentication
+→ Users → Add user → Send invitation**.
+
+The invite link signs nobody in. It lands on the **Site URL** with tokens in
+the URL fragment, which the app ignores, and the app sends a signed-out
+visitor to `/signin`. There the invitee enters their email and clicks the
+magic link. The default Invite template works as it is.
+
+Each invitee gets their own account; nothing is shared.
+
 ## 5. Sign in
 
 ```bash
 pnpm --filter @stint/web dev
 ```
 
-Open `http://localhost:3100`, enter your email, click the link. First sign-in
-creates the `auth.users` row, and a trigger creates your `user_settings`
-with USD, a 12-hour long-entry threshold, and `INV-1` — verified.
+Make your account, then empty it:
+
+```bash
+pnpm seed you@example.com           # creates it, with sample data
+pnpm seed you@example.com --clear   # empties it
+```
+
+The new `auth.users` row fires a trigger that creates your `user_settings`
+with USD, a 12-hour long-entry threshold, and `INV-1` — verified. `--clear`
+returns them to those defaults. Open `http://localhost:3100`, enter your
+email, click the link.
 
 Then: **Settings** (rate and business identity, since everything falls back
 to them) → **Clients** → a project from the timer's picker.

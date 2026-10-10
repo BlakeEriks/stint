@@ -8,7 +8,7 @@ const signOut = vi.fn(async () => {
   calls.push('signOut');
   return { error: null };
 });
-const signInWithOtp = vi.fn(async () => {
+const signInWithOtp = vi.fn(async (_: unknown) => {
   calls.push('signInWithOtp');
   return { error: null };
 });
@@ -66,5 +66,18 @@ describe('SignInForm', () => {
       expect(screen.getByText('Check your email.')).toBeInTheDocument(),
     );
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('never creates an account: sign-in is invite-only', async () => {
+    const user = userEvent.setup();
+    render(<SignInForm />);
+
+    await user.type(screen.getByLabelText('Email'), 'dev@localhost.test');
+    await user.click(screen.getByRole('button', { name: /Email me/ }));
+
+    await waitFor(() => expect(signInWithOtp).toHaveBeenCalled());
+    expect(signInWithOtp.mock.calls[0]?.[0]).toMatchObject({
+      options: { shouldCreateUser: false },
+    });
   });
 });
