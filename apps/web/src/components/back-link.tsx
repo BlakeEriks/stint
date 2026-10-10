@@ -66,7 +66,7 @@ export function resetBackTrail() {
  * the record sits, when they came from there or from outside the app.
  *
  * A section rather than the page before: a record reached through its own
- * form (new, edit) goes back past the form to the list it started from.
+ * form goes back past the form to the list it started from.
  */
 export function BackLink({ up, label }: { up: string; label: string }) {
   const pathname = usePathname();

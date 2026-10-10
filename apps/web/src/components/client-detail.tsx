@@ -1,13 +1,14 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import { useDialog } from '@/lib/client/use-dialog';
 import { useArchiveClient } from '@/lib/client/use-archive-client';
 import { Archive, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { api, ApiError } from '@/lib/client/api';
+import { api, ApiError, type Client } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
+import { ClientDialog } from './client-dialog';
 import { ClientProjects } from './client-projects';
 import { formatCurrency } from '@stint/core';
 import { keys } from '@/lib/client/query-keys';
@@ -21,6 +22,7 @@ export function ClientDetail({ id }: { id: string }) {
     queryFn: () => api.client(id),
   });
 
+  const editing = useDialog<Client>();
   const archive = useArchiveClient();
   const archiveNow = () => {
     archive.mutate(id);
@@ -45,11 +47,9 @@ export function ClientDetail({ id }: { id: string }) {
               </div>
 
               <div className="flex flex-none gap-2">
-                <Button asChild variant="default">
-                  <Link href={`/clients/${id}/edit`}>
-                    <Pencil aria-hidden strokeWidth={1.75} />
-                    Edit
-                  </Link>
+                <Button variant="default" onClick={() => editing.show(client)}>
+                  <Pencil aria-hidden strokeWidth={1.75} />
+                  Edit
                 </Button>
                 {!client.archivedAt ? (
                   <Button variant="ghost" onClick={archiveNow}>
@@ -103,6 +103,14 @@ export function ClientDetail({ id }: { id: string }) {
             ) : null}
 
             <ClientProjects client={client} />
+
+            {editing.subject ? (
+              <ClientDialog
+                open={editing.open}
+                onOpenChange={editing.onOpenChange}
+                client={editing.subject}
+              />
+            ) : null}
           </>
         )}
       </Listing>

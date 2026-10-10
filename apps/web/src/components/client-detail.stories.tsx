@@ -49,6 +49,17 @@ export const AddProject: Story = {
   },
 };
 
+/** Edit opens a dialog over the page, never a page of its own. */
+export const EditClient: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await page.findByRole('button', { name: 'Edit' }));
+    await expectOpen(canvasElement, 'dialog', 'Edit client');
+    await expect(page.getByLabelText(/Name/)).toHaveValue('Northwind Trading');
+  },
+};
+
 /** A refused archive explains itself on the page, beside the button. */
 export const ArchiveRefused: Story = {
   ...desktop,
