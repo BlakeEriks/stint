@@ -188,16 +188,17 @@ Each invitee gets their own account; nothing is shared.
 pnpm --filter @stint/web dev
 ```
 
-Make an empty account:
+Make your account, then empty it:
 
 ```bash
 pnpm seed you@example.com           # creates it, with sample data
 pnpm seed you@example.com --clear   # empties it
 ```
 
-Open `http://localhost:3100`, enter your email, click the link. The new
-`auth.users` row fires a trigger that creates your `user_settings` with USD, a
-12-hour long-entry threshold, and `INV-1` — verified.
+The new `auth.users` row fires a trigger that creates your `user_settings`
+with USD, a 12-hour long-entry threshold, and `INV-1` — verified. `--clear`
+returns them to those defaults. Open `http://localhost:3100`, enter your
+email, click the link.
 
 Then: **Settings** (rate and business identity, since everything falls back
 to them) → **Clients** → a project from the timer's picker.
