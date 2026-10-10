@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Feedback } from '@/components/feedback';
+import { MutationNotice } from '@/components/mutation-notice';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -35,7 +36,13 @@ const created = () =>
 
 async function open() {
   const user = userEvent.setup();
-  render(<Feedback />, { wrapper });
+  render(
+    <>
+      <Feedback />
+      <MutationNotice />
+    </>,
+    { wrapper },
+  );
   await user.click(screen.getByRole('button', { name: 'Feedback' }));
   return { user, box: await screen.findByRole('textbox') };
 }

@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { textareaClass } from './field';
-import { Toast, ToastRegion } from './toast';
+import { PortalToast } from './toast';
 import { useOptimisticMutation } from '@/lib/client/mutations';
 import { api, ApiError } from '@/lib/client/api';
 
@@ -164,14 +164,12 @@ export function Feedback() {
         </DialogContent>
       </Dialog>
 
-      <ToastRegion>
-        {thanked ? (
-          <Toast>
-            <Check aria-hidden className="size-4 text-success" />
-            Thanks. Feedback sent.
-          </Toast>
-        ) : null}
-      </ToastRegion>
+      {thanked ? (
+        <PortalToast>
+          <Check aria-hidden className="size-4 text-success" />
+          Thanks. Feedback sent.
+        </PortalToast>
+      ) : null}
     </>
   );
 }
