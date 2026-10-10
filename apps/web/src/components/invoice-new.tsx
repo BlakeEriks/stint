@@ -165,7 +165,6 @@ export function NewInvoice() {
   const waiting = (expenseData ?? []).filter(
     (e) => e.recurring || (e.spentOn as string) <= draft.periodEnd,
   );
-  /* Which dialog is open, and on what: 'new', or the record being edited. */
   /* `undefined` adds an expense; an expense, edits it. */
   const expenseDialog = useDialog<Expense | undefined>();
   /* `'new'` adds a charge; a key, edits that one. */
