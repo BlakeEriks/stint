@@ -398,7 +398,6 @@ function ClientRow({
   );
 }
 
-/** A new client's color is chosen here; an existing client's is only shown. */
 function ClientSwatch({
   client,
   choice,
@@ -447,7 +446,6 @@ function ClientSwatch({
   );
 }
 
-/** A new client's rate is entered here; an existing client's is only shown. */
 function ClientRate({
   client,
   choice,
