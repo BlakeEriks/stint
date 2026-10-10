@@ -1,12 +1,10 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useDialog } from '@/lib/client/use-dialog';
-import { useArchiveClient } from '@/lib/client/use-archive-client';
-import { Archive, Pencil } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { api, ApiError, type Client } from '@/lib/client/api';
+import { api, type Client } from '@/lib/client/api';
 import { DetailPage, Listing } from './page';
 import { ClientDialog } from './client-dialog';
 import { ClientProjects } from './client-projects';
@@ -15,19 +13,12 @@ import { keys } from '@/lib/client/query-keys';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
 
 export function ClientDetail({ id }: { id: string }) {
-  const router = useRouter();
-
   const query = useQuery({
     queryKey: keys.client(id),
     queryFn: () => api.client(id),
   });
 
   const editing = useDialog<Client>();
-  const archive = useArchiveClient();
-  const archiveNow = () => {
-    archive.mutate(id);
-    router.push('/clients');
-  };
 
   return (
     <DetailPage back="/clients" label="Clients">
@@ -46,31 +37,15 @@ export function ClientDetail({ id }: { id: string }) {
                 </h1>
               </div>
 
-              <div className="flex flex-none gap-2">
-                <Button variant="default" onClick={() => editing.show(client)}>
-                  <Pencil aria-hidden strokeWidth={1.75} />
-                  Edit
-                </Button>
-                {!client.archivedAt ? (
-                  <Button variant="ghost" onClick={archiveNow}>
-                    <Archive aria-hidden strokeWidth={1.75} />
-                    Archive
-                  </Button>
-                ) : null}
-              </div>
+              <Button
+                variant="default"
+                onClick={() => editing.show(client)}
+                className="flex-none"
+              >
+                <Pencil aria-hidden strokeWidth={1.75} />
+                Edit
+              </Button>
             </header>
-
-            {/* A rejected archive leaves the button live and the client unchanged,
-                which reads as the click not registering. The likely refusals are
-                worth reading — an archive can be blocked by what references the
-                client. */}
-            {archive.error ? (
-              <p role="alert" className="pb-4 type-support text-danger">
-                {archive.error instanceof ApiError
-                  ? archive.error.message
-                  : 'Could not archive this client.'}
-              </p>
-            ) : null}
 
             <dl className="grid gap-x-6 gap-y-4 border-t border-edge-subtle py-[18px] sm:grid-cols-2">
               <Detail label="Email" value={client.email} />

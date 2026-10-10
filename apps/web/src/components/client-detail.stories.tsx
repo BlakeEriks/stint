@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, within } from 'storybook/test';
 import { id, ids } from '@/mocks/fixtures';
-import { desktop, expectOpen, failing, phone, screen } from '@/mocks/screen';
+import { desktop, expectOpen, phone, screen } from '@/mocks/screen';
 import { ClientDetail } from './client-detail';
 
 const meta = {
@@ -49,7 +49,7 @@ export const AddProject: Story = {
   },
 };
 
-/** Edit opens a dialog over the page, never a page of its own. */
+/** Edit opens a dialog over the page. */
 export const EditClient: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -57,16 +57,5 @@ export const EditClient: Story = {
     await userEvent.click(await page.findByRole('button', { name: 'Edit' }));
     await expectOpen(canvasElement, 'dialog', 'Edit client');
     await expect(page.getByLabelText(/Name/)).toHaveValue('Northwind Trading');
-  },
-};
-
-/** A refused archive explains itself on the page, beside the button. */
-export const ArchiveRefused: Story = {
-  ...desktop,
-  parameters: failing('archiveClient'),
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await userEvent.click(await page.findByRole('button', { name: 'Archive' }));
-    await expect(await page.findByRole('alert')).toBeVisible();
   },
 };
