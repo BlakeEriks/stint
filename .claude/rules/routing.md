@@ -48,17 +48,6 @@ competitor. Its current conventions, which a redesign may change:
 **Green marks the hero timer and the CTA**, one fact: start tracking, time
 accruing. The unbilled card, the invoice and the headings are neutral.
 
-### The hero is the scope
-
-Three ticked lines for what it does, four struck lines for what it refuses,
-then the price.
-
-**The struck items are muted and struck, never red.** Red is the danger
-channel, and a stack of red marks reads as "this product is broken" for the
-half-second before it parses.
-
-### The page's other conventions
-
 **Banned words**, because each carries no information or the wrong audience:
 seamless, effortless, powerful, intuitive; beautiful, well-designed;
 revolutionary, reimagined, next-generation; earned or revenue for unbilled
