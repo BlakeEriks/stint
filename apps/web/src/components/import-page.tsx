@@ -367,48 +367,10 @@ function ClientRow({
   defaultRate: number | null;
   onChoose: (c: ClientChoice) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const color = client.isNew ? (choice.color ?? null) : client.color;
-  const rate = choice.hourlyRate ?? null;
-
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_8rem_10rem] items-center gap-4 border-t border-edge-subtle py-2.5 first:border-0">
       <div className="flex min-w-0 items-start gap-2.5">
-        {client.isNew ? (
-          <DropdownMenu open={open} onOpenChange={setOpen}>
-            <DropdownMenuTrigger
-              aria-label={`${client.name} color`}
-              className="mt-1 flex-none rounded-[2px] outline-none focus-visible:ring-[3px] focus-visible:ring-edge-focus"
-            >
-              {/* Unchosen reads as an outline: the gray fill would say
-                  "internal work", which a client is not. */}
-              {color ? (
-                <Swatch
-                  color={color}
-                  size="size-3.5"
-                  style={{ display: 'block' }}
-                />
-              ) : (
-                <span
-                  aria-hidden
-                  className="block size-3.5 rounded-[2px] border-[1.5px] border-edge-default"
-                />
-              )}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="p-2">
-              <ColorPicker
-                label={`${client.name} color`}
-                value={color}
-                onChange={(c) => {
-                  onChoose({ color: c });
-                  setOpen(false);
-                }}
-              />
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <Swatch color={color} size="size-3.5" style={{ marginTop: 4 }} />
-        )}
+        <ClientSwatch client={client} choice={choice} onChoose={onChoose} />
         <div className="min-w-0">
           <p className="truncate type-body text-primary">{client.name}</p>
           <p className="type-meta text-subtle">
@@ -418,50 +380,12 @@ function ClientRow({
         </div>
       </div>
 
-      {client.isNew ? (
-        <label className="relative">
-          <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 type-control text-subtle">
-            $
-          </span>
-          <input
-            /* Uncontrolled, committed on blur: every commit re-reads the
-               file, and a read per keystroke is a read per digit. */
-            key={rate ?? ''}
-            type="number"
-            min={0}
-            step="0.01"
-            inputMode="decimal"
-            aria-label={`${client.name} rate`}
-            defaultValue={rate ?? ''}
-            placeholder={
-              defaultRate == null ? 'rate' : `${defaultRate} default`
-            }
-            aria-invalid={
-              rate == null && defaultRate == null ? true : undefined
-            }
-            className={`${inputClass} pl-6 type-duration aria-invalid:border-danger`}
-            onBlur={(e) => {
-              const v = e.target.value.trim();
-              const n = v === '' ? null : Number(v);
-              if (n !== null && !(n >= 0)) return;
-              if (n !== rate) onChoose({ hourlyRate: n });
-            }}
-          />
-        </label>
-      ) : (
-        <span className="text-right type-duration text-muted">
-          {client.hourlyRate != null ? (
-            `${formatCurrency(client.hourlyRate)}/h`
-          ) : defaultRate != null ? (
-            <>
-              {`${formatCurrency(defaultRate)}/h`}
-              <span className="block type-meta text-subtle">your default</span>
-            </>
-          ) : (
-            <span className="text-danger">No rate</span>
-          )}
-        </span>
-      )}
+      <ClientRate
+        client={client}
+        choice={choice}
+        defaultRate={defaultRate}
+        onChoose={onChoose}
+      />
 
       <input
         type="date"
@@ -471,6 +395,122 @@ function ClientRow({
         onChange={(e) => onChoose({ invoicedThrough: e.target.value || null })}
       />
     </li>
+  );
+}
+
+/** A new client's color is chosen here; an existing client's is only shown. */
+function ClientSwatch({
+  client,
+  choice,
+  onChoose,
+}: {
+  client: ImportClient;
+  choice: ClientChoice;
+  onChoose: (c: ClientChoice) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!client.isNew) {
+    return (
+      <Swatch color={client.color} size="size-3.5" style={{ marginTop: 4 }} />
+    );
+  }
+  const color = choice.color ?? null;
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger
+        aria-label={`${client.name} color`}
+        className="mt-1 flex-none rounded-[2px] outline-none focus-visible:ring-[3px] focus-visible:ring-edge-focus"
+      >
+        {/* Unchosen reads as an outline: the gray fill would say
+            "internal work", which a client is not. */}
+        {color ? (
+          <Swatch color={color} size="size-3.5" style={{ display: 'block' }} />
+        ) : (
+          <span
+            aria-hidden
+            className="block size-3.5 rounded-[2px] border-[1.5px] border-edge-default"
+          />
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="p-2">
+        <ColorPicker
+          label={`${client.name} color`}
+          value={color}
+          onChange={(c) => {
+            onChoose({ color: c });
+            setOpen(false);
+          }}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** A new client's rate is entered here; an existing client's is only shown. */
+function ClientRate({
+  client,
+  choice,
+  defaultRate,
+  onChoose,
+}: {
+  client: ImportClient;
+  choice: ClientChoice;
+  defaultRate: number | null;
+  onChoose: (c: ClientChoice) => void;
+}) {
+  if (!client.isNew) {
+    return (
+      <span className="text-right type-duration text-muted">
+        <ExistingRate rate={client.hourlyRate} defaultRate={defaultRate} />
+      </span>
+    );
+  }
+  const rate = choice.hourlyRate ?? null;
+
+  return (
+    <label className="relative">
+      <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 type-control text-subtle">
+        $
+      </span>
+      <input
+        /* Uncontrolled, committed on blur: every commit re-reads the
+           file, and a read per keystroke is a read per digit. */
+        key={rate ?? ''}
+        type="number"
+        min={0}
+        step="0.01"
+        inputMode="decimal"
+        aria-label={`${client.name} rate`}
+        defaultValue={rate ?? ''}
+        placeholder={defaultRate == null ? 'rate' : `${defaultRate} default`}
+        aria-invalid={rate == null && defaultRate == null ? true : undefined}
+        className={`${inputClass} pl-6 type-duration aria-invalid:border-danger`}
+        onBlur={(e) => {
+          const v = e.target.value.trim();
+          const n = v === '' ? null : Number(v);
+          if (n !== null && !(n >= 0)) return;
+          if (n !== rate) onChoose({ hourlyRate: n });
+        }}
+      />
+    </label>
+  );
+}
+
+function ExistingRate({
+  rate,
+  defaultRate,
+}: {
+  rate: number | null;
+  defaultRate: number | null;
+}) {
+  if (rate != null) return `${formatCurrency(rate)}/h`;
+  if (defaultRate == null) return <span className="text-danger">No rate</span>;
+  return (
+    <>
+      {`${formatCurrency(defaultRate)}/h`}
+      <span className="block type-meta text-subtle">your default</span>
+    </>
   );
 }
 
@@ -515,40 +555,7 @@ function Overlaps({
       <div>
         <ul>
           {shown.map((o) => (
-            <li
-              key={o.rowId}
-              className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-t border-edge-subtle py-2.5 first:border-0"
-            >
-              {/* An excluded row recedes by its ink, never by opacity, which
-                  fades text below AA. */}
-              <div className="min-w-0">
-                <p
-                  className={`truncate type-body ${o.excluded ? 'text-muted' : 'text-primary'}`}
-                >
-                  {o.taskName || 'No description'}
-                </p>
-                <p className="truncate type-meta text-subtle">
-                  {day.format(new Date(o.startedAt))} ·{' '}
-                  {o.excluded
-                    ? "won't import"
-                    : `overlaps ${o.otherTaskName || 'an entry'} · ${o.otherInStint ? 'in Stint' : 'in this file'}`}
-                </p>
-              </div>
-              <span
-                className={`type-duration ${o.excluded ? 'text-subtle' : 'text-warning'}`}
-              >
-                {formatCompact(o.seconds)}
-              </span>
-              <Button
-                type="button"
-                size="xs"
-                variant={o.excluded ? 'ghost' : 'default'}
-                aria-label={`${o.excluded ? 'Undo excluding' : 'Exclude'} ${o.taskName || 'this entry'}`}
-                onClick={() => onExclude([o.sourceRowId], !o.excluded)}
-              >
-                {o.excluded ? 'Undo' : 'Exclude'}
-              </Button>
-            </li>
+            <OverlapRow key={o.rowId} o={o} day={day} onExclude={onExclude} />
           ))}
         </ul>
         {overlaps.length > shown.length ? (
@@ -564,6 +571,50 @@ function Overlaps({
         ) : null}
       </div>
     </Section>
+  );
+}
+
+function OverlapRow({
+  o,
+  day,
+  onExclude,
+}: {
+  o: ImportOverlap;
+  day: Intl.DateTimeFormat;
+  onExclude: (sourceRowIds: string[], out: boolean) => void;
+}) {
+  const out = o.excluded;
+  const status = out
+    ? "won't import"
+    : `overlaps ${o.otherTaskName || 'an entry'} · ${o.otherInStint ? 'in Stint' : 'in this file'}`;
+
+  return (
+    <li className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-t border-edge-subtle py-2.5 first:border-0">
+      {/* An excluded row recedes by its ink, never by opacity, which fades
+          text below AA. */}
+      <div className="min-w-0">
+        <p
+          className={`truncate type-body ${out ? 'text-muted' : 'text-primary'}`}
+        >
+          {o.taskName || 'No description'}
+        </p>
+        <p className="truncate type-meta text-subtle">
+          {day.format(new Date(o.startedAt))} · {status}
+        </p>
+      </div>
+      <span className={`type-duration ${out ? 'text-subtle' : 'text-warning'}`}>
+        {formatCompact(o.seconds)}
+      </span>
+      <Button
+        type="button"
+        size="xs"
+        variant={out ? 'ghost' : 'default'}
+        aria-label={`${out ? 'Undo excluding' : 'Exclude'} ${o.taskName || 'this entry'}`}
+        onClick={() => onExclude([o.sourceRowId], !out)}
+      >
+        {out ? 'Undo' : 'Exclude'}
+      </Button>
+    </li>
   );
 }
 
