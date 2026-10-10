@@ -20,11 +20,9 @@ import { browserClient } from '@/lib/client/supabase';
 import { useAccount } from '@/lib/client/use-account';
 
 /**
- * The account: who is signed in, and the two ways out. Sign out is the
- * everyday one, so it carries the weight; Delete account is the rare one and
- * stays a quiet ghost in danger.
+ * The account: who is signed in, and the two ways out.
  *
- * Deleting: typing the email back is the gate: it cannot be clicked through
+ * Typing the email back is the gate to deleting: it cannot be clicked through
  * by habit, and it names which account for someone signed in to more than
  * one. The dialog counts what goes before asking. Deletion is all or nothing,
  * which is what makes "nothing was removed" true when it fails. The fill is
@@ -37,24 +35,19 @@ export function AccountSection() {
   // Stays pending through the redirect: the page is leaving.
   const [signingOut, setSigningOut] = useState(false);
 
-  // Not confirmed: nothing is lost, as in the account menu.
-  const leave = async () => {
-    setSigningOut(true);
-    try {
-      await signOut();
-    } catch (error) {
-      setSigningOut(false);
-      throw error;
-    }
-  };
-
   return (
     <Section
       title="Account"
       description={email ? `Signed in as ${email}.` : undefined}
     >
       <div className="flex flex-wrap gap-2">
-        <Button disabled={!email || signingOut} onClick={() => void leave()}>
+        <Button
+          disabled={signingOut}
+          onClick={() => {
+            setSigningOut(true);
+            void signOut();
+          }}
+        >
           {signingOut ? 'Signing out…' : 'Sign out'}
         </Button>
         <Button
