@@ -4,7 +4,7 @@ import { requireSession } from '@/lib/auth';
 import { parseQuery } from '@/lib/validate';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { selectAll } from '@/lib/select-all';
-import { localDateKey } from '@stint/core';
+import { localDateKey, splitByLocalDay } from '@stint/core';
 import { CalendarQuery } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +17,10 @@ export const dynamic = 'force-dynamic';
  * not land on different days on different devices. That is also why the
  * activity strip reuses this endpoint rather than bucketing client-side: the
  * DST-correct grouping already lives here.
+ *
+ * In the entry view, an entry that crosses local midnight is on every day it
+ * touches, and each day counts only its own part, so no day holds more than
+ * it has.
  */
 export const GET = handle(async (req: Request) => {
   const { db } = await requireSession(req);
@@ -30,8 +34,8 @@ export const GET = handle(async (req: Request) => {
     db
       .from('time_entries')
       .select(ENTRY_COLUMNS)
-      .gte('started_at', q.from)
-      .lte('started_at', q.to)
+      .lt('started_at', q.to)
+      .or(`ended_at.gt.${q.from},ended_at.is.null`)
       .order('started_at', { ascending: true }),
   );
 
@@ -59,6 +63,9 @@ export const GET = handle(async (req: Request) => {
       const entry = toEntry(row as EntryRow);
       // A running entry has no duration yet and contributes nothing.
       if (entry.endedAt == null) continue;
+      /* Home's bars count a session whole on the day it started (FR-011,
+         `revenue_by_day`). */
+      if (new Date(entry.startedAt) < new Date(q.from)) continue;
 
       const key = localDateKey(new Date(entry.startedAt), q.tz);
       const day = days.get(key) ?? {
@@ -97,11 +104,19 @@ export const GET = handle(async (req: Request) => {
 
   for (const row of data) {
     const entry = toEntry(row as EntryRow);
-    const key = localDateKey(new Date(entry.startedAt), q.tz);
-    const day = days.get(key) ?? { date: key, totalSeconds: 0, entries: [] };
-    day.entries.push(entry);
-    day.totalSeconds += entry.durationSeconds ?? 0;
-    days.set(key, day);
+    /* A running entry is drawn up to now but counts nothing until it
+       stops, as its duration is null until then. */
+    const end = entry.endedAt ?? new Date().toISOString();
+    for (const { date, seconds } of splitByLocalDay(
+      new Date(entry.startedAt),
+      new Date(end),
+      q.tz,
+    )) {
+      const day = days.get(date) ?? { date, totalSeconds: 0, entries: [] };
+      day.entries.push(entry);
+      if (entry.endedAt != null) day.totalSeconds += seconds;
+      days.set(date, day);
+    }
   }
 
   return NextResponse.json({ days: [...days.values()] });

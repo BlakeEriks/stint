@@ -37,6 +37,7 @@ import {
   startOfLocalWeek,
   startOfNextLocalMonth,
   type UnbilledRow,
+  splitByLocalDay,
 } from '@stint/core';
 import type { Expense, TimeEntry } from '@/lib/client/api';
 import { billable, type Db } from './fixtures';
@@ -353,24 +354,28 @@ export function stats(db: Db, tz: string) {
   };
 }
 
-/** `GET /calendar`: entries by local day, or per-client totals by day. */
+/** `GET /calendar`: entries on each local day they touch, or per-client totals by day. */
 export function calendar(
   db: Db,
   q: { from: string; to: string; tz: string; granularity: string | null },
 ) {
   const inRange = db.entries
-    .filter((e) => at(e.startedAt) >= at(q.from) && at(e.startedAt) <= at(q.to))
+    .filter(
+      (e) =>
+        at(e.startedAt) < at(q.to) &&
+        (e.endedAt === null || at(e.endedAt) > at(q.from)),
+    )
     .sort((a, b) => at(a.startedAt) - at(b.startedAt));
-  const byDay = groupBy(inRange, (e) =>
-    localDateKey(new Date(e.startedAt), q.tz),
-  );
+  const pieces = (e: TimeEntry) =>
+    splitByLocalDay(new Date(e.startedAt), new Date(e.endedAt ?? db.now), q.tz);
 
   // Totals count stopped work only, so a day holding just a running timer
-  // has no row, as in the route.
+  // has no row, as in the route; each entry whole, on the day it started.
   if (q.granularity === 'day')
     return [
-      ...groupBy(inRange.filter(stopped), (e) =>
-        localDateKey(new Date(e.startedAt), q.tz),
+      ...groupBy(
+        inRange.filter((e) => stopped(e) && at(e.startedAt) >= at(q.from)),
+        (e) => localDateKey(new Date(e.startedAt), q.tz),
       ),
     ].map(([date, entries]) => {
       const byClient: Record<string, number> = {};
@@ -384,11 +389,19 @@ export function calendar(
       return { date, totalSeconds, byClient };
     });
 
-  return [...byDay].map(([date, entries]) => ({
-    date,
-    totalSeconds: entries.reduce((s, e) => s + (e.durationSeconds ?? 0), 0),
-    entries,
-  }));
+  const days = new Map<
+    string,
+    { date: string; totalSeconds: number; entries: TimeEntry[] }
+  >();
+  for (const e of inRange) {
+    for (const { date, seconds } of pieces(e)) {
+      const day = days.get(date) ?? { date, totalSeconds: 0, entries: [] };
+      day.entries.push(e);
+      if (stopped(e)) day.totalSeconds += seconds;
+      days.set(date, day);
+    }
+  }
+  return [...days.values()];
 }
 
 /** `recent_task_names`: one row per name, the project's names first. */
