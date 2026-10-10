@@ -14,8 +14,17 @@ using the app quietly instead.
 
 ## Design
 
-Adds a control and a form to the web app, and to the macOS app if it is in
-scope. Offer `/design-review` before planning.
+Adds a control and a form to the web app. Offer `/design-review` before
+planning.
+
+## Clarifications
+
+### Session 2026-10-10
+
+- Q: Is feedback on web only, or on web and macOS together? → A: Web only;
+  macOS comes later.
+- Q: Where do submissions land? → A: A table in our database, which Blake
+  reads in the database dashboard. Alpha has no notification.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -84,18 +93,17 @@ confirm each submission names its user, screen, client, version and time.
 
 - **FR-001**: A signed-in user MUST be able to open feedback from every
   screen of the app, without leaving that screen.
-- **FR-002**: The form MUST take one free-text message. It's required, has a
-  length limit, and asks for nothing else from the user.
+- **FR-002**: The form MUST take one free-text message. It's required, is at
+  most 2,000 characters, and asks for nothing else from the user.
 - **FR-003**: Each submission MUST record the sender's account, the screen it
   came from, the client (web or macOS), the app version and the time, without
   the user entering any of them.
-- **FR-004**: Feedback MUST be available on
-  [NEEDS CLARIFICATION: web only, or web and macOS together? Both go through
-  the same API, but macOS doubles the UI work.]
+- **FR-004**: Feedback MUST be available in the web app. The macOS app is
+  out of scope until a later feature; its users send feedback from the web.
 - **FR-005**: Submissions MUST go through the shared API (Constitution III)
-  and land in [NEEDS CLARIFICATION: where Blake reads them. Options: a table
-  read in the database dashboard, an email to the team, or a GitHub issue.
-  The repo is public, so an issue would publish the user's words.]
+  and be stored in our own database, where Blake reads them in the database
+  dashboard. No email, issue or third party receives them, so a user's words
+  never leave where their other data lives.
 - **FR-006**: Sending MUST show a pending state on the send control until the
   server answers, and MUST say why when it fails (Constitution VI). A retried
   send MUST NOT create a second submission.
@@ -115,8 +123,8 @@ confirm each submission names its user, screen, client, version and time.
   without losing their place.
 - **SC-002**: Every submission names its sender, screen, client and version,
   with no follow-up needed to learn them.
-- **SC-003**: Blake sees a new submission within one working day of it being
-  sent, without having to look for it.
+- **SC-003**: Blake can see every submission, newest first with its context,
+  in one place he already uses, with no new tool or account.
 - **SC-004**: No submission is ever lost or duplicated.
 
 ## Assumptions
@@ -127,5 +135,7 @@ confirm each submission names its user, screen, client, version and time.
   field nobody fills in only slows the send down.
 - The user gets no reply inside the app. Blake answers by email from the
   account address when he needs to.
+- Alpha has no notification for a new submission. Blake checks the table,
+  and a notification is worth adding when checking gets tedious.
 - The existing app version string (shown in the nav today) is the version
   that gets recorded.
