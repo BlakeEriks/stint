@@ -181,6 +181,14 @@ there is no currency column, because an expense is never converted.
   are readings about work. They reach **awaiting** and **collected** through
   the invoice's `total`.
 
+### `feedback`
+A message a user sent from the app's Feedback button, with the `screen` path,
+the `client` (`web` or `macos`) and the `app_version` it came from. It is
+written once: `authenticated` is granted only `select` and `insert`, so a
+sent message can't be changed or deleted, even by its sender. It goes with the
+account (`on delete cascade`). The checks match `CreateFeedback`: `message`
+1–2,000 characters, `screen` 1–200, `app_version` 1–64.
+
 ## Integrity rules
 
 ### The timer invariant
@@ -272,9 +280,9 @@ sequence gapless under concurrency rather than merely usually correct.
   is derived from `paid_at`, so a paid row without one drops a real payment
   out of the figure that says what arrived.
 - `updated_at` is maintained by a `touch_updated_at` trigger on every table
-  **except `invoice_line_items`**, which has no such column: a line is frozen
-  at generation and never edited, so a "last modified" timestamp would be a
-  field that can only ever lie.
+  **except `invoice_line_items` and `feedback`**, which have no such column:
+  each is written once and never edited, so a "last modified" timestamp would
+  be a field that can only ever lie.
 - Partial indexes back the hot paths: active clients, projects and profiles,
   unbilled entries, and `invoices_user_paid_at_idx` on `(user_id, paid_at)`
   where the invoice is paid — payments are read by date, not by the status
@@ -360,12 +368,13 @@ alone must still contain the query.
 | Check | Result |
 |---|---|
 | An unfiltered `select` returns only the caller's rows | isolated |
-| All seven user-scoped tables isolate | isolated |
+| All eight user-scoped tables isolate | isolated |
 | A known-good id belonging to another user returns nothing | no leak |
 | Line items inherit isolation through their invoice | isolated |
 | Insert with a forged `user_id` | rejected by `WITH CHECK` |
 | Update or delete targeting another user's row | matches nothing |
 | Reassigning a row to another user | rejected by `WITH CHECK` |
+| Changing or deleting sent feedback, even your own | refused by the grant |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
 | An invoice billed to another user's client | rejected by `invoice_client_same_owner` |
 | A project under another user's client | rejected by `project_client_same_owner` |
