@@ -14,8 +14,21 @@ using the app quietly instead.
 
 ## Design
 
-Adds a control and a form to the web app. Offer `/design-review` before
-planning.
+[design/feedback.html](design/feedback.html)
+
+- **The control**: a Feedback button, with its icon and its label, beside the
+  account in the header. It shows on every signed-in screen and at every
+  width, and is highlighted while the form is open.
+- **The form**: a dialog over the current screen, titled "Send feedback",
+  with one line saying where it goes, one message box, a character count out
+  of 2,000 that notes the screen and version are sent with it, and Cancel and
+  Send. On a phone it's a sheet that rises from the bottom.
+- **Open**: an empty message box, with Send disabled until there's text.
+- **Sending**: the message is read-only, Cancel is disabled, and Send shows a
+  spinner and "Sending".
+- **Sent**: the dialog closes and a toast says "Thanks. Feedback sent."
+- **Failed**: the dialog stays open with the message intact, and says it
+  couldn't send and to try again.
 
 ## Clarifications
 
