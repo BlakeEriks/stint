@@ -27,7 +27,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The calendar alone: the dock beside it lists some of the same entries. */
+/** The calendar alone, apart from the shell around it. */
 const calendar = async (canvasElement: HTMLElement) =>
   within(await within(canvasElement.ownerDocument.body).findByRole('main'));
 
@@ -52,8 +52,19 @@ export const Desktop: Story = {
     await expect(page.queryByText('Loading…')).toBeNull();
   },
 };
-/** At `2xl` the grid scrolls inside the card. */
-export const Wide: Story = { ...wide };
+/** At `2xl` the grid scrolls inside the card. The screen is a workspace:
+    no dock, so the week takes the dock's room. */
+export const Wide: Story = {
+  ...wide,
+  play: async ({ canvasElement }) => {
+    await calendar(canvasElement);
+    await expect(
+      within(canvasElement.ownerDocument.body).queryByRole('complementary', {
+        name: 'At a glance',
+      }),
+    ).toBeNull();
+  },
+};
 export const Tablet: Story = { ...tablet };
 /** Below `sm`, one day, cropped to the hours worked. */
 export const Phone: Story = {

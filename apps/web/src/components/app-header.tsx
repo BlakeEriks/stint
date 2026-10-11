@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { AccountMenu } from './account-menu';
+import { Feedback } from './feedback';
 import { Wordmark } from './wordmark';
 
 /**
- * The frame's top edge: wordmark on the left, account on the right.
+ * The frame's top edge: wordmark on the left; Feedback and the account on
+ * the right, where every screen has them.
  *
  * Painted straight onto the ground — no surface and no rule beneath it. Space
  * is what separates it from the panel, so the only edge in the frame is the
@@ -27,7 +29,8 @@ export function AppHeader() {
 
       {/* `min-w-0` on a shrinkable wrapper, not `flex-none`: the trigger
           truncates a long address rather than pushing past the right edge. */}
-      <div className="flex min-w-0 justify-end">
+      <div className="flex min-w-0 items-center justify-end gap-1">
+        <Feedback />
         <AccountMenu />
       </div>
     </header>

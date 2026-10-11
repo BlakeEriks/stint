@@ -100,6 +100,24 @@ export const DeleteAccount: Story = {
   },
 };
 
+/** Sign out sits beside Delete account, and is pending until the page
+    leaves for /signin; Delete account waits with it. */
+export const SignOutPending: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Sign out' }),
+    );
+    await expect(
+      await page.findByRole('button', { name: 'Signing out…' }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: 'Delete account' }),
+    ).toBeDisabled();
+  },
+};
+
 /** Payment details: US bank rails first, international additive. */
 export const AddPaymentDetails: Story = {
   ...desktop,

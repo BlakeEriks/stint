@@ -77,7 +77,7 @@ applies only the new one.
 pnpm verify:schema --url "$DB"
 ```
 
-This asserts the things nothing else would catch: all seven tables exist with
+This asserts the things nothing else would catch: all nine tables exist with
 **RLS on**, each has at least one policy (RLS with no policies denies
 everything), the partial unique index enforcing one running timer is present
 and actually partial, and new users get a settings row.
