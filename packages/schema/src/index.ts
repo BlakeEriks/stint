@@ -185,10 +185,8 @@ export const StartTimer = z.object({
   projectId: uuid.nullable().optional(),
   taskName: z.string().max(500).default(''),
   startedAt: iso.optional(), // allows backdating a forgotten start
-  /**
-   * Optional. Omitted, the entry is stored as billable: the column's `true`
-   * default. TODO(#163): apply the project's default instead.
-   */
+  /** Omitted, the project's billable default applies; billable with no
+   *  project. */
   isBillable: z.boolean().optional(),
 });
 

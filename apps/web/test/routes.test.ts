@@ -197,6 +197,39 @@ test('a running timer can be retitled and reassigned mid-run', async () => {
   assert.equal(res.body.taskName, 'New name');
 });
 
+test("a start without isBillable takes the project's billable default", async () => {
+  const { POST: start } = await import(
+    '../src/app/api/v1/timer/start/route.ts'
+  );
+  const { POST: stop } = await import('../src/app/api/v1/timer/stop/route.ts');
+  const { POST: createProject } = await import(
+    '../src/app/api/v1/projects/route.ts'
+  );
+  const { projectId: billable } = await seedClientAndProject();
+  const internal = await json(
+    await createProject(
+      req('/projects', { name: 'Internal', isBillableDefault: false }),
+    ),
+  );
+
+  const startOn = async (body: object) => {
+    const res = await json(
+      await start(req('/timer/start', { taskName: 'x', ...body })),
+    );
+    await stop(req('/timer/stop', {}));
+    return res.body.isBillable;
+  };
+
+  assert.equal(await startOn({ projectId: internal.body.id }), false);
+  assert.equal(await startOn({ projectId: billable }), true);
+  assert.equal(await startOn({}), true, 'no project stays billable');
+  assert.equal(
+    await startOn({ projectId: internal.body.id, isBillable: true }),
+    true,
+    'a sent flag wins over the default',
+  );
+});
+
 // ── entries ────────────────────────────────────────────────────────
 test('a manual entry replayed with the same id is idempotent', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');

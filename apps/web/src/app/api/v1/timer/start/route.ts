@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { handle, ApiError, isTimerConflict } from '@/lib/errors';
-import { requireSession } from '@/lib/auth';
+import { requireSession, type Session } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
@@ -33,11 +33,8 @@ export const POST = handle(async (req: Request) => {
       task_name: body.taskName,
       started_at: body.startedAt ?? new Date().toISOString(),
       ended_at: null,
-      // Spread, not `?? true`: an absent flag must leave the column's own
-      // default to apply rather than this route asserting one.
-      ...(body.isBillable === undefined
-        ? {}
-        : { is_billable: body.isBillable }),
+      is_billable:
+        body.isBillable ?? (await projectBillableDefault(db, body.projectId)),
     })
     .select(ENTRY_COLUMNS)
     .single();
@@ -56,3 +53,19 @@ export const POST = handle(async (req: Request) => {
 
   return NextResponse.json(toEntry(data as EntryRow), { status: 201 });
 });
+
+/** True with no project, or one the caller can't see: the insert's foreign
+ *  key or RLS then rejects it. */
+async function projectBillableDefault(
+  db: Session['db'],
+  projectId: string | null | undefined,
+): Promise<boolean> {
+  if (!projectId) return true;
+  const { data, error } = await db
+    .from('projects')
+    .select('is_billable_default')
+    .eq('id', projectId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.is_billable_default ?? true;
+}
