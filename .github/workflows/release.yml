@@ -76,6 +76,18 @@ jobs:
           pending=$(sed -n 's/^  → \(.*\) (would apply)$/\1/p' plan.txt)
           if [ -n "$pending" ]; then m=true; else m=false; fi
           echo "migrations=$m" >> "$GITHUB_OUTPUT"
+          # A fresh build runs migrations in name order and production in
+          # merge order. Main doesn't require branches up to date, so a PR's
+          # CI may never have seen a migration main gained since; anything
+          # pending must sort after everything production has run.
+          export LC_ALL=C
+          last=$(sed -n 's/^  · \(.*\) (already applied)$/\1/p' plan.txt | sort | tail -1)
+          # shellcheck disable=SC2086 # one word per file, split on purpose
+          first=$(printf '%s\n' $pending | sort | head -1)
+          if [ -n "$pending" ] && [ ! "$first" \> "$last" ]; then
+            echo "::error::$first sorts before $last, which production has run. Recreate it with \`supabase migration new\`."
+            exit 1
+          fi
           {
             echo "## Release \`${SHA:0:7}\`: $(git log -1 --format=%s)"
             if [ -z "$pending" ]; then

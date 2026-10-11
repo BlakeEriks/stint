@@ -20,7 +20,8 @@ hosted database without the secret passing through a command or a log —
 names it by UTC timestamp, so two branches can't take the same number. A
 migration on main is never renamed or edited: production has run it under
 that name, so a fix is a new migration. `scripts/check-migrations.mjs`
-fails both in CI.
+fails both in CI, and the release gate's plan stops a migration that sorts
+before one production has run.
 
 **Production migrates itself — never tell the user to run `pnpm migrate`
 against it.** The release gate migrates production on merge
