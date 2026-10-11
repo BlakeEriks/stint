@@ -50,8 +50,7 @@ export function ClientProjects({ client }: { client: Client }) {
       <header className="flex items-center justify-between gap-3 pb-3">
         <h2 className="type-section text-strong">Projects</h2>
         {/* An archived client is a finished engagement, so there is nothing
-            to add work to. Its Edit client dialog drops Archive the same
-            way. */}
+            to add work to. */}
         {!client.archivedAt ? (
           <Button variant="ghost" onClick={() => setCreating(true)}>
             <Plus aria-hidden strokeWidth={2.25} />

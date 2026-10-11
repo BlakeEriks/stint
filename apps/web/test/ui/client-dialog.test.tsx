@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { ClientDialog } from '@/components/client-dialog';
 import type { Client } from '@/lib/client/api';
 import { keys } from '@/lib/client/query-keys';
+import { pend } from './pend';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
@@ -88,6 +89,46 @@ describe('ClientDialog', () => {
       method: 'DELETE',
       path: '/clients/c1',
       body: undefined,
+    });
+  });
+
+  describe('restore', () => {
+    const ARCHIVED = { ...NORTHWIND, archivedAt: '2026-06-30T16:00:00.000Z' };
+
+    /* A refetch would put it right eventually; the prediction is what makes
+       the press answer in the same frame (Principle VI). */
+    it('returns the client to Active on the press, and closes', async () => {
+      const calls = pend();
+      const closed = vi.fn();
+      const qc = new QueryClient();
+      qc.setQueryData(keys.clients({ archived: true }), {
+        clients: [ARCHIVED],
+      });
+      qc.setQueryData(keys.clients(), { clients: [] });
+      qc.setQueryData(keys.client('c1'), ARCHIVED);
+      const user = userEvent.setup();
+      render(
+        <QueryClientProvider client={qc}>
+          <ClientDialog open onOpenChange={closed} client={ARCHIVED} />
+        </QueryClientProvider>,
+      );
+
+      await user.click(await screen.findByRole('button', { name: 'Restore' }));
+
+      expect(closed).toHaveBeenCalledWith(false);
+      expect(
+        qc.getQueryData<{ clients: Client[] }>(keys.clients({ archived: true }))
+          ?.clients[0]?.archivedAt,
+      ).toBeNull();
+      expect(
+        qc.getQueryData<{ clients: Client[] }>(keys.clients())?.clients,
+      ).toMatchObject([{ id: 'c1', archivedAt: null }]);
+      expect(qc.getQueryData<Client>(keys.client('c1'))?.archivedAt).toBeNull();
+      expect(calls).toContainEqual({
+        method: 'PATCH',
+        path: '/clients/c1',
+        body: { archived: false },
+      });
     });
   });
 
