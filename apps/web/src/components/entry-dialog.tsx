@@ -133,12 +133,6 @@ export function EntryDialog({
     if (existing) await onSaved?.(existing.id);
   };
 
-  /* Pending, not predicted: the server decides whether an entry is valid (an
-     overlap, a billed lock), and a form that closed at once would lose what
-     was typed when it said no. The button answers the press instead, and the
-     reason shows here. `stats` is in the refetch too: editing an entry
-     changes the unbilled total, and giving a loose entry a project is what
-     clears its inbox row. */
   /* The draft as instants, or `null` while a field is cleared. An entry that
      ends "before" it starts is almost always an overnight shift — 22:00 to
      02:00 — so the end rolls forward a day: that is what the user meant, and
@@ -156,6 +150,12 @@ export function EntryDialog({
     return { startedAt, endedAt, overnight };
   })();
 
+  /* Pending, not predicted: the server decides whether an entry is valid (an
+     overlap, a billed lock), and a form that closed at once would lose what
+     was typed when it said no. The button answers the press instead, and the
+     reason shows here. `stats` is in the refetch too: editing an entry
+     changes the unbilled total, and giving a loose entry a project is what
+     clears its inbox row. */
   const formPress = {
     queryKey: () => keys.entries(),
     invalidate: invalidateEntryData,
