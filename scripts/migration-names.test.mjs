@@ -9,10 +9,22 @@ const main = new Map([
 const withFile = (name, sql = 'select 1;') => new Map([...main, [name, sql]]);
 
 test('main unchanged, plus a timestamped migration, passes', () => {
-  assert.deepEqual(
-    migrationProblems(main, withFile('20261011093000_add_notes.sql')),
-    [],
+  for (const name of [
+    '20261011093000_add_notes.sql',
+    '20261011093000_add-notes.sql',
+  ]) {
+    assert.deepEqual(migrationProblems(main, withFile(name)), [], name);
+  }
+});
+
+test("a new migration sorting before main's last fails", () => {
+  const later = withFile('20261011093000_later.sql');
+  const problems = migrationProblems(
+    later,
+    new Map([...later, ['20261010120000_earlier.sql', 'select 2;']]),
   );
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /sorts before 20261011093000_later\.sql/);
 });
 
 test('a new migration named by number fails', () => {
