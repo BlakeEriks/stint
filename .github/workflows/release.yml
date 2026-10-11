@@ -85,7 +85,7 @@ jobs:
           # shellcheck disable=SC2086 # one word per file, split on purpose
           first=$(printf '%s\n' $pending | sort | head -1)
           if [ -n "$pending" ] && [ ! "$first" \> "$last" ]; then
-            echo "::error::$first sorts before $last, which production has run. Recreate it with \`supabase migration new\`."
+            echo "::error::$first sorts before $last, which production has run. Recreate it with \`pnpm exec supabase migration new\`."
             exit 1
           fi
           {

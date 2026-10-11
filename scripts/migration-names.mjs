@@ -1,6 +1,7 @@
-// `supabase migration new` writes this UTC timestamp, so two branches collide
-// only if both create a migration in the same second. The numbered files
-// before it keep their names: they sort first, and production has run them.
+// `pnpm exec supabase migration new` writes this UTC timestamp, so two
+// branches collide only if both create a migration in the same second. The
+// numbered files before it keep their names: they sort first, and production
+// has run them.
 const TIMESTAMPED =
   /^20\d\d(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])([01]\d|2[0-3])[0-5]\d[0-5]\d_[\w-]+\.sql$/;
 
@@ -43,11 +44,11 @@ function misnamed(main, current) {
     if (main.has(name)) continue;
     if (!TIMESTAMPED.test(name)) {
       problems.push(
-        `${name} isn't named by timestamp. Create it with \`supabase migration new <name>\`.`,
+        `${name} isn't named by timestamp. Create it with \`pnpm exec supabase migration new <name>\`.`,
       );
     } else if (name <= last) {
       problems.push(
-        `${name} sorts before ${last}, already on main. Recreate it with \`supabase migration new <name>\` so it runs last everywhere.`,
+        `${name} sorts before ${last}, already on main. Recreate it with \`pnpm exec supabase migration new <name>\` so it runs last everywhere.`,
       );
     }
   }
