@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ProjectDialog } from '@/components/project-dialog';
 import type { Project } from '@/lib/client/api';
+import { keys } from '@/lib/client/query-keys';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
@@ -43,6 +44,26 @@ function serve(initial: { id: string; name: string }[]) {
         return new Response(JSON.stringify({ clients }), { status: 200 });
       }
       return new Response('{}', { status: 200 });
+    }),
+  );
+  return calls;
+}
+
+/** Records each write and never answers, so what a test reads is the
+    prediction alone, not a refetch that replaced it. */
+function pend() {
+  const calls: Array<{ method: string; path: string; body: unknown }> = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET')
+        calls.push({
+          method,
+          path: String(url).replace('/api/v1', ''),
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        });
+      return new Promise<Response>(() => {});
     }),
   );
   return calls;
@@ -139,6 +160,62 @@ describe('ProjectDialog', () => {
         method: 'DELETE',
         path: '/projects/p1',
         body: undefined,
+      });
+    });
+  });
+
+  describe('restore', () => {
+    const ARCHIVED = {
+      id: 'p1',
+      name: 'Warehouse dashboard',
+      clientId: 'c1',
+      hourlyRate: null,
+      isBillableDefault: true,
+      archivedAt: '2026-06-30T16:00:00.000Z',
+    } as unknown as Project;
+
+    it('shows Restore, not Archive, for an archived project', async () => {
+      serve([]);
+      render(
+        <ProjectDialog open onOpenChange={() => {}} existing={ARCHIVED} />,
+        { wrapper },
+      );
+
+      expect(
+        await screen.findByRole('button', { name: 'Restore' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
+    });
+
+    it('returns the project to Active on the press, only where it belongs', async () => {
+      const calls = pend();
+      const closed = vi.fn();
+      const qc = new QueryClient();
+      qc.setQueryData(keys.projects({ archived: true }), {
+        projects: [ARCHIVED],
+      });
+      qc.setQueryData(keys.projects(), { projects: [] });
+      qc.setQueryData(keys.projects({ clientId: 'c2' }), { projects: [] });
+      const user = userEvent.setup();
+      render(
+        <QueryClientProvider client={qc}>
+          <ProjectDialog open onOpenChange={closed} existing={ARCHIVED} />
+        </QueryClientProvider>,
+      );
+
+      await user.click(await screen.findByRole('button', { name: 'Restore' }));
+
+      expect(closed).toHaveBeenCalledWith(false);
+      const list = (opts?: { archived?: boolean; clientId?: string }) =>
+        qc.getQueryData<{ projects: Project[] }>(keys.projects(opts))?.projects;
+      expect(list({ archived: true })?.[0]?.archivedAt).toBeNull();
+      expect(list()).toMatchObject([{ id: 'p1', archivedAt: null }]);
+      // Another client's list is no place for it.
+      expect(list({ clientId: 'c2' })).toEqual([]);
+      expect(calls).toContainEqual({
+        method: 'PATCH',
+        path: '/projects/p1',
+        body: { archived: false },
       });
     });
   });

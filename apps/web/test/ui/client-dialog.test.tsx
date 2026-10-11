@@ -46,6 +46,26 @@ function serve() {
   return calls;
 }
 
+/** Records each write and never answers, so what a test reads is the
+    prediction alone, not a refetch that replaced it. */
+function pend() {
+  const calls: Array<{ method: string; path: string; body: unknown }> = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET')
+        calls.push({
+          method,
+          path: String(url).replace('/api/v1', ''),
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        });
+      return new Promise<Response>(() => {});
+    }),
+  );
+  return calls;
+}
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe('ClientDialog', () => {
@@ -88,6 +108,58 @@ describe('ClientDialog', () => {
       method: 'DELETE',
       path: '/clients/c1',
       body: undefined,
+    });
+  });
+
+  describe('restore', () => {
+    const ARCHIVED = { ...NORTHWIND, archivedAt: '2026-06-30T16:00:00.000Z' };
+
+    it('shows Restore, not Archive, for an archived client', async () => {
+      serve();
+      render(<ClientDialog open onOpenChange={() => {}} client={ARCHIVED} />, {
+        wrapper,
+      });
+
+      expect(
+        await screen.findByRole('button', { name: 'Restore' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
+    });
+
+    /* A refetch would put it right eventually; the prediction is what makes
+       the press answer in the same frame (Principle VI). */
+    it('returns the client to Active on the press, and closes', async () => {
+      const calls = pend();
+      const closed = vi.fn();
+      const qc = new QueryClient();
+      qc.setQueryData(keys.clients({ archived: true }), {
+        clients: [ARCHIVED],
+      });
+      qc.setQueryData(keys.clients(), { clients: [] });
+      qc.setQueryData(keys.client('c1'), ARCHIVED);
+      const user = userEvent.setup();
+      render(
+        <QueryClientProvider client={qc}>
+          <ClientDialog open onOpenChange={closed} client={ARCHIVED} />
+        </QueryClientProvider>,
+      );
+
+      await user.click(await screen.findByRole('button', { name: 'Restore' }));
+
+      expect(closed).toHaveBeenCalledWith(false);
+      expect(
+        qc.getQueryData<{ clients: Client[] }>(keys.clients({ archived: true }))
+          ?.clients[0]?.archivedAt,
+      ).toBeNull();
+      expect(
+        qc.getQueryData<{ clients: Client[] }>(keys.clients())?.clients,
+      ).toMatchObject([{ id: 'c1', archivedAt: null }]);
+      expect(qc.getQueryData<Client>(keys.client('c1'))?.archivedAt).toBeNull();
+      expect(calls).toContainEqual({
+        method: 'PATCH',
+        path: '/clients/c1',
+        body: { archived: false },
+      });
     });
   });
 

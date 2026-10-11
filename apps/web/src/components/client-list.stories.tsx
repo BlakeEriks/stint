@@ -198,7 +198,7 @@ export const EditClient: Story = {
   },
 };
 
-/** An archived client's dialog has nothing left to archive. */
+/** An archived client's dialog offers Restore where Archive was. */
 export const EditArchivedClient: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -208,6 +208,7 @@ export const EditArchivedClient: Story = {
     );
     await expectOpen(canvasElement, 'dialog', 'Edit client');
     await expect(page.queryByRole('button', { name: 'Archive' })).toBeNull();
+    await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible();
   },
 };
 
@@ -221,6 +222,66 @@ export const EditArchivedProject: Story = {
     );
     await expectOpen(canvasElement, 'dialog');
     await expect(page.queryByRole('button', { name: 'Archive' })).toBeNull();
+    await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible();
+  },
+};
+
+const card = async (canvasElement: HTMLElement, name: string) =>
+  within(
+    (await within(canvasElement).findByRole('heading', { name })).closest(
+      'section',
+    )!,
+  );
+
+/** Restore puts the client back under Active on the press: the badge goes,
+    and its project keeps its own archive. */
+export const RestoreClient: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Old Engagement Co' }),
+    );
+    await userEvent.click(await page.findByRole('button', { name: 'Restore' }));
+    const old = await card(canvasElement, 'Old Engagement Co');
+    // One badge left, the project's own.
+    await waitFor(() => expect(old.getAllByText('Archived')).toHaveLength(1));
+    await expect(old.getByText('Legacy retainer')).toBeVisible();
+  },
+};
+
+/** The same for a project: its Archived badge goes on the press. */
+export const RestoreProject: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.projects.find((p) => p.id === ids.warehouse)!.archivedAt =
+      '2026-06-30T16:00:00.000Z';
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const northwind = await card(canvasElement, 'Northwind Trading');
+    await expect(await northwind.findByText('Archived')).toBeVisible();
+    await userEvent.click(
+      page.getByRole('button', { name: 'Edit Warehouse dashboard' }),
+    );
+    await userEvent.click(await page.findByRole('button', { name: 'Restore' }));
+    await waitFor(() => expect(northwind.queryByText('Archived')).toBeNull());
+  },
+};
+
+/** A refused restore puts the badge back, and the notice says why. */
+export const RestoreRefused: Story = {
+  ...desktop,
+  parameters: failing('updateClient'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit Old Engagement Co' }),
+    );
+    await userEvent.click(await page.findByRole('button', { name: 'Restore' }));
+    await expect(await page.findByText(/Internal server error/)).toBeVisible();
+    const old = await card(canvasElement, 'Old Engagement Co');
+    await expect(old.getAllByText('Archived')).toHaveLength(2);
   },
 };
 

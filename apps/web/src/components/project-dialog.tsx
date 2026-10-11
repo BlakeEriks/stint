@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { type QueryClient, useQuery } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
 import {
   Dialog,
@@ -11,18 +11,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Archive, Check, Plus } from 'lucide-react';
+import { Check, Plus } from 'lucide-react';
 import { uuidv7 } from '@stint/core';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, type Project } from '@/lib/client/api';
+import { ArchiveButton } from './archive-button';
 import { ClientForm } from './client-form';
 import { ClientPicker } from './client-picker';
 import {
   keys,
   invalidateEntryData,
   predictArchive,
+  predictRestore,
   predictSave,
 } from '@/lib/client/query-keys';
 
@@ -91,12 +93,7 @@ export function ProjectDialog({
         ? api.updateProject(id, body)
         : api.createProject({ id, ...body }),
     predict: (current, project, key) => predictSave(project, current, key),
-    // A project's rate is what its unbilled work is valued at, in every rollup.
-    invalidate: (qc) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.projects() }),
-        invalidateEntryData(qc),
-      ]),
+    invalidate: invalidateProjects,
   });
 
   /* Archive lives here rather than on the row: it's rare, and the list's
@@ -107,11 +104,15 @@ export function ProjectDialog({
     queryKey: () => keys.projects(),
     mutationFn: (id) => api.archiveProject(id),
     predict: (current, id, key) => predictArchive('projects', id, current, key),
-    invalidate: (qc) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.projects() }),
-        invalidateEntryData(qc),
-      ]),
+    invalidate: invalidateProjects,
+  });
+  /* Restore takes Archive's place once archived, predicted the same way. */
+  const restore = useOptimisticMutation<Project, unknown, unknown>({
+    queryKey: () => keys.projects(),
+    mutationFn: (project) => api.restoreProject(project.id),
+    predict: (current, project, key) =>
+      predictRestore('projects', project, current, key),
+    invalidate: invalidateProjects,
   });
 
   const submit = (e: React.FormEvent) => {
@@ -224,19 +225,19 @@ export function ProjectDialog({
 
           <DialogFooter>
             {/* At the far end from Save, so it is never hit by habit. */}
-            {existing && !existing.archivedAt ? (
-              <Button
-                type="button"
-                variant="ghost"
+            {existing ? (
+              <ArchiveButton
+                archived={existing.archivedAt != null}
                 className="mr-auto"
-                onClick={() => {
+                onArchive={() => {
                   archive.mutate(existing.id);
                   onOpenChange(false);
                 }}
-              >
-                <Archive aria-hidden strokeWidth={1.75} />
-                Archive
-              </Button>
+                onRestore={() => {
+                  restore.mutate(existing);
+                  onOpenChange(false);
+                }}
+              />
             ) : null}
             <Button
               type="button"
@@ -264,3 +265,11 @@ export function ProjectDialog({
 }
 
 const LABEL = 'type-label text-subtle';
+
+/** A project's rate is what its unbilled work is valued at, in every
+    rollup. */
+const invalidateProjects = (qc: QueryClient) =>
+  Promise.all([
+    qc.invalidateQueries({ queryKey: keys.projects() }),
+    invalidateEntryData(qc),
+  ]);
