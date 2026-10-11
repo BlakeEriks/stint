@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Section } from './field';
 import { SettingsForm } from './settings-form';
 import { PaymentProfiles } from './payment-profiles';
-import { DeleteAccount } from './delete-account';
+import { AccountSection } from './account-section';
 import { Page } from './page';
 
 /**
@@ -28,7 +28,7 @@ export function SettingsPage() {
           </Button>
         </div>
       </Section>
-      <DeleteAccount />
+      <AccountSection />
     </Page>
   );
 }

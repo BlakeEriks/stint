@@ -124,11 +124,7 @@ function Hero() {
         <div className="flex min-w-0 flex-col gap-6">
           {/* The headline names the COMPOUND JOB, not the two features:
               what differentiates Stint is that it knows the rates, so the
-              hours are already money, and that belongs in the first sentence.
-
-              The refusal list ("no project boards…") has its own section
-              further down — absence is not a benefit to someone who has not
-              yet been told what they get. */}
+              hours are already money, and that belongs in the first sentence. */}
           <h1 className="type-hero text-balance text-strong">
             Start the timer, and the invoice takes care of itself.
           </h1>
