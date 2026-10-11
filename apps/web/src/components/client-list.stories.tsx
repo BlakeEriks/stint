@@ -212,7 +212,7 @@ export const EditArchivedClient: Story = {
   },
 };
 
-/** Nor does an archived project's. */
+/** An archived project's dialog does the same. */
 export const EditArchivedProject: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
