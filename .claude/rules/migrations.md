@@ -38,7 +38,7 @@ so RLS is the only thing protecting the data. That makes `verify:schema` the
 real security control: a table reaching production without RLS exposes every
 user's rows, and nothing else in the stack notices.
 
-`pnpm verify:schema` asserts seven tables with **RLS on**, at least one policy
+`pnpm verify:schema` asserts nine tables with **RLS on**, at least one policy
 each (RLS with no policies denies everything), and the invariants a migration
 can silently undo — the partial unique index behind the timer rule, the
 composite key keeping an entry's project with its owner, that no application

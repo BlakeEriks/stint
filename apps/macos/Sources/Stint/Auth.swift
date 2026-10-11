@@ -13,8 +13,8 @@ actor Auth {
         self.tokens = tokens
     }
 
-    /// `create_user: false` — this app signs existing accounts in; signing
-    /// up is a web concern. A struct, so the bool is not sent quoted.
+    /// `create_user: false` — this app signs existing accounts in; an
+    /// account comes from an invite. A struct, so the bool is not sent quoted.
     func requestLink(email: String) async throws {
         struct Body: Encodable {
             let email: String
@@ -28,7 +28,7 @@ actor Auth {
             if reported?.code == "otp_disabled" {
                 throw APIError(
                     status: status, code: "NO_ACCOUNT",
-                    message: "No Stint account for that email. Create one in the app first, then sign in here."
+                    message: "Stint is invite-only. Ask Blake for an invite."
                 )
             }
             throw reported

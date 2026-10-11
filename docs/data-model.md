@@ -78,8 +78,7 @@ One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, the invoice
 identity block (business name, address, logo, tax id, terms), the invoice
 number sequence, `payment_notice`, and the entry-length thresholds
-(`min_entry_seconds`, `max_entry_hours`). `max_timer_hours` is unread and
-awaiting removal (#108).
+(`min_entry_seconds`, `max_entry_hours`).
 
 **`max_entry_hours` defaults to 12; `min_entry_seconds` to null.** The long
 side is how a timer left running overnight reaches the inbox once it is
@@ -181,6 +180,14 @@ there is no currency column, because an expense is never converted.
   are readings about work. They reach **awaiting** and **collected** through
   the invoice's `total`.
 
+### `feedback`
+A message a user sent from the app's Feedback button, with the `screen` path,
+the `client` (`web` or `macos`) and the `app_version` it came from. It is
+written once: `authenticated` is granted only `select` and `insert`, so a
+sent message can't be changed or deleted, even by its sender. It goes with the
+account (`on delete cascade`). The checks match `CreateFeedback`: `message`
+1–2,000 characters, `screen` 1–200, `app_version` 1–64.
+
 ## Integrity rules
 
 ### The timer invariant
@@ -258,7 +265,7 @@ sequence gapless under concurrency rather than merely usually correct.
 - Enumerations are check constraints, not conventions: `status`,
   `grouping_mode`, `time_format`, `account_type`, `fee_allocation`,
   `monthly_target_unit`.
-- Ranges: `week_starts_on` 0–6, `tax_rate` 0–100, `max_timer_hours > 0`,
+- Ranges: `week_starts_on` 0–6, `tax_rate` 0–100,
   `min_entry_seconds > 0`, `max_entry_hours > 0`,
   `next_invoice_number > 0`, `monthly_target > 0`,
   `quantity_seconds >= 0`; client, project and payment-profile names must be
@@ -272,9 +279,9 @@ sequence gapless under concurrency rather than merely usually correct.
   is derived from `paid_at`, so a paid row without one drops a real payment
   out of the figure that says what arrived.
 - `updated_at` is maintained by a `touch_updated_at` trigger on every table
-  **except `invoice_line_items`**, which has no such column: a line is frozen
-  at generation and never edited, so a "last modified" timestamp would be a
-  field that can only ever lie.
+  **except `invoice_line_items` and `feedback`**, which have no such column:
+  each is written once and never edited, so a "last modified" timestamp would
+  be a field that can only ever lie.
 - Partial indexes back the hot paths: active clients, projects and profiles,
   unbilled entries, and `invoices_user_paid_at_idx` on `(user_id, paid_at)`
   where the invoice is paid — payments are read by date, not by the status
@@ -360,12 +367,13 @@ alone must still contain the query.
 | Check | Result |
 |---|---|
 | An unfiltered `select` returns only the caller's rows | isolated |
-| All seven user-scoped tables isolate | isolated |
+| All eight user-scoped tables isolate | isolated |
 | A known-good id belonging to another user returns nothing | no leak |
 | Line items inherit isolation through their invoice | isolated |
 | Insert with a forged `user_id` | rejected by `WITH CHECK` |
 | Update or delete targeting another user's row | matches nothing |
 | Reassigning a row to another user | rejected by `WITH CHECK` |
+| Changing or deleting sent feedback, even your own | refused by the grant |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
 | An invoice billed to another user's client | rejected by `invoice_client_same_owner` |
 | A project under another user's client | rejected by `project_client_same_owner` |

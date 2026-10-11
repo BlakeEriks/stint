@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-query';
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import { Toast, ToastRegion } from './toast';
 
 /**
  * Why the last press didn't take. Read from the mutation cache, not from the
@@ -35,13 +36,9 @@ export function MutationNotice() {
     .at(-1);
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4"
-    >
+    <ToastRegion>
       {shown && (
-        <div className="pointer-events-auto flex max-w-md items-center gap-3 rounded-lg border border-edge-default bg-surface-elevated px-4 py-2 type-support text-primary shadow-float">
+        <Toast>
           <span>{shown.message}</span>
           <button
             type="button"
@@ -51,8 +48,8 @@ export function MutationNotice() {
           >
             <X aria-hidden className="size-4" strokeWidth={1.75} />
           </button>
-        </div>
+        </Toast>
       )}
-    </div>
+    </ToastRegion>
   );
 }

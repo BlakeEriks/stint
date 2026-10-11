@@ -421,6 +421,9 @@ export const api = {
   createExpense: (body: ExpenseInput & { id: string }) =>
     request<Expense>('POST', '/expenses', body),
 
+  sendFeedback: (body: schema.CreateFeedback) =>
+    request<{ id: string }>('POST', '/feedback', body),
+
   updateExpense: (id: string, body: Partial<ExpenseInput>) =>
     request<Expense>('PATCH', `/expenses/${id}`, body),
 

@@ -15,6 +15,7 @@ import { connectionString, sslFor } from './db-url.mjs';
 const EXPECTED = [
   'clients',
   'expenses',
+  'feedback',
   'invoice_line_items',
   'invoices',
   'payment_profiles',
