@@ -131,18 +131,14 @@ function Loaded({
 
   return (
     <>
-      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 pb-6">
-        <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <h1 className="truncate type-title text-strong">
-              {invoice.invoiceNumber}
-            </h1>
-            <StatusBadge status={invoice.status} />
-          </div>
-          <p className="type-support text-muted">
-            {statusHint(invoice.status, invoice.dueDate)}
-          </p>
-          <ActionError error={error} />
+      {/* The hint sits under the row, not in it: a long one would push the
+          actions below the title. */}
+      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <h1 className="truncate type-title text-strong">
+            {invoice.invoiceNumber}
+          </h1>
+          <StatusBadge status={invoice.status} />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -212,6 +208,12 @@ function Loaded({
           </Button>
         </div>
       </header>
+      <div className="flex flex-col gap-1 pt-1 pb-6">
+        <p className="type-support text-muted">
+          {statusHint(invoice.status, invoice.dueDate)}
+        </p>
+        <ActionError error={error} />
+      </div>
 
       <InvoicePreviewCard
         heading={false}

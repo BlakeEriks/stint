@@ -22,7 +22,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Lines and total as frozen at generation; no supporting detail named. */
+/** Lines and total as frozen at generation; no supporting detail named. The
+    actions share the title's row, whatever the length of the status line. */
 export const Draft: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -30,6 +31,13 @@ export const Draft: Story = {
     await expect(
       await page.findByText('Type scale for the brand site'),
     ).toBeVisible();
+    const title = page
+      .getByRole('heading', { level: 1 })
+      .getBoundingClientRect();
+    const download = page
+      .getByRole('link', { name: 'Download PDF' })
+      .getBoundingClientRect();
+    await expect(download.top).toBeLessThan(title.bottom);
     await expect(
       page.getByText('Amount due').nextElementSibling,
     ).toHaveTextContent('$2,787.60');
