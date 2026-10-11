@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOptimisticMutation } from './mutations';
+import { keys } from './query-keys';
 import { browserClient } from './supabase';
 
 /** Who is signed in, and how to leave. */
@@ -30,7 +31,7 @@ export function useAccount() {
       const { error } = await browserClient().auth.signOut();
       if (error) throw new Error(`Couldn’t sign out: ${error.message}`);
     },
-    queryKey: () => ['session'],
+    queryKey: keys.session,
     /* `refresh()` as well as `replace()`: the cookie is gone but the server
        components were rendered for a signed-in user, and without the refresh
        a back-navigation would show a cached authenticated page. */
