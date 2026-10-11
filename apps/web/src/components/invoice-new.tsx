@@ -270,6 +270,8 @@ export function NewInvoice() {
     draft.groupingMode === 'summary' && draft.summaryText.trim() === '';
   const canGenerate =
     current !== undefined &&
+    // Due follows the settings' terms; without them it would be sent blank.
+    settings !== undefined &&
     !updating &&
     !preview.isError &&
     unrated === 0 &&

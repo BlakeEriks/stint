@@ -567,6 +567,9 @@ test('a new invoice is due when its payment terms say', () => {
     ['Payable within 10 days', '2026-12-30'],
     ['Due on receipt', '2026-12-20'],
     ['Payable upon receipt', '2026-12-20'],
+    // A day count wins over "receipt" in the same terms.
+    ['Net 30 upon receipt', '2027-01-19'],
+    ['Net 15 days from receipt of invoice', '2027-01-04'],
     // Terms it cannot read fall back to Net 30.
     ['End of month', '2027-01-19'],
     ['', '2027-01-19'],

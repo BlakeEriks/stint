@@ -142,6 +142,8 @@ const WITH_EXPENSE = {
 let bodies: { path: string; body: any }[] = [];
 /** Held previews: a test releases one to watch the card settle. */
 let hold: Promise<void> | null = null;
+/** Held settings: a test keeps Due unknown. */
+let holdSettings: Promise<void> | null = null;
 /** Held payment-profile lists: a test stops the refetch after a save. */
 let holdProfiles: Promise<void> | null = null;
 
@@ -167,7 +169,10 @@ function serve(preview: unknown = PREVIEW) {
       if (path.endsWith('/invoices')) return ok({ id: 'inv-1' });
       if (path.includes('/expenses')) return ok({ expenses: EXPENSES });
       if (path.includes('/clients')) return ok({ clients: CLIENTS });
-      if (path.includes('/settings')) return ok(settings);
+      if (path.includes('/settings')) {
+        if (holdSettings) await holdSettings;
+        return ok(settings);
+      }
       if (path.includes('/payment-profiles')) {
         if (init?.method === 'POST') {
           const made = { ...JSON.parse(String(init.body)), id: 'pp2' };
@@ -238,6 +243,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   hold = null;
   settings = SETTINGS;
+  holdSettings = null;
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -344,6 +350,23 @@ describe('NewInvoice', () => {
     expect(bodies.find((b) => b.path.endsWith('/invoices'))!.body.dueDate).toBe(
       due,
     );
+  });
+
+  it('holds Generate until the settings answer, so Due is never sent blank', async () => {
+    serve();
+    let release = () => {};
+    holdSettings = new Promise((r) => {
+      release = r;
+    });
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await chooseClient(user);
+    await within(card()).findByText('Design review');
+    expect(generate()).toBeDisabled();
+
+    release();
+
+    await waitFor(() => expect(generate()).toBeEnabled());
   });
 
   it('generates only when pressed, dated today where the user is', async () => {

@@ -321,11 +321,11 @@ export function defaultInvoicePeriod(today: string): {
 
 /**
  * When an invoice issued on `issueDate` is due under its free-text payment
- * `terms`: "Net N" or "N days" is N days on, "on receipt" the same day, and
- * anything else Net 30.
+ * `terms`: "Net N" or "N days" is N days on, even "Net 30 upon receipt";
+ * "on receipt" with no count is the same day, and anything else Net 30.
  */
 export function dueDateForTerms(issueDate: string, terms: string): string {
-  if (/receipt/i.test(terms)) return issueDate;
   const days = /net\s*(\d+)/i.exec(terms) ?? /(\d+)\s*days/i.exec(terms);
-  return addDays(issueDate, days ? Number(days[1]) : 30);
+  if (days) return addDays(issueDate, Number(days[1]));
+  return /receipt/i.test(terms) ? issueDate : addDays(issueDate, 30);
 }
