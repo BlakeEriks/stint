@@ -156,12 +156,12 @@ describe('ProjectDialog', () => {
     } as unknown as Project;
 
     /** Restores ARCHIVED with `active` as the clients the server answers
-        as active, and returns the cache. */
-    async function restore(active: Array<{ id: string; name: string }>) {
+        as active (unset: not answered yet), and returns the cache. */
+    async function restore(active?: Array<{ id: string; name: string }>) {
       const calls = pend();
       const closed = vi.fn();
       const qc = new QueryClient();
-      qc.setQueryData(keys.clients(), { clients: active });
+      if (active) qc.setQueryData(keys.clients(), { clients: active });
       qc.setQueryData(keys.projects({ archived: true }), {
         projects: [ARCHIVED],
       });
@@ -201,6 +201,13 @@ describe('ProjectDialog', () => {
       const { list } = await restore([]);
       expect(list({ archived: true })?.[0]?.archivedAt).toBeNull();
       expect(list()).toEqual([]);
+    });
+
+    /* The clients list is not cached on the screens with Restore, so a press
+       before it answers must not read as an archived client. */
+    it('lists it when the clients have not answered yet', async () => {
+      const { list } = await restore();
+      expect(list()).toMatchObject([{ id: 'p1', archivedAt: null }]);
     });
   });
 });

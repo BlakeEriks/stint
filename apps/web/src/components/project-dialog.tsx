@@ -115,7 +115,10 @@ export function ProjectDialog({
         project,
         current,
         key,
+        /* Unknown counts as listed: the refetch drops it if its client
+           turns out archived. */
         project.clientId === null ||
+          !clientData ||
           clients.some((c) => c.id === project.clientId),
       ),
     invalidate: invalidateProjects,
