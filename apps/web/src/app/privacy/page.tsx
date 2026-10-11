@@ -31,8 +31,9 @@ export default function Page() {
         </p>
         <p>
           <strong className="text-primary">What you enter:</strong> time
-          entries, clients, projects, hourly rates, invoice details and the
-          payment details you choose to put on your invoices.
+          entries, clients, projects, hourly rates, invoice details, the payment
+          details you choose to put on your invoices, and feedback you send from
+          the app, with the screen and app version it came from.
         </p>
         <p>
           <strong className="text-primary">Ordinary server logs:</strong> IP

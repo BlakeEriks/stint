@@ -36,6 +36,7 @@ after(async () => {
 });
 
 beforeEach(async () => {
+  await pool.query('delete from feedback');
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
   // Detach first: the immutability trigger refuses to delete an entry that
@@ -575,6 +576,57 @@ test('editing a default profile does not demote it', async () => {
   assert.equal(renamed.body.isDefault, true);
 });
 
+/* Each detail the form sends is a column the insert must name; one left out
+   is dropped without an error, and the invoice prints without it. */
+test('a new payment profile stores every detail it is given', async () => {
+  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
+  const details = {
+    accountHolderName: 'Ada Lovelace',
+    accountHolderAddress: '1 Main St, Springfield, IL',
+    bankName: 'First Bank',
+    bankAddress: '2 Bank St, Chicago, IL',
+    accountNumber: '000123456789',
+    routingNumber: '021000021',
+    accountType: 'checking',
+    iban: 'DE89370400440532013000',
+    swiftBic: 'FBNKUS33',
+    localCodeLabel: 'Sort code',
+    localCode: '12-34-56',
+    intermediaryBankName: 'Middle Bank',
+    intermediarySwiftBic: 'MIDLUS33',
+    intermediaryAccountNumber: '987654321',
+    paymentLinkLabel: 'Pay online',
+    paymentLinkUrl: 'https://pay.example.com/ada',
+    currency: 'USD',
+    feeAllocation: 'SHA',
+    notes: 'Reference the invoice number.',
+  };
+
+  const res = await json(
+    await POST(req('/payment-profiles', { name: 'Checking', ...details })),
+  );
+  assert.equal(res.status, 201);
+  for (const [field, value] of Object.entries(details)) {
+    assert.equal(res.body[field], value, field);
+  }
+});
+
+test('a payment profile replayed with the same id is idempotent', async () => {
+  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
+  const body = {
+    id: '33333333-0000-4000-8000-0000000000a1',
+    name: 'Checking',
+    bankName: 'First Bank',
+  };
+
+  const first = await json(await POST(req('/payment-profiles', body)));
+  const replay = await json(await POST(req('/payment-profiles', body)));
+  assert.equal(first.status, 201);
+  assert.equal(replay.status, 200, 'replay returns the existing profile');
+  assert.equal(replay.body.id, first.body.id);
+  assert.equal(replay.body.bankName, 'First Bank');
+});
+
 /* `money` is `multipleOf(0.01)`. A third decimal is not a rate anyone can be
    billed at, and rounding it silently would misstate an invoice. */
 test('a rate finer than a cent is rejected, not rounded', async () => {
@@ -824,13 +876,13 @@ test('calendar groups entries by LOCAL day', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
   const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
 
-  // 02:30Z on the 12th is still the 11th in São Paulo (UTC-3).
+  // 01:30Z on the 12th is still the 11th in São Paulo (UTC-3).
   await create(
     req('/entries', {
       id: '018f0000-0000-7000-8000-000000000020',
       taskName: 'Late night',
-      startedAt: '2026-09-12T02:30:00Z',
-      endedAt: '2026-09-12T03:30:00Z',
+      startedAt: '2026-09-12T01:30:00Z',
+      endedAt: '2026-09-12T02:30:00Z',
     }),
   );
 
@@ -900,6 +952,57 @@ test('the day split counts billable work only', async () => {
   // The day's whole load stays unfiltered: the calendar draws all of it.
   assert.equal(day.totalSeconds, 10_800);
   assert.equal(split, 7200, 'but the split leaves the non-billable hour out');
+});
+
+test('the entry view splits an entry that crosses local midnight', async () => {
+  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
+  const { GET: calendar } = await import('../src/app/api/v1/calendar/route.ts');
+
+  // Friday 22:00 to Saturday 02:00 in New York (EDT, UTC-4).
+  await create(
+    req('/entries', {
+      id: '018f0000-0000-7000-8000-000000000040',
+      taskName: 'Overnight',
+      startedAt: '2026-07-04T02:00:00Z',
+      endedAt: '2026-07-04T06:00:00Z',
+    }),
+  );
+
+  const tz = 'America/New_York';
+  const totals = (days: { date: string; totalSeconds: number }[]) =>
+    Object.fromEntries(days.map((d) => [d.date, d.totalSeconds]));
+
+  // A range that starts Saturday still finds the entry begun Friday.
+  const saturday = await json(
+    await calendar(
+      req(
+        `/calendar?from=2026-07-04T04:00:00Z&to=2026-07-05T04:00:00Z&tz=${tz}`,
+      ),
+    ),
+  );
+  assert.equal(totals(saturday.body.days)['2026-07-04'], 7200);
+  const entries = saturday.body.days.find(
+    (d: { date: string }) => d.date === '2026-07-04',
+  ).entries;
+  assert.equal(entries.length, 1, 'the entry is drawn on Saturday too');
+
+  const day = await json(
+    await calendar(
+      req(
+        `/calendar?from=2026-07-03T04:00:00Z&to=2026-07-05T04:00:00Z&granularity=day&tz=${tz}`,
+      ),
+    ),
+  );
+  assert.deepEqual(totals(day.body.days), { '2026-07-03': 14_400 });
+
+  const saturdayDay = await json(
+    await calendar(
+      req(
+        `/calendar?from=2026-07-04T04:00:00Z&to=2026-07-05T04:00:00Z&granularity=day&tz=${tz}`,
+      ),
+    ),
+  );
+  assert.deepEqual(saturdayDay.body.days, []);
 });
 
 test('calendar rejects an inverted period', async () => {
@@ -3196,4 +3299,79 @@ test('an unhandled route error reaches Sentry, not only the log', async () => {
   await close(1000);
   assert.equal(res.status, 500);
   assert.deepEqual(sent, ['unexpected']);
+});
+
+// ── feedback ───────────────────────────────────────────────────────
+const FEEDBACK = {
+  id: '018f0000-0000-7000-a000-000000000001',
+  message: 'The Northwind total looks short.',
+  screen: '/invoices',
+  client: 'web',
+  appVersion: '0.1.0-alpha.3',
+};
+
+const feedbackRows = async () =>
+  (
+    await pool.query(
+      'select user_id, message, screen, client, app_version from feedback',
+    )
+  ).rows;
+
+test('feedback is stored with the sender and the context it was sent with', async () => {
+  const { POST } = await import('../src/app/api/v1/feedback/route.ts');
+
+  const res = await json(
+    await POST(req('/feedback', { ...FEEDBACK, userId: OTHER })),
+  );
+  assert.equal(res.status, 201);
+  assert.deepEqual(res.body, { id: FEEDBACK.id });
+  assert.deepEqual(await feedbackRows(), [
+    {
+      user_id: USER,
+      message: FEEDBACK.message,
+      screen: '/invoices',
+      client: 'web',
+      app_version: '0.1.0-alpha.3',
+    },
+  ]);
+});
+
+test('feedback trims its message and refuses an empty or overlong one', async () => {
+  const { POST } = await import('../src/app/api/v1/feedback/route.ts');
+
+  for (const message of ['', '   ', 'x'.repeat(2001)]) {
+    const res = await POST(req('/feedback', { ...FEEDBACK, message }));
+    assert.equal(res.status, 422, `"${message.slice(0, 5)}…" is refused`);
+  }
+  const ok = await POST(
+    req('/feedback', { ...FEEDBACK, message: `  ${'x'.repeat(2000)}  ` }),
+  );
+  assert.equal(ok.status, 201, '2,000 characters after trimming is allowed');
+  assert.equal((await feedbackRows())[0].message.length, 2000);
+});
+
+test('feedback refuses a missing screen or version and an unknown client', async () => {
+  const { POST } = await import('../src/app/api/v1/feedback/route.ts');
+
+  const { screen: _s, ...noScreen } = FEEDBACK;
+  const { appVersion: _v, ...noVersion } = FEEDBACK;
+  for (const body of [
+    noScreen,
+    noVersion,
+    { ...FEEDBACK, client: 'ios' },
+    { ...FEEDBACK, screen: 'invoices' },
+  ]) {
+    assert.equal((await POST(req('/feedback', body))).status, 422);
+  }
+  assert.equal((await feedbackRows()).length, 0);
+});
+
+test('a retried feedback send stores one message', async () => {
+  const { POST } = await import('../src/app/api/v1/feedback/route.ts');
+
+  assert.equal((await POST(req('/feedback', FEEDBACK))).status, 201);
+  const again = await json(await POST(req('/feedback', FEEDBACK)));
+  assert.equal(again.status, 200);
+  assert.deepEqual(again.body, { id: FEEDBACK.id });
+  assert.equal((await feedbackRows()).length, 1);
 });

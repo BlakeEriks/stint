@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { http } from 'msw';
-import { localDateKey } from '@stint/core';
+import { addDays, localDateKey, localDateTimeToInstant } from '@stint/core';
 import { account } from '@/mocks/db';
 import { handlers } from '@/mocks/handlers';
 import { envelopes, ok } from '@/mocks/respond';
@@ -27,7 +27,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The calendar alone: the dock beside it lists some of the same entries. */
+/** The calendar alone, apart from the shell around it. */
 const calendar = async (canvasElement: HTMLElement) =>
   within(await within(canvasElement.ownerDocument.body).findByRole('main'));
 
@@ -52,8 +52,19 @@ export const Desktop: Story = {
     await expect(page.queryByText('Loading…')).toBeNull();
   },
 };
-/** At `2xl` the grid scrolls inside the card. */
-export const Wide: Story = { ...wide };
+/** At `2xl` the grid scrolls inside the card. The screen is a workspace:
+    no dock, so the week takes the dock's room. */
+export const Wide: Story = {
+  ...wide,
+  play: async ({ canvasElement }) => {
+    await calendar(canvasElement);
+    await expect(
+      within(canvasElement.ownerDocument.body).queryByRole('complementary', {
+        name: 'At a glance',
+      }),
+    ).toBeNull();
+  },
+};
 export const Tablet: Story = { ...tablet };
 /** Below `sm`, one day, cropped to the hours worked. */
 export const Phone: Story = {
@@ -114,6 +125,40 @@ export const UntitledEntry: Story = {
     await expect(
       (await page.findAllByText('Untitled', { exact: true }))[0],
     ).toBeVisible();
+  },
+};
+
+/** An entry past midnight is drawn on both days it touches, each column
+    counting only its own part. */
+export const Overnight: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const today = localDateKey(db.now, ZONE);
+    const [first] = db.entries;
+    if (!first) return;
+    db.entries.push({
+      ...first,
+      id: '018f0000-0000-7000-8000-0000000000ee',
+      taskName: 'Overnight deploy',
+      startedAt: localDateTimeToInstant(
+        addDays(today, -1),
+        '23:00',
+        ZONE,
+      ).toISOString(),
+      endedAt: localDateTimeToInstant(today, '01:00', ZONE).toISOString(),
+      durationSeconds: 7200,
+      invoiceId: null,
+    });
+  }),
+  play: async ({ canvasElement }) => {
+    const page = await calendar(canvasElement);
+    const blocks = await page.findAllByRole('button', {
+      name: /^Overnight deploy/,
+    });
+    await expect(blocks).toHaveLength(2);
+    // An hour each side of midnight: the second block ends at 01:00.
+    const [before, after] = blocks.map((b) => b.getBoundingClientRect().height);
+    await expect(after).toBeCloseTo(before ?? 0, 0);
   },
 };
 

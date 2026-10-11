@@ -43,7 +43,17 @@ export const Desktop: Story = {
   },
 };
 export const Phone: Story = { ...phone };
-export const Light: Story = { ...light };
+/** The form's theme hook must not restamp the toolbar's light theme. */
+export const Light: Story = {
+  ...light,
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole('combobox', { name: 'Theme' });
+    await expect(canvasElement.ownerDocument.documentElement).toHaveAttribute(
+      'data-theme',
+      'light',
+    );
+  },
+};
 
 /** No payment details: invoices render without a payment block. */
 export const NoPaymentProfiles: Story = {
@@ -61,6 +71,22 @@ export const NoPaymentProfiles: Story = {
 };
 
 export const Failed: Story = { ...desktop, parameters: failing('settings') };
+
+/** Theme offers System, which follows the OS, beside Dark and Light. */
+export const ThemeOptions: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await page.findByRole('combobox', { name: 'Theme' }));
+    const options = await page.findAllByRole('option');
+    await expect(options.map((o) => o.textContent)).toEqual([
+      'System',
+      'Dark',
+      'Light',
+    ]);
+    await userEvent.keyboard('{Escape}');
+  },
+};
 
 /** Deleting the account counts what goes, and the email typed is the gate. */
 export const DeleteAccount: Story = {

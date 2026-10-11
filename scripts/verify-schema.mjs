@@ -16,6 +16,7 @@ import { moneyColumnProblems } from './money-columns.mjs';
 const EXPECTED = [
   'clients',
   'expenses',
+  'feedback',
   'invoice_line_items',
   'invoices',
   'payment_profiles',

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, within } from 'storybook/test';
+import { expect, userEvent, within } from 'storybook/test';
 import { desktop, light, phone } from '@/mocks/screen';
+import { NOT_INVITED } from '@/mocks/supabase';
 import { SignInForm } from './signin-form';
 
 /** Signed out: no frame, one field, a link by email. */
@@ -46,3 +47,16 @@ export const InvalidLink: Story = {
 
 /** Where deleting an account lands. */
 export const Deleted: Story = { ...desktop, args: { deleted: true } };
+
+/** An email nobody invited: it says how to get in. */
+export const NotInvited: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.type(await page.findByLabelText('Email'), NOT_INVITED);
+    await userEvent.click(page.getByRole('button', { name: /Email me/ }));
+    await expect(await page.findByRole('alert')).toHaveTextContent(
+      'Stint is invite-only. Ask Blake for an invite.',
+    );
+  },
+};

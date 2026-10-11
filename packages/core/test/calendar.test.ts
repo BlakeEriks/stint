@@ -11,6 +11,7 @@ import {
   localMonthKeys,
   localDateTimeToInstant,
   addDays,
+  splitByLocalDay,
 } from '../src/calendar.ts';
 
 /** Renders an instant in a zone, for asserting it really is local midnight. */
@@ -249,4 +250,73 @@ test('localMonthKeys reads the local month and is unmoved by DST', () => {
     localMonthKeys(new Date('2026-04-15T12:00:00Z'), 'America/New_York', 6),
     ['2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04'],
   );
+});
+
+test('splitByLocalDay cuts an entry at local midnight', () => {
+  // Friday 22:10 to Saturday 01:00 in New York (EDT, UTC-4).
+  assert.deepEqual(
+    splitByLocalDay(
+      new Date('2026-09-12T02:10:00Z'),
+      new Date('2026-09-12T05:00:00Z'),
+      'America/New_York',
+    ),
+    [
+      { date: '2026-09-11', seconds: 6_600 },
+      { date: '2026-09-12', seconds: 3_600 },
+    ],
+  );
+});
+
+test('splitByLocalDay keeps an entry inside one day whole', () => {
+  assert.deepEqual(
+    splitByLocalDay(
+      new Date('2026-09-14T09:00:00Z'),
+      new Date('2026-09-14T11:00:00Z'),
+      'UTC',
+    ),
+    [{ date: '2026-09-14', seconds: 7_200 }],
+  );
+});
+
+test('splitByLocalDay gives an entry ending at midnight no next-day piece', () => {
+  assert.deepEqual(
+    splitByLocalDay(
+      new Date('2026-09-14T22:00:00Z'),
+      new Date('2026-09-15T00:00:00Z'),
+      'UTC',
+    ),
+    [{ date: '2026-09-14', seconds: 7_200 }],
+  );
+});
+
+test('splitByLocalDay keeps a zero-length entry on its day', () => {
+  const at = new Date('2026-09-14T09:00:00Z');
+  assert.deepEqual(splitByLocalDay(at, at, 'UTC'), [
+    { date: '2026-09-14', seconds: 0 },
+  ]);
+});
+
+test('splitByLocalDay gives a DST day its real length', () => {
+  // 2026-11-01 is 25 hours in New York: midnight EDT to midnight EST.
+  const days = splitByLocalDay(
+    new Date('2026-11-01T04:00:00Z'),
+    new Date('2026-11-02T06:00:00Z'),
+    'America/New_York',
+  );
+  assert.deepEqual(days, [
+    { date: '2026-11-01', seconds: 25 * 3_600 },
+    { date: '2026-11-02', seconds: 3_600 },
+  ]);
+});
+
+test('splitByLocalDay pieces sum to the whole entry', () => {
+  const start = new Date('2026-09-10T20:15:30Z');
+  const end = new Date('2026-09-13T03:45:10Z');
+  const days = splitByLocalDay(start, end, 'America/Los_Angeles');
+  assert.equal(days.length, 3);
+  assert.equal(
+    days.reduce((s, d) => s + d.seconds, 0),
+    (end.getTime() - start.getTime()) / 1000,
+  );
+  assert.ok(days.every((d) => d.seconds <= 24 * 3_600));
 });

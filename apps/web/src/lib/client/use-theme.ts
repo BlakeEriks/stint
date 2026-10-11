@@ -3,21 +3,23 @@
 import { useCallback, useEffect, useState } from 'react';
 
 /**
- * Two states, and deliberately no "System".
+ * Light, Dark, or System, which follows the OS.
  *
  * The palette is **dark-first**: the token file keys its light block to an
- * explicit `[data-theme="light"]`, so a light OS preference does not flip the
- * surfaces (`docs/design/deriving-color.md`). "System" would resolve to dark
- * for everyone — a control that appears to do something and does nothing.
- * Following the OS honestly means changing the generator first.
+ * explicit `[data-theme="light"]`, so System is resolved here, to a stamped
+ * `light` or `dark`, rather than left to `prefers-color-scheme` in the CSS
+ * (`docs/design/deriving-color.md`). `THEME_SCRIPT` resolves it the same way
+ * on page load, and follows an OS switch on every screen.
  *
  * Dark is the default for anyone who has not chosen.
  */
-export type Theme = 'light' | 'dark';
+export type Theme = 'system' | 'light' | 'dark';
 
 const KEY = 'stint.theme';
+const OS_LIGHT = '(prefers-color-scheme: light)';
 
-const isTheme = (v: unknown): v is Theme => v === 'light' || v === 'dark';
+const isTheme = (v: unknown): v is Theme =>
+  v === 'system' || v === 'light' || v === 'dark';
 
 /** Read the stored choice. Private-mode reads can throw, so it is guarded. */
 function stored(): Theme {
@@ -29,6 +31,13 @@ function stored(): Theme {
   }
 }
 
+const resolve = (theme: Theme): 'light' | 'dark' =>
+  theme === 'system'
+    ? window.matchMedia(OS_LIGHT).matches
+      ? 'light'
+      : 'dark'
+    : theme;
+
 /**
  * Stamp `data-theme` and keep `color-scheme` in step with it.
  *
@@ -36,14 +45,12 @@ function stored(): Theme {
  * `:root[data-theme="light"]`, so the attribute repaints the app — while
  * `color-scheme` is what the *browser* reads for the surfaces we do not paint:
  * scrollbars, form-control chrome, the canvas behind an overscroll.
- *
- * Dark stamps the attribute rather than removing it, so the DOM says what the
- * user chose and the menu's checkmark can read it back.
  */
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
-  root.setAttribute('data-theme', theme);
-  root.style.colorScheme = theme;
+  const resolved = resolve(theme);
+  root.setAttribute('data-theme', resolved);
+  root.style.colorScheme = resolved;
 }
 
 export function useTheme() {
