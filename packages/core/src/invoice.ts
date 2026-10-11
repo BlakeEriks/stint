@@ -303,23 +303,33 @@ export function formatInvoiceNumber(prefix: string, sequence: number): string {
 }
 
 /**
- * What a new invoice starts with, for `today` (`YYYY-MM-DD`): the month whose
- * last day is nearest, since a contractor bills a month just as it ends or
- * just after, and due Net 30. Equidistant, the earlier month wins.
+ * The period a new invoice starts with, for `today` (`YYYY-MM-DD`): the month
+ * whose last day is nearest, since a contractor bills a month just as it ends
+ * or just after. Equidistant, the earlier month wins.
  */
-export function defaultInvoiceDates(today: string): {
+export function defaultInvoicePeriod(today: string): {
   periodStart: string;
   periodEnd: string;
-  dueDate: string;
 } {
   const [y = 0, m = 1, d = 1] = today.split('-').map(Number);
   const back = d;
   const ahead = new Date(Date.UTC(y, m, 0)).getUTCDate() - d;
   const periodEnd =
     ahead < back ? addDays(today, ahead) : addDays(today, -back);
-  return {
-    periodStart: `${periodEnd.slice(0, 8)}01`,
-    periodEnd,
-    dueDate: addDays(today, 30),
-  };
+  return { periodStart: `${periodEnd.slice(0, 8)}01`, periodEnd };
+}
+
+/**
+ * When an invoice issued on `issueDate` is due under its free-text payment
+ * `terms`: "Net N" or "N days" is N days on, even "Net 30 upon receipt";
+ * "on receipt" with no count is the same day, and anything else Net 30.
+ */
+export function dueDateForTerms(issueDate: string, terms: string): string {
+  // A count starts after a non-digit and is at most 4 digits, so a long run
+  // of digits cannot backtrack (CodeQL js/polynomial-redos).
+  const days =
+    /net\s*(\d{1,4})(?!\d)/i.exec(terms) ??
+    /(?<!\d)(\d{1,4})\s*days/i.exec(terms);
+  if (days) return addDays(issueDate, Number(days[1]));
+  return /receipt/i.test(terms) ? issueDate : addDays(issueDate, 30);
 }
