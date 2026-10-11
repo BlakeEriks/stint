@@ -578,3 +578,12 @@ test('a new invoice is due when its payment terms say', () => {
     assert.equal(dueDateForTerms('2026-12-20', terms), due, terms);
   }
 });
+
+// The terms are free text: a long run of digits must not backtrack
+// (CodeQL js/polynomial-redos).
+test('due date terms with a long run of digits answer at once', () => {
+  const terms = `${'9'.repeat(20_000)} day`;
+  const started = performance.now();
+  assert.equal(dueDateForTerms('2026-12-20', terms), '2027-01-19');
+  assert.ok(performance.now() - started < 50, 'no polynomial backtracking');
+});

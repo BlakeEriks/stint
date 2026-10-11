@@ -325,7 +325,11 @@ export function defaultInvoicePeriod(today: string): {
  * "on receipt" with no count is the same day, and anything else Net 30.
  */
 export function dueDateForTerms(issueDate: string, terms: string): string {
-  const days = /net\s*(\d+)/i.exec(terms) ?? /(\d+)\s*days/i.exec(terms);
+  // A count starts after a non-digit and is at most 4 digits, so a long run
+  // of digits cannot backtrack (CodeQL js/polynomial-redos).
+  const days =
+    /net\s*(\d{1,4})(?!\d)/i.exec(terms) ??
+    /(?<!\d)(\d{1,4})\s*days/i.exec(terms);
   if (days) return addDays(issueDate, Number(days[1]));
   return /receipt/i.test(terms) ? issueDate : addDays(issueDate, 30);
 }
