@@ -125,6 +125,19 @@ describe('InvoiceDetail', () => {
     expect(screen.queryByText('Loading…')).toBeNull();
   });
 
+  /* The status hint is one line under the title, not a column beside the
+     invoice, and an issued invoice is not a preview. */
+  it('says where a sent invoice stands under its title, due date included', async () => {
+    serve('sent');
+    show();
+
+    expect(
+      await screen.findByText('Awaiting payment. Due Oct 1, 2026.'),
+    ).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Status' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Preview' })).toBeNull();
+  });
+
   /**
    * The app sends no mail, so downloading IS how an invoice reaches a
    * client — it is the primary action, and it must always be available.

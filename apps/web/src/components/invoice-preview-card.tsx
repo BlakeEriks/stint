@@ -62,6 +62,7 @@ export function InvoicePreviewCard({
   updating,
   paymentTerms,
   notes,
+  heading = true,
   footnote = 'Generating assigns a number and locks these entries. Voiding later keeps the number on record.',
   children,
 }: {
@@ -79,6 +80,8 @@ export function InvoicePreviewCard({
   /** Undefined prints the default terms generation will freeze. */
   paymentTerms?: string | null;
   notes?: string | null;
+  /** False on an issued invoice, which is the invoice, not a preview of it. */
+  heading?: boolean;
   footnote?: string;
   /** Warnings and errors, above the last line. */
   children?: React.ReactNode;
@@ -89,16 +92,21 @@ export function InvoicePreviewCard({
 
   return (
     <section
-      aria-labelledby="inv-preview"
+      aria-labelledby={heading ? 'inv-preview' : undefined}
+      aria-label={heading ? undefined : 'Invoice'}
       aria-busy={updating}
       className="flex min-h-0 flex-col"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2 px-1 pb-2.5">
-        <h2 id="inv-preview" className="type-section text-strong">
-          Preview
-        </h2>
+        {heading ? (
+          <h2 id="inv-preview" className="type-section text-strong">
+            Preview
+          </h2>
+        ) : null}
         {client ? (
-          <Caption updating={updating} entries={preview?.entryCount} />
+          <span className="ml-auto">
+            <Caption updating={updating} entries={preview?.entryCount} />
+          </span>
         ) : null}
       </div>
 

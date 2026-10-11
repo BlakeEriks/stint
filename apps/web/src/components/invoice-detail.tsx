@@ -11,8 +11,7 @@ import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Ban, DollarSign, Download, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmAction } from './confirm-action';
-import { Section } from './field';
-import { StatusBadge } from './invoice-bits';
+import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { attachedSchedules } from '@stint/core';
@@ -85,7 +84,7 @@ export function InvoiceDetail({ id }: { id: string }) {
   });
 
   return (
-    <DetailPage back="/invoices" label="Invoices" wide>
+    <DetailPage back="/invoices" label="Invoices">
       <Listing query={query} missing="That invoice no longer exists.">
         {(data) => (
           <Loaded
@@ -131,108 +130,111 @@ function Loaded({
   });
 
   return (
-    <div className="@container/detail">
-      <header className="flex flex-wrap items-center justify-between gap-3 pb-6">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <h1 className="truncate type-title text-strong">
-            {invoice.invoiceNumber}
-          </h1>
-          <StatusBadge status={invoice.status} />
+    <div>
+      {/* The actions sit beside the number, so the invoice below takes the
+          whole column; on a phone they wrap under the title. */}
+      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 pb-6">
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <h1 className="truncate type-title text-strong">
+              {invoice.invoiceNumber}
+            </h1>
+            <StatusBadge status={invoice.status} />
+          </div>
+          <p className="type-support text-muted">
+            {statusHint(invoice.status, invoice.dueDate)}
+          </p>
+          <ActionError error={error} />
         </div>
-        {/* Downloading is how an invoice reaches a client: the app sends no
-            mail, so this is the primary action on the screen. */}
-        <Button asChild>
-          <a href={api.invoicePdfUrl(invoice.id, true)}>
-            <Download aria-hidden strokeWidth={1.75} />
-            Download PDF
-          </a>
-        </Button>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Deleting removes the draft and voiding can't be undone, so each
+              asks first. */}
+          {isDraft ? (
+            <ConfirmAction
+              label={`Delete ${invoice.invoiceNumber} for good`}
+              pendingLabel="Deleting…"
+              consequence="Its entries go back to unbilled."
+              pending={remove.isPending}
+              onConfirm={() => remove.mutate()}
+            >
+              <Trash2 aria-hidden strokeWidth={1.75} />
+              Delete draft
+            </ConfirmAction>
+          ) : null}
+
+          {!isVoid && !isDraft ? (
+            <ConfirmAction
+              label={`Void ${invoice.invoiceNumber}`}
+              pendingLabel="Voiding…"
+              consequence="The number stays on record, and this invoice can't be reissued."
+              pending={setStatus.isPending}
+              onConfirm={() => setStatus.mutate({ status: 'void' })}
+            >
+              <Ban aria-hidden strokeWidth={1.75} />
+              Void
+            </ConfirmAction>
+          ) : null}
+
+          {isDraft ? (
+            <Button
+              onClick={() => setStatus.mutate({ status: 'sent' })}
+              disabled={setStatus.isPending}
+            >
+              <Send aria-hidden strokeWidth={1.75} />
+              Mark sent
+            </Button>
+          ) : null}
+
+          {invoice.status === 'sent' ? (
+            <Button
+              variant="accent"
+              onClick={() => {
+                // A void or delete error from earlier on this screen must
+                // not read as a rejection of the payment date about to be
+                // entered.
+                setStatus.reset();
+                setMarkingPaid(true);
+              }}
+              disabled={setStatus.isPending}
+            >
+              {/* A currency glyph, not a check: the check commits a form. */}
+              <DollarSign aria-hidden strokeWidth={1.75} />
+              Mark paid
+            </Button>
+          ) : null}
+
+          {/* Downloading is how an invoice reaches a client: the app sends no
+              mail, so it is last, as the primary action. */}
+          <Button asChild>
+            <a href={api.invoicePdfUrl(invoice.id, true)}>
+              <Download aria-hidden strokeWidth={1.75} />
+              Download PDF
+            </a>
+          </Button>
+        </div>
       </header>
 
-      <div className="grid gap-x-10 gap-y-6 @min-[800px]/detail:grid-cols-[260px_minmax(0,816px)]">
-        <Section title="Status" description={statusHint(invoice.status)}>
-          <div className="flex flex-wrap items-center gap-2">
-            {invoice.status === 'draft' ? (
-              <Button
-                variant="default"
-                onClick={() => setStatus.mutate({ status: 'sent' })}
-                disabled={setStatus.isPending}
-              >
-                <Send aria-hidden strokeWidth={1.75} />
-                Mark sent
-              </Button>
-            ) : null}
-
-            {invoice.status === 'sent' ? (
-              <Button
-                variant="accent"
-                onClick={() => {
-                  // A void or delete error from earlier on this screen must
-                  // not read as a rejection of the payment date about to be
-                  // entered.
-                  setStatus.reset();
-                  setMarkingPaid(true);
-                }}
-                disabled={setStatus.isPending}
-              >
-                {/* A currency glyph, not a check: the check commits a form. */}
-                <DollarSign aria-hidden strokeWidth={1.75} />
-                Mark paid
-              </Button>
-            ) : null}
-
-            {/* Voiding can't be undone and deleting removes the draft, so
-                each asks first. */}
-            {!isVoid && !isDraft ? (
-              <ConfirmAction
-                label={`Void ${invoice.invoiceNumber}`}
-                pendingLabel="Voiding…"
-                consequence="The number stays on record, and this invoice can't be reissued."
-                pending={setStatus.isPending}
-                onConfirm={() => setStatus.mutate({ status: 'void' })}
-              >
-                <Ban aria-hidden strokeWidth={1.75} />
-                Void
-              </ConfirmAction>
-            ) : null}
-
-            {isDraft ? (
-              <ConfirmAction
-                label={`Delete ${invoice.invoiceNumber} for good`}
-                pendingLabel="Deleting…"
-                consequence="Its entries go back to unbilled."
-                pending={remove.isPending}
-                onConfirm={() => remove.mutate()}
-              >
-                <Trash2 aria-hidden strokeWidth={1.75} />
-                Delete draft
-              </ConfirmAction>
-            ) : null}
-          </div>
-
-          <ActionError error={error} />
-        </Section>
-
-        <InvoicePreviewCard
-          preview={{ ...invoice, schedules: invoice.supportingDetail }}
-          client={client}
-          settings={settings}
-          number={invoice.invoiceNumber}
-          issued={invoice.issueDate}
-          due={invoice.dueDate ?? ''}
-          reference={invoice.reference ?? ''}
-          payment={invoice.paymentDetails}
-          schedules={
-            invoice.supportingDetail
-              ? attachedSchedules(invoice.supportingDetail)
-              : []
-          }
-          updating={!invoice.lineItems}
-          paymentTerms={invoice.paymentTerms}
-          notes={invoice.notes}
-          footnote="Rates are frozen at generation — editing a client or project later never changes this invoice."
-        />
-      </div>
+      <InvoicePreviewCard
+        heading={false}
+        preview={{ ...invoice, schedules: invoice.supportingDetail }}
+        client={client}
+        settings={settings}
+        number={invoice.invoiceNumber}
+        issued={invoice.issueDate}
+        due={invoice.dueDate ?? ''}
+        reference={invoice.reference ?? ''}
+        payment={invoice.paymentDetails}
+        schedules={
+          invoice.supportingDetail
+            ? attachedSchedules(invoice.supportingDetail)
+            : []
+        }
+        updating={!invoice.lineItems}
+        paymentTerms={invoice.paymentTerms}
+        notes={invoice.notes}
+        footnote="Rates are frozen at generation — editing a client or project later never changes this invoice."
+      />
 
       <MarkPaidDialog
         /* Closes itself once the mutation lands: success flips the invoice to
@@ -248,10 +250,13 @@ function Loaded({
   );
 }
 
-function statusHint(status: InvoiceStatus): string {
+function statusHint(status: InvoiceStatus, due: string | null): string {
   if (status === 'draft')
     return 'Download it, send it from your own address, then mark it sent.';
-  if (status === 'sent') return 'Awaiting payment.';
+  if (status === 'sent')
+    return due
+      ? `Awaiting payment. Due ${shortDate(due)}.`
+      : 'Awaiting payment.';
   if (status === 'paid') return 'Settled.';
   return 'Voided. The number stays on record so numbering is gapless, and the entries were released for re-billing.';
 }
