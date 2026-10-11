@@ -26,7 +26,10 @@ jobs:
   static:
     runs-on: ubuntu-latest
     steps:
+      # Depth 2 reaches HEAD^1, the main a PR merges into or a push followed,
+      # which the migration check compares against.
       - uses: actions/checkout@v7
+        with: { fetch-depth: 2 }
       # No `version:` — package.json's `packageManager` pins it, and setting
       # both makes the action fail on a version mismatch.
       - uses: pnpm/action-setup@v6
@@ -110,6 +113,9 @@ jobs:
 
       - name: Script tests
         run: node --test scripts/*.test.mjs scripts/hygiene/*.test.mjs
+
+      - name: Migrations on main are unchanged, new ones timestamped
+        run: node scripts/check-migrations.mjs HEAD^1
 
       # A foundational doc naming a path or script that is gone fails here,
       # so a rename can't leave the constitution or a rule pointing at nothing.

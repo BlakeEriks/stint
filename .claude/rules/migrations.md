@@ -3,6 +3,7 @@ paths:
   - "supabase/migrations/**"
   - "supabase/*.sql"
   - "scripts/verify-schema.mjs"
+  - "scripts/check-migrations.mjs"
 ---
 
 ## Migrations
@@ -15,12 +16,11 @@ connection and the flags.
 hosted database without the secret passing through a command or a log —
 `short(url)` masks it for output, and `docs/local-dev.md` has the shape.
 
-**Editing an existing migration changes nothing that has already run.**
-`pnpm migrate` records applied files by name, so a database that has seen
-the old version keeps it. Correcting migration 1 is right for a fresh build
-AND needs a new migration carrying the same change to production — and
-`verify:schema` will not catch the gap unless it happens to assert that
-column.
+**A new migration is made with `supabase migration new <name>`**, which
+names it by UTC timestamp, so two branches can't take the same number. A
+migration on main is never renamed or edited: production has run it under
+that name, so a fix is a new migration. `scripts/check-migrations.mjs`
+fails both in CI.
 
 **Production migrates itself — never tell the user to run `pnpm migrate`
 against it.** The release gate migrates production on merge
