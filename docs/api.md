@@ -278,6 +278,12 @@ by every one when `recurring`. The amount is in the client's currency.
 | `PATCH` | `/expenses/:id` | Any field from `POST` but `id` and `clientId`. `recurring: true` clears `spentOn`; `false` needs one. **`409 EXPENSE_LOCKED`** once billed on a non-draft invoice; `422` to make a billed one recurring. |
 | `DELETE` | `/expenses/:id` | Same lock. A recurring one can always go; invoices that billed it keep their line. |
 
+## Feedback
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/feedback` | `{ id, message, screen, client, appVersion }` → `201 { id }`. `id` is a client-generated UUIDv7, so a retry returns `200`. `422` for a blank or overlong `message` (2,000 at most), a `screen` not starting with `/`, or a `client` other than `web` or `macos`. Feedback can't be read back or changed through the API. |
+
 ## Payment details
 
 Bank details live on the **invoice PDF**, and the placement is not a user
