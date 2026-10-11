@@ -19,12 +19,22 @@ database would need rate limiting so spammers can't abuse it, and an alpha
 list doesn't justify that. Swap in a table when the volume makes the list
 tedious to read.
 
+## Clarifications
+
+### Session 2026-10-11
+
+- Q: Where does a visitor type their address: on the landing page itself,
+  or on the form service's own hosted page? → A: On the landing page. The
+  page sends the address to the service and stays static.
+- Q: What does the invite request ask the visitor for? → A: Email only.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A stranger asks for an invite (Priority: P1)
 
 Someone reading the landing page wants to try Stint. They press the main call
-to action, give their email address, and send it. The page confirms that the
+to action, type their email address into the form on the page, and send
+it. The page confirms that the
 request was received and that an invite comes by email if they're let in.
 Signing in doesn't come up.
 
@@ -38,8 +48,8 @@ list. Confirm no account exists for that address.
 **Acceptance Scenarios**:
 
 1. **Given** a visitor on the landing page, **When** they press the hero or
-   closing call to action, **Then** they're asked for an email address to
-   request an invite, not sent to sign-in.
+   closing call to action, **Then** they reach a one-field invite request
+   on the landing page itself, not sign-in.
 2. **Given** a valid address, **When** they send it, **Then** the control
    shows a pending state until the result is known, and the page then
    confirms the request and says an invite arrives by email if accepted.
@@ -106,13 +116,12 @@ the refusal links to the invite request.
 
 - **FR-001**: Every call to action on the landing page except the header's
   Sign in MUST request an invite instead of linking to sign-in.
-- **FR-002**: An invite request MUST capture an email address.
-  [NEEDS CLARIFICATION: Email only, or also an optional line about the
-  visitor's work so Blake can choose whom to invite?]
-- **FR-003**: Requests MUST go to a hosted form service that Blake reads
-  and gets notified from. Nothing is written to Stint's database.
-  [NEEDS CLARIFICATION: Is the form on the landing page itself, or does
-  the call to action open the service's hosted form?]
+- **FR-002**: An invite request MUST ask for an email address and
+  nothing else.
+- **FR-003**: The form MUST be on the landing page, in Stint's own design,
+  not the service's hosted page or embedded widget. It sends to a hosted
+  form service that Blake reads and gets notified from, and nothing is
+  written to Stint's database. The visitor never leaves the page.
 - **FR-004**: The form service MUST cost nothing at alpha volume (no new
   fixed cost, constitution).
 - **FR-005**: The page MUST show a pending state on the send control while
@@ -125,6 +134,8 @@ the refusal links to the invite request.
   to the invite request.
 - **FR-009**: Copy on the landing page that promises instant access MUST
   say access is by invite during alpha. "Free" stays.
+- **FR-010**: The privacy page MUST say that an invite request's address
+  goes to the form service and is used only to send the invite.
 
 ### Key Entities
 
