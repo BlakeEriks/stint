@@ -9,6 +9,7 @@ import type { Project, TaskNameSuggestion, TimeEntry } from '@/lib/client/api';
 const PROJECTS = [
   { id: 'p1', name: 'Acme Redesign', clientId: 'c1' },
   { id: 'p2', name: 'Bluebird API', clientId: 'c2' },
+  { id: 'p3', name: 'Internal', clientId: null, isBillableDefault: false },
 ] as unknown as Project[];
 
 const TZ = 'America/New_York';
@@ -302,6 +303,43 @@ describe('EntryDialog', () => {
       await screen.findByRole('button', { name: 'Deleting…' }),
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Keep' })).toBeDisabled();
+  });
+
+  it("a new entry takes its project's billable default", async () => {
+    const calls = serve();
+    const user = userEvent.setup();
+    open();
+
+    await user.click(screen.getByLabelText('Project'));
+    await user.click(
+      await screen.findByRole('menuitemradio', { name: /Internal/ }),
+    );
+    expect(
+      screen.getByRole('checkbox', { name: 'Billable' }),
+    ).not.toBeChecked();
+
+    await user.type(screen.getByLabelText('Start'), '09:00');
+    await user.type(screen.getByLabelText('End'), '10:00');
+    await user.click(screen.getByRole('button', { name: 'Add entry' }));
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'POST')).toBeDefined(),
+    );
+    const post = calls.find((c) => c.method === 'POST')!;
+    expect((post.body as { isBillable: boolean }).isBillable).toBe(false);
+  });
+
+  it('moving an entry that exists keeps its billable flag', async () => {
+    serve();
+    const user = userEvent.setup();
+    open(entry({ isBillable: true }));
+
+    await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
+    await user.click(screen.getByLabelText('Project'));
+    await user.click(
+      await screen.findByRole('menuitemradio', { name: /Internal/ }),
+    );
+    expect(screen.getByRole('checkbox', { name: 'Billable' })).toBeChecked();
   });
 
   it('creates with a client-generated id so a retry is idempotent', async () => {

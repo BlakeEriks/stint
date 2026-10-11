@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody, parseQuery } from '@/lib/validate';
+import { projectBillableDefault } from '@/lib/projects';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { CreateTimeEntry, ListEntriesQuery } from '@stint/schema';
 import { measured } from '@stint/core';
@@ -68,7 +69,8 @@ export const POST = handle(async (req: Request) => {
       task_name: body.taskName,
       started_at: body.startedAt,
       ended_at: body.endedAt,
-      is_billable: body.isBillable ?? true,
+      is_billable:
+        body.isBillable ?? (await projectBillableDefault(db, body.projectId)),
       rate_override: body.rateOverride ?? null,
     })
     .select(ENTRY_COLUMNS)

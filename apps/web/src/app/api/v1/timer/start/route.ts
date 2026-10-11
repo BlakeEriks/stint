@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { handle, ApiError, isTimerConflict } from '@/lib/errors';
-import { requireSession, type Session } from '@/lib/auth';
+import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
+import { projectBillableDefault } from '@/lib/projects';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { uuidv7 } from '@stint/core';
 import { StartTimer } from '@stint/schema';
@@ -53,19 +54,3 @@ export const POST = handle(async (req: Request) => {
 
   return NextResponse.json(toEntry(data as EntryRow), { status: 201 });
 });
-
-/** True with no project, or one the caller can't see: the insert's foreign
- *  key or RLS then rejects it. */
-async function projectBillableDefault(
-  db: Session['db'],
-  projectId: string | null | undefined,
-): Promise<boolean> {
-  if (!projectId) return true;
-  const { data, error } = await db
-    .from('projects')
-    .select('is_billable_default')
-    .eq('id', projectId)
-    .maybeSingle();
-  if (error) throw error;
-  return data?.is_billable_default ?? true;
-}

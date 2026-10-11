@@ -123,6 +123,16 @@ export function EntryDialog({
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
+  /* A new entry takes the project's billable default, as a started timer
+     does. An entry that exists keeps the flag the user saved. */
+  const withProject = (d: Draft, projectId: string | null): Draft => ({
+    ...d,
+    projectId,
+    billable: existing
+      ? d.billable
+      : (projects.find((p) => p.id === projectId)?.isBillableDefault ?? true),
+  });
+
   /* The close, then the caller, then the refetch — in that order. A list that
      animates this entry out needs it still in the query data while it plays,
      which is only true before the invalidation, which the mutation runs
@@ -275,16 +285,15 @@ export function EntryDialog({
             <TaskSuggest
               value={draft.taskName}
               onChange={(name, rowProject) => {
-                setDraft((d) => ({
-                  ...d,
-                  taskName: name,
+                setDraft((d) =>
                   /* A fill, never an overwrite: a project already chosen is
                      the user's answer to which client this is billed to, and
                      a row used under another one must not move the work
                      there. */
-                  projectId:
-                    rowProject && !d.projectId ? rowProject : d.projectId,
-                }));
+                  rowProject && !d.projectId
+                    ? withProject({ ...d, taskName: name }, rowProject)
+                    : { ...d, taskName: name },
+                );
               }}
               projectId={draft.projectId}
               /* Naming work is what suggestions accelerate, and an entry that
@@ -315,7 +324,7 @@ export function EntryDialog({
               id="entry-project"
               projects={projects}
               value={draft.projectId}
-              onChange={(id) => set('projectId', id)}
+              onChange={(id) => setDraft((d) => withProject(d, id))}
               disabled={locked}
               autoFocus={focus === 'project'}
               /* This is already a dialog, and Radix mounts no dialog inside
