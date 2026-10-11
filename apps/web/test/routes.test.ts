@@ -214,7 +214,15 @@ test("a start without isBillable takes the project's billable default", async ()
 
   const startOn = async (body: object) => {
     const res = await json(
-      await start(req('/timer/start', { taskName: 'x', ...body })),
+      await start(
+        req('/timer/start', {
+          taskName: 'x',
+          // Backdated, or a stop in the same millisecond is rejected as
+          // ending at its start and the next start finds the timer running.
+          startedAt: new Date(Date.now() - 60_000).toISOString(),
+          ...body,
+        }),
+      ),
     );
     await stop(req('/timer/stop', {}));
     return res.body.isBillable;
@@ -252,6 +260,44 @@ test('a manual entry replayed with the same id is idempotent', async () => {
     'select count(*)::int as n from time_entries',
   );
   assert.equal(rows[0].n, 1, 'no duplicate was created');
+});
+
+test("a manual entry without isBillable takes the project's billable default", async () => {
+  const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
+  const { POST: createProject } = await import(
+    '../src/app/api/v1/projects/route.ts'
+  );
+  const { projectId: billable } = await seedClientAndProject();
+  const internal = await json(
+    await createProject(
+      req('/projects', { name: 'Internal', isBillableDefault: false }),
+    ),
+  );
+
+  let n = 10;
+  const addOn = async (body: object) => {
+    const res = await json(
+      await create(
+        req('/entries', {
+          id: `018f0000-0000-7000-8000-0000000000${n++}`,
+          taskName: 'x',
+          startedAt: '2026-09-11T09:00:00Z',
+          endedAt: '2026-09-11T10:00:00Z',
+          ...body,
+        }),
+      ),
+    );
+    return res.body.isBillable;
+  };
+
+  assert.equal(await addOn({ projectId: internal.body.id }), false);
+  assert.equal(await addOn({ projectId: billable }), true);
+  assert.equal(await addOn({}), true, 'no project stays billable');
+  assert.equal(
+    await addOn({ projectId: internal.body.id, isBillable: true }),
+    true,
+    'a sent flag wins over the default',
+  );
 });
 
 test('a manual entry ending before it starts is rejected', async () => {

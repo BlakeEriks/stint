@@ -133,6 +133,8 @@ export const CreateTimeEntry = z
     taskName: z.string().max(500).default(''),
     startedAt: iso,
     endedAt: iso, // manual entries are always complete
+    /** Omitted, the project's billable default applies; billable with no
+     *  project. */
     isBillable: z.boolean().optional(),
     rateOverride: money.nullable().optional(),
   })
