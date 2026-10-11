@@ -3,7 +3,7 @@ import { getDb } from './db';
 /** An address nobody invited, for the sign-in story that shows it. */
 export const NOT_INVITED = 'stranger@example.com';
 
-/** Set by a story to hold sign-out pending, as a server that never answers. */
+/** Holds sign-out pending, as a server that never answers: `stalled('signOut')`. */
 export const stall = { signOut: false };
 
 /**

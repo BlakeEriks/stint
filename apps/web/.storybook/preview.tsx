@@ -9,6 +9,7 @@ import { Providers } from '@/components/providers';
 import { resetDb, type Scenario } from '@/mocks/db';
 import { handlers } from '@/mocks/handlers';
 import { problems } from '@/mocks/respond';
+import { stall } from '@/mocks/supabase';
 import { NOW } from '@/mocks/time.mts';
 import '@/styles/globals.css';
 
@@ -31,10 +32,12 @@ const idle = () =>
   });
 const frame = () => new Promise((done) => requestAnimationFrame(done));
 /* A region reads `aria-busy` from a debounced change until its answer lands,
-   so it is busy before its request starts. A story that stalls a request
-   leaves its region busy on purpose. */
+   so it is busy before its request starts. A story that stalls a call
+   leaves its control busy on purpose. */
 const busy = () =>
-  stalls === 0 && document.querySelector('[aria-busy="true"]') !== null;
+  stalls === 0 &&
+  !stall.signOut &&
+  document.querySelector('[aria-busy="true"]') !== null;
 /* Twice: a response often starts the request that depends on it. */
 async function quiet() {
   for (let i = 0; i < 2; i++) {
@@ -104,6 +107,7 @@ const preview: Preview = {
   beforeEach: ({ parameters }) => {
     inFlight = 0;
     stalls = (parameters.stalls as number | undefined) ?? 0;
+    stall.signOut = parameters.stallSignOut === true;
     problems.length = 0;
     const now = new Date(parameters.now ?? NOW);
     MockDate.set(now);

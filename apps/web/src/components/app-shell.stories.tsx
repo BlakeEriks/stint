@@ -9,11 +9,11 @@ import {
   menuOpen,
   phone,
   screen,
+  stalled,
   tablet,
   wide,
   expectOpen,
 } from '@/mocks/screen';
-import { stall } from '@/mocks/supabase';
 import { AppShell } from './app-shell';
 import { Home } from './home';
 import { Page } from './page';
@@ -157,13 +157,7 @@ export const AccountMenu: Story = {
 /** Sign-out waits on the server, shown on the trigger: the menu has closed. */
 export const SigningOut: Story = {
   ...desktop,
-  parameters: { stalls: 1 },
-  beforeEach: () => {
-    stall.signOut = true;
-    return () => {
-      stall.signOut = false;
-    };
-  },
+  parameters: stalled('signOut'),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     const trigger = await page.findByRole('button', { name: 'Account' });
