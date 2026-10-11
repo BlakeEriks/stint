@@ -313,10 +313,10 @@ export function defaultInvoiceDates(today: string): {
   dueDate: string;
 } {
   const [y = 0, m = 1, d = 1] = today.split('-').map(Number);
-  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  // Days back to last month's end is `d`; ahead to this month's, the rest.
+  const back = d;
+  const ahead = new Date(Date.UTC(y, m, 0)).getUTCDate() - d;
   const periodEnd =
-    daysInMonth - d < d ? addDays(today, daysInMonth - d) : addDays(today, -d);
+    ahead < back ? addDays(today, ahead) : addDays(today, -back);
   return {
     periodStart: `${periodEnd.slice(0, 8)}01`,
     periodEnd,
