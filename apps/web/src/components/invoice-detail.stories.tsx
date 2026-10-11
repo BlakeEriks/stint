@@ -37,7 +37,20 @@ export const Draft: Story = {
   },
 };
 export const DraftPhone: Story = { ...phone };
-export const Sent: Story = { ...desktop, args: { id: invoice(14) } };
+/** Where it stands is one line under the title, and an issued invoice is
+    the invoice, not a preview of it. */
+export const Sent: Story = {
+  ...desktop,
+  args: { id: invoice(14) },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText(/^Awaiting payment\. Due /),
+    ).toBeVisible();
+    await expect(page.queryByRole('heading', { name: 'Status' })).toBeNull();
+    await expect(page.queryByRole('heading', { name: 'Preview' })).toBeNull();
+  },
+};
 export const Overdue: Story = { ...desktop, args: { id: invoice(13) } };
 export const Paid: Story = { ...desktop, args: { id: invoice(12) } };
 /** Voiding keeps the number and releases the entries. */

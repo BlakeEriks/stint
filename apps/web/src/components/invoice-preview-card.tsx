@@ -92,17 +92,18 @@ export function InvoicePreviewCard({
 
   return (
     <section
-      aria-labelledby={heading ? 'inv-preview' : undefined}
-      aria-label={heading ? undefined : 'Invoice'}
+      aria-labelledby="inv-preview"
       aria-busy={updating}
       className="flex min-h-0 flex-col"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2 px-1 pb-2.5">
-        {heading ? (
-          <h2 id="inv-preview" className="type-section text-strong">
-            Preview
-          </h2>
-        ) : null}
+        {/* Hidden, not dropped: the schedules' headings sit under it. */}
+        <h2
+          id="inv-preview"
+          className={heading ? 'type-section text-strong' : 'sr-only'}
+        >
+          {heading ? 'Preview' : 'Invoice'}
+        </h2>
         {client ? (
           <span className="ml-auto">
             <Caption updating={updating} entries={preview?.entryCount} />

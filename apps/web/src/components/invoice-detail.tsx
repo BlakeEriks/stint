@@ -130,9 +130,7 @@ function Loaded({
   });
 
   return (
-    <div>
-      {/* The actions sit beside the number, so the invoice below takes the
-          whole column; on a phone they wrap under the title. */}
+    <>
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 pb-6">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -246,7 +244,7 @@ function Loaded({
         error={error}
         sentAt={invoice.sentAt}
       />
-    </div>
+    </>
   );
 }
 
