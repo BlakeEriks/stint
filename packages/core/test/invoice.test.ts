@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildLineItems,
+  defaultInvoiceDates,
   formatInvoiceNumber,
   type BillableEntry,
 } from '../src/invoice.ts';
@@ -527,4 +528,27 @@ test('a time line’s printed arithmetic holds: quantity × unit price = amount'
     Math.round(li.quantity * li.unitPrice * 100) / 100,
     `the document says ${li.quantity} × ${li.unitPrice} = ${li.amount}`,
   );
+});
+
+test('a new invoice defaults to the month whose last day is nearest, due Net 30', () => {
+  const cases: [string, string, string, string][] = [
+    // today, periodStart, periodEnd, dueDate
+    ['2026-09-30', '2026-09-01', '2026-09-30', '2026-10-30'],
+    ['2026-10-02', '2026-09-01', '2026-09-30', '2026-11-01'],
+    ['2026-10-15', '2026-09-01', '2026-09-30', '2026-11-14'],
+    ['2026-10-16', '2026-10-01', '2026-10-31', '2026-11-15'],
+    ['2026-09-16', '2026-09-01', '2026-09-30', '2026-10-16'],
+    // Equidistant: Aug 31 and Sept 30 are both 15 days off; the earlier wins.
+    ['2026-09-15', '2026-08-01', '2026-08-31', '2026-10-15'],
+    ['2026-12-31', '2026-12-01', '2026-12-31', '2027-01-30'],
+    ['2027-01-10', '2026-12-01', '2026-12-31', '2027-02-09'],
+    ['2028-02-20', '2028-02-01', '2028-02-29', '2028-03-21'],
+  ];
+  for (const [today, periodStart, periodEnd, dueDate] of cases) {
+    assert.deepEqual(
+      defaultInvoiceDates(today),
+      { periodStart, periodEnd, dueDate },
+      today,
+    );
+  }
 });
