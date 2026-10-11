@@ -42,6 +42,8 @@ interface Draft {
   start: string;
   end: string;
   billable: boolean;
+  /** Set once the user changes Billable, after which a project leaves it be. */
+  billableTouched: boolean;
 }
 
 const EMPTY: Draft = {
@@ -51,6 +53,7 @@ const EMPTY: Draft = {
   start: '',
   end: '',
   billable: true,
+  billableTouched: false,
 };
 
 /**
@@ -117,6 +120,7 @@ export function EntryDialog({
       start: localTime(from, tz),
       end: opened?.endedAt ? localTime(new Date(opened.endedAt), tz) : '',
       billable: existing?.isBillable ?? true,
+      billableTouched: false,
     });
   }, [open, existing, seed, tz]);
 
@@ -124,13 +128,15 @@ export function EntryDialog({
     setDraft((d) => ({ ...d, [key]: value }));
 
   /* A new entry takes the project's billable default, as a started timer
-     does. An entry that exists keeps the flag the user saved. */
+     does. An entry that exists keeps the flag the user saved, and a box the
+     user changed keeps their answer. */
   const withProject = (d: Draft, projectId: string | null): Draft => ({
     ...d,
     projectId,
-    billable: existing
-      ? d.billable
-      : (projects.find((p) => p.id === projectId)?.isBillableDefault ?? true),
+    billable:
+      existing || d.billableTouched
+        ? d.billable
+        : (projects.find((p) => p.id === projectId)?.isBillableDefault ?? true),
   });
 
   /* The close, then the caller, then the refetch — in that order. A list that
@@ -424,7 +430,10 @@ export function EntryDialog({
               type="checkbox"
               disabled={locked}
               checked={draft.billable}
-              onChange={(e) => set('billable', e.target.checked)}
+              onChange={(e) => {
+                const billable = e.target.checked;
+                setDraft((d) => ({ ...d, billable, billableTouched: true }));
+              }}
               className="size-4 accent-[var(--text-muted)]"
             />
             Billable

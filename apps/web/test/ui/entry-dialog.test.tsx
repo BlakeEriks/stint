@@ -329,6 +329,27 @@ describe('EntryDialog', () => {
     expect((post.body as { isBillable: boolean }).isBillable).toBe(false);
   });
 
+  it('a project picked after Billable was unticked leaves it unticked', async () => {
+    const calls = serve();
+    const user = userEvent.setup();
+    open();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Billable' }));
+    await user.click(screen.getByLabelText('Project'));
+    await user.click(
+      await screen.findByRole('menuitemradio', { name: /Acme Redesign/ }),
+    );
+    await user.type(screen.getByLabelText('Start'), '09:00');
+    await user.type(screen.getByLabelText('End'), '10:00');
+    await user.click(screen.getByRole('button', { name: 'Add entry' }));
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'POST')).toBeDefined(),
+    );
+    const post = calls.find((c) => c.method === 'POST')!;
+    expect((post.body as { isBillable: boolean }).isBillable).toBe(false);
+  });
+
   it('moving an entry that exists keeps its billable flag', async () => {
     serve();
     const user = userEvent.setup();
