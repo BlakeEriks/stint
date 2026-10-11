@@ -237,10 +237,6 @@ next invoice collide.
 about skipping it, applies the rest, and the stack comes up with no tables,
 failing confusingly on the second file.
 
-Never rename a migration that has shipped: `migrate.mjs` keys
-`schema_migrations` on the filename, so production would consider it
-unapplied.
-
 **A hand-written `auth.users` row needs empty strings, not NULL**, in
 `confirmation_token`, `recovery_token`, `email_change_token_new` and
 `email_change`. GoTrue scans them into non-nullable Go strings, so a NULL
