@@ -59,8 +59,7 @@ const byId = <T extends { id: string }>(rows: T[], id: unknown) =>
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name);
 
-/** As the PATCH routes: `archived` sets or clears `archivedAt`. */
-function unarchive<T>(
+function applyArchived<T>(
   db: { now: Date },
   { archived, ...patch }: T & { archived?: boolean },
 ): T {
@@ -333,7 +332,7 @@ export const handlers = {
       if (!project) return fail('ENTRY_NOT_FOUND');
       db.projects[i] = {
         ...project,
-        ...unarchive(db, await body<Partial<Project>>(request)),
+        ...applyArchived(db, await body<Partial<Project>>(request)),
       };
       return ok(schema.Project, db.projects[i]);
     },
@@ -393,7 +392,7 @@ export const handlers = {
       if (!client) return fail('ENTRY_NOT_FOUND');
       db.clients[i] = {
         ...client,
-        ...unarchive(db, await body<Partial<Client>>(request)),
+        ...applyArchived(db, await body<Partial<Client>>(request)),
       };
       return ok(schema.Client, db.clients[i]);
     },

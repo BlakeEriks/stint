@@ -106,12 +106,18 @@ export function ProjectDialog({
     predict: (current, id, key) => predictArchive('projects', id, current, key),
     invalidate: invalidateProjects,
   });
-  /* Restore takes Archive's place once archived, predicted the same way. */
   const restore = useOptimisticMutation<Project, unknown, unknown>({
     queryKey: () => keys.projects(),
     mutationFn: (project) => api.restoreProject(project.id),
     predict: (current, project, key) =>
-      predictRestore('projects', project, current, key),
+      predictRestore(
+        'projects',
+        project,
+        current,
+        key,
+        project.clientId === null ||
+          clients.some((c) => c.id === project.clientId),
+      ),
     invalidate: invalidateProjects,
   });
 

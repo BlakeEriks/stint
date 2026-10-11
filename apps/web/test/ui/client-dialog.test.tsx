@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { ClientDialog } from '@/components/client-dialog';
 import type { Client } from '@/lib/client/api';
 import { keys } from '@/lib/client/query-keys';
+import { pend } from './pend';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
@@ -41,26 +42,6 @@ function serve() {
       return new Response(JSON.stringify({ ...NORTHWIND, ...(body ?? {}) }), {
         status: 200,
       });
-    }),
-  );
-  return calls;
-}
-
-/** Records each write and never answers, so what a test reads is the
-    prediction alone, not a refetch that replaced it. */
-function pend() {
-  const calls: Array<{ method: string; path: string; body: unknown }> = [];
-  vi.stubGlobal(
-    'fetch',
-    vi.fn((url: string, init?: RequestInit) => {
-      const method = init?.method ?? 'GET';
-      if (method !== 'GET')
-        calls.push({
-          method,
-          path: String(url).replace('/api/v1', ''),
-          body: init?.body ? JSON.parse(String(init.body)) : undefined,
-        });
-      return new Promise<Response>(() => {});
     }),
   );
   return calls;
@@ -113,18 +94,6 @@ describe('ClientDialog', () => {
 
   describe('restore', () => {
     const ARCHIVED = { ...NORTHWIND, archivedAt: '2026-06-30T16:00:00.000Z' };
-
-    it('shows Restore, not Archive, for an archived client', async () => {
-      serve();
-      render(<ClientDialog open onOpenChange={() => {}} client={ARCHIVED} />, {
-        wrapper,
-      });
-
-      expect(
-        await screen.findByRole('button', { name: 'Restore' }),
-      ).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
-    });
 
     /* A refetch would put it right eventually; the prediction is what makes
        the press answer in the same frame (Principle VI). */

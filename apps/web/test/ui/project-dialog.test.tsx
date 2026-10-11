@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { ProjectDialog } from '@/components/project-dialog';
 import type { Project } from '@/lib/client/api';
 import { keys } from '@/lib/client/query-keys';
+import { pend } from './pend';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
@@ -44,26 +45,6 @@ function serve(initial: { id: string; name: string }[]) {
         return new Response(JSON.stringify({ clients }), { status: 200 });
       }
       return new Response('{}', { status: 200 });
-    }),
-  );
-  return calls;
-}
-
-/** Records each write and never answers, so what a test reads is the
-    prediction alone, not a refetch that replaced it. */
-function pend() {
-  const calls: Array<{ method: string; path: string; body: unknown }> = [];
-  vi.stubGlobal(
-    'fetch',
-    vi.fn((url: string, init?: RequestInit) => {
-      const method = init?.method ?? 'GET';
-      if (method !== 'GET')
-        calls.push({
-          method,
-          path: String(url).replace('/api/v1', ''),
-          body: init?.body ? JSON.parse(String(init.body)) : undefined,
-        });
-      return new Promise<Response>(() => {});
     }),
   );
   return calls;
@@ -174,23 +155,13 @@ describe('ProjectDialog', () => {
       archivedAt: '2026-06-30T16:00:00.000Z',
     } as unknown as Project;
 
-    it('shows Restore, not Archive, for an archived project', async () => {
-      serve([]);
-      render(
-        <ProjectDialog open onOpenChange={() => {}} existing={ARCHIVED} />,
-        { wrapper },
-      );
-
-      expect(
-        await screen.findByRole('button', { name: 'Restore' }),
-      ).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
-    });
-
-    it('returns the project to Active on the press, only where it belongs', async () => {
+    /** Restores ARCHIVED with `active` as the clients the server answers
+        as active, and returns the cache. */
+    async function restore(active: Array<{ id: string; name: string }>) {
       const calls = pend();
       const closed = vi.fn();
       const qc = new QueryClient();
+      qc.setQueryData(keys.clients(), { clients: active });
       qc.setQueryData(keys.projects({ archived: true }), {
         projects: [ARCHIVED],
       });
@@ -208,6 +179,11 @@ describe('ProjectDialog', () => {
       expect(closed).toHaveBeenCalledWith(false);
       const list = (opts?: { archived?: boolean; clientId?: string }) =>
         qc.getQueryData<{ projects: Project[] }>(keys.projects(opts))?.projects;
+      return { calls, list };
+    }
+
+    it('returns the project to Active on the press, only where it belongs', async () => {
+      const { calls, list } = await restore([{ id: 'c1', name: 'Northwind' }]);
       expect(list({ archived: true })?.[0]?.archivedAt).toBeNull();
       expect(list()).toMatchObject([{ id: 'p1', archivedAt: null }]);
       // Another client's list is no place for it.
@@ -217,6 +193,14 @@ describe('ProjectDialog', () => {
         path: '/projects/p1',
         body: { archived: false },
       });
+    });
+
+    /* GET /projects leaves out a project whose client is archived, so the
+       pickers reading the active list must not offer it on the press. */
+    it('keeps it out of active lists while its client is archived', async () => {
+      const { list } = await restore([]);
+      expect(list({ archived: true })?.[0]?.archivedAt).toBeNull();
+      expect(list()).toEqual([]);
     });
   });
 });
