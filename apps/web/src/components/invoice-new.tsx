@@ -25,6 +25,7 @@ import {
 import { ChevronDown, Pencil, Plus } from 'lucide-react';
 import {
   buildPaymentDetails,
+  defaultInvoiceDates,
   formatCurrency,
   formatInvoiceNumber,
   localDateKey,
@@ -94,12 +95,10 @@ interface Draft {
   paymentProfileId: string;
 }
 
-/** Computed on mount, not at import: the default period is "last month". */
+/** Computed on mount, not at import, from the day the user is in. */
 const empty = (): Draft => ({
   clientId: '',
-  periodStart: defaultStart(),
-  periodEnd: defaultEnd(),
-  dueDate: '',
+  ...defaultInvoiceDates(localDateKey(new Date(), tz)),
   reference: '',
   groupingMode: 'entry',
   summaryText: '',
@@ -824,17 +823,4 @@ function GroupingPicker({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
-
-/** Default to last month, the period a contractor most often bills. */
-function defaultStart() {
-  const d = new Date();
-  return iso(new Date(d.getFullYear(), d.getMonth() - 1, 1));
-}
-function defaultEnd() {
-  const d = new Date();
-  return iso(new Date(d.getFullYear(), d.getMonth(), 0));
-}
-function iso(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }

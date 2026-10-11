@@ -6,7 +6,7 @@
  */
 
 import { resolveRate, resolveRateSource, type RateSource } from './rates.ts';
-import { localDateKey } from './calendar.ts';
+import { addDays, localDateKey } from './calendar.ts';
 
 /**
  * `summary` is one line of the user's own text for all the time, split only
@@ -300,4 +300,26 @@ export function buildLineItems(
 /** `INV-0001` — zero-padded to 4, growing past 9999 rather than truncating. */
 export function formatInvoiceNumber(prefix: string, sequence: number): string {
   return `${prefix}${String(sequence).padStart(4, '0')}`;
+}
+
+/**
+ * What a new invoice starts with, for `today` (`YYYY-MM-DD`): the month whose
+ * last day is nearest, since a contractor bills a month just as it ends or
+ * just after, and due Net 30. Equidistant, the earlier month wins.
+ */
+export function defaultInvoiceDates(today: string): {
+  periodStart: string;
+  periodEnd: string;
+  dueDate: string;
+} {
+  const [y = 0, m = 1, d = 1] = today.split('-').map(Number);
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  // Days back to last month's end is `d`; ahead to this month's, the rest.
+  const periodEnd =
+    daysInMonth - d < d ? addDays(today, daysInMonth - d) : addDays(today, -d);
+  return {
+    periodStart: `${periodEnd.slice(0, 8)}01`,
+    periodEnd,
+    dueDate: addDays(today, 30),
+  };
 }

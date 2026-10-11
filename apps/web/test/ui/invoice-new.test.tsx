@@ -86,7 +86,7 @@ const PREVIEW = {
   },
 };
 
-/* Dates far either side of any "last month" the default period picks, so
+/* Dates far either side of any month the default period picks, so
    these tests do not depend on the day they run. */
 const EXPENSES = [
   {
