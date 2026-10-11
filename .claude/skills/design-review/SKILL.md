@@ -33,7 +33,8 @@ gives `FEATURE_SPEC` and `FEATURE_DIR`.
 One scratch HTML page in the session's scratchpad, holding a draft of each
 new or changed screen. One draft is the default. Add variations only when
 the screen has a real choice of layout or hierarchy that Blake should see
-side by side; a variation is never the same layout recolored.
+side by side, and then at most 3; a variation is never the same layout
+recolored.
 
 | The page has | From |
 | --- | --- |
