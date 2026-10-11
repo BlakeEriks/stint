@@ -10,6 +10,7 @@ import {
   localDateTimeToInstant,
   startOfLocalDay,
   startOfLocalDayOffset,
+  formatCompact,
 } from '@stint/core';
 import { Check, Loader2, Trash2 } from 'lucide-react';
 import {
@@ -138,6 +139,23 @@ export function EntryDialog({
      reason shows here. `stats` is in the refetch too: editing an entry
      changes the unbilled total, and giving a loose entry a project is what
      clears its inbox row. */
+  /* The draft as instants, or `null` while a field is cleared. An entry that
+     ends "before" it starts is almost always an overnight shift — 22:00 to
+     02:00 — so the end rolls forward a day: that is what the user meant, and
+     the server would otherwise reject it. `overnight` is said under the
+     times, since a typo'd end rolls forward the same way. */
+  const span = (() => {
+    const { date, start, end } = draft;
+    if (!date || !start || !end) return null;
+    const startedAt = localDateTimeToInstant(date, start, tz);
+    const sameDay = localDateTimeToInstant(date, end, tz);
+    const overnight = sameDay <= startedAt;
+    const endedAt = overnight
+      ? localDateTimeToInstant(addDays(date, 1), end, tz)
+      : sameDay;
+    return { startedAt, endedAt, overnight };
+  })();
+
   const formPress = {
     queryKey: () => keys.entries(),
     invalidate: invalidateEntryData,
@@ -148,23 +166,13 @@ export function EntryDialog({
   const save = useOptimisticMutation({
     ...formPress,
     mutationFn: async () => {
-      const { date, start, end } = draft;
-      const startedAt = localDateTimeToInstant(date, start, tz);
-      const endedAt = localDateTimeToInstant(date, end, tz);
-
-      /* An entry that ends "before" it starts is almost always an overnight
-         shift — 22:00 to 02:00 — not a typo. Rolling the end forward a day is
-         what the user meant, and the server would otherwise reject it. */
-      const ended =
-        endedAt <= startedAt
-          ? localDateTimeToInstant(addDays(date, 1), end, tz)
-          : endedAt;
-
+      // The fields are `required`, so a submitted draft always has a span.
+      const { startedAt, endedAt } = span!;
       const body = {
         taskName: draft.taskName.trim(),
         projectId: draft.projectId,
         startedAt: startedAt.toISOString(),
-        endedAt: ended.toISOString(),
+        endedAt: endedAt.toISOString(),
         isBillable: draft.billable,
       };
 
@@ -223,20 +231,15 @@ export function EntryDialog({
      of typing the two the user already knows. */
   const colors = useProjectColors();
   const drawn = (() => {
-    if (!existing) return null;
-    const { date, start, end } = draft;
-    if (!date || !start || !end) return null;
-    const startedAt = localDateTimeToInstant(date, start, tz);
-    const endedAt = localDateTimeToInstant(date, end, tz);
-    /* An overnight entry is the dialog's existing rule — the end rolls
-       forward a day on save — and the strip spans one day, so it cannot draw
-       one. It hides instead of drawing something false; the fields keep the
-       truth and the description already explains the rule. */
-    if (endedAt <= startedAt) return null;
-    const dayStart = startOfLocalDay(startedAt, tz);
+    if (!existing || !span) return null;
+    /* The strip spans one day, so it cannot draw an overnight entry. It
+       hides instead of drawing something false; the note under the times
+       says what will be saved. */
+    if (span.overnight) return null;
+    const dayStart = startOfLocalDay(span.startedAt, tz);
     return {
-      startedAt,
-      endedAt,
+      startedAt: span.startedAt,
+      endedAt: span.endedAt,
       dayStart,
       dayEnd: startOfLocalDayOffset(dayStart, tz, -1),
     };
@@ -368,46 +371,53 @@ export function EntryDialog({
               is narrower than two times), so the track gives the times the
               room instead: `1.2fr` each against the date's `1fr`. Measured,
               not guessed — the text wants 70px and the icon ~16px. */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1.2fr_1.2fr]">
-            <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-1">
-              <Label htmlFor="entry-date" className={LABEL}>
-                Date
-              </Label>
-              <Input
-                id="entry-date"
-                type="date"
-                required
-                disabled={locked}
-                value={draft.date}
-                onChange={(e) => set('date', e.target.value)}
-              />
+          <div className="flex flex-col gap-1.5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1.2fr_1.2fr]">
+              <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-1">
+                <Label htmlFor="entry-date" className={LABEL}>
+                  Date
+                </Label>
+                <Input
+                  id="entry-date"
+                  type="date"
+                  required
+                  disabled={locked}
+                  value={draft.date}
+                  onChange={(e) => set('date', e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="entry-start" className={LABEL}>
+                  Start
+                </Label>
+                <Input
+                  id="entry-start"
+                  type="time"
+                  required
+                  disabled={locked}
+                  value={draft.start}
+                  onChange={(e) => set('start', e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="entry-end" className={LABEL}>
+                  End
+                </Label>
+                <Input
+                  id="entry-end"
+                  type="time"
+                  required
+                  disabled={locked}
+                  value={draft.end}
+                  onChange={(e) => set('end', e.target.value)}
+                />
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="entry-start" className={LABEL}>
-                Start
-              </Label>
-              <Input
-                id="entry-start"
-                type="time"
-                required
-                disabled={locked}
-                value={draft.start}
-                onChange={(e) => set('start', e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="entry-end" className={LABEL}>
-                End
-              </Label>
-              <Input
-                id="entry-end"
-                type="time"
-                required
-                disabled={locked}
-                value={draft.end}
-                onChange={(e) => set('end', e.target.value)}
-              />
-            </div>
+            {span?.overnight ? (
+              <p className="type-support text-subtle">
+                {`${formatCompact((span.endedAt.getTime() - span.startedAt.getTime()) / 1000)} — ends the next day`}
+              </p>
+            ) : null}
           </div>
 
           <label className="flex items-center gap-2.5 type-control text-primary">
