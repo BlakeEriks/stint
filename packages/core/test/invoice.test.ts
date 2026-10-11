@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildLineItems,
-  defaultInvoiceDates,
+  defaultInvoicePeriod,
+  dueDateForTerms,
   formatInvoiceNumber,
   type BillableEntry,
 } from '../src/invoice.ts';
@@ -530,25 +531,47 @@ test('a time line’s printed arithmetic holds: quantity × unit price = amount'
   );
 });
 
-test('a new invoice defaults to the month whose last day is nearest, due Net 30', () => {
-  const cases: [string, string, string, string][] = [
-    // today, periodStart, periodEnd, dueDate
-    ['2026-09-30', '2026-09-01', '2026-09-30', '2026-10-30'],
-    ['2026-10-02', '2026-09-01', '2026-09-30', '2026-11-01'],
-    ['2026-10-15', '2026-09-01', '2026-09-30', '2026-11-14'],
-    ['2026-10-16', '2026-10-01', '2026-10-31', '2026-11-15'],
-    ['2026-09-16', '2026-09-01', '2026-09-30', '2026-10-16'],
+test('a new invoice defaults to the month whose last day is nearest', () => {
+  const cases: [string, string, string][] = [
+    // today, periodStart, periodEnd
+    ['2026-09-30', '2026-09-01', '2026-09-30'],
+    ['2026-10-02', '2026-09-01', '2026-09-30'],
+    ['2026-10-15', '2026-09-01', '2026-09-30'],
+    ['2026-10-16', '2026-10-01', '2026-10-31'],
+    ['2026-09-16', '2026-09-01', '2026-09-30'],
     // Equidistant: Aug 31 and Sept 30 are both 15 days off; the earlier wins.
-    ['2026-09-15', '2026-08-01', '2026-08-31', '2026-10-15'],
-    ['2026-12-31', '2026-12-01', '2026-12-31', '2027-01-30'],
-    ['2027-01-10', '2026-12-01', '2026-12-31', '2027-02-09'],
-    ['2028-02-20', '2028-02-01', '2028-02-29', '2028-03-21'],
+    ['2026-09-15', '2026-08-01', '2026-08-31'],
+    ['2026-12-31', '2026-12-01', '2026-12-31'],
+    ['2027-01-10', '2026-12-01', '2026-12-31'],
+    ['2028-02-20', '2028-02-01', '2028-02-29'],
   ];
-  for (const [today, periodStart, periodEnd, dueDate] of cases) {
+  for (const [today, periodStart, periodEnd] of cases) {
     assert.deepEqual(
-      defaultInvoiceDates(today),
-      { periodStart, periodEnd, dueDate },
+      defaultInvoicePeriod(today),
+      { periodStart, periodEnd },
       today,
     );
+  }
+});
+
+// The PDF prints the terms beside the due date, so the default due date
+// must not contradict them.
+test('a new invoice is due when its payment terms say', () => {
+  const cases: [string, string][] = [
+    // terms, due date for an issue date of 2026-12-20
+    ['Net 30', '2027-01-19'],
+    ['Net 15', '2027-01-04'],
+    ['net15', '2027-01-04'],
+    ['NET 0', '2026-12-20'],
+    ['2/10 Net 45', '2027-02-03'],
+    ['Payable within 10 days', '2026-12-30'],
+    ['Due on receipt', '2026-12-20'],
+    ['Payable upon receipt', '2026-12-20'],
+    // Terms it cannot read fall back to Net 30.
+    ['End of month', '2027-01-19'],
+    ['', '2027-01-19'],
+  ];
+  for (const [terms, due] of cases) {
+    assert.equal(dueDateForTerms('2026-12-20', terms), due, terms);
   }
 });

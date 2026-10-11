@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { localDateKey } from '@stint/core';
+import { addDays, localDateKey } from '@stint/core';
 import { NewInvoice } from '@/components/invoice-new';
 
 const push = vi.fn();
@@ -37,6 +37,9 @@ const SETTINGS = {
   nextInvoiceNumber: 16,
   defaultPaymentTerms: 'Net 30',
 };
+
+/** The settings served; a test changes the payment terms. */
+let settings = SETTINGS;
 
 let PROFILES = [
   {
@@ -164,7 +167,7 @@ function serve(preview: unknown = PREVIEW) {
       if (path.endsWith('/invoices')) return ok({ id: 'inv-1' });
       if (path.includes('/expenses')) return ok({ expenses: EXPENSES });
       if (path.includes('/clients')) return ok({ clients: CLIENTS });
-      if (path.includes('/settings')) return ok(SETTINGS);
+      if (path.includes('/settings')) return ok(settings);
       if (path.includes('/payment-profiles')) {
         if (init?.method === 'POST') {
           const made = { ...JSON.parse(String(init.body)), id: 'pp2' };
@@ -234,6 +237,7 @@ const ready = async (user: User) => {
 beforeEach(() => {
   vi.clearAllMocks();
   hold = null;
+  settings = SETTINGS;
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -323,6 +327,23 @@ describe('NewInvoice', () => {
 
     expect(await screen.findByText(/^Nothing to bill/)).toBeInTheDocument();
     expect(generate()).toBeDisabled();
+  });
+
+  it('defaults Due to the payment terms, and sends the date it shows', async () => {
+    serve();
+    settings = { ...SETTINGS, defaultPaymentTerms: 'Net 15' };
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    const due = addDays(localDateKey(new Date(), tz), 15);
+    await waitFor(() => expect(screen.getByLabelText('Due')).toHaveValue(due));
+    await ready(user);
+
+    await user.click(generate());
+
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    expect(bodies.find((b) => b.path.endsWith('/invoices'))!.body.dueDate).toBe(
+      due,
+    );
   });
 
   it('generates only when pressed, dated today where the user is', async () => {

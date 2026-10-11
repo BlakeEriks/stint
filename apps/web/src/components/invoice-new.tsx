@@ -25,7 +25,8 @@ import {
 import { ChevronDown, Pencil, Plus } from 'lucide-react';
 import {
   buildPaymentDetails,
-  defaultInvoiceDates,
+  defaultInvoicePeriod,
+  dueDateForTerms,
   formatCurrency,
   formatInvoiceNumber,
   localDateKey,
@@ -78,7 +79,9 @@ interface Draft {
   clientId: string;
   periodStart: string;
   periodEnd: string;
-  dueDate: string;
+  /** `null` until the user picks one, so it follows the payment terms the
+   *  invoice prints. */
+  dueDate: string | null;
   /** The PO, contract or SOW. It decides no line, so it never asks the
    *  server again. */
   reference: string;
@@ -98,7 +101,8 @@ interface Draft {
 /** Computed on mount, not at import, from the day the user is in. */
 const empty = (): Draft => ({
   clientId: '',
-  ...defaultInvoiceDates(localDateKey(new Date(), tz)),
+  ...defaultInvoicePeriod(localDateKey(new Date(), tz)),
+  dueDate: null,
   reference: '',
   groupingMode: 'entry',
   summaryText: '',
@@ -205,6 +209,9 @@ export function NewInvoice() {
   const current = draft.clientId !== '' ? preview.data : undefined;
 
   const issued = localDateKey(new Date(), tz);
+  const due =
+    draft.dueDate ??
+    (settings ? dueDateForTerms(issued, settings.defaultPaymentTerms) : '');
 
   const generate = useOptimisticMutation({
     queryKey: () => keys.invoices(),
@@ -224,7 +231,7 @@ export function NewInvoice() {
         // The date the card shows, where the user is. The server's fallback
         // is UTC, a day ahead on a US evening.
         issueDate: issued,
-        dueDate: draft.dueDate || undefined,
+        dueDate: due || undefined,
         reference: draft.reference.trim() || undefined,
         // The profile the card shows, frozen as it is now.
         paymentProfileId: profile?.id,
@@ -335,7 +342,7 @@ export function NewInvoice() {
                 <DateField
                   id="inv-due"
                   label="Due"
-                  value={draft.dueDate}
+                  value={due}
                   onChange={(v) => set('dueDate', v)}
                 />
               </div>
@@ -463,7 +470,7 @@ export function NewInvoice() {
               settings={settings}
               number={number}
               issued={issued}
-              due={draft.dueDate}
+              due={due}
               reference={draft.reference.trim()}
               payment={payment}
               schedules={

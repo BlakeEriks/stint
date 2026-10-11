@@ -73,7 +73,7 @@ export const Blank: Story = { ...desktop };
 export const Phone: Story = { ...phone };
 
 /** On September 17 the period is September, the month ending nearest, and
-    due is Net 30 from today. The card follows both. */
+    due follows the settings' Net 30 terms. The card follows both. */
 export const Defaults: Story = {
   ...desktop,
   parameters: menuOpen,
