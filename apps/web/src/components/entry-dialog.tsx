@@ -42,6 +42,8 @@ interface Draft {
   start: string;
   end: string;
   billable: boolean;
+  /** Set once the user changes Billable, after which a project leaves it be. */
+  billableTouched: boolean;
 }
 
 const EMPTY: Draft = {
@@ -51,6 +53,7 @@ const EMPTY: Draft = {
   start: '',
   end: '',
   billable: true,
+  billableTouched: false,
 };
 
 /**
@@ -117,11 +120,24 @@ export function EntryDialog({
       start: localTime(from, tz),
       end: opened?.endedAt ? localTime(new Date(opened.endedAt), tz) : '',
       billable: existing?.isBillable ?? true,
+      billableTouched: false,
     });
   }, [open, existing, seed, tz]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
+
+  /* A new entry takes the project's billable default, as a started timer
+     does. An entry that exists keeps the flag the user saved, and a box the
+     user changed keeps their answer. */
+  const withProject = (d: Draft, projectId: string | null): Draft => ({
+    ...d,
+    projectId,
+    billable:
+      existing || d.billableTouched
+        ? d.billable
+        : (projects.find((p) => p.id === projectId)?.isBillableDefault ?? true),
+  });
 
   /* The close, then the caller, then the refetch — in that order. A list that
      animates this entry out needs it still in the query data while it plays,
@@ -275,16 +291,15 @@ export function EntryDialog({
             <TaskSuggest
               value={draft.taskName}
               onChange={(name, rowProject) => {
-                setDraft((d) => ({
-                  ...d,
-                  taskName: name,
+                setDraft((d) =>
                   /* A fill, never an overwrite: a project already chosen is
                      the user's answer to which client this is billed to, and
                      a row used under another one must not move the work
                      there. */
-                  projectId:
-                    rowProject && !d.projectId ? rowProject : d.projectId,
-                }));
+                  rowProject && !d.projectId
+                    ? withProject({ ...d, taskName: name }, rowProject)
+                    : { ...d, taskName: name },
+                );
               }}
               projectId={draft.projectId}
               /* Naming work is what suggestions accelerate, and an entry that
@@ -315,7 +330,7 @@ export function EntryDialog({
               id="entry-project"
               projects={projects}
               value={draft.projectId}
-              onChange={(id) => set('projectId', id)}
+              onChange={(id) => setDraft((d) => withProject(d, id))}
               disabled={locked}
               autoFocus={focus === 'project'}
               /* This is already a dialog, and Radix mounts no dialog inside
@@ -415,7 +430,10 @@ export function EntryDialog({
               type="checkbox"
               disabled={locked}
               checked={draft.billable}
-              onChange={(e) => set('billable', e.target.checked)}
+              onChange={(e) => {
+                const billable = e.target.checked;
+                setDraft((d) => ({ ...d, billable, billableTouched: true }));
+              }}
               className="size-4 accent-[var(--text-muted)]"
             />
             Billable

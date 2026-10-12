@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { account } from '@/mocks/db';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import AppError from '@/app/(app)/error';
 import {
   desktop,
@@ -9,6 +9,7 @@ import {
   menuOpen,
   phone,
   screen,
+  stalled,
   tablet,
   wide,
   expectOpen,
@@ -150,5 +151,22 @@ export const AccountMenu: Story = {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(await page.findByRole('button', { name: 'Account' }));
     await expectOpen(canvasElement, 'menu');
+  },
+};
+
+/** Sign-out waits on the server, shown on the trigger: the menu has closed. */
+export const SigningOut: Story = {
+  ...desktop,
+  parameters: stalled('signOut'),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const trigger = await page.findByRole('button', { name: 'Account' });
+    await userEvent.click(trigger);
+    await userEvent.click(
+      await page.findByRole('menuitem', { name: /sign out/i }),
+    );
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-busy', 'true'));
+    await expect(trigger).toBeDisabled();
+    await expect(trigger).toHaveTextContent('Signing out…');
   },
 };

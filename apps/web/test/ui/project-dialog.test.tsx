@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ProjectDialog } from '@/components/project-dialog';
 import type { Project } from '@/lib/client/api';
+import { keys } from '@/lib/client/query-keys';
+import { pend } from './pend';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
@@ -140,6 +142,72 @@ describe('ProjectDialog', () => {
         path: '/projects/p1',
         body: undefined,
       });
+    });
+  });
+
+  describe('restore', () => {
+    const ARCHIVED = {
+      id: 'p1',
+      name: 'Warehouse dashboard',
+      clientId: 'c1',
+      hourlyRate: null,
+      isBillableDefault: true,
+      archivedAt: '2026-06-30T16:00:00.000Z',
+    } as unknown as Project;
+
+    /** Restores ARCHIVED with `active` as the clients the server answers
+        as active (unset: not answered yet), and returns the cache. */
+    async function restore(active?: Array<{ id: string; name: string }>) {
+      const calls = pend();
+      const closed = vi.fn();
+      const qc = new QueryClient();
+      if (active) qc.setQueryData(keys.clients(), { clients: active });
+      qc.setQueryData(keys.projects({ archived: true }), {
+        projects: [ARCHIVED],
+      });
+      qc.setQueryData(keys.projects(), { projects: [] });
+      qc.setQueryData(keys.projects({ clientId: 'c2' }), { projects: [] });
+      const user = userEvent.setup();
+      render(
+        <QueryClientProvider client={qc}>
+          <ProjectDialog open onOpenChange={closed} existing={ARCHIVED} />
+        </QueryClientProvider>,
+      );
+
+      await user.click(await screen.findByRole('button', { name: 'Restore' }));
+
+      expect(closed).toHaveBeenCalledWith(false);
+      const list = (opts?: { archived?: boolean; clientId?: string }) =>
+        qc.getQueryData<{ projects: Project[] }>(keys.projects(opts))?.projects;
+      return { calls, list };
+    }
+
+    it('returns the project to Active on the press, only where it belongs', async () => {
+      const { calls, list } = await restore([{ id: 'c1', name: 'Northwind' }]);
+      expect(list({ archived: true })?.[0]?.archivedAt).toBeNull();
+      expect(list()).toMatchObject([{ id: 'p1', archivedAt: null }]);
+      // Another client's list is no place for it.
+      expect(list({ clientId: 'c2' })).toEqual([]);
+      expect(calls).toContainEqual({
+        method: 'PATCH',
+        path: '/projects/p1',
+        body: { archived: false },
+      });
+    });
+
+    /* GET /projects leaves out a project whose client is archived, so the
+       pickers reading the active list must not offer it on the press. */
+    it('keeps it out of active lists while its client is archived', async () => {
+      const { list } = await restore([]);
+      expect(list({ archived: true })?.[0]?.archivedAt).toBeNull();
+      expect(list()).toEqual([]);
+    });
+
+    /* The clients list is not cached on the screens with Restore, so a press
+       before it answers must not read as an archived client. */
+    it('lists it when the clients have not answered yet', async () => {
+      const { list } = await restore();
+      expect(list()).toMatchObject([{ id: 'p1', archivedAt: null }]);
     });
   });
 });

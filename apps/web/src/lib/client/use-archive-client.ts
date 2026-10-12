@@ -1,8 +1,23 @@
 'use client';
 
-import { api } from './api';
+import type { QueryClient } from '@tanstack/react-query';
+import { api, type Client } from './api';
 import { useOptimisticMutation } from './mutations';
-import { keys, invalidateEntryData, predictArchive } from './query-keys';
+import {
+  keys,
+  invalidateEntryData,
+  predictArchive,
+  predictRestore,
+} from './query-keys';
+
+/* Archiving or restoring moves the client's rate in or out of every rollup,
+   and its projects in or out of every picker. */
+const invalidate = (qc: QueryClient) =>
+  Promise.all([
+    qc.invalidateQueries({ queryKey: keys.clients() }),
+    qc.invalidateQueries({ queryKey: keys.projects() }),
+    invalidateEntryData(qc),
+  ]);
 
 /** Archives a client by id: predicted, so the client goes on the press, and a
     refusal puts it back while the notice says why. */
@@ -11,13 +26,18 @@ export function useArchiveClient() {
     queryKey: () => keys.clients(),
     mutationFn: (id) => api.archiveClient(id),
     predict: (current, id, key) => predictArchive('clients', id, current, key),
-    /* Archiving withdraws the client's rate from every rollup, and its
-       projects from every picker. */
-    invalidate: (qc) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.clients() }),
-        qc.invalidateQueries({ queryKey: keys.projects() }),
-        invalidateEntryData(qc),
-      ]),
+    invalidate,
+  });
+}
+
+/** Restores a client, predicted the same way: it is back under Active on
+    the press. */
+export function useRestoreClient() {
+  return useOptimisticMutation<Client, unknown, unknown>({
+    queryKey: () => keys.clients(),
+    mutationFn: (client) => api.restoreClient(client.id),
+    predict: (current, client, key) =>
+      predictRestore('clients', client, current, key),
+    invalidate,
   });
 }

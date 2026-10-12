@@ -282,6 +282,9 @@ export const api = {
   /** Archival, not deletion — entries and invoices reference projects. */
   archiveProject: (id: string) => request<void>('DELETE', `/projects/${id}`),
 
+  restoreProject: (id: string) =>
+    request<Project>('PATCH', `/projects/${id}`, { archived: false }),
+
   /** Archived clients are excluded unless asked for. */
   /* Overloaded so `withScale` narrows the result: without it every caller of
      the plain list would carry fields the server did not send. */
@@ -319,6 +322,11 @@ export const api = {
 
   /** Archival, not deletion — invoices reference clients. */
   archiveClient: (id: string) => request<void>('DELETE', `/clients/${id}`),
+
+  /** Only the client: its projects keep their own archivedAt, so what was
+      active before it was archived comes back, and nothing else. */
+  restoreClient: (id: string) =>
+    request<Client>('PATCH', `/clients/${id}`, { archived: false }),
 
   calendar: (params: { from: string; to: string; tz: string }) => {
     const q = new URLSearchParams(params);

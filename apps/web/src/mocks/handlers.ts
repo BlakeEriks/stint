@@ -59,6 +59,17 @@ const byId = <T extends { id: string }>(rows: T[], id: unknown) =>
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name);
 
+function applyArchived<T>(
+  db: { now: Date },
+  { archived, ...patch }: T & { archived?: boolean },
+): T {
+  if (archived === undefined) return patch as T;
+  return {
+    ...patch,
+    archivedAt: archived ? db.now.toISOString() : null,
+  } as T;
+}
+
 function stopEntry(entry: TimeEntry, now: Date): TimeEntry {
   const seconds = Math.floor(
     (now.getTime() - Date.parse(entry.startedAt)) / 1000,
@@ -321,7 +332,7 @@ export const handlers = {
       if (!project) return fail('ENTRY_NOT_FOUND');
       db.projects[i] = {
         ...project,
-        ...(await body<Partial<Project>>(request)),
+        ...applyArchived(db, await body<Partial<Project>>(request)),
       };
       return ok(schema.Project, db.projects[i]);
     },
@@ -379,7 +390,10 @@ export const handlers = {
       const i = db.clients.findIndex((c) => c.id === params.id);
       const client = db.clients[i];
       if (!client) return fail('ENTRY_NOT_FOUND');
-      db.clients[i] = { ...client, ...(await body<Partial<Client>>(request)) };
+      db.clients[i] = {
+        ...client,
+        ...applyArchived(db, await body<Partial<Client>>(request)),
+      };
       return ok(schema.Client, db.clients[i]);
     },
   ),

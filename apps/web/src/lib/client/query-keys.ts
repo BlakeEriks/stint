@@ -31,6 +31,8 @@ export const keys = {
     opts ? (['task-names', opts] as const) : (['task-names'] as const),
   account: () => ['account'] as const,
   billing: () => ['billing'] as const,
+  /** The Supabase session, which sign-out ends. */
+  session: () => ['session'] as const,
   invoices: () => ['invoices'] as const,
   invoice: (id: string | null | undefined) => ['invoices', id] as const,
   /** Keyed on everything that decides the lines, so a stale answer is
@@ -79,6 +81,39 @@ export function predictArchive(
         )
       : list.filter((r) => r.id !== id),
   };
+}
+
+/**
+ * A restore's prediction, the reverse of `predictArchive`: the row is marked
+ * active in a list that holds archived rows, joins a list of active rows it
+ * belongs in, and is marked active where it is cached alone (a client's page).
+ * `listed` false keeps it out of active lists, as the server does a project
+ * whose client is archived.
+ */
+export function predictRestore(
+  rows: 'clients' | 'projects',
+  row: { id: string; clientId?: string | null },
+  current: unknown,
+  key: QueryKey,
+  listed = true,
+): unknown {
+  if (typeof current !== 'object' || current === null) return current;
+  const restored = { ...row, archivedAt: null };
+  if (!(rows in current))
+    return (current as { id?: string }).id === row.id
+      ? { ...current, archivedAt: null }
+      : current;
+  const list = (current as Record<typeof rows, Array<{ id: string }>>)[rows];
+  if (listsArchived(key))
+    return {
+      ...current,
+      [rows]: list.map((r) => (r.id === row.id ? restored : r)),
+    };
+  const opts = key[1] as { clientId?: string } | undefined;
+  const belongs = !opts?.clientId || opts.clientId === row.clientId;
+  return listed && belongs && !list.some((r) => r.id === row.id)
+    ? { ...current, [rows]: [...list, restored] }
+    : current;
 }
 
 /**

@@ -175,7 +175,9 @@ migration scripts do, and they run in Actions.
 ### How it fits together
 
 Vercel dispatches `vercel.deployment.ready` when a production build exists
-but is not yet serving. `plan` marks the check pending and writes the summary.
+but is not yet serving. `plan` marks the check pending and writes the summary,
+and fails the release if a pending migration sorts before one production has
+run, since a fresh build would apply them in a different order.
 When a migration is pending, `approve` waits for you and `backup` takes a
 snapshot; otherwise both are skipped. `migrate` runs
 `pnpm migrate` and `pnpm verify:schema` while the *previous* build still
@@ -254,7 +256,7 @@ az role assignment create --role "Storage Blob Data Reader" --assignee "$(az ad 
 az storage blob list --auth-mode login --account-name stintbackups4b3306 -c dumps --query "[].name" -o tsv
 az storage blob download --auth-mode login --account-name stintbackups4b3306 -c dumps -n <name> -f db.dump.age
 age -d -i <(pbpaste | grep '^AGE-SECRET-KEY-') -o db.dump db.dump.age   # private key on the clipboard
-pg_restore -a -t schema_migrations -f - db.dump | grep -o '^[0-9_a-z]*\.sql' | sort | tail -1
+pg_restore -a -t schema_migrations -f - db.dump | grep -o '^[0-9A-Za-z_-]*\.sql' | sort | tail -1
 git checkout "$(git log -1 --format=%H -- supabase/migrations/<that file>)"
 pnpm migrate --url "$TARGET"                                            # a fresh project
 pg_restore -l db.dump | grep -E 'TABLE DATA public |TABLE DATA auth (users|identities) |SEQUENCE SET public ' \

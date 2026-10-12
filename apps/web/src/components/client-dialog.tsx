@@ -1,6 +1,5 @@
 'use client';
 
-import { Archive } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -8,9 +7,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import type { Client } from '@/lib/client/api';
-import { useArchiveClient } from '@/lib/client/use-archive-client';
+import {
+  useArchiveClient,
+  useRestoreClient,
+} from '@/lib/client/use-archive-client';
+import { ArchiveButton } from './archive-button';
 import { ClientForm } from './client-form';
 
 /**
@@ -18,8 +20,9 @@ import { ClientForm } from './client-form';
  * project, so editing reads the same from any screen. The form is the one
  * the page uses, so the field set cannot drift.
  *
- * Archive sits here rather than on the list: it is rare. Archive, never
- * delete: invoices reference the client.
+ * Archive sits here rather than on the list: it is rare, and Restore takes
+ * its place once archived. Archive, never delete: invoices reference the
+ * client.
  */
 export function ClientDialog({
   open,
@@ -31,6 +34,7 @@ export function ClientDialog({
   client: Client;
 }) {
   const archive = useArchiveClient();
+  const restore = useRestoreClient();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -50,19 +54,17 @@ export function ClientDialog({
           onSaved={() => onOpenChange(false)}
           onCancel={() => onOpenChange(false)}
           footer={
-            client.archivedAt ? null : (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  archive.mutate(client.id);
-                  onOpenChange(false);
-                }}
-              >
-                <Archive aria-hidden strokeWidth={1.75} />
-                Archive
-              </Button>
-            )
+            <ArchiveButton
+              archived={client.archivedAt != null}
+              onArchive={() => {
+                archive.mutate(client.id);
+                onOpenChange(false);
+              }}
+              onRestore={() => {
+                restore.mutate(client);
+                onOpenChange(false);
+              }}
+            />
           }
         />
       </DialogContent>

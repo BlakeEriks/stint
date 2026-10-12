@@ -72,6 +72,20 @@ const card = (page: Page) =>
 export const Blank: Story = { ...desktop };
 export const Phone: Story = { ...phone };
 
+/** On September 17 the period is September, the month ending nearest, and
+    due follows the settings' Net 30 terms. The card follows both. */
+export const Defaults: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(page.getByLabelText('From')).toHaveValue('2026-09-01');
+    await expect(page.getByLabelText('To')).toHaveValue('2026-09-30');
+    await expect(page.getByLabelText('Due')).toHaveValue('2026-10-17');
+    await expect(await card(page).findByText(/Oct 17, 2026/)).toBeVisible();
+  },
+};
+
 /** A client chosen: the card is the invoice as the PDF prints it, and
     follows the form without a Preview button (US3 scenario 1). */
 export const ClientChosen: Story = {
@@ -168,8 +182,8 @@ export const Overlapping: Story = {
   parameters: {
     ...menuOpen,
     ...account((db) => {
-      // Half an hour into August's first Northwind block, which the
-      // default period (last month) bills.
+      // Half an hour into September's first Northwind block, which the
+      // default period bills.
       const northwind = new Set(
         db.projects
           .filter((p) => p.clientId === ids.northwind)
@@ -177,7 +191,7 @@ export const Overlapping: Story = {
       );
       const first = db.entries.find(
         (e) =>
-          e.startedAt.startsWith('2026-08') &&
+          e.startedAt.startsWith('2026-09') &&
           e.invoiceId === null &&
           northwind.has(e.projectId as string),
       ) as Db['entries'][number];
@@ -474,7 +488,7 @@ export const RecurringTicked: Story = {
       await card(page).findByRole('cell', { name: 'Claude Max subscription' }),
     ).toBeVisible();
     await expect(
-      card(page).getByRole('cell', { name: 'Aug 31, 2026' }),
+      card(page).getByRole('cell', { name: 'Sep 30, 2026' }),
     ).toBeVisible();
   },
 };

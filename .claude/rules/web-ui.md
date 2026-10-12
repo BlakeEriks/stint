@@ -106,7 +106,8 @@ or state is a story first, built to the pick in the spec's `## Design`.
 A story renders the real component, never a copy. A state it needs comes
 from the account (`parameters.db`, `account((db) => …)`), one failing
 handler (`failing('stats')`) or one that never answers
-(`stalled('deleteInvoice')`), not from props the app never passes.
+(`stalled('deleteInvoice')`, or `stalled('signOut')` for the Supabase
+sign-out), not from props the app never passes.
 
 ### Layout
 

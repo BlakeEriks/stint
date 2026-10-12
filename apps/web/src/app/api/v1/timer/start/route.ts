@@ -3,6 +3,7 @@ import { handle, ApiError, isTimerConflict } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { parseBody } from '@/lib/validate';
 import { findRunning } from '@/lib/timer';
+import { projectBillableDefault } from '@/lib/projects';
 import { ENTRY_COLUMNS, toEntry, type EntryRow } from '@/lib/rows';
 import { uuidv7 } from '@stint/core';
 import { StartTimer } from '@stint/schema';
@@ -33,11 +34,8 @@ export const POST = handle(async (req: Request) => {
       task_name: body.taskName,
       started_at: body.startedAt ?? new Date().toISOString(),
       ended_at: null,
-      // Spread, not `?? true`: an absent flag must leave the column's own
-      // default to apply rather than this route asserting one.
-      ...(body.isBillable === undefined
-        ? {}
-        : { is_billable: body.isBillable }),
+      is_billable:
+        body.isBillable ?? (await projectBillableDefault(db, body.projectId)),
     })
     .select(ENTRY_COLUMNS)
     .single();

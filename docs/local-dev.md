@@ -237,10 +237,6 @@ next invoice collide.
 about skipping it, applies the rest, and the stack comes up with no tables,
 failing confusingly on the second file.
 
-Never rename a migration that has shipped: `migrate.mjs` keys
-`schema_migrations` on the filename, so production would consider it
-unapplied.
-
 **A hand-written `auth.users` row needs empty strings, not NULL**, in
 `confirmation_token`, `recovery_token`, `email_change_token_new` and
 `email_change`. GoTrue scans them into non-nullable Go strings, so a NULL
@@ -369,7 +365,8 @@ function that edits the seeded account), breaks one endpoint with
 `failing('stats')`, or leaves one unanswered with `stalled('deleteInvoice')`
 to show a press still pending. `stalled` sets `parameters.stalls`, so the
 story is judged with that many requests still open instead of waiting on
-them. A response that fails its schema, an unhandled API
+them; `stalled('signOut')` holds the Supabase sign-out in
+`src/mocks/supabase.ts` instead. A response that fails its schema, an unhandled API
 request or a handler that throws fails the story. On a browser's
 first visit MSW's service worker installs after the page has loaded, so reload
 once.

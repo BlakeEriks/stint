@@ -25,6 +25,8 @@ import {
 import { ChevronDown, Pencil, Plus } from 'lucide-react';
 import {
   buildPaymentDetails,
+  defaultInvoicePeriod,
+  dueDateForTerms,
   formatCurrency,
   formatInvoiceNumber,
   localDateKey,
@@ -77,7 +79,9 @@ interface Draft {
   clientId: string;
   periodStart: string;
   periodEnd: string;
-  dueDate: string;
+  /** `null` until the user picks one, so it follows the payment terms the
+   *  invoice prints. */
+  dueDate: string | null;
   /** The PO, contract or SOW. It decides no line, so it never asks the
    *  server again. */
   reference: string;
@@ -94,12 +98,11 @@ interface Draft {
   paymentProfileId: string;
 }
 
-/** Computed on mount, not at import: the default period is "last month". */
+/** Computed on mount, not at import, from the day the user is in. */
 const empty = (): Draft => ({
   clientId: '',
-  periodStart: defaultStart(),
-  periodEnd: defaultEnd(),
-  dueDate: '',
+  ...defaultInvoicePeriod(localDateKey(new Date(), tz)),
+  dueDate: null,
   reference: '',
   groupingMode: 'entry',
   summaryText: '',
@@ -206,6 +209,9 @@ export function NewInvoice() {
   const current = draft.clientId !== '' ? preview.data : undefined;
 
   const issued = localDateKey(new Date(), tz);
+  const due =
+    draft.dueDate ??
+    (settings ? dueDateForTerms(issued, settings.defaultPaymentTerms) : '');
 
   const generate = useOptimisticMutation({
     queryKey: () => keys.invoices(),
@@ -225,7 +231,7 @@ export function NewInvoice() {
         // The date the card shows, where the user is. The server's fallback
         // is UTC, a day ahead on a US evening.
         issueDate: issued,
-        dueDate: draft.dueDate || undefined,
+        dueDate: due || undefined,
         reference: draft.reference.trim() || undefined,
         // The profile the card shows, frozen as it is now.
         paymentProfileId: profile?.id,
@@ -264,6 +270,8 @@ export function NewInvoice() {
     draft.groupingMode === 'summary' && draft.summaryText.trim() === '';
   const canGenerate =
     current !== undefined &&
+    // Due follows the settings' terms; without them it would be sent blank.
+    settings !== undefined &&
     !updating &&
     !preview.isError &&
     unrated === 0 &&
@@ -336,7 +344,7 @@ export function NewInvoice() {
                 <DateField
                   id="inv-due"
                   label="Due"
-                  value={draft.dueDate}
+                  value={due}
                   onChange={(v) => set('dueDate', v)}
                 />
               </div>
@@ -464,7 +472,7 @@ export function NewInvoice() {
               settings={settings}
               number={number}
               issued={issued}
-              due={draft.dueDate}
+              due={due}
               reference={draft.reference.trim()}
               payment={payment}
               schedules={
@@ -824,17 +832,4 @@ function GroupingPicker({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
-
-/** Default to last month, the period a contractor most often bills. */
-function defaultStart() {
-  const d = new Date();
-  return iso(new Date(d.getFullYear(), d.getMonth() - 1, 1));
-}
-function defaultEnd() {
-  const d = new Date();
-  return iso(new Date(d.getFullYear(), d.getMonth(), 0));
-}
-function iso(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }

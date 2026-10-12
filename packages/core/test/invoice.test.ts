@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildLineItems,
+  defaultInvoicePeriod,
+  dueDateForTerms,
   formatInvoiceNumber,
   type BillableEntry,
 } from '../src/invoice.ts';
@@ -527,4 +529,61 @@ test('a time line’s printed arithmetic holds: quantity × unit price = amount'
     Math.round(li.quantity * li.unitPrice * 100) / 100,
     `the document says ${li.quantity} × ${li.unitPrice} = ${li.amount}`,
   );
+});
+
+test('a new invoice defaults to the month whose last day is nearest', () => {
+  const cases: [string, string, string][] = [
+    // today, periodStart, periodEnd
+    ['2026-09-30', '2026-09-01', '2026-09-30'],
+    ['2026-10-02', '2026-09-01', '2026-09-30'],
+    ['2026-10-15', '2026-09-01', '2026-09-30'],
+    ['2026-10-16', '2026-10-01', '2026-10-31'],
+    ['2026-09-16', '2026-09-01', '2026-09-30'],
+    // Equidistant: Aug 31 and Sept 30 are both 15 days off; the earlier wins.
+    ['2026-09-15', '2026-08-01', '2026-08-31'],
+    ['2026-12-31', '2026-12-01', '2026-12-31'],
+    ['2027-01-10', '2026-12-01', '2026-12-31'],
+    ['2028-02-20', '2028-02-01', '2028-02-29'],
+  ];
+  for (const [today, periodStart, periodEnd] of cases) {
+    assert.deepEqual(
+      defaultInvoicePeriod(today),
+      { periodStart, periodEnd },
+      today,
+    );
+  }
+});
+
+// The PDF prints the terms beside the due date, so the default due date
+// must not contradict them.
+test('a new invoice is due when its payment terms say', () => {
+  const cases: [string, string][] = [
+    // terms, due date for an issue date of 2026-12-20
+    ['Net 30', '2027-01-19'],
+    ['Net 15', '2027-01-04'],
+    ['net15', '2027-01-04'],
+    ['NET 0', '2026-12-20'],
+    ['2/10 Net 45', '2027-02-03'],
+    ['Payable within 10 days', '2026-12-30'],
+    ['Due on receipt', '2026-12-20'],
+    ['Payable upon receipt', '2026-12-20'],
+    // A day count wins over "receipt" in the same terms.
+    ['Net 30 upon receipt', '2027-01-19'],
+    ['Net 15 days from receipt of invoice', '2027-01-04'],
+    // Terms it cannot read fall back to Net 30.
+    ['End of month', '2027-01-19'],
+    ['', '2027-01-19'],
+  ];
+  for (const [terms, due] of cases) {
+    assert.equal(dueDateForTerms('2026-12-20', terms), due, terms);
+  }
+});
+
+// The terms are free text: a long run of digits must not backtrack
+// (CodeQL js/polynomial-redos).
+test('due date terms with a long run of digits answer at once', () => {
+  const terms = `${'9'.repeat(20_000)} day`;
+  const started = performance.now();
+  assert.equal(dueDateForTerms('2026-12-20', terms), '2027-01-19');
+  assert.ok(performance.now() - started < 50, 'no polynomial backtracking');
 });

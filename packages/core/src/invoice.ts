@@ -6,7 +6,7 @@
  */
 
 import { resolveRate, resolveRateSource, type RateSource } from './rates.ts';
-import { localDateKey } from './calendar.ts';
+import { addDays, localDateKey } from './calendar.ts';
 
 /**
  * `summary` is one line of the user's own text for all the time, split only
@@ -300,4 +300,36 @@ export function buildLineItems(
 /** `INV-0001` — zero-padded to 4, growing past 9999 rather than truncating. */
 export function formatInvoiceNumber(prefix: string, sequence: number): string {
   return `${prefix}${String(sequence).padStart(4, '0')}`;
+}
+
+/**
+ * The period a new invoice starts with, for `today` (`YYYY-MM-DD`): the month
+ * whose last day is nearest, since a contractor bills a month just as it ends
+ * or just after. Equidistant, the earlier month wins.
+ */
+export function defaultInvoicePeriod(today: string): {
+  periodStart: string;
+  periodEnd: string;
+} {
+  const [y = 0, m = 1, d = 1] = today.split('-').map(Number);
+  const back = d;
+  const ahead = new Date(Date.UTC(y, m, 0)).getUTCDate() - d;
+  const periodEnd =
+    ahead < back ? addDays(today, ahead) : addDays(today, -back);
+  return { periodStart: `${periodEnd.slice(0, 8)}01`, periodEnd };
+}
+
+/**
+ * When an invoice issued on `issueDate` is due under its free-text payment
+ * `terms`: "Net N" or "N days" is N days on, even "Net 30 upon receipt";
+ * "on receipt" with no count is the same day, and anything else Net 30.
+ */
+export function dueDateForTerms(issueDate: string, terms: string): string {
+  // A count starts after a non-digit and is at most 4 digits, so a long run
+  // of digits cannot backtrack (CodeQL js/polynomial-redos).
+  const days =
+    /net\s*(\d{1,4})(?!\d)/i.exec(terms) ??
+    /(?<!\d)(\d{1,4})\s*days/i.exec(terms);
+  if (days) return addDays(issueDate, Number(days[1]));
+  return /receipt/i.test(terms) ? issueDate : addDays(issueDate, 30);
 }
