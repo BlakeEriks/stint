@@ -15,6 +15,52 @@ entry sits unnoticed while they keep editing the week around it. A block
 with an Inbox item shows it in place. Depends on #207, the folded dock,
 whose Inbox icon carries the count.
 
+## Clarifications
+
+### Session 2026-10-12
+
+- Q: Which Inbox items mark a block? → A: Overlaps and unusual lengths, the
+  Inbox's two warning rows: each asks whether the record is right. An entry
+  with no project isn't marked; the Inbox treats it as a chore, not a doubt
+  about the record, and the block already shows no client color. (decided
+  autonomously — Blake to review)
+- Q: When two entries overlap, which blocks are marked? → A: Only the entry
+  the Inbox row is about, the one its Edit entry opens: the unbilled one,
+  the later when both are. The mark names the other entry in words, and the
+  grid already draws the pair side by side. Marking the other too would mark
+  a billed, locked entry the user can't change. (decided autonomously —
+  Blake to review)
+- Q: What does the mark look like? → A: The block's border takes the
+  Inbox's warning color and a small warning glyph sits in its top-right
+  corner; the client's color stays the left edge. The reason, in the Inbox's
+  own words, is appended to the block's accessible name and tooltip. A
+  glyph rather than color alone, because color never carries a meaning
+  alone. (decided autonomously — Blake to review)
+- Q: Does the block offer a way to resolve the item, like the Inbox's
+  "It's correct"? → A: No new action. Pressing a marked block opens its
+  editor, as for any block; "It's correct" stays in the Inbox, one press
+  away in the folded dock. One place answers the question. (decided
+  autonomously — Blake to review)
+- Q: Does a drag predict the mark before the server answers? → A: No. The
+  drag's moved block is the predicted result (Constitution VI); the mark
+  follows the Inbox's answer, which refreshes with the save. A predicted
+  mark would be a second judgment of overlap (FR-003). (decided
+  autonomously — Blake to review)
+
+## Design
+
+Design review: skipped in autonomous run; follows the existing calendar,
+inbox and `.claude/rules/web-ui.md`.
+
+- **A marked block**: its 1px border in the Inbox's warning color in place
+  of the subtle one, and a 12px warning glyph in its top-right corner in the
+  same color, `aria-hidden`. The client's left edge and the block's fill are
+  unchanged.
+- **Its name and tooltip** gain the reason after the times, in the Inbox's
+  wording: "overlaps Code review", "unusually long".
+- **Constitution I**: a suspect block is surfaced in place for the user to
+  resolve, never auto-corrected.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - See a suspect entry where it is (Priority: P1)
@@ -57,6 +103,8 @@ the mark goes.
 - The Inbox's data fails to load: the calendar draws as it does today, with
   no marks and no error of its own; the folded dock already says the Inbox
   could not load.
+- An entry with no project and nothing else wrong: not marked.
+- The other entry of an overlap: not marked; the marked one names it.
 - A running entry: never marked, as the Inbox never lists one.
 - An entry on an issued invoice: never marked, as the Inbox never lists one.
 
@@ -68,6 +116,8 @@ the mark goes.
   unusual-length item in the Inbox MUST be marked as suspect.
 - **FR-002**: The mark MUST NOT rely on color alone: it carries a glyph,
   and its reason in words is in the block's accessible name and tooltip.
+  For an overlap, only the entry the Inbox row is about is marked, and the
+  reason names the other entry.
 - **FR-003**: Which entries are suspect, and why, MUST be the Inbox's own
   answer, never a second judgment the calendar makes.
 - **FR-004**: The mark MUST appear and clear after a calendar edit without
@@ -76,6 +126,10 @@ the mark goes.
   resolves it by editing the entry, or from the Inbox.
 - **FR-006**: A failure to load the Inbox's data MUST leave the calendar
   usable and unmarked.
+- **FR-007**: A marked block MUST open its editor when pressed, like any
+  block, and offer no action of its own.
+- **FR-008**: A drag MUST NOT predict the mark; the mark follows the
+  Inbox's answer after the save.
 
 ### Key Entities
 
