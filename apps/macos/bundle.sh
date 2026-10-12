@@ -73,9 +73,25 @@ else
     </dict>"
 fi
 
+# What Settings shows and a report quotes. VERSION is the one source
+# (docs/macos.md, Versions); the commit tells two builds of it apart, and
+# -dirty marks one built from uncommitted changes to this app. CFBundleVersion must be
+# integers, so it is the commit count, which grows on squash-merged main.
+VERSION="$(cat VERSION 2>/dev/null || true)"
+if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "error: apps/macos/VERSION must be one line of major.minor.patch, got \"$VERSION\"" >&2
+    exit 1
+fi
+if ! COMMIT="$(git rev-parse --short=7 HEAD 2>/dev/null)"; then
+    echo "error: not a git checkout — a bundle with no commit cannot be traced" >&2
+    exit 1
+fi
+git diff --quiet HEAD -- . || COMMIT="$COMMIT-dirty"
+BUILD="$(git rev-list --count HEAD)"
+
 # SwiftPM prints "Building for production..." for any release build, so say
 # which app this is before it does.
-echo "bundling $NAME.app ($BUNDLE_ID) for $ENV_LABEL"
+echo "bundling $NAME.app $VERSION ($COMMIT, $BUNDLE_ID) for $ENV_LABEL"
 swift build -c "$CONFIG"
 
 APP=".build/$NAME.app"
@@ -92,7 +108,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
     <key>CFBundleExecutable</key><string>Stint</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.1.0</string>
+    <key>CFBundleShortVersionString</key><string>$VERSION</string>
+    <key>CFBundleVersion</key><string>$BUILD</string>
+    <key>StintCommit</key><string>$COMMIT</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <!-- The whole point: menu bar only, no Dock icon. -->
     <key>LSUIElement</key><true/>

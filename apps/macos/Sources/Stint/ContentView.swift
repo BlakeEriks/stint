@@ -93,6 +93,16 @@ private struct PanelHeader: View {
                 }
             }
             Spacer()
+            // In the header, opposite the title, so Settings gains no height.
+            // Selectable, so a report can paste it.
+            if showingSettings {
+                Text(AppVersion.current)
+                    .role(.meta)
+                    .foregroundStyle(Tokens.Dark.textMuted)
+                    .textSelection(.enabled)
+                    .padding(.trailing, 6)
+                    .accessibilityIdentifier("version")
+            }
             if model.isSignedIn, !showingSettings {
                 Button {
                     openURL(Config.appURL)
