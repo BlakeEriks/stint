@@ -25,14 +25,9 @@ import { keys } from '@/lib/client/query-keys';
  * is an object and the column holding them is not.
  */
 export function Dock() {
-  const timer = useTimer();
   const { data } = useQuery({
     queryKey: keys.stats(tz),
     queryFn: () => api.stats(tz),
-  });
-  const { data: projects } = useQuery({
-    queryKey: keys.projects(),
-    queryFn: () => api.projects(),
   });
 
   /* The split is only a thing at `xl`, where the dock is a fixed-height
@@ -97,14 +92,31 @@ export function Dock() {
         />
       ) : null}
 
-      <EntryList
-        projects={projects?.projects ?? []}
-        todaySeconds={timer.todaySeconds}
-        earnedToday={data?.earnedToday}
-        currency={data?.currency}
-        flush={wide && !!data}
-      />
+      <DockToday flush={wide && !!data} />
     </aside>
+  );
+}
+
+/** The dock's Today, in its column or opened from the folded strip. */
+export function DockToday({ flush }: { flush: boolean }) {
+  const timer = useTimer();
+  const { data } = useQuery({
+    queryKey: keys.stats(tz),
+    queryFn: () => api.stats(tz),
+  });
+  const { data: projects } = useQuery({
+    queryKey: keys.projects(),
+    queryFn: () => api.projects(),
+  });
+
+  return (
+    <EntryList
+      projects={projects?.projects ?? []}
+      todaySeconds={timer.todaySeconds}
+      earnedToday={data?.earnedToday}
+      currency={data?.currency}
+      flush={flush}
+    />
   );
 }
 

@@ -6,35 +6,29 @@ import { Popover } from 'radix-ui';
 import { api } from '@/lib/client/api';
 import { keys } from '@/lib/client/query-keys';
 import { useDockFold, type FoldRegion } from '@/lib/client/use-dock-fold';
-import { timeZone as tz, useTimer } from '@/lib/client/use-timer';
+import { timeZone as tz } from '@/lib/client/use-timer';
 import { Button } from '@/components/ui/button';
-import { EntryList } from './entry-list';
+import { DockToday } from './dock';
 import { Inbox, inboxCount } from './inbox';
 import { Listing } from './page';
 
 /**
  * The dock, folded: on a workspace screen at `xl`, a 44px strip where the
  * dock's column was, so the screen keeps the room and the Inbox stays one
- * press away with its count in view (#207, option B of the workspace review).
+ * press away with its count in view.
  *
  * Each icon opens its region over the panel as a non-modal popover: Escape,
  * a press outside, focus leaving or a navigation closes it, and focus returns
- * to the icon. Not a dialog: it is a glance beside the work, not a step the
- * work waits on, so it neither traps focus nor dims the screen.
+ * to the icon.
  *
  * Icon-only by design, the third exception in `.claude/rules/web-ui.md`:
  * each carries its name, and the Inbox its count, in `aria-label`.
  */
 export function DockStrip() {
   const { open, setOpen } = useDockFold();
-  const timer = useTimer();
   const stats = useQuery({
     queryKey: keys.stats(tz),
     queryFn: () => api.stats(tz),
-  });
-  const { data: projects } = useQuery({
-    queryKey: keys.projects(),
-    queryFn: () => api.projects(),
   });
   const count = stats.data ? inboxCount(stats.data.attention) : 0;
 
@@ -79,13 +73,7 @@ export function DockStrip() {
           <CalendarDays aria-hidden strokeWidth={1.75} />
         </Icon>
         <Fold label="Today">
-          <EntryList
-            projects={projects?.projects ?? []}
-            todaySeconds={timer.todaySeconds}
-            earnedToday={stats.data?.earnedToday}
-            currency={stats.data?.currency}
-            flush
-          />
+          <DockToday flush />
         </Fold>
       </Popover.Root>
     </aside>
