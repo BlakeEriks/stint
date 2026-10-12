@@ -69,9 +69,16 @@ async function request<T>(
 /** A failed response as an `ApiError`, which also sends a 401 to sign in. */
 async function failure(res: globalThis.Response): Promise<ApiError> {
   const text = await res.text();
+  let body: ApiErrorBody | undefined;
+  try {
+    body = text ? JSON.parse(text) : undefined;
+  } catch (parse) {
+    // A platform error page — Vercel's 504 is plain text — not one of ours.
+    if (!(parse instanceof SyntaxError)) throw parse;
+  }
   const error = new ApiError(
     res.status,
-    text ? JSON.parse(text) : { code: 'UNKNOWN', message: res.statusText },
+    body ?? { code: 'UNKNOWN', message: res.statusText },
   );
 
   /*

@@ -21,6 +21,7 @@ import type {
   Settings,
   TimeEntry,
 } from '@/lib/client/api';
+import { csvResponse } from '@/lib/exports';
 import { getDb } from './db';
 import {
   calendar,
@@ -58,13 +59,6 @@ const query = (request: Request) => new URL(request.url).searchParams;
 const body = <T>(request: Request) => request.json() as Promise<T>;
 const byId = <T extends { id: string }>(rows: T[], id: unknown) =>
   rows.find((r) => r.id === id);
-const csv = (kind: string, body: string) =>
-  new HttpResponse(body, {
-    headers: {
-      'content-type': 'text/csv; charset=utf-8',
-      'content-disposition': `attachment; filename="stint-${kind}.csv"`,
-    },
-  });
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name);
 
@@ -614,8 +608,9 @@ export const handlers = {
   exportEntries: http.get(`${API}/exports/entries`, ({ request }) => {
     const db = getDb();
     const tz = query(request).get('tz') ?? ZONE;
-    return csv(
+    return csvResponse(
       'entries',
+      tz,
       entriesCsv(
         {
           ...db,
@@ -629,7 +624,7 @@ export const handlers = {
 
   exportInvoices: http.get(`${API}/exports/invoices`, ({ request }) => {
     const tz = query(request).get('tz') ?? ZONE;
-    return csv('invoices', invoicesCsv(getDb(), tz));
+    return csvResponse('invoices', tz, invoicesCsv(getDb(), tz));
   }),
 
   sendFeedback: http.post(`${API}/feedback`, async ({ request }) => {

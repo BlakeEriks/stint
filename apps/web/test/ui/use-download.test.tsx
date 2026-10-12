@@ -61,6 +61,17 @@ describe('useDownload', () => {
     expect(saved).toEqual([]);
   });
 
+  it('a platform error page that is not JSON still fails the download', async () => {
+    captureSaves();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('An error occurred', { status: 504 })),
+    );
+    const { result } = renderHook(() => useDownload('entries'));
+    await act(() => result.current.download());
+    expect(result.current).toMatchObject({ pending: false, failed: true });
+  });
+
   it('a network failure fails the download, and the next press clears it', async () => {
     captureSaves();
     const fetchMock = vi.fn(async () => {

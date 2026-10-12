@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { useDownload } from '@/lib/client/use-download';
 import { Section } from './field';
 
-/** Settings' Export: both files, free, beside Import (`specs/006-csv-export`). */
 export function ExportSection() {
   const entries = useDownload('entries');
   const invoices = useDownload('invoices');

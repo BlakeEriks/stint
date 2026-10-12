@@ -189,7 +189,11 @@ export const ExportDownload: Story = {
     await userEvent.click(
       section.getByRole('button', { name: 'Download entries' }),
     );
-    await waitFor(() => expect(saved).toEqual(['stint-entries.csv']));
+    await waitFor(() =>
+      expect(saved).toEqual([
+        expect.stringMatching(/^stint-entries-\d{4}-\d{2}-\d{2}\.csv$/),
+      ]),
+    );
     click.mockRestore();
     await expect(
       section.getByRole('button', { name: 'Download invoices' }),

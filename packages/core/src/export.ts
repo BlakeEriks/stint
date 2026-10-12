@@ -1,9 +1,9 @@
 /**
  * The user's records as CSV: every finished entry, and every invoice.
  *
- * Built for a spreadsheet and an accountant (`specs/006-csv-export`): US
- * dates and 12-hour times in the user's zone, money as plain two-place
- * decimals beside a currency column, so a column sums without cleanup.
+ * Built for a spreadsheet and an accountant: US dates and 12-hour times in
+ * the user's zone, money as plain two-place decimals beside a currency
+ * column, so a column sums without cleanup.
  */
 
 import { localDateKey } from './calendar.ts';
