@@ -15,7 +15,7 @@ route suite (same harness as `routes.test.ts`, real Postgres).
 
 - [X] T002 [P] Test `documentOpens` in `packages/core/test/billing.test.ts`: open when billing is unavailable whatever the plans; open for a paid plan with a null issued status; open for a free plan with an issued status of `active`, `trialing` or `past_due`; closed for a free plan with an issued status of null, `canceled`, `unpaid` or `incomplete`
 - [X] T003 Implement `documentOpens(billingAvailable, plan, issuedStatus)` in `packages/core/src/billing.ts` (exported through `packages/core/src/index.ts`)
-- [X] T004 Write migration `supabase/migrations/<timestamp>_invoice_issued_plan.sql` (name via `date -u +%Y%m%d%H%M%S`): add `invoices.issued_subscription_status` "`text`, null", "checked against the same status list as `subscriptions`"; a `before insert` trigger sets it from the inserting user's `subscriptions.status` (null when none) "whatever the insert supplied"; a `before update` trigger raises `check_violation` when it changes
+- [X] T004 Write migration `supabase/migrations/<timestamp>_invoice_issued_plan.sql` (name via `date -u +%Y%m%d%H%M%S`): add `invoices.issued_subscription_status` "`text`, null" (no check of its own: it copies the checked `subscriptions.status`); a `before insert` trigger sets it from the inserting user's `subscriptions.status` (null when none) "whatever the insert supplied"; a `before update` trigger raises `check_violation` when it changes
 - [X] T005 [P] Add `PAYMENT_REQUIRED` to `ErrorCode` in `packages/schema/src/index.ts` and to `Code`/`STATUS` (402) in `apps/web/src/lib/errors.ts`
 - [X] T006 [P] Add `issued_subscription_status` to `InvoiceRow` and `INVOICE_COLUMNS` in `apps/web/src/lib/rows.ts` (not to the `Invoice` the API returns)
 - [X] T007 In `apps/web/test/invoices.test.ts`, clear `subscriptions` and the Stripe env vars in `beforeEach`, and add `configureBilling()` and `subscribe(status)` helpers
@@ -49,7 +49,7 @@ route suite (same harness as `routes.test.ts`, real Postgres).
 - [X] T018 [US1] Implement the locked header in `apps/web/src/components/invoice-detail.tsx` per the spec's Design section; take the price from one place shared with `apps/web/src/components/plan-section.tsx`
 - [X] T019 [P] Plan section free description in `apps/web/src/components/plan-section.tsx` adds that records and their export stay free; update the `Free` story's assertion in `apps/web/src/components/plan-section.stories.tsx`
 
-- [X] T023 [US1] Inbox (found while verifying): test in `apps/web/test/ui/inbox.test.tsx` that a free user with billing set up gets no Download; `apps/web/src/components/inbox.tsx` hides it by `documentOpens(billing.available, billing.plan, null)`; `InvoiceDownloads` and `InvoiceDownloadsFree` stories in `apps/web/src/components/dock.stories.tsx`
+- [X] T023 [US1] Inbox (found while verifying): `apps/web/src/components/inbox.tsx` hides it by `documentOpens(billing.available, billing.plan, null)`; `InvoiceDownloads` and `InvoiceDownloadsFree` stories in `apps/web/src/components/dock.stories.tsx`
 
 ## Phase 7: Polish
 

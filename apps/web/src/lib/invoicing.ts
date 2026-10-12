@@ -271,7 +271,6 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
     invoice,
     client,
     settings,
-    // The document is the paid tier; the PDF route enforces this.
     canDownload: documentOpens(
       billing.available,
       billing.plan,

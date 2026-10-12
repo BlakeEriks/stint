@@ -135,7 +135,10 @@ already sent. `supporting_detail` (JSONB) freezes the hours-by-project, -week
 and -date tables printed from page 2 the same way, so a renamed project or a
 void never changes them. `summary_text` is the line text of a `summary`
 invoice and is set exactly then; `reference` is the PO, contract or SOW the
-header prints.
+header prints. `issued_subscription_status` is the user's `subscriptions.status`
+when the invoice was inserted, copied by a trigger whatever the insert says
+and never changed after, so an invoice generated while paying keeps its PDF
+when the paid plan ends (`documentOpens()` in `@stint/core`).
 
 **Three kinds of line, one arithmetic.** `unit` is `hour`, `fixed` (a fee, a
 deposit, a retainer) or `expense` (a reimbursement), and every line is
@@ -391,6 +394,7 @@ alone must still contain the query.
 | Reassigning a row to another user | rejected by `WITH CHECK` |
 | Changing or deleting sent feedback, even your own | refused by the grant |
 | Writing any subscription, your own included | refused by the grant |
+| Claiming or changing the plan an invoice was generated on | overwritten at insert, refused on update |
 | An expense filed under another user's client | rejected by `expense_client_same_owner` |
 | An invoice billed to another user's client | rejected by `invoice_client_same_owner` |
 | A project under another user's client | rejected by `project_client_same_owner` |

@@ -8,12 +8,9 @@
 -- status is copied as is; whether it counts as paid is `planOf()` in
 -- packages/core, not SQL. Existing invoices keep null: nobody had paid.
 
-alter table invoices add column issued_subscription_status text check (
-  issued_subscription_status in (
-    'active', 'trialing', 'past_due', 'unpaid',
-    'incomplete', 'incomplete_expired', 'canceled', 'paused'
-  )
-);
+-- No status check of its own: the value is only ever copied from
+-- `subscriptions.status`, which has one, and a second list would drift.
+alter table invoices add column issued_subscription_status text;
 
 create function stamp_issued_subscription_status() returns trigger
 language plpgsql as $$

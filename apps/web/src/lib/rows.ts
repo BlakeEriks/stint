@@ -294,7 +294,6 @@ export interface InvoiceRow {
   sent_at: string | null;
   paid_at: string | null;
   created_at: string;
-  /** The plan at generation; read only by the document gate. */
   issued_subscription_status: SubscriptionStatus | null;
 }
 

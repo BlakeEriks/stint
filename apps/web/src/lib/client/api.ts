@@ -366,7 +366,6 @@ export const api = {
       Invoice & {
         lineItems: StoredLineItem[];
         client: Pick<Client, 'id' | 'name' | 'email' | 'address'>;
-        /** Whether the PDF opens for this user: the document is the paid tier. */
         canDownload: boolean;
       }
     >('GET', `/invoices/${id}`),

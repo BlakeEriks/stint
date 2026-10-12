@@ -4,7 +4,7 @@
 
 | Column | Type | Rule |
 | --- | --- | --- |
-| `issued_subscription_status` | `text`, null | The user's `subscriptions.status` when the invoice was inserted; null when they had none. Checked against the same status list as `subscriptions`. Set by trigger at insert, whatever the insert supplied. An update that changes it raises `check_violation`. |
+| `issued_subscription_status` | `text`, null | The user's `subscriptions.status` when the invoice was inserted; null when they had none. No check of its own: it only ever copies the checked `subscriptions.status`. Set by trigger at insert, whatever the insert supplied. An update that changes it raises `check_violation`. |
 
 Existing rows get null: nobody has paid yet, since billing has never been
 configured (spec FR-011).

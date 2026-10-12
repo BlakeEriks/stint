@@ -339,7 +339,6 @@ function Loaded({
 
 const TH = 'pb-2 type-label text-subtle';
 
-/** The document, saved or viewed. Both are the paid tier. */
 function Downloads({ id }: { id: string }) {
   return (
     <div className="flex flex-none flex-wrap gap-2">
