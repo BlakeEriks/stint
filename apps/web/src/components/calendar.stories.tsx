@@ -2,10 +2,11 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { http } from 'msw';
 import { addDays, localDateKey, localDateTimeToInstant } from '@stint/core';
 import { account } from '@/mocks/db';
+import { entry, ids } from '@/mocks/fixtures';
 import { handlers } from '@/mocks/handlers';
 import { envelopes, ok } from '@/mocks/respond';
 import { ZONE } from '@/mocks/time.mts';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, fireEvent, userEvent, within } from 'storybook/test';
 import {
   desktop,
   failing,
@@ -209,5 +210,170 @@ export const EditEntry: Story = {
     });
     await userEvent.click(block as HTMLElement);
     await expectOpen(canvasElement, 'dialog', 'Edit entry');
+  },
+};
+
+/* Suspect entries: a block the Inbox doubts is marked in place, never
+   corrected (Constitution I). */
+
+/** Today's entries for a story, ids clear of the seed's. */
+const todayEntry = (
+  db: { now: Date; entries: ReturnType<typeof entry>[] },
+  n: number,
+  time: string,
+  minutes: number,
+  taskName: string,
+) =>
+  db.entries.push(
+    entry(
+      900 + n,
+      localDateKey(db.now, ZONE),
+      time,
+      minutes,
+      ids.pipeline,
+      taskName,
+    ),
+  );
+
+/** Two blocks sharing half an hour, after the day's other work. */
+const overlapping = account((db) => {
+  todayEntry(db, 1, '14:00', 60, 'Draft the migration plan');
+  todayEntry(db, 2, '14:30', 60, 'Review the migration plan');
+});
+
+/** A block by its accessible name, waiting for it — the mark arrives with
+    `/stats`, after the grid. */
+const block = async (canvasElement: HTMLElement, name: RegExp) =>
+  (
+    await (await calendar(canvasElement)).findAllByRole('button', { name })
+  )[0] as HTMLElement;
+
+/** The later of an overlapping pair is marked and names the other; the
+    other is left alone, since the row is about one entry. */
+export const SuspectOverlap: Story = {
+  ...desktop,
+  parameters: overlapping,
+  play: async ({ canvasElement }) => {
+    const marked = await block(
+      canvasElement,
+      /^Review the migration plan, .*, overlaps Draft the migration plan$/,
+    );
+    await expect(marked.getAttribute('title')).toMatch(
+      /overlaps Draft the migration plan$/,
+    );
+    await expect(marked.querySelector('svg')).not.toBeNull();
+    const other = await block(canvasElement, /^Draft the migration plan/);
+    await expect(other.getAttribute('aria-label')).not.toMatch(/overlaps/);
+    await expect(other.querySelector('svg')).toBeNull();
+  },
+};
+
+/** An entry past the long threshold is marked on each day it touches. */
+export const SuspectLong: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    todayEntry(db, 1, '13:00', 13 * 60, 'Overnight incident');
+  }),
+  play: async ({ canvasElement }) => {
+    const page = await calendar(canvasElement);
+    await expect(
+      await page.findAllByRole('button', {
+        name: /^Overnight incident, .*, unusually long$/,
+      }),
+    ).toHaveLength(2);
+  },
+};
+
+/** Both faults on one block: one mark, both reasons. */
+export const SuspectBoth: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    todayEntry(db, 1, '12:00', 13 * 60, 'Launch support');
+  }),
+  play: async ({ canvasElement }) => {
+    const marked = await block(
+      canvasElement,
+      /^Launch support, .*, unusually long, overlaps Pairing on the ingest job$/,
+    );
+    await expect(marked.querySelectorAll('svg')).toHaveLength(1);
+  },
+};
+
+/** The day view marks the same block. */
+export const SuspectPhone: Story = {
+  ...phone,
+  parameters: overlapping,
+  play: async ({ canvasElement }) => {
+    await block(
+      canvasElement,
+      /^Review the migration plan, .*, overlaps Draft the migration plan$/,
+    );
+  },
+};
+
+/** The Inbox's data failed: the grid still draws, unmarked, and says
+    nothing of its own — the folded dock's Inbox reports the failure. */
+export const StatsFailed: Story = {
+  ...wide,
+  parameters: { ...overlapping, ...failing('stats') },
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByRole('button', { name: 'Inbox' }));
+    await body.findByText('Could not load this. Try again.');
+    await userEvent.keyboard('{Escape}');
+    const marked = await block(canvasElement, /^Review the migration plan/);
+    await expect(marked.getAttribute('aria-label')).not.toMatch(/overlaps/);
+    await expect(marked.querySelector('svg')).toBeNull();
+    await expect(
+      (await calendar(canvasElement)).queryByText(/Could not load/),
+    ).toBeNull();
+  },
+};
+
+/** Moves an entry's start in its editor and saves. */
+const moveStart = async (
+  canvasElement: HTMLElement,
+  name: RegExp,
+  start: string,
+) => {
+  const page = within(canvasElement.ownerDocument.body);
+  await userEvent.click(await block(canvasElement, name));
+  await expectOpen(canvasElement, 'dialog', 'Edit entry');
+  fireEvent.change(page.getByLabelText('Start'), { target: { value: start } });
+  await userEvent.click(page.getByRole('button', { name: 'Save' }));
+};
+
+/** An edit that makes an overlap marks the block without a reload, and the
+    edit that undoes it clears the mark. */
+export const MarkFollowsEdit: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    todayEntry(db, 1, '14:00', 60, 'Draft the migration plan');
+    todayEntry(db, 2, '15:00', 60, 'Review the migration plan');
+  }),
+  play: async ({ canvasElement }) => {
+    const name = /^Review the migration plan/;
+    await moveStart(canvasElement, name, '14:30');
+    await block(
+      canvasElement,
+      /^Review the migration plan, .*, overlaps Draft the migration plan$/,
+    );
+    await moveStart(canvasElement, name, '15:00');
+    await block(canvasElement, /^Review the migration plan, [^,]+$/);
+  },
+};
+
+/** A marked block opens its editor like any other; nothing was changed. */
+export const EditSuspect: Story = {
+  ...desktop,
+  parameters: overlapping,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      await block(canvasElement, /^Review the migration plan, .*overlaps/),
+    );
+    await expectOpen(canvasElement, 'dialog', 'Edit entry');
+    await expect(
+      within(canvasElement.ownerDocument.body).getByLabelText('Start'),
+    ).toHaveValue('14:30');
   },
 };

@@ -22,6 +22,7 @@ import {
   type TimeEntry,
 } from '@/lib/client/api';
 import { useExit } from '@/lib/client/use-exit';
+import { lengthReason, overlapped } from '@/lib/client/suspects';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
 import { Button } from '@/components/ui/button';
@@ -361,7 +362,7 @@ function Row({
         {...leaving}
         onSelect={() => onOpen({ id: o.entryId, focus: 'task' })}
         label={o.taskName || 'Untitled entry'}
-        detail={`Overlaps ${o.otherTaskName || 'another entry'}${o.otherInvoiceNumber ? ` on ${o.otherInvoiceNumber}` : ''} · ${dayLabel(o.startedAt, tz)}`}
+        detail={`Overlaps ${overlapped(o)} · ${dayLabel(o.startedAt, tz)}`}
         value={formatCompact(o.seconds)}
         tone="warning"
         actions={
@@ -387,7 +388,7 @@ function Row({
       detail={[
         e.clientName ?? e.projectName,
         dayLabel(e.startedAt, tz),
-        e.kind === 'short' ? 'unusually short' : 'unusually long',
+        lengthReason(e.kind),
       ]
         .filter(Boolean)
         .join(' · ')}
