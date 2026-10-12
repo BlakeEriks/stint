@@ -31,4 +31,4 @@
 
 ## Notes
 
-- Two markers remain (FR-002 fields, FR-003 inline vs hosted form), for `/speckit-clarify`.
+- Both markers were resolved in `/speckit-clarify` (2026-10-11).

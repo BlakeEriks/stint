@@ -19,7 +19,44 @@ database would need rate limiting so spammers can't abuse it, and an alpha
 list doesn't justify that. Swap in a table when the volume makes the list
 tedious to read.
 
+## Design
+
+Design review: skipped in autonomous run; follows the existing landing page
+and `.claude/rules/web-ui.md`.
+
+- **The control** (decided autonomously — Blake to review): each call to
+  action becomes the form itself, an email field and a "Request an invite"
+  button in the accent, in the hero and in the closing section. Pressing the
+  call to action is sending the address; there's no step between.
+- **Open**: an empty field with the placeholder "you@example.com" and a
+  label for screen readers. The line beside it says access is by invite
+  during alpha and is free.
+- **Sending**: the field is read-only and the button is disabled and reads
+  "Sending…".
+- **Sent**: the form is replaced by "You're on the list." and a line saying
+  an invite comes to that address by email if they're let in.
+- **Failed**: the field keeps the address, and a line under it in the danger
+  color says the request didn't send and to try again.
+- **Invalid**: the browser's own validation says the address isn't an email,
+  and nothing is sent.
+- **Sign-in refusal**: "Stint is invite-only during alpha." and a link,
+  "Request an invite", to the hero form on the landing page.
+
 ## Clarifications
+
+### Autonomous decisions, 2026-10-12
+
+- Form service (decided autonomously — Blake to review): Formspree's free
+  plan. It accepts a cross-origin POST from a static page and answers JSON
+  when asked, so the page stays put. It emails each submission and lists
+  them with timestamps in its dashboard, and costs nothing at 50 submissions
+  a month. A plain HTML POST works too, so a visitor with JavaScript off
+  still reaches the list, landing on Formspree's thank-you page. Web3Forms
+  and Basin also fit; Formspree is the longest-running and answers errors
+  in a shape the page can tell from success.
+- Without JavaScript (decided autonomously — Blake to review): the form
+  posts to Formspree and the visitor lands on its thank-you page. The edge
+  case's promise is that the address reaches the list, and it does.
 
 ### Session 2026-10-11
 
