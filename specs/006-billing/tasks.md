@@ -63,7 +63,7 @@ test task goes before the code it covers and must fail first.
 - [X] T030 [P] Billing clause in `apps/web/src/app/terms/page.tsx` per FR-016, marked for legal review; Stripe as payment processor in `apps/web/src/app/privacy/page.tsx`
 - [X] T031 [P] Stripe and `SUPABASE_SECRET_KEY` env vars, and the Stripe dashboard settings (research R9, plus the terms URL Checkout's consent links), in `docs/deploying.md`
 - [X] T032 Run `pnpm verify:static`, the private-DB halves of `verify:db`, `verify:schema`, and the story suite; view Settings signed in locally
-- [ ] T033 Standards review (`.claude/skills/standards-review/SKILL.md`), fix findings
+- [X] T033 Standards review (`.claude/skills/standards-review/SKILL.md`), fix findings
 
 ## Dependencies
 
