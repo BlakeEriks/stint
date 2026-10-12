@@ -18,6 +18,40 @@ positioning already promises that records get out free. The accountant's
 version is the invoice list: issue date, paid date, client and total. Rates
 must be in the entry export, and `0` is a real rate.
 
+## Design
+
+Design review: skipped in autonomous run; follows existing screens and
+`.claude/rules/web-ui.md`. The Export section is a Settings section like
+Import beside it: a title, one line of description, and two buttons, each a
+plain download link like the invoice's Download PDF.
+
+## Clarifications
+
+### Session 2026-10-12
+
+- Q: Are dates written US style (`MM/DD/YYYY`) or ISO (`YYYY-MM-DD`)? → A: US
+  style, with 12-hour times, in the user's time zone. Positioning makes US
+  formats the baseline, and US spreadsheets read them as dates. (decided
+  autonomously — Blake to review)
+- Q: What rate does an entry an invoice already billed show: the one it
+  resolves to now, or the one that billed it? → A: The one it resolves to
+  now. No stored record ties an entry to the line that billed it, and adding
+  one needs a migration; the Invoice column points to the invoice, whose
+  frozen totals in the invoices file are what was billed. (decided
+  autonomously — Blake to review)
+- Q: Which invoices does the invoices file include? → A: Every one: draft,
+  sent, paid and void, with the status in its own column. A void row
+  explains a gap in the numbering, and a draft is the user's record too.
+  (decided autonomously — Blake to review)
+- Q: Can the user narrow an export by date range or client? → A: No; each
+  file is the whole history. A retention copy wants everything, a
+  spreadsheet filters, and a filter adds controls for no file a spreadsheet
+  can't already make. (decided autonomously — Blake to review)
+- Q: How is a cell that a spreadsheet would run as a formula neutralized? →
+  A: A single quote is put before it, as OWASP recommends, on text cells
+  only; numbers are written as numbers. (decided autonomously — Blake to
+  review)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Hand the accountant every invoice (Priority: P1)
@@ -131,8 +165,8 @@ the Export section shows both downloads.
   time, hours, client, project, task, billable, rate, rate source, amount,
   currency and invoice.
 - **FR-005**: An entry's rate MUST be the one the app resolves for it (entry,
-  then project, then client, then the user's default), and `0` MUST export as
-  `0.00`, distinct from no rate.
+  then project, then client, then the user's default) at the time of export,
+  invoiced or not, and `0` MUST export as `0.00`, distinct from no rate.
 - **FR-006**: An entry's hours and amount MUST be the figures the app bills:
   hours in hundredths, amount as those hours times the rate, to the cent.
 - **FR-007**: Dates and times MUST be in the user's own time zone, US
@@ -141,7 +175,8 @@ the Export section shows both downloads.
 - **FR-008**: Each file MUST open correctly in common spreadsheet apps: a
   header row, every value that needs it quoted, and text in any script intact.
 - **FR-009**: A text cell beginning with `=`, `+`, `-`, `@`, a tab or a
-  carriage return MUST be neutralized so a spreadsheet does not run it.
+  carriage return MUST be written with a single quote before it, so a
+  spreadsheet does not run it. Numeric cells are never prefixed.
 - **FR-010**: The files MUST hold only the requesting user's records.
 - **FR-011**: The Settings screen MUST offer both downloads in an Export
   section beside Import.
@@ -170,12 +205,7 @@ the Export section shows both downloads.
 
 ## Assumptions
 
-- The export is everything: no date range or client filter. A spreadsheet
-  filters, and a retention copy wants the whole history.
 - Expenses, clients and projects as files of their own are out of scope;
   clients and projects appear by name on every row that uses them.
 - Web only. The macOS app reaches the same files through the same API when it
   wants them.
-- An invoiced entry's rate is the one it resolves to now. The invoice's own
-  lines hold the rate that billed, and the invoices file is where billed money
-  is read.
