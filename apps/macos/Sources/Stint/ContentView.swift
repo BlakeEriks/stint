@@ -94,7 +94,6 @@ private struct PanelHeader: View {
             }
             Spacer()
             // In the header, opposite the title, so Settings gains no height.
-            // Selectable, so a report can paste it.
             if showingSettings {
                 Text(AppVersion.current)
                     .role(.meta)

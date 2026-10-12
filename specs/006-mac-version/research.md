@@ -14,13 +14,12 @@
 - **Decision**: `CFBundleShortVersionString` = VERSION;
   `CFBundleVersion` = `git rev-list --count HEAD`; a custom `StintCommit` =
   `git rev-parse --short=7 HEAD`, plus `-dirty` when
-  `git diff --quiet HEAD -- apps/macos` fails.
+  `git status --porcelain -- apps/macos` lists anything.
 - **Rationale**: Apple documents `CFBundleVersion` as required and as
   period-separated integers, so it can't hold a SHA; a commit count increases
   on `main`, which squash-merges. The SHA is what identifies a build, so it
-  gets its own key. Untracked files don't mark a build dirty: they aren't
-  compiled unless added under `Sources`, and a new source file is tracked as
-  soon as it is staged.
+  gets its own key. Untracked files count: SwiftPM compiles every file
+  under `Sources`, added or not; `.build` is ignored, so it never counts.
 - **Alternatives**: SHA in `CFBundleVersion` (invalid); a timestamp (doesn't
   map to a commit).
 
