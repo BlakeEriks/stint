@@ -21,12 +21,15 @@ import { useProjectClients } from '@/lib/client/use-project-colors';
 import { useMediaQuery } from '@/lib/client/use-media-query';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { useEntryDrag, type DragMode } from '@/lib/client/use-entry-drag';
-import { Plus } from 'lucide-react';
+import { Plus, TriangleAlert } from 'lucide-react';
 import { api, type TimeEntry } from '@/lib/client/api';
 import { Page } from './page';
 import { EntryDialog } from './entry-dialog';
 import { keys } from '@/lib/client/query-keys';
+import { suspectEntries } from '@/lib/client/suspects';
 import { timeZone as tz } from '@/lib/client/use-timer';
+
+const NO_SUSPECTS = new Map<string, string[]>();
 
 /** Hours between gridlines. Every 3 reads cleanly at both column widths. */
 const HOUR_STEP = 3;
@@ -91,6 +94,16 @@ export function Calendar() {
     queryKey: keys.projects(),
     queryFn: () => api.projects(),
   });
+
+  /* The Inbox's own answer, from the query the folded dock already runs, so
+     a mark and an Inbox row can't disagree. A calendar edit refetches it, so
+     a mark arrives and clears with the save. */
+  const stats = useQuery({
+    queryKey: keys.stats(tz),
+    queryFn: () => api.stats(tz),
+    select: (s) => suspectEntries(s.attention),
+  });
+  const suspects = stats.data ?? NO_SUSPECTS;
 
   const editor = useDialog<{
     existing?: TimeEntry;
@@ -291,6 +304,7 @@ export function Calendar() {
                   key={day.date}
                   positioned={day.positioned}
                   colors={colorByProject}
+                  suspects={suspects}
                   /* The window the column DRAWS, which a cropped day view makes
                    narrower than the day itself. Positions are fractions of
                    this, so the inverse math a click or drag uses has to take
@@ -565,6 +579,7 @@ type DragApi = ReturnType<typeof useEntryDrag>;
 function DayColumn({
   positioned,
   colors,
+  suspects,
   dayStart,
   dayEnd,
   marks,
@@ -575,6 +590,7 @@ function DayColumn({
 }: {
   positioned: PositionedEntry[];
   colors: Map<string, string | null>;
+  suspects: Map<string, string[]>;
   /** The window the column draws — not necessarily the whole day. */
   dayStart: Date;
   dayEnd: Date;
@@ -629,6 +645,7 @@ function DayColumn({
           key={item.entry.id}
           item={item}
           colors={colors}
+          suspect={suspects.get(item.entry.id)}
           dayStart={dayStart}
           dayEnd={dayEnd}
           column={column}
@@ -645,6 +662,7 @@ function DayColumn({
 function EntryBlock({
   item,
   colors,
+  suspect,
   dayStart,
   dayEnd,
   column,
@@ -653,6 +671,8 @@ function EntryBlock({
 }: {
   item: PositionedEntry;
   colors: Map<string, string | null>;
+  /** Why the Inbox doubts this entry, in its words; absent when it doesn't. */
+  suspect?: string[];
   dayStart: Date;
   dayEnd: Date;
   column: React.RefObject<HTMLDivElement | null>;
@@ -684,6 +704,7 @@ function EntryBlock({
   const range = `${time(startedAt)}${
     endedAt ? `–${time(endedAt)}` : ' (running)'
   }`;
+  const why = suspect ? `, ${suspect.join(', ')}` : '';
 
   const grab = (mode: DragMode) => (event: React.PointerEvent) => {
     if (!adjustable || !column.current) return;
@@ -696,8 +717,8 @@ function EntryBlock({
       /* The accessible name carries the times, because the block's visible
          text is a truncated task name and a duration — a screen reader
          otherwise gets no way to tell two blocks apart. */
-      aria-label={`${name}, ${range}${locked ? ', billed' : ''}`}
-      title={`${name} · ${range}`}
+      aria-label={`${name}, ${range}${locked ? ', billed' : ''}${why}`}
+      title={`${name} · ${range}${why}`}
       onPointerDown={grab('move')}
       onClick={(event) => {
         event.stopPropagation();
@@ -711,6 +732,7 @@ function EntryBlock({
         adjustable,
         live: live !== null,
         saving: drag.saving,
+        suspect: suspect !== undefined,
       })}
       style={{
         top: `${top * 100}%`,
@@ -722,7 +744,20 @@ function EntryBlock({
         borderLeft: color ? `2.5px solid ${color}` : undefined,
       }}
     >
-      <p className="truncate type-support leading-tight text-primary">{name}</p>
+      {/* The mark: the Inbox's warning color on the border, and a glyph so
+          color never says it alone. The left edge stays the client's. */}
+      {suspect ? (
+        <TriangleAlert
+          aria-hidden
+          strokeWidth={2.25}
+          className="absolute top-0.5 right-0.5 size-3 text-warning"
+        />
+      ) : null}
+      <p
+        className={`truncate type-support leading-tight text-primary ${suspect ? 'pr-3' : ''}`}
+      >
+        {name}
+      </p>
       {height > 0.045 ? (
         <p className="truncate type-meta text-subtle">
           {/* During a drag the time range is what the user is aiming at, so it
@@ -746,19 +781,22 @@ function blockClassName({
   adjustable,
   live,
   saving,
+  suspect,
 }: {
   running: boolean;
   adjustable: boolean;
   /** Being dragged right now. */
   live: boolean;
   saving: boolean;
+  /** Has an overlap or length row in the Inbox. */
+  suspect: boolean;
 }) {
   return [
     'absolute overflow-hidden rounded-[5px] border px-1.5 py-0.5 text-left',
     'focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none',
     running
       ? 'border-timer-running bg-accent-muted'
-      : 'border-edge-subtle bg-surface-hover',
+      : `${suspect ? 'border-timer-warning' : 'border-edge-subtle'} bg-surface-hover`,
     adjustable ? 'cursor-grab' : 'cursor-pointer',
     live && 'z-10 shadow-card',
     live && saving && 'opacity-70',
