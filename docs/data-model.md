@@ -200,7 +200,7 @@ Stripe's current record (`syncCustomer()`, `apps/web/src/lib/billing.ts`).
 `authenticated` may only `select` its own row, so no client can make itself
 paid. Whether a status is paid is `planOf()` in `@stint/core`, not SQL. It
 goes with the account (`on delete cascade`), after `DELETE /account` has
-canceled the subscription at Stripe.
+canceled any live subscription at Stripe.
 
 ## Integrity rules
 
@@ -313,8 +313,8 @@ all; RLS decides which rows it sees once it may.** Enabling RLS on a new table
 without granting it produces a `42501` that looks nothing like a policy
 problem.
 
-One table is written outside RLS: `subscriptions` grants `insert` and
-`update` to `service_role`, which bypasses RLS. Only `serviceClient()`
+One table is written outside RLS: `subscriptions` grants `select`, `insert`
+and `update` to `service_role`, which bypasses RLS. Only `serviceClient()`
 (`apps/web/src/lib/supabase.ts`) uses that role, from `syncCustomer()`, for
 the Stripe webhook and the Checkout return.
 
