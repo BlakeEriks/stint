@@ -16,6 +16,68 @@ place to cancel. Canceling never locks an invoice already generated. The
 price is `docs/positioning.md`'s: $40 a year, billed annually, no monthly
 option. Gating the invoice document is #61, not this feature.
 
+## Design
+
+Design review: skipped in autonomous run; follows existing Settings and
+`.claude/rules/web-ui.md`.
+
+- **Where**: a Plan section in Settings, beside the existing sections. No
+  new route and no nav entry.
+- **Free**: "Free" with one line on what paid adds, the price, and
+  Subscribe.
+- **Subscribing**: Subscribe shows a spinner until the payment page opens.
+- **Confirming**: back from the payment page, the section says it is
+  confirming the payment, with a spinner, until the server answers.
+- **Paid**: "Paid", "Renews on {date}", and Manage billing.
+- **Canceling**: "Paid until {date}" and Manage billing, which resumes.
+- **Payment failed**: "Your last payment failed" with Update card, which
+  opens the same hosted page.
+- **Failed to open**: the control's spinner ends and the app-wide notice
+  says why.
+- **Not configured**: the section isn't rendered.
+
+## Clarifications
+
+### Session 2026-10-12
+
+- Q: Does the $40 price collect US sales tax, and is it added or included?
+  → A: No sales tax is collected at launch; the price is $40 flat. No state's
+  economic-nexus threshold (typically $100,000 or 200 transactions a year)
+  is in reach of the 15-subscriber bet, and the processor's free threshold
+  monitoring says when one is. The open question is the operator's home
+  state, where nexus is physical: about half of states tax SaaS, so Blake
+  confirms his state's rule before live keys. If it taxes SaaS, tax is
+  added at checkout (exclusive), never folded into the $40, so the
+  advertised price stays the price. (decided autonomously — Blake to
+  review)
+- Q: What must `/terms` state now that the charge recurs? → A: A Billing
+  clause replacing today's "Price" clause, which promises Stint stays free
+  and is now wrong: the price and that it is billed yearly in advance; that
+  it renews automatically until canceled; that cancel is in Settings, online,
+  any time, and takes effect at the end of the paid year; that a reminder is
+  emailed before each renewal; that a price change takes effect only at a
+  renewal, with at least 30 days' notice; that a failed payment is retried
+  and the paid tier continues meanwhile; and that canceling never takes
+  away records or invoices already generated. The draft is marked in the
+  page source as needing legal review. This follows the FTC's
+  negative-option guidance and California's automatic-renewal law, the
+  strictest state rule. (decided autonomously — Blake to review)
+- Q: What refund does a subscriber get? → A: A full refund on request within
+  30 days of any charge, first payment or renewal, which Blake issues from
+  the processor's dashboard; none after. No partial refund on cancel, since
+  the paid tier runs to the end of the year. A forgotten renewal is the
+  usual complaint about an annual plan, and a refund window answers it
+  without building anything. (decided autonomously — Blake to review)
+- Q: Where does the upgrade screen live? → A: A Plan section in Settings,
+  not its own route. One subscription with one price needs no comparison
+  page, and Settings is where a user already looks for their account.
+  (decided autonomously — Blake to review)
+- Q: How long is a failed renewal retried before the subscription ends? →
+  A: The processor's recommended Smart Retries, up to 8 attempts over 2
+  weeks, with its failed-payment emails on; after the last failure the
+  subscription is canceled. The user stays paid throughout. (decided
+  autonomously — Blake to review)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Subscribe (Priority: P1)
@@ -189,11 +251,18 @@ and the plan becomes free when retries are exhausted.
   merging it changes nothing a user sees.
 - **FR-014**: The feature MUST add no fixed cost; the processor's
   per-transaction fee is the only cost.
-- **FR-015**: Whether the price carries sales tax: [NEEDS CLARIFICATION:
-  does the $40 price collect sales tax, and is it tax-inclusive or added?]
-- **FR-016**: `/terms` MUST state the recurring charge: [NEEDS
-  CLARIFICATION: what must the terms state about auto-renewal, cancellation,
-  refunds and price changes?]
+- **FR-015**: Checkout MUST collect no sales tax at launch, and MUST NOT
+  fold tax into the price if tax is later turned on.
+- **FR-016**: `/terms` MUST replace its "Stint is free" price clause with a
+  Billing clause stating: the price, billed yearly in advance; automatic
+  renewal until canceled; cancel online in Settings, effective at the end of
+  the paid year; a reminder emailed before each renewal; a full refund on
+  request within 30 days of any charge; price changes only at renewal with
+  at least 30 days' notice; retries on a failed payment; and that canceling
+  never takes away records or generated invoices.
+- **FR-017**: The processor MUST email a reminder before each yearly
+  renewal and retry a failed one up to 8 times over 2 weeks before
+  canceling it.
 
 ### Key Entities
 
