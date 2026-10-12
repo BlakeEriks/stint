@@ -28,6 +28,10 @@ Those are the CLI's fixed development credentials — identical on every
 machine, published in Supabase's own docs, stable across resets. Nothing here
 is a secret.
 
+`NEXT_PUBLIC_INVITE_FORM_URL` stays unset, so the landing page's invite form
+says it didn't send and never reaches the real list. To see it succeed, point
+it at a local stub (`specs/006-invite-request/quickstart.md`).
+
 **No file on this machine points at production.** There is no `.env.local`;
 `pnpm migrate` and `pnpm verify:schema` reach a database only through `--url`
 or `SUPABASE_DB_URL`, and production is migrated by the release gate.

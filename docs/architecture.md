@@ -91,6 +91,10 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
 - Invoice PDFs: `@react-pdf/renderer` — ~2MB, sub-500ms, no Chromium cold
   start. Puppeteer is only warranted if pixel-exact HTML fidelity is ever
   needed.
+- **Invite requests go to Formspree**, on its free plan: the landing page's
+  form posts the visitor's email there, and Blake invites from its list.
+  No table and no route, since an unauthenticated write to our database
+  would need rate limiting (`docs/deploying.md` sets it up).
 - **No outbound mail**, so no provider and no domain in the stack. Invoices
   are downloaded and sent by the user (`docs/positioning.md`).
 
