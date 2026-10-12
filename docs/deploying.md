@@ -95,7 +95,7 @@ It deliberately sets **no `outputDirectory`**: Next.js detection finds
 failed a build that had otherwise succeeded.
 
 Still set in the dashboard:
-- Environment variables, none of them sensitive but billing's secret key:
+- Environment variables, none of them sensitive but billing's three secrets:
   - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` —
     production's project for Production, `stint-test`'s for Preview
     (§3d). A preview never reaches production data.
@@ -105,14 +105,20 @@ Still set in the dashboard:
   - `SENTRY_DSN`, for Production only (§3c). Unset, Sentry stays off, so a
     preview never reports.
 
-Billing stays dark until these four are set, for Production only
-(Preview uses Stripe test-mode keys if billing is being tried there):
+Billing, for Production only (Preview uses Stripe test-mode keys if billing
+is being tried there). **Don't set these until the invoice gate (#61, PR
+#324) has merged:** nothing else reads the paid plan yet, so a subscriber
+would pay for downloads every free user already has.
 
-- `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET`. Any
-  one unset hides the Plan section and makes every billing route answer 503.
-- `SUPABASE_SECRET_KEY`, the project's secret key. **Sensitive**, and the
-  only one here: the Stripe webhook has no user session, so it writes
-  `subscriptions` as `service_role`. Never `NEXT_PUBLIC_`.
+- `STRIPE_SECRET_KEY` (**sensitive**), `STRIPE_PRICE_ID` and
+  `STRIPE_WEBHOOK_SECRET` (**sensitive**). Any one unset hides the Plan
+  section: `checkout`, `portal` and `sync` answer `503 BILLING_UNAVAILABLE`,
+  the webhook a plain-text `503`, and `GET /billing` answers `200` with
+  `available: false`.
+- `SUPABASE_SECRET_KEY` (**sensitive**), the project's secret key: the
+  Stripe webhook has no user session, so it writes `subscriptions` as
+  `service_role`. Without it, the webhook and the Checkout return fail with
+  `500`. Never `NEXT_PUBLIC_`.
 
 In the Stripe dashboard, once:
 

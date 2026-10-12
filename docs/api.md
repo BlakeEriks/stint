@@ -290,8 +290,9 @@ by every one when `recurring`. The amount is in the client's currency.
 
 One yearly subscription through Stripe (`docs/positioning.md` owns the
 price). Until `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and
-`STRIPE_WEBHOOK_SECRET` are all set, every write here answers
-`503 BILLING_UNAVAILABLE`.
+`STRIPE_WEBHOOK_SECRET` are all set, `checkout`, `portal` and `sync` answer
+`503 BILLING_UNAVAILABLE`, the webhook answers a plain-text `503`, and
+`GET /billing` still answers `200` with `available: false`.
 
 | Method | Path | Notes |
 |---|---|---|
