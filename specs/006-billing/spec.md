@@ -201,8 +201,10 @@ and the plan becomes free when retries are exhausted.
 - Payment completes but the processor's notification is late: returning to
   Settings confirms the subscription by asking the processor directly, so
   the user isn't shown the free plan after paying.
-- Two Subscribe presses, or two tabs: one customer and at most one
-  subscription per user.
+- Two Subscribe presses, or two tabs: one customer per user, and Subscribe
+  is refused once the user is paid. Two payment pages completed in the same
+  moment would make two subscriptions; the server keeps the paid one and
+  reports the duplicate for Blake to refund.
 - Billing not configured (no processor keys in the environment, as on every
   deploy until Blake sets it up): the plan section doesn't show, and the
   rest of the app is unaffected.
