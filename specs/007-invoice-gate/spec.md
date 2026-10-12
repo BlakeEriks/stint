@@ -18,6 +18,56 @@ is decided deliberately. Exporting records is not gated, and the page says
 so. Builds on billing (#60): canceling never locks an invoice generated
 while paying, and while billing isn't set up nothing changes.
 
+## Design
+
+Design review: skipped in autonomous run; follows existing invoice detail,
+Settings Plan section and `.claude/rules/web-ui.md`.
+
+- **Locked**: in the invoice detail header, where Download PDF and Preview
+  sit, one primary control, "Subscribe to download", leading to Settings'
+  Plan section. Under the header, one support line: downloading the invoice
+  is on the paid plan at the price, and tracking and your records, exporting
+  them included, stay free.
+- **Unlocked** (paid, generated while paid, or billing not set up): the
+  header as today.
+- **Plan section, free**: its description adds that records and their export
+  stay free.
+
+## Clarifications
+
+### Session 2026-10-12
+
+- Q: Is generating an invoice (number, frozen rates, locked entries) gated
+  too? → A: No. `docs/positioning.md` owns what is paid and says downloading
+  the invoice "is the only thing that does". Generating stays free, so a
+  free user's numbering, frozen rates and locked entries are the same records
+  a paying user has, and subscribing later unlocks the documents of what they
+  already generated, with nothing to regenerate. A free user can retype the
+  totals from the screen; that is the inconvenience positioning accepts in
+  exchange for keeping records whole and free. (decided autonomously —
+  Blake to review)
+- Q: When billing is first set up, do invoices generated before then stay
+  downloadable for free users? → A: No. "Generated while paying" is the only
+  exemption, and nobody paid while billing was dark, so those invoices follow
+  the free rule once billing is live. Alpha is a handful of invited users;
+  if Blake wants to grandfather them, a one-time backfill marks their
+  invoices as generated while paying. (decided autonomously — Blake to
+  review)
+- Q: How does the server refuse a locked document? → A: HTTP 402 Payment
+  Required with a new error code, `PAYMENT_REQUIRED`, and a message naming
+  the paid plan; a missing or someone else's invoice stays 404. (decided
+  autonomously — Blake to review)
+- Q: Where does the locked screen's control lead? → A: To Settings' Plan
+  section, which already owns subscribing and confirming the return from
+  Checkout; the invoice screen doesn't open Checkout itself, so there is one
+  subscribe flow. (decided autonomously — Blake to review)
+- Q: Where is "data gets out free" said? → A: On the invoice detail's lock
+  line and in the Plan section's free description, where a user meets the
+  rule. The landing page still says nothing is gated and promises a
+  different paid feature; correcting it goes with billing's launch, filed
+  as #323, since changing marketing copy now would announce a
+  price while billing is dark. (decided autonomously — Blake to review)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A free user's invoice document is the paid tier (Priority: P1)
@@ -157,10 +207,14 @@ download and view an invoice and open its detail screen.
 - **FR-008**: The invoice detail screen MUST tell a user whether the
   document opens before they press, and when it doesn't, say that
   downloading the invoice is the paid tier, the price, that tracking and
-  their records stay free with exporting included, and lead to
-  subscribing.
-- **FR-009**: The refusal MUST carry a distinct, documented reason so a
-  client can tell "pay to open" from any other failure.
+  their records stay free with exporting included, and lead to the Plan
+  section in Settings to subscribe.
+- **FR-011**: Invoices generated before billing was set up follow the same
+  rule as any other: they open while billing is dark, and once it is live
+  only for a paying user.
+- **FR-009**: The refusal MUST be HTTP 402 with the documented code
+  `PAYMENT_REQUIRED`, so a client can tell "pay to open" from any other
+  failure. A missing or another user's invoice stays 404.
 - **FR-010**: The Plan section's free description MUST say the same thing:
   invoice downloads are what paid adds, and records and their export stay
   free.
@@ -195,5 +249,5 @@ download and view an invoice and open its detail screen.
 - Data export (#58, #148) isn't built yet; positioning promises it free, so
   the page names it among what stays free.
 - The landing page still promises nothing is gated; it is out of this
-  feature's scope and goes with billing's launch.
+  feature's scope and goes with billing's launch (see Clarifications).
 - The macOS app neither downloads nor views invoices, so it is unaffected.
