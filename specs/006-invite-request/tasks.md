@@ -22,7 +22,7 @@ None: the stories are independent.
 - [ ] T003 [US1] Build `InviteRequest` in `apps/web/src/components/marketing/invite-request.tsx` per contracts/invite-request.md: a real form, a screen-reader label "Email", placeholder "you@example.com", a hidden `_gotcha` honeypot, a `Button variant="accent"` "Request an invite", states idle → sending → sent | failed
 - [ ] T004 [P] [US1] Stories in `apps/web/src/components/marketing/invite-request.stories.tsx`: Open, Sending (stalled), Sent, Failed, Invalid, Phone, each with MSW answering the stand-in endpoint
 - [ ] T005 [US1] Replace both `CallToAction` uses in `apps/web/src/app/landing/page.tsx` with `InviteRequest`, the hero's wrapped in `id="invite"`, and change copy that promises instant access to say access is by invite during alpha, keeping "Free" (FR-009)
-- [ ] T006 [P] [US1] Add a clause to `apps/web/src/app/privacy/page.tsx`: an invite request's address goes to Formspree and is used only to send the invite (FR-010)
+- [ ] T006 [P] [US1] Add a clause to `apps/web/src/app/privacy/page.tsx`: an invite request's address goes to Formspree and is used only to send the invite (FR-010), and move its `updated` date to October 2026
 - [ ] T007 [P] [US1] Document `NEXT_PUBLIC_INVITE_FORM_URL` and creating the Formspree form in `docs/deploying.md`
 
 ## Phase 4: User Story 2 - An invited user still signs in (P2)
@@ -40,7 +40,7 @@ None: the stories are independent.
 
 ## Phase 6: Polish
 
-- [ ] T011 Run `test:ui`, `test:stories`, typecheck, lint, `check:type`, and verify on `stint.localhost` against a local stub endpoint per quickstart.md
+- [ ] T011 Run `test:ui`, `test:stories`, typecheck, lint, `check:type`, and `next build`, confirming `/landing` is still prerendered static (FR-007); verify on `stint.localhost` against a local stub endpoint per quickstart.md
 
 ## Dependencies
 
