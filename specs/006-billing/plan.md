@@ -79,7 +79,7 @@ specs/006-billing/
 ### Source Code
 
 ```text
-supabase/migrations/00000000000036_subscriptions.sql  # table, RLS select-own, service_role grant
+supabase/migrations/20261012173556_subscriptions.sql  # table, RLS select-own, service_role grant
 scripts/ci-db.sh                                      # stub service_role role
 scripts/verify-schema.mjs                             # expects subscriptions
 packages/core/src/billing.ts                          # planOf(), paymentFailed()

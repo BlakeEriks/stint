@@ -1,6 +1,6 @@
 # Data model: Subscribe, and know who has
 
-## `subscriptions` (new table, migration 36)
+## `subscriptions` (new table, migration 20261012173556_subscriptions.sql)
 
 One row per user who has ever reached Checkout's completion. A mirror of
 Stripe's record, written only by the server.
