@@ -10,4 +10,7 @@ From `apps/macos`:
    `HOME=$(mktemp -d) ./bundle.sh debug local`, then
    `plutil -p .build/'Stint Local.app'/Contents/Info.plist`: the three keys in
    [contracts/info-plist.md](contracts/info-plist.md).
+   Run that bundle's binary windowed, `STINT_WINDOW=1 .build/'Stint Local.app'/Contents/MacOS/Stint &`,
+   write its pid to `.build/qa.pid`, open Settings and `./qa.sh shot`: the
+   header reads `0.1.0 (<commit>)`.
 4. `echo 0.1 > VERSION` and bundle again: it fails naming the file; restore it.
