@@ -19,7 +19,7 @@ Tests: Constitution V. The helper is client logic, tested first in
 
 ## Phase 3: Polish
 
-- [ ] T005 Run `test:ui`, `test:stories` for the calendar, lint, typecheck; verify `quickstart.md` in the dev server at desktop and phone widths
+- [X] T005 Run `test:ui`, `test:stories` for the calendar, lint, typecheck; verify `quickstart.md` in the dev server at desktop and phone widths
 
 ## Dependencies
 
