@@ -59,8 +59,9 @@ and `.claude/rules/web-ui.md`.
 - **The count**: a small pill on the Inbox icon's corner, on the same fill
   the dock's Inbox count uses; none at zero.
 - **Open**: the region opens over the panel, to the strip's left, aligned to
-  the top, as wide as the full dock (286px), on the elevated surface with
-  the floating shadow. It holds the same Inbox or Today the full dock shows,
+  the top, as wide as the full dock (286px), on the ground the dock is
+  painted on, with a hairline border and the floating shadow; on the
+  elevated surface the Inbox's own row fill would vanish. It holds the same Inbox or Today the full dock shows,
   and scrolls inside itself up to the window's height. The icon whose
   region is open shows the pressed state.
 

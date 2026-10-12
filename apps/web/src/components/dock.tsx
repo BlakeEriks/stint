@@ -64,9 +64,10 @@ export function Dock() {
          Where it divides is the user's, dragged on the handle between them
          and kept per device.
 
-         A workspace screen hides it: that screen is a tool and takes the
-         room (`Page`'s `workspace`). */
-      className="flex min-h-0 flex-none flex-col group-has-[[data-workspace]]/app:hidden xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]"
+         At `xl` a workspace screen folds it to `DockStrip`: that screen is a
+         tool and takes the room (`Page`'s `workspace`). Below `xl` it is a
+         band under the content, which costs no width, so it stays. */
+      className="flex min-h-0 flex-none flex-col xl:group-has-[[data-workspace]]/app:hidden xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]"
     >
       {/* Today has its own `/entries` query, so it waits on stats for nothing.
 

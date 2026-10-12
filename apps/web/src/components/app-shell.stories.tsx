@@ -82,21 +82,40 @@ export const RailFocus: Story = { ...light, play: ringsFit };
 /** The strip with a section focused, on a phone. */
 export const StripFocus: Story = { ...phone, play: ringsFit };
 
-/** A workspace screen takes the dock's room; the card stays as it is. */
+const workspace = (
+  <Page workspace>
+    <h1 className="type-title text-strong">A workspace</h1>
+  </Page>
+);
+
+/** At `xl` a workspace screen folds the dock to a 44px strip; the card stays
+    as it is. `Parts/Dock Strip` has the strip's states. */
 export const Workspace: Story = {
   ...wide,
-  args: {
-    children: (
-      <Page workspace>
-        <h1 className="type-title text-strong">A workspace</h1>
-      </Page>
-    ),
-  },
+  args: { children: workspace },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     await page.findByRole('heading', { name: 'A workspace' });
     await expect(
       page.queryByRole('complementary', { name: 'At a glance' }),
+    ).toBeNull();
+    const strip = page.getByRole('complementary', { name: 'Inbox and Today' });
+    await expect(strip.getBoundingClientRect().width).toBeLessThanOrEqual(44);
+  },
+};
+
+/** Below `xl` the dock is a band under the content, which costs a workspace
+    no width, so it shows as on every screen and the strip does not. */
+export const WorkspacePhone: Story = {
+  ...phone,
+  args: { children: workspace },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      await page.findByRole('complementary', { name: 'At a glance' }),
+    ).toBeVisible();
+    await expect(
+      page.queryByRole('complementary', { name: 'Inbox and Today' }),
     ).toBeNull();
   },
 };

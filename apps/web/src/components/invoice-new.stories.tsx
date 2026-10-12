@@ -86,8 +86,8 @@ export const ClientChosen: Story = {
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
 
-/** The screen is a workspace: no dock, so at 2xl the preview is nearly a
-    Letter page's width beside the form (it was ~430px beside the dock). */
+/** The screen is a workspace: the dock folds to a strip, so at 2xl the
+    preview is 700px beside the form (it was ~430px beside the dock). */
 export const Workspace: Story = {
   ...ClientChosen,
   ...wide,
@@ -100,7 +100,7 @@ export const Workspace: Story = {
     const width = page
       .getByRole('region', { name: 'Preview' })
       .getBoundingClientRect().width;
-    await expect(width).toBeGreaterThan(700);
+    await expect(width).toBeGreaterThanOrEqual(700);
   },
 };
 

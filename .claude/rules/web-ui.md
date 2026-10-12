@@ -124,9 +124,10 @@ by the 18px `INSET`; `flush` is for a screen whose regions carry the inset
 themselves (Home, the calendar), so it is never doubled. `wide` is for a
 screen that needs the room (Home), not a preference.
 `workspace` is for a screen that is a tool rather than a page to read (New
-invoice, the calendar): it takes the dock's room, because the frame reads
-`data-workspace` through `:has()`. The card keeps its size, so the frame
-never jolts between screens. The page
+invoice, the calendar): at `xl` it takes the dock's room and the dock folds
+to a 44px strip (`DockStrip`), because the frame reads `data-workspace`
+through `:has()`. Below `xl` the dock is a band under the content and stays.
+The card keeps its size, so the frame never jolts between screens. The page
 title is `type-title`, once.
 
 **Nothing inside the panel is a card.** The panel is the one surface; a
@@ -165,9 +166,10 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
   and Back returns to it. A component reading `useSearchParams` needs a
   `Suspense` boundary in its `page.tsx`, or `next build` fails while
   `next dev` passes.
-- **Every action carries a visible label.** Two exceptions, both with an
-  `aria-label`: a destructive first step, and a dense repeating row. A glyph
-  is always `aria-hidden`.
+- **Every action carries a visible label.** Three exceptions, each with an
+  `aria-label`: a destructive first step, a dense repeating row, and the
+  folded dock's strip, which is 44px by design. A glyph is always
+  `aria-hidden`.
 - **A destructive action is quiet until it is the confirm**: a ghost in
   `text-danger`, then `destructive` spelling the consequence out, in place.
   Destructive means it removes something saved; dropping a line from a form

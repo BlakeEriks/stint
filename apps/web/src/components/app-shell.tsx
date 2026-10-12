@@ -4,6 +4,7 @@ import { AppHeader } from './app-header';
 import { Nav, Version } from './nav';
 import { ContentPanel } from './content-panel';
 import { Dock } from './dock';
+import { DockStrip } from './dock-strip';
 import { TimerDock } from './timer-dock';
 
 /**
@@ -42,9 +43,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           memory. Its 940px max height is Home's, legend included, at the
           capped width.
 
-          A workspace screen (`Page`'s `data-workspace`) drops the dock's
-          column and keeps the card as it is: the dock is the room it needs,
-          and a card that resized between screens would jolt the frame. */}
+          A workspace screen (`Page`'s `data-workspace`) folds the dock's
+          column to `DockStrip`'s 44px and keeps the card as it is: the dock
+          is the room it needs, and a card that resized between screens would
+          jolt the frame. */}
       <div className="flex min-h-dvh flex-col bg-surface-base sm:h-dvh sm:min-h-0 sm:overflow-hidden 2xl:items-center 2xl:bg-surface-recessed 2xl:p-6">
         <div className="group/app flex min-h-dvh w-full flex-col bg-surface-base sm:h-full sm:min-h-0 sm:overflow-hidden 2xl:mx-auto 2xl:max-h-[940px] 2xl:max-w-[1440px] 2xl:rounded-2xl 2xl:border 2xl:border-edge-subtle 2xl:shadow-float">
           <AppHeader />
@@ -71,7 +73,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div
             className="flex min-h-0 flex-1 flex-col gap-4 px-3 pb-3 sm:px-4 sm:pb-4
                      lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)_auto]
-                     xl:grid-cols-[12rem_minmax(0,1fr)_286px] xl:has-[[data-workspace]]:grid-cols-[12rem_minmax(0,1fr)]"
+                     xl:grid-cols-[12rem_minmax(0,1fr)_286px] xl:has-[[data-workspace]]:grid-cols-[12rem_minmax(0,1fr)_44px]"
           >
             <Nav />
             <Version />
@@ -79,6 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <ContentPanel>{children}</ContentPanel>
               <Dock />
             </div>
+            <DockStrip />
             {/* Full width only while the nav is a strip along the top. From
               `lg` the rail is a left column, and the bar starts beside it
               rather than running underneath — the rail's footprint is the

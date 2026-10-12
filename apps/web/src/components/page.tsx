@@ -54,8 +54,9 @@ export function Page({
   fills?: boolean;
   /**
    * For a screen that is a tool rather than a page to read: it takes the
-   * dock's room too. `AppShell` sees `data-workspace` and drops the dock, so a
-   * screen opts in here and the frame never checks a route.
+   * dock's room too. `AppShell` sees `data-workspace` and folds the dock to a
+   * strip at `xl`, so a screen opts in here and the frame never checks a
+   * route.
    */
   workspace?: boolean;
   children: React.ReactNode;
