@@ -107,9 +107,8 @@ function Header() {
 /**
  * One screen, one green object, live.
  *
- * The accent is spent here and on the invite button — the same fact twice
- * (start tracking / time accruing), which is what the scarcity rule permits.
- * It never marks anything else on this page.
+ * The accent is spent on the timer and on the invite button, the action this
+ * page exists to complete. It never marks anything else on this page.
  */
 function Hero() {
   return (

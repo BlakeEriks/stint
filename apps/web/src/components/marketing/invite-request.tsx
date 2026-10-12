@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { elevatedInputClass } from '@/components/field';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
  *
  * It posts to a hosted form service (Formspree, `docs/deploying.md`), not to
  * Stint: an unauthenticated write to our own database would need rate
- * limiting, and an alpha list doesn't justify it (issue #55).
+ * limiting, and an alpha list doesn't justify it.
  *
  * A real `<form>` with the service as its `action`, so a visitor with
  * JavaScript off still reaches the list, landing on the service's own thank-
@@ -16,9 +17,7 @@ import { Button } from '@/components/ui/button';
  * answer JSON and the page stays put.
  *
  * Local state rather than `useOptimisticMutation`: the landing page has no
- * query client, and this isn't a write to `/api/v1` (plan, Complexity
- * Tracking). It keeps Constitution VI's rules: pending on the control with
- * no time bound, and a failure said in the form that stays open.
+ * query client, and this isn't a write to `/api/v1`.
  */
 export function InviteRequest() {
   const endpoint = process.env.NEXT_PUBLIC_INVITE_FORM_URL;
@@ -77,11 +76,7 @@ export function InviteRequest() {
             readOnly={state === 'sending'}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            /* The sign-in field's look: a neutral ring, since the accent is
-               spent on the button beside it. */
-            className="h-10 w-full rounded-md border border-edge-control bg-surface-elevated px-3 type-control
-                       text-strong placeholder:text-subtle focus:outline-none
-                       focus-visible:ring-2 focus-visible:ring-edge-focus"
+            className={`h-10 w-full ${elevatedInputClass}`}
           />
         </label>
         {/* Formspree's honeypot: a bot fills every field, a person never

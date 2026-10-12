@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cookieClient } from '@/lib/supabase';
+import { apexOf } from '@/proxy';
 import { SignInForm } from '@/components/signin-form';
 
 export const dynamic = 'force-dynamic';
@@ -21,11 +22,9 @@ export default async function Page({
   const { data } = await db.auth.getClaims();
   if (data?.claims?.sub) redirect('/');
 
-  /* The landing page is the apex: the same host without `app.`, the split
-     `src/proxy.ts` makes. Where there's no `app.` (localhost, a preview),
-     `/` is as close as there is. Scheme-relative, so it follows the page's. */
+  // Scheme-relative, so it follows the page's.
   const host = (await headers()).get('host') ?? '';
-  const inviteUrl = `//${host.replace(/^app\./, '')}/#invite`;
+  const inviteUrl = `//${apexOf(host)}/#invite`;
 
   const { error, deleted } = await searchParams;
   return (
