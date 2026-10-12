@@ -135,8 +135,9 @@ file to edit, the tag to create and the build to ship.
 - **FR-003**: Settings MUST show the release version and the short commit,
   as `0.1.0 (a1b2c3d)`, at the right of its header, selectable for copying,
   without making Settings taller.
-- **FR-004**: A build made from uncommitted changes MUST say so by adding
-  `-dirty` to its commit.
+- **FR-004**: A build made from uncommitted changes to the macOS app MUST say
+  so by adding `-dirty` to its commit; uncommitted changes elsewhere in the
+  repo don't change the app and don't mark it.
 - **FR-005**: The app run without a bundle (QA) MUST show `dev build`.
 - **FR-006**: Bundling MUST fail with a clear message when the version source
   is missing or malformed, or when there is no commit to record.

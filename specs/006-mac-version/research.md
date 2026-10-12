@@ -13,8 +13,8 @@
 
 - **Decision**: `CFBundleShortVersionString` = VERSION;
   `CFBundleVersion` = `git rev-list --count HEAD`; a custom `StintCommit` =
-  `git rev-parse --short=7 HEAD`, plus `-dirty` when `git diff --quiet HEAD`
-  fails.
+  `git rev-parse --short=7 HEAD`, plus `-dirty` when
+  `git diff --quiet HEAD -- apps/macos` fails.
 - **Rationale**: Apple documents `CFBundleVersion` as required and as
   period-separated integers, so it can't hold a SHA; a commit count increases
   on `main`, which squash-merges. The SHA is what identifies a build, so it

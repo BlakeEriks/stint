@@ -35,6 +35,28 @@ Stint.app and takes no focus. `./qa.sh shot` screenshots it, and `ids`,
 moves the mouse. **Every control carries an `.accessibilityIdentifier`**,
 which is what those commands address.
 
+## Versions
+
+**`apps/macos/VERSION` is the one source**, a single `major.minor.patch`
+line. `bundle.sh` writes it into every target's Info.plist with the commit
+count as `CFBundleVersion` and the short commit as `StintCommit`, marked
+`-dirty` when the app has uncommitted changes. Settings shows it at the right
+of its header, as `0.1.0 (a1b2c3d)`, selectable so a report can paste it; the
+`qa.sh` build has no bundle and shows `dev build`.
+
+Bump it in the PR that ships a change someone on an older copy could report
+differently. A release is cut from `main`, at the commit whose `VERSION`
+reads it:
+
+```bash
+git tag -a macos-v0.1.0 -m "macOS 0.1.0"
+git push origin macos-v0.1.0
+./apps/macos/bundle.sh release prod
+```
+
+The `macos-` prefix is because the web app shares the repo and deploys
+unversioned on every merge.
+
 ## Which backend it talks to
 
 `bundle.sh` takes a target. `local` is the default and omits the keys, so
