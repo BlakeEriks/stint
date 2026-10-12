@@ -28,6 +28,11 @@ Those are the CLI's fixed development credentials — identical on every
 machine, published in Supabase's own docs, stable across resets. Nothing here
 is a secret.
 
+Billing stays hidden locally until Stripe **test-mode** keys are added here
+too: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` (from
+`stripe listen --forward-to localhost:3100/api/v1/billing/webhook`) and
+`SUPABASE_SECRET_KEY` from `supabase status`. Never a live key.
+
 **No file on this machine points at production.** There is no `.env.local`;
 `pnpm migrate` and `pnpm verify:schema` reach a database only through `--url`
 or `SUPABASE_DB_URL`, and production is migrated by the release gate.

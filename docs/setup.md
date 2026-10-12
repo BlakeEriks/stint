@@ -99,8 +99,10 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 The publishable key is **meant to be public** — it ships in the browser
 bundle, and RLS is what protects the data. A **secret** key
-(`sb_secret_…`) is not: it bypasses RLS entirely. Never put one in
-an env file or anything `NEXT_PUBLIC_`.
+(`sb_secret_…`) is not: it bypasses RLS entirely. The app server holds
+one only for billing, as the sensitive Vercel variable `SUPABASE_SECRET_KEY`
+(`docs/deploying.md` §2). Never put one in a committed file or anything
+`NEXT_PUBLIC_`.
 
 If the dashboard still shows legacy `anon` / `service_role` JWTs, those are
 the old key pair and are **deprecated at the end of 2026**. Publishable and
@@ -213,7 +215,8 @@ no orphaned second account.
 
 ## Deploying
 
-Vercel: import the repo, set those two env vars plus `NEXT_PUBLIC_APP_ORIGIN`,
+Vercel: import the repo, set those two env vars plus `NEXT_PUBLIC_APP_ORIGIN`
+(and, to turn billing on, the four in `docs/deploying.md` §2),
 and add the deployed origin to **Site URL** and **Redirect URLs**. The build
 needs no database access — route handlers are all `force-dynamic`.
 `docs/deploying.md` covers the hostname split the origin belongs to.

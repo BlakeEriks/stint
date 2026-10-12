@@ -2,7 +2,8 @@
 
 Every client (web and the macOS app) uses these endpoints, and an endpoint
 not built yet is marked `(not implemented)`. Auth is a Supabase JWT as
-`Authorization: Bearer <token>`, on every endpoint except `/health`. Request/response shapes are defined in
+`Authorization: Bearer <token>`, on every endpoint except `/health` and the
+Stripe webhook, which Stripe's signature authenticates instead. Request/response shapes are defined in
 `packages/schema/src/index.ts` — that file is the source of truth, and every
 route parses its request against it; this document is the map.
 
@@ -13,7 +14,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 46 of 46, counting handlers rather than files.
+Every handler is covered — 51 of 51, counting handlers rather than files.
 
 ## Timer
 
@@ -169,7 +170,8 @@ Standard CRUD: `GET|POST /clients`, `GET|PATCH|DELETE /clients/:id`, same for
 `GET /account` counts what deleting it would remove — `{ entries, clients,
 projects, invoices }`, archived rows included. `DELETE /account` removes the
 caller and every row they own in one transaction, issued invoices included,
-and returns `204`; a failure removes nothing. The caller's token still
+and returns `204`; a failure removes nothing. A live Stripe subscription is
+canceled first, and if Stripe refuses, nothing is deleted. The caller's token still
 verifies until it expires, so a client signs out locally after the `204`.
 
 `POST` on all three accepts an optional client-supplied `id` (UUIDv7); a
@@ -284,6 +286,21 @@ by every one when `recurring`. The amount is in the client's currency.
 |---|---|---|
 | `POST` | `/feedback` | `{ id, message, screen, client, appVersion }` → `201 { id }`. `id` is a client-generated UUIDv7, so a retry returns `200`. `422` for a blank or overlong `message` (2,000 at most), a `screen` not starting with `/`, or a `client` other than `web` or `macos`. Feedback can't be read back or changed through the API. |
 
+## Billing
+
+One yearly subscription through Stripe (`docs/positioning.md` owns the
+price). Until `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and
+`STRIPE_WEBHOOK_SECRET` are all set, every write here answers
+`503 BILLING_UNAVAILABLE`.
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/billing` | `{ available, plan, status, periodEnd, cancelAtPeriodEnd, paymentFailed }`. `plan` is `paid` while Stripe's status is `active`, `trialing` or `past_due` (`planOf()` in `@stint/core`). Read from the stored mirror, so it answers with Stripe unset or down; `available` says whether billing is set up. |
+| `POST` | `/billing/checkout` | `{ url }` of a Stripe Checkout page for the yearly price, returning to `/settings?checkout={CHECKOUT_SESSION_ID}`. `409 ALREADY_SUBSCRIBED` if paid. |
+| `POST` | `/billing/portal` | `{ url }` of the Stripe Customer Portal (cancel, resume, card, receipts). `409 NOT_SUBSCRIBED` with no Stripe customer. |
+| `POST` | `/billing/sync` | `{ sessionId }` → the caller's `Billing`, after storing what Stripe says about that Checkout session now. `404 CHECKOUT_NOT_FOUND` for an unknown session or another user's. |
+| `POST` | `/billing/webhook` | **No session**: called by Stripe and authenticated by the `stripe-signature` header against the raw body (`400` if missing or invalid). Each subscription event re-reads the customer from Stripe and stores that, so a duplicate or late event changes nothing. `500` on a failed sync, so Stripe retries. |
+
 ## Payment details
 
 Bank details live on the **invoice PDF**, and the placement is not a user
@@ -332,6 +349,10 @@ verified by phone.
 | `INVALID_PERIOD` | 400 | |
 | `UNAUTHORIZED` | 401 | |
 | `IMPORT_FILE_UNRECOGNIZED` | 422 | Not a Toggl export, or a row in it cannot be read; `message` names the line. |
+| `ALREADY_SUBSCRIBED` | 409 | Checkout for a user already paid. |
+| `NOT_SUBSCRIBED` | 409 | The portal for a user with no Stripe customer. |
+| `CHECKOUT_NOT_FOUND` | 404 | No such Checkout session for this user. |
+| `BILLING_UNAVAILABLE` | 503 | Stripe isn't configured on this deploy. |
 | `VALIDATION_FAILED` | 422 | Zod parse failure (`details` carries the issues), an illegal state change such as deleting an issued invoice or an invalid status transition, a `PATCH` body that parses but maps to no column, or a reference to a record that is missing or another user's, such as a project's `clientId`. |
 | `INTERNAL` | 500 | Unhandled error. Not part of `ErrorCode` in the schema package. |
 

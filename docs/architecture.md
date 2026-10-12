@@ -91,6 +91,9 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
 - Invoice PDFs: `@react-pdf/renderer` — ~2MB, sub-500ms, no Chromium cold
   start. Puppeteer is only warranted if pixel-exact HTML fidelity is ever
   needed.
+- Billing: Stripe's hosted Checkout and Customer Portal, per transaction
+  with no fixed fee. Stripe sends the receipts and dunning mail; the webhook
+  mirrors each subscription into `subscriptions` (`docs/api.md` §Billing).
 - **No outbound mail**, so no provider and no domain in the stack. Invoices
   are downloaded and sent by the user (`docs/positioning.md`).
 
@@ -100,7 +103,7 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
 packages/schema         Zod schemas — the API contract
 packages/core           duration, rates, timer, uuid, calendar, grid
                         (drag-to-edit geometry), invoice (line items),
-                        payment (details)
+                        payment (details), billing (paid or free)
 packages/design-tokens  tokens.json -> CSS + TS + Swift (generated into dist/)
 apps/web                Next.js — API routes and the web UI
 supabase/migrations     Schema, triggers, RLS

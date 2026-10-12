@@ -16,10 +16,10 @@ export default function Page() {
       <Clause heading="The short version">
         <p>
           Stint is a time tracking and invoicing tool for one person. Tracking
-          is free; downloading invoices is a paid plan. It records what you tell
-          it and produces invoices from that &mdash; it does not give you
-          accounting, tax or legal advice, and the numbers on your invoices are
-          your responsibility.
+          is free, and a paid plan is available. It records what you tell it and
+          produces invoices from that &mdash; it does not give you accounting,
+          tax or legal advice, and the numbers on your invoices are your
+          responsibility.
         </p>
       </Clause>
 
@@ -50,9 +50,10 @@ export default function Page() {
 
       <Clause heading="Price and billing">
         <p>
-          Tracking time is free. Downloading invoices needs the paid plan, which
-          costs $40 a year, billed yearly in advance, in US dollars. Payments
-          are handled by Stripe; Stint never sees your card number.
+          Tracking time is free. Where a feature needs the paid plan, the app
+          says so before you use it. The paid plan costs $40 a year, billed
+          yearly in advance, in US dollars. Payments are handled by Stripe;
+          Stint never sees your card number.
         </p>
         <p>
           <strong className="text-primary">
