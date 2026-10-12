@@ -79,7 +79,7 @@ apps/web/src/components/signin-form.stories.tsx               # NotInvited asser
 apps/web/src/app/signin/page.tsx                              # passes the landing URL
 apps/web/src/app/privacy/page.tsx                             # names the form service
 apps/web/test/ui/invite-request.test.tsx
-apps/web/.storybook/main.ts                                   # a stand-in endpoint for stories
+apps/web/.storybook/vite-mocks.mts                            # a stand-in endpoint for stories
 docs/deploying.md                                             # NEXT_PUBLIC_INVITE_FORM_URL
 ```
 

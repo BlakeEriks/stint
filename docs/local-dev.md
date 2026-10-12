@@ -86,9 +86,10 @@ worktree's own URL and its link returns there.
 
 **Sign-up is off, as in production**, so an address works only once it has
 an account: `pnpm seed <email>` makes one with data, and `--clear` then
-empties it. Any other address gets "Stint is invite-only." Enter it on `/signin`, then
-open **Mailpit** and click the link. No mail leaves the machine, so there is
-nothing in your actual inbox and nothing to rate-limit.
+empties it. Any other address gets "Stint is invite-only during alpha."
+Enter it on `/signin`, then open **Mailpit** and click the link. No mail
+leaves the machine, so there is nothing in your actual inbox and nothing to
+rate-limit.
 
 **One sign-in at a time per browser.** Sign-in is PKCE: the form stores a
 code verifier in localStorage under **one key per origin**, so two tabs on

@@ -25,7 +25,7 @@ afterEach(() => {
 describe('SignInForm', () => {
   it('clears this browser’s stale auth state BEFORE requesting a link', async () => {
     const user = userEvent.setup();
-    render(<SignInForm />);
+    render(<SignInForm inviteUrl="/#invite" />);
 
     await user.type(screen.getByLabelText('Email'), 'dev@localhost.test');
     await user.click(screen.getByRole('button', { name: /Email me/ }));
@@ -37,7 +37,7 @@ describe('SignInForm', () => {
 
   it('signs out locally only, never the user’s other devices', async () => {
     const user = userEvent.setup();
-    render(<SignInForm />);
+    render(<SignInForm inviteUrl="/#invite" />);
 
     await user.type(screen.getByLabelText('Email'), 'dev@localhost.test');
     await user.click(screen.getByRole('button', { name: /Email me/ }));
@@ -49,13 +49,13 @@ describe('SignInForm', () => {
   });
 
   it('explains an unrecognized reason instead of rendering nothing', async () => {
-    render(<SignInForm error="something_new" />);
+    render(<SignInForm inviteUrl="/#invite" error="something_new" />);
     expect(screen.getByRole('alert').textContent).toMatch(/went wrong/i);
   });
 
   it('replaces the error with confirmation once a link is sent', async () => {
     const user = userEvent.setup();
-    render(<SignInForm error="invalid_link" />);
+    render(<SignInForm inviteUrl="/#invite" error="invalid_link" />);
 
     await user.type(screen.getByLabelText('Email'), 'dev@localhost.test');
     await user.click(screen.getByRole('button', { name: /Email me/ }));
@@ -70,7 +70,7 @@ describe('SignInForm', () => {
 
   it('never creates an account: sign-in is invite-only', async () => {
     const user = userEvent.setup();
-    render(<SignInForm />);
+    render(<SignInForm inviteUrl="/#invite" />);
 
     await user.type(screen.getByLabelText('Email'), 'dev@localhost.test');
     await user.click(screen.getByRole('button', { name: /Email me/ }));

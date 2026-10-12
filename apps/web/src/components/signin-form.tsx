@@ -15,15 +15,18 @@ import { browserClient } from '@/lib/client/supabase';
 export function SignInForm({
   error,
   deleted,
+  inviteUrl,
 }: {
   error?: string;
   deleted?: boolean;
+  /** The landing page's invite request, where a stranger is sent. */
+  inviteUrl: string;
 }) {
   const [email, setEmail] = useState('');
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>(
     'idle',
   );
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState<React.ReactNode>('');
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,9 +59,16 @@ export function SignInForm({
     if (error) {
       setState('error');
       setMessage(
-        error.code === 'otp_disabled'
-          ? 'Stint is invite-only. Ask Blake for an invite.'
-          : error.message,
+        error.code === 'otp_disabled' ? (
+          <>
+            Stint is invite-only during alpha.{' '}
+            <a href={inviteUrl} className="underline hover:text-strong">
+              Request an invite
+            </a>
+          </>
+        ) : (
+          error.message
+        ),
       );
       return;
     }

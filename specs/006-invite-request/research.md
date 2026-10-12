@@ -55,7 +55,7 @@
 
 ## Stories without a real endpoint
 
-- **Decision**: `.storybook/main.ts` sets `NEXT_PUBLIC_INVITE_FORM_URL` to a
+- **Decision**: `.storybook/vite-mocks.mts` sets `NEXT_PUBLIC_INVITE_FORM_URL` to a
   stand-in Formspree URL that MSW answers per story.
 - **Rationale**: A story never reaches a real service, and unhandled
   requests already fail the story.

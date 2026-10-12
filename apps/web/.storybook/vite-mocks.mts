@@ -4,6 +4,8 @@ import type { Plugin } from 'vite';
 const real = resolve(import.meta.dirname, '../src/lib/client/supabase.ts');
 const fake = resolve(import.meta.dirname, '../src/mocks/supabase.ts');
 
+const INVITE_FORM_URL = 'https://formspree.io/f/storybook';
+
 /**
  * What Storybook and the story tests swap out of the app, in one place for
  * both: `sb.mock` does nothing under portable stories, so a Vite plugin is
@@ -14,6 +16,8 @@ const fake = resolve(import.meta.dirname, '../src/mocks/supabase.ts');
  *   on it and the server-side `src/lib/supabase.ts` never does.
  * - The build label reads "storybook" rather than a commit, which a
  *   story has none of.
+ * - The invite form posts to a stand-in Formspree URL that each story
+ *   answers with MSW, so no story reaches a real form.
  */
 export function storyMocks(): Plugin[] {
   return [
@@ -33,7 +37,11 @@ export function storyMocks(): Plugin[] {
       name: 'stint:story-version',
       enforce: 'post',
       config: () => ({
-        define: { 'process.env.NEXT_PUBLIC_APP_VERSION': '"storybook"' },
+        define: {
+          'process.env.NEXT_PUBLIC_APP_VERSION': '"storybook"',
+          'process.env.NEXT_PUBLIC_INVITE_FORM_URL':
+            JSON.stringify(INVITE_FORM_URL),
+        },
       }),
     },
   ];
