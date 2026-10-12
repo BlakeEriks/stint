@@ -111,6 +111,10 @@ const priced = (quantityHundredths: number, unitPrice: number): number =>
   // hundredths x cents = amount x 10,000; the first division leaves cents.
   Math.round((quantityHundredths * Math.round(unitPrice * 100)) / 100) / 100;
 
+/** One entry's worth at `rate`: what a line billing it alone would charge. */
+export const billedAmount = (seconds: number, rate: number): number =>
+  priced(hundredths(seconds), rate);
+
 function describe(
   entry: BillableEntry,
   mode: GroupingMode,

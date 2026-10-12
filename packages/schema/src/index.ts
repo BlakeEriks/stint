@@ -212,6 +212,7 @@ export const Summary = z.object({
 
 export const SummaryQuery = z.object({ tz: timeZone });
 export const StatsQuery = z.object({ tz: timeZone });
+export const ExportQuery = z.object({ tz: timeZone });
 
 export const CalendarQuery = z.object({
   from: iso,

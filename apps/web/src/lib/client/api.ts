@@ -59,39 +59,40 @@ async function request<T>(
     body: form ? body : body ? JSON.stringify(body) : undefined,
   });
 
+  if (!res.ok) throw await failure(res);
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
-  const json = text ? JSON.parse(text) : undefined;
+  return (text ? JSON.parse(text) : undefined) as T;
+}
 
-  if (!res.ok) {
-    const error = new ApiError(
-      res.status,
-      json ?? { code: 'UNKNOWN', message: res.statusText },
-    );
+/** A failed response as an `ApiError`, which also sends a 401 to sign in. */
+async function failure(res: globalThis.Response): Promise<ApiError> {
+  const text = await res.text();
+  const error = new ApiError(
+    res.status,
+    text ? JSON.parse(text) : { code: 'UNKNOWN', message: res.statusText },
+  );
 
-    /*
-     * An expired or cleared session sends the user to sign in, from wherever
-     * they were. Without this a signed-out page renders its shell and then
-     * sits on "Loading…" forever — a 401 fails every retry React Query
-     * makes, so it never resolves into anything the user can act on.
-     * Hitting Back after signing out did exactly that.
-     *
-     * A hard assignment rather than the router: this is reachable from any
-     * component, including ones with no router in scope, and a full load is
-     * what guarantees no server-rendered authenticated markup survives.
-     */
-    if (
-      error.isUnauthorized &&
-      typeof window !== 'undefined' &&
-      window.location.pathname !== '/signin'
-    ) {
-      window.location.assign('/signin');
-    }
-
-    throw error;
+  /*
+   * An expired or cleared session sends the user to sign in, from wherever
+   * they were. Without this a signed-out page renders its shell and then
+   * sits on "Loading…" forever — a 401 fails every retry React Query
+   * makes, so it never resolves into anything the user can act on.
+   * Hitting Back after signing out did exactly that.
+   *
+   * A hard assignment rather than the router: this is reachable from any
+   * component, including ones with no router in scope, and a full load is
+   * what guarantees no server-rendered authenticated markup survives.
+   */
+  if (
+    error.isUnauthorized &&
+    typeof window !== 'undefined' &&
+    window.location.pathname !== '/signin'
+  ) {
+    window.location.assign('/signin');
   }
-  return json as T;
+  return error;
 }
 
 // ── shapes the UI consumes ─────────────────────────────────────────
@@ -425,6 +426,18 @@ export const api = {
     request<Expense>('PATCH', `/expenses/${id}`, body),
 
   deleteExpense: (id: string) => request<void>('DELETE', `/expenses/${id}`),
+
+  /** A CSV export, and the name the server gave it. */
+  exportCsv: async (kind: 'entries' | 'invoices', tz: string) => {
+    const res = await fetch(
+      `/api/v1/exports/${kind}?tz=${encodeURIComponent(tz)}`,
+    );
+    if (!res.ok) throw await failure(res);
+    const name = /filename="([^"]+)"/.exec(
+      res.headers.get('content-disposition') ?? '',
+    )?.[1];
+    return { blob: await res.blob(), filename: name ?? `stint-${kind}.csv` };
+  },
 
   invoicePdfUrl: (id: string, download = false) =>
     `/api/v1/invoices/${id}/pdf${download ? '?download=1' : ''}`,
