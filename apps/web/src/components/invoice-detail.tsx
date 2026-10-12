@@ -1,15 +1,25 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
-import { Ban, DollarSign, Download, Eye, Send, Trash2 } from 'lucide-react';
+import {
+  Ban,
+  DollarSign,
+  Download,
+  Eye,
+  Lock,
+  Send,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmAction } from './confirm-action';
 import { Section } from './field';
 import { StatusBadge, shortDate } from './invoice-bits';
 import { MarkPaidDialog } from './mark-paid-dialog';
+import { PRICE } from './plan-section';
 import {
   attachedSchedules,
   formatCurrency,
@@ -116,28 +126,26 @@ function Loaded({
               Reference {invoice.reference}
             </p>
           ) : null}
+          {/* The document is the paid tier; the records never are, and
+              saying so here keeps the two rules from reading as one. */}
+          {invoice.canDownload ? null : (
+            <p className="mt-2 type-support text-muted">
+              Downloading the invoice is on the paid plan, {PRICE}. Tracking and
+              your records, exporting them included, stay free.
+            </p>
+          )}
         </div>
 
-        <div className="flex flex-none flex-wrap gap-2">
-          {/* Downloading is how an invoice reaches a client: the app sends no
-              mail, so this is the primary action on the screen. */}
-          <Button asChild>
-            <a href={api.invoicePdfUrl(invoice.id, true)}>
-              <Download aria-hidden strokeWidth={1.75} />
-              Download PDF
-            </a>
+        {invoice.canDownload ? (
+          <Downloads id={invoice.id} />
+        ) : (
+          <Button asChild className="flex-none">
+            <Link href="/settings#plan">
+              <Lock aria-hidden strokeWidth={1.75} />
+              Subscribe to download
+            </Link>
           </Button>
-          <Button asChild variant="default">
-            <a
-              href={api.invoicePdfUrl(invoice.id)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Eye aria-hidden strokeWidth={1.75} />
-              Preview
-            </a>
-          </Button>
-        </div>
+        )}
       </header>
 
       <Section title="Lines">
@@ -330,6 +338,28 @@ function Loaded({
 }
 
 const TH = 'pb-2 type-label text-subtle';
+
+/** The document, saved or viewed. Both are the paid tier. */
+function Downloads({ id }: { id: string }) {
+  return (
+    <div className="flex flex-none flex-wrap gap-2">
+      {/* Downloading is how an invoice reaches a client: the app sends no
+          mail, so this is the primary action on the screen. */}
+      <Button asChild>
+        <a href={api.invoicePdfUrl(id, true)}>
+          <Download aria-hidden strokeWidth={1.75} />
+          Download PDF
+        </a>
+      </Button>
+      <Button asChild variant="default">
+        <a href={api.invoicePdfUrl(id)} target="_blank" rel="noreferrer">
+          <Eye aria-hidden strokeWidth={1.75} />
+          Preview
+        </a>
+      </Button>
+    </div>
+  );
+}
 
 function statusHint(status: InvoiceStatus): string {
   if (status === 'draft')

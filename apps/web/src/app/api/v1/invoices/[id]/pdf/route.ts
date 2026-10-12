@@ -15,8 +15,8 @@ type Ctx = { params: Promise<{ id: string }> };
  *
  * This is how an invoice reaches a client: the user downloads it and emails
  * it themselves, from their own address. `?download=1` forces a save rather
- * than a browser preview. Both are the document, so both are the paid tier
- * (#61): gating only the download would leave the viewer's save button.
+ * than a browser preview. Both are the document, so both are the paid tier:
+ * gating only the download would leave the viewer's save button.
  */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);

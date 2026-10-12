@@ -1,5 +1,5 @@
--- The invoice document is the paid tier (#61), and canceling never locks an
--- invoice generated while paying (#60). `subscriptions` holds only Stripe's
+-- The invoice document is the paid tier, and canceling never locks an
+-- invoice generated while paying. `subscriptions` holds only Stripe's
 -- current record, so the plan at generation is stamped on the invoice here.
 --
 -- Copied by trigger, never taken from the caller: `create_invoice` runs as

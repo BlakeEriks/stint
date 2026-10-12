@@ -37,7 +37,7 @@ export function hasEnded(status: SubscriptionStatus): boolean {
 }
 
 /**
- * Whether an invoice's PDF opens (#61): the document is the paid tier.
+ * Whether an invoice's PDF opens: the document is the paid tier.
  * Open while billing isn't set up, so an unconfigured deploy gates nothing;
  * for a paying user; and for an invoice generated while paying, so canceling
  * never locks what was billed on the paid plan. `issuedStatus` is the

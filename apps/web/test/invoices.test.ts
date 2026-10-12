@@ -2674,14 +2674,14 @@ test('an invoice made in the evening west of UTC is dated today, not tomorrow', 
   }
 });
 
-// ── the paid tier: the document (#61) ──────────────────────────────
+// ── the paid tier: the document ───────────────────────────────────
 const configureBilling = () => {
   process.env.STRIPE_SECRET_KEY = 'sk_test_unused';
   process.env.STRIPE_PRICE_ID = 'price_yearly';
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
 };
 
-/** The stored mirror #60's webhook writes, at `status`. */
+/** The stored subscription mirror the webhook writes, at `status`. */
 const subscribe = (status: string) =>
   pool.query(
     `insert into subscriptions (user_id, stripe_customer_id,
