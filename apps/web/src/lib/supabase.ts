@@ -71,7 +71,8 @@ export function anonClient(): SupabaseClient {
 }
 
 /**
- * Bypasses RLS: only for writing `subscriptions`, which no user may write.
+ * Bypasses RLS: only for reading and writing `subscriptions`, which no user
+ * may write.
  * `SUPABASE_SECRET_KEY` is server-only, never `NEXT_PUBLIC_`.
  */
 export function serviceClient(): SupabaseClient {
