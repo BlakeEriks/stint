@@ -13,6 +13,57 @@ screens": New invoice and Calendar are workspaces with no dock, so the Inbox
 and Today are out of sight while the contractor invoices or plans their week.
 To check the Inbox they leave New invoice, and the draft is lost.
 
+## Clarifications
+
+### Session 2026-10-12
+
+- Q: Is folding per-screen (workspace screens only) or a toggle the user sets
+  once? → A: Per-screen. Every workspace screen folds the dock on its own; no
+  setting. A toggle would be a preference to store and a choice nobody needs
+  to make, since a screen is a workspace because it needs the room. (decided
+  autonomously — Blake to review)
+- Q: How does an open fold close, and does it trap focus like a dialog? → A:
+  It's a non-modal popover. It closes on a press outside it, Escape, its icon
+  pressed again, focus leaving it, and navigation; pressing the other icon
+  swaps to that region. Focus moves into it on open and back to the icon on
+  close. It doesn't trap focus or dim the screen, because it's a glance at
+  something beside the work, not a step the work waits on. (decided
+  autonomously — Blake to review)
+- Q: Does the Inbox earn the strip alone, with Today waiting? → A: Both, as
+  option B draws them. Today costs one icon and no new content, and the
+  strip with Today keeps the folded dock a fold of the whole dock rather
+  than a second, smaller one. Only the Inbox carries a count. (decided
+  autonomously — Blake to review)
+- Q: What does a workspace screen show below laptop width, where the dock is
+  a band beneath the content rather than a side column? → A: The full dock
+  band, as on every other screen. Below laptop width the dock takes height
+  under the content, not width beside it, so there's no room to win by
+  hiding it. The strip shows only where the full dock would be a side
+  column. (decided autonomously — Blake to review)
+- Q: Can the strip's icons go without a visible label, against the
+  convention that every action carries one? → A: Yes, as a third exception
+  in `.claude/rules/web-ui.md`: each icon has an accessible name and a
+  tooltip, and the strip is 44px by design. (decided autonomously — Blake to
+  review)
+
+## Design
+
+Design review: skipped in autonomous run; follows option B from the
+workspace review
+([invoice-workspace.html](../003-invoice-summary-detail/design/invoice-workspace.html))
+and `.claude/rules/web-ui.md`.
+
+- **The strip**: a 44px column where the full dock would be, painted onto
+  the ground like the dock, holding two 36px ghost icon buttons stacked from
+  the top: Inbox, then Today.
+- **The count**: a small pill on the Inbox icon's corner, on the same fill
+  the dock's Inbox count uses; none at zero.
+- **Open**: the region opens over the panel, to the strip's left, aligned to
+  the top, as wide as the full dock (286px), on the elevated surface with
+  the floating shadow. It holds the same Inbox or Today the full dock shows,
+  and scrolls inside itself up to the window's height. The icon whose
+  region is open shows the pressed state.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Check the Inbox without leaving the workspace (Priority: P1)
@@ -68,8 +119,10 @@ confirm it lists today's entries and earnings as the full dock does.
 
 ### Edge Cases
 
-- The window narrows below laptop width while a fold is open: the strip
-  gives way to the narrow-width layout, and the fold closes.
+- The window narrows below laptop width while a fold is open: the fold
+  closes and the full dock band shows beneath the content.
+- An entry's editor is opened from Today in a fold: the editor opens over
+  it, and closing the editor returns to the open fold.
 - An Inbox row that links to an invoice is pressed: the app navigates, and
   the fold closes.
 - Many Inbox items: the open fold scrolls inside itself and never runs past
@@ -83,20 +136,21 @@ confirm it lists today's entries and earnings as the full dock does.
 
 - **FR-001**: On a workspace screen, where the full dock would be a side
   column, the dock MUST show as a strip of icons no wider than 44px instead of
-  being hidden. [NEEDS CLARIFICATION: Is folding per-screen (workspace screens
-  only) or a toggle the user sets once?]
+  being hidden. Folding is per-screen and automatic, with no setting. Where
+  the dock is a band beneath the content, a workspace screen MUST show the
+  full band, as every other screen does.
 - **FR-002**: The strip MUST hold an Inbox icon, showing the Inbox count
-  when it's above zero. [NEEDS CLARIFICATION: Does the Inbox earn the strip
-  alone, with Today waiting?]
+  when it's above zero, and a Today icon with no count.
 - **FR-003**: Pressing a strip icon MUST open its region over the panel,
   with the same content and actions as the full dock, without resizing the
   panel or changing the screen underneath.
-- **FR-004**: An open fold MUST close in a defined set of ways, and focus
-  MUST be handled for keyboard and screen-reader users. [NEEDS
-  CLARIFICATION: Which closes (outside press, Escape, navigation), and does
-  it trap focus like a dialog?]
+- **FR-004**: An open fold MUST close on a press outside it, Escape, its
+  icon pressed again, focus leaving it, and navigation. Focus MUST move into
+  it on open and return to its icon on close. It MUST NOT trap focus or dim
+  the screen. One fold is open at a time. A dialog opened from inside a fold
+  (an entry's editor) MUST NOT close the fold beneath it.
 - **FR-005**: Each strip icon MUST have an accessible name, including the
-  Inbox count, and say whether its region is open.
+  Inbox count, a tooltip naming it, and say whether its region is open.
 - **FR-006**: Screens that aren't workspaces MUST keep the full dock as it
   is today.
 - **FR-007**: Opening and closing a fold MUST answer in the same frame, with
