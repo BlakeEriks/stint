@@ -721,6 +721,38 @@ export const handlers = {
 
   deleteAccount: http.delete(`${API}/account`, () => noContent()),
 
+  billing: http.get(`${API}/billing`, () =>
+    ok(schema.Billing, getDb().billing),
+  ),
+
+  /* Stripe's pages are not faked: a story that presses through would leave
+     Storybook, so the URL is one the story can see but never reach. */
+  checkout: http.post(`${API}/billing/checkout`, () =>
+    getDb().billing.plan === 'paid'
+      ? fail('ALREADY_SUBSCRIBED')
+      : ok(schema.BillingRedirect, { url: 'https://checkout.stripe.test/' }),
+  ),
+
+  billingPortal: http.post(`${API}/billing/portal`, () =>
+    getDb().billing.status === null
+      ? fail('NOT_SUBSCRIBED')
+      : ok(schema.BillingRedirect, { url: 'https://billing.stripe.test/' }),
+  ),
+
+  /* Back from Checkout: Stripe says the year is paid. */
+  syncCheckout: http.post(`${API}/billing/sync`, () => {
+    const db = getDb();
+    const end = new Date(db.now);
+    end.setFullYear(end.getFullYear() + 1);
+    db.billing = {
+      ...db.billing,
+      plan: 'paid',
+      status: 'active',
+      periodEnd: end.toISOString(),
+    };
+    return ok(schema.Billing, db.billing);
+  }),
+
   importPreview: http.post(`${API}/imports/preview`, async ({ request }) => {
     const preview = await importPreview(request);
     return preview instanceof Response ? preview : Response.json(preview);

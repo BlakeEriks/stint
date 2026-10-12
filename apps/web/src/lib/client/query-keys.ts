@@ -30,6 +30,7 @@ export const keys = {
   taskNames: (opts?: { projectId?: string | null }) =>
     opts ? (['task-names', opts] as const) : (['task-names'] as const),
   account: () => ['account'] as const,
+  billing: () => ['billing'] as const,
   invoices: () => ['invoices'] as const,
   invoice: (id: string | null | undefined) => ['invoices', id] as const,
   /** Keyed on everything that decides the lines, so a stale answer is
