@@ -13,7 +13,7 @@ import { serviceClient } from './supabase';
 
 /**
  * The caller's plan, read through their own RLS-scoped client. The one
- * answer to "has this user paid"; #61's invoice gate asks it too. It reads
+ * answer to "has this user paid". It reads
  * only the stored mirror, so a Stripe outage never decides a user's plan.
  */
 export async function entitlement(db: SupabaseClient): Promise<Billing> {

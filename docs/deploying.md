@@ -105,6 +105,31 @@ Still set in the dashboard:
   - `SENTRY_DSN`, for Production only (§3c). Unset, Sentry stays off, so a
     preview never reports.
 
+Billing stays dark until these four are set, for Production only
+(Preview uses Stripe test-mode keys if billing is being tried there):
+
+- `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET`. Any
+  one unset hides the Plan section and makes every billing route answer 503.
+- `SUPABASE_SECRET_KEY`, the project's secret key. **Sensitive**, and the
+  only one here: the Stripe webhook has no user session, so it writes
+  `subscriptions` as `service_role`. Never `NEXT_PUBLIC_`.
+
+In the Stripe dashboard, once:
+
+- A product with one **yearly** price of $40 USD (`docs/positioning.md`);
+  its id is `STRIPE_PRICE_ID`.
+- A webhook endpoint at `https://app.runstint.com/api/v1/billing/webhook`
+  for `checkout.session.completed`, `customer.subscription.*`,
+  `invoice.paid` and `invoice.payment_failed`; its signing secret is
+  `STRIPE_WEBHOOK_SECRET`.
+- Billing → Customer portal: allow cancel at period end, resume, card
+  update and invoice history.
+- Billing → Revenue recovery: Smart Retries, 8 attempts over 2 weeks, then
+  cancel the subscription; emails on failed payment and before renewal.
+- Settings → Public details: the terms URL `https://runstint.com/terms`,
+  which Checkout asks the user to accept.
+- Stripe Tax stays off (no sales tax at launch).
+
 `SUPABASE_DB_URL` does **not** belong here. The app never uses it; only the
 migration scripts do, and they run in Actions.
 
