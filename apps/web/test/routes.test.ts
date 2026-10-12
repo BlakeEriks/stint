@@ -14,6 +14,8 @@ import assert from 'node:assert/strict';
 import pg from 'pg';
 import { makeDb } from './shim.mjs';
 import { fill } from './fill.ts';
+import Stripe from 'stripe';
+import { fakeStripe, subscription } from './fake-stripe.ts';
 
 const USER = '11111111-1111-1111-1111-111111111111';
 const OTHER = '22222222-2222-2222-2222-222222222222';
@@ -37,6 +39,7 @@ after(async () => {
 
 beforeEach(async () => {
   await pool.query('delete from feedback');
+  await pool.query('delete from subscriptions');
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
   // Detach first: the immutability trigger refuses to delete an entry that
@@ -58,7 +61,26 @@ beforeEach(async () => {
     [USER],
   );
   (globalThis as any).__TEST_DB__ = makeDb(pool, USER);
+  // Billing starts unconfigured, as every deploy does; `configureBilling()`
+  // turns it on per test.
+  for (const k of STRIPE_ENV) delete process.env[k];
+  stripeFake = fakeStripe();
+  (globalThis as any).__TEST_STRIPE__ = stripeFake.client;
 });
+
+const STRIPE_ENV = [
+  'STRIPE_SECRET_KEY',
+  'STRIPE_PRICE_ID',
+  'STRIPE_WEBHOOK_SECRET',
+] as const;
+const WEBHOOK_SECRET = 'whsec_test';
+let stripeFake: ReturnType<typeof fakeStripe>;
+
+const configureBilling = () => {
+  process.env.STRIPE_SECRET_KEY = 'sk_test_unused';
+  process.env.STRIPE_PRICE_ID = 'price_yearly';
+  process.env.STRIPE_WEBHOOK_SECRET = WEBHOOK_SECRET;
+};
 
 const req = (url: string, body?: unknown, method = 'GET') =>
   new Request(`http://t${url}`, {
@@ -3374,4 +3396,374 @@ test('a retried feedback send stores one message', async () => {
   assert.equal(again.status, 200);
   assert.deepEqual(again.body, { id: FEEDBACK.id });
   assert.equal((await feedbackRows()).length, 1);
+});
+
+// ── billing ────────────────────────────────────────────────────────
+const subscriptionRows = async () =>
+  (
+    await pool.query(
+      `select user_id, stripe_customer_id, stripe_subscription_id, status,
+              current_period_end, cancel_at_period_end
+       from subscriptions order by user_id`,
+    )
+  ).rows;
+
+/** A Stripe event, signed as Stripe signs it, delivered to the webhook. */
+const deliver = async (
+  type: string,
+  object: Record<string, unknown>,
+  signature?: string,
+) => {
+  const { POST } = await import('../src/app/api/v1/billing/webhook/route.ts');
+  const payload = JSON.stringify({
+    id: `evt_${type}`,
+    object: 'event',
+    type,
+    data: { object },
+  });
+  return POST(
+    new Request('http://t/billing/webhook', {
+      method: 'POST',
+      headers: {
+        'stripe-signature':
+          signature ??
+          Stripe.webhooks.generateTestHeaderString({
+            payload,
+            secret: WEBHOOK_SECRET,
+          }),
+      },
+      body: payload,
+    }),
+  );
+};
+
+const billing = async () => {
+  const { GET } = await import('../src/app/api/v1/billing/route.ts');
+  return json(await GET(req('/billing')));
+};
+
+test('billing reads free with no subscription, and says whether Stripe is set up', async () => {
+  const free = {
+    available: false,
+    plan: 'free',
+    status: null,
+    periodEnd: null,
+    cancelAtPeriodEnd: false,
+    paymentFailed: false,
+  };
+  assert.deepEqual(await billing(), { status: 200, body: free });
+  configureBilling();
+  assert.deepEqual((await billing()).body, { ...free, available: true });
+});
+
+test('every billing write answers 503 until Stripe is set up', async () => {
+  const { POST: checkout } = await import(
+    '../src/app/api/v1/billing/checkout/route.ts'
+  );
+  const { POST: portal } = await import(
+    '../src/app/api/v1/billing/portal/route.ts'
+  );
+  const { POST: sync } = await import(
+    '../src/app/api/v1/billing/sync/route.ts'
+  );
+  for (const res of [
+    await checkout(req('/billing/checkout', {})),
+    await portal(req('/billing/portal', {})),
+    await sync(req('/billing/sync', { sessionId: 'cs_1' })),
+  ]) {
+    assert.equal(res.status, 503);
+    assert.equal((await res.json()).code, 'BILLING_UNAVAILABLE');
+  }
+  assert.equal(
+    (await deliver('invoice.paid', { customer: 'cus_1' })).status,
+    503,
+  );
+  assert.equal(stripeFake.state.created.length, 0);
+});
+
+test('the webhook refuses a missing or forged signature and changes nothing', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  const { POST } = await import('../src/app/api/v1/billing/webhook/route.ts');
+  const unsigned = await POST(
+    new Request('http://t/billing/webhook', { method: 'POST', body: '{}' }),
+  );
+  assert.equal(unsigned.status, 400);
+  const forged = await deliver(
+    'customer.subscription.updated',
+    { customer: 'cus_1' },
+    Stripe.webhooks.generateTestHeaderString({
+      payload: '{}',
+      secret: 'whsec_someone_else',
+    }),
+  );
+  assert.equal(forged.status, 400);
+  assert.deepEqual(await subscriptionRows(), []);
+});
+
+test('a subscription event stores what Stripe says now, for the user in its metadata', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  const res = await deliver('customer.subscription.created', {
+    customer: 'cus_1',
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await subscriptionRows(), [
+    {
+      user_id: USER,
+      stripe_customer_id: 'cus_1',
+      stripe_subscription_id: 'sub_1',
+      status: 'active',
+      current_period_end: new Date(1_830_000_000 * 1000)
+        .toISOString()
+        .replace('T', ' ')
+        .replace('.000Z', '+00'),
+      cancel_at_period_end: false,
+    },
+  ]);
+  const read = await billing();
+  assert.equal(read.body.plan, 'paid');
+  assert.equal(
+    read.body.periodEnd,
+    new Date(1_830_000_000 * 1000).toISOString(),
+  );
+});
+
+test('the same event twice leaves the same one row', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  await deliver('invoice.paid', { customer: 'cus_1' });
+  const once = await subscriptionRows();
+  await deliver('invoice.paid', { customer: 'cus_1' });
+  assert.deepEqual(await subscriptionRows(), once);
+  assert.equal(once.length, 1);
+});
+
+test('an old event arriving late still leaves the current state', async () => {
+  configureBilling();
+  const sub = subscription({ userId: USER });
+  stripeFake.state.subscriptions.push(sub);
+  sub.status = 'canceled';
+  await deliver('customer.subscription.deleted', { customer: 'cus_1' });
+  // The `created` event, delayed past the cancel, carries an active payload.
+  await deliver('customer.subscription.created', {
+    customer: 'cus_1',
+    status: 'active',
+  });
+  assert.equal((await subscriptionRows())[0].status, 'canceled');
+  assert.equal((await billing()).body.plan, 'free');
+});
+
+test('a cancel at period end stays paid, and says when it ends', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(
+    subscription({ userId: USER, cancel_at: 1_820_000_000 }),
+  );
+  await deliver('customer.subscription.updated', { customer: 'cus_1' });
+  const read = (await billing()).body;
+  assert.equal(read.plan, 'paid');
+  assert.equal(read.cancelAtPeriodEnd, true);
+  assert.equal(read.periodEnd, new Date(1_820_000_000 * 1000).toISOString());
+});
+
+test('a failed renewal keeps the plan paid and says the payment failed', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(
+    subscription({ userId: USER, status: 'past_due' }),
+  );
+  await deliver('invoice.payment_failed', { customer: 'cus_1' });
+  const read = (await billing()).body;
+  assert.equal(read.plan, 'paid');
+  assert.equal(read.paymentFailed, true);
+});
+
+test('a current subscription wins over an older canceled one', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(
+    subscription({ id: 'sub_old', userId: USER, status: 'canceled' }),
+    subscription({ id: 'sub_new', userId: USER }),
+  );
+  await deliver('customer.subscription.created', { customer: 'cus_1' });
+  assert.equal((await subscriptionRows())[0].stripe_subscription_id, 'sub_new');
+});
+
+test('an event for a customer with no subscription of ours is acknowledged and ignored', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(
+    subscription({ customer: 'cus_stranger' }),
+  );
+  const unknown = await deliver('invoice.paid', { customer: 'cus_nobody' });
+  assert.equal(unknown.status, 200);
+  const noMetadata = await deliver('invoice.paid', {
+    customer: 'cus_stranger',
+  });
+  assert.equal(noMetadata.status, 200);
+  const unrelated = await deliver('charge.refunded', { customer: 'cus_1' });
+  assert.equal(unrelated.status, 200);
+  assert.deepEqual(await subscriptionRows(), []);
+});
+
+test('an event for a deleted account is acknowledged, so Stripe stops retrying', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(
+    subscription({ userId: '99999999-9999-9999-9999-999999999999' }),
+  );
+  const res = await deliver('customer.subscription.deleted', {
+    customer: 'cus_1',
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await subscriptionRows(), []);
+});
+
+test('checkout opens Stripe for the yearly price, with the user and the renewal stated', async () => {
+  configureBilling();
+  const { POST } = await import('../src/app/api/v1/billing/checkout/route.ts');
+  const res = await json(await POST(req('/billing/checkout', {})));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.url, 'https://checkout.stripe.test/1');
+  const params = stripeFake.state.created[0] as any;
+  assert.equal(params.mode, 'subscription');
+  assert.deepEqual(params.line_items, [{ price: 'price_yearly', quantity: 1 }]);
+  assert.equal(params.client_reference_id, USER);
+  assert.deepEqual(params.subscription_data, { metadata: { user_id: USER } });
+  assert.equal(params.customer, undefined, 'a first checkout makes a customer');
+  assert.deepEqual(params.consent_collection, { terms_of_service: 'required' });
+  assert.match(params.custom_text.submit.message, /Renews every year/);
+  assert.equal(params.automatic_tax, undefined, 'no sales tax at launch');
+  assert.equal(
+    params.success_url,
+    'http://t/settings?checkout={CHECKOUT_SESSION_ID}',
+  );
+  assert.equal(params.cancel_url, 'http://t/settings');
+});
+
+test("checkout reuses a returning subscriber's customer, and refuses a paid one", async () => {
+  configureBilling();
+  const { POST } = await import('../src/app/api/v1/billing/checkout/route.ts');
+  await pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_back', 'sub_gone', 'canceled', now())`,
+    [USER],
+  );
+  await POST(req('/billing/checkout', {}));
+  assert.equal((stripeFake.state.created[0] as any).customer, 'cus_back');
+
+  await pool.query(`update subscriptions set status = 'active'`);
+  const paid = await json(await POST(req('/billing/checkout', {})));
+  assert.equal(paid.status, 409);
+  assert.equal(paid.body.code, 'ALREADY_SUBSCRIBED');
+  assert.equal(stripeFake.state.created.length, 1);
+});
+
+test('back from checkout, sync stores the paid plan without waiting on the webhook', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  stripeFake.state.sessions.set('cs_mine', {
+    id: 'cs_mine',
+    client_reference_id: USER,
+    customer: 'cus_1',
+  });
+  const { POST } = await import('../src/app/api/v1/billing/sync/route.ts');
+  const res = await json(
+    await POST(req('/billing/sync', { sessionId: 'cs_mine' })),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.plan, 'paid');
+  assert.equal((await subscriptionRows()).length, 1);
+});
+
+test("sync answers another user's or an unknown checkout as not found", async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: OTHER }));
+  stripeFake.state.sessions.set('cs_theirs', {
+    id: 'cs_theirs',
+    client_reference_id: OTHER,
+    customer: 'cus_1',
+  });
+  const { POST } = await import('../src/app/api/v1/billing/sync/route.ts');
+  for (const sessionId of ['cs_theirs', 'cs_missing']) {
+    const res = await json(await POST(req('/billing/sync', { sessionId })));
+    assert.equal(res.status, 404);
+    assert.equal(res.body.code, 'CHECKOUT_NOT_FOUND');
+  }
+  assert.deepEqual(await subscriptionRows(), []);
+});
+
+test('the portal opens for the stored customer, and refuses with none', async () => {
+  configureBilling();
+  const { POST } = await import('../src/app/api/v1/billing/portal/route.ts');
+  const none = await json(await POST(req('/billing/portal', {})));
+  assert.equal(none.status, 409);
+  assert.equal(none.body.code, 'NOT_SUBSCRIBED');
+
+  await pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_1', 'sub_1', 'active', now())`,
+    [USER],
+  );
+  const res = await json(await POST(req('/billing/portal', {})));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.url, 'https://billing.stripe.test/session');
+  assert.deepEqual(stripeFake.state.portals, [
+    { customer: 'cus_1', return_url: 'http://t/settings' },
+  ]);
+});
+
+test('deleting an account cancels its subscription first, and keeps the account if Stripe refuses', async () => {
+  configureBilling();
+  const { DELETE } = await import('../src/app/api/v1/account/route.ts');
+  await pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_1', 'sub_1', 'active', now())`,
+    [USER],
+  );
+  // The shim cannot run `delete_account()` as a signed-in user; what this
+  // asserts is the order: Stripe first, and no deletion past a failure.
+  const deleted: string[] = [];
+  const db = makeDb(pool, USER);
+  (globalThis as any).__TEST_DB__ = {
+    ...db,
+    rpc: async (fn: string) => {
+      deleted.push(fn);
+      return { data: null, error: null };
+    },
+  };
+
+  stripeFake.state.failCancel = true;
+  assert.equal(
+    (await DELETE(req('/account', undefined, 'DELETE'))).status,
+    500,
+  );
+  assert.deepEqual(deleted, [], 'not deleted while still subscribed');
+
+  stripeFake.state.failCancel = false;
+  assert.equal(
+    (await DELETE(req('/account', undefined, 'DELETE'))).status,
+    204,
+  );
+  assert.deepEqual(stripeFake.state.canceled, ['sub_1']);
+  assert.deepEqual(deleted, ['delete_account']);
+});
+
+test('deleting an account with an ended subscription does not call Stripe', async () => {
+  const { DELETE } = await import('../src/app/api/v1/account/route.ts');
+  await pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_1', 'sub_1', 'canceled', now())`,
+    [USER],
+  );
+  const db = makeDb(pool, USER);
+  (globalThis as any).__TEST_DB__ = {
+    ...db,
+    rpc: async () => ({ data: null, error: null }),
+  };
+  assert.equal(
+    (await DELETE(req('/account', undefined, 'DELETE'))).status,
+    204,
+  );
+  assert.deepEqual(stripeFake.state.canceled, []);
 });

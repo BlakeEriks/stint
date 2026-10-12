@@ -6,7 +6,7 @@
  * Swift models honest, but that generator is not written yet.
  */
 
-import { isValidTimeZone } from '@stint/core';
+import { isValidTimeZone, SUBSCRIPTION_STATUSES } from '@stint/core';
 import { z } from 'zod';
 
 export const uuid = z.uuid();
@@ -268,6 +268,25 @@ export const Account = z.object({
   projects: z.number().int().nonnegative(),
   invoices: z.number().int().nonnegative(),
 });
+
+// ── billing ────────────────────────────────────────────────────────
+/** The caller's plan. `available` is false until Stripe is configured. */
+export const Billing = z.object({
+  available: z.boolean(),
+  plan: z.enum(['free', 'paid']),
+  status: z.enum(SUBSCRIPTION_STATUSES).nullable(),
+  periodEnd: iso.nullable(),
+  cancelAtPeriodEnd: z.boolean(),
+  paymentFailed: z.boolean(),
+});
+
+/** Back from Checkout: the session the user just paid. */
+export const BillingSync = z.object({
+  sessionId: z.string().min(1).max(255),
+});
+
+/** Where to send the browser: Checkout or the Customer Portal. */
+export const BillingRedirect = z.object({ url: z.url() });
 
 // ── invoicing ──────────────────────────────────────────────────────
 export const GroupingMode = z.enum([
@@ -951,6 +970,10 @@ export const ErrorCode = z.enum([
   'UNAUTHORIZED',
   'IMPORT_FILE_UNRECOGNIZED',
   'VALIDATION_FAILED',
+  'ALREADY_SUBSCRIBED',
+  'NOT_SUBSCRIBED',
+  'CHECKOUT_NOT_FOUND',
+  'BILLING_UNAVAILABLE',
 ]);
 
 export const ApiError = z.object({
@@ -984,3 +1007,6 @@ export type ComputedLineItem = z.infer<typeof ComputedLineItem>;
 export type StoredLineItem = z.infer<typeof StoredLineItem>;
 export type ApiError = z.infer<typeof ApiError>;
 export type CreateFeedback = z.infer<typeof CreateFeedback>;
+export type Billing = z.infer<typeof Billing>;
+export type BillingSync = z.infer<typeof BillingSync>;
+export type BillingRedirect = z.infer<typeof BillingRedirect>;

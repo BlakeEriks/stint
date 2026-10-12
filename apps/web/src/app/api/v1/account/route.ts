@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
+import { stripe } from '@/lib/stripe';
 import type { Account } from '@stint/schema';
 
 export const dynamic = 'force-dynamic';
@@ -29,9 +30,22 @@ export const GET = handle(async (req: Request) => {
   return NextResponse.json(Object.fromEntries(counts) as Account);
 });
 
+/** Statuses Stripe can still charge, or retry a charge, from. */
+const ENDED = ['canceled', 'incomplete_expired'];
+
 /** Deletes the caller and everything they own — one transaction, no undo. */
 export const DELETE = handle(async (req: Request) => {
   const { db } = await requireSession(req);
+
+  // Cancel at Stripe first: a deleted account must never be charged again,
+  // so if Stripe refuses, the account stays and the user can retry.
+  const { data: sub, error: subError } = await db
+    .from('subscriptions')
+    .select('stripe_subscription_id, status')
+    .maybeSingle();
+  if (subError) throw subError;
+  if (sub && !ENDED.includes(sub.status))
+    await stripe().subscriptions.cancel(sub.stripe_subscription_id);
 
   const { error } = await db.rpc('delete_account');
   if (error) throw error;

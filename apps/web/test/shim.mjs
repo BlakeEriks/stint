@@ -61,11 +61,11 @@ export function makeDb(pool, userId) {
         return api;
       },
       upsert(obj, opts = {}) {
-        if (!opts.ignoreDuplicates)
-          throw new Error('shim: upsert supports ignoreDuplicates only');
         st.op = 'insert';
         st.payload = obj;
         st.onConflict = opts.onConflict ?? 'id';
+        // supabase-js merges unless told to ignore duplicates.
+        st.merge = !opts.ignoreDuplicates;
         return api;
       },
       update(obj) {
@@ -166,9 +166,11 @@ export function makeDb(pool, userId) {
           const tuples = rows
             .map((r) => `(${keys.map((k) => P(r[k])).join(',')})`)
             .join(',');
-          const conflict = st.onConflict
-            ? ` on conflict (${st.onConflict}) do nothing`
-            : '';
+          const conflict = !st.onConflict
+            ? ''
+            : st.merge
+              ? ` on conflict (${st.onConflict}) do update set ${keys.map((k) => `${k} = excluded.${k}`).join(', ')}`
+              : ` on conflict (${st.onConflict}) do nothing`;
           sql = `insert into ${st.table} (${keys.join(',')}) values ${tuples}${conflict} returning ${st.cols}`;
         } else if (st.op === 'update') {
           // SET placeholders must be numbered before the WHERE ones.

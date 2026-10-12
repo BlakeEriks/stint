@@ -69,3 +69,18 @@ export function anonClient(): SupabaseClient {
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 }
+
+/**
+ * The server acting as itself, for a caller with no session: Stripe's
+ * webhook. It bypasses RLS, so only `lib/billing.ts` uses it, and only to
+ * write `subscriptions`, which no user may write. `SUPABASE_SECRET_KEY` is
+ * server-only and never `NEXT_PUBLIC_`.
+ */
+export function serviceClient(): SupabaseClient {
+  return (
+    testDb() ??
+    createClient(env('NEXT_PUBLIC_SUPABASE_URL'), env('SUPABASE_SECRET_KEY'), {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+  );
+}

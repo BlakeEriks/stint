@@ -69,6 +69,7 @@ after(async () => {
 
 beforeEach(async () => {
   await admin.query('delete from feedback');
+  await admin.query('delete from subscriptions');
   await admin.query('update expenses set invoice_id = null');
   await admin.query('delete from expenses');
   await admin.query('update time_entries set invoice_id = null');
@@ -150,6 +151,16 @@ async function seedFeedback() {
   );
 }
 
+/** One subscription each. Only the server writes these. */
+async function seedSubscriptions() {
+  await admin.query(
+    `insert into subscriptions (user_id,stripe_customer_id,stripe_subscription_id,status,current_period_end) values
+       ($1,'cus_alice','sub_alice','canceled',now()),
+       ($2,'cus_bob','sub_bob','active',now())`,
+    [ALICE, BOB],
+  );
+}
+
 // ── reads ──────────────────────────────────────────────────────────
 test('an unfiltered select returns only the caller’s rows', async () => {
   await seedBoth();
@@ -191,6 +202,7 @@ test('every user-scoped table is isolated', async () => {
 
   await seedExpenses();
   await seedFeedback();
+  await seedSubscriptions();
 
   for (const table of [
     'clients',
@@ -201,6 +213,7 @@ test('every user-scoped table is isolated', async () => {
     'user_settings',
     'expenses',
     'feedback',
+    'subscriptions',
   ]) {
     const seen = await asUser(ALICE, `select count(*)::int n from ${table}`);
     const total = await admin.query(`select count(*)::int n from ${table}`);
@@ -356,6 +369,37 @@ test('sent feedback cannot be changed or deleted, even by its sender', async () 
     [ALICE_FEEDBACK],
   );
   assert.equal(rows[0].message, 'Alice says');
+});
+
+test('no user can make themselves paid, or touch a subscription at all', async () => {
+  await seedSubscriptions();
+  // Alice's is canceled. Every way of writing it — or a new one — is refused
+  // on the grant, before any policy runs.
+  for (const sql of [
+    `update subscriptions set status = 'active' where user_id = '${ALICE}'`,
+    `insert into subscriptions (user_id,stripe_customer_id,stripe_subscription_id,status,current_period_end)
+       values ('${ALICE}','cus_x','sub_x','active',now())`,
+    `delete from subscriptions where user_id = '${BOB}'`,
+  ])
+    await assert.rejects(() => asUser(ALICE, sql), /permission denied/i, sql);
+
+  const { rows } = await admin.query(
+    'select user_id, status from subscriptions order by user_id',
+  );
+  assert.deepEqual(rows, [
+    { user_id: ALICE, status: 'canceled' },
+    { user_id: BOB, status: 'active' },
+  ]);
+});
+
+test('another user’s subscription is invisible, even by id', async () => {
+  await seedSubscriptions();
+  const seen = await asUser(
+    ALICE,
+    `select stripe_customer_id from subscriptions where user_id = $1`,
+    [BOB],
+  );
+  assert.deepEqual(seen, []);
 });
 
 // ── references across a tenant boundary ────────────────────────────
