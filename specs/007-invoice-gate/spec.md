@@ -178,8 +178,8 @@ download and view an invoice and open its detail screen.
 - A user cannot mark their own invoice as generated while paying: that
   record is written from the stored subscription, never from what a client
   sends, and cannot be changed afterward.
-- Subscribing unlocks the screen without a reload once the plan is re-read;
-  the server's answer decides either way.
+- Back from Checkout, the invoice screen reads the invoice afresh, so it
+  shows Download PDF and Preview; the server's answer decides either way.
 - A user whose plan read fails sees an error, never a document they aren't
   entitled to and never a false lock that hides their invoice.
 
