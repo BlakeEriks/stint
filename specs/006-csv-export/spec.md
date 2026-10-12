@@ -22,8 +22,14 @@ must be in the entry export, and `0` is a real rate.
 
 Design review: skipped in autonomous run; follows existing screens and
 `.claude/rules/web-ui.md`. The Export section is a Settings section like
-Import beside it: a title, one line of description, and two buttons, each a
-plain download link like the invoice's Download PDF.
+Import beside it: a title, one line of description, and two buttons with the
+Download icon, "Download entries" and "Download invoices".
+
+- **Idle**: both buttons enabled.
+- **Downloading**: the pressed button shows a spinner and "Preparing" and is
+  disabled until the file arrives; the other stays usable.
+- **Failed**: a line under the buttons says the download didn't complete and
+  to try again; the buttons stay enabled.
 
 ## Clarifications
 
