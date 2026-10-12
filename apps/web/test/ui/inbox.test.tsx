@@ -101,6 +101,41 @@ describe('Inbox', () => {
     expect(pdf).not.toHaveTextContent('STINT-0001');
   });
 
+  /* The PDF is the paid tier. The server refuses it either way; the inbox
+     only stops offering a press that would land on a refusal. */
+  it('offers no Download to a free user once billing is set up', async () => {
+    const billing = (available: boolean) => ({
+      available,
+      plan: 'free',
+      status: null,
+      periodEnd: null,
+      cancelAtPeriodEnd: false,
+      paymentFailed: false,
+    });
+    for (const available of [true, false]) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) =>
+          String(url).endsWith('/billing')
+            ? new Response(JSON.stringify(billing(available)))
+            : new Response(JSON.stringify({ projects: [] })),
+        ),
+      );
+      const { unmount } = render(
+        <Inbox stats={stats({ overdueInvoices: [overdue] })} />,
+        { wrapper },
+      );
+      const download = () =>
+        screen.queryByRole('link', { name: 'Download STINT-0001' });
+      if (available) await waitFor(() => expect(download()).toBeNull());
+      else {
+        await waitFor(() => expect(fetch).toHaveBeenCalled());
+        expect(download()).not.toBeNull();
+      }
+      unmount();
+    }
+  });
+
   it('offers nothing destructive', () => {
     render(<Inbox stats={stats({ overdueInvoices: [overdue] })} />, {
       wrapper,

@@ -32,6 +32,9 @@ Settings Plan section and `.claude/rules/web-ui.md`.
   header as today.
 - **Plan section, free**: its description adds that records and their export
   stay free.
+- **Inbox**: a late or stale invoice row offers Download only when the
+  account's plan opens documents; a free user with billing set up gets Mark
+  paid or Mark sent alone, and the invoice's page carries the rest.
 
 ## Clarifications
 
@@ -67,6 +70,13 @@ Settings Plan section and `.claude/rules/web-ui.md`.
   different paid feature; correcting it goes with billing's launch, filed
   as #323, since changing marketing copy now would announce a
   price while billing is dark. (decided autonomously — Blake to review)
+- Q: The inbox's late and stale invoice rows also link the PDF. What do they
+  offer a free user? → A: No Download. The rows don't carry the plan each
+  invoice was generated on, so the inbox decides from the account's plan
+  alone: a canceled user loses the shortcut even for an invoice generated
+  while paying, whose own page still offers it. Found while verifying;
+  adding the stamp to `/stats` wasn't worth it for a shortcut. (decided
+  autonomously — Blake to review)
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -209,6 +219,8 @@ download and view an invoice and open its detail screen.
   downloading the invoice is the paid tier, the price, that tracking and
   their records stay free with exporting included, and lead to the Plan
   section in Settings to subscribe.
+- **FR-012**: Every other place that links the document (the inbox's
+  Download) MUST NOT offer it to a free user once billing is set up.
 - **FR-011**: Invoices generated before billing was set up follow the same
   rule as any other: they open while billing is dark, and once it is live
   only for a paying user.
