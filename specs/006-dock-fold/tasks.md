@@ -15,10 +15,10 @@ Tests: Constitution V. The hook is client logic, tested first in
 
 **Independent test**: On New invoice at `xl`, choose a client, open the Inbox from the strip, press Escape; focus is on the Inbox icon and the client is still chosen.
 
-- [ ] T004 [US1] Create `apps/web/src/components/dock-strip.tsx`: a 44px `aside` ("Inbox and Today"), hidden except `xl:group-has-[[data-workspace]]/app:flex`, with an Inbox ghost icon button carrying the `inboxCount` pill when above zero, `aria-label` "Inbox" or "Inbox, N items", a `title`, and a non-modal Radix `Popover` (`side="left"`, `align="start"`, 286px, elevated surface, scrolls within the available height) holding `<Inbox stats>`; open state from `useDockFold()`
+- [ ] T004 [US1] Create `apps/web/src/components/dock-strip.tsx`: a 44px `aside` ("Inbox and Today"), hidden except `xl:group-has-[[data-workspace]]/app:flex`, with an Inbox ghost icon button carrying the `inboxCount` pill when above zero, `aria-label` "Inbox" or "Inbox, N items", a `title`, and a non-modal Radix `Popover` (`side="left"`, `align="start"`, 286px, elevated surface, scrolls within the available height) holding `<Inbox stats>`; the icon whose region is open shows the pressed state (`data-state=open`); open state from `useDockFold()`
 - [ ] T005 [US1] In `apps/web/src/components/app-shell.tsx`, give a workspace at `xl` a 44px third column and mount `DockStrip` beside `Dock`; in `apps/web/src/components/dock.tsx`, hide the full dock on a workspace at `xl` only, so below `xl` the band shows
-- [ ] T006 [P] [US1] `apps/web/src/components/dock-strip.stories.tsx`: Strip (count shown), Clear (no count), InboxOpen (opens, Escape closes, focus returns), StatsFailed (no count, the open Inbox says it couldn't load) — inside a workspace frame
-- [ ] T007 [US1] Update `apps/web/src/components/app-shell.stories.tsx` Workspace story: at `wide` the strip shows and the full dock doesn't; add WorkspacePhone, where the band shows and the strip doesn't
+- [ ] T006 [P] [US1] `apps/web/src/components/dock-strip.stories.tsx`: Strip (count shown), Clear (no count), InboxOpen (opens with the icon pressed, Escape closes, focus returns to the icon, a press outside closes), StatsFailed (no count, the open Inbox says it couldn't load) — inside a workspace frame
+- [ ] T007 [US1] Update `apps/web/src/components/app-shell.stories.tsx` Workspace story: at `wide` the strip shows, is at most 44px wide (SC-003), and the full dock doesn't; add WorkspacePhone, where the band shows and the strip doesn't
 
 ## Phase 3: User Story 2 - Glance at Today from a workspace (P2)
 
