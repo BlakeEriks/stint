@@ -32,6 +32,10 @@ after(async () => {
 });
 
 beforeEach(async () => {
+  await pool.query('delete from subscriptions');
+  // Billing starts unconfigured, as every deploy does; `configureBilling()`
+  // turns it on per test.
+  for (const k of STRIPE_ENV) delete process.env[k];
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
   await pool.query('update time_entries set invoice_id = null');
@@ -101,6 +105,12 @@ async function seedEntry(opts: {
     ],
   );
 }
+
+const STRIPE_ENV = [
+  'STRIPE_SECRET_KEY',
+  'STRIPE_PRICE_ID',
+  'STRIPE_WEBHOOK_SECRET',
+] as const;
 
 const PERIOD = { periodStart: '2026-09-01', periodEnd: '2026-09-30' };
 const E = (n: number) => `018f0000-0000-7000-8000-00000000000${n}`;
@@ -2662,4 +2672,129 @@ test('an invoice made in the evening west of UTC is dated today, not tomorrow', 
   } finally {
     mock.timers.reset();
   }
+});
+
+// ── the paid tier: the document (#61) ──────────────────────────────
+const configureBilling = () => {
+  process.env.STRIPE_SECRET_KEY = 'sk_test_unused';
+  process.env.STRIPE_PRICE_ID = 'price_yearly';
+  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
+};
+
+/** The stored mirror #60's webhook writes, at `status`. */
+const subscribe = (status: string) =>
+  pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_me', 'sub_me', $2, now() + interval '1 year')
+     on conflict (user_id) do update set status = excluded.status`,
+    [USER, status],
+  );
+
+let entryNo = 0;
+/** A fresh invoice, generated under whatever plan the user has now. */
+async function generate(): Promise<string> {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const n = ++entryNo;
+  await seedEntry({
+    id: `018f0000-0000-7000-8000-0000000f${String(n).padStart(4, '0')}`,
+    start: `2026-09-${String(n).padStart(2, '0')}T09:00:00Z`,
+  });
+  const res = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  return res.body.id;
+}
+
+/** Both dispositions, and what the detail route tells the screen. */
+async function opens(id: string) {
+  const { GET: pdf } = await import(
+    '../src/app/api/v1/invoices/[id]/pdf/route.ts'
+  );
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  const params = { params: Promise.resolve({ id }) };
+  const inline = await pdf(req(`/invoices/${id}/pdf`), params);
+  const saved = await pdf(req(`/invoices/${id}/pdf?download=1`), params);
+  const read = await json(await detail(req(`/invoices/${id}`), params));
+  return {
+    inline: inline.status,
+    download: saved.status,
+    code: inline.status === 402 ? (await inline.json()).code : null,
+    canDownload: read.body.canDownload,
+  };
+}
+
+const OPEN = { inline: 200, download: 200, code: null, canDownload: true };
+const LOCKED = {
+  inline: 402,
+  download: 402,
+  code: 'PAYMENT_REQUIRED',
+  canDownload: false,
+};
+
+test('with billing not set up, every invoice opens, as before', async () => {
+  const id = await generate();
+  assert.deepEqual(await opens(id), OPEN);
+});
+
+test('a free user cannot open the document, saved or viewed', async () => {
+  configureBilling();
+  const id = await generate();
+  assert.deepEqual(await opens(id), LOCKED);
+});
+
+test('previewing and generating stay free', async () => {
+  configureBilling();
+  const { POST: preview } = await import(
+    '../src/app/api/v1/invoices/preview/route.ts'
+  );
+  await seedEntry({ id: E(1) });
+  const res = await preview(
+    req('/invoices/preview', { clientId: CLIENT, ...PERIOD }),
+  );
+  assert.equal(res.status, 200);
+  await generate();
+});
+
+test('a missing invoice is not found, not a paywall', async () => {
+  configureBilling();
+  const { GET: pdf } = await import(
+    '../src/app/api/v1/invoices/[id]/pdf/route.ts'
+  );
+  const res = await pdf(req('/pdf'), {
+    params: Promise.resolve({ id: 'cc000000-0000-4000-8000-0000000000ff' }),
+  });
+  assert.equal(res.status, 404);
+});
+
+test('a paying user opens invoices generated before they paid', async () => {
+  configureBilling();
+  const id = await generate();
+  for (const status of ['active', 'past_due']) {
+    await subscribe(status);
+    assert.deepEqual(await opens(id), OPEN, status);
+  }
+});
+
+test('canceling never locks an invoice generated while paying', async () => {
+  configureBilling();
+  await subscribe('active');
+  const whilePaid = await generate();
+  await subscribe('canceled');
+  const afterwards = await generate();
+
+  assert.deepEqual(await opens(whilePaid), OPEN);
+  assert.deepEqual(await opens(afterwards), LOCKED);
+});
+
+test('an invoice generated while free locks again when the paid plan ends', async () => {
+  configureBilling();
+  const id = await generate();
+  await subscribe('active');
+  assert.deepEqual(await opens(id), OPEN);
+  await subscribe('canceled');
+  assert.deepEqual(await opens(id), LOCKED);
 });

@@ -294,10 +294,12 @@ export interface InvoiceRow {
   sent_at: string | null;
   paid_at: string | null;
   created_at: string;
+  /** The plan at generation; read only by the document gate (#61). */
+  issued_subscription_status: SubscriptionStatus | null;
 }
 
 export const INVOICE_COLUMNS = columns<InvoiceRow>()(
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, supporting_detail, payment_details, sent_at, paid_at, created_at',
+  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, supporting_detail, payment_details, sent_at, paid_at, created_at, issued_subscription_status',
 );
 
 export function toInvoice(r: InvoiceRow) {

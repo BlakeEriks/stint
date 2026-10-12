@@ -1,4 +1,4 @@
-import { handle } from '@/lib/errors';
+import { ApiError, handle } from '@/lib/errors';
 import { requireSession } from '@/lib/auth';
 import { loadPdfData } from '@/lib/invoicing';
 
@@ -15,13 +15,19 @@ type Ctx = { params: Promise<{ id: string }> };
  *
  * This is how an invoice reaches a client: the user downloads it and emails
  * it themselves, from their own address. `?download=1` forces a save rather
- * than a browser preview.
+ * than a browser preview. Both are the document, so both are the paid tier
+ * (#61): gating only the download would leave the viewer's save button.
  */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
   const { id } = await ctx.params;
 
-  const { invoice, pdfData } = await loadPdfData(db, id);
+  const { invoice, pdfData, canDownload } = await loadPdfData(db, id);
+  if (!canDownload)
+    throw new ApiError(
+      'PAYMENT_REQUIRED',
+      'Downloading an invoice is on the paid plan. Subscribe in Settings.',
+    );
   const download = new URL(req.url).searchParams.get('download') === '1';
 
   // Imported dynamically: the renderer module is JSX, and deferring it keeps
