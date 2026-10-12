@@ -28,8 +28,9 @@ Consequences worth knowing:
   subdomain, so the pitch never reads one and never renders per-request — do
   not add a session check to it.
 - **Cross-origin links are plain `<a>`, not `next/link`.** `next/link` would
-  try to route a subdomain jump client-side within the current origin. The CTA
-  and the Sign in link both point at `NEXT_PUBLIC_APP_ORIGIN`.
+  try to route a subdomain jump client-side within the current origin. The
+  header's Sign in link points at `NEXT_PUBLIC_APP_ORIGIN`; the calls to
+  action are the invite form, which posts to `NEXT_PUBLIC_INVITE_FORM_URL`.
 - **Locally, bare `localhost` is the app**, so `pnpm dev` is unchanged. Any
   other `*.localhost` is the apex — `http://stint.localhost:3100` previews the
   landing page with no hosts-file entry, because browsers resolve every
@@ -45,8 +46,9 @@ because the reader is trusting it with their rates: the invoice is shown
 rather than described, and a competitor's bill is named but never the
 competitor. Its current conventions, which a redesign may change:
 
-**Green marks the hero timer and the CTA**, one fact: start tracking, time
-accruing. The unbilled card, the invoice and the headings are neutral.
+**Green marks the hero timer and the invite button**, the action the page
+exists to complete. The unbilled card, the invoice and the headings are
+neutral.
 
 **Banned words**, because each carries no information or the wrong audience:
 seamless, effortless, powerful, intuitive; beautiful, well-designed;
