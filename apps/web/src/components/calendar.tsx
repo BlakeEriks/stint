@@ -97,8 +97,7 @@ export function Calendar() {
 
   /* The Inbox's own answer, from the query the folded dock already runs, so
      a mark and an Inbox row can't disagree. A calendar edit refetches it, so
-     a mark arrives and clears with the save. Without it the grid is still
-     right, only unmarked; the strip says the Inbox failed. */
+     a mark arrives and clears with the save. */
   const stats = useQuery({
     queryKey: keys.stats(tz),
     queryFn: () => api.stats(tz),

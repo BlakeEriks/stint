@@ -213,9 +213,6 @@ export const EditEntry: Story = {
   },
 };
 
-/* Suspect entries: a block the Inbox doubts is marked in place, never
-   corrected (Constitution I). */
-
 /** Today's entries for a story, ids clear of the seed's. */
 const todayEntry = (
   db: { now: Date; entries: ReturnType<typeof entry>[] },

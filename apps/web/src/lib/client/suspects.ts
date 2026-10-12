@@ -10,7 +10,6 @@ export function overlapped(o: Attention['overlaps'][number]) {
   }`;
 }
 
-/** A strange-duration row's qualifier: which threshold it tripped. */
 export function lengthReason(kind: 'short' | 'long') {
   return kind === 'short' ? 'unusually short' : 'unusually long';
 }
