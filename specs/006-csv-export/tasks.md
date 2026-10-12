@@ -30,7 +30,7 @@ tested first, and each visible state has a story.
 
 **Independent test**: with entries at every rate level, a `0` rate and no rate, the entries file carries each entry's hours, rate, source and amount as an invoice would bill them.
 
-- [ ] T011 [US2] Write failing tests for `entriesCsv(data, tz)` in `packages/core/test/export.test.ts`: header `Date, Start, End, Hours, Client, Project, Task, Billable, Rate, Rate source, Amount, Currency, Invoice`; running entries left out; oldest first; rate precedence entry > project > client > default; `0` exports `0.00` rate and `0.00` amount; no rate exports empty rate and amount with source `none`; non-billable has empty amount; 20 minutes at 100 is `0.33` hours and `33.00`; invoice number, `Invoiced elsewhere`, or empty; no project means empty client and project; client currency over the user's; local date and `9:05 AM` times in `tz`
+- [ ] T011 [US2] Write failing tests for `entriesCsv(data, tz)` in `packages/core/test/export.test.ts`: header `Date, Start, End, Hours, Client, Project, Task, Billable, Rate, Rate source, Amount, Currency, Invoice`; running entries left out; oldest first; rate precedence entry > project > client > default; `0` exports `0.00` rate and `0.00` amount; no rate exports empty rate and amount with source `none`; non-billable has empty amount; 20 minutes at 100 is `0.33` hours and `33.00`; invoice number, `Invoiced elsewhere`, or empty; no project means empty client and project; client currency over the user's; local date and `9:05 AM` times in `tz`, with a plain space before AM/PM (Intl's narrow no-break space doesn't read as a time in spreadsheets)
 - [ ] T012 [US2] Implement `entriesCsv` in `packages/core/src/export.ts` with `resolveRate`, `resolveRateSource` and `billedAmount`
 - [ ] T013 [US2] Write failing route tests in `apps/web/test/routes.test.ts` for `GET /api/v1/exports/entries`: a `0` project rate exports `0.00`, an invoiced entry names its invoice, past the 1,000-row page every entry is present, a running entry is absent, another user's entry is absent
 - [ ] T014 [US2] Implement `apps/web/src/app/api/v1/exports/entries/route.ts`: read finished entries (with `invoiced_elsewhere`), projects, clients, invoice numbers and the user's default rate and currency with `selectAll`, hand them to `entriesCsv`, answer with `csvResponse`
@@ -40,7 +40,7 @@ tested first, and each visible state has a story.
 **Independent test**: Settings shows an Export section with both downloads; a press shows pending, saves the file, and a failure says so.
 
 - [ ] T015 [US3] Add `exportCsv(kind, tz)` to `apps/web/src/lib/client/api.ts`, returning the blob and the filename from `Content-Disposition`, and throwing `ApiError` on a non-2xx
-- [ ] T016 [US3] Write failing tests for `useDownload` in `apps/web/test/ui/use-download.test.tsx`: pending while the fetch runs, the file saved under the server's filename, a failure sets `failed` and clears pending, a second press clears the failure
+- [ ] T016 [US3] Write failing tests for `useDownload` in `apps/web/test/ui/use-download.test.tsx`: pending while the fetch runs, the file saved under the server's filename, an `ApiError` or a network `TypeError` sets `failed` and clears pending, any other error is rethrown (constitution: never swallow the unexpected), a second press clears the failure
 - [ ] T017 [US3] Implement `useDownload` in `apps/web/src/lib/client/use-download.ts`
 - [ ] T018 [P] [US3] Add `exportEntries` and `exportInvoices` handlers to `apps/web/src/mocks/handlers.ts`, building the file with `entriesCsv`/`invoicesCsv` from the mock account
 - [ ] T019 [US3] Build `ExportSection` in `apps/web/src/components/export-section.tsx` (title "Export", description, "Download entries" and "Download invoices" with the `Download` icon, `Loader2` and "Preparing" while pending, an inline failure line) and mount it after Import in `apps/web/src/components/settings-page.tsx`
@@ -49,7 +49,7 @@ tested first, and each visible state has a story.
 ## Phase 6: Polish
 
 - [ ] T021 Run `pnpm lint`, `pnpm typecheck`, core tests, web route tests, `test:ui`, `test:stories`
-- [ ] T022 Sign in to local dev as the seeded account and download both files from Settings
+- [ ] T022 Time the entries route on an account past 10,000 entries (SC-004) and confirm reads only (FR-012: the route handlers call no insert, update or delete). Sign in to local dev as the seeded account and download both files from Settings
 - [ ] T023 Mention exports where `docs/` lists the API or Settings, if any doc owns it (`/doc-drift` on the branch)
 
 ## Dependencies
