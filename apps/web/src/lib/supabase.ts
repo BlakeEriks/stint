@@ -71,10 +71,8 @@ export function anonClient(): SupabaseClient {
 }
 
 /**
- * The server acting as itself, for a caller with no session: Stripe's
- * webhook. It bypasses RLS, so only `lib/billing.ts` uses it, and only to
- * write `subscriptions`, which no user may write. `SUPABASE_SECRET_KEY` is
- * server-only and never `NEXT_PUBLIC_`.
+ * Bypasses RLS: only for writing `subscriptions`, which no user may write.
+ * `SUPABASE_SECRET_KEY` is server-only, never `NEXT_PUBLIC_`.
  */
 export function serviceClient(): SupabaseClient {
   return (

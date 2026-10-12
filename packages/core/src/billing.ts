@@ -30,3 +30,8 @@ export function planOf(status: SubscriptionStatus | null): Plan {
 export function paymentFailed(status: SubscriptionStatus | null): boolean {
   return status === 'past_due' || status === 'unpaid';
 }
+
+/** Stripe can no longer charge, or retry a charge, from these. */
+export function hasEnded(status: SubscriptionStatus): boolean {
+  return status === 'canceled' || status === 'incomplete_expired';
+}

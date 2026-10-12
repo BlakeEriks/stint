@@ -3603,16 +3603,44 @@ test('an event for a customer with no subscription of ours is acknowledged and i
   assert.deepEqual(await subscriptionRows(), []);
 });
 
-test('an event for a deleted account is acknowledged, so Stripe stops retrying', async () => {
+test('a subscription whose account is gone is canceled at Stripe, never charged again', async () => {
   configureBilling();
+  // Paid, then the account deleted before any sync wrote the row, so
+  // DELETE /account had nothing to cancel.
   stripeFake.state.subscriptions.push(
     subscription({ userId: '99999999-9999-9999-9999-999999999999' }),
   );
-  const res = await deliver('customer.subscription.deleted', {
+  const res = await deliver('customer.subscription.created', {
     customer: 'cus_1',
   });
   assert.equal(res.status, 200);
+  assert.deepEqual(stripeFake.state.canceled, ['sub_1']);
   assert.deepEqual(await subscriptionRows(), []);
+
+  // Its own `deleted` event then finds it ended, and cancels nothing more.
+  await deliver('customer.subscription.deleted', { customer: 'cus_1' });
+  assert.deepEqual(stripeFake.state.canceled, ['sub_1']);
+});
+
+test('a second customer paying for the same user does not replace the first', async () => {
+  configureBilling();
+  // Two payment pages completed at once, each making its own customer.
+  const first = subscription({ id: 'sub_a', customer: 'cus_a', userId: USER });
+  stripeFake.state.subscriptions.push(
+    first,
+    subscription({ id: 'sub_b', customer: 'cus_b', userId: USER }),
+  );
+  await deliver('customer.subscription.created', { customer: 'cus_a' });
+  await deliver('customer.subscription.created', { customer: 'cus_b' });
+  const rows = await subscriptionRows();
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].stripe_customer_id, 'cus_a');
+
+  // Once the first has ended, the second is the user's subscription.
+  first.status = 'canceled';
+  await deliver('customer.subscription.deleted', { customer: 'cus_a' });
+  await deliver('invoice.paid', { customer: 'cus_b' });
+  assert.equal((await subscriptionRows())[0].stripe_customer_id, 'cus_b');
 });
 
 test('checkout opens Stripe for the yearly price, with the user and the renewal stated', async () => {

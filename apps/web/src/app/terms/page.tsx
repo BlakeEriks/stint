@@ -48,11 +48,6 @@ export default function Page() {
         </p>
       </Clause>
 
-      {/* BILLING — a first draft, NOT reviewed by a lawyer. Written to
-          the FTC's negative-option guidance and California's automatic
-          renewal law, the strictest state rule. The refund window, price
-          notice and tax stance are decisions Blake reviews
-          (specs/006-billing/spec.md, Clarifications). */}
       <Clause heading="Price and billing">
         <p>
           Tracking time is free. Downloading invoices needs the paid plan, which

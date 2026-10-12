@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  hasEnded,
   paymentFailed,
   planOf,
   SUBSCRIPTION_STATUSES,
@@ -34,4 +35,9 @@ test('a payment has failed while past due or unpaid', () => {
   assert.equal(paymentFailed('active'), false);
   assert.equal(paymentFailed('canceled'), false);
   assert.equal(paymentFailed(null), false);
+});
+
+test('only a canceled or expired subscription has ended', () => {
+  const ended = SUBSCRIPTION_STATUSES.filter(hasEnded);
+  assert.deepEqual(ended, ['incomplete_expired', 'canceled']);
 });

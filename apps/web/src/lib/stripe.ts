@@ -9,8 +9,7 @@ export interface BillingConfig {
 
 /**
  * Stripe's settings, or null until all three are set. Null keeps billing
- * dark: every billing write answers 503 and Settings shows no Plan section,
- * so merging this changes nothing until Blake configures Stripe.
+ * dark: every billing write answers 503 and Settings shows no Plan section.
  */
 export function billingConfig(): BillingConfig | null {
   const secretKey = process.env.STRIPE_SECRET_KEY;
