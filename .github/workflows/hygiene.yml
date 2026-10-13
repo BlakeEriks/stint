@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with: { node-version: '24', cache: 'pnpm' }
       - run: pnpm install --frozen-lockfile
 
@@ -60,7 +60,7 @@ jobs:
 
       # Pinned: this step holds the Claude token.
       - if: steps.scan.outputs.files != '0'
-        uses: anthropics/claude-code-action@6c690188da61cf16ee7debb28383ba67f02abb4c # v1.0.242
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
