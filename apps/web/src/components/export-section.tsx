@@ -12,7 +12,7 @@ export function ExportSection() {
   return (
     <Section
       title="Export"
-      description="Your entries and invoices as CSV files, for your accountant, a spreadsheet or another tool."
+      description="Your entries and invoices as CSV files"
     >
       <div className="flex flex-wrap gap-2">
         <ExportButton label="Download entries" {...entries} />
