@@ -13,7 +13,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 46 of 46, counting handlers rather than files.
+Every handler is covered — 48 of 48, counting handlers rather than files.
 
 ## Timer
 
@@ -361,6 +361,10 @@ parameter (IANA, e.g. `America/Sao_Paulo`). "Today" is a local-calendar
 question and the server cannot infer the caller's zone, so the client states
 it; an invalid zone falls back to UTC rather than failing the request, because
 a view that renders in the wrong zone beats a view that does not render.
+
+`GET /exports/entries` and `GET /exports/invoices` fall back the same way. The
+zone dates each row and names the file, but every record is in the file
+whatever the zone, so a wrong zone shifts dates rather than dropping work.
 
 **The invoicing routes reject an invalid one instead.** `POST /invoices/preview`
 and `POST /invoices` resolve the billing period in `tz`, and `POST /invoices`
