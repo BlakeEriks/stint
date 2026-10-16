@@ -35,3 +35,20 @@ export function paymentFailed(status: SubscriptionStatus | null): boolean {
 export function hasEnded(status: SubscriptionStatus): boolean {
   return status === 'canceled' || status === 'incomplete_expired';
 }
+
+/**
+ * Whether an invoice's PDF opens: the document is the paid tier.
+ * Open while billing isn't set up, so an unconfigured deploy gates nothing;
+ * for a paying user; and for an invoice generated while paying, so canceling
+ * never locks what was billed on the paid plan. `issuedStatus` is the
+ * subscription status the database stamped on the invoice at generation.
+ */
+export function documentOpens(
+  billingAvailable: boolean,
+  plan: Plan,
+  issuedStatus: SubscriptionStatus | null,
+): boolean {
+  return (
+    !billingAvailable || plan === 'paid' || planOf(issuedStatus) === 'paid'
+  );
+}

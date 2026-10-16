@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  documentOpens,
   hasEnded,
   paymentFailed,
   planOf,
@@ -40,4 +41,23 @@ test('a payment has failed while past due or unpaid', () => {
 test('only a canceled or expired subscription has ended', () => {
   const ended = SUBSCRIPTION_STATUSES.filter(hasEnded);
   assert.deepEqual(ended, ['incomplete_expired', 'canceled']);
+});
+
+test('every invoice document opens while billing is not set up', () => {
+  assert.equal(documentOpens(false, 'free', null), true);
+  assert.equal(documentOpens(false, 'free', 'canceled'), true);
+});
+
+test('a paying user opens every invoice, whenever it was generated', () => {
+  assert.equal(documentOpens(true, 'paid', null), true);
+});
+
+test('an invoice generated while paying opens after the paid plan ends', () => {
+  for (const s of ['active', 'trialing', 'past_due'] as const)
+    assert.equal(documentOpens(true, 'free', s), true, s);
+});
+
+test('a free user cannot open an invoice generated while free', () => {
+  for (const s of [null, 'canceled', 'unpaid', 'incomplete'] as const)
+    assert.equal(documentOpens(true, 'free', s), false, String(s));
 });

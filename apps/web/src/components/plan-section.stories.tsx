@@ -42,12 +42,14 @@ const plan = async (canvasElement: HTMLElement) => {
   return within(heading.closest('section') as HTMLElement);
 };
 
-/** Free: the price, what paid adds, and Subscribe. */
+/** Free: the price, what paid adds, that the records and their export stay
+    free, and Subscribe. */
 export const Free: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const section = await plan(canvasElement);
     await expect(section.getByText(/\$40 a year/)).toBeVisible();
+    await expect(section.getByText(/exporting them included/)).toBeVisible();
     await expect(
       section.getByRole('button', { name: 'Subscribe' }),
     ).toBeEnabled();

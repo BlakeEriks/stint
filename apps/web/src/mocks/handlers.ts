@@ -1,5 +1,6 @@
 import {
   buildPreview,
+  documentOpens,
   entriesCsv,
   invoicesCsv,
   measured,
@@ -422,9 +423,12 @@ export const handlers = {
     const client = byId(db.clients, invoice?.clientId);
     if (!invoice || !client) return fail('ENTRY_NOT_FOUND');
     const { id, name, email, address } = client;
+    // The fake keeps no plan per invoice: the account's plan decides.
+    const { available, plan } = db.billing;
     return ok(invoiceDetail, {
       ...invoice,
       client: { id, name, email, address },
+      canDownload: documentOpens(available, plan, null),
     });
   }),
 

@@ -402,6 +402,44 @@ test('another user’s subscription is invisible, even by id', async () => {
   assert.deepEqual(seen, []);
 });
 
+test('an invoice carries the plan it was generated on, and no user can claim another', async () => {
+  await seedBoth();
+  await seedSubscriptions();
+  const insert = (user: string, client: string, id: string) =>
+    asUser(
+      user,
+      `insert into invoices (id,user_id,client_id,invoice_number,sequence_no,period_start,period_end,issued_subscription_status)
+       values ('${id}','${user}','${client}','INV-0001',1,'2026-09-01','2026-09-30','active')`,
+    );
+  // Alice's subscription is canceled; she claims `active` and gets her own.
+  await insert(
+    ALICE,
+    'cc000000-0000-4000-8000-00000000000a',
+    'aa000000-0000-4000-8000-00000000000a',
+  );
+  await insert(
+    BOB,
+    'cc000000-0000-4000-8000-00000000000b',
+    'aa000000-0000-4000-8000-00000000000b',
+  );
+  await assert.rejects(
+    () =>
+      asUser(
+        ALICE,
+        `update invoices set issued_subscription_status = 'active' where user_id = '${ALICE}'`,
+      ),
+    /keeps the plan it was generated on/,
+  );
+
+  const { rows } = await admin.query(
+    'select user_id, issued_subscription_status from invoices order by user_id',
+  );
+  assert.deepEqual(rows, [
+    { user_id: ALICE, issued_subscription_status: 'canceled' },
+    { user_id: BOB, issued_subscription_status: 'active' },
+  ]);
+});
+
 // ── references across a tenant boundary ────────────────────────────
 // RLS scopes what a query can SEE. It says nothing about what a row may
 // POINT AT, so these are a foreign key's job rather than a policy's — and

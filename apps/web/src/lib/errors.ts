@@ -21,7 +21,8 @@ export type Code =
   | 'ALREADY_SUBSCRIBED'
   | 'NOT_SUBSCRIBED'
   | 'CHECKOUT_NOT_FOUND'
-  | 'BILLING_UNAVAILABLE';
+  | 'BILLING_UNAVAILABLE'
+  | 'PAYMENT_REQUIRED';
 
 const STATUS: Record<Code, number> = {
   TIMER_ALREADY_RUNNING: 409,
@@ -41,6 +42,7 @@ const STATUS: Record<Code, number> = {
   NOT_SUBSCRIBED: 409,
   CHECKOUT_NOT_FOUND: 404,
   BILLING_UNAVAILABLE: 503,
+  PAYMENT_REQUIRED: 402,
 };
 
 /** A failure the client is expected to handle — not a bug. */

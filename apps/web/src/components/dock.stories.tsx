@@ -53,6 +53,32 @@ export const Column: Story = {
   },
 };
 
+/** The invoice PDF is the paid tier: a paying account's invoice rows offer
+    Download; the seeded account, free with billing set up, gets none. */
+export const InvoiceDownloads: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.billing = { ...db.billing, plan: 'paid', status: 'active' };
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      (await page.findAllByRole('link', { name: /^Download / }))[0],
+    ).toBeVisible();
+  },
+};
+
+export const InvoiceDownloadsFree: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await page.findAllByText(/days late/);
+    await waitFor(() =>
+      expect(page.queryAllByRole('link', { name: /^Download / })).toEqual([]),
+    );
+  },
+};
+
 /** An overlap with billed time opens the unbilled entry and names the
     invoice holding the other, which can't be edited. */
 export const BilledOverlap: Story = {
