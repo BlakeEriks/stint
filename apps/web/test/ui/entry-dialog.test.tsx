@@ -305,6 +305,57 @@ describe('EntryDialog', () => {
     expect(screen.getByRole('button', { name: 'Keep' })).toBeDisabled();
   });
 
+  it("shows the server's reason when a save is refused", async () => {
+    serve();
+    const user = userEvent.setup();
+    open(entry());
+    await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
+
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({ code: 'OVERLAP', message: 'Overlaps another entry.' }),
+        { status: 409 },
+      ),
+    );
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Overlaps another entry.',
+    );
+  });
+
+  it.each([
+    ['Save', 'Could not save this entry.'],
+    ['Delete for good', 'Could not delete this entry.'],
+  ])(
+    'falls back to its own words when %s fails offline',
+    async (press, text) => {
+      serve();
+      const user = userEvent.setup();
+      open(entry());
+      await waitFor(() => expect(screen.getByLabelText('Task')).toBeEnabled());
+      if (press !== 'Save') {
+        await user.click(screen.getByRole('button', { name: 'Delete entry' }));
+      }
+
+      vi.mocked(fetch).mockRejectedValue(new TypeError('Failed to fetch'));
+      await user.click(screen.getByRole('button', { name: press }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(text);
+    },
+  );
+
+  it.each([
+    ['an issued invoice', 'sent', 'inv1', /can no longer be changed/],
+    ['a draft', 'draft', 'inv1', /Editing it changes what that draft/],
+    ['no invoice', 'sent', null, /An end before the start counts as overnight/],
+  ])('describes an entry on %s', async (_, status, invoiceId, text) => {
+    serve(status);
+    open(entry({ invoiceId }));
+
+    expect(await screen.findByText(text)).toBeInTheDocument();
+  });
+
   it("a new entry takes its project's billable default", async () => {
     const calls = serve();
     const user = userEvent.setup();
