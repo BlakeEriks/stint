@@ -24,7 +24,6 @@ export const keys = {
       : (['calendar'] as const),
   clients: (opts?: { archived?: boolean; scale?: boolean }) =>
     opts ? (['clients', opts] as const) : (['clients'] as const),
-  client: (id: string) => ['clients', id] as const,
   projects: (opts?: { archived?: boolean; clientId?: string }) =>
     opts ? (['projects', opts] as const) : (['projects'] as const),
   taskNames: (opts?: { projectId?: string | null }) =>

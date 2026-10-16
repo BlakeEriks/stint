@@ -319,8 +319,6 @@ export const api = {
     }>;
   },
 
-  client: (id: string) => request<Client>('GET', `/clients/${id}`),
-
   createClient: (body: ClientInput) =>
     request<Client>('POST', '/clients', body),
 

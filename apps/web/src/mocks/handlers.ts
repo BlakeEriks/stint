@@ -362,11 +362,6 @@ export const handlers = {
       : ok(envelopes.clients, { clients });
   }),
 
-  client: http.get(`${API}/clients/:id`, ({ params }) => {
-    const client = byId(getDb().clients, params.id);
-    return client ? ok(schema.Client, client) : fail('ENTRY_NOT_FOUND');
-  }),
-
   createClient: http.post(`${API}/clients`, async ({ request }) => {
     const db = getDb();
     const client: Client = {

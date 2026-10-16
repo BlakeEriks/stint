@@ -17,8 +17,7 @@ import { ClientForm } from './client-form';
 
 /**
  * Adds or edits a client where the contractor already is, as `ProjectDialog`
- * does a project, so it reads the same from any screen. With no `client` it
- * adds one.
+ * does a project, so it reads the same from any screen.
  *
  * Archive sits here rather than on the list: it is rare, and Restore takes
  * its place once archived. Archive, never delete: invoices reference the
