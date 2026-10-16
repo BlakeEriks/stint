@@ -131,7 +131,9 @@ title is `type-title`, once.
 
 **Nothing inside the panel is a card.** The panel is the one surface; a
 region is space and a rule (`border-edge-subtle`, stopping at the inset), and
-a record is a plain row.
+a record is a plain row. The one exception is the invoice as printed,
+`InvoicePreviewCard`, on New invoice and an invoice's page: it is a sheet of
+paper, not a region.
 
 **A region that scrolls itself takes focus, only where it scrolls:** its
 `tabIndex` is `useScrollerFocus()` (`apps/web/src/lib/client/use-scroller-focus.ts`).
