@@ -3454,3 +3454,152 @@ test('a retried feedback send stores one message', async () => {
   assert.deepEqual(again.body, { id: FEEDBACK.id });
   assert.equal((await feedbackRows()).length, 1);
 });
+
+// ── export ─────────────────────────────────────────────────────────
+const EXPORT_CLIENT = '33333333-0000-4000-8000-0000000000e1';
+const EXPORT_PROJECT = '33333333-0000-4000-8000-0000000000e2';
+
+async function exportFixture() {
+  await pool.query(
+    `insert into clients (id,user_id,name,hourly_rate,archived_at)
+     values ($1,$2,'Northwind',150,now())`,
+    [EXPORT_CLIENT, USER],
+  );
+  // A project rate of 0 is a real rate, not a missing one.
+  await pool.query(
+    `insert into projects (id,user_id,client_id,name,hourly_rate)
+     values ($1,$2,$3,'Pro bono',0)`,
+    [EXPORT_PROJECT, USER, EXPORT_CLIENT],
+  );
+}
+
+const exportInvoice = (
+  id: string,
+  n: number,
+  status: string,
+  user = USER,
+  client = EXPORT_CLIENT,
+) =>
+  pool.query(
+    `insert into invoices
+       (id,user_id,client_id,invoice_number,sequence_no,status,issue_date,
+        subtotal,tax_rate,tax_amount,total,currency,grouping_mode,paid_at)
+     values ($1,$2,$3,$4,$5,$6,'2026-09-01',100,0,0,100,'USD','entry',$7)`,
+    [
+      id,
+      user,
+      client,
+      `INV-000${n}`,
+      n,
+      status,
+      status === 'paid' ? '2026-09-20T12:00:00Z' : null,
+    ],
+  );
+
+const csvRows = async (r: Response) =>
+  (await r.text()).slice(1).split('\r\n').slice(0, -1);
+
+test('the invoices export is every invoice, any status, as a CSV attachment', async () => {
+  const { GET } = await import('../src/app/api/v1/exports/invoices/route.ts');
+  await exportFixture();
+  await exportInvoice('44444444-0000-4000-8000-0000000000e1', 1, 'void');
+  await exportInvoice('44444444-0000-4000-8000-0000000000e2', 2, 'paid');
+  await exportInvoice('44444444-0000-4000-8000-0000000000e3', 3, 'draft');
+
+  const theirClient = '33333333-0000-4000-8000-0000000000e9';
+  await pool.query(
+    `insert into clients (id,user_id,name) values ($1,$2,'Theirs')`,
+    [theirClient, OTHER],
+  );
+  await exportInvoice(
+    '44444444-0000-4000-8000-0000000000e9',
+    9,
+    'sent',
+    OTHER,
+    theirClient,
+  );
+
+  const res = await GET(req('/exports/invoices?tz=America/New_York'));
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'text/csv; charset=utf-8');
+  assert.match(
+    res.headers.get('content-disposition') ?? '',
+    /^attachment; filename="stint-invoices-\d{4}-\d{2}-\d{2}\.csv"$/,
+  );
+  assert.equal(res.headers.get('cache-control'), 'private, no-store');
+
+  const rows = await csvRows(res);
+  assert.equal(rows.length, 4, 'a header and three invoices, none of theirs');
+  assert.deepEqual(
+    rows.slice(1).map((r) => r.split(',').slice(0, 3).join(',')),
+    [
+      'INV-0003,Northwind,Draft',
+      'INV-0002,Northwind,Paid',
+      'INV-0001,Northwind,Void',
+    ],
+    'an archived client still exports by name',
+  );
+  assert.equal(rows[2]!.split(',')[6], '09/20/2026', 'the paid date');
+});
+
+test('the entries export carries each finished entry with its resolved rate', async () => {
+  const { GET } = await import('../src/app/api/v1/exports/entries/route.ts');
+  await exportFixture();
+  const inv = '44444444-0000-4000-8000-0000000000e4';
+  await exportInvoice(inv, 4, 'draft');
+
+  const entry = (id: string, start: string, end: string | null, extra = {}) =>
+    pool.query(
+      `insert into time_entries
+         (id,user_id,project_id,task_name,started_at,ended_at,invoice_id)
+       values ($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        id,
+        USER,
+        EXPORT_PROJECT,
+        'Pro bono work',
+        start,
+        end,
+        (extra as { invoiceId?: string }).invoiceId ?? null,
+      ],
+    );
+  await entry(S(1), '2026-09-01T13:00:00Z', '2026-09-01T14:00:00Z', {
+    invoiceId: inv,
+  });
+  await entry(S(2), '2026-09-02T13:00:00Z', null);
+  await pool.query(
+    `insert into time_entries (id,user_id,task_name,started_at,ended_at)
+     values ($1,$2,'Theirs','2026-09-01T13:00:00Z','2026-09-01T14:00:00Z')`,
+    [S(3), OTHER],
+  );
+
+  const res = await GET(req('/exports/entries?tz=UTC'));
+  assert.equal(res.status, 200);
+  assert.match(
+    res.headers.get('content-disposition') ?? '',
+    /filename="stint-entries-\d{4}-\d{2}-\d{2}\.csv"/,
+  );
+  const rows = await csvRows(res);
+  assert.equal(rows.length, 2, 'no running entry, nothing of theirs');
+  assert.equal(
+    rows[1],
+    '09/01/2026,1:00 PM,2:00 PM,1.00,Northwind,Pro bono,Pro bono work,Yes,0.00,project,0.00,USD,INV-0004',
+  );
+});
+
+test('the entries export reads past the 1,000-row page', async () => {
+  const { GET } = await import('../src/app/api/v1/exports/entries/route.ts');
+  await fill(pool, {
+    userId: USER,
+    projectId: null,
+    from: '2026-01-01T00:00:00Z',
+    n: 1200,
+  });
+  const rows = await csvRows(await GET(req('/exports/entries?tz=UTC')));
+  assert.equal(rows.length, 1201);
+  assert.match(
+    rows[1]!,
+    /,0\.02,,,Work,Yes,100\.00,default,2\.00,USD,$/,
+    'one minute at the default',
+  );
+});

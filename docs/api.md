@@ -13,7 +13,7 @@ timer index and immutability triggers are genuinely exercised rather than
 mocked. Those tests disable RLS; **`apps/web/test/rls.test.ts` covers RLS
 separately**, connecting as a non-superuser role with the policies live.
 
-Every handler is covered — 46 of 46, counting handlers rather than files.
+Every handler is covered — 48 of 48, counting handlers rather than files.
 
 ## Timer
 
@@ -278,6 +278,13 @@ by every one when `recurring`. The amount is in the client's currency.
 | `PATCH` | `/expenses/:id` | Any field from `POST` but `id` and `clientId`. `recurring: true` clears `spentOn`; `false` needs one. **`409 EXPENSE_LOCKED`** once billed on a non-draft invoice; `422` to make a billed one recurring. |
 | `DELETE` | `/expenses/:id` | Same lock. A recurring one can always go; invoices that billed it keep their line. |
 
+## Export
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/exports/entries` | `?tz`. Every finished entry as a `text/csv` attachment, `stint-entries-<today in tz>.csv`, oldest first: local date and times, billed hours, client, project, task, billable, the rate `resolveRate()` gives it now and its source, the amount an invoice would bill (empty for non-billable or unrated work), currency, and the billing invoice's number or `Invoiced elsewhere`. |
+| `GET` | `/exports/invoices` | `?tz`. Every invoice, any status, as a `text/csv` attachment, newest issue date first, with its dates and frozen totals. Both files are UTF-8 with a BOM, CRLF, US dates (`MM/DD/YYYY`), and money as plain two-place decimals; a text cell a spreadsheet would run as a formula gets a leading `'`. |
+
 ## Feedback
 
 | Method | Path | Notes |
@@ -354,6 +361,10 @@ parameter (IANA, e.g. `America/Sao_Paulo`). "Today" is a local-calendar
 question and the server cannot infer the caller's zone, so the client states
 it; an invalid zone falls back to UTC rather than failing the request, because
 a view that renders in the wrong zone beats a view that does not render.
+
+`GET /exports/entries` and `GET /exports/invoices` fall back the same way. The
+zone dates each row and names the file, but every record is in the file
+whatever the zone, so a wrong zone shifts dates rather than dropping work.
 
 **The invoicing routes reject an invalid one instead.** `POST /invoices/preview`
 and `POST /invoices` resolve the billing period in `tz`, and `POST /invoices`
