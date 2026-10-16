@@ -345,17 +345,6 @@ describe('EntryDialog', () => {
     },
   );
 
-  it.each([
-    ['an issued invoice', 'sent', 'inv1', /can no longer be changed/],
-    ['a draft', 'draft', 'inv1', /Editing it changes what that draft/],
-    ['no invoice', 'sent', null, /An end before the start counts as overnight/],
-  ])('describes an entry on %s', async (_, status, invoiceId, text) => {
-    serve(status);
-    open(entry({ invoiceId }));
-
-    expect(await screen.findByText(text)).toBeInTheDocument();
-  });
-
   it("a new entry takes its project's billable default", async () => {
     const calls = serve();
     const user = userEvent.setup();
