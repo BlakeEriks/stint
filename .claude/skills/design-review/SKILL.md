@@ -74,3 +74,17 @@ It is never a literal in the page.
 
 End with the file's path and the next step: `/speckit-plan`, which builds
 this look.
+
+## Unattended
+
+`/work-issues`' builder runs this with Blake away, so nobody answers the
+gate's question: it decides review or skip itself (`issue-builder.md`).
+Its rounds change only in where the page lives and how Blake answers:
+
+- **Draft** straight into `specs/<feature>/design/<screen>.html`, commit it
+  and push the branch, so the draft survives the wait. Then stop and report
+  `design-review: <path>`. The loop publishes the page and asks on the issue.
+- **Refine** on each reply of Blake's on the issue, which comes back to you
+  as a message: redraft the same file, commit, push, and report again.
+- **Record** when he picks or says it's right: step 3, then go on to
+  `speckit-plan`.

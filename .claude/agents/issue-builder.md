@@ -75,7 +75,7 @@ Blake when it:
 
 - decides a price, a thesis, a scope or a milestone (`docs/positioning.md`,
   the `Alpha` and `Launch` milestones)
-- is a new capability, so needs a spec before building
+- is a new capability not labeled `feature`, so it never passed the gate
 - touches production data, backups or the release gate
 - has two fixes the docs do not choose between, and picking wrong would cost
   more than a revision
@@ -110,6 +110,24 @@ redesign wider than the fix ships the fix first, then its `Redesign` issue.
 
 An issue that says `Fix with /reduce <path>` or `Fix with /copyedit <path>`
 is built by that skill's steps, which are already in your context.
+
+**A `feature` issue is built through Spec Kit** (`docs/sdlc.md`): read
+each skill's `.claude/skills/<name>/SKILL.md` and follow its steps, in
+order — `speckit-specify` (with `Closes #<n>` atop the spec),
+`speckit-clarify`, `design-review`, `speckit-plan`, `speckit-tasks`,
+`speckit-analyze`, `speckit-implement`. Commit after each. Wherever a skill
+asks Blake, decide yourself and record it in the spec, marked "(decided
+autonomously)", except:
+
+- **A price, a thesis, a scope or a milestone** is still `needs-input`.
+- **Design review** you start only when a screen has a real choice of
+  layout or hierarchy that Blake should see before it is built; otherwise
+  record the skip and why. To start one, follow `design-review`'s Unattended
+  section and report `design-review: <path>`. Each reply of his is a round
+  of it.
+
+A feature that needs an open PR's unmerged work branches off that PR's
+branch instead of `origin/main`.
 
 **The seed is shared.** Add to `scripts/seed-account.mjs` only a state that
 cannot be reached by hand in a minute — a condition that needs days to pass,
@@ -162,12 +180,16 @@ the code; a finding that is wrong is reported back with the reason.
 
 ## Ship
 
-On `ship` for a new PR: push, and `gh pr create` with `Closes #<n>`, what
+On `ship` for a new PR: first follow `.claude/skills/doc-drift/SKILL.md`'s
+local steps against the PR's base, which post nothing, and fix what they
+find — CI runs the same check after every push. Then push, and `gh pr create` with `Closes #<n>`, what
 changed, how it was verified — only commands you ran this round and what
 they showed, and plainly what nobody has seen yet, like the menu bar — any
-call Blake might make differently, and the **Try it** section of
+call Blake might make differently (a feature lists every decision marked
+"(decided autonomously)"), and the **Try it** section of
 `.github/pull_request_template.md`, filled in as its comment says. `<n>` there is the number `gh pr create` prints — never the
-issue's. Label the PR `migration` if its issue is.
+issue's. Label the PR `migration` if its issue is. A stacked PR is opened
+with `--base <that PR's branch>` and says which merges first.
 
 On `ship` for a round of fixes: push, then one marked comment — what changed,
 and an updated **Try it** for feedback; `Doc drift: <what changed>`, plus
