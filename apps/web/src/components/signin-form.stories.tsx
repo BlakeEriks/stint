@@ -8,6 +8,7 @@ import { SignInForm } from './signin-form';
 const meta = {
   title: 'Screens/SignIn',
   component: SignInForm,
+  args: { inviteUrl: 'https://runstint.com/#invite' },
   parameters: {
     layout: 'fullscreen',
     nextjs: { navigation: { pathname: '/signin' } },
@@ -48,15 +49,17 @@ export const InvalidLink: Story = {
 /** Where deleting an account lands. */
 export const Deleted: Story = { ...desktop, args: { deleted: true } };
 
-/** An email nobody invited: it says how to get in. */
+/** An email nobody invited: it links to the invite request. */
 export const NotInvited: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await userEvent.type(await page.findByLabelText('Email'), NOT_INVITED);
     await userEvent.click(page.getByRole('button', { name: /Email me/ }));
-    await expect(await page.findByRole('alert')).toHaveTextContent(
-      'Stint is invite-only. Ask Blake for an invite.',
-    );
+    const alert = await page.findByRole('alert');
+    await expect(alert).toHaveTextContent('Stint is invite-only during alpha.');
+    await expect(
+      within(alert).getByRole('link', { name: 'Request an invite' }),
+    ).toHaveAttribute('href', 'https://runstint.com/#invite');
   },
 };

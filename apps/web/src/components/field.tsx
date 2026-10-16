@@ -133,6 +133,17 @@ export const inputClass =
   'text-strong placeholder:text-subtle outline-none focus-visible:border-edge-focus ' +
   'focus-visible:ring-[3px] focus-visible:ring-edge-focus';
 
+/**
+ * A field on a signed-out page (sign-in, the landing page), which has no
+ * panel, so the field carries its own raised surface. The ring is neutral,
+ * never the accent: a focus ring is constant and involuntary, and these
+ * pages spend their one accent on the button beside the field.
+ */
+export const elevatedInputClass =
+  'rounded-md border border-edge-control bg-surface-elevated px-3 type-control ' +
+  'text-strong placeholder:text-subtle focus:outline-none ' +
+  'focus-visible:ring-2 focus-visible:ring-edge-focus';
+
 export const textareaClass =
   'w-full rounded-md border border-edge-default bg-transparent px-3 py-2 type-control ' +
   'text-strong placeholder:text-subtle outline-none focus-visible:border-edge-focus ' +
