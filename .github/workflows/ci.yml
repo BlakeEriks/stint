@@ -105,8 +105,9 @@ jobs:
       - name: UI component tests
         run: pnpm --filter @stint/web test:ui
 
+      # The package script holds the coverage floor; raise it, never lower it.
       - name: Core logic tests
-        run: node --test --experimental-strip-types packages/core/test/*.test.ts
+        run: pnpm --filter @stint/core test
 
       - name: Lint plugins catch what they name
         run: node --test biome/*.test.mjs
