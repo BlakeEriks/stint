@@ -75,7 +75,8 @@ Blake when it:
 
 - decides a price, a thesis, a scope or a milestone (`docs/positioning.md`,
   the `Alpha` and `Launch` milestones)
-- is a new capability, so needs a spec before building
+- is a new capability not labeled `feature`, or a `feature` that still
+  "owes the gate its answers": either way it never passed the gate
 - touches production data, backups or the release gate
 - has two fixes the docs do not choose between, and picking wrong would cost
   more than a revision
@@ -90,7 +91,8 @@ label it `needs-input`; report back.
 Then two checks, each kept as a label so nobody makes it twice:
 
 - **Overlap:** compare the files the fix will touch with each open PR's
-  (`gh pr view <n> --json files` — a list, not a read). A shared file makes
+  (`gh pr view <n> --json files` — a list, not a read), save the PR a
+  feature stacks on. A shared file makes
   it `blocked`, with a marked comment: "Blocked by #31: both change the
   inbox." Report back.
 - **Migration:** if the fix needs one, label it `migration`. If an open PR
@@ -111,6 +113,26 @@ redesign wider than the fix ships the fix first, then its `Redesign` issue.
 An issue that says `Fix with /reduce <path>` or `Fix with /copyedit <path>`
 is built by that skill's steps, which are already in your context.
 
+**A `feature` issue is built through Spec Kit** (`docs/sdlc.md`): read
+each skill's `.claude/skills/<name>/SKILL.md` and follow its steps, in
+order — `speckit-specify`, `speckit-clarify`, `design-review`,
+`speckit-plan`, `speckit-tasks`, `speckit-analyze`, `speckit-implement`.
+Commit after each. `speckit-implement`'s `after_implement` hook,
+`standards-review`, is the loop's own review of your round: skip it. The
+whole feature ships as one PR. Wherever a skill
+asks Blake, decide yourself and record it in the spec, marked "(decided
+autonomously)", except:
+
+- **A price, a thesis, a scope or a milestone** is still `needs-input`.
+- **Design review** you start only when a screen has a real choice of
+  layout or hierarchy that Blake should see before it is built; otherwise
+  record the skip and why. To start one, follow `design-review`'s Unattended
+  section and report `design-review: <path>`. Each reply of his is a round
+  of it.
+
+A feature that needs an open PR's unmerged work branches off that PR's
+branch instead of `origin/main`.
+
 **The seed is shared.** Add to `scripts/seed-account.mjs` only a state that
 cannot be reached by hand in a minute — a condition that needs days to pass,
 like the inbox rows. Anything else, **Try it** has Blake create by clicking.
@@ -123,19 +145,23 @@ it is down. If `dev:up` can't bring it up (Docker not running), the web
 change can't be seen: that is `needs-input`, never a PR marked "not seen
 yet".
 
-1. The checks the change touches — these, and nothing hand-built:
+1. The docs that own what changed, by `.claude/skills/doc-drift/SKILL.md`'s
+   local steps, diffed against `origin/main` or the branch a feature stacks
+   on: print the findings, write no file, and fix each one — CI runs the
+   same check after every push.
+2. The checks the change touches — these, and nothing hand-built:
    - `pnpm verify:static` for anything
    - `pnpm db:setup && pnpm verify:db`, for the API or the database —
      throwaway databases rebuilt from the branch, so the seed survives
    - `pnpm test:auth` for sign-in or the bearer path
-2. A web change, seen once, signed in to local Stint as
+3. A web change, seen once, signed in to local Stint as
    `builder@localhost.test`, seeded with `pnpm seed builder@localhost.test` —
    clients, entries, and invoices in every state, never built by hand.
    `dev@localhost.test` is `seed.sql`'s and the e2e suite's
    (`docs/local-dev.md`). Read the page as text; take one screenshot only if
    the change is visual. The e2e suite is CI's: its failure comes back as a
    round of fixes.
-3. A macOS change passes `swift build` and `swift test`, and a visible one is
+4. A macOS change passes `swift build` and `swift test`, and a visible one is
    seen with `apps/macos/qa.sh`: the panel in a plain window, screenshotted
    with `qa.sh shot` and driven with `qa.sh click` and `qa.sh type`.
    **Never run `bundle.sh`, and never quit, launch or click an installed
@@ -165,9 +191,11 @@ the code; a finding that is wrong is reported back with the reason.
 On `ship` for a new PR: push, and `gh pr create` with `Closes #<n>`, what
 changed, how it was verified — only commands you ran this round and what
 they showed, and plainly what nobody has seen yet, like the menu bar — any
-call Blake might make differently, and the **Try it** section of
+call Blake might make differently (a feature lists every decision marked
+"(decided autonomously)"), and the **Try it** section of
 `.github/pull_request_template.md`, filled in as its comment says. `<n>` there is the number `gh pr create` prints — never the
-issue's. Label the PR `migration` if its issue is.
+issue's. Label the PR `migration` if its issue is. A stacked PR is opened
+with `--base <that PR's branch>` and says which merges first.
 
 On `ship` for a round of fixes: push, then one marked comment — what changed,
 and an updated **Try it** for feedback; `Doc drift: <what changed>`, plus
