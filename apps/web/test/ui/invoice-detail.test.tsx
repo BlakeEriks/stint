@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { InvoiceDetail } from '@/components/invoice-detail';
-import type { Invoice, InvoiceStatus } from '@/lib/client/api';
+import type { Client, Invoice, InvoiceStatus } from '@/lib/client/api';
+import { keys } from '@/lib/client/query-keys';
 import { localDateKey, localDateTimeToInstant } from '@stint/core';
 
 const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -100,23 +101,28 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(() => vi.unstubAllGlobals());
 
 describe('InvoiceDetail', () => {
-  it('names the supporting detail an invoice carries, in print order', async () => {
-    serve('draft', null, {
-      groupingMode: 'summary',
-      summaryText: 'Design review',
-      supportingDetail: {
-        date: [{ date: '2026-08-04', project: 'Portal', hours: 2.5 }],
-        project: [{ project: 'Portal', hours: 2.5 }],
-        totalHours: 2.5,
-      },
+  it('draws the invoice from the cached list while its lines load', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => {})),
+    );
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
     });
-    show();
+    qc.setQueryData(keys.invoices(), { invoices: [invoice('sent')] });
+    qc.setQueryData(keys.clients({ archived: true }), {
+      clients: [{ id: 'c1', name: 'Acme Corp' } as Client],
+    });
+    render(
+      <QueryClientProvider client={qc}>
+        <InvoiceDetail id="inv-1" />
+      </QueryClientProvider>,
+    );
 
-    expect(
-      await screen.findByText(
-        'Supporting detail from page 2: Hours by project, Hours by date',
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /INV-13/ })).toBeVisible();
+    expect(screen.getByText('Acme Corp')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Mark paid' })).toBeVisible();
+    expect(screen.queryByText('Loading…')).toBeNull();
   });
 
   /**
@@ -269,7 +275,7 @@ describe('InvoiceDetail', () => {
     serve('void');
     show();
 
-    await screen.findByText('INV-13');
+    await screen.findByRole('heading', { name: 'INV-13' });
     for (const label of ['Mark sent', 'Mark paid', 'Void', 'Delete draft']) {
       expect(
         screen.queryByRole('button', { name: label }),
