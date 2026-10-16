@@ -392,6 +392,38 @@ export const NoAttachWithoutSummary: Story = {
   },
 };
 
+/** The client's last invoice was a summary, so this one opens as one,
+    with its text and its ticks, still editable. */
+export const FromLastInvoice: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      const last = db.invoices
+        .filter((i) => i.clientId === ids.northwind && i.status !== 'void')
+        .sort(
+          (a, b) => b.sequenceNo - a.sequenceNo,
+        )[0] as Db['invoices'][number];
+      last.groupingMode = 'summary';
+      last.summaryText = 'Software consulting services';
+      last.supportingDetail = { week: [], totalHours: 0 };
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(await page.findByLabelText(/Summary line/)).toHaveValue(
+      'Software consulting services',
+    );
+    await expect(
+      page.getByRole('checkbox', { name: 'Hours by week' }),
+    ).toBeChecked();
+    await expect(
+      page.getByRole('checkbox', { name: 'Hours by project' }),
+    ).not.toBeChecked();
+    await settled(page);
+  },
+};
+
 // ── expenses ───────────────────────────────────────────────────────
 
 /** Waiting expenses land in the card under their own heading, with a date

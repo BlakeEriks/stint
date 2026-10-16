@@ -169,7 +169,7 @@ export function NewInvoice() {
       queryFn: () => api.paymentProfiles(),
     }).data?.paymentProfiles ?? [];
 
-  /* Newest first, so the first that isn't void is the last one sent. */
+  /* Newest first; a void invoice is skipped. */
   const lastInvoice = useQuery({
     queryKey: [...keys.invoices(), { clientId: draft.clientId }],
     queryFn: () => api.invoices({ clientId: draft.clientId }),
@@ -206,7 +206,9 @@ export function NewInvoice() {
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
   const billed = {
-    clientId: draft.clientId,
+    // No client until the last invoice has answered, so no preview is asked
+    // for in a grouping it is about to change.
+    clientId: lastInvoice.isPending ? '' : draft.clientId,
     periodStart: draft.periodStart,
     periodEnd: draft.periodEnd,
     groupingMode,
@@ -226,8 +228,7 @@ export function NewInvoice() {
   const preview = useQuery({
     queryKey: keys.invoicePreview(settled),
     queryFn: () => api.previewInvoice(settled),
-    // Not until the last invoice says how the time is shown.
-    enabled: settled.clientId !== '' && !lastInvoice.isPending,
+    enabled: settled.clientId !== '',
     placeholderData: keepPreviousData,
   });
   const updating =
@@ -300,8 +301,6 @@ export function NewInvoice() {
     current !== undefined &&
     // Due follows the settings' terms; without them it would be sent blank.
     settings !== undefined &&
-    // What the last invoice carries could still change the lines.
-    !lastInvoice.isPending &&
     !updating &&
     !preview.isError &&
     unrated === 0 &&

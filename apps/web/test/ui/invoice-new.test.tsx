@@ -140,6 +140,8 @@ const WITH_EXPENSE = {
 
 /** The client's invoices, newest first, as the list serves them. */
 let invoices: unknown[] = [];
+/** A held invoice list: a test answers it after the form has settled. */
+let holdInvoices: Promise<void> | null = null;
 
 /** What each POST sent, oldest first. */
 let bodies: { path: string; body: any }[] = [];
@@ -169,7 +171,10 @@ function serve(preview: unknown = PREVIEW) {
         if (hold) await hold;
         return ok(preview);
       }
-      if (path.includes('/invoices?')) return ok({ invoices });
+      if (path.includes('/invoices?')) {
+        if (holdInvoices) await holdInvoices;
+        return ok({ invoices });
+      }
       if (path.endsWith('/invoices')) return ok({ id: 'inv-1' });
       if (path.includes('/expenses')) return ok({ expenses: EXPENSES });
       if (path.includes('/clients')) return ok({ clients: CLIENTS });
@@ -249,6 +254,7 @@ beforeEach(() => {
   settings = SETTINGS;
   holdSettings = null;
   invoices = [];
+  holdInvoices = null;
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -483,7 +489,6 @@ describe('NewInvoice — from the client’s last invoice', () => {
   });
 
   it('opens with the last summary’s text and attachments, still editable', async () => {
-    // The void one is skipped: it was never sent.
     invoices = [sent('Voided', 'void'), sent('Consulting'), sent(null)];
     serve();
     const user = userEvent.setup();
@@ -513,6 +518,30 @@ describe('NewInvoice — from the client’s last invoice', () => {
     expect(made.summaryText).toBe('Consulting, October');
     expect(made.schedules).toEqual(['week']);
     // The preview never asked before it knew the grouping.
+    expect(previews().every((p) => p.body.groupingMode === 'summary')).toBe(
+      true,
+    );
+  });
+
+  it('asks for no preview until the last invoice answers, however late', async () => {
+    invoices = [sent('Consulting')];
+    let release!: () => void;
+    holdInvoices = new Promise((r) => {
+      release = r;
+    });
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await chooseClient(user);
+    // Past the 400ms the form takes to settle.
+    await new Promise((r) => setTimeout(r, 600));
+    expect(previews()).toHaveLength(0);
+    expect(generate()).toBeDisabled();
+
+    release();
+    await waitFor(() => expect(generate()).toBeEnabled());
+    expect(previews().length).toBeGreaterThan(0);
     expect(previews().every((p) => p.body.groupingMode === 'summary')).toBe(
       true,
     );
