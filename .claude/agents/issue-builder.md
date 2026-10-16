@@ -145,19 +145,23 @@ it is down. If `dev:up` can't bring it up (Docker not running), the web
 change can't be seen: that is `needs-input`, never a PR marked "not seen
 yet".
 
-1. The checks the change touches — these, and nothing hand-built:
+1. The docs that own what changed, by `.claude/skills/doc-drift/SKILL.md`'s
+   local steps, diffed against `origin/main` or the branch a feature stacks
+   on: print the findings, write no file, and fix each one — CI runs the
+   same check after every push.
+2. The checks the change touches — these, and nothing hand-built:
    - `pnpm verify:static` for anything
    - `pnpm db:setup && pnpm verify:db`, for the API or the database —
      throwaway databases rebuilt from the branch, so the seed survives
    - `pnpm test:auth` for sign-in or the bearer path
-2. A web change, seen once, signed in to local Stint as
+3. A web change, seen once, signed in to local Stint as
    `builder@localhost.test`, seeded with `pnpm seed builder@localhost.test` —
    clients, entries, and invoices in every state, never built by hand.
    `dev@localhost.test` is `seed.sql`'s and the e2e suite's
    (`docs/local-dev.md`). Read the page as text; take one screenshot only if
    the change is visual. The e2e suite is CI's: its failure comes back as a
    round of fixes.
-3. A macOS change passes `swift build` and `swift test`, and a visible one is
+4. A macOS change passes `swift build` and `swift test`, and a visible one is
    seen with `apps/macos/qa.sh`: the panel in a plain window, screenshotted
    with `qa.sh shot` and driven with `qa.sh click` and `qa.sh type`.
    **Never run `bundle.sh`, and never quit, launch or click an installed
@@ -166,9 +170,6 @@ yet".
    bar beside it. He sees it with
    `pnpm try-mac`, so a Mac issue never waits on `needs-input` because nobody
    has looked at it.
-4. The docs that own what changed, by `.claude/skills/doc-drift/SKILL.md`'s
-   local steps — which post nothing — diffed against `origin/main`, or the
-   branch a feature stacks on. CI runs the same check after every push.
 
 Commit, unpushed, and report back. A check that cannot pass without Blake is
 `needs-input`, with the branch pushed so the work survives.
