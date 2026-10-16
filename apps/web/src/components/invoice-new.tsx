@@ -26,6 +26,7 @@ import { ChevronDown, Pencil, Plus } from 'lucide-react';
 import {
   buildPaymentDetails,
   defaultInvoicePeriod,
+  attachedSchedules,
   dueDateForTerms,
   formatCurrency,
   formatInvoiceNumber,
@@ -41,6 +42,7 @@ import {
   ApiError,
   type Expense,
   type GroupingMode,
+  type Invoice,
   type PaymentProfile,
 } from '@/lib/client/api';
 import { DetailPage } from './page';
@@ -85,11 +87,13 @@ interface Draft {
   /** The PO, contract or SOW. It decides no line, so it never asks the
    *  server again. */
   reference: string;
-  groupingMode: GroupingMode;
-  /** The one line's text with `summary`. Fresh on every invoice. */
-  summaryText: string;
+  /* These three are `null` until the user sets them, so they follow the
+     client's last invoice. */
+  groupingMode: GroupingMode | null;
+  /** The one line's text with `summary`. */
+  summaryText: string | null;
   /** Supporting detail to attach, with `summary` only. */
-  schedules: ScheduleKind[];
+  schedules: ScheduleKind[] | null;
   charges: DraftCharge[];
   /** Waiting expenses left off this invoice. They keep waiting. */
   excludedExpenseIds: string[];
@@ -104,13 +108,24 @@ const empty = (): Draft => ({
   ...defaultInvoicePeriod(localDateKey(new Date(), tz)),
   dueDate: null,
   reference: '',
-  groupingMode: 'entry',
-  summaryText: '',
-  schedules: [],
+  groupingMode: null,
+  summaryText: null,
+  schedules: null,
   charges: [],
   excludedExpenseIds: [],
   paymentProfileId: '',
 });
+
+/** What a client's last invoice carries into the next: a summary's text and
+ *  attachments, so a monthly invoice isn't retyped. */
+const carriedFrom = (last: Invoice | undefined) =>
+  last?.groupingMode === 'summary'
+    ? {
+        groupingMode: last.groupingMode,
+        summaryText: last.summaryText ?? '',
+        schedules: attachedSchedules(last.supportingDetail),
+      }
+    : { groupingMode: 'entry' as const, summaryText: '', schedules: [] };
 
 /** `value` once it has stopped changing for `ms`. */
 function useSettled<T>(value: T, ms: number): T {
@@ -154,6 +169,19 @@ export function NewInvoice() {
       queryFn: () => api.paymentProfiles(),
     }).data?.paymentProfiles ?? [];
 
+  /* Newest first. */
+  const lastInvoice = useQuery({
+    queryKey: [...keys.invoices(), { clientId: draft.clientId }],
+    queryFn: () => api.invoices({ clientId: draft.clientId }),
+    enabled: draft.clientId !== '',
+    select: (r) => r.invoices.find((i) => i.status !== 'void'),
+  });
+  const carried = carriedFrom(lastInvoice.data);
+  const groupingMode = draft.groupingMode ?? carried.groupingMode;
+  const summaryText = draft.summaryText ?? carried.summaryText;
+  const schedules =
+    groupingMode === 'summary' ? (draft.schedules ?? carried.schedules) : [];
+
   /* What this invoice can bill of the client's expenses: every recurring one,
      and every one-off paid by the period's end. */
   const { data: expenseData } = useQuery({
@@ -178,11 +206,13 @@ export function NewInvoice() {
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
   const billed = {
-    clientId: draft.clientId,
+    // No client until the last invoice has answered, so no preview is asked
+    // for in a grouping it is about to change.
+    clientId: lastInvoice.isPending ? '' : draft.clientId,
     periodStart: draft.periodStart,
     periodEnd: draft.periodEnd,
-    groupingMode: draft.groupingMode,
-    summaryText: draft.summaryText,
+    groupingMode,
+    summaryText,
     tz,
     manualLines: draft.charges.map(({ description, amount }) => ({
       description,
@@ -227,7 +257,7 @@ export function NewInvoice() {
     mutationFn: () =>
       api.createInvoice({
         ...billed,
-        schedules: draft.groupingMode === 'summary' ? draft.schedules : [],
+        schedules,
         // The date the card shows, where the user is. The server's fallback
         // is UTC, a day ahead on a US evening.
         issueDate: issued,
@@ -266,8 +296,7 @@ export function NewInvoice() {
   const unrated = current?.unratedEntryIds.length ?? 0;
   const overlapping = current?.overlappingEntryIds.length ?? 0;
   const nothingToBill = current !== undefined && current.lineItems.length === 0;
-  const noSummaryText =
-    draft.groupingMode === 'summary' && draft.summaryText.trim() === '';
+  const noSummaryText = groupingMode === 'summary' && summaryText.trim() === '';
   const canGenerate =
     current !== undefined &&
     // Due follows the settings' terms; without them it would be sent blank.
@@ -361,17 +390,17 @@ export function NewInvoice() {
 
             <Field label="Show time as" htmlFor="inv-group">
               <GroupingPicker
-                value={draft.groupingMode}
+                value={groupingMode}
                 onChange={(mode) => set('groupingMode', mode)}
               />
               {/* Under the picker on a rule of its own, so the text reads as
                   part of this choice rather than a field of the invoice. */}
-              {draft.groupingMode === 'summary' ? (
+              {groupingMode === 'summary' ? (
                 <div className="mt-1.5 ml-3 border-l-2 border-edge-subtle pl-3">
                   <Field label="Summary line" htmlFor="inv-summary" required>
                     <Input
                       id="inv-summary"
-                      value={draft.summaryText}
+                      value={summaryText}
                       onChange={(e) => set('summaryText', e.target.value)}
                       placeholder="Professional services"
                       maxLength={200}
@@ -427,7 +456,7 @@ export function NewInvoice() {
 
             {/* Only a summary has detail to support: every other grouping
                 already breaks the time down on the invoice. */}
-            {draft.groupingMode === 'summary' ? (
+            {groupingMode === 'summary' ? (
               // In a div: a fieldset's legend sits on its border, and the band
               // rule is a border.
               <div>
@@ -442,14 +471,14 @@ export function NewInvoice() {
                     >
                       <input
                         type="checkbox"
-                        checked={draft.schedules.includes(kind)}
+                        checked={schedules.includes(kind)}
                         onChange={(e) =>
                           set(
                             'schedules',
                             SCHEDULE_KINDS.filter((k) =>
                               k === kind
                                 ? e.target.checked
-                                : draft.schedules.includes(k),
+                                : schedules.includes(k),
                             ),
                           )
                         }
@@ -475,9 +504,7 @@ export function NewInvoice() {
               due={due}
               reference={draft.reference.trim()}
               payment={payment}
-              schedules={
-                draft.groupingMode === 'summary' ? draft.schedules : []
-              }
+              schedules={schedules}
               updating={updating}
             >
               {unrated > 0 ? (
