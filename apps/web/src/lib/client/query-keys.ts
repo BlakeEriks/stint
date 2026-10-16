@@ -83,10 +83,9 @@ export function predictArchive(
 
 /**
  * A restore's prediction, the reverse of `predictArchive`: the row is marked
- * active in a list that holds archived rows, joins a list of active rows it
- * belongs in, and is marked active where it is cached alone (a client's page).
- * `listed` false keeps it out of active lists, as the server does a project
- * whose client is archived.
+ * active in a list that holds archived rows, and joins a list of active rows
+ * it belongs in. `listed` false keeps it out of active lists, as the server
+ * does a project whose client is archived.
  */
 export function predictRestore(
   rows: 'clients' | 'projects',
@@ -95,12 +94,9 @@ export function predictRestore(
   key: QueryKey,
   listed = true,
 ): unknown {
-  if (typeof current !== 'object' || current === null) return current;
+  if (typeof current !== 'object' || current === null || !(rows in current))
+    return current;
   const restored = { ...row, archivedAt: null };
-  if (!(rows in current))
-    return (current as { id?: string }).id === row.id
-      ? { ...current, archivedAt: null }
-      : current;
   const list = (current as Record<typeof rows, Array<{ id: string }>>)[rows];
   if (listsArchived(key))
     return {
