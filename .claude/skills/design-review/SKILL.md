@@ -81,9 +81,10 @@ this look.
 gate's question: it decides review or skip itself (`issue-builder.md`).
 Its rounds change only in where the page lives and how Blake answers:
 
-- **Draft** straight into `specs/<feature>/design/<screen>.html`, commit it
-  and push the branch, so the draft survives the wait. Then stop and report
-  `design-review: <path>`. The loop publishes the page and asks on the issue.
+- **Draft** the one page into `specs/<feature>/design/review.html`, commit
+  it and push the branch, so the draft survives the wait. Then stop and
+  report `design-review: <absolute path>`. The loop publishes the page and
+  asks on the issue. Step 3 cuts it into one file per screen, and deletes it.
 - **Refine** on each reply of Blake's on the issue, which comes back to you
   as a message: redraft the same file, commit, push, and report again.
 - **Record** when he picks or says it's right: step 3, then go on to

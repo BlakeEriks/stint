@@ -80,7 +80,7 @@ the most. Gitignored; one JSON object per line:
 `round` is `build`, `feedback` or `ci`; `tokens`, `toolUses` and
 `durationMs` are what the subagent's result reports; `findings` only on the
 reviewer's rows. `outcome` is what that agent did, one word: a builder's is
-`committed`, `shipped`, `closed`, `needs-input`, `blocked` or `failed`; the reviewer's
+`committed`, `shipped`, `closed`, `needs-input`, `blocked`, `design-review` or `failed`; the reviewer's
 is `reviewed`.
 
 ## 0. Catch up
@@ -130,7 +130,8 @@ is `reviewed`.
   closed — one `gh pr view` each, not a new investigation.
 - **Answered issues:** remove `needs-input` from any issue Blake has
   commented on since its marked question, so the label says whose move it
-  is while a builder is busy elsewhere.
+  is while a builder is busy elsewhere. A reply to a design review goes to
+  that issue's builder now, as a round, before anything new is picked.
 
 ## 1. Pick
 
@@ -150,7 +151,7 @@ issue that:
 - already has an open PR
   (`gh issue view <n> --json closedByPullRequestsReferences`)
 - is labeled `migration` while an open PR is too — previews share one
-  database schema — unless it is stacked on that PR (below)
+  database schema
 
 `urgent` first, then the worst: `wrong data`, `misleading`, `looks wrong`,
 then `enhancement`, then `feature` (milestone `Alpha`, then `Launch`, then
@@ -161,7 +162,8 @@ builder branches off that PR's branch and opens its PR against it, saying
 which merges first.
 
 **First, overlap, without a builder.** List the paths the issue names and
-each open PR's files (`gh pr view <n> --json files`). A shared path makes it
+each open PR's files (`gh pr view <n> --json files`), save the PR it stacks
+on. A shared path makes it
 `blocked` with a marked comment ("Blocked by #31: both change the inbox"),
 and you pick again. The builder still checks the files it finds it must
 change.

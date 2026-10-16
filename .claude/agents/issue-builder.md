@@ -75,7 +75,8 @@ Blake when it:
 
 - decides a price, a thesis, a scope or a milestone (`docs/positioning.md`,
   the `Alpha` and `Launch` milestones)
-- is a new capability not labeled `feature`, so it never passed the gate
+- is a new capability not labeled `feature`, or a `feature` that still
+  "owes the gate its answers": either way it never passed the gate
 - touches production data, backups or the release gate
 - has two fixes the docs do not choose between, and picking wrong would cost
   more than a revision
@@ -90,7 +91,8 @@ label it `needs-input`; report back.
 Then two checks, each kept as a label so nobody makes it twice:
 
 - **Overlap:** compare the files the fix will touch with each open PR's
-  (`gh pr view <n> --json files` — a list, not a read). A shared file makes
+  (`gh pr view <n> --json files` — a list, not a read), save the PR a
+  feature stacks on. A shared file makes
   it `blocked`, with a marked comment: "Blocked by #31: both change the
   inbox." Report back.
 - **Migration:** if the fix needs one, label it `migration`. If an open PR
@@ -113,9 +115,11 @@ is built by that skill's steps, which are already in your context.
 
 **A `feature` issue is built through Spec Kit** (`docs/sdlc.md`): read
 each skill's `.claude/skills/<name>/SKILL.md` and follow its steps, in
-order — `speckit-specify` (with `Closes #<n>` atop the spec),
-`speckit-clarify`, `design-review`, `speckit-plan`, `speckit-tasks`,
-`speckit-analyze`, `speckit-implement`. Commit after each. Wherever a skill
+order — `speckit-specify`, `speckit-clarify`, `design-review`,
+`speckit-plan`, `speckit-tasks`, `speckit-analyze`, `speckit-implement`.
+Commit after each. `speckit-implement`'s `after_implement` hook,
+`standards-review`, is the loop's own review of your round: skip it. The
+whole feature ships as one PR. Wherever a skill
 asks Blake, decide yourself and record it in the spec, marked "(decided
 autonomously)", except:
 
@@ -162,6 +166,9 @@ yet".
    bar beside it. He sees it with
    `pnpm try-mac`, so a Mac issue never waits on `needs-input` because nobody
    has looked at it.
+4. The docs that own what changed, by `.claude/skills/doc-drift/SKILL.md`'s
+   local steps — which post nothing — diffed against `origin/main`, or the
+   branch a feature stacks on. CI runs the same check after every push.
 
 Commit, unpushed, and report back. A check that cannot pass without Blake is
 `needs-input`, with the branch pushed so the work survives.
@@ -180,9 +187,7 @@ the code; a finding that is wrong is reported back with the reason.
 
 ## Ship
 
-On `ship` for a new PR: first follow `.claude/skills/doc-drift/SKILL.md`'s
-local steps against the PR's base, which post nothing, and fix what they
-find — CI runs the same check after every push. Then push, and `gh pr create` with `Closes #<n>`, what
+On `ship` for a new PR: push, and `gh pr create` with `Closes #<n>`, what
 changed, how it was verified — only commands you ran this round and what
 they showed, and plainly what nobody has seen yet, like the menu bar — any
 call Blake might make differently (a feature lists every decision marked

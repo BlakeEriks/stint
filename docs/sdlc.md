@@ -16,8 +16,9 @@ with the command that moves it at each step.
    running that same chain unattended. Its builder decides each question itself,
    listing the decisions in the PR, and starts a design review only when a
    screen has a real choice of layout: the draft is posted to the issue as
-   a link, and Blake replies there. A feature merges one user story at a time; a story
-   that can't stand alone stays unlinked in the UI until the rest lands.
+   a link, and Blake replies there. It ships the feature as one PR; one
+   built by hand merges one user story at a time, and a story that can't
+   stand alone stays unlinked in the UI until the rest lands.
 3. **Review.** A PR runs CI and the Docs checks (Vale, `/doc-drift`), then
    goes to QA on its Vercel preview or `pnpm try-mac`. A green Dependabot PR
    outside the framework group merges itself; a red one goes to
