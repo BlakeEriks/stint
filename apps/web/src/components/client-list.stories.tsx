@@ -186,6 +186,27 @@ export const EditProject: Story = {
   },
 };
 
+/** Add client opens a dialog, never a page; saving lists the new client
+    here, with nothing to archive yet. */
+export const AddClient: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Add client' }),
+    );
+    await expectOpen(canvasElement, 'dialog', 'New client');
+    await expect(page.queryByRole('button', { name: 'Archive' })).toBeNull();
+    const dialog = within(page.getByRole('dialog'));
+    await userEvent.type(dialog.getByLabelText(/Name/), 'Acme Robotics');
+    await userEvent.click(dialog.getByRole('button', { name: 'Add client' }));
+    await expect(
+      await page.findByRole('heading', { name: 'Acme Robotics' }),
+    ).toBeVisible();
+    await expect(page.queryByRole('dialog')).toBeNull();
+  },
+};
+
 /** A client edits in a dialog too, never a page, with Archive client. */
 export const EditClient: Story = {
   ...desktop,
