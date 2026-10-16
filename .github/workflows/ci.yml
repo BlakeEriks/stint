@@ -105,7 +105,6 @@ jobs:
       - name: UI component tests
         run: pnpm --filter @stint/web test:ui
 
-      # The package script holds the coverage floor; raise it, never lower it.
       - name: Core logic tests
         run: pnpm --filter @stint/core test
 
