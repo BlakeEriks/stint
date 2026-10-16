@@ -1,6 +1,8 @@
 import {
   buildPreview,
   documentOpens,
+  entriesCsv,
+  invoicesCsv,
   measured,
   formatInvoiceNumber,
   localDateKey,
@@ -20,6 +22,7 @@ import type {
   Settings,
   TimeEntry,
 } from '@/lib/client/api';
+import { csvResponse } from '@/lib/exports';
 import { getDb } from './db';
 import {
   calendar,
@@ -616,6 +619,30 @@ export const handlers = {
     };
     db.expenses.push(expense);
     return ok(schema.Expense, expenseView(db, expense));
+  }),
+
+  /* The real file from the account, through the real builders, so a story
+     that downloads saves what the app would. */
+  exportEntries: http.get(`${API}/exports/entries`, ({ request }) => {
+    const db = getDb();
+    const tz = query(request).get('tz') ?? ZONE;
+    return csvResponse(
+      'entries',
+      tz,
+      entriesCsv(
+        {
+          ...db,
+          defaultRate: db.settings.defaultHourlyRate,
+          currency: db.settings.currency,
+        },
+        tz,
+      ),
+    );
+  }),
+
+  exportInvoices: http.get(`${API}/exports/invoices`, ({ request }) => {
+    const tz = query(request).get('tz') ?? ZONE;
+    return csvResponse('invoices', tz, invoicesCsv(getDb(), tz));
   }),
 
   sendFeedback: http.post(`${API}/feedback`, async ({ request }) => {

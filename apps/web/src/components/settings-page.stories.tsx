@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, spyOn, userEvent, waitFor, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import {
   desktop,
@@ -7,6 +7,7 @@ import {
   light,
   phone,
   screen,
+  stalled,
   expectOpen,
 } from '@/mocks/screen';
 import { SettingsPage } from './settings-page';
@@ -162,5 +163,77 @@ export const DeleteAccountFailed: Story = {
       page.getByRole('button', { name: 'Delete account and data' }),
     );
     await expect(await page.findByText(/nothing was removed/i)).toBeVisible();
+  },
+};
+
+const exportSection = async (canvasElement: HTMLElement) => {
+  const heading = await within(canvasElement).findByRole('heading', {
+    name: 'Export',
+  });
+  return within(heading.closest('section') as HTMLElement);
+};
+
+/** Export sits after Import: both files, one press each. A press saves the
+    file the server named, built from the account. */
+export const ExportDownload: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const section = await exportSection(canvasElement);
+    const saved: string[] = [];
+    const click = spyOn(
+      HTMLAnchorElement.prototype,
+      'click',
+    ).mockImplementation(function (this: HTMLAnchorElement) {
+      saved.push(this.download);
+    });
+    await userEvent.click(
+      section.getByRole('button', { name: 'Download entries' }),
+    );
+    await waitFor(() =>
+      expect(saved).toEqual([
+        expect.stringMatching(/^stint-entries-\d{4}-\d{2}-\d{2}\.csv$/),
+      ]),
+    );
+    click.mockRestore();
+    await expect(
+      section.getByRole('button', { name: 'Download invoices' }),
+    ).toBeEnabled();
+  },
+};
+
+/** Downloading: the pressed button says it is preparing the file and waits;
+    the other stays usable. */
+export const ExportDownloading: Story = {
+  ...desktop,
+  parameters: stalled('exportEntries'),
+  play: async ({ canvasElement }) => {
+    const section = await exportSection(canvasElement);
+    await userEvent.click(
+      section.getByRole('button', { name: 'Download entries' }),
+    );
+    await expect(
+      await section.findByRole('button', { name: 'Preparing' }),
+    ).toBeDisabled();
+    await expect(
+      section.getByRole('button', { name: 'Download invoices' }),
+    ).toBeEnabled();
+  },
+};
+
+/** Failed: the section says so, and the button is ready to try again. */
+export const ExportFailed: Story = {
+  ...desktop,
+  parameters: failing('exportInvoices'),
+  play: async ({ canvasElement }) => {
+    const section = await exportSection(canvasElement);
+    await userEvent.click(
+      section.getByRole('button', { name: 'Download invoices' }),
+    );
+    await expect(await section.findByRole('alert')).toHaveTextContent(
+      'The download didn’t complete. Try again.',
+    );
+    await expect(
+      section.getByRole('button', { name: 'Download invoices' }),
+    ).toBeEnabled();
   },
 };

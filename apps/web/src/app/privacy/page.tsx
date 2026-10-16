@@ -36,6 +36,11 @@ export default function Page() {
           the app, with the screen and app version it came from.
         </p>
         <p>
+          <strong className="text-primary">An invite request:</strong> the email
+          address you give on the home page. It goes to Formspree, the form
+          service that holds the list, and is used only to send you an invite.
+        </p>
+        <p>
           <strong className="text-primary">Ordinary server logs:</strong> IP
           address, browser user agent and timestamps, kept for a short period
           for security and debugging.
@@ -60,9 +65,10 @@ export default function Page() {
 
       <Clause heading="Who else can see it">
         <p>
-          Infrastructure providers who host the application and its database
-          process data on Stint&rsquo;s behalf and are bound to it. No one else
-          receives your data, and it is never sold.
+          Infrastructure providers who host the application and its database,
+          and the form service that holds invite requests, process data on
+          Stint&rsquo;s behalf and are bound to it. No one else receives your
+          data, and it is never sold.
         </p>
         <p>
           If you subscribe, Stripe processes your payment. Your card details go

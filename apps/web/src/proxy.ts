@@ -40,6 +40,15 @@ function isAppHost(hostname: string): boolean {
   return false;
 }
 
+/**
+ * The apex for an app host: `app.runstint.com` -> `runstint.com`, the inverse
+ * of the redirect below. A host with no `app.` (localhost, a preview) has no
+ * apex and comes back unchanged.
+ */
+export function apexOf(host: string): string {
+  return host.replace(/^app\./, '');
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 

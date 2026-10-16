@@ -296,6 +296,8 @@ sequence gapless under concurrency rather than merely usually correct.
   **except `invoice_line_items` and `feedback`**, which have no such column:
   each is written once and never edited, so a "last modified" timestamp would
   be a field that can only ever lie.
+  `subscriptions` has the column but no trigger: its one writer, the Stripe
+  sync's upsert in `apps/web/src/lib/billing.ts`, sets it.
 - Partial indexes back the hot paths: active clients, projects and profiles,
   unbilled entries, and `invoices_user_paid_at_idx` on `(user_id, paid_at)`
   where the invoice is paid — payments are read by date, not by the status

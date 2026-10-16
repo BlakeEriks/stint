@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import { ArrowRight, Laptop, Monitor, Smartphone } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Laptop, Monitor, Smartphone } from 'lucide-react';
 import { DemoTimer } from '@/components/marketing/demo-timer';
+import { InviteRequest } from '@/components/marketing/invite-request';
 import { ScrollRegion } from '@/components/marketing/scroll-region';
 import { Wordmark } from '@/components/wordmark';
 
@@ -32,9 +32,9 @@ export const metadata: Metadata = {
 };
 
 /**
- * Sign-in lives on the app subdomain, so every CTA here is a cross-origin
- * link — a plain `<a>`, not `next/link`, which would try to route it
- * client-side within this origin.
+ * Sign-in lives on the app subdomain, so the header's link is cross-origin —
+ * a plain `<a>`, not `next/link`, which would try to route it client-side
+ * within this origin.
  *
  * In local development there is no subdomain and both halves share one
  * origin, so this falls back to a same-origin path and the links still work.
@@ -107,9 +107,8 @@ function Header() {
 /**
  * One screen, one green object, live.
  *
- * The accent is spent here and on the CTA — the same fact twice (start
- * tracking / time accruing), which is what the scarcity rule permits. It
- * never marks anything else on this page.
+ * The accent is spent on the timer and on the invite button, the action this
+ * page exists to complete. It never marks anything else on this page.
  */
 function Hero() {
   return (
@@ -134,10 +133,11 @@ function Hero() {
             a spreadsheet full of arithmetic.
           </p>
 
-          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3">
-            <CallToAction />
+          {/* `#invite` is where the sign-in refusal sends a stranger. */}
+          <div id="invite" className="mt-4 flex flex-col gap-3">
+            <InviteRequest />
             <span className="type-meta text-subtle">
-              Free, fully &mdash; no card, no trial.
+              Free, fully &mdash; no card, no trial. Invite-only during alpha.
             </span>
           </div>
         </div>
@@ -145,23 +145,6 @@ function Hero() {
         <DemoTimer />
       </div>
     </Container>
-  );
-}
-
-function CallToAction() {
-  return (
-    /* Through `Button`, not hand-rolled accent classes: a fill written out
-       here does not follow `buttonVariants` when the variant changes, and
-       `text-on-accent` — never white, 1.37:1, CI guards the pairing — comes
-       with it. The height is this one button's: the hero is the only place
-       that ever wanted 40px, so it is a call-site override rather than a
-       step everyone has to choose from. */
-    <Button asChild variant="accent" className="h-10 px-4 type-nav">
-      <a href={SIGN_IN_URL}>
-        Start tracking — free
-        <ArrowRight aria-hidden className="size-3.5" />
-      </a>
-    </Button>
   );
 }
 
@@ -631,9 +614,9 @@ function Closing() {
           Your next invoice could build itself.
         </h2>
         <div className="mt-8 flex flex-col items-center gap-3">
-          <CallToAction />
+          <InviteRequest />
           <span className="type-meta max-w-sm text-subtle">
-            Email link, no password. Nothing to install, no card, and your data
+            Invite-only during alpha. Nothing to install, no card, and your data
             exports whenever you want it.
           </span>
         </div>

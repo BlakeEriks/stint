@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { expect, within } from 'storybook/test';
 import MarketingLayout from '@/app/landing/layout';
 import LandingPage from '@/app/landing/page';
 import PrivacyPage from '@/app/privacy/page';
@@ -25,7 +26,20 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Desktop: Story = { ...desktop };
+/** Both calls to action ask for an invite; only the header signs in. */
+export const Desktop: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      page.getAllByRole('button', { name: 'Request an invite' }),
+    ).toHaveLength(2);
+    await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
+      'href',
+      '/signin',
+    );
+  },
+};
 export const Tablet: Story = { ...tablet };
 export const Phone: Story = { ...phone };
 /** Only for someone who chose light in the app; the page has no toggle. */

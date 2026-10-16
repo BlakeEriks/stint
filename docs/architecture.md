@@ -94,6 +94,10 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
 - Billing: Stripe's hosted Checkout and Customer Portal, per transaction
   with no fixed fee. Stripe sends the receipts and dunning mail; the webhook
   mirrors each subscription into `subscriptions` (`docs/api.md` §Billing).
+- **Invite requests go to Formspree**, on its free plan: the landing page's
+  form posts the visitor's email there, and Blake invites from its list.
+  No table and no route, since an unauthenticated write to our database
+  would need rate limiting (`docs/deploying.md` sets it up).
 - **No outbound mail**, so no provider and no domain in the stack. Invoices
   are downloaded and sent by the user (`docs/positioning.md`).
 

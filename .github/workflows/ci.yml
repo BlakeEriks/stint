@@ -33,7 +33,7 @@ jobs:
       # No `version:` — package.json's `packageManager` pins it, and setting
       # both makes the action fail on a version mismatch.
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with: { node-version: '24', cache: 'pnpm' }
 
       - run: pnpm install --frozen-lockfile
@@ -138,7 +138,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with: { node-version: '24', cache: 'pnpm' }
 
       - run: pnpm install --frozen-lockfile
@@ -190,7 +190,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with: { node-version: '24', cache: 'pnpm' }
 
       - run: pnpm install --frozen-lockfile
@@ -257,7 +257,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with: { node-version: '24', cache: 'pnpm' }
 
       - run: pnpm install --frozen-lockfile
@@ -288,7 +288,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with: { node-version: '24', cache: 'pnpm' }
       - run: pnpm install --frozen-lockfile
 
