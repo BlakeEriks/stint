@@ -34,6 +34,10 @@ too: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` (from
 `SUPABASE_SECRET_KEY` from `supabase status`, which the webhook writes
 with. Never a live key.
 
+`NEXT_PUBLIC_INVITE_FORM_URL` stays unset, so the landing page's invite form
+says it didn't send and never reaches the real list. To see it succeed, point
+it at a local stub (`specs/006-invite-request/quickstart.md`).
+
 **No file on this machine points at production.** There is no `.env.local`;
 `pnpm migrate` and `pnpm verify:schema` reach a database only through `--url`
 or `SUPABASE_DB_URL`, and production is migrated by the release gate.
@@ -92,9 +96,10 @@ worktree's own URL and its link returns there.
 
 **Sign-up is off, as in production**, so an address works only once it has
 an account: `pnpm seed <email>` makes one with data, and `--clear` then
-empties it. Any other address gets "Stint is invite-only." Enter it on `/signin`, then
-open **Mailpit** and click the link. No mail leaves the machine, so there is
-nothing in your actual inbox and nothing to rate-limit.
+empties it. Any other address gets "Stint is invite-only during alpha."
+Enter it on `/signin`, then open **Mailpit** and click the link. No mail
+leaves the machine, so there is nothing in your actual inbox and nothing to
+rate-limit.
 
 **One sign-in at a time per browser.** Sign-in is PKCE: the form stores a
 code verifier in localStorage under **one key per origin**, so two tabs on

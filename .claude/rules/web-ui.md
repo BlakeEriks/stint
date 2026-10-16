@@ -147,7 +147,7 @@ a different order, and the ones that drifted were rebuilt:
 | The content column | `Page`, `DetailPage` |
 | A list's loading, failure and empty states | `Panel` + `Listing` |
 | A titled region with its own save state | `Section` + `useAutosave` + `SaveIndicator` |
-| A labeled control | `Field`, `Input`, `inputClass`, `textareaClass` |
+| A labeled control | `Field`, `Input`, `inputClass`, `textareaClass`; on a signed-out page, `elevatedInputClass` |
 | Any action | `Button`, sized and varied by the tables in `ui/button.tsx` |
 | A destructive action | `ConfirmAction` |
 | An invoice's status | `StatusBadge` |
