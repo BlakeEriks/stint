@@ -169,7 +169,7 @@ export function NewInvoice() {
       queryFn: () => api.paymentProfiles(),
     }).data?.paymentProfiles ?? [];
 
-  /* Newest first; a void invoice is skipped. */
+  /* Newest first. */
   const lastInvoice = useQuery({
     queryKey: [...keys.invoices(), { clientId: draft.clientId }],
     queryFn: () => api.invoices({ clientId: draft.clientId }),
