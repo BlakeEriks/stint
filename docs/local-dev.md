@@ -28,6 +28,12 @@ Those are the CLI's fixed development credentials — identical on every
 machine, published in Supabase's own docs, stable across resets. Nothing here
 is a secret.
 
+Billing stays hidden locally until Stripe **test-mode** keys are added here
+too: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` (from
+`stripe listen --forward-to localhost:3100/api/v1/billing/webhook`), plus
+`SUPABASE_SECRET_KEY` from `supabase status`, which the webhook writes
+with. Never a live key.
+
 `NEXT_PUBLIC_INVITE_FORM_URL` stays unset, so the landing page's invite form
 says it didn't send and never reaches the real list. To see it succeed, point
 it at a local stub (`specs/006-invite-request/quickstart.md`).

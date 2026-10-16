@@ -122,6 +122,7 @@ export type Client = Response<schema.Client>;
 export type ClientWithScale = Response<schema.ClientWithScale>;
 export type Settings = Response<schema.Settings>;
 export type Account = Response<schema.Account>;
+export type Billing = Response<schema.Billing>;
 export type PaymentProfile = Response<schema.PaymentProfile>;
 export type InvoicePreview = Response<schema.InvoicePreview>;
 export type Invoice = Response<schema.Invoice>;
@@ -477,4 +478,17 @@ export const api = {
   account: () => request<Account>('GET', '/account'),
 
   deleteAccount: () => request<void>('DELETE', '/account'),
+
+  billing: () => request<Billing>('GET', '/billing'),
+
+  /** A Stripe Checkout URL for the yearly price. */
+  checkout: () => request<schema.BillingRedirect>('POST', '/billing/checkout'),
+
+  /** A Stripe Customer Portal URL: cancel, resume, card, receipts. */
+  billingPortal: () =>
+    request<schema.BillingRedirect>('POST', '/billing/portal'),
+
+  /** Back from Checkout: store what Stripe says about that session now. */
+  syncCheckout: (sessionId: string) =>
+    request<Billing>('POST', '/billing/sync', { sessionId }),
 };

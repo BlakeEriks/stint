@@ -21,6 +21,7 @@ const EXPECTED = [
   'invoices',
   'payment_profiles',
   'projects',
+  'subscriptions',
   'time_entries',
   'user_settings',
 ];

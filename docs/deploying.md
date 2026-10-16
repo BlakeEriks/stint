@@ -95,7 +95,7 @@ It deliberately sets **no `outputDirectory`**: Next.js detection finds
 failed a build that had otherwise succeeded.
 
 Still set in the dashboard:
-- Environment variables, none of them sensitive:
+- Environment variables, none of them sensitive but billing's three secrets:
   - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` —
     production's project for Production, `stint-test`'s for Preview
     (§3d). A preview never reaches production data.
@@ -110,6 +110,37 @@ Still set in the dashboard:
     and the page says it didn't send, so a preview never adds to the list.
   - `SENTRY_DSN`, for Production only (§3c). Unset, Sentry stays off, so a
     preview never reports.
+
+Billing, for Production only (Preview uses Stripe test-mode keys if billing
+is being tried there). **Don't set these until the invoice gate (#61, PR
+#324) has merged:** nothing else reads the paid plan yet, so a subscriber
+would pay for downloads every free user already has.
+
+- `STRIPE_SECRET_KEY` (**sensitive**), `STRIPE_PRICE_ID` and
+  `STRIPE_WEBHOOK_SECRET` (**sensitive**). Any one unset hides the Plan
+  section: `checkout`, `portal` and `sync` answer `503 BILLING_UNAVAILABLE`,
+  the webhook a plain-text `503`, and `GET /billing` answers `200` with
+  `available: false`.
+- `SUPABASE_SECRET_KEY` (**sensitive**), the project's secret key: the
+  Stripe webhook has no user session, so it writes `subscriptions` as
+  `service_role`. Without it, the webhook and the Checkout return fail with
+  `500`. Never `NEXT_PUBLIC_`.
+
+In the Stripe dashboard, once:
+
+- A product with one **yearly** price of $40 USD (`docs/positioning.md`);
+  its id is `STRIPE_PRICE_ID`.
+- A webhook endpoint at `https://app.runstint.com/api/v1/billing/webhook`
+  for `checkout.session.completed`, `customer.subscription.*`,
+  `invoice.paid` and `invoice.payment_failed`; its signing secret is
+  `STRIPE_WEBHOOK_SECRET`.
+- Billing → Customer portal: allow cancel at period end, resume, card
+  update and invoice history.
+- Billing → Revenue recovery: Smart Retries, 8 attempts over 2 weeks, then
+  cancel the subscription; emails on failed payment and before renewal.
+- Settings → Public details: the terms URL `https://runstint.com/terms`,
+  which Checkout asks the user to accept.
+- Stripe Tax stays off (no sales tax at launch).
 
 `SUPABASE_DB_URL` does **not** belong here. The app never uses it; only the
 migration scripts do, and they run in Actions.
