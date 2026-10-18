@@ -69,11 +69,6 @@ function serve(data: Summary, taskNames: TaskNameSuggestion[] = []) {
       if (path.startsWith('/entries/task-names')) {
         return new Response(JSON.stringify({ taskNames }), { status: 200 });
       }
-      if (path.startsWith('/projects')) {
-        return new Response(JSON.stringify({ projects: PROJECTS }), {
-          status: 200,
-        });
-      }
       return new Response(JSON.stringify(data), { status: 200 });
     }),
   );
@@ -421,6 +416,6 @@ describe('TimerBar — running', () => {
 
     expect(screen.queryByRole('button', { name: 'Project' })).toBeNull();
     /* Reported, not offered: the name is there, the control is not. */
-    expect(await screen.findByText('Acme Redesign')).toBeInTheDocument();
+    expect(screen.getByText('Acme Redesign')).toBeInTheDocument();
   });
 });

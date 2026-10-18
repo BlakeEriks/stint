@@ -247,8 +247,14 @@ export function ProjectPicker({
  * An unprojected entry shows nothing: a dashed "Project" slot invites the
  * click this exists to refuse.
  */
-export function ProjectTag({ id }: { id: string | null }) {
-  const project = useProject(id);
+export function ProjectTag({
+  projects,
+  id,
+}: {
+  projects: Project[];
+  id: string | null;
+}) {
+  const project = useSelected(projects, id);
   const colors = useProjectColors();
   if (!project) return null;
   return (

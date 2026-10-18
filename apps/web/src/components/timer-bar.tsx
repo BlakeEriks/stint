@@ -43,7 +43,7 @@ export function TimerBar({ projects }: { projects: Project[] }) {
           does not move as the name beside it changes length. `Readout` carries
           the `ml-auto` that does it. */}
       {timer.running ? (
-        <RunningBar running={timer.running} timer={timer} />
+        <RunningBar running={timer.running} timer={timer} projects={projects} />
       ) : (
         <IdleBar
           timer={timer}
@@ -60,8 +60,8 @@ export function TimerBar({ projects }: { projects: Project[] }) {
 
 type Timer = ReturnType<typeof useTimer>;
 
-/* What live looks like, for the dot and the clock alike. The dot paints
-   `bg-current` from it, and its halo is mixed from the same token. */
+/* The dot paints `bg-current` from this; its halo (`shadow-halo-running`)
+   mixes the same token. */
 const LIVE = 'text-timer-running';
 
 const ROW = 'flex items-center gap-x-3 gap-y-2 px-4 py-2 sm:gap-4 sm:px-5';
@@ -70,7 +70,15 @@ const ROW = 'flex items-center gap-x-3 gap-y-2 px-4 py-2 sm:gap-4 sm:px-5';
  * Never wraps: below `sm` the project tag is dropped rather than wrapped,
  * which leaves a name and a readout, and those fit.
  */
-function RunningBar({ running, timer }: { running: TimeEntry; timer: Timer }) {
+function RunningBar({
+  running,
+  timer,
+  projects,
+}: {
+  running: TimeEntry;
+  timer: Timer;
+  projects: Project[];
+}) {
   /* `null` means "not editing" — the running name is shown as text. Entering
      a rename seeds this with the server's current name, so the draft and the
      mode are one piece of state rather than two that can disagree. */
@@ -98,7 +106,7 @@ function RunningBar({ running, timer }: { running: TimeEntry; timer: Timer }) {
           operated, and the project cannot change until it stops, so it is
           the one thing on this row that a phone can do without. */}
       <div className="hidden min-w-0 shrink sm:flex">
-        <ProjectTag id={running.projectId} />
+        <ProjectTag projects={projects} id={running.projectId} />
       </div>
       <Readout
         seconds={timer.seconds}
