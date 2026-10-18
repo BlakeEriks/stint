@@ -53,7 +53,7 @@ export const Desktop: Story = {
   },
 };
 /** At `2xl` the grid scrolls inside the card. The screen is a workspace:
-    no dock, so the week takes the dock's room. */
+    the dock folds to a strip, so the week takes the dock's room. */
 export const Wide: Story = {
   ...wide,
   play: async ({ canvasElement }) => {

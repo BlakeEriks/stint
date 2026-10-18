@@ -148,6 +148,9 @@ export function EntryDialog({
     if (existing) await onSaved?.(existing.id);
   };
 
+  const failWith = (fallback: string) => (e: Error) =>
+    setError(e instanceof ApiError ? e.message : fallback);
+
   /* Pending, not predicted: the server decides whether an entry is valid (an
      overlap, a billed lock), and a form that closed at once would lose what
      was typed when it said no. The button answers the press instead, and the
@@ -164,23 +167,12 @@ export function EntryDialog({
   const save = useOptimisticMutation({
     ...formPress,
     mutationFn: async () => {
-      const { date, start, end } = draft;
-      const startedAt = localDateTimeToInstant(date, start, tz);
-      const endedAt = localDateTimeToInstant(date, end, tz);
-
-      /* An entry that ends "before" it starts is almost always an overnight
-         shift — 22:00 to 02:00 — not a typo. Rolling the end forward a day is
-         what the user meant, and the server would otherwise reject it. */
-      const ended =
-        endedAt <= startedAt
-          ? localDateTimeToInstant(addDays(date, 1), end, tz)
-          : endedAt;
-
+      const { startedAt, endedAt } = draftInstants(draft, tz);
       const body = {
         taskName: draft.taskName.trim(),
         projectId: draft.projectId,
         startedAt: startedAt.toISOString(),
-        endedAt: ended.toISOString(),
+        endedAt: endedAt.toISOString(),
         isBillable: draft.billable,
       };
 
@@ -188,19 +180,13 @@ export function EntryDialog({
         ? api.updateEntry(existing.id, body)
         : api.createEntry({ id: uuidv7(), ...body });
     },
-    onError: (e) =>
-      setError(
-        e instanceof ApiError ? e.message : 'Could not save this entry.',
-      ),
+    onError: failWith('Could not save this entry.'),
   });
 
   const remove = useOptimisticMutation({
     ...formPress,
     mutationFn: () => api.deleteEntry(existing!.id),
-    onError: (e) =>
-      setError(
-        e instanceof ApiError ? e.message : 'Could not delete this entry.',
-      ),
+    onError: failWith('Could not delete this entry.'),
   });
 
   /* An entry billed on an ISSUED invoice is frozen by a database trigger, so
@@ -208,8 +194,8 @@ export function EntryDialog({
      A DRAFT is different and the trigger says so — `guard_billed_entry`
      returns early when the invoice status is `draft` — because a draft holds
      no number and has not been sent, so nothing has been told to a client
-     yet. Disabling those fields refused an edit the server would have
-     accepted, which is the more expensive direction: the fix for a wrong
+     yet. Disabling those fields would refuse an edit the server accepts,
+     which is the more expensive direction: the fix for a wrong
      draft is to correct the entry and preview again.
 
      The status is not on the entry, so it is fetched — only when there is an
@@ -227,36 +213,13 @@ export function EntryDialog({
     existing?.invoiceId != null && billedOn.data?.status !== 'draft';
   const busy = save.isPending || remove.isPending;
 
-  /* The strip draws instants, the draft holds wall-clock strings, so the two
-     are converted at this boundary rather than either side holding both. An
-     incomplete draft — a cleared time field — has nothing to draw, and `null`
-     is what hides the strip.
-
-     EDITING ONLY. Adjusting is a correction to times that already exist: the
+  /* EDITING ONLY. Adjusting is a correction to times that already exist: the
      gesture answers "this started at 9, not 9:30", which is a question a new
      entry has not asked yet. On Add the fields are the whole job, and a strip
      drawn from a default would invite dragging the times into place instead
      of typing the two the user already knows. */
   const colors = useProjectColors();
-  const drawn = (() => {
-    if (!existing) return null;
-    const { date, start, end } = draft;
-    if (!date || !start || !end) return null;
-    const startedAt = localDateTimeToInstant(date, start, tz);
-    const endedAt = localDateTimeToInstant(date, end, tz);
-    /* An overnight entry is the dialog's existing rule — the end rolls
-       forward a day on save — and the strip spans one day, so it cannot draw
-       one. It hides instead of drawing something false; the fields keep the
-       truth and the description already explains the rule. */
-    if (endedAt <= startedAt) return null;
-    const dayStart = startOfLocalDay(startedAt, tz);
-    return {
-      startedAt,
-      endedAt,
-      dayStart,
-      dayEnd: startOfLocalDayOffset(dayStart, tz, -1),
-    };
-  })();
+  const drawn = existing ? strip(draft, tz) : null;
 
   return (
     <Dialog
@@ -268,11 +231,11 @@ export function EntryDialog({
         <DialogHeader>
           <DialogTitle>{existing ? 'Edit entry' : 'Add entry'}</DialogTitle>
           <DialogDescription>
-            {locked
-              ? `This entry is billed on ${billedOn.data?.invoiceNumber ?? 'an issued invoice'}, so it can no longer be changed. Void the invoice to release it.`
-              : existing?.invoiceId != null
-                ? `This entry is on draft ${billedOn.data?.invoiceNumber}. Editing it changes what that draft would bill, so preview it again before issuing.`
-                : 'Times are in your local timezone. An end before the start counts as overnight.'}
+            {description(
+              locked,
+              existing?.invoiceId != null,
+              billedOn.data?.invoiceNumber,
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -374,56 +337,7 @@ export function EntryDialog({
             </div>
           ) : null}
 
-          {/* Not four equal columns. A `type="time"` input renders its own
-              picker icon inside the box, and at 106.5px minus 24px of padding
-              the AM/PM was 4px past the edge — the meridiem clipped under the
-              clock, which is the one part of "05:39 AM" you cannot infer.
-
-              The date needs less than the two columns it had (a `yyyy-mm-dd`
-              is narrower than two times), so the track gives the times the
-              room instead: `1.2fr` each against the date's `1fr`. Measured,
-              not guessed — the text wants 70px and the icon ~16px. */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1.2fr_1.2fr]">
-            <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-1">
-              <Label htmlFor="entry-date" className={LABEL}>
-                Date
-              </Label>
-              <Input
-                id="entry-date"
-                type="date"
-                required
-                disabled={locked}
-                value={draft.date}
-                onChange={(e) => set('date', e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="entry-start" className={LABEL}>
-                Start
-              </Label>
-              <Input
-                id="entry-start"
-                type="time"
-                required
-                disabled={locked}
-                value={draft.start}
-                onChange={(e) => set('start', e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="entry-end" className={LABEL}>
-                End
-              </Label>
-              <Input
-                id="entry-end"
-                type="time"
-                required
-                disabled={locked}
-                value={draft.end}
-                onChange={(e) => set('end', e.target.value)}
-              />
-            </div>
-          </div>
+          <EntryTimes draft={draft} disabled={locked} set={set} />
 
           <label className="flex items-center gap-2.5 type-control text-primary">
             <input
@@ -445,68 +359,14 @@ export function EntryDialog({
             </p>
           ) : null}
 
-          {locked ? (
-            <DialogFooter>
-              <Button type="button" onClick={() => onOpenChange(false)}>
-                Close
-              </Button>
-            </DialogFooter>
-          ) : (
-            // Both actions right-aligned, at the footer's own gap. Splitting
-            // them to opposite edges left 134px of empty row in a 293px
-            // footer on a phone, which read as two unrelated controls rather
-            // than one group.
-            <DialogFooter>
-              {/* Deleting is destructive and irreversible, so it asks once.
-                  The first step only opens that question, so it is a quiet
-                  icon: filled red belongs on the step that actually destroys
-                  something, and spending it here trains the user past the
-                  one that matters. Weight tracks frequency — Save is taken
-                  on nearly every open of this dialog, Delete on almost
-                  none. */}
-              {existing ? (
-                <ConfirmAction
-                  /* No visible label, as a destructive first step may be
-                     (`.claude/rules/web-ui.md`): the confirm that follows
-                     spells it out before anything is removed. */
-                  aria-label="Delete entry"
-                  className="mr-auto"
-                  label="Delete for good"
-                  pendingLabel="Deleting…"
-                  pending={remove.isPending}
-                  disabled={busy}
-                  onConfirm={() => remove.mutate()}
-                >
-                  <Trash2 aria-hidden />
-                </ConfirmAction>
-              ) : null}
-
-              {/* No icon: Cancel undoes the intent rather than performing one,
-                  and a glyph would give a dismissal the same weight as the
-                  save it sits beside. */}
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-
-              {/* Icon plus label, like every other action in the app: text +
-                  color + icon is more legible than any single channel. The
-                  glyph is `aria-hidden`, so the accessible name stays the
-                  label alone. */}
-              <Button type="submit" variant="accent" disabled={busy}>
-                {save.isPending ? (
-                  <Loader2 aria-hidden className="animate-spin" />
-                ) : (
-                  <Check aria-hidden />
-                )}
-                {save.isPending ? 'Saving…' : existing ? 'Save' : 'Add entry'}
-              </Button>
-            </DialogFooter>
-          )}
+          <EntryFooter
+            locked={locked}
+            existing={existing !== undefined}
+            saving={save.isPending}
+            deleting={remove.isPending}
+            onClose={() => onOpenChange(false)}
+            onDelete={() => remove.mutate()}
+          />
         </form>
       </DialogContent>
     </Dialog>
@@ -526,4 +386,184 @@ function localTime(at: Date, tz: string) {
       .map((part) => [part.type, part.value]),
   ) as Record<string, string>;
   return `${p.hour === '24' ? '00' : p.hour}:${p.minute}`;
+}
+
+/**
+ * Wall-clock strings to instants. An end at or before the start is an
+ * overnight shift — 22:00 to 02:00 — not a typo, so it rolls forward a day:
+ * that is what the user meant, and the server would otherwise reject it.
+ */
+function draftInstants({ date, start, end }: Draft, tz: string) {
+  const startedAt = localDateTimeToInstant(date, start, tz);
+  const sameDay = localDateTimeToInstant(date, end, tz);
+  const endedAt =
+    sameDay <= startedAt
+      ? localDateTimeToInstant(addDays(date, 1), end, tz)
+      : sameDay;
+  return { startedAt, endedAt };
+}
+
+/**
+ * What the scrubber draws, or `null` to hide it: an incomplete draft has
+ * nothing to draw, and the strip spans one day, so an overnight entry hides
+ * rather than drawing something false. The fields keep the truth and the
+ * description explains the rule.
+ */
+function strip(draft: Draft, tz: string) {
+  if (!draft.date || !draft.start || !draft.end) return null;
+  const { startedAt, endedAt } = draftInstants(draft, tz);
+  const dayStart = startOfLocalDay(startedAt, tz);
+  const dayEnd = startOfLocalDayOffset(dayStart, tz, -1);
+  if (endedAt >= dayEnd) return null;
+  return { startedAt, endedAt, dayStart, dayEnd };
+}
+
+function description(
+  locked: boolean,
+  onInvoice: boolean,
+  invoiceNumber: string | undefined,
+) {
+  if (locked)
+    return `This entry is billed on ${invoiceNumber ?? 'an issued invoice'}, so it can no longer be changed. Void the invoice to release it.`;
+  if (onInvoice)
+    return `This entry is on draft ${invoiceNumber}. Editing it changes what that draft would bill, so preview it again before issuing.`;
+  return 'Times are in your local timezone. An end before the start counts as overnight.';
+}
+
+/**
+ * Date, start and end, in a track that is not three equal columns. A
+ * `type="time"` input draws its picker icon inside the box, and an equal
+ * share leaves the AM/PM clipped under it, the one part of "05:39 AM" you
+ * cannot infer. A `yyyy-mm-dd` is narrower than a time, so the times get
+ * `1.2fr` each against the date's `1fr`: the text wants 70px and the icon
+ * ~16px.
+ */
+function EntryTimes({
+  draft,
+  disabled,
+  set,
+}: {
+  draft: Draft;
+  disabled: boolean;
+  set: (key: 'date' | 'start' | 'end', value: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1.2fr_1.2fr]">
+      <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-1">
+        <Label htmlFor="entry-date" className={LABEL}>
+          Date
+        </Label>
+        <Input
+          id="entry-date"
+          type="date"
+          required
+          disabled={disabled}
+          value={draft.date}
+          onChange={(e) => set('date', e.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="entry-start" className={LABEL}>
+          Start
+        </Label>
+        <Input
+          id="entry-start"
+          type="time"
+          required
+          disabled={disabled}
+          value={draft.start}
+          onChange={(e) => set('start', e.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="entry-end" className={LABEL}>
+          End
+        </Label>
+        <Input
+          id="entry-end"
+          type="time"
+          required
+          disabled={disabled}
+          value={draft.end}
+          onChange={(e) => set('end', e.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function EntryFooter({
+  locked,
+  existing,
+  saving,
+  deleting,
+  onClose,
+  onDelete,
+}: {
+  locked: boolean;
+  existing: boolean;
+  saving: boolean;
+  deleting: boolean;
+  onClose: () => void;
+  onDelete: () => void;
+}) {
+  if (locked) {
+    return (
+      <DialogFooter>
+        <Button type="button" onClick={onClose}>
+          Close
+        </Button>
+      </DialogFooter>
+    );
+  }
+
+  const busy = saving || deleting;
+  const saveLabel = existing ? 'Save' : 'Add entry';
+  // Both actions right-aligned, at the footer's own gap: split to opposite
+  // edges, a phone's footer reads them as two unrelated controls.
+  return (
+    <DialogFooter>
+      {/* Deleting is destructive and irreversible, so it asks once. The
+          first step only opens that question, so it is a quiet icon: filled
+          red belongs on the step that actually destroys something, and
+          spending it here trains the user past the one that matters. Weight
+          tracks frequency — Save is taken on nearly every open of this
+          dialog, Delete on almost none. */}
+      {existing ? (
+        <ConfirmAction
+          /* No visible label, as a destructive first step may be
+             (`.claude/rules/web-ui.md`): the confirm that follows spells it
+             out before anything is removed. */
+          aria-label="Delete entry"
+          className="mr-auto"
+          label="Delete for good"
+          pendingLabel="Deleting…"
+          pending={deleting}
+          disabled={busy}
+          onConfirm={onDelete}
+        >
+          <Trash2 aria-hidden />
+        </ConfirmAction>
+      ) : null}
+
+      {/* No icon: Cancel undoes the intent rather than performing one, and a
+          glyph would give a dismissal the same weight as the save it sits
+          beside. */}
+      <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>
+        Cancel
+      </Button>
+
+      {/* Icon plus label, like every other action in the app: text + color +
+          icon is more legible than any single channel. The glyph is
+          `aria-hidden`, so the accessible name stays the label alone. */}
+      <Button type="submit" variant="accent" disabled={busy}>
+        {saving ? (
+          <Loader2 aria-hidden className="animate-spin" />
+        ) : (
+          <Check aria-hidden />
+        )}
+        {saving ? 'Saving…' : saveLabel}
+      </Button>
+    </DialogFooter>
+  );
 }

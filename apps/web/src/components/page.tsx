@@ -54,8 +54,9 @@ export function Page({
   fills?: boolean;
   /**
    * For a screen that is a tool rather than a page to read: it takes the
-   * dock's room too. `AppShell` sees `data-workspace` and drops the dock, so a
-   * screen opts in here and the frame never checks a route.
+   * dock's room too. `AppShell` sees `data-workspace` and folds the dock to a
+   * strip at `xl`, so a screen opts in here and the frame never checks a
+   * route.
    */
   workspace?: boolean;
   children: React.ReactNode;
@@ -80,21 +81,19 @@ export function Page({
 export function DetailPage({
   back,
   label,
-  wide = false,
   workspace = false,
   fills = false,
   children,
 }: {
   back: string;
   label: string;
-  wide?: boolean;
   workspace?: boolean;
   /** `Page`'s: the content below the back link takes the rest of the panel. */
   fills?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <Page wide={wide} workspace={workspace} fills={fills}>
+    <Page workspace={workspace} fills={fills}>
       <BackLink up={back} label={label} />
       <div
         className={`mt-4${fills ? ' xl:flex xl:min-h-0 xl:flex-1 xl:flex-col' : ''}`}
