@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { addDays, localDateKey } from '@stint/core';
-import { generateState, NewInvoice } from '@/components/invoice-new';
+import { NewInvoice } from '@/components/invoice-new';
 
 const push = vi.fn();
 vi.mock('next/navigation', () => ({
@@ -346,6 +346,32 @@ describe('NewInvoice', () => {
     expect(generate()).toBeDisabled();
   });
 
+  it('says why a recompute failed, and holds Generate', async () => {
+    serve();
+    const served = globalThis.fetch;
+    let fail = false;
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) =>
+      fail && String(url).includes('/invoices/preview')
+        ? new Response(
+            JSON.stringify({ code: 'INVALID', message: 'Period ends first.' }),
+            { status: 400 },
+          )
+        : served(url, init),
+    );
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+
+    fail = true;
+    await pickGrouping(user, /By task/);
+
+    expect(await screen.findByText('Period ends first.')).toHaveAttribute(
+      'role',
+      'alert',
+    );
+    expect(generate()).toBeDisabled();
+  });
+
   it('defaults Due to the payment terms, and sends the date it shows', async () => {
     serve();
     settings = { ...SETTINGS, defaultPaymentTerms: 'Net 15' };
@@ -446,6 +472,22 @@ describe('NewInvoice — one summary line', () => {
       'role',
       'alert',
     );
+    await waitFor(() => expect(previews().length).toBeGreaterThan(1));
+    expect(generate()).toBeDisabled();
+  });
+
+  it('takes spaces alone as no text', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await ready(user);
+    await pickGrouping(user, /One summary line/);
+    await user.type(screen.getByLabelText(/Summary line/), '   ');
+
+    expect(
+      screen.getByText('Give the summary line its text.'),
+    ).toBeInTheDocument();
     await waitFor(() => expect(previews().length).toBeGreaterThan(1));
     expect(generate()).toBeDisabled();
   });
@@ -761,50 +803,5 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     expect(
       bodies.find((b) => b.path.endsWith('/invoices'))!.body.paymentProfileId,
     ).toBe('pp2');
-  });
-});
-
-describe('generateState', () => {
-  const ready = {
-    preview: PREVIEW,
-    updating: false,
-    failed: false,
-    hasSettings: true,
-    generating: false,
-    groupingMode: 'entry' as const,
-    summaryText: '',
-  };
-
-  it('allows a current, complete answer', () => {
-    expect(generateState(ready)).toEqual({
-      canGenerate: true,
-      noSummaryText: false,
-    });
-  });
-
-  it.each([
-    ['no answer yet', { preview: undefined }],
-    ['the form has moved on', { updating: true }],
-    ['the preview failed', { failed: true }],
-    ['the settings have not answered', { hasSettings: false }],
-    ['it is already generating', { generating: true }],
-    [
-      'an entry has no rate',
-      { preview: { ...PREVIEW, unratedEntryIds: ['e1'] } },
-    ],
-    ['nothing is billable', { preview: { ...PREVIEW, lineItems: [] } }],
-  ])('holds it when %s', (_, change) => {
-    expect(generateState({ ...ready, ...change }).canGenerate).toBe(false);
-  });
-
-  it('asks a summary for its text, blank or spaces alike', () => {
-    for (const summaryText of ['', '   ']) {
-      expect(
-        generateState({ ...ready, groupingMode: 'summary', summaryText }),
-      ).toEqual({ canGenerate: false, noSummaryText: true });
-    }
-    expect(
-      generateState({ ...ready, groupingMode: 'summary', summaryText: 'Dev' }),
-    ).toEqual({ canGenerate: true, noSummaryText: false });
   });
 });

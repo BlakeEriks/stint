@@ -557,7 +557,7 @@ export function NewInvoice() {
  * Whether Generate can be pressed. Generating freezes what the card shows, so
  * it waits for a current, complete answer from the server.
  */
-export function generateState(s: {
+function generateState(s: {
   /** The server's answer for this client; `undefined` before one. */
   preview: Pick<InvoicePreview, 'lineItems' | 'unratedEntryIds'> | undefined;
   /** The form has changed since the answer, or the server is recomputing. */
@@ -581,8 +581,6 @@ export function generateState(s: {
   return { canGenerate, noSummaryText };
 }
 
-/** What the card needs said before it bills: unrated time blocks it,
- *  overlapping time only warns, and a failure says why. */
 function PreviewNotices({
   preview,
   error,
