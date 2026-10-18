@@ -33,7 +33,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Edit: Story = { ...desktop };
+export const Edit: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(await page.findByText(/counts as overnight/)).toBeVisible();
+  },
+};
 export const EditPhone: Story = { ...phone };
 
 /** A new entry: no strip, and the task field suggests. */
