@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 76,
     fontFamily: 'Helvetica-Bold',
-    color: '#E9504D',
+    color: print.void,
     opacity: 0.12,
     letterSpacing: 10,
     lineHeight: LEADING,

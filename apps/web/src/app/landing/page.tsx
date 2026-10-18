@@ -339,10 +339,6 @@ function Aside({
  * Deliberately rendered on white with near-black figures. The real PDF sets
  * its total in the light-theme accent, which is correct on paper but would
  * put a second green meaning on this page beside the CTA.
- *
- * Print ink, not the app's theme: this is a drawing of a printed invoice on
- * white paper, sitting on a dark marketing page, and it reads the same ramp
- * `invoice-pdf.tsx` prints with.
  */
 function InvoicePreview() {
   const lines = [

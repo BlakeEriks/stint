@@ -461,6 +461,10 @@ ${Object.entries(tokens.primitive.project)
 ${Object.entries(tokens.primitive.categorical)
   .map(([step, p]) => `    --cat-${step}: ${p.hex};`)
   .join('\n')}
+
+${Object.entries(tokens.primitive.print)
+  .map(([step, p]) => `    --print-${step}: ${p.hex};`)
+  .join('\n')}
 }
 
 [data-theme="light"] {
