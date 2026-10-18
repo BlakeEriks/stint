@@ -499,7 +499,7 @@ function Item({
             figure sharing the line takes width from it in proportion to how
             much money the row is about. */}
         {href ? (
-          <Link href={href} className={titleClass}>
+          <Link href={href} prefetch className={titleClass}>
             {label}
           </Link>
         ) : onSelect ? (
