@@ -138,6 +138,11 @@ const WITH_EXPENSE = {
   total: 574,
 };
 
+/** The client's invoices, newest first, as the list serves them. */
+let invoices: unknown[] = [];
+/** A held invoice list: a test answers it after the form has settled. */
+let holdInvoices: Promise<void> | null = null;
+
 /** What each POST sent, oldest first. */
 let bodies: { path: string; body: any }[] = [];
 /** Held previews: a test releases one to watch the card settle. */
@@ -165,6 +170,10 @@ function serve(preview: unknown = PREVIEW) {
       if (path.includes('/invoices/preview')) {
         if (hold) await hold;
         return ok(preview);
+      }
+      if (path.includes('/invoices?')) {
+        if (holdInvoices) await holdInvoices;
+        return ok({ invoices });
       }
       if (path.endsWith('/invoices')) return ok({ id: 'inv-1' });
       if (path.includes('/expenses')) return ok({ expenses: EXPENSES });
@@ -244,6 +253,8 @@ beforeEach(() => {
   hold = null;
   settings = SETTINGS;
   holdSettings = null;
+  invoices = [];
+  holdInvoices = null;
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -461,6 +472,92 @@ describe('NewInvoice — one summary line', () => {
       expect(sent.groupingMode).toBe('summary');
       expect(sent.summaryText).toBe('Software consulting services');
     }
+  });
+});
+
+describe('NewInvoice — from the client’s last invoice', () => {
+  const sent = (summaryText: string | null, status = 'sent') => ({
+    id: `inv-${summaryText}`,
+    clientId: 'c1',
+    status,
+    groupingMode: summaryText === null ? 'entry' : 'summary',
+    summaryText,
+    supportingDetail:
+      summaryText === null
+        ? null
+        : { week: PREVIEW.schedules.week, totalHours: 2.5 },
+  });
+
+  it('opens with the last summary’s text and attachments, still editable', async () => {
+    invoices = [sent('Voided', 'void'), sent('Consulting'), sent(null)];
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await chooseClient(user);
+    const field = await screen.findByLabelText(/Summary line/);
+    expect(field).toHaveValue('Consulting');
+    expect(
+      screen.getByRole('button', { name: 'Show time as' }),
+    ).toHaveTextContent('One summary line');
+    expect(
+      screen.getByRole('checkbox', { name: 'Hours by week' }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: 'Hours by project' }),
+    ).not.toBeChecked();
+
+    await user.clear(field);
+    await user.type(field, 'Consulting, October');
+    await waitFor(() => expect(generate()).toBeEnabled());
+    await user.click(generate());
+    await waitFor(() => expect(push).toHaveBeenCalled());
+
+    const made = bodies.find((b) => b.path.endsWith('/invoices'))!.body;
+    expect(made.groupingMode).toBe('summary');
+    expect(made.summaryText).toBe('Consulting, October');
+    expect(made.schedules).toEqual(['week']);
+    // The preview never asked before it knew the grouping.
+    expect(previews().every((p) => p.body.groupingMode === 'summary')).toBe(
+      true,
+    );
+  });
+
+  it('asks for no preview until the last invoice answers, however late', async () => {
+    invoices = [sent('Consulting')];
+    let release!: () => void;
+    holdInvoices = new Promise((r) => {
+      release = r;
+    });
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await chooseClient(user);
+    // Past the 400ms the form takes to settle.
+    await new Promise((r) => setTimeout(r, 600));
+    expect(previews()).toHaveLength(0);
+    expect(generate()).toBeDisabled();
+
+    release();
+    await waitFor(() => expect(generate()).toBeEnabled());
+    expect(previews().length).toBeGreaterThan(0);
+    expect(previews().every((p) => p.body.groupingMode === 'summary')).toBe(
+      true,
+    );
+  });
+
+  it('opens every entry when the last invoice was not a summary', async () => {
+    invoices = [sent(null)];
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await ready(user);
+    expect(
+      screen.getByRole('button', { name: 'Show time as' }),
+    ).toHaveTextContent('Every entry');
+    expect(screen.queryByLabelText(/Summary line/)).toBeNull();
   });
 });
 
