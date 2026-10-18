@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { localDateKey } from '@stint/core';
 import { account } from '@/mocks/db';
-import { entry, ids } from '@/mocks/fixtures';
+import { entry, id, ids } from '@/mocks/fixtures';
 import { ZONE } from '@/mocks/time.mts';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import {
@@ -31,7 +31,18 @@ export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     // The count, never the worst of them: naming one drops the others.
-    await expect(await page.findByText(/2 open invoices/)).toBeVisible();
+    const awaiting = await page.findByRole('link', { name: /2 open invoices/ });
+    await expect(awaiting).toHaveAttribute('href', '/invoices?status=sent');
+
+    // Unbilled breaks down by client, each against its oldest entry's age.
+    const rows = canvasElement.querySelector('[data-unbilled="clients"]');
+    await expect(rows).not.toBeNull();
+    await expect(
+      within(rows as HTMLElement).getByText('Northwind Trading'),
+    ).toBeVisible();
+    await expect(
+      within(rows as HTMLElement).getAllByText(/^oldest \d+d$|^today$/).length,
+    ).toBeGreaterThan(0);
 
     // Friday to Sunday are unworked: no bar, and an em-dash holds each caption.
     const week = await page.findByRole('img', { name: /FRI not yet worked/ });
@@ -298,5 +309,31 @@ export const MonthLate: Story = {
     const dates = within(axis.parentElement as HTMLElement);
     await expect(dates.getByText('Sep 1')).toBeVisible();
     await expect(dates.getByText('Sep 30')).not.toBeVisible();
+  },
+};
+
+/** More unbilled clients than the rows hold: the rest are counted. */
+export const UnbilledMore: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    const today = localDateKey(db.now, ZONE);
+    const base = db.clients[0] as (typeof db.clients)[number];
+    const work = db.projects[0] as (typeof db.projects)[number];
+    for (let i = 0; i < 6; i++) {
+      const client = id(700 + i);
+      const project = id(800 + i);
+      db.clients.push({ ...base, id: client, name: `Client ${i + 1}` });
+      db.projects.push({ ...work, id: project, clientId: client });
+      db.entries.push(entry(900 + i, today, '08:00', 30, project, 'Review'));
+    }
+  }),
+  play: async ({ canvasElement }) => {
+    const rows = await waitFor(() => {
+      const el = canvasElement.querySelector('[data-unbilled="clients"]');
+      if (!el) throw new Error('no unbilled rows');
+      return el as HTMLElement;
+    });
+    await expect(rows.querySelectorAll('li')).toHaveLength(6);
+    await expect(within(rows).getByText(/^\+\d+ more$/)).toBeVisible();
   },
 };

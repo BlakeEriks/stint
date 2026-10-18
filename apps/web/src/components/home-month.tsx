@@ -1,6 +1,7 @@
 'use client';
 
 import { formatCurrency } from '@stint/core';
+import Link from 'next/link';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Stats } from '@/lib/client/api';
 import { INTERNAL_SWATCH } from '@/lib/client/use-project-colors';
@@ -103,23 +104,68 @@ export function Month({
               currency={currency}
               className="type-amount-hero text-strong"
             />
+            <UnbilledRows unbilled={unbilled} currency={currency} />
           </FigGroup>
 
           {/* Awaiting counts rather than describes, and is rendered only when
               there is something to count. Never summed with unbilled: one has
               an invoice and a due date, the other can still be written off. */}
           {stats.awaitingPayment > 0 ? (
-            <p className="mt-[22px] type-meta text-subtle">
+            <Link
+              href="/invoices?status=sent"
+              className="mt-[22px] self-start rounded-sm type-meta text-subtle hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+            >
               {formatCurrency(stats.awaitingPayment, currency)} awaiting ·{' '}
               {stats.openInvoiceCount} open invoice
               {stats.openInvoiceCount === 1 ? '' : 's'}
-            </p>
+            </Link>
           ) : null}
         </div>
 
         <Climb month={month} currency={currency} hues={hues} />
       </div>
     </div>
+  );
+}
+
+/**
+ * Who the unbilled balance is owed by, each with the age of its oldest entry.
+ *
+ * The age is the prompt: a total says how much, the oldest entry says which
+ * client is overdue an invoice. `/stats` caps the rows and counts the rest.
+ */
+function UnbilledRows({
+  unbilled,
+  currency,
+}: {
+  unbilled: Stats['unbilled'];
+  currency: string;
+}) {
+  if (unbilled.byClient.length === 0) return null;
+
+  return (
+    <ul data-unbilled="clients" className="mt-2.5 flex flex-col gap-1">
+      {unbilled.byClient.map((c) => (
+        <li
+          key={c.clientId ?? INTERNAL}
+          className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-2.5 type-meta"
+        >
+          <span className="truncate text-muted">{c.clientName}</span>
+          <Money
+            figure={`unbilled-${c.clientId ?? 'internal'}`}
+            amount={c.amount}
+            currency={currency}
+            className="text-primary"
+          />
+          <span className="text-subtle">
+            {c.oldestDays === 0 ? 'today' : `oldest ${c.oldestDays}d`}
+          </span>
+        </li>
+      ))}
+      {unbilled.moreClients > 0 ? (
+        <li className="type-meta text-subtle">+{unbilled.moreClients} more</li>
+      ) : null}
+    </ul>
   );
 }
 

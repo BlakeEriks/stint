@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { HomeCards } from '@/components/home-cards';
@@ -478,8 +478,10 @@ describe('the client split', () => {
         .querySelector('[data-legend-key="internal"]')
         ?.querySelector('[data-pip="internal"]'),
     ).not.toBeNull();
-    expect(screen.getByText('Northwind Trading')).toBeVisible();
-    expect(screen.getByText('Internal')).toBeVisible();
+    expect(
+      within(legend as HTMLElement).getByText('Northwind Trading'),
+    ).toBeVisible();
+    expect(within(legend as HTMLElement).getByText('Internal')).toBeVisible();
   });
 
   it('keeps an archived client its color', async () => {
