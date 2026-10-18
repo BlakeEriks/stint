@@ -346,6 +346,32 @@ describe('NewInvoice', () => {
     expect(generate()).toBeDisabled();
   });
 
+  it('says why a recompute failed, and holds Generate', async () => {
+    serve();
+    const served = globalThis.fetch;
+    let fail = false;
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) =>
+      fail && String(url).includes('/invoices/preview')
+        ? new Response(
+            JSON.stringify({ code: 'INVALID', message: 'Period ends first.' }),
+            { status: 400 },
+          )
+        : served(url, init),
+    );
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+
+    fail = true;
+    await pickGrouping(user, /By task/);
+
+    expect(await screen.findByText('Period ends first.')).toHaveAttribute(
+      'role',
+      'alert',
+    );
+    expect(generate()).toBeDisabled();
+  });
+
   it('defaults Due to the payment terms, and sends the date it shows', async () => {
     serve();
     settings = { ...SETTINGS, defaultPaymentTerms: 'Net 15' };
@@ -446,6 +472,22 @@ describe('NewInvoice — one summary line', () => {
       'role',
       'alert',
     );
+    await waitFor(() => expect(previews().length).toBeGreaterThan(1));
+    expect(generate()).toBeDisabled();
+  });
+
+  it('takes spaces alone as no text', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+
+    await ready(user);
+    await pickGrouping(user, /One summary line/);
+    await user.type(screen.getByLabelText(/Summary line/), '   ');
+
+    expect(
+      screen.getByText('Give the summary line its text.'),
+    ).toBeInTheDocument();
     await waitFor(() => expect(previews().length).toBeGreaterThan(1));
     expect(generate()).toBeDisabled();
   });
@@ -642,6 +684,43 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     ).toBeNull();
     await waitFor(() =>
       expect(previews().at(-1)?.body.manualLines).toEqual([]),
+    );
+  });
+
+  it('edits a charge in place, leaving the others', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+
+    for (const [description, amount] of [
+      ['Setup fee', '250'],
+      ['Hosting', '40'],
+    ] as const) {
+      await user.click(screen.getByRole('button', { name: 'Add a charge' }));
+      const dialog = await screen.findByRole('dialog', { name: 'New charge' });
+      await user.type(
+        within(dialog).getByLabelText(/Description/),
+        description,
+      );
+      await user.type(within(dialog).getByLabelText(/Amount/), amount);
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    }
+
+    await user.click(
+      screen.getByRole('button', { name: 'Edit charge Setup fee' }),
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Edit charge' });
+    const amount = within(dialog).getByLabelText(/Amount/);
+    await user.clear(amount);
+    await user.type(amount, '300');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(previews().at(-1)?.body.manualLines).toEqual([
+        { description: 'Setup fee', amount: 300 },
+        { description: 'Hosting', amount: 40 },
+      ]),
     );
   });
 
