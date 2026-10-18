@@ -210,6 +210,7 @@ function Card({
               {client ? (
                 <Link
                   href={`/clients/${client.id}`}
+                  prefetch
                   className="hover:underline hover:underline-offset-4"
                 >
                   {client.name}
