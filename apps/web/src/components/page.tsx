@@ -80,21 +80,19 @@ export function Page({
 export function DetailPage({
   back,
   label,
-  wide = false,
   workspace = false,
   fills = false,
   children,
 }: {
   back: string;
   label: string;
-  wide?: boolean;
   workspace?: boolean;
   /** `Page`'s: the content below the back link takes the rest of the panel. */
   fills?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <Page wide={wide} workspace={workspace} fills={fills}>
+    <Page workspace={workspace} fills={fills}>
       <BackLink up={back} label={label} />
       <div
         className={`mt-4${fills ? ' xl:flex xl:min-h-0 xl:flex-1 xl:flex-col' : ''}`}
