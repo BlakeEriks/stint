@@ -6,11 +6,6 @@ import type { ReactNode } from 'react';
 import { AccountMenu } from '@/components/account-menu';
 import { MutationNotice } from '@/components/mutation-notice';
 
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: vi.fn(), refresh: vi.fn(), push: vi.fn() }),
-  usePathname: () => '/',
-}));
-
 const replace = vi.fn();
 beforeEach(() => {
   vi.stubGlobal('location', { ...window.location, replace });
@@ -50,8 +45,6 @@ describe('AccountMenu', () => {
       await screen.findByRole('menuitem', { name: /sign out/i }),
     );
 
-    /* Clearing the session is the point; the redirect is a full load, so
-       no server-rendered authenticated markup survives for Back to show. */
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/signin'));
     expect(auth.signOut).toHaveBeenCalled();
   });
