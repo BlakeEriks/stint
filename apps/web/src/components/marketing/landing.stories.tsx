@@ -26,7 +26,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Both calls to action ask for an invite; only the header signs in. */
+/**
+ * Both calls to action ask for an invite; only the header signs in. The
+ * unbilled section shows the real home, not a drawing of it.
+ */
 export const Desktop: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -38,6 +41,9 @@ export const Desktop: Story = {
       'href',
       '/signin',
     );
+    await expect(
+      page.getByRole('img', { name: /Stint's home screen/ }),
+    ).toBeVisible();
   },
 };
 export const Tablet: Story = { ...tablet };
