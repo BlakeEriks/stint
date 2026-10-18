@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
-import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Pencil, Plus } from 'lucide-react';
 import { formatCurrency, resolveRate, resolveRateSource } from '@stint/core';
@@ -24,7 +23,7 @@ import { rowBleed, rowButton } from './row-button';
 /**
  * Every client as a card holding its projects and the expenses it owes back
  * — the one place all three are managed, and the only screen that reaches a
- * project with no client, since there is no client page to open for one.
+ * project with no client.
  *
  * It is for editing, not reporting: what is owed and how many hours went in
  * belong to a reports screen. Every action is the Edit on the thing it
@@ -39,6 +38,7 @@ export function ClientList() {
   const editing = useDialog<Project>();
   const editingClient = useDialog<Client>();
   const addingExpense = useDialog<Client>();
+  const [addingClient, setAddingClient] = useState(false);
 
   const clientQuery = useQuery({
     queryKey: keys.clients({ archived: true }),
@@ -76,11 +76,9 @@ export function ClientList() {
     <Page>
       <header className="flex items-center justify-between gap-3 pb-4">
         <h1 className="type-title text-strong">Clients</h1>
-        <Button asChild>
-          <Link href="/clients/new">
-            <Plus aria-hidden strokeWidth={2.25} />
-            Add client
-          </Link>
+        <Button onClick={() => setAddingClient(true)}>
+          <Plus aria-hidden strokeWidth={2.25} />
+          Add client
         </Button>
       </header>
 
@@ -150,6 +148,7 @@ export function ClientList() {
           client={editingClient.subject}
         />
       ) : null}
+      <ClientDialog open={addingClient} onOpenChange={setAddingClient} />
     </Page>
   );
 }
@@ -162,8 +161,8 @@ const rateLabel = (rate: number, client: Client | null) =>
  * color, repeated as each row's dot, so the belonging is drawn rather than
  * labeled — no "Projects" subheader.
  *
- * "No client" is a grouping, not a record: dashed, with no rate, link or
- * Edit. Nor is it "Internal work" — null also covers work not yet assigned
+ * "No client" is a grouping, not a record: dashed, with no rate or Edit.
+ * Nor is it "Internal work" — null also covers work not yet assigned
  * to a client and speculative work, and only `isBillableDefault` tells them
  * apart.
  */
@@ -207,17 +206,7 @@ function Card({
             <h2
               className={`truncate type-heading ${client ? 'text-strong' : 'text-muted'}`}
             >
-              {client ? (
-                <Link
-                  href={`/clients/${client.id}`}
-                  prefetch
-                  className="hover:underline hover:underline-offset-4"
-                >
-                  {client.name}
-                </Link>
-              ) : (
-                'No client'
-              )}
+              {client ? client.name : 'No client'}
             </h2>
             {client?.archivedAt ? (
               <span className="flex-none type-badge text-subtle">Archived</span>

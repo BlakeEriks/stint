@@ -105,7 +105,6 @@ describe('ClientDialog', () => {
         clients: [ARCHIVED],
       });
       qc.setQueryData(keys.clients(), { clients: [] });
-      qc.setQueryData(keys.client('c1'), ARCHIVED);
       const user = userEvent.setup();
       render(
         <QueryClientProvider client={qc}>
@@ -123,7 +122,6 @@ describe('ClientDialog', () => {
       expect(
         qc.getQueryData<{ clients: Client[] }>(keys.clients())?.clients,
       ).toMatchObject([{ id: 'c1', archivedAt: null }]);
-      expect(qc.getQueryData<Client>(keys.client('c1'))?.archivedAt).toBeNull();
       expect(calls).toContainEqual({
         method: 'PATCH',
         path: '/clients/c1',

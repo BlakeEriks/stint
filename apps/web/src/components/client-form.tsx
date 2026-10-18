@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useOptimisticMutation } from '@/lib/client/mutations';
 import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,12 +17,9 @@ import { keys, invalidateEntryData } from '@/lib/client/query-keys';
  * Rate and tax are optional: a client with no rate falls back to the user
  * default, and a US contractor invoicing services usually owes no tax at all.
  *
- * What happens AFTER a save is injected, because the form renders both as a
- * page and inside a dialog (created mid-flow from the project dialog). The
- * page navigates to the new client; the dialog hands it back to the select
- * that asked for it and stays where it was. Hardcoding `router.push` here
- * would have meant a second copy of the field set, which is the drift this
- * component exists to prevent.
+ * What happens after a save is injected, because two dialogs render it:
+ * `ClientDialog` closes, and the project dialog hands the new client back to
+ * the select that asked for it.
  */
 export function ClientForm({
   existing,
@@ -32,14 +28,12 @@ export function ClientForm({
   footer,
 }: {
   existing?: Client;
-  onSaved?: (client: Client) => void;
-  onCancel?: () => void;
+  onSaved: (client: Client) => void;
+  onCancel: () => void;
   /** A secondary action, at the far left from Save, e.g. the dialog's
       Archive. */
   footer?: React.ReactNode;
 }) {
-  const router = useRouter();
-
   const [name, setName] = useState(existing?.name ?? '');
   const [email, setEmail] = useState(existing?.email ?? '');
   const [address, setAddress] = useState(existing?.address ?? '');
@@ -67,10 +61,7 @@ export function ClientForm({
         qc.invalidateQueries({ queryKey: keys.clients() }),
         invalidateEntryData(qc),
       ]),
-    onSuccess: (saved) => {
-      if (onSaved) onSaved(saved);
-      else router.push(`/clients/${saved.id}`);
-    },
+    onSuccess: onSaved,
   });
 
   const submit = (e: React.FormEvent) => {
@@ -185,11 +176,7 @@ export function ClientForm({
         {/* No icon: Cancel undoes the intent rather than performing one, and
             a glyph would give a dismissal the same weight as the save it
             sits beside. */}
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => (onCancel ? onCancel() : router.back())}
-        >
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
         <Button
