@@ -68,6 +68,15 @@
 
     --cat-1: #64A3E3;
     --cat-2: #F6964E;
+
+    --print-ground: #FFFFFF;
+    --print-ink: #1A1C21;
+    --print-muted: #626875;
+    --print-faint: #707784;
+    --print-rule: #D1D5DD;
+    --print-hairline: #E4E6EC;
+    --print-band: #F2F3F6;
+    --print-void: #E9504D;
 }
 
 [data-theme="light"] {
