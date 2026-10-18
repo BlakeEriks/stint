@@ -164,7 +164,7 @@ for (const { group, script, args, live: readLive, line: pattern } of RAMPS) {
  *
  * Docs link `_mockup.css`, which `pnpm tokens` generates. The one
  * legitimate exception is a surface that genuinely is not app chrome — the
- * invoice PDF is on white paper, and the print palette is not in our tokens.
+ * invoice PDF is on white paper, and `_mockup.css` carries only the app's themes.
  * Such a block opens with `not-app-chrome:` naming why, and everything up to
  * the blank line after it is exempt.
  *
