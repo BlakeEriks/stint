@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { addDays, localDateKey } from '@stint/core';
-import { NewInvoice } from '@/components/invoice-new';
+import { generateState, NewInvoice } from '@/components/invoice-new';
 
 const push = vi.fn();
 vi.mock('next/navigation', () => ({
@@ -645,6 +645,43 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     );
   });
 
+  it('edits a charge in place, leaving the others', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+
+    for (const [description, amount] of [
+      ['Setup fee', '250'],
+      ['Hosting', '40'],
+    ] as const) {
+      await user.click(screen.getByRole('button', { name: 'Add a charge' }));
+      const dialog = await screen.findByRole('dialog', { name: 'New charge' });
+      await user.type(
+        within(dialog).getByLabelText(/Description/),
+        description,
+      );
+      await user.type(within(dialog).getByLabelText(/Amount/), amount);
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    }
+
+    await user.click(
+      screen.getByRole('button', { name: 'Edit charge Setup fee' }),
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Edit charge' });
+    const amount = within(dialog).getByLabelText(/Amount/);
+    await user.clear(amount);
+    await user.type(amount, '300');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(previews().at(-1)?.body.manualLines).toEqual([
+        { description: 'Setup fee', amount: 300 },
+        { description: 'Hosting', amount: 40 },
+      ]),
+    );
+  });
+
   it('holds a charge back until it has a description and an amount', async () => {
     serve();
     const user = userEvent.setup();
@@ -724,5 +761,50 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     expect(
       bodies.find((b) => b.path.endsWith('/invoices'))!.body.paymentProfileId,
     ).toBe('pp2');
+  });
+});
+
+describe('generateState', () => {
+  const ready = {
+    preview: PREVIEW,
+    updating: false,
+    failed: false,
+    hasSettings: true,
+    generating: false,
+    groupingMode: 'entry' as const,
+    summaryText: '',
+  };
+
+  it('allows a current, complete answer', () => {
+    expect(generateState(ready)).toEqual({
+      canGenerate: true,
+      noSummaryText: false,
+    });
+  });
+
+  it.each([
+    ['no answer yet', { preview: undefined }],
+    ['the form has moved on', { updating: true }],
+    ['the preview failed', { failed: true }],
+    ['the settings have not answered', { hasSettings: false }],
+    ['it is already generating', { generating: true }],
+    [
+      'an entry has no rate',
+      { preview: { ...PREVIEW, unratedEntryIds: ['e1'] } },
+    ],
+    ['nothing is billable', { preview: { ...PREVIEW, lineItems: [] } }],
+  ])('holds it when %s', (_, change) => {
+    expect(generateState({ ...ready, ...change }).canGenerate).toBe(false);
+  });
+
+  it('asks a summary for its text, blank or spaces alike', () => {
+    for (const summaryText of ['', '   ']) {
+      expect(
+        generateState({ ...ready, groupingMode: 'summary', summaryText }),
+      ).toEqual({ canGenerate: false, noSummaryText: true });
+    }
+    expect(
+      generateState({ ...ready, groupingMode: 'summary', summaryText: 'Dev' }),
+    ).toEqual({ canGenerate: true, noSummaryText: false });
   });
 });
