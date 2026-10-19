@@ -97,6 +97,9 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
+      stripe:
+        specifier: 22.6.2
+        version: 22.6.2(@types/node@24.19.2)
       tailwind-merge:
         specifier: ^3.7.0
         version: 3.7.0
@@ -4152,6 +4155,15 @@ packages:
   strip-json-comments@5.0.3:
     resolution: {integrity: sha512-1tB5mhVo7U+ETBKNf92xT4hrQa3pm0MZ0PQvuDnWgAAGHDsfp4lPSpiS6psrSiet87wyGPh9ft6wmhOMQ0hDiw==}
     engines: {node: '>=14.16'}
+
+  stripe@22.6.2:
+    resolution: {integrity: sha512-PwRE2scocvXqDKPiskMa5vRJEAEkq46W69XyUYmAwrNSLr675lQnfqLwnsndAWizwgihOWw/irLmoFRo3ez7ew==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@types/node': '>=18'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
 
   styled-jsx@5.1.6:
     resolution: {integrity: sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==}
@@ -8223,6 +8235,10 @@ snapshots:
   strip-indent@4.1.1: {}
 
   strip-json-comments@5.0.3: {}
+
+  stripe@22.6.2(@types/node@24.19.2):
+    optionalDependencies:
+      '@types/node': 24.19.2
 
   styled-jsx@5.1.6(@babel/core@7.29.7)(react@19.3.0):
     dependencies:

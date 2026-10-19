@@ -77,7 +77,7 @@ applies only the new one.
 pnpm verify:schema --url "$DB"
 ```
 
-This asserts the things nothing else would catch: all nine tables exist with
+This asserts the things nothing else would catch: all ten tables exist with
 **RLS on**, each has at least one policy (RLS with no policies denies
 everything), the partial unique index enforcing one running timer is present
 and actually partial, and new users get a settings row.
@@ -99,8 +99,10 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 The publishable key is **meant to be public** — it ships in the browser
 bundle, and RLS is what protects the data. A **secret** key
-(`sb_secret_…`) is not: it bypasses RLS entirely. Never put one in
-an env file or anything `NEXT_PUBLIC_`.
+(`sb_secret_…`) is not: it bypasses RLS entirely. The app server holds
+one only for billing, as the sensitive Vercel variable `SUPABASE_SECRET_KEY`
+(`docs/deploying.md` §2). Never put one in a committed file or anything
+`NEXT_PUBLIC_`.
 
 If the dashboard still shows legacy `anon` / `service_role` JWTs, those are
 the old key pair and are **deprecated at the end of 2026**. Publishable and
@@ -213,8 +215,9 @@ no orphaned second account.
 
 ## Deploying
 
-Vercel: import the repo, set those two env vars plus `NEXT_PUBLIC_APP_ORIGIN`
-and, for Production, `NEXT_PUBLIC_INVITE_FORM_URL`, and add the deployed
-origin to **Site URL** and **Redirect URLs**. The build needs no database
-access — route handlers are all `force-dynamic`.
+Vercel: import the repo and set those two env vars plus
+`NEXT_PUBLIC_APP_ORIGIN`, `NEXT_PUBLIC_INVITE_FORM_URL` for Production, and,
+to turn billing on, the four in `docs/deploying.md` §2. Add the deployed
+origin to **Site URL** and **Redirect URLs**. The build needs no database access — route
+handlers are all `force-dynamic`.
 `docs/deploying.md` covers the hostname split the origin belongs to.

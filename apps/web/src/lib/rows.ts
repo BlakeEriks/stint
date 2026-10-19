@@ -1,4 +1,6 @@
+import { paymentFailed, planOf, type SubscriptionStatus } from '@stint/core';
 import type {
+  Billing,
   GroupingMode,
   Invoice,
   InvoiceStatus,
@@ -483,3 +485,31 @@ export const PAYMENT_PROFILE_FIELDS = {
   feeAllocation: 'fee_allocation',
   notes: 'notes',
 } as const;
+
+// ── subscriptions ──────────────────────────────────────────────────
+export interface SubscriptionRow {
+  stripe_customer_id: string;
+  stripe_subscription_id: string;
+  status: SubscriptionStatus;
+  current_period_end: string;
+  cancel_at_period_end: boolean;
+}
+
+export const SUBSCRIPTION_COLUMNS = columns<SubscriptionRow>()(
+  'stripe_customer_id, stripe_subscription_id, status, current_period_end, cancel_at_period_end',
+);
+
+export function toBilling(
+  r: SubscriptionRow | null,
+  available: boolean,
+): Billing {
+  const status = r?.status ?? null;
+  return {
+    available,
+    plan: planOf(status),
+    status,
+    periodEnd: r ? new Date(r.current_period_end).toISOString() : null,
+    cancelAtPeriodEnd: r?.cancel_at_period_end ?? false,
+    paymentFailed: paymentFailed(status),
+  };
+}
