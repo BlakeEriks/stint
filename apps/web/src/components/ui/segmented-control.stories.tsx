@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { useState } from 'react';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
-import { phone } from '@/mocks/screen';
 import { SegmentedControl } from './segmented-control';
 
 type Mode = 'system' | 'light' | 'dark';
@@ -45,15 +44,5 @@ export const Default: Story = {
     );
     await userEvent.keyboard('{/ArrowRight}');
     await expect(group.getByRole('radio', { name: 'Dark' })).toHaveFocus();
-  },
-};
-
-/** On a phone the words drop; each icon keeps its word as its name. */
-export const Phone: Story = {
-  ...phone,
-  play: async ({ canvasElement }) => {
-    const dark = within(canvasElement).getByRole('radio', { name: 'Dark' });
-    await expect(dark).toHaveAttribute('title', 'Dark');
-    await expect(within(dark).getByText('Dark')).not.toBeVisible();
   },
 };

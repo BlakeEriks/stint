@@ -43,7 +43,27 @@ export const Desktop: Story = {
     ).toHaveLength(1);
   },
 };
-export const Phone: Story = { ...phone };
+/** On a phone the theme toggle drops under the Appearance heading, every
+    word still showing, and the page never scrolls sideways. */
+export const Phone: Story = {
+  ...phone,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const group = await page.findByRole('radiogroup', { name: 'Theme' });
+    for (const word of ['System', 'Light', 'Dark']) {
+      await expect(within(group).getByText(word)).toBeVisible();
+    }
+    const heading = page.getByText('This device only.').getBoundingClientRect();
+    const toggle = group.getBoundingClientRect();
+    await expect(toggle.top).toBeGreaterThanOrEqual(heading.bottom);
+    const section = group.closest('section') as HTMLElement;
+    await expect(toggle.right).toBeLessThanOrEqual(
+      section.getBoundingClientRect().right,
+    );
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+  },
+};
 /** The form's theme hook must not restamp the toolbar's light theme. */
 export const Light: Story = {
   ...light,
@@ -81,7 +101,7 @@ export const ThemeOptions: Story = {
     const page = within(canvasElement);
     const group = await page.findByRole('radiogroup', { name: 'Theme' });
     const options = within(group).getAllByRole('radio');
-    await expect(options.map((o) => o.getAttribute('aria-label'))).toEqual([
+    await expect(options.map((o) => o.textContent)).toEqual([
       'System',
       'Light',
       'Dark',

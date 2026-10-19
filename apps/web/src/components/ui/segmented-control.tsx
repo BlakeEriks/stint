@@ -44,15 +44,13 @@ export function SegmentedControl<T extends string>({
         <RadioGroup.Item
           key={v}
           value={v}
-          aria-label={word}
-          title={word}
           className={`flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 type-control
             text-muted outline-none hover:text-strong focus-visible:ring-2
             focus-visible:ring-edge-focus data-[state=checked]:bg-surface-elevated
             data-[state=checked]:text-strong data-[state=checked]:shadow-card`}
         >
           <Icon aria-hidden className="size-3.5" />
-          <span className="max-sm:hidden">{word}</span>
+          {word}
         </RadioGroup.Item>
       ))}
     </RadioGroup.Root>

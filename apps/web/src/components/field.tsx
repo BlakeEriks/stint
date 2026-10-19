@@ -75,7 +75,7 @@ function focusSection(section: HTMLElement) {
  *
  * `aside` renders top-right: the section's `SaveIndicator`, a control acting
  * on the whole section, or, in a section with no fields, its one control,
- * centered beside the title. Each section saves independently, so the
+ * centered beside the title, and under it on a phone, where the two don't fit. Each section saves independently, so the
  * indicator belongs to the section whose fields are actually in flight rather
  * than to the page.
  */
@@ -115,7 +115,7 @@ export function Section({
       className="scroll-mt-4 border-t border-edge-subtle py-[18px] last:pb-0"
     >
       <div
-        className={`flex justify-between gap-3 ${children ? 'items-start' : 'items-center'}`}
+        className={`flex justify-between gap-3 ${children ? 'items-start' : 'items-center max-sm:flex-col max-sm:items-start'}`}
       >
         <div>
           <h2 className="type-heading text-strong">{title}</h2>
