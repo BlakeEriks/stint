@@ -480,7 +480,7 @@
 
     <div class="states">
       <div class="state">
-        <div class="pop" style="height:428px;">
+        <div class="pop" style="height:428px;display:flex;flex-direction:column;">
           <div class="head">
             <span class="row" style="gap:8px;">
               <button class="icon" aria-label="Back">&larr;</button>
@@ -499,7 +499,7 @@
             </div>
           </div>
 
-          <div class="acct">
+          <div class="acct" style="margin-top:auto;">
             <span class="meta">you@example.com</span>
             <span class="row" style="gap:12px;">
               <a href="#x" class="acct-link">Sign out</a>
@@ -520,7 +520,8 @@
           <li><strong>The timer's height, whatever Settings holds.</strong>
             Settings draws over the timer, which stays laid out beneath it,
             so the panel hanging from the bar never changes height and never
-            jumps. Below its last row is the panel's background. Settings stays
+            jumps. The account footer sits at the panel's foot, with the panel's
+            background between it and the last row. Settings stays
             no taller than the timer's shortest state, about 148pt.</li>
           <li><strong>The header swaps to a back affordance.</strong> One way
             in, one way out. Escape also returns.</li>
