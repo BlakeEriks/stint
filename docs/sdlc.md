@@ -25,8 +25,8 @@ with the command that moves it at each step.
    `/work-issues`.
 4. **Ship.** Blake merges. The release gate plans, waits for approval and a
    backup if a migration is pending, then migrates, verifies, and asks the new
-build for `/api/v1/health` before promoting it. Then the
-   worktree is removed and the branch deleted.
+   build for `/api/v1/health` before promoting it. Then the worktree is
+   removed and the branch deleted.
 
 ## Capture
 
