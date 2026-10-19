@@ -143,6 +143,3 @@ test('a token signed by someone else is refused', async () => {
     /Invalid or expired token/,
   );
 });
-
-// A request with no Authorization header is tested in `routes.test.ts`,
-// against every route; a signed-in cookie, by the browser suite.

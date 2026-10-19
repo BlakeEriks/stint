@@ -1,6 +1,5 @@
 // Resolves and transforms what `node --test` cannot on its own:
-//   - Next's subpath exports (`next/server` and `next/headers`, replaced
-//     with shims)
+//   - Next's subpath exports, two of them replaced with stubs
 //   - the `@/*` path alias and extensionless relative TS imports
 //   - JSX in .tsx files, via the SWC binary Next already ships
 //
@@ -43,18 +42,17 @@ const withExt = (p) => {
   return p;
 };
 
+// Modules that need the Next runtime, replaced so the handlers run unmodified.
+const STUBS = {
+  'next/server': 'next-server-stub.mjs',
+  'next/headers': 'next-headers-stub.mjs',
+};
+
 export async function resolve(specifier, context, next) {
-  // next/server needs the Next runtime; substitute a standard-Response shim
-  // so the handlers themselves run unmodified.
-  if (specifier === 'next/server') {
+  const stub = STUBS[specifier];
+  if (stub) {
     return {
-      url: pathToFileURL(resolvePath(here, 'next-server-stub.mjs')).href,
-      shortCircuit: true,
-    };
-  }
-  if (specifier === 'next/headers') {
-    return {
-      url: pathToFileURL(resolvePath(here, 'next-headers-stub.mjs')).href,
+      url: pathToFileURL(resolvePath(here, stub)).href,
       shortCircuit: true,
     };
   }
