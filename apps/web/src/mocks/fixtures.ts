@@ -18,6 +18,7 @@ import type {
   StoredLineItem,
   TimeEntry,
 } from '@/lib/client/api';
+import { businessOf } from '@/components/invoice-preview-card';
 import { ZONE } from './time.mts';
 
 /**
@@ -459,12 +460,7 @@ const INVOICES: InvoiceSpec[] = [
 
 /** The From and Bill to blocks an invoice freezes when it is generated. */
 export const parties = (s: Settings, c: Client) => ({
-  business: {
-    name: s.businessName,
-    address: s.businessAddress,
-    email: s.businessEmail,
-    logoUrl: s.logoUrl,
-  },
+  business: businessOf(s),
   billTo: { name: c.name, email: c.email ?? null, address: c.address ?? null },
 });
 

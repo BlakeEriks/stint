@@ -22,12 +22,17 @@ import { shortDate } from './invoice-bits';
 type Business = Pick<Invoice['business'], 'name' | 'address' | 'email'>;
 
 /** The From block generation will freeze, from settings as they are now. */
+export function businessOf(settings: Settings): Invoice['business'];
+export function businessOf(
+  settings: Settings | undefined,
+): Invoice['business'] | undefined;
 export function businessOf(settings: Settings | undefined) {
   if (!settings) return undefined;
   return {
     name: settings.businessName,
     address: settings.businessAddress,
     email: settings.businessEmail,
+    logoUrl: settings.logoUrl,
   };
 }
 
