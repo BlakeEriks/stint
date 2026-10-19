@@ -407,7 +407,7 @@ export function NewInvoice() {
                 required
                 hint={
                   client && missingDetails(client) ? (
-                    <>
+                    <span className="text-danger">
                       {missingDetails(client)} ·{' '}
                       <button
                         type="button"
@@ -416,7 +416,7 @@ export function NewInvoice() {
                       >
                         Edit client
                       </button>
-                    </>
+                    </span>
                   ) : undefined
                 }
               >
