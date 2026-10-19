@@ -160,7 +160,11 @@ per pair of entries sharing a minute or more (`MIN_OVERLAP_SECONDS` in
 `@stint/core`) where at least one is unbilled, except non-billable work
 against billed time, which bills nothing twice. It names the unbilled entry,
 the later-starting one when both are, and `otherInvoiceNumber` when the other
-is on an invoice; it clears when either is edited apart.
+is on an invoice; it clears when either is edited apart. `badRoutingNumbers`
+is one per unarchived payment profile whose stored routing number is not
+exactly 9 digits passing the ABA checksum. Stored rows aren't re-validated on
+read, so it shows the number as stored and never rewrites it; it clears when
+the profile is saved with a valid number.
 
 ## Clients / projects / settings
 
@@ -325,6 +329,9 @@ preference — `.claude/rules/invoicing.md` has the reason.
   for another. Without a pick, the client's profile (`paymentProfileId`),
   else the user's default; a dangling client reference falls back to the
   default rather than leaving an invoice with nothing.
+- `POST` and `PATCH` strip everything but digits from `routingNumber` and
+  store the 9 digits; a number that is not 9 digits passing the ABA checksum
+  is `422 VALIDATION_FAILED` (`validateRoutingNumber()` in `@stint/core`).
 - Deleting is archival, because clients and invoices reference profiles.
 
 `user_settings.payment_notice` is a standing anti-fraud line printed under the
