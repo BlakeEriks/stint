@@ -688,6 +688,18 @@ test('an invoice id that is not a uuid is 404, not 500', async () => {
   assert.equal(res.body.code, 'ENTRY_NOT_FOUND');
 });
 
+test('any record id that is not a uuid is 404, not 500', async () => {
+  const { GET: entry } = await import(
+    '../src/app/api/v1/entries/[id]/route.ts'
+  );
+  const id = 'not-an-id';
+  const res = await json(
+    await entry(req(`/entries/${id}`), { params: Promise.resolve({ id }) }),
+  );
+  assert.equal(res.status, 404);
+  assert.equal(res.body.code, 'ENTRY_NOT_FOUND');
+});
+
 test('a summary invoice stores its text and reads back as issued', async () => {
   const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
   const { GET: detail } = await import(

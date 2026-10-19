@@ -22,7 +22,6 @@ import {
   startOfLocalDate,
 } from '@stint/core';
 import type { BillableEntry, ExpenseInput } from '@stint/core';
-import { uuid } from '@stint/schema';
 
 /** numeric columns arrive from PostgREST as strings. */
 const num = (v: string | number | null | undefined): number | null =>
@@ -234,11 +233,6 @@ export async function loadPaymentProfile(
  * must produce the same document even if rates have since changed.
  */
 export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
-  /* Postgres refuses a malformed uuid with an error, not an empty result:
-     an id typed into the URL is still just an invoice that isn't there. */
-  if (!uuid.safeParse(invoiceId).success)
-    throw new ApiError('ENTRY_NOT_FOUND', 'Invoice not found');
-
   const { data: row, error } = await db
     .from('invoices')
     .select(INVOICE_COLUMNS)

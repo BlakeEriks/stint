@@ -98,6 +98,12 @@ export function handle<T extends unknown[]>(
           { constraint: (err as { message?: string }).message },
         );
       }
+      /* Postgres refuses a malformed uuid with an error, not an empty
+         result: an id typed into the URL is still a record that isn't
+         there. */
+      if ((err as { code?: string } | null)?.code === PG.INVALID_TEXT) {
+        return errorResponse('ENTRY_NOT_FOUND', 'Not found');
+      }
       console.error('Unhandled API error:', err);
       captureException(err);
       return NextResponse.json(
@@ -114,6 +120,7 @@ export const PG = {
   CHECK_VIOLATION: '23514',
   FOREIGN_KEY_VIOLATION: '23503',
   NOT_FOUND: 'PGRST116',
+  INVALID_TEXT: '22P02',
 } as const;
 
 export function isSameOwnerViolation(
