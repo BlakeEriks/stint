@@ -97,7 +97,8 @@ export const Defaults: Story = {
 };
 
 /** A client chosen: the card is the invoice as the PDF prints it, and
-    follows the form without a Preview button (US3 scenario 1). */
+    follows the form without a Preview button (US3 scenario 1). Northwind
+    has an address and email, so Bill to offers no Edit client. */
 export const ClientChosen: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -106,6 +107,9 @@ export const ClientChosen: Story = {
     await settled(page);
     await expect(card(page).getByText('Service period')).toBeVisible();
     await expect(page.queryByRole('button', { name: 'Preview' })).toBeNull();
+    await expect(
+      card(page).queryByRole('button', { name: 'Edit client' }),
+    ).toBeNull();
   },
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
@@ -574,7 +578,8 @@ export const ClientMissingDetailsPhone: Story = {
   ...phone,
 };
 
-/** Saving the client updates Bill to in place; the draft is kept. */
+/** Saving the client updates Bill to in place; the draft is kept. Archive
+    is left out here. */
 export const EditingClient: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -587,6 +592,7 @@ export const EditingClient: Story = {
     const dialog = within(
       await page.findByRole('dialog', { name: 'Edit client' }),
     );
+    await expect(dialog.queryByRole('button', { name: 'Archive' })).toBeNull();
     await userEvent.type(dialog.getByLabelText(/Email/), 'ap@meridian.test');
     await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }));
     await expect(

@@ -548,12 +548,12 @@ export function NewInvoice() {
         onSave={saveCharge}
         onRemove={chargeDialog.subject !== 'new' ? removeCharge : undefined}
       />
-      {/* Saving refetches the clients, so the card's Bill to updates and the
-          draft stays as it was. */}
+      {/* No Archive: the draft would keep a client the picker has dropped. */}
       <ClientDialog
         open={clientOpen}
         onOpenChange={setClientOpen}
         client={client}
+        archivable={false}
       />
       <PaymentProfileDialog
         open={newProfileOpen}
