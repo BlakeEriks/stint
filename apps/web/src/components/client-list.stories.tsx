@@ -192,9 +192,10 @@ export const Failed: Story = {
   ...desktop,
   parameters: failing('clients', 'projects'),
   play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await expect(await page.findByText(/could not load/i)).toBeVisible();
-    await expect(page.queryByText(/loading/i)).toBeNull();
+    // The list's own region: the dock's Today loads beside it on its own time.
+    const list = within(await within(canvasElement).findByRole('main'));
+    await expect(await list.findByText(/could not load/i)).toBeVisible();
+    await expect(list.queryByText(/loading/i)).toBeNull();
   },
 };
 
