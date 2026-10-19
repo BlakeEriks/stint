@@ -78,19 +78,67 @@ export const NoRate: Story = {
   }),
 };
 
-/** No Active / Archived / All filter: an archived client and an archived
-    project show where they belong, each with its badge. */
-export const ArchivedShown: Story = {
+const card = async (canvasElement: HTMLElement, name: string) =>
+  within(
+    (await within(canvasElement).findByRole('heading', { name })).closest(
+      'section',
+    )!,
+  );
+
+const openArchived = async (canvasElement: HTMLElement) =>
+  userEvent.click(
+    await within(canvasElement).findByRole('button', { name: /^Archived/ }),
+  );
+
+/** Archived clients wait below the active ones, collapsed under a count,
+    so nothing looks deleted. */
+export const ArchivedCollapsed: Story = {
   ...desktop,
-  parameters: account((db) => {
-    const warehouse = db.projects.find((p) => p.id === ids.warehouse)!;
-    warehouse.archivedAt = '2026-06-30T16:00:00.000Z';
-  }),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await page.findByText('Warehouse dashboard');
-    await expect(page.getAllByText('Archived').length).toBeGreaterThan(1);
+    const toggle = await page.findByRole('button', { name: 'Archived (1)' });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(
+      page.queryByRole('heading', { name: 'Old Engagement Co' }),
+    ).toBeNull();
     await expect(page.queryByRole('tab')).toBeNull();
+  },
+};
+
+/** Opened: archived clients A–Z, muted, with no rate, each with Restore;
+    their projects moved with them. */
+export const ArchivedOpen: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    await openArchived(canvasElement);
+    const old = await card(canvasElement, 'Old Engagement Co');
+    await expect(old.getByText('Legacy retainer')).toBeVisible();
+    await expect(
+      old.getByRole('button', { name: 'Restore Old Engagement Co' }),
+    ).toBeVisible();
+    await expect(old.queryByText(/\/h/)).toBeNull();
+  },
+};
+
+/** An archived project under an active client: last in its group, muted,
+    with Restore where its rate was. */
+export const ArchivedProjectLast: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.projects.find((p) => p.id === ids.warehouse)!.archivedAt =
+      '2026-06-30T16:00:00.000Z';
+  }),
+  play: async ({ canvasElement }) => {
+    const northwind = await card(canvasElement, 'Northwind Trading');
+    // The first list is the projects; expenses follow.
+    const rows = within(northwind.getAllByRole('list')[0]!).getAllByRole(
+      'button',
+      { name: /^Edit / },
+    );
+    await expect(rows.at(-1)).toHaveAccessibleName('Edit Warehouse dashboard');
+    await expect(
+      northwind.getByRole('button', { name: 'Restore Warehouse dashboard' }),
+    ).toBeVisible();
   },
 };
 
@@ -224,6 +272,7 @@ export const EditArchivedClient: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
+    await openArchived(canvasElement);
     await userEvent.click(
       await page.findByRole('button', { name: 'Edit Old Engagement Co' }),
     );
@@ -238,6 +287,7 @@ export const EditArchivedProject: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
+    await openArchived(canvasElement);
     await userEvent.click(
       await page.findByRole('button', { name: 'Edit Legacy retainer' }),
     );
@@ -247,19 +297,33 @@ export const EditArchivedProject: Story = {
   },
 };
 
-const card = async (canvasElement: HTMLElement, name: string) =>
-  within(
-    (await within(canvasElement).findByRole('heading', { name })).closest(
-      'section',
-    )!,
-  );
-
-/** Restore puts the client back under Active on the press: the badge goes,
-    and its project keeps its own archive. */
+/** Restore on an archived client's card puts it back among the active on
+    the press: the badge and the Archived section go, and its project keeps
+    its own archive. */
 export const RestoreClient: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
+    await openArchived(canvasElement);
+    await userEvent.click(
+      page.getByRole('button', { name: 'Restore Old Engagement Co' }),
+    );
+    await waitFor(() =>
+      expect(page.queryByRole('button', { name: /^Archived/ })).toBeNull(),
+    );
+    const old = await card(canvasElement, 'Old Engagement Co');
+    // One badge left, the project's own.
+    await expect(old.getAllByText('Archived')).toHaveLength(1);
+    await expect(old.getByText('Legacy retainer')).toBeVisible();
+  },
+};
+
+/** The dialog's Restore does the same. */
+export const RestoreClientFromDialog: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await openArchived(canvasElement);
     await userEvent.click(
       await page.findByRole('button', { name: 'Edit Old Engagement Co' }),
     );
@@ -271,8 +335,23 @@ export const RestoreClient: Story = {
   },
 };
 
-/** The same for a project: its Archived badge goes on the press. */
+/** The same for a project from its row: its Archived badge goes on the
+    press. */
 export const RestoreProject: Story = {
+  ...ArchivedProjectLast,
+  play: async ({ canvasElement }) => {
+    const northwind = await card(canvasElement, 'Northwind Trading');
+    await userEvent.click(
+      await northwind.findByRole('button', {
+        name: 'Restore Warehouse dashboard',
+      }),
+    );
+    await waitFor(() => expect(northwind.queryByText('Archived')).toBeNull());
+  },
+};
+
+/** And from its dialog. */
+export const RestoreProjectFromDialog: Story = {
   ...desktop,
   parameters: account((db) => {
     db.projects.find((p) => p.id === ids.warehouse)!.archivedAt =
@@ -296,6 +375,7 @@ export const RestoreRefused: Story = {
   parameters: failing('updateClient'),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
+    await openArchived(canvasElement);
     await userEvent.click(
       await page.findByRole('button', { name: 'Edit Old Engagement Co' }),
     );

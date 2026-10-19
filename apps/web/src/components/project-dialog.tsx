@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { type QueryClient, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
 import {
   Dialog,
@@ -20,13 +20,11 @@ import { api, type Project } from '@/lib/client/api';
 import { ArchiveButton } from './archive-button';
 import { ClientForm } from './client-form';
 import { ClientPicker } from './client-picker';
+import { keys, predictArchive, predictSave } from '@/lib/client/query-keys';
 import {
-  keys,
-  invalidateEntryData,
-  predictArchive,
-  predictRestore,
-  predictSave,
-} from '@/lib/client/query-keys';
+  invalidateProjects,
+  useRestoreProject,
+} from '@/lib/client/use-restore-project';
 
 /**
  * A dialog rather than a page: a project is four fields, and it is created
@@ -106,23 +104,7 @@ export function ProjectDialog({
     predict: (current, id, key) => predictArchive('projects', id, current, key),
     invalidate: invalidateProjects,
   });
-  const restore = useOptimisticMutation<Project, unknown, unknown>({
-    queryKey: () => keys.projects(),
-    mutationFn: (project) => api.restoreProject(project.id),
-    predict: (current, project, key) =>
-      predictRestore(
-        'projects',
-        project,
-        current,
-        key,
-        /* Unknown counts as listed: the refetch drops it if its client
-           turns out archived. */
-        project.clientId === null ||
-          !clientData ||
-          clients.some((c) => c.id === project.clientId),
-      ),
-    invalidate: invalidateProjects,
-  });
+  const restore = useRestoreProject(clientData?.clients);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -274,11 +256,3 @@ export function ProjectDialog({
 }
 
 const LABEL = 'type-label text-subtle';
-
-/** A project's rate is what its unbilled work is valued at, in every
-    rollup. */
-const invalidateProjects = (qc: QueryClient) =>
-  Promise.all([
-    qc.invalidateQueries({ queryKey: keys.projects() }),
-    invalidateEntryData(qc),
-  ]);
