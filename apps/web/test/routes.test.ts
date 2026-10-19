@@ -11,7 +11,7 @@
  */
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import util from 'node:util';
 import pg from 'pg';
 import { makeDb } from './shim.mjs';
@@ -4086,6 +4086,16 @@ const body = async (r: Response) => {
   return r.json();
 };
 
+/** A fixture not yet written reads as undefined. */
+function readFixture(file: URL): unknown {
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'));
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw e;
+  }
+}
+
 /** Keys and JSON types, not values: ids differ every run. */
 function shape(v: unknown): unknown {
   if (v === null) return 'null';
@@ -4181,9 +4191,7 @@ test('every response the macOS app decodes matches its fixture', async (t) => {
 
   const changed = Object.entries(responses).flatMap(([name, response]) => {
     const file = new URL(`${name}.json`, FIXTURES);
-    const prior = existsSync(file)
-      ? JSON.parse(readFileSync(file, 'utf8'))
-      : undefined;
+    const prior = readFixture(file);
     if (
       prior !== undefined &&
       util.isDeepStrictEqual(shape(response), shape(prior))
