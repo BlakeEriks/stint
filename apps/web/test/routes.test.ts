@@ -3596,8 +3596,7 @@ test('a subscription event stores what Stripe says now, for the user in its meta
       status: 'active',
       current_period_end: new Date(1_830_000_000 * 1000)
         .toISOString()
-        .replace('T', ' ')
-        .replace('.000Z', '+00'),
+        .replace('.000Z', '+00:00'),
       cancel_at_period_end: false,
     },
   ]);
@@ -4082,27 +4081,9 @@ const FIXTURES = new URL(
   import.meta.url,
 );
 
-/**
- * The shim hands back Postgres' text for a `timestamptz`; PostgREST sends
- * its JSON form, which is what the app's date decoder reads.
- */
-const asPostgrest = (v: unknown): unknown => {
-  if (typeof v === 'string') {
-    const m = /^(\d{4}-\d\d-\d\d) (\d\d:\d\d:\d\d(?:\.\d+)?)\+00$/.exec(v);
-    return m ? `${m[1]}T${m[2]}+00:00` : v;
-  }
-  if (Array.isArray(v)) return v.map(asPostgrest);
-  if (v && typeof v === 'object') {
-    return Object.fromEntries(
-      Object.entries(v).map(([k, x]) => [k, asPostgrest(x)]),
-    );
-  }
-  return v;
-};
-
 const body = async (r: Response) => {
   assert.ok(r.ok, `${r.status} ${await r.clone().text()}`);
-  return asPostgrest(await r.json()) as any;
+  return r.json();
 };
 
 /** Keys and JSON types, not values: ids differ every run. */
