@@ -370,8 +370,8 @@ private struct TimerPanel: View {
 
     private var stats: some View {
         HStack(alignment: .firstTextBaseline) {
-            // `H:MM`, so the readout is the only figure moving by the second.
-            statistic("Today", value: hoursMinutes(model.todaySeconds))
+            // Compact, so the readout is the only figure moving by the second.
+            statistic("Today", value: compact(model.todaySeconds))
             Spacer(minLength: 12)
             // Absent until fetched: a zero would claim "earned nothing".
             if let stats = model.stats {

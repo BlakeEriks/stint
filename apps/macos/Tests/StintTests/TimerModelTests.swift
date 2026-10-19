@@ -112,6 +112,14 @@ struct TimerModelTests {
         await model.signOut()
     }
 
+    @Test func compactMatchesTheWebsFormatCompact() {
+        #expect(compact(0) == "0s")
+        #expect(compact(59) == "59s")
+        #expect(compact(60) == "1m")
+        #expect(compact(3600) == "1h")
+        #expect(compact(3 * 3600 + 12 * 60 + 40) == "3h 12m")
+    }
+
     @Test func hoursMinutesKeepsOneShapeAcrossTheHour() {
         #expect(hoursMinutes(-5) == "0:00")
         #expect(hoursMinutes(59) == "0:00")

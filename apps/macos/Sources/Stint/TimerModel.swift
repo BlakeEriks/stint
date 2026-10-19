@@ -77,10 +77,11 @@ final class TimerModel: Optimistic {
     }
 
     /// Text only. Whether a timer is running is the pip's to say, in both
-    /// modes, which is why running-ness is not folded in here.
+    /// modes, which is why running-ness is not folded in here. `H:MM`, so
+    /// the bar changes once a minute rather than every second.
     var menuBarTitle: String {
         switch Prefs.shared.barReadout {
-        case .runningTimer: isRunning ? format(elapsedSeconds) : hoursMinutes(todaySeconds)
+        case .runningTimer: hoursMinutes(isRunning ? elapsedSeconds : todaySeconds)
         case .todaysTotal: hoursMinutes(todaySeconds)
         }
     }
@@ -385,11 +386,20 @@ func format(_ seconds: Int) -> String {
     return String(format: "%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
 }
 
-/// `H:MM` for today's total: `0:10` keeps its shape when the hour arrives,
-/// where the web's `1h 1m` would not.
+/// `H:MM` for the menu bar: `0:10` keeps its width when the hour arrives,
+/// where `1h 1m` would shift the items beside it.
 func hoursMinutes(_ seconds: Int) -> String {
     let s = max(0, seconds)
     return String(format: "%d:%02d", s / 3600, (s % 3600) / 60)
+}
+
+/// `3h 12m`, matching `formatCompact` in `@stint/core`.
+func compact(_ seconds: Int) -> String {
+    let s = max(0, seconds)
+    let h = s / 3600, m = (s % 3600) / 60
+    if h == 0 && m == 0 { return "\(s)s" }
+    if h == 0 { return "\(m)m" }
+    return m == 0 ? "\(h)h" : "\(h)h \(m)m"
 }
 
 /// `$1,462.50`, matching `money()` on the web — `en_US` regardless of the
