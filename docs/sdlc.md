@@ -24,8 +24,9 @@ with the command that moves it at each step.
    outside the framework group merges itself; a red one goes to
    `/work-issues`.
 4. **Ship.** Blake merges. The release gate plans, waits for approval and a
-   backup if a migration is pending, then migrates and verifies. Then the
-   worktree is removed and the branch deleted.
+   backup if a migration is pending, then migrates, verifies, and asks the new
+   build for `/api/v1/health` before promoting it. Then the worktree is
+   removed and the branch deleted.
 
 ## Capture
 
