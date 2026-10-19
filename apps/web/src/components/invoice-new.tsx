@@ -40,6 +40,7 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   api,
   ApiError,
+  type Client,
   type Expense,
   type GroupingMode,
   type Invoice,
@@ -400,7 +401,25 @@ export function NewInvoice() {
               don't move. */}
           <div className="flex min-w-0 flex-col xl:-mx-1 xl:min-h-0 xl:overflow-y-auto xl:px-1 [&>*]:border-t [&>*]:border-edge-subtle [&>*]:py-5 [&>*:first-child]:border-0 [&>*:first-child]:pt-1">
             <div className="flex flex-col gap-4">
-              <Field label="Client" htmlFor="inv-client" required>
+              <Field
+                label="Client"
+                htmlFor="inv-client"
+                required
+                hint={
+                  client && missingDetails(client) ? (
+                    <>
+                      {missingDetails(client)} ·{' '}
+                      <button
+                        type="button"
+                        onClick={() => setClientOpen(true)}
+                        className="rounded-sm underline hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+                      >
+                        Edit client
+                      </button>
+                    </>
+                  ) : undefined
+                }
+              >
                 <ClientPicker
                   id="inv-client"
                   clients={clients}
@@ -517,7 +536,6 @@ export function NewInvoice() {
               payment={payment}
               schedules={schedules}
               updating={updating}
-              onEditClient={() => setClientOpen(true)}
             >
               <PreviewNotices
                 preview={current}
@@ -568,6 +586,14 @@ export function NewInvoice() {
  * Whether Generate can be pressed. Generating freezes what the card shows, so
  * it waits for a current, complete answer from the server.
  */
+/** What Bill to will lack, said; null when it has both. */
+function missingDetails(client: Pick<Client, 'address' | 'email'>) {
+  if (client.address && client.email) return null;
+  if (client.address) return 'No email';
+  if (client.email) return 'No address';
+  return 'No address or email';
+}
+
 function generateState(s: {
   /** The server's answer for this client; `undefined` before one. */
   preview: Pick<InvoicePreview, 'lineItems' | 'unratedEntryIds'> | undefined;

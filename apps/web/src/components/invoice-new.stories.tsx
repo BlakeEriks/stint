@@ -98,7 +98,7 @@ export const Defaults: Story = {
 
 /** A client chosen: the card is the invoice as the PDF prints it, and
     follows the form without a Preview button (US3 scenario 1). Northwind
-    has an address and email, so Bill to offers no Edit client. */
+    has an address and email, so the Client field offers no Edit client. */
 export const ClientChosen: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -108,7 +108,7 @@ export const ClientChosen: Story = {
     await expect(card(page).getByText('Service period')).toBeVisible();
     await expect(page.queryByRole('button', { name: 'Preview' })).toBeNull();
     await expect(
-      card(page).queryByRole('button', { name: 'Edit client' }),
+      page.queryByRole('button', { name: 'Edit client' }),
     ).toBeNull();
   },
 };
@@ -558,19 +558,20 @@ export const EditingExpense: Story = {
 };
 export const EditingExpensePhone: Story = { ...EditingExpense, ...phone };
 
-/** A client with no address or email: Bill to says so and offers Edit
-    client, over the form. */
+/** A client with no address or email: the Client field says so and offers
+    Edit client; the card stays the invoice as printed. */
 export const ClientMissingDetails: Story = {
   ...desktop,
   parameters: menuOpen,
   play: async ({ canvasElement }) => {
     const page = await chooseMeridian(canvasElement);
+    await expect(await page.findByText(/No address or email/)).toBeVisible();
     await expect(
-      await card(page).findByText('No address or email'),
+      page.getByRole('button', { name: 'Edit client' }),
     ).toBeVisible();
     await expect(
-      card(page).getByRole('button', { name: 'Edit client' }),
-    ).toBeVisible();
+      card(page).queryByRole('button', { name: 'Edit client' }),
+    ).toBeNull();
   },
 };
 export const ClientMissingDetailsPhone: Story = {
@@ -587,7 +588,7 @@ export const EditingClient: Story = {
     const page = await chooseMeridian(canvasElement);
     await userEvent.type(page.getByLabelText(/Reference/), 'PO-7');
     await userEvent.click(
-      await card(page).findByRole('button', { name: 'Edit client' }),
+      await page.findByRole('button', { name: 'Edit client' }),
     );
     const dialog = within(
       await page.findByRole('dialog', { name: 'Edit client' }),
@@ -598,7 +599,7 @@ export const EditingClient: Story = {
     await expect(
       await card(page).findByText(/ap@meridian\.test/),
     ).toBeVisible();
-    await expect(card(page).getByText('No address')).toBeVisible();
+    await expect(page.getByText(/^No address ·/)).toBeVisible();
     await expect(page.getByLabelText(/Reference/)).toHaveValue('PO-7');
   },
 };
