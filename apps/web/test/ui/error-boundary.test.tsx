@@ -4,19 +4,17 @@ import userEvent from '@testing-library/user-event';
 import { captureException } from '@sentry/nextjs';
 import AppError from '@/app/(app)/error';
 import GlobalError from '@/app/global-error';
+import { reportError } from '@/lib/client/report-error';
 
 vi.mock('@sentry/nextjs', () => ({ captureException: vi.fn() }));
 
 /* A signed-in session whose token carries more than the id, so a report that
    copied the claims would show it. */
+const getClaims = vi.fn(async () => ({
+  data: { claims: { sub: 'user-1', email: 'me@example.com' } },
+}));
 vi.mock('@/lib/client/supabase', () => ({
-  browserClient: () => ({
-    auth: {
-      getClaims: async () => ({
-        data: { claims: { sub: 'user-1', email: 'me@example.com' } },
-      }),
-    },
-  }),
+  browserClient: () => ({ auth: { getClaims } }),
 }));
 
 /**
@@ -92,4 +90,12 @@ describe.each([
     await new Promise((r) => setTimeout(r, 0));
     expect(captureException).not.toHaveBeenCalled();
   });
+});
+
+it('reports when the session cannot be read, and lets that failure surface', async () => {
+  getClaims.mockRejectedValueOnce(new Error('No session storage'));
+  const error = boom();
+
+  await expect(reportError(error)).rejects.toThrow('No session storage');
+  expect(captureException).toHaveBeenCalledWith(error, undefined);
 });

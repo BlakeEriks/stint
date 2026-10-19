@@ -311,7 +311,7 @@ success teaches you to stop reading it.
 | Release failed, or its plan failed | ❌ with the run link | `release.yml`, `report` |
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
 | App or database down, and its recovery | UptimeRobot's own | UptimeRobot → Discord |
-| A new unhandled error in the server or the browser | Sentry's own, with the stack trace | Sentry → Discord |
+| A new unhandled error in the server or the browser | Sentry's own, with the stack trace, minified for the browser | Sentry → Discord |
 
 Never posted: a release with no migration going live, a rejection or
 cancellation (you did it), a backup that worked (healthchecks.io is quiet

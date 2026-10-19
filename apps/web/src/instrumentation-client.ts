@@ -1,9 +1,8 @@
 import * as Sentry from '@sentry/nextjs';
 
 /**
- * Sentry reports errors thrown in the browser: errors only, with no tracing
- * or replay. With no `NEXT_PUBLIC_SENTRY_DSN` (locally, in previews, in CI)
- * `init` does nothing.
+ * Sentry reports errors thrown in the browser. With no
+ * `NEXT_PUBLIC_SENTRY_DSN` (locally, in previews, in CI) `init` does nothing.
  */
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
