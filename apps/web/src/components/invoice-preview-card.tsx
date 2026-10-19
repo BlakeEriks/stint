@@ -197,11 +197,7 @@ function From({
     <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
       <Party
         name={settings ? (settings.businessName ?? 'Invoice') : ''}
-        lines={[
-          settings?.businessAddress,
-          settings?.businessEmail,
-          settings?.taxId ? `Tax ID ${settings.taxId}` : null,
-        ]}
+        lines={[settings?.businessAddress, settings?.businessEmail]}
       />
       <dl className="flex flex-col gap-1 type-support">
         <Meta label="No." value={number} mono right />

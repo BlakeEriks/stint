@@ -220,7 +220,7 @@ in. Sign in afterwards at `/signin` and click the link in Mailpit
 is a typo, not a request.
 
 **An invoice is complete without a visit to Settings.** The seed writes a
-business name, address, email and EIN, an address for each client, two sets
+business name, address and email, an address for each client, two sets
 of bank details (the default, and the one Meridian Labs points at), and two
 expenses waiting on Northwind's next invoice, one recurring.
 
