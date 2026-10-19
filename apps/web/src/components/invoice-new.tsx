@@ -582,10 +582,6 @@ export function NewInvoice() {
   );
 }
 
-/**
- * Whether Generate can be pressed. Generating freezes what the card shows, so
- * it waits for a current, complete answer from the server.
- */
 /** What Bill to will lack, said; null when it has both. */
 function missingDetails(client: Pick<Client, 'address' | 'email'>) {
   if (client.address && client.email) return null;
@@ -594,6 +590,10 @@ function missingDetails(client: Pick<Client, 'address' | 'email'>) {
   return 'No address or email';
 }
 
+/**
+ * Whether Generate can be pressed. Generating freezes what the card shows, so
+ * it waits for a current, complete answer from the server.
+ */
 function generateState(s: {
   /** The server's answer for this client; `undefined` before one. */
   preview: Pick<InvoicePreview, 'lineItems' | 'unratedEntryIds'> | undefined;
