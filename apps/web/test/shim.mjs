@@ -9,10 +9,13 @@
 // test can pass or fail for a reason the app would never see.
 import pg from 'pg';
 
-// 1082 date, 1114 timestamp, 1184 timestamptz.
+// 1082 date, 1114 timestamp, 1184 timestamptz. A `timestamptz` arrives as
+// `2026-10-19 11:00:00.5+00`; PostgREST sends `2026-10-19T11:00:00.5+00:00`.
 pg.types.setTypeParser(1082, (v) => v);
 pg.types.setTypeParser(1114, (v) => v);
-pg.types.setTypeParser(1184, (v) => v);
+pg.types.setTypeParser(1184, (v) =>
+  v.replace(' ', 'T').replace(/([+-]\d\d)$/, '$1:00'),
+);
 
 // Tables with no user_id column: access is inherited from the parent row
 // via RLS, so the shim must not add a user scope to them.

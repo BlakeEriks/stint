@@ -153,7 +153,9 @@ opened after a night shut would otherwise come back signed out.
   is read back from `SMAppService`, which owns that state; keeping a second
   copy is how the two disagree.
 
-**The API models are hand-written and nothing type-checks them against
-`packages/schema`**, so a renamed field fails at runtime in Swift and nowhere
-else. A change to a response the app reads updates its Swift model in the
-same PR.
+**The API models are hand-written and checked against fixtures.** The
+route suite saves each response the app reads in
+`apps/macos/Tests/StintTests/Fixtures`, and `swift test` decodes each one.
+A change to one of those responses fails `pnpm verify:db` once and rewrites
+its fixture: commit the fixture, then update the Swift model until
+`swift test` passes.

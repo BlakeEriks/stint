@@ -186,8 +186,8 @@ async function write(db: Db) {
       );
 }
 
-/* Timestamps compared as instants: the test shim hands back Postgres' text
-   (`2026-09-14 21:00:00+00`) where PostgREST, and the fake, send ISO. */
+/* Timestamps compared as instants: one instant is written `+00:00` by
+   PostgREST and the test shim, and may be written `Z` by the fake. */
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/;
 const instants = (_: string, v: unknown) =>
   typeof v === 'string' && TIMESTAMP.test(v) ? new Date(v).toISOString() : v;
