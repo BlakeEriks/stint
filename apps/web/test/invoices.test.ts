@@ -1693,7 +1693,11 @@ test('a profile can be read back by id', async () => {
 
   const made = await json(
     await createProfile(
-      req('/pp', { name: 'ACH', accountNumber: '111', routingNumber: '999' }),
+      req('/pp', {
+        name: 'ACH',
+        accountNumber: '111',
+        routingNumber: '021000021',
+      }),
     ),
   );
   const got = await json(await GET(req('/pp'), ctx(made.body.id)));
@@ -1703,7 +1707,7 @@ test('a profile can be read back by id', async () => {
   /* The camelCase boundary is `rows.ts`, and nothing type-checks it for
      payment profiles — a renamed column surfaces as undefined here. */
   assert.equal(got.body.accountNumber, '111');
-  assert.equal(got.body.routingNumber, '999');
+  assert.equal(got.body.routingNumber, '021000021');
 });
 
 test('an unknown profile id is 404, not an empty 200', async () => {
@@ -1761,7 +1765,11 @@ test('editing a profile leaves an already-issued invoice alone', async () => {
 
   const profile = await json(
     await createProfile(
-      req('/pp', { name: 'ACH', accountNumber: '111', routingNumber: '999' }),
+      req('/pp', {
+        name: 'ACH',
+        accountNumber: '111',
+        routingNumber: '021000021',
+      }),
     ),
   );
   await seedEntry({ id: E(1) });
@@ -1771,7 +1779,7 @@ test('editing a profile leaves an already-issued invoice alone', async () => {
   assert.equal(inv.status, 201);
 
   await PATCH(
-    req('/pp', { accountNumber: '222', routingNumber: '888' }, 'PATCH'),
+    req('/pp', { accountNumber: '222', routingNumber: '011000015' }, 'PATCH'),
     ctx(profile.body.id),
   );
 
@@ -1786,7 +1794,7 @@ test('editing a profile leaves an already-issued invoice alone', async () => {
     (rows[0].payment_details.fields as Field[]).find((f) => f.label === label)
       ?.value;
   assert.equal(value('Account number'), '111');
-  assert.equal(value('Routing number (ACH)'), '999');
+  assert.equal(value('Routing number (ACH)'), '021000021');
 });
 
 test('archiving the default hands the default to a survivor', async () => {

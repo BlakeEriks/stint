@@ -714,6 +714,53 @@ test('a new payment profile stores every detail it is given', async () => {
   }
 });
 
+/* A malformed routing number on an invoice risks a returned or misrouted
+   ACH payment, and nothing downstream checks it again. */
+test('a routing number that fails the ABA check is refused, on create and edit', async () => {
+  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
+  const { PATCH } = await import(
+    '../src/app/api/v1/payment-profiles/[id]/route.ts'
+  );
+
+  const refused = await json(
+    await POST(
+      req('/payment-profiles', {
+        name: 'Checking',
+        routingNumber: '021000022',
+      }),
+    ),
+  );
+  assert.equal(refused.status, 422);
+  assert.equal(refused.body.code, 'VALIDATION_FAILED');
+
+  const saved = await json(
+    await POST(req('/payment-profiles', { name: 'Checking' })),
+  );
+  const edited = await json(
+    await PATCH(
+      patchReq('/payment-profiles/x', { routingNumber: '02100002' }),
+      ctx(saved.body.id),
+    ),
+  );
+  assert.equal(edited.status, 422);
+  assert.equal(edited.body.code, 'VALIDATION_FAILED');
+});
+
+test('a routing number is stored as its 9 digits', async () => {
+  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
+
+  const res = await json(
+    await POST(
+      req('/payment-profiles', {
+        name: 'Checking',
+        routingNumber: ' 021-000-021 ',
+      }),
+    ),
+  );
+  assert.equal(res.status, 201);
+  assert.equal(res.body.routingNumber, '021000021');
+});
+
 test('a payment profile replayed with the same id is idempotent', async () => {
   const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
   const body = {
@@ -2800,6 +2847,40 @@ test('unprojected ignores work that is billed, running or non-billable', async (
   assert.equal(res.body.attention.unprojected[0].seconds, 3600);
 });
 
+/* Saved before validation existed. Constitution I: flagged for the user to
+   fix, never rewritten — even though the digits inside are a valid number. */
+test('a saved profile whose routing number fails is flagged, not rewritten', async () => {
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const typed = '44444444-0000-4000-8000-0000000000b1';
+  await pool.query(
+    `insert into payment_profiles (id,user_id,name,routing_number)
+     values ($1,$2,'Checking','-031101334,'),
+            ($3,$2,'Savings','021000021'),
+            ($4,$2,'Old','021000022')`,
+    [
+      typed,
+      USER,
+      '44444444-0000-4000-8000-0000000000b2',
+      '44444444-0000-4000-8000-0000000000b3',
+    ],
+  );
+  await pool.query(
+    `update payment_profiles set archived_at = now() where id = $1`,
+    ['44444444-0000-4000-8000-0000000000b3'],
+  );
+
+  const res = await json(await stats(req('/stats?tz=UTC')));
+  assert.deepEqual(res.body.attention.badRoutingNumbers, [
+    { profileId: typed, profileName: 'Checking', routingNumber: '-031101334,' },
+  ]);
+
+  const { rows } = await pool.query(
+    'select routing_number from payment_profiles where id = $1',
+    [typed],
+  );
+  assert.equal(rows[0].routing_number, '-031101334,');
+});
+
 test('attention rows are scoped to their own user', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
@@ -2824,9 +2905,16 @@ test('attention rows are scoped to their own user', async () => {
     [S(48), OTHER],
   );
 
+  await pool.query(
+    `insert into payment_profiles (id,user_id,name,routing_number)
+     values ($1,$2,'Theirs','021000022')`,
+    ['44444444-0000-4000-8000-0000000000b9', OTHER],
+  );
+
   const res = await json(await stats(req('/stats?tz=UTC')));
   assert.deepEqual(res.body.attention.staleDrafts, []);
   assert.deepEqual(res.body.attention.unprojected, []);
+  assert.deepEqual(res.body.attention.badRoutingNumbers, []);
 });
 
 // ── task name suggestions ──────────────────────────────────────────

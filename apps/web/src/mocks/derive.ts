@@ -1,6 +1,7 @@
 import {
   addDays,
   buildAwaitingPayment,
+  buildBadRoutingNumbers,
   buildCollected,
   buildEarnedPace,
   buildLineItems,
@@ -350,6 +351,15 @@ export function stats(db: Db, tz: string) {
         new Set(unprojected.map((r) => r.id)),
       ),
       overlaps: buildOverlaps(overlapSpans(db, candidates)),
+      badRoutingNumbers: buildBadRoutingNumbers(
+        db.paymentProfiles
+          .filter((p) => !p.archivedAt)
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            routing_number: p.routingNumber ?? null,
+          })),
+      ),
     },
   };
 }

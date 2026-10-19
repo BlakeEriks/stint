@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { MutationNotice } from '@/components/mutation-notice';
 import { PaymentProfiles } from '@/components/payment-profiles';
 import type { PaymentProfile } from '@/lib/client/api';
+import { keys } from '@/lib/client/query-keys';
 
 const BASE: PaymentProfile = {
   id: 'pp-1',
@@ -151,6 +152,66 @@ describe('PaymentProfiles', () => {
         'Couldn’t make Wise USD the default. Archived details cannot be made default',
       ),
     ).toBeInTheDocument();
+  });
+
+  /* The server refuses it too, but only the form can say which field and
+     why while the user still has their bank's page open. */
+  it('refuses a routing number that fails the ABA check, in the form', async () => {
+    const fetch = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify({ paymentProfiles: [BASE] }), {
+          status: 200,
+        }),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const user = userEvent.setup();
+    render(<PaymentProfiles />, { wrapper });
+
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    const routing = screen.getByLabelText('Routing number');
+    await user.clear(routing);
+    await user.type(routing, '021000022');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Not a valid routing number',
+    );
+    expect(routing).toHaveAttribute('aria-invalid', 'true');
+    expect(fetch.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(
+      false,
+    );
+  });
+
+  /* The inbox flags a bad routing number from `/stats`; fixing it here must
+     clear that row, not leave it until the next reload. */
+  it('saving payment details refreshes the inbox', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) =>
+        init?.method === 'PATCH'
+          ? new Response(JSON.stringify(BASE), { status: 200 })
+          : new Response(JSON.stringify({ paymentProfiles: [BASE] }), {
+              status: 200,
+            }),
+      ),
+    );
+    const user = userEvent.setup();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    client.setQueryData(keys.stats(), {});
+    render(
+      <QueryClientProvider client={client}>
+        <PaymentProfiles />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await vi.waitFor(() =>
+      expect(client.getQueryState(keys.stats())?.isInvalidated).toBe(true),
+    );
   });
 
   it('hides an archived profile', async () => {

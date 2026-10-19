@@ -6,7 +6,11 @@
  * Swift models honest, but that generator is not written yet.
  */
 
-import { isValidTimeZone, SUBSCRIPTION_STATUSES } from '@stint/core';
+import {
+  isValidTimeZone,
+  SUBSCRIPTION_STATUSES,
+  validateRoutingNumber,
+} from '@stint/core';
 import { z } from 'zod';
 
 export const uuid = z.uuid();
@@ -896,6 +900,18 @@ export const Stats = z.object({
         seconds: z.number().int().positive(),
       }),
     ),
+    /**
+     * Unarchived payment profiles whose routing number, as stored, is not
+     * exactly 9 digits passing the ABA checksum. Saved before validation, so
+     * never rewritten: the user fixes it.
+     */
+    badRoutingNumbers: z.array(
+      z.object({
+        profileId: uuid,
+        profileName: z.string(),
+        routingNumber: z.string(),
+      }),
+    ),
   }),
 });
 
@@ -945,6 +961,20 @@ export const PaymentProfile = z.object({
   archivedAt: iso.nullable().optional(),
 });
 
+/* Stored as its 9 digits, and refused when they fail the ABA checksum: a
+   malformed number on an invoice risks a returned or misrouted ACH. Only on
+   the way in — a profile saved before this check still reads back, and the
+   inbox flags it (`attention.badRoutingNumbers`). */
+const routingNumber = z.string().transform((v, ctx) => {
+  const digits = validateRoutingNumber(v);
+  if (digits) return digits;
+  ctx.addIssue({
+    code: 'custom',
+    message: 'Not a valid routing number: 9 digits that pass the ABA check',
+  });
+  return z.NEVER;
+});
+
 export const CreatePaymentProfile = PaymentProfile.omit({
   id: true,
   isDefault: true,
@@ -952,6 +982,7 @@ export const CreatePaymentProfile = PaymentProfile.omit({
 }).extend({
   id: uuid.optional(),
   isDefault: z.boolean().default(false),
+  routingNumber: routingNumber.nullable().optional(),
 });
 
 /* `isDefault` is re-declared rather than inherited: `.partial()` keeps the
