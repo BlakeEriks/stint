@@ -29,6 +29,15 @@ const CLIENTS = [
   },
 ];
 
+/** A client with no address or email; a test saves them. */
+const BARE = {
+  ...CLIENTS[0],
+  id: 'c2',
+  name: 'Byrne Studio',
+  email: null as string | null,
+  address: null as string | null,
+};
+
 const SETTINGS = {
   businessName: 'Blake Eriks',
   businessAddress: '1200 Pine St',
@@ -37,6 +46,9 @@ const SETTINGS = {
   nextInvoiceNumber: 16,
   defaultPaymentTerms: 'Net 30',
 };
+
+/** Byrne Studio as served, until a test saves its details. */
+let bare = BARE;
 
 /** The settings served; a test changes the payment terms. */
 let settings = SETTINGS;
@@ -177,7 +189,11 @@ function serve(preview: unknown = PREVIEW) {
       }
       if (path.endsWith('/invoices')) return ok({ id: 'inv-1' });
       if (path.includes('/expenses')) return ok({ expenses: EXPENSES });
-      if (path.includes('/clients')) return ok({ clients: CLIENTS });
+      if (path.includes('/clients/c2') && init?.method === 'PATCH') {
+        bare = { ...bare, ...JSON.parse(String(init.body)) };
+        return ok(bare);
+      }
+      if (path.includes('/clients')) return ok({ clients: [...CLIENTS, bare] });
       if (path.includes('/settings')) {
         if (holdSettings) await holdSettings;
         return ok(settings);
@@ -250,6 +266,7 @@ const ready = async (user: User) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  bare = BARE;
   hold = null;
   settings = SETTINGS;
   holdSettings = null;
@@ -803,5 +820,44 @@ describe('NewInvoice — expenses, charges and payment details', () => {
     expect(
       bodies.find((b) => b.path.endsWith('/invoices'))!.body.paymentProfileId,
     ).toBe('pp2');
+  });
+
+  it('offers Edit client when the client has no address or email, and keeps the draft', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await user.click(await screen.findByRole('button', { name: 'Client' }));
+    await user.click(
+      await screen.findByRole('menuitemradio', { name: 'Byrne Studio' }),
+    );
+    await user.type(screen.getByLabelText(/Reference/), 'PO-7');
+
+    expect(
+      await within(card()).findByText('No address or email'),
+    ).toBeInTheDocument();
+    await user.click(
+      within(card()).getByRole('button', { name: 'Edit client' }),
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Edit client' });
+    await user.type(within(dialog).getByLabelText(/Email/), 'ap@byrne.test');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Save changes' }),
+    );
+
+    expect(
+      await within(card()).findByText(/ap@byrne\.test/),
+    ).toBeInTheDocument();
+    expect(within(card()).getByText('No address')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Reference/)).toHaveValue('PO-7');
+  });
+
+  it('offers no Edit client when the client has both', async () => {
+    serve();
+    const user = userEvent.setup();
+    render(<NewInvoice />, { wrapper });
+    await ready(user);
+    expect(
+      within(card()).queryByRole('button', { name: 'Edit client' }),
+    ).toBeNull();
   });
 });

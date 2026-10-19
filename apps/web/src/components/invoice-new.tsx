@@ -52,6 +52,7 @@ import { ExpenseDialog } from './expense-dialog';
 import { ExpenseRow } from './expense-row';
 import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
+import { ClientDialog } from './client-dialog';
 import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
@@ -264,6 +265,7 @@ export function NewInvoice() {
   /* `'new'` adds a charge; a key, edits that one. */
   const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
+  const [clientOpen, setClientOpen] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
@@ -515,6 +517,7 @@ export function NewInvoice() {
               payment={payment}
               schedules={schedules}
               updating={updating}
+              onEditClient={() => setClientOpen(true)}
             >
               <PreviewNotices
                 preview={current}
@@ -544,6 +547,13 @@ export function NewInvoice() {
         charge={draft.charges.find((c) => c.key === chargeDialog.subject)}
         onSave={saveCharge}
         onRemove={chargeDialog.subject !== 'new' ? removeCharge : undefined}
+      />
+      {/* Saving refetches the clients, so the card's Bill to updates and the
+          draft stays as it was. */}
+      <ClientDialog
+        open={clientOpen}
+        onOpenChange={setClientOpen}
+        client={client}
       />
       <PaymentProfileDialog
         open={newProfileOpen}

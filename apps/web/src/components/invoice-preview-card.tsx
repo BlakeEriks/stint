@@ -17,6 +17,8 @@ import type {
   Settings,
 } from '@/lib/client/api';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
+import { Pencil } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { shortDate } from './invoice-bits';
 
 type Business = Pick<Invoice['business'], 'name' | 'address' | 'email'>;
@@ -86,6 +88,7 @@ export function InvoicePreviewCard({
   paymentTerms,
   notes,
   heading = true,
+  onEditClient,
   footnote = 'Generating assigns a number and locks these entries. Voiding later keeps the number on record.',
   children,
 }: {
@@ -108,6 +111,9 @@ export function InvoicePreviewCard({
   notes?: string | null;
   /** False on an issued invoice, which is the invoice, not a preview of it. */
   heading?: boolean;
+  /** Given before generation, where the client can still be changed: a
+      missing address or email is said, with the way to add it. */
+  onEditClient?: () => void;
   footnote?: string;
   /** Warnings and errors, above the last line. */
   children?: React.ReactNode;
@@ -154,7 +160,12 @@ export function InvoicePreviewCard({
                 issued={issued}
                 due={due}
               />
-              <To client={client} preview={preview} reference={reference} />
+              <To
+                client={client}
+                preview={preview}
+                reference={reference}
+                onEdit={onEditClient}
+              />
 
               {preview?.lineItems ? (
                 <Lines
@@ -239,16 +250,28 @@ function To({
   client,
   preview,
   reference,
+  onEdit,
 }: {
   client: Pick<Client, 'name' | 'address' | 'email'>;
   preview: CardFigures | undefined;
   reference: string;
+  onEdit?: () => void;
 }) {
+  const missing = missingDetails(client);
   return (
     <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
       <div className="min-w-0 flex-[1_1_200px]">
         <span className={`${LABEL} mb-2`}>Bill to</span>
         <Party name={client.name} lines={[client.address, client.email]} />
+        {onEdit && missing ? (
+          <div className="mt-1 flex flex-wrap items-center gap-x-2">
+            <span className="type-support text-subtle">{missing}</span>
+            <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
+              <Pencil aria-hidden strokeWidth={1.75} />
+              Edit client
+            </Button>
+          </div>
+        ) : null}
       </div>
       <div className="min-w-0 flex-[1_1_200px]">
         <span className={`${LABEL} mb-2`}>Engagement</span>
@@ -267,6 +290,14 @@ function To({
       </div>
     </div>
   );
+}
+
+/** What the Bill to block lacks, said; null when it has both. */
+function missingDetails(client: Pick<Client, 'address' | 'email'>) {
+  if (client.address && client.email) return null;
+  if (client.address) return 'No email';
+  if (client.email) return 'No address';
+  return 'No address or email';
 }
 
 function Notes({ notes }: { notes: string }) {

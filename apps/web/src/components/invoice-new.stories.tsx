@@ -63,6 +63,16 @@ const summaryFor = async (canvasElement: HTMLElement, text: string) => {
   return page;
 };
 
+const chooseMeridian = async (canvasElement: HTMLElement) => {
+  const page = within(canvasElement.ownerDocument.body);
+  await userEvent.click(await page.findByRole('button', { name: 'Client' }));
+  await userEvent.click(
+    await page.findByRole('menuitemradio', { name: /Meridian/ }),
+  );
+  await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
+  return page;
+};
+
 const card = (page: Page) =>
   within(page.getByRole('region', { name: 'Preview' }));
 
@@ -543,6 +553,49 @@ export const EditingExpense: Story = {
   },
 };
 export const EditingExpensePhone: Story = { ...EditingExpense, ...phone };
+
+/** A client with no address or email: Bill to says so and offers Edit
+    client, over the form. */
+export const ClientMissingDetails: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseMeridian(canvasElement);
+    await expect(
+      await card(page).findByText('No address or email'),
+    ).toBeVisible();
+    await expect(
+      card(page).getByRole('button', { name: 'Edit client' }),
+    ).toBeVisible();
+  },
+};
+export const ClientMissingDetailsPhone: Story = {
+  ...ClientMissingDetails,
+  ...phone,
+};
+
+/** Saving the client updates Bill to in place; the draft is kept. */
+export const EditingClient: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseMeridian(canvasElement);
+    await userEvent.type(page.getByLabelText(/Reference/), 'PO-7');
+    await userEvent.click(
+      await card(page).findByRole('button', { name: 'Edit client' }),
+    );
+    const dialog = within(
+      await page.findByRole('dialog', { name: 'Edit client' }),
+    );
+    await userEvent.type(dialog.getByLabelText(/Email/), 'ap@meridian.test');
+    await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }));
+    await expect(
+      await card(page).findByText(/ap@meridian\.test/),
+    ).toBeVisible();
+    await expect(card(page).getByText('No address')).toBeVisible();
+    await expect(page.getByLabelText(/Reference/)).toHaveValue('PO-7');
+  },
+};
 
 /** "+ Add a charge" asks for a description and an amount; Save waits for
     both (US5 scenario 3). */
