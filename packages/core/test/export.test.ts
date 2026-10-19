@@ -41,7 +41,6 @@ test('numbers are two-place decimals and never prefixed; null is empty', () => {
 
 const invoice = (over: Partial<ExportInvoice> = {}): ExportInvoice => ({
   id: 'i1',
-  clientId: 'c1',
   invoiceNumber: 'INV-0001',
   sequenceNo: 1,
   status: 'sent',
@@ -57,23 +56,20 @@ const invoice = (over: Partial<ExportInvoice> = {}): ExportInvoice => ({
   currency: 'USD',
   sentAt: '2026-09-01T16:00:00Z',
   paidAt: null,
+  billTo: { name: 'Northwind, Inc.' },
   ...over,
 });
-const clients = [
-  { id: 'c1', name: 'Northwind, Inc.', hourlyRate: 150, currency: null },
-  { id: 'c2', name: 'Meridian', hourlyRate: null, currency: 'CAD' },
-];
 
 test('the invoices file has its header, and the header alone when empty', () => {
   assert.equal(
-    invoicesCsv({ invoices: [], clients }, 'UTC'),
+    invoicesCsv({ invoices: [] }, 'UTC'),
     '﻿Invoice,Client,Status,Issue date,Due date,Sent date,Paid date,' +
       'Period start,Period end,Subtotal,Tax rate,Tax,Expenses,Total,Currency\r\n',
   );
 });
 
 test('an invoice row carries its dates US style and its frozen totals', () => {
-  const csv = invoicesCsv({ invoices: [invoice()], clients }, 'UTC');
+  const csv = invoicesCsv({ invoices: [invoice()] }, 'UTC');
   assert.equal(
     lines(csv)[1],
     'INV-0001,"Northwind, Inc.",Sent,09/01/2026,10/01/2026,09/01/2026,,' +
@@ -111,10 +107,9 @@ test('every status exports, newest issue date first, then highest number', () =>
           invoiceNumber: 'INV-0004',
           sequenceNo: 4,
           status: 'sent',
-          clientId: 'c2',
+          billTo: { name: 'Meridian' },
         }),
       ],
-      clients,
     },
     'UTC',
   );
@@ -134,7 +129,6 @@ test('a payment made in the evening is dated where the user is', () => {
   const csv = invoicesCsv(
     {
       invoices: [invoice({ status: 'paid', paidAt: '2026-09-21T02:30:00Z' })],
-      clients,
     },
     'America/Los_Angeles',
   );
@@ -161,10 +155,14 @@ const projects = [
   { id: 'p3', clientId: null, name: 'Admin', hourlyRate: null },
   { id: 'p4', clientId: 'c2', name: 'Pipeline', hourlyRate: null },
 ];
+const clients = [
+  { id: 'c1', name: 'Northwind', hourlyRate: 150, currency: null },
+  { id: 'c2', name: 'Meridian', hourlyRate: null, currency: 'CAD' },
+];
 const data = (entries: ExportEntry[], over = {}) => ({
   entries,
   projects,
-  clients: clients.map((c) => ({ ...c, name: c.name.replace(', Inc.', '') })),
+  clients,
   invoices: [invoice({ id: 'i9', invoiceNumber: 'INV-0009' })],
   defaultRate: 100 as number | null,
   currency: 'USD',

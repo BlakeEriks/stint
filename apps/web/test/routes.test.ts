@@ -3937,6 +3937,9 @@ test('the invoices export is every invoice, any status, as a CSV attachment', as
     OTHER,
     theirClient,
   );
+  await pool.query(`update clients set name = 'Renamed' where id = $1`, [
+    EXPORT_CLIENT,
+  ]);
 
   const res = await GET(req('/exports/invoices?tz=America/New_York'));
   assert.equal(res.status, 200);
@@ -3956,7 +3959,7 @@ test('the invoices export is every invoice, any status, as a CSV attachment', as
       'INV-0002,Northwind,Paid',
       'INV-0001,Northwind,Void',
     ],
-    'an archived client still exports by name',
+    'an archived or renamed client exports by the name each invoice froze',
   );
   assert.equal(rows[2]!.split(',')[6], '09/20/2026', 'the paid date');
 });
