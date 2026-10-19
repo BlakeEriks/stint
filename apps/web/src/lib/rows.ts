@@ -177,7 +177,6 @@ export interface SettingsRow {
   business_address: string | null;
   business_email: string | null;
   logo_url: string | null;
-  tax_id: string | null;
   default_payment_terms: string;
   invoice_number_prefix: string;
   next_invoice_number: number;
@@ -185,7 +184,7 @@ export interface SettingsRow {
 }
 
 export const SETTINGS_COLUMNS = columns<SettingsRow>()(
-  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, tax_id, default_payment_terms, invoice_number_prefix, next_invoice_number, payment_notice',
+  'default_hourly_rate, currency, week_starts_on, time_format, min_entry_seconds, max_entry_hours, business_name, business_address, business_email, logo_url, default_payment_terms, invoice_number_prefix, next_invoice_number, payment_notice',
 );
 
 export function toSettings(r: SettingsRow) {
@@ -200,7 +199,6 @@ export function toSettings(r: SettingsRow) {
     businessAddress: r.business_address,
     businessEmail: r.business_email,
     logoUrl: r.logo_url,
-    taxId: r.tax_id,
     defaultPaymentTerms: r.default_payment_terms,
     invoiceNumberPrefix: r.invoice_number_prefix,
     nextInvoiceNumber: r.next_invoice_number,
@@ -457,7 +455,6 @@ export const SETTINGS_FIELDS = {
   businessAddress: 'business_address',
   businessEmail: 'business_email',
   logoUrl: 'logo_url',
-  taxId: 'tax_id',
   defaultPaymentTerms: 'default_payment_terms',
   invoiceNumberPrefix: 'invoice_number_prefix',
   paymentNotice: 'payment_notice',

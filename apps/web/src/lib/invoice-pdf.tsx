@@ -316,7 +316,6 @@ export interface InvoicePdfData {
     address: string | null;
     email: string | null;
     logoUrl: string | null;
-    taxId: string | null;
   };
   client: { name: string; email: string | null; address: string | null };
   lineItems: Array<{
@@ -429,9 +428,6 @@ function Letterhead({ data }: { data: Data }) {
         <Lines text={business.address} style={styles.bizLine} />
         {business.email ? (
           <Text style={styles.bizLine}>{business.email}</Text>
-        ) : null}
-        {business.taxId ? (
-          <Text style={styles.bizLine}>Tax ID {business.taxId}</Text>
         ) : null}
       </View>
 

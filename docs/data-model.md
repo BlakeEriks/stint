@@ -76,7 +76,7 @@ client's rate next year must never retroactively alter an invoice already sent.
 ### `user_settings`
 One row per user, auto-created by a trigger on `auth.users` insert. Holds the
 global rate fallback, display preferences, the invoice
-identity block (business name, address, logo, tax id, terms), the invoice
+identity block (business name, address, logo, terms), the invoice
 number sequence, `payment_notice`, and the entry-length thresholds
 (`min_entry_seconds`, `max_entry_hours`).
 

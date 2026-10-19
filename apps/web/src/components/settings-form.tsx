@@ -208,19 +208,6 @@ function Cards({ loaded }: { loaded: Settings }) {
             className={textareaClass}
           />
         </Field>
-
-        <Field
-          label="Tax ID"
-          htmlFor="tax-id"
-          hint="EIN or SSN, as it should appear on a 1099."
-        >
-          <Input
-            id="tax-id"
-            value={form.taxId ?? ''}
-            onChange={(e) => setIdentity('taxId', e.target.value || null)}
-            placeholder="12-3456789"
-          />
-        </Field>
       </Section>
 
       <Section
