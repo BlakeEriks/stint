@@ -105,6 +105,7 @@ export const DeleteAccount: Story = {
     leaves for /signin; Delete account waits with it. */
 export const SignOutPending: Story = {
   ...desktop,
+  parameters: stalled('signOut'),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await userEvent.click(
