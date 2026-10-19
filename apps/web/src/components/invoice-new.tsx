@@ -53,7 +53,7 @@ import { ExpenseRow } from './expense-row';
 import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
 import { summarize } from './payment-profiles';
-import { InvoicePreviewCard } from './invoice-preview-card';
+import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 import { rowButton } from './row-button';
 
@@ -506,6 +506,7 @@ export function NewInvoice() {
             <InvoicePreviewCard
               preview={current}
               client={client}
+              business={businessOf(settings)}
               settings={settings}
               number={number}
               issued={issued}

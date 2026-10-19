@@ -457,6 +457,17 @@ const INVOICES: InvoiceSpec[] = [
   },
 ];
 
+/** The From and Bill to blocks an invoice freezes when it is generated. */
+export const parties = (s: Settings, c: Client) => ({
+  business: {
+    name: s.businessName,
+    address: s.businessAddress,
+    email: s.businessEmail,
+    logoUrl: s.logoUrl,
+  },
+  billTo: { name: c.name, email: c.email ?? null, address: c.address ?? null },
+});
+
 /** Each invoice claims its client's entries in its period, as issuing does. */
 function invoicesFor(
   entries: TimeEntry[],
@@ -522,6 +533,7 @@ function invoicesFor(
       reference: null,
       supportingDetail: null,
       paymentDetails: null,
+      ...parties(settings(), who),
       sentAt:
         spec.status === 'draft'
           ? null
