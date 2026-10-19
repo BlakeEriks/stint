@@ -396,6 +396,16 @@ test('a missing entry is 404, not 500', async () => {
   assert.equal(res.body.code, 'ENTRY_NOT_FOUND');
 });
 
+test('an invoice id that is not a uuid is 404, not 500', async () => {
+  const { GET: get } = await import('../src/app/api/v1/invoices/[id]/route.ts');
+  const id = 'not-an-id';
+  const res = await json(
+    await get(req(`/invoices/${id}`), { params: Promise.resolve({ id }) }),
+  );
+  assert.equal(res.status, 404);
+  assert.equal(res.body.code, 'ENTRY_NOT_FOUND');
+});
+
 // ── summary ────────────────────────────────────────────────────────
 test('summary folds the live timer into today and week totals', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');
