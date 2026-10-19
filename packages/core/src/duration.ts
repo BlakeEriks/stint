@@ -43,7 +43,7 @@ export function measured<
     : entry;
 }
 
-/** `1:47:22` — the timer and menu bar format. Hours are never zero-padded. */
+/** `1:47:22` — the running timer's format. Hours are never zero-padded. */
 export function formatClock(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));
   const h = Math.floor(s / HOUR);
