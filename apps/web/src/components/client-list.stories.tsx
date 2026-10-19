@@ -105,18 +105,52 @@ export const ArchivedCollapsed: Story = {
   },
 };
 
-/** Opened: archived clients A–Z, muted, with no rate, each with Restore;
-    their projects moved with them. */
+/** Opened: archived clients A–Z after the active ones, muted, each with
+    Restore; their projects moved with them and show no rate. */
 export const ArchivedOpen: Story = {
   ...desktop,
+  parameters: account((db) => {
+    db.clients.find((c) => c.id === ids.byrne)!.archivedAt =
+      '2026-08-31T16:00:00.000Z';
+  }),
   play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const toggle = await page.findByRole('button', { name: 'Archived (2)' });
     await openArchived(canvasElement);
-    const old = await card(canvasElement, 'Old Engagement Co');
-    await expect(old.getByText('Legacy retainer')).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(
-      old.getByRole('button', { name: 'Restore Old Engagement Co' }),
+      page
+        .getAllByRole('heading', { level: 2 })
+        .map((h) => h.textContent)
+        // The dock's Inbox and Today follow.
+        .slice(0, 5),
+    ).toEqual([
+      'Meridian Labs',
+      'Northwind Trading',
+      'No client',
+      'Byrne Studio',
+      'Old Engagement Co',
+    ]);
+    const byrne = await card(canvasElement, 'Byrne Studio');
+    await expect(byrne.getByText('Brand site rebuild')).toBeVisible();
+    await expect(byrne.queryByText(/\/h/)).toBeNull();
+    await expect(
+      byrne.getByRole('button', { name: 'Restore Byrne Studio' }),
     ).toBeVisible();
-    await expect(old.queryByText(/\/h/)).toBeNull();
+  },
+};
+
+/** Nothing archived: no Archived section at all. */
+export const NothingArchived: Story = {
+  ...desktop,
+  parameters: account((db) => {
+    db.clients = db.clients.filter((c) => !c.archivedAt);
+    db.projects = db.projects.filter((p) => !p.archivedAt);
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await page.findByRole('heading', { name: 'Northwind Trading' });
+    await expect(page.queryByRole('button', { name: /^Archived/ })).toBeNull();
   },
 };
 
@@ -139,6 +173,8 @@ export const ArchivedProjectLast: Story = {
     await expect(
       northwind.getByRole('button', { name: 'Restore Warehouse dashboard' }),
     ).toBeVisible();
+    // It bills nothing new, so its row shows no rate.
+    await expect(rows.at(-1)).not.toHaveTextContent('/h');
   },
 };
 

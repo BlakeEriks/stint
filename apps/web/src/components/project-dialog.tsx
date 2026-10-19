@@ -94,8 +94,7 @@ export function ProjectDialog({
     invalidate: invalidateProjects,
   });
 
-  /* Archive lives here rather than on the row: it's rare, and the list's
-     only row action is Edit. Predicted: the dialog closes and the row goes
+  /* Archive lives here rather than on the row: it's rare. Predicted: the dialog closes and the row goes
      on the press; a refusal puts it back and the notice says why. Archive,
      never delete: entries and invoices reference the project. */
   const archive = useOptimisticMutation<string, unknown, unknown>({

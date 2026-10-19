@@ -248,11 +248,10 @@ describe('ClientList', () => {
     expect(screen.queryByText('Warehouse')).toBeNull();
   });
 
-  /* Archived clients wait below the active ones, collapsed, with a count so
-     nothing looks deleted; archived projects sort last in their group. */
+  /* How the archived section reads is the stories'; these are what a
+     press predicts. */
   describe('archived', () => {
     const OLD_CO = client({ id: 'c3', name: 'Old Co', archivedAt: ARCHIVED });
-    const ACME = client({ id: 'c4', name: 'Acme', archivedAt: ARCHIVED });
 
     it('asks for archived clients and projects', async () => {
       const urls = serve([NORTHWIND], [project()]);
@@ -265,71 +264,6 @@ describe('ClientList', () => {
       expect(projectUrls.length).toBeGreaterThan(0);
       expect(projectUrls.every((u) => u.includes('includeArchived=true'))).toBe(
         true,
-      );
-    });
-
-    it('lists active clients A–Z, then archived ones A–Z under a collapsed count', async () => {
-      serve(
-        [OLD_CO, NORTHWIND, ACME, BYRNE],
-        [project({ id: 'p9', clientId: 'c3', name: 'Old work' })],
-      );
-      const user = userEvent.setup();
-      render(<ClientList />, { wrapper });
-
-      await waitFor(() =>
-        expect(headings()).toEqual(['Byrne Studio', 'Northwind']),
-      );
-      const toggle = screen.getByRole('button', { name: 'Archived (2)' });
-      expect(toggle).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByText('Old work')).toBeNull();
-
-      await user.click(toggle);
-      expect(toggle).toHaveAttribute('aria-expanded', 'true');
-      expect(headings()).toEqual([
-        'Byrne Studio',
-        'Northwind',
-        'Acme',
-        'Old Co',
-      ]);
-      // An archived client's projects moved with it.
-      expect(screen.getByText('Old work').closest('section')).toHaveTextContent(
-        'Old Co',
-      );
-      // And bill nothing new, so show no rate.
-      expect(screen.getByText('Old work').closest('li')).not.toHaveTextContent(
-        '/h',
-      );
-    });
-
-    it('has no Archived section when nothing is archived', async () => {
-      serve([NORTHWIND]);
-      render(<ClientList />, { wrapper });
-      await waitFor(() => expect(headings()).toEqual(['Northwind']));
-      expect(screen.queryByRole('button', { name: /Archived/ })).toBeNull();
-    });
-
-    it('puts an archived project last in its group, with no rate', async () => {
-      serve(
-        [NORTHWIND],
-        [
-          project({ id: 'p1', name: 'Alpha', archivedAt: ARCHIVED }),
-          project({ id: 'p2', name: 'Zulu' }),
-          project({ id: 'p3', name: 'Mike' }),
-        ],
-      );
-      render(<ClientList />, { wrapper });
-
-      await waitFor(() =>
-        expect(
-          screen
-            .getAllByRole('button', { name: /^Edit (Alpha|Mike|Zulu)$/ })
-            .map((b) => b.getAttribute('aria-label')),
-        ).toEqual(['Edit Mike', 'Edit Zulu', 'Edit Alpha']),
-      );
-      // It bills nothing new, so its row shows no rate.
-      expect(screen.getByText('Mike').closest('li')).toHaveTextContent('/h');
-      expect(screen.getByText('Alpha').closest('li')).not.toHaveTextContent(
-        '/h',
       );
     });
 
