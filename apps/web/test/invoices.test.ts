@@ -1177,7 +1177,7 @@ test('detail returns the frozen line items with the client', async () => {
     await detail(req('/i'), { params: Promise.resolve({ id: inv.body.id }) }),
   );
   assert.equal(res.status, 200);
-  assert.equal(res.body.client.name, 'Northwind');
+  assert.equal(res.body.billTo.name, 'Northwind');
   assert.equal(res.body.lineItems.length, 1);
   assert.equal(res.body.lineItems[0].quantity, 2);
   assert.equal(res.body.lineItems[0].unitPrice, 150);
@@ -1517,6 +1517,67 @@ test('an invoice freezes the payment profile at generation', async () => {
     (f) => f.label === 'Account number',
   )!;
   assert.equal(acct.value, '1234567890', 'the frozen snapshot did not move');
+});
+
+test('an invoice freezes the business and client details at generation', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  const { GET: detail } = await import(
+    '../src/app/api/v1/invoices/[id]/route.ts'
+  );
+  const { GET: pdf } = await import(
+    '../src/app/api/v1/invoices/[id]/pdf/route.ts'
+  );
+
+  await pool.query(
+    `update user_settings set business_address='1 Old St', business_email='old@me.test'
+     where user_id=$1`,
+    [USER],
+  );
+  await pool.query(`update clients set address='9 Bay Rd' where id=$1`, [
+    CLIENT,
+  ]);
+  await seedEntry({ id: E(1), hours: 1 });
+  const inv = await json(
+    await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+  );
+  assert.equal(inv.status, 201);
+
+  await pool.query(
+    `update user_settings set business_name='Renamed LLC', business_address='2 New Ave',
+       business_email='new@me.test'
+     where user_id=$1`,
+    [USER],
+  );
+  await pool.query(
+    `update clients set name='Southwind', email='new@southwind.test', address='5 Moved Ln'
+     where id=$1`,
+    [CLIENT],
+  );
+
+  const params = { params: Promise.resolve({ id: inv.body.id }) };
+  const read = await json(await detail(req('/i'), params));
+  assert.deepEqual(read.body.business, {
+    name: 'Blake Eriks',
+    address: '1 Old St',
+    email: 'old@me.test',
+    logoUrl: null,
+  });
+  assert.deepEqual(read.body.billTo, {
+    name: 'Northwind',
+    email: 'ap@northwind.test',
+    address: '9 Bay Rd',
+  });
+
+  const printed = pdfText(
+    new Uint8Array(await (await pdf(req('/pdf'), params)).arrayBuffer()),
+  )
+    .flat()
+    .map((r) => r.text)
+    .join('');
+  for (const kept of ['Blake Eriks', '1 Old St', 'Northwind', '9 Bay Rd'])
+    assert.ok(printed.includes(kept), `the PDF still prints ${kept}`);
+  for (const edited of ['Renamed LLC', '2 New Ave', 'Southwind', '5 Moved Ln'])
+    assert.ok(!printed.includes(edited), `the PDF never prints ${edited}`);
 });
 
 test('a client profile preference overrides the user default', async () => {
@@ -1865,7 +1926,7 @@ test('the invoice detail response matches what the browser expects', async () =>
   assert.equal(typeof res.body.invoiceNumber, 'string');
   assert.equal(typeof res.body.status, 'string');
   assert.ok(Array.isArray(res.body.lineItems), 'line items travel alongside');
-  assert.equal(typeof res.body.client?.name, 'string', 'so does the client');
+  assert.equal(typeof res.body.billTo?.name, 'string', 'so does who it bills');
 
   /* A frozen line has no `rateSource`: it is read back from the database and
      there is no `rate_source` column. The preview and generation paths do

@@ -15,17 +15,11 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
   const { id } = await ctx.params;
 
-  const { invoice, client, pdfData, canDownload } = await loadPdfData(db, id);
+  const { invoice, pdfData, canDownload } = await loadPdfData(db, id);
 
   return NextResponse.json({
     ...invoice,
     canDownload,
-    client: {
-      id: client.id,
-      name: client.name,
-      email: client.email,
-      address: client.address,
-    },
     lineItems: pdfData.lineItems,
   });
 });

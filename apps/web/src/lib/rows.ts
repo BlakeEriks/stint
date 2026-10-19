@@ -289,6 +289,13 @@ export interface InvoiceRow {
   reference: string | null;
   supporting_detail: z.infer<typeof Schedules> | null;
   payment_details: PaymentDetails;
+  business_name: string | null;
+  business_address: string | null;
+  business_email: string | null;
+  logo_url: string | null;
+  client_name: string;
+  client_email: string | null;
+  client_address: string | null;
   sent_at: string | null;
   paid_at: string | null;
   created_at: string;
@@ -296,7 +303,7 @@ export interface InvoiceRow {
 }
 
 export const INVOICE_COLUMNS = columns<InvoiceRow>()(
-  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, supporting_detail, payment_details, sent_at, paid_at, created_at, issued_subscription_status',
+  'id, client_id, invoice_number, sequence_no, status, issue_date, due_date, period_start, period_end, subtotal, tax_rate, tax_amount, expenses_subtotal, total, currency, notes, payment_terms, grouping_mode, summary_text, reference, supporting_detail, payment_details, business_name, business_address, business_email, logo_url, client_name, client_email, client_address, sent_at, paid_at, created_at, issued_subscription_status',
 );
 
 export function toInvoice(r: InvoiceRow) {
@@ -323,6 +330,17 @@ export function toInvoice(r: InvoiceRow) {
     reference: r.reference,
     supportingDetail: r.supporting_detail,
     paymentDetails: r.payment_details ?? null,
+    business: {
+      name: r.business_name,
+      address: r.business_address,
+      email: r.business_email,
+      logoUrl: r.logo_url,
+    },
+    billTo: {
+      name: r.client_name,
+      email: r.client_email,
+      address: r.client_address,
+    },
     sentAt: r.sent_at,
     paidAt: r.paid_at,
     createdAt: r.created_at,

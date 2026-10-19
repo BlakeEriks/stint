@@ -20,7 +20,6 @@ import { attachedSchedules } from '@stint/core';
 import {
   api,
   ApiError,
-  type Client,
   type Invoice,
   type InvoiceStatus,
   type StoredLineItem,
@@ -28,26 +27,19 @@ import {
 import { DetailPage, Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
-/** An invoice with its client; the lines, and whether its PDF opens, are
-    absent until they load. */
+/** An invoice; the lines, and whether its PDF opens, are absent until they
+    load. */
 type Shown = Invoice & {
-  client: Pick<Client, 'name' | 'email' | 'address'>;
   lineItems?: StoredLineItem[];
   canDownload?: boolean;
 };
 
-/** What the invoice list and a client list already hold about this invoice,
-    so opening it draws at once. Undefined unless both are cached. */
-function fromLists(qc: QueryClient, id: string): Shown | undefined {
-  const invoice = qc
+/** What the invoice list already holds about this invoice, so opening it
+    draws at once. */
+function fromList(qc: QueryClient, id: string): Shown | undefined {
+  return qc
     .getQueryData<{ invoices: Invoice[] }>(keys.invoices())
     ?.invoices.find((i) => i.id === id);
-  if (!invoice) return undefined;
-  const client = qc
-    .getQueriesData<{ clients: Client[] }>({ queryKey: keys.clients() })
-    .flatMap(([, data]) => data?.clients ?? [])
-    .find((c) => c.id === invoice.clientId);
-  return client ? { ...invoice, client } : undefined;
 }
 
 export function InvoiceDetail({ id }: { id: string }) {
@@ -57,7 +49,7 @@ export function InvoiceDetail({ id }: { id: string }) {
   const query = useQuery<Shown>({
     queryKey: keys.invoice(id),
     queryFn: () => api.invoice(id),
-    placeholderData: () => fromLists(qc, id),
+    placeholderData: () => fromList(qc, id),
   });
 
   /* Voiding releases the entries and expenses and deleting a draft frees
@@ -105,7 +97,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 
 /** The invoice itself, as the PDF prints it, with what can be done to it. */
 function Loaded({
-  data,
+  data: invoice,
   setStatus,
   remove,
   error,
@@ -122,12 +114,11 @@ function Loaded({
      one — React Query holds the last error until the next success. */
   error: unknown;
 }) {
-  const { client, ...invoice } = data;
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
   const [markingPaid, setMarkingPaid] = useState(false);
-  /* The PDF prints the business block from settings as they are now, so the
-     card does too. */
+  /* For the payment notice, which the PDF reads from settings as they are
+     now. */
   const { data: settings } = useQuery({
     queryKey: keys.settings(),
     queryFn: () => api.settings(),
@@ -242,7 +233,8 @@ function Loaded({
       <InvoicePreviewCard
         heading={false}
         preview={{ ...invoice, schedules: invoice.supportingDetail }}
-        client={client}
+        client={invoice.billTo}
+        business={invoice.business}
         settings={settings}
         number={invoice.invoiceNumber}
         issued={invoice.issueDate}

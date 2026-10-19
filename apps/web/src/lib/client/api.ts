@@ -361,17 +361,11 @@ export const api = {
   },
 
   /* The invoice is FLAT, matching every other detail route (`/clients/:id`,
-     `/projects/:id`), with the client and line items alongside it. This once
-     declared `{ invoice, lineItems, client }` and the page read
-     `data.invoice.status` on a response that had no `invoice` key — so every
-     invoice detail page threw and rendered the error boundary. Nothing
-     caught it: the types were hand-written on this side and never checked
-     against the route. */
+     `/projects/:id`), with the line items alongside it. */
   invoice: (id: string) =>
     request<
       Invoice & {
         lineItems: StoredLineItem[];
-        client: Pick<Client, 'id' | 'name' | 'email' | 'address'>;
         canDownload: boolean;
       }
     >('GET', `/invoices/${id}`),

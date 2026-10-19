@@ -133,7 +133,10 @@ financial record, not a live view over time entries.
 the same reason rates freeze: editing a profile must never alter an invoice
 already sent. `supporting_detail` (JSONB) freezes the hours-by-project, -week
 and -date tables printed from page 2 the same way, so a renamed project or a
-void never changes them. `summary_text` is the line text of a `summary`
+void never changes them. The `business_*` and `logo_url` columns (the From
+block) and the `client_*` columns (Bill to) are copied from `user_settings`
+and the client by a trigger on insert, so editing either never reprints an
+invoice. `summary_text` is the line text of a `summary`
 invoice and is set exactly then; `reference` is the PO, contract or SOW the
 header prints. `issued_subscription_status` is the user's `subscriptions.status`
 when the invoice was inserted, copied by a trigger whatever the insert says

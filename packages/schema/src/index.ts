@@ -512,6 +512,19 @@ export const Invoice = z.object({
   /** The payment block as rendered at generation. Editing a profile later
    *  never alters an issued invoice, so this is a snapshot, not a reference. */
   paymentDetails: PaymentDetailsSnapshot.nullable(),
+  /** The From block as generated: editing settings later never reprints it. */
+  business: z.object({
+    name: z.string().nullable(),
+    address: z.string().nullable(),
+    email: z.string().nullable(),
+    logoUrl: z.string().nullable(),
+  }),
+  /** The Bill to block as generated: editing the client never reprints it. */
+  billTo: z.object({
+    name: z.string(),
+    email: z.string().nullable(),
+    address: z.string().nullable(),
+  }),
   sentAt: iso.nullable(),
   paidAt: iso.nullable(),
   createdAt: iso,
