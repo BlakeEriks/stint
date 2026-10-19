@@ -8,15 +8,16 @@ are users to protect.
 ## The shape
 
 ```
-PR ──► CI ──► merge ──► Vercel builds ──► plan ──► you approve ──► backup ──► migrate + verify ──► live
-                                                  └──── no migration ────────────► verify ──► live
+PR ──► CI ──► merge ──► Vercel builds ──► plan ──► you approve ──► backup ──► migrate + verify ──► health ──► live
+                                                  └──── no migration ────────────► verify ──► health ──► live
 ```
 
 **A release waits for your approval only when it carries a migration.**
 GitHub notifies you; the run's summary shows the commit and every pending
 migration's SQL, with a warning when one drops, truncates, or deletes.
 Rejecting leaves the previous build serving. A release with no migration has
-nothing to judge, so it goes straight to `verify:schema` and live.
+nothing to judge, so it goes straight to `verify:schema`. Either way, the
+new build must answer `/api/v1/health` before it goes live.
 
 **A merge that changes nothing the web app ships does not deploy.**
 `apps/web/scripts/vercel-ignore.sh`, Vercel's `ignoreCommand`, skips the
@@ -158,6 +159,10 @@ migration scripts do, and they run in Actions.
   own audit log. Vercel created the Production and Preview environments when
   you connected the repo.
 
+- **GitHub** → Environments → **Production** → add
+  `VERCEL_AUTOMATION_BYPASS_SECRET`, Vercel's Protection Bypass for
+  Automation, so the gate can reach the unpromoted build (§3a).
+
 - **GitHub** → Environments → **Release**: required reviewer (you), `main`
   only, no secrets. It is the pause and nothing else. Production carries no
   reviewer because the nightly backup runs in it unattended.
@@ -194,8 +199,9 @@ run, since a fresh build would apply them in a different order.
 When a migration is pending, `approve` waits for you and `backup` takes a
 snapshot; otherwise both are skipped. `migrate` runs
 `pnpm migrate` and `pnpm verify:schema` while the *previous* build still
-answers requests, then its status action's `post` hook reports the outcome as
-a commit status. Success promotes the deployment; failure leaves
+answers requests, then requests `/api/v1/health` on the new build's own URL
+and fails on anything but 200. `report` writes the outcome as a commit
+status. Success promotes the deployment; failure leaves
 the old one serving, with **Force Promote** as the override.
 
 Two things that fail quietly if they drift, so they are worth re-reading
@@ -226,7 +232,8 @@ this puts on code.
 Per-deployment URLs (`stint-<hash>-<scope>.vercel.app`) are fronted by SSO on
 a private project, so an unauthenticated request 302s to `vercel.com/sso-api`.
 That is protection on the *deployment* URL, not a broken app — test a real
-domain instead.
+domain instead. The release gate and `pnpm try-mac` get through by sending the
+Protection Bypass for Automation as `x-vercel-protection-bypass`.
 
 The app's own redirect is a different thing: every app page is static and
 returns 200, and a signed-out visitor is sent to `/signin` in the browser
@@ -366,5 +373,6 @@ no redirect URL.
 
 ## What is deliberately absent
 
-- **No automatic rollback.** Reverting a deploy is a Vercel redeploy of the
-  previous build; a wrong migration is fixed by a new one.
+- **No automatic rollback.** A build that fails its health check is never
+  promoted, so it needs none. One that breaks later is reverted by a Vercel
+  redeploy of the previous build; a wrong migration is fixed by a new one.
