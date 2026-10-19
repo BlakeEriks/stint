@@ -363,11 +363,6 @@ export const handlers = {
       : ok(envelopes.clients, { clients });
   }),
 
-  client: http.get(`${API}/clients/:id`, ({ params }) => {
-    const client = byId(getDb().clients, params.id);
-    return client ? ok(schema.Client, client) : fail('ENTRY_NOT_FOUND');
-  }),
-
   createClient: http.post(`${API}/clients`, async ({ request }) => {
     const db = getDb();
     const client: Client = {
@@ -410,9 +405,11 @@ export const handlers = {
     return noContent();
   }),
 
-  invoices: http.get(`${API}/invoices`, () => {
+  invoices: http.get(`${API}/invoices`, ({ request }) => {
+    const clientId = query(request).get('clientId');
     const invoices = getDb()
-      .invoices.map(({ lineItems: _, ...invoice }) => invoice)
+      .invoices.filter((i) => !clientId || i.clientId === clientId)
+      .map(({ lineItems: _, ...invoice }) => invoice)
       .sort((a, b) => b.sequenceNo - a.sequenceNo);
     return ok(envelopes.invoices, { invoices });
   }),

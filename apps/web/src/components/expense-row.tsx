@@ -122,6 +122,7 @@ export function ExpenseRow({
     return (
       <Link
         href={`/invoices/${expense.invoiceId}`}
+        prefetch
         aria-label={`${expense.description}, on ${expense.invoiceNumber}`}
         className={rowClass}
       >

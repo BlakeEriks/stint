@@ -29,6 +29,17 @@ import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 type Attention = Stats['attention'];
 
+/** How many rows the Inbox holds: its header's count and the folded dock's. */
+export function inboxCount(attention: Attention) {
+  return (
+    attention.overdueInvoices.length +
+    attention.staleDrafts.length +
+    attention.unprojected.length +
+    attention.strangeDurations.length +
+    attention.overlaps.length
+  );
+}
+
 /** A row, tagged with which list it came from — the tag decides how it renders. */
 type InboxRow =
   | { id: string; kind: 'overdue'; row: Attention['overdueInvoices'][number] }
@@ -181,7 +192,7 @@ export function Inbox({ stats }: { stats: Stats }) {
     })),
   ];
 
-  const count = rows.length;
+  const count = inboxCount(stats.attention);
 
   return (
     <section aria-label="Inbox">
@@ -506,7 +517,7 @@ function Item({
             figure sharing the line takes width from it in proportion to how
             much money the row is about. */}
         {href ? (
-          <Link href={href} className={titleClass}>
+          <Link href={href} prefetch className={titleClass}>
             {label}
           </Link>
         ) : onSelect ? (

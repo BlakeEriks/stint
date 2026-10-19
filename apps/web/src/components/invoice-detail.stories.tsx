@@ -1,8 +1,11 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/client/api';
+import { keys } from '@/lib/client/query-keys';
 import { expect, userEvent, within } from 'storybook/test';
 import { account } from '@/mocks/db';
 import { type Db, id } from '@/mocks/fixtures';
-import { desktop, phone, screen, stalled } from '@/mocks/screen';
+import { desktop, phone, screen, skipping, stalled } from '@/mocks/screen';
 import { InvoiceDetail } from './invoice-detail';
 
 /* Each status offers its own actions: a draft is deleted or sent, an issued
@@ -29,7 +32,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Lines and total as frozen at generation; no supporting detail named. */
+/** Lines and total as frozen at generation; no supporting detail named. The
+    actions share the title's row, whatever the length of the status line. */
 export const Draft: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -37,14 +41,34 @@ export const Draft: Story = {
     await expect(
       await page.findByText('Type scale for the brand site'),
     ).toBeVisible();
-    await expect(page.getByText('Total').nextElementSibling).toHaveTextContent(
-      '$2,787.60',
-    );
-    await expect(page.queryByText(/Supporting detail/)).toBeNull();
+    const title = page
+      .getByRole('heading', { level: 1 })
+      .getBoundingClientRect();
+    const download = page
+      .getByRole('link', { name: 'Download PDF' })
+      .getBoundingClientRect();
+    await expect(download.top).toBeLessThan(title.bottom);
+    await expect(
+      page.getByText('Amount due').nextElementSibling,
+    ).toHaveTextContent('$2,787.60');
+    await expect(page.queryByText(/supporting detail/)).toBeNull();
   },
 };
 export const DraftPhone: Story = { ...phone };
-export const Sent: Story = { ...desktop, args: { id: invoice(14) } };
+/** Where it stands is one line under the title, and an issued invoice is
+    the invoice, not a preview of it. */
+export const Sent: Story = {
+  ...desktop,
+  args: { id: invoice(14) },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByText(/^Awaiting payment\. Due /),
+    ).toBeVisible();
+    await expect(page.queryByRole('heading', { name: 'Status' })).toBeNull();
+    await expect(page.queryByRole('heading', { name: 'Preview' })).toBeNull();
+  },
+};
 export const Overdue: Story = { ...desktop, args: { id: invoice(13) } };
 export const Paid: Story = { ...desktop, args: { id: invoice(12) } };
 /** Voiding keeps the number and releases the entries. */
@@ -59,9 +83,9 @@ export const Void: Story = {
 };
 export const Missing: Story = { ...desktop, args: { id: invoice(99) } };
 
-/** Free, with billing set up: the document is the paid tier. Lines and
-    totals still show; Download and Preview give way to subscribing, and the
-    page says the records stay free. */
+/** Free, with billing set up: the document is the paid tier. The invoice
+    still shows in full; Download gives way to subscribing, and the page says
+    the records stay free. */
 export const Locked: Story = {
   ...desktop,
   parameters: account('seeded'),
@@ -74,8 +98,7 @@ export const Locked: Story = {
     await expect(page.getByText(/on the paid plan, \$40 a year/)).toBeVisible();
     await expect(page.getByText(/exporting them included/)).toBeVisible();
     await expect(page.queryByRole('link', { name: /Download PDF/ })).toBeNull();
-    await expect(page.queryByRole('link', { name: /Preview/ })).toBeNull();
-    await expect(page.getByText('Total')).toBeVisible();
+    await expect(page.getByText('Amount due')).toBeVisible();
   },
 };
 export const LockedPhone: Story = { ...phone, parameters: account('seeded') };
@@ -185,7 +208,7 @@ export const WithExpenses: Story = {
   },
 };
 
-/** The reference it was issued with, under the client. */
+/** The reference it was issued with, under the service period. */
 export const WithReference: Story = {
   ...desktop,
   args: { id: invoice(14) },
@@ -195,12 +218,12 @@ export const WithReference: Story = {
   }),
   play: async ({ canvasElement }) => {
     await expect(
-      await within(canvasElement).findByText('Reference PO 4471'),
+      await within(canvasElement).findByText('PO 4471'),
     ).toBeVisible();
   },
 };
 
-/** A summary invoice names the detail it carries from page 2 (US2
+/** A summary invoice shows the detail it carries from page 2 (US2
     scenario 8). */
 export const WithSupportingDetail: Story = {
   ...desktop,
@@ -216,10 +239,89 @@ export const WithSupportingDetail: Story = {
     };
   }),
   play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
     await expect(
-      await within(canvasElement).findByText(
-        'Supporting detail from page 2: Hours by project, Hours by week',
-      ),
+      await page.findByText('Page 2 · supporting detail'),
     ).toBeVisible();
+    await expect(page.getByText('Hours by project')).toBeVisible();
+    await expect(page.getByText('Hours by week')).toBeVisible();
+  },
+};
+
+/** Every line the PDF prints: the Tax ID, the terms, the whole payment
+    block with its notice, and the notes. */
+export const AsPrinted: Story = {
+  ...desktop,
+  args: { id: invoice(14) },
+  parameters: paying((db) => {
+    db.settings.taxId = '12-3456789';
+    const sent = db.invoices.find((i) => i.id === invoice(14));
+    if (!sent) return;
+    sent.notes = 'Thank you for the work this month.';
+    sent.paymentDetails = {
+      title: 'USD wire',
+      fields: [
+        { label: 'Account holder', value: 'Blake Eriks' },
+        { label: 'Routing number (ACH)', value: '021000021' },
+      ],
+      intermediary: [],
+      link: { label: 'Pay online', url: 'https://pay.example.test/blake' },
+      notes: 'Include the invoice number in the memo.',
+    };
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    for (const text of [
+      /Tax ID 12-3456789/,
+      'Net 30',
+      'Payment — USD wire',
+      'Pay online: https://pay.example.test/blake',
+      'Include the invoice number in the memo.',
+      /bank details never change by email/,
+      'Thank you for the work this month.',
+    ]) {
+      await expect(await page.findByText(text)).toBeVisible();
+    }
+  },
+};
+
+/* Mounts the page only once the lists it was opened from are cached, as
+   they are after a click in Invoices. */
+const fromTheList: Decorator = (Story) => {
+  const invoices = useQuery({
+    queryKey: keys.invoices(),
+    queryFn: () => api.invoices(),
+  });
+  const clients = useQuery({
+    queryKey: keys.clients({ archived: true }),
+    queryFn: () => api.clients({ includeArchived: true }),
+  });
+  return invoices.data && clients.data ? <Story /> : <></>;
+};
+
+/** Opened from the list: the invoice draws from what the list holds, and
+    the card says it is updating until its lines arrive. */
+export const OpenedFromList: Story = {
+  ...desktop,
+  args: { id: invoice(14) },
+  decorators: [fromTheList],
+  parameters: {
+    ...stalled('invoice'),
+    /* The card dims until its lines land; axe reads the half opacity as low
+       contrast. */
+    a11y: skipping('color-contrast'),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      await page.findByRole('heading', { name: 'STINT-0014' }),
+    ).toBeVisible();
+    await expect(page.getByText('Updating…')).toBeVisible();
+    await expect(page.queryByText('Loading…')).toBeNull();
+    await expect(page.queryByText('Amount due')).toBeNull();
+    /* The lists don't say whether the PDF opens, so neither action shows
+       yet rather than one that turns into the other. */
+    await expect(page.queryByRole('link', { name: /Download PDF/ })).toBeNull();
+    await expect(page.queryByRole('link', { name: /Subscribe/ })).toBeNull();
   },
 };

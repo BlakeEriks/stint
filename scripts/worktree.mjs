@@ -2,7 +2,7 @@
 /**
  * Add a git worktree that can actually run.
  *
- *   pnpm worktree <branch>            # branch off main, ../stint-<branch>
+ *   pnpm worktree <branch>            # branch off origin/main, ../stint-<branch>
  *   pnpm worktree <branch> --from foo # branch off something else
  *   pnpm worktree <branch> --at ../x  # somewhere other than ../stint-<branch>
  *
@@ -36,7 +36,9 @@ for (let i = 0; i < argv.length; i++) {
 }
 
 const [branch] = bare;
-const from = flags.get('--from') ?? 'main';
+/* origin/main, not main: the main checkout's local branch is never
+   fast-forwarded, so it can sit days behind what has merged. */
+const from = flags.get('--from') ?? 'origin/main';
 const at = flags.get('--at');
 
 if (!branch) {
@@ -57,8 +59,11 @@ if (existsSync(dest)) {
 const run = (cmd, args, cwd = root) =>
   execFileSync(cmd, args, { cwd, stdio: 'inherit' });
 
+run('git', ['fetch', '--prune', 'origin']);
 console.log(`\nworktree: ${branch} off ${from} → ${dest}\n`);
-run('git', ['worktree', 'add', '-b', branch, dest, from]);
+/* --no-track: off a remote ref, git would make origin/main the new branch's
+   upstream, and `git pull` there would pull main. */
+run('git', ['worktree', 'add', '--no-track', '-b', branch, dest, from]);
 
 /* Before install: a missing env file is the one failure that survives a
    successful build, so it is worth knowing about now rather than at the first

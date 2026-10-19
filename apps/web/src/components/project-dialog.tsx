@@ -150,8 +150,8 @@ export function ProjectDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {/* The same form the page uses, so the field set and validation
-              cannot drift. Saving selects the new client and comes straight
+          {/* The same form `ClientDialog` uses, so the field set and
+              validation cannot drift. Saving selects the new client and comes straight
               back to the project; canceling abandons only the client. */}
           <ClientForm
             onSaved={(client) => {

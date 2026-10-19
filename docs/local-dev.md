@@ -68,7 +68,7 @@ database whose migration history disagrees with its schema.
 ## A worktree that runs
 
 ```bash
-pnpm worktree <branch>              # off main, into ../stint-<branch>
+pnpm worktree <branch>              # off a fetched origin/main, into ../stint-<branch>
 pnpm worktree <branch> --from <ref> # off something else
 ```
 

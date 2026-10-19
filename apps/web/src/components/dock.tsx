@@ -25,14 +25,9 @@ import { keys } from '@/lib/client/query-keys';
  * is an object and the column holding them is not.
  */
 export function Dock() {
-  const timer = useTimer();
   const { data } = useQuery({
     queryKey: keys.stats(tz),
     queryFn: () => api.stats(tz),
-  });
-  const { data: projects } = useQuery({
-    queryKey: keys.projects(),
-    queryFn: () => api.projects(),
   });
 
   /* The split is only a thing at `xl`, where the dock is a fixed-height
@@ -64,9 +59,10 @@ export function Dock() {
          Where it divides is the user's, dragged on the handle between them
          and kept per device.
 
-         A workspace screen hides it: that screen is a tool and takes the
-         room (`Page`'s `workspace`). */
-      className="flex min-h-0 flex-none flex-col group-has-[[data-workspace]]/app:hidden xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]"
+         At `xl` a workspace screen folds it to `DockStrip`: that screen is a
+         tool and takes the room (`Page`'s `workspace`). Below `xl` it is a
+         band under the content, which costs no width, so it stays. */
+      className="flex min-h-0 flex-none flex-col xl:group-has-[[data-workspace]]/app:hidden xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]"
     >
       {/* Today has its own `/entries` query, so it waits on stats for nothing.
 
@@ -96,14 +92,31 @@ export function Dock() {
         />
       ) : null}
 
-      <EntryList
-        projects={projects?.projects ?? []}
-        todaySeconds={timer.todaySeconds}
-        earnedToday={data?.earnedToday}
-        currency={data?.currency}
-        flush={wide && !!data}
-      />
+      <DockToday flush={wide && !!data} />
     </aside>
+  );
+}
+
+/** The dock's Today, in its column or opened from the folded strip. */
+export function DockToday({ flush }: { flush: boolean }) {
+  const timer = useTimer();
+  const { data } = useQuery({
+    queryKey: keys.stats(tz),
+    queryFn: () => api.stats(tz),
+  });
+  const { data: projects } = useQuery({
+    queryKey: keys.projects(),
+    queryFn: () => api.projects(),
+  });
+
+  return (
+    <EntryList
+      projects={projects?.projects ?? []}
+      todaySeconds={timer.todaySeconds}
+      earnedToday={data?.earnedToday}
+      currency={data?.currency}
+      flush={flush}
+    />
   );
 }
 

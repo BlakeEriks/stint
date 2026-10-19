@@ -106,7 +106,7 @@ jobs:
         run: pnpm --filter @stint/web test:ui
 
       - name: Core logic tests
-        run: node --test --experimental-strip-types packages/core/test/*.test.ts
+        run: pnpm --filter @stint/core test
 
       - name: Lint plugins catch what they name
         run: node --test biome/*.test.mjs
@@ -305,16 +305,19 @@ jobs:
       # laptop is what made it look like a win.
       #
       # What remains is a real exposure: `public.ecr.aws` rate-limits anonymous
-      # pulls, and a run hit `toomanyrequests` on four images at once. The CLI
-      # retried with backoff and survived. If that starts failing rather than
-      # retrying, the fix is a registry mirror or an authenticated pull, not a
-      # tarball in the Actions cache.
+      # pulls. The CLI's own backoff cannot recover once Postgres is up: its
+      # retry fails binding 54322 to its own first container (#313). So a
+      # failed start is stopped clean, and started once more after a pause. If
+      # throttling outlasts that, the fix is an authenticated pull (a free AWS
+      # account's keys as secrets), not a tarball in the Actions cache.
       #
       # WITHOUT Studio or postgres-meta: the browser suite drives the app,
       # never the dashboard, and they are 2.25GB of the 4.4GB of images. Took
       # the e2e job from 198s to ~150s.
       - name: Start Supabase
-        run: npx supabase start -x studio,postgres-meta
+        run: |
+          start() { npx supabase start -x studio,postgres-meta; }
+          start || { npx supabase stop --no-backup; sleep 30; start; }
 
       # Needs the Auth server rather than a Postgres instance, so it cannot
       # live in the `database` job: the point is that a genuinely signed

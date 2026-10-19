@@ -635,8 +635,7 @@ function Result({
       ),
     ),
   ];
-  const rateHref =
-    clientIds.length === 1 ? `/clients/${clientIds[0]}` : '/settings';
+  const rateHref = clientIds.length === 1 ? '/clients' : '/settings';
   const names = [
     ...new Set(
       preview.rows.flatMap((r) =>

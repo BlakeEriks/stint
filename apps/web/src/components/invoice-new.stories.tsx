@@ -100,8 +100,8 @@ export const ClientChosen: Story = {
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
 
-/** The screen is a workspace: no dock, so at 2xl the preview is nearly a
-    Letter page's width beside the form (it was ~430px beside the dock). */
+/** The screen is a workspace: the dock folds to a strip, so at 2xl the
+    preview is 700px beside the form (it was ~430px beside the dock). */
 export const Workspace: Story = {
   ...ClientChosen,
   ...wide,
@@ -114,7 +114,7 @@ export const Workspace: Story = {
     const width = page
       .getByRole('region', { name: 'Preview' })
       .getBoundingClientRect().width;
-    await expect(width).toBeGreaterThan(700);
+    await expect(width).toBeGreaterThanOrEqual(700);
   },
 };
 
@@ -389,6 +389,38 @@ export const NoAttachWithoutSummary: Story = {
     const page = await chooseNorthwind(canvasElement);
     await page.findByRole('button', { name: 'Show time as' });
     await expect(page.queryByText('Attach')).toBeNull();
+  },
+};
+
+/** The client's last invoice was a summary, so this one opens as one,
+    with its text and its ticks, still editable. */
+export const FromLastInvoice: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      const last = db.invoices
+        .filter((i) => i.clientId === ids.northwind && i.status !== 'void')
+        .sort(
+          (a, b) => b.sequenceNo - a.sequenceNo,
+        )[0] as Db['invoices'][number];
+      last.groupingMode = 'summary';
+      last.summaryText = 'Software consulting services';
+      last.supportingDetail = { week: [], totalHours: 0 };
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(await page.findByLabelText(/Summary line/)).toHaveValue(
+      'Software consulting services',
+    );
+    await expect(
+      page.getByRole('checkbox', { name: 'Hours by week' }),
+    ).toBeChecked();
+    await expect(
+      page.getByRole('checkbox', { name: 'Hours by project' }),
+    ).not.toBeChecked();
+    await settled(page);
   },
 };
 
