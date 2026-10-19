@@ -158,11 +158,10 @@ a different order, and the ones that drifted were rebuilt:
 | A client's color | `useProjectColors()`, `Swatch` |
 | A rate, with its source | `ProjectRate` |
 | A key to press | `Kbd` |
-| A choice among two to four words | `SegmentedControl` |
+| A short choice in a section's heading row | `SegmentedControl` |
 
-`Select` is for a choice among five or more words, or one whose segments
-won't fit in its row; a row carrying a swatch, a second line or an `Add…`
-item is a `DropdownMenu`. Put a component in
+A choice in a form or dialog field is a `Select`; a row carrying a swatch, a
+second line or an `Add…` item is a `DropdownMenu`. Put a component in
 `components/` when a second screen needs it, not in anticipation of one.
 
 **Conventions every screen keeps:**

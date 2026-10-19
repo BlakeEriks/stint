@@ -11,9 +11,10 @@ export type Segment<T extends string> = {
 };
 
 /**
- * A choice among two to four words, every option in view. Hand-written over
- * Radix `RadioGroup` rather than shadcn's `ToggleGroup`: a single-choice
- * toggle group can be pressed back to no value, and this always holds one.
+ * A short choice in a section's heading row, every option in view.
+ * Hand-written over Radix `RadioGroup` rather than shadcn's `ToggleGroup`: a
+ * single-choice toggle group can be pressed back to no value, and this always
+ * holds one.
  */
 export function SegmentedControl<T extends string>({
   label,
