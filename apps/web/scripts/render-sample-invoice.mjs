@@ -72,7 +72,6 @@ export const SAMPLE = {
     address: '1847 Clement Street\nSan Francisco, CA 94121\nUnited States',
     email: 'blake@example.dev',
     logoUrl: null,
-    taxId: 'EIN 88-4471992',
   },
   client: {
     name: 'Northwind Trading Co.',

@@ -248,13 +248,12 @@ export const WithSupportingDetail: Story = {
   },
 };
 
-/** Every line the PDF prints: the Tax ID, the terms, the whole payment
-    block with its notice, and the notes. */
+/** Every line the PDF prints: the terms, the whole payment block with its
+    notice, and the notes. */
 export const AsPrinted: Story = {
   ...desktop,
   args: { id: invoice(14) },
   parameters: paying((db) => {
-    db.settings.taxId = '12-3456789';
     const sent = db.invoices.find((i) => i.id === invoice(14));
     if (!sent) return;
     sent.notes = 'Thank you for the work this month.';
@@ -272,7 +271,6 @@ export const AsPrinted: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     for (const text of [
-      /Tax ID 12-3456789/,
       'Net 30',
       'Payment — USD wire',
       'Pay online: https://pay.example.test/blake',
@@ -282,6 +280,7 @@ export const AsPrinted: Story = {
     ]) {
       await expect(await page.findByText(text)).toBeVisible();
     }
+    await expect(page.queryByText(/Tax ID/i)).toBeNull();
   },
 };
 

@@ -247,7 +247,6 @@ export const Settings = z.object({
   businessAddress: z.string().max(1000).nullable(),
   businessEmail: z.email().nullable(),
   logoUrl: z.url().nullable(),
-  taxId: z.string().max(100).nullable(),
   defaultPaymentTerms: z.string().max(200),
   invoiceNumberPrefix: z.string().max(20),
   nextInvoiceNumber: z.number().int().positive(),

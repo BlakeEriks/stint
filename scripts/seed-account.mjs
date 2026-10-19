@@ -276,8 +276,7 @@ try {
        default_hourly_rate = 125,
        business_name = 'Harbor Lane Consulting LLC',
        business_address = '1200 Market St, Suite 400\nDenver, CO 80202',
-       business_email = 'billing@harborlane.test',
-       tax_id = '12-3456789'
+       business_email = 'billing@harborlane.test'
      where user_id = $1`,
     [userId],
   );
