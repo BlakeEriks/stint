@@ -1,7 +1,23 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { captureException } from '@sentry/nextjs';
 import AppError from '@/app/(app)/error';
+import GlobalError from '@/app/global-error';
+
+vi.mock('@sentry/nextjs', () => ({ captureException: vi.fn() }));
+
+/* A signed-in session whose token carries more than the id, so a report that
+   copied the claims would show it. */
+vi.mock('@/lib/client/supabase', () => ({
+  browserClient: () => ({
+    auth: {
+      getClaims: async () => ({
+        data: { claims: { sub: 'user-1', email: 'me@example.com' } },
+      }),
+    },
+  }),
+}));
 
 /**
  * The screen that renders when a screen fails.
@@ -17,10 +33,12 @@ import AppError from '@/app/(app)/error';
  * `e2e/error-boundary.spec.ts` against a real browser.
  */
 
-// `console.error` is called on purpose (it is the only place these go today),
-// so silence it rather than letting every run print a fake failure.
+// `console.error` is called on purpose, so silence it rather than letting every run print a fake failure.
 const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
-afterEach(() => quiet.mockClear());
+afterEach(() => {
+  quiet.mockClear();
+  vi.mocked(captureException).mockClear();
+});
 
 const boom = (over: Partial<Error & { digest?: string }> = {}) =>
   Object.assign(new Error('Induced'), over);
@@ -49,5 +67,29 @@ describe('the screen-level error boundary', () => {
       (el) => Array.from((el as HTMLElement).classList ?? []),
     );
     expect(classes.filter((c) => c.includes('accent'))).toEqual([]);
+  });
+});
+
+describe.each([
+  ['the screen-level boundary', AppError],
+  ['the root boundary', GlobalError],
+])('%s reports to Sentry', (_, Boundary) => {
+  it('sends the error with the user id and nothing else about the user', async () => {
+    const error = boom();
+    render(<Boundary error={error} reset={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(captureException).toHaveBeenCalledWith(error, {
+        user: { id: 'user-1' },
+      }),
+    );
+    expect(captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves a server error to the server, which has reported it', async () => {
+    render(<Boundary error={boom({ digest: '123' })} reset={vi.fn()} />);
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(captureException).not.toHaveBeenCalled();
   });
 });
