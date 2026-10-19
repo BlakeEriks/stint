@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Stint
 
-/// Each response `apps/web/test/contract.test.ts` records from the real
+/// Each response `apps/web/test/routes.test.ts` records from the real
 /// routes decodes into the type `API` reads it as.
 struct ContractTests {
     private func decode<T: Decodable>(_ type: T.Type, _ name: String) throws -> T {
