@@ -95,7 +95,7 @@ function Cards({ loaded }: { loaded: Settings }) {
       <Section
         title="Appearance"
         description="This device only."
-        status={
+        aside={
           <SegmentedControl
             label="Theme"
             value={theme}
@@ -108,7 +108,7 @@ function Cards({ loaded }: { loaded: Settings }) {
       <Section
         title="Billing defaults"
         description="What a client or project falls back to when it sets no rate of its own."
-        status={<SaveIndicator state={billing.state} />}
+        aside={<SaveIndicator state={billing.state} />}
       >
         <div className="flex flex-wrap gap-4">
           <Field
@@ -173,7 +173,7 @@ function Cards({ loaded }: { loaded: Settings }) {
       <Section
         title="Business identity"
         description="Appears in the invoice header."
-        status={<SaveIndicator state={identity.state} />}
+        aside={<SaveIndicator state={identity.state} />}
       >
         <Field label="Business name" htmlFor="biz-name">
           <Input
@@ -214,7 +214,7 @@ function Cards({ loaded }: { loaded: Settings }) {
 
       <Section
         title="Invoice numbering"
-        status={<SaveIndicator state={numbering.state} />}
+        aside={<SaveIndicator state={numbering.state} />}
       >
         <div className="flex flex-wrap gap-4">
           <Field label="Prefix" htmlFor="prefix" className="flex-1 basis-40">

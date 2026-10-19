@@ -73,23 +73,24 @@ function focusSection(section: HTMLElement) {
  * No border, no background, no shadow — the panel carries those, and a second
  * set inside it reads as a card in a card.
  *
- * `status` renders top-right. Each section saves independently, so the
+ * `aside` renders top-right: the section's `SaveIndicator`, a control acting
+ * on the whole section, or, in a section with no fields, its one control,
+ * centered beside the title. Each section saves independently, so the
  * indicator belongs to the section whose fields are actually in flight rather
- * than to the page. A section with no fields is one row, and its control
- * (`status`) is centered beside the title and description.
+ * than to the page.
  */
 export function Section({
   id,
   title,
   description,
-  status,
+  aside,
   children,
 }: {
   /** Anchor target, so another screen can link straight to this section. */
   id?: string;
   title: string;
   description?: string;
-  status?: React.ReactNode;
+  aside?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   /* A callback ref rather than `useRef` + an effect keyed on `id`: the form
@@ -122,8 +123,8 @@ export function Section({
             <p className="mt-1 type-support text-muted">{description}</p>
           ) : null}
         </div>
-        {status ? (
-          <div className={`flex-none ${children ? 'pt-1' : ''}`}>{status}</div>
+        {aside ? (
+          <div className={`flex-none ${children ? 'pt-1' : ''}`}>{aside}</div>
         ) : null}
       </div>
       {children ? (

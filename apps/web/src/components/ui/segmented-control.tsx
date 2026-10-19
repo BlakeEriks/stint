@@ -14,9 +14,6 @@ export type Segment<T extends string> = {
  * A choice among two to four words, every option in view. Hand-written over
  * Radix `RadioGroup` rather than shadcn's `ToggleGroup`: a single-choice
  * toggle group can be pressed back to no value, and this always holds one.
- * Arrow keys move between segments and choose as they go.
- *
- * On a phone the words drop and each icon keeps its word as its name.
  */
 export function SegmentedControl<T extends string>({
   label,
