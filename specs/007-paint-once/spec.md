@@ -15,6 +15,14 @@ panel repaints several times as each piece of its data arrives. For a tool
 whose job is money the user will invoice, half-drawn figures read as wrong
 figures.
 
+## Clarifications
+
+### Session 2026-10-19
+
+- Q: Which screens get the treatment? → A: Every web screen that loads data,
+  plus the menu bar panel. A loading rule only some screens keep is not one a
+  user can rely on.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - The home panel appears whole (Priority: P1)
@@ -135,9 +143,9 @@ that actually changed update when the server answers.
   known data at once and replace it with the server's answer when it arrives.
 - **FR-009**: Last known data MUST be cleared on sign-out and MUST never be
   shown to a different account.
-- **FR-010**: The treatment MUST cover [NEEDS CLARIFICATION: which screens —
-  only the home page and the menu bar panel, or every web screen that loads
-  data (clients, invoices, calendar, settings)?].
+- **FR-010**: The treatment MUST cover every web screen that loads data
+  (home, clients, invoices, calendar, settings, and the dock) and the macOS
+  menu bar panel.
 
 ### Key Entities
 
@@ -167,7 +175,5 @@ that actually changed update when the server answers.
 - The data shown on reopen is shown without a "stale" marker; it is replaced
   within a moment and only values that changed move.
 - The placeholder's look is settled by `/design-review` before planning.
-- Today's region in the dock and other screens keep their existing loading
-  states unless FR-010 brings them in.
 - Errors keep the existing error states; this feature changes loading, not
   failure handling.
