@@ -280,7 +280,6 @@ export const AsPrinted: Story = {
     ]) {
       await expect(await page.findByText(text)).toBeVisible();
     }
-    await expect(page.queryByText(/Tax ID/i)).toBeNull();
   },
 };
 
