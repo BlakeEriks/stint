@@ -112,9 +112,10 @@ Still set in the dashboard:
     preview never reports.
 
 Billing, for Production only (Preview uses Stripe test-mode keys if billing
-is being tried there). **Don't set these until the invoice gate (#61, PR
-#324) has merged:** nothing else reads the paid plan yet, so a subscriber
-would pay for downloads every free user already has.
+is being tried there). **Setting them is the launch:** with all three set,
+a free user's invoice PDF answers `402 PAYMENT_REQUIRED` and the invoice
+screen offers Subscribe instead. Invoices generated before then aren't
+grandfathered.
 
 - `STRIPE_SECRET_KEY` (**sensitive**), `STRIPE_PRICE_ID` and
   `STRIPE_WEBHOOK_SECRET` (**sensitive**). Any one unset hides the Plan

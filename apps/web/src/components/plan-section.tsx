@@ -12,7 +12,7 @@ import { keys } from '@/lib/client/query-keys';
 
 /* `docs/positioning.md` owns the price; the Stripe price Checkout charges
    must say the same. */
-const PRICE = '$40 a year';
+export const PRICE = '$40 a year';
 
 const longDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', {
@@ -72,7 +72,7 @@ export function PlanSection() {
   // only a Checkout return carries `?checkout=`, so billing is set up.
   if (confirm.isPending)
     return (
-      <Section title="Plan">
+      <Section id="plan" title="Plan">
         <p
           role="status"
           className="flex items-center gap-2 type-support text-muted"
@@ -94,8 +94,9 @@ export function PlanSection() {
   if (data.plan === 'free')
     return (
       <Section
+        id="plan"
         title="Plan"
-        description={`Free. Tracking is free and stays free. Paid adds invoice downloads, for ${PRICE}.`}
+        description={`Free. Tracking and your records, exporting them included, stay free. Paid adds invoice downloads, for ${PRICE}.`}
       >
         <div>
           <Button disabled={leaving} onClick={() => subscribe.mutate()}>
@@ -113,7 +114,7 @@ export function PlanSection() {
     );
 
   return (
-    <Section title="Plan" description={paidLine(data)}>
+    <Section id="plan" title="Plan" description={paidLine(data)}>
       <div>
         <Button disabled={leaving} onClick={() => manage.mutate()}>
           {manage.isPending || manage.isSuccess ? (

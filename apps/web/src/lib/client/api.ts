@@ -372,6 +372,7 @@ export const api = {
       Invoice & {
         lineItems: StoredLineItem[];
         client: Pick<Client, 'id' | 'name' | 'email' | 'address'>;
+        canDownload: boolean;
       }
     >('GET', `/invoices/${id}`),
 

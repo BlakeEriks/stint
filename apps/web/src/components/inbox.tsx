@@ -5,7 +5,7 @@ import { useRef } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
-import { formatCompact, formatCurrency } from '@stint/core';
+import { documentOpens, formatCompact, formatCurrency } from '@stint/core';
 import {
   Check,
   DollarSign,
@@ -135,6 +135,17 @@ export function Inbox({ stats }: { stats: Stats }) {
     select: (r) => r.projects,
   });
 
+  /* The PDF is the paid tier, and the server refuses it to a free user. The
+     rows don't carry the plan each invoice was generated on, so a free user
+     loses the shortcut even for one generated while paying; its page still
+     offers the download. Unknown counts as open: the server decides. */
+  const { data: billing } = useQuery({
+    queryKey: keys.billing(),
+    queryFn: api.billing,
+  });
+  const downloads =
+    !billing || documentOpens(billing.available, billing.plan, null);
+
   const setStatus = useOptimisticMutation({
     ...rowPress,
     mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
@@ -215,6 +226,7 @@ export function Inbox({ stats }: { stats: Stats }) {
             <Row
               key={r.id}
               entry={r}
+              downloads={downloads}
               onStatus={(v) => {
                 leave(v.id);
                 setStatus.mutate(v);
@@ -248,12 +260,14 @@ export function Inbox({ stats }: { stats: Stats }) {
 /** Which `Item` a row becomes — the one place the five kinds differ. */
 function Row({
   entry,
+  downloads,
   onStatus,
   onOpen,
   onConfirm,
   ...leaving
 }: {
   entry: InboxRow;
+  downloads: boolean;
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
   onConfirm: (id: string) => void;
@@ -282,12 +296,14 @@ function Row({
               icon={<DollarSign aria-hidden />}
               onClick={() => onStatus({ id: i.invoiceId, status: 'paid' })}
             />
-            <Action
-              label="Download"
-              ariaLabel={`Download ${i.invoiceNumber}`}
-              icon={<Download aria-hidden />}
-              href={`/api/v1/invoices/${i.invoiceId}/pdf`}
-            />
+            {downloads ? (
+              <Action
+                label="Download"
+                ariaLabel={`Download ${i.invoiceNumber}`}
+                icon={<Download aria-hidden />}
+                href={`/api/v1/invoices/${i.invoiceId}/pdf`}
+              />
+            ) : null}
           </>
         }
       />
@@ -312,12 +328,14 @@ function Row({
               icon={<Send aria-hidden />}
               onClick={() => onStatus({ id: d.invoiceId, status: 'sent' })}
             />
-            <Action
-              label="Download"
-              ariaLabel={`Download ${d.invoiceNumber}`}
-              icon={<Download aria-hidden />}
-              href={`/api/v1/invoices/${d.invoiceId}/pdf`}
-            />
+            {downloads ? (
+              <Action
+                label="Download"
+                ariaLabel={`Download ${d.invoiceNumber}`}
+                icon={<Download aria-hidden />}
+                href={`/api/v1/invoices/${d.invoiceId}/pdf`}
+              />
+            ) : null}
           </>
         }
       />

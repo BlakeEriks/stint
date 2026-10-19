@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   useQuery,
@@ -8,12 +9,13 @@ import {
   type QueryClient,
 } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
-import { Ban, DollarSign, Download, Send, Trash2 } from 'lucide-react';
+import { Ban, DollarSign, Download, Lock, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmAction } from './confirm-action';
 import { shortDate, StatusBadge } from './invoice-bits';
 import { InvoicePreviewCard } from './invoice-preview-card';
 import { MarkPaidDialog } from './mark-paid-dialog';
+import { PRICE } from './plan-section';
 import { attachedSchedules } from '@stint/core';
 import {
   api,
@@ -26,10 +28,12 @@ import {
 import { DetailPage, Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
-/** An invoice with its client; the lines are absent until they load. */
+/** An invoice with its client; the lines, and whether its PDF opens, are
+    absent until they load. */
 type Shown = Invoice & {
   client: Pick<Client, 'name' | 'email' | 'address'>;
   lineItems?: StoredLineItem[];
+  canDownload?: boolean;
 };
 
 /** What the invoice list and a client list already hold about this invoice,
@@ -199,19 +203,39 @@ function Loaded({
           ) : null}
 
           {/* Downloading is how an invoice reaches a client: the app sends no
-              mail, so it is last, as the primary action. */}
-          <Button asChild>
-            <a href={api.invoicePdfUrl(invoice.id, true)}>
-              <Download aria-hidden strokeWidth={1.75} />
-              Download PDF
-            </a>
-          </Button>
+              mail, so it is last, as the primary action. Neither shows until
+              the invoice itself answers: the lists it first draws from don't
+              say whether its PDF opens. */}
+          {invoice.canDownload === true ? (
+            <Button asChild>
+              <a href={api.invoicePdfUrl(invoice.id, true)}>
+                <Download aria-hidden strokeWidth={1.75} />
+                Download PDF
+              </a>
+            </Button>
+          ) : null}
+          {invoice.canDownload === false ? (
+            <Button asChild>
+              <Link href="/settings#plan">
+                <Lock aria-hidden strokeWidth={1.75} />
+                Subscribe to download
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </header>
       <div className="flex flex-col gap-1 pt-1 pb-6">
         <p className="type-support text-muted">
           {statusHint(invoice.status, invoice.dueDate)}
         </p>
+        {/* The document is the paid tier; the records never are, and saying
+            so here keeps the two rules from reading as one. */}
+        {invoice.canDownload === false ? (
+          <p className="type-support text-muted">
+            Downloading the invoice is on the paid plan, {PRICE}. Tracking and
+            your records, exporting them included, stay free.
+          </p>
+        ) : null}
         <ActionError error={error} />
       </div>
 

@@ -14,7 +14,13 @@ import {
   type PaymentProfileRow,
 } from './rows';
 import { selectAll } from './select-all';
-import { addDays, resolvePaymentProfile, startOfLocalDate } from '@stint/core';
+import { entitlement } from './billing';
+import {
+  addDays,
+  documentOpens,
+  resolvePaymentProfile,
+  startOfLocalDate,
+} from '@stint/core';
 import type { BillableEntry, ExpenseInput } from '@stint/core';
 
 /** numeric columns arrive from PostgREST as strings. */
@@ -248,7 +254,7 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
 
   const invoice = toInvoice(row as InvoiceRow);
 
-  const [items, client, settings] = await Promise.all([
+  const [items, client, settings, billing] = await Promise.all([
     selectAll(() =>
       db
         .from('invoice_line_items')
@@ -258,12 +264,18 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
     ),
     loadClient(db, invoice.clientId),
     loadSettings(db),
+    entitlement(db),
   ]);
 
   return {
     invoice,
     client,
     settings,
+    canDownload: documentOpens(
+      billing.available,
+      billing.plan,
+      (row as InvoiceRow).issued_subscription_status,
+    ),
     pdfData: {
       invoiceNumber: invoice.invoiceNumber,
       status: invoice.status,

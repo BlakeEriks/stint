@@ -7,15 +7,19 @@ export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** GET /api/v1/invoices/:id — the invoice with its frozen line items. */
+/**
+ * GET /api/v1/invoices/:id — the invoice with its frozen line items, and
+ * whether its PDF opens for the caller, so the screen knows before a press.
+ */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
   const { db } = await requireSession(req);
   const { id } = await ctx.params;
 
-  const { invoice, client, pdfData } = await loadPdfData(db, id);
+  const { invoice, client, pdfData, canDownload } = await loadPdfData(db, id);
 
   return NextResponse.json({
     ...invoice,
+    canDownload,
     client: {
       id: client.id,
       name: client.name,

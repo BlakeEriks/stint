@@ -68,6 +68,7 @@ function serve(
           /* FLAT, matching the route: a stub is only as good as its
              fidelity to the endpoint. */
           ...invoice(status, sentAt),
+          canDownload: true,
           ...extra,
           client: { id: 'c1', name: 'Acme Corp' },
           lineItems: [

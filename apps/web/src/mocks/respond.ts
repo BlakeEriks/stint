@@ -48,6 +48,7 @@ const STATUS: Record<Exclude<Code, 'UNAUTHORIZED'>, number> = {
   NOT_SUBSCRIBED: 409,
   CHECKOUT_NOT_FOUND: 404,
   BILLING_UNAVAILABLE: 503,
+  PAYMENT_REQUIRED: 402,
   INTERNAL: 500,
 };
 
@@ -86,6 +87,7 @@ export const invoiceDetail = schema.Invoice.extend({
     email: true,
     address: true,
   }),
+  canDownload: z.boolean(),
 });
 
 export const createdInvoice = schema.Invoice.extend({

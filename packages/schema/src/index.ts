@@ -975,6 +975,7 @@ export const ErrorCode = z.enum([
   'NOT_SUBSCRIBED',
   'CHECKOUT_NOT_FOUND',
   'BILLING_UNAVAILABLE',
+  'PAYMENT_REQUIRED',
 ]);
 
 export const ApiError = z.object({
