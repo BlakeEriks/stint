@@ -159,6 +159,9 @@ template can't be edited, so production sends through Resend's free tier
    sender `signin@runstint.com`, name `Stint`.
 4. **Authentication → Emails → Magic Link**: subject `Sign in to Stint`, body
    `supabase/templates/magic_link.html`.
+5. **Authentication → Sign In / Providers → Email**: **Email OTP Length** `6`.
+   A hosted project can default to 8, and the template and the panel show
+   and take six digits, so a longer code is truncated and always rejected.
 
 `config.toml` points GoTrue at that template by **local file path**, which a
 hosted project can't read, so the dashboard holds its own copy. That copy
