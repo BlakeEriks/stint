@@ -282,9 +282,8 @@ try {
   );
 
   /* Two sets of US bank details: the default, and one a client points at.
-     Fake numbers; the routing number is a published test value. The second
-     is as typed before routing numbers were checked — the API now refuses
-     it, so only the seed can give the inbox its routing-number row. */
+     Fake numbers; the first routing number is a published test value. The
+     API refuses the second, so only the seed can give the inbox its row. */
   const profiles = {};
   for (const [key, p] of Object.entries({
     checking: {

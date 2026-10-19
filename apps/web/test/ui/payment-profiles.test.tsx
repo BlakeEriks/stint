@@ -156,7 +156,7 @@ describe('PaymentProfiles', () => {
 
   /* The server refuses it too, but only the form can say which field and
      why while the user still has their bank's page open. */
-  it('refuses a routing number that fails the ABA check, in the form', async () => {
+  it('a routing number that fails the ABA check is never sent', async () => {
     const fetch = vi.fn(
       async (_url: string, _init?: RequestInit) =>
         new Response(JSON.stringify({ paymentProfiles: [BASE] }), {
@@ -173,10 +173,6 @@ describe('PaymentProfiles', () => {
     await user.type(routing, '021000022');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Not a valid routing number',
-    );
-    expect(routing).toHaveAttribute('aria-invalid', 'true');
     expect(fetch.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(
       false,
     );

@@ -166,8 +166,7 @@ export function Inbox({ stats }: { stats: Stats }) {
     },
   });
 
-  /* The order is this concatenation. Overdue sorts first and carries danger;
-     every other row is neutral. Never the accent — that belongs to the
+  /* The order is this concatenation. Never the accent — that belongs to the
      running timer. */
   const rows: InboxRow[] = [
     ...overdueInvoices.map((i) => ({

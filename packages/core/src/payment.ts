@@ -178,7 +178,6 @@ export function resolvePaymentProfile<T extends { id?: string }>(
   return null;
 }
 
-/** ABA weights, repeating across the 9 digits. */
 const ABA_WEIGHTS = [3, 7, 1, 3, 7, 1, 3, 7, 1];
 
 /**
@@ -194,9 +193,10 @@ export function validateRoutingNumber(input: string): string | null {
 }
 
 /**
- * Saved profiles whose routing number is not exactly its valid 9 digits —
- * typed before validation, and printed on every invoice as stored. Flagged
- * as stored, never corrected (Constitution I).
+ * Saved profiles whose routing number is not exactly its valid 9 digits.
+ * Stored rows aren't re-validated on read, and every invoice prints the
+ * number as stored, so it is flagged as stored, never corrected
+ * (Constitution I).
  */
 export function buildBadRoutingNumbers(
   profiles: { id: string; name: string; routing_number: string | null }[],

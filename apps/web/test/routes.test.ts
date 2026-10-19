@@ -2847,8 +2847,8 @@ test('unprojected ignores work that is billed, running or non-billable', async (
   assert.equal(res.body.attention.unprojected[0].seconds, 3600);
 });
 
-/* Saved before validation existed. Constitution I: flagged for the user to
-   fix, never rewritten — even though the digits inside are a valid number. */
+/* Stored rows aren't re-validated on read. Constitution I: flagged for the
+   user to fix, never rewritten — even when the digits inside are valid. */
 test('a saved profile whose routing number fails is flagged, not rewritten', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
   const typed = '44444444-0000-4000-8000-0000000000b1';

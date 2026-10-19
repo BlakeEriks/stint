@@ -902,8 +902,9 @@ export const Stats = z.object({
     ),
     /**
      * Unarchived payment profiles whose routing number, as stored, is not
-     * exactly 9 digits passing the ABA checksum. Saved before validation, so
-     * never rewritten: the user fixes it.
+     * exactly 9 digits passing the ABA checksum. Stored rows aren't
+     * re-validated on read, so this flags one the API would refuse, never
+     * rewriting it.
      */
     badRoutingNumbers: z.array(
       z.object({
@@ -963,8 +964,8 @@ export const PaymentProfile = z.object({
 
 /* Stored as its 9 digits, and refused when they fail the ABA checksum: a
    malformed number on an invoice risks a returned or misrouted ACH. Only on
-   the way in — a profile saved before this check still reads back, and the
-   inbox flags it (`attention.badRoutingNumbers`). */
+   the way in: a stored row still reads back as stored, and the inbox flags
+   it (`attention.badRoutingNumbers`). */
 const routingNumber = z.string().transform((v, ctx) => {
   const digits = validateRoutingNumber(v);
   if (digits) return digits;
