@@ -1,0 +1,31 @@
+{
+  "entry": {
+    "id": "01a15408-6a00-7353-9311-a0601ec13b46",
+    "projectId": "01a15408-6a00-77f3-ac5a-71f76a372c15",
+    "taskName": "Write copy",
+    "startedAt": "2026-10-19T11:00:00+00:00",
+    "endedAt": "2026-10-19T12:00:00+00:00",
+    "isBillable": true,
+    "rateOverride": null,
+    "invoiceId": null,
+    "durationSeconds": 3600,
+    "durationOk": false
+  },
+  "currency": "USD",
+  "unbilled": {
+    "total": 150,
+    "seconds": 3600,
+    "byClient": [
+      {
+        "clientId": "01a15408-6a00-72a7-816b-a6cf832da66b",
+        "clientName": "Northwind",
+        "currency": "USD",
+        "seconds": 3600,
+        "amount": 150,
+        "unratedCount": 0,
+        "oldestDays": 0
+      }
+    ],
+    "moreClients": 0
+  }
+}

@@ -1,0 +1,210 @@
+{
+  "currency": "USD",
+  "unbilled": {
+    "total": 150,
+    "seconds": 3600,
+    "byClient": [
+      {
+        "clientId": "01a15408-6a00-72a7-816b-a6cf832da66b",
+        "clientName": "Northwind",
+        "currency": "USD",
+        "seconds": 3600,
+        "amount": 150,
+        "unratedCount": 0,
+        "oldestDays": 0
+      }
+    ],
+    "moreClients": 0
+  },
+  "earnedToday": 150,
+  "week": [
+    {
+      "date": "2026-10-19",
+      "seconds": 3600,
+      "amount": 150
+    },
+    {
+      "date": "2026-10-20",
+      "seconds": 0,
+      "amount": null
+    },
+    {
+      "date": "2026-10-21",
+      "seconds": 0,
+      "amount": null
+    },
+    {
+      "date": "2026-10-22",
+      "seconds": 0,
+      "amount": null
+    },
+    {
+      "date": "2026-10-23",
+      "seconds": 0,
+      "amount": null
+    },
+    {
+      "date": "2026-10-24",
+      "seconds": 0,
+      "amount": null
+    },
+    {
+      "date": "2026-10-25",
+      "seconds": 0,
+      "amount": null
+    }
+  ],
+  "month": {
+    "earned": 150,
+    "projected": 253.85,
+    "businessDaysElapsed": 13,
+    "businessDaysTotal": 22,
+    "series": [
+      {
+        "date": "2026-10-01",
+        "actual": 0
+      },
+      {
+        "date": "2026-10-02",
+        "actual": 0
+      },
+      {
+        "date": "2026-10-05",
+        "actual": 0
+      },
+      {
+        "date": "2026-10-06",
+        "actual": 0
+      },
+      {
+        "date": "2026-10-07",
+        "actual": 0
+      },
+      {
+        "date": "2026-10-08",
+        "actual": 0
+      },
+      {
+        "date": "2026-10-09",
+        "actual": 0
+      },
+      {
+        "date": "2026-10-12",
+        "actual": 0
+      },
+      {
+        "date": "2026-10-13",
+        "actual": 0
+      },
+      {
+        "date": "2026-10-14",
+        "actual": 0
+      },
+      {
+        "date": "2026-10-15",
+        "actual": 0
+      },
+      {
+        "date": "2026-10-16",
+        "actual": 0
+      },
+      {
+        "date": "2026-10-19",
+        "actual": 150
+      },
+      {
+        "date": "2026-10-20",
+        "actual": null
+      },
+      {
+        "date": "2026-10-21",
+        "actual": null
+      },
+      {
+        "date": "2026-10-22",
+        "actual": null
+      },
+      {
+        "date": "2026-10-23",
+        "actual": null
+      },
+      {
+        "date": "2026-10-26",
+        "actual": null
+      },
+      {
+        "date": "2026-10-27",
+        "actual": null
+      },
+      {
+        "date": "2026-10-28",
+        "actual": null
+      },
+      {
+        "date": "2026-10-29",
+        "actual": null
+      },
+      {
+        "date": "2026-10-30",
+        "actual": null
+      }
+    ],
+    "projection": {
+      "from": {
+        "date": "2026-10-19",
+        "amount": 150
+      },
+      "to": {
+        "date": "2026-10-30",
+        "amount": 253.85
+      }
+    },
+    "byClient": [
+      {
+        "clientId": "01a15408-6a00-72a7-816b-a6cf832da66b",
+        "clientName": "Northwind",
+        "amount": 150
+      }
+    ]
+  },
+  "awaitingPayment": 0,
+  "openInvoiceCount": 0,
+  "collected": {
+    "trailing12": 0,
+    "thisMonth": 0,
+    "daysSincePaid": null,
+    "byMonth": [
+      {
+        "month": "2026-05",
+        "amount": 0
+      },
+      {
+        "month": "2026-06",
+        "amount": 0
+      },
+      {
+        "month": "2026-07",
+        "amount": 0
+      },
+      {
+        "month": "2026-08",
+        "amount": 0
+      },
+      {
+        "month": "2026-09",
+        "amount": 0
+      },
+      {
+        "month": "2026-10",
+        "amount": 0
+      }
+    ]
+  },
+  "attention": {
+    "overdueInvoices": [],
+    "staleDrafts": [],
+    "unprojected": [],
+    "strangeDurations": [],
+    "overlaps": []
+  }
+}
