@@ -141,36 +141,32 @@ Vercel also gives each branch a preview URL. Add
 `https://<project>-*-<scope>.vercel.app/**` if you want sign-in on previews —
 though on a private project those URLs sit behind Vercel SSO anyway.
 
-The default email provider is rate-limited (a few per hour) and adequate for
-one developer. It is only for sign-in links — **the app never emails
-invoices**, by design.
+Sign-in mail goes through Resend, which is only for sign-in links — **the app
+never emails invoices**, by design.
 
-## 4a. Signing the menu bar app in
+## 4a. Sign-in email
 
-`config.toml` points GoTrue at `supabase/templates/magic_link.html` by **local
-file path**, which a hosted project cannot read. It falls back to the built-in
-default, which renders only the link — so the panel has no six-digit code to
-type.
+Supabase's default sender is capped at a few messages an hour and its
+template can't be edited, so production sends through Resend's free tier
+(100 a day) as `Stint <signin@runstint.com>`.
 
-**Editing the template needs custom SMTP**, which the dashboard enforces: the
-default provider is a shared sender, so its mail cannot be customized. Until
-there is an SMTP provider, sign the prod app, Stint.app, in with the link:
+1. **Resend → Domains**: add `runstint.com` in `us-east-1`, put its DKIM,
+   `send` MX and `send` SPF records in Cloudflare DNS, and verify. `_dmarc`
+   holds `v=DMARC1; p=none;`.
+2. **Resend → API Keys**: a key with sending access to `runstint.com` only.
+3. **Supabase → Authentication → Emails → SMTP Settings**: host
+   `smtp.resend.com`, port `465`, user `resend`, the API key as password,
+   sender `signin@runstint.com`, name `Stint`.
+4. **Authentication → Emails → Magic Link**: subject `Sign in to Stint`, body
+   `supabase/templates/magic_link.html`.
 
-```bash
-./apps/macos/signin.sh     # paste the link when it asks
-```
-
-The `token` in that link and the six digits are the **same OTP** in two
-shapes. The script posts the token to `/auth/v1/verify` and writes the session
-into the Keychain under the backend's host, which is where the app looks,
-then restarts the app so it reads the new session.
-
-With SMTP configured, paste the template at **Authentication → Emails → Magic
-Link**, subject `Sign in to Stint`, and the panel takes codes directly. Keep
-`{{ .ConfirmationURL }}` and both `{{ slice .Token }}` calls — GoTrue mints a
-code for every magic link whether a template shows it or not, and those two
-calls are what put it in front of the user. That copy does not track the file;
-editing it changes local only.
+`config.toml` points GoTrue at that template by **local file path**, which a
+hosted project can't read, so the dashboard holds its own copy. That copy
+doesn't track the file: an edit to the file changes local only, until it's
+pasted again. Keep `{{ .ConfirmationURL }}` and both `{{ slice .Token }}`
+calls — GoTrue mints a code for every magic link whether a template shows it
+or not, and those calls put it in front of the user, so the menu bar app's
+panel has a code to take.
 
 ## 4b. Invite people
 
