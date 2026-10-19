@@ -46,7 +46,7 @@
     "knip": "^6.41.0",
     "lint-staged": "^17.6.0",
     "pg": "^8.23.1",
-    "supabase": "2.120.0",
+    "supabase": "2.121.0",
     "typescript": "^6.0.3"
   },
   "pnpm": {
