@@ -37,7 +37,7 @@ export function SegmentedControl<T extends string>({
       onValueChange={(v) => onValueChange(v as T)}
       orientation="horizontal"
       className={cn(
-        'inline-flex flex-none rounded-md border border-edge-subtle bg-surface-recessed p-0.5',
+        'inline-flex flex-none rounded-md border border-edge-subtle p-0.5',
         className,
       )}
     >
@@ -47,7 +47,7 @@ export function SegmentedControl<T extends string>({
           value={v}
           className={`flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 type-control
             text-muted outline-none hover:text-strong focus-visible:ring-2
-            focus-visible:ring-edge-focus data-[state=checked]:bg-surface-elevated
+            focus-visible:ring-edge-focus data-[state=checked]:bg-surface-hover
             data-[state=checked]:text-strong data-[state=checked]:shadow-card`}
         >
           <Icon aria-hidden className="size-3.5" />
