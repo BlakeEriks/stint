@@ -1,5 +1,6 @@
 // Resolves and transforms what `node --test` cannot on its own:
-//   - Next's subpath exports (`next/server`, replaced with a Response shim)
+//   - Next's subpath exports (`next/server` and `next/headers`, replaced
+//     with shims)
 //   - the `@/*` path alias and extensionless relative TS imports
 //   - JSX in .tsx files, via the SWC binary Next already ships
 //
@@ -48,6 +49,12 @@ export async function resolve(specifier, context, next) {
   if (specifier === 'next/server') {
     return {
       url: pathToFileURL(resolvePath(here, 'next-server-stub.mjs')).href,
+      shortCircuit: true,
+    };
+  }
+  if (specifier === 'next/headers') {
+    return {
+      url: pathToFileURL(resolvePath(here, 'next-headers-stub.mjs')).href,
       shortCircuit: true,
     };
   }

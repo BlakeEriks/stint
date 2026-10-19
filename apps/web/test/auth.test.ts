@@ -144,10 +144,5 @@ test('a token signed by someone else is refused', async () => {
   );
 });
 
-// A request with no Authorization header is deliberately NOT tested here.
-// It falls through to `cookieClient()`, which the test loader cannot build:
-// `next/headers` is CommonJS, so `cookies` arrives undefined and the call
-// throws a TypeError before the cookie branch does anything. Asserting on
-// that failure would be asserting on the harness — it would pass just as
-// well if the bearer guard were deleted and every request fell through.
-// The cookie path is covered where it is real, by the browser suite.
+// A request with no Authorization header is tested in `routes.test.ts`,
+// against every route; a signed-in cookie, by the browser suite.
