@@ -92,7 +92,6 @@ export const settings = (): Settings => ({
   businessAddress: '1200 Pine St, Suite 4\nSeattle, WA 98101',
   businessEmail: 'billing@blakeeriks.test',
   logoUrl: null,
-  taxId: null,
   defaultPaymentTerms: 'Net 30',
   invoiceNumberPrefix: 'STINT-',
   nextInvoiceNumber: 16,

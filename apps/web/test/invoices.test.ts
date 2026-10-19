@@ -931,7 +931,6 @@ test('every page is US Letter, and no detail page overflows', async () => {
       address: null,
       email: null,
       logoUrl: null,
-      taxId: null,
     },
     client: { name: 'Northwind', email: null, address: null },
     lineItems: [],
@@ -1251,7 +1250,6 @@ test('every page of a long invoice shows its footer at the bottom', async () => 
       address: null,
       email: null,
       logoUrl: null,
-      taxId: null,
     },
     client: { name: 'Northwind', email: null, address: null },
     lineItems: Array.from({ length: 60 }, (_, i) => ({

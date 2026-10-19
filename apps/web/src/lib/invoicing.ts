@@ -166,7 +166,6 @@ export interface InvoiceSettings {
   businessAddress: string | null;
   businessEmail: string | null;
   logoUrl: string | null;
-  taxId: string | null;
   paymentNotice: string | null;
 }
 
@@ -176,7 +175,7 @@ export async function loadSettings(
   const { data, error } = await db
     .from('user_settings')
     .select(
-      'default_hourly_rate, currency, default_payment_terms, invoice_number_prefix, business_name, business_address, business_email, logo_url, tax_id, payment_notice',
+      'default_hourly_rate, currency, default_payment_terms, invoice_number_prefix, business_name, business_address, business_email, logo_url, payment_notice',
     )
     .maybeSingle();
 
@@ -192,7 +191,6 @@ export async function loadSettings(
     businessAddress: data.business_address ?? null,
     businessEmail: data.business_email ?? null,
     logoUrl: data.logo_url ?? null,
-    taxId: data.tax_id ?? null,
     paymentNotice: data.payment_notice ?? null,
   };
 }
@@ -297,7 +295,6 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
         address: settings.businessAddress,
         email: settings.businessEmail,
         logoUrl: settings.logoUrl,
-        taxId: settings.taxId,
       },
       client: {
         name: client.name,

@@ -959,7 +959,6 @@ test('every settable field round-trips, rather than being silently dropped', asy
   const sent = {
     minEntrySeconds: 60,
     maxEntryHours: 10,
-    taxId: '12-3456789',
     businessAddress: '1 Main St\nAustin, TX 78701',
     paymentNotice: 'Details never change. Verify by phone.',
     invoiceNumberPrefix: 'STINT-',
@@ -4021,5 +4020,48 @@ test('the entries export reads past the 1,000-row page', async () => {
     rows[1]!,
     /,0\.02,,,Work,Yes,100\.00,default,2\.00,USD,$/,
     'one minute at the default',
+  );
+});
+
+// ── signing in ─────────────────────────────────────────────────────
+/* Every other test injects `__TEST_DB__`, which short-circuits
+   `requireSession`, so a route that never called it would pass them all.
+   The routes are read from disk, so a new one is covered the day it lands. */
+const UNSIGNED_ROUTES = new Set([
+  'health', // the uptime probe, answered for anyone
+  'billing/webhook', // Stripe's call, proven by its signature instead
+]);
+const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
+
+test('every route answers an unsigned request with 401', async () => {
+  const { readdir } = await import('node:fs/promises');
+  const api = new URL('../src/app/api/v1/', import.meta.url);
+  const routes = (await readdir(api, { recursive: true }))
+    .filter((f) => f.endsWith('route.ts'))
+    .map((f) => f.slice(0, -'/route.ts'.length));
+  (globalThis as any).__TEST_DB__ = null;
+  // A client that is never reached: with no cookie there is no session to read.
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:1';
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'unused';
+
+  const answers: string[] = [];
+  for (const route of routes.filter((r) => !UNSIGNED_ROUTES.has(r))) {
+    const handlers = await import(new URL(`${route}/route.ts`, api).href);
+    for (const method of METHODS.filter((m) => handlers[m])) {
+      const path = route.replaceAll('[id]', USER);
+      const res = await handlers[method](
+        new Request(`http://t/api/v1/${path}`, {
+          method,
+          body: method === 'GET' ? undefined : '{}',
+        }),
+        { params: Promise.resolve({ id: USER }) },
+      );
+      answers.push(`${method} ${path} ${res.status}`);
+    }
+  }
+  assert.ok(answers.length > 40, `found only ${answers.length} handlers`);
+  assert.deepEqual(
+    answers.filter((a) => !a.endsWith(' 401')),
+    [],
   );
 });

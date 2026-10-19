@@ -335,7 +335,7 @@ verified by phone.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/health` | **No auth.** `{ ok }`: `200` while Postgres answers a query, `503` when it does not. The uptime monitor polls it (`docs/deploying.md` §3c). |
+| `GET` | `/health` | **No auth.** `{ ok }`: `200` while Postgres answers a query, `503` when it does not. The uptime monitor polls it (`docs/deploying.md` §3c), and the release gate asks a new build for it before promoting it, failing the release on anything but `200` (§3). |
 
 ## Errors
 

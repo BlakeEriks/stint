@@ -8,11 +8,13 @@ name: Release gate
 # Requires, in the Vercel project:
 #   Settings -> Git -> Deployment Checks -> connect this repository
 #   Settings -> Git -> "Required" for this check
-# and a PRODUCTION_DB_URL secret here.
+# and PRODUCTION_DB_URL and VERCEL_AUTOMATION_BYPASS_SECRET secrets on the
+# Production environment here.
 #
 # A release with a pending migration pauses for approval: plan -> approve ->
 # backup -> migrate. One without goes straight to migrate, which applies
-# nothing and still runs verify:schema. If any step fails or is rejected, the
+# nothing and still runs verify:schema. Either way, migrate ends by asking
+# the build itself for /api/v1/health. If any step fails or is rejected, the
 # deployment is never aliased and the previous one keeps serving. Vercel's
 # "Force Promote" is the escape hatch.
 on:
@@ -184,9 +186,28 @@ jobs:
           SUPABASE_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
         run: pnpm verify:schema
 
+      # The build being released, asked before it is promoted. Its own URL
+      # sits behind Vercel SSO (docs/deploying.md §3a), so the request
+      # carries the automation bypass; without it the answer is a 302 that
+      # curl -f would pass, hence the explicit 200. Vercel's payload may or
+      # may not carry the scheme.
+      - name: The build answers
+        env:
+          URL: ${{ github.event.client_payload.url }}
+          BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          code=$(curl -sS -m 30 --retry 2 -o /dev/null -w '%{http_code}' \
+            -H "x-vercel-protection-bypass: $BYPASS" \
+            "https://${URL#https://}/api/v1/health")
+          if [ "$code" != 200 ]; then
+            echo "::error::/api/v1/health on the new build answered $code."
+            exit 1
+          fi
+
   # The one place the final status is written. Vercel promotes on success
-  # only, so anything short of a migrated, verified database — a rejection, a
-  # failed backup, a failed migration — leaves the previous build serving.
+  # only, so anything short of a migrated, verified database and a build that
+  # answers — a rejection, a failed backup, a failed migration, a failed
+  # health check — leaves the previous build serving.
   #
   # The context must match the "Check Name" in Vercel -> Settings -> Git ->
   # Deployment Checks, and carries the environment so a preview dispatch
