@@ -1,27 +1,17 @@
 {
   "currency": "USD",
   "unbilled": {
-    "total": 150,
-    "seconds": 3600,
-    "byClient": [
-      {
-        "clientId": "01a15408-6a00-72a7-816b-a6cf832da66b",
-        "clientName": "Northwind",
-        "currency": "USD",
-        "seconds": 3600,
-        "amount": 150,
-        "unratedCount": 0,
-        "oldestDays": 0
-      }
-    ],
+    "total": 0,
+    "seconds": 0,
+    "byClient": [],
     "moreClients": 0
   },
-  "earnedToday": 150,
+  "earnedToday": 200,
   "week": [
     {
       "date": "2026-10-19",
       "seconds": 3600,
-      "amount": 150
+      "amount": 200
     },
     {
       "date": "2026-10-20",
@@ -55,8 +45,8 @@
     }
   ],
   "month": {
-    "earned": 150,
-    "projected": 253.85,
+    "earned": 200,
+    "projected": 338.46,
     "businessDaysElapsed": 13,
     "businessDaysTotal": 22,
     "series": [
@@ -110,7 +100,7 @@
       },
       {
         "date": "2026-10-19",
-        "actual": 150
+        "actual": 200
       },
       {
         "date": "2026-10-20",
@@ -152,18 +142,18 @@
     "projection": {
       "from": {
         "date": "2026-10-19",
-        "amount": 150
+        "amount": 200
       },
       "to": {
         "date": "2026-10-30",
-        "amount": 253.85
+        "amount": 338.46
       }
     },
     "byClient": [
       {
-        "clientId": "01a15408-6a00-72a7-816b-a6cf832da66b",
+        "clientId": "01a15408-6a00-7db3-8d21-4aca2523f8b6",
         "clientName": "Northwind",
-        "amount": 150
+        "amount": 200
       }
     ]
   },

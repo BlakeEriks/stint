@@ -1,8 +1,16 @@
 {
   "projects": [
     {
-      "id": "01a15408-6a00-77f3-ac5a-71f76a372c15",
-      "clientId": "01a15408-6a00-72a7-816b-a6cf832da66b",
+      "id": "01a15408-6a00-7da2-903e-7e9b3a3b0cac",
+      "clientId": "01a15408-6a00-7db3-8d21-4aca2523f8b6",
+      "name": "Old",
+      "hourlyRate": null,
+      "isBillableDefault": true,
+      "archivedAt": "2026-10-19T11:00:00+00:00"
+    },
+    {
+      "id": "01a15408-6a00-72c5-8214-b2640ecffc07",
+      "clientId": "01a15408-6a00-7db3-8d21-4aca2523f8b6",
       "name": "Site",
       "hourlyRate": 150,
       "isBillableDefault": true,

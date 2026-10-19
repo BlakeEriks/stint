@@ -1,8 +1,6 @@
 import Foundation
 
 /// The shapes `/api/v1` returns, mirroring `rows.ts` field for field.
-/// `ContractTests` decodes each into the responses `contract.test.ts`
-/// records from the real routes.
 struct TimeEntry: Codable, Identifiable, Equatable {
     var id: String
     var projectId: String?

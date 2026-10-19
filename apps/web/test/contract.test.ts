@@ -119,17 +119,38 @@ test('every response the macOS app decodes matches its fixture', async () => {
     ),
   );
 
+  const started = await body(
+    await start.POST(
+      req('/timer/start', {
+        taskName: 'Draft',
+        projectId: project.id,
+        startedAt: HOUR_AGO,
+      }),
+    ),
+  );
+
+  // No route the app calls sets these, and a field null in every fixture
+  // is never type-checked, so they are written directly.
+  const archived = await body(
+    await projects.POST(req('/projects', { clientId: client.id, name: 'Old' })),
+  );
+  await pool.query('update projects set archived_at = $1 where id = $2', [
+    HOUR_AGO,
+    archived.id,
+  ]);
+  const invoice = await pool.query(
+    `insert into invoices (user_id, client_id, invoice_number, sequence_no)
+     values ($1, $2, 'INV-1', 1) returning id`,
+    [USER, client.id],
+  );
+  await pool.query(
+    'update time_entries set rate_override = 200, invoice_id = $1 where id = $2',
+    [invoice.rows[0].id, started.id],
+  );
+
   // Named as `ContractTests.swift` reads them.
   const responses: Record<string, unknown> = {
-    'timer-start': await body(
-      await start.POST(
-        req('/timer/start', {
-          taskName: 'Draft',
-          projectId: project.id,
-          startedAt: HOUR_AGO,
-        }),
-      ),
-    ),
+    'timer-start': started,
     'timer-current': await body(
       await current.PATCH(
         req('/timer/current', { taskName: 'Write copy' }, 'PATCH'),
@@ -142,7 +163,10 @@ test('every response the macOS app decodes matches its fixture', async () => {
     clients: await body(
       await clients.GET(req('/clients?includeArchived=true')),
     ),
-    projects: await body(await projects.GET(req('/projects'))),
+    // The app asks without archived projects; with them, `archivedAt` is checked.
+    projects: await body(
+      await projects.GET(req('/projects?includeArchived=true')),
+    ),
     'timer-stop': await body(
       await stop.POST(req('/timer/stop', { endedAt: NOW })),
     ),

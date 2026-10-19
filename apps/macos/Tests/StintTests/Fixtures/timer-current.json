@@ -1,12 +1,12 @@
 {
-  "id": "01a15408-6a00-7353-9311-a0601ec13b46",
-  "projectId": "01a15408-6a00-77f3-ac5a-71f76a372c15",
+  "id": "01a15408-6a00-7cf0-8b8a-893a90ad3daf",
+  "projectId": "01a15408-6a00-72c5-8214-b2640ecffc07",
   "taskName": "Write copy",
   "startedAt": "2026-10-19T11:00:00+00:00",
   "endedAt": null,
   "isBillable": true,
-  "rateOverride": null,
-  "invoiceId": null,
+  "rateOverride": 200,
+  "invoiceId": "4ca8953f-52d6-42a8-85ba-002a56e639d3",
   "durationSeconds": null,
   "durationOk": false
 }
