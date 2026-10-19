@@ -77,13 +77,11 @@ final class TimerModel: Optimistic {
     }
 
     /// Text only. Whether a timer is running is the pip's to say, in both
-    /// modes, which is why running-ness is not folded in here. `H:MM`, so
-    /// the bar changes once a minute rather than every second.
+    /// modes, which is why running-ness is not folded in here. Whole
+    /// minutes, so the bar changes once a minute rather than every second.
     var menuBarTitle: String {
-        switch Prefs.shared.barReadout {
-        case .runningTimer: hoursMinutes(isRunning ? elapsedSeconds : todaySeconds)
-        case .todaysTotal: hoursMinutes(todaySeconds)
-        }
+        let seconds = Prefs.shared.barReadout == .runningTimer && isRunning ? elapsedSeconds : todaySeconds
+        return seconds < 60 ? "0m" : compact(seconds)
     }
 
     /// The running entry's project, or the draft's. Setting it reassigns the
@@ -384,13 +382,6 @@ final class TimerModel: Optimistic {
 func format(_ seconds: Int) -> String {
     let s = max(0, seconds)
     return String(format: "%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
-}
-
-/// `H:MM` for the menu bar: `0:10` keeps its width when the hour arrives,
-/// where `1h 1m` would shift the items beside it.
-func hoursMinutes(_ seconds: Int) -> String {
-    let s = max(0, seconds)
-    return String(format: "%d:%02d", s / 3600, (s % 3600) / 60)
 }
 
 /// `3h 12m`, matching `formatCompact` in `@stint/core`.

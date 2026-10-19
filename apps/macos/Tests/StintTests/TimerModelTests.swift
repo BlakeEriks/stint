@@ -120,14 +120,6 @@ struct TimerModelTests {
         #expect(compact(3 * 3600 + 12 * 60 + 40) == "3h 12m")
     }
 
-    @Test func hoursMinutesKeepsOneShapeAcrossTheHour() {
-        #expect(hoursMinutes(-5) == "0:00")
-        #expect(hoursMinutes(59) == "0:00")
-        #expect(hoursMinutes(10 * 60) == "0:10")
-        #expect(hoursMinutes(3600 + 60) == "1:01")
-        #expect(hoursMinutes(12 * 3600 + 30 * 60 + 59) == "12:30")
-    }
-
     @Test func aRestartCarriesTheNameAndProject() async throws {
         let model = try await signedInModel()
         APIStub.routes["/entries/task-names"] = (200, taskNames(["Internal planning"], project: "p1"))
