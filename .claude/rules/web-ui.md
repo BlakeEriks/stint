@@ -158,6 +158,7 @@ a different order, and the ones that drifted were rebuilt:
 | A client's color | `useProjectColors()`, `Swatch` |
 | A rate, with its source | `ProjectRate` |
 | A key to press | `Kbd` |
+| A choice among two to four words | `SegmentedControl` |
 
 `Select` is for choices that are only words; a row carrying a swatch, a
 second line or an `Add…` item is a `DropdownMenu`. Put a component in

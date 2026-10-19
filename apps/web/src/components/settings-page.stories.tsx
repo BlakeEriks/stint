@@ -48,7 +48,7 @@ export const Phone: Story = { ...phone };
 export const Light: Story = {
   ...light,
   play: async ({ canvasElement }) => {
-    await within(canvasElement).findByRole('combobox', { name: 'Theme' });
+    await within(canvasElement).findByRole('radiogroup', { name: 'Theme' });
     await expect(canvasElement.ownerDocument.documentElement).toHaveAttribute(
       'data-theme',
       'light',
@@ -73,19 +73,24 @@ export const NoPaymentProfiles: Story = {
 
 export const Failed: Story = { ...desktop, parameters: failing('settings') };
 
-/** Theme offers System, which follows the OS, beside Dark and Light. */
+/** Appearance is one row: System, which follows the OS, Light and Dark,
+    and a press applies the theme at once. */
 export const ThemeOptions: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    await userEvent.click(await page.findByRole('combobox', { name: 'Theme' }));
-    const options = await page.findAllByRole('option');
-    await expect(options.map((o) => o.textContent)).toEqual([
+    const page = within(canvasElement);
+    const group = await page.findByRole('radiogroup', { name: 'Theme' });
+    const options = within(group).getAllByRole('radio');
+    await expect(options.map((o) => o.getAttribute('aria-label'))).toEqual([
       'System',
-      'Dark',
       'Light',
+      'Dark',
     ]);
-    await userEvent.keyboard('{Escape}');
+    const root = canvasElement.ownerDocument.documentElement;
+    const before = root.getAttribute('data-theme');
+    const other = before === 'light' ? 'Dark' : 'Light';
+    await userEvent.click(within(group).getByRole('radio', { name: other }));
+    await expect(root).toHaveAttribute('data-theme', other.toLowerCase());
   },
 };
 

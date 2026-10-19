@@ -3,13 +3,11 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
+import { Monitor, Moon, Sun } from 'lucide-react';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  type Segment,
+  SegmentedControl,
+} from '@/components/ui/segmented-control';
 import { Field, inputClass, Section, textareaClass } from './field';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
@@ -17,6 +15,12 @@ import { api, type Settings, type SettingsInput } from '@/lib/client/api';
 import { type Theme, useTheme } from '@/lib/client/use-theme';
 import { Listing } from './page';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
+
+const THEMES: Segment<Theme>[] = [
+  { value: 'system', label: 'System', icon: Monitor },
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+];
 
 /**
  * Settings. No save button: every field here is a default something else
@@ -88,20 +92,18 @@ function Cards({ loaded }: { loaded: Settings }) {
       {/* No SaveIndicator: the theme is a device preference in localStorage,
           not a row on `user_settings`, so it applies on click and there is no
           request to report. An indicator here would imply it syncs. */}
-      <Section title="Appearance" description="This device only.">
-        <Field label="Theme" htmlFor="theme">
-          <Select value={theme} onValueChange={(v) => setTheme(v as Theme)}>
-            <SelectTrigger id="theme" className={inputClass}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="system">System</SelectItem>
-              <SelectItem value="dark">Dark</SelectItem>
-              <SelectItem value="light">Light</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-      </Section>
+      <Section
+        title="Appearance"
+        description="This device only."
+        status={
+          <SegmentedControl
+            label="Theme"
+            value={theme}
+            onValueChange={setTheme}
+            segments={THEMES}
+          />
+        }
+      />
 
       <Section
         title="Billing defaults"

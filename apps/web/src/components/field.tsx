@@ -75,7 +75,8 @@ function focusSection(section: HTMLElement) {
  *
  * `status` renders top-right. Each section saves independently, so the
  * indicator belongs to the section whose fields are actually in flight rather
- * than to the page.
+ * than to the page. A section with no fields is one row, and its control
+ * (`status`) is centered beside the title and description.
  */
 export function Section({
   id,
@@ -112,14 +113,18 @@ export function Section({
          to, so it does not sit flush against the top of the column. */
       className="scroll-mt-4 border-t border-edge-subtle py-[18px] last:pb-0"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div
+        className={`flex justify-between gap-3 ${children ? 'items-start' : 'items-center'}`}
+      >
         <div>
           <h2 className="type-heading text-strong">{title}</h2>
           {description ? (
             <p className="mt-1 type-support text-muted">{description}</p>
           ) : null}
         </div>
-        {status ? <div className="flex-none pt-1">{status}</div> : null}
+        {status ? (
+          <div className={`flex-none ${children ? 'pt-1' : ''}`}>{status}</div>
+        ) : null}
       </div>
       {children ? (
         <div className="mt-4 flex flex-col gap-4">{children}</div>
