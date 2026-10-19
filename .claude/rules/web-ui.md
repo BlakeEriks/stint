@@ -200,9 +200,11 @@ item is a `DropdownMenu`. Put a component in
 - **A picker row is swatch, name, then the client muted.** Internal work gets
   no client text and no color; the absence is the answer.
 
-`components/ui/` is **vendored shadcn**, rewritten to our tokens at install by
-`apps/web/scripts/shadcn-detox.mjs`. shadcn's palette names are not defined in
-`@theme`: two collide with ours and mean the opposite — its `bg-primary` is
+`components/ui/` holds **vendored shadcn**, rewritten to our tokens at install
+by `apps/web/scripts/shadcn-detox.mjs`, and `Kbd`, a keycap shadcn lacks. A
+primitive written by hand otherwise goes in `components/`, where
+`apps/web/scripts/check-type-roles.mjs` sees it. shadcn's palette names are
+not defined in `@theme`: two collide with ours and mean the opposite — its `bg-primary` is
 the action color (ours is neutral gray), its `bg-accent` is hover gray (ours
 is the neon green).
 

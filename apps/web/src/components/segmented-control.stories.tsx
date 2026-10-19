@@ -23,7 +23,7 @@ function Example() {
 }
 
 const meta = {
-  title: 'Primitives/SegmentedControl',
+  title: 'Parts/SegmentedControl',
   component: Example,
 } satisfies Meta<typeof Example>;
 

@@ -4,10 +4,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Monitor, Moon, Sun } from 'lucide-react';
-import {
-  type Segment,
-  SegmentedControl,
-} from '@/components/ui/segmented-control';
+import { type Segment, SegmentedControl } from './segmented-control';
 import { Field, inputClass, Section, textareaClass } from './field';
 import { SaveIndicator } from './save-indicator';
 import { useAutosave } from '@/lib/client/use-autosave';
