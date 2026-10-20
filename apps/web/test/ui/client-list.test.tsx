@@ -228,7 +228,7 @@ describe('ClientList', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('badges a client archived from its dialog before the server answers', async () => {
+  it('moves a client archived from its dialog to Archived before the server answers', async () => {
     serve([NORTHWIND, BYRNE], [project({ clientId: 'c1', name: 'Warehouse' })]);
     const user = userEvent.setup();
     render(<ClientList />, { wrapper });
@@ -238,19 +238,18 @@ describe('ClientList', () => {
     );
     await user.click(await screen.findByRole('button', { name: 'Archive' }));
 
-    /* No filter hides it: the prediction marks the client archived in the
-       list that holds every client, and its card shows the badge on the
-       press, its project still under it. */
-    await waitFor(() =>
-      expect(screen.getByText('Archived', { selector: 'span' })).toBeVisible(),
-    );
-    expect(headings()).toEqual(['Byrne Studio', 'Northwind']);
-    expect(screen.getByText('Warehouse')).toBeInTheDocument();
+    /* The prediction marks it archived in the list that holds every
+       client, so it leaves for the collapsed section on the press, its
+       project with it. */
+    await waitFor(() => expect(headings()).toEqual(['Byrne Studio']));
+    expect(
+      screen.getByRole('button', { name: 'Archived (1)' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Warehouse')).toBeNull();
   });
 
-  /* No Active / Archived / All: archived clients and projects show where
-     they belong, badged. How archiving should hide things is undecided, so
-     nothing is hidden. */
+  /* How the archived section reads is the stories'; these are what a
+     press predicts. */
   describe('archived', () => {
     const OLD_CO = client({ id: 'c3', name: 'Old Co', archivedAt: ARCHIVED });
 
@@ -268,26 +267,39 @@ describe('ClientList', () => {
       );
     });
 
-    it('shows everything, each archived one badged, with no filter', async () => {
-      serve(
-        [NORTHWIND, OLD_CO],
-        [
-          project({ id: 'p1', name: 'Website redesign' }),
-          project({ id: 'p2', name: 'Old site', archivedAt: ARCHIVED }),
-          project({ id: 'p9', clientId: 'c3', name: 'Old work' }),
-        ],
-      );
+    it('restores an archived client from its card, back among the active, on the press', async () => {
+      serve([NORTHWIND, OLD_CO]);
+      const user = userEvent.setup();
       render(<ClientList />, { wrapper });
 
+      await user.click(
+        await screen.findByRole('button', { name: 'Archived (1)' }),
+      );
+      await user.click(screen.getByRole('button', { name: 'Restore Old Co' }));
+
+      // Writes never answer here, so this is the prediction alone.
       await waitFor(() => expect(headings()).toEqual(['Northwind', 'Old Co']));
-      expect(screen.getByText('Website redesign')).toBeInTheDocument();
-      expect(screen.getByText('Old site')).toBeInTheDocument();
-      expect(screen.getByText('Old work')).toBeInTheDocument();
-      // Old Co's badge and Old site's.
+      expect(screen.queryByRole('button', { name: /Archived/ })).toBeNull();
+    });
+
+    it('restores an archived project from its row, on the press', async () => {
+      serve(
+        [NORTHWIND],
+        [project({ id: 'p2', name: 'Old site', archivedAt: ARCHIVED })],
+      );
+      const user = userEvent.setup();
+      render(<ClientList />, { wrapper });
+
+      await user.click(
+        await screen.findByRole('button', { name: 'Restore Old site' }),
+      );
+
+      await waitFor(() =>
+        expect(screen.queryByText('Archived', { selector: 'span' })).toBeNull(),
+      );
       expect(
-        screen.getAllByText('Archived', { selector: 'span' }),
-      ).toHaveLength(2);
-      expect(screen.queryByRole('navigation', { name: 'Filter' })).toBeNull();
+        screen.queryByRole('button', { name: 'Restore Old site' }),
+      ).toBeNull();
     });
   });
 });

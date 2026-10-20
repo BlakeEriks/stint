@@ -64,13 +64,28 @@ It is never a literal in the page.
 
 ## 3. Record the design
 
-1. Cut the page down to the final design and its states, and save it as
-   `specs/<feature>/design/<screen>.html`.
-2. Add `## Design` to the spec, above `## User Scenarios & Testing`. The
-   first line points at the file; then one bullet per region of the layout
+1. Cut the page down to the final design and its states, one
+   `specs/<feature>/design/<screen>.html` per screen.
+2. Add `## Design` to the spec, above `## User Scenarios & Testing`. Its
+   first line links each file; then one bullet per region of the layout
    and per state, saying what it shows and does. It states the design in its
    final form: no rejected variations, no rounds.
 3. Commit both on the feature branch, unpushed.
 
-End with the file's path and the next step: `/speckit-plan`, which builds
+End with the files' paths and the next step: `/speckit-plan`, which builds
 this look.
+
+## Unattended
+
+`/work-issues`' builder runs this with Blake away, so nobody answers the
+gate's question: it decides review or skip itself (`issue-builder.md`).
+Its rounds change only in where the page lives and how Blake answers:
+
+- **Draft** the one page into `specs/<feature>/design/review.html`, commit
+  it and push the branch, so the draft survives the wait. Then stop and
+  report `design-review: <absolute path>`. The loop publishes the page and
+  asks on the issue. Step 3 cuts it into its screens' files and deletes it.
+- **Refine** on each reply of Blake's on the issue, which comes back to you
+  as a message: redraft the same file, commit, push, and report again.
+- **Record** when he picks or says it's right: step 3, then go on to
+  `speckit-plan`.

@@ -228,6 +228,9 @@ private struct SettingsPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             rows
+            // The panel keeps the timer's height, so the footer sits at its
+            // foot rather than under the last row.
+            Spacer(minLength: 0)
             account
         }
     }

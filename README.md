@@ -22,7 +22,7 @@ docs/design/samples/  committed renderer output
 packages/
   schema/        Zod schemas — the API contract
   core/          duration, rates, timer, uuid, calendar,
-                 invoice, payment
+                 invoice, payment, billing
   design-tokens/ tokens.json -> CSS + TS + Swift (generated into dist/)
 apps/
   web/           Next.js — the API layer

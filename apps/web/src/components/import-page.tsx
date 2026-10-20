@@ -533,7 +533,7 @@ function Overlaps({
     <Section
       title={`${plural(overlaps.length, 'entry overlaps', 'entries overlap')} other work`}
       description="Longest first. Exclude one and it stays out of the import; what it overlaps stands."
-      status={
+      aside={
         open.length > 1 ? (
           <Button
             type="button"
@@ -635,8 +635,7 @@ function Result({
       ),
     ),
   ];
-  const rateHref =
-    clientIds.length === 1 ? `/clients/${clientIds[0]}` : '/settings';
+  const rateHref = clientIds.length === 1 ? '/clients' : '/settings';
   const names = [
     ...new Set(
       preview.rows.flatMap((r) =>

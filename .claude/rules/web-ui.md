@@ -158,8 +158,9 @@ a different order, and the ones that drifted were rebuilt:
 | A client's color | `useProjectColors()`, `Swatch` |
 | A rate, with its source | `ProjectRate` |
 | A key to press | `Kbd` |
+| A short choice in a section's heading row | `SegmentedControl` |
 
-`Select` is for choices that are only words; a row carrying a swatch, a
+A choice in a form or dialog field is a `Select`; a row carrying a swatch, a
 second line or an `Add…` item is a `DropdownMenu`. Put a component in
 `components/` when a second screen needs it, not in anticipation of one.
 
@@ -198,9 +199,11 @@ second line or an `Add…` item is a `DropdownMenu`. Put a component in
 - **A picker row is swatch, name, then the client muted.** Internal work gets
   no client text and no color; the absence is the answer.
 
-`components/ui/` is **vendored shadcn**, rewritten to our tokens at install by
-`apps/web/scripts/shadcn-detox.mjs`. shadcn's palette names are not defined in
-`@theme`: two collide with ours and mean the opposite — its `bg-primary` is
+`components/ui/` holds **vendored shadcn**, rewritten to our tokens at install
+by `apps/web/scripts/shadcn-detox.mjs`, and `Kbd`, a keycap shadcn lacks. A
+primitive written by hand otherwise goes in `components/`, where
+`apps/web/scripts/check-type-roles.mjs` sees it. shadcn's palette names are
+not defined in `@theme`: two collide with ours and mean the opposite — its `bg-primary` is
 the action color (ours is neutral gray), its `bg-accent` is hover gray (ours
 is the neon green).
 

@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import { useOptimisticMutation } from './mutations';
 import { forgetCache } from './query-cache';
 import { keys } from './query-keys';
@@ -10,8 +8,6 @@ import { browserClient } from './supabase';
 
 /** Who is signed in, and how to leave. */
 export function useAccount() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,13 +31,14 @@ export function useAccount() {
       if (error) throw new Error(`Couldn’t sign out: ${error.message}`);
     },
     queryKey: keys.session,
-    /* `refresh()` as well as `replace()`: the cookie is gone but the server
-       components were rendered for a signed-in user, and without the refresh
-       a back-navigation would show a cached authenticated page. */
+    /* A full load, not the router: the server components were rendered for
+       a signed-in user, and a soft navigation leaves them cached for Back.
+       A soft one also commits late, so the 401s of queries still on screen
+       would send a second, hard navigation after it. The kept cache goes
+       first, so the next account never paints this one's numbers. */
     onSuccess: () => {
-      forgetCache(queryClient);
-      router.replace('/signin');
-      router.refresh();
+      forgetCache();
+      window.location.replace('/signin');
     },
   });
 

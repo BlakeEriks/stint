@@ -124,6 +124,7 @@ export type Client = Response<schema.Client>;
 export type ClientWithScale = Response<schema.ClientWithScale>;
 export type Settings = Response<schema.Settings>;
 export type Account = Response<schema.Account>;
+export type Billing = Response<schema.Billing>;
 export type PaymentProfile = Response<schema.PaymentProfile>;
 export type InvoicePreview = Response<schema.InvoicePreview>;
 export type Invoice = Response<schema.Invoice>;
@@ -318,8 +319,6 @@ export const api = {
     }>;
   },
 
-  client: (id: string) => request<Client>('GET', `/clients/${id}`),
-
   createClient: (body: ClientInput) =>
     request<Client>('POST', '/clients', body),
 
@@ -349,17 +348,12 @@ export const api = {
   },
 
   /* The invoice is FLAT, matching every other detail route (`/clients/:id`,
-     `/projects/:id`), with the client and line items alongside it. This once
-     declared `{ invoice, lineItems, client }` and the page read
-     `data.invoice.status` on a response that had no `invoice` key — so every
-     invoice detail page threw and rendered the error boundary. Nothing
-     caught it: the types were hand-written on this side and never checked
-     against the route. */
+     `/projects/:id`), with the line items alongside it. */
   invoice: (id: string) =>
     request<
       Invoice & {
         lineItems: StoredLineItem[];
-        client: Pick<Client, 'id' | 'name' | 'email' | 'address'>;
+        canDownload: boolean;
       }
     >('GET', `/invoices/${id}`),
 
@@ -464,4 +458,17 @@ export const api = {
   account: () => request<Account>('GET', '/account'),
 
   deleteAccount: () => request<void>('DELETE', '/account'),
+
+  billing: () => request<Billing>('GET', '/billing'),
+
+  /** A Stripe Checkout URL for the yearly price. */
+  checkout: () => request<schema.BillingRedirect>('POST', '/billing/checkout'),
+
+  /** A Stripe Customer Portal URL: cancel, resume, card, receipts. */
+  billingPortal: () =>
+    request<schema.BillingRedirect>('POST', '/billing/portal'),
+
+  /** Back from Checkout: store what Stripe says about that session now. */
+  syncCheckout: (sessionId: string) =>
+    request<Billing>('POST', '/billing/sync', { sessionId }),
 };

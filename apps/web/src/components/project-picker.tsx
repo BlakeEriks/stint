@@ -57,15 +57,14 @@ export function ProjectPicker({
   id,
   disabled,
   autoFocus,
-  readOnly,
 }: {
   projects: Project[];
   value: string | null;
   onChange: (id: string | null) => void;
   /**
-   * `tag` is the pill the timer bar wears beside the running task. `field` is
-   * a form control on `inputClass`'s metrics, so it sits level with the
-   * inputs a dialog stacks it among.
+   * `tag` is the pill the idle timer bar wears beside the task field.
+   * `field` is a form control on `inputClass`'s metrics, so it sits level
+   * with the inputs a dialog stacks it among.
    */
   trigger?: 'tag' | 'field';
   /**
@@ -81,18 +80,6 @@ export function ProjectPicker({
   id?: string;
   disabled?: boolean;
   autoFocus?: boolean;
-  /**
-   * The same pill with nothing to press, for a running timer.
-   *
-   * **Not `disabled`.** A disabled control is one you could use but may not
-   * right now, drawn dimmed and still announced as a control. The project of
-   * a running entry is neither — it is a fact about work already tracked, so
-   * it renders at full strength as a `span` with no chevron and nothing in
-   * the accessibility tree offering an action. Changing it mid-entry would
-   * re-bill time against a project that never did the work; stopping the
-   * timer is how that moves.
-   */
-  readOnly?: boolean;
 }) {
   const [creating, setCreating] = useState(false);
   const selected = useSelected(projects, value);
@@ -100,24 +87,6 @@ export function ProjectPicker({
   /* The same two queries the swatch already resolves through, so naming the
      client costs no fetch. */
   const clients = useClients();
-
-  /* Before the menu, not inside it: a `DropdownMenu` that renders a plain
-     span still mounts its trigger context and keyboard handlers for a thing
-     that cannot open. An unprojected running entry shows nothing at all —
-     a dashed "Project" slot invites the click this variant exists to
-     refuse. */
-  if (readOnly) {
-    if (!selected) return null;
-    return (
-      <span
-        className="flex min-w-0 max-w-[11rem] shrink items-center gap-1.5 rounded-full
-                   border border-edge-default px-2.5 py-1 type-meta text-muted"
-      >
-        <Swatch color={colors.get(selected.id)} />
-        <span className="truncate">{selected.name}</span>
-      </span>
-    );
-  }
 
   return (
     <>
@@ -261,6 +230,41 @@ export function ProjectPicker({
         onSaved={(project) => onChange(project.id)}
       />
     </>
+  );
+}
+
+/**
+ * The project of a running entry: the picker's pill with nothing to press.
+ *
+ * **Not a disabled picker.** A disabled control is one you could use but may
+ * not right now, drawn dimmed and still announced as a control. This is
+ * neither — it is a fact about work already tracked, so it renders at full
+ * strength with no chevron and nothing in the accessibility tree offering an
+ * action. Changing it mid-entry would re-bill time against a project that
+ * never did the work; stopping the timer is how that moves.
+ *
+ * Read by id from every project, so it names one whose client is archived.
+ * An unprojected entry shows nothing: a dashed "Project" slot invites the
+ * click this exists to refuse.
+ */
+export function ProjectTag({
+  projects,
+  id,
+}: {
+  projects: Project[];
+  id: string | null;
+}) {
+  const project = useSelected(projects, id);
+  const colors = useProjectColors();
+  if (!project) return null;
+  return (
+    <span
+      className="flex min-w-0 max-w-[11rem] shrink items-center gap-1.5 rounded-full
+                 border border-edge-default px-2.5 py-1 type-meta text-muted"
+    >
+      <Swatch color={colors.get(project.id)} />
+      <span className="truncate">{project.name}</span>
+    </span>
   );
 }
 

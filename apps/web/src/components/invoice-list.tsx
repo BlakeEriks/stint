@@ -201,8 +201,11 @@ function Row({
      invalid HTML and breaks keyboard navigation. */
   return (
     <div className="flex items-center gap-3 py-3">
+      {/* Prefetched in full: the route is dynamic, so the default prefetch
+          stops at `loading.tsx` and the click waits on the server. */}
       <Link
         href={`/invoices/${invoice.id}`}
+        prefetch
         className="flex min-w-0 flex-1 items-center gap-3 rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
       >
         <span className="w-20 flex-none type-meta text-muted">

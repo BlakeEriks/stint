@@ -14,7 +14,13 @@ import {
   type PaymentProfileRow,
 } from './rows';
 import { selectAll } from './select-all';
-import { addDays, resolvePaymentProfile, startOfLocalDate } from '@stint/core';
+import { entitlement } from './billing';
+import {
+  addDays,
+  documentOpens,
+  resolvePaymentProfile,
+  startOfLocalDate,
+} from '@stint/core';
 import type { BillableEntry, ExpenseInput } from '@stint/core';
 
 /** numeric columns arrive from PostgREST as strings. */
@@ -156,11 +162,6 @@ export interface InvoiceSettings {
   currency: string;
   defaultPaymentTerms: string;
   invoiceNumberPrefix: string;
-  businessName: string | null;
-  businessAddress: string | null;
-  businessEmail: string | null;
-  logoUrl: string | null;
-  taxId: string | null;
   paymentNotice: string | null;
 }
 
@@ -170,7 +171,7 @@ export async function loadSettings(
   const { data, error } = await db
     .from('user_settings')
     .select(
-      'default_hourly_rate, currency, default_payment_terms, invoice_number_prefix, business_name, business_address, business_email, logo_url, tax_id, payment_notice',
+      'default_hourly_rate, currency, default_payment_terms, invoice_number_prefix, payment_notice',
     )
     .maybeSingle();
 
@@ -182,11 +183,6 @@ export async function loadSettings(
     currency: (data.currency as string) ?? 'USD',
     defaultPaymentTerms: (data.default_payment_terms as string) ?? 'Net 30',
     invoiceNumberPrefix: (data.invoice_number_prefix as string) ?? 'INV-',
-    businessName: data.business_name ?? null,
-    businessAddress: data.business_address ?? null,
-    businessEmail: data.business_email ?? null,
-    logoUrl: data.logo_url ?? null,
-    taxId: data.tax_id ?? null,
     paymentNotice: data.payment_notice ?? null,
   };
 }
@@ -248,7 +244,7 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
 
   const invoice = toInvoice(row as InvoiceRow);
 
-  const [items, client, settings] = await Promise.all([
+  const [items, settings, billing] = await Promise.all([
     selectAll(() =>
       db
         .from('invoice_line_items')
@@ -256,14 +252,17 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
         .eq('invoice_id', invoiceId)
         .order('sort_order', { ascending: true }),
     ),
-    loadClient(db, invoice.clientId),
     loadSettings(db),
+    entitlement(db),
   ]);
 
   return {
     invoice,
-    client,
-    settings,
+    canDownload: documentOpens(
+      billing.available,
+      billing.plan,
+      (row as InvoiceRow).issued_subscription_status,
+    ),
     pdfData: {
       invoiceNumber: invoice.invoiceNumber,
       status: invoice.status,
@@ -280,21 +279,11 @@ export async function loadPdfData(db: SupabaseClient, invoiceId: string) {
       notes: invoice.notes,
       paymentTerms: invoice.paymentTerms,
       reference: invoice.reference,
-      business: {
-        name: settings.businessName,
-        address: settings.businessAddress,
-        email: settings.businessEmail,
-        logoUrl: settings.logoUrl,
-        taxId: settings.taxId,
-      },
-      client: {
-        name: client.name,
-        email: client.email,
-        address: client.address,
-      },
+      // The FROZEN snapshots, never a live lookup: a re-downloaded invoice
+      // must show the details the client was actually given.
+      business: invoice.business,
+      client: invoice.billTo,
       lineItems: items.map((r) => toLineItem(r as LineItemRow)),
-      // The FROZEN snapshot, never a live profile lookup: a re-downloaded
-      // invoice must show the details the client was actually given.
       payment: invoice.paymentDetails ?? null,
       paymentNotice: settings.paymentNotice,
       supportingDetail: invoice.supportingDetail,

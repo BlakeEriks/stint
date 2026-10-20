@@ -1,8 +1,6 @@
 import Foundation
 
 /// The shapes `/api/v1` returns, mirroring `rows.ts` field for field.
-/// Hand-written and unchecked against `packages/schema`: a renamed field
-/// fails here at runtime.
 struct TimeEntry: Codable, Identifiable, Equatable {
     var id: String
     var projectId: String?
@@ -58,10 +56,10 @@ struct Summary: Codable, Equatable {
     let serverTime: Date
 }
 
-private struct ProjectList: Codable { let projects: [Project] }
-private struct TaskNameList: Codable { let taskNames: [TaskName] }
-private struct ClientList: Codable { let clients: [Client] }
-private struct Stopped: Codable { let entry: TimeEntry }
+struct ProjectList: Codable { let projects: [Project] }
+struct TaskNameList: Codable { let taskNames: [TaskName] }
+struct ClientList: Codable { let clients: [Client] }
+struct Stopped: Codable { let entry: TimeEntry }
 
 struct APIError: LocalizedError, Equatable {
     let status: Int
@@ -86,7 +84,7 @@ actor API {
     }
 
     /// Postgres sends fractional seconds on some columns and not others.
-    private static let decoder: JSONDecoder = {
+    static let decoder: JSONDecoder = {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .custom { decoder in
             let text = try decoder.singleValueContainer().decode(String.self)

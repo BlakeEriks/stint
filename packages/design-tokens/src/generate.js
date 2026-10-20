@@ -31,6 +31,7 @@ const primitiveVars = () => {
     lightNeutral: 'ln',
     project: 'proj',
     categorical: 'cat',
+    print: 'print',
   };
   for (const [group, steps] of Object.entries(tokens.primitive)) {
     for (const [step, val] of Object.entries(steps)) {
@@ -100,10 +101,17 @@ const utilityKey = (name) =>
     p === 'bg' ? 'surface-' : p === 'text' ? '' : 'edge-',
   );
 
+/* Print ink is one palette in every theme: it is set on white paper, not on
+   the app's ground. */
 const themeBlock = () =>
-  Object.keys(tokens.semantic.dark)
-    .map((name) => `  --color-${utilityKey(name)}: var(--${name});`)
-    .join('\n');
+  [
+    ...Object.keys(tokens.semantic.dark).map(
+      (name) => `  --color-${utilityKey(name)}: var(--${name});`,
+    ),
+    ...Object.keys(tokens.primitive.print).map(
+      (step) => `  --color-print-${step}: var(--print-${step});`,
+    ),
+  ].join('\n');
 
 /* Each scale role becomes a `@utility`, so `type-nav` sets family, size,
    weight, tracking, case and tabular-nums together and a component cannot
@@ -248,6 +256,12 @@ ${Object.values(tokens.primitive.categorical)
   .map((c) => `  '${c.hex}',`)
   .join('\n')}
 ] as const;
+
+export const print = {
+${Object.entries(tokens.primitive.print)
+  .map(([step, p]) => `  ${step}: '${p.hex}',`)
+  .join('\n')}
+} as const;
 
 export const brand = ${JSON.stringify(tokens.brand, null, 2)} as const;
 
@@ -446,6 +460,10 @@ ${Object.entries(tokens.primitive.project)
 
 ${Object.entries(tokens.primitive.categorical)
   .map(([step, p]) => `    --cat-${step}: ${p.hex};`)
+  .join('\n')}
+
+${Object.entries(tokens.primitive.print)
+  .map(([step, p]) => `    --print-${step}: ${p.hex};`)
   .join('\n')}
 }
 

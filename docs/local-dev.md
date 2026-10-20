@@ -28,6 +28,14 @@ Those are the CLI's fixed development credentials — identical on every
 machine, published in Supabase's own docs, stable across resets. Nothing here
 is a secret.
 
+Billing stays hidden locally until Stripe **test-mode** keys are added here
+too: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` (from
+`stripe listen --forward-to localhost:3100/api/v1/billing/webhook`), plus
+`SUPABASE_SECRET_KEY` from `supabase status`, which the webhook writes
+with. Never a live key. With the three Stripe keys set, the invoice gate is on
+too: a free account's invoice PDF answers `402 PAYMENT_REQUIRED`, and the
+invoice screen offers Subscribe in place of Download PDF.
+
 `NEXT_PUBLIC_INVITE_FORM_URL` stays unset, so the landing page's invite form
 says it didn't send and never reaches the real list. To see it succeed, point
 it at a local stub (`specs/006-invite-request/quickstart.md`).
@@ -62,7 +70,7 @@ database whose migration history disagrees with its schema.
 ## A worktree that runs
 
 ```bash
-pnpm worktree <branch>              # off main, into ../stint-<branch>
+pnpm worktree <branch>              # off a fetched origin/main, into ../stint-<branch>
 pnpm worktree <branch> --from <ref> # off something else
 ```
 
@@ -212,7 +220,7 @@ in. Sign in afterwards at `/signin` and click the link in Mailpit
 is a typo, not a request.
 
 **An invoice is complete without a visit to Settings.** The seed writes a
-business name, address, email and EIN, an address for each client, two sets
+business name, address and email, an address for each client, two sets
 of bank details (the default, and the one Meridian Labs points at), and two
 expenses waiting on Northwind's next invoice, one recurring.
 

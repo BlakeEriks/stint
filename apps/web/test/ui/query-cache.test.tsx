@@ -48,8 +48,9 @@ describe('the kept cache', () => {
   });
 
   it('is forgotten on Sign out', async () => {
+    const replace = vi.fn();
+    vi.stubGlobal('location', { ...window.location, replace });
     const client = new QueryClient();
-    client.setQueryData(['stats'], { earned: 1 });
     const user = userEvent.setup();
     render(<AccountMenu />, {
       wrapper: ({ children }: { children: ReactNode }) => (
@@ -60,9 +61,8 @@ describe('the kept cache', () => {
     await user.click(
       await screen.findByRole('menuitem', { name: /sign out/i }),
     );
-    await waitFor(() => expect(router.replace).toHaveBeenCalled());
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/signin'));
     expect(kept()).toBeNull();
-    expect(client.getQueryData(['stats'])).toBeUndefined();
   });
 
   it('is forgotten when the session has expired', async () => {

@@ -8,15 +8,16 @@ are users to protect.
 ## The shape
 
 ```
-PR ──► CI ──► merge ──► Vercel builds ──► plan ──► you approve ──► backup ──► migrate + verify ──► live
-                                                  └──── no migration ────────────► verify ──► live
+PR ──► CI ──► merge ──► Vercel builds ──► plan ──► you approve ──► backup ──► migrate + verify ──► health ──► live
+                                                  └──── no migration ────────────► verify ──► health ──► live
 ```
 
 **A release waits for your approval only when it carries a migration.**
 GitHub notifies you; the run's summary shows the commit and every pending
 migration's SQL, with a warning when one drops, truncates, or deletes.
 Rejecting leaves the previous build serving. A release with no migration has
-nothing to judge, so it goes straight to `verify:schema` and live.
+nothing to judge, so it goes straight to `verify:schema`. Either way, the
+new build must answer `/api/v1/health` before it goes live.
 
 **A merge that changes nothing the web app ships does not deploy.**
 `apps/web/scripts/vercel-ignore.sh`, Vercel's `ignoreCommand`, skips the
@@ -95,7 +96,7 @@ It deliberately sets **no `outputDirectory`**: Next.js detection finds
 failed a build that had otherwise succeeded.
 
 Still set in the dashboard:
-- Environment variables, none of them sensitive:
+- Environment variables, none of them sensitive but billing's three secrets:
   - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` —
     production's project for Production, `stint-test`'s for Preview
     (§3d). A preview never reaches production data.
@@ -108,8 +109,41 @@ Still set in the dashboard:
     `https://formspree.io/f/<form id>`. Submissions email you and list in
     the form's dashboard with when each was sent. Unset, the request fails
     and the page says it didn't send, so a preview never adds to the list.
-  - `SENTRY_DSN`, for Production only (§3c). Unset, Sentry stays off, so a
-    preview never reports.
+  - `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, both the same DSN, for
+    Production only (§3c): the server reports with the first, the browser
+    with the second. Unset, Sentry stays off, so a preview never reports.
+
+Billing, for Production only (Preview uses Stripe test-mode keys if billing
+is being tried there). **Setting them is the launch:** with all three set,
+a free user's invoice PDF answers `402 PAYMENT_REQUIRED` and the invoice
+screen offers Subscribe instead. Invoices generated before then aren't
+grandfathered.
+
+- `STRIPE_SECRET_KEY` (**sensitive**), `STRIPE_PRICE_ID` and
+  `STRIPE_WEBHOOK_SECRET` (**sensitive**). Any one unset hides the Plan
+  section: `checkout`, `portal` and `sync` answer `503 BILLING_UNAVAILABLE`,
+  the webhook a plain-text `503`, and `GET /billing` answers `200` with
+  `available: false`.
+- `SUPABASE_SECRET_KEY` (**sensitive**), the project's secret key: the
+  Stripe webhook has no user session, so it writes `subscriptions` as
+  `service_role`. Without it, the webhook and the Checkout return fail with
+  `500`. Never `NEXT_PUBLIC_`.
+
+In the Stripe dashboard, once:
+
+- A product with one **yearly** price of $40 USD (`docs/positioning.md`);
+  its id is `STRIPE_PRICE_ID`.
+- A webhook endpoint at `https://app.runstint.com/api/v1/billing/webhook`
+  for `checkout.session.completed`, `customer.subscription.*`,
+  `invoice.paid` and `invoice.payment_failed`; its signing secret is
+  `STRIPE_WEBHOOK_SECRET`.
+- Billing → Customer portal: allow cancel at period end, resume, card
+  update and invoice history.
+- Billing → Revenue recovery: Smart Retries, 8 attempts over 2 weeks, then
+  cancel the subscription; emails on failed payment and before renewal.
+- Settings → Public details: the terms URL `https://runstint.com/terms`,
+  which Checkout asks the user to accept.
+- Stripe Tax stays off (no sales tax at launch).
 
 `SUPABASE_DB_URL` does **not** belong here. The app never uses it; only the
 migration scripts do, and they run in Actions.
@@ -125,6 +159,10 @@ migration scripts do, and they run in Actions.
   reach production credentials by accident. It also gives the deployment its
   own audit log. Vercel created the Production and Preview environments when
   you connected the repo.
+
+- **GitHub** → Environments → **Production** → add
+  `VERCEL_AUTOMATION_BYPASS_SECRET`, Vercel's Protection Bypass for
+  Automation, so the gate can reach the unpromoted build (§3a).
 
 - **GitHub** → Environments → **Release**: required reviewer (you), `main`
   only, no secrets. It is the pause and nothing else. Production carries no
@@ -162,8 +200,9 @@ run, since a fresh build would apply them in a different order.
 When a migration is pending, `approve` waits for you and `backup` takes a
 snapshot; otherwise both are skipped. `migrate` runs
 `pnpm migrate` and `pnpm verify:schema` while the *previous* build still
-answers requests, then its status action's `post` hook reports the outcome as
-a commit status. Success promotes the deployment; failure leaves
+answers requests, then requests `/api/v1/health` on the new build's own URL
+and fails on anything but 200. `report` writes the outcome as a commit
+status. Success promotes the deployment; failure leaves
 the old one serving, with **Force Promote** as the override.
 
 Two things that fail quietly if they drift, so they are worth re-reading
@@ -194,7 +233,8 @@ this puts on code.
 Per-deployment URLs (`stint-<hash>-<scope>.vercel.app`) are fronted by SSO on
 a private project, so an unauthenticated request 302s to `vercel.com/sso-api`.
 That is protection on the *deployment* URL, not a broken app — test a real
-domain instead.
+domain instead. The release gate and `pnpm try-mac` get through by sending the
+Protection Bypass for Automation as `x-vercel-protection-bypass`.
 
 The app's own redirect is a different thing: every app page is static and
 returns 200, and a signed-out visitor is sent to `/signin` in the browser
@@ -271,7 +311,7 @@ success teaches you to stop reading it.
 | Release failed, or its plan failed | ❌ with the run link | `release.yml`, `report` |
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
 | App or database down, and its recovery | UptimeRobot's own | UptimeRobot → Discord |
-| A new unhandled server error | Sentry's own, with the stack trace | Sentry → Discord |
+| A new unhandled error in the server or the browser | Sentry's own, with the stack trace, minified for the browser | Sentry → Discord |
 
 Never posted: a release with no migration going live, a rejection or
 cancellation (you did it), a backup that worked (healthchecks.io is quiet
@@ -287,7 +327,7 @@ What each new alert asks of you:
 - **Down.** Check the Vercel and Supabase status pages, then roll back or
   Force Promote (§3). A Supabase project paused for being idle, or an
   expired certificate or domain, shows up here too.
-- **New error.** Read the stack trace, then fix it or open a `bug`. Sentry
+- **New error.** File it as a `bug` + `urgent` issue (`docs/sdlc.md`). Sentry
   alerts on a new issue only, never on each occurrence.
 
 **UptimeRobot** polls `https://app.runstint.com/api/v1/health` every 5
@@ -295,8 +335,9 @@ minutes. The health route asks Postgres for a row, so it fails when the
 database does, not only when Vercel does. The monitor alerts after two
 failures in a row, and posts the recovery.
 
-**Sentry** is the `SENTRY_DSN` (§2), from a Next.js project on the free
-plan, with one alert rule: a new issue posts to Discord.
+**Sentry** is the `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` (§2), from a
+Next.js project on the free plan, with one alert rule: a new issue posts to
+Discord.
 
 The webhook is the `DISCORD_ALERTS_WEBHOOK` repository secret, used by
 `release.yml` and nowhere else: anyone holding it can post to the channel.
@@ -334,5 +375,6 @@ no redirect URL.
 
 ## What is deliberately absent
 
-- **No automatic rollback.** Reverting a deploy is a Vercel redeploy of the
-  previous build; a wrong migration is fixed by a new one.
+- **No automatic rollback.** A build that fails its health check is never
+  promoted, so it needs none. One that breaks later is reverted by a Vercel
+  redeploy of the previous build; a wrong migration is fixed by a new one.

@@ -80,7 +80,7 @@ the most. Gitignored; one JSON object per line:
 `round` is `build`, `feedback` or `ci`; `tokens`, `toolUses` and
 `durationMs` are what the subagent's result reports; `findings` only on the
 reviewer's rows. `outcome` is what that agent did, one word: a builder's is
-`committed`, `shipped`, `closed`, `needs-input`, `blocked` or `failed`; the reviewer's
+`committed`, `shipped`, `closed`, `needs-input`, `blocked`, `design-review` or `failed`; the reviewer's
 is `reviewed`.
 
 ## 0. Catch up
@@ -130,7 +130,8 @@ is `reviewed`.
   closed — one `gh pr view` each, not a new investigation.
 - **Answered issues:** remove `needs-input` from any issue Blake has
   commented on since its marked question, so the label says whose move it
-  is while a builder is busy elsewhere.
+  is while a builder is busy elsewhere. A reply to a design review goes to
+  that issue's builder now, as a round, before anything new is picked.
 
 ## 1. Pick
 
@@ -144,17 +145,25 @@ issue that:
 
 - is labeled `needs-input`
 - is labeled `blocked`
-- is labeled `feature` — a capability is built through Spec Kit, not here
+- is labeled `feature` and is not code yet: it still "owes the gate its
+  answers", is a purchase or a setting (buying the domain, upgrading a
+  plan), or waits on an account only Blake can make
 - already has an open PR
   (`gh issue view <n> --json closedByPullRequestsReferences`)
 - is labeled `migration` while an open PR is too — previews share one
   database schema
 
 `urgent` first, then the worst: `wrong data`, `misleading`, `looks wrong`,
-then `enhancement`; oldest first within a label. None left → step 2.
+then `enhancement`, then `feature` (milestone `Alpha`, then `Launch`, then
+none); oldest first within a label. None left → step 2.
+
+**A feature that needs an open PR's unmerged work** is stacked on it: the
+builder branches off that PR's branch and opens its PR against it, saying
+which merges first.
 
 **First, overlap, without a builder.** List the paths the issue names and
-each open PR's files (`gh pr view <n> --json files`). A shared path makes it
+each open PR's files (`gh pr view <n> --json files`), save the PR it stacks
+on. A shared path makes it
 `blocked` with a marked comment ("Blocked by #31: both change the inbox"),
 and you pick again. The builder still checks the files it finds it must
 change.
@@ -166,8 +175,17 @@ builder by SendMessage, which still holds the reading — unless
 (`git log -1 --format=%cI origin/main -- .claude/agents/issue-builder.md`),
 since a builder keeps the instructions it started with, or it no longer
 answers: then a new one. It reports one of: a commit ready for review,
-`closed` (the issue no longer held), `needs-input`, or `blocked`. Once it
-has shipped, or reported any but the first, step 0 again, then pick again.
+`closed` (the issue no longer held), `needs-input`, `blocked`, or
+`design-review: <path>`. Once it has shipped, or reported any but the
+first, step 0 again, then pick again.
+
+**A design review** is a feature's builder asking Blake to see a screen
+before it is built. Read the draft at `<path>` whole, publish it with the
+Artifact tool — a private page Blake opens from his phone — and post a
+marked comment on the issue: the link, one line per variation saying what
+it is best at, and "Reply here with a pick or changes." Label the issue
+`needs-input`. His reply goes back to that builder like any answer; a
+redraft is republished to the same link, named in the comment.
 
 ## 2. Stop
 

@@ -16,9 +16,8 @@ import { ArchiveButton } from './archive-button';
 import { ClientForm } from './client-form';
 
 /**
- * Edits a client where the contractor already is, as `ProjectDialog` does a
- * project, so editing reads the same from any screen. The form is the one
- * the page uses, so the field set cannot drift.
+ * Adds or edits a client where the contractor already is, as `ProjectDialog`
+ * does a project, so it reads the same from any screen.
  *
  * Archive sits here rather than on the list: it is rare, and Restore takes
  * its place once archived. Archive, never delete: invoices reference the
@@ -28,10 +27,12 @@ export function ClientDialog({
   open,
   onOpenChange,
   client,
+  archivable = true,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  client: Client;
+  client?: Client;
+  archivable?: boolean;
 }) {
   const archive = useArchiveClient();
   const restore = useRestoreClient();
@@ -40,7 +41,7 @@ export function ClientDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit client</DialogTitle>
+          <DialogTitle>{client ? 'Edit client' : 'New client'}</DialogTitle>
           <DialogDescription>
             Its rate is what its projects bill at unless they set their own.
           </DialogDescription>
@@ -49,22 +50,25 @@ export function ClientDialog({
         {/* Keyed by client so reopening on another one starts from its
             values, not the last one's. */}
         <ClientForm
-          key={client.id}
+          key={client?.id ?? 'new'}
           existing={client}
           onSaved={() => onOpenChange(false)}
           onCancel={() => onOpenChange(false)}
           footer={
-            <ArchiveButton
-              archived={client.archivedAt != null}
-              onArchive={() => {
-                archive.mutate(client.id);
-                onOpenChange(false);
-              }}
-              onRestore={() => {
-                restore.mutate(client);
-                onOpenChange(false);
-              }}
-            />
+            client &&
+            archivable && (
+              <ArchiveButton
+                archived={client.archivedAt != null}
+                onArchive={() => {
+                  archive.mutate(client.id);
+                  onOpenChange(false);
+                }}
+                onRestore={() => {
+                  restore.mutate(client);
+                  onOpenChange(false);
+                }}
+              />
+            )
           }
         />
       </DialogContent>

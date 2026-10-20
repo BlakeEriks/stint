@@ -11,9 +11,13 @@
  */
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, writeFileSync } from 'node:fs';
+import util from 'node:util';
 import pg from 'pg';
 import { makeDb } from './shim.mjs';
 import { fill } from './fill.ts';
+import Stripe from 'stripe';
+import { fakeStripe, subscription } from './fake-stripe.ts';
 
 const USER = '11111111-1111-1111-1111-111111111111';
 const OTHER = '22222222-2222-2222-2222-222222222222';
@@ -37,6 +41,7 @@ after(async () => {
 
 beforeEach(async () => {
   await pool.query('delete from feedback');
+  await pool.query('delete from subscriptions');
   await pool.query('update expenses set invoice_id = null');
   await pool.query('delete from expenses');
   // Detach first: the immutability trigger refuses to delete an entry that
@@ -58,7 +63,26 @@ beforeEach(async () => {
     [USER],
   );
   (globalThis as any).__TEST_DB__ = makeDb(pool, USER);
+  // Billing starts unconfigured, as every deploy does; `configureBilling()`
+  // turns it on per test.
+  for (const k of STRIPE_ENV) delete process.env[k];
+  stripeFake = fakeStripe();
+  (globalThis as any).__TEST_STRIPE__ = stripeFake.client;
 });
+
+const STRIPE_ENV = [
+  'STRIPE_SECRET_KEY',
+  'STRIPE_PRICE_ID',
+  'STRIPE_WEBHOOK_SECRET',
+] as const;
+const WEBHOOK_SECRET = 'whsec_test';
+let stripeFake: ReturnType<typeof fakeStripe>;
+
+const configureBilling = () => {
+  process.env.STRIPE_SECRET_KEY = 'sk_test_unused';
+  process.env.STRIPE_PRICE_ID = 'price_yearly';
+  process.env.STRIPE_WEBHOOK_SECRET = WEBHOOK_SECRET;
+};
 
 const req = (url: string, body?: unknown, method = 'GET') =>
   new Request(`http://t${url}`, {
@@ -690,6 +714,67 @@ test('a new payment profile stores every detail it is given', async () => {
   }
 });
 
+/* A malformed routing number on an invoice risks a returned or misrouted
+   ACH payment, and nothing downstream checks it again. */
+test('a routing number that fails the ABA check is refused, on create and edit', async () => {
+  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
+  const { PATCH } = await import(
+    '../src/app/api/v1/payment-profiles/[id]/route.ts'
+  );
+
+  const refused = await json(
+    await POST(
+      req('/payment-profiles', {
+        name: 'Checking',
+        routingNumber: '021000022',
+      }),
+    ),
+  );
+  assert.equal(refused.status, 422);
+  assert.equal(refused.body.code, 'VALIDATION_FAILED');
+
+  const saved = await json(
+    await POST(req('/payment-profiles', { name: 'Checking' })),
+  );
+  const edited = await json(
+    await PATCH(
+      patchReq('/payment-profiles/x', { routingNumber: '02100002' }),
+      ctx(saved.body.id),
+    ),
+  );
+  assert.equal(edited.status, 422);
+  assert.equal(edited.body.code, 'VALIDATION_FAILED');
+});
+
+test('a routing number is stored as its 9 digits', async () => {
+  const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
+
+  const res = await json(
+    await POST(
+      req('/payment-profiles', {
+        name: 'Checking',
+        routingNumber: ' 021-000-021 ',
+      }),
+    ),
+  );
+  assert.equal(res.status, 201);
+  assert.equal(res.body.routingNumber, '021000021');
+});
+
+/* The route strips and checks it, but a write that skips the route (an
+   import, the seed) would print whatever it stored. */
+test('the database refuses a routing number that is not 9 digits', async () => {
+  await assert.rejects(
+    () =>
+      pool.query(
+        `insert into payment_profiles (user_id,name,routing_number)
+         values ($1,'Checking','-031101334,')`,
+        [USER],
+      ),
+    /payment_profiles_routing_number_digits/,
+  );
+});
+
 test('a payment profile replayed with the same id is idempotent', async () => {
   const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
   const body = {
@@ -937,7 +1022,6 @@ test('every settable field round-trips, rather than being silently dropped', asy
   const sent = {
     minEntrySeconds: 60,
     maxEntryHours: 10,
-    taxId: '12-3456789',
     businessAddress: '1 Main St\nAustin, TX 78701',
     paymentNotice: 'Details never change. Verify by phone.',
     invoiceNumberPrefix: 'STINT-',
@@ -3445,6 +3529,403 @@ test('a retried feedback send stores one message', async () => {
   assert.equal((await feedbackRows()).length, 1);
 });
 
+// ── billing ────────────────────────────────────────────────────────
+const subscriptionRows = async () =>
+  (
+    await pool.query(
+      `select user_id, stripe_customer_id, stripe_subscription_id, status,
+              current_period_end, cancel_at_period_end
+       from subscriptions order by user_id`,
+    )
+  ).rows;
+
+/** A Stripe event, signed as Stripe signs it, delivered to the webhook. */
+const deliver = async (
+  type: string,
+  object: Record<string, unknown>,
+  signature?: string,
+) => {
+  const { POST } = await import('../src/app/api/v1/billing/webhook/route.ts');
+  const payload = JSON.stringify({
+    id: `evt_${type}`,
+    object: 'event',
+    type,
+    data: { object },
+  });
+  return POST(
+    new Request('http://t/billing/webhook', {
+      method: 'POST',
+      headers: {
+        'stripe-signature':
+          signature ??
+          Stripe.webhooks.generateTestHeaderString({
+            payload,
+            secret: WEBHOOK_SECRET,
+          }),
+      },
+      body: payload,
+    }),
+  );
+};
+
+const billing = async () => {
+  const { GET } = await import('../src/app/api/v1/billing/route.ts');
+  return json(await GET(req('/billing')));
+};
+
+test('billing reads free with no subscription, and says whether Stripe is set up', async () => {
+  const free = {
+    available: false,
+    plan: 'free',
+    status: null,
+    periodEnd: null,
+    cancelAtPeriodEnd: false,
+    paymentFailed: false,
+  };
+  assert.deepEqual(await billing(), { status: 200, body: free });
+  configureBilling();
+  assert.deepEqual((await billing()).body, { ...free, available: true });
+});
+
+test('every billing write answers 503 until Stripe is set up', async () => {
+  const { POST: checkout } = await import(
+    '../src/app/api/v1/billing/checkout/route.ts'
+  );
+  const { POST: portal } = await import(
+    '../src/app/api/v1/billing/portal/route.ts'
+  );
+  const { POST: sync } = await import(
+    '../src/app/api/v1/billing/sync/route.ts'
+  );
+  for (const res of [
+    await checkout(req('/billing/checkout', {})),
+    await portal(req('/billing/portal', {})),
+    await sync(req('/billing/sync', { sessionId: 'cs_1' })),
+  ]) {
+    assert.equal(res.status, 503);
+    assert.equal((await res.json()).code, 'BILLING_UNAVAILABLE');
+  }
+  assert.equal(
+    (await deliver('invoice.paid', { customer: 'cus_1' })).status,
+    503,
+  );
+  assert.equal(stripeFake.state.created.length, 0);
+});
+
+test('the webhook refuses a missing or forged signature and changes nothing', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  const { POST } = await import('../src/app/api/v1/billing/webhook/route.ts');
+  const unsigned = await POST(
+    new Request('http://t/billing/webhook', { method: 'POST', body: '{}' }),
+  );
+  assert.equal(unsigned.status, 400);
+  const forged = await deliver(
+    'customer.subscription.updated',
+    { customer: 'cus_1' },
+    Stripe.webhooks.generateTestHeaderString({
+      payload: '{}',
+      secret: 'whsec_someone_else',
+    }),
+  );
+  assert.equal(forged.status, 400);
+  assert.deepEqual(await subscriptionRows(), []);
+});
+
+test('a subscription event stores what Stripe says now, for the user in its metadata', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  const res = await deliver('customer.subscription.created', {
+    customer: 'cus_1',
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await subscriptionRows(), [
+    {
+      user_id: USER,
+      stripe_customer_id: 'cus_1',
+      stripe_subscription_id: 'sub_1',
+      status: 'active',
+      current_period_end: new Date(1_830_000_000 * 1000)
+        .toISOString()
+        .replace('.000Z', '+00:00'),
+      cancel_at_period_end: false,
+    },
+  ]);
+  const read = await billing();
+  assert.equal(read.body.plan, 'paid');
+  assert.equal(
+    read.body.periodEnd,
+    new Date(1_830_000_000 * 1000).toISOString(),
+  );
+});
+
+test('the same event twice leaves the same one row', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  await deliver('invoice.paid', { customer: 'cus_1' });
+  const once = await subscriptionRows();
+  await deliver('invoice.paid', { customer: 'cus_1' });
+  assert.deepEqual(await subscriptionRows(), once);
+  assert.equal(once.length, 1);
+});
+
+test('an old event arriving late still leaves the current state', async () => {
+  configureBilling();
+  const sub = subscription({ userId: USER });
+  stripeFake.state.subscriptions.push(sub);
+  sub.status = 'canceled';
+  await deliver('customer.subscription.deleted', { customer: 'cus_1' });
+  // The `created` event, delayed past the cancel, carries an active payload.
+  await deliver('customer.subscription.created', {
+    customer: 'cus_1',
+    status: 'active',
+  });
+  assert.equal((await subscriptionRows())[0].status, 'canceled');
+  assert.equal((await billing()).body.plan, 'free');
+});
+
+test('a cancel at period end stays paid, and says when it ends', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(
+    subscription({ userId: USER, cancel_at: 1_820_000_000 }),
+  );
+  await deliver('customer.subscription.updated', { customer: 'cus_1' });
+  const read = (await billing()).body;
+  assert.equal(read.plan, 'paid');
+  assert.equal(read.cancelAtPeriodEnd, true);
+  assert.equal(read.periodEnd, new Date(1_820_000_000 * 1000).toISOString());
+});
+
+test('a failed renewal keeps the plan paid and says the payment failed', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(
+    subscription({ userId: USER, status: 'past_due' }),
+  );
+  await deliver('invoice.payment_failed', { customer: 'cus_1' });
+  const read = (await billing()).body;
+  assert.equal(read.plan, 'paid');
+  assert.equal(read.paymentFailed, true);
+});
+
+test('a current subscription wins over an older canceled one', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(
+    subscription({ id: 'sub_old', userId: USER, status: 'canceled' }),
+    subscription({ id: 'sub_new', userId: USER }),
+  );
+  await deliver('customer.subscription.created', { customer: 'cus_1' });
+  assert.equal((await subscriptionRows())[0].stripe_subscription_id, 'sub_new');
+});
+
+test('an event for a customer with no subscription of ours is acknowledged and ignored', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(
+    subscription({ customer: 'cus_stranger' }),
+  );
+  const unknown = await deliver('invoice.paid', { customer: 'cus_nobody' });
+  assert.equal(unknown.status, 200);
+  const noMetadata = await deliver('invoice.paid', {
+    customer: 'cus_stranger',
+  });
+  assert.equal(noMetadata.status, 200);
+  const unrelated = await deliver('charge.refunded', { customer: 'cus_1' });
+  assert.equal(unrelated.status, 200);
+  assert.deepEqual(await subscriptionRows(), []);
+});
+
+test('a subscription whose account is gone is canceled at Stripe, never charged again', async () => {
+  configureBilling();
+  // Paid, then the account deleted before any sync wrote the row, so
+  // DELETE /account had nothing to cancel.
+  stripeFake.state.subscriptions.push(
+    subscription({ userId: '99999999-9999-9999-9999-999999999999' }),
+  );
+  const res = await deliver('customer.subscription.created', {
+    customer: 'cus_1',
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(stripeFake.state.canceled, ['sub_1']);
+  assert.deepEqual(await subscriptionRows(), []);
+
+  // Its own `deleted` event then finds it ended, and cancels nothing more.
+  await deliver('customer.subscription.deleted', { customer: 'cus_1' });
+  assert.deepEqual(stripeFake.state.canceled, ['sub_1']);
+});
+
+test('a second customer paying for the same user does not replace the first', async () => {
+  configureBilling();
+  // Two payment pages completed at once, each making its own customer.
+  const first = subscription({ id: 'sub_a', customer: 'cus_a', userId: USER });
+  stripeFake.state.subscriptions.push(
+    first,
+    subscription({ id: 'sub_b', customer: 'cus_b', userId: USER }),
+  );
+  await deliver('customer.subscription.created', { customer: 'cus_a' });
+  await deliver('customer.subscription.created', { customer: 'cus_b' });
+  const rows = await subscriptionRows();
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].stripe_customer_id, 'cus_a');
+
+  // Once the first has ended, the second is the user's subscription.
+  first.status = 'canceled';
+  await deliver('customer.subscription.deleted', { customer: 'cus_a' });
+  await deliver('invoice.paid', { customer: 'cus_b' });
+  assert.equal((await subscriptionRows())[0].stripe_customer_id, 'cus_b');
+});
+
+test('checkout opens Stripe for the yearly price, with the user and the renewal stated', async () => {
+  configureBilling();
+  const { POST } = await import('../src/app/api/v1/billing/checkout/route.ts');
+  const res = await json(await POST(req('/billing/checkout', {})));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.url, 'https://checkout.stripe.test/1');
+  const params = stripeFake.state.created[0] as any;
+  assert.equal(params.mode, 'subscription');
+  assert.deepEqual(params.line_items, [{ price: 'price_yearly', quantity: 1 }]);
+  assert.equal(params.client_reference_id, USER);
+  assert.deepEqual(params.subscription_data, { metadata: { user_id: USER } });
+  assert.equal(params.customer, undefined, 'a first checkout makes a customer');
+  assert.deepEqual(params.consent_collection, { terms_of_service: 'required' });
+  assert.match(params.custom_text.submit.message, /Renews every year/);
+  assert.equal(params.automatic_tax, undefined, 'no sales tax at launch');
+  assert.equal(
+    params.success_url,
+    'http://t/settings?checkout={CHECKOUT_SESSION_ID}',
+  );
+  assert.equal(params.cancel_url, 'http://t/settings');
+});
+
+test("checkout reuses a returning subscriber's customer, and refuses a paid one", async () => {
+  configureBilling();
+  const { POST } = await import('../src/app/api/v1/billing/checkout/route.ts');
+  await pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_back', 'sub_gone', 'canceled', now())`,
+    [USER],
+  );
+  await POST(req('/billing/checkout', {}));
+  assert.equal((stripeFake.state.created[0] as any).customer, 'cus_back');
+
+  await pool.query(`update subscriptions set status = 'active'`);
+  const paid = await json(await POST(req('/billing/checkout', {})));
+  assert.equal(paid.status, 409);
+  assert.equal(paid.body.code, 'ALREADY_SUBSCRIBED');
+  assert.equal(stripeFake.state.created.length, 1);
+});
+
+test('back from checkout, sync stores the paid plan without waiting on the webhook', async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: USER }));
+  stripeFake.state.sessions.set('cs_mine', {
+    id: 'cs_mine',
+    client_reference_id: USER,
+    customer: 'cus_1',
+  });
+  const { POST } = await import('../src/app/api/v1/billing/sync/route.ts');
+  const res = await json(
+    await POST(req('/billing/sync', { sessionId: 'cs_mine' })),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.plan, 'paid');
+  assert.equal((await subscriptionRows()).length, 1);
+});
+
+test("sync answers another user's or an unknown checkout as not found", async () => {
+  configureBilling();
+  stripeFake.state.subscriptions.push(subscription({ userId: OTHER }));
+  stripeFake.state.sessions.set('cs_theirs', {
+    id: 'cs_theirs',
+    client_reference_id: OTHER,
+    customer: 'cus_1',
+  });
+  const { POST } = await import('../src/app/api/v1/billing/sync/route.ts');
+  for (const sessionId of ['cs_theirs', 'cs_missing']) {
+    const res = await json(await POST(req('/billing/sync', { sessionId })));
+    assert.equal(res.status, 404);
+    assert.equal(res.body.code, 'CHECKOUT_NOT_FOUND');
+  }
+  assert.deepEqual(await subscriptionRows(), []);
+});
+
+test('the portal opens for the stored customer, and refuses with none', async () => {
+  configureBilling();
+  const { POST } = await import('../src/app/api/v1/billing/portal/route.ts');
+  const none = await json(await POST(req('/billing/portal', {})));
+  assert.equal(none.status, 409);
+  assert.equal(none.body.code, 'NOT_SUBSCRIBED');
+
+  await pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_1', 'sub_1', 'active', now())`,
+    [USER],
+  );
+  const res = await json(await POST(req('/billing/portal', {})));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.url, 'https://billing.stripe.test/session');
+  assert.deepEqual(stripeFake.state.portals, [
+    { customer: 'cus_1', return_url: 'http://t/settings' },
+  ]);
+});
+
+test('deleting an account cancels its subscription first, and keeps the account if Stripe refuses', async () => {
+  configureBilling();
+  const { DELETE } = await import('../src/app/api/v1/account/route.ts');
+  await pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_1', 'sub_1', 'active', now())`,
+    [USER],
+  );
+  // The shim cannot run `delete_account()` as a signed-in user; what this
+  // asserts is the order: Stripe first, and no deletion past a failure.
+  const deleted: string[] = [];
+  const db = makeDb(pool, USER);
+  (globalThis as any).__TEST_DB__ = {
+    ...db,
+    rpc: async (fn: string) => {
+      deleted.push(fn);
+      return { data: null, error: null };
+    },
+  };
+
+  stripeFake.state.failCancel = true;
+  assert.equal(
+    (await DELETE(req('/account', undefined, 'DELETE'))).status,
+    500,
+  );
+  assert.deepEqual(deleted, [], 'not deleted while still subscribed');
+
+  stripeFake.state.failCancel = false;
+  assert.equal(
+    (await DELETE(req('/account', undefined, 'DELETE'))).status,
+    204,
+  );
+  assert.deepEqual(stripeFake.state.canceled, ['sub_1']);
+  assert.deepEqual(deleted, ['delete_account']);
+});
+
+test('deleting an account with an ended subscription does not call Stripe', async () => {
+  const { DELETE } = await import('../src/app/api/v1/account/route.ts');
+  await pool.query(
+    `insert into subscriptions (user_id, stripe_customer_id,
+       stripe_subscription_id, status, current_period_end)
+     values ($1, 'cus_1', 'sub_1', 'canceled', now())`,
+    [USER],
+  );
+  const db = makeDb(pool, USER);
+  (globalThis as any).__TEST_DB__ = {
+    ...db,
+    rpc: async () => ({ data: null, error: null }),
+  };
+  assert.equal(
+    (await DELETE(req('/account', undefined, 'DELETE'))).status,
+    204,
+  );
+  assert.deepEqual(stripeFake.state.canceled, []);
+});
+
 // ── export ─────────────────────────────────────────────────────────
 const EXPORT_CLIENT = '33333333-0000-4000-8000-0000000000e1';
 const EXPORT_PROJECT = '33333333-0000-4000-8000-0000000000e2';
@@ -3508,6 +3989,9 @@ test('the invoices export is every invoice, any status, as a CSV attachment', as
     OTHER,
     theirClient,
   );
+  await pool.query(`update clients set name = 'Renamed' where id = $1`, [
+    EXPORT_CLIENT,
+  ]);
 
   const res = await GET(req('/exports/invoices?tz=America/New_York'));
   assert.equal(res.status, 200);
@@ -3527,7 +4011,7 @@ test('the invoices export is every invoice, any status, as a CSV attachment', as
       'INV-0002,Northwind,Paid',
       'INV-0001,Northwind,Void',
     ],
-    'an archived client still exports by name',
+    'an archived or renamed client exports by the name each invoice froze',
   );
   assert.equal(rows[2]!.split(',')[6], '09/20/2026', 'the paid date');
 });
@@ -3591,5 +4075,195 @@ test('the entries export reads past the 1,000-row page', async () => {
     rows[1]!,
     /,0\.02,,,Work,Yes,100\.00,default,2\.00,USD,$/,
     'one minute at the default',
+  );
+});
+
+// ── signing in ─────────────────────────────────────────────────────
+/* Every other test injects `__TEST_DB__`, which short-circuits
+   `requireSession`, so a route that never called it would pass them all.
+   The routes are read from disk, so a new one is covered the day it lands. */
+const UNSIGNED_ROUTES = new Set([
+  'health', // the uptime probe, answered for anyone
+  'billing/webhook', // Stripe's call, proven by its signature instead
+]);
+const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
+
+test('every route answers an unsigned request with 401', async () => {
+  const { readdir } = await import('node:fs/promises');
+  const api = new URL('../src/app/api/v1/', import.meta.url);
+  const routes = (await readdir(api, { recursive: true }))
+    .filter((f) => f.endsWith('route.ts'))
+    .map((f) => f.slice(0, -'/route.ts'.length));
+  (globalThis as any).__TEST_DB__ = null;
+  // A client that is never reached: with no cookie there is no session to read.
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:1';
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'unused';
+
+  const answers: string[] = [];
+  for (const route of routes.filter((r) => !UNSIGNED_ROUTES.has(r))) {
+    const handlers = await import(new URL(`${route}/route.ts`, api).href);
+    for (const method of METHODS.filter((m) => handlers[m])) {
+      const path = route.replaceAll('[id]', USER);
+      const res = await handlers[method](
+        new Request(`http://t/api/v1/${path}`, {
+          method,
+          body: method === 'GET' ? undefined : '{}',
+        }),
+        { params: Promise.resolve({ id: USER }) },
+      );
+      answers.push(`${method} ${path} ${res.status}`);
+    }
+  }
+  assert.ok(answers.length > 40, `found only ${answers.length} handlers`);
+  assert.deepEqual(
+    answers.filter((a) => !a.endsWith(' 401')),
+    [],
+  );
+});
+
+// ── the macOS app's contract ───────────────────────────────────────
+// `API.swift` restates the response shapes by hand. This test keeps each
+// answer the app decodes in `apps/macos/Tests/StintTests/Fixtures`, which
+// `ContractTests.swift` decodes. A changed shape rewrites its fixture and
+// fails, so the change is committed and the Swift side made to decode it.
+
+// A Monday noon, so `/stats`' week and month come out the same every run.
+const NOW = '2026-10-19T12:00:00.000Z';
+const HOUR_AGO = '2026-10-19T11:00:00.000Z';
+const FIXTURES = new URL(
+  '../../macos/Tests/StintTests/Fixtures/',
+  import.meta.url,
+);
+
+const body = async (r: Response) => {
+  assert.ok(r.ok, `${r.status} ${await r.clone().text()}`);
+  return r.json();
+};
+
+/** A fixture not yet written reads as undefined. */
+function readFixture(file: URL): unknown {
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'));
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw e;
+  }
+}
+
+/** Keys and JSON types, not values: ids differ every run. */
+function shape(v: unknown): unknown {
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return v.map(shape);
+  if (typeof v === 'object') {
+    /* A record keyed by id (a week day's `byClient`) has new keys every run;
+       its shape is "id → value", whatever the ids are. */
+    return Object.fromEntries(
+      Object.keys(v as object)
+        .sort()
+        .map((k) => [
+          UUID.test(k) ? '<id>' : k,
+          shape((v as Record<string, unknown>)[k]),
+        ]),
+    );
+  }
+  return typeof v;
+}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+test('every response the macOS app decodes matches its fixture', async (t) => {
+  // Only Date: the pool's own timers must keep running.
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse(NOW) });
+  const route = (path: string) => import(`../src/app/api/v1/${path}/route.ts`);
+  const clients = await route('clients');
+  const projects = await route('projects');
+  const start = await route('timer/start');
+  const current = await route('timer/current');
+  const stop = await route('timer/stop');
+
+  const client = await body(
+    await clients.POST(
+      req('/clients', { name: 'Northwind', color: '#3b82f6' }),
+    ),
+  );
+  const project = await body(
+    await projects.POST(
+      req('/projects', { clientId: client.id, name: 'Site', hourlyRate: 150 }),
+    ),
+  );
+
+  const started = await body(
+    await start.POST(
+      req('/timer/start', {
+        taskName: 'Draft',
+        projectId: project.id,
+        startedAt: HOUR_AGO,
+      }),
+    ),
+  );
+
+  // No route the app calls sets these, and a field null in every fixture
+  // is never type-checked, so they are written directly.
+  const archived = await body(
+    await projects.POST(req('/projects', { clientId: client.id, name: 'Old' })),
+  );
+  await pool.query('update projects set archived_at = $1 where id = $2', [
+    HOUR_AGO,
+    archived.id,
+  ]);
+  const invoice = await pool.query(
+    `insert into invoices (user_id, client_id, invoice_number, sequence_no)
+     values ($1, $2, 'INV-1', 1) returning id`,
+    [USER, client.id],
+  );
+  await pool.query(
+    'update time_entries set rate_override = 200, invoice_id = $1 where id = $2',
+    [invoice.rows[0].id, started.id],
+  );
+
+  // Named as `ContractTests.swift` reads them.
+  const responses: Record<string, unknown> = {
+    'timer-start': started,
+    'timer-current': await body(
+      await current.PATCH(
+        req('/timer/current', { taskName: 'Write copy' }, 'PATCH'),
+      ),
+    ),
+    summary: await body(
+      await (await route('summary')).GET(req('/summary?tz=UTC')),
+    ),
+    stats: await body(await (await route('stats')).GET(req('/stats?tz=UTC'))),
+    clients: await body(
+      await clients.GET(req('/clients?includeArchived=true')),
+    ),
+    // The app asks without archived projects; with them, `archivedAt` is checked.
+    projects: await body(
+      await projects.GET(req('/projects?includeArchived=true')),
+    ),
+    'timer-stop': await body(
+      await stop.POST(req('/timer/stop', { endedAt: NOW })),
+    ),
+    'task-names': await body(
+      await (await route('entries/task-names')).GET(
+        req('/entries/task-names?limit=5'),
+      ),
+    ),
+  };
+
+  const changed = Object.entries(responses).flatMap(([name, response]) => {
+    const file = new URL(`${name}.json`, FIXTURES);
+    const prior = readFixture(file);
+    if (
+      prior !== undefined &&
+      util.isDeepStrictEqual(shape(response), shape(prior))
+    ) {
+      return [];
+    }
+    writeFileSync(file, `${JSON.stringify(response, null, 2)}\n`);
+    return [name];
+  });
+  assert.deepEqual(
+    changed,
+    [],
+    'These responses changed shape and their fixtures were rewritten: commit them and make `swift test` pass.',
   );
 });

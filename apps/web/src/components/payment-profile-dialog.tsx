@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useOptimisticMutation } from '@/lib/client/mutations';
+import { validateRoutingNumber } from '@stint/core';
 import {
   Dialog,
   DialogContent,
@@ -61,10 +62,12 @@ export function PaymentProfileDialog({
 }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [showInternational, setShowInternational] = useState(false);
+  const [badRouting, setBadRouting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setDraft(existing ? { ...existing } : EMPTY);
+    setBadRouting(false);
     // Open the section if the profile already uses any of it.
     setShowInternational(
       Boolean(existing?.iban || existing?.swiftBic || existing?.localCode),
@@ -96,6 +99,11 @@ export function PaymentProfileDialog({
     const body = Object.fromEntries(
       Object.entries(draft).map(([k, v]) => [k, blank(v)]),
     ) as PaymentProfileInput;
+    /* The server refuses it too; checked here so the field itself says why. */
+    if (body.routingNumber && !validateRoutingNumber(body.routingNumber)) {
+      setBadRouting(true);
+      return;
+    }
     save.mutate({ ...body, name: draft.name.trim() });
   };
 
@@ -169,9 +177,23 @@ export function PaymentProfileDialog({
               <Input
                 id="pp-routing"
                 value={draft.routingNumber ?? ''}
-                onChange={(e) => set('routingNumber', e.target.value)}
+                onChange={(e) => {
+                  set('routingNumber', e.target.value);
+                  setBadRouting(false);
+                }}
                 inputMode="numeric"
+                aria-invalid={badRouting}
+                aria-describedby={badRouting ? 'pp-routing-error' : undefined}
               />
+              {badRouting ? (
+                <p
+                  id="pp-routing-error"
+                  role="alert"
+                  className="type-support text-danger"
+                >
+                  Not a valid routing number. Check its 9 digits with your bank.
+                </p>
+              ) : null}
             </Field>
           </div>
 
