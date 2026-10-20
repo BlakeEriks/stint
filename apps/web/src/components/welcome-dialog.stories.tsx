@@ -118,7 +118,8 @@ export const StartTracking: Story = {
     await expect(getDb().clients.map((c) => c.name)).toContain(
       'Northwind Trading',
     );
-    await expect(getDb().settings.welcomedAt).not.toBeNull();
+    // The dialog closes on the prediction; the stamp lands after.
+    await waitFor(() => expect(getDb().settings.welcomedAt).not.toBeNull());
   },
 };
 
