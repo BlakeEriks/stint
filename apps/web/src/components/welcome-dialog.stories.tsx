@@ -90,16 +90,29 @@ export const ClientEmpty: Story = {
   },
 };
 
-/** Step 2 filled: Start tracking saves the client and closes the dialog. */
+/** Step 2 filled: Skip gives way, and Start tracking is ready. */
 export const ClientFilled: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
     const name = await toStep2(canvasElement);
     const page = body(canvasElement);
     await userEvent.type(name, 'Northwind Trading');
+    await userEvent.type(page.getByRole('spinbutton', { name: 'Rate' }), '140');
     await expect(
       page.queryByRole('button', { name: 'Skip this step' }),
     ).toBeNull();
+    await expect(
+      page.getByRole('button', { name: 'Start tracking' }),
+    ).toBeEnabled();
+  },
+};
+
+/** Start tracking saves the client and closes the dialog. */
+export const StartTracking: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    await userEvent.type(await toStep2(canvasElement), 'Northwind Trading');
+    const page = body(canvasElement);
     await userEvent.click(page.getByRole('button', { name: 'Start tracking' }));
     await waitFor(() => expect(page.queryByRole('dialog')).toBeNull());
     await expect(getDb().clients.map((c) => c.name)).toContain(
