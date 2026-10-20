@@ -209,7 +209,8 @@ jobs:
         run: pnpm --filter @stint/web test
 
       # The seeder runs in no other job, so a rename in a migration breaks it
-      # silently and the next developer to run `pnpm seed` finds it. Both
+      # silently and the next developer to run `pnpm seed` finds it. Every
+      # scenario runs too, since a preview asks for them by name. Both
       # halves run: `--clear` is the half that only executes once there is
       # something to remove, and it is the half that deletes, so it is the
       # half worth exercising. The email is a throwaway — the script creates
@@ -234,6 +235,9 @@ jobs:
             -c "insert into auth.users (id, email)
                 values (gen_random_uuid(), 'ci-seed-check@localhost.test')"
           pnpm seed ci-seed-check@localhost.test
+          for name in $(node scripts/seed-account.mjs --scenarios); do
+            pnpm seed ci-seed-check@localhost.test --scenario "$name"
+          done
           pnpm seed ci-seed-check@localhost.test --clear
 
       # A SEPARATE database: the route tests above disable RLS on theirs. Here

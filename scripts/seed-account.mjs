@@ -10,6 +10,7 @@
  *
  *   pnpm seed you@example.com             # reset, then seed
  *   pnpm seed you@example.com --clear     # reset to an empty account
+ *   pnpm seed you@example.com --scenario first-signin   # seed, then a state
  *
  * **The account is created if it does not exist**, so this works before you
  * have ever signed in. Sign in afterwards with a magic link and pick it up
@@ -40,9 +41,41 @@ const LOCAL_PASSWORD = 'devpassword123';
 /** Whether this run had to create the account, for the closing report. */
 let created = false;
 
+/**
+ * States an account can be left in after the full seed, for a screen the
+ * seeded account never shows. A PR asks for one by name in its body
+ * (`Preview accounts: first-signin`), and `preview-db` seeds
+ * `pr-<n>-<name>@preview.test` with it.
+ */
+const SEED_SCENARIOS = {
+  /* A new signup's settings over the seeded data: no default rate, and
+     every other setting at its default but the invoice counter, which the
+     seeded invoices have already used. */
+  'first-signin': async (userId) => {
+    const { rows } = await db.query(
+      'delete from user_settings where user_id = $1 returning next_invoice_number',
+      [userId],
+    );
+    await db.query(
+      'insert into user_settings (user_id, next_invoice_number) values ($1, $2)',
+      [userId, rows[0].next_invoice_number],
+    );
+  },
+};
+
+/* `--scenarios` lists the names, one per line, so CI can run every one. */
+if (process.argv[2] === '--scenarios') {
+  console.log(Object.keys(SEED_SCENARIOS).join('\n'));
+  process.exit(0);
+}
+
 const email = process.argv[2];
-if (!email) {
-  console.error('Usage: node scripts/seed-account.mjs <email> [--clear]');
+const at = process.argv.indexOf('--scenario');
+const scenario = at === -1 ? null : process.argv[at + 1];
+if (!email || (at !== -1 && !Object.hasOwn(SEED_SCENARIOS, scenario ?? ''))) {
+  console.error(
+    `Usage: node scripts/seed-account.mjs <email> [--clear | --scenario <${Object.keys(SEED_SCENARIOS).join(' | ')}>]`,
+  );
   process.exit(1);
 }
 
@@ -219,10 +252,11 @@ const isLocal =
   ['localhost', '127.0.0.1'].includes(target.hostname) &&
   target.port === '54322';
 const isPreview =
-  isPreviewDb(connectionString) && /^pr-\d+@preview\.test$/.test(email);
+  isPreviewDb(connectionString) &&
+  /^pr-\d+(-[a-z][a-z0-9-]{0,39})?@preview\.test$/.test(email);
 if (!isLocal && !isPreview) {
   console.error(
-    `Refusing to seed ${email} at ${target.hostname}:${target.port || '(default)'} — this script writes a known password, so it runs only against localhost:54322, or stint-test for a pr-<n>@preview.test account.`,
+    `Refusing to seed ${email} at ${target.hostname}:${target.port || '(default)'} — this script writes a known password, so it runs only against localhost:54322, or stint-test for a pr-<n>[-<scenario>]@preview.test account.`,
   );
   process.exit(1);
 }
@@ -652,6 +686,8 @@ try {
     [userId, nextNumber + invoiceNo],
   );
 
+  if (scenario) await SEED_SCENARIOS[scenario](userId);
+
   await db.query('commit');
   console.log(`Seeded ${email}${created ? ' (new account)' : ''}:`);
   console.log(
@@ -666,6 +702,7 @@ try {
   console.log('    overdue invoice    yes');
   console.log('    stale draft        yes');
   console.log(`    unprojected work   yes (${unprojected.length} entries)`);
+  if (scenario) console.log(`\n  Then left as: ${scenario}`);
   if (created) {
     console.log(
       `\n  Sign in at /signin and click the link in Mailpit (:54324).`,

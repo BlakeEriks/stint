@@ -7,7 +7,8 @@ import { PREVIEW_PASSWORD, previewAccount, sameOriginURL } from '@/lib/preview';
 
 /**
  * `/preview/signin?pr=24&next=/invoices` — signs in as PR 24's seeded
- * account and lands on `next`. A PR's "Try it" link, so reviewing a preview
+ * account and lands on `next`. `&as=first-signin` picks the PR's account
+ * seeded in that scenario instead. A PR's "Try it" link, so reviewing a preview
  * takes one click rather than a magic link.
  *
  * 404 everywhere but a Vercel preview deployment (`lib/preview.ts`).
@@ -20,6 +21,7 @@ export async function GET(req: Request) {
   const email = previewAccount(
     url.searchParams.get('pr'),
     process.env.VERCEL_ENV,
+    url.searchParams.get('as'),
   );
   if (!email) return new Response('Not found', { status: 404 });
 
