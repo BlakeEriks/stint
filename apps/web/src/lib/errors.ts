@@ -100,17 +100,20 @@ export function handle<T extends unknown[]>(
   };
 }
 
-/* A failed Supabase call rejects with a plain `{ message, code, ... }`.
+/* A route rethrows a Supabase `error`, a plain `{ message, code, ... }`.
    Sentry titles a non-Error by its top frame's function, a minified letter,
-   so it goes up as an Error with the original beside it. */
+   so it goes up as an Error with the original beside it. That Error's stack
+   is this function's whichever route failed, so the message joins the
+   fingerprint: without it every database failure groups as one issue. */
 function report(err: unknown) {
   if (err instanceof Error) {
     captureException(err);
     return;
   }
-  const message = (err as { message?: unknown } | null)?.message;
-  captureException(new Error(String(message ?? err)), {
+  const message = String((err as { message?: unknown } | null)?.message ?? err);
+  captureException(new Error(message), {
     extra: { thrown: err },
+    fingerprint: ['{{ default }}', message],
   });
 }
 

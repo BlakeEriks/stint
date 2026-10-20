@@ -3441,18 +3441,26 @@ test('health answers 503 when the database does not, so the monitor alerts', asy
   assert.deepEqual(res.body, { ok: false });
 });
 
-/** What each event `GET /clients` sends Sentry says it is, against `db`.
-    Sentry titles a `synthetic` exception by its top frame's function, which
-    in a minified bundle is a letter, rather than by its message. */
-async function sentryTitlesFor(db: unknown) {
+/** What each event `GET /clients` sends Sentry says it is, against `db`. */
+async function sentryEventsFor(db: unknown) {
   const Sentry = await import('@sentry/nextjs');
   const { close } = await import('@sentry/core');
-  const sent: { type?: string; value?: string; synthetic: boolean }[] = [];
+  const sent: {
+    type?: string;
+    value?: string;
+    synthetic: boolean;
+    fingerprint?: string[];
+  }[] = [];
   Sentry.init({
     dsn: 'https://key@o0.ingest.sentry.io/0',
     beforeSend(event) {
       const { type, value, mechanism } = event.exception?.values?.[0] ?? {};
-      sent.push({ type, value, synthetic: mechanism?.synthetic ?? false });
+      sent.push({
+        type,
+        value,
+        synthetic: mechanism?.synthetic ?? false,
+        fingerprint: event.fingerprint,
+      });
       return null;
     },
   });
@@ -3465,26 +3473,36 @@ async function sentryTitlesFor(db: unknown) {
 }
 
 test('an unhandled route error reaches Sentry, not only the log', async () => {
-  const sent = await sentryTitlesFor({
+  const sent = await sentryEventsFor({
     from() {
       throw new Error('unexpected');
     },
   });
   assert.deepEqual(sent, [
-    { type: 'Error', value: 'unexpected', synthetic: false },
+    {
+      type: 'Error',
+      value: 'unexpected',
+      synthetic: false,
+      fingerprint: undefined,
+    },
   ]);
 });
 
-test('a database error object reaches Sentry titled by its message', async () => {
+test('a database error object reaches Sentry titled and grouped by its message', async () => {
   const failed = () =>
     Promise.resolve({
       data: null,
       error: { message: 'Project not specified.' },
     });
   const query = { select: () => query, order: () => ({ is: failed }) };
-  const sent = await sentryTitlesFor({ from: () => query });
+  const sent = await sentryEventsFor({ from: () => query });
   assert.deepEqual(sent, [
-    { type: 'Error', value: 'Project not specified.', synthetic: false },
+    {
+      type: 'Error',
+      value: 'Project not specified.',
+      synthetic: false,
+      fingerprint: ['{{ default }}', 'Project not specified.'],
+    },
   ]);
 });
 
