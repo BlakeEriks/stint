@@ -1,4 +1,8 @@
+'use client';
+
 import Link from 'next/link';
+import { useLayoutEffect, useRef } from 'react';
+import { Loader } from './loader';
 import { ApiError } from '@/lib/client/api';
 import { BackLink } from './back-link';
 
@@ -117,7 +121,8 @@ export function Panel({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The message standing in for rows: loading, or nothing to show.
+ * The message standing in for rows: nothing to show, or a failure. Loading is
+ * `Loader`'s.
  *
  * `tight` is the in-page variant — today's entries sit under a heading that
  * already has space above it, where a list filling its own panel does not.
@@ -140,50 +145,132 @@ export function Empty({
   );
 }
 
+/** What `Listing` reads off a query. */
+type Query<T> = { data: T | undefined; error: unknown; isLoading: boolean };
+type DataOf<Q> = Q extends { data: infer D } ? Exclude<D, undefined> : never;
+type Loaded<Q> = Q extends readonly Query<unknown>[]
+  ? { -readonly [K in keyof Q]: DataOf<Q[K]> }
+  : DataOf<Q>;
+
 /**
- * A query's non-answers, then its data. The failure message is neutral, never
- * red: a list that could not load is a condition, and the answer is to try
- * again.
+ * A region's non-answers, then its data. The failure message is neutral,
+ * never red: a list that could not load is a condition, and the answer is to
+ * try again.
+ *
+ * Given several queries, the region renders only once every one of them has
+ * data, and its children get them as a tuple: a region paints once, with all
+ * of it, never with a `?? []` standing in for a query still on its way (#383).
  *
  * `empty` is the message for data that arrived and holds nothing — omit it
  * where the record is a single object, which is never empty, only missing.
+ * With several queries, it reads the first.
  */
-export function Listing<T>({
+export function Listing<
+  const Q extends Query<unknown> | readonly Query<unknown>[],
+>({
   query,
   empty,
   missing,
   tight = false,
   children,
 }: {
-  query: { data: T | undefined; error: unknown; isLoading: boolean };
+  query: Q;
   empty?: React.ReactNode;
   /** What a 404 says, where the screen is about one record. */
   missing?: React.ReactNode;
   tight?: boolean;
-  children: (data: T) => React.ReactNode;
+  children: (data: Loaded<Q>) => React.ReactNode;
 }) {
-  const message = (text: React.ReactNode) => (
-    <Empty tight={tight}>{text}</Empty>
-  );
+  const queries: readonly Query<unknown>[] = Array.isArray(query)
+    ? query
+    : [query as Query<unknown>];
+  const waited = useRef(false);
 
   /* A 401 has already sent the browser to `/signin`. Reporting a failure over
      the top of a navigation in flight tells the user something is broken when
      nothing is. */
-  const leaving = query.error instanceof ApiError && query.error.isUnauthorized;
+  const leaving = queries.some(
+    (q) => q.error instanceof ApiError && q.error.isUnauthorized,
+  );
 
-  if (query.isLoading || leaving) return message('Loading…');
+  if (queries.some((q) => q.isLoading) || leaving) {
+    waited.current = true;
+    return <Loader tight={tight} />;
+  }
   /* Data the user can still read beats an error message in its place: a failed
      REFETCH would otherwise replace a form mid-edit and take the unsent text
      with it. */
-  if (query.data === undefined) {
+  const failed = queries.find((q) => q.data === undefined);
+  if (failed) {
     const gone =
       missing !== undefined &&
-      query.error instanceof ApiError &&
-      query.error.status === 404;
-    return message(gone ? missing : 'Could not load this. Try again.');
+      failed.error instanceof ApiError &&
+      failed.error.status === 404;
+    return (
+      <Empty tight={tight}>
+        {gone ? missing : 'Could not load this. Try again.'}
+      </Empty>
+    );
   }
-  if (empty !== undefined && isEmpty(query.data)) return message(empty);
-  return <>{children(query.data)}</>;
+  if (empty !== undefined && isEmpty(queries[0]!.data)) {
+    return <Empty tight={tight}>{empty}</Empty>;
+  }
+  const data = (
+    Array.isArray(query)
+      ? queries.map((q) => q.data)
+      : (query as Query<unknown>).data
+  ) as Loaded<Q>;
+  return <RiseIn after={waited}>{children(data)}</RiseIn>;
+}
+
+/**
+ * The content rising in once, where it replaces the loader.
+ *
+ * Animated through the elements it rendered rather than a wrapper: a wrapper
+ * would sit between a `fills` screen's column and its `flex-1` child and break
+ * the height chain. A sentinel marks where the content starts.
+ */
+function RiseIn({
+  after,
+  children,
+}: {
+  after: React.RefObject<boolean>;
+  children: React.ReactNode;
+}) {
+  const mark = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    if (!after.current) return;
+    after.current = false;
+    const root = getComputedStyle(document.documentElement);
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const rise = root.getPropertyValue('--motion-rise').trim() || '3px';
+    for (
+      let el = mark.current?.nextElementSibling;
+      el;
+      el = el.nextElementSibling
+    ) {
+      el.animate?.(
+        still
+          ? [{ opacity: 0 }, { opacity: 1 }]
+          : [
+              { opacity: 0, transform: `translateY(${rise})` },
+              { opacity: 1, transform: 'none' },
+            ],
+        {
+          duration:
+            Number.parseFloat(root.getPropertyValue('--motion-quick')) || 160,
+          easing:
+            root.getPropertyValue('--ease-decelerate').trim() || 'ease-out',
+        },
+      );
+    }
+  }, [after]);
+  return (
+    <>
+      <span ref={mark} hidden />
+      {children}
+    </>
+  );
 }
 
 /** An empty array is the only "nothing" a `Listing` decides on its own. */

@@ -89,7 +89,30 @@
       padding-block var(--motion-quick) var(--ease-accelerate),
       margin-block var(--motion-quick) var(--ease-accelerate);
   }
+  /* ── A region on its way (`Loader`) ──
+     Blank until 600ms, then in over `motion-count`, then breathing on a slow
+     cycle once fully in. The delay is the threshold: a load that finishes
+     sooner unmounts this before anything shows. */
+  .loader {
+    animation:
+      loader-in var(--motion-count) var(--ease-standard) 600ms both,
+      loader-breathe 2.4s ease-in-out 1500ms infinite;
+  }
+  @keyframes loader-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes loader-breathe {
+    50% {
+      opacity: 0.4;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
+    .loader {
+      animation: loader-in var(--motion-count) linear 600ms both;
+    }
     .exit-collapse {
       transition: none;
     }

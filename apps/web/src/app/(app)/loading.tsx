@@ -1,4 +1,5 @@
-import { Empty, Page } from '@/components/page';
+import { Loader } from '@/components/loader';
+import { Page } from '@/components/page';
 
 /**
  * What a section shows the moment its tab is pressed (Constitution VI),
@@ -7,7 +8,7 @@ import { Empty, Page } from '@/components/page';
 export default function Loading() {
   return (
     <Page>
-      <Empty>Loading…</Empty>
+      <Loader />
     </Page>
   );
 }
