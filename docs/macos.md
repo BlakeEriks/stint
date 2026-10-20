@@ -150,6 +150,11 @@ opened after a night shut would otherwise come back signed out.
   from `user_settings` would make the bar flicker at launch. Launch-at-login
   is read back from `SMAppService`, which owns that state; keeping a second
   copy is how the two disagree.
+- **`snapshot.json` in `Caches/Stint/<host>/` is the last answer**, so a
+  relaunch paints projects, clients, figures and recent tasks at once. Never
+  the timer: the server owns it, and the panel shows "Loading" until it
+  answers. A snapshot from another app version is discarded, and every
+  sign-out deletes it, a 401 included.
 
 **The API models are hand-written and checked against fixtures.** The
 route suite saves each response the app reads in

@@ -138,8 +138,11 @@ month, never `resolve_entry_rate` per client.
 
 **`week` is seven days, oldest first, from the user's own `weekStartsOn`** —
 always seven, so a day with no work is a zero column rather than an absent
-one. Each carries `seconds` and `amount`, and **the two do not share a
-filter**: `seconds` counts all billable worked time including work whose rate
+one. Each carries `seconds`, `amount` and `byClient`. `byClient` splits the
+day's billable seconds by client id, with `''` for work with no client; each
+session counts whole on the day it started, and a running one to `now`, so
+the parts add up to `seconds` (within a second while a timer runs). `seconds`
+and `amount` **do not share a filter**: `seconds` counts all billable worked time including work whose rate
 chain resolves to null, because that time was worked and it sets the bar's
 height; `amount` excludes it and is **null** on a day that resolves no rate,
 so the bar prints no figure rather than `$0`. A rate of exactly `0` is a real
