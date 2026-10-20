@@ -32,7 +32,7 @@ and invoice creation refuses on the server while either is empty.
 
 **Constraints**: No new fixed cost; no Server Actions; nothing saved on the user's behalf
 
-**Scale/Scope**: One migration, three routes touched, three new components, four components touched
+**Scale/Scope**: One migration, two routes touched, three new components, five components touched
 
 ## Constitution Check
 
@@ -87,6 +87,7 @@ apps/web/src/components/
 ├── home.tsx                   # mounts WelcomeDialog while welcomedAt is null
 ├── business-dialog.tsx        # NEW: name, email, address; Save patches settings
 ├── invoice-new.tsx            # notice, Add details, Generate disabled
+├── invoice-preview-card.tsx   # dashed placeholder for the missing "from" block
 ├── invoice-new.stories.tsx    # details missing, dialog open
 └── settings-form.tsx          # rate placeholder 100.00
 apps/web/test/routes.test.ts
