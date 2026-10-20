@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery } from '@tanstack/react-query';
 import { ArchiveRestore, ChevronRight, Pencil, Plus } from 'lucide-react';
-import { formatCurrency, resolveRate, resolveRateSource } from '@stint/core';
+import { formatCurrency } from '@stint/core';
 import { Button } from '@/components/ui/button';
 import { api, type Client, type Expense, type Project } from '@/lib/client/api';
 import {
@@ -19,6 +19,7 @@ import { ClientExpenses } from './client-expenses';
 import { ExpenseDialog } from './expense-dialog';
 import { keys } from '@/lib/client/query-keys';
 import { rowBleed, rowButton } from './row-button';
+import { ProjectRate } from './project-rate';
 import { useRestoreClient } from '@/lib/client/use-archive-client';
 import { useRestoreProject } from '@/lib/client/use-restore-project';
 
@@ -186,8 +187,24 @@ export function ClientList() {
   );
 }
 
-const rateLabel = (rate: number, client: Client | null) =>
-  `${formatCurrency(rate, client?.currency ?? undefined)}/h`;
+const rateLabel = (rate: number, client: Client) =>
+  `${formatCurrency(rate, client.currency ?? undefined)}/h`;
+
+/** A card's second line: the rate the client bills at, then its email. */
+function clientSummary(client: Client | null, defaultRate: number | null) {
+  if (!client) return 'Not assigned to a client';
+  return [clientRate(client, defaultRate), client.email]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+function clientRate(client: Client, defaultRate: number | null) {
+  /* An archived client bills nothing new, so no rate. */
+  if (client.archivedAt != null) return null;
+  if (client.hourlyRate != null) return rateLabel(client.hourlyRate, client);
+  if (defaultRate != null) return `${rateLabel(defaultRate, client)} · default`;
+  return 'No rate';
+}
 
 /**
  * One client and its projects. The spine down the left edge is the client's
@@ -249,21 +266,7 @@ function Card({
             ) : null}
           </div>
           <p className="truncate type-support text-subtle">
-            {client
-              ? [
-                  /* An archived client bills nothing new, so no rate. */
-                  archived
-                    ? null
-                    : client.hourlyRate != null
-                      ? rateLabel(client.hourlyRate, client)
-                      : defaultRate != null
-                        ? `${rateLabel(defaultRate, client)} · default`
-                        : 'No rate',
-                  client.email,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')
-              : 'Not assigned to a client'}
+            {clientSummary(client, defaultRate)}
           </p>
         </div>
         {client && archived ? (
@@ -300,52 +303,59 @@ function Card({
           </p>
         )}
         {expenses}
-        {/* Side by side at the card's foot. Each names where it lands; its
-            dialog opens with this client chosen. */}
-        <div className="-mx-2 mt-1 flex flex-wrap gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onAdd}
-            aria-label={
-              client ? `Project for ${client.name}` : 'Project with no client'
-            }
-            className="text-muted"
-          >
-            <Plus aria-hidden strokeWidth={2.25} />
-            Project
-          </Button>
-          {client ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onAddExpense}
-              aria-label={`Expense for ${client.name}`}
-              className="text-muted"
-            >
-              <Plus aria-hidden strokeWidth={2.25} />
-              Expense
-            </Button>
-          ) : null}
-        </div>
+        <CardActions
+          client={client}
+          onAdd={onAdd}
+          onAddExpense={onAddExpense}
+        />
       </div>
     </section>
   );
 }
 
-const SOURCE = {
-  entry: 'own rate',
-  project: 'own rate',
-  client: 'from client',
-  default: 'from default',
-  none: '',
-} as const;
+/** Side by side at the card's foot. Each names where it lands; its dialog
+    opens with this client chosen. */
+function CardActions({
+  client,
+  onAdd,
+  onAddExpense,
+}: {
+  client: Client | null;
+  onAdd: () => void;
+  onAddExpense: () => void;
+}) {
+  return (
+    <div className="-mx-2 mt-1 flex flex-wrap gap-1">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onAdd}
+        aria-label={
+          client ? `Project for ${client.name}` : 'Project with no client'
+        }
+        className="text-muted"
+      >
+        <Plus aria-hidden strokeWidth={2.25} />
+        Project
+      </Button>
+      {client ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onAddExpense}
+          aria-label={`Expense for ${client.name}`}
+          className="text-muted"
+        >
+          <Plus aria-hidden strokeWidth={2.25} />
+          Expense
+        </Button>
+      ) : null}
+    </div>
+  );
+}
 
-/**
- * A project: its name, and the rate it bills at with where that rate comes
- * from, so it's plain whether changing the client's rate would move it.
- * `resolveRate` is the function that bills (`@stint/core`).
- */
+/** A project: its name, and the rate it bills at with where that rate comes
+    from (`ProjectRate`). */
 function Row({
   project,
   client,
@@ -359,12 +369,6 @@ function Row({
   onEdit: () => void;
   onRestore: () => void;
 }) {
-  const ctx = {
-    projectRate: project.hourlyRate,
-    clientRate: client?.hourlyRate ?? null,
-    userDefaultRate: defaultRate,
-  };
-  const rate = resolveRate(ctx);
   const archived = project.archivedAt != null;
   /* Under an archived client a project bills nothing new either. */
   const recedes = archived || client?.archivedAt != null;
@@ -393,23 +397,12 @@ function Row({
           ) : null}
         </span>
         <span className="flex-none text-right">
-          {recedes ? null : !project.isBillableDefault ? (
-            <span className="type-support text-subtle">Non-billable</span>
-          ) : rate == null ? (
-            /* Not cosmetic: invoicing refuses unrated entries, so this is
-               found here rather than at billing. */
-            <span className="type-support text-danger">No rate</span>
-          ) : (
-            <>
-              <span
-                className={`block type-duration ${project.hourlyRate != null ? 'text-primary' : 'text-muted'}`}
-              >
-                {rateLabel(rate, client)}
-              </span>
-              <span className="block type-meta text-subtle max-sm:hidden">
-                {SOURCE[resolveRateSource(ctx)]}
-              </span>
-            </>
+          {recedes ? null : (
+            <ProjectRate
+              project={project}
+              client={client}
+              userDefaultRate={defaultRate}
+            />
           )}
         </span>
         <Pencil

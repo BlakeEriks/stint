@@ -1,16 +1,22 @@
 'use client';
 
-import { resolveRate } from '@stint/core';
+import { formatCurrency, resolveRate, resolveRateSource } from '@stint/core';
 import type { Client, Project } from '@/lib/client/api';
-import { formatCurrency } from '@stint/core';
+
+const SOURCE = {
+  entry: 'own rate',
+  project: 'own rate',
+  client: 'from client',
+  default: 'from default',
+  none: '',
+} as const;
 
 /**
- * The resolved rate a project bills at — the figure alone, not its source.
+ * The rate a project bills at, with where that rate comes from, so it's
+ * plain whether changing the client's rate would move it.
  *
  * Most projects store no rate of their own, so printing `project.rate` would
- * show nothing for the common case, the opposite of the truth. Resolution is
- * otherwise invisible until an invoice preview, which is late.
- *
+ * show nothing for the common case, the opposite of the truth.
  * `resolveRate` comes from `@stint/core` — the same function that bills, kept
  * in step with SQL's `resolve_entry_rate()` by `apps/web/test/rates.test.ts`.
  *
@@ -29,9 +35,7 @@ export function ProjectRate({
   userDefaultRate: number | null;
 }) {
   if (!project.isBillableDefault) {
-    return (
-      <p className="mt-0.5 type-support text-subtle">Non-billable by default</p>
-    );
+    return <span className="type-support text-subtle">Non-billable</span>;
   }
 
   const ctx = {
@@ -41,20 +45,22 @@ export function ProjectRate({
   };
   const rate = resolveRate(ctx);
 
-  /* No rate anywhere is not cosmetic: invoicing REFUSES to generate from
-     unrated entries, so without this the failure is discovered at the moment
-     of billing. The danger channel is right — it is a blocked invoice. */
+  /* Not cosmetic: invoicing refuses unrated entries, so this is found here
+     rather than at billing. */
   if (rate == null) {
-    return (
-      <p className="mt-0.5 type-support text-danger">
-        No rate — invoicing will refuse this work
-      </p>
-    );
+    return <span className="type-support text-danger">No rate</span>;
   }
 
   return (
-    <p className="mt-0.5 type-amount text-primary">
-      {formatCurrency(rate, client?.currency ?? undefined)}/h
-    </p>
+    <>
+      <span
+        className={`block type-duration ${project.hourlyRate != null ? 'text-primary' : 'text-muted'}`}
+      >
+        {formatCurrency(rate, client?.currency ?? undefined)}/h
+      </span>
+      <span className="block type-meta text-subtle max-sm:hidden">
+        {SOURCE[resolveRateSource(ctx)]}
+      </span>
+    </>
   );
 }
