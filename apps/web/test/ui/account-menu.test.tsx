@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -6,11 +6,10 @@ import type { ReactNode } from 'react';
 import { AccountMenu } from '@/components/account-menu';
 import { MutationNotice } from '@/components/mutation-notice';
 
-const router = { replace: vi.fn(), refresh: vi.fn(), push: vi.fn() };
-vi.mock('next/navigation', () => ({
-  useRouter: () => router,
-  usePathname: () => '/',
-}));
+const replace = vi.fn();
+beforeEach(() => {
+  vi.stubGlobal('location', { ...window.location, replace });
+});
 
 const auth = {
   getClaims: vi.fn(async () => ({
@@ -33,6 +32,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('AccountMenu', () => {
@@ -45,12 +45,8 @@ describe('AccountMenu', () => {
       await screen.findByRole('menuitem', { name: /sign out/i }),
     );
 
-    /* Clearing the session is the point; `refresh` matters as much as the
-       redirect, because the server components were rendered for a signed-in
-       user and a Back navigation would otherwise show cached markup. */
-    await waitFor(() => expect(auth.signOut).toHaveBeenCalled());
-    expect(router.replace).toHaveBeenCalledWith('/signin');
-    expect(router.refresh).toHaveBeenCalled();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/signin'));
+    expect(auth.signOut).toHaveBeenCalled();
   });
 
   it('still works when the token carries no email', async () => {
@@ -84,7 +80,6 @@ describe('AccountMenu', () => {
     expect(
       await screen.findByText('Couldn’t sign out: Network request failed'),
     ).toBeInTheDocument();
-    expect(router.replace).not.toHaveBeenCalled();
-    expect(router.refresh).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 });

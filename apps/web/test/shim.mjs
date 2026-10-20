@@ -9,10 +9,13 @@
 // test can pass or fail for a reason the app would never see.
 import pg from 'pg';
 
-// 1082 date, 1114 timestamp, 1184 timestamptz.
+// 1082 date, 1114 timestamp, 1184 timestamptz. A `timestamptz` arrives as
+// `2026-10-19 11:00:00.5+00`; PostgREST sends `2026-10-19T11:00:00.5+00:00`.
 pg.types.setTypeParser(1082, (v) => v);
 pg.types.setTypeParser(1114, (v) => v);
-pg.types.setTypeParser(1184, (v) => v);
+pg.types.setTypeParser(1184, (v) =>
+  v.replace(' ', 'T').replace(/([+-]\d\d)$/, '$1:00'),
+);
 
 // Tables with no user_id column: access is inherited from the parent row
 // via RLS, so the shim must not add a user scope to them.
@@ -61,11 +64,11 @@ export function makeDb(pool, userId) {
         return api;
       },
       upsert(obj, opts = {}) {
-        if (!opts.ignoreDuplicates)
-          throw new Error('shim: upsert supports ignoreDuplicates only');
         st.op = 'insert';
         st.payload = obj;
         st.onConflict = opts.onConflict ?? 'id';
+        // supabase-js merges unless told to ignore duplicates.
+        st.merge = !opts.ignoreDuplicates;
         return api;
       },
       update(obj) {
@@ -166,9 +169,11 @@ export function makeDb(pool, userId) {
           const tuples = rows
             .map((r) => `(${keys.map((k) => P(r[k])).join(',')})`)
             .join(',');
-          const conflict = st.onConflict
-            ? ` on conflict (${st.onConflict}) do nothing`
-            : '';
+          const conflict = !st.onConflict
+            ? ''
+            : st.merge
+              ? ` on conflict (${st.onConflict}) do update set ${keys.map((k) => `${k} = excluded.${k}`).join(', ')}`
+              : ` on conflict (${st.onConflict}) do nothing`;
           sql = `insert into ${st.table} (${keys.join(',')}) values ${tuples}${conflict} returning ${st.cols}`;
         } else if (st.op === 'update') {
           // SET placeholders must be numbered before the WHERE ones.

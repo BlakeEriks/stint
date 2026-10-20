@@ -28,8 +28,8 @@ Shared plumbing in `apps/web/src/lib/`:
   request 401s. The route tests inject `__TEST_DB__` and never exercise this
   path, so only a real token against a real server catches it.
 - `errors.ts` — `handle()` wraps every route; `ApiError` maps to documented
-  status codes. Contains a compile-time guard asserting the local `Code` union
-  matches `ErrorCode` in `@stint/schema`.
+  status codes. `Code` is `z.infer<typeof ErrorCode>` from `@stint/schema`, so
+  `STATUS: Record<Code, number>` fails to compile when a code is missing.
 - `rows.ts` — the only snake_case↔camelCase boundary, invoices and line
   items included. Rename a column here and nowhere else.
 

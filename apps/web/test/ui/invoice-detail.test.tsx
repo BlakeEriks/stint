@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { InvoiceDetail } from '@/components/invoice-detail';
-import type { Client, Invoice, InvoiceStatus } from '@/lib/client/api';
+import type { Invoice, InvoiceStatus } from '@/lib/client/api';
 import { keys } from '@/lib/client/query-keys';
 import { localDateKey, localDateTimeToInstant } from '@stint/core';
 
@@ -39,6 +39,13 @@ function invoice(status: InvoiceStatus, sentAt: string | null = null): Invoice {
     reference: null,
     supportingDetail: null,
     paymentDetails: null,
+    business: {
+      name: 'Blake Eriks',
+      address: null,
+      email: null,
+      logoUrl: null,
+    },
+    billTo: { name: 'Acme Corp', email: null, address: null },
     sentAt,
     paidAt: null,
     createdAt: '2026-09-01T00:00:00Z',
@@ -68,8 +75,8 @@ function serve(
           /* FLAT, matching the route: a stub is only as good as its
              fidelity to the endpoint. */
           ...invoice(status, sentAt),
+          canDownload: true,
           ...extra,
-          client: { id: 'c1', name: 'Acme Corp' },
           lineItems: [
             {
               description: 'Design review',
@@ -110,9 +117,6 @@ describe('InvoiceDetail', () => {
       defaultOptions: { queries: { retry: false, gcTime: Infinity } },
     });
     qc.setQueryData(keys.invoices(), { invoices: [invoice('sent')] });
-    qc.setQueryData(keys.clients({ archived: true }), {
-      clients: [{ id: 'c1', name: 'Acme Corp' } as Client],
-    });
     render(
       <QueryClientProvider client={qc}>
         <InvoiceDetail id="inv-1" />

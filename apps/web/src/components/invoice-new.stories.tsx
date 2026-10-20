@@ -63,6 +63,16 @@ const summaryFor = async (canvasElement: HTMLElement, text: string) => {
   return page;
 };
 
+const chooseMeridian = async (canvasElement: HTMLElement) => {
+  const page = within(canvasElement.ownerDocument.body);
+  await userEvent.click(await page.findByRole('button', { name: 'Client' }));
+  await userEvent.click(
+    await page.findByRole('menuitemradio', { name: /Meridian/ }),
+  );
+  await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
+  return page;
+};
+
 const card = (page: Page) =>
   within(page.getByRole('region', { name: 'Preview' }));
 
@@ -87,7 +97,8 @@ export const Defaults: Story = {
 };
 
 /** A client chosen: the card is the invoice as the PDF prints it, and
-    follows the form without a Preview button (US3 scenario 1). */
+    follows the form without a Preview button (US3 scenario 1). Northwind
+    has an address and email, so the Client field offers no Edit client. */
 export const ClientChosen: Story = {
   ...desktop,
   parameters: menuOpen,
@@ -96,6 +107,9 @@ export const ClientChosen: Story = {
     await settled(page);
     await expect(card(page).getByText('Service period')).toBeVisible();
     await expect(page.queryByRole('button', { name: 'Preview' })).toBeNull();
+    await expect(
+      page.queryByRole('button', { name: 'Edit client' }),
+    ).toBeNull();
   },
 };
 export const ClientChosenPhone: Story = { ...ClientChosen, ...phone };
@@ -392,6 +406,38 @@ export const NoAttachWithoutSummary: Story = {
   },
 };
 
+/** The client's last invoice was a summary, so this one opens as one,
+    with its text and its ticks, still editable. */
+export const FromLastInvoice: Story = {
+  ...desktop,
+  parameters: {
+    ...menuOpen,
+    ...account((db) => {
+      const last = db.invoices
+        .filter((i) => i.clientId === ids.northwind && i.status !== 'void')
+        .sort(
+          (a, b) => b.sequenceNo - a.sequenceNo,
+        )[0] as Db['invoices'][number];
+      last.groupingMode = 'summary';
+      last.summaryText = 'Software consulting services';
+      last.supportingDetail = { week: [], totalHours: 0 };
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = await chooseNorthwind(canvasElement);
+    await expect(await page.findByLabelText(/Summary line/)).toHaveValue(
+      'Software consulting services',
+    );
+    await expect(
+      page.getByRole('checkbox', { name: 'Hours by week' }),
+    ).toBeChecked();
+    await expect(
+      page.getByRole('checkbox', { name: 'Hours by project' }),
+    ).not.toBeChecked();
+    await settled(page);
+  },
+};
+
 // ── expenses ───────────────────────────────────────────────────────
 
 /** Waiting expenses land in the card under their own heading, with a date
@@ -511,6 +557,52 @@ export const EditingExpense: Story = {
   },
 };
 export const EditingExpensePhone: Story = { ...EditingExpense, ...phone };
+
+/** A client with no address or email: the Client field says so and offers
+    Edit client; the card stays the invoice as printed. */
+export const ClientMissingDetails: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseMeridian(canvasElement);
+    await expect(await page.findByText(/No address or email/)).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Edit client' }),
+    ).toBeVisible();
+    await expect(
+      card(page).queryByRole('button', { name: 'Edit client' }),
+    ).toBeNull();
+  },
+};
+export const ClientMissingDetailsPhone: Story = {
+  ...ClientMissingDetails,
+  ...phone,
+};
+
+/** Saving the client updates Bill to in place; the draft is kept. Archive
+    is left out here. */
+export const EditingClient: Story = {
+  ...desktop,
+  parameters: menuOpen,
+  play: async ({ canvasElement }) => {
+    const page = await chooseMeridian(canvasElement);
+    await userEvent.type(page.getByLabelText(/Reference/), 'PO-7');
+    await userEvent.click(
+      await page.findByRole('button', { name: 'Edit client' }),
+    );
+    const dialog = within(
+      await page.findByRole('dialog', { name: 'Edit client' }),
+    );
+    await expect(dialog.queryByRole('button', { name: 'Archive' })).toBeNull();
+    await userEvent.type(dialog.getByLabelText(/Email/), 'ap@meridian.test');
+    await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }));
+    await expect(
+      await card(page).findByText(/ap@meridian\.test/),
+    ).toBeVisible();
+    await expect(page.getByText(/^No address ·/)).toBeVisible();
+    await expect(page.getByLabelText(/Reference/)).toHaveValue('PO-7');
+  },
+};
 
 /** "+ Add a charge" asks for a description and an amount; Save waits for
     both (US5 scenario 3). */

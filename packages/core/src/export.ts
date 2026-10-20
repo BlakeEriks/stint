@@ -78,7 +78,6 @@ export interface ExportClient {
 
 export interface ExportInvoice {
   id: string;
-  clientId: string;
   invoiceNumber: string;
   sequenceNo: number;
   status: 'draft' | 'sent' | 'paid' | 'void';
@@ -94,6 +93,7 @@ export interface ExportInvoice {
   currency: string;
   sentAt: string | null;
   paidAt: string | null;
+  billTo: { name: string };
 }
 
 const ENTRY_HEADER = [
@@ -194,16 +194,13 @@ const STATUS = { draft: 'Draft', sent: 'Sent', paid: 'Paid', void: 'Void' };
 
 /**
  * One row per invoice, every status, newest issue date first: a void row
- * explains a gap in the numbering. The totals are the invoice's frozen ones.
+ * explains a gap in the numbering. The client name and totals are the
+ * invoice's frozen ones.
  */
 export function invoicesCsv(
-  data: {
-    invoices: ExportInvoice[];
-    clients: Pick<ExportClient, 'id' | 'name'>[];
-  },
+  data: { invoices: ExportInvoice[] },
   tz: string,
 ): string {
-  const clients = new Map(data.clients.map((c) => [c.id, c.name]));
   const rows = [...data.invoices]
     .sort(
       (a, b) =>
@@ -211,7 +208,7 @@ export function invoicesCsv(
     )
     .map((i) => [
       i.invoiceNumber,
-      clients.get(i.clientId) ?? null,
+      i.billTo.name,
       STATUS[i.status],
       usDate(i.issueDate),
       usDate(i.dueDate),

@@ -162,17 +162,8 @@ for (const { group, script, args, live: readLive, line: pattern } of RAMPS) {
  * fails SILENTLY: a stale hex renders perfectly and merely misrepresents the
  * app.
  *
- * Docs link `_mockup.css`, which `pnpm tokens` generates. The one
- * legitimate exception is a surface that genuinely is not app chrome — the
- * invoice PDF is on white paper, and the print palette is not in our tokens.
- * Such a block opens with `not-app-chrome:` naming why, and everything up to
- * the blank line after it is exempt.
- *
- * A marker rather than a lookback window: the invoice block is 45 lines long,
- * so any window wide enough to cover it would also exempt whatever happened
- * to sit above the next one. */
+ * Docs link `_mockup.css`, which `pnpm tokens` generates. */
 const DOC_DIR = join(root, '../../docs/design');
-const MARKER = /not-app-chrome:/i;
 
 console.log('  design docs use generated tokens\n');
 
@@ -191,16 +182,9 @@ for (const rel of docs) {
   const lines = styles
     .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
     .split('\n');
-  const raw = styles.split('\n');
   const bad = [];
-  /* The marker opens an exempt region; a blank line closes it, so an
-     exception cannot silently annex the rest of the stylesheet. */
-  let exempt = false;
 
   lines.forEach((line, i) => {
-    if (MARKER.test(raw[i])) exempt = true;
-    else if (exempt && raw[i].trim() === '') exempt = false;
-    if (exempt) return;
     if (!/#[0-9A-Fa-f]{3,8}\b/.test(line)) return;
     bad.push(`    ${rel}:${i + 1}  ${line.trim().slice(0, 70)}`);
   });

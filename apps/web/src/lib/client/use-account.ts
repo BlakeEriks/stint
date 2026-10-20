@@ -1,14 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useOptimisticMutation } from './mutations';
 import { keys } from './query-keys';
 import { browserClient } from './supabase';
 
 /** Who is signed in, and how to leave. */
 export function useAccount() {
-  const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,13 +30,11 @@ export function useAccount() {
       if (error) throw new Error(`Couldn’t sign out: ${error.message}`);
     },
     queryKey: keys.session,
-    /* `refresh()` as well as `replace()`: the cookie is gone but the server
-       components were rendered for a signed-in user, and without the refresh
-       a back-navigation would show a cached authenticated page. */
-    onSuccess: () => {
-      router.replace('/signin');
-      router.refresh();
-    },
+    /* A full load, not the router: the server components were rendered for
+       a signed-in user, and a soft navigation leaves them cached for Back.
+       A soft one also commits late, so the 401s of queries still on screen
+       would send a second, hard navigation after it. */
+    onSuccess: () => window.location.replace('/signin'),
   });
 
   return {

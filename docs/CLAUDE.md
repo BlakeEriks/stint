@@ -14,9 +14,7 @@ design system because Storybook cannot render SwiftUI. Open it from disk.
 
 **Its color comes from `design/_mockup.css`**, which `pnpm tokens` generates.
 `tokens:validate` rejects a hex literal in any doc's stylesheet, because a
-stale one renders perfectly and quietly misrepresents the app. A surface that
-genuinely is not app chrome — the invoice PDF on white paper — opens its block
-with `not-app-chrome:` and a reason.
+stale one renders perfectly and quietly misrepresents the app.
 
 **Anything architectural or procedural is Markdown.**
 

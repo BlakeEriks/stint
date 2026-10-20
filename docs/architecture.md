@@ -77,9 +77,9 @@ route handlers verify it identically.
 
 Local tick, reconcile on an interval and on wake/focus.
 
-The menu bar counts seconds locally from the known `startedAt` — always smooth,
-zero network cost — and reconciles with `GET /api/v1/summary` roughly every
-60s. `serverTime` in the response lets clients correct for clock skew.
+The panel's readout counts seconds locally from the known `startedAt`, and the
+menu bar shows whole minutes from the same tick, at no network cost. The app
+reconciles with `GET /api/v1/summary` roughly every 60s. `serverTime` in the response lets clients correct for clock skew.
 
 Supabase Realtime can drop in later for instant cross-device updates without
 any API change.
@@ -91,6 +91,9 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
 - Invoice PDFs: `@react-pdf/renderer` — ~2MB, sub-500ms, no Chromium cold
   start. Puppeteer is only warranted if pixel-exact HTML fidelity is ever
   needed.
+- Billing: Stripe's hosted Checkout and Customer Portal, per transaction
+  with no fixed fee. Stripe sends the receipts and dunning mail; the webhook
+  mirrors each subscription into `subscriptions` (`docs/api.md` §Billing).
 - **Invite requests go to Formspree**, on its free plan: the landing page's
   form posts the visitor's email there, and Blake invites from its list.
   No table and no route, since an unauthenticated write to our database
@@ -104,7 +107,7 @@ Vercel (Next.js + route handlers) and Supabase (Postgres, Auth, Storage).
 packages/schema         Zod schemas — the API contract
 packages/core           duration, rates, timer, uuid, calendar, grid
                         (drag-to-edit geometry), invoice (line items),
-                        payment (details)
+                        payment (details), billing (paid or free)
 packages/design-tokens  tokens.json -> CSS + TS + Swift (generated into dist/)
 apps/web                Next.js — API routes and the web UI
 supabase/migrations     Schema, triggers, RLS

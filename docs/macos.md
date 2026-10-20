@@ -114,10 +114,8 @@ unmarshal string into Go struct field OtpParams.create_user of type bool".
 
 `supabase-swift` is not a dependency; two POSTs do not need an SDK.
 
-**Against a hosted project the email has no code in it** — the template is a
-local file path and editing the hosted one needs custom SMTP, so GoTrue sends
-its default. `apps/macos/signin.sh` signs the prod app, Stint.app, in from the link instead, verifying the
-token it carries: the same OTP the digits encode. `docs/setup.md` §4a.
+The hosted project's copy of that template is pasted into the dashboard,
+which needs custom SMTP. `docs/setup.md` §4a.
 
 **The session lives in the Keychain**, not `UserDefaults` — a refresh token is
 a long-lived credential and a plist in the container is readable by anything
@@ -153,7 +151,9 @@ opened after a night shut would otherwise come back signed out.
   is read back from `SMAppService`, which owns that state; keeping a second
   copy is how the two disagree.
 
-**The API models are hand-written and nothing type-checks them against
-`packages/schema`**, so a renamed field fails at runtime in Swift and nowhere
-else. A change to a response the app reads updates its Swift model in the
-same PR.
+**The API models are hand-written and checked against fixtures.** The
+route suite saves each response the app reads in
+`apps/macos/Tests/StintTests/Fixtures`, and `swift test` decodes each one.
+A change to one of those responses fails `pnpm verify:db` once and rewrites
+its fixture: commit the fixture, then update the Swift model until
+`swift test` passes.

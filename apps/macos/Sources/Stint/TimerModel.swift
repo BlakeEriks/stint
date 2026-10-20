@@ -77,12 +77,11 @@ final class TimerModel: Optimistic {
     }
 
     /// Text only. Whether a timer is running is the pip's to say, in both
-    /// modes, which is why running-ness is not folded in here.
+    /// modes, which is why running-ness is not folded in here. Whole
+    /// minutes, so the bar changes once a minute rather than every second.
     var menuBarTitle: String {
-        switch Prefs.shared.barReadout {
-        case .runningTimer: isRunning ? format(elapsedSeconds) : compact(todaySeconds)
-        case .todaysTotal: compact(todaySeconds)
-        }
+        let seconds = Prefs.shared.barReadout == .runningTimer && isRunning ? elapsedSeconds : todaySeconds
+        return seconds < 60 ? "0m" : compact(seconds)
     }
 
     /// The running entry's project, or the draft's. Setting it reassigns the

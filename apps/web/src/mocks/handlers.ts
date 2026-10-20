@@ -1,5 +1,6 @@
 import {
   buildPreview,
+  documentOpens,
   entriesCsv,
   invoicesCsv,
   measured,
@@ -23,6 +24,7 @@ import type {
 } from '@/lib/client/api';
 import { csvResponse } from '@/lib/exports';
 import { getDb } from './db';
+import { parties } from './fixtures';
 import {
   calendar,
   expenseView,
@@ -362,11 +364,6 @@ export const handlers = {
       : ok(envelopes.clients, { clients });
   }),
 
-  client: http.get(`${API}/clients/:id`, ({ params }) => {
-    const client = byId(getDb().clients, params.id);
-    return client ? ok(schema.Client, client) : fail('ENTRY_NOT_FOUND');
-  }),
-
   createClient: http.post(`${API}/clients`, async ({ request }) => {
     const db = getDb();
     const client: Client = {
@@ -409,9 +406,11 @@ export const handlers = {
     return noContent();
   }),
 
-  invoices: http.get(`${API}/invoices`, () => {
+  invoices: http.get(`${API}/invoices`, ({ request }) => {
+    const clientId = query(request).get('clientId');
     const invoices = getDb()
-      .invoices.map(({ lineItems: _, ...invoice }) => invoice)
+      .invoices.filter((i) => !clientId || i.clientId === clientId)
+      .map(({ lineItems: _, ...invoice }) => invoice)
       .sort((a, b) => b.sequenceNo - a.sequenceNo);
     return ok(envelopes.invoices, { invoices });
   }),
@@ -419,12 +418,12 @@ export const handlers = {
   invoice: http.get(`${API}/invoices/:id`, ({ params }) => {
     const db = getDb();
     const invoice = byId(db.invoices, params.id);
-    const client = byId(db.clients, invoice?.clientId);
-    if (!invoice || !client) return fail('ENTRY_NOT_FOUND');
-    const { id, name, email, address } = client;
+    if (!invoice) return fail('ENTRY_NOT_FOUND');
+    // The fake keeps no plan per invoice: the account's plan decides.
+    const { available, plan } = db.billing;
     return ok(invoiceDetail, {
       ...invoice,
-      client: { id, name, email, address },
+      canDownload: documentOpens(available, plan, null),
     });
   }),
 
@@ -498,6 +497,7 @@ export const handlers = {
         ? pickSchedules(preview.schedules, input.schedules ?? [])
         : null,
       paymentDetails: null,
+      ...parties(db.settings, byId(db.clients, preview.clientId) as Client),
       sentAt: null,
       paidAt: null,
       createdAt: db.now.toISOString(),
@@ -761,6 +761,38 @@ export const handlers = {
   }),
 
   deleteAccount: http.delete(`${API}/account`, () => noContent()),
+
+  billing: http.get(`${API}/billing`, () =>
+    ok(schema.Billing, getDb().billing),
+  ),
+
+  /* Stripe's pages are not faked: a story that presses through would leave
+     Storybook, so the URL is one the story can see but never reach. */
+  checkout: http.post(`${API}/billing/checkout`, () =>
+    getDb().billing.plan === 'paid'
+      ? fail('ALREADY_SUBSCRIBED')
+      : ok(schema.BillingRedirect, { url: 'https://checkout.stripe.test/' }),
+  ),
+
+  billingPortal: http.post(`${API}/billing/portal`, () =>
+    getDb().billing.status === null
+      ? fail('NOT_SUBSCRIBED')
+      : ok(schema.BillingRedirect, { url: 'https://billing.stripe.test/' }),
+  ),
+
+  /* Back from Checkout: Stripe says the year is paid. */
+  syncCheckout: http.post(`${API}/billing/sync`, () => {
+    const db = getDb();
+    const end = new Date(db.now);
+    end.setFullYear(end.getFullYear() + 1);
+    db.billing = {
+      ...db.billing,
+      plan: 'paid',
+      status: 'active',
+      periodEnd: end.toISOString(),
+    };
+    return ok(schema.Billing, db.billing);
+  }),
 
   importPreview: http.post(`${API}/imports/preview`, async ({ request }) => {
     const preview = await importPreview(request);

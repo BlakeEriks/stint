@@ -25,7 +25,7 @@ export PGPASSWORD=postgres
 $PSQL -c "drop database if exists $DB with (force)"
 $PSQL -c "create database $DB"
 
-# Supabase ships `auth` and the two roles; the grants migration needs them.
+# Supabase ships `auth` and the three roles; the grants migration needs them.
 # Roles are CLUSTER-wide, so only the first database to run this creates them.
 $PSQL -d "$DB" <<'SQL'
 create schema if not exists auth;
@@ -40,6 +40,11 @@ do $$ begin
   end if;
   if not exists (select 1 from pg_roles where rolname = 'authenticated') then
     create role authenticated nologin;
+  end if;
+  -- The server's own role (`serviceClient()`), granted by the migrations
+  -- that let it write, as the billing webhook does.
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role nologin bypassrls;
   end if;
 end $$;
 SQL

@@ -44,6 +44,11 @@ const STATUS: Record<Exclude<Code, 'UNAUTHORIZED'>, number> = {
   INVALID_PERIOD: 400,
   IMPORT_FILE_UNRECOGNIZED: 422,
   VALIDATION_FAILED: 422,
+  ALREADY_SUBSCRIBED: 409,
+  NOT_SUBSCRIBED: 409,
+  CHECKOUT_NOT_FOUND: 404,
+  BILLING_UNAVAILABLE: 503,
+  PAYMENT_REQUIRED: 402,
   INTERNAL: 500,
 };
 
@@ -76,12 +81,7 @@ export const envelopes = {
 
 export const invoiceDetail = schema.Invoice.extend({
   lineItems: z.array(schema.StoredLineItem),
-  client: schema.Client.pick({
-    id: true,
-    name: true,
-    email: true,
-    address: true,
-  }),
+  canDownload: z.boolean(),
 });
 
 export const createdInvoice = schema.Invoice.extend({

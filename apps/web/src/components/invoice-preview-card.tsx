@@ -10,9 +10,31 @@ import {
   type ScheduleKind,
   type Schedules,
 } from '@stint/core';
-import type { Client, InvoicePreview, Settings } from '@/lib/client/api';
+import type {
+  Client,
+  Invoice,
+  InvoicePreview,
+  Settings,
+} from '@/lib/client/api';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { shortDate } from './invoice-bits';
+
+type Business = Pick<Invoice['business'], 'name' | 'address' | 'email'>;
+
+/** The From block generation will freeze, from settings as they are now. */
+export function businessOf(settings: Settings): Invoice['business'];
+export function businessOf(
+  settings: Settings | undefined,
+): Invoice['business'] | undefined;
+export function businessOf(settings: Settings | undefined) {
+  if (!settings) return undefined;
+  return {
+    name: settings.businessName,
+    address: settings.businessAddress,
+    email: settings.businessEmail,
+    logoUrl: settings.logoUrl,
+  };
+}
 
 const LABEL = 'block type-label text-subtle';
 
@@ -52,6 +74,7 @@ export type CardFigures = Pick<
 export function InvoicePreviewCard({
   preview,
   client,
+  business,
   settings,
   number,
   issued,
@@ -69,6 +92,9 @@ export function InvoicePreviewCard({
 }: {
   preview: CardFigures | undefined;
   client: Pick<Client, 'name' | 'address' | 'email'> | undefined;
+  /** Undefined while it loads. */
+  business: Business | undefined;
+  /** The default terms and the payment notice. */
   settings: Settings | undefined;
   /** A prediction: generation allocates the number. */
   number: string;
@@ -126,7 +152,7 @@ export function InvoicePreviewCard({
               }`}
             >
               <From
-                settings={settings}
+                business={business}
                 noSender={noSender}
                 number={number}
                 issued={issued}
@@ -187,13 +213,13 @@ function Caption({
 
 /** The business, and the invoice's number and dates. */
 function From({
-  settings,
+  business,
   noSender,
   number,
   issued,
   due,
 }: {
-  settings: Settings | undefined;
+  business: Business | undefined;
   noSender: boolean;
   number: string;
   issued: string;
@@ -209,12 +235,8 @@ function From({
         </p>
       ) : (
         <Party
-          name={settings ? (settings.businessName ?? 'Invoice') : ''}
-          lines={[
-            settings?.businessAddress,
-            settings?.businessEmail,
-            settings?.taxId ? `Tax ID ${settings.taxId}` : null,
-          ]}
+          name={business ? (business.name ?? 'Invoice') : ''}
+          lines={[business?.address, business?.email]}
         />
       )}
       <dl className="flex flex-col gap-1 type-support">

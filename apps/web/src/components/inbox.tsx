@@ -5,7 +5,7 @@ import { useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
-import { formatCompact, formatCurrency } from '@stint/core';
+import { documentOpens, formatCompact, formatCurrency } from '@stint/core';
 import {
   Check,
   DollarSign,
@@ -138,6 +138,17 @@ export function Inbox({ stats }: { stats: Stats }) {
     select: (r) => r.projects,
   });
 
+  /* The PDF is the paid tier, and the server refuses it to a free user. The
+     rows don't carry the plan each invoice was generated on, so a free user
+     loses the shortcut even for one generated while paying; its page still
+     offers the download. Unknown counts as open: the server decides. */
+  const { data: billing } = useQuery({
+    queryKey: keys.billing(),
+    queryFn: api.billing,
+  });
+  const downloads =
+    !billing || documentOpens(billing.available, billing.plan, null);
+
   const setStatus = useOptimisticMutation({
     ...rowPress,
     mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
@@ -146,6 +157,23 @@ export function Inbox({ stats }: { stats: Stats }) {
       await leaving.get(id);
       return Promise.all([
         qc.invalidateQueries({ queryKey: keys.invoices() }),
+        invalidateEntryData(qc),
+      ]);
+    },
+  });
+
+  /* The default rate prices every figure on Home, so they all go. The row
+     comes back holding what was typed, so it says why itself. */
+  const saveRate = useOptimisticMutation({
+    ...rowPress,
+    onError: () => exit.unmark('rate'),
+    inline: true,
+    mutationFn: (defaultHourlyRate: number) =>
+      api.updateSettings({ defaultHourlyRate }),
+    invalidate: async (qc) => {
+      await leaving.get('rate');
+      return Promise.all([
+        qc.invalidateQueries({ queryKey: keys.settings() }),
         invalidateEntryData(qc),
       ]);
     },
@@ -223,8 +251,11 @@ export function Inbox({ stats }: { stats: Stats }) {
             r.kind === 'rate' ? (
               <RateRow
                 key={r.id}
-                onSave={() => leave(r.id)}
-                onReject={() => exit.unmark(r.id)}
+                onSubmit={(rate) => {
+                  leave(r.id);
+                  saveRate.mutate(rate);
+                }}
+                error={saveRate.error?.message}
                 exiting={exit.exiting.has(r.id)}
                 ref={exit.register(r.id)}
               />
@@ -232,6 +263,7 @@ export function Inbox({ stats }: { stats: Stats }) {
               <Row
                 key={r.id}
                 entry={r}
+                downloads={downloads}
                 onStatus={(v) => {
                   leave(v.id);
                   setStatus.mutate(v);
@@ -266,12 +298,14 @@ export function Inbox({ stats }: { stats: Stats }) {
 /** Which `Item` a row becomes — the one place the five kinds differ. */
 function Row({
   entry,
+  downloads,
   onStatus,
   onOpen,
   onConfirm,
   ...leaving
 }: {
   entry: Exclude<InboxRow, { kind: 'rate' }>;
+  downloads: boolean;
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
   onConfirm: (id: string) => void;
@@ -300,12 +334,14 @@ function Row({
               icon={<DollarSign aria-hidden />}
               onClick={() => onStatus({ id: i.invoiceId, status: 'paid' })}
             />
-            <Action
-              label="Download"
-              ariaLabel={`Download ${i.invoiceNumber}`}
-              icon={<Download aria-hidden />}
-              href={`/api/v1/invoices/${i.invoiceId}/pdf`}
-            />
+            {downloads ? (
+              <Action
+                label="Download"
+                ariaLabel={`Download ${i.invoiceNumber}`}
+                icon={<Download aria-hidden />}
+                href={`/api/v1/invoices/${i.invoiceId}/pdf`}
+              />
+            ) : null}
           </>
         }
       />
@@ -330,12 +366,14 @@ function Row({
               icon={<Send aria-hidden />}
               onClick={() => onStatus({ id: d.invoiceId, status: 'sent' })}
             />
-            <Action
-              label="Download"
-              ariaLabel={`Download ${d.invoiceNumber}`}
-              icon={<Download aria-hidden />}
-              href={`/api/v1/invoices/${d.invoiceId}/pdf`}
-            />
+            {downloads ? (
+              <Action
+                label="Download"
+                ariaLabel={`Download ${d.invoiceNumber}`}
+                icon={<Download aria-hidden />}
+                href={`/api/v1/invoices/${d.invoiceId}/pdf`}
+              />
+            ) : null}
           </>
         }
       />
@@ -518,7 +556,7 @@ function Item({
             figure sharing the line takes width from it in proportion to how
             much money the row is about. */}
         {href ? (
-          <Link href={href} className={titleClass}>
+          <Link href={href} prefetch className={titleClass}>
             {label}
           </Link>
         ) : onSelect ? (
@@ -626,41 +664,25 @@ function Action({
  * The account has no default rate, so Home cannot price its work. The rate
  * is entered here rather than in Settings, since this is where the question
  * is asked.
- *
- * Saving takes the row away at once, like every answered row; a rejection
- * brings it back with what was typed and the reason.
  */
 function RateRow({
-  onSave,
-  onReject,
+  onSubmit,
+  error,
   exiting,
   ref,
 }: {
-  onSave: () => void;
-  onReject: () => void;
+  onSubmit: (rate: number) => void;
+  /** The server's refusal of the last save, shown once the row is back. */
+  error?: string;
   exiting: boolean;
   ref: React.Ref<HTMLLIElement>;
 }) {
   const [text, setText] = useState('');
   const rate = parseRate(text);
-  const save = useOptimisticMutation({
-    queryKey: () => keys.stats(),
-    mutationFn: (defaultHourlyRate: number) =>
-      api.updateSettings({ defaultHourlyRate }),
-    /* The default rate prices every figure on Home, so they all go. */
-    invalidate: (qc) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.settings() }),
-        invalidateEntryData(qc),
-      ]),
-    onError: onReject,
-    // The row comes back holding the field, so it says why itself.
-    inline: true,
-  });
-  const invalid = text !== '' && !isValidRate(rate);
-  const error = invalid
-    ? 'A rate is a number, zero or more.'
-    : save.error?.message;
+  const shown =
+    text !== '' && !isValidRate(rate)
+      ? 'A rate is a number, zero or more.'
+      : error;
 
   return (
     <Item
@@ -674,16 +696,14 @@ function RateRow({
           className="flex w-full flex-col gap-1.5"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!isValidRate(rate)) return;
-            onSave();
-            save.mutate(rate);
+            if (isValidRate(rate)) onSubmit(rate);
           }}
         >
           <div className="flex items-center gap-1.5">
             <RateInput
               className="flex-1"
               aria-label="Default hourly rate"
-              aria-invalid={error ? true : undefined}
+              aria-invalid={shown ? true : undefined}
               placeholder="100.00"
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -692,9 +712,9 @@ function RateRow({
               Save
             </Button>
           </div>
-          {error ? (
+          {shown ? (
             <p role="alert" className="type-support text-danger">
-              {error}
+              {shown}
             </p>
           ) : null}
         </form>

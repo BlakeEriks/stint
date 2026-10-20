@@ -6,6 +6,7 @@ import { Section } from './field';
 import { SettingsForm } from './settings-form';
 import { PaymentProfiles } from './payment-profiles';
 import { AccountSection } from './account-section';
+import { PlanSection } from './plan-section';
 import { ExportSection } from './export-section';
 import { Page } from './page';
 
@@ -30,6 +31,7 @@ export function SettingsPage() {
         </div>
       </Section>
       <ExportSection />
+      <PlanSection />
       <AccountSection />
     </Page>
   );

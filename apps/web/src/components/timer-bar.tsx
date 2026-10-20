@@ -1,12 +1,18 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Pencil } from 'lucide-react';
 import { formatClock, uuidv7 } from '@stint/core';
 import { useTimer } from '@/lib/client/use-timer';
-import { ProjectPicker } from './project-picker';
+import { ProjectPicker, ProjectTag } from './project-picker';
 import { TaskSuggest } from './task-suggest';
-import type { Project } from '@/lib/client/api';
+import type { Project, TimeEntry } from '@/lib/client/api';
 
 /**
  * The timer, docked to the bottom of the app frame on every screen. A running
@@ -17,43 +23,11 @@ import type { Project } from '@/lib/client/api';
  */
 export function TimerBar({ projects }: { projects: Project[] }) {
   const timer = useTimer();
+  /* Held here, not in `IdleBar`: a start shows the bar running at once, so
+     `IdleBar` unmounts, and a refused start remounts it — the typed task it
+     gives back has to outlive that. */
   const [draft, setDraft] = useState('');
   const [draftProject, setDraftProject] = useState<string | null>(null);
-
-  const running = timer.running;
-  const isRunning = Boolean(running);
-
-  /* `null` means "not editing" — the running name is shown as text. Entering
-     a rename seeds this with the server's current name, so the draft and the
-     mode are one piece of state rather than two that can disagree. */
-  const [editing, setEditing] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isRunning) setEditing(null);
-  }, [isRunning]);
-
-  const commitRename = () => {
-    if (!isRunning || editing === null) return;
-    if (editing !== running!.taskName)
-      timer.update.mutate({ taskName: editing });
-    setEditing(null);
-  };
-
-  const toggle = () => {
-    if (isRunning) {
-      timer.stop.mutate();
-    } else {
-      /* Trimmed, as the entry dialog trims: a chosen suggestion has to match
-         the stored name exactly or the next list offers it a second time. */
-      const typed = draft;
-      timer.start.mutate(
-        { id: uuidv7(), taskName: draft.trim(), projectId: draftProject },
-        // A refused start gives back what was typed, unless something new was.
-        { onError: () => setDraft((d) => (d === '' ? typed : d)) },
-      );
-      setDraft('');
-    }
-  };
 
   return (
     <section
@@ -67,94 +41,159 @@ export function TimerBar({ projects }: { projects: Project[] }) {
       {/* Identity holds the left edge, the readout the right, so the clock
           lands in the same place in every state — the number a glance goes to
           does not move as the name beside it changes length. `Readout` carries
-          the `ml-auto` that does it.
-
-          Running never wraps: below `sm` the project pill is dropped rather
-          than wrapped, which leaves a name and a readout, and those fit. Idle
-          wraps, because both of its fields are inputs and neither can be
-          dropped the way a read-only pill can. */}
-      <div
-        className={`flex items-center gap-x-3 gap-y-2 px-4 py-2 sm:gap-4 sm:px-5
-                    ${isRunning ? 'flex-nowrap' : 'flex-wrap sm:flex-nowrap'}`}
-      >
-        {isRunning ? (
-          <>
-            <StatusDot running />
-            <TaskName
-              name={running!.taskName}
-              editing={editing}
-              onEdit={() => setEditing(running!.taskName)}
-              onChange={setEditing}
-              onCommit={commitRename}
-              onCancel={() => setEditing(null)}
-            />
-            {/* Shown, not offered — `readOnly` is why this is a span. Hidden
-                below `sm`: a running timer is glanced at rather than operated,
-                and the project cannot change until it stops, so it is the one
-                thing on this row that a phone can do without. */}
-            <div className="hidden min-w-0 shrink sm:flex">
-              <ProjectPicker
-                projects={projects}
-                value={running!.projectId}
-                onChange={(id) => timer.update.mutate({ projectId: id })}
-                readOnly
-              />
-            </div>
-            <Readout seconds={timer.seconds} running onToggle={toggle} />
-          </>
-        ) : (
-          <>
-            <StatusDot running={false} />
-            {/* `border-edge-default` rather than `border-control`: at rest this
-                is a boundary, not a control needing 3:1.
-
-                `order-last basis-full` below `sm` puts the field on its own row
-                beneath the dot, tag and clock, which read as one strip. */}
-            <TaskSuggest
-              value={draft}
-              onChange={(name, rowProject) => {
-                setDraft(name);
-                /* A fill, never an overwrite: a project already chosen is the
-                   user's answer to which client this is billed to, and a row
-                   used under another one must not move the work there. */
-                if (rowProject && !draftProject) setDraftProject(rowProject);
-              }}
-              projectId={draftProject}
-              /* The bar is docked to the bottom of the viewport. */
-              above
-              className="order-last min-w-0 flex-1 basis-full sm:order-none sm:max-w-md sm:basis-auto"
-            >
-              {(suggest) => (
-                <input
-                  {...suggest}
-                  onKeyDown={(e) => {
-                    suggest.onKeyDown(e);
-                    // Enter belongs to the list while a row is highlighted;
-                    // otherwise it still starts the timer, as it always did.
-                    if (e.key === 'Enter' && !e.defaultPrevented) toggle();
-                  }}
-                  placeholder="What are you working on?"
-                  aria-label="Task name"
-                  className="w-full rounded-lg border border-edge-default
-                             bg-surface-base px-3 py-2 type-body text-strong
-                             placeholder:text-subtle focus:border-edge-focus focus:outline-none"
-                />
-              )}
-            </TaskSuggest>
-            <ProjectPicker
-              projects={projects}
-              value={draftProject}
-              onChange={setDraftProject}
-            />
-            <Readout
-              seconds={timer.seconds}
-              running={false}
-              onToggle={toggle}
-            />
-          </>
-        )}
-      </div>
+          the `ml-auto` that does it. */}
+      {timer.running ? (
+        <RunningBar running={timer.running} timer={timer} projects={projects} />
+      ) : (
+        <IdleBar
+          timer={timer}
+          projects={projects}
+          draft={draft}
+          setDraft={setDraft}
+          draftProject={draftProject}
+          setDraftProject={setDraftProject}
+        />
+      )}
     </section>
+  );
+}
+
+type Timer = ReturnType<typeof useTimer>;
+
+/* The dot paints `bg-current` from this; its halo (`shadow-halo-running`)
+   mixes the same token. */
+const LIVE = 'text-timer-running';
+
+const ROW = 'flex items-center gap-x-3 gap-y-2 px-4 py-2 sm:gap-4 sm:px-5';
+
+/**
+ * Never wraps: below `sm` the project tag is dropped rather than wrapped,
+ * which leaves a name and a readout, and those fit.
+ */
+function RunningBar({
+  running,
+  timer,
+  projects,
+}: {
+  running: TimeEntry;
+  timer: Timer;
+  projects: Project[];
+}) {
+  /* `null` means "not editing" — the running name is shown as text. Entering
+     a rename seeds this with the server's current name, so the draft and the
+     mode are one piece of state rather than two that can disagree. */
+  const [editing, setEditing] = useState<string | null>(null);
+
+  const commitRename = () => {
+    if (editing === null) return;
+    if (editing !== running.taskName)
+      timer.update.mutate({ taskName: editing });
+    setEditing(null);
+  };
+
+  return (
+    <div className={`${ROW} flex-nowrap`}>
+      <StatusDot running />
+      <TaskName
+        name={running.taskName}
+        editing={editing}
+        onEdit={() => setEditing(running.taskName)}
+        onChange={setEditing}
+        onCommit={commitRename}
+        onCancel={() => setEditing(null)}
+      />
+      {/* Hidden below `sm`: a running timer is glanced at rather than
+          operated, and the project cannot change until it stops, so it is
+          the one thing on this row that a phone can do without. */}
+      <div className="hidden min-w-0 shrink sm:flex">
+        <ProjectTag projects={projects} id={running.projectId} />
+      </div>
+      <Readout
+        seconds={timer.seconds}
+        running
+        onToggle={() => timer.stop.mutate()}
+      />
+    </div>
+  );
+}
+
+/**
+ * Wraps below `sm`, because both of its fields are inputs and neither can be
+ * dropped the way a read-only tag can.
+ */
+function IdleBar({
+  timer,
+  projects,
+  draft,
+  setDraft,
+  draftProject,
+  setDraftProject,
+}: {
+  timer: Timer;
+  projects: Project[];
+  draft: string;
+  setDraft: Dispatch<SetStateAction<string>>;
+  draftProject: string | null;
+  setDraftProject: (id: string | null) => void;
+}) {
+  const start = () => {
+    /* Trimmed, as the entry dialog trims: a chosen suggestion has to match
+       the stored name exactly or the next list offers it a second time. */
+    const typed = draft;
+    timer.start.mutate(
+      { id: uuidv7(), taskName: draft.trim(), projectId: draftProject },
+      // A refused start gives back what was typed, unless something new was.
+      { onError: () => setDraft((d) => (d === '' ? typed : d)) },
+    );
+    setDraft('');
+  };
+
+  return (
+    <div className={`${ROW} flex-wrap sm:flex-nowrap`}>
+      <StatusDot running={false} />
+      {/* `border-edge-default` rather than `border-control`: at rest this
+          is a boundary, not a control needing 3:1.
+
+          `order-last basis-full` below `sm` puts the field on its own row
+          beneath the dot, tag and clock, which read as one strip. */}
+      <TaskSuggest
+        value={draft}
+        onChange={(name, rowProject) => {
+          setDraft(name);
+          /* A fill, never an overwrite: a project already chosen is the
+             user's answer to which client this is billed to, and a row
+             used under another one must not move the work there. */
+          if (rowProject && !draftProject) setDraftProject(rowProject);
+        }}
+        projectId={draftProject}
+        /* The bar is docked to the bottom of the viewport. */
+        above
+        className="order-last min-w-0 flex-1 basis-full sm:order-none sm:max-w-md sm:basis-auto"
+      >
+        {(suggest) => (
+          <input
+            {...suggest}
+            onKeyDown={(e) => {
+              suggest.onKeyDown(e);
+              // Enter belongs to the list while a row is highlighted;
+              // otherwise it starts the timer.
+              if (e.key === 'Enter' && !e.defaultPrevented) start();
+            }}
+            placeholder="What are you working on?"
+            aria-label="Task name"
+            className="w-full rounded-lg border border-edge-default
+                       bg-surface-base px-3 py-2 type-body text-strong
+                       placeholder:text-subtle focus:border-edge-focus focus:outline-none"
+          />
+        )}
+      </TaskSuggest>
+      <ProjectPicker
+        projects={projects}
+        value={draftProject}
+        onChange={setDraftProject}
+      />
+      <Readout seconds={timer.seconds} running={false} onToggle={start} />
+    </div>
   );
 }
 
@@ -256,7 +295,7 @@ function Readout({
        right edge and leaves identity on the left. */
     <div className={`ml-auto flex flex-none items-center gap-3 ${className}`}>
       <time
-        className={`type-timer ${running ? 'text-timer-running' : 'text-subtle'}`}
+        className={`type-timer ${running ? LIVE : 'text-subtle'}`}
         aria-live="off"
       >
         {formatClock(seconds)}
@@ -308,7 +347,7 @@ function StatusDot({ running }: { running: boolean }) {
       aria-hidden
       className={`size-[7px] flex-none rounded-full ${
         running
-          ? 'bg-timer-running shadow-halo-running motion-safe:animate-pulse'
+          ? `${LIVE} bg-current shadow-halo-running motion-safe:animate-pulse`
           : 'bg-timer-idle'
       }`}
     />
