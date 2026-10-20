@@ -285,7 +285,7 @@ by every one when `recurring`. The amount is in the client's currency.
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/exports/entries` | `?tz`. Every finished entry as a `text/csv` attachment, `stint-entries-<today in tz>.csv`, oldest first: local date and times, billed hours, client, project, task, billable, the rate `resolveRate()` gives it now and its source, the amount an invoice would bill (empty for non-billable or unrated work), currency, and the billing invoice's number or `Invoiced elsewhere`. |
-| `GET` | `/exports/invoices` | `?tz`. Every invoice, any status, as a `text/csv` attachment, newest issue date first, with its dates and frozen totals. Both files are UTF-8 with a BOM, CRLF, US dates (`MM/DD/YYYY`), and money as plain two-place decimals; a text cell a spreadsheet would run as a formula gets a leading `'`. |
+| `GET` | `/exports/invoices` | `?tz`. Every invoice, any status, as a `text/csv` attachment, newest issue date first, with its dates, frozen totals, and the client name frozen on it (`billTo.name`), so renaming a client doesn't change an issued invoice's row. Both files are UTF-8 with a BOM, CRLF, US dates (`MM/DD/YYYY`), and money as plain two-place decimals; a text cell a spreadsheet would run as a formula gets a leading `'`. |
 
 ## Feedback
 

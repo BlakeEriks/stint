@@ -109,8 +109,9 @@ Still set in the dashboard:
     `https://formspree.io/f/<form id>`. Submissions email you and list in
     the form's dashboard with when each was sent. Unset, the request fails
     and the page says it didn't send, so a preview never adds to the list.
-  - `SENTRY_DSN`, for Production only (§3c). Unset, Sentry stays off, so a
-    preview never reports.
+  - `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, both the same DSN, for
+    Production only (§3c): the server reports with the first, the browser
+    with the second. Unset, Sentry stays off, so a preview never reports.
 
 Billing, for Production only (Preview uses Stripe test-mode keys if billing
 is being tried there). **Setting them is the launch:** with all three set,
@@ -310,7 +311,7 @@ success teaches you to stop reading it.
 | Release failed, or its plan failed | ❌ with the run link | `release.yml`, `report` |
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
 | App or database down, and its recovery | UptimeRobot's own | UptimeRobot → Discord |
-| A new unhandled server error | Sentry's own, with the stack trace | Sentry → Discord |
+| A new unhandled error in the server or the browser | Sentry's own, with the stack trace, minified for the browser | Sentry → Discord |
 
 Never posted: a release with no migration going live, a rejection or
 cancellation (you did it), a backup that worked (healthchecks.io is quiet
@@ -326,7 +327,7 @@ What each new alert asks of you:
 - **Down.** Check the Vercel and Supabase status pages, then roll back or
   Force Promote (§3). A Supabase project paused for being idle, or an
   expired certificate or domain, shows up here too.
-- **New error.** Read the stack trace, then fix it or open a `bug`. Sentry
+- **New error.** File it as a `bug` + `urgent` issue (`docs/sdlc.md`). Sentry
   alerts on a new issue only, never on each occurrence.
 
 **UptimeRobot** polls `https://app.runstint.com/api/v1/health` every 5
@@ -334,8 +335,9 @@ minutes. The health route asks Postgres for a row, so it fails when the
 database does, not only when Vercel does. The monitor alerts after two
 failures in a row, and posts the recovery.
 
-**Sentry** is the `SENTRY_DSN` (§2), from a Next.js project on the free
-plan, with one alert rule: a new issue posts to Discord.
+**Sentry** is the `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` (§2), from a
+Next.js project on the free plan, with one alert rule: a new issue posts to
+Discord.
 
 The webhook is the `DISCORD_ALERTS_WEBHOOK` repository secret, used by
 `release.yml` and nowhere else: anyone holding it can post to the channel.

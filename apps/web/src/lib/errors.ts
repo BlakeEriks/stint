@@ -3,26 +3,12 @@ import { NextResponse } from 'next/server';
    loader cannot see the named exports `@sentry/nextjs` re-exports from
    CommonJS, so the route tests would import `undefined`. */
 import { captureException } from '@sentry/core';
-/** Mirrors ErrorCode in @stint/schema. */
-export type Code =
-  | 'TIMER_ALREADY_RUNNING'
-  | 'NO_TIMER_RUNNING'
-  | 'ENTRY_LOCKED'
-  | 'EXPENSE_LOCKED'
-  | 'EXPENSE_ALREADY_INVOICED'
-  | 'ENTRY_ALREADY_INVOICED'
-  | 'INVOICE_STATUS_CHANGED'
-  | 'ENTRY_NOT_FOUND'
-  | 'NO_RATE_CONFIGURED'
-  | 'INVALID_PERIOD'
-  | 'UNAUTHORIZED'
-  | 'IMPORT_FILE_UNRECOGNIZED'
-  | 'VALIDATION_FAILED'
-  | 'ALREADY_SUBSCRIBED'
-  | 'NOT_SUBSCRIBED'
-  | 'CHECKOUT_NOT_FOUND'
-  | 'BILLING_UNAVAILABLE'
-  | 'PAYMENT_REQUIRED';
+import type { z } from 'zod';
+import type { ErrorCode } from '@stint/schema';
+
+/* A type-only import: the schema's codes cost nothing at run time, and
+   STATUS below fails to compile when a code is missing from it. */
+export type Code = z.infer<typeof ErrorCode>;
 
 const STATUS: Record<Code, number> = {
   TIMER_ALREADY_RUNNING: 409,
@@ -58,7 +44,7 @@ export class ApiError extends Error {
   }
 }
 
-export function errorResponse(code: Code, message: string, details?: unknown) {
+function errorResponse(code: Code, message: string, details?: unknown) {
   return NextResponse.json(
     { code, message, details },
     { status: STATUS[code] },
@@ -170,16 +156,3 @@ export function isEntryClaimConflict(
 ): boolean {
   return (err?.message ?? '').includes('ENTRY_ALREADY_INVOICED');
 }
-
-// ── drift guard ────────────────────────────────────────────────────
-// The union above is hand-written so this module carries no runtime
-// dependency on the schema package. These assertions fail to compile if it
-// diverges from ErrorCode.
-import type { z } from 'zod';
-import type { ErrorCode } from '@stint/schema';
-
-type SchemaCode = z.infer<typeof ErrorCode>;
-type Assert<_A extends B, B> = true;
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type _CodeMatchesSchema = [Assert<Code, SchemaCode>, Assert<SchemaCode, Code>];

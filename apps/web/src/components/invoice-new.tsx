@@ -40,6 +40,7 @@ import { timeZone as tz } from '@/lib/client/use-timer';
 import {
   api,
   ApiError,
+  type Client,
   type Expense,
   type GroupingMode,
   type Invoice,
@@ -52,6 +53,7 @@ import { ExpenseDialog } from './expense-dialog';
 import { ExpenseRow } from './expense-row';
 import { type Charge, ChargeDialog } from './charge-dialog';
 import { PaymentProfileDialog } from './payment-profile-dialog';
+import { ClientDialog } from './client-dialog';
 import { summarize } from './payment-profiles';
 import { businessOf, InvoicePreviewCard } from './invoice-preview-card';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
@@ -264,6 +266,7 @@ export function NewInvoice() {
   /* `'new'` adds a charge; a key, edits that one. */
   const chargeDialog = useDialog<string>();
   const [newProfileOpen, setNewProfileOpen] = useState(false);
+  const [clientOpen, setClientOpen] = useState(false);
 
   /* Only what decides the lines is sent, so a due date or a tick never asks
      the server again. */
@@ -398,7 +401,25 @@ export function NewInvoice() {
               don't move. */}
           <div className="flex min-w-0 flex-col xl:-mx-1 xl:min-h-0 xl:overflow-y-auto xl:px-1 [&>*]:border-t [&>*]:border-edge-subtle [&>*]:py-5 [&>*:first-child]:border-0 [&>*:first-child]:pt-1">
             <div className="flex flex-col gap-4">
-              <Field label="Client" htmlFor="inv-client" required>
+              <Field
+                label="Client"
+                htmlFor="inv-client"
+                required
+                hint={
+                  client && missingDetails(client) ? (
+                    <span className="text-danger">
+                      {missingDetails(client)} ·{' '}
+                      <button
+                        type="button"
+                        onClick={() => setClientOpen(true)}
+                        className="rounded-sm underline hover:text-strong focus-visible:ring-2 focus-visible:ring-edge-focus focus-visible:outline-none"
+                      >
+                        Edit client
+                      </button>
+                    </span>
+                  ) : undefined
+                }
+              >
                 <ClientPicker
                   id="inv-client"
                   clients={clients}
@@ -545,6 +566,13 @@ export function NewInvoice() {
         onSave={saveCharge}
         onRemove={chargeDialog.subject !== 'new' ? removeCharge : undefined}
       />
+      {/* No Archive: the draft would keep a client the picker has dropped. */}
+      <ClientDialog
+        open={clientOpen}
+        onOpenChange={setClientOpen}
+        client={client}
+        archivable={false}
+      />
       <PaymentProfileDialog
         open={newProfileOpen}
         onOpenChange={setNewProfileOpen}
@@ -552,6 +580,14 @@ export function NewInvoice() {
       />
     </DetailPage>
   );
+}
+
+/** What Bill to will lack, said; null when it has both. */
+function missingDetails(client: Pick<Client, 'address' | 'email'>) {
+  if (client.address && client.email) return null;
+  if (client.address) return 'No email';
+  if (client.email) return 'No address';
+  return 'No address or email';
 }
 
 /**
