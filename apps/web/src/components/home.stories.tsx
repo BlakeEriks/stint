@@ -136,6 +136,84 @@ export const RunningUnrated: Story = {
   parameters: account('runningUnrated'),
 };
 
+const noRate = account((db) => {
+  db.settings.defaultHourlyRate = null;
+});
+
+/** No default rate: the Inbox asks for one, after the invoice rows and
+ *  before the entry rows, and counts it. */
+export const NoRate: Story = {
+  ...desktop,
+  parameters: noRate,
+  play: async ({ canvasElement }) => {
+    const inbox = within(
+      await within(canvasElement).findByRole('region', { name: 'Inbox' }),
+    );
+    const row = (await inbox.findByText('Set your default rate')).closest('li');
+    const rows = [...(row?.parentElement?.children ?? [])];
+    const at = rows.indexOf(row as Element);
+    await expect(
+      rows[at - 1]?.querySelector('a[href^="/invoices/"]'),
+    ).not.toBeNull();
+    await expect(
+      rows[at + 1]?.querySelector('a[href^="/invoices/"]'),
+    ).toBeNull();
+    await expect(inbox.getByRole('button', { name: 'Save' })).toBeDisabled();
+  },
+};
+
+/** Saving a rate takes the row away at once, and Home prices its work. */
+export const SaveRate: Story = {
+  ...desktop,
+  parameters: noRate,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const field = await page.findByRole('spinbutton', {
+      name: 'Default hourly rate',
+    });
+    await userEvent.type(field, '125');
+    await userEvent.click(page.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(page.queryByText('Set your default rate')).toBeNull(),
+    );
+  },
+};
+
+/** A negative rate is refused on the row, before any request. */
+export const RateInvalid: Story = {
+  ...desktop,
+  parameters: noRate,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.type(
+      await page.findByRole('spinbutton', { name: 'Default hourly rate' }),
+      '-5',
+    );
+    await expect(
+      await page.findByText('A rate is a number, zero or more.'),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
+  },
+};
+
+/** The server refuses the rate: the row comes back holding it, and says why. */
+export const RateRejected: Story = {
+  ...desktop,
+  parameters: { ...noRate, ...failing('updateSettings') },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.type(
+      await page.findByRole('spinbutton', { name: 'Default hourly rate' }),
+      '125',
+    );
+    await userEvent.click(page.getByRole('button', { name: 'Save' }));
+    await expect(await page.findByText('Internal server error')).toBeVisible();
+    await expect(
+      page.getByRole('spinbutton', { name: 'Default hourly rate' }),
+    ).toHaveValue(125);
+  },
+};
+
 /** A new account: every figure is zero and nothing is extrapolated. */
 export const Empty: Story = {
   ...desktop,

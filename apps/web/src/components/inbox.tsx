@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useOptimisticMutation } from '@/lib/client/mutations';
@@ -25,6 +25,7 @@ import { useExit } from '@/lib/client/use-exit';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { EntryDialog } from './entry-dialog';
 import { Button } from '@/components/ui/button';
+import { RateInput, isValidRate, parseRate } from './rate-input';
 import { keys, invalidateEntryData } from '@/lib/client/query-keys';
 
 type Attention = Stats['attention'];
@@ -32,6 +33,7 @@ type Attention = Stats['attention'];
 /** How many rows the Inbox holds: its header's count and the folded dock's. */
 export function inboxCount(attention: Attention) {
   return (
+    (attention.noDefaultRate ? 1 : 0) +
     attention.overdueInvoices.length +
     attention.staleDrafts.length +
     attention.unprojected.length +
@@ -46,7 +48,8 @@ type InboxRow =
   | { id: string; kind: 'draft'; row: Attention['staleDrafts'][number] }
   | { id: string; kind: 'unprojected'; row: Attention['unprojected'][number] }
   | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] }
-  | { id: string; kind: 'overlap'; row: Attention['overlaps'][number] };
+  | { id: string; kind: 'overlap'; row: Attention['overlaps'][number] }
+  | { id: 'rate'; kind: 'rate' };
 
 /**
  * The dock's inbox: everything that wants a decision, in one fixed place.
@@ -162,6 +165,11 @@ export function Inbox({ stats }: { stats: Stats }) {
       kind: 'draft' as const,
       row: d,
     })),
+    /* A chore like a draft, so it sits with them, above the entry rows: the
+       rate is what prices every one of those entries. */
+    ...(stats.attention.noDefaultRate
+      ? [{ id: 'rate' as const, kind: 'rate' as const }]
+      : []),
     ...unprojected.map((u) => ({
       id: u.entryId,
       kind: 'unprojected' as const,
@@ -211,23 +219,33 @@ export function Inbox({ stats }: { stats: Stats }) {
            list: a flex gap belongs to the container and survives a row
            collapsing, so a departing card would leave its gap behind. */
         <ul className="flex flex-col">
-          {rows.map((r) => (
-            <Row
-              key={r.id}
-              entry={r}
-              onStatus={(v) => {
-                leave(v.id);
-                setStatus.mutate(v);
-              }}
-              onOpen={openEntry}
-              onConfirm={(id) => {
-                leave(id);
-                confirmLength.mutate(id);
-              }}
-              exiting={exit.exiting.has(r.id)}
-              ref={exit.register(r.id)}
-            />
-          ))}
+          {rows.map((r) =>
+            r.kind === 'rate' ? (
+              <RateRow
+                key={r.id}
+                onSave={() => leave(r.id)}
+                onReject={() => exit.unmark(r.id)}
+                exiting={exit.exiting.has(r.id)}
+                ref={exit.register(r.id)}
+              />
+            ) : (
+              <Row
+                key={r.id}
+                entry={r}
+                onStatus={(v) => {
+                  leave(v.id);
+                  setStatus.mutate(v);
+                }}
+                onOpen={openEntry}
+                onConfirm={(id) => {
+                  leave(id);
+                  confirmLength.mutate(id);
+                }}
+                exiting={exit.exiting.has(r.id)}
+                ref={exit.register(r.id)}
+              />
+            ),
+          )}
         </ul>
       )}
 
@@ -253,7 +271,7 @@ function Row({
   onConfirm,
   ...leaving
 }: {
-  entry: InboxRow;
+  entry: Exclude<InboxRow, { kind: 'rate' }>;
   onStatus: (v: { id: string; status: InvoiceStatus }) => void;
   onOpen: (v: { id: string; focus: 'task' | 'project' }) => void;
   onConfirm: (id: string) => void;
@@ -448,7 +466,8 @@ function Item({
   onSelect?: () => void;
   label: string;
   detail: string;
-  value: string;
+  /** The figure beside the detail. The rate row has none: it asks for one. */
+  value?: string;
   /**
    * How urgent the row is, and the ONLY thing on the card that takes color.
    * It paints a 2px edge inside the card and the clause of `detail` that
@@ -515,17 +534,21 @@ function Item({
         {/* The figure is a fact ABOUT the subject, so it sits beside the
             qualifier and the two read as one statement. */}
         <div className="mt-0.5 flex items-baseline gap-1.5 text-subtle">
-          <span
-            className={`flex-none text-primary ${
-              value.startsWith('$') ? 'type-amount' : 'type-duration'
-            }`}
-          >
-            {value}
-          </span>
-          <span
-            aria-hidden
-            className="size-0.5 flex-none rounded-full bg-edge-control"
-          />
+          {value ? (
+            <>
+              <span
+                className={`flex-none text-primary ${
+                  value.startsWith('$') ? 'type-amount' : 'type-duration'
+                }`}
+              >
+                {value}
+              </span>
+              <span
+                aria-hidden
+                className="size-0.5 flex-none rounded-full bg-edge-control"
+              />
+            </>
+          ) : null}
           {/* Wraps rather than truncating: it names which threshold was
               tripped, and an ellipsis eating "over 8h" takes the half of the
               signal that color cannot carry. */}
@@ -596,5 +619,86 @@ function Action({
       {icon}
       {label}
     </Button>
+  );
+}
+
+/**
+ * The account has no default rate, so Home cannot price its work. The rate
+ * is entered here rather than in Settings, since this is where the question
+ * is asked.
+ *
+ * Saving takes the row away at once, like every answered row; a rejection
+ * brings it back with what was typed and the reason.
+ */
+function RateRow({
+  onSave,
+  onReject,
+  exiting,
+  ref,
+}: {
+  onSave: () => void;
+  onReject: () => void;
+  exiting: boolean;
+  ref: React.Ref<HTMLLIElement>;
+}) {
+  const [text, setText] = useState('');
+  const rate = parseRate(text);
+  const save = useOptimisticMutation({
+    queryKey: () => keys.stats(),
+    mutationFn: (defaultHourlyRate: number) =>
+      api.updateSettings({ defaultHourlyRate }),
+    /* The default rate prices every figure on Home, so they all go. */
+    invalidate: (qc) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.settings() }),
+        invalidateEntryData(qc),
+      ]),
+    onError: onReject,
+    // The row comes back holding the field, so it says why itself.
+    inline: true,
+  });
+  const invalid = text !== '' && !isValidRate(rate);
+  const error = invalid
+    ? 'A rate is a number, zero or more.'
+    : save.error?.message;
+
+  return (
+    <Item
+      exiting={exiting}
+      ref={ref}
+      label="Set your default rate"
+      detail="Home can't show money without one"
+      tone="neutral"
+      actions={
+        <form
+          className="flex w-full flex-col gap-1.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!isValidRate(rate)) return;
+            onSave();
+            save.mutate(rate);
+          }}
+        >
+          <div className="flex items-center gap-1.5">
+            <RateInput
+              className="flex-1"
+              aria-label="Default hourly rate"
+              aria-invalid={error ? true : undefined}
+              placeholder="100.00"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+            <Button type="submit" size="xs" disabled={!isValidRate(rate)}>
+              Save
+            </Button>
+          </div>
+          {error ? (
+            <p role="alert" className="type-support text-danger">
+              {error}
+            </p>
+          ) : null}
+        </form>
+      }
+    />
   );
 }

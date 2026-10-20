@@ -53,7 +53,8 @@ update user_settings set
   business_address      = E'1 Market St\nSan Francisco, CA 94105',
   business_email        = 'dev@localhost.test',
   tax_id                = '00-0000000',
-  invoice_number_prefix = 'STINT-'
+  invoice_number_prefix = 'STINT-',
+  welcomed_at           = now()
 where user_id = '00000000-0000-4000-8000-000000000001';
 
 -- ── clients ────────────────────────────────────────────────────────

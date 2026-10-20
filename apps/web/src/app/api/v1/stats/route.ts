@@ -137,7 +137,9 @@ export const GET = handle(async (req: Request) => {
 
     db
       .from('user_settings')
-      .select('currency, min_entry_seconds, max_entry_hours, week_starts_on')
+      .select(
+        'currency, min_entry_seconds, max_entry_hours, week_starts_on, default_hourly_rate',
+      )
       .maybeSingle(),
 
     db
@@ -307,6 +309,7 @@ export const GET = handle(async (req: Request) => {
       currency,
     ),
     attention: {
+      noDefaultRate: settings.data?.default_hourly_rate == null,
       overdueInvoices: buildOverdueInvoices(
         invoiceRows,
         clientNames,

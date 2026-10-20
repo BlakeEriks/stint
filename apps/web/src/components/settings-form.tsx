@@ -127,7 +127,7 @@ function Cards({ loaded }: { loaded: Settings }) {
                   e.target.value === '' ? null : Number(e.target.value),
                 )
               }
-              placeholder="150.00"
+              placeholder="100.00"
             />
           </Field>
 

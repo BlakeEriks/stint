@@ -950,6 +950,58 @@ test('every settable field round-trips, rather than being silently dropped', asy
   }
 });
 
+/* The Inbox asks for a default rate while there is none. Zero is a rate,
+   so it answers the question; clearing the rate asks it again. */
+test('stats flags an account with no default rate, and zero counts as set', async () => {
+  const { PATCH: patch } = await import('../src/app/api/v1/settings/route.ts');
+  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
+  const flag = async () =>
+    (await json(await stats(req('/stats?tz=UTC')))).body.attention
+      .noDefaultRate;
+
+  await patch(req('/settings', { defaultHourlyRate: null }, 'PATCH'));
+  assert.equal(await flag(), true);
+
+  await patch(req('/settings', { defaultHourlyRate: 0 }, 'PATCH'));
+  assert.equal(await flag(), false);
+
+  await patch(req('/settings', { defaultHourlyRate: null }, 'PATCH'));
+  assert.equal(await flag(), true, 'clearing it asks again');
+});
+
+/* The welcome dialog shows while `welcomedAt` is null. The signup trigger
+   leaves it null, so only an account made after the migration sees it. */
+test('a new account is not yet welcomed, and welcoming it round-trips', async () => {
+  const { GET: get, PATCH: patch } = await import(
+    '../src/app/api/v1/settings/route.ts'
+  );
+  // The handlers always act as USER, so the signup trigger is read directly.
+  const NEW = '33333333-3333-3333-3333-333333333333';
+  await pool.query('delete from auth.users where id=$1', [NEW]);
+  await pool.query(`insert into auth.users (id,email) values ($1,'new@test')`, [
+    NEW,
+  ]);
+  const { rows } = await pool.query(
+    'select welcomed_at from user_settings where user_id=$1',
+    [NEW],
+  );
+  await pool.query('delete from auth.users where id=$1', [NEW]);
+  assert.equal(rows[0].welcomed_at, null);
+
+  await pool.query(
+    'update user_settings set welcomed_at=null where user_id=$1',
+    [USER],
+  );
+  assert.equal((await json(await get(req('/settings')))).body.welcomedAt, null);
+
+  const at = '2026-10-20T15:00:00.000Z';
+  const after = await json(
+    await patch(req('/settings', { welcomedAt: at }, 'PATCH')),
+  );
+  assert.equal(after.status, 200);
+  assert.equal(new Date(after.body.welcomedAt).toISOString(), at);
+});
+
 // ── calendar ───────────────────────────────────────────────────────
 test('calendar groups entries by LOCAL day', async () => {
   const { POST: create } = await import('../src/app/api/v1/entries/route.ts');

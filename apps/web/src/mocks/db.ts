@@ -11,6 +11,7 @@ export type Scenario =
   | 'running'
   | 'runningUnrated'
   | 'empty'
+  | 'new'
   | ((db: Db) => void);
 
 const scenarios: Record<
@@ -38,6 +39,11 @@ const scenarios: Record<
       expenses: [],
       paymentProfiles: [],
     });
+  },
+  // A first sign-in: the welcome dialog has not been seen, and nothing is set.
+  new: (db) => {
+    scenarios.empty(db);
+    Object.assign(db.settings, { defaultHourlyRate: null, welcomedAt: null });
   },
 };
 

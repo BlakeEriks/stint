@@ -39,7 +39,8 @@ phone width, dark and light.
   why.
 - **Inbox rate row**: a neutral Inbox card, "Set your default rate" over
   "Home can't show money without one", with a rate field (`$`, `100.00`,
-  `/ hr`) and Save, disabled until a rate is entered. Saving takes the row
+  `/ hr`) and a neutral Save, never the accent like every Inbox action,
+  disabled until a rate is entered. Saving takes the row
   away at once; a rejection brings it back with the reason under the field.
   It sorts after overdue invoices and stale drafts, before entry rows.
 - **New invoice, details missing**: a notice at the top of the form, "Your

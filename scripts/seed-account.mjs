@@ -270,14 +270,16 @@ try {
 
   /* A default rate, so a client with none has something to inherit, and the
      business block every invoice prints, so a new one is complete without a
-     visit to Settings. */
+     visit to Settings. Welcomed, since a seeded account is not a first
+     sign-in. */
   await db.query(
     `update user_settings set
        default_hourly_rate = 125,
        business_name = 'Harbor Lane Consulting LLC',
        business_address = '1200 Market St, Suite 400\nDenver, CO 80202',
        business_email = 'billing@harborlane.test',
-       tax_id = '12-3456789'
+       tax_id = '12-3456789',
+       welcomed_at = now()
      where user_id = $1`,
     [userId],
   );
