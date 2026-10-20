@@ -16,6 +16,43 @@ for what blocks the first useful moment, and ask for the rest when it
 matters: the rate up front, business details at the first invoice, and an
 Inbox row until a rate is set.
 
+## Design
+
+The look is `design/first-run.html`: each screen and state, at desktop and
+phone width, dark and light.
+
+- **Welcome dialog**: a two-step dialog over Home on the first web sign-in,
+  built from a new stepped dialog (the app dialog plus a step counter, two
+  bars and "Step 1 of 2", and Back). Escape and a click outside do nothing.
+- **Step 1, the rate**: "Welcome to Stint", "What do you charge by the
+  hour?", one large rate field (`$`, placeholder `100.00`, `/ hour`), and the
+  hint "A client or project can set its own rate later." "Skip for now"
+  closes the dialog and saves nothing; "Next" is disabled until a rate is
+  entered, saves it, and moves to step 2.
+- **Step 2, the first client**: "Who are you working for?", a client name,
+  a rate (placeholder is the default just entered, hint "Blank uses your
+  default"), the client form's color picker starting on "No color", and
+  "Coming from Toggl? Import your history instead." Back returns to step 1;
+  "Skip this step" shows while the name is empty and closes the dialog;
+  "Start tracking" saves the client, shows "Saving" while pending, and closes
+  the dialog. A failure keeps the dialog open with what was entered and says
+  why.
+- **Inbox rate row**: a neutral Inbox card, "Set your default rate" over
+  "Home can't show money without one", with a rate field (`$`, `100.00`,
+  `/ hr`) and Save, disabled until a rate is entered. Saving takes the row
+  away at once; a rejection brings it back with the reason under the field.
+  It sorts after overdue invoices and stale drafts, before entry rows.
+- **New invoice, details missing**: a notice at the top of the form, "Your
+  business details are missing" over "Name and email are needed to
+  generate.", with an "Add details" button. Generate is disabled. The preview
+  shows a dashed placeholder where the "from" block goes.
+- **Business details dialog**: "Who is this invoice from?", business name and
+  email (required) and address, Cancel and Save. It opens only from "Add
+  details". Save writes to Settings and closes; the notice goes, the preview
+  shows the block, and Generate enables.
+- **Settings**: the default hourly rate's placeholder becomes `100.00`, to
+  match.
+
 ## Clarifications
 
 ### Session 2026-10-20
@@ -53,64 +90,66 @@ row; set a rate from it and see the row leave and Home show money.
 
 ---
 
-### User Story 2 - A welcome screen on first sign-in (Priority: P2)
+### User Story 2 - A welcome dialog on first sign-in (Priority: P2)
 
-On their first sign-in to the web app, a new contractor sees one welcome
-screen before Home. It asks for their default hourly rate, offers to add a
-first client with an optional rate of its own, and links to the Toggl import
-for anyone who is switching. "Start tracking" saves what they entered and
-opens Home. "Skip for now" opens Home with nothing saved.
+On their first sign-in to the web app, a new contractor sees a two-step
+welcome dialog over Home. Step 1 asks for their default hourly rate. Step 2
+offers to add a first client, with an optional rate and color, and links to
+the Toggl import for anyone who is switching.
 
 **Why this priority**: It is the friendliest first minute. Story 1 already
 covers an account that never sees it.
 
 **Independent Test**: Sign in as a brand-new invited account, see the welcome
-screen, enter a rate and a client, and land on Home with both saved.
+dialog, enter a rate and a client, and land on Home with both saved.
 
 **Acceptance Scenarios**:
 
-1. **Given** an account that has never seen the welcome screen, **When** it
-   signs in to the web app, **Then** it sees the welcome screen before Home.
-2. **Given** the welcome screen, **When** the user enters a rate and a client
-   name and presses "Start tracking", **Then** both are saved and Home opens.
-3. **Given** the welcome screen, **When** the user presses "Skip for now",
-   **Then** Home opens, nothing is saved, and the Inbox asks for a rate
-   (Story 1).
-4. **Given** an account that has finished or skipped the welcome screen,
+1. **Given** an account that has never seen the welcome dialog, **When** it
+   signs in to the web app, **Then** it sees the welcome dialog over Home.
+2. **Given** step 1, **When** the user enters a rate and presses "Next",
+   **Then** the rate is saved and step 2 shows.
+3. **Given** step 2, **When** the user enters a client name and presses
+   "Start tracking", **Then** the client is saved and the dialog closes.
+4. **Given** step 1, **When** the user presses "Skip for now", **Then** the
+   dialog closes, nothing is saved, and the Inbox asks for a rate (Story 1).
+5. **Given** step 2, **When** the user presses "Skip this step", **Then** the
+   dialog closes with only the rate saved.
+6. **Given** an account that has finished or skipped the welcome dialog,
    **When** it signs in again on any device, **Then** it goes straight to
    Home.
-5. **Given** the welcome screen, **When** the user follows "Coming from
-   Toggl?", **Then** the import page opens and the welcome screen does not
-   come back.
-6. **Given** an existing account from before this feature, **When** it signs
-   in, **Then** it never sees the welcome screen.
+7. **Given** step 2, **When** the user follows "Coming from Toggl?",
+   **Then** the import page opens and the welcome dialog does not come back.
+8. **Given** an existing account from before this feature, **When** it signs
+   in, **Then** it never sees the welcome dialog.
 
 ---
 
 ### User Story 3 - The first invoice asks for business details (Priority: P3)
 
-When a contractor starts an invoice and their business name, email or address
-is empty, New invoice asks for them in place instead of sending the
-contractor to Settings. What they enter saves to Settings and appears on the
-invoice preview.
+When a contractor starts an invoice and their business name or email is
+empty, New invoice says so and offers a dialog for them, instead of sending
+the contractor to Settings. What they enter saves to Settings and appears on
+the invoice preview.
 
 **Why this priority**: It only matters at the first invoice, which comes
 after tracking. Today an invoice can be generated with no "from" block.
 
 **Independent Test**: With empty business details, open New invoice, fill
-them in place, and see them on the preview and in Settings.
+them in the dialog, and see them on the preview and in Settings.
 
 **Acceptance Scenarios**:
 
 1. **Given** empty business details, **When** the user opens New invoice,
-   **Then** it asks for business name, email and address in place.
-2. **Given** those fields, **When** the user fills them, **Then** they save
-   to Settings and appear on the preview.
+   **Then** a notice says they are missing, with "Add details".
+2. **Given** that notice, **When** the user presses "Add details", fills
+   name and email and saves, **Then** they save to Settings, the notice goes,
+   and they appear on the preview.
 3. **Given** complete business details, **When** the user opens New invoice,
    **Then** it asks for nothing extra.
 4. **Given** empty business details, **When** the user tries to generate,
-   **Then** Generate stays disabled until business name and email are
-   filled in, and says that is why. Address is asked for but not required.
+   **Then** Generate is disabled until business name and email are filled
+   in, and the notice says why. Address is asked for but not required.
 
 ---
 
@@ -122,12 +161,13 @@ them in place, and see them on the preview and in Settings.
   nothing is saved.
 - The user has entries before setting a rate. Setting it makes those entries
   rated through the usual fallback, and Home updates.
-- The user adds a first client on the welcome screen with a name that matches
+- The user adds a first client in the welcome dialog with a name that matches
   an archived client. It is created as a new client, as it would be from the
   client list.
-- The user closes the tab on the welcome screen. It shows again on the next
-  sign-in, since it was neither finished nor skipped.
-- Saving on the welcome screen fails. The screen stays open with what was
+- The user closes the tab during the welcome dialog. It shows again on the
+  next sign-in, since it was neither finished nor skipped; a rate saved by
+  "Next" stays saved.
+- Saving in the welcome dialog fails. The dialog stays open with what was
   entered and says why.
 
 ## Requirements *(mandatory)*
@@ -143,19 +183,20 @@ them in place, and see them on the preview and in Settings.
 - **FR-004**: The rate row MUST have no snooze or dismiss, like every other
   Inbox row.
 - **FR-005**: An account that has never finished or skipped the welcome
-  screen MUST see it on its first web sign-in, before Home.
+  dialog MUST see it on its first web sign-in, over Home.
 - **FR-006**: Accounts that existed before this feature MUST NOT see the
-  welcome screen.
-- **FR-007**: The welcome screen MUST ask for the default hourly rate and MAY
-  take a first client's name and rate. Every field starts empty; nothing is
-  saved on the user's behalf (Constitution I).
-- **FR-008**: The welcome screen MUST offer "Skip for now", which saves
-  nothing but records that it was seen.
-- **FR-009**: Whether the welcome screen was seen MUST be kept on the account,
+  welcome dialog.
+- **FR-007**: The welcome dialog MUST ask for the default hourly rate in step
+  1 and MAY take a first client's name, rate and color in step 2. Every field
+  starts empty; nothing is saved on the user's behalf (Constitution I).
+- **FR-008**: The welcome dialog MUST offer "Skip for now" in step 1 and
+  "Skip this step" in step 2; each records that it was seen.
+- **FR-009**: Whether the welcome dialog was seen MUST be kept on the account,
   so it shows once across every device.
-- **FR-010**: The welcome screen MUST link to the Toggl import.
-- **FR-011**: New invoice MUST ask in place for business name, email and
-  address when any is empty, and save them to Settings.
+- **FR-010**: The welcome dialog MUST link to the Toggl import.
+- **FR-011**: New invoice MUST show a notice while business name or email is
+  empty, whose "Add details" opens a dialog for name, email and address that
+  saves them to Settings.
 - **FR-012**: Every save in this feature MUST answer in the same frame and go
   through the app's API (Constitution III, VI).
 - **FR-013**: New invoice MUST NOT generate while business name or email is
@@ -163,7 +204,7 @@ them in place, and see them on the preview and in Settings.
 
 ### Key Entities
 
-- **Account settings**: gain a record of when the welcome screen was finished
+- **Account settings**: gain a record of when the welcome dialog was finished
   or skipped. Default hourly rate and business details already exist.
 
 ## Success Criteria *(mandatory)*
@@ -180,10 +221,8 @@ them in place, and see them on the preview and in Settings.
 
 ## Assumptions
 
-- The macOS app gets no welcome screen. An account that starts there can
+- The macOS app gets no welcome dialog. An account that starts there can
   track with no rate, and the web Inbox asks for one.
-- The welcome screen is one screen, not a sequence. Its layout is settled in
-  `/design-review`.
 - Payment profiles are out of scope; New invoice already offers to add one in
   place.
 - Product tours, tooltips, sample data and setup checklists are out of scope.

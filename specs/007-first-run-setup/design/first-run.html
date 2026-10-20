@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>First-run setup</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* GENERATED from tokens.json — do not edit by hand. Run `pnpm tokens`. */
+/* The palette for docs/design mockups. Token names are the RAW ones
+   (--bg-primary, --text-muted, --border-subtle), not the Tailwind-stripped
+   utilities the app uses — a mockup writes plain CSS, so there is no prefix
+   collision to work around. */
+
+:root {
+    --bg-recessed: #0A0B0E;
+    --bg-base: #111316;
+    --bg-primary: #181B1F;
+    --bg-elevated: #202328;
+    --bg-hover: #272A30;
+    --bg-active: #2F333A;
+    --text-strong: #F9FAFD;
+    --text-primary: #CACED7;
+    --text-muted: #A0A7B4;
+    --text-subtle: #8F96A4;
+    --text-on-accent: #111316;
+    --text-on-danger: #111316;
+    --overlay: #05060899;
+    --border-grid: #272A30;
+    --border-subtle: #2F333A;
+    --border-default: #393E48;
+    --border-control: #666D79;
+    --border-focus: #ABB1BD;
+    --accent-default: #52FC43;
+    --accent-hover: #8EFD83;
+    --accent-active: #3FE231;
+    --accent-subtle: #0E4B09;
+    --accent-muted: #1B3518;
+    --timer-running: #52FC43;
+    --timer-idle: #666D79;
+    --timer-warning: #5CABF2;
+    --success: #36C52A;
+    --warning: #5CABF2;
+    --danger: #F64B66;
+    --danger-muted: #471F23;
+    --info: #6D7FAE;
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.40), 0 2px 10px rgba(0,0,0,0.34);
+    --shadow-float: 0 2px 4px rgba(0,0,0,0.44), 0 8px 24px rgba(0,0,0,0.40);
+    --shadow-halo-running: 0 0 0 3px color-mix(in oklab, var(--timer-running) 18%, transparent);
+
+    --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --motion-instant: 90ms;
+    --motion-quick: 160ms;
+    --motion-count: 900ms;
+    --motion-rise: 3px;
+    --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+    --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+
+    --mark-bound-width: 0.09em;
+    --mark-bound-height: 1.05em;
+    --mark-bound-gap: 0.18em;
+    --mark-bound-radius: 999px;
+
+    --proj-1: #DA8188;
+    --proj-2: #D38B59;
+    --proj-3: #B49D46;
+    --proj-4: #42B59A;
+    --proj-5: #35AFC9;
+    --proj-6: #6EA1E2;
+    --proj-7: #A390DC;
+    --proj-8: #C984BA;
+
+    --cat-1: #64A3E3;
+    --cat-2: #F6964E;
+}
+
+[data-theme="light"] {
+    --bg-recessed: #E8E2D8;
+    --bg-base: #EEE9E0;
+    --bg-primary: #F4F0E8;
+    --bg-elevated: #FAF6EF;
+    --bg-hover: #DED8CD;
+    --bg-active: #D1CABE;
+    --text-strong: #0B0A09;
+    --text-primary: #2D2A25;
+    --text-muted: #565149;
+    --text-subtle: #635E56;
+    --text-on-accent: #FFFFFF;
+    --text-on-danger: #FFFFFF;
+    --overlay: #1B1E2799;
+    --border-grid: #DED8CD;
+    --border-subtle: #D1CABE;
+    --border-default: #C1BDB5;
+    --border-control: #938E86;
+    --border-focus: #4C4841;
+    --accent-default: #315424;
+    --accent-hover: #2A491E;
+    --accent-active: #233F19;
+    --accent-subtle: #4A783A;
+    --accent-muted: #E0EFDB;
+    --timer-running: #3A632C;
+    --timer-idle: #938E86;
+    --timer-warning: #1C6DAD;
+    --success: #457036;
+    --warning: #1C6DAD;
+    --danger: #C21F43;
+    --danger-muted: #FFEBEB;
+    --info: #4A5A85;
+
+    --shadow-card: 0 1px 2px rgba(16,18,26,0.06), 0 2px 8px rgba(16,18,26,0.07);
+    --shadow-float: 0 2px 4px rgba(16,18,26,0.08), 0 8px 24px rgba(16,18,26,0.10);
+    --shadow-halo-running: 0 0 0 3px color-mix(in oklab, var(--timer-running) 22%, transparent);
+}
+
+/* ── The type scale ────────────────────────────────────────────────
+   One class per role, same as the app's @utility set. A mockup names a
+   role (type-amount) and never assembles one, so a doc cannot invent a
+   size the product does not have. */
+.type-timer {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 30px; }
+    font-variant-numeric: tabular-nums;
+}
+
+.type-title {
+    font-family: var(--font-sans);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+.type-hero {
+    font-family: var(--font-sans);
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    @media (width >= 40rem) { font-size: 44px; }
+}
+
+.type-figure {
+    font-family: var(--font-mono);
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-figure-hero {
+    font-family: var(--font-mono);
+    font-size: 40px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-lede {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+    @media (width >= 40rem) { font-size: 17px; }
+}
+
+.type-display {
+    font-family: var(--font-sans);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    @media (width >= 40rem) { font-size: 28px; }
+}
+
+.type-section {
+    font-family: var(--font-sans);
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.type-heading {
+    font-family: var(--font-sans);
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.type-body {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+}
+
+.type-control {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.type-support {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.type-amount {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-amount-hero {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-duration {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-meta {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-meta-strong {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-wordmark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.type-wordmark-small {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.type-nav {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.type-region-head {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+.type-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.type-badge {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ── The mark ──────────────────────────────────────────────────────
+   `|Stint|` — one color, bounds included, inherited via currentColor.
+   Set a font-size on .mark and everything scales from it. */
+.mark {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+.mark::before,
+.mark::after {
+    content: '';
+    display: inline-block;
+    flex: none;
+    width: var(--mark-bound-width);
+    height: var(--mark-bound-height);
+    margin: 0 var(--mark-bound-gap);
+    border-radius: var(--mark-bound-radius);
+    background: currentColor;
+}
+
+/* ── Review page ─────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg-recessed); color: var(--text-primary); font-family: var(--font-sans); }
+button { font: inherit; color: inherit; cursor: pointer; }
+.bar { position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 12px 16px; background: var(--bg-base); border-bottom: 1px solid var(--border-subtle); }
+.seg { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--bg-recessed); flex-wrap: wrap; }
+.seg button { border: 0; background: none; white-space: nowrap; padding: 6px 10px; border-radius: 6px; color: var(--text-muted); }
+.seg button[aria-pressed="true"] { background: var(--bg-active); color: var(--text-strong); }
+.note { padding: 10px 16px 0; color: var(--text-muted); max-width: 900px; }
+.stage { padding: 16px; display: flex; justify-content: center; }
+
+/* ── App frame ── */
+.app { position: relative; width: 100%; max-width: 1240px; height: 680px; overflow: hidden; border-radius: 12px; background: var(--bg-base); border: 1px solid var(--border-subtle); display: grid; grid-template-columns: 176px minmax(0, 1fr) 286px; grid-template-rows: auto 1fr; }
+.app.nodock { grid-template-columns: 176px minmax(0, 1fr); }
+.app.bare { display: flex; flex-direction: column; }
+.phone .app { width: 390px; max-width: 390px; height: 800px; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; overflow-y: auto; }
+header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 16px; }
+.wordmark { color: var(--text-strong); }
+.ghost { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 8px 10px; border-radius: 6px; color: var(--text-subtle); white-space: nowrap; }
+.ico { width: 14px; height: 14px; flex: none; }
+.rail { display: flex; flex-direction: column; gap: 4px; padding: 16px 4px 8px 8px; }
+.phone .rail { flex-direction: row; overflow-x: auto; padding: 0 8px 8px; }
+.rail a { display: flex; align-items: center; padding: 8px 12px; border-radius: 6px; color: var(--text-muted); white-space: nowrap; }
+.rail a.on { background: color-mix(in oklab, var(--bg-active) 60%, transparent); color: var(--text-strong); }
+.panel { background: var(--bg-primary); border: 1px solid var(--border-subtle); border-radius: 10px; margin: 0 0 16px; padding: 24px 28px; overflow: auto; min-height: 0; }
+.nodock .panel { margin-right: 16px; }
+.phone .panel { margin: 0 8px; padding: 18px 16px; }
+.panel h1 { margin: 0 0 18px; color: var(--text-strong); }
+
+/* ── Home ── */
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.phone .cards { grid-template-columns: 1fr; }
+.card { background: var(--bg-elevated); border-radius: 10px; box-shadow: var(--shadow-card); padding: 16px; }
+.card .k { color: var(--text-subtle); }
+.card .v { color: var(--text-strong); margin-top: 6px; }
+.card .s { color: var(--text-muted); margin-top: 4px; }
+.today { margin-top: 18px; }
+.erow { display: grid; grid-template-columns: 9px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border-subtle); }
+.erow:first-child { border-top: 0; }
+.sw { width: 9px; height: 9px; border-radius: 3px; }
+
+/* ── Dock ── */
+.dock { padding: 16px 16px 16px 12px; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow: auto; }
+.phone .dock { padding: 16px 8px; }
+.timer { background: var(--bg-primary); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px; display: flex; align-items: center; gap: 10px; }
+.dot { width: 8px; height: 8px; border-radius: 99px; background: var(--timer-idle); }
+.ibx-h { display: flex; justify-content: space-between; align-items: center; padding: 0 4px 8px; color: var(--text-subtle); }
+.ibx-h span:first-child { display: flex; align-items: center; gap: 6px; }
+.pill { display: inline-flex; min-width: 17px; height: 17px; align-items: center; justify-content: center; padding: 0 6px; border-radius: 99px; background: var(--bg-elevated); color: var(--text-primary); }
+.items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.item { position: relative; overflow: hidden; border-radius: 8px; background: var(--bg-elevated); box-shadow: var(--shadow-card); padding: 10px; }
+.item.danger::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 2px; background: var(--danger); }
+.item .t { color: var(--text-strong); display: block; }
+.item .d { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; color: var(--text-muted); }
+.item .d .f { color: var(--text-primary); }
+.item .d .dd { width: 2px; height: 2px; border-radius: 99px; background: var(--border-control); flex: none; align-self: center; }
+.item .d .bad { color: var(--danger); }
+.acts { margin-top: 8px; display: flex; gap: 6px; align-items: center; }
+.xs { border-radius: 6px; padding: 3px 8px; border: 1px solid var(--border-default); background: none; color: var(--text-primary); display: inline-flex; align-items: center; gap: 6px; }
+.xs.pri { background: var(--accent-default); border-color: var(--accent-default); color: var(--text-on-accent); }
+.xs[disabled] { opacity: .55; cursor: default; }
+.money { position: relative; flex: 1; min-width: 0; }
+.money span { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--text-subtle); }
+.money input { width: 100%; padding: 4px 34px 4px 22px; }
+.money em { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--text-subtle); font-style: normal; }
+.err { color: var(--danger); margin-top: 6px; }
+
+/* ── Inputs ── */
+input { font: inherit; width: 100%; border-radius: 6px; border: 1px solid var(--border-control); background: var(--bg-primary); color: var(--text-primary); padding: 8px 10px; }
+input::placeholder { color: var(--text-subtle); }
+input:focus, input.focus { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { color: var(--text-muted); }
+.field .hint { color: var(--text-subtle); }
+.btn { border-radius: 6px; padding: 8px 14px; border: 1px solid var(--border-default); background: none; color: var(--text-primary); display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.btn.pri { background: var(--accent-default); border-color: var(--accent-default); color: var(--text-on-accent); }
+.btn.link { border-color: transparent; color: var(--text-muted); }
+.btn[disabled], .xs[disabled] { cursor: default; }
+.btn.pri[disabled], .xs.pri[disabled] { background: var(--bg-active); border-color: var(--bg-active); color: var(--text-subtle); }
+.spin { width: 12px; height: 12px; border-radius: 99px; border: 2px solid currentColor; border-right-color: transparent; animation: s .8s linear infinite; }
+@keyframes s { to { transform: rotate(1turn); } }
+
+/* ── Welcome ── */
+.big { position: relative; }
+.big span { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-subtle); }
+.big input { padding: 12px 64px 12px 30px; }
+.big em { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--text-subtle); font-style: normal; }
+.opt { border-top: 1px solid var(--border-subtle); padding-top: 18px; display: flex; flex-direction: column; gap: 12px; }
+.opt h2 { margin: 0; color: var(--text-strong); }
+.opt .row2 { display: grid; grid-template-columns: minmax(0, 1fr) 140px; gap: 10px; }
+.phone .opt .row2 { grid-template-columns: 1fr; }
+.toggl { color: var(--text-muted); }
+.toggl a { color: var(--text-primary); text-decoration: underline; }
+.lead-err { color: var(--danger); }
+
+/* ── New invoice ── */
+.inv { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; height: 100%; }
+.phone .inv { grid-template-columns: 1fr; }
+.invhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+.invhead h1 { margin: 0 !important; }
+.form { display: flex; flex-direction: column; gap: 16px; }
+.paper { background: var(--bg-elevated); border-radius: 10px; box-shadow: var(--shadow-card); padding: 24px; color: var(--text-primary); }
+.paper .from { color: var(--text-strong); }
+.paper .miss { color: var(--text-subtle); border: 1px dashed var(--border-control); border-radius: 6px; padding: 8px 10px; }
+.paper .lines { margin-top: 18px; border-top: 1px solid var(--border-subtle); }
+.paper .ln { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-subtle); }
+.paper .tot { display: flex; justify-content: space-between; padding-top: 12px; color: var(--text-strong); }
+.muted { color: var(--text-subtle); }
+
+/* ── Stepped dialog (new component) ── */
+.scrim { position: absolute; inset: 0; background: var(--overlay); display: grid; place-items: center; z-index: 10; padding: 16px; }
+.dlg { width: 460px; max-width: 100%; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 12px; box-shadow: var(--shadow-float); padding: 22px; display: flex; flex-direction: column; gap: 18px; }
+.dlg h2 { margin: 0; color: var(--text-strong); }
+.dlg .lede { margin: 6px 0 0; color: var(--text-muted); }
+.steps { display: flex; align-items: center; gap: 10px; color: var(--text-subtle); }
+.steps .bars { display: flex; gap: 4px; }
+.steps .bars i { width: 22px; height: 3px; border-radius: 99px; background: var(--border-default); }
+.steps .bars i.on { background: var(--text-strong); }
+.dfoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dfoot .r { display: flex; gap: 8px; }
+.dlg input { background: var(--bg-primary); }
+
+.dlg .money input { padding-top: 8px; padding-bottom: 8px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatches button { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border-default); padding: 0; background: none; position: relative; }
+.swatches button.none::after { content: ''; position: absolute; left: 50%; top: 3px; bottom: 3px; width: 1px; background: var(--border-control); transform: rotate(45deg); }
+.swatches button[aria-pressed="true"] { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+
+.missing { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--border-default); border-left: 2px solid var(--warning); border-radius: 8px; padding: 10px 12px; }
+.missing .t { color: var(--text-strong); }
+.missing .d { color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="seg" id="screens"></div>
+  <div class="seg" id="states"></div>
+  <div class="seg" id="dev"><button data-v="desk" aria-pressed="true" class="type-meta">Desktop</button><button data-v="phone" class="type-meta">Phone</button></div>
+  <div class="seg" id="theme"><button data-v="dark" aria-pressed="true" class="type-meta">Dark</button><button data-v="light" class="type-meta">Light</button></div>
+</div>
+<div class="note type-support" id="note"></div>
+<div class="stage" id="stage"></div>
+
+<script>
+const I = {
+  inbox: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+  dollar: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+  dl: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
+  play: '<svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg>',
+  nav: ['Home','Calendar','Clients','Invoices','Settings'],
+};
+
+const SCREENS = {
+  Welcome: {
+    states: ['Rate, empty', 'Rate, filled', 'Client, empty', 'Client, filled', 'Saving', 'Failed'],
+    note: 'First web sign-in only, a two-step dialog over Home. Step 1 asks for the rate and Next saves it; step 2 offers a first client, its color and the Toggl import. Skip for now closes it and saves nothing. Escape and clicking outside do nothing, so it is never lost by accident. New component: a stepped dialog, the app dialog with a step counter and Back.',
+  },
+  Inbox: {
+    states: ['No rate', 'Typing', 'Rejected', 'Among others', 'Rate set'],
+    note: 'An Inbox row whenever no default rate is set. The rate is entered on the row; saving takes the row away at once, and a rejection brings it back with why.',
+  },
+  'New invoice': {
+    states: ['Details missing', 'Dialog open', 'Saving', 'Filled in'],
+    note: 'While business name or email is empty, a notice on the form opens a dialog for them, and Generate is disabled. Saving writes them to Settings for every invoice after.',
+  },
+};
+let screen = 'Welcome', st = 'Rate, empty', v = 'A', dev = 'desk';
+
+const header = (phone) => `<header>
+  <span class="type-wordmark-small wordmark">stint</span>
+  <button class="ghost type-meta">${phone ? '' : 'sam@lakeline.dev'}</button></header>`;
+const rail = (on) => `<nav class="rail type-nav">${I.nav.map(n => `<a class="${n===on?'on':''}">${n}</a>`).join('')}</nav>`;
+
+/* ── Welcome ── */
+function welcome() {
+  const step2 = st.startsWith('Client') || st === 'Saving' || st === 'Failed';
+  const filled = st.endsWith('filled') || st === 'Saving' || st === 'Failed';
+  const saving = st === 'Saving';
+  const ro = saving ? 'readonly' : '';
+  const bars = `<div class="steps"><span class="bars"><i class="on"></i><i class="${step2 ? 'on' : ''}"></i></span><span class="type-meta">Step ${step2 ? 2 : 1} of 2</span></div>`;
+  const body = !step2 ? `
+    <div>
+      <h2 class="type-section">Welcome to Stint</h2>
+      <p class="lede type-support">What do you charge by the hour?</p>
+    </div>
+    <div class="field">
+      <label class="type-label" for="w-rate">Default hourly rate</label>
+      <div class="big"><span class="type-amount">$</span><input id="w-rate" class="type-amount focus" inputmode="decimal" placeholder="100.00" value="${filled ? '125.00' : ''}"><em class="type-meta">/ hour</em></div>
+      <span class="hint type-support">A client or project can set its own rate later.</span>
+    </div>
+    <div class="dfoot">
+      <button class="btn link type-control">Skip for now</button>
+      <button class="btn pri type-control" ${filled ? '' : 'disabled'}>Next</button>
+    </div>` : `
+    <div>
+      <h2 class="type-section">Who are you working for?</h2>
+      <p class="lede type-support">Add your first client now, or later from Clients.</p>
+    </div>
+    <div class="opt" style="border:0;padding:0">
+      <div class="row2">
+        <div class="field"><label class="type-label" for="w-client">Client name</label><input id="w-client" class="type-control ${filled ? '' : 'focus'}" placeholder="Northwind Trading" value="${filled ? 'Northwind Trading' : ''}" ${ro}></div>
+        <div class="field"><label class="type-label" for="w-crate">Rate</label><div class="money"><span class="type-amount">$</span><input id="w-crate" class="type-amount" placeholder="125.00" value="${filled ? '140.00' : ''}" ${ro}><em class="type-meta">/ hr</em></div><span class="hint type-support">Blank uses your default</span></div>
+      </div>
+      <fieldset style="border:0;padding:0;margin:0" class="field"><legend class="type-label" style="color:var(--text-muted);margin-bottom:6px">Color</legend><div class="swatches"><button class="none" aria-pressed="${filled ? 'false' : 'true'}" aria-label="No color"></button>${[1,2,3,4,5,6,7,8].map(i => `<button style="background:var(--proj-${i});border-color:transparent" aria-pressed="${filled && i === 6 ? 'true' : 'false'}"></button>`).join('')}</div></fieldset>
+      <span class="toggl type-support">Coming from Toggl? <a>Import your history</a> instead.</span>
+    </div>
+    ${st === 'Failed' ? `<p class="lead-err type-support" style="margin:0">Couldn't save. What you entered is still here. Try again.</p>` : ''}
+    <div class="dfoot">
+      <button class="btn link type-control" ${saving ? 'disabled' : ''}>Back</button>
+      <div class="r">
+        ${filled ? '' : `<button class="btn type-control">Skip this step</button>`}
+        <button class="btn pri type-control" ${!filled || saving ? 'disabled' : ''}>${saving ? '<span class="spin"></span>Saving' : 'Start tracking'}</button>
+      </div>
+    </div>`;
+  return `<div class="scrim"><div class="dlg" role="dialog">${bars}${body}</div></div>`;
+}
+
+/* ── Home + dock ── */
+function home(rateSet) {
+  const money = (h, amt) => rateSet ? amt : `<span class="muted">—</span>`;
+  const sub = rateSet ? '' : `<div class="s type-support">Needs a rate</div>`;
+  return `<main class="panel">
+    <h1 class="type-title">Home</h1>
+    <div class="cards">
+      <div class="card"><div class="k type-label">Today</div><div class="v type-figure">${money(0, '$406.25')}</div>${sub}<div class="s type-duration">3:15</div></div>
+      <div class="card"><div class="k type-label">This week</div><div class="v type-figure">${money(0, '$1,531.25')}</div>${sub}<div class="s type-duration">12:15</div></div>
+      <div class="card"><div class="k type-label">October</div><div class="v type-figure">${money(0, '$1,531.25')}</div>${sub}<div class="s type-duration">12:15</div></div>
+    </div>
+    <div class="today">
+      <div class="erow"><span class="sw" style="background:var(--proj-6)"></span><span class="type-control">Warehouse dashboard · Fix the export filter</span><span class="type-duration">2:00</span></div>
+      <div class="erow"><span class="sw" style="background:var(--proj-4)"></span><span class="type-control">Data pipeline audit · Kickoff call</span><span class="type-duration">1:15</span></div>
+    </div>
+  </main>`;
+}
+function rateRow() {
+  const typed = st !== 'No rate' && st !== 'Among others';
+  return `<li class="item">
+    <span class="t type-control">Set your default rate</span>
+    <div class="d"><span class="type-support">Home can't show money without one</span></div>
+    <div class="acts">
+      <div class="money"><span class="type-amount">$</span><input class="type-amount ${typed ? 'focus' : ''}" style="padding-top:3px;padding-bottom:3px" inputmode="decimal" placeholder="100.00" value="${typed ? (st === 'Rejected' ? '-125' : '125.00') : ''}" aria-label="Default hourly rate"><em class="type-meta">/ hr</em></div>
+      <button class="xs pri type-support" ${typed ? '' : 'disabled'}>Save</button>
+    </div>
+    ${st === 'Rejected' ? `<div class="err type-support">A rate can't be negative.</div>` : ''}
+  </li>`;
+}
+function dock() {
+  const rateSet = st === 'Rate set';
+  const others = st === 'Among others' ? `
+    <li class="item danger"><span class="t type-control">Meridian Labs</span><div class="d"><span class="f type-amount">$4,180.00</span><span class="dd"></span><span class="bad type-support">6 days late</span></div><div class="acts"><button class="xs type-support">${I.dollar}Mark paid</button><button class="xs type-support">${I.dl}Download</button></div></li>` : '';
+  const after = st === 'Among others' ? `
+    <li class="item"><span class="t type-control">Kickoff call</span><div class="d"><span class="f type-duration">1:15</span><span class="dd"></span><span class="type-support">No project</span></div></li>` : '';
+  const count = rateSet ? 0 : (st === 'Among others' ? 3 : 1);
+  return `<aside class="dock">
+    <div class="timer"><span class="dot"></span><span class="type-control muted" style="flex:1">What are you working on?</span><button class="xs type-support">${I.play}Start</button></div>
+    <section>
+      <div class="ibx-h"><span class="type-label">${I.inbox}Inbox</span>${count ? `<span class="pill type-meta">${count}</span>` : ''}</div>
+      ${count === 0 ? `<p class="type-support muted" style="padding:12px 4px;margin:0">Nothing needs you.</p>` : `<ul class="items">${others}${rateRow()}${after}</ul>`}
+    </section>
+  </aside>`;
+}
+
+/* ── New invoice ── */
+function bizDialog() {
+  const saving = st === 'Saving';
+  const ro = saving ? 'readonly' : '';
+  return `<div class="scrim"><div class="dlg" role="dialog">
+    <div>
+      <h2 class="type-section">Who is this invoice from?</h2>
+      <p class="lede type-support">Your name and email go at the top of every invoice. Saved to Settings, so you're asked once.</p>
+    </div>
+    <div class="field"><label class="type-label">Business name <span class="muted">· required</span></label><input class="type-control focus" value="Sam Rivera Consulting" ${ro}></div>
+    <div class="field"><label class="type-label">Email <span class="muted">· required</span></label><input class="type-control" value="sam@lakeline.dev" ${ro}></div>
+    <div class="field"><label class="type-label">Address</label><input class="type-control" placeholder="Street, city, state ZIP" ${ro}></div>
+    <div class="dfoot">
+      <button class="btn link type-control" ${saving ? 'disabled' : ''}>Cancel</button>
+      <button class="btn pri type-control" ${saving ? 'disabled' : ''}>${saving ? '<span class="spin"></span>Saving' : 'Save'}</button>
+    </div>
+  </div></div>`;
+}
+function invoice() {
+  const done = st === 'Filled in';
+  const open = st === 'Dialog open' || st === 'Saving';
+  const from = done
+    ? `<div class="from type-heading">Sam Rivera Consulting</div><div class="type-support">sam@lakeline.dev<br>2201 Lake Austin Blvd, Austin, TX 78703</div>`
+    : `<div class="miss type-support">Your business name and email go here</div>`;
+  return `<main class="panel">
+    <div class="invhead">
+      <h1 class="type-title">New invoice</h1>
+      <button class="btn pri type-control" ${done ? '' : 'disabled'}>Generate invoice</button>
+    </div>
+    <div class="inv">
+      <div class="form">
+        ${done ? '' : `<div class="missing"><div><div class="t type-control">Your business details are missing</div><div class="d type-support">Name and email are needed to generate.</div></div><button class="btn type-control">Add details</button></div>`}
+        <div class="field"><label class="type-label">Client</label><input class="type-control" value="Northwind Trading" readonly></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="field"><label class="type-label">From</label><input class="type-control" value="Oct 1, 2026" readonly></div>
+          <div class="field"><label class="type-label">To</label><input class="type-control" value="Oct 31, 2026" readonly></div>
+        </div>
+        <div class="field"><label class="type-label">Payment details</label><input class="type-control" value="Business checking ··4410" readonly></div>
+      </div>
+      <div class="paper">
+        ${from}
+        <div class="type-label muted" style="margin-top:18px">Bill to</div>
+        <div class="type-control">Northwind Trading</div>
+        <div class="lines">
+          <div class="ln type-control"><span>Warehouse dashboard · 9:00</span><span class="type-amount">$1,260.00</span></div>
+          <div class="ln type-control"><span>Data pipeline audit · 3:15</span><span class="type-amount">$455.00</span></div>
+        </div>
+        <div class="tot type-heading"><span>Total</span><span class="type-amount-hero">$1,715.00</span></div>
+      </div>
+    </div>
+  </main>${open ? bizDialog() : ''}`;
+}
+
+function render() {
+  const phone = dev === 'phone';
+  const s = SCREENS[screen];
+  let app;
+  if (screen === 'Welcome') {
+    app = `<div class="app">${header(phone)}${rail('Home')}${home(false).replace(/<div class="today">[\s\S]*?<\/div>\s*<\/div>/, '')}<aside class="dock"><div class="timer"><span class="dot"></span><span class="type-control muted" style="flex:1">What are you working on?</span></div></aside>${welcome()}</div>`;
+  } else if (screen === 'Inbox') {
+    app = `<div class="app">${header(phone)}${rail('Home')}${home(st === 'Rate set')}${dock()}</div>`;
+  } else {
+    app = `<div class="app nodock">${header(phone)}${rail('Invoices')}${invoice()}</div>`;
+  }
+  const stage = document.getElementById('stage');
+  stage.className = 'stage ' + (phone ? 'phone' : '');
+  stage.innerHTML = app;
+  document.getElementById('note').textContent = s.note;
+  sync();
+}
+function seg(id, items, cur, set) {
+  const el = document.getElementById(id);
+  el.style.display = items.length ? '' : 'none';
+  el.innerHTML = items.map(([k, l]) => `<button class="type-meta" data-v="${k}" aria-pressed="${k===cur}">${l}</button>`).join('');
+  el.onclick = e => { const b = e.target.closest('button'); if (b) { set(b.dataset.v); render(); } };
+}
+function sync() {
+  seg('screens', Object.keys(SCREENS).map(k => [k, k]), screen, x => { screen = x; st = SCREENS[x].states[0]; v = 'A'; });
+  seg('states', SCREENS[screen].states.map(k => [k, k]), st, x => st = x);
+  for (const id of ['dev','theme']) document.querySelectorAll(`#${id} button`).forEach(b => b.setAttribute('aria-pressed', b.dataset.v === (id==='dev'?dev:document.documentElement.dataset.theme)));
+}
+document.getElementById('dev').onclick = e => { const b = e.target.closest('button'); if (b) { dev = b.dataset.v; render(); } };
+document.getElementById('theme').onclick = e => { const b = e.target.closest('button'); if (b) { document.documentElement.dataset.theme = b.dataset.v; render(); } };
+render();
+</script>
+</body>
+</html>
