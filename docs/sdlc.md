@@ -4,7 +4,8 @@ Every piece of work, from the moment it is noticed to the moment it is live,
 with the command that moves it at each step.
 
 1. **Capture**, by the rules in the next section. `pnpm hygiene` and
-   Dependabot also file work weekly.
+   Dependabot also file work weekly, and Blake files each Sentry alert as a
+   `bug` + `urgent` issue for `/work-issues`.
 2. **Build.** A feature: `/next-feature`, then `/speckit-clarify` →
    `/design-review` → `/speckit-plan` → `/speckit-tasks` →
    `/speckit-analyze`, then `/speckit-implement` in a `pnpm worktree`.

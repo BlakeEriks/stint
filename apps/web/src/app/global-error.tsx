@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { reportError } from '@/lib/client/report-error';
 
 /**
  * The last resort: the root layout itself failed, so this renders its own
@@ -21,6 +22,7 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error('The app failed to render:', error);
+    void reportError(error);
   }, [error]);
 
   return (
