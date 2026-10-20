@@ -130,9 +130,9 @@ export const StartWhileRunningPending: Story = {
   },
 };
 
-/** Stop pressed and not yet answered: the bar has stopped, and the money
- *  figures, which the client never predicts, pulse until the answer brings
- *  them. */
+/** Stop pressed and not yet answered: the bar and the hours have moved, and
+ *  the money, which the client never predicts, pulses until the answer
+ *  brings it. */
 export const StopSettling: Story = {
   ...desktop,
   parameters: { ...account('running'), ...stalled('stopTimer') },
@@ -150,6 +150,10 @@ export const StopSettling: Story = {
         canvasElement.querySelectorAll('[data-settling]').length,
       ).toBeGreaterThan(0),
     );
+    // The bar heads too, and every figure still passes AA (the a11y check).
+    await expect(
+      canvasElement.querySelector('[data-money][data-settling]'),
+    ).not.toBeNull();
   },
 };
 

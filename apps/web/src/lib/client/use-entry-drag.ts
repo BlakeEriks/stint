@@ -68,6 +68,7 @@ export function useEntryDrag() {
         endedAt: v.endedAt.toISOString(),
       }),
     invalidate: (qc) => invalidateEntryData(qc),
+    movesHome: true,
     // Not over a drag still in the user's hand.
     onSettled: () => {
       if (!active.current) setPreview(null);

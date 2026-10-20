@@ -358,13 +358,40 @@ describe('useOptimisticMutation — include', () => {
       expect(queryClient.getQueryData(['other'])).toBe('other original'),
     );
   });
+
+  it('keeps the second cache’s fetch time, since it counts nothing newer', async () => {
+    const { queryClient, hook } = setupIncluding({
+      mutationFn: () => new Promise(() => {}),
+      alsoPredict: [{ queryKey: ['other'], predict: () => 'predicted' }],
+    });
+    queryClient.setQueryData(['other'], 'fetched', { updatedAt: 1000 });
+
+    act(() => hook.result.current.mutate({ value: 'x' }));
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['other'])).toBe('predicted'),
+    );
+    expect(queryClient.getQueryState(['other'])?.dataUpdatedAt).toBe(1000);
+  });
 });
 
 describe('usePressedSince', () => {
+  it('ignores a press that does not move Home', async () => {
+    const { queryClient, wrapper, hook } = setup({
+      mutationFn: () => new Promise(() => {}),
+    });
+    const fetchedAt = queryClient.getQueryState(key)?.dataUpdatedAt ?? 0;
+    const pressed = renderHook(() => usePressedSince(fetchedAt), { wrapper });
+
+    act(() => hook.result.current.mutate({ value: 'x' }));
+    await waitFor(() => expect(hook.result.current.isPending).toBe(true));
+    expect(pressed.result.current).toBe(false);
+  });
+
   it('is true only while a press made after the data is in flight', async () => {
     const call = deferred<Cache>();
     const { queryClient, wrapper, hook } = setup({
       mutationFn: () => call.promise,
+      movesHome: true,
     });
     const fetchedAt = queryClient.getQueryState(key)?.dataUpdatedAt ?? 0;
     const pressed = renderHook(() => usePressedSince(fetchedAt), { wrapper });

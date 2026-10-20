@@ -5,20 +5,12 @@ import { formatCurrency } from '@stint/core';
 import { cn } from '@/lib/cn';
 import { useCountUp } from '@/lib/client/use-count-up';
 
-/**
- * True while a press is in flight that the figures on screen don't count yet.
- * Money depends on rate resolution, which the client never repeats, so it is
- * never predicted: it shows that it is about to change instead, until the
- * answer or its refetch lands (Constitution VI).
- */
+/* Money depends on rate resolution, which the client never repeats, so a
+   press never predicts it: it shows it is about to change instead
+   (Constitution VI). */
 export const Settling = createContext(false);
 
-/**
- * How a settling figure looks: dimmed, with a slow pulse where motion is on.
- * Only on a figure with contrast to spare: the week's bar heads are already
- * `text-subtle`, and dimmed they fail AA.
- */
-const SETTLING = 'motion-safe:animate-pulse motion-reduce:opacity-60';
+export const SETTLING = 'settling';
 
 /**
  * An amount that travels to its new value rather than cutting to it.

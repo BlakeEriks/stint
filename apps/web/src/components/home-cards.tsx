@@ -30,7 +30,6 @@ export function HomeCards() {
     queryFn: () => api.stats(tz),
   });
 
-  /* A background poll is not a press, so it never dims the figures. */
   const settling = usePressedSince(stats.dataUpdatedAt);
 
   return (

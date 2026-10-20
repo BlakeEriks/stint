@@ -37,8 +37,6 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
  *
  * The billed-entry lock lives in a database trigger, so it holds no matter
  * which path reaches the row. This translates it into the documented 409.
- *
- * `?include=` returns `{ entry, included }` instead of the bare entry.
  */
 export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   const { userId, db } = await requireSession(req);

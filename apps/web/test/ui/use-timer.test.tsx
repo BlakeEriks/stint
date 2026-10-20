@@ -4,7 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { timeZone, useTimer } from '@/lib/client/use-timer';
 import { keys } from '@/lib/client/query-keys';
-import type { Summary, TimeEntry } from '@/lib/client/api';
+import type { Stats, Summary, TimeEntry } from '@/lib/client/api';
+import { localDateKey } from '@stint/core';
 
 const START = '2026-09-11T09:00:00.000Z';
 
@@ -371,6 +372,38 @@ describe('useTimer — Home settles with the answer', () => {
     );
     expect(rows(client, list)?.[0]?.durationSeconds).toBeGreaterThanOrEqual(
       600,
+    );
+  });
+
+  it('adds the time since /stats measured it to today’s bar when stopped', async () => {
+    const running = entry({
+      startedAt: new Date(Date.now() - 600_000).toISOString(),
+    });
+    const server = slowServer(
+      summary({ running, serverTime: new Date().toISOString() }),
+    );
+    const { client, wrap } = withClient();
+    const todayKey = localDateKey(new Date(), timeZone);
+    const week = [
+      { date: '2000-01-01', seconds: 100, amount: null },
+      { date: todayKey, seconds: 500, amount: null },
+    ];
+    client.setQueryData(keys.stats(timeZone), { week } as unknown as Stats, {
+      updatedAt: Date.now() - 30_000,
+    });
+    const { result } = renderHook(() => useTimer(), { wrapper: wrap });
+    await waitFor(() => expect(result.current.running).not.toBeNull());
+
+    server.hold('POST /timer/stop');
+    act(() => result.current.stop.mutate());
+
+    await waitFor(() =>
+      expect(
+        client.getQueryData<Stats>(keys.stats(timeZone))?.week[1]?.seconds,
+      ).toBeGreaterThanOrEqual(530),
+    );
+    expect(client.getQueryData<Stats>(keys.stats(timeZone))?.week[0]).toEqual(
+      week[0],
     );
   });
 

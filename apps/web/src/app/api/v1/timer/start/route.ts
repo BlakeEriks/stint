@@ -21,8 +21,6 @@ export const dynamic = 'force-dynamic';
  * The insert is attempted unconditionally: the partial unique index is the
  * real arbiter, so two simultaneous requests cannot both succeed. A
  * pre-check would be a race.
- *
- * `?include=` returns `{ entry, included }` instead of the bare entry.
  */
 export const POST = handle(async (req: Request) => {
   const { userId, db } = await requireSession(req);

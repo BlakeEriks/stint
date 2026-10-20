@@ -106,6 +106,8 @@ export interface OptimisticOptions<TVars, TData, TCache> {
    * of it. Only for a pending-mode form that stays open until the answer.
    */
   inline?: boolean;
+  /** The press changes Home's figures, which show it is settling until they count it. */
+  movesHome?: boolean;
   /** A lane whose presses reach the server one at a time, in press order. */
   serial?: string;
   timeoutMs?: number;
@@ -161,7 +163,7 @@ export function useOptimisticMutation<
     opts.predict !== undefined && !opts.pending?.(vars);
 
   return useMutation<TData, Error, TVars, Context>({
-    meta: { inline: opts.inline ?? false },
+    meta: { inline: opts.inline ?? false, movesHome: opts.movesHome ?? false },
     scope: opts.serial ? { id: opts.serial } : undefined,
     mutationFn: (vars) =>
       predicts(vars)
@@ -171,22 +173,26 @@ export function useOptimisticMutation<
         : opts.mutationFn(vars),
     onMutate: (vars) => {
       const key = opts.queryKey(vars);
+      /* `alsoPredict`'s caches keep the time they were fetched: a figure
+         beside the prediction, such as money, still counts only what was
+         fetched then (`usePressedSince`). */
       const predictions = [
         ...(opts.predict
-          ? [{ queryKey: key, predict: opts.predict as Predict<TVars> }]
+          ? [
+              {
+                queryKey: key,
+                predict: opts.predict as Predict<TVars>,
+                keepsAge: false,
+              },
+            ]
           : []),
-        ...(opts.alsoPredict ?? []),
+        ...(opts.alsoPredict ?? []).map((p) => ({ ...p, keepsAge: true })),
       ];
       const snapshot: Context['snapshot'] = [];
-      for (const { queryKey, predict } of predictions) {
-        // Not awaited: the cancel takes effect at once, and waiting on it
-        // would let a frame render before the prediction.
-        void queryClient.cancelQueries({ queryKey });
-        for (const [cached, data] of queryClient.getQueriesData({ queryKey })) {
-          snapshot.push([cached, data]);
-          if (predicts(vars))
-            queryClient.setQueryData(cached, predict(data, vars, cached));
-        }
+      for (const prediction of predictions) {
+        snapshot.push(
+          ...predictInto(queryClient, prediction, vars, predicts(vars)),
+        );
       }
       return { key, snapshot };
     },
@@ -207,20 +213,52 @@ export function useOptimisticMutation<
 }
 
 /**
- * Whether a press is still in flight that began after `updatedAt` — so data
- * fetched then doesn't count it yet. A press's answer or refetch updates the
- * data and ends it; a prediction written at the press does too, since that
- * data already shows the press.
+ * Whether a press that moves Home (`movesHome`) is still in flight and began
+ * after `updatedAt` — so data fetched then doesn't count it yet. The press's
+ * answer or refetch updates the data and ends it.
  */
 export function usePressedSince(updatedAt: number): boolean {
   const pressedAt = useMutationState({
-    filters: { status: 'pending' },
+    filters: {
+      status: 'pending',
+      predicate: (m) => m.options.meta?.movesHome === true,
+    },
     select: (m) => m.state.submittedAt,
   });
   return pressedAt.some((at) => at >= updatedAt);
 }
 
 type Predict<TVars> = (current: unknown, vars: TVars, key: QueryKey) => unknown;
+
+/**
+ * Writes one prediction into every cached query under its key, when
+ * `predicting`, and returns what each held before.
+ */
+function predictInto<TVars>(
+  queryClient: QueryClient,
+  {
+    queryKey,
+    predict,
+    keepsAge,
+  }: { queryKey: QueryKey; predict: Predict<TVars>; keepsAge: boolean },
+  vars: TVars,
+  predicting: boolean,
+): Context['snapshot'] {
+  // Not awaited: the cancel takes effect at once, and waiting on it would
+  // let a frame render before the prediction.
+  void queryClient.cancelQueries({ queryKey });
+  const before = queryClient.getQueriesData({ queryKey });
+  if (!predicting) return before;
+  for (const [cached, data] of before) {
+    const updatedAt = keepsAge
+      ? queryClient.getQueryState(cached)?.dataUpdatedAt
+      : undefined;
+    queryClient.setQueryData(cached, predict(data, vars, cached), {
+      updatedAt,
+    });
+  }
+  return before;
+}
 
 /**
  * Fails `call` after `ms` without abandoning it: `late` runs if it settles

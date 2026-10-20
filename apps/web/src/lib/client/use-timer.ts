@@ -1,15 +1,20 @@
 'use client';
 
-import { useQuery, type QueryClient } from '@tanstack/react-query';
+import {
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import {
   api,
   type Include,
   type IncludedName,
+  type Stats,
   type Summary,
   type TimeEntry,
 } from './api';
-import { elapsedSeconds, entrySeconds } from '@stint/core';
+import { elapsedSeconds, entrySeconds, localDateKey } from '@stint/core';
 import { keys, invalidateEntryData } from './query-keys';
 import { useOptimisticMutation } from './mutations';
 
@@ -63,6 +68,7 @@ function useTick(active: boolean): boolean {
  * laptop several minutes off would otherwise show a wrong elapsed time.
  */
 export function useTimer() {
+  const queryClient = useQueryClient();
   const summary = useQuery({
     queryKey: keys.summary(),
     queryFn: () => api.summary(timeZone),
@@ -120,9 +126,7 @@ export function useTimer() {
       todaySeconds,
       serverTime: serverNow(),
     };
-  /* One lane: Start then Stop must reach the server in that order. A start
-     and a stop answer with the summary and Home's figures, so those settle
-     with the answer; the rest refetches. */
+  // One lane: Start then Stop must reach the server in that order.
   const timerPress = {
     queryKey: () => keys.summary(),
     invalidate: (
@@ -131,6 +135,7 @@ export function useTimer() {
       settled: readonly IncludedName[],
     ) => invalidateEntryData(qc, settled),
     serial: 'timer',
+    movesHome: true,
   };
   const settles = { ...timerPress, include: HOME };
 
@@ -185,7 +190,8 @@ export function useTimer() {
   };
 
   /* The running row in every cached list finishes where the readout
-     stopped, so Today's hours move with the bar. */
+     stopped, and today's bar takes the time since `/stats` measured it, so
+     Today's and the week's hours move with the bar. */
   const stop = useOptimisticMutation<void, unknown, Summary>({
     ...settles,
     mutationFn: () => api.stopTimer(HOME),
@@ -208,8 +214,22 @@ export function useTimer() {
               )
             : current,
       },
+      {
+        queryKey: keys.stats(timeZone),
+        predict: (current, _vars, key) => {
+          const fetchedAt = queryClient.getQueryState(key)?.dataUpdatedAt;
+          return running && fetchedAt
+            ? withTodayBar(
+                current as Stats | undefined,
+                sinceSeconds(fetchedAt),
+              )
+            : current;
+        },
+      },
     ],
   });
+  const sinceSeconds = (at: number) =>
+    Math.max(0, Math.floor((Date.now() - at) / 1000));
 
   const update = useOptimisticMutation<
     { taskName?: string; projectId?: string | null },
@@ -253,6 +273,18 @@ function withEntries(
   return Array.isArray(list?.entries)
     ? { ...list, entries: change(list.entries) }
     : current;
+}
+
+/** `stats` with `seconds` more on today's bar. */
+function withTodayBar(stats: Stats | undefined, seconds: number) {
+  if (!stats || seconds === 0) return stats;
+  const today = localDateKey(new Date(), timeZone);
+  return {
+    ...stats,
+    week: stats.week.map((d) =>
+      d.date === today ? { ...d, seconds: d.seconds + seconds } : d,
+    ),
+  };
 }
 
 /** Whether a cached list's `from`–`to` window holds the instant `at`. */
