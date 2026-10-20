@@ -224,7 +224,9 @@ export function Listing<
 }
 
 /**
- * The content rising in once, where it replaces the loader.
+ * The content rising in once, where it replaces the loader: a short settle,
+ * never a fade, so no frame of it is ever drawn faint (a figure read at half
+ * opacity is a figure misread).
  *
  * Animated through the elements it rendered rather than a wrapper: a wrapper
  * would sit between a `fills` screen's column and its `flex-1` child and break
@@ -241,8 +243,8 @@ function RiseIn({
   useLayoutEffect(() => {
     if (!after.current) return;
     after.current = false;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const root = getComputedStyle(document.documentElement);
-    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const rise = root.getPropertyValue('--motion-rise').trim() || '3px';
     for (
       let el = mark.current?.nextElementSibling;
@@ -250,12 +252,7 @@ function RiseIn({
       el = el.nextElementSibling
     ) {
       el.animate?.(
-        still
-          ? [{ opacity: 0 }, { opacity: 1 }]
-          : [
-              { opacity: 0, transform: `translateY(${rise})` },
-              { opacity: 1, transform: 'none' },
-            ],
+        [{ transform: `translateY(${rise})` }, { transform: 'none' }],
         {
           duration:
             Number.parseFloat(root.getPropertyValue('--motion-quick')) || 160,

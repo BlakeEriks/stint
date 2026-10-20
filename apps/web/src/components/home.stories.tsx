@@ -136,6 +136,42 @@ export const RunningUnrated: Story = {
   parameters: account('runningUnrated'),
 };
 
+/** On its way: the panel holds one quiet word, and none of its regions,
+ *  until everything it draws has arrived (#383). */
+export const Loading: Story = {
+  ...desktop,
+  parameters: stalled('stats'),
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement.querySelector('main') as HTMLElement);
+    await expect(await panel.findByRole('status')).toHaveTextContent('Loading');
+    await expect(panel.queryByText(/Today ·/)).toBeNull();
+    await expect(
+      panel.queryByRole('img', { name: /not yet worked/ }),
+    ).toBeNull();
+  },
+};
+
+/** The panel paints once: the first frame that has the week's bars already
+ *  has them in their clients' colors, and the legend naming those clients. */
+export const OneStep: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const week = await within(canvasElement).findByRole('img', {
+      name: /not yet worked/,
+    });
+    // No waiting from here: what the bars first show is what they show.
+    await expect(
+      week.querySelectorAll('[data-segment]:not([data-segment="internal"])')
+        .length,
+    ).toBeGreaterThan(0);
+    await expect(
+      canvasElement.querySelectorAll(
+        '[data-legend-key]:not([data-legend-key="internal"])',
+      ).length,
+    ).toBeGreaterThan(0);
+  },
+};
+
 /** A new account: every figure is zero and nothing is extrapolated. */
 export const Empty: Story = {
   ...desktop,
@@ -143,7 +179,6 @@ export const Empty: Story = {
   play: async ({ canvasElement, loaded }) => {
     const page = within(canvasElement);
     await page.findByText('Unbilled');
-    // Today's entries load after the stats, into the same placeholder rows.
     await loaded.settle();
     // No `$0.00 awaiting`: a figure standing in for the absence of one.
     await expect(page.queryByText(/open invoice/)).toBeNull();

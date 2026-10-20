@@ -5,20 +5,35 @@ import { useQuery } from '@tanstack/react-query';
 import { api, type Stats } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
 import { keys } from '@/lib/client/query-keys';
-import { useClients } from '@/lib/client/use-project-colors';
+import {
+  useAllProjects,
+  useClients,
+  useClientsQuery,
+} from '@/lib/client/use-project-colors';
 import { buildHues, Legend } from './home-shell';
-import { Today } from './home-today';
+import { Today, useTodayEntries } from './home-today';
 import { Week } from './home-week';
 import { Month } from './home-month';
 import { Listing } from './page';
 
+/**
+ * The panel paints once, with everything it draws (#383): the gate holds the
+ * same queries its regions read, so on the first frame past it every bar has
+ * its client's hue and Today has its rows.
+ */
 export function HomeCards() {
-  const query = useQuery({
+  const stats = useQuery({
     queryKey: keys.stats(tz),
     queryFn: () => api.stats(tz),
   });
 
-  return <Listing query={query}>{(stats) => <Panel stats={stats} />}</Listing>;
+  return (
+    <Listing
+      query={[stats, useClientsQuery(), useAllProjects(), useTodayEntries()]}
+    >
+      {([data]) => <Panel stats={data} />}
+    </Listing>
+  );
 }
 
 /**
@@ -39,27 +54,10 @@ function Panel({ stats }: { stats: Stats }) {
   const clients = useClients();
 
   /* How each of the week's days divides by client, in SECONDS — the stack's
-     own measure. `/stats.week` carries each bar's height and its money and
-     says nothing about who the hours belonged to; this is the only call that
-     does. The window is the week the bars already hold, so nothing is
-     fetched that is not drawn. */
-  const first = stats.week[0]?.date;
-  const last = stats.week.at(-1)?.date;
-  const { data: activity } = useQuery({
-    queryKey: keys.activity(tz, stats.week.length),
-    queryFn: () =>
-      api.activity({
-        from: `${first}T00:00:00.000Z`,
-        to: `${last}T23:59:59.999Z`,
-        tz,
-      }),
-    enabled: first != null && last != null,
-  });
-
+     own measure, carried by `/stats` with the bars it splits. */
   const byDay = useMemo(
-    () =>
-      new Map((activity?.days ?? []).map((d) => [d.date, d.byClient] as const)),
-    [activity],
+    () => new Map(stats.week.map((d) => [d.date, d.byClient] as const)),
+    [stats.week],
   );
 
   /* ONE palette for the whole panel, built once here and passed down. Two

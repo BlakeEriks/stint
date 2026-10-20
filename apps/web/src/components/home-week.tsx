@@ -179,14 +179,10 @@ export function Week({
  * Walked in the palette's own order, so the same client sits at the same
  * point of every bar and matches its band in the strip below.
  *
- * Shares are taken against the day's OWN summed seconds rather than against
- * `/stats.week`'s: the two rollups filter differently — the bar's height
- * counts billable work, and this call counts what was tracked — so dividing
- * by the other's total would leave a stack that does not fill its bar.
- *
- * Until `/calendar` answers there is one neutral segment filling the bar:
- * the height is already correct from `/stats`, and a bar that draws nothing
- * while its split loads would read as a day that was not worked.
+ * Shares are taken against the split's own sum, so the stack fills its bar
+ * whatever rounding the two leave between them. The split comes with the bar
+ * in `/stats`, so a bar never draws before its colors are known (#383); a day
+ * with no split is a day with no work, drawn as one zero-share segment.
  */
 function segments(
   byClient: Record<string, number> | undefined,
