@@ -120,6 +120,10 @@ account number + ACH routing is the default path; IBAN/SWIFT, a labeled
 national bank code, and intermediary-bank fields are additive and render only
 when set.
 
+`routing_number` holds exactly 9 digits (`payment_profiles_routing_number_digits`).
+The ABA checksum is checked only by `validateRoutingNumber()` in `@stint/core`,
+which the API runs on every write.
+
 The invoice freezes the profile picked on New invoice; a pick archived or
 gone is refused, never swapped. Without a pick, resolution mirrors rates: the
 client's `payment_profile_id`, else the user's default, and a dangling client
@@ -287,6 +291,7 @@ sequence gapless under concurrency rather than merely usually correct.
   `next_invoice_number > 0`, `monthly_target > 0`,
   `quantity_seconds >= 0`; client, project and payment-profile names must be
   non-blank, and an invoice's period must be ordered.
+- `payment_profiles_routing_number_digits`: `routing_number ~ '^[0-9]{9}$'`.
 - **Paired nullability is a constraint too**: `monthly_target_needs_unit`
   asserts `(monthly_target is null) = (monthly_target_unit is null)`, so a
   target can never exist without the unit that gives it meaning, and
