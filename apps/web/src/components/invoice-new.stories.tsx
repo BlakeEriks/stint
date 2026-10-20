@@ -366,6 +366,9 @@ export const NoSummaryLine: Story = {
       await page.findByText('Give the summary line its text.'),
     ).toBeVisible();
     await expect(
+      page.getByLabelText(/Summary line/),
+    ).toHaveAccessibleDescription('Give the summary line its text.');
+    await expect(
       page.getByRole('button', { name: 'Generate invoice' }),
     ).toBeDisabled();
   },

@@ -668,25 +668,19 @@ function SummaryLineField({
 }) {
   return (
     <div className="mt-1.5 ml-3 border-l-2 border-edge-subtle pl-3">
-      <Field label="Summary line" htmlFor="inv-summary" required>
+      <Field
+        label="Summary line"
+        htmlFor="inv-summary"
+        required
+        error={missing ? 'Give the summary line its text.' : undefined}
+      >
         <Input
           id="inv-summary"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Professional services"
           maxLength={200}
-          aria-invalid={missing}
-          aria-describedby={missing ? 'inv-summary-error' : undefined}
         />
-        {missing ? (
-          <p
-            id="inv-summary-error"
-            role="alert"
-            className="type-support text-danger"
-          >
-            Give the summary line its text.
-          </p>
-        ) : null}
       </Field>
     </div>
   );

@@ -1,14 +1,21 @@
 'use client';
 
-import { useCallback } from 'react';
+import { cloneElement, isValidElement, useCallback } from 'react';
 import { Label } from '@/components/ui/label';
 
 const LABEL = 'type-label text-subtle';
 
-/** One labeled control with an optional hint. Shared by every form. */
+/**
+ * One labeled control with an optional hint and error. Shared by every form.
+ *
+ * `error` renders under the control and marks it invalid and described by the
+ * message, so a screen reader reads why on focus. That needs `htmlFor` and a
+ * single control as `children`.
+ */
 export function Field({
   label,
   hint,
+  error,
   htmlFor,
   required,
   className,
@@ -16,18 +23,33 @@ export function Field({
 }: {
   label: string;
   hint?: React.ReactNode;
+  error?: React.ReactNode;
   htmlFor?: string;
   required?: boolean;
   className?: string;
   children: React.ReactNode;
 }) {
+  const errorId = error && htmlFor ? `${htmlFor}-error` : undefined;
+  const control =
+    errorId && isValidElement<React.AriaAttributes>(children)
+      ? cloneElement(children, {
+          'aria-invalid': true,
+          'aria-describedby': errorId,
+        })
+      : children;
+
   return (
     <div className={`flex flex-col gap-1.5 ${className ?? ''}`}>
       <Label htmlFor={htmlFor} className={LABEL}>
         {label}
         {required ? <span aria-hidden> *</span> : null}
       </Label>
-      {children}
+      {control}
+      {error ? (
+        <p id={errorId} role="alert" className="type-support text-danger">
+          {error}
+        </p>
+      ) : null}
       {hint ? <p className="type-support text-subtle">{hint}</p> : null}
     </div>
   );
