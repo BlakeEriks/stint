@@ -63,6 +63,7 @@ export function InvoicePreviewCard({
   paymentTerms,
   notes,
   heading = true,
+  noSender = false,
   footnote = 'Generating assigns a number and locks these entries. Voiding later keeps the number on record.',
   children,
 }: {
@@ -82,6 +83,8 @@ export function InvoicePreviewCard({
   notes?: string | null;
   /** False on an issued invoice, which is the invoice, not a preview of it. */
   heading?: boolean;
+  /** No business name or email yet: a draft marks where they will print. */
+  noSender?: boolean;
   footnote?: string;
   /** Warnings and errors, above the last line. */
   children?: React.ReactNode;
@@ -124,6 +127,7 @@ export function InvoicePreviewCard({
             >
               <From
                 settings={settings}
+                noSender={noSender}
                 number={number}
                 issued={issued}
                 due={due}
@@ -184,25 +188,35 @@ function Caption({
 /** The business, and the invoice's number and dates. */
 function From({
   settings,
+  noSender,
   number,
   issued,
   due,
 }: {
   settings: Settings | undefined;
+  noSender: boolean;
   number: string;
   issued: string;
   due: string;
 }) {
   return (
     <div className="flex flex-wrap justify-between gap-x-8 gap-y-4">
-      <Party
-        name={settings ? (settings.businessName ?? 'Invoice') : ''}
-        lines={[
-          settings?.businessAddress,
-          settings?.businessEmail,
-          settings?.taxId ? `Tax ID ${settings.taxId}` : null,
-        ]}
-      />
+      {noSender ? (
+        /* Where the sender prints, marked as missing rather than left
+           blank: New invoice's notice asks for it. */
+        <p className="min-w-0 flex-[1_1_200px] self-start rounded-md border border-dashed border-edge-control px-2.5 py-2 type-support text-subtle">
+          Your business name and email go here
+        </p>
+      ) : (
+        <Party
+          name={settings ? (settings.businessName ?? 'Invoice') : ''}
+          lines={[
+            settings?.businessAddress,
+            settings?.businessEmail,
+            settings?.taxId ? `Tax ID ${settings.taxId}` : null,
+          ]}
+        />
+      )}
       <dl className="flex flex-col gap-1 type-support">
         <Meta label="No." value={number} mono right />
         <Meta label="Issued" value={shortDate(issued)} right />

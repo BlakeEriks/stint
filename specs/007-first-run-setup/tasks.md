@@ -40,13 +40,13 @@ story, one per acceptance scenario. The look is `design/first-run.html`.
 
 **Independent test**: With business name empty, New invoice shows the notice and a disabled Generate; Add details, Save; Generate enables.
 
-- [ ] T018 [US3] Write first in `apps/web/test/routes.test.ts`: `POST /invoices` with an empty or blank business name, or email, returns `422 VALIDATION_FAILED` and writes nothing; with both set it succeeds as before
-- [ ] T019 [US3] In `apps/web/src/app/api/v1/invoices/route.ts`, read `business_name, business_email` and throw `ApiError('VALIDATION_FAILED', 'Add your business name and email before generating an invoice.')` before any write when either is empty or blank; T018 passes
-- [ ] T020 [US3] Create `apps/web/src/components/business-dialog.tsx`: "Who is this invoice from?", "Your name and email go at the top of every invoice. Saved to Settings, so you're asked once.", business name and email (required) and address, seeded from settings; Cancel; Save disabled until name and email are non-blank, PATCHes all three through `useOptimisticMutation` with "Saving" while pending, closes on success, shows the reason on failure
-- [ ] T021 [US3] In `apps/web/src/components/invoice-new.tsx`: while `businessName` or `businessEmail` is blank, show the notice at the top of the form ("Your business details are missing" / "Name and email are needed to generate." / "Add details", opening `BusinessDialog`) and add both to `canGenerate`
-- [ ] T021a [US3] In `apps/web/src/components/invoice-preview-card.tsx`, draw a dashed `border-control` box reading "Your business name and email go here" where the "from" block goes while business name or email is blank
-- [ ] T022 [US3] Fixture in `apps/web/src/mocks/fixtures.ts`: an account with `businessName` and `businessEmail` null
-- [ ] T023 [P] [US3] Stories in `apps/web/src/components/invoice-new.stories.tsx`: DetailsMissing (notice, Generate disabled, the preview's dashed placeholder), AddDetails (opens the dialog, fill and Save, the notice goes and Generate enables), DetailsSaveFails
+- [X] T018 [US3] Write first in `apps/web/test/routes.test.ts`: `POST /invoices` with an empty or blank business name, or email, returns `422 VALIDATION_FAILED` and writes nothing; with both set it succeeds as before
+- [X] T019 [US3] In `apps/web/src/app/api/v1/invoices/route.ts`, read `business_name, business_email` and throw `ApiError('VALIDATION_FAILED', 'Add your business name and email before generating an invoice.')` before any write when either is empty or blank; T018 passes
+- [X] T020 [US3] Create `apps/web/src/components/business-dialog.tsx`: "Who is this invoice from?", "Your name and email go at the top of every invoice. Saved to Settings, so you're asked once.", business name and email (required) and address, seeded from settings; Cancel; Save disabled until name and email are non-blank, PATCHes all three through `useOptimisticMutation` with "Saving" while pending, closes on success, shows the reason on failure
+- [X] T021 [US3] In `apps/web/src/components/invoice-new.tsx`: while `businessName` or `businessEmail` is blank, show the notice at the top of the form ("Your business details are missing" / "Name and email are needed to generate." / "Add details", opening `BusinessDialog`) and add both to `canGenerate`
+- [X] T021a [US3] In `apps/web/src/components/invoice-preview-card.tsx`, draw a dashed `border-control` box reading "Your business name and email go here" where the "from" block goes while business name or email is blank
+- [X] T022 [US3] Fixture in `apps/web/src/mocks/fixtures.ts`: an account with `businessName` and `businessEmail` null
+- [X] T023 [P] [US3] Stories in `apps/web/src/components/invoice-new.stories.tsx`: DetailsMissing (notice, Generate disabled, the preview's dashed placeholder), AddDetails (opens the dialog, fill and Save, the notice goes and Generate enables), DetailsSaveFails
 
 ## Phase 5: Polish
 

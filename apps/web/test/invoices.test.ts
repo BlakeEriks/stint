@@ -44,7 +44,8 @@ beforeEach(async () => {
   await pool.query(
     `update user_settings set default_hourly_rate=100, currency='USD',
      invoice_number_prefix='INV-', next_invoice_number=1,
-     default_payment_terms='Net 30', business_name='Blake Eriks'
+     default_payment_terms='Net 30', business_name='Blake Eriks',
+     business_email='blake@test'
      where user_id=$1`,
     [USER],
   );
@@ -284,6 +285,37 @@ test('generation leaves a running timer unbilled, though Unbilled counts it', as
     [E(2)],
   );
   assert.equal(rows[0].invoice_id, null);
+});
+
+/* The business name and email head every invoice; one without them is a
+   document with no sender. New invoice disables Generate too, but the
+   server is the rule (Constitution III). */
+test('generation refuses without a business name or email, and writes nothing', async () => {
+  const { POST: create } = await import('../src/app/api/v1/invoices/route.ts');
+  await seedEntry({ id: E(1), hours: 1 });
+
+  for (const [name, email] of [
+    [null, 'blake@test'],
+    ['  ', 'blake@test'],
+    ['Blake Eriks', null],
+  ]) {
+    await pool.query(
+      'update user_settings set business_name=$2, business_email=$3 where user_id=$1',
+      [USER, name, email],
+    );
+    const res = await json(
+      await create(req('/invoices', { clientId: CLIENT, ...PERIOD })),
+    );
+    assert.equal(res.status, 422, `${name} / ${email}`);
+    assert.equal(res.body.code, 'VALIDATION_FAILED');
+  }
+
+  const { rows } = await pool.query(
+    'select count(*)::int n, (select next_invoice_number from user_settings where user_id=$1) next from invoices',
+    [USER],
+  );
+  assert.equal(rows[0].n, 0, 'no invoice was created');
+  assert.equal(rows[0].next, 1, 'and no number was spent');
 });
 
 test('preview honors the period boundaries inclusively', async () => {
