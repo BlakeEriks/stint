@@ -192,9 +192,14 @@ export const Failed: Story = {
   ...desktop,
   parameters: failing('clients', 'projects'),
   play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await expect(await page.findByText(/could not load/i)).toBeVisible();
-    await expect(page.queryByText(/loading/i)).toBeNull();
+    // The screen only: the shell's own panels load beside it. A second
+    // reader of a failed query refetches it, so the list passes through
+    // "Loading…" again before it settles on the error.
+    const main = within(within(canvasElement).getByRole('main'));
+    await waitFor(() => {
+      expect(main.getByText(/could not load/i)).toBeVisible();
+      expect(main.queryByText(/loading/i)).toBeNull();
+    });
   },
 };
 
