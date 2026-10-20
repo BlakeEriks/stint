@@ -220,8 +220,7 @@ export interface DaySplitEntry {
 
 /**
  * Billable seconds per client on each local date — what splits a bar of the
- * week by who the hours belonged to. `/stats` and `/calendar` both call it, so
- * the two can never split a day differently.
+ * week by who the hours belonged to.
  *
  * A session counts whole on the day it started, and one that started before
  * `from` not at all, as `revenue_by_day` counts the bar's height. Work with no
@@ -230,13 +229,12 @@ export interface DaySplitEntry {
  * the bar it would split is billable seconds; a day with only that work is
  * present and empty.
  *
- * A running session has no duration yet. With `now` it counts to `now`, as
- * the week's bars do; without, it is skipped, as the calendar's are.
+ * A running session counts to `now`, as the week's bars do.
  */
 export function dayByClient(
   entries: DaySplitEntry[],
   clientOf: Map<string, string | null>,
-  { from, tz, now }: { from: string; tz: string; now?: Date },
+  { from, tz, now }: { from: string; tz: string; now: Date },
 ): Map<string, Record<string, number>> {
   const days = new Map<string, Record<string, number>>();
   const start = new Date(from);
@@ -245,7 +243,6 @@ export function dayByClient(
     if (startedAt < start) continue;
     let seconds = e.durationSeconds;
     if (e.endedAt == null) {
-      if (!now) continue;
       seconds = Math.max(
         0,
         Math.round((now.getTime() - startedAt.getTime()) / 1000),

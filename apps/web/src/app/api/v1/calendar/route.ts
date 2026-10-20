@@ -14,12 +14,9 @@ export const dynamic = 'force-dynamic';
  *
  * Entries grouped by local day. Grouping happens server-side so all three
  * clients agree on which day an entry belongs to — a late-night entry must
- * not land on different days on different devices. That is also why the
- * activity strip reuses this endpoint rather than bucketing client-side: the
- * DST-correct grouping already lives here.
+ * not land on different days on different devices.
  *
- * In the entry view, an entry that crosses local midnight is on every day it
- * touches, and each day counts only its own part, so no day holds more than
+ * An entry that crosses local midnight is on every day it touches, and each day counts only its own part, so no day holds more than
  * it has.
  */
 export const GET = handle(async (req: Request) => {

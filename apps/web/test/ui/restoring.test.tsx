@@ -43,6 +43,7 @@ describe('while the kept cache restores', () => {
     render(<Calendar />, { wrapper: restoring });
     expect(screen.getByRole('status')).toHaveTextContent('Loading');
     expect(screen.queryByText('09', { exact: true })).toBeNull();
+    expect(screen.queryByText(/Nothing logged/)).toBeNull();
   });
 
   it('the timer bar draws nothing yet', () => {

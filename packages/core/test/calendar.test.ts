@@ -345,6 +345,7 @@ const entry = (
   isBillable,
 });
 const from = '2026-10-19T00:00:00.000Z';
+const now = new Date('2026-12-01T00:00:00.000Z');
 
 test('dayByClient splits billable seconds by client per local day', () => {
   const days = dayByClient(
@@ -355,7 +356,7 @@ test('dayByClient splits billable seconds by client per local day', () => {
       entry('2026-10-20T09:00:00Z', 900, 'p-mer'),
     ],
     clientOf,
-    { from, tz: 'UTC' },
+    { from, tz: 'UTC', now },
   );
   assert.deepEqual(days.get('2026-10-19'), { 'c-north': 4200, 'c-mer': 1800 });
   assert.deepEqual(days.get('2026-10-20'), { 'c-mer': 900 });
@@ -368,7 +369,7 @@ test('dayByClient leaves non-billable work out', () => {
       entry('2026-10-19T11:00:00Z', 60, 'p-north'),
     ],
     clientOf,
-    { from, tz: 'UTC' },
+    { from, tz: 'UTC', now },
   );
   assert.deepEqual(days.get('2026-10-19'), { 'c-north': 60 });
 });
@@ -381,7 +382,7 @@ test('dayByClient keys work with no project or no client as the empty string', (
       entry('2026-10-19T11:00:00Z', 25, 'p-gone'),
     ],
     clientOf,
-    { from, tz: 'UTC' },
+    { from, tz: 'UTC', now },
   );
   assert.deepEqual(days.get('2026-10-19'), { '': 175 });
 });
@@ -390,7 +391,7 @@ test('a day with only non-billable work is present and empty', () => {
   const days = dayByClient(
     [entry('2026-10-19T09:00:00Z', 3600, 'p-north', false)],
     clientOf,
-    { from, tz: 'UTC' },
+    { from, tz: 'UTC', now },
   );
   assert.deepEqual(days.get('2026-10-19'), {});
 });
@@ -399,14 +400,13 @@ test('dayByClient skips entries that started before the window', () => {
   const days = dayByClient(
     [entry('2026-10-18T23:30:00Z', 3600, 'p-north')],
     clientOf,
-    { from, tz: 'UTC' },
+    { from, tz: 'UTC', now },
   );
   assert.equal(days.size, 0);
 });
 
-test('a running entry is skipped, or counted to now when now is given', () => {
+test('a running entry counts to now', () => {
   const running = [entry('2026-10-19T09:00:00Z', null, 'p-north')];
-  assert.equal(dayByClient(running, clientOf, { from, tz: 'UTC' }).size, 0);
   const now = new Date('2026-10-19T09:10:00Z');
   assert.deepEqual(
     dayByClient(running, clientOf, { from, tz: 'UTC', now }).get('2026-10-19'),
@@ -419,7 +419,7 @@ test('dayByClient keys by the local date the entry started on', () => {
   const days = dayByClient(
     [entry('2026-10-20T01:30:00Z', 60, 'p-north')],
     clientOf,
-    { from, tz: 'America/New_York' },
+    { from, tz: 'America/New_York', now },
   );
   assert.deepEqual(days.get('2026-10-19'), { 'c-north': 60 });
   // Across the fall-back change, 2026-11-01 is still one key.
@@ -429,7 +429,7 @@ test('dayByClient keys by the local date the entry started on', () => {
       entry('2026-11-01T07:30:00Z', 60, 'p-north'),
     ],
     clientOf,
-    { from, tz: 'America/New_York' },
+    { from, tz: 'America/New_York', now },
   );
   assert.deepEqual(dst.get('2026-11-01'), { 'c-north': 120 });
 });

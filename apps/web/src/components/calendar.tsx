@@ -337,7 +337,7 @@ export function Calendar() {
         )}
 
         <CalendarStatus
-          isLoading={cal.isLoading}
+          isLoading={firstLoad}
           isError={cal.isError}
           visibleSeconds={cal.visibleSeconds}
           byDay={byDay}
