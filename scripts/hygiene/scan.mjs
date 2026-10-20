@@ -21,7 +21,7 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { filedPaths, fixChurn, rank, THRESHOLD } from './rank.mjs';
+import { filedPaths, fixChurn, rank, THRESHOLD, top } from './rank.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const BIN = join(ROOT, 'node_modules/.bin');
@@ -238,11 +238,11 @@ let files = rank(
   values['skip-filed'] ? filed() : new Set(),
 );
 if (values.top) {
-  const top = Number(values.top);
-  if (!Number.isInteger(top) || top < 1) {
+  const n = Number(values.top);
+  if (!Number.isInteger(n) || n < 1) {
     throw new Error(`--top must be a whole number, got ${values.top}`);
   }
-  files = files.slice(0, top);
+  files = top(files, n);
 }
 
 if (values.json) {
