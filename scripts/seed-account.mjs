@@ -18,7 +18,7 @@
  *
  * **Every inbox scenario is represented**, because the inbox is the hardest
  * surface to exercise by hand: each row needs a condition that takes days to
- * arrive naturally. See `SCENARIOS` below for the four and what each requires.
+ * arrive naturally. The table above `OVERDUE_DAYS` lists the four conditions.
  *
  * **Every run is a reset.** Everything the account holds is deleted and its
  * settings return to a new signup's before anything is written — it is a

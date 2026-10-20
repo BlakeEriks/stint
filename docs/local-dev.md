@@ -233,7 +233,7 @@ expenses waiting on Northwind's next invoice, one recurring.
 **It creates one of every inbox row**, which is the part that cannot be
 produced by using the app for ten minutes: an overdue invoice needs 37 days
 to elapse, a stale draft 7. The script backdates them
-instead. `SCENARIOS` at the top of `scripts/seed-account.mjs` lists the four
+instead. The table above `OVERDUE_DAYS` in `scripts/seed-account.mjs` lists the four
 conditions and the thresholds each is checked against — and it overshoots each
 one, so the seed never sits on a boundary a timezone could round the wrong
 way.
