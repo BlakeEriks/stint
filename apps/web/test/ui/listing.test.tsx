@@ -38,6 +38,14 @@ describe('Listing', () => {
     expect(screen.queryByText(/could not load/i)).toBeNull();
   });
 
+  /* While the kept cache is restored, a query is pending without fetching:
+     that is a wait, not a failure. */
+  it('waits on a query that has neither data nor an error yet', () => {
+    render(<Listing query={query({})}>{() => <p>rows</p>}</Listing>);
+    expect(loader()).toHaveTextContent('Loading');
+    expect(screen.queryByText(/could not load/i)).toBeNull();
+  });
+
   /* A region paints once, with all its data: nothing of it renders
      until every query it draws from has arrived. */
   describe('given several queries', () => {

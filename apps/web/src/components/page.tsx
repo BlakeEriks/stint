@@ -193,7 +193,12 @@ export function Listing<
     (q) => q.error instanceof ApiError && q.error.isUnauthorized,
   );
 
-  if (queries.some((q) => q.isLoading) || leaving) {
+  /* No data and no error is a wait, whether or not a fetch is in flight:
+     while the kept cache is restored a query is pending without fetching. */
+  const waiting = queries.some(
+    (q) => q.isLoading || (q.data === undefined && q.error == null),
+  );
+  if (waiting || leaving) {
     waited.current = true;
     return <Loader tight={tight} />;
   }
