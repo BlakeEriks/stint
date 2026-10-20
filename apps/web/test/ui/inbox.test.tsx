@@ -38,7 +38,6 @@ function stats(attention: Partial<Stats['attention']> = {}): Stats {
       unprojected: [],
       strangeDurations: [],
       overlaps: [],
-      badRoutingNumbers: [],
       ...attention,
     },
   } as Stats;

@@ -160,11 +160,7 @@ per pair of entries sharing a minute or more (`MIN_OVERLAP_SECONDS` in
 `@stint/core`) where at least one is unbilled, except non-billable work
 against billed time, which bills nothing twice. It names the unbilled entry,
 the later-starting one when both are, and `otherInvoiceNumber` when the other
-is on an invoice; it clears when either is edited apart. `badRoutingNumbers`
-is one per unarchived payment profile whose stored routing number is not
-exactly 9 digits passing the ABA checksum. Stored rows aren't re-validated on
-read, so it shows the number as stored and never rewrites it; it clears when
-the profile is saved with a valid number.
+is on an invoice; it clears when either is edited apart.
 
 ## Clients / projects / settings
 

@@ -86,12 +86,6 @@ export function PaymentProfileDialog({
       existing
         ? api.updatePaymentProfile(existing.id, body)
         : api.createPaymentProfile(body),
-    // Stats too: the inbox flags a routing number this save may have fixed.
-    invalidate: (qc) =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.paymentProfiles() }),
-        qc.invalidateQueries({ queryKey: keys.stats() }),
-      ]),
     onSuccess: (profile) => {
       onSaved?.(profile);
       onOpenChange(false);

@@ -761,6 +761,20 @@ test('a routing number is stored as its 9 digits', async () => {
   assert.equal(res.body.routingNumber, '021000021');
 });
 
+/* The route strips and checks it, but a write that skips the route (an
+   import, the seed) would print whatever it stored. */
+test('the database refuses a routing number that is not 9 digits', async () => {
+  await assert.rejects(
+    () =>
+      pool.query(
+        `insert into payment_profiles (user_id,name,routing_number)
+         values ($1,'Checking','-031101334,')`,
+        [USER],
+      ),
+    /payment_profiles_routing_number_digits/,
+  );
+});
+
 test('a payment profile replayed with the same id is idempotent', async () => {
   const { POST } = await import('../src/app/api/v1/payment-profiles/route.ts');
   const body = {
@@ -2847,40 +2861,6 @@ test('unprojected ignores work that is billed, running or non-billable', async (
   assert.equal(res.body.attention.unprojected[0].seconds, 3600);
 });
 
-/* Stored rows aren't re-validated on read. Constitution I: flagged for the
-   user to fix, never rewritten — even when the digits inside are valid. */
-test('a saved profile whose routing number fails is flagged, not rewritten', async () => {
-  const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
-  const typed = '44444444-0000-4000-8000-0000000000b1';
-  await pool.query(
-    `insert into payment_profiles (id,user_id,name,routing_number)
-     values ($1,$2,'Checking','-031101334,'),
-            ($3,$2,'Savings','021000021'),
-            ($4,$2,'Old','021000022')`,
-    [
-      typed,
-      USER,
-      '44444444-0000-4000-8000-0000000000b2',
-      '44444444-0000-4000-8000-0000000000b3',
-    ],
-  );
-  await pool.query(
-    `update payment_profiles set archived_at = now() where id = $1`,
-    ['44444444-0000-4000-8000-0000000000b3'],
-  );
-
-  const res = await json(await stats(req('/stats?tz=UTC')));
-  assert.deepEqual(res.body.attention.badRoutingNumbers, [
-    { profileId: typed, profileName: 'Checking', routingNumber: '-031101334,' },
-  ]);
-
-  const { rows } = await pool.query(
-    'select routing_number from payment_profiles where id = $1',
-    [typed],
-  );
-  assert.equal(rows[0].routing_number, '-031101334,');
-});
-
 test('attention rows are scoped to their own user', async () => {
   const { GET: stats } = await import('../src/app/api/v1/stats/route.ts');
 
@@ -2905,16 +2885,9 @@ test('attention rows are scoped to their own user', async () => {
     [S(48), OTHER],
   );
 
-  await pool.query(
-    `insert into payment_profiles (id,user_id,name,routing_number)
-     values ($1,$2,'Theirs','021000022')`,
-    ['44444444-0000-4000-8000-0000000000b9', OTHER],
-  );
-
   const res = await json(await stats(req('/stats?tz=UTC')));
   assert.deepEqual(res.body.attention.staleDrafts, []);
   assert.deepEqual(res.body.attention.unprojected, []);
-  assert.deepEqual(res.body.attention.badRoutingNumbers, []);
 });
 
 // ── task name suggestions ──────────────────────────────────────────

@@ -900,19 +900,6 @@ export const Stats = z.object({
         seconds: z.number().int().positive(),
       }),
     ),
-    /**
-     * Unarchived payment profiles whose routing number, as stored, is not
-     * exactly 9 digits passing the ABA checksum. Stored rows aren't
-     * re-validated on read, so this flags one the API would refuse, never
-     * rewriting it.
-     */
-    badRoutingNumbers: z.array(
-      z.object({
-        profileId: uuid,
-        profileName: z.string(),
-        routingNumber: z.string(),
-      }),
-    ),
   }),
 });
 
@@ -963,9 +950,9 @@ export const PaymentProfile = z.object({
 });
 
 /* Stored as its 9 digits, and refused when they fail the ABA checksum: a
-   malformed number on an invoice risks a returned or misrouted ACH. Only on
-   the way in: a stored row still reads back as stored, and the inbox flags
-   it (`attention.badRoutingNumbers`). */
+   malformed number on an invoice risks a returned or misrouted ACH. The
+   database holds the 9 digits too (`payment_profiles_routing_number_digits`);
+   the checksum is only here. */
 const routingNumber = z.string().transform((v, ctx) => {
   const digits = validateRoutingNumber(v);
   if (digits) return digits;

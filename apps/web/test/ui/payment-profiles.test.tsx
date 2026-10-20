@@ -6,7 +6,6 @@ import type { ReactNode } from 'react';
 import { MutationNotice } from '@/components/mutation-notice';
 import { PaymentProfiles } from '@/components/payment-profiles';
 import type { PaymentProfile } from '@/lib/client/api';
-import { keys } from '@/lib/client/query-keys';
 
 const BASE: PaymentProfile = {
   id: 'pp-1',
@@ -175,38 +174,6 @@ describe('PaymentProfiles', () => {
 
     expect(fetch.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(
       false,
-    );
-  });
-
-  /* The inbox flags a bad routing number from `/stats`; fixing it here must
-     clear that row, not leave it until the next reload. */
-  it('saving payment details refreshes the inbox', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (_url: string, init?: RequestInit) =>
-        init?.method === 'PATCH'
-          ? new Response(JSON.stringify(BASE), { status: 200 })
-          : new Response(JSON.stringify({ paymentProfiles: [BASE] }), {
-              status: 200,
-            }),
-      ),
-    );
-    const user = userEvent.setup();
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    client.setQueryData(keys.stats(), {});
-    render(
-      <QueryClientProvider client={client}>
-        <PaymentProfiles />
-      </QueryClientProvider>,
-    );
-
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-
-    await vi.waitFor(() =>
-      expect(client.getQueryState(keys.stats())?.isInvalidated).toBe(true),
     );
   });
 

@@ -56,7 +56,6 @@ function serve() {
               unprojected: [],
               strangeDurations: [],
               overlaps: [],
-              badRoutingNumbers: [],
             },
           }),
           { status: 200 },

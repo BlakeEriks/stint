@@ -52,7 +52,6 @@ export function PaymentProfiles() {
 
   return (
     <Section
-      id="payment"
       title="Payment details"
       description="Printed on the invoice itself, never in an email — details that look the same every time make a change worth questioning."
     >

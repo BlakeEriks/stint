@@ -7,7 +7,6 @@ import { loadBilledSpans } from '@/lib/billed-spans';
 import {
   addDays,
   buildAwaitingPayment,
-  buildBadRoutingNumbers,
   buildCollected,
   buildEarnedPace,
   buildOpenInvoiceCount,
@@ -95,7 +94,6 @@ export const GET = handle(async (req: Request) => {
     overlapCandidates,
     projectRows,
     collectedRows,
-    routingRows,
   ] = await Promise.all([
     /* `p_now` on every rollup: a running entry is measured at the same
        instant the windows are cut at. */
@@ -204,12 +202,6 @@ export const GET = handle(async (req: Request) => {
       p_to: monthEnd.toISOString(),
       p_tz: tz,
     }),
-
-    db
-      .from('payment_profiles')
-      .select('id, name, routing_number')
-      .is('archived_at', null)
-      .not('routing_number', 'is', null),
   ]);
 
   for (const r of [
@@ -221,7 +213,6 @@ export const GET = handle(async (req: Request) => {
     invoices,
     projectRows,
     collectedRows,
-    routingRows,
   ]) {
     if (r.error) throw r.error;
   }
@@ -350,7 +341,6 @@ export const GET = handle(async (req: Request) => {
         new Set(unprojected.map((r) => r.id)),
       ),
       overlaps: buildOverlaps(overlapSpans),
-      badRoutingNumbers: buildBadRoutingNumbers(routingRows.data ?? []),
     },
   });
 });

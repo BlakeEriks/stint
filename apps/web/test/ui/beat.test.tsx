@@ -44,7 +44,6 @@ function arrival(
       unprojected: [],
       strangeDurations: [],
       overlaps: [],
-      badRoutingNumbers: [],
     },
   };
 }

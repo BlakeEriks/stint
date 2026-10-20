@@ -108,27 +108,6 @@ export const BilledOverlap: Story = {
   },
 };
 
-/** Payment details saved before routing numbers were checked: flagged as
-    stored, and opened in Settings to fix. */
-export const BadRoutingNumber: Story = {
-  ...desktop,
-  parameters: account((db) => {
-    db.paymentProfiles[0]!.routingNumber = '-031101334,';
-  }),
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
-    const row = within(
-      (await page.findByText('Not a valid routing number')).closest(
-        '[data-tone]',
-      ) as HTMLElement,
-    );
-    await expect(row.getByText('-031101334,')).toBeVisible();
-    await expect(
-      row.getByRole('link', { name: 'Business checking' }),
-    ).toHaveAttribute('href', '/settings#payment');
-  },
-};
-
 /** Below `xl` the dock is a band that sizes to its content, with no split. */
 export const Band: Story = { ...tablet };
 

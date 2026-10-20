@@ -28,7 +28,6 @@ function stats(over: Partial<Stats> = {}): Stats {
       unprojected: [],
       strangeDurations: [],
       overlaps: [],
-      badRoutingNumbers: [],
     },
     ...over,
   } as Stats;

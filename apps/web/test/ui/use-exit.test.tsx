@@ -217,7 +217,6 @@ describe('an inbox row leaving', () => {
         unprojected: [],
         strangeDurations: [],
         overlaps: [],
-        badRoutingNumbers: [],
         ...attention,
       },
     } as Stats;

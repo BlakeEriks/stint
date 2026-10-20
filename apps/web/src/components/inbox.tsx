@@ -36,8 +36,7 @@ export function inboxCount(attention: Attention) {
     attention.staleDrafts.length +
     attention.unprojected.length +
     attention.strangeDurations.length +
-    attention.overlaps.length +
-    attention.badRoutingNumbers.length
+    attention.overlaps.length
   );
 }
 
@@ -47,12 +46,7 @@ type InboxRow =
   | { id: string; kind: 'draft'; row: Attention['staleDrafts'][number] }
   | { id: string; kind: 'unprojected'; row: Attention['unprojected'][number] }
   | { id: string; kind: 'strange'; row: Attention['strangeDurations'][number] }
-  | { id: string; kind: 'overlap'; row: Attention['overlaps'][number] }
-  | {
-      id: string;
-      kind: 'routing';
-      row: Attention['badRoutingNumbers'][number];
-    };
+  | { id: string; kind: 'overlap'; row: Attention['overlaps'][number] };
 
 /**
  * The dock's inbox: everything that wants a decision, in one fixed place.
@@ -78,7 +72,6 @@ export function Inbox({ stats }: { stats: Stats }) {
     unprojected,
     strangeDurations,
     overlaps,
-    badRoutingNumbers,
   } = stats.attention;
   const queryClient = useQueryClient();
 
@@ -166,18 +159,14 @@ export function Inbox({ stats }: { stats: Stats }) {
     },
   });
 
-  /* The order is this concatenation. Never the accent — that belongs to the
+  /* The order is this concatenation. Overdue sorts first and carries danger;
+     every other row is neutral. Never the accent — that belongs to the
      running timer. */
   const rows: InboxRow[] = [
     ...overdueInvoices.map((i) => ({
       id: i.invoiceId,
       kind: 'overdue' as const,
       row: i,
-    })),
-    ...badRoutingNumbers.map((p) => ({
-      id: p.profileId,
-      kind: 'routing' as const,
-      row: p,
     })),
     ...staleDrafts.map((d) => ({
       id: d.invoiceId,
@@ -268,7 +257,7 @@ export function Inbox({ stats }: { stats: Stats }) {
   );
 }
 
-/** Which `Item` a row becomes — the one place the six kinds differ. */
+/** Which `Item` a row becomes — the one place the five kinds differ. */
 function Row({
   entry,
   downloads,
@@ -349,22 +338,6 @@ function Row({
             ) : null}
           </>
         }
-      />
-    );
-  }
-
-  /* Shown as stored, since that is what every invoice prints. Fixed in
-     Settings, where the dialog checks the number before it saves. */
-  if (r.kind === 'routing') {
-    const p = r.row;
-    return (
-      <Item
-        {...leaving}
-        href="/settings#payment"
-        label={p.profileName}
-        detail="Not a valid routing number"
-        value={p.routingNumber}
-        tone="danger"
       />
     );
   }
@@ -499,8 +472,7 @@ function Item({
    * It paints a 2px edge inside the card and the clause of `detail` that
    * names the fault — one value, so the two cannot disagree.
    *
-   * `danger` is money at risk: an overdue invoice, or a routing number a
-   * payment would be sent to and bounce from. `warning`
+   * `danger` is the overdue invoice, where money is already late. `warning`
    * is a length that wants a look. `neutral` draws nothing: a stale draft and
    * an unprojected entry are chores, and five flagged cards are a texture
    * with nothing to pick out of it.

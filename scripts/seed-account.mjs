@@ -282,8 +282,7 @@ try {
   );
 
   /* Two sets of US bank details: the default, and one a client points at.
-     Fake numbers; the first routing number is a published test value. The
-     API refuses the second, so only the seed can give the inbox its row. */
+     Fake numbers; the routing number is a published test value. */
   const profiles = {};
   for (const [key, p] of Object.entries({
     checking: {
@@ -291,7 +290,6 @@ try {
       bank: 'First Example Bank',
       account: '000123456789',
       type: 'checking',
-      routing: '011000015',
       isDefault: true,
     },
     savings: {
@@ -299,7 +297,6 @@ try {
       bank: 'Example Credit Union',
       account: '000987654321',
       type: 'savings',
-      routing: '-031101334,',
       isDefault: false,
     },
   })) {
@@ -309,9 +306,9 @@ try {
       `insert into payment_profiles
          (user_id, name, is_default, account_holder_name, bank_name,
           account_number, routing_number, account_type)
-       values ($1, $2, $3, 'Harbor Lane Consulting LLC', $4, $5, $6, $7)
+       values ($1, $2, $3, 'Harbor Lane Consulting LLC', $4, $5, '011000015', $6)
        returning id`,
-      [userId, p.name, p.isDefault, p.bank, p.account, p.routing, p.type],
+      [userId, p.name, p.isDefault, p.bank, p.account, p.type],
     );
     profiles[key] = id;
   }
@@ -668,7 +665,6 @@ try {
   console.log('    unusual length     yes');
   console.log('    overdue invoice    yes');
   console.log('    stale draft        yes');
-  console.log('    routing number     yes');
   console.log(`    unprojected work   yes (${unprojected.length} entries)`);
   if (created) {
     console.log(

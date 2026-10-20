@@ -195,7 +195,6 @@
     "staleDrafts": [],
     "unprojected": [],
     "strangeDurations": [],
-    "overlaps": [],
-    "badRoutingNumbers": []
+    "overlaps": []
   }
 }

@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildBadRoutingNumbers,
   buildPaymentDetails,
   resolvePaymentProfile,
   validateRoutingNumber,
@@ -219,21 +218,4 @@ test('a routing number of any other length fails', () => {
 test('a routing number that fails the checksum fails', () => {
   assert.equal(validateRoutingNumber('021000022'), null);
   assert.equal(validateRoutingNumber('123456789'), null);
-});
-
-/* Stored as typed before validation existed: the digits may pass and still
-   print with the punctuation around them. */
-test('a saved routing number that is not exactly its valid digits is flagged, as stored', () => {
-  assert.deepEqual(
-    buildBadRoutingNumbers([
-      { id: 'a', name: 'Typed', routing_number: '-031101334,' },
-      { id: 'b', name: 'Checksum', routing_number: '021000022' },
-      { id: 'c', name: 'Fine', routing_number: '021000021' },
-      { id: 'd', name: 'Wire', routing_number: null },
-    ]),
-    [
-      { profileId: 'a', profileName: 'Typed', routingNumber: '-031101334,' },
-      { profileId: 'b', profileName: 'Checksum', routingNumber: '021000022' },
-    ],
-  );
 });
