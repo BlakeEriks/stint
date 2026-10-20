@@ -7,8 +7,8 @@ import { Dock } from '@/components/dock';
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
 
 /**
- * `/stats` never resolves; everything else answers. Today has its own
- * `/entries` query, so it must not wait on the inbox's data.
+ * `/stats` never resolves; everything else answers. The dock paints once,
+ * with all of it (#383), so Today waits for the figure its header carries.
  */
 function serveAllButStats() {
   vi.stubGlobal(
@@ -58,12 +58,14 @@ afterEach(() => {
 });
 
 describe('Dock', () => {
-  it('renders Today while /stats is still in flight', async () => {
+  it('holds only the loader while /stats is still in flight', async () => {
     serveAllButStats();
     render(<Dock />, { wrapper });
 
-    expect(await screen.findByText('Writing')).toBeInTheDocument();
-    // The inbox, which does depend on stats, is correctly absent.
+    expect(await screen.findByRole('status')).toHaveTextContent('Loading');
+    // Entries have answered, but Today does not paint without its figure.
+    await new Promise((done) => setTimeout(done, 50));
+    expect(screen.queryByText('Writing')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Inbox' }),
     ).not.toBeInTheDocument();

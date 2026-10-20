@@ -15,7 +15,18 @@ import type { Project } from '@/lib/client/api';
  * **The bar is a fixed readout and never grows** — chrome must not reflow at
  * the moment something needs attention.
  */
-export function TimerBar({ projects }: { projects: Project[] }) {
+export function TimerBar({
+  projects,
+  pending = false,
+}: {
+  projects: Project[];
+  /**
+   * The timer or the projects are still on their way. The bar keeps its
+   * place in the frame and draws nothing, rather than an idle field that
+   * turns into a running timer a moment later (#383).
+   */
+  pending?: boolean;
+}) {
   const timer = useTimer();
   const [draft, setDraft] = useState('');
   const [draftProject, setDraftProject] = useState<string | null>(null);
@@ -74,8 +85,10 @@ export function TimerBar({ projects }: { projects: Project[] }) {
           wraps, because both of its fields are inputs and neither can be
           dropped the way a read-only pill can. */}
       <div
+        inert={pending}
         className={`flex items-center gap-x-3 gap-y-2 px-4 py-2 sm:gap-4 sm:px-5
-                    ${isRunning ? 'flex-nowrap' : 'flex-wrap sm:flex-nowrap'}`}
+                    ${isRunning ? 'flex-nowrap' : 'flex-wrap sm:flex-nowrap'}
+                    ${pending ? 'invisible' : ''}`}
       >
         {isRunning ? (
           <>

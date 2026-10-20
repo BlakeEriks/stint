@@ -11,7 +11,12 @@ import {
 } from '@/lib/client/use-dock-split';
 import { useMediaQuery } from '@/lib/client/use-media-query';
 import { XL } from '@/lib/client/use-scroller-focus';
-import { EntryList } from './entry-list';
+import { EntryList, useDayEntries } from './entry-list';
+import { Listing } from './page';
+import {
+  useAllProjects,
+  useClientsQuery,
+} from '@/lib/client/use-project-colors';
 import { Inbox } from './inbox';
 import { keys } from '@/lib/client/query-keys';
 
@@ -25,10 +30,7 @@ import { keys } from '@/lib/client/query-keys';
  * is an object and the column holding them is not.
  */
 export function Dock() {
-  const { data } = useQuery({
-    queryKey: keys.stats(tz),
-    queryFn: () => api.stats(tz),
-  });
+  const today = useDockTodayQueries();
 
   /* The split is only a thing at `xl`, where the dock is a fixed-height
      column. Below that it is a band that sizes to its content, so there is no
@@ -64,7 +66,8 @@ export function Dock() {
          band under the content, which costs no width, so it stays. */
       className="flex min-h-0 flex-none flex-col xl:group-has-[[data-workspace]]/app:hidden xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:w-[286px]"
     >
-      {/* Today has its own `/entries` query, so it waits on stats for nothing.
+      {/* The dock paints once, with all of it (#383): the inbox and Today
+          wait on the same queries, so neither arrives before the other.
 
           The inbox takes its share and scrolls within it. `min-h-0` is what
           lets it shrink below its content so the scroller engages rather than
@@ -73,26 +76,30 @@ export function Dock() {
           The basis is a MAXIMUM, not a size: `flex-shrink` is on, so an inbox
           with little in it gives the remainder to Today rather than holding
           empty ground. Dragging the handle sets the ceiling. */}
-      {data ? (
-        <div
-          className="xl:min-h-0 xl:shrink xl:overflow-y-auto"
-          style={wide ? { flexBasis: `${split * 100}%` } : undefined}
-        >
-          <Inbox stats={data} />
-        </div>
-      ) : null}
+      <Listing query={today}>
+        {([data]) => (
+          <>
+            <div
+              className="xl:min-h-0 xl:shrink xl:overflow-y-auto"
+              style={wide ? { flexBasis: `${split * 100}%` } : undefined}
+            >
+              <Inbox stats={data} />
+            </div>
 
-      {wide && data ? (
-        <SplitHandle
-          split={split}
-          dragging={dragging}
-          onPointerDown={begin}
-          onNudge={nudge}
-          onReset={reset}
-        />
-      ) : null}
+            {wide ? (
+              <SplitHandle
+                split={split}
+                dragging={dragging}
+                onPointerDown={begin}
+                onNudge={nudge}
+                onReset={reset}
+              />
+            ) : null}
 
-      <DockToday flush={wide && !!data} />
+            <DockToday flush={wide} />
+          </>
+        )}
+      </Listing>
     </aside>
   );
 }
@@ -100,24 +107,39 @@ export function Dock() {
 /** The dock's Today, in its column or opened from the folded strip. */
 export function DockToday({ flush }: { flush: boolean }) {
   const timer = useTimer();
-  const { data } = useQuery({
-    queryKey: keys.stats(tz),
-    queryFn: () => api.stats(tz),
-  });
-  const { data: projects } = useQuery({
-    queryKey: keys.projects(),
-    queryFn: () => api.projects(),
-  });
-
   return (
-    <EntryList
-      projects={projects?.projects ?? []}
-      todaySeconds={timer.todaySeconds}
-      earnedToday={data?.earnedToday}
-      currency={data?.currency}
-      flush={flush}
-    />
+    <Listing query={useDockTodayQueries()}>
+      {([stats, projects]) => (
+        <EntryList
+          projects={projects.projects}
+          todaySeconds={timer.todaySeconds}
+          earnedToday={stats.earnedToday}
+          currency={stats.currency}
+          flush={flush}
+        />
+      )}
+    </Listing>
   );
+}
+
+/**
+ * Everything the dock's Today draws, its header's figure and the timer's
+ * total included, so it paints once wherever it opens.
+ */
+function useDockTodayQueries() {
+  const timer = useTimer();
+  return [
+    useQuery({ queryKey: keys.stats(tz), queryFn: () => api.stats(tz) }),
+    useQuery({ queryKey: keys.projects(), queryFn: () => api.projects() }),
+    useDayEntries(),
+    useClientsQuery(),
+    useAllProjects(),
+    {
+      data: timer.isLoading ? undefined : true,
+      error: timer.error,
+      isLoading: timer.isLoading,
+    },
+  ] as const;
 }
 
 /**

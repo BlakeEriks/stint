@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client/api';
 import { TimerBar } from './timer-bar';
+import { useTimer } from '@/lib/client/use-timer';
 import { keys } from '@/lib/client/query-keys';
 
 /**
@@ -11,10 +12,18 @@ import { keys } from '@/lib/client/query-keys';
  * whatever the page already asked for.
  */
 export function TimerDock() {
-  const { data } = useQuery({
+  const timer = useTimer();
+  const projects = useQuery({
     queryKey: keys.projects(),
     queryFn: () => api.projects(),
   });
 
-  return <TimerBar projects={data?.projects ?? []} />;
+  /* `isLoading`, not a missing answer: a failed fetch still leaves a timer
+     the user can start. */
+  return (
+    <TimerBar
+      projects={projects.data?.projects ?? []}
+      pending={timer.isLoading || projects.isLoading}
+    />
+  );
 }

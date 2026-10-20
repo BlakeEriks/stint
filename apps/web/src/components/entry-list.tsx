@@ -6,7 +6,11 @@ import { formatCompact, formatCurrency, startOfLocalDay } from '@stint/core';
 import { CalendarDays, Plus } from 'lucide-react';
 import { api, type Project, type TimeEntry } from '@/lib/client/api';
 import { timeZone as tz } from '@/lib/client/use-timer';
-import { useProjectColors } from '@/lib/client/use-project-colors';
+import {
+  useAllProjects,
+  useClientsQuery,
+  useProjectColors,
+} from '@/lib/client/use-project-colors';
 import { useScrollerFocus } from '@/lib/client/use-scroller-focus';
 import { Button } from '@/components/ui/button';
 import { EntryDialog } from './entry-dialog';
@@ -45,21 +49,15 @@ export function EntryList({
    */
   flush?: boolean;
 }) {
-  const from = startOfLocalDay(new Date(), tz).toISOString();
-
-  const query = useQuery({
-    queryKey: keys.entries({ from }),
-    queryFn: () => api.entries({ from }),
-    /* Everything today, running included: a column without it has a hole
-       at the one place the eye goes. */
-    select: (r) => r.entries,
-  });
+  const query = useDayEntries();
 
   /* The foot totals outside the scroller, so it reads the day off the
      query rather than the render prop below. */
   const today = query.data ?? [];
 
   const colors = useProjectColors();
+  const clients = useClientsQuery();
+  const allProjects = useAllProjects();
 
   /* `undefined` adds an entry; an entry, edits it. */
   const editing = useDialog<TimeEntry | undefined>();
@@ -116,11 +114,11 @@ export function EntryList({
         className="min-h-0 flex-1 overflow-y-auto"
       >
         <Listing
-          query={query}
+          query={[query, clients, allProjects]}
           tight
           empty="Nothing logged yet today. Start a timer above."
         >
-          {(entries) => (
+          {([entries]) => (
             <TodayGrid
               entries={entries}
               colors={colors}
@@ -155,4 +153,18 @@ export function EntryList({
       />
     </section>
   );
+}
+
+/**
+ * Everything today, running included: a column without it has a hole at the
+ * one place the eye goes. A hook of its own so the dock can gate on the same
+ * query the list reads.
+ */
+export function useDayEntries() {
+  const from = startOfLocalDay(new Date(), tz).toISOString();
+  return useQuery({
+    queryKey: keys.entries({ from }),
+    queryFn: () => api.entries({ from }),
+    select: (r) => r.entries,
+  });
 }
