@@ -5,13 +5,24 @@ import { Label } from '@/components/ui/label';
 
 const LABEL = 'type-label text-subtle';
 
-/**
- * One labeled control with an optional hint and error. Shared by every form.
- *
- * `error` renders under the control and marks it invalid and described by the
- * message, so a screen reader reads why on focus. That needs `htmlFor` and a
- * single control as `children`.
- */
+type FieldProps = {
+  label: string;
+  hint?: React.ReactNode;
+  required?: boolean;
+  className?: string;
+} & (
+  | { error?: undefined; htmlFor?: string; children: React.ReactNode }
+  /* The error describes its control, so it needs the control's id and the
+     control itself as the one child. */
+  | {
+      error: React.ReactNode;
+      htmlFor: string;
+      children: React.ReactElement<React.AriaAttributes>;
+    }
+);
+
+/** One labeled control with an optional hint, and an error a screen reader
+    reads on focus. Shared by every form. */
 export function Field({
   label,
   hint,
@@ -20,15 +31,7 @@ export function Field({
   required,
   className,
   children,
-}: {
-  label: string;
-  hint?: React.ReactNode;
-  error?: React.ReactNode;
-  htmlFor?: string;
-  required?: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
+}: FieldProps) {
   const errorId = error && htmlFor ? `${htmlFor}-error` : undefined;
   const control =
     errorId && isValidElement<React.AriaAttributes>(children)
