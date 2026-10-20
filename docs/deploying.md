@@ -112,6 +112,10 @@ Still set in the dashboard:
   - `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, both the same DSN, for
     Production only (§3c): the server reports with the first, the browser
     with the second. Unset, Sentry stays off, so a preview never reports.
+  - `SENTRY_AUTH_TOKEN` (**sensitive**), `SENTRY_ORG` and `SENTRY_PROJECT`,
+    for Production only (§3c): the build uploads the browser's source maps
+    with them, so a browser error's stack is readable. Unset, the build
+    makes no source maps.
 
 Billing, for Production only (Preview uses Stripe test-mode keys if billing
 is being tried there). **Setting them is the launch:** with all three set,
@@ -311,7 +315,7 @@ success teaches you to stop reading it.
 | Release failed, or its plan failed | ❌ with the run link | `release.yml`, `report` |
 | Backup failed, or a day passed without one | healthchecks.io's own | healthchecks.io → Discord |
 | App or database down, and its recovery | UptimeRobot's own | UptimeRobot → Discord |
-| A new unhandled error in the server or the browser | Sentry's own, with the stack trace, minified for the browser | Sentry → Discord |
+| A new unhandled error in the server or the browser | Sentry's own, with the stack trace | Sentry → Discord |
 
 Never posted: a release with no migration going live, a rejection or
 cancellation (you did it), a backup that worked (healthchecks.io is quiet
@@ -337,7 +341,9 @@ failures in a row, and posts the recovery.
 
 **Sentry** is the `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` (§2), from a
 Next.js project on the free plan, with one alert rule: a new issue posts to
-Discord.
+Discord. `SENTRY_ORG` and `SENTRY_PROJECT` are the slugs in the project's
+URL; `SENTRY_AUTH_TOKEN` is an organization token from Settings → Auth
+Tokens.
 
 The webhook is the `DISCORD_ALERTS_WEBHOOK` repository secret, used by
 `release.yml` and nowhere else: anyone holding it can post to the channel.

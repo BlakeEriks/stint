@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { withSentryConfig } from '@sentry/nextjs/config';
 import type { NextConfig } from 'next';
 
 /* The commit the bundle was built from, seven characters of it.
@@ -36,4 +37,13 @@ const config: NextConfig = {
   },
 };
 
-export default config;
+/* Uploads the browser's source maps to Sentry, so a browser error arrives
+   with a readable stack, then deletes them so they never ship. Without
+   `SENTRY_AUTH_TOKEN` (locally, in previews, in CI) no map is built at all.
+   `SENTRY_ORG` and `SENTRY_PROJECT` come from the environment too. */
+export default withSentryConfig(config, {
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  silent: !process.env.CI,
+  telemetry: false,
+});
