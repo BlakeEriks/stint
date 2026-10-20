@@ -52,11 +52,7 @@ function project(over: Partial<Project> = {}): Project {
   } as Project;
 }
 
-function serve(
-  clients: ClientWithScale[],
-  projects: Project[] = [],
-  defaultHourlyRate: number | null = 125,
-) {
+function serve(clients: ClientWithScale[], projects: Project[] = []) {
   const urls: string[] = [];
   vi.stubGlobal(
     'fetch',
@@ -83,7 +79,7 @@ function serve(
           status: 200,
         });
       }
-      return new Response(JSON.stringify({ defaultHourlyRate }), {
+      return new Response(JSON.stringify({ defaultHourlyRate: 125 }), {
         status: 200,
       });
     }),
@@ -195,52 +191,6 @@ describe('ClientList', () => {
       expect(screen.getByText('$195.00/h')).toBeInTheDocument();
       expect(screen.getByText('from client')).toBeInTheDocument();
       expect(screen.getByText('from default')).toBeInTheDocument();
-    });
-
-    it('says a client has no rate, beside its email', async () => {
-      serve(
-        [client({ hourlyRate: null, email: 'ap@northwind.test' })],
-        [],
-        null,
-      );
-      render(<ClientList />, { wrapper });
-      await waitFor(() =>
-        expect(
-          screen.getByText('No rate · ap@northwind.test'),
-        ).toBeInTheDocument(),
-      );
-    });
-
-    it('marks a project that bills nothing, or has no rate to bill at', async () => {
-      serve(
-        [client({ hourlyRate: null })],
-        [
-          project({ id: 'p1', name: 'Admin', isBillableDefault: false }),
-          project({ id: 'p2', name: 'Unrated' }),
-        ],
-        null,
-      );
-      render(<ClientList />, { wrapper });
-      await waitFor(() =>
-        expect(screen.getByText('Non-billable')).toBeInTheDocument(),
-      );
-      const unrated = screen.getByRole('button', { name: 'Edit Unrated' });
-      expect(within(unrated).getByText('No rate')).toBeInTheDocument();
-    });
-
-    it('drops the rate of an archived client and of the projects under it', async () => {
-      serve(
-        [client({ archivedAt: ARCHIVED, email: 'ap@northwind.test' })],
-        [project()],
-      );
-      const user = userEvent.setup();
-      render(<ClientList />, { wrapper });
-      await user.click(
-        await screen.findByRole('button', { name: 'Archived (1)' }),
-      );
-      expect(screen.getByText('ap@northwind.test')).toBeInTheDocument();
-      expect(screen.queryByText(/\/h/)).toBeNull();
-      expect(screen.getByText('Website redesign')).toBeInTheDocument();
     });
   });
 

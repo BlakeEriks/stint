@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { useDialog } from '@/lib/client/use-dialog';
 import { useQuery } from '@tanstack/react-query';
 import { ArchiveRestore, ChevronRight, Pencil, Plus } from 'lucide-react';
-import { formatCurrency } from '@stint/core';
 import { Button } from '@/components/ui/button';
 import { api, type Client, type Expense, type Project } from '@/lib/client/api';
 import {
@@ -19,7 +18,7 @@ import { ClientExpenses } from './client-expenses';
 import { ExpenseDialog } from './expense-dialog';
 import { keys } from '@/lib/client/query-keys';
 import { rowBleed, rowButton } from './row-button';
-import { ProjectRate } from './project-rate';
+import { ProjectRate, rateLabel } from './project-rate';
 import { useRestoreClient } from '@/lib/client/use-archive-client';
 import { useRestoreProject } from '@/lib/client/use-restore-project';
 
@@ -187,10 +186,6 @@ export function ClientList() {
   );
 }
 
-const rateLabel = (rate: number, client: Client) =>
-  `${formatCurrency(rate, client.currency ?? undefined)}/h`;
-
-/** A card's second line: the rate the client bills at, then its email. */
 function clientSummary(client: Client | null, defaultRate: number | null) {
   if (!client) return 'Not assigned to a client';
   return [clientRate(client, defaultRate), client.email]
@@ -313,8 +308,6 @@ function Card({
   );
 }
 
-/** Side by side at the card's foot. Each names where it lands; its dialog
-    opens with this client chosen. */
 function CardActions({
   client,
   onAdd,
@@ -354,8 +347,6 @@ function CardActions({
   );
 }
 
-/** A project: its name, and the rate it bills at with where that rate comes
-    from (`ProjectRate`). */
 function Row({
   project,
   client,

@@ -11,6 +11,9 @@ const SOURCE = {
   none: '',
 } as const;
 
+export const rateLabel = (rate: number, client: Client | null) =>
+  `${formatCurrency(rate, client?.currency ?? undefined)}/h`;
+
 /**
  * The rate a project bills at, with where that rate comes from, so it's
  * plain whether changing the client's rate would move it.
@@ -56,7 +59,7 @@ export function ProjectRate({
       <span
         className={`block type-duration ${project.hourlyRate != null ? 'text-primary' : 'text-muted'}`}
       >
-        {formatCurrency(rate, client?.currency ?? undefined)}/h
+        {rateLabel(rate, client)}
       </span>
       <span className="block type-meta text-subtle max-sm:hidden">
         {SOURCE[resolveRateSource(ctx)]}
